@@ -1,0 +1,143 @@
+classDiagram
+    class PracticeQuiz {
+        +UUID id
+        +UUID practice_id
+        +QuizType quiz_type
+        +String title
+        +String description
+        +JSON questions
+        +Boolean is_required
+        +Integer time_limit_seconds
+    }
+    
+    class QuestionObject {
+        +String id
+        +QuestionType type
+        +String question
+        +JSON type_specific_fields
+        +Boolean required
+    }
+    
+    class ScaleQuestion {
+        +String min_label
+        +String max_label
+        +Integer min_value
+        +Integer max_value
+        +Integer default_value
+    }
+    
+    class ChoiceQuestion {
+        +Array~String~ options
+        +Boolean allow_other
+    }
+    
+    class MultiChoiceQuestion {
+        +Array~String~ options
+        +Integer min_selections
+        +Integer max_selections
+    }
+    
+    class TextQuestion {
+        +Integer max_length
+        +String placeholder
+    }
+    
+    class EmotionQuestion {
+        +Array~String~ emotions
+        +String layout
+    }
+    
+    class QuizResponse {
+        +UUID id
+        +UUID quiz_id
+        +UUID user_id
+        +JSON answers
+        +Integer time_taken_seconds
+    }
+    
+    class AnswerObject {
+        +String question_id
+        +Any value
+        +Timestamp answered_at
+    }
+    
+    PracticeQuiz "1" *-- "many" QuestionObject : contains
+    QuestionObject <|-- ScaleQuestion
+    QuestionObject <|-- ChoiceQuestion
+    QuestionObject <|-- MultiChoiceQuestion
+    QuestionObject <|-- TextQuestion
+    QuestionObject <|-- EmotionQuestion
+    
+    QuizResponse "1" *-- "many" AnswerObject : contains
+    
+    note for PracticeQuiz "questions field stores array of QuestionObject JSON"
+    note for QuizResponse "answers field stores map of question_id → AnswerObject"
+```
+
+**Example JSON structures:**
+
+```json
+// PracticeQuiz.questions example
+[
+  {
+    "id": "q1",
+    "type": "scale",
+    "question": "How anxious do you feel right now?",
+    "min_label": "Calm",
+    "max_label": "Very anxious",
+    "min_value": 1,
+    "max_value": 10,
+    "default_value": 5,
+    "required": true
+  },
+  {
+    "id": "q2",
+    "type": "emotion",
+    "question": "Select your current emotion",
+    "emotions": ["😌", "😰", "😴", "😊", "😔", "😡"],
+    "layout": "grid",
+    "required": true
+  },
+  {
+    "id": "q3",
+    "type": "choice",
+    "question": "What brings you to this practice?",
+    "options": [
+      "Stress relief",
+      "Better sleep",
+      "Focus improvement",
+      "Emotional balance",
+      "Other"
+    ],
+    "allow_other": true,
+    "required": false
+  },
+  {
+    "id": "q4",
+    "type": "text",
+    "question": "Any specific intentions for today's practice?",
+    "max_length": 500,
+    "placeholder": "Optional: share your intention...",
+    "required": false
+  }
+]
+
+// QuizResponse.answers example
+{
+  "q1": {
+    "value": 7,
+    "answered_at": "2025-12-27T17:30:00Z"
+  },
+  "q2": {
+    "value": "😰",
+    "answered_at": "2025-12-27T17:30:15Z"
+  },
+  "q3": {
+    "value": "Stress relief",
+    "answered_at": "2025-12-27T17:30:30Z"
+  },
+  "q4": {
+    "value": "I want to release tension from work",
+    "answered_at": "2025-12-27T17:30:45Z"
+  }
+}

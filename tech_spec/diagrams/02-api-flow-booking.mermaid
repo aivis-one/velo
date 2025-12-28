@@ -1,0 +1,66 @@
+sequenceDiagram
+    participant U as User (Telegram)
+    participant GW as API Gateway
+    participant US as User Service
+    participant PS as Practice Service
+    participant QS as Quiz Service
+    participant BS as Booking Service
+    participant PYS as Payment Service
+    participant NS as Notification Service
+    participant CS as Calendar Service
+    
+    Note over U,CS: Scenario: User books a practice
+    
+    U->>GW: GET /practices?date=2025-12-27
+    GW->>US: Validate Telegram auth
+    US-->>GW: ✓ User authenticated
+    GW->>PS: Get practices for date
+    PS-->>GW: List of practices
+    GW-->>U: Display practices
+    
+    U->>GW: GET /practices/{practice_id}
+    GW->>PS: Get practice details
+    PS->>QS: Get pre-practice quiz
+    QS-->>PS: Quiz questions
+    PS-->>GW: Practice + Quiz
+    GW-->>U: Show details
+    
+    U->>GW: POST /bookings (practice_id)
+    GW->>US: Validate user
+    US-->>GW: ✓ User valid
+    
+    GW->>BS: Create booking
+    BS->>PS: Check availability
+    PS-->>BS: Available (5/20 slots)
+    
+    alt Practice requires payment
+        BS->>PYS: Check subscription
+        PYS-->>BS: Active subscription ✓
+    end
+    
+    BS->>PS: Increment participants
+    PS-->>BS: Updated
+    
+    BS-->>GW: Booking created (status: confirmed)
+    GW-->>U: Booking confirmed
+    
+    BS->>NS: Create notification (booking_confirmed)
+    NS->>U: Send Telegram message
+    
+    BS->>CS: Schedule reminders
+    CS-->>BS: Reminders scheduled (24h, 1h, 10min)
+    
+    Note over U,CS: 24 hours before practice
+    
+    CS->>NS: Trigger 24h reminder
+    NS->>QS: Get pre-practice quiz
+    QS-->>NS: Quiz link
+    NS->>U: "Practice tomorrow! Fill quiz: [link]"
+    
+    Note over U,CS: User fills pre-practice quiz
+    
+    U->>GW: POST /quizzes/{quiz_id}/responses
+    GW->>QS: Submit response
+    QS->>STS: Send to State Service
+    QS-->>GW: Response saved
+    GW-->>U: Thank you!

@@ -1,0 +1,42 @@
+stateDiagram-v2
+    [*] --> pending_verification: User creates master profile
+    
+    pending_verification --> verified: Admin approves
+    pending_verification --> banned: Admin rejects (fraud/spam)
+    
+    verified --> suspended: Violation detected
+    verified --> banned: Serious violation
+    
+    suspended --> verified: Admin reinstates
+    suspended --> banned: Repeated violations
+    
+    banned --> [*]
+    
+    note right of pending_verification
+        Cannot create practices
+        Profile hidden from users
+        Waiting for admin review
+        Documents submitted
+    end note
+    
+    note right of verified
+        Can create practices
+        Visible to users
+        Can accept bookings
+        Normal operations
+    end note
+    
+    note right of suspended
+        Cannot create NEW practices
+        Existing bookings remain
+        Profile hidden
+        Temporary ban
+        Can appeal to admin
+    end note
+    
+    note right of banned
+        Cannot create practices
+        All bookings cancelled
+        Profile deleted from search
+        Permanent ban
+    end note
