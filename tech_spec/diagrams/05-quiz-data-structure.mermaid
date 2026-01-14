@@ -71,73 +71,41 @@ classDiagram
     QuizResponse "1" *-- "many" AnswerObject : contains
     
     note for PracticeQuiz "questions field stores array of QuestionObject JSON"
-    note for QuizResponse "answers field stores map of question_id → AnswerObject"
-```
+    note for QuizResponse "answers field stores map of question_id to AnswerObject"
 
-**Example JSON structures:**
-
-```json
-// PracticeQuiz.questions example
-[
-  {
-    "id": "q1",
-    "type": "scale",
-    "question": "How anxious do you feel right now?",
-    "min_label": "Calm",
-    "max_label": "Very anxious",
-    "min_value": 1,
-    "max_value": 10,
-    "default_value": 5,
-    "required": true
-  },
-  {
-    "id": "q2",
-    "type": "emotion",
-    "question": "Select your current emotion",
-    "emotions": ["😌", "😰", "😴", "😊", "😔", "😡"],
-    "layout": "grid",
-    "required": true
-  },
-  {
-    "id": "q3",
-    "type": "choice",
-    "question": "What brings you to this practice?",
-    "options": [
-      "Stress relief",
-      "Better sleep",
-      "Focus improvement",
-      "Emotional balance",
-      "Other"
-    ],
-    "allow_other": true,
-    "required": false
-  },
-  {
-    "id": "q4",
-    "type": "text",
-    "question": "Any specific intentions for today's practice?",
-    "max_length": 500,
-    "placeholder": "Optional: share your intention...",
-    "required": false
-  }
-]
-
-// QuizResponse.answers example
-{
-  "q1": {
-    "value": 7,
-    "answered_at": "2025-12-27T17:30:00Z"
-  },
-  "q2": {
-    "value": "😰",
-    "answered_at": "2025-12-27T17:30:15Z"
-  },
-  "q3": {
-    "value": "Stress relief",
-    "answered_at": "2025-12-27T17:30:30Z"
-  },
-  "q4": {
-    "value": "I want to release tension from work",
-    "answered_at": "2025-12-27T17:30:45Z"
-  }
-}
+%% Example JSON structures:
+%%
+%% PracticeQuiz.questions example:
+%% [
+%%   {
+%%     "id": "q1",
+%%     "type": "scale",
+%%     "question": "How anxious do you feel right now?",
+%%     "min_label": "Calm",
+%%     "max_label": "Very anxious",
+%%     "min_value": 1,
+%%     "max_value": 10,
+%%     "default_value": 5,
+%%     "required": true
+%%   },
+%%   {
+%%     "id": "q2",
+%%     "type": "emotion",
+%%     "question": "Select your current emotion",
+%%     "emotions": ["😌", "😰", "😴", "😊", "😔", "😡"],
+%%     "layout": "grid",
+%%     "required": true
+%%   }
+%% ]
+%%
+%% QuizResponse.answers example:
+%% {
+%%   "q1": {
+%%     "value": 7,
+%%     "answered_at": "2025-12-27T17:30:00Z"
+%%   },
+%%   "q2": {
+%%     "value": "😰",
+%%     "answered_at": "2025-12-27T17:30:15Z"
+%%   }
+%% }
