@@ -1,0 +1,45 @@
+sequenceDiagram
+    participant S as APScheduler
+    participant N as Notification Service
+    participant T as Telegram
+    participant U as User
+    participant ST as State Service
+    participant D as Dashboard
+    participant M as Master
+
+    S->>N: trigger_checkin(practice_id, user_ids)
+    N->>T: send_inline_keyboard(user_id, practice_info)
+    T->>U: Push notification with buttons
+    
+    alt User responds
+        U->>T: Tap emoji button
+        T->>N: callback_query(user_id, emoji)
+        N->>ST: save_checkin(user_id, practice_id, emoji)
+        
+        opt User adds text
+            U->>T: Type text description
+            T->>N: message(user_id, text)
+            N->>ST: update_checkin(user_id, text)
+        end
+        
+        N->>T: send_confirmation(user_id)
+    else User skips
+        U->>T: Tap Skip button
+        T->>N: callback_query(user_id, skip)
+        N->>ST: save_checkin(user_id, practice_id, null, skipped=true)
+    else User ignores
+        S->>N: reminder_4h(practice_id, user_ids)
+        N->>T: send_reminder(user_id)
+    end
+    
+    S->>ST: aggregate_checkins(practice_id)
+    ST->>N: notify_master(master_id, summary)
+    N->>T: send_summary(master_telegram_id)
+    T->>M: 15 responses summary
+    
+    opt Master views details
+        M->>D: open_practice_checkins(practice_id)
+        D->>ST: get_checkins(practice_id)
+        ST->>D: checkin_list with texts
+        D->>M: Detailed view
+    end

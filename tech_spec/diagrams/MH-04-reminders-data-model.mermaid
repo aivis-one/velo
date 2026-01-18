@@ -1,0 +1,26 @@
+erDiagram
+    REMINDER_JOB {
+        uuid id PK
+        uuid booking_id FK
+        uuid user_id FK
+        uuid practice_id FK
+        enum type
+        timestamp scheduled_at
+        timestamp sent_at
+        enum status
+        int retry_count
+        text error_message
+    }
+    
+    REMINDER_PREFERENCE {
+        uuid id PK
+        uuid user_id FK
+        boolean enabled
+        boolean reminder_24h
+        boolean reminder_1h
+        boolean reminder_10min
+        string preferred_channel
+    }
+    
+    USER ||--|| REMINDER_PREFERENCE : has
+    BOOKING ||--o{ REMINDER_JOB : triggers

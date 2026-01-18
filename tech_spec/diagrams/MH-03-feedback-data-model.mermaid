@@ -1,0 +1,27 @@
+erDiagram
+    FEEDBACK {
+        uuid id PK
+        uuid user_id FK
+        uuid practice_id FK
+        enum rating
+        text private_note
+        boolean skipped
+        timestamp submitted_at
+        string anonymous_id
+    }
+    
+    FEEDBACK_AGGREGATE {
+        uuid id PK
+        uuid practice_id FK
+        int great_count
+        int good_count
+        int meh_count
+        int skipped_count
+        int with_note_count
+        decimal avg_score
+        timestamp aggregated_at
+    }
+    
+    USER ||--o{ FEEDBACK : gives
+    PRACTICE ||--o{ FEEDBACK : receives
+    PRACTICE ||--|| FEEDBACK_AGGREGATE : has

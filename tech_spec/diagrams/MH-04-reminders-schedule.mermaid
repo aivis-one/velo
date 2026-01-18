@@ -1,0 +1,9 @@
+flowchart TD
+    subgraph MH04["MH-04: Reminder Schedule"]
+        S1[User books practice] --> S2[APScheduler creates jobs]
+        S2 --> S3["Job 1: 24h before<br/>Tomorrow: Breathwork with Sam"]
+        S3 --> S4["Job 2: 1h before<br/>Starting in 1 hour + Zoom link"]
+        S4 --> S5["Job 3: 10min before<br/>Starting in 10 minutes + Quick join button"]
+        S5 --> S6[Practice starts]
+        S6 --> S7["Job 4: 30min after<br/>MH-03 Feedback request"]
+    end

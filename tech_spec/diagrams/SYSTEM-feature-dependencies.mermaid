@@ -1,0 +1,11 @@
+flowchart LR
+    MH01[MH-01 Calendar] --> MH07[MH-07 Quick Booking]
+    MH07 --> MH05[MH-05 Stripe]
+    MH07 --> MH04[MH-04 Reminders]
+    MH01 --> MH06[MH-06 Zoom]
+    MH04 --> MH02[MH-02 Check-in]
+    MH04 --> MH03[MH-03 Feedback]
+    MH02 --> MH09[MH-09 Diary]
+    MH03 --> MH09
+    MH08[MH-08 Masters Account] --> MH01
+    MH08 --> MH05

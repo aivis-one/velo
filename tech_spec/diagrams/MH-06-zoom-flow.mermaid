@@ -1,0 +1,15 @@
+flowchart TD
+    subgraph MH06["MH-06: Zoom Integration VELO Hosts"]
+        Z1[Master creates practice] --> Z2[Practice Service calls Zoom API]
+        Z2 --> Z3[Create scheduled meeting]
+        Z3 --> Z4["Store:<br/>meeting_id<br/>join_url for participants<br/>host_url for master<br/>password"]
+        Z4 --> Z5[Practice saved]
+        
+        Z6[10min before practice] --> Z7[Reminder includes join_url]
+        Z7 --> Z8[User clicks link]
+        Z8 --> Z9[Joins Zoom meeting]
+        
+        Z10[Master needs to start] --> Z11[Dashboard shows Start button]
+        Z11 --> Z12[Master gets host_url]
+        Z12 --> Z13[Opens Zoom as host]
+    end

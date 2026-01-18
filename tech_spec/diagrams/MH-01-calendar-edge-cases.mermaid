@@ -1,0 +1,20 @@
+flowchart TD
+    subgraph MH01_EDGE["MH-01: Edge Cases"]
+        E1[Practice cancelled] --> E1A[Notify all booked users]
+        E1A --> E1B[Auto-refund via Stripe]
+        E1B --> E1C[Remove from calendar]
+        
+        E2[Practice edited after bookings] --> E2A{Time changed?}
+        E2A -->|Yes| E2B[Notify users of change]
+        E2A -->|No| E2C[Silent update]
+        
+        E3[Capacity full] --> E3A[Show Full badge]
+        E3A --> E3B[Enable waitlist option]
+        
+        E4[Recurring practice] --> E4A[Generate instances via APScheduler]
+        E4A --> E4B[Each instance is separate entity]
+        
+        E5[Timezone handling] --> E5A[Store in UTC]
+        E5A --> E5B[Display in user TZ]
+        E5B --> E5C[TZ from Telegram profile]
+    end

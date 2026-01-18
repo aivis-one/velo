@@ -1,0 +1,19 @@
+erDiagram
+    ZOOM_MEETING {
+        uuid id PK
+        uuid practice_id FK
+        string zoom_meeting_id
+        string zoom_uuid
+        string join_url
+        string host_url
+        string password
+        int duration_minutes
+        enum status
+        timestamp scheduled_start
+        timestamp actual_start
+        timestamp actual_end
+        int participant_count
+        jsonb recording_urls
+    }
+    
+    PRACTICE ||--|| ZOOM_MEETING : has

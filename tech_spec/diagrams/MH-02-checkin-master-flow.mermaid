@@ -1,0 +1,11 @@
+flowchart TD
+    subgraph MH02_MASTER["MH-02: Master Views Check-ins"]
+        M1[Check-in deadline passes] --> M2[System aggregates responses]
+        M2 --> M3[Telegram notification to Master]
+        M3 --> M4["Summary: 15 responses<br/>😊 8 | 😐 5 | 😔 2<br/>2 with text notes"]
+        M4 --> M5{Master action?}
+        M5 -->|View details| M6[Open Dashboard]
+        M6 --> M7[See full list with text descriptions]
+        M7 --> M8[Can filter by state]
+        M5 -->|Acknowledge| M9[Mark as reviewed]
+    end

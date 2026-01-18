@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant B as Booking Service
+    participant C as Calendar Service
+    participant A as APScheduler
+    participant R as Redis
+    participant N as Notification Service
+    participant T as Telegram
+
+    B->>C: booking_created(booking_id, practice_id, user_id)
+    C->>A: schedule_reminders(booking_id, practice_time)
+    A->>R: store_jobs([24h, 1h, 10min, post_30min])
+    
+    Note over A,R: Time passes...
+    
+    R->>A: job_due(24h_reminder)
+    A->>N: send_reminder(user_id, practice_id, 24h)
+    N->>T: send_message(user_id, reminder_24h_template)
+    
+    R->>A: job_due(1h_reminder)
+    A->>N: send_reminder(user_id, practice_id, 1h)
+    N->>T: send_message(user_id, reminder_1h_with_link)
+    
+    R->>A: job_due(10min_reminder)
+    A->>N: send_reminder(user_id, practice_id, 10min)
+    N->>T: send_message(user_id, reminder_10min_urgent)

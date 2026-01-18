@@ -1,0 +1,30 @@
+erDiagram
+    PAYMENT {
+        uuid id PK
+        uuid user_id FK
+        uuid practice_id FK
+        uuid booking_id FK
+        string stripe_session_id
+        string stripe_payment_intent_id
+        decimal amount
+        string currency
+        enum status
+        timestamp created_at
+        timestamp completed_at
+        jsonb stripe_metadata
+    }
+    
+    REFUND {
+        uuid id PK
+        uuid payment_id FK
+        string stripe_refund_id
+        decimal amount
+        string reason
+        enum status
+        timestamp created_at
+    }
+    
+    USER ||--o{ PAYMENT : makes
+    PRACTICE ||--o{ PAYMENT : receives
+    PAYMENT ||--o| BOOKING : creates
+    PAYMENT ||--o{ REFUND : has

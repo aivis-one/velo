@@ -1,0 +1,33 @@
+sequenceDiagram
+    participant U as User
+    participant W as WebApp
+    participant API as API Gateway
+    participant PS as Payment Service
+    participant S as Stripe
+    participant BS as Booking Service
+    participant N as Notification Service
+
+    U->>W: Click Book and Pay
+    W->>API: POST /api/v1/checkout
+    API->>PS: create_checkout_session(practice_id, user_id)
+    PS->>S: stripe.checkout.sessions.create()
+    S-->>PS: session_id, checkout_url
+    PS-->>API: checkout_url
+    API-->>W: checkout_url
+    W->>S: Redirect to Stripe Checkout
+    
+    U->>S: Enter card details
+    S->>S: Process payment
+    
+    alt Payment successful
+        S->>PS: webhook: checkout.session.completed
+        PS->>PS: validate_webhook_signature()
+        PS->>BS: create_booking(practice_id, user_id, payment_id)
+        BS-->>PS: booking_id
+        PS->>N: send_confirmation(user_id, booking_id)
+        N->>U: Telegram: Booking confirmed!
+        S->>U: Redirect to success_url
+    else Payment failed
+        S->>U: Show error on Stripe page
+        S->>U: Redirect to cancel_url
+    end

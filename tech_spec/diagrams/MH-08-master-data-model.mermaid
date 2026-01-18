@@ -1,0 +1,39 @@
+erDiagram
+    MASTER {
+        uuid id PK
+        uuid user_id FK
+        jsonb profile
+        enum status
+        timestamp verified_at
+        uuid verified_by FK
+        string stripe_connect_id
+        jsonb settings
+        jsonb stats
+    }
+    
+    VERIFICATION_REQUEST {
+        uuid id PK
+        uuid master_id FK
+        jsonb documents
+        enum status
+        text admin_notes
+        timestamp submitted_at
+        timestamp reviewed_at
+        uuid reviewed_by FK
+    }
+    
+    MASTER_PAYOUT {
+        uuid id PK
+        uuid master_id FK
+        decimal amount
+        string currency
+        string stripe_payout_id
+        enum status
+        timestamp initiated_at
+        timestamp arrival_date
+    }
+    
+    USER ||--o| MASTER : becomes
+    MASTER ||--o{ VERIFICATION_REQUEST : submits
+    MASTER ||--o{ MASTER_PAYOUT : receives
+    MASTER ||--o{ PRACTICE : creates

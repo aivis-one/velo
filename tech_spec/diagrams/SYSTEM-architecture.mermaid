@@ -1,0 +1,38 @@
+flowchart TB
+    subgraph CLIENTS["Clients"]
+        C1[Telegram Bot]
+        C2[Telegram WebApp]
+        C3[Web Dashboard]
+    end
+    
+    subgraph GATEWAY["API Gateway"]
+        GW[Kong or Traefik<br/>Rate Limiting + Auth + Routing]
+    end
+    
+    subgraph SERVICES["Microservices"]
+        US[User Service]
+        PS[Practice Service]
+        BS[Booking Service]
+        PY[Payment Service]
+        NS[Notification Service]
+        CS[Calendar Service]
+        SS[State Service]
+        QS[Quiz Service]
+    end
+    
+    subgraph DATA["Data Layer"]
+        PG[(PostgreSQL)]
+        RD[(Redis)]
+        S3[(S3 Storage)]
+    end
+    
+    subgraph EXTERNAL["External Services"]
+        ST[Stripe]
+        ZM[Zoom]
+        TG[Telegram API]
+    end
+    
+    CLIENTS --> GW
+    GW --> SERVICES
+    SERVICES --> DATA
+    SERVICES --> EXTERNAL

@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> PendingVerification: Master signup
+    PendingVerification --> Verified: Admin approves
+    PendingVerification --> Rejected: Admin rejects
+    Rejected --> PendingVerification: Resubmit
+    Verified --> Suspended: Policy violation
+    Suspended --> Verified: Appeal successful
+    Suspended --> Banned: Severe violation
+    Verified --> [*]: Account deleted
+    Banned --> [*]: Permanent

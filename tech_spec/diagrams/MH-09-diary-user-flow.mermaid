@@ -1,0 +1,17 @@
+flowchart TD
+    subgraph MH09["MH-09: Diary User Flow"]
+        J1[User opens My Diary] --> J2[Timeline view]
+        J2 --> J3["Auto-populated entries:<br/>Practice attended<br/>Check-in submitted<br/>Feedback given"]
+        J3 --> J4{User action?}
+        J4 -->|Add note| J5[Text editor opens]
+        J4 -->|View entry| J6[Entry detail]
+        J4 -->|Filter| J7[By date or practice or state]
+        J5 --> J8[Save private note]
+        J8 --> J9[Entry linked to practice]
+        
+        J10[After practice] --> J11[Prompt: Add reflection?]
+        J11 --> J12{User responds?}
+        J12 -->|Yes| J5
+        J12 -->|Later| J13[Reminder in 24h]
+        J12 -->|No| J14[No reminder]
+    end
