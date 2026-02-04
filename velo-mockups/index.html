@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VELO Mockups — Interactive Prototypes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .logo {
+      font-family: var(--font-heading);
+      font-size: 48px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 4px;
+      margin-bottom: 12px;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 16px;
+      margin-bottom: 48px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-bottom: 48px;
+    }
+
+    @media (max-width: 768px) {
+      .cards {
+        grid-template-columns: 1fr;
+        max-width: 320px;
+        margin: 0 auto 48px;
+      }
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 32px 24px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: block;
+    }
+
+    .card:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-icon {
+      font-size: 56px;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .card-title {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 8px;
+    }
+
+    .card-description {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1.5;
+    }
+
+    .card-badge {
+      display: inline-block;
+      margin-top: 16px;
+      padding: 6px 12px;
+      background: rgba(59, 130, 246, 0.2);
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #60A5FA;
+    }
+
+    .card.user .card-badge { background: rgba(34, 197, 94, 0.2); color: #4ADE80; }
+    .card.master .card-badge { background: rgba(168, 85, 247, 0.2); color: #C084FC; }
+    .card.admin .card-badge { background: rgba(59, 130, 246, 0.2); color: #60A5FA; }
+
+    .footer {
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 13px;
+    }
+
+    .footer a {
+      color: rgba(255, 255, 255, 0.5);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: white;
+    }
+
+    .version {
+      margin-top: 8px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">VELO</div>
+    <p class="subtitle">Интерактивные прототипы платформы</p>
+
+    <div class="cards">
+      <a href="user.html" class="card user">
+        <span class="card-icon">👤</span>
+        <h2 class="card-title">User App</h2>
+        <p class="card-description">Приложение для участников практик</p>
+        <span class="card-badge">Mobile App</span>
+      </a>
+
+      <a href="master.html" class="card master">
+        <span class="card-icon">🧘‍♂️</span>
+        <h2 class="card-title">Master App</h2>
+        <p class="card-description">Кабинет мастера для проведения практик</p>
+        <span class="card-badge">Mobile App</span>
+      </a>
+
+      <a href="admin.html" class="card admin">
+        <span class="card-icon">⚙️</span>
+        <h2 class="card-title">Admin Panel</h2>
+        <p class="card-description">Панель управления платформой</p>
+        <span class="card-badge">Web Dashboard</span>
+      </a>
+    </div>
+
+    <div class="footer">
+      <p>Используй клавиши <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: monospace;">1</kbd> <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: monospace;">2</kbd> <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: monospace;">3</kbd> для смены устройства, <kbd style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-family: monospace;">M</kbd> для карты навигации</p>
+      <p class="version">v1.0 · livemockup-studio</p>
+    </div>
+  </div>
+</body>
+</html>

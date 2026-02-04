@@ -1,0 +1,3519 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VELΘ Admin Panel — Interactive Prototype</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ========== RESET ========== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ========== SHELL VARIABLES ========== */
+    :root {
+      /* Shell Theme */
+      --shell-bg: #0f172a;
+      --shell-surface: #1e293b;
+      --shell-border: #334155;
+      --shell-text: #ffffff;
+      --shell-text-dim: rgba(255,255,255,0.5);
+      --shell-accent: #3b82f6;
+      --shell-accent-glow: rgba(59,130,246,0.3);
+      
+      /* Device Frame */
+      --frame-bg: #374151;
+      --frame-radius-phone: 44px;
+      --frame-radius-tablet: 24px;
+      --frame-radius-desktop: 12px;
+      --frame-padding: 12px;
+      
+      /* Screen */
+      --screen-radius-phone: 38px;
+      --screen-radius-tablet: 16px;
+      --screen-radius-desktop: 8px;
+      
+      /* ========== VELO DESIGN TOKENS ========== */
+      /* Primary */
+      --velo-primary: #334D6E;
+      --velo-primary-light: #4A6B8A;
+      --velo-primary-dark: #1E3A5F;
+      
+      /* Background */
+      --velo-bg-start: #FFF5F0;
+      --velo-bg-end: #F0F5FF;
+      --velo-bg-card: #FFFFFF;
+      --velo-bg-subtle: #F8FAFC;
+      
+      /* Semantic */
+      --velo-success: #22C55E;
+      --velo-warning: #F59E0B;
+      --velo-error: #EF4444;
+      --velo-info: #3B82F6;
+      
+      /* Text */
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --text-muted: #94A3B8;
+      
+      /* Spacing */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      
+      /* Borders & Shadows */
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --radius-full: 9999px;
+      
+      --border-subtle: 1px solid #E2E8F0;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+      --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+      --shadow-hover: 0 8px 16px rgba(51,77,110,0.15);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--shell-bg);
+      color: var(--shell-text);
+      overflow: hidden;
+    }
+
+    /* ========== SHELL: TOOLBAR ========== */
+    .preview-toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--shell-surface);
+      border-bottom: 1px solid var(--shell-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+
+    .toolbar-left, .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 200px;
+    }
+
+    .toolbar-right { justify-content: flex-end; }
+    .toolbar-center { display: flex; justify-content: center; }
+
+    .project-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .project-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--shell-text);
+    }
+
+    .project-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--velo-success);
+      color: white;
+    }
+
+    .device-switcher {
+      display: flex;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .device-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--shell-text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .device-btn:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--shell-text);
+    }
+
+    .device-btn.active {
+      background: var(--shell-accent);
+      color: white;
+      box-shadow: 0 2px 8px var(--shell-accent-glow);
+    }
+
+    .device-size {
+      font-size: 11px;
+      opacity: 0.6;
+      font-family: monospace;
+    }
+
+    .zoom-control {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .zoom-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--shell-text-dim);
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .zoom-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: var(--shell-text);
+    }
+
+    .zoom-value {
+      width: 50px;
+      text-align: center;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--shell-text);
+    }
+
+    .map-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(59,130,246,0.2);
+      color: var(--shell-accent);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .map-btn:hover {
+      background: var(--shell-accent);
+      color: white;
+    }
+
+    /* ========== NAVIGATION MAP POPUP ========== */
+    .nav-map-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+
+    .nav-map-overlay.active {
+      display: flex;
+    }
+
+    .nav-map {
+      background: var(--shell-surface);
+      border: 1px solid var(--shell-border);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-map-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--shell-border);
+    }
+
+    .nav-map-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--shell-text);
+    }
+
+    .nav-map-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      color: var(--shell-text);
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-map-close:hover {
+      background: var(--velo-error);
+    }
+
+    .nav-map-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .nav-map-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .nav-map-stat {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .nav-map-stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--shell-accent);
+    }
+
+    .nav-map-stat-label {
+      font-size: 11px;
+      color: var(--shell-text-dim);
+    }
+
+    .nav-map-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+    }
+
+    .nav-map-legend-item {
+      font-size: 12px;
+      color: var(--shell-text-dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-map-tree {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-map-level {
+      padding-left: calc(var(--level, 0) * 16px);
+    }
+
+    .nav-map-level[data-level="1"] { --level: 1; }
+    .nav-map-level[data-level="2"] { --level: 2; }
+    .nav-map-level[data-level="3"] { --level: 3; }
+
+    .nav-map-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-map-item:hover {
+      background: rgba(59,130,246,0.2);
+    }
+
+    .nav-map-item-icon {
+      font-size: 14px;
+    }
+
+    .nav-map-item-name {
+      flex: 1;
+      font-size: 13px;
+      color: var(--shell-text);
+    }
+
+    .nav-map-item-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .nav-map-item-badge.screen {
+      background: rgba(34,197,94,0.2);
+      color: #22C55E;
+    }
+
+    .nav-map-item-badge.endpoint {
+      background: rgba(251,146,60,0.2);
+      color: #FB923C;
+    }
+
+    .nav-map-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--shell-border);
+    }
+
+    .nav-map-section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--shell-text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .nav-map-section-title:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--shell-text);
+    }
+
+    .nav-map-section-title .section-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-map-section-title .section-count {
+      font-size: 10px;
+      color: var(--shell-accent);
+      font-weight: 700;
+    }
+
+    .nav-map-section-title .section-arrow {
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .nav-map-section.collapsed .section-arrow {
+      transform: rotate(-90deg);
+    }
+
+    .nav-map-section-content {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .nav-map-section.collapsed .nav-map-section-content {
+      display: none;
+    }
+
+    /* Светофор: точки статуса */
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-dot.green { background: #22C55E; }
+    .status-dot.yellow { background: #F59E0B; }
+    .status-dot.red { background: #EF4444; }
+
+    .legend-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.green { background: #22C55E; }
+    .legend-dot.yellow { background: #F59E0B; }
+    .legend-dot.red { background: #EF4444; }
+
+    /* Level badges */
+    .level-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.1);
+      color: var(--shell-text-dim);
+      margin-left: auto;
+    }
+
+    /* Светофор справа после бейджа */
+    .nav-map-item .status-dot {
+      margin-left: 8px;
+    }
+
+    .level-badge.hub {
+      background: rgba(59,130,246,0.3);
+      color: #60A5FA;
+    }
+
+    .level-badge.tab {
+      background: rgba(245,158,11,0.2);
+      color: #FBBF24;
+    }
+
+    .level-badge.end {
+      background: rgba(239,68,68,0.2);
+      color: #F87171;
+    }
+
+    /* Item types */
+    .nav-map-item.screen-item:hover {
+      background: rgba(34,197,94,0.15);
+    }
+
+    .nav-map-item.tab-item {
+      opacity: 0.85;
+    }
+
+    .nav-map-item.tab-item:hover {
+      opacity: 1;
+      background: rgba(245,158,11,0.15);
+    }
+
+    .nav-map-item.endpoint-item {
+      opacity: 0.7;
+    }
+
+    .nav-map-item.endpoint-item:hover {
+      opacity: 1;
+      background: rgba(239,68,68,0.15);
+    }
+
+    @media (max-width: 768px) {
+      .device-label { display: none; }
+      .project-info { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .preview-toolbar {
+        padding: 0 8px;
+        gap: 4px;
+      }
+      
+      .toolbar-left, .toolbar-right {
+        min-width: auto;
+        gap: 4px;
+      }
+      
+      .device-switcher {
+        padding: 2px;
+        border-radius: 8px;
+      }
+      
+      .device-btn {
+        padding: 6px 8px;
+        font-size: 14px;
+      }
+      
+      .device-btn .device-size {
+        display: none;
+      }
+      
+      .zoom-control {
+        padding: 2px;
+      }
+      
+      .zoom-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 14px;
+      }
+      
+      .zoom-value {
+        display: none;
+      }
+      
+      .map-btn {
+        padding: 6px 8px !important;
+        font-size: 14px !important;
+      }
+      
+      .map-btn .map-label {
+        display: none;
+      }
+    }
+
+    /* ========== SHELL: PREVIEW CONTAINER ========== */
+    .preview-container {
+      position: fixed;
+      top: 48px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      background: var(--shell-bg);
+      padding: 20px;
+      overflow: auto;
+    }
+
+    .device-frame {
+      background: var(--frame-bg);
+      position: relative;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      margin: auto;
+    }
+
+    /* Phone */
+    .device-frame.phone {
+      width: calc(390px + var(--frame-padding) * 2);
+      height: calc(844px + var(--frame-padding) * 2 + 40px);
+      border-radius: var(--frame-radius-phone);
+      padding: var(--frame-padding);
+      padding-top: 28px;
+      padding-bottom: 20px;
+    }
+
+    .device-frame.phone .device-screen {
+      border-radius: var(--screen-radius-phone);
+      width: 390px;
+      height: 844px;
+    }
+
+    /* Tablet */
+    .device-frame.tablet {
+      width: calc(820px + var(--frame-padding) * 2);
+      height: calc(600px + var(--frame-padding) * 2);
+      border-radius: var(--frame-radius-tablet);
+      padding: var(--frame-padding);
+    }
+
+    .device-frame.tablet .device-screen {
+      border-radius: var(--screen-radius-tablet);
+      width: 820px;
+      height: 600px;
+    }
+
+    .device-frame.tablet .device-notch,
+    .device-frame.tablet .device-home-indicator { display: none; }
+
+    /* Desktop */
+    .device-frame.desktop {
+      width: calc(1280px + var(--frame-padding) * 2);
+      height: calc(800px + var(--frame-padding) * 2);
+      border-radius: var(--frame-radius-desktop);
+      padding: var(--frame-padding);
+    }
+
+    .device-frame.desktop .device-screen {
+      border-radius: var(--screen-radius-desktop);
+      width: 1280px;
+      height: 800px;
+    }
+
+    .device-frame.desktop .device-notch,
+    .device-frame.desktop .device-home-indicator { display: none; }
+
+    /* Screen */
+    .device-screen {
+      background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+      overflow-y: auto;
+      overflow-x: hidden;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      scroll-behavior: auto;
+      min-height: 0;
+      position: relative;
+    }
+
+    /* Notch */
+    .device-notch {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 28px;
+      background: #000;
+      border-radius: 14px;
+      z-index: 10;
+    }
+
+    /* Home Indicator */
+    .device-home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 3px;
+    }
+
+    /* ========== MOCKUP CONTENT STYLES ========== */
+    .mockup-content {
+      min-height: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    .screen.active {
+      display: flex;
+      flex: 1;
+    }
+
+    /* Header */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: white;
+      border-bottom: var(--border-subtle);
+      padding: var(--space-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      padding: var(--space-2);
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+    }
+
+    .back-btn:hover {
+      background: var(--velo-bg-subtle);
+    }
+
+    .header-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--velo-primary);
+    }
+
+    .header-badge {
+      background: var(--velo-primary);
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: var(--radius-full);
+    }
+
+    /* Main */
+    .main {
+      flex: 1;
+      padding: var(--space-4);
+    }
+
+    /* ========== BOTTOM NAVIGATION ========== */
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: white;
+      border-top: var(--border-subtle);
+      display: flex;
+      justify-content: space-around;
+      padding: var(--space-2) var(--space-4);
+      padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0));
+    }
+
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: var(--space-2) var(--space-3);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius-md);
+      transition: all 0.2s;
+      position: relative;
+      min-width: 64px;
+    }
+
+    .bottom-nav-item:hover {
+      background: var(--velo-bg-subtle);
+      color: var(--velo-primary);
+    }
+
+    .bottom-nav-item.active {
+      color: var(--velo-primary);
+    }
+
+    .bottom-nav-item.active::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;
+      height: 3px;
+      background: var(--velo-primary);
+      border-radius: 0 0 3px 3px;
+    }
+
+    .bottom-nav-icon {
+      font-size: 20px;
+    }
+
+    .bottom-nav-badge {
+      position: absolute;
+      top: 0;
+      right: 8px;
+      background: var(--velo-error);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: var(--radius-full);
+      min-width: 16px;
+      text-align: center;
+    }
+
+    /* User Mode Banner */
+    .user-mode-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-2) var(--space-4);
+      background: var(--velo-info);
+      color: white;
+      font-size: 13px;
+    }
+
+    .user-mode-banner button {
+      background: white;
+      color: var(--velo-info);
+      border: none;
+      padding: var(--space-1) var(--space-3);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Section Title */
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-3);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--velo-bg-card);
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    /* Alert Cards */
+    .alert-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .alert-card:hover {
+      border-color: var(--velo-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .alert-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .alert-dot.orange { background: var(--velo-warning); }
+    .alert-dot.red { background: var(--velo-error); }
+
+    .alert-content {
+      flex: 1;
+    }
+
+    .alert-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .alert-arrow {
+      color: var(--text-muted);
+      font-size: 18px;
+    }
+
+    /* Stat Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-3);
+      margin-bottom: var(--space-5);
+    }
+
+    .stat-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--velo-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .stat-change {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .stat-change.positive { color: var(--velo-success); }
+    .stat-change.negative { color: var(--velo-error); }
+
+    /* Period Switcher with Navigation */
+    .period-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+
+    .period-nav {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .period-arrow {
+      width: 32px;
+      height: 32px;
+      border: var(--border-subtle);
+      background: white;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+    }
+
+    .period-arrow:hover {
+      background: var(--velo-bg-subtle);
+      border-color: var(--velo-primary);
+      color: var(--velo-primary);
+    }
+
+    .period-current {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      min-width: 120px;
+      text-align: center;
+    }
+
+    .period-switcher {
+      display: flex;
+      background: var(--velo-bg-subtle);
+      border-radius: var(--radius-md);
+      padding: 2px;
+    }
+
+    .period-btn {
+      padding: var(--space-2) var(--space-3);
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.2s;
+    }
+
+    .period-btn.active {
+      background: white;
+      color: var(--velo-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Revenue Card */
+    .revenue-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+
+    .revenue-amount {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--velo-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .revenue-change {
+      font-size: 13px;
+      color: var(--velo-success);
+      margin-bottom: var(--space-4);
+    }
+
+    .revenue-link {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      color: var(--velo-primary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .revenue-link:hover {
+      opacity: 0.8;
+    }
+
+    /* Engagement Card */
+    .engagement-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-5);
+    }
+
+    .metric-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) 0;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background 0.2s;
+    }
+
+    .metric-row:hover {
+      background: var(--velo-bg-subtle);
+      margin: 0 calc(-1 * var(--space-2));
+      padding-left: var(--space-2);
+      padding-right: var(--space-2);
+    }
+
+    .metric-label {
+      min-width: 100px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .metric-bar {
+      flex: 1;
+      height: 8px;
+      background: #E2E8F0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .metric-fill {
+      height: 100%;
+      background: var(--velo-primary);
+      border-radius: 4px;
+    }
+
+    .metric-value {
+      min-width: 45px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--velo-primary);
+      text-align: right;
+    }
+
+    .metric-arrow {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* Tabs Row */
+    .tabs-row {
+      display: flex;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-4);
+      background: white;
+      border-bottom: var(--border-subtle);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: var(--space-2) var(--space-3);
+      border: var(--border-subtle);
+      background: white;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--velo-primary);
+      color: var(--velo-primary);
+    }
+
+    .tab-btn.active {
+      background: var(--velo-primary);
+      border-color: var(--velo-primary);
+      color: white;
+    }
+
+    /* Master Cards */
+    .master-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .master-card:hover {
+      border-color: var(--velo-primary-light);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .master-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .master-avatar {
+      width: 44px;
+      height: 44px;
+      background: var(--velo-primary);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .master-info {
+      flex: 1;
+    }
+
+    .master-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .master-status {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .master-status.verified {
+      color: var(--velo-success);
+    }
+
+    .master-status.pending {
+      color: var(--velo-warning);
+    }
+
+    .master-methods {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .master-stats {
+      display: flex;
+      gap: var(--space-2);
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: var(--space-2);
+    }
+
+    .master-balance {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--space-2);
+      border-top: var(--border-subtle);
+    }
+
+    .master-balance-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .master-balance-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--velo-primary);
+    }
+
+    .master-arrow {
+      color: var(--text-muted);
+    }
+
+    .master-experience {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .master-time {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--space-2);
+      border-top: var(--border-subtle);
+    }
+
+    .master-time-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* User Cards */
+    .user-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-3);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      transition: all 0.2s;
+    }
+
+    .user-card:hover {
+      border-color: var(--velo-primary-light);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .user-avatar {
+      width: 44px;
+      height: 44px;
+      background: var(--velo-bg-subtle);
+      border: 2px solid #E2E8F0;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--velo-primary);
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .user-email {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-1);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .user-action-btn {
+      width: 40px;
+      height: 40px;
+      border: var(--border-subtle);
+      background: white;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .user-action-btn:hover {
+      background: var(--velo-primary);
+      border-color: var(--velo-primary);
+      color: white;
+    }
+
+    /* Practice Cards */
+    .practice-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .practice-card:hover {
+      border-color: var(--velo-primary-light);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .practice-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      margin-bottom: var(--space-2);
+    }
+
+    .practice-icon {
+      font-size: 24px;
+    }
+
+    .practice-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .practice-datetime {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .practice-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .practice-spots.full {
+      color: var(--velo-error);
+    }
+
+    .practice-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+      margin-left: var(--space-2);
+    }
+
+    .practice-badge.upcoming {
+      background: #DBEAFE;
+      color: #1E40AF;
+    }
+
+    .practice-badge.past {
+      background: var(--velo-bg-subtle);
+      color: var(--text-muted);
+    }
+
+    /* Detail Screen Styles */
+    .detail-card {
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      margin-bottom: var(--space-4);
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      margin-bottom: var(--space-4);
+    }
+
+    .detail-icon {
+      width: 56px;
+      height: 56px;
+      background: var(--velo-primary);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+    }
+
+    .detail-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .detail-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .detail-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+
+    .detail-stat {
+      background: var(--velo-bg-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      text-align: center;
+    }
+
+    .detail-stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--velo-primary);
+    }
+
+    .detail-stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* Chart placeholder */
+    .chart-placeholder {
+      background: var(--velo-bg-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-6);
+      text-align: center;
+      margin-bottom: var(--space-4);
+    }
+
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: var(--space-2);
+      height: 100px;
+      margin-bottom: var(--space-3);
+    }
+
+    .chart-bar {
+      width: 24px;
+      background: var(--velo-primary);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      opacity: 0.7;
+    }
+
+    .chart-bar:nth-child(odd) {
+      opacity: 1;
+    }
+
+    .chart-label {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* List Items for Details */
+    .detail-list-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      background: white;
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .detail-list-item:hover {
+      border-color: var(--velo-primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .detail-list-avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--velo-bg-subtle);
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--velo-primary);
+    }
+
+    .detail-list-info {
+      flex: 1;
+    }
+
+    .detail-list-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .detail-list-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .detail-list-badge {
+      padding: 2px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .detail-list-badge.present {
+      background: #D1FAE5;
+      color: #047857;
+    }
+
+    .detail-list-badge.absent {
+      background: #FEE2E2;
+      color: #B91C1C;
+    }
+
+    /* Form Elements */
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-2);
+    }
+
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: var(--space-3);
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      color: var(--text-primary);
+      background: white;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--velo-primary);
+    }
+
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-3) var(--space-5);
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--velo-primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--velo-primary-dark);
+    }
+
+    .btn-secondary {
+      background: white;
+      border: var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--velo-primary);
+      color: var(--velo-primary);
+    }
+
+    .btn-danger {
+      background: var(--velo-error);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #DC2626;
+    }
+
+    /* Popup */
+    .popup-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: var(--space-4);
+    }
+
+    .popup-overlay.active {
+      display: flex;
+    }
+
+    .popup {
+      background: white;
+      border-radius: var(--radius-lg);
+      width: 100%;
+      max-width: 340px;
+      max-height: 80%;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .popup-header {
+      padding: var(--space-4);
+      border-bottom: var(--border-subtle);
+    }
+
+    .popup-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .popup-body {
+      padding: var(--space-4);
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .popup-footer {
+      padding: var(--space-4);
+      border-top: var(--border-subtle);
+      display: flex;
+      gap: var(--space-3);
+    }
+
+    .popup-footer .btn {
+      flex: 1;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+    }
+
+    .toast {
+      background: var(--text-primary);
+      color: white;
+      padding: var(--space-3) var(--space-5);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Login Screen */
+    .login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-8);
+      min-height: 100%;
+      background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+    }
+
+    .login-logo {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--velo-primary);
+      margin-bottom: var(--space-2);
+    }
+
+    .login-subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-8);
+    }
+
+    .login-form {
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    /* Clickability Fix */
+    .alert-card[onclick] *,
+    .stat-card[onclick] *,
+    .card[onclick] *,
+    .master-card[onclick] *,
+    .metric-row[onclick] *,
+    .user-card[onclick] *,
+    .practice-card[onclick] *,
+    .detail-list-item[onclick] *,
+    .revenue-link[onclick] * {
+      pointer-events: none;
+    }
+
+    button,
+    input,
+    select,
+    textarea,
+    .user-action-btn {
+      pointer-events: auto;
+    }
+
+    /* Load more */
+    .load-more-btn {
+      display: block;
+      width: 100%;
+      margin: var(--space-4) 0;
+      padding: var(--space-3);
+      border: 2px dashed #CBD5E1;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius-md);
+      transition: all 0.2s;
+    }
+
+    .load-more-btn:hover {
+      border-color: var(--velo-primary);
+      color: var(--velo-primary);
+      background: var(--velo-bg-subtle);
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8) var(--space-4);
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: var(--space-3);
+    }
+
+    .empty-state-text {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========== SHELL: TOOLBAR ========== -->
+  <div class="preview-toolbar">
+    <div class="toolbar-left">
+      <a href="index.html" style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.6); text-decoration: none; font-size: 13px; padding: 6px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; margin-right: 12px;">← Назад</a>
+      <div class="project-info">
+        <span class="project-name">VELΘ Admin Panel</span>
+        <span class="project-badge" style="background: #3B82F6;">v2.5</span>
+      </div>
+    </div>
+    
+    <div class="toolbar-center">
+      <div class="device-switcher">
+        <button class="device-btn active" data-device="phone">
+          📱 <span class="device-label">Phone</span>
+          <span class="device-size">390</span>
+        </button>
+        <button class="device-btn" data-device="tablet">
+          📱 <span class="device-label">Tablet</span>
+          <span class="device-size">820</span>
+        </button>
+        <button class="device-btn" data-device="desktop">
+          🖥️ <span class="device-label">Desktop</span>
+          <span class="device-size">1280</span>
+        </button>
+      </div>
+    </div>
+    
+    <div class="toolbar-right">
+      <button class="map-btn" onclick="openNavMap()">
+        📍 <span class="map-label">Map</span>
+      </button>
+      <div class="zoom-control">
+        <button class="zoom-btn" data-zoom="-10">−</button>
+        <span class="zoom-value">100%</span>
+        <button class="zoom-btn" data-zoom="+10">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SHELL: PREVIEW CONTAINER ========== -->
+  <div class="preview-container">
+    <div class="device-frame phone" id="deviceFrame">
+      <div class="device-notch"></div>
+      <div class="device-screen" id="deviceScreen">
+        
+        <!-- ========== MOCKUP CONTENT ========== -->
+        <div class="mockup-content">
+
+          <!-- ========== LOGIN SCREEN ========== -->
+          <div class="screen active" id="screen-login">
+            <div class="login-screen">
+              <div class="login-logo">🔐 VELΘ Admin</div>
+              <div class="login-subtitle">Панель управления платформой</div>
+              
+              <div class="login-form">
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-input" value="admin@velo.app" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Пароль</label>
+                  <input type="password" class="form-input" value="••••••••" readonly>
+                </div>
+                <button type="button" class="btn btn-primary login-btn" onclick="handleLogin()">Войти</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========== DASHBOARD SCREEN ========== -->
+          <div class="screen" id="screen-dashboard">
+            <header class="header">
+              <div class="header-left">
+                <span class="header-title">🔐 VELΘ Admin</span>
+              </div>
+              <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 12px;" onclick="navigateTo('screen-user-view')">
+                👁 Режим юзера
+              </button>
+            </header>
+
+            <main class="main">
+              <!-- Alerts -->
+              <div class="section-title">⚠️ Требуют внимания</div>
+              <div class="alert-card" onclick="navigateTo('screen-masters-pending')">
+                <div class="alert-dot orange"></div>
+                <div class="alert-content">
+                  <div class="alert-text">🟠 2 мастера на верификации</div>
+                </div>
+                <div class="alert-arrow">→</div>
+              </div>
+              <div class="alert-card" onclick="navigateTo('screen-moderation')">
+                <div class="alert-dot red"></div>
+                <div class="alert-content">
+                  <div class="alert-text">🔴 3 обращения на модерации</div>
+                </div>
+                <div class="alert-arrow">→</div>
+              </div>
+
+              <!-- Statistics with Navigation -->
+              <div class="period-header">
+                <div class="section-title">📊 Статистика</div>
+                <div class="period-nav">
+                  <button class="period-arrow" onclick="navigatePeriod('prev')">←</button>
+                  <span class="period-current" id="period-label">13-19 янв</span>
+                  <button class="period-arrow" onclick="navigatePeriod('next')">→</button>
+                </div>
+              </div>
+              <div style="margin-bottom: var(--space-3);">
+                <div class="period-switcher">
+                  <button class="period-btn active" onclick="setPeriod(this, 'week')">Неделя</button>
+                  <button class="period-btn" onclick="setPeriod(this, 'month')">Месяц</button>
+                </div>
+              </div>
+              
+              <div class="stats-grid">
+                <div class="stat-card" onclick="navigateTo('screen-practices-list')">
+                  <div class="stat-value" data-week="47" data-month="186">47</div>
+                  <div class="stat-label">практик</div>
+                  <div class="stat-change positive" data-week="↑ +12%" data-month="↑ +8%">↑ +12%</div>
+                </div>
+                <div class="stat-card" onclick="navigateTo('screen-masters-all')">
+                  <div class="stat-value" data-week="12" data-month="12">12</div>
+                  <div class="stat-label">мастеров</div>
+                  <div class="stat-change positive" data-week="↑ +2" data-month="↑ +2">↑ +2</div>
+                </div>
+                <div class="stat-card" onclick="navigateTo('screen-users-list')">
+                  <div class="stat-value" data-week="85" data-month="412">85</div>
+                  <div class="stat-label">участников</div>
+                  <div class="stat-change positive" data-week="↑ +23" data-month="↑ +89">↑ +23</div>
+                </div>
+              </div>
+
+              <!-- Revenue -->
+              <div class="section-title">💰 Выручка</div>
+              <div class="revenue-card">
+                <div class="revenue-amount" data-week="₽847,500" data-month="₽3,245,000">₽847,500</div>
+                <div class="revenue-change" data-week="↑ +15% к прошлой неделе" data-month="↑ +12% к прошлому месяцу">↑ +15% к прошлой неделе</div>
+                <div class="revenue-link" onclick="navigateTo('screen-revenue-detail')">
+                  Баланс по мастерам →
+                </div>
+              </div>
+
+              <!-- Engagement - NOW CLICKABLE -->
+              <div class="section-title">📈 Engagement</div>
+              <div class="engagement-card">
+                <div class="metric-row" onclick="navigateTo('screen-checkin-detail')">
+                  <span class="metric-label">Check-in rate</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 78%"></div></div>
+                  <span class="metric-value">78%</span>
+                  <span class="metric-arrow">→</span>
+                </div>
+                <div class="metric-row" onclick="navigateTo('screen-feedback-detail')">
+                  <span class="metric-label">Feedback rate</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 65%"></div></div>
+                  <span class="metric-value">65%</span>
+                  <span class="metric-arrow">→</span>
+                </div>
+                <div class="metric-row" onclick="navigateTo('screen-return-detail')">
+                  <span class="metric-label">Return rate</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 42%"></div></div>
+                  <span class="metric-value">42%</span>
+                  <span class="metric-arrow">→</span>
+                </div>
+              </div>
+            </main>
+
+            <!-- BOTTOM NAVIGATION -->
+            <nav class="bottom-nav">
+              <button class="bottom-nav-item active" onclick="setBottomNav(this); navigateTo('screen-dashboard')">
+                <span class="bottom-nav-icon">📊</span>
+                <span>Дашборд</span>
+              </button>
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-masters-all')">
+                <span class="bottom-nav-icon">👥</span>
+                <span>Мастера</span>
+                <span class="bottom-nav-badge">2</span>
+              </button>
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-moderation')">
+                <span class="bottom-nav-icon">⚠️</span>
+                <span>Модерация</span>
+                <span class="bottom-nav-badge">3</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- ========== USER VIEW MODE SCREEN ========== -->
+          <div class="screen" id="screen-user-view">
+            <div class="user-mode-banner">
+              <span>👁 Режим просмотра юзера</span>
+              <button onclick="navigateTo('screen-dashboard')">Выйти</button>
+            </div>
+            <header class="header">
+              <div class="header-left">
+                <span class="header-title">VELΘ</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="section-title">📅 Ближайшие практики</div>
+              <div class="practice-card" onclick="showToast('📌 Просмотр практики — финальная точка')">
+                <div class="practice-header">
+                  <span class="practice-icon">🧘</span>
+                  <div>
+                    <div class="practice-title">Утренняя медитация</div>
+                  </div>
+                </div>
+                <div class="practice-datetime">Завтра, 07:00 · 45 мин</div>
+                <div class="practice-meta">
+                  <span>Alex Mindful</span>
+                  <span>15/20 мест</span>
+                </div>
+              </div>
+              <div class="practice-card" onclick="showToast('📌 Просмотр практики — финальная точка')">
+                <div class="practice-header">
+                  <span class="practice-icon">🌬️</span>
+                  <div>
+                    <div class="practice-title">Breathwork Intense</div>
+                  </div>
+                </div>
+                <div class="practice-datetime">24 января, 19:00 · 60 мин</div>
+                <div class="practice-meta">
+                  <span>Maria Flow</span>
+                  <span>8/15 мест</span>
+                </div>
+              </div>
+              <div class="section-title">📊 Моя статистика</div>
+              <div class="stats-grid">
+                <div class="stat-card" onclick="showToast('📌 Статистика юзера — финальная точка')">
+                  <div class="stat-value">12</div>
+                  <div class="stat-label">практик</div>
+                </div>
+                <div class="stat-card" onclick="showToast('📌 Статистика юзера — финальная точка')">
+                  <div class="stat-value">8.5ч</div>
+                  <div class="stat-label">времени</div>
+                </div>
+                <div class="stat-card" onclick="showToast('📌 Статистика юзера — финальная точка')">
+                  <div class="stat-value">4.8</div>
+                  <div class="stat-label">рейтинг</div>
+                </div>
+              </div>
+            </main>
+            <nav class="bottom-nav">
+              <button class="bottom-nav-item active">
+                <span class="bottom-nav-icon">🏠</span>
+                <span>Главная</span>
+              </button>
+              <button class="bottom-nav-item">
+                <span class="bottom-nav-icon">📅</span>
+                <span>Календарь</span>
+              </button>
+              <button class="bottom-nav-item">
+                <span class="bottom-nav-icon">📓</span>
+                <span>Дневник</span>
+              </button>
+              <button class="bottom-nav-item">
+                <span class="bottom-nav-icon">👤</span>
+                <span>Я</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- ========== CHECK-IN DETAIL SCREEN ========== -->
+          <div class="screen" id="screen-checkin-detail">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">Check-in rate</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <div class="detail-icon">✅</div>
+                  <div>
+                    <div class="detail-title">78%</div>
+                    <div class="detail-subtitle">средний check-in rate</div>
+                  </div>
+                </div>
+                <div class="detail-stats-grid">
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">312</div>
+                    <div class="detail-stat-label">всего записей</div>
+                  </div>
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">243</div>
+                    <div class="detail-stat-label">отметились</div>
+                  </div>
+                </div>
+              </div>
+              <div class="chart-placeholder">
+                <div class="chart-bars">
+                  <div class="chart-bar" style="height: 60%"></div>
+                  <div class="chart-bar" style="height: 75%"></div>
+                  <div class="chart-bar" style="height: 80%"></div>
+                  <div class="chart-bar" style="height: 70%"></div>
+                  <div class="chart-bar" style="height: 85%"></div>
+                  <div class="chart-bar" style="height: 78%"></div>
+                  <div class="chart-bar" style="height: 82%"></div>
+                </div>
+                <div class="chart-label">Пн Вт Ср Чт Пт Сб Вс</div>
+              </div>
+              <div class="section-title">📉 Низкий check-in (практики)</div>
+              <div class="detail-list-item" onclick="showToast('📌 Детали практики — финальная точка')">
+                <div class="detail-list-avatar">🧘</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Вечерняя йога</div>
+                  <div class="detail-list-meta">Elena Sunrise · 55%</div>
+                </div>
+                <span class="metric-arrow">→</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Детали практики — финальная точка')">
+                <div class="detail-list-avatar">🧠</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Mindfulness</div>
+                  <div class="detail-list-meta">Alex Mindful · 62%</div>
+                </div>
+                <span class="metric-arrow">→</span>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== FEEDBACK DETAIL SCREEN ========== -->
+          <div class="screen" id="screen-feedback-detail">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">Feedback rate</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <div class="detail-icon">💬</div>
+                  <div>
+                    <div class="detail-title">65%</div>
+                    <div class="detail-subtitle">оставляют отзыв</div>
+                  </div>
+                </div>
+                <div class="detail-stats-grid">
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">243</div>
+                    <div class="detail-stat-label">посетили</div>
+                  </div>
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">158</div>
+                    <div class="detail-stat-label">оставили отзыв</div>
+                  </div>
+                </div>
+              </div>
+              <div class="section-title">📊 Распределение оценок</div>
+              <div class="engagement-card">
+                <div class="metric-row" onclick="showToast('📌 Огонь отзывы — финальная точка')">
+                  <span class="metric-label">🔥 Огонь!</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 45%; background: var(--velo-success);"></div></div>
+                  <span class="metric-value">45%</span>
+                </div>
+                <div class="metric-row" onclick="showToast('📌 Хорошие отзывы — финальная точка')">
+                  <span class="metric-label">👍 Хорошо</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 40%;"></div></div>
+                  <span class="metric-value">40%</span>
+                </div>
+                <div class="metric-row" onclick="showToast('📌 Вопросы — финальная точка')">
+                  <span class="metric-label">❓ Вопросы</span>
+                  <div class="metric-bar"><div class="metric-fill" style="width: 15%; background: var(--velo-warning);"></div></div>
+                  <span class="metric-value">15%</span>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== RETURN RATE DETAIL SCREEN ========== -->
+          <div class="screen" id="screen-return-detail">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">Return rate</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <div class="detail-icon">🔄</div>
+                  <div>
+                    <div class="detail-title">42%</div>
+                    <div class="detail-subtitle">возвращаются повторно</div>
+                  </div>
+                </div>
+                <div class="detail-stats-grid">
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">85</div>
+                    <div class="detail-stat-label">всего юзеров</div>
+                  </div>
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">36</div>
+                    <div class="detail-stat-label">повторно</div>
+                  </div>
+                </div>
+              </div>
+              <div class="section-title">🏆 Топ лояльных юзеров</div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль юзера — финальная точка')">
+                <div class="detail-list-avatar">АК</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Анна К.</div>
+                  <div class="detail-list-meta">15 практик · 3 мастера</div>
+                </div>
+                <span class="metric-arrow">→</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль юзера — финальная точка')">
+                <div class="detail-list-avatar">МП</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Мария П.</div>
+                  <div class="detail-list-meta">12 практик · 2 мастера</div>
+                </div>
+                <span class="metric-arrow">→</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль юзера — финальная точка')">
+                <div class="detail-list-avatar">ОВ</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Ольга В.</div>
+                  <div class="detail-list-meta">10 практик · 4 мастера</div>
+                </div>
+                <span class="metric-arrow">→</span>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== USERS LIST SCREEN ========== -->
+          <div class="screen" id="screen-users-list">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">👤 Участники</span>
+                <span class="header-badge">85</span>
+              </div>
+            </header>
+
+            <div class="tabs-row">
+              <button class="tab-btn active" onclick="setUsersTab(this, 'all')">Все 85</button>
+              <button class="tab-btn" onclick="setUsersTab(this, 'new')">Новые 23</button>
+              <button class="tab-btn" onclick="setUsersTab(this, 'active')">Активные 52</button>
+            </div>
+
+            <main class="main" style="padding-top: var(--space-3);">
+              <!-- All users content -->
+              <div id="users-content-all">
+                <div class="user-card">
+                  <div class="user-avatar">АК</div>
+                  <div class="user-info">
+                    <div class="user-name">Анна К.</div>
+                    <div class="user-email">anna.k@email.com</div>
+                    <div class="user-meta">Практик: 8 · С: Дек 2025</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат с Анна К.')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">СМ</div>
+                  <div class="user-info">
+                    <div class="user-name">Сергей М.</div>
+                    <div class="user-email">sergey.m@email.com</div>
+                    <div class="user-meta">Практик: 3 · С: Янв 2026</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат с Сергей М.')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">МП</div>
+                  <div class="user-info">
+                    <div class="user-name">Мария П.</div>
+                    <div class="user-email">maria.p@email.com</div>
+                    <div class="user-meta">Практик: 12 · С: Ноя 2025</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат с Мария П.')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">ДК</div>
+                  <div class="user-info">
+                    <div class="user-name">Дмитрий К.</div>
+                    <div class="user-email">dmitry.k@email.com</div>
+                    <div class="user-meta">Практик: 5 · С: Дек 2025</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат с Дмитрий К.')">💬</button>
+                </div>
+                <button class="load-more-btn" onclick="showToast('Загружено ещё 10 участников')">Показать ещё...</button>
+              </div>
+
+              <!-- New users content -->
+              <div id="users-content-new" style="display: none;">
+                <div class="user-card">
+                  <div class="user-avatar">СМ</div>
+                  <div class="user-info">
+                    <div class="user-name">Сергей М.</div>
+                    <div class="user-email">sergey.m@email.com</div>
+                    <div class="user-meta">Практик: 3 · С: Янв 2026</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">ИН</div>
+                  <div class="user-info">
+                    <div class="user-name">Ирина Н.</div>
+                    <div class="user-email">irina.n@email.com</div>
+                    <div class="user-meta">Практик: 1 · С: Янв 2026</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">АВ</div>
+                  <div class="user-info">
+                    <div class="user-name">Алексей В.</div>
+                    <div class="user-email">alex.v@email.com</div>
+                    <div class="user-meta">Практик: 2 · С: Янв 2026</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+              </div>
+
+              <!-- Active users content -->
+              <div id="users-content-active" style="display: none;">
+                <div class="user-card">
+                  <div class="user-avatar">АК</div>
+                  <div class="user-info">
+                    <div class="user-name">Анна К.</div>
+                    <div class="user-email">anna.k@email.com</div>
+                    <div class="user-meta">Практик: 8 · Последняя: вчера</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">МП</div>
+                  <div class="user-info">
+                    <div class="user-name">Мария П.</div>
+                    <div class="user-email">maria.p@email.com</div>
+                    <div class="user-meta">Практик: 12 · Последняя: сегодня</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+                <div class="user-card">
+                  <div class="user-avatar">ОВ</div>
+                  <div class="user-info">
+                    <div class="user-name">Ольга В.</div>
+                    <div class="user-email">olga.v@email.com</div>
+                    <div class="user-meta">Практик: 15 · Последняя: вчера</div>
+                  </div>
+                  <button class="user-action-btn" onclick="event.stopPropagation(); showToast('Открыт чат')">💬</button>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== PRACTICES LIST SCREEN ========== -->
+          <div class="screen" id="screen-practices-list">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">📅 Практики</span>
+                <span class="header-badge">47</span>
+              </div>
+            </header>
+
+            <div class="tabs-row">
+              <button class="tab-btn active" onclick="setPracticesTab(this, 'all')">Все 47</button>
+              <button class="tab-btn" onclick="setPracticesTab(this, 'upcoming')">Предстоящие 15</button>
+              <button class="tab-btn" onclick="setPracticesTab(this, 'past')">Прошедшие 32</button>
+            </div>
+
+            <main class="main" style="padding-top: var(--space-3);">
+              <!-- All practices -->
+              <div id="practices-content-all">
+                <div class="practice-card" onclick="navigateTo('screen-practice-detail-upcoming')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🧘</span>
+                    <div>
+                      <div class="practice-title">Утренняя медитация <span class="practice-badge upcoming">Скоро</span></div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">Завтра, 07:00 · 45 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Alex Mindful</span>
+                    <span class="practice-spots">15/20 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="navigateTo('screen-practice-detail-past')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🧠</span>
+                    <div>
+                      <div class="practice-title">Mindfulness <span class="practice-badge past">Завершена</span></div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">22 января, 10:00 · 30 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Alex Mindful</span>
+                    <span class="practice-spots full">20/20 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="showToast('📌 Детали практики — финальная точка')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🌬️</span>
+                    <div>
+                      <div class="practice-title">Breathwork <span class="practice-badge upcoming">Скоро</span></div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">24 января, 19:00 · 60 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Maria Flow</span>
+                    <span class="practice-spots">8/15 мест</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Upcoming practices -->
+              <div id="practices-content-upcoming" style="display: none;">
+                <div class="practice-card" onclick="navigateTo('screen-practice-detail-upcoming')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🧘</span>
+                    <div>
+                      <div class="practice-title">Утренняя медитация</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">Завтра, 07:00 · 45 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Alex Mindful</span>
+                    <span class="practice-spots">15/20 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="showToast('📌 Детали практики — финальная точка')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🌬️</span>
+                    <div>
+                      <div class="practice-title">Breathwork Intense</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">24 января, 19:00 · 60 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Maria Flow</span>
+                    <span class="practice-spots">8/15 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="showToast('📌 Детали практики — финальная точка')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🧘</span>
+                    <div>
+                      <div class="practice-title">Вечерняя йога</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">25 января, 20:00 · 75 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Elena Sunrise</span>
+                    <span class="practice-spots">12/20 мест</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Past practices -->
+              <div id="practices-content-past" style="display: none;">
+                <div class="practice-card" onclick="navigateTo('screen-practice-detail-past')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🧠</span>
+                    <div>
+                      <div class="practice-title">Mindfulness для начинающих</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">22 января, 10:00 · 30 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Alex Mindful</span>
+                    <span class="practice-spots full">20/20 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="showToast('📌 Детали практики — финальная точка')">
+                  <div class="practice-header">
+                    <span class="practice-icon">💨</span>
+                    <div>
+                      <div class="practice-title">Пранаяма</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">21 января, 18:00 · 45 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Elena Sunrise</span>
+                    <span class="practice-spots">18/20 мест</span>
+                  </div>
+                </div>
+                <div class="practice-card" onclick="showToast('📌 Детали практики — финальная точка')">
+                  <div class="practice-header">
+                    <span class="practice-icon">🌙</span>
+                    <div>
+                      <div class="practice-title">Глубокая медитация</div>
+                    </div>
+                  </div>
+                  <div class="practice-datetime">20 января, 21:00 · 60 мин</div>
+                  <div class="practice-meta">
+                    <span class="practice-master">Ivan Kalm</span>
+                    <span class="practice-spots">14/15 мест</span>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== PRACTICE DETAIL - UPCOMING ========== -->
+          <div class="screen" id="screen-practice-detail-upcoming">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-practices-list')">←</button>
+                <span class="header-title">Детали практики</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <div class="detail-icon">🧘</div>
+                  <div>
+                    <div class="detail-title">Утренняя медитация</div>
+                    <div class="detail-subtitle">Alex Mindful · Завтра, 07:00</div>
+                  </div>
+                </div>
+                <div class="detail-stats-grid">
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">15</div>
+                    <div class="detail-stat-label">записались</div>
+                  </div>
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">5</div>
+                    <div class="detail-stat-label">свободно</div>
+                  </div>
+                </div>
+              </div>
+              <div class="section-title">👥 Записались (15)</div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">АК</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Анна К.</div>
+                  <div class="detail-list-meta">Записалась вчера</div>
+                </div>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">МП</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Мария П.</div>
+                  <div class="detail-list-meta">Записалась 2 дня назад</div>
+                </div>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">СМ</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Сергей М.</div>
+                  <div class="detail-list-meta">Записался сегодня</div>
+                </div>
+              </div>
+              <button class="load-more-btn" onclick="showToast('Показано ещё 12 участников')">Показать всех (15)...</button>
+            </main>
+          </div>
+
+          <!-- ========== PRACTICE DETAIL - PAST ========== -->
+          <div class="screen" id="screen-practice-detail-past">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-practices-list')">←</button>
+                <span class="header-title">Детали практики</span>
+              </div>
+            </header>
+            <main class="main">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <div class="detail-icon">🧠</div>
+                  <div>
+                    <div class="detail-title">Mindfulness для начинающих</div>
+                    <div class="detail-subtitle">Alex Mindful · 22 января, 10:00</div>
+                  </div>
+                </div>
+                <div class="detail-stats-grid">
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">20</div>
+                    <div class="detail-stat-label">записались</div>
+                  </div>
+                  <div class="detail-stat">
+                    <div class="detail-stat-value">18</div>
+                    <div class="detail-stat-label">пришли</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-title">✅ Присутствовали (18)</div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">АК</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Анна К.</div>
+                  <div class="detail-list-meta">Check-in: 09:55</div>
+                </div>
+                <span class="detail-list-badge present">✓</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">МП</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Мария П.</div>
+                  <div class="detail-list-meta">Check-in: 09:58</div>
+                </div>
+                <span class="detail-list-badge present">✓</span>
+              </div>
+              <button class="load-more-btn" onclick="showToast('Показано ещё 16 участников')">Показать всех (18)...</button>
+
+              <div class="section-title" style="margin-top: var(--space-4);">❌ Не пришли (2)</div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">ДК</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Дмитрий К.</div>
+                  <div class="detail-list-meta">Не отметился</div>
+                </div>
+                <span class="detail-list-badge absent">✗</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Профиль участника — финальная точка')">
+                <div class="detail-list-avatar">ИН</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Ирина Н.</div>
+                  <div class="detail-list-meta">Не отметилась</div>
+                </div>
+                <span class="detail-list-badge absent">✗</span>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== MASTERS ALL SCREEN ========== -->
+          <div class="screen" id="screen-masters-all">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">👥 Мастера</span>
+                <span class="header-badge">12</span>
+              </div>
+            </header>
+
+            <div class="tabs-row">
+              <button class="tab-btn active" onclick="setMasterTab(this, 'all')">Все 12</button>
+              <button class="tab-btn" onclick="navigateTo('screen-masters-pending')">На проверке 2</button>
+              <button class="tab-btn" onclick="setMasterTab(this, 'verified')">Верифицированы 10</button>
+            </div>
+
+            <main class="main" style="padding-top: var(--space-3);">
+              <div class="master-card" onclick="showToast('📌 Профиль мастера Alex — финальная точка')">
+                <div class="master-header">
+                  <div class="master-avatar">AM</div>
+                  <div class="master-info">
+                    <div class="master-name">Alex Mindful</div>
+                    <span class="master-status verified">✓ Верифицирован</span>
+                  </div>
+                </div>
+                <div class="master-methods">медитация, mindfulness</div>
+                <div class="master-stats">
+                  <span>Практик: 47</span>
+                  <span>·</span>
+                  <span>Участн.: 312</span>
+                </div>
+                <div class="master-balance">
+                  <span class="master-balance-label">К выводу:</span>
+                  <span class="master-balance-value">₽24,300 <span class="master-arrow">→</span></span>
+                </div>
+              </div>
+
+              <div class="master-card" onclick="showToast('📌 Профиль мастера Maria — финальная точка')">
+                <div class="master-header">
+                  <div class="master-avatar">MF</div>
+                  <div class="master-info">
+                    <div class="master-name">Maria Flow</div>
+                    <span class="master-status verified">✓ Верифицирован</span>
+                  </div>
+                </div>
+                <div class="master-methods">breathwork, холотропное</div>
+                <div class="master-stats">
+                  <span>Практик: 32</span>
+                  <span>·</span>
+                  <span>Участн.: 198</span>
+                </div>
+                <div class="master-balance">
+                  <span class="master-balance-label">К выводу:</span>
+                  <span class="master-balance-value">₽15,000 <span class="master-arrow">→</span></span>
+                </div>
+              </div>
+
+              <div class="master-card" onclick="navigateTo('screen-master-review')">
+                <div class="master-header">
+                  <div class="master-avatar" style="background: var(--velo-warning);">DT</div>
+                  <div class="master-info">
+                    <div class="master-name">Dmitry Test</div>
+                    <span class="master-status pending">⏳ Ожидает</span>
+                  </div>
+                </div>
+                <div class="master-methods">йога, хатха</div>
+                <div class="master-experience">Опыт: 3 года</div>
+                <div class="master-time">
+                  <span class="master-time-label">Заявка: 2 часа назад</span>
+                  <span class="master-arrow">→</span>
+                </div>
+              </div>
+            </main>
+
+            <nav class="bottom-nav">
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-dashboard')">
+                <span class="bottom-nav-icon">📊</span>
+                <span>Дашборд</span>
+              </button>
+              <button class="bottom-nav-item active" onclick="setBottomNav(this)">
+                <span class="bottom-nav-icon">👥</span>
+                <span>Мастера</span>
+                <span class="bottom-nav-badge">2</span>
+              </button>
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-moderation')">
+                <span class="bottom-nav-icon">⚠️</span>
+                <span>Модерация</span>
+                <span class="bottom-nav-badge">3</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- ========== MASTERS PENDING SCREEN ========== -->
+          <div class="screen" id="screen-masters-pending">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-masters-all')">←</button>
+                <span class="header-title">👥 На проверке</span>
+                <span class="header-badge">2</span>
+              </div>
+            </header>
+
+            <main class="main">
+              <div class="master-card" onclick="navigateTo('screen-master-review')">
+                <div class="master-header">
+                  <div class="master-avatar" style="background: var(--velo-warning);">DT</div>
+                  <div class="master-info">
+                    <div class="master-name">Dmitry Test</div>
+                    <span class="master-status pending">⏳ Ожидает верификации</span>
+                  </div>
+                </div>
+                <div class="master-methods">йога, хатха</div>
+                <div class="master-experience">Опыт: 3 года</div>
+                <div class="master-time">
+                  <span class="master-time-label">Заявка: 2 часа назад</span>
+                  <span class="master-arrow">→</span>
+                </div>
+              </div>
+
+              <div class="master-card" onclick="showToast('📌 Olga Breath — финальная точка')">
+                <div class="master-header">
+                  <div class="master-avatar" style="background: var(--velo-warning);">OB</div>
+                  <div class="master-info">
+                    <div class="master-name">Olga Breath</div>
+                    <span class="master-status pending">⏳ Ожидает верификации</span>
+                  </div>
+                </div>
+                <div class="master-methods">breathwork</div>
+                <div class="master-experience">Опыт: 5 лет</div>
+                <div class="master-time">
+                  <span class="master-time-label">Заявка: вчера</span>
+                  <span class="master-arrow">→</span>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== MASTER REVIEW SCREEN ========== -->
+          <div class="screen" id="screen-master-review">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-masters-pending')">←</button>
+                <span class="header-title">Заявка мастера</span>
+              </div>
+            </header>
+
+            <main class="main">
+              <div class="detail-card">
+                <div style="text-align: center; font-size: 64px; margin-bottom: var(--space-3);">👤</div>
+                <div style="text-align: center;">
+                  <div class="detail-title">Dmitry Test</div>
+                  <div class="detail-subtitle">dmitry.test@email.com</div>
+                </div>
+              </div>
+
+              <div class="section-title">📋 Информация</div>
+              <div style="background: white; border: var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-4); margin-bottom: var(--space-4);">
+                <div style="margin-bottom: var(--space-3);">
+                  <div style="font-size: 12px; color: var(--text-muted);">Направление</div>
+                  <div style="font-size: 14px; color: var(--text-primary);">йога, хатха</div>
+                </div>
+                <div style="margin-bottom: var(--space-3);">
+                  <div style="font-size: 12px; color: var(--text-muted);">Опыт</div>
+                  <div style="font-size: 14px; color: var(--text-primary);">3 года</div>
+                </div>
+                <div style="margin-bottom: var(--space-3);">
+                  <div style="font-size: 12px; color: var(--text-muted);">Язык практик</div>
+                  <div style="font-size: 14px; color: var(--text-primary);">Русский</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted);">О себе</div>
+                  <div style="font-size: 14px; color: var(--text-primary); line-height: 1.5;">Практикую и преподаю йогу 3 года. Сертифицированный инструктор хатха-йоги.</div>
+                </div>
+              </div>
+
+              <div class="section-title">📄 Документы</div>
+              <div class="detail-list-item" onclick="showToast('Документ открыт')">
+                <span>📄</span>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">yoga_certificate.pdf</div>
+                </div>
+                <span>👁</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('Документ открыт')">
+                <span>🖼</span>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">profile_photo.jpg</div>
+                </div>
+                <span>👁</span>
+              </div>
+
+              <div style="display: flex; gap: var(--space-3); margin-top: var(--space-5);">
+                <button class="btn btn-secondary" style="flex: 1;" onclick="showToast('Заявка отклонена')">Отклонить</button>
+                <button class="btn btn-primary" style="flex: 1;" onclick="showToast('Мастер верифицирован ✓'); setTimeout(() => navigateTo('screen-masters-pending'), 800);">Одобрить</button>
+              </div>
+            </main>
+          </div>
+
+          <!-- ========== MODERATION SCREEN ========== -->
+          <div class="screen" id="screen-moderation">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">⚠️ Модерация</span>
+                <span class="header-badge">3</span>
+              </div>
+            </header>
+
+            <div class="tabs-row">
+              <button class="tab-btn active">Все 3</button>
+              <button class="tab-btn" onclick="showToast('📌 Жалобы — финальная точка')">Жалобы 1</button>
+              <button class="tab-btn" onclick="showToast('📌 Платежи — финальная точка')">Платежи 2</button>
+            </div>
+
+            <main class="main" style="padding-top: var(--space-3);">
+              <div class="alert-card" onclick="showToast('📌 Жалоба на практику — финальная точка')">
+                <div class="alert-dot red"></div>
+                <div class="alert-content">
+                  <div class="alert-text">Жалоба на практику</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Maria Flow · 2 часа назад</div>
+                </div>
+                <div class="alert-arrow">→</div>
+              </div>
+              <div class="alert-card" onclick="showToast('📌 Проблема с оплатой — финальная точка')">
+                <div class="alert-dot orange"></div>
+                <div class="alert-content">
+                  <div class="alert-text">Проблема с оплатой</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Анна К. · 5 часов назад</div>
+                </div>
+                <div class="alert-arrow">→</div>
+              </div>
+              <div class="alert-card" onclick="showToast('📌 Проблема с выводом — финальная точка')">
+                <div class="alert-dot orange"></div>
+                <div class="alert-content">
+                  <div class="alert-text">Проблема с выводом</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Elena Sunrise · вчера</div>
+                </div>
+                <div class="alert-arrow">→</div>
+              </div>
+            </main>
+
+            <nav class="bottom-nav">
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-dashboard')">
+                <span class="bottom-nav-icon">📊</span>
+                <span>Дашборд</span>
+              </button>
+              <button class="bottom-nav-item" onclick="setBottomNav(this); navigateTo('screen-masters-all')">
+                <span class="bottom-nav-icon">👥</span>
+                <span>Мастера</span>
+                <span class="bottom-nav-badge">2</span>
+              </button>
+              <button class="bottom-nav-item active" onclick="setBottomNav(this)">
+                <span class="bottom-nav-icon">⚠️</span>
+                <span>Модерация</span>
+                <span class="bottom-nav-badge">3</span>
+              </button>
+            </nav>
+          </div>
+
+          <!-- ========== REVENUE DETAIL SCREEN ========== -->
+          <div class="screen" id="screen-revenue-detail">
+            <header class="header">
+              <div class="header-left">
+                <button class="back-btn" onclick="navigateTo('screen-dashboard')">←</button>
+                <span class="header-title">💰 Выручка</span>
+              </div>
+            </header>
+
+            <main class="main">
+              <div class="detail-card">
+                <div style="margin-bottom: var(--space-3);">
+                  <div style="font-size: 12px; color: var(--text-muted);">Выручка за месяц</div>
+                  <div style="font-size: 28px; font-weight: 700; color: var(--velo-primary);">₽3,245,000</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding-top: var(--space-3); border-top: var(--border-subtle);">
+                  <div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Комиссия (10%)</div>
+                    <div style="font-size: 16px; font-weight: 600; color: var(--velo-success);">₽324,500</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: var(--text-muted);">К выводу</div>
+                    <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);">₽2,920,500</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="section-title">👥 Балансы мастеров</div>
+              <div class="detail-list-item" onclick="showToast('📌 Баланс Alex — финальная точка')">
+                <div class="detail-list-avatar" style="background: var(--velo-primary); color: white;">AM</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Alex Mindful</div>
+                  <div class="detail-list-meta">Заработано: ₽125,000</div>
+                </div>
+                <span style="font-weight: 600; color: var(--velo-primary);">₽24,300</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Баланс Maria — финальная точка')">
+                <div class="detail-list-avatar" style="background: var(--velo-primary); color: white;">MF</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Maria Flow</div>
+                  <div class="detail-list-meta">Заработано: ₽98,000</div>
+                </div>
+                <span style="font-weight: 600; color: var(--velo-primary);">₽15,000</span>
+              </div>
+              <div class="detail-list-item" onclick="showToast('📌 Баланс Elena — финальная точка')">
+                <div class="detail-list-avatar" style="background: var(--velo-primary); color: white;">ES</div>
+                <div class="detail-list-info">
+                  <div class="detail-list-name">Elena Sunrise</div>
+                  <div class="detail-list-meta">Заработано: ₽87,000</div>
+                </div>
+                <span style="font-weight: 600; color: var(--velo-primary);">₽12,500</span>
+              </div>
+            </main>
+          </div>
+
+        </div>
+        <!-- ========== END MOCKUP CONTENT ========== -->
+
+      </div>
+      <div class="device-home-indicator"></div>
+    </div>
+  </div>
+
+  <!-- ========== TOAST ========== -->
+  <div class="toast-container">
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <!-- ========== NAVIGATION MAP POPUP ========== -->
+  <div class="nav-map-overlay" id="navMapOverlay" onclick="closeNavMapOnOverlay(event)">
+    <div class="nav-map" onclick="event.stopPropagation()">
+      <div class="nav-map-header">
+        <div class="nav-map-title">📍 Navigation Map</div>
+        <button class="nav-map-close" onclick="closeNavMap()">×</button>
+      </div>
+      <div class="nav-map-body">
+        <!-- Stats -->
+        <div class="nav-map-stats">
+          <div class="nav-map-stat">
+            <div class="nav-map-stat-value">15</div>
+            <div class="nav-map-stat-label">экранов</div>
+          </div>
+          <div class="nav-map-stat">
+            <div class="nav-map-stat-value">4</div>
+            <div class="nav-map-stat-label">полных путей</div>
+          </div>
+          <div class="nav-map-stat">
+            <div class="nav-map-stat-value">37</div>
+            <div class="nav-map-stat-label">финальных точек</div>
+          </div>
+        </div>
+
+        <!-- Legend: Светофор -->
+        <div class="nav-map-legend">
+          <div class="nav-map-legend-item">
+            <span class="legend-dot green"></span> Экран
+          </div>
+          <div class="nav-map-legend-item">
+            <span class="legend-dot yellow"></span> Табы
+          </div>
+          <div class="nav-map-legend-item">
+            <span class="legend-dot red"></span> Тупик
+          </div>
+        </div>
+
+        <!-- Tree -->
+        <div class="nav-map-tree">
+          <!-- L0: Login (вне секций) -->
+          <div class="nav-map-level" data-level="0">
+            <div class="nav-map-item screen-item" onclick="navMapGo('screen-login')">
+              <span class="nav-map-item-icon">🔐</span>
+              <span class="nav-map-item-name">Login</span>
+              <span class="level-badge">L0</span>
+              <span class="status-dot green"></span>
+            </div>
+          </div>
+
+          <!-- ДАШБОРД (5) -->
+          <div class="nav-map-section collapsed">
+            <div class="nav-map-section-title" onclick="toggleSection(this)">
+              <span class="section-info">📊 ДАШБОРД <span class="section-count">(5)</span></span>
+              <span class="section-arrow">▼</span>
+            </div>
+            <div class="nav-map-section-content">
+              <div class="nav-map-level" data-level="1">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-dashboard')">
+                  <span class="nav-map-item-icon">📊</span>
+                  <span class="nav-map-item-name">Dashboard</span>
+                  <span class="level-badge hub">HUB</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-checkin-detail')">
+                  <span class="nav-map-item-icon">✅</span>
+                  <span class="nav-map-item-name">Check-in rate</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-feedback-detail')">
+                  <span class="nav-map-item-icon">💬</span>
+                  <span class="nav-map-item-name">Feedback rate</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-return-detail')">
+                  <span class="nav-map-item-icon">🔄</span>
+                  <span class="nav-map-item-name">Return rate</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-user-view')">
+                  <span class="nav-map-item-icon">👁</span>
+                  <span class="nav-map-item-name">Режим юзера</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- УЧАСТНИКИ И ПРАКТИКИ (10) -->
+          <div class="nav-map-section collapsed">
+            <div class="nav-map-section-title" onclick="toggleSection(this)">
+              <span class="section-info">👥 УЧАСТНИКИ И ПРАКТИКИ <span class="section-count">(10)</span></span>
+              <span class="section-arrow">▼</span>
+            </div>
+            <div class="nav-map-section-content">
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-users-list')">
+                  <span class="nav-map-item-icon">👤</span>
+                  <span class="nav-map-item-name">Участники</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item tab-item" onclick="navMapTab('Новые', 'screen-users-list')">
+                  <span class="nav-map-item-name">↳ Таб: Новые</span>
+                  <span class="level-badge tab">TAB</span>
+                  <span class="status-dot yellow"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item tab-item" onclick="navMapTab('Активные', 'screen-users-list')">
+                  <span class="nav-map-item-name">↳ Таб: Активные</span>
+                  <span class="level-badge tab">TAB</span>
+                  <span class="status-dot yellow"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-practices-list')">
+                  <span class="nav-map-item-icon">📅</span>
+                  <span class="nav-map-item-name">Практики</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item tab-item" onclick="navMapTab('Предстоящие', 'screen-practices-list')">
+                  <span class="nav-map-item-name">↳ Таб: Предстоящие</span>
+                  <span class="level-badge tab">TAB</span>
+                  <span class="status-dot yellow"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item tab-item" onclick="navMapTab('Прошедшие', 'screen-practices-list')">
+                  <span class="nav-map-item-name">↳ Таб: Прошедшие</span>
+                  <span class="level-badge tab">TAB</span>
+                  <span class="status-dot yellow"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-practice-detail-upcoming')">
+                  <span class="nav-map-item-icon">📅</span>
+                  <span class="nav-map-item-name">↳ Детали предстоящей</span>
+                  <span class="level-badge">L3</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-practice-detail-past')">
+                  <span class="nav-map-item-icon">📅</span>
+                  <span class="nav-map-item-name">↳ Детали прошедшей</span>
+                  <span class="level-badge">L3</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="4">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Присутствовали', 'screen-practice-detail-past')">
+                  <span class="nav-map-item-name">↳ Присутствовали (список)</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="4">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Не пришли', 'screen-practice-detail-past')">
+                  <span class="nav-map-item-name">↳ Не пришли (список)</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- МАСТЕРА (4) -->
+          <div class="nav-map-section collapsed">
+            <div class="nav-map-section-title" onclick="toggleSection(this)">
+              <span class="section-info">👥 МАСТЕРА <span class="section-count">(4)</span></span>
+              <span class="section-arrow">▼</span>
+            </div>
+            <div class="nav-map-section-content">
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-masters-all')">
+                  <span class="nav-map-item-icon">👥</span>
+                  <span class="nav-map-item-name">Все мастера</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Профиль мастера', 'screen-masters-all')">
+                  <span class="nav-map-item-name">↳ Профиль мастера</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-masters-pending')">
+                  <span class="nav-map-item-icon">⏳</span>
+                  <span class="nav-map-item-name">↳ На проверке</span>
+                  <span class="level-badge">L3</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="4">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-master-review')">
+                  <span class="nav-map-item-icon">📋</span>
+                  <span class="nav-map-item-name">↳ Заявка мастера</span>
+                  <span class="level-badge">L4</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- МОДЕРАЦИЯ (3) -->
+          <div class="nav-map-section collapsed">
+            <div class="nav-map-section-title" onclick="toggleSection(this)">
+              <span class="section-info">⚠️ МОДЕРАЦИЯ <span class="section-count">(3)</span></span>
+              <span class="section-arrow">▼</span>
+            </div>
+            <div class="nav-map-section-content">
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-moderation')">
+                  <span class="nav-map-item-icon">⚠️</span>
+                  <span class="nav-map-item-name">Модерация</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Жалоба', 'screen-moderation')">
+                  <span class="nav-map-item-name">↳ Жалоба (детали)</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Проблема с оплатой', 'screen-moderation')">
+                  <span class="nav-map-item-name">↳ Проблема с оплатой</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ФИНАНСЫ (2) -->
+          <div class="nav-map-section collapsed">
+            <div class="nav-map-section-title" onclick="toggleSection(this)">
+              <span class="section-info">💰 ФИНАНСЫ <span class="section-count">(2)</span></span>
+              <span class="section-arrow">▼</span>
+            </div>
+            <div class="nav-map-section-content">
+              <div class="nav-map-level" data-level="2">
+                <div class="nav-map-item screen-item" onclick="navMapGo('screen-revenue-detail')">
+                  <span class="nav-map-item-icon">💰</span>
+                  <span class="nav-map-item-name">Выручка и балансы</span>
+                  <span class="level-badge">L2</span>
+                  <span class="status-dot green"></span>
+                </div>
+              </div>
+              <div class="nav-map-level" data-level="3">
+                <div class="nav-map-item endpoint-item" onclick="navMapEndpoint('Баланс мастера', 'screen-revenue-detail')">
+                  <span class="nav-map-item-name">↳ Баланс мастера (детали)</span>
+                  <span class="level-badge end">END</span>
+                  <span class="status-dot red"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========== DEVICE PREVIEW CONTROLLER ==========
+    const DevicePreview = {
+      devices: {
+        phone:   { width: 390,  height: 844,  label: 'Phone' },
+        tablet:  { width: 820,  height: 600,  label: 'Tablet' },
+        desktop: { width: 1280, height: 800,  label: 'Desktop' }
+      },
+      currentDevice: 'phone',
+      currentZoom: 100,
+      frame: null,
+      screen: null,
+
+      init() {
+        this.frame = document.getElementById('deviceFrame');
+        this.screen = document.getElementById('deviceScreen');
+        
+        document.querySelectorAll('[data-device]').forEach(btn => {
+          btn.addEventListener('click', () => this.setDevice(btn.dataset.device));
+        });
+        
+        document.querySelectorAll('[data-zoom]').forEach(btn => {
+          btn.addEventListener('click', () => this.changeZoom(parseInt(btn.dataset.zoom)));
+        });
+        
+        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+        this.setDevice('phone');
+      },
+
+      setDevice(type) {
+        if (!this.devices[type]) return;
+        this.currentDevice = type;
+        
+        this.frame.className = 'device-frame ' + type;
+        
+        document.querySelectorAll('[data-device]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.device === type);
+        });
+        
+        const resetScroll = () => {
+          this.screen.scrollTop = 0;
+          this.screen.scrollTo({ top: 0, behavior: 'instant' });
+        };
+        resetScroll();
+        requestAnimationFrame(resetScroll);
+        setTimeout(resetScroll, 100);
+        setTimeout(resetScroll, 400);
+      },
+
+      changeZoom(delta) {
+        this.currentZoom = Math.min(150, Math.max(50, this.currentZoom + delta));
+        this.frame.style.transform = `scale(${this.currentZoom / 100})`;
+        this.frame.style.transformOrigin = 'center top';
+        
+        const zoomEl = document.querySelector('.zoom-value');
+        if (zoomEl) zoomEl.textContent = this.currentZoom + '%';
+      },
+
+      handleKeyboard(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        switch(e.key) {
+          case '1': this.setDevice('phone'); break;
+          case '2': this.setDevice('tablet'); break;
+          case '3': this.setDevice('desktop'); break;
+          case '+': case '=': this.changeZoom(10); break;
+          case '-': this.changeZoom(-10); break;
+          case '0': this.currentZoom = 100; this.changeZoom(0); break;
+        }
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => DevicePreview.init());
+
+    // ========== NAVIGATION ==========
+    function navigateTo(screenId) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(screenId).classList.add('active');
+      
+      const screen = document.getElementById('deviceScreen');
+      screen.scrollTop = 0;
+      screen.scrollTo({ top: 0, behavior: 'instant' });
+      requestAnimationFrame(() => screen.scrollTop = 0);
+    }
+
+    function setBottomNav(btn) {
+      const nav = btn.closest('.bottom-nav');
+      nav.querySelectorAll('.bottom-nav-item').forEach(item => item.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    // ========== PERIOD SWITCHER ==========
+    let currentPeriod = 'week';
+    let periodOffset = 0;
+
+    const periodLabels = {
+      week: ['6-12 янв', '13-19 янв', '20-26 янв'],
+      month: ['Декабрь', 'Январь', 'Февраль']
+    };
+
+    function setPeriod(btn, period) {
+      currentPeriod = period;
+      periodOffset = 1; // Reset to current
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updatePeriodLabel();
+
+      document.querySelectorAll('[data-week]').forEach(el => {
+        const value = period === 'week' ? el.dataset.week : el.dataset.month;
+        if (value) el.textContent = value;
+      });
+
+      showToast(period === 'week' ? 'Показаны данные за неделю' : 'Показаны данные за месяц');
+    }
+
+    function navigatePeriod(direction) {
+      if (direction === 'prev') {
+        periodOffset = Math.max(0, periodOffset - 1);
+      } else {
+        periodOffset = Math.min(2, periodOffset + 1);
+      }
+      updatePeriodLabel();
+      showToast('Период изменён');
+    }
+
+    function updatePeriodLabel() {
+      const label = periodLabels[currentPeriod][periodOffset];
+      document.getElementById('period-label').textContent = label;
+    }
+
+    // ========== LOGIN ==========
+    function handleLogin() {
+      showToast('Вход выполнен ✓');
+      setTimeout(() => navigateTo('screen-dashboard'), 800);
+    }
+
+    // ========== TABS ==========
+    function setMasterTab(btn, tab) {
+      document.querySelectorAll('.tabs-row .tab-btn').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function setUsersTab(btn, tab) {
+      document.querySelectorAll('#screen-users-list .tabs-row .tab-btn').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      
+      document.getElementById('users-content-all').style.display = tab === 'all' ? 'block' : 'none';
+      document.getElementById('users-content-new').style.display = tab === 'new' ? 'block' : 'none';
+      document.getElementById('users-content-active').style.display = tab === 'active' ? 'block' : 'none';
+      
+      showToast(tab === 'all' ? 'Все участники' : tab === 'new' ? 'Новые участники' : 'Активные участники');
+    }
+
+    function setPracticesTab(btn, tab) {
+      document.querySelectorAll('#screen-practices-list .tabs-row .tab-btn').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      
+      document.getElementById('practices-content-all').style.display = tab === 'all' ? 'block' : 'none';
+      document.getElementById('practices-content-upcoming').style.display = tab === 'upcoming' ? 'block' : 'none';
+      document.getElementById('practices-content-past').style.display = tab === 'past' ? 'block' : 'none';
+      
+      showToast(tab === 'all' ? 'Все практики' : tab === 'upcoming' ? 'Предстоящие практики' : 'Прошедшие практики');
+    }
+
+    // ========== TOAST ==========
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // ========== NAVIGATION MAP ==========
+    function openNavMap() {
+      document.getElementById('navMapOverlay').classList.add('active');
+    }
+
+    function closeNavMap() {
+      document.getElementById('navMapOverlay').classList.remove('active');
+    }
+
+    function closeNavMapOnOverlay(e) {
+      if (e.target.id === 'navMapOverlay') {
+        closeNavMap();
+      }
+    }
+
+    function navMapGo(screenId) {
+      closeNavMap();
+      navigateTo(screenId);
+      showToast('→ ' + screenId.replace('screen-', ''));
+    }
+
+    function navMapEndpoint(name, parentScreen) {
+      closeNavMap();
+      if (parentScreen) {
+        navigateTo(parentScreen);
+      }
+      setTimeout(() => {
+        showToast('📌 ' + name + ' — финальная точка');
+      }, 300);
+    }
+
+    // Navigate to tab (shows parent screen + tab message)
+    function navMapTab(name, parentScreen) {
+      closeNavMap();
+      if (parentScreen) {
+        navigateTo(parentScreen);
+      }
+      setTimeout(() => {
+        showToast('🟡 Таб "' + name + '" — переключает контент');
+      }, 300);
+    }
+
+    // Toggle section collapse
+    function toggleSection(titleEl) {
+      const section = titleEl.parentElement;
+      section.classList.toggle('collapsed');
+    }
+  </script>
+</body>
+</html>
