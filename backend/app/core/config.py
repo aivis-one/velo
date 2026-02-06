@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     # -- Redis --
     redis_url: str = "redis://localhost:6379/0"
 
+    # -- CORS --
+    # Comma-separated list of allowed origins.
+    # "*" for development, specific domains for production.
+    cors_origins: str = "*"
+
     # -- Security --
     secret_key: str = "change-me-in-production-use-secrets-token-urlsafe"
 

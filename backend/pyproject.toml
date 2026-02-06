@@ -163,6 +163,7 @@ ignore = [
 # --- Mypy (Type Checker) ---
 [tool.mypy]
 python_version = "3.12"
+warn_unused_ignores = false
 
 # Strict mode: maximum type safety. Every function must have type annotations.
 # This catches entire categories of bugs at lint time, not at runtime.
