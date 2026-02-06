@@ -1,0 +1,195 @@
+# =============================================================================
+# VELO Backend — Project Configuration
+# =============================================================================
+#
+# This is the single source of truth for the entire project setup.
+# Before pyproject.toml existed, Python projects needed 5+ config files:
+#   setup.py, setup.cfg, requirements.txt, tox.ini, MANIFEST.in
+# Now everything lives here.
+#
+# Sections:
+#   [project]           — Package metadata and dependencies
+#   [project.optional-dependencies] — Dev/test dependencies (not shipped to prod)
+#   [tool.*]            — Configuration for black, ruff, mypy, pytest
+# =============================================================================
+
+[project]
+name = "velo-backend"
+version = "0.1.0"
+description = "VELO — Platform for wellness practice facilitators"
+requires-python = ">=3.12"
+
+# ---------------------------------------------------------------------------
+# PRODUCTION DEPENDENCIES
+# These are installed on the server and are required to run the application.
+# ---------------------------------------------------------------------------
+dependencies = [
+    # --- Web Framework ---
+    # FastAPI: async web framework with automatic OpenAPI docs generation.
+    # When you define an endpoint, FastAPI auto-generates Swagger UI at /docs.
+    "fastapi>=0.115.0",
+
+    # Uvicorn: ASGI server that actually runs FastAPI.
+    # Think of it as: FastAPI defines routes, Uvicorn listens on a port.
+    # [standard] adds uvloop (faster event loop) and httptools (faster HTTP parsing).
+    "uvicorn[standard]>=0.30.0",
+
+    # --- Database (PostgreSQL) ---
+    # SQLAlchemy 2.0: ORM with full async support.
+    # We use the new 2.0-style with type hints: Mapped[str] instead of Column(String).
+    # [asyncio] enables async session/engine support.
+    "sqlalchemy[asyncio]>=2.0.30",
+
+    # asyncpg: PostgreSQL driver for async SQLAlchemy.
+    # Why not psycopg2? psycopg2 is synchronous. asyncpg is built from scratch
+    # for async Python — it's 2-3x faster for async workloads.
+    "asyncpg>=0.30.0",
+
+    # --- Cache (Redis) ---
+    # redis-py: Official Redis client.
+    # [hiredis] adds a C parser that makes Redis responses parse 10x faster.
+    # We use Redis for: sessions, cache, future task queues.
+    "redis[hiredis]>=5.0.0",
+
+    # --- Database Migrations ---
+    # Alembic: like "git for your database schema".
+    # When you change a model, Alembic generates a migration script that
+    # transforms the old schema into the new one. Reversible, trackable.
+    "alembic>=1.13.0",
+
+    # --- Configuration ---
+    # pydantic-settings: loads config from .env files into typed Python objects.
+    # Example: DATABASE_URL in .env → settings.database_url (str, validated).
+    # Catches typos and missing vars at startup, not at runtime.
+    "pydantic-settings>=2.5.0",
+
+    # --- Logging ---
+    # structlog: structured logging in JSON format.
+    # Instead of: "User 123 created practice"
+    # You get:    {"event": "practice_created", "user_id": 123, "practice_id": 456}
+    # This is machine-parseable — essential for ELK/Grafana/Sentry later.
+    "structlog>=24.0.0",
+]
+
+# ---------------------------------------------------------------------------
+# DEV DEPENDENCIES
+# Installed only on developer machines, never on production.
+# Install with: pip install -e ".[dev]"
+# ---------------------------------------------------------------------------
+[project.optional-dependencies]
+dev = [
+    # --- Testing ---
+    # pytest: the standard Python test framework. Finds and runs test_*.py files.
+    "pytest>=8.0.0",
+
+    # pytest-asyncio: lets you write async test functions.
+    # Without it, you can't `await` inside tests — critical for testing FastAPI.
+    "pytest-asyncio>=0.24.0",
+
+    # httpx: async HTTP client used to test FastAPI endpoints.
+    # FastAPI's TestClient uses httpx under the hood.
+    "httpx>=0.27.0",
+
+    # --- Code Quality ---
+    # black: opinionated code formatter. Zero config needed.
+    # Enforces one style across the entire codebase — no debates about formatting.
+    # Run: black .
+    "black>=24.0.0",
+
+    # ruff: extremely fast linter (written in Rust, 100x faster than flake8).
+    # Replaces: flake8, isort, pylint, pycodestyle, pyflakes — all in one tool.
+    # Catches: unused imports, undefined names, bad practices, import ordering.
+    # Run: ruff check .
+    "ruff>=0.7.0",
+
+    # mypy: static type checker. Reads type hints and finds bugs WITHOUT running code.
+    # Example: if you pass str where int is expected, mypy catches it at lint time.
+    # Strict mode = maximum safety, all functions must have type annotations.
+    # Run: mypy .
+    "mypy>=1.11.0",
+
+    # pre-commit: git hook manager. Runs black/ruff/mypy automatically on `git commit`.
+    # If any check fails, the commit is rejected — bad code never enters the repo.
+    "pre-commit>=4.0.0",
+]
+
+# =============================================================================
+# TOOL CONFIGURATION
+# Each [tool.X] section configures a specific dev tool.
+# =============================================================================
+
+# --- Black (Formatter) ---
+[tool.black]
+# Line length 88 is black's default and a good balance between readability
+# and screen utilization. PEP8 says 79, but that's too narrow for modern screens.
+line-length = 88
+# Only format Python 3.12+ syntax (prevents generating incompatible code).
+target-version = ["py312"]
+
+# --- Ruff (Linter) ---
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    # --- Core rules (catch real bugs) ---
+    "F",      # pyflakes: undefined names, unused imports, redefined variables
+    "E",      # pycodestyle errors: syntax issues, whitespace problems
+    "W",      # pycodestyle warnings: trailing whitespace, blank lines
+
+    # --- Import organization ---
+    "I",      # isort: sorts and groups imports (stdlib → third-party → local)
+              # No more manual import ordering — ruff does it automatically.
+
+    # --- Code quality ---
+    "N",      # pep8-naming: ensures classes are PascalCase, functions are snake_case
+    "UP",     # pyupgrade: suggests modern Python syntax (e.g., dict() → {})
+    "B",      # bugbear: catches common bugs (mutable default args, assert False, etc.)
+    "SIM",    # simplify: suggests simpler code (e.g., if x == True → if x)
+    "RUF",    # ruff-specific: catches ruff-unique patterns
+
+    # --- Async-specific (critical for FastAPI) ---
+    "ASYNC",  # async linting: catches blocking calls inside async functions
+              # Example: time.sleep() in async def → should be asyncio.sleep()
+]
+
+ignore = [
+    # Allow TODO comments without linking to an issue tracker.
+    # We use TODOs extensively as "sockets for the future" (розетки).
+    "RUF012",
+]
+
+# --- Mypy (Type Checker) ---
+[tool.mypy]
+python_version = "3.12"
+
+# Strict mode: maximum type safety. Every function must have type annotations.
+# This catches entire categories of bugs at lint time, not at runtime.
+strict = true
+
+# --- Plugin for SQLAlchemy ---
+# Without this plugin, mypy doesn't understand SQLAlchemy's Mapped[] types
+# and reports false errors on every model field.
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+# --- Overrides for third-party libraries ---
+# Some libraries don't ship type stubs. Without this, mypy would error
+# on every `import redis` or `import structlog`. We silence those warnings.
+[[tool.mypy.overrides]]
+module = [
+    "redis.*",
+    "structlog.*",
+    "uvicorn.*",
+]
+ignore_missing_imports = true
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+# asyncio_mode = "auto": all async test functions are automatically detected.
+# Without this, you'd need @pytest.mark.asyncio on every async test.
+asyncio_mode = "auto"
+
+# testpaths: pytest only looks in these directories for tests.
+# Prevents accidentally running test-like files from other locations.
+testpaths = ["tests"]
