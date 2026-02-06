@@ -103,44 +103,40 @@ velo/                              ← GitHub repo root
 **Критерий готовности:** `ruff check .`, `mypy .`, `black --check .` проходят без ошибок. ✅
 ---
 
-### 0.2: Docker Compose
+### 0.2: Docker Compose ✅
 
 **Цель:** Локальное окружение с PostgreSQL и Redis.
 
 **Задачи:**
-- [ ] docker-compose.dev.yml (postgres:16 + redis:7-alpine, БЕЗ app)
-- [ ] docker-compose.yml (postgres + redis + app — для VPS/прода)
-- [ ] Dockerfile для приложения
-- [ ] Добавить команды в Makefile (dev-up, dev-down, dev-logs)
+- [x] docker-compose.dev.yml (postgres:16 + redis:7-alpine, БЕЗ app)
+- [x] docker-compose.yml (postgres + redis + app — для VPS/прода)
+- [x] Dockerfile для приложения (multi-stage build, python:3.12-slim)
+- [x] .dockerignore (исключение venv, tests, кэшей из Docker-контекста)
+- [x] Добавить команды в Makefile (dev-up, dev-down, dev-logs, dev-ps, dev-reset)
+- [x] Обновить .env.example (порт 5433, POSTGRES_* переменные)
+- [x] Обновить app/core/config.py (postgres_db/user/password поля)
 
-**Примечание:** App НЕ запускается в Docker локально (нативный uvicorn быстрее для разработки). Docker для app только на VPS.
-
-**Критерий готовности:** `make dev-up` поднимает PostgreSQL + Redis, `make run` подключается к ним.
-
-**Файлы:**
-```yaml
-# docker-compose.yml
-services:
-  app:
-    build: .
-    ports: ["8000:8000"]
-    depends_on: [postgres, redis]
-    env_file: .env
-    
-  postgres:
-    image: postgres:16
-    volumes: [postgres_data:/var/lib/postgresql/data]
-    environment:
-      POSTGRES_DB: velo
-      POSTGRES_USER: velo
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      
-  redis:
-    image: redis:7-alpine
-    volumes: [redis_data:/data]
+**Результат:**
+```
+backend/
+├── docker-compose.dev.yml   ← Локальная разработка (postgres + redis only)
+├── docker-compose.yml       ← Продакшн/VPS (app + postgres + redis)
+├── Dockerfile               ← Multi-stage: builder → runtime (~150MB image)
+├── .dockerignore            ← Исключения для Docker build context
+├── .env.example             ← Обновлён: порт 5433, POSTGRES_* переменные
+├── Makefile                 ← Обновлён: dev-up/down/logs/ps/reset
+└── app/core/config.py       ← Обновлён: postgres_db/user/password поля
 ```
 
-**Критерий готовности:** `docker-compose up` поднимает все сервисы.
+**Решения, принятые при реализации:**
+- PostgreSQL на порту 5433 (не 5432) — избежание конфликта с нативным Homebrew PostgreSQL
+- Два compose-файла: dev (только сервисы) и prod (полный стек) — app не в Docker локально для быстрых итераций
+- Multi-stage Dockerfile: builder (deps) → runtime (code only) — образ ~150MB вместо ~400MB
+- python:3.12-slim (не alpine) — asyncpg/uvloop требуют glibc, которого нет в Alpine
+- Healthchecks на обоих сервисах — `depends_on: condition: service_healthy` гарантирует порядок запуска
+- `dev-reset` с подтверждением — защита от случайного удаления данных (`docker compose down -v`)
+
+**Критерий готовности:** `make dev-up` поднимает PostgreSQL + Redis, `make dev-ps` показывает healthy. ✅
 
 ---
 
