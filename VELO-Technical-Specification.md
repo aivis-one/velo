@@ -1,0 +1,1539 @@
+# VELO — Техническое задание
+
+**Версия:** 1.0  
+**Дата:** 5 февраля 2026  
+**Статус:** Draft
+
+---
+
+## 1. Обзор проекта
+
+### 1.1. Цель MVP
+
+Создать работающую платформу для мастеров практик (медитации, йоги, breathwork), которая:
+
+- Автоматизирует записи и напоминания
+- Принимает оплату через Stripe
+- Работает как Telegram WebApp
+- Снимает рутину с мастеров
+
+### 1.2. Критерии готовности MVP
+
+| Критерий | Описание |
+|----------|----------|
+| Auth | Вход через Telegram работает |
+| Practices | Мастер может создать практику, юзер — записаться |
+| Payments | Пополнение баланса, оплата практики, вывод мастером |
+| Notifications | Напоминания за 24ч, 1ч, 10мин |
+| Admin | Верификация мастеров, базовая модерация |
+
+### 1.3. Вне scope MVP
+
+- OAuth (Google, Apple)
+- Подписки (freemium есть, подписки — нет)
+- Library (записи практик)
+- AI-саммари (только розетка)
+- Мобильные приложения (только WebApp)
+
+---
+
+## 2. Фазы разработки
+
+---
+
+## PHASE 0: Инфраструктура
+
+### 0.1: Репозиторий + структура проекта
+
+**Цель:** Базовая структура проекта с линтерами.
+
+**Задачи:**
+- [ ] Создать GitHub репозиторий `velo-backend`
+- [ ] Структура папок (app/modules, app/core, tests)
+- [ ] pyproject.toml (dependencies, black, ruff, mypy)
+- [ ] .gitignore, .env.example
+- [ ] README.md с инструкцией по запуску
+- [ ] pre-commit hooks
+
+**Результат:**
+```
+velo-backend/
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   └── exceptions.py
+│   └── modules/
+│       └── __init__.py
+├── tests/
+│   └── __init__.py
+├── pyproject.toml
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+**Критерий готовности:** `ruff check .` и `mypy .` проходят без ошибок.
+
+---
+
+### 0.2: Docker Compose
+
+**Цель:** Локальное окружение с PostgreSQL и Redis.
+
+**Задачи:**
+- [ ] docker-compose.yml (app, postgres, redis)
+- [ ] Dockerfile для приложения
+- [ ] .env для Docker
+- [ ] Makefile с командами (up, down, logs, shell)
+
+**Файлы:**
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build: .
+    ports: ["8000:8000"]
+    depends_on: [postgres, redis]
+    env_file: .env
+    
+  postgres:
+    image: postgres:16
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    environment:
+      POSTGRES_DB: velo
+      POSTGRES_USER: velo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      
+  redis:
+    image: redis:7-alpine
+    volumes: [redis_data:/data]
+```
+
+**Критерий готовности:** `docker-compose up` поднимает все сервисы.
+
+---
+
+### 0.3: FastAPI скелет + health checks
+
+**Цель:** Базовый FastAPI с проверками здоровья.
+
+**Задачи:**
+- [ ] app/main.py с FastAPI app
+- [ ] CORS middleware
+- [ ] `/health` endpoint (проверка DB и Redis)
+- [ ] `/` — версия API
+- [ ] Логирование (structlog)
+
+**Endpoints:**
+```
+GET /           → {"name": "VELO API", "version": "1.0.0"}
+GET /health     → {"status": "ok", "db": "ok", "redis": "ok"}
+```
+
+**Критерий готовности:** `curl localhost:8000/health` возвращает 200.
+
+---
+
+### 0.4: Alembic + базовые миграции
+
+**Цель:** Система миграций БД.
+
+**Задачи:**
+- [ ] Установить alembic
+- [ ] alembic.ini + migrations/
+- [ ] app/core/database.py (async engine, session)
+- [ ] Base model с id, created_at, updated_at
+- [ ] Первая миграция (пустая, проверка работы)
+
+**Структура:**
+```
+app/
+├── core/
+│   ├── database.py    # AsyncEngine, AsyncSession, Base
+│   └── config.py      # Settings from env
+migrations/
+├── versions/
+│   └── 001_initial.py
+├── env.py
+└── script.py.mako
+```
+
+**Критерий готовности:** `alembic upgrade head` выполняется без ошибок.
+
+---
+
+### 0.5: VPS + деплой + CI/CD
+
+**Цель:** Приложение работает на сервере.
+
+**Задачи:**
+- [ ] Настройка VPS (Ubuntu, Docker, Docker Compose)
+- [ ] Nginx как reverse proxy
+- [ ] SSL сертификат (Let's Encrypt)
+- [ ] GitHub Actions: тесты → деплой на push в main
+- [ ] .env на сервере (secrets)
+
+**CI/CD pipeline:**
+```yaml
+# .github/workflows/deploy.yml
+on:
+  push:
+    branches: [main]
+    
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -e ".[dev]"
+      - run: pytest
+      - run: ruff check .
+      - run: mypy .
+      
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_KEY }}
+          script: |
+            cd /opt/velo
+            git pull
+            docker-compose up -d --build
+```
+
+**Критерий готовности:** Push в main → автодеплой → `https://api.velo.app/health` работает.
+
+---
+
+## PHASE 1: Auth + Users
+
+### 1.1: Модель User
+
+**Цель:** Базовая модель пользователя.
+
+**Задачи:**
+- [ ] app/modules/users/models.py
+- [ ] User model с credentials JSONB
+- [ ] Enum для ролей (user, master, admin)
+- [ ] Миграция
+
+**Модель:**
+```python
+class UserRole(str, Enum):
+    USER = "user"
+    MASTER = "master"
+    ADMIN = "admin"
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
+    credentials: Mapped[dict] = mapped_column(JSONB, default=dict)
+    
+    first_name: Mapped[str | None] = mapped_column(String(100))
+    last_name: Mapped[str | None] = mapped_column(String(100))
+    avatar_url: Mapped[str | None] = mapped_column(String(500))
+    timezone: Mapped[str] = mapped_column(String(50), default="UTC")
+    language: Mapped[str] = mapped_column(String(5), default="en")
+    
+    is_active: Mapped[bool] = mapped_column(default=True)
+    
+    # User balance (computed by listener from user_ledger)
+    balance_user: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
+    # NOTE: Master balance (frozen + available) stored in MasterProfile
+    
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(onupdate=func.now())
+    last_login_at: Mapped[datetime | None]
+```
+
+**Критерий готовности:** Миграция применена, таблица создана.
+
+---
+
+### 1.2: Telegram WebApp Auth
+
+**Цель:** Аутентификация через Telegram initData.
+
+**Задачи:**
+- [ ] app/modules/auth/service.py — валидация initData
+- [ ] app/modules/auth/router.py — POST /auth/telegram
+- [ ] Создание/обновление юзера при входе
+- [ ] Тесты
+
+**Endpoint:**
+```
+POST /api/v1/auth/telegram
+Body: {"init_data": "query_string_from_telegram"}
+Response: {"user": {...}, "session_token": "..."}
+```
+
+**Валидация initData:**
+```python
+async def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
+    """Validate Telegram WebApp initData."""
+    # Parse query string
+    # Check hash with HMAC-SHA256
+    # Check auth_date not expired
+    # Return user data
+```
+
+**Критерий готовности:** WebApp может залогинить юзера.
+
+---
+
+### 1.3: Сессии (Redis)
+
+**Цель:** Управление сессиями через Redis.
+
+**Задачи:**
+- [ ] app/core/redis.py — Redis client
+- [ ] app/modules/auth/session.py — create/get/delete session
+- [ ] Session middleware
+- [ ] TTL 30 дней
+
+**Формат сессии в Redis:**
+```
+Key: session:{token}
+Value: {"user_id": "uuid", "created_at": "...", "telegram_id": 123}
+TTL: 30 days
+```
+
+**Middleware:**
+```python
+async def auth_middleware(request: Request, call_next):
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if token:
+        session = await session_service.get(token)
+        if session:
+            request.state.user_id = session["user_id"]
+    return await call_next(request)
+```
+
+**Критерий готовности:** Запросы с валидным токеном авторизованы.
+
+---
+
+### 1.4: CRUD профиля юзера
+
+**Цель:** Endpoints для профиля.
+
+**Задачи:**
+- [ ] app/modules/users/schemas.py — Pydantic schemas
+- [ ] app/modules/users/service.py — get, update
+- [ ] app/modules/users/router.py — GET/PATCH /users/me
+- [ ] Тесты
+
+**Endpoints:**
+```
+GET  /api/v1/users/me        → UserResponse
+PATCH /api/v1/users/me       → UserResponse (body: UserUpdate)
+```
+
+**Критерий готовности:** Юзер может видеть и редактировать свой профиль.
+
+---
+
+## PHASE 2: Masters
+
+### 2.1: MasterProfile + JSONB data
+
+**Цель:** Модель профиля мастера.
+
+**Задачи:**
+- [ ] app/modules/masters/models.py
+- [ ] MasterProfile с JSONB data
+- [ ] Поля frozen_amount и available_amount
+- [ ] Миграция
+
+**Модель:**
+```python
+class MasterProfile(Base):
+    __tablename__ = "master_profiles"
+    
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # data содержит: account, availability, profile, settings, stats
+    
+    # Balance fields (updated by listeners on master_ledger)
+    frozen_amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
+    available_amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
+    
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(onupdate=func.now())
+    
+    user: Mapped["User"] = relationship(back_populates="master_profile")
+```
+
+**Структура data JSONB:**
+```json
+{
+  "account": {
+    "status": "pending|verified|suspended|banned",
+    "verification": {
+      "verified_at": "datetime",
+      "verified_by": "admin_id"
+    }
+  },
+  "availability": {
+    "is_accepting": true,
+    "note": "В отпуске до 15.02"
+  },
+  "profile": {
+    "bio": "...",
+    "short_bio": "...",
+    "methods": ["meditation", "breathwork"],
+    "experience_years": 5,
+    "certifications": []
+  },
+  "settings": {
+    "auto_confirm_bookings": true,
+    "max_participants_default": 20
+  },
+  "stats": {
+    "total_practices": 47,
+    "total_participants": 312,
+    "avg_rating": 4.8
+  }
+}
+```
+
+**Критерий готовности:** Миграция применена.
+
+---
+
+### 2.2: Заявка на мастера
+
+**Цель:** Flow подачи заявки (3 шага из мокапов).
+
+**Задачи:**
+- [ ] POST /api/v1/masters/apply — создание заявки
+- [ ] Шаг 1: Профиль (имя, email, телефон)
+- [ ] Шаг 2: Опыт (направления, сертификаты)
+- [ ] Шаг 3: Документы (загрузка)
+- [ ] Статус "pending_verification"
+
+**Endpoint:**
+```
+POST /api/v1/masters/apply
+Body: {
+  "profile": {...},
+  "experience": {...},
+  "documents": [...]
+}
+Response: {"status": "pending_verification"}
+```
+
+**Критерий готовности:** Юзер может подать заявку на мастера.
+
+---
+
+### 2.3: Верификация мастера
+
+**Цель:** Админ может верифицировать мастера.
+
+**Задачи:**
+- [ ] POST /api/v1/admin/masters/{id}/verify
+- [ ] POST /api/v1/admin/masters/{id}/reject
+- [ ] Изменение user.role на MASTER при верификации
+- [ ] Уведомление мастеру
+
+**Endpoint:**
+```
+POST /api/v1/admin/masters/{user_id}/verify
+Body: {"notes": "Всё ок"}
+Response: {"status": "verified"}
+
+POST /api/v1/admin/masters/{user_id}/reject
+Body: {"reason": "Недостаточно опыта"}
+Response: {"status": "rejected"}
+```
+
+**Критерий готовности:** Админ может верифицировать/отклонить заявку.
+
+---
+
+## PHASE 3: Admin
+
+### 3.1: Админские эндпоинты
+
+**Цель:** Базовые админ-функции.
+
+**Задачи:**
+- [ ] app/modules/admin/router.py
+- [ ] Middleware проверки role=ADMIN
+- [ ] GET /api/v1/admin/stats — базовая статистика
+
+**Endpoint:**
+```
+GET /api/v1/admin/stats
+Response: {
+  "users_count": 150,
+  "masters_count": 12,
+  "practices_count": 47,
+  "pending_verifications": 2
+}
+```
+
+**Критерий готовности:** Админ видит статистику.
+
+---
+
+### 3.2: Список юзеров/мастеров
+
+**Цель:** Админ видит всех пользователей.
+
+**Задачи:**
+- [ ] GET /api/v1/admin/users — список юзеров (пагинация, фильтры)
+- [ ] GET /api/v1/admin/masters — список мастеров
+- [ ] GET /api/v1/admin/masters/pending — ожидающие верификации
+
+**Endpoints:**
+```
+GET /api/v1/admin/users?limit=20&offset=0&role=user
+GET /api/v1/admin/masters?status=verified
+GET /api/v1/admin/masters/pending
+```
+
+**Критерий готовности:** Админ видит списки с фильтрами.
+
+---
+
+### 3.3: Модерация
+
+**Цель:** Базовая система жалоб.
+
+**Задачи:**
+- [ ] Модель Report (жалобы)
+- [ ] POST /api/v1/reports — создать жалобу (юзер)
+- [ ] GET /api/v1/admin/reports — список жалоб
+- [ ] POST /api/v1/admin/reports/{id}/resolve
+
+**Модель:**
+```python
+class Report(Base):
+    __tablename__ = "reports"
+    
+    id: Mapped[UUID]
+    reporter_id: Mapped[UUID]  # Кто пожаловался
+    target_type: Mapped[str]   # user, master, practice
+    target_id: Mapped[UUID]
+    reason: Mapped[str]
+    status: Mapped[str]        # pending, resolved, dismissed
+    resolved_by: Mapped[UUID | None]
+    resolution_note: Mapped[str | None]
+```
+
+**Критерий готовности:** Жалобы можно создавать и обрабатывать.
+
+---
+
+## PHASE 4: Practices
+
+### 4.1: Модель Practice
+
+**Цель:** Базовая модель практики.
+
+**Задачи:**
+- [ ] app/modules/practices/models.py
+- [ ] Practice model со всеми типами
+- [ ] Миграция
+
+**Модель:**
+```python
+class PracticeType(str, Enum):
+    LIVE = "live"
+    SERIES = "series"
+    ONE_ON_ONE = "one_on_one"
+    REPLAY = "replay"
+
+class PracticeStatus(str, Enum):
+    DRAFT = "draft"
+    SCHEDULED = "scheduled"
+    LIVE = "live"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class Practice(Base):
+    __tablename__ = "practices"
+    
+    id: Mapped[UUID]
+    master_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    
+    type: Mapped[PracticeType]
+    status: Mapped[PracticeStatus] = mapped_column(default=PracticeStatus.DRAFT)
+    
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    
+    scheduled_at: Mapped[datetime]
+    duration_minutes: Mapped[int]
+    timezone: Mapped[str] = mapped_column(String(50))
+    
+    max_participants: Mapped[int | None]
+    current_participants: Mapped[int] = mapped_column(default=0)
+    
+    # Zoom (manual for MVP)
+    zoom_link: Mapped[str | None] = mapped_column(String(500))
+    
+    # Series support
+    parent_practice_id: Mapped[UUID | None] = mapped_column(ForeignKey("practices.id"))
+    
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Миграция применена.
+
+---
+
+### 4.2: CRUD для мастера
+
+**Цель:** Мастер может управлять практиками.
+
+**Задачи:**
+- [ ] app/modules/practices/service.py
+- [ ] app/modules/practices/router.py
+- [ ] POST /practices — создание
+- [ ] GET /practices/{id} — детали
+- [ ] PATCH /practices/{id} — редактирование
+- [ ] DELETE /practices/{id} — удаление (soft delete)
+- [ ] Проверка ownership
+
+**Endpoints:**
+```
+POST   /api/v1/practices
+GET    /api/v1/practices/{id}
+PATCH  /api/v1/practices/{id}
+DELETE /api/v1/practices/{id}
+GET    /api/v1/masters/me/practices  # Мои практики
+```
+
+**Критерий готовности:** Мастер может создать и управлять практикой.
+
+---
+
+### 4.3: Список практик для юзеров
+
+**Цель:** Юзеры видят доступные практики.
+
+**Задачи:**
+- [ ] GET /api/v1/practices — публичный список
+- [ ] Фильтры: master_id, type, date_from, date_to, status
+- [ ] Сортировка: scheduled_at, price
+- [ ] Пагинация
+
+**Endpoint:**
+```
+GET /api/v1/practices?type=live&date_from=2026-02-01&limit=20
+Response: {
+  "items": [...],
+  "total": 45,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Критерий готовности:** Юзер видит список практик с фильтрами.
+
+---
+
+### 4.4: PracticePricing
+
+**Цель:** Цены практик.
+
+**Задачи:**
+- [ ] app/modules/practices/models.py — PracticePricing
+- [ ] Связь 1:1 с Practice
+- [ ] Миграция
+
+**Модель:**
+```python
+class PracticePricing(Base):
+    __tablename__ = "practice_pricing"
+    
+    practice_id: Mapped[UUID] = mapped_column(
+        ForeignKey("practices.id"), 
+        primary_key=True
+    )
+    
+    is_free: Mapped[bool] = mapped_column(default=True)
+    price_cents: Mapped[int | None]
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    
+    # Future
+    # early_bird_price_cents: int | None
+    # early_bird_until: datetime | None
+    
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Мастер может установить цену практики.
+
+---
+
+## PHASE 5: Bookings
+
+### 5.1: Модель Booking
+
+**Цель:** Бронирования практик.
+
+**Задачи:**
+- [ ] app/modules/bookings/models.py
+- [ ] Booking model
+- [ ] Миграция
+
+**Модель:**
+```python
+class BookingStatus(str, Enum):
+    PENDING = "pending"      # Ждёт оплаты
+    CONFIRMED = "confirmed"  # Оплачено
+    ATTENDED = "attended"    # Посетил
+    NO_SHOW = "no_show"      # Не пришёл
+    CANCELLED = "cancelled"  # Отменено
+
+class Booking(Base):
+    __tablename__ = "bookings"
+    
+    id: Mapped[UUID]
+    practice_id: Mapped[UUID] = mapped_column(ForeignKey("practices.id"))
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    
+    status: Mapped[BookingStatus] = mapped_column(default=BookingStatus.PENDING)
+    
+    # Payment reference
+    purchase_id: Mapped[UUID | None] = mapped_column(ForeignKey("purchases.id"))
+    
+    booked_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    cancelled_at: Mapped[datetime | None]
+    cancellation_reason: Mapped[str | None]
+    
+    # Attendance
+    joined_at: Mapped[datetime | None]
+    left_at: Mapped[datetime | None]
+    
+    # UNIQUE constraint
+    __table_args__ = (
+        UniqueConstraint("practice_id", "user_id", name="uq_booking_practice_user"),
+    )
+```
+
+**Критерий готовности:** Миграция применена.
+
+---
+
+### 5.2: Создание/отмена брони
+
+**Цель:** Юзер может записаться и отменить.
+
+**Задачи:**
+- [ ] POST /api/v1/bookings — создать бронь
+- [ ] DELETE /api/v1/bookings/{id} — отменить
+- [ ] Проверка лимита мест
+- [ ] Проверка оплаты (если платная)
+- [ ] Уведомления
+
+**Endpoints:**
+```
+POST   /api/v1/bookings
+Body: {"practice_id": "uuid"}
+Response: {"booking": {...}, "status": "confirmed|pending_payment"}
+
+DELETE /api/v1/bookings/{id}
+Response: {"status": "cancelled"}
+```
+
+**Критерий готовности:** Юзер может записаться на практику.
+
+---
+
+### 5.3: Waitlist
+
+**Цель:** Очередь ожидания.
+
+**Задачи:**
+- [ ] Модель Waitlist
+- [ ] POST /api/v1/practices/{id}/waitlist — встать в очередь
+- [ ] DELETE /api/v1/waitlist/{id} — выйти из очереди
+- [ ] При отмене брони — уведомить первого в очереди
+- [ ] 30 минут на подтверждение
+
+**Модель:**
+```python
+class Waitlist(Base):
+    __tablename__ = "waitlist"
+    
+    id: Mapped[UUID]
+    practice_id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    position: Mapped[int]
+    joined_at: Mapped[datetime]
+    notified_at: Mapped[datetime | None]
+    expires_at: Mapped[datetime | None]
+    status: Mapped[str]  # waiting, notified, converted, expired
+```
+
+**Критерий готовности:** Waitlist работает автоматически.
+
+---
+
+### 5.4: Attendance tracking
+
+**Цель:** Учёт посещаемости.
+
+**Задачи:**
+- [ ] POST /api/v1/bookings/{id}/join — отметить вход
+- [ ] POST /api/v1/bookings/{id}/leave — отметить выход
+- [ ] Автоматический no_show после окончания практики
+- [ ] Статистика для мастера
+
+**Критерий готовности:** Мастер видит кто пришёл.
+
+---
+
+## PHASE 6: Payments
+
+### 6.1: Ledgers
+
+**Цель:** Три журнала транзакций.
+
+**Задачи:**
+- [ ] app/modules/payments/models.py
+- [ ] UserLedger, MasterLedger, CompanyLedger
+- [ ] Миграции
+
+**Модели:**
+```python
+class LedgerStatus(str, Enum):
+    PENDING = "pending"
+    DONE = "done"
+    CANCELLED = "cancelled"
+
+class UserLedger(Base):
+    __tablename__ = "user_ledger"
+    
+    id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
+    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
+    reason: Mapped[str]  # "payment:123", "purchase:practice=456"
+    notes: Mapped[str | None]
+    created_at: Mapped[datetime]
+
+class MasterLedger(Base):
+    __tablename__ = "master_ledger"
+    
+    id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
+    is_frozen: Mapped[bool] = mapped_column(default=True)  # NEW!
+    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
+    reason: Mapped[str]  # "sale:practice=456", "commission:practice=456"
+    practice_id: Mapped[UUID | None]  # Для связи frozen → unfrozen
+    notes: Mapped[str | None]
+    created_at: Mapped[datetime]
+    
+class CompanyLedgerType(str, Enum):
+    COMMISSION = "commission"
+    MARKETING = "marketing"
+    REFUND = "refund"
+    WITHDRAWAL_FEE = "withdrawal_fee"
+
+class CompanyLedger(Base):
+    __tablename__ = "company_ledger"
+    
+    id: Mapped[UUID]
+    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
+    type: Mapped[CompanyLedgerType]
+    reason: Mapped[str]
+    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
+    created_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Миграции применены.
+
+---
+
+### 6.2: Balance listeners
+
+**Цель:** Автоматический пересчёт балансов.
+
+**Задачи:**
+- [ ] app/modules/payments/listeners.py
+- [ ] Listener на user_ledger → User.balance_user
+- [ ] Listener на master_ledger → MasterProfile.frozen_amount / available_amount
+- [ ] Защита от прямого изменения балансов
+
+**Логика:**
+```python
+# User balance
+User.balance_user = SUM(user_ledger.amount) WHERE status='done'
+
+# Master balance (ДВА поля!)
+MasterProfile.frozen_amount = SUM(master_ledger.amount) 
+    WHERE status='done' AND is_frozen=true
+MasterProfile.available_amount = SUM(master_ledger.amount) 
+    WHERE status='done' AND is_frozen=false
+```
+
+**Критерий готовности:** Балансы автоматически обновляются при записи в ledger.
+
+---
+
+### 6.3: Stripe integration (пополнение)
+
+**Цель:** Пополнение баланса через Stripe.
+
+**Задачи:**
+- [ ] app/modules/payments/stripe.py
+- [ ] POST /api/v1/payments/topup — создать Stripe session
+- [ ] Webhook для подтверждения
+- [ ] Запись в user_ledger
+
+**Flow:**
+```
+1. User: POST /payments/topup {amount: 100}
+2. Server: Create Stripe Checkout Session
+3. Server: Return {checkout_url: "..."}
+4. User: Redirect to Stripe, оплачивает
+5. Stripe: Webhook → /webhooks/stripe
+6. Server: 
+   - payments: direction=in, amount=100, status=confirmed
+   - user_ledger: amount=+100, reason="payment:123"
+```
+
+**Критерий готовности:** Юзер может пополнить баланс.
+
+---
+
+### 6.4: Purchase flow (frozen → unfrozen)
+
+**Цель:** Покупка практики с заморозкой.
+
+**Задачи:**
+- [ ] Модель Purchase
+- [ ] POST /api/v1/practices/{id}/purchase
+- [ ] Проверка баланса
+- [ ] Заморозка у мастера
+- [ ] Event на завершение практики → разморозка + комиссия
+
+**Шаг 1: Регистрация на практику**
+```python
+# При покупке практики ($50):
+user_ledger:   amount=-50, reason="purchase:practice=456"
+master_ledger: amount=+50, is_frozen=true, reason="sale:practice=456"
+purchases:     practice_id=456, amount=50, status=pending
+# MasterProfile: frozen_amount += 50
+```
+
+**Шаг 2: Практика завершена (event)**
+```python
+# Practice.status = completed triggers:
+master_ledger: UPDATE is_frozen=false WHERE practice_id=456
+master_ledger: amount=-7.50, reason="commission:practice=456"
+company_ledger: amount=+7.50, type=commission
+purchases: UPDATE status=completed
+# MasterProfile: frozen=0, available=42.50
+```
+
+**Критерий готовности:** Деньги замораживаются при покупке, размораживаются после практики.
+
+---
+
+### 6.5: Cancellations & Refunds
+
+**Цель:** Политика отмен.
+
+**Задачи:**
+- [ ] CANCELLATION_DEADLINE_HOURS = 24
+- [ ] DELETE /api/v1/bookings/{id} — проверка дедлайна
+- [ ] Автовозврат при отмене мастером
+- [ ] No-show логика
+
+**Бизнес-правила:**
+| Кто отменяет | Когда | Результат |
+|--------------|-------|-----------|
+| Юзер | > 24ч до практики | 100% возврат |
+| Юзер | < 24ч до практики | 0% возврат |
+| Мастер | Любое время | 100% возврат всем |
+| No-show | После практики | Деньги у мастера |
+
+**Возврат (юзер > 24ч):**
+```python
+master_ledger: amount=-50, reason="refund:practice=456"
+user_ledger:   amount=+50, reason="refund:practice=456"
+purchases:     UPDATE status=cancelled
+# MasterProfile: frozen_amount -= 50
+```
+
+**Отмена мастером:**
+```python
+# Для КАЖДОГО участника:
+master_ledger: amount=-50, reason="refund:practice=456,cancelled_by_master"
+user_ledger:   amount=+50, reason="refund:practice=456"
+```
+
+**Критерий готовности:** Отмены работают по правилам.
+
+---
+
+### 6.6: Withdrawals
+
+**Цель:** Вывод средств мастером.
+
+**Задачи:**
+- [ ] Модель Payment (direction=out)
+- [ ] POST /api/v1/masters/me/withdraw
+- [ ] Проверка available_amount >= запрос + WITHDRAWAL_FEE
+- [ ] Проверка MIN_WITHDRAWAL_AMOUNT
+- [ ] Статус pending → ручное подтверждение админом
+
+**Настраиваемые переменные:**
+```
+MIN_WITHDRAWAL_AMOUNT = 50  # минимум $50
+WITHDRAWAL_FEE = 2          # комиссия $2
+```
+
+**Flow:**
+```python
+# Запрос вывода $1000:
+master_ledger:  amount=-1000, is_frozen=false, reason="withdrawal:payment=789"
+company_ledger: amount=+2, type=withdrawal_fee
+payments:       direction=out, amount=998, status=pending
+# Админ подтверждает → status=confirmed → ручной перевод
+```
+
+**Критерий готовности:** Мастер может запросить вывод из available.
+
+---
+
+### 6.7: Promocodes
+
+**Цель:** Два типа промокодов.
+
+**Задачи:**
+- [ ] Модель Promo
+- [ ] POST /api/v1/admin/promos — создание Company Promo
+- [ ] POST /api/v1/masters/me/promos — создание Master Promo
+- [ ] Применение при покупке
+
+**Модель:**
+```python
+class PromoType(str, Enum):
+    COMPANY = "company"  # Компания платит
+    MASTER = "master"    # Мастер отказывается от выручки
+
+class Promo(Base):
+    __tablename__ = "promos"
+    
+    id: Mapped[UUID]
+    code: Mapped[str] = mapped_column(String(50), unique=True)
+    type: Mapped[PromoType]
+    
+    discount_percent: Mapped[int]  # 5, 25, 50, 75, 100
+    
+    # Для MASTER promo:
+    master_id: Mapped[UUID | None]
+    practice_id: Mapped[UUID | None]  # Опционально: только для одной практики
+    
+    # Лимиты:
+    max_uses: Mapped[int | None]
+    used_count: Mapped[int] = mapped_column(default=0)
+    valid_until: Mapped[datetime | None]
+    
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime]
+```
+
+**Company Promo (100% скидка WELCOME):**
+```python
+user_ledger:    amount=0, reason="purchase:practice=456,promo:WELCOME"
+master_ledger:  amount=+50, is_frozen=true, reason="sale:practice=456"
+company_ledger: amount=-50, type=marketing, reason="promo:WELCOME"
+# После практики: комиссия $0 (юзер заплатил $0)
+```
+
+**Master Promo (100% скидка ALEX-VIP):**
+```python
+user_ledger:   amount=0, reason="purchase:practice=456,promo:ALEX-VIP"
+master_ledger: amount=0, is_frozen=true, reason="sale:practice=456,promo:ALEX-VIP"
+# Мастер отказался от денег. Company ledger не затронут.
+```
+
+**Критерий готовности:** Оба типа промокодов работают.
+
+---
+
+### 6.8: Internal transfer (Master → User Balance)
+
+**Цель:** Мастер может перевести деньги с Available на свой User Balance.
+
+**Кейс:** Мастер хочет купить практику другого мастера. Он не может платить с Master Balance напрямую — сначала переводит на User Balance.
+
+**Задачи:**
+- [ ] POST /api/v1/masters/me/transfer-to-user
+- [ ] Проверка available_amount >= сумма
+- [ ] Записи в оба ledger-а
+
+**Endpoint:**
+```
+POST /api/v1/masters/me/transfer-to-user
+Body: {"amount": 50}
+Response: {"user_balance": 150, "available_amount": 200}
+```
+
+**Записи в системе:**
+```python
+master_ledger:  user_id=2, amount=-50, is_frozen=false, reason="transfer:internal"
+user_ledger:    user_id=2, amount=+50, reason="transfer:internal"
+# MasterProfile: available_amount -= 50
+# User: balance_user += 50
+# Σ = -50 + 50 = 0 ✓
+```
+
+**Критерий готовности:** Мастер может перевести себе на user balance для покупок.
+
+---
+
+### 6.9: Розетка для подписок
+
+**Цель:** Таблица подписок без логики.
+
+**Задачи:**
+- [ ] Модель Subscription
+- [ ] Миграция
+- [ ] TODO комментарии в коде
+
+**Модель:**
+```python
+class Subscription(Base):
+    """TODO: Implement subscription logic in future phase."""
+    __tablename__ = "subscriptions"
+    
+    id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    plan: Mapped[str]  # monthly, yearly
+    status: Mapped[str]  # active, cancelled, expired
+    stripe_subscription_id: Mapped[str | None]
+    current_period_start: Mapped[datetime]
+    current_period_end: Mapped[datetime]
+```
+
+**Критерий готовности:** Таблица создана, логика отложена.
+
+---
+
+## PHASE 7: Notifications
+
+### 7.1: Модели Notification + Delivery
+
+**Цель:** Система уведомлений.
+
+**Задачи:**
+- [ ] app/modules/notifications/models.py
+- [ ] Notification + NotificationDelivery
+- [ ] Миграции
+
+**Модели:** (из готового кода)
+```python
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id: Mapped[int]
+    source: Mapped[str]
+    text: Mapped[str]
+    buttons: Mapped[str | None]
+    
+    target_type: Mapped[str]  # user, all, filter
+    target_value: Mapped[str]
+    
+    priority: Mapped[int] = mapped_column(default=5)
+    status: Mapped[str] = mapped_column(default="pending")
+    
+    # ... остальные поля
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+    
+    id: Mapped[int]
+    notification_id: Mapped[int]
+    user_id: Mapped[int]
+    status: Mapped[str] = mapped_column(default="pending")
+    attempts: Mapped[int] = mapped_column(default=0)
+```
+
+**Критерий готовности:** Миграции применены.
+
+---
+
+### 7.2: NotificationProcessor
+
+**Цель:** Фоновый воркер для отправки.
+
+**Задачи:**
+- [ ] app/modules/notifications/processor.py
+- [ ] Polling pending notifications
+- [ ] Retry logic (3 попытки)
+- [ ] Priority queue
+
+**Критерий готовности:** Уведомления отправляются автоматически.
+
+---
+
+### 7.3: Telegram-бот
+
+**Цель:** Бот для уведомлений.
+
+**Задачи:**
+- [ ] app/bot/main.py — aiogram bot
+- [ ] Интеграция с NotificationProcessor
+- [ ] Отправка сообщений юзерам
+
+**Критерий готовности:** Бот отправляет уведомления в Telegram.
+
+---
+
+### 7.4: Напоминания
+
+**Цель:** Авто-напоминания о практиках.
+
+**Задачи:**
+- [ ] При создании booking → планировать 3 напоминания
+- [ ] 24 часа до практики
+- [ ] 1 час до практики
+- [ ] 10 минут до практики
+- [ ] APScheduler или Celery Beat
+
+**Критерий готовности:** Напоминания приходят автоматически.
+
+---
+
+## PHASE 8: Diary/State
+
+### 8.1: Check-ins
+
+**Цель:** Состояние до практики.
+
+**Задачи:**
+- [ ] app/modules/diary/models.py — Checkin
+- [ ] POST /api/v1/practices/{id}/checkin
+- [ ] GET /api/v1/users/me/checkins
+
+**Модель:**
+```python
+class Checkin(Base):
+    __tablename__ = "checkins"
+    
+    id: Mapped[UUID]
+    practice_id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    booking_id: Mapped[UUID]
+    
+    mood: Mapped[str]  # low, mid, high
+    comment: Mapped[str | None]
+    
+    created_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Юзер может отправить check-in.
+
+---
+
+### 8.2: Feedbacks
+
+**Цель:** Обратная связь после практики.
+
+**Задачи:**
+- [ ] Модель Feedback
+- [ ] POST /api/v1/practices/{id}/feedback
+- [ ] GET /api/v1/users/me/feedbacks
+
+**Модель:**
+```python
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+    
+    id: Mapped[UUID]
+    practice_id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    booking_id: Mapped[UUID]
+    
+    rating: Mapped[str]  # fire, good, confused
+    comment: Mapped[str | None]
+    
+    created_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Юзер может оставить feedback.
+
+---
+
+### 8.3: Diary entries
+
+**Цель:** Личные записи дневника.
+
+**Задачи:**
+- [ ] Модель DiaryEntry
+- [ ] CRUD /api/v1/diary
+- [ ] Не связано с практикой (опционально)
+
+**Модель:**
+```python
+class DiaryEntry(Base):
+    __tablename__ = "diary_entries"
+    
+    id: Mapped[UUID]
+    user_id: Mapped[UUID]
+    practice_id: Mapped[UUID | None]  # Optional
+    
+    title: Mapped[str | None]
+    content: Mapped[str]
+    mood: Mapped[str | None]
+    
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+```
+
+**Критерий готовности:** Юзер может вести дневник.
+
+---
+
+### 8.4: Агрегация для мастера
+
+**Цель:** Мастер видит сводку по практике.
+
+**Задачи:**
+- [ ] GET /api/v1/practices/{id}/insights
+- [ ] Агрегированные check-ins (анонимно)
+- [ ] Агрегированные feedbacks (анонимно)
+- [ ] Статистика: % high/mid/low, % fire/good/confused
+
+**Endpoint:**
+```
+GET /api/v1/practices/{id}/insights
+Response: {
+  "participants": 15,
+  "checkins": {"high": 8, "mid": 5, "low": 2},
+  "feedbacks": {"fire": 10, "good": 4, "confused": 1},
+  "comments_count": 7
+}
+```
+
+**Критерий готовности:** Мастер видит аналитику по практике.
+
+---
+
+## PHASE 9: Полировка + розетки
+
+### 9.1: AI-саммари розетка
+
+**Цель:** Интерфейс для будущего AI-сервиса.
+
+**Задачи:**
+- [ ] app/modules/ai/interface.py — Protocol
+- [ ] app/modules/ai/mock.py — Mock implementation
+- [ ] GET /api/v1/practices/{id}/ai-summary (mock)
+
+**Interface:**
+```python
+class AIService(Protocol):
+    async def generate_summary(
+        self,
+        practice_id: UUID,
+        checkins: list[Checkin],
+        feedbacks: list[Feedback]
+    ) -> str:
+        ...
+```
+
+**Критерий готовности:** Розетка готова, mock возвращает placeholder.
+
+---
+
+### 9.2: Library розетка
+
+**Цель:** TODO структура для записей.
+
+**Задачи:**
+- [ ] Модель Recording (закомментирована)
+- [ ] TODO в коде
+- [ ] Документация: что нужно для реализации
+
+**Критерий готовности:** Структура задокументирована.
+
+---
+
+### 9.3: Финальное тестирование
+
+**Цель:** Всё работает вместе.
+
+**Задачи:**
+- [ ] E2E тесты основных flow
+- [ ] Load testing
+- [ ] Security audit
+- [ ] Документация API (OpenAPI)
+
+**Основные flow для тестирования:**
+1. Регистрация → вход → профиль
+2. Создание практики мастером
+3. Бронирование юзером
+4. Оплата
+5. Check-in → практика → feedback
+6. Вывод средств мастером
+
+**Критерий готовности:** Все flow работают, тесты проходят.
+
+---
+
+## 3. Приложения
+
+### A. API Endpoints (полный список)
+
+#### Auth
+```
+POST /api/v1/auth/telegram     # Вход через Telegram
+POST /api/v1/auth/logout       # Выход
+```
+
+#### Users
+```
+GET  /api/v1/users/me          # Мой профиль
+PATCH /api/v1/users/me         # Обновить профиль
+```
+
+#### Masters
+```
+POST /api/v1/masters/apply     # Подать заявку
+GET  /api/v1/masters/me        # Мой профиль мастера
+PATCH /api/v1/masters/me       # Обновить профиль
+GET  /api/v1/masters/{id}      # Профиль мастера (публичный)
+POST /api/v1/masters/me/withdraw         # Запросить вывод
+POST /api/v1/masters/me/transfer-to-user # Перевод на User Balance
+POST /api/v1/masters/me/promos           # Создать Master Promo
+```
+
+#### Practices
+```
+POST   /api/v1/practices           # Создать практику
+GET    /api/v1/practices           # Список практик
+GET    /api/v1/practices/{id}      # Детали практики
+PATCH  /api/v1/practices/{id}      # Обновить практику
+DELETE /api/v1/practices/{id}      # Удалить практику
+GET    /api/v1/practices/{id}/insights  # Аналитика
+```
+
+#### Bookings
+```
+POST   /api/v1/bookings            # Создать бронь
+GET    /api/v1/bookings            # Мои брони
+DELETE /api/v1/bookings/{id}       # Отменить бронь
+POST   /api/v1/bookings/{id}/join  # Отметить вход
+POST   /api/v1/bookings/{id}/leave # Отметить выход
+```
+
+#### Waitlist
+```
+POST   /api/v1/practices/{id}/waitlist  # Встать в очередь
+DELETE /api/v1/waitlist/{id}            # Выйти из очереди
+```
+
+#### Payments
+```
+POST /api/v1/payments/topup            # Пополнить баланс (Stripe)
+GET  /api/v1/payments                  # История платежей
+POST /api/v1/practices/{id}/purchase   # Купить практику
+```
+
+#### Masters (дополнительно)
+```
+POST /api/v1/masters/me/withdraw       # Запросить вывод (из available)
+POST /api/v1/masters/me/transfer       # Перевести available → user balance
+GET  /api/v1/masters/me/balance        # Получить frozen + available
+POST /api/v1/masters/me/promos         # Создать Master Promo
+GET  /api/v1/masters/me/promos         # Мои промокоды
+```
+
+#### Promos
+```
+POST /api/v1/promos/apply              # Применить промокод при покупке
+GET  /api/v1/promos/{code}/validate    # Проверить валидность
+```
+
+#### Diary
+```
+POST /api/v1/practices/{id}/checkin   # Check-in
+POST /api/v1/practices/{id}/feedback  # Feedback
+GET  /api/v1/diary                    # Мой дневник
+POST /api/v1/diary                    # Новая запись
+GET  /api/v1/diary/{id}               # Запись
+PATCH /api/v1/diary/{id}              # Редактировать
+DELETE /api/v1/diary/{id}             # Удалить
+```
+
+#### Admin
+```
+GET  /api/v1/admin/stats              # Статистика
+GET  /api/v1/admin/users              # Список юзеров
+GET  /api/v1/admin/masters            # Список мастеров
+GET  /api/v1/admin/masters/pending    # Ожидают верификации
+POST /api/v1/admin/masters/{id}/verify   # Верифицировать
+POST /api/v1/admin/masters/{id}/reject   # Отклонить
+GET  /api/v1/admin/reports            # Жалобы
+POST /api/v1/admin/reports/{id}/resolve  # Решить жалобу
+GET  /api/v1/admin/payments/pending   # Выводы на подтверждение
+POST /api/v1/admin/payments/{id}/confirm # Подтвердить вывод
+POST /api/v1/admin/promos             # Создать Company Promo
+GET  /api/v1/admin/promos             # Все промокоды
+PATCH /api/v1/admin/promos/{id}       # Деактивировать промокод
+```
+
+#### Webhooks
+```
+POST /webhooks/stripe                 # Stripe webhook
+```
+
+### B. Переменные окружения
+
+```bash
+# App
+APP_ENV=development
+APP_DEBUG=true
+APP_SECRET_KEY=your-secret-key
+
+# Database
+DATABASE_URL=postgresql+asyncpg://velo:password@postgres:5432/velo
+
+# Redis
+REDIS_URL=redis://redis:6379/0
+
+# Telegram
+TELEGRAM_BOT_TOKEN=your-bot-token
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Payment Settings
+PLATFORM_COMMISSION_PERCENT=15
+MIN_WITHDRAWAL_AMOUNT=50
+WITHDRAWAL_FEE=2
+CANCELLATION_DEADLINE_HOURS=24
+
+# Promo Settings
+MASTER_PROMO_DISCOUNTS=5,25,50,75,100
+```
+
+---
+
+**Конец документа**

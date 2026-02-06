@@ -1,0 +1,236 @@
+market_size:
+  tam: |
+    Total Addressable Market:
+    - Global wellness market: $1.5T (2024)
+    - Digital wellness: $50B
+    - Online coaching/facilitation: $15B
+
+  sam: |
+    Serviceable Addressable Market:
+    - Mindfulness/meditation platforms: $2B
+    - Group practice facilitation: $500M
+    - Target: English-speaking, tech-savvy practitioners
+
+  som: |
+    Serviceable Obtainable Market (first 3 years):
+    - Target: 1,000 active masters
+    - Avg 10 practices/month per master
+    - Avg 5 participants per practice
+    - Avg price: $20/practice
+    - GMV: $1M/month = $12M/year
+    - Platform revenue (15%): $1.8M/year
+
+competitors:
+  direct:
+    - name: Mindbody
+      positioning: Wellness business management
+      strengths:
+        - Established brand
+        - Large studio network
+        - Payment processing
+      weaknesses:
+        - Complex UI
+        - Expensive ($100+/month)
+        - No state tracking
+
+    - name: Calendly
+      positioning: Scheduling tool
+      strengths:
+        - Simple UX
+        - Integrations
+        - Affordable
+      weaknesses:
+        - No payments
+        - No practice-specific features
+        - No community
+
+    - name: Zoom + Stripe (DIY)
+      positioning: Manual setup
+      strengths:
+        - Full control
+        - Familiar tools
+      weaknesses:
+        - No automation
+        - Manual reminders
+        - No analytics
+
+  indirect:
+    - name: Insight Timer
+      positioning: Meditation library
+      strengths:
+        - Large user base
+        - Free content
+      weaknesses:
+        - No live groups
+        - Limited master tools
+
+    - name: Calm / Headspace
+      positioning: Consumer meditation apps
+      strengths:
+        - Brand recognition
+        - Content quality
+      weaknesses:
+        - B2C only (no B2B tools for masters)
+        - No live facilitation
+
+differentiation:
+  velo_unique_value:
+    - "All-in-one: Practice + Payment + Community + Analytics"
+    - "State tracking: Before/after data integration"
+    - "AI reflection: Personalized insights"
+    - "Built for facilitators: Not just scheduling"
+    - "Ecosystem integration: YON State Engine"
+
+  why_masters_switch:
+    - "Save time: No manual reminders, links, payments"
+    - "Earn more: Clear pricing, automated billing"
+    - "Scale easier: Handle more participants without overhead"
+    - "Better insights: See group state before practice"
+
+  why_users_choose:
+    - "One place: All practices, no app-hopping"
+    - "Progress tracking: See how practices affect state"
+    - "Discovery: Find new masters and approaches"
+    - "AI help: Personalized recommendations"
+
+target_segments:
+  primary:
+    - segment: Independent Facilitators
+      description: |
+        Meditation, breathwork, yoga teachers with 10-100 students
+      pain: Operations overhead, payment hassles
+      size: ~50K globally (English-speaking)
+      acquisition: Content marketing, community partnerships
+
+    - segment: Wellness Practitioners
+      description: |
+        Coaches, therapists offering group sessions
+      pain: Scheduling chaos, no state visibility
+      size: ~100K globally
+      acquisition: Referrals, professional networks
+
+  secondary:
+    - segment: Corporate Wellness Programs
+      description: |
+        Companies offering employee wellness
+      pain: Vendor management, engagement tracking
+      size: ~10K companies (mid-size+)
+      acquisition: B2B sales, partnerships
+
+    - segment: Wellness Studios
+      description: |
+        Small studios wanting to go hybrid (in-person + online)
+      pain: Tech complexity, multi-instructor management
+      size: ~20K studios globally
+      acquisition: Integrations, reseller program
+
+market_trends:
+  growing:
+    - Remote/hybrid wellness (post-COVID shift)
+    - AI in wellness (personalization, insights)
+    - Data-driven self-improvement (quantified self)
+    - Creator economy (independent teachers/coaches)
+    - Mental health awareness (meditation, mindfulness)
+
+  declining:
+    - In-person only studios
+    - Manual/paper-based scheduling
+
+  emerging:
+    - VR/AR wellness experiences (future opportunity)
+    - Web3 communities (tokenized access, DAOs)
+
+go_to_market:
+  phase_1_early_adopters:
+    target: 10 beta masters
+    channels:
+      - Personal network
+      - VELO community
+      - Direct outreach
+    offer: Free during beta + lifetime 10% commission (vs 15%)
+
+  phase_2_community_growth:
+    target: 100 masters
+    channels:
+      - Content marketing (blog, YouTube)
+      - Partnerships (wellness communities)
+      - Referral program
+    offer: Standard 15% commission
+
+  phase_3_scale:
+    target: 1,000+ masters
+    channels:
+      - Paid ads (Google, Meta)
+      - Affiliate program
+      - B2B sales (corporate wellness)
+    offer: Tiered pricing (higher volume = lower commission)
+
+pricing:
+  commission_model:
+    base: 15% of practice price
+    justification: |
+      - Lower than Mindbody (20-30%)
+      - Comparable to Stripe (2.9%) + Calendly ($10-15/mo) combined
+      - Includes: payments, scheduling, reminders, analytics
+
+  master_promo:
+    discounts: [5%, 25%, 50%, 75%, 100%]
+    economics: Master reduces own revenue
+    use_case: Existing students paid offline
+
+  company_promo:
+    discounts: Any percent (admin-configured)
+    economics: Company pays master full 85%
+    use_case: Marketing, user acquisition
+
+  withdrawal:
+    minimum: $50 (recommended)
+    fee: $0 (keep simple for MVP)
+
+  future_revenue_streams:
+    - Premium master features (advanced analytics, white-label)
+    - Subscription tiers for users (unlimited access)
+    - Referral fees (recruiting new masters)
+    - Data insights (anonymized trends)
+    - Corporate packages (volume discounts)
+
+partnerships:
+  potential:
+    - name: VELO Ecosystem
+      type: Strategic
+      benefit: Shared user base, state data integration
+
+    - name: Wellness Blogs/Influencers
+      type: Content
+      benefit: Guest posts, reviews, referrals
+
+    - name: Professional Associations
+      type: Distribution
+      benefit: Access to certified facilitators
+
+    - name: Corporate Wellness Vendors
+      type: Reseller
+      benefit: B2B channel
+
+    - name: Payment Processors
+      type: Technology
+      benefit: Better rates, multi-currency
+
+regulatory:
+  considerations:
+    - Payment processing regulations (PCI compliance via Stripe)
+    - Data privacy (GDPR, CCPA)
+    - Health claims (avoid medical advice)
+    - Tax reporting (1099 for masters in US)
+    - Cross-border payments (Stripe handles most)
+
+risks:
+  market:
+    - Slow master adoption (chicken-egg problem)
+    - Competition from incumbents (Mindbody adds features)
+    - Economic downturn (wellness spending drops)
+
+  mitigation:
+    - Seed with VELO community (instant user base)
+    - Niche focus (live group practices, not scheduling tool)
+    - Freemium model (free tier for small masters)

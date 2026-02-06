@@ -1,0 +1,342 @@
+phases:
+  - phase: "Phase 0: Foundation (Weeks 1-2)"
+    goal: Infrastructure setup and architecture validation
+    deliverables:
+      - Docker Compose environment
+      - PostgreSQL + Redis setup
+      - API Gateway skeleton
+      - CI/CD pipeline (GitHub Actions)
+      - Basic monitoring (Sentry)
+    team_focus:
+      - DevOps: Infrastructure
+      - Backend: Service skeletons
+      - Product: Finalize specs
+
+  - phase: "Phase 1: Core Services (Weeks 3-6)"
+    goal: Build foundational microservices
+    deliverables:
+      - User Service (JSONB credentials, auth)
+      - Practice Service (CRUD, pricing)
+      - Booking Service (reservations, status)
+      - Payment Service (Stripe integration, ledgers)
+    acceptance_criteria:
+      - User can register (Telegram/email)
+      - Master can create practice
+      - User can book practice
+      - Payment flow works (test mode)
+
+  - phase: "Phase 2: Automation (Weeks 7-10)"
+    goal: Reminders, notifications, and calendar
+    deliverables:
+      - Calendar Service (APScheduler)
+      - Notification Service (Telegram bot)
+      - Zoom integration (link generation)
+      - Quiz Service (basic: scale + text)
+    acceptance_criteria:
+      - Reminders sent 24h/1h/10min before
+      - Zoom link delivered
+      - Pre-practice quiz works
+
+  - phase: "Phase 3: Analytics & State (Weeks 11-14)"
+    goal: YON State Engine integration and dashboard
+    deliverables:
+      - State Service (YON API integration)
+      - Analytics dashboard (masters)
+      - User progress dashboard
+      - Post-practice quiz + state tracking
+    acceptance_criteria:
+      - Master sees group state before practice
+      - User sees personal state trends
+      - Quiz types: all 5 (scale/emotion/choice/multi/text)
+
+  - phase: "Phase 4: Verification & Promo (Weeks 15-16)"
+    goal: Master verification and promo system
+    deliverables:
+      - Master verification flow (pending → verified)
+      - Company promo codes
+      - Master promo codes
+      - Admin panel (approvals, withdrawals)
+    acceptance_criteria:
+      - Master can request verification
+      - Admin can approve/suspend masters
+      - Promo codes apply correctly
+      - Double-entry ledger validated
+
+  - phase: "Phase 5: Beta Launch (Weeks 17-18)"
+    goal: Private beta with 10 masters
+    deliverables:
+      - Onboarding wizard
+      - Master/user documentation
+      - Bug fixes from testing
+      - Performance optimization
+    acceptance_criteria:
+      - 10 masters onboarded
+      - 50+ practices hosted
+      - NPS survey >50
+      - No critical bugs
+
+  - phase: "Phase 6: Public Launch (Weeks 19-20)"
+    goal: Go public, iterate based on feedback
+    deliverables:
+      - Landing page
+      - Product Hunt launch
+      - Press kit
+      - Community forum
+    acceptance_criteria:
+      - 100 signups in first week
+      - Media coverage (3+ articles)
+      - Positive feedback (>4 stars)
+
+milestones:
+  - milestone: "M1: MVP Complete"
+    date: Week 10
+    definition: |
+      User can book practice, get reminded, attend via Zoom, fill quiz
+    success_criteria:
+      - End-to-end flow works
+      - No critical bugs
+      - Core features tested
+
+  - milestone: "M2: Beta Ready"
+    date: Week 16
+    definition: |
+      Platform ready for first 10 paying masters
+    success_criteria:
+      - Payment system validated
+      - Verification flow works
+      - Admin panel functional
+
+  - milestone: "M3: Public Launch"
+    date: Week 20
+    definition: |
+      Platform open to all, marketing active
+    success_criteria:
+      - 100+ masters signed up
+      - 1,000+ users
+      - Positive word-of-mouth
+
+  - milestone: "M4: Product-Market Fit"
+    date: Month 6
+    definition: |
+      Clear signal that platform solves real problem
+    success_criteria:
+      - 40%+ retention (month 2 → month 3)
+      - NPS >40
+      - Organic growth >50% of signups
+
+sprints:
+  sprint_1:
+    weeks: 1-2
+    theme: Infrastructure
+    stories:
+      - Setup Docker Compose environment
+      - Configure PostgreSQL + Redis
+      - Create API Gateway skeleton
+      - Setup CI/CD pipeline
+      - Integrate Sentry for error tracking
+
+  sprint_2:
+    weeks: 3-4
+    theme: User & Auth
+    stories:
+      - Implement User Service (JSONB credentials)
+      - Build JWT auth system
+      - Create master profile endpoints
+      - Add verification status enum
+      - Write tests (>80% coverage)
+
+  sprint_3:
+    weeks: 5-6
+    theme: Practice & Booking
+    stories:
+      - Implement Practice Service (CRUD)
+      - Add pricing tiers
+      - Build Booking Service
+      - Handle booking status transitions
+      - Integrate services via API Gateway
+
+  sprint_4:
+    weeks: 7-8
+    theme: Payments
+    stories:
+      - Stripe integration (deposits)
+      - Double-entry ledger system (3 journals)
+      - Purchase flow with commission split
+      - Withdrawal request system
+      - Payment webhook handlers
+
+  sprint_5:
+    weeks: 9-10
+    theme: Calendar & Notifications
+    stories:
+      - Implement Calendar Service (APScheduler)
+      - Build Notification Service (Telegram)
+      - Schedule reminders (24h/1h/10min)
+      - Zoom API integration (link generation)
+      - Handle cancellations (stop scheduled jobs)
+
+  sprint_6:
+    weeks: 11-12
+    theme: Quiz & State
+    stories:
+      - Implement Quiz Service
+      - Support 5 question types
+      - YON State Engine integration
+      - Quiz response storage (JSONB)
+      - Pre/post practice workflow
+
+  sprint_7:
+    weeks: 13-14
+    theme: Dashboards
+    stories:
+      - Master analytics dashboard
+      - User progress dashboard
+      - Group state visualization (before practice)
+      - Trends over time (user state)
+      - Earnings summary (masters)
+
+  sprint_8:
+    weeks: 15-16
+    theme: Verification & Promo
+    stories:
+      - Master verification workflow
+      - Admin approval panel
+      - Company promo system
+      - Master promo system
+      - Promo code validation
+
+  sprint_9:
+    weeks: 17-18
+    theme: Beta Testing
+    stories:
+      - Onboarding wizard (guided setup)
+      - Documentation (master guide, user guide)
+      - Bug fixes from QA
+      - Performance optimization
+      - Beta user support
+
+  sprint_10:
+    weeks: 19-20
+    theme: Public Launch
+    stories:
+      - Landing page live
+      - Product Hunt launch
+      - Press outreach
+      - Community forum setup
+      - Monitor feedback and iterate
+
+backlog:
+  high_priority:
+    - Library Service (video recordings)
+    - Discovery feed (browse practices)
+    - Reviews & ratings
+    - Advanced analytics (cohort analysis)
+    - Referral program
+
+  medium_priority:
+    - Web app (responsive)
+    - Gift certificates
+    - Multi-language support
+    - Advanced quiz types (slider, matrix)
+    - Email notifications (in addition to Telegram)
+
+  low_priority:
+    - Mobile apps (iOS/Android)
+    - VR/AR practice rooms
+    - Blockchain rewards (tokenization)
+    - AI coach chatbot
+    - Social features (practice buddies)
+
+dependencies:
+  critical:
+    - YON State Engine API access
+    - Stripe API keys (production)
+    - Zoom API account (verify limits)
+    - S3/CDN provider decision
+
+  blockers:
+    - None currently identified
+
+  risks:
+    - YON State Engine delays → Can build without, integrate later
+    - Zoom API restrictions → Have backup (Jitsi, Daily.co)
+    - Stripe approval delays → Test mode works, prod approval usually fast
+
+tech_debt_plan:
+  - item: APScheduler scaling
+    issue: Won't scale beyond 10K jobs
+    mitigation: Plan migration to Temporal/Airflow by month 6
+    priority: Medium
+
+  - item: JSONB → relational migration
+    issue: JSONB flexible but harder to query at scale
+    mitigation: Migration scripts ready, execute when schema stable
+    priority: Low (post-PMF)
+
+  - item: Manual withdrawal approval
+    issue: Admin bottleneck
+    mitigation: Automate with fraud checks after trust established
+    priority: Medium
+
+  - item: Monolithic Telegram bot
+    issue: All notifications via Telegram only
+    mitigation: Add email, push notifications
+    priority: Medium
+
+open_decisions:
+  - decision: S3 provider (AWS S3 vs CloudFlare R2)
+    deadline: Week 8
+    owner: DevOps
+
+  - decision: K8s hosting (AWS EKS vs GCP GKE vs DigitalOcean)
+    deadline: Week 12
+    owner: DevOps + Tech Lead
+
+  - decision: Web framework for web app (Next.js vs SvelteKit)
+    deadline: Week 16
+    owner: Frontend Dev
+
+  - decision: Mobile strategy (React Native vs Flutter vs native)
+    deadline: Month 6
+    owner: Product + Frontend
+
+timeline_summary: |
+  Week 1-2:   Infrastructure setup
+  Week 3-6:   Core services (User, Practice, Booking, Payment)
+  Week 7-10:  Automation (Calendar, Notifications, Zoom)
+  Week 11-14: Analytics & State integration
+  Week 15-16: Verification & Promo
+  Week 17-18: Beta testing (10 masters)
+  Week 19-20: Public launch
+  Month 6:    Product-Market Fit validation
+
+next_actions:
+  immediate:
+    - Finalize tech stack decisions (S3, K8s hosting)
+    - Setup GitHub repo and project board
+    - Recruit beta masters (reach out to YON community)
+    - Draft master onboarding guide
+
+  week_1:
+    - Kickoff meeting (team alignment)
+    - Sprint 1 planning
+    - Assign service ownership
+    - Setup development environment
+
+  month_1:
+    - Complete sprints 1-4 (core services)
+    - Weekly demos to stakeholders
+    - Adjust roadmap based on learnings
+
+version_history:
+  - version: 1.0
+    date: "2025-12-27"
+    changes: Initial architecture design, 9 microservices
+
+  - version: 2.0
+    date: "2026-02-05"
+    changes: Payment system refined (double-entry, promo types)
+
+  - version: 2.1
+    date: "2026-02-06"
+    changes: Roadmap detailed with sprint plan

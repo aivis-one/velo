@@ -1,0 +1,79 @@
+roles:
+  - role: Product Owner
+    name: TBD
+    responsibilities: Product vision, feature priorities, stakeholder communication
+
+  - role: Tech Lead
+    name: TBD
+    responsibilities: Architecture decisions, code review, technical debt management
+
+  - role: Backend Developer
+    name: TBD
+    responsibilities: 9 microservices implementation, API development
+
+  - role: Frontend Developer
+    name: TBD
+    responsibilities: Telegram bot MVP, future web/mobile UI
+
+  - role: DevOps Engineer
+    name: TBD
+    responsibilities: Docker/K8s deployment, monitoring, CI/CD
+
+structure:
+  type: cross-functional
+  size: small (5-7 people)
+  communication:
+    - Slack: "#master-rooms-dev"
+    - GitHub: "[repo URL TBD]"
+    - Figma: "[design URL TBD]"
+
+meetings:
+  - type: Daily Standup
+    frequency: daily
+    duration: 15min
+
+  - type: Sprint Planning
+    frequency: bi-weekly
+    duration: 2h
+
+  - type: Sprint Review
+    frequency: bi-weekly
+    duration: 1h
+
+  - type: Retrospective
+    frequency: bi-weekly
+    duration: 1h
+
+decision_log:
+  - date: "2025-12-27"
+    decision: "9 microservices architecture approved"
+    rationale: "Scalability, team autonomy, future flexibility"
+
+  - date: "2025-12-27"
+    decision: "JSONB for credentials storage"
+    rationale: "Multi-platform support, schema flexibility"
+
+  - date: "2025-12-27"
+    decision: "APScheduler for reminders"
+    rationale: "Simple, Python-native, no external dependencies"
+
+  - date: "2026-02-05"
+    decision: "Double-entry ledger system"
+    rationale: "Accounting standard, audit trail, prevents money loss"
+
+  - date: "2026-02-05"
+    decision: "Two promo types (Company/Master)"
+    rationale: "Different economics: marketing vs master flexibility"
+
+culture:
+  values:
+    - "Ship fast, iterate"
+    - "Data-driven decisions"
+    - "User empathy (both masters and practitioners)"
+    - "Code quality over speed"
+
+  practices:
+    - "Code review mandatory"
+    - "Test coverage >80%"
+    - "Documentation as code"
+    - "Weekly demos"
