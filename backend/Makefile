@@ -19,6 +19,11 @@
 #   make lint       — Check code quality (black + ruff + mypy)
 #   make format     — Auto-fix formatting and lint issues
 #   make clean      — Remove caches and generated files
+#   make dev-up     — Start PostgreSQL + Redis in Docker
+#   make dev-down   — Stop Docker services
+#   make dev-logs   — View Docker service logs
+#   make dev-ps     — Show Docker service status
+#   make dev-reset  — Destroy volumes and start fresh
 # =============================================================================
 
 # Use bash for shell commands (macOS default is zsh, but Makefiles expect bash syntax).
@@ -34,6 +39,9 @@ PYTHON := $(VENV)/bin/python
 
 # pip inside the virtual environment.
 PIP := $(VENV)/bin/pip
+
+# Docker Compose file for local development (services only, no app).
+COMPOSE_DEV := docker-compose.dev.yml
 
 # Default target: what runs when you type just `make` with no arguments.
 .DEFAULT_GOAL := help
@@ -62,6 +70,49 @@ install: ## Create venv, install all dependencies, setup pre-commit
 	@echo ""
 	@echo "✅ Setup complete! Activate venv with:"
 	@echo "   source .venv/bin/activate"
+
+# =============================================================================
+# DOCKER SERVICES (PostgreSQL + Redis)
+# =============================================================================
+# These commands manage infrastructure services for local development.
+# The app itself runs natively (not in Docker) for faster iteration.
+#
+# Architecture:
+#   Docker Desktop → postgres:16 (port 5433) + redis:7 (port 6379)
+#   Native Python  → uvicorn (port 8000) connects to Docker services
+
+.PHONY: dev-up
+dev-up: ## Start PostgreSQL + Redis in Docker
+	@echo "🐳 Starting services..."
+	docker compose -f $(COMPOSE_DEV) up -d
+	@echo ""
+	@echo "✅ Services running:"
+	@echo "   PostgreSQL: localhost:5433"
+	@echo "   Redis:      localhost:6379"
+	@echo ""
+	@echo "   Start the app with: make run"
+
+.PHONY: dev-down
+dev-down: ## Stop Docker services (data preserved)
+	@echo "🛑 Stopping services..."
+	docker compose -f $(COMPOSE_DEV) down
+	@echo "✅ Services stopped. Data preserved in Docker volumes."
+
+.PHONY: dev-logs
+dev-logs: ## View Docker service logs (follow mode)
+	docker compose -f $(COMPOSE_DEV) logs -f
+
+.PHONY: dev-ps
+dev-ps: ## Show Docker service status
+	docker compose -f $(COMPOSE_DEV) ps
+
+.PHONY: dev-reset
+dev-reset: ## Destroy volumes and start fresh (DELETES ALL DATA)
+	@echo "⚠️  This will DELETE all PostgreSQL and Redis data!"
+	@read -p "Are you sure? (y/N) " confirm && \
+		[ "$$confirm" = "y" ] || { echo "Cancelled."; exit 1; }
+	docker compose -f $(COMPOSE_DEV) down -v
+	@echo "✅ Volumes destroyed. Run 'make dev-up' to start fresh."
 
 # =============================================================================
 # DEVELOPMENT

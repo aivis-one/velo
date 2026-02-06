@@ -35,8 +35,14 @@ class Settings(BaseSettings):
 
     # -- Database --
     # Full async connection string for SQLAlchemy.
-    # Format: postgresql+asyncpg://user:pass@host:port/dbname
-    database_url: str = "postgresql+asyncpg://velo:velo@localhost:5432/velo"
+    # Port 5433: Docker dev setup (5432 reserved for native postgres).
+    database_url: str = "postgresql+asyncpg://velo:velo@localhost:5433/velo"
+
+    # Docker Compose uses these to create the database on first run.
+    # Must match the user/pass/db in DATABASE_URL above.
+    postgres_db: str = "velo"
+    postgres_user: str = "velo"
+    postgres_password: str = "velo"
 
     # -- Redis --
     redis_url: str = "redis://localhost:6379/0"

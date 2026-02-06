@@ -1,0 +1,82 @@
+# =============================================================================
+# VELO Backend — Docker Compose (Production / VPS)
+# =============================================================================
+#
+# PURPOSE:
+#   Full stack for deployment: app + postgres + redis.
+#   Used on VPS with Nginx reverse proxy in front.
+#
+# DEPLOYMENT:
+#   1. git pull
+#   2. docker compose up -d --build
+#   3. Nginx forwards traffic to localhost:8000
+#
+# DIFFERENCES FROM dev:
+#   - App runs inside Docker (no hot reload, no volume mounts)
+#   - PostgreSQL on default port 5432 (no conflicts on dedicated VPS)
+#   - Secrets come from .env file on the server
+#   - Healthchecks ensure services start in correct order
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # FastAPI Application
+  # ---------------------------------------------------------------------------
+  app:
+    build: .
+    container_name: velo-app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        # Wait until postgres healthcheck passes before starting app.
+        # Without this, app might start before DB is ready → crash.
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: velo-postgres
+    ports:
+      # On VPS we use default port — no other postgres running.
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-velo}
+      POSTGRES_USER: ${POSTGRES_USER:-velo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - velo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U velo -d velo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: velo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - velo_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  velo_postgres_data:
+  velo_redis_data:

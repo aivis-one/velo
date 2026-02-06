@@ -1,0 +1,81 @@
+# =============================================================================
+# VELO Backend — Docker Compose (Local Development)
+# =============================================================================
+#
+# PURPOSE:
+#   Runs ONLY infrastructure services (PostgreSQL + Redis).
+#   The app itself runs natively via `make run` for fast iteration.
+#
+# WHY NOT run the app in Docker locally?
+#   - Hot reload is slower through Docker volume mounts on macOS
+#   - Debugging is harder (can't just attach PyCharm debugger)
+#   - `uvicorn --reload` natively restarts in ~0.5s; in Docker it's ~2-3s
+#
+# USAGE:
+#   make dev-up      — start postgres + redis in background
+#   make dev-down    — stop everything
+#   make dev-logs    — view service logs
+#   make dev-ps      — check what's running
+#
+# PORT STRATEGY:
+#   Each project gets its own port to avoid conflicts:
+#     VELO:   PostgreSQL=5433, Redis=6379
+#     Other:  PostgreSQL=5434, Redis=6380, etc.
+#   Port 5432 is reserved for native/Homebrew PostgreSQL.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 — Primary Database
+  # ---------------------------------------------------------------------------
+  # Stores all VELO data: users, practices, bookings, payments, etc.
+  # Data persists in a named volume — survives container restarts.
+  postgres:
+    image: postgres:16
+    container_name: velo-postgres
+    ports:
+      # HOST:CONTAINER — expose on 5433 to avoid conflict with native postgres
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: velo
+      POSTGRES_USER: velo
+      POSTGRES_PASSWORD: velo
+    volumes:
+      # Named volume: data lives in Docker's managed storage.
+      # `docker compose down` preserves data.
+      # `docker compose down -v` deletes data (full reset).
+      - velo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready: built-in PostgreSQL health check command.
+      # Docker uses this to know when postgres is actually ready,
+      # not just "container started" but "accepting connections".
+      test: ["CMD-SHELL", "pg_isready -U velo -d velo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 — Cache, Sessions, Task Queue
+  # ---------------------------------------------------------------------------
+  # Used for: session storage, caching, future Celery task queue.
+  # alpine image: ~5MB instead of ~30MB (minimal Linux, same Redis).
+  redis:
+    image: redis:7-alpine
+    container_name: velo-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - velo_redis_data:/data
+    healthcheck:
+      # redis-cli ping: returns PONG if Redis is ready.
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+# Named volumes — persist data between container restarts.
+# List them: `docker volume ls | grep velo`
+# Delete them: `docker compose down -v` (CAUTION: deletes all data)
+volumes:
+  velo_postgres_data:
+  velo_redis_data:

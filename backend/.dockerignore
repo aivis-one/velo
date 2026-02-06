@@ -1,0 +1,48 @@
+# =============================================================================
+# VELO Backend — .dockerignore
+# =============================================================================
+# Same idea as .gitignore, but for Docker.
+# When you run `docker build`, Docker sends ALL files in the directory
+# to the Docker daemon (the "build context"). This file excludes
+# unnecessary files — making builds faster and images smaller.
+# =============================================================================
+
+# Virtual environment — rebuilt inside Docker
+.venv/
+venv/
+
+# Caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Tests — not needed in production image
+tests/
+
+# IDE and OS
+.idea/
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Environment files — secrets are injected via docker-compose env_file
+.env
+.env.example
+
+# Docker files — no need to copy these into the image
+docker-compose*.yml
+Dockerfile
+
+# Dev tools config
+Makefile
+.pre-commit-config.yaml
+.python-version
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
