@@ -148,7 +148,7 @@ backend/
 - [x] app/core/database.py — AsyncEngine + AsyncSession (pool_size=10, max_overflow=20)
 - [x] app/core/redis.py — async Redis client с lifecycle (init/close)
 - [x] app/core/logging.py — structlog (ConsoleRenderer для dev, JSONRenderer для prod)
-- [x] CORS middleware (allow_origins=["*"] для MVP)
+- [x] CORS middleware (origins из config.py, настраиваемые через .env)
 - [x] GET /health — проверка DB (SELECT 1) + Redis (PING), статусы ok/degraded
 - [x] GET / — версия API (было из 0.1)
 - [x] Lifespan: startup (structlog + Redis init) → shutdown (Redis close + engine dispose)
@@ -160,7 +160,7 @@ backend/app/core/
 ├── database.py   ← AsyncEngine, session factory, get_db_session()
 ├── redis.py      ← init_redis(), close_redis(), get_redis()
 ├── logging.py    ← setup_logging() — structlog конфигурация
-├── config.py     ← (из 0.1)
+├── config.py     ← Обновлён: cors_origins, redis_url, postgres_* поля
 └── exceptions.py ← (из 0.1)
 
 backend/app/main.py  ← Обновлён: lifespan, CORS, /health endpoint
@@ -175,10 +175,12 @@ GET /health  → {"status": "ok", "db": "ok", "redis": "ok"}
 ```
 
 **Решения, принятые при реализации:**
-- `filter_by_level` убран из structlog processors — несовместим с PrintLoggerFactory, фильтрация через stdlib basicConfig
-- `expire_on_commit=False` в session factory — объекты остаются доступны после commit без lazy load (критично для async)
-- Health check не бросает HTTP 500 при недоступности сервисов — возвращает 200 с `"status": "degraded"` (load balancer сам решит)
-- Тесты мокают DB/Redis через `MagicMock` + `AsyncMock` — работают без Docker, подходят для CI
+- CORS origins вынесены в config.py (cors_origins) — настраиваются через .env, не хардкод
+- `filter_by_level` убран из structlog processors — несовместим с PrintLoggerFactory
+- `expire_on_commit=False` в session factory — объекты доступны после commit без lazy load
+- Health check возвращает 200 с `"status": "degraded"` (не 500) — load balancer сам решит
+- Тесты мокают DB/Redis через MagicMock + AsyncMock — работают без Docker
+- `warn_unused_ignores = false` в mypy — разные версии type stubs между pip и pre-commit
 
 **Критерий готовности:** `curl localhost:8000/health` возвращает 200 с `"status": "ok"`. ✅
 
