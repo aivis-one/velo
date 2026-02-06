@@ -213,6 +213,124 @@ jobs:
 
 ---
 
+### 0.6: Logging + Audit
+
+**Цель:** Структурированное логирование и аудит финансовых операций.
+
+**Задачи:**
+- [ ] Установить structlog
+- [ ] app/core/logging.py — настройка логгера
+- [ ] Middleware для trace_id
+- [ ] app/core/audit.py — сервис аудита
+- [ ] Модель AuditLog
+- [ ] Миграция
+
+**Конфигурация structlog:**
+```python
+import structlog
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer()  # JSON в production
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+)
+```
+
+**Middleware для trace_id:**
+```python
+@app.middleware("http")
+async def trace_id_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Trace-ID", str(uuid4()))
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
+    response = await call_next(request)
+    response.headers["X-Trace-ID"] = trace_id
+    return response
+```
+
+**Модель AuditLog:**
+```python
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+    
+    event: Mapped[str] = mapped_column(String(100), index=True)
+    # Events: purchase_created, refund, withdrawal, role_changed, 
+    #         master_verified, balance_changed, booking_cancelled, etc.
+    
+    actor_id: Mapped[UUID | None]  # Who performed action (NULL for system)
+    actor_type: Mapped[str] = mapped_column(String(20))  # user, master, admin, system
+    
+    target_type: Mapped[str] = mapped_column(String(50))  # user, practice, booking, payment
+    target_id: Mapped[UUID]
+    
+    data: Mapped[dict] = mapped_column(JSONB)  # Full context snapshot
+    
+    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    trace_id: Mapped[str | None] = mapped_column(String(36))
+```
+
+**Сервис аудита:**
+```python
+class AuditService:
+    async def record(
+        self,
+        event: str,
+        target_type: str,
+        target_id: UUID,
+        data: dict,
+        actor_id: UUID | None = None,
+        actor_type: str = "system",
+        request: Request | None = None,
+    ) -> AuditLog:
+        log = AuditLog(
+            event=event,
+            actor_id=actor_id,
+            actor_type=actor_type,
+            target_type=target_type,
+            target_id=target_id,
+            data=data,
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
+        )
+        self.session.add(log)
+        await self.session.commit()
+        return log
+```
+
+**Обязательные события для аудита:**
+
+| Событие | Когда логировать |
+|---------|------------------|
+| `balance_topup` | Пополнение баланса |
+| `purchase_created` | Покупка практики |
+| `purchase_refunded` | Возврат |
+| `withdrawal_requested` | Запрос на вывод |
+| `withdrawal_confirmed` | Подтверждение вывода |
+| `master_verified` | Верификация мастера |
+| `master_rejected` | Отклонение заявки |
+| `role_changed` | Изменение роли |
+| `user_blocked` | Блокировка юзера |
+| `practice_cancelled` | Отмена практики мастером |
+
+**Retention policy:**
+- Application logs (stdout): 30 дней
+- Audit logs (БД): 5 лет (законодательные требования для финансов)
+
+**Критерий готовности:** Логи в JSON, trace_id передаётся, аудит пишется в БД.
+
+---
+
 ## PHASE 1: Auth + Users
 
 ### 1.1: Модель User

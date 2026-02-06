@@ -1,0 +1,117 @@
+stateDiagram-v2
+    [*] --> User: User registers
+
+    User --> ApplicationSubmitted: Submit master application<br/>(3-step form)
+
+    state ApplicationSubmitted {
+        [*] --> Step1
+        Step1: Step 1: Profile<br/>(name, email, phone)
+        Step2: Step 2: Experience<br/>(methods, certifications, years)
+        Step3: Step 3: Documents<br/>(upload files)
+
+        Step1 --> Step2
+        Step2 --> Step3
+        Step3 --> [*]
+    }
+
+    ApplicationSubmitted --> PendingVerification: Application complete
+
+    state PendingVerification {
+        state "Master Profile Status" as Profile
+        Profile: account.status = "pending_verification"
+        Profile: User.role = "user"
+        Profile: Can browse but not create practices
+    }
+
+    PendingVerification --> AdminReview: Admin reviews
+
+    state AdminReview {
+        CheckDocs: Check documents
+        CheckExp: Check experience
+        CheckCerts: Verify certifications
+        Decision: Make decision
+
+        CheckDocs --> CheckExp
+        CheckExp --> CheckCerts
+        CheckCerts --> Decision
+    }
+
+    AdminReview --> Verified: ✅ Approve
+    AdminReview --> Rejected: ❌ Reject
+
+    state Verified {
+        state "Master Profile Updated" as VerifiedProfile
+        VerifiedProfile: account.status = "verified"
+        VerifiedProfile: User.role = "master"
+        VerifiedProfile: verification.verified_at = now()
+        VerifiedProfile: verification.verified_by = admin_id
+    }
+
+    state Rejected {
+        state "Rejection Recorded" as RejectedProfile
+        RejectedProfile: account.status = "rejected"
+        RejectedProfile: rejection.reason = "..."
+        RejectedProfile: User.role = "user"
+    }
+
+    Verified --> Active: Can create practices
+    Rejected --> [*]: Can reapply later
+
+    state Active {
+        state "Master Capabilities" as Caps
+        Caps: ✅ Create practices
+        Caps: ✅ Manage bookings
+        Caps: ✅ View earnings (frozen + available)
+        Caps: ✅ Request withdrawals
+        Caps: ✅ Create master promos
+        Caps: ✅ View analytics
+    }
+
+    Active --> Suspended: Admin suspends<br/>(policy violation)
+    Active --> Banned: Admin bans<br/>(severe violation)
+
+    state Suspended {
+        state "Temporary Suspension" as Susp
+        Susp: account.status = "suspended"
+        Susp: Cannot create new practices
+        Susp: Existing practices continue
+    }
+
+    state Banned {
+        state "Permanent Ban" as Ban
+        Ban: account.status = "banned"
+        Ban: All practices cancelled
+        Ban: Cannot create new practices
+    }
+
+    Suspended --> Active: Admin reinstates
+    Banned --> [*]
+
+    note right of PendingVerification
+        Notifications:
+        - User: "Application submitted"
+        - Admin: "New master application"
+    end note
+
+    note right of Verified
+        Notifications:
+        - User: "Congratulations! You're verified"
+        - User: "Welcome to VELO Masters"
+
+        Audit Log:
+        - event: master_verified
+        - actor: admin_id
+        - target: user_id
+    end note
+
+    note right of Rejected
+        Notifications:
+        - User: "Application not approved"
+        - User: Rejection reason + reapply link
+
+        Audit Log:
+        - event: master_rejected
+        - actor: admin_id
+        - target: user_id
+        - data: {reason: "..."}
+    end note

@@ -1,0 +1,111 @@
+erDiagram
+    %% ═══════════════════════════════════════════════════════════════
+    %% VELO Payment System — Double-Entry Ledgers
+    %% ═══════════════════════════════════════════════════════════════
+
+    USER_LEDGER {
+        uuid id PK
+        uuid user_id FK
+        decimal amount "positive or negative"
+        enum status "pending|done|cancelled"
+        string reason "payment:123, purchase:practice=456"
+        text notes
+        timestamp created_at
+    }
+
+    MASTER_LEDGER {
+        uuid id PK
+        uuid user_id FK
+        uuid practice_id FK "nullable, for frozen tracking"
+        decimal amount
+        boolean is_frozen "true until practice completed"
+        enum status "pending|done|cancelled"
+        string reason "sale:practice=456, commission:practice=456"
+        text notes
+        timestamp created_at
+    }
+
+    COMPANY_LEDGER {
+        uuid id PK
+        decimal amount
+        enum type "commission|marketing|refund|withdrawal_fee"
+        enum status "pending|done|cancelled"
+        string reason
+        timestamp created_at
+    }
+
+    PAYMENT {
+        uuid id PK
+        uuid user_id FK
+        enum direction "in|out"
+        int amount_cents
+        string currency
+        enum status "pending|confirmed|failed|refunded"
+        string stripe_session_id
+        string stripe_payment_intent_id
+        jsonb metadata
+        timestamp created_at
+        timestamp confirmed_at
+    }
+
+    PURCHASE {
+        uuid id PK
+        uuid user_id FK
+        uuid practice_id FK
+        uuid promo_id FK "nullable"
+        int amount_cents "full price"
+        int discount_cents "promo discount"
+        int paid_cents "actual paid by user"
+        enum status "pending|completed|cancelled|refunded"
+        timestamp created_at
+        timestamp completed_at
+    }
+
+    USER {
+        uuid id PK
+        decimal balance_user "computed by listener"
+    }
+
+    MASTER_PROFILE {
+        uuid user_id PK
+        decimal frozen_amount "computed by listener"
+        decimal available_amount "computed by listener"
+    }
+
+    PRACTICE {
+        uuid id PK
+        uuid master_id FK
+        enum status "draft|scheduled|live|completed|cancelled"
+    }
+
+    PROMO {
+        uuid id PK
+        string code UK
+        enum type "company|master"
+        uuid master_id FK "nullable, for master promos"
+        int discount_percent
+    }
+
+    %% ───────────────────────────────────────────────────────────────
+    %% Relationships
+    %% ───────────────────────────────────────────────────────────────
+
+    USER ||--o{ USER_LEDGER : "balance transactions"
+    USER ||--o{ MASTER_LEDGER : "master earnings"
+    USER ||--|| MASTER_PROFILE : "has profile"
+    USER ||--o{ PAYMENT : "external payments"
+    USER ||--o{ PURCHASE : "purchases"
+
+    PRACTICE ||--o{ MASTER_LEDGER : "frozen until completed"
+    PRACTICE ||--o{ PURCHASE : "is purchased"
+
+    PROMO ||--o{ PURCHASE : "applied to"
+
+    %% ───────────────────────────────────────────────────────────────
+    %% Notes
+    %% ───────────────────────────────────────────────────────────────
+
+    NOTE1["Golden Rule: SUM(user_ledger + master_ledger + company_ledger) = 0"]
+    NOTE2["User.balance_user = SUM(user_ledger WHERE status='done')"]
+    NOTE3["MasterProfile.frozen_amount = SUM(master_ledger WHERE frozen=true AND status='done')"]
+    NOTE4["MasterProfile.available_amount = SUM(master_ledger WHERE frozen=false AND status='done')"]

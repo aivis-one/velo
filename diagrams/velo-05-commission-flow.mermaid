@@ -1,0 +1,86 @@
+sequenceDiagram
+    participant U as User
+    participant API as VELO API
+    participant DB as Database
+    participant M as Master
+
+    Note over U,M: Commission Flow: "Only from live money"
+
+    rect rgb(255, 245, 235)
+        Note over U,DB: Scenario 1: Paid Practice ($50)
+
+        U->>API: Purchase practice ($50)
+        API->>DB: user_ledger: -50
+        API->>DB: master_ledger: +50 (frozen)
+        Note over DB: Master frozen = $50
+
+        Note over M: Practice happens
+
+        M->>API: Mark practice completed
+        API->>DB: master_ledger: UPDATE frozen→available
+        API->>DB: master_ledger: -7.50 (commission)
+        API->>DB: company_ledger: +7.50
+
+        Note over DB: Master available = $42.50<br/>Company earned = $7.50<br/>Commission = 15% of $50
+    end
+
+    rect rgb(232, 245, 233)
+        Note over U,DB: Scenario 2: Free Practice ($0)
+
+        U->>API: Purchase free practice
+        API->>DB: user_ledger: 0
+        API->>DB: master_ledger: 0 (frozen)
+        Note over DB: Master frozen = $0
+
+        Note over M: Practice happens
+
+        M->>API: Mark practice completed
+        API->>DB: master_ledger: UPDATE frozen→available
+        Note over DB: NO commission entry!
+
+        Note over DB: Master available = $0<br/>Company earned = $0<br/>Commission = 15% of $0 = $0
+    end
+
+    rect rgb(227, 242, 253)
+        Note over U,DB: Scenario 3: Company Promo 100% ($50 → $0)
+
+        U->>API: Purchase with WELCOME promo
+        API->>DB: user_ledger: 0 (user paid $0)
+        API->>DB: master_ledger: +50 (frozen)
+        API->>DB: company_ledger: -50 (marketing budget)
+        Note over DB: Master frozen = $50<br/>Company paid from marketing
+
+        Note over M: Practice happens
+
+        M->>API: Mark practice completed
+        API->>DB: master_ledger: UPDATE frozen→available
+        Note over DB: NO commission!
+
+        Note over DB: Master available = $50<br/>Company spent = $50<br/>Commission = 15% of $0 (user paid) = $0
+    end
+
+    rect rgb(248, 231, 255)
+        Note over U,DB: Scenario 4: Master Promo 50% ($50 → $25)
+
+        U->>API: Purchase with master promo ALEX50
+        API->>DB: user_ledger: -25 (user paid $25)
+        API->>DB: master_ledger: +25 (frozen)
+        Note over DB: Master frozen = $25<br/>Master gave 50% discount
+
+        Note over M: Practice happens
+
+        M->>API: Mark practice completed
+        API->>DB: master_ledger: UPDATE frozen→available
+        API->>DB: master_ledger: -3.75 (commission)
+        API->>DB: company_ledger: +3.75
+
+        Note over DB: Master available = $21.25<br/>Company earned = $3.75<br/>Commission = 15% of $25 (what user actually paid)
+    end
+
+    Note over U,M: Key Principle: Commission = 15% × (what user actually paid)
+
+    %% Formulas
+    rect rgb(255, 249, 196)
+        Note over API,DB: Formulas
+        Note over DB: commission_amount = paid_cents × 0.15<br/><br/>paid_cents = amount_cents - discount_cents<br/><br/>If paid_cents = 0 → NO commission entry
+    end

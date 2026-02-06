@@ -504,6 +504,43 @@ master_ledger: user_id=2, amount=0, is_frozen=true, reason="sale:practice=456,pr
 
 **Полная документация:** `VELO-Data-Consistency-Semaphores.md`
 
+### 7.5. Логирование и аудит
+
+> **Принцип:** Каждая финансовая операция должна быть отслеживаема. Логи — это доказательная база.
+
+#### Application Logs
+
+| Level | Когда | Пример |
+|-------|-------|--------|
+| DEBUG | Детали для отладки | "Checking user balance" |
+| INFO | Бизнес-события | "Practice created" |
+| WARNING | Потенциальные проблемы | "Retry attempt 2/3" |
+| ERROR | Ошибки (recoverable) | "Stripe API timeout" |
+| CRITICAL | Система сломана | "Database connection lost" |
+
+**Формат:** JSON (structlog)  
+**Retention:** 30 дней
+
+#### Audit Logs (таблица в БД)
+
+Неизменяемый лог всех критичных операций:
+
+| Событие | Что логируем |
+|---------|--------------|
+| `balance_topup` | user_id, amount, stripe_id |
+| `purchase_created` | user_id, practice_id, amount, promo |
+| `purchase_refunded` | user_id, practice_id, amount, reason |
+| `withdrawal_requested` | master_id, amount |
+| `withdrawal_confirmed` | master_id, amount, admin_id |
+| `master_verified` | master_id, admin_id |
+| `role_changed` | user_id, old_role, new_role, admin_id |
+
+**Retention:** 5 лет (требования для финансовых операций)
+
+#### Distributed Tracing
+
+Каждый запрос получает `trace_id`, который передаётся между сервисами. Позволяет отследить путь запроса при распиле на микросервисы.
+
 ---
 
 ## 8. Розетки для будущего
