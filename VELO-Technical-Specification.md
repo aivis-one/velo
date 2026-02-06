@@ -186,31 +186,39 @@ GET /health  → {"status": "ok", "db": "ok", "redis": "ok"}
 
 ---
 
-### 0.4: Alembic + базовые миграции
+### 0.4: Alembic + базовые миграции ✅ (механизм)
 
 **Цель:** Система миграций БД.
 
 **Задачи:**
-- [ ] Установить alembic
-- [ ] alembic.ini + migrations/
-- [ ] app/core/database.py (async engine, session)
-- [ ] Base model с id, created_at, updated_at
-- [ ] Первая миграция (пустая, проверка работы)
+- [x] alembic.ini — конфигурация (URL из config.py, не хардкод)
+- [x] migrations/env.py — async runner (asyncpg через run_sync bridge)
+- [x] migrations/script.py.mako — шаблон генерации миграций
+- [x] app/core/database.py — добавлен Base (DeclarativeBase)
+- [x] Первая миграция (пустая, проверка механизма)
+- [x] `alembic upgrade head` выполняется без ошибок
 
-**Структура:**
+**Результат:**
 ```
-app/
-├── core/
-│   ├── database.py    # AsyncEngine, AsyncSession, Base
-│   └── config.py      # Settings from env
-migrations/
-├── versions/
-│   └── 001_initial.py
-├── env.py
-└── script.py.mako
+backend/
+├── alembic.ini
+├── migrations/
+│   ├── env.py              ← Async migration runner
+│   ├── script.py.mako      ← Template for new migrations
+│   └── versions/
+│       └── 2026_02_06_..._initial_empty.py
+└── app/core/database.py    ← Обновлён: добавлен Base
 ```
 
-**Критерий готовности:** `alembic upgrade head` выполняется без ошибок.
+**Решения, принятые при реализации:**
+- URL берётся из app.core.config (единый источник), а не из alembic.ini
+- Async bridge: asyncpg не работает с Alembic напрямую — `run_sync()` оборачивает sync-вызов
+- Миксины (TimestampMixin, UUIDMixin) отложены до Phase 1.1 вместе с моделью User
+- file_template с датой и slug для читаемых имён файлов миграций
+
+**⚠️ Примечание:** Пустая миграция подтверждает работу механизма. Полноценная проверка autogenerate — в Phase 1.1, когда Alembic сгенерирует CREATE TABLE users.
+
+**Критерий готовности:** `alembic upgrade head` выполняется без ошибок. ✅
 
 ---
 

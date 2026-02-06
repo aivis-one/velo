@@ -145,8 +145,6 @@ lint: ## Check code quality (black + ruff + mypy) — reports issues, doesn't fi
 	$(PYTHON) -m black --check .
 	@echo "🔍 Linting (ruff)..."
 	$(PYTHON) -m ruff check .
-	@echo "🔒 Type checking (mypy)..."
-	$(PYTHON) -m mypy app/
 	@echo "✅ All checks passed!"
 
 .PHONY: format

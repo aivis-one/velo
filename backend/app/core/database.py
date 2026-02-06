@@ -23,6 +23,10 @@
 #   FastAPI endpoints declare `session: AsyncSession = Depends(get_db_session)`
 #   and FastAPI automatically creates a session, passes it in, and cleans up
 #   after the request — even if an exception occurs.
+#
+# BASE:
+#   All SQLAlchemy models inherit from Base. Alembic reads Base.metadata
+#   to detect schema changes and generate migrations automatically.
 # =============================================================================
 
 from collections.abc import AsyncGenerator
@@ -32,17 +36,29 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import settings
+
+
+# ---------------------------------------------------------------------------
+# Declarative Base — parent class for all ORM models
+# ---------------------------------------------------------------------------
+# Every model (User, Practice, Booking, etc.) inherits from this.
+# Base.metadata holds the schema description — Alembic uses it to
+# generate migrations by comparing metadata vs actual DB state.
+class Base(DeclarativeBase):
+    """Base class for all SQLAlchemy ORM models."""
+
 
 # ---------------------------------------------------------------------------
 # Engine — connection pool to PostgreSQL
 # ---------------------------------------------------------------------------
-# echo=False: don't print every SQL query to stdout (set True for debugging).
+# echo=False: don't print every SQL query to stdout.
 # pool_size=10: keep 10 connections open and ready.
-# max_overflow=20: allow up to 20 extra connections under heavy load.
-#   Total max connections = pool_size + max_overflow = 30.
-#   PostgreSQL default max_connections = 100, so we're well within limits.
+# max_overflow=20: allow up to 20 extra under heavy load.
+#   Total max = pool_size + max_overflow = 30.
+#   PostgreSQL default max_connections = 100, well within limits.
 engine = create_async_engine(
     settings.database_url,
     echo=False,

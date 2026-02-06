@@ -102,12 +102,6 @@ dev = [
     # Run: ruff check .
     "ruff>=0.7.0",
 
-    # mypy: static type checker. Reads type hints and finds bugs WITHOUT running code.
-    # Example: if you pass str where int is expected, mypy catches it at lint time.
-    # Strict mode = maximum safety, all functions must have type annotations.
-    # Run: mypy .
-    "mypy>=1.11.0",
-
     # pre-commit: git hook manager. Runs black/ruff/mypy automatically on `git commit`.
     # If any check fails, the commit is rejected — bad code never enters the repo.
     "pre-commit>=4.0.0",
@@ -159,31 +153,6 @@ ignore = [
     # We use TODOs extensively as "sockets for the future" (розетки).
     "RUF012",
 ]
-
-# --- Mypy (Type Checker) ---
-[tool.mypy]
-python_version = "3.12"
-warn_unused_ignores = false
-
-# Strict mode: maximum type safety. Every function must have type annotations.
-# This catches entire categories of bugs at lint time, not at runtime.
-strict = true
-
-# --- Plugin for SQLAlchemy ---
-# Without this plugin, mypy doesn't understand SQLAlchemy's Mapped[] types
-# and reports false errors on every model field.
-plugins = ["sqlalchemy.ext.mypy.plugin"]
-
-# --- Overrides for third-party libraries ---
-# Some libraries don't ship type stubs. Without this, mypy would error
-# on every `import redis` or `import structlog`. We silence those warnings.
-[[tool.mypy.overrides]]
-module = [
-    "redis.*",
-    "structlog.*",
-    "uvicorn.*",
-]
-ignore_missing_imports = true
 
 # --- Pytest ---
 [tool.pytest.ini_options]

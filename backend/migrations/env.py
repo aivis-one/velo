@@ -1,0 +1,106 @@
+# =============================================================================
+# VELO Backend — Alembic Environment Configuration
+# =============================================================================
+#
+# This file tells Alembic HOW to run migrations.
+#
+# KEY POINTS:
+#   1. We use ASYNC migrations (run_async_migrations) because our engine
+#      is async. Standard Alembic expects sync — we bridge the gap here.
+#   2. Database URL comes from app.core.config (reads .env), NOT from
+#      alembic.ini — single source of truth for connection settings.
+#   3. target_metadata = Base.metadata tells Alembic what the schema
+#      SHOULD look like. It compares this against the actual DB to
+#      generate --autogenerate migrations.
+#
+# IMPORTANT:
+#   Every new models.py file must be imported here (or transitively
+#   through app.core.database) so Alembic can see the tables.
+# =============================================================================
+
+import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from app.core.config import settings
+from app.core.database import Base
+
+# ---------------------------------------------------------------------------
+# Alembic Config object — provides access to alembic.ini values.
+# ---------------------------------------------------------------------------
+config = context.config
+
+# Setup Python logging from alembic.ini [loggers] section.
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# ---------------------------------------------------------------------------
+# Target metadata — Alembic compares this against DB to find changes.
+# ---------------------------------------------------------------------------
+# When you add a model that inherits from Base, its table automatically
+# appears in Base.metadata. Alembic sees it and generates a migration.
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -> None:
+    """Run migrations in 'offline' mode.
+
+    Generates SQL scripts without connecting to the database.
+    Useful for: reviewing SQL before applying, CI/CD pipelines,
+    environments where DB access isn't available.
+
+    Usage: alembic upgrade head --sql
+    """
+    context.configure(
+        url=settings.database_url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection) -> None:  # type: ignore[no-untyped-def]
+    """Execute migrations using the provided connection."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -> None:
+    """Run migrations in 'online' mode with async engine.
+
+    Standard Alembic is synchronous. Since we use asyncpg (async driver),
+    we create an async engine, get a sync connection from it via
+    run_sync(), and pass that to Alembic's migration runner.
+    """
+    connectable = create_async_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+    )
+
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+
+    await connectable.dispose()
+
+
+def run_migrations_online() -> None:
+    """Entry point for online migrations — bridges async to sync."""
+    asyncio.run(run_async_migrations())
+
+
+# ---------------------------------------------------------------------------
+# Decide which mode to run in.
+# ---------------------------------------------------------------------------
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
