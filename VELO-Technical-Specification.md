@@ -43,40 +43,64 @@
 
 ## PHASE 0: Инфраструктура
 
-### 0.1: Репозиторий + структура проекта
+### 0.1: Репозиторий + структура проекта ✅
 
 **Цель:** Базовая структура проекта с линтерами.
 
 **Задачи:**
-- [ ] Создать GitHub репозиторий `velo-backend`
-- [ ] Структура папок (app/modules, app/core, tests)
-- [ ] pyproject.toml (dependencies, black, ruff, mypy)
-- [ ] .gitignore, .env.example
-- [ ] README.md с инструкцией по запуску
-- [ ] pre-commit hooks
+- [x] GitHub репозиторий `velo` (backend в `backend/` подпапке)
+- [x] Структура папок (app/modules, app/core, tests)
+- [x] pyproject.toml (dependencies, build-system, black, ruff, mypy)
+- [x] .gitignore (корень репо + backend/), .env.example
+- [x] README.md с инструкцией по запуску
+- [x] pre-commit hooks (.pre-commit-config.yaml в корне репо)
+- [x] Makefile (install, run, test, lint, format, clean)
+- [x] app/core/config.py (pydantic-settings, загрузка из .env)
+- [x] app/core/exceptions.py (VeloError → NotFound/Forbidden/Conflict/BadRequest)
+- [x] tests/conftest.py (async client fixture) + test_root.py
+- [x] .python-version (pyenv → 3.12)
 
 **Результат:**
 ```
-velo-backend/
-├── app/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── core/
+velo/                              ← GitHub repo root
+├── .gitignore                     ← Игнор для .DS_Store, .idea/
+├── .pre-commit-config.yaml        ← Hooks: black + ruff + mypy
+├── backend/
+│   ├── app/
 │   │   ├── __init__.py
-│   │   ├── config.py
-│   │   └── exceptions.py
-│   └── modules/
-│       └── __init__.py
-├── tests/
-│   └── __init__.py
-├── pyproject.toml
-├── .env.example
-├── .gitignore
-└── README.md
+│   │   ├── main.py                ← FastAPI app (GET / → version)
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py          ← Settings from .env
+│   │   │   └── exceptions.py      ← Base exception hierarchy
+│   │   └── modules/
+│   │       └── __init__.py
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── conftest.py            ← Async test client fixture
+│   │   └── test_root.py           ← Root endpoint test
+│   ├── pyproject.toml             ← Deps + tool config + build-system
+│   ├── Makefile                   ← Dev commands (install/run/test/lint)
+│   ├── .python-version            ← pyenv → 3.12
+│   ├── .env.example
+│   ├── .gitignore
+│   └── README.md
+├── desc/                          ← Project knowledge base (YAML)
+├── diagrams/                      ← Mermaid diagrams
+├── velo-mockups/                  ← UI prototypes
+├── VELO-Design-Document.md
+├── VELO-Technical-Specification.md
+└── ...
 ```
 
-**Критерий готовности:** `ruff check .` и `mypy .` проходят без ошибок.
+**Решения, принятые при реализации:**
+- Репо `velo` (не `velo-backend`) — место для будущего фронтенда рядом с бэкендом
+- `.pre-commit-config.yaml` в корне репо — pre-commit работает от `.git/`, не от подпапки
+- `[build-system]` в pyproject.toml обязателен для `pip install -e .` (регистрация `app` как импортируемого пакета)
+- Makefile перенесён из Phase 0.2 — удобнее иметь `make install` с первого дня
+- Приложение запускается нативно (не в Docker) для быстрых итераций, Docker — только для сервисов (Phase 0.2)
 
+**Критерий готовности:** `ruff check .`, `mypy .`, `black --check .` проходят без ошибок. ✅
 ---
 
 ### 0.2: Docker Compose
@@ -84,10 +108,14 @@ velo-backend/
 **Цель:** Локальное окружение с PostgreSQL и Redis.
 
 **Задачи:**
-- [ ] docker-compose.yml (app, postgres, redis)
+- [ ] docker-compose.dev.yml (postgres:16 + redis:7-alpine, БЕЗ app)
+- [ ] docker-compose.yml (postgres + redis + app — для VPS/прода)
 - [ ] Dockerfile для приложения
-- [ ] .env для Docker
-- [ ] Makefile с командами (up, down, logs, shell)
+- [ ] Добавить команды в Makefile (dev-up, dev-down, dev-logs)
+
+**Примечание:** App НЕ запускается в Docker локально (нативный uvicorn быстрее для разработки). Docker для app только на VPS.
+
+**Критерий готовности:** `make dev-up` поднимает PostgreSQL + Redis, `make run` подключается к ним.
 
 **Файлы:**
 ```yaml
