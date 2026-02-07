@@ -16,8 +16,14 @@
 # WHY NOT just os.getenv()?
 #   os.getenv("DATABSE_URL")  <- typo, returns None, crashes later
 #   settings.databse_url      <- typo, IDE catches it immediately
+#
+# SECURITY (TD-001, TD-006):
+#   In production (APP_ENV != development), SECRET_KEY and DATABASE_URL
+#   have no defaults — the app refuses to start without a proper .env.
+#   In development, safe defaults are provided for convenience.
 # =============================================================================
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,7 +42,8 @@ class Settings(BaseSettings):
     # -- Database --
     # Full async connection string for SQLAlchemy.
     # Port 5433: Docker dev setup (5432 reserved for native postgres).
-    database_url: str = "postgresql+asyncpg://velo:velo@localhost:5433/velo"
+    # Default provided for development only. (TD-006)
+    database_url: str = ""
 
     # Docker Compose uses these to create the database on first run.
     # Must match the user/pass/db in DATABASE_URL above.
@@ -53,10 +60,42 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
 
     # -- Security --
-    secret_key: str = "change-me-in-production-use-secrets-token-urlsafe"
+    # No default in production — app won't start without it. (TD-001)
+    secret_key: str = ""
 
     # -- Logging --
     log_level: str = "DEBUG"
+
+    @model_validator(mode="after")
+    def _apply_env_defaults_and_validate(self) -> "Settings":
+        """Apply safe defaults for development, enforce secrets in production.
+
+        Development: provides working defaults so `make run` works without .env.
+        Production: crashes at startup if critical secrets are missing.
+        """
+        is_dev = self.app_env == "development"
+
+        # DATABASE_URL: default only in dev (TD-006)
+        if not self.database_url:
+            if is_dev:
+                self.database_url = "postgresql+asyncpg://velo:velo@localhost:5433/velo"
+            else:
+                raise ValueError(
+                    "DATABASE_URL is required in production. " "Set it in .env file."
+                )
+
+        # SECRET_KEY: default only in dev (TD-001)
+        if not self.secret_key:
+            if is_dev:
+                self.secret_key = "dev-only-insecure-key-do-not-use-in-production"
+            else:
+                raise ValueError(
+                    "SECRET_KEY is required in production. "
+                    'Generate with: python -c "import secrets; '
+                    'print(secrets.token_urlsafe(64))"'
+                )
+
+        return self
 
     # -- Pydantic Settings Config --
     # Tells pydantic-settings WHERE to read env vars from.

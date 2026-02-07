@@ -24,6 +24,11 @@
 #   and FastAPI automatically creates a session, passes it in, and cleans up
 #   after the request — even if an exception occurs.
 #
+# TWO SESSION PROVIDERS (TD-008):
+#   get_db_session()  — read-write: commits on success, rollback on error.
+#   get_db_reader()   — read-only: always rolls back (no round-trip for commit).
+#   Use get_db_reader() for GET endpoints that only SELECT data.
+#
 # BASE:
 #   All SQLAlchemy models inherit from Base. Alembic reads Base.metadata
 #   to detect schema changes and generate migrations automatically.
@@ -80,15 +85,15 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide a transactional database session per request.
+    """Provide a transactional database session for write operations.
 
     Usage in FastAPI endpoints:
-        @router.get("/users")
-        async def get_users(
+        @router.post("/users")
+        async def create_user(
             session: AsyncSession = Depends(get_db_session),
         ):
-            result = await session.execute(select(User))
-            ...
+            session.add(User(...))
+            # commit happens automatically after endpoint returns
 
     The session is automatically committed on success and rolled back
     on exception. Finally, it's always closed to return the connection
@@ -102,4 +107,28 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
         raise
     finally:
+        await session.close()
+
+
+async def get_db_reader() -> AsyncGenerator[AsyncSession, None]:
+    """Provide a read-only database session for queries. (TD-008)
+
+    Usage in FastAPI endpoints:
+        @router.get("/users")
+        async def list_users(
+            session: AsyncSession = Depends(get_db_reader),
+        ):
+            result = await session.execute(select(User))
+            ...
+
+    Unlike get_db_session(), this never commits — it rolls back instead.
+    This avoids an unnecessary round-trip to PostgreSQL on every GET request.
+    The rollback is essentially free: it just tells the driver
+    "discard this transaction, nothing was written".
+    """
+    session = async_session_factory()
+    try:
+        yield session
+    finally:
+        await session.rollback()
         await session.close()

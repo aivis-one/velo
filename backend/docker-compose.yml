@@ -11,9 +11,16 @@
 #   2. docker compose up -d --build
 #   3. Nginx forwards traffic to localhost:8000
 #
+# NETWORK SECURITY (TD-004):
+#   - App: bound to 127.0.0.1:8000 — only Nginx can reach it.
+#   - PostgreSQL: NO published ports — only app container connects via
+#     Docker internal network (service name "postgres").
+#   - Redis: NO published ports — same as PostgreSQL.
+#   - For DB access use: docker compose exec postgres psql -U velo velo
+#
 # DIFFERENCES FROM dev:
 #   - App runs inside Docker (no hot reload, no volume mounts)
-#   - PostgreSQL on default port 5432 (no conflicts on dedicated VPS)
+#   - No ports exposed to host for DB/Redis (security)
 #   - Secrets come from .env file on the server
 #   - Healthchecks ensure services start in correct order
 # =============================================================================
@@ -26,13 +33,15 @@ services:
     build: .
     container_name: velo-app
     ports:
-      - "8000:8000"
+      # Bind to localhost only — Nginx reverse proxy connects here.
+      # NOT accessible from the internet directly. (TD-004)
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     depends_on:
       postgres:
         # Wait until postgres healthcheck passes before starting app.
-        # Without this, app might start before DB is ready → crash.
+        # Without this, app might start before DB is ready -> crash.
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -44,9 +53,9 @@ services:
   postgres:
     image: postgres:16
     container_name: velo-postgres
-    ports:
-      # On VPS we use default port — no other postgres running.
-      - "5432:5432"
+    # NO ports published to host. App connects via Docker network
+    # using hostname "postgres". For manual access:
+    #   docker compose exec postgres psql -U velo velo
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-velo}
       POSTGRES_USER: ${POSTGRES_USER:-velo}
@@ -66,8 +75,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: velo-redis
-    ports:
-      - "6379:6379"
+    # NO ports published to host. App connects via Docker network
+    # using hostname "redis". For manual access:
+    #   docker compose exec redis redis-cli
     volumes:
       - velo_redis_data:/data
     healthcheck:

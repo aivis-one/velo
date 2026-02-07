@@ -15,6 +15,10 @@
 #   Alpine uses musl libc instead of glibc. Some Python packages (asyncpg,
 #   uvloop) need glibc and fail to compile on Alpine. slim = Debian minimal
 #   with glibc — best balance of size and compatibility.
+#
+# SECURITY (TD-005):
+#   Runtime stage runs as non-root user "velo" (UID 1000).
+#   Even if the app is compromised, attacker has limited OS access.
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -43,12 +47,22 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
+# Create non-root user for running the application. (TD-005)
+# Using fixed UID/GID for consistency across rebuilds.
+RUN groupadd --gid 1000 velo && \
+    useradd --uid 1000 --gid velo --shell /bin/sh velo
+
 # Copy the pre-built venv from the builder stage.
 # This contains all our installed packages — no build tools needed.
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy application code.
 COPY app/ ./app/
+
+# Copy Alembic files for database migrations.
+# Needed for: docker compose exec app alembic upgrade head
+COPY alembic.ini ./
+COPY migrations/ ./migrations/
 
 # Put venv's Python and scripts first in PATH.
 # This means `python` and `uvicorn` resolve to the venv versions.
@@ -58,6 +72,11 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Force unbuffered output so logs appear immediately (not batched).
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+
+# Switch to non-root user. (TD-005)
+# Everything above runs as root (needed for apt/useradd).
+# Everything below (and the CMD) runs as "velo".
+USER velo
 
 # Document which port the app listens on.
 # This doesn't actually publish the port — that's done in docker-compose.
