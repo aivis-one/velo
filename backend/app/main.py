@@ -154,39 +154,47 @@ async def root() -> dict[str, str]:
 _HEALTH_CHECK_TIMEOUT = 5.0
 
 
-async def _check_health() -> dict[str, str]:
-    """Check DB and Redis connectivity. Shared by /health and /ready."""
-    result: dict[str, str] = {
-        "status": "ok",
-        "db": "error",
-        "redis": "error",
-    }
-
-    # Check PostgreSQL: "SELECT 1" is the lightest possible query.
-    # M-7: timeout prevents hanging if DB is stalled (not down, but slow).
+async def _check_db() -> str:
+    """Check PostgreSQL connectivity. Returns 'ok' or 'error'."""
     try:
         async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
-        result["db"] = "ok"
+        return "ok"
     except Exception as e:
         logger.error("health_check_db_failed", error=str(e))
+        return "error"
 
-    # Check Redis: PING returns PONG if alive.
+
+async def _check_redis() -> str:
+    """Check Redis connectivity. Returns 'ok' or 'error'."""
     try:
         async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
             redis = get_redis()
             pong = await redis.ping()  # type: ignore[misc]
             if pong:
-                result["redis"] = "ok"
+                return "ok"
+        return "error"
     except Exception as e:
         logger.error("health_check_redis_failed", error=str(e))
+        return "error"
 
-    # Overall: "ok" only if ALL dependencies are healthy.
-    if result["db"] != "ok" or result["redis"] != "ok":
-        result["status"] = "degraded"
 
-    return result
+async def _check_health() -> dict[str, str]:
+    """Check DB and Redis connectivity. Shared by /health and /ready.
+
+    N-1: checks run in parallel via asyncio.gather — worst case is 5s
+    (one timeout), not 10s (two sequential timeouts). This keeps the
+    response within Docker healthcheck timeout.
+    """
+    db_status, redis_status = await asyncio.gather(
+        _check_db(),
+        _check_redis(),
+    )
+
+    status = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
+
+    return {"status": status, "db": db_status, "redis": redis_status}
 
 
 @app.get("/health")
