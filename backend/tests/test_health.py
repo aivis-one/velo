@@ -1,5 +1,5 @@
 # =============================================================================
-# Test: Health Check Endpoint
+# Test: Health Check & Readiness Endpoints
 # =============================================================================
 #
 # We MOCK database and Redis so tests run WITHOUT Docker.
@@ -9,6 +9,10 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from httpx import AsyncClient
+
+# ---------------------------------------------------------------------------
+# /health endpoint — always returns 200
+# ---------------------------------------------------------------------------
 
 
 async def test_health_all_ok(client: AsyncClient) -> None:
@@ -89,3 +93,55 @@ async def test_health_redis_down(client: AsyncClient) -> None:
     assert data["status"] == "degraded"
     assert data["db"] == "ok"
     assert data["redis"] == "error"
+
+
+# ---------------------------------------------------------------------------
+# /ready endpoint — returns 503 when degraded (H-3)
+# ---------------------------------------------------------------------------
+
+
+async def test_ready_all_ok(client: AsyncClient) -> None:
+    """Readiness probe returns 200 when all dependencies are healthy."""
+    mock_conn = AsyncMock()
+
+    mock_engine = MagicMock()
+    mock_engine.connect.return_value.__aenter__ = AsyncMock(
+        return_value=mock_conn,
+    )
+    mock_engine.connect.return_value.__aexit__ = AsyncMock(
+        return_value=False,
+    )
+
+    mock_redis = AsyncMock()
+    mock_redis.ping.return_value = True
+
+    with (
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis", return_value=mock_redis),
+    ):
+        response = await client.get("/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+
+
+async def test_ready_returns_503_when_degraded(client: AsyncClient) -> None:
+    """Readiness probe returns 503 when DB is down — load balancer stops routing."""
+    mock_engine = MagicMock()
+    mock_engine.connect.side_effect = ConnectionError("DB down")
+
+    mock_redis = AsyncMock()
+    mock_redis.ping.return_value = True
+
+    with (
+        patch("app.main.engine", mock_engine),
+        patch("app.main.get_redis", return_value=mock_redis),
+    ):
+        response = await client.get("/ready")
+
+    assert response.status_code == 503
+    data = response.json()
+    assert data["status"] == "degraded"
+    assert data["db"] == "error"
+    assert data["redis"] == "ok"

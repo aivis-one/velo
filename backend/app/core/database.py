@@ -64,11 +64,17 @@ class Base(DeclarativeBase):
 # max_overflow=20: allow up to 20 extra under heavy load.
 #   Total max = pool_size + max_overflow = 30.
 #   PostgreSQL default max_connections = 100, well within limits.
+# pool_pre_ping=True: test each connection before use — if PostgreSQL
+#   dropped an idle connection, SQLAlchemy silently reconnects. (H-2)
+# pool_recycle=1800: close and replace connections older than 30 min.
+#   Prevents stale connections from sitting in the pool forever. (H-2)
 engine = create_async_engine(
     settings.database_url,
     echo=False,
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=1800,
 )
 
 # ---------------------------------------------------------------------------

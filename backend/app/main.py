@@ -21,6 +21,7 @@
 #   GET /ready   -> Readiness probe (503 if degraded)
 # =============================================================================
 
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -98,6 +99,16 @@ app = FastAPI(
 @app.exception_handler(VeloError)
 async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     """Convert VeloError exceptions into proper HTTP responses."""
+    # H-4: Log every business error for observability.
+    # warning (not error) — these are expected business-logic outcomes.
+    logger.warning(
+        "velo_error",
+        status_code=exc.status_code,
+        code=exc.code,
+        message=exc.message,
+        path=request.url.path,
+        method=request.method,
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -116,7 +127,8 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
 # TD-002: allow_credentials=True is incompatible with allow_origins=["*"].
 # In development (CORS_ORIGINS=*), we disable credentials.
 # In production (specific origins), we enable credentials.
-_cors_origins = settings.cors_origins.split(",")
+# H-1: strip whitespace — "origin1, origin2" in .env would break without strip.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
 _allow_all = _cors_origins == ["*"]
 
 app.add_middleware(
@@ -137,6 +149,11 @@ async def root() -> dict[str, str]:
     return {"name": "VELO API", "version": "0.1.0"}
 
 
+# Maximum time (seconds) for each dependency check in /health and /ready.
+# Without this, a stalled DB connection could hang the endpoint forever. (M-7)
+_HEALTH_CHECK_TIMEOUT = 5.0
+
+
 async def _check_health() -> dict[str, str]:
     """Check DB and Redis connectivity. Shared by /health and /ready."""
     result: dict[str, str] = {
@@ -146,19 +163,22 @@ async def _check_health() -> dict[str, str]:
     }
 
     # Check PostgreSQL: "SELECT 1" is the lightest possible query.
+    # M-7: timeout prevents hanging if DB is stalled (not down, but slow).
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+        async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
         result["db"] = "ok"
     except Exception as e:
         logger.error("health_check_db_failed", error=str(e))
 
     # Check Redis: PING returns PONG if alive.
     try:
-        redis = get_redis()
-        pong = await redis.ping()  # type: ignore[misc]
-        if pong:
-            result["redis"] = "ok"
+        async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
+            redis = get_redis()
+            pong = await redis.ping()  # type: ignore[misc]
+            if pong:
+                result["redis"] = "ok"
     except Exception as e:
         logger.error("health_check_redis_failed", error=str(e))
 
