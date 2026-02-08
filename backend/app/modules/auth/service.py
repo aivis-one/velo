@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from urllib.parse import parse_qs, unquote
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -95,7 +95,11 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
     if not auth_date_str:
         raise TelegramValidationError("Missing auth_date")
 
-    auth_date = int(auth_date_str)
+    try:
+        auth_date = int(auth_date_str)
+    except ValueError:
+        raise TelegramValidationError("Invalid auth_date format") from None
+
     now = int(datetime.now(UTC).timestamp())
     if now - auth_date > 300:  # 5 minutes
         raise TelegramValidationError("initData expired")
@@ -120,6 +124,9 @@ async def upsert_user_on_login(
 ) -> User:
     """Find user by telegram_id or create a new one. Update profile on login.
 
+    Uses INSERT ... ON CONFLICT DO UPDATE (P-1) to avoid race conditions
+    when two requests arrive simultaneously for a new user.
+
     Args:
         telegram_user: Parsed user dict from Telegram initData.
         session: Database session (read-write).
@@ -128,43 +135,47 @@ async def upsert_user_on_login(
         User object (new or existing, updated).
     """
     telegram_id = telegram_user["id"]
+    now = datetime.now(UTC)
 
-    # Try to find existing user.
-    stmt = select(User).where(User.telegram_id == telegram_id)
-    result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    credentials = {
+        "telegram_username": telegram_user.get("username"),
+        "telegram_photo_url": telegram_user.get("photo_url"),
+    }
 
-    if user is None:
-        # First login — create user.
-        user = User(
+    # Atomic upsert: INSERT or UPDATE in a single statement.
+    # No race condition possible — PostgreSQL locks the row on conflict.
+    stmt = (
+        pg_insert(User)
+        .values(
             telegram_id=telegram_id,
             first_name=telegram_user.get("first_name"),
             last_name=telegram_user.get("last_name"),
             avatar_url=telegram_user.get("photo_url"),
             language=telegram_user.get("language_code", "en"),
-            credentials={
-                "telegram_username": telegram_user.get("username"),
-                "telegram_photo_url": telegram_user.get("photo_url"),
+            credentials=credentials,
+            last_login_at=now,
+        )
+        .on_conflict_do_update(
+            index_elements=["telegram_id"],
+            set_={
+                "first_name": telegram_user.get("first_name"),
+                "last_name": telegram_user.get("last_name"),
+                "avatar_url": telegram_user.get("photo_url"),
+                "credentials": credentials,
+                "last_login_at": now,
             },
         )
-        session.add(user)
-        logger.info("user_created", telegram_id=telegram_id)
-    else:
-        # Returning user — update profile from Telegram.
-        user.first_name = telegram_user.get("first_name") or user.first_name
-        user.last_name = telegram_user.get("last_name") or user.last_name
-        user.avatar_url = telegram_user.get("photo_url") or user.avatar_url
-        user.credentials = {
-            **user.credentials,
-            "telegram_username": telegram_user.get("username"),
-            "telegram_photo_url": telegram_user.get("photo_url"),
-        }
-        logger.info("user_login", telegram_id=telegram_id, user_id=str(user.id))
+        .returning(User)
+    )
 
-    user.last_login_at = datetime.now(UTC)
+    result = await session.execute(stmt)
+    user = result.scalar_one()
 
-    # Flush to generate user.id for new users (before commit).
-    await session.flush()
+    logger.info(
+        "user_upserted",
+        telegram_id=telegram_id,
+        user_id=str(user.id),
+    )
 
     return user
 

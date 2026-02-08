@@ -20,7 +20,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Numeric, String
+from sqlalchemy import BigInteger, DateTime, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -70,7 +70,9 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     # -- Role --
     role: Mapped[UserRole] = mapped_column(
+        String(20),
         default=UserRole.USER,
+        server_default=UserRole.USER.value,
     )
 
     # -- Profile --
@@ -105,7 +107,9 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     # -- Timestamps (extra) --
     # last_login_at is NOT in TimestampMixin because it's domain-specific.
-    last_login_at: Mapped[datetime | None] = mapped_column()
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+    )
 
     def __repr__(self) -> str:
         return (

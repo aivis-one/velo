@@ -65,8 +65,9 @@ class Settings(BaseSettings):
 
     # -- Telegram --
     # Bot token from BotFather. Required for initData validation.
-    # Empty in dev (tests mock validation), required in production.
-    telegram_bot_token: str = ""
+    # Dev default is a fake token — HMAC won't match real Telegram data,
+    # but tests mock validation anyway. (P-4)
+    telegram_bot_token: str = "dev-fake-bot-token-do-not-use"
 
     # -- Sessions --
     # How long a session token lives in Redis (days).
@@ -115,7 +116,7 @@ class Settings(BaseSettings):
 
     # -- Pydantic Settings Config --
     # Tells pydantic-settings WHERE to read env vars from.
-    # env_file=".env" reads .env in the working directory.
+    # env_file= ".env" reads .env in the working directory.
     # case_sensitive=False: DATABASE_URL and database_url both work.
     model_config = SettingsConfigDict(
         env_file=".env",
