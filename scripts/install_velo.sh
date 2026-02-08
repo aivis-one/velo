@@ -149,6 +149,7 @@ if [ -d "$INSTALL_BASE/repo" ]; then
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
         rm -f /usr/local/bin/velo
+        cd /
         success "Previous installation removed"
     else
         error "Cannot proceed with existing installation"
