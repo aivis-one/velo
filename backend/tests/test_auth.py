@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import json
 import time
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from urllib.parse import urlencode
 
 import pytest
@@ -122,8 +122,14 @@ async def test_auth_telegram_success(client: AsyncClient) -> None:
     user_data = {"id": 99999, "first_name": "Tester", "username": "tester"}
     init_data = _build_init_data(user_data)
 
-    with patch("app.modules.auth.router.settings") as mock_settings:
+    with (
+        patch("app.modules.auth.router.settings") as mock_settings,
+        patch("app.modules.auth.service.get_redis") as mock_get_redis,
+    ):
         mock_settings.telegram_bot_token = BOT_TOKEN
+        mock_redis = AsyncMock()
+        mock_get_redis.return_value = mock_redis
+
         response = await client.post(
             "/api/v1/auth/telegram",
             json={"init_data": init_data},
@@ -134,6 +140,8 @@ async def test_auth_telegram_success(client: AsyncClient) -> None:
     assert "session_token" in data
     assert data["user"]["telegram_id"] == 99999
     assert data["user"]["first_name"] == "Tester"
+    # Verify Redis was called to store session.
+    mock_redis.set.assert_called_once()
 
 
 async def test_auth_telegram_invalid_data(client: AsyncClient) -> None:
