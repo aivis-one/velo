@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # Bot token from BotFather. Required for initData validation.
     # Dev default is a fake token — HMAC won't match real Telegram data,
     # but tests mock validation anyway. (P-4)
-    telegram_bot_token: str = "dev-fake-bot-token-do-not-use"
+    telegram_bot_token: str = ""
 
     # -- Sessions --
     # How long a session token lives in Redis (days).
@@ -106,11 +106,14 @@ class Settings(BaseSettings):
                 )
 
         # TELEGRAM_BOT_TOKEN: required in production for initData validation.
-        if not self.telegram_bot_token and not is_dev:
-            raise ValueError(
-                "TELEGRAM_BOT_TOKEN is required in production. "
-                "Get it from @BotFather in Telegram."
-            )
+        if not self.telegram_bot_token:
+            if is_dev:
+                self.telegram_bot_token = "dev-fake-bot-token-do-not-use"
+            else:
+                raise ValueError(
+                    "TELEGRAM_BOT_TOKEN is required in production. "
+                    "Get it from @BotFather in Telegram."
+                )
 
         return self
 

@@ -62,8 +62,6 @@ class TestValidateTelegramInitData:
 
     def test_invalid_hash(self) -> None:
         user = {"id": 12345, "first_name": "Test"}
-        init_data = _build_init_data(user) + "&hash=invalidhash"
-        # parse_qs takes last value, but let's tamper differently
         init_data = _build_init_data(user, bot_token="wrong-token")
         with pytest.raises(TelegramValidationError, match="signature"):
             validate_telegram_init_data(init_data, BOT_TOKEN)
