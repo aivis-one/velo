@@ -136,6 +136,16 @@ if [ -d "$INSTALL_BASE/repo" ]; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Stopping existing services..."
         cd "$INSTALL_BASE/repo/backend" 2>/dev/null && docker compose down 2>/dev/null || true
+
+        # Preserve .env so DB credentials survive reinstall.
+        # Without this, generate_env() creates new passwords but
+        # PostgreSQL volume still expects the old ones → auth failure.
+        if [ -f "$INSTALL_BASE/repo/backend/.env" ]; then
+            mkdir -p "$INSTALL_BASE/creds"
+            cp "$INSTALL_BASE/repo/backend/.env" "$INSTALL_BASE/creds/.env.bak"
+            success "Saved existing .env to $INSTALL_BASE/creds/.env.bak"
+        fi
+
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
         rm -f /usr/local/bin/velo
@@ -398,6 +408,17 @@ generate_env() {
 
     if [ -f "$ENV_FILE" ]; then
         warn ".env already exists, skipping generation"
+        return
+    fi
+
+    # Restore from backup if this is a reinstall.
+    # The backup was saved in the "Remove existing installation" step.
+    local ENV_BACKUP="$INSTALL_BASE/creds/.env.bak"
+    if [ -f "$ENV_BACKUP" ]; then
+        log "Restoring .env from previous installation..."
+        cp "$ENV_BACKUP" "$ENV_FILE"
+        chmod 600 "$ENV_FILE"
+        success ".env restored from backup (DB credentials preserved)"
         return
     fi
 
@@ -687,6 +708,16 @@ start_stack() {
 
 start_stack
 
+# Run initial migrations
+run_initial_migrations() {
+    log "Running database migrations..."
+    cd "$INSTALL_BASE/repo/backend"
+    docker compose exec -T app python -m alembic upgrade head
+    success "Database migrations applied"
+}
+
+run_initial_migrations
+
 # ==============================================================================
 # MANAGEMENT SCRIPT
 # ==============================================================================
@@ -870,11 +901,26 @@ case "${1:-}" in
 
         # Run migrations
         echo "Running database migrations..."
-        $COMPOSE_CMD exec -T app alembic upgrade head 2>/dev/null || {
-            echo -e "${YELLOW}⚠ Migration failed or no pending migrations${NC}"
+        $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
+            echo -e "${RED}⚠ Migration failed!${NC}"
+            echo "Check logs: velo logs app"
+            exit 1
         }
+        echo -e "${GREEN}✓ Migrations applied${NC}"
+
+        # Run tests
+        echo ""
+        echo "Running tests..."
+        if $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
+            echo -e "${GREEN}✓ All tests passed${NC}"
+        else
+            echo -e "${RED}✗ TESTS FAILED — app is running but code may be broken${NC}"
+            echo "Fix the code and run: velo update"
+            exit 1
+        fi
 
         # Wait and check health
+        echo ""
         echo "Waiting for health check..."
         sleep 5
         HEALTH=$(curl -s http://127.0.0.1:8000/health 2>/dev/null)
@@ -886,6 +932,18 @@ case "${1:-}" in
             echo -e "${RED}⚠ API health check failed after update${NC}"
             echo "Check logs: velo logs app"
         fi
+        ;;
+
+    # === Testing & Linting ===
+
+    test)
+        cd_compose
+        $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short
+        ;;
+
+    lint)
+        cd_compose
+        $COMPOSE_CMD exec -T app python -m ruff check app/ tests/
         ;;
 
     # === Backup ===
@@ -950,7 +1008,7 @@ case "${1:-}" in
                 ;;
             migrate)
                 echo "Running Alembic migrations..."
-                $COMPOSE_CMD exec -T app alembic upgrade head
+                $COMPOSE_CMD exec -T app python -m alembic upgrade head
                 echo -e "${GREEN}✓ Migrations complete${NC}"
                 ;;
             *)
@@ -1039,7 +1097,11 @@ case "${1:-}" in
         echo "  logs [app|db|redis] — View logs (default: app)"
         echo ""
         echo "Deployment:"
-        echo "  update              — Pull code, rebuild, migrate, restart"
+        echo "  update              — Pull code, rebuild, migrate, test, restart"
+        echo ""
+        echo "Testing:"
+        echo "  test                — Run all tests"
+        echo "  lint                — Run linter (ruff)"
         echo ""
         echo "Database:"
         echo "  db connect          — Open psql session"
@@ -1115,7 +1177,8 @@ echo ""
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"
 echo -e "  ${CYAN}velo logs${NC}            — View app logs"
-echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate"
+echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
+echo -e "  ${CYAN}velo test${NC}            — Run all tests"
 echo -e "  ${CYAN}velo restart${NC}         — Restart all services"
 echo -e "  ${CYAN}velo db connect${NC}      — Open psql"
 echo -e "  ${CYAN}velo backup${NC}          — Manual backup"
