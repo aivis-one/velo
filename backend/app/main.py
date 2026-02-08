@@ -2,19 +2,6 @@
 # VELO Backend — Application Entry Point
 # =============================================================================
 #
-# This is the main FastAPI application instance.
-#
-# RESPONSIBILITIES:
-#   - Create FastAPI app with metadata
-#   - Configure CORS (Cross-Origin Resource Sharing)
-#   - Manage lifecycle (startup/shutdown of DB + Redis connections)
-#   - Register exception handlers for VeloError hierarchy
-#   - Define root, health, and readiness endpoints
-#   - Initialize structured logging
-#
-# HOW TO RUN:
-#   make run  (or: uvicorn app.main:app --reload)
-#
 # ENDPOINTS:
 #   GET /        -> API name + version
 #   GET /health  -> DB + Redis connectivity check (always 200)
@@ -33,7 +20,7 @@ from sqlalchemy import text
 from starlette.requests import Request
 
 from app.core.config import settings
-from app.core.database import engine
+from app.core.database import dispose_engine, get_engine
 from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
 from app.core.redis import close_redis, get_redis, init_redis
@@ -43,19 +30,11 @@ logger = structlog.get_logger()
 
 
 # ---------------------------------------------------------------------------
-# Lifespan — startup and shutdown logic
+# Lifespan
 # ---------------------------------------------------------------------------
-# FastAPI's lifespan replaces the old @app.on_event("startup/shutdown").
-# Everything before `yield` runs at startup; after yield — at shutdown.
-# This ensures resources (Redis, DB pool) are properly initialized
-# and cleaned up.
-#
-# TD-009: try/finally ensures engine.dispose() runs even if init_redis()
-# fails. Without it, the DB connection pool would leak on startup errors.
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifecycle: startup and shutdown."""
-    # -- Startup --
     setup_logging(
         log_level=settings.log_level,
         json_logs=settings.app_env == "production",
@@ -68,13 +47,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             env=settings.app_env,
             log_level=settings.log_level,
         )
-
-        yield  # App is running, handling requests
-
+        yield
     finally:
-        # -- Shutdown (or startup failure cleanup) --
         await close_redis()
-        await engine.dispose()
+        await dispose_engine()
         logger.info("app_stopped")
 
 
@@ -86,28 +62,17 @@ app = FastAPI(
     description="Platform for wellness practice facilitators",
     version="0.1.0",
     lifespan=lifespan,
-    # docs_url="/docs" is the default — Swagger UI.
-    # Try it: http://localhost:8000/docs
 )
 
-
-# ---------------------------------------------------------------------------
-# Routers
-# ---------------------------------------------------------------------------
 app.include_router(auth_router)
 
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
 # ---------------------------------------------------------------------------
-# VeloError carries status_code + machine-readable code.
-# Without this handler, any `raise NotFoundError(...)` would return 500.
-# Now it returns the correct HTTP status (404, 403, 409, etc.)
 @app.exception_handler(VeloError)
 async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     """Convert VeloError exceptions into proper HTTP responses."""
-    # H-4: Log every business error for observability.
-    # warning (not error) — these are expected business-logic outcomes.
     logger.warning(
         "velo_error",
         status_code=exc.status_code,
@@ -118,54 +83,36 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     )
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "error": exc.code,
-            "message": exc.message,
-        },
+        content={"error": exc.code, "message": exc.message},
     )
 
 
 # ---------------------------------------------------------------------------
 # CORS Middleware (TD-002)
 # ---------------------------------------------------------------------------
-# CORS controls which websites can call our API. Without it, a browser
-# running the Telegram WebApp would refuse to call our backend.
-#
-# TD-002: allow_credentials=True is incompatible with allow_origins=["*"].
-# In development (CORS_ORIGINS=*), we disable credentials.
-# In production (specific origins), we enable credentials.
-# H-1: strip whitespace — "origin1, origin2" in .env would break without strip.
 _cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
 _allow_all = _cors_origins == ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=not _allow_all,  # TD-002: no credentials with wildcard
+    allow_credentials=not _allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# Health checks
 # ---------------------------------------------------------------------------
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint — returns API name and version."""
-    return {"name": "VELO API", "version": "0.1.0"}
-
-
-# Maximum time (seconds) for each dependency check in /health and /ready.
-# Without this, a stalled DB connection could hang the endpoint forever. (M-7)
 _HEALTH_CHECK_TIMEOUT = 5.0
 
 
 async def _check_db() -> str:
-    """Check PostgreSQL connectivity. Returns 'ok' or 'error'."""
+    """Check PostgreSQL connectivity."""
     try:
         async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
-            async with engine.connect() as conn:
+            async with get_engine().connect() as conn:
                 await conn.execute(text("SELECT 1"))
         return "ok"
     except Exception as e:
@@ -174,7 +121,7 @@ async def _check_db() -> str:
 
 
 async def _check_redis() -> str:
-    """Check Redis connectivity. Returns 'ok' or 'error'."""
+    """Check Redis connectivity."""
     try:
         async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
             redis = get_redis()
@@ -188,49 +135,33 @@ async def _check_redis() -> str:
 
 
 async def _check_health() -> dict[str, str]:
-    """Check DB and Redis connectivity. Shared by /health and /ready.
-
-    N-1: checks run in parallel via asyncio.gather — worst case is 5s
-    (one timeout), not 10s (two sequential timeouts). This keeps the
-    response within Docker healthcheck timeout.
-    """
+    """Check DB and Redis in parallel."""
     db_status, redis_status = await asyncio.gather(
         _check_db(),
         _check_redis(),
     )
-
     status = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
-
     return {"status": status, "db": db_status, "redis": redis_status}
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    """Health check — verifies DB and Redis connectivity.
-
-    Always returns 200 with status of each dependency.
-    Used by monitoring tools and dashboards.
-
-    Each check is independent: if Redis is down but DB is up,
-    you see {"status": "degraded", "db": "ok", "redis": "error"}.
-    """
+    """Health check — always returns 200."""
     return await _check_health()
 
 
 @app.get("/ready")
 async def ready() -> JSONResponse:
-    """Readiness probe — returns 503 if any dependency is down. (TD-003)
-
-    Used by load balancers and Docker healthchecks to decide
-    whether to route traffic to this instance.
-
-    Unlike /health (always 200), /ready returns:
-      200 — all dependencies healthy, ready to serve
-      503 — one or more dependencies down, don't route traffic here
-    """
+    """Readiness probe — returns 503 when degraded."""
     result = await _check_health()
+    status_code = 200 if result["status"] == "ok" else 503
+    return JSONResponse(content=result, status_code=status_code)
 
-    if result["status"] != "ok":
-        return JSONResponse(status_code=503, content=result)
 
-    return JSONResponse(status_code=200, content=result)
+# ---------------------------------------------------------------------------
+# Root
+# ---------------------------------------------------------------------------
+@app.get("/")
+async def root() -> dict[str, str]:
+    """API name and version."""
+    return {"name": "VELO API", "version": "0.1.0"}

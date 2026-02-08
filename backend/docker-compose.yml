@@ -1,63 +1,27 @@
 # =============================================================================
-# VELO Backend — Docker Compose (Production / VPS)
+# VELO Backend — Docker Compose (VPS)
 # =============================================================================
 #
-# PURPOSE:
-#   Full stack for deployment: app + postgres + redis.
-#   Used on VPS with Nginx reverse proxy in front.
+# Single compose file. No docker-compose.dev.yml. No local development.
 #
-# DEPLOYMENT:
-#   1. git pull
-#   2. docker compose up -d --build
-#   3. Nginx forwards traffic to localhost:8000
-#
-# NETWORK SECURITY (TD-004):
-#   - App: bound to 127.0.0.1:8000 — only Nginx can reach it.
-#   - PostgreSQL: NO published ports — only app container connects via
-#     Docker internal network (service name "postgres").
-#   - Redis: NO published ports — same as PostgreSQL.
-#   - For DB access use: docker compose exec postgres psql -U velo velo
-#
-# TESTING (TD-020):
-#   Set INSTALL_DEV=true in .env on the test VPS to include pytest in image.
-#   Then: docker compose exec app python -m pytest tests/ -v --tb=short
-#   Production .env omits INSTALL_DEV — defaults to false, no test tools.
-#
-# DIFFERENCES FROM dev:
-#   - App runs inside Docker (no hot reload, no volume mounts)
-#   - No ports exposed to host for DB/Redis (security)
-#   - Secrets come from .env file on the server
-#   - Healthchecks ensure services start in correct order
+# Usage:
+#   velo update   — pull, build, migrate, test, restart
+#   velo test     — run tests inside container
+#   velo status   — health check
 # =============================================================================
 
 services:
-  # ---------------------------------------------------------------------------
-  # FastAPI Application
-  # ---------------------------------------------------------------------------
   app:
-    build:
-      context: .
-      args:
-        # Read from .env; defaults to false if not set.
-        # Test VPS: INSTALL_DEV=true → pytest, httpx included in image.
-        # Production: omit or set false → lean image, no test tools.
-        INSTALL_DEV: ${INSTALL_DEV:-false}
+    build: .
     container_name: velo-app
     ports:
-      # Bind to localhost only — Nginx reverse proxy connects here.
-      # NOT accessible from the internet directly. (TD-004)
       - "127.0.0.1:8000:8000"
     env_file:
       - .env
     depends_on:
-      postgres:
-        # Wait until postgres healthcheck passes before starting app.
-        # Without this, app might start before DB is ready -> crash.
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
     healthcheck:
-      # Use /ready (not /health) — returns 503 when degraded. (M-5)
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')\""]
       interval: 10s
       timeout: 5s
@@ -65,15 +29,9 @@ services:
       start_period: 15s
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # PostgreSQL 16
-  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16
     container_name: velo-postgres
-    # NO ports published to host. App connects via Docker network
-    # using hostname "postgres". For manual access:
-    #   docker compose exec postgres psql -U velo velo
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-velo}
       POSTGRES_USER: ${POSTGRES_USER:-velo}
@@ -87,15 +45,9 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ---------------------------------------------------------------------------
-  # Redis 7
-  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: velo-redis
-    # NO ports published to host. App connects via Docker network
-    # using hostname "redis". For manual access:
-    #   docker compose exec redis redis-cli
     volumes:
       - velo_redis_data:/data
     healthcheck:

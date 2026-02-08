@@ -10,39 +10,18 @@
 # INSTALL_DEV=true (test VPS). The Dockerfile handles this conditionally.
 # =============================================================================
 
-# Virtual environment — rebuilt inside Docker
 .venv/
-venv/
-
-# Caches
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
-# IDE and OS
-.idea/
-.DS_Store
-
-# Git
 .git/
 .gitignore
-
-# Environment files — secrets are injected via docker-compose env_file
 .env
 .env.example
-
-# Docker files — no need to copy these into the image
 docker-compose*.yml
 Dockerfile
-
-# Dev tools config
-Makefile
-.pre-commit-config.yaml
-.python-version
-
-# Build artifacts
 *.egg-info/
 dist/
 build/

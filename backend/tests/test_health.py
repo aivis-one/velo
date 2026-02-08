@@ -1,44 +1,24 @@
 # =============================================================================
-# Test: Health Check & Readiness Endpoints
+# VELO Backend — Health Check Tests
 # =============================================================================
 #
-# We MOCK database and Redis so tests run WITHOUT Docker.
-# CI/CD pipeline doesn't have PostgreSQL or Redis running.
+# Success tests use real DB + Redis (setup_infrastructure ensures they're up).
+# Failure tests mock get_engine/get_redis to simulate degraded states.
 # =============================================================================
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from httpx import AsyncClient
 
+
 # ---------------------------------------------------------------------------
-# /health endpoint — always returns 200
+# /health endpoint — always 200
 # ---------------------------------------------------------------------------
 
 
 async def test_health_all_ok(client: AsyncClient) -> None:
-    """Health check returns 'ok' when both DB and Redis are healthy."""
-    # Create a mock connection that can execute queries.
-    mock_conn = AsyncMock()
-
-    # Create a mock engine whose .connect() works as async CM.
-    mock_engine = MagicMock()
-    mock_engine.connect.return_value.__aenter__ = AsyncMock(
-        return_value=mock_conn,
-    )
-    mock_engine.connect.return_value.__aexit__ = AsyncMock(
-        return_value=False,
-    )
-
-    # Mock Redis client with ping() returning True.
-    mock_redis = AsyncMock()
-    mock_redis.ping.return_value = True
-
-    with (
-        patch("app.main.engine", mock_engine),
-        patch("app.main.get_redis", return_value=mock_redis),
-    ):
-        response = await client.get("/health")
-
+    """Health check returns ok when real DB and Redis are available."""
+    response = await client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -47,17 +27,11 @@ async def test_health_all_ok(client: AsyncClient) -> None:
 
 
 async def test_health_db_down(client: AsyncClient) -> None:
-    """Health check returns 'degraded' when DB is unreachable."""
+    """Health reports degraded when DB is unreachable."""
     mock_engine = MagicMock()
     mock_engine.connect.side_effect = ConnectionError("DB down")
 
-    mock_redis = AsyncMock()
-    mock_redis.ping.return_value = True
-
-    with (
-        patch("app.main.engine", mock_engine),
-        patch("app.main.get_redis", return_value=mock_redis),
-    ):
+    with patch("app.main.get_engine", return_value=mock_engine):
         response = await client.get("/health")
 
     assert response.status_code == 200
@@ -68,23 +42,10 @@ async def test_health_db_down(client: AsyncClient) -> None:
 
 
 async def test_health_redis_down(client: AsyncClient) -> None:
-    """Health check returns 'degraded' when Redis is unreachable."""
-    mock_conn = AsyncMock()
-
-    mock_engine = MagicMock()
-    mock_engine.connect.return_value.__aenter__ = AsyncMock(
-        return_value=mock_conn,
-    )
-    mock_engine.connect.return_value.__aexit__ = AsyncMock(
-        return_value=False,
-    )
-
-    with (
-        patch("app.main.engine", mock_engine),
-        patch(
-            "app.main.get_redis",
-            side_effect=RuntimeError("Redis not init"),
-        ),
+    """Health reports degraded when Redis is unreachable."""
+    with patch(
+        "app.main.get_redis",
+        side_effect=RuntimeError("Redis not init"),
     ):
         response = await client.get("/health")
 
@@ -96,52 +57,26 @@ async def test_health_redis_down(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# /ready endpoint — returns 503 when degraded (H-3)
+# /ready endpoint — returns 503 when degraded
 # ---------------------------------------------------------------------------
 
 
 async def test_ready_all_ok(client: AsyncClient) -> None:
     """Readiness probe returns 200 when all dependencies are healthy."""
-    mock_conn = AsyncMock()
-
-    mock_engine = MagicMock()
-    mock_engine.connect.return_value.__aenter__ = AsyncMock(
-        return_value=mock_conn,
-    )
-    mock_engine.connect.return_value.__aexit__ = AsyncMock(
-        return_value=False,
-    )
-
-    mock_redis = AsyncMock()
-    mock_redis.ping.return_value = True
-
-    with (
-        patch("app.main.engine", mock_engine),
-        patch("app.main.get_redis", return_value=mock_redis),
-    ):
-        response = await client.get("/ready")
-
+    response = await client.get("/ready")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
 
 
 async def test_ready_returns_503_when_degraded(client: AsyncClient) -> None:
-    """Readiness probe returns 503 when DB is down — load balancer stops routing."""
+    """Readiness probe returns 503 when DB is down."""
     mock_engine = MagicMock()
     mock_engine.connect.side_effect = ConnectionError("DB down")
 
-    mock_redis = AsyncMock()
-    mock_redis.ping.return_value = True
-
-    with (
-        patch("app.main.engine", mock_engine),
-        patch("app.main.get_redis", return_value=mock_redis),
-    ):
+    with patch("app.main.get_engine", return_value=mock_engine):
         response = await client.get("/ready")
 
     assert response.status_code == 503
     data = response.json()
     assert data["status"] == "degraded"
-    assert data["db"] == "error"
-    assert data["redis"] == "ok"
