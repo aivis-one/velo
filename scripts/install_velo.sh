@@ -427,12 +427,31 @@ generate_env() {
 
     # Generate secure random values
     local PG_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
-    local REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+
+    # --- Collect required credentials from user ---
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  Telegram Bot Token${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo ""
+    info "The app requires a Telegram Bot Token to work."
+    info "Get one from @BotFather: https://t.me/BotFather"
+    echo ""
+
+    local TG_TOKEN=""
+    while [ -z "$TG_TOKEN" ]; do
+        read -p "Enter TELEGRAM_BOT_TOKEN: " TG_TOKEN
+        if [ -z "$TG_TOKEN" ]; then
+            error "Token cannot be empty. The app will not start without it."
+        fi
+    done
+    echo ""
+    success "Telegram Bot Token saved"
 
     cat > "$ENV_FILE" << EOF
 # ===========================================================================
-# VELO Backend — Production Environment
+# VELO Backend — Environment Configuration
 # Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 # Server: $(hostname) ($(curl -s ifconfig.me 2>/dev/null))
 # ===========================================================================
@@ -459,8 +478,10 @@ REDIS_URL=redis://redis:6379/0
 # Telegram WebApp origins. Add more as needed.
 CORS_ORIGINS=https://web.telegram.org,https://${DOMAIN}
 
-# --- Future (uncomment when ready) ---
-# TELEGRAM_BOT_TOKEN=
+# --- Telegram ---
+TELEGRAM_BOT_TOKEN=${TG_TOKEN}
+
+# --- Payments (uncomment when ready) ---
 # STRIPE_SECRET_KEY=sk_test_...
 # STRIPE_WEBHOOK_SECRET=whsec_...
 # STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -480,11 +501,11 @@ PostgreSQL:
   User: velo
   Password: ${PG_PASSWORD}
 
-Redis:
-  Password: (none, internal Docker network only)
-
 Secret Key:
   ${SECRET_KEY}
+
+Telegram Bot Token:
+  ${TG_TOKEN}
 
 .env location: ${ENV_FILE}
 EOF
@@ -1188,5 +1209,5 @@ echo ""
 warn "Next steps:"
 echo "  1. Verify: velo status"
 echo "  2. Check: curl https://$DOMAIN/health"
-echo "  3. Later: add TELEGRAM_BOT_TOKEN and STRIPE keys to .env"
+echo "  3. Later: add STRIPE keys to .env when ready for payments"
 echo ""
