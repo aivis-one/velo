@@ -39,8 +39,15 @@ logger = structlog.get_logger()
 # Session key prefix in Redis.
 _SESSION_PREFIX = "session:"
 
-# Session TTL in seconds (from config, default 30 days).
-_SESSION_TTL = settings.session_ttl_days * 24 * 60 * 60
+
+def _get_session_ttl() -> int:
+    """Session TTL in seconds, computed at call time (not import time).
+
+    TD-021: previously this was a module-level constant computed at import.
+    Tests could not override SESSION_TTL_DAYS because the value was already
+    baked in. Now it reads settings.session_ttl_days on every call.
+    """
+    return settings.session_ttl_days * 24 * 60 * 60
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +211,7 @@ async def create_session(user: User) -> str:
     await redis.set(
         f"{_SESSION_PREFIX}{token}",
         session_data,
-        ex=_SESSION_TTL,
+        ex=_get_session_ttl(),
     )
 
     logger.info("session_created", user_id=str(user.id))

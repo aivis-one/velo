@@ -36,6 +36,28 @@ make run
 
 Visit: http://localhost:8000/docs — Swagger UI with all endpoints.
 
+## Testing
+
+Tests run on the **test VPS** (`api.talentir.info`), not locally.
+
+Integration tests (auth flow, CRUD) use the real PostgreSQL and Redis
+running in Docker on the test server — no mocks, close to production.
+
+```bash
+# 1. Push your changes to GitHub
+git push
+
+# 2. SSH into test VPS and update
+velo update        # pulls repo, rebuilds, runs migrations
+
+# 3. Run tests inside the app container
+docker compose exec app python -m pytest tests/ -v --tb=short
+```
+
+> **Why not locally?** Some tests (`test_auth_telegram_success`, profile CRUD)
+> require a real PostgreSQL with asyncpg. The test VPS has all infrastructure
+> running, so tests execute in a production-like environment. (TD-019)
+
 ## Development Commands
 
 | Command        | Description                                      |

@@ -19,16 +19,18 @@
 #   Here `client` is a fixture defined below — pytest sees the parameter name,
 #   finds the matching fixture, runs it, and passes the result to the test.
 #
-# PHASES:
-#   Phase 0.1: Basic client fixture (no DB).
-#   Phase 0.3: Will add DB fixtures (async session, test database).
+# FIXTURES:
+#   client     — Async HTTP client for testing FastAPI endpoints (in-memory).
+#   db_session — Direct async DB session for test setup/teardown (TD-020).
 # =============================================================================
 
 from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import async_session_factory
 from app.main import app
 
 
@@ -48,3 +50,26 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Direct database session for test setup and teardown.
+
+    Provides raw AsyncSession for operations that bypass the API layer,
+    such as deactivating a user or verifying DB state after an endpoint call.
+
+    Unlike get_db_session() (which auto-commits), this session requires
+    explicit commit — giving tests full control over transactions.
+
+    Usage in tests:
+        async def test_something(db_session: AsyncSession) -> None:
+            stmt = update(User).where(...).values(is_active=False)
+            await db_session.execute(stmt)
+            await db_session.commit()
+    """
+    session = async_session_factory()
+    try:
+        yield session
+    finally:
+        await session.close()

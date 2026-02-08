@@ -11,11 +11,15 @@ from urllib.parse import urlencode
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.modules.auth.service import (
     TelegramValidationError,
     validate_telegram_init_data,
 )
+from app.modules.users.models import User
 
 BOT_TOKEN = "123456:ABC-DEF"
 
@@ -43,6 +47,35 @@ def _build_init_data(
 
     params["hash"] = computed_hash
     return urlencode(params)
+
+
+# ---------------------------------------------------------------------------
+# Helper: login and return (session_token, user_response)
+# ---------------------------------------------------------------------------
+
+
+async def _login_user(
+    client: AsyncClient,
+    telegram_id: int = 77001,
+    first_name: str = "AuthTest",
+    username: str = "authtest",
+) -> dict:
+    """Create a user via POST /auth/telegram and return the response dict.
+
+    Uses real PostgreSQL and Redis (runs on test VPS).
+    Only patches telegram_bot_token for HMAC validation.
+    """
+    user_data = {"id": telegram_id, "first_name": first_name, "username": username}
+    init_data = _build_init_data(user_data)
+
+    with patch.object(settings, "telegram_bot_token", BOT_TOKEN):
+        response = await client.post(
+            "/api/v1/auth/telegram",
+            json={"init_data": init_data},
+        )
+
+    assert response.status_code == 200
+    return response.json()
 
 
 # ---------------------------------------------------------------------------
@@ -149,3 +182,71 @@ async def test_auth_telegram_invalid_data(client: AsyncClient) -> None:
         json={"init_data": "garbage=data&hash=fake"},
     )
     assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/logout (TD-020)
+# ---------------------------------------------------------------------------
+
+
+async def test_logout_success(client: AsyncClient) -> None:
+    """Logout deletes session; same token becomes invalid afterward."""
+    data = await _login_user(client, telegram_id=77001)
+    token = data["session_token"]
+
+    # Logout should succeed.
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 204
+
+    # Same token should now be rejected (session deleted from Redis).
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+
+
+async def test_logout_no_token(client: AsyncClient) -> None:
+    """Logout without Authorization header → 401."""
+    response = await client.post("/api/v1/auth/logout")
+    assert response.status_code == 401
+
+
+async def test_logout_invalid_token(client: AsyncClient) -> None:
+    """Logout with garbage token → 401 (session not found in Redis)."""
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": "Bearer garbage-token-that-does-not-exist"},
+    )
+    assert response.status_code == 401
+
+
+async def test_logout_inactive_user(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Deactivated user cannot access protected endpoints → 403."""
+    # Login with a unique telegram_id (separate from other tests).
+    data = await _login_user(client, telegram_id=77002, first_name="Inactive")
+    token = data["session_token"]
+    user_id = data["user"]["id"]
+
+    # Deactivate user directly in DB.
+    stmt = update(User).where(User.id == user_id).values(is_active=False)
+    await db_session.execute(stmt)
+    await db_session.commit()
+
+    # Token is still in Redis, but get_current_user checks is_active.
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+    # Cleanup: re-activate user so the test is idempotent.
+    stmt = update(User).where(User.id == user_id).values(is_active=True)
+    await db_session.execute(stmt)
+    await db_session.commit()
