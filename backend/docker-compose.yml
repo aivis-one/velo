@@ -18,6 +18,11 @@
 #   - Redis: NO published ports — same as PostgreSQL.
 #   - For DB access use: docker compose exec postgres psql -U velo velo
 #
+# TESTING (TD-020):
+#   Set INSTALL_DEV=true in .env on the test VPS to include pytest in image.
+#   Then: docker compose exec app python -m pytest tests/ -v --tb=short
+#   Production .env omits INSTALL_DEV — defaults to false, no test tools.
+#
 # DIFFERENCES FROM dev:
 #   - App runs inside Docker (no hot reload, no volume mounts)
 #   - No ports exposed to host for DB/Redis (security)
@@ -30,7 +35,13 @@ services:
   # FastAPI Application
   # ---------------------------------------------------------------------------
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Read from .env; defaults to false if not set.
+        # Test VPS: INSTALL_DEV=true → pytest, httpx included in image.
+        # Production: omit or set false → lean image, no test tools.
+        INSTALL_DEV: ${INSTALL_DEV:-false}
     container_name: velo-app
     ports:
       # Bind to localhost only — Nginx reverse proxy connects here.

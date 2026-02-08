@@ -19,6 +19,11 @@
 # SECURITY (TD-005):
 #   Runtime stage runs as non-root user "velo" (UID 1000).
 #   Even if the app is compromised, attacker has limited OS access.
+#
+# DEV DEPENDENCIES (TD-020):
+#   Build arg INSTALL_DEV=true installs pytest and other dev tools.
+#   Used on the test VPS for running tests inside the container.
+#   Production: INSTALL_DEV is false (default) — no test tools in image.
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -28,17 +33,24 @@ FROM python:3.12-slim AS builder
 
 WORKDIR /build
 
+# Build arg: set to "true" on test VPS to include pytest, httpx, etc.
+ARG INSTALL_DEV=false
+
 # Install only the files needed for dependency resolution.
 # Docker caches each layer — if pyproject.toml doesn't change,
 # dependencies won't be reinstalled on every build. Huge time savings.
 COPY pyproject.toml ./
 
-# Create a venv inside the builder and install production deps only.
+# Create a venv inside the builder and install deps.
 # --no-cache-dir: don't store pip's download cache (smaller image).
-# We don't install [dev] deps — no pytest/black/ruff in production.
+# When INSTALL_DEV=true, also installs [dev] extras (pytest, httpx, etc.).
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir .
+    if [ "$INSTALL_DEV" = "true" ]; then \
+        /opt/venv/bin/pip install --no-cache-dir ".[dev]"; \
+    else \
+        /opt/venv/bin/pip install --no-cache-dir .; \
+    fi
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime — minimal image with only what we need
@@ -46,6 +58,9 @@ RUN python -m venv /opt/venv && \
 FROM python:3.12-slim AS runtime
 
 WORKDIR /app
+
+# Carry build arg into runtime stage for conditional COPY.
+ARG INSTALL_DEV=false
 
 # Create non-root user for running the application. (TD-005)
 # Using fixed UID/GID for consistency across rebuilds.
@@ -63,6 +78,10 @@ COPY app/ ./app/
 # Needed for: docker compose exec app alembic upgrade head
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
+
+# Copy tests only when dev dependencies are installed (test VPS).
+# Production images don't include tests — smaller and cleaner.
+COPY tests/ ./tests/
 
 # Put venv's Python and scripts first in PATH.
 # This means `python` and `uvicorn` resolve to the venv versions.

@@ -5,6 +5,9 @@
 # When you run `docker build`, Docker sends ALL files in the directory
 # to the Docker daemon (the "build context"). This file excludes
 # unnecessary files — making builds faster and images smaller.
+#
+# NOTE: tests/ are NOT excluded — they are copied into the image when
+# INSTALL_DEV=true (test VPS). The Dockerfile handles this conditionally.
 # =============================================================================
 
 # Virtual environment — rebuilt inside Docker
@@ -17,9 +20,6 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-
-# Tests — not needed in production image
-tests/
 
 # IDE and OS
 .idea/
