@@ -1,6 +1,6 @@
 # VELO — Техническое задание
 
-**Версия:** 1.2  
+**Версия:** 1.3  
 **Дата:** 8 февраля 2026  
 **Статус:** Draft
 
@@ -305,111 +305,96 @@ velo ssl renew           — certbot renew
 
 ## PHASE 1: Auth + Users
 
-### 1.1: Модель User
+### 1.1: Модель User ✅
 
 **Цель:** Базовая модель пользователя.
 
 **Задачи:**
-- [ ] app/modules/users/models.py
-- [ ] User model с credentials JSONB
-- [ ] Enum для ролей (user, master, admin)
-- [ ] Миграция
+- [x] app/core/mixins.py — UUIDMixin + TimestampMixin
+- [x] app/modules/users/models.py — User model + UserRole enum
+- [x] Миграция `create_users_table`
 
-**Модель:**
-```python
-class UserRole(str, Enum):
-    USER = "user"
-    MASTER = "master"
-    ADMIN = "admin"
-
-class User(Base):
-    __tablename__ = "users"
-    
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    role: Mapped[UserRole] = mapped_column(default=UserRole.USER)
-    credentials: Mapped[dict] = mapped_column(JSONB, default=dict)
-    
-    first_name: Mapped[str | None] = mapped_column(String(100))
-    last_name: Mapped[str | None] = mapped_column(String(100))
-    avatar_url: Mapped[str | None] = mapped_column(String(500))
-    timezone: Mapped[str] = mapped_column(String(50), default="UTC")
-    language: Mapped[str] = mapped_column(String(5), default="en")
-    
-    is_active: Mapped[bool] = mapped_column(default=True)
-    
-    # User balance (computed by listener from user_ledger)
-    balance_user: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
-    # NOTE: Master balance (frozen + available) stored in MasterProfile
-    
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(onupdate=func.now())
-    last_login_at: Mapped[datetime | None]
+**Результат:**
+```
+backend/app/
+├── core/
+│   └── mixins.py              ← UUIDMixin, TimestampMixin (DateTime timezone=True)
+└── modules/
+    └── users/
+        ├── __init__.py
+        └── models.py          ← UserRole enum + User model
 ```
 
-**Критерий готовности:** Миграция применена, таблица создана.
+**Решения, принятые при реализации:**
+- `telegram_id` — отдельная колонка (BigInteger, unique, indexed) для быстрого поиска при логине. Правило: ищем по колонке, храним в JSONB
+- `credentials` — JSONB-песочница для данных auth неясной структуры (telegram username, photo, будущие email/password/OAuth)
+- `role` хранится как `String(20)` (не PostgreSQL ENUM) — asyncpg не умеет кастить строки в PG ENUM при server_default. Python-side `UserRole(str, Enum)` валидирует
+- `balance_user` — `Numeric(18, 2)`, default=0, не трогаем до Phase 6
+- Миксины: `UUIDMixin` (uuid4 app-side), `TimestampMixin` (created_at server_default, updated_at ORM-level onupdate)
+- Все datetime-колонки — `DateTime(timezone=True)` (TIMESTAMP WITH TIME ZONE)
+
+**Критерий готовности:** Миграция применена, таблица создана. ✅
 
 ---
 
-### 1.2: Telegram WebApp Auth
+### 1.2: Telegram WebApp Auth ✅
 
 **Цель:** Аутентификация через Telegram initData.
 
 **Задачи:**
-- [ ] app/modules/auth/service.py — валидация initData
-- [ ] app/modules/auth/router.py — POST /auth/telegram
-- [ ] Создание/обновление юзера при входе
-- [ ] Тесты
+- [x] app/modules/auth/service.py — валидация initData (HMAC-SHA256)
+- [x] app/modules/auth/router.py — POST /api/v1/auth/telegram
+- [x] POST /api/v1/auth/logout — отзыв сессии
+- [x] Атомарный upsert юзера при входе (INSERT ON CONFLICT DO UPDATE)
+- [x] app/core/exceptions.py — добавлен UnauthorizedError (401)
+- [x] Тесты валидации (8 тестов)
 
-**Endpoint:**
+**Endpoints:**
 ```
-POST /api/v1/auth/telegram
-Body: {"init_data": "query_string_from_telegram"}
-Response: {"user": {...}, "session_token": "..."}
-```
-
-**Валидация initData:**
-```python
-async def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
-    """Validate Telegram WebApp initData."""
-    # Parse query string
-    # Check hash with HMAC-SHA256
-    # Check auth_date not expired
-    # Return user data
+POST /api/v1/auth/telegram  → AuthResponse {user, session_token}
+POST /api/v1/auth/logout    → 204 No Content
 ```
 
-**Критерий готовности:** WebApp может залогинить юзера.
+**Решения, принятые при реализации:**
+- `INSERT ... ON CONFLICT DO UPDATE` вместо SELECT+INSERT — атомарно, без race condition при двойном клике
+- `session.commit()` ПЕРЕД созданием Redis-сессии — если commit упадёт, orphan-сессии в Redis не будет
+- `telegram_bot_token` — пустой дефолт, заполняется в валидаторе (dev: fake token, prod: required)
+- initData expiry: 5 минут (защита от replay)
+
+**Критерий готовности:** WebApp может залогинить юзера. ✅
 
 ---
 
-### 1.3: Сессии (Redis)
+### 1.3: Сессии (Redis) ✅
 
 **Цель:** Управление сессиями через Redis.
 
 **Задачи:**
-- [ ] app/core/redis.py — Redis client
-- [ ] app/modules/auth/session.py — create/get/delete session
-- [ ] Session middleware
-- [ ] TTL 30 дней
+- [x] Сессии в auth/service.py (create/get/delete) — не отдельный файл
+- [x] FastAPI Dependency вместо Middleware (решение Phase 0.5 обсуждение)
+- [x] app/modules/auth/dependencies.py — get_current_user, get_optional_user, get_current_admin
+- [x] TTL 30 дней (настраивается через SESSION_TTL_DAYS)
 
 **Формат сессии в Redis:**
 ```
-Key: session:{token}
-Value: {"user_id": "uuid", "created_at": "...", "telegram_id": 123}
+Key: session:{token}    (token = secrets.token_urlsafe(48))
+Value: {"user_id": "uuid", "telegram_id": 123, "created_at": "iso"}
 TTL: 30 days
 ```
 
-**Middleware:**
+**Dependencies (вместо middleware):**
 ```python
-async def auth_middleware(request: Request, call_next):
-    token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if token:
-        session = await session_service.get(token)
-        if session:
-            request.state.user_id = session["user_id"]
-    return await call_next(request)
+get_current_user(request, session) → User       # 401 если нет токена
+get_optional_user(request, session) → User|None  # None для анонимов
+get_current_admin(user) → User                   # 403 если не admin
 ```
 
-**Критерий готовности:** Запросы с валидным токеном авторизованы.
+**Решения, принятые при реализации:**
+- Dependency вместо Middleware — явная авторизация на уровне эндпоинта, громко падает при отсутствии токена (не молчаливый None в request.state)
+- Бесшовная миграция в будущем: при добавлении standalone app (JWT) меняется одна функция get_current_user, ни один роутер не трогаем
+- Три уровня: обязательный (get_current_user), опциональный (get_optional_user), админский (get_current_admin)
+
+**Критерий готовности:** Запросы с валидным токеном авторизованы. ✅
 
 ---
 
@@ -1772,6 +1757,14 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 | TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
 | TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
 
+### Phase 1.4 — закрыть при старте Phase 1.4
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-019 | 🧪 | `test_auth.py` | `test_auth_telegram_success` требует запущенный PostgreSQL (R-3) | Документировать `make dev-up` в README, или добавить SQLite test fixture | ⬜ |
+| TD-020 | 🧪 | `test_auth.py` | Нет тестов для logout, get_current_user, get_optional_user, get_current_admin (R-5) | Написать тесты | ⬜ |
+| TD-021 | 🧪🚀 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте (P-9) — тесты не могут переопределить | Вычислять при вызове или читать из settings | ⬜ |
+
 ### Ближайшее касание соответствующего файла
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
@@ -1788,6 +1781,8 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 | TD-016 | 🧪 | Разные | Устаревшие комментарии (mypy в Makefile, ValidationError в exceptions.py, Phase 0.3 в conftest) | Обновить при касании файлов | ⬜ |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
 | TD-018 | 🧪 | `test_health.py` | Хрупкие патчи (mock engine.connect as async CM) | Рефакторить при добавлении новых тестов | ⬜ |
+| TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум (P-12) | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
+| TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (P-7, неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
 
