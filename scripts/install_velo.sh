@@ -136,6 +136,7 @@ if [ -d "$INSTALL_BASE/repo" ]; then
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Stopping existing services and removing volumes..."
         cd "$INSTALL_BASE/repo/backend" 2>/dev/null && docker compose down -v 2>/dev/null || true
+        cd "$INSTALL_BASE"
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
         rm -f /usr/local/bin/velo
