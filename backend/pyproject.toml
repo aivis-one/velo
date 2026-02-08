@@ -84,7 +84,7 @@ dev = [
 
     # pytest-asyncio: lets you write async test functions.
     # Without it, you can't `await` inside tests — critical for testing FastAPI.
-    "pytest-asyncio>=0.24.0",
+   "pytest-asyncio>=0.24.0,<1.0",
 
     # httpx: async HTTP client used to test FastAPI endpoints.
     # FastAPI's TestClient uses httpx under the hood.
