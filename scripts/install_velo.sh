@@ -134,23 +134,12 @@ if [ -d "$INSTALL_BASE/repo" ]; then
     read -p "Remove existing installation and start fresh? (y/n): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log "Stopping existing services..."
-        cd "$INSTALL_BASE/repo/backend" 2>/dev/null && docker compose down 2>/dev/null || true
-
-        # Preserve .env so DB credentials survive reinstall.
-        # Without this, generate_env() creates new passwords but
-        # PostgreSQL volume still expects the old ones → auth failure.
-        if [ -f "$INSTALL_BASE/repo/backend/.env" ]; then
-            mkdir -p "$INSTALL_BASE/creds"
-            cp "$INSTALL_BASE/repo/backend/.env" "$INSTALL_BASE/creds/.env.bak"
-            success "Saved existing .env to $INSTALL_BASE/creds/.env.bak"
-        fi
-
+        log "Stopping existing services and removing volumes..."
+        cd "$INSTALL_BASE/repo/backend" 2>/dev/null && docker compose down -v 2>/dev/null || true
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
         rm -f /usr/local/bin/velo
-        cd /
-        success "Previous installation removed"
+        success "Previous installation removed (including Docker volumes)"
     else
         error "Cannot proceed with existing installation"
         exit 1
@@ -407,51 +396,28 @@ clone_repo
 generate_env() {
     local ENV_FILE="$INSTALL_BASE/repo/backend/.env"
 
-    if [ -f "$ENV_FILE" ]; then
-        warn ".env already exists, skipping generation"
-        return
-    fi
-
-    # Restore from backup if this is a reinstall.
-    # The backup was saved in the "Remove existing installation" step.
-    local ENV_BACKUP="$INSTALL_BASE/creds/.env.bak"
-    if [ -f "$ENV_BACKUP" ]; then
-        log "Restoring .env from previous installation..."
-        cp "$ENV_BACKUP" "$ENV_FILE"
-        chmod 600 "$ENV_FILE"
-        success ".env restored from backup (DB credentials preserved)"
-        return
-    fi
-
     log "Generating .env with secure passwords..."
 
     # Generate secure random values
     local PG_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+    local REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 
-    # --- Collect required credentials from user ---
+    # Ask for Telegram bot token
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo -e "${CYAN}  Telegram Bot Token${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo ""
-    info "The app requires a Telegram Bot Token to work."
-    info "Get one from @BotFather: https://t.me/BotFather"
+    echo -e "${YELLOW}Get it from @BotFather in Telegram.${NC}"
+    echo -e "${YELLOW}Leave empty to skip (you can add it later in .env).${NC}"
     echo ""
-
-    local TG_TOKEN=""
-    while [ -z "$TG_TOKEN" ]; do
-        read -p "Enter TELEGRAM_BOT_TOKEN: " TG_TOKEN
-        if [ -z "$TG_TOKEN" ]; then
-            error "Token cannot be empty. The app will not start without it."
-        fi
-    done
+    read -p "TELEGRAM_BOT_TOKEN: " TELEGRAM_BOT_TOKEN
     echo ""
-    success "Telegram Bot Token saved"
 
     cat > "$ENV_FILE" << EOF
 # ===========================================================================
-# VELO Backend — Environment Configuration
+# VELO Backend — Production Environment
 # Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 # Server: $(hostname) ($(curl -s ifconfig.me 2>/dev/null))
 # ===========================================================================
@@ -479,9 +445,9 @@ REDIS_URL=redis://redis:6379/0
 CORS_ORIGINS=https://web.telegram.org,https://${DOMAIN}
 
 # --- Telegram ---
-TELEGRAM_BOT_TOKEN=${TG_TOKEN}
+TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 
-# --- Payments (uncomment when ready) ---
+# --- Future (uncomment when ready) ---
 # STRIPE_SECRET_KEY=sk_test_...
 # STRIPE_WEBHOOK_SECRET=whsec_...
 # STRIPE_PUBLISHABLE_KEY=pk_test_...
@@ -501,11 +467,14 @@ PostgreSQL:
   User: velo
   Password: ${PG_PASSWORD}
 
+Redis:
+  Password: (none, internal Docker network only)
+
 Secret Key:
   ${SECRET_KEY}
 
 Telegram Bot Token:
-  ${TG_TOKEN}
+  ${TELEGRAM_BOT_TOKEN:-not set}
 
 .env location: ${ENV_FILE}
 EOF
@@ -730,16 +699,6 @@ start_stack() {
 
 start_stack
 
-# Run initial migrations
-run_initial_migrations() {
-    log "Running database migrations..."
-    cd "$INSTALL_BASE/repo/backend"
-    docker compose exec -T app python -m alembic upgrade head
-    success "Database migrations applied"
-}
-
-run_initial_migrations
-
 # ==============================================================================
 # MANAGEMENT SCRIPT
 # ==============================================================================
@@ -867,6 +826,18 @@ case "${1:-}" in
         esac
         ;;
 
+    # === Testing & Linting ===
+
+    test)
+        cd_compose
+        $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short
+        ;;
+
+    lint)
+        cd_compose
+        $COMPOSE_CMD exec -T app python -m ruff check app/ tests/
+        ;;
+
     # === Update & Deploy ===
 
     update|deploy)
@@ -922,9 +893,10 @@ case "${1:-}" in
         $COMPOSE_CMD up -d
 
         # Run migrations
+        echo ""
         echo "Running database migrations..."
         $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
-            echo -e "${RED}⚠ Migration failed!${NC}"
+            echo -e "${RED}✗ Migration failed!${NC}"
             echo "Check logs: velo logs app"
             exit 1
         }
@@ -941,7 +913,7 @@ case "${1:-}" in
             exit 1
         fi
 
-        # Wait and check health
+        # Health check
         echo ""
         echo "Waiting for health check..."
         sleep 5
@@ -954,18 +926,6 @@ case "${1:-}" in
             echo -e "${RED}⚠ API health check failed after update${NC}"
             echo "Check logs: velo logs app"
         fi
-        ;;
-
-    # === Testing & Linting ===
-
-    test)
-        cd_compose
-        $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short
-        ;;
-
-    lint)
-        cd_compose
-        $COMPOSE_CMD exec -T app python -m ruff check app/ tests/
         ;;
 
     # === Backup ===
@@ -1067,7 +1027,7 @@ case "${1:-}" in
     # === Version ===
 
     version)
-        echo "VELO Management Script v1.0"
+        echo "VELO Management Script v1.1"
         echo ""
         cd "$INSTALL_BASE/repo" 2>/dev/null && {
             echo -n "Commit: "
@@ -1118,12 +1078,12 @@ case "${1:-}" in
         echo "Logs:"
         echo "  logs [app|db|redis] — View logs (default: app)"
         echo ""
-        echo "Deployment:"
-        echo "  update              — Pull code, rebuild, migrate, test, restart"
-        echo ""
         echo "Testing:"
         echo "  test                — Run all tests"
         echo "  lint                — Run linter (ruff)"
+        echo ""
+        echo "Deployment:"
+        echo "  update              — Pull, rebuild, migrate, test, restart"
         echo ""
         echo "Database:"
         echo "  db connect          — Open psql session"
@@ -1199,8 +1159,8 @@ echo ""
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"
 echo -e "  ${CYAN}velo logs${NC}            — View app logs"
-echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
 echo -e "  ${CYAN}velo test${NC}            — Run all tests"
+echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
 echo -e "  ${CYAN}velo restart${NC}         — Restart all services"
 echo -e "  ${CYAN}velo db connect${NC}      — Open psql"
 echo -e "  ${CYAN}velo backup${NC}          — Manual backup"
@@ -1209,5 +1169,4 @@ echo ""
 warn "Next steps:"
 echo "  1. Verify: velo status"
 echo "  2. Check: curl https://$DOMAIN/health"
-echo "  3. Later: add STRIPE keys to .env when ready for payments"
 echo ""
