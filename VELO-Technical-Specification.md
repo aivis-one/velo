@@ -1,7 +1,7 @@
 # VELO — Техническое задание
 
-**Версия:** 1.1  
-**Дата:** 7 февраля 2026  
+**Версия:** 1.2  
+**Дата:** 8 февраля 2026  
 **Статус:** Draft
 
 ---
@@ -222,169 +222,84 @@ backend/
 
 ---
 
-### 0.5: VPS + деплой + CI/CD
+### 0.5: VPS + деплой ✅
 
-**Цель:** Приложение работает на сервере.
+**Цель:** Приложение работает на сервере с HTTPS.
 
 **Задачи:**
-- [ ] Настройка VPS (Ubuntu, Docker, Docker Compose)
-- [ ] Nginx как reverse proxy
-- [ ] SSL сертификат (Let's Encrypt)
-- [ ] GitHub Actions: тесты → деплой на push в main
-- [ ] .env на сервере (secrets)
+- [x] VPS (Inferno, NL, Ubuntu 22.04, 2 CPU / 4GB RAM / 30GB NVMe)
+- [x] Домен: `api.talentir.info` → A-запись на VPS
+- [x] `install_velo.sh` — единый скрипт установки (Docker, Nginx, Certbot, UFW, SSH deploy key)
+- [x] Nginx reverse proxy → `127.0.0.1:8000`
+- [x] SSL сертификат (Let's Encrypt) + auto-renewal cron
+- [x] Firewall: только 22/80/443
+- [x] `.env` на сервере (автогенерация с рандомными паролями)
+- [x] Management-скрипт `velo` (start/stop/restart/status/logs/update/backup/db)
+- [x] Ежедневный backup cron (4 AM, ротация 7 дней)
+- [x] Production hardening — закрытие TD-001..TD-009
 
-**CI/CD pipeline:**
-```yaml
-# .github/workflows/deploy.yml
-on:
-  push:
-    branches: [main]
-    
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: pip install -e ".[dev]"
-      - run: pytest
-      - run: ruff check .
-      - run: mypy .
-      
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_KEY }}
-          script: |
-            cd /opt/velo
-            git pull
-            docker-compose up -d --build
+**Результат:**
+```
+VPS (37.1.204.171):
+├── /opt/velo/
+│   ├── repo/              ← Git clone (deploy key, read-only)
+│   │   └── backend/       ← Docker stack (app + postgres + redis)
+│   ├── creds/             ← Автосгенерированные креды
+│   ├── scripts/manage.sh  ← Management script (symlink: /usr/local/bin/velo)
+│   └── backups/           ← Ежедневные бэкапы (pg_dump + .env)
+├── /etc/nginx/sites-available/velo  ← Reverse proxy + SSL
+└── /etc/letsencrypt/      ← SSL-сертификат для api.talentir.info
 ```
 
-**Критерий готовности:** Push в main → автодеплой → `https://api.velo.app/health` работает.
+**Решения, принятые при реализации:**
+- Ручной деплой (`velo update`) вместо GitHub Actions — промежуточные пуши для БЗ Claude, не всегда готовы к деплою
+- Ubuntu 22.04 (не 24.04) — предустановлена хостером, LTS до 2027, обновление ОС не оправдано
+- Deploy key (read-only SSH) вместо personal access token — минимальные права
+- `install_velo.sh` генерирует `.env` с рандомными паролями (openssl rand) — без дефолтных кредов
+- Postgres/Redis без published портов (Docker internal network only) — TD-004
+- App на `127.0.0.1:8000` — только Nginx видит его
+- Non-root user в Dockerfile (`USER velo`, UID 1000) — TD-005
+- Alembic файлы копируются в Docker image — `velo db migrate` работает внутри контейнера
+
+**Production hardening (закрыто в рамках Phase 0.5):**
+- TD-001: SECRET_KEY обязателен в production (validator в config.py)
+- TD-002: CORS credentials=False при wildcard origins
+- TD-003: `GET /ready` (503 при деградации) + `GET /health` (200 всегда)
+- TD-004: Postgres/Redis — no published ports
+- TD-005: Docker non-root user
+- TD-006: DATABASE_URL обязателен в production
+- TD-007: VeloError exception handler + logging
+- TD-008: `get_db_reader()` для read-only запросов
+- TD-009: Lifespan try/finally — cleanup при падении startup
+
+**Endpoints:**
+```
+GET /        → {"name": "VELO API", "version": "0.1.0"}
+GET /health  → {"status": "ok", "db": "ok", "redis": "ok"}          (200 always)
+GET /ready   → {"status": "ok", "db": "ok", "redis": "ok"}          (200 or 503)
+```
+
+**Management:**
+```
+velo status              — Docker ps + health check + external access
+velo logs [app|db|redis] — Docker logs -f
+velo update              — git pull + rebuild + migrate + restart
+velo restart [app]       — Restart all or just app
+velo backup              — pg_dump + .env → tar.gz
+velo db connect          — psql в контейнер
+velo db migrate          — alembic upgrade head
+velo ssl renew           — certbot renew
+```
+
+**Критерий готовности:** `curl https://api.talentir.info/health` → `{"status":"ok"}`. ✅
 
 ---
 
-### 0.6: Logging + Audit
+### 0.6: Logging + Audit → перенесена перед Phase 6
 
-**Цель:** Структурированное логирование и аудит финансовых операций.
-
-**Задачи:**
-- [ ] Установить structlog
-- [ ] app/core/logging.py — настройка логгера
-- [ ] Middleware для trace_id
-- [ ] app/core/audit.py — сервис аудита
-- [ ] Модель AuditLog
-- [ ] Миграция
-
-**Конфигурация structlog:**
-```python
-import structlog
-
-structlog.configure(
-    processors=[
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer()  # JSON в production
-    ],
-    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-    context_class=dict,
-    logger_factory=structlog.PrintLoggerFactory(),
-)
-```
-
-**Middleware для trace_id:**
-```python
-@app.middleware("http")
-async def trace_id_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", str(uuid4()))
-    structlog.contextvars.clear_contextvars()
-    structlog.contextvars.bind_contextvars(trace_id=trace_id)
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-```
-
-**Модель AuditLog:**
-```python
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-    
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
-    
-    event: Mapped[str] = mapped_column(String(100), index=True)
-    # Events: purchase_created, refund, withdrawal, role_changed, 
-    #         master_verified, balance_changed, booking_cancelled, etc.
-    
-    actor_id: Mapped[UUID | None]  # Who performed action (NULL for system)
-    actor_type: Mapped[str] = mapped_column(String(20))  # user, master, admin, system
-    
-    target_type: Mapped[str] = mapped_column(String(50))  # user, practice, booking, payment
-    target_id: Mapped[UUID]
-    
-    data: Mapped[dict] = mapped_column(JSONB)  # Full context snapshot
-    
-    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6
-    user_agent: Mapped[str | None] = mapped_column(String(500))
-    trace_id: Mapped[str | None] = mapped_column(String(36))
-```
-
-**Сервис аудита:**
-```python
-class AuditService:
-    async def record(
-        self,
-        event: str,
-        target_type: str,
-        target_id: UUID,
-        data: dict,
-        actor_id: UUID | None = None,
-        actor_type: str = "system",
-        request: Request | None = None,
-    ) -> AuditLog:
-        log = AuditLog(
-            event=event,
-            actor_id=actor_id,
-            actor_type=actor_type,
-            target_type=target_type,
-            target_id=target_id,
-            data=data,
-            ip_address=request.client.host if request else None,
-            user_agent=request.headers.get("user-agent") if request else None,
-            trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
-        )
-        self.session.add(log)
-        await self.session.commit()
-        return log
-```
-
-**Обязательные события для аудита:**
-
-| Событие | Когда логировать |
-|---------|------------------|
-| `balance_topup` | Пополнение баланса |
-| `purchase_created` | Покупка практики |
-| `purchase_refunded` | Возврат |
-| `withdrawal_requested` | Запрос на вывод |
-| `withdrawal_confirmed` | Подтверждение вывода |
-| `master_verified` | Верификация мастера |
-| `master_rejected` | Отклонение заявки |
-| `role_changed` | Изменение роли |
-| `user_blocked` | Блокировка юзера |
-| `practice_cancelled` | Отмена практики мастером |
-
-**Retention policy:**
-- Application logs (stdout): 30 дней
-- Audit logs (БД): 5 лет (законодательные требования для финансов)
-
-**Критерий готовности:** Логи в JSON, trace_id передаётся, аудит пишется в БД.
+> **Примечание:** Базовый structlog уже работает (Phase 0.3). Полноценный аудит нужен
+> только для финансовых операций (Phase 6). Секция перенесена как **Pre-6: Audit** —
+> см. перед Phase 6: Payments.
 
 ---
 
@@ -973,6 +888,122 @@ class Waitlist(Base):
 - [ ] Статистика для мастера
 
 **Критерий готовности:** Мастер видит кто пришёл.
+
+---
+
+## PRE-6: Logging Hardening + Audit
+
+> Перенесена из Phase 0.6. Базовый structlog уже работает (Phase 0.3).
+> Здесь: доработка логирования + аудит финансовых операций, необходимый для Phase 6.
+
+### Pre-6.1: Logging hardening
+
+**Цель:** Довести structlog до production-качества.
+
+**Задачи:**
+- [ ] Фильтрация по LOG_LEVEL (structlog `make_filtering_bound_logger`)
+- [ ] Идемпотентность `setup_logging()` (защита от двойной инициализации)
+- [ ] Middleware для trace_id (X-Trace-ID в каждый запрос/ответ)
+
+**Middleware для trace_id:**
+```python
+@app.middleware("http")
+async def trace_id_middleware(request: Request, call_next):
+    trace_id = request.headers.get("X-Trace-ID", str(uuid4()))
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
+    response = await call_next(request)
+    response.headers["X-Trace-ID"] = trace_id
+    return response
+```
+
+**Критерий готовности:** `LOG_LEVEL=WARNING` фильтрует debug/info, trace_id в каждом лог-сообщении.
+
+---
+
+### Pre-6.2: Audit Service
+
+**Цель:** Аудит финансовых операций — юридическое требование.
+
+**Задачи:**
+- [ ] app/core/audit.py — сервис аудита
+- [ ] Модель AuditLog
+- [ ] Миграция
+
+**Модель AuditLog:**
+```python
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+    
+    event: Mapped[str] = mapped_column(String(100), index=True)
+    # Events: purchase_created, refund, withdrawal, role_changed, 
+    #         master_verified, balance_changed, booking_cancelled, etc.
+    
+    actor_id: Mapped[UUID | None]  # Who performed action (NULL for system)
+    actor_type: Mapped[str] = mapped_column(String(20))  # user, master, admin, system
+    
+    target_type: Mapped[str] = mapped_column(String(50))  # user, practice, booking, payment
+    target_id: Mapped[UUID]
+    
+    data: Mapped[dict] = mapped_column(JSONB)  # Full context snapshot
+    
+    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    trace_id: Mapped[str | None] = mapped_column(String(36))
+```
+
+**Сервис аудита:**
+```python
+class AuditService:
+    async def record(
+        self,
+        event: str,
+        target_type: str,
+        target_id: UUID,
+        data: dict,
+        actor_id: UUID | None = None,
+        actor_type: str = "system",
+        request: Request | None = None,
+    ) -> AuditLog:
+        log = AuditLog(
+            event=event,
+            actor_id=actor_id,
+            actor_type=actor_type,
+            target_type=target_type,
+            target_id=target_id,
+            data=data,
+            ip_address=request.client.host if request else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
+        )
+        self.session.add(log)
+        await self.session.commit()
+        return log
+```
+
+**Обязательные события для аудита:**
+
+| Событие | Когда логировать |
+|---------|------------------|
+| `balance_topup` | Пополнение баланса |
+| `purchase_created` | Покупка практики |
+| `purchase_refunded` | Возврат |
+| `withdrawal_requested` | Запрос на вывод |
+| `withdrawal_confirmed` | Подтверждение вывода |
+| `master_verified` | Верификация мастера |
+| `master_rejected` | Отклонение заявки |
+| `role_changed` | Изменение роли |
+| `user_blocked` | Блокировка юзера |
+| `practice_cancelled` | Отмена практики мастером |
+
+**Retention policy:**
+- Application logs (stdout): 30 дней
+- Audit logs (БД): 5 лет (законодательные требования для финансов)
+
+**Критерий готовности:** Аудит пишется в БД, trace_id связывает лог + аудит.
 
 ---
 
@@ -1713,49 +1744,56 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 
 ## 10. Реестр технического долга
 
-Замечания по завершённым Phase 0.1–0.4, выявленные при код-ревью. Сгруппированы по моменту, когда их следует закрывать.
+Замечания, выявленные при код-ревью. Сгруппированы по моменту, когда их следует закрывать.
 
 ### Обозначения
 
 - **Среда:** 🧪 Тест (не влияет на тестовый сервер) / 🚀 Прод (обязательно до продакшена)
 - **Статус:** ⬜ Open / ✅ Done
 
-### Phase 0.5 (VPS + деплой) — закрыть при деплое на прод
+### Закрыто в Phase 0.5
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| TD-001 | `config.py` | `SECRET_KEY` с дефолтом | model_validator: обязателен при `APP_ENV!=development` | ✅ |
+| TD-002 | `main.py` | `CORS *` + `allow_credentials=True` | `allow_credentials=not _allow_all` | ✅ |
+| TD-003 | `main.py` | Health 200 при деградации | Добавлен `GET /ready` (503) | ✅ |
+| TD-004 | `docker-compose.yml` | Postgres/Redis на `0.0.0.0` | Убраны published ports; app на `127.0.0.1` | ✅ |
+| TD-005 | `Dockerfile` | Образ от `root` | `USER velo` (UID 1000) | ✅ |
+| TD-006 | `config.py` | `database_url` с кредами в дефолте | model_validator: обязателен при `APP_ENV!=development` | ✅ |
+| TD-007 | `main.py` | `VeloError` handler не зарегистрирован | `@app.exception_handler(VeloError)` + logging | ✅ |
+| TD-008 | `database.py` | `get_db_session()` COMMIT на read-only | Добавлен `get_db_reader()` (rollback) | ✅ |
+| TD-009 | `main.py` | Lifespan: init_redis() fail → engine leak | `try/finally` в lifespan | ✅ |
+
+### Pre-6: Logging hardening — закрыть перед Phase 6
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-001 | 🚀 | `config.py` | `SECRET_KEY` с дефолтным значением — приложение запустится без `.env` с публично-известной строкой для подписи сессий/JWT | Убрать дефолт, сделать обязательным (приложение не стартует без `.env`) | ⬜ |
-| TD-002 | 🚀 | `main.py` | `CORS_ORIGINS=*` + `allow_credentials=True` — любой сайт может делать авторизованные запросы к API | При деплое: конкретные origins в `.env`, убрать `*` + credentials одновременно | ⬜ |
-| TD-003 | 🚀 | `main.py` | Health check возвращает 200 при деградации — балансировщик/Docker считает ноду здоровой когда DB/Redis не работают | Добавить `GET /ready` (503 при деградации) для балансировщика. `/health` оставить для мониторинга | ⬜ |
-| TD-004 | 🚀 | `docker-compose.yml` | PostgreSQL и Redis открыты на `0.0.0.0` в prod compose — доступны из интернета | Привязать к `127.0.0.1` или использовать внутреннюю Docker-сеть без публикации портов | ⬜ |
-| TD-005 | 🚀 | `Dockerfile` | Docker-образ работает от `root` | Добавить `USER nonroot` в Dockerfile | ⬜ |
-| TD-006 | 🚀 | `config.py` | `database_url` содержит креды `velo:velo` в дефолте — приложение работает без `.env` | Убрать дефолт (аналогично TD-001), либо оставить только для `APP_ENV=development` | ⬜ |
+| TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
+| TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
 
-### Phase 1.1 (первые бизнес-эндпоинты) — закрыть при старте Phase 1
+### Ближайшее касание соответствующего файла
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-007 | 🧪🚀 | `main.py` | `VeloError` определён, но exception handler не зарегистрирован — кастомные исключения вернут 500 вместо 404/403/409 | Зарегистрировать `@app.exception_handler(VeloError)` в `main.py` | ⬜ |
-| TD-008 | 🧪🚀 | `database.py` | `get_db_session()` делает `COMMIT` даже для read-only запросов — лишние round-trips к PostgreSQL | Разделить на `get_db_session()` (read-write, commit) и `get_db_reader()` (read-only, rollback) — или убрать auto-commit, коммитить явно в service | ⬜ |
-
-### Ближайшее касание main.py — закрыть попутно
-
-| ID | Среда | Файл | Проблема | Решение | Статус |
-|----|-------|------|----------|---------|--------|
-| TD-009 | 🧪🚀 | `main.py` | При падении `init_redis()` в lifespan engine уже создан, но не будет закрыт (утечка пула соединений) | Обернуть lifespan в try/finally: при ошибке в init_redis() закрывать engine | ⬜ |
+| TD-013 | 🧪 | `migrations/env.py` | Engine не dispose-ится если `connect()` упадёт | try/finally вокруг async with | ⬜ |
+| TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в 3 местах (main.py, pyproject.toml, ?) | Вынести в одно место, читать из config или `__version__` | ⬜ |
+| TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Добавить validator (аналогично SECRET_KEY). Сейчас .env генерируется скриптом — риск минимален | ⬜ |
 
 ### Косметика — без дедлайна
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-010 | 🧪 | `.pre-commit-config.yaml` | `ruff-format` дублирует `black` — оба форматируют код | Убрать `black`, оставить `ruff-format` (быстрее, один инструмент) | ⬜ |
+| TD-010 | 🧪 | `.pre-commit-config.yaml` | `ruff-format` дублирует `black` | Убрать `black`, оставить `ruff-format` | ⬜ |
+| TD-016 | 🧪 | Разные | Устаревшие комментарии (mypy в Makefile, ValidationError в exceptions.py, Phase 0.3 в conftest) | Обновить при касании файлов | ⬜ |
+| TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
+| TD-018 | 🧪 | `test_health.py` | Хрупкие патчи (mock engine.connect as async CM) | Рефакторить при добавлении новых тестов | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
 
 Следующие замечания были рассмотрены и признаны **не требующими исправления**:
 
 - `warn_unused_ignores = false` в mypy — осознанный выбор из-за разницы type stubs между pip и pre-commit (Phase 0.3)
-- Health check 200 при деградации — design decision, load balancer решает сам (Phase 0.3). Для жёсткой проверки будет `/ready` (TD-003)
 - Race condition на `_redis_client` — теоретически возможен, но `init_redis()` вызывается однократно в lifespan до приёма запросов
 - `.env` в Docker image — уже исключён через `.dockerignore`
 
