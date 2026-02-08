@@ -37,6 +37,7 @@ from app.core.database import engine
 from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
 from app.core.redis import close_redis, get_redis, init_redis
+from app.modules.auth.router import router as auth_router
 
 logger = structlog.get_logger()
 
@@ -88,6 +89,12 @@ app = FastAPI(
     # docs_url="/docs" is the default — Swagger UI.
     # Try it: http://localhost:8000/docs
 )
+
+
+# ---------------------------------------------------------------------------
+# Routers
+# ---------------------------------------------------------------------------
+app.include_router(auth_router)
 
 
 # ---------------------------------------------------------------------------

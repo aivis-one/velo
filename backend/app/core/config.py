@@ -63,6 +63,15 @@ class Settings(BaseSettings):
     # No default in production — app won't start without it. (TD-001)
     secret_key: str = ""
 
+    # -- Telegram --
+    # Bot token from BotFather. Required for initData validation.
+    # Empty in dev (tests mock validation), required in production.
+    telegram_bot_token: str = ""
+
+    # -- Sessions --
+    # How long a session token lives in Redis (days).
+    session_ttl_days: int = 30
+
     # -- Logging --
     log_level: str = "DEBUG"
 
@@ -94,6 +103,13 @@ class Settings(BaseSettings):
                     'Generate with: python -c "import secrets; '
                     'print(secrets.token_urlsafe(64))"'
                 )
+
+        # TELEGRAM_BOT_TOKEN: required in production for initData validation.
+        if not self.telegram_bot_token and not is_dev:
+            raise ValueError(
+                "TELEGRAM_BOT_TOKEN is required in production. "
+                "Get it from @BotFather in Telegram."
+            )
 
         return self
 

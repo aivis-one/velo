@@ -152,6 +152,7 @@ ignore = [
     # Allow TODO comments without linking to an issue tracker.
     # We use TODOs extensively as "sockets for the future" (розетки).
     "RUF012",
+    "B008"
 ]
 
 # --- Pytest ---

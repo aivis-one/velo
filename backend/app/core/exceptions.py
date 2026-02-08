@@ -14,10 +14,11 @@
 #
 # HIERARCHY:
 #   VeloError (base — all our exceptions inherit from this)
+#   ├── UnauthorizedError  → 401 (missing or invalid token)
 #   ├── NotFoundError      → 404
 #   ├── ForbiddenError     → 403
 #   ├── ConflictError      → 409 (e.g., double booking)
-#   └── ValidationError    → 422 (e.g., invalid input beyond Pydantic)
+#   └── BadRequestError    → 400 (e.g., invalid input beyond Pydantic)
 #
 # USAGE (in future modules):
 #   from app.core.exceptions import NotFoundError
@@ -45,6 +46,20 @@ class VeloError(Exception):
         self.code = code
         self.status_code = status_code
         super().__init__(message)
+
+
+class UnauthorizedError(VeloError):
+    """Authentication required or token invalid (HTTP 401).
+
+    Examples: missing Bearer token, expired session, invalid initData.
+    """
+
+    def __init__(
+        self,
+        message: str = "Authentication required",
+        code: str = "unauthorized",
+    ) -> None:
+        super().__init__(message=message, code=code, status_code=401)
 
 
 class NotFoundError(VeloError):
