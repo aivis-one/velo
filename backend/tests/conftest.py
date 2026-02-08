@@ -19,17 +19,6 @@ from app.core.database import dispose_engine, get_session_factory
 from app.core.redis import close_redis, init_redis
 from app.main import app
 
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Single event loop for ALL tests — prevents 'attached to different loop'."""
-    import asyncio
-
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
 @pytest.fixture(scope="session", autouse=True)
 async def setup_infrastructure():
     """Initialize Redis, run migrations, and clean up after all tests.
