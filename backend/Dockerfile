@@ -59,9 +59,6 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
-# Carry build arg into runtime stage for conditional COPY.
-ARG INSTALL_DEV=false
-
 # Create non-root user for running the application. (TD-005)
 # Using fixed UID/GID for consistency across rebuilds.
 RUN groupadd --gid 1000 velo && \
@@ -74,13 +71,18 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy application code.
 COPY app/ ./app/
 
+# Copy pyproject.toml — needed for tool configuration (pytest asyncio_mode,
+# ruff, mypy settings). Without it, pytest defaults to strict mode and
+# async tests fail.
+COPY pyproject.toml ./
+
 # Copy Alembic files for database migrations.
 # Needed for: docker compose exec app alembic upgrade head
 COPY alembic.ini ./
 COPY migrations/ ./migrations/
 
-# Copy tests only when dev dependencies are installed (test VPS).
-# Production images don't include tests — smaller and cleaner.
+# Copy tests (needed when INSTALL_DEV=true on test VPS).
+# Production images include the files but not the test runner.
 COPY tests/ ./tests/
 
 # Put venv's Python and scripts first in PATH.
