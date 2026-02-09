@@ -1,6 +1,6 @@
 # VELO — Техническое задание
 
-**Версия:** 1.3  
+**Версия:** 1.4  
 **Дата:** 8 февраля 2026  
 **Статус:** Draft
 
@@ -244,7 +244,6 @@ VPS (37.1.204.171):
 ├── /opt/velo/
 │   ├── repo/              ← Git clone (deploy key, read-only)
 │   │   └── backend/       ← Docker stack (app + postgres + redis)
-│   ├── creds/             ← Автосгенерированные креды
 │   ├── scripts/manage.sh  ← Management script (symlink: /usr/local/bin/velo)
 │   └── backups/           ← Ежедневные бэкапы (pg_dump + .env)
 ├── /etc/nginx/sites-available/velo  ← Reverse proxy + SSL
@@ -255,7 +254,7 @@ VPS (37.1.204.171):
 - Ручной деплой (`velo update`) вместо GitHub Actions — промежуточные пуши для БЗ Claude, не всегда готовы к деплою
 - Ubuntu 22.04 (не 24.04) — предустановлена хостером, LTS до 2027, обновление ОС не оправдано
 - Deploy key (read-only SSH) вместо personal access token — минимальные права
-- `install_velo.sh` генерирует `.env` с рандомными паролями (openssl rand) — без дефолтных кредов
+- `install_velo.sh` генерирует `.env` с рандомными паролями (openssl rand) — без дефолтных кредов. Спрашивает TELEGRAM_BOT_TOKEN интерактивно
 - Postgres/Redis без published портов (Docker internal network only) — TD-004
 - App на `127.0.0.1:8000` — только Nginx видит его
 - Non-root user в Dockerfile (`USER velo`, UID 1000) — TD-005
@@ -283,11 +282,13 @@ GET /ready   → {"status": "ok", "db": "ok", "redis": "ok"}          (200 or 50
 ```
 velo status              — Docker ps + health check + external access
 velo logs [app|db|redis] — Docker logs -f
-velo update              — git pull + rebuild + migrate + restart
+velo test                — Run all tests inside container
+velo lint                — Run ruff linter inside container
+velo update              — git pull + rebuild + migrate + test + restart
 velo restart [app]       — Restart all or just app
 velo backup              — pg_dump + .env → tar.gz
 velo db connect          — psql в контейнер
-velo db migrate          — alembic upgrade head
+velo db migrate          — python -m alembic upgrade head
 velo ssl renew           — certbot renew
 ```
 
@@ -295,7 +296,84 @@ velo ssl renew           — certbot renew
 
 ---
 
-### 0.6: Logging + Audit → перенесена перед Phase 6
+### 0.6: VPS-only infrastructure rewrite ✅
+
+**Цель:** Убрать все артефакты локальной разработки. Единственная среда — VPS через Docker.
+
+**Контекст:** Phases 0.1–0.5 создавались итеративно и оставили артефакты для macOS/локальной разработки (docker-compose.dev.yml, Makefile, .python-version, .pre-commit-config.yaml, black). Эта фаза — одноразовая чистка.
+
+**Удалено:**
+- `docker-compose.dev.yml` — локальная разработка не используется
+- `Makefile` — все команды через `velo` на VPS
+- `.python-version` — pyenv не нужен (Docker image содержит Python)
+- `.pre-commit-config.yaml` — pre-commit не используется (ruff через `velo lint`)
+
+**Заменено:**
+
+| Файл | Что изменилось |
+|------|----------------|
+| `Dockerfile` | Dev-зависимости всегда устанавливаются (`pip install ".[dev]"`). tests/ и pyproject.toml копируются в runtime image. |
+| `docker-compose.yml` | Единственный compose-файл. Postgres/Redis без published портов. App на `127.0.0.1:8000`. |
+| `.dockerignore` | tests/ и pyproject.toml НЕ исключены (нужны в контейнере). |
+| `.env.example` | Хосты: `postgres:5432`, `redis:6379` (Docker service names, не localhost). |
+| `README.md` | Только VPS-инструкции. Убраны: macOS, Homebrew, Docker Desktop, pyenv, venv, localhost, make. |
+| `pyproject.toml` | Убраны: black, pre-commit. Добавлены: `asyncio_default_test_loop_scope = "session"`, `cache_dir = "/tmp/.pytest_cache"`. `build-backend = "setuptools.build_meta"`. |
+| `database.py` | Lazy engine initialization через `get_engine()` / `dispose_engine()`. Нет module-level `engine = create_async_engine()` — предотвращает "Future attached to different loop". |
+| `main.py` | Использует `get_engine()` вместо импорта `engine`. |
+| `conftest.py` | Session-scoped `setup_infrastructure` fixture. Миграции через `subprocess.run(["python", "-m", "alembic", "upgrade", "head"])`. Нет кастомного `event_loop` fixture (pytest-asyncio 0.26 управляет сам). |
+| `test_health.py` | Патчит `get_engine()` вместо `engine`. Success-тесты используют реальную БД/Redis. |
+
+**install_velo.sh обновлён:**
+- `docker compose down -v` при переустановке (удаляет volumes, чтобы новый пароль PG работал)
+- `cd "$INSTALL_BASE"` перед `rm -rf` (фикс CWD-бага — shell терял рабочую директорию)
+- `.env` всегда генерируется заново (убрана проверка `if exists`)
+- `TELEGRAM_BOT_TOKEN` спрашивается интерактивно через `read -p`
+- Убран `$INSTALL_BASE/creds/credentials.txt` (дубликат паролей из .env — бессмысленно и опасно)
+- `velo update`: pull → build → down → up → `python -m alembic upgrade head` → `python -m pytest` → health check. Тесты упали — exit 1
+- `velo test`, `velo lint` — новые команды
+- `velo db migrate`: `python -m alembic` вместо `alembic` (PYTHONPATH)
+
+**Результат:**
+```
+backend/
+├── app/
+│   ├── core/
+│   │   ├── database.py        ← Lazy engine: get_engine() / dispose_engine()
+│   │   ├── redis.py
+│   │   ├── logging.py
+│   │   ├── config.py
+│   │   ├── mixins.py
+│   │   └── exceptions.py
+│   ├── modules/
+│   │   ├── auth/
+│   │   └── users/
+│   └── main.py                ← Uses get_engine(), not module-level engine
+├── tests/
+│   ├── conftest.py            ← Session-scoped, pytest-asyncio 0.26 compatible
+│   ├── test_auth.py
+│   ├── test_health.py         ← Patches get_engine(), real DB for success tests
+│   └── test_root.py
+├── migrations/
+├── docker-compose.yml         ← Single compose file (no dev/prod split)
+├── Dockerfile                 ← Dev deps always installed, tests in image
+├── .dockerignore
+├── .env.example
+├── pyproject.toml             ← No black/pre-commit, pytest cache_dir=/tmp
+├── alembic.ini
+└── README.md                  ← VPS-only instructions
+```
+
+**Решения, принятые при реализации:**
+- pytest-asyncio 0.26: `asyncio_default_fixture_loop_scope = "session"` + `asyncio_default_test_loop_scope = "session"` — все тесты и fixtures на одном event loop. Кастомный `event_loop` fixture удалён (deprecated в 0.26)
+- Миграции в conftest через subprocess — `env.py` использует `asyncio.run()`, который нельзя вложить в pytest event loop
+- `cache_dir = "/tmp/.pytest_cache"` — контейнер работает от user `velo`, а `/app` принадлежит root
+- Тесты запускаются в том же Docker image, что и приложение — нет разницы между test и prod окружением
+
+**Критерий готовности:** `velo test` → 18 passed, 0 warnings. `velo update` включает тесты. ✅
+
+---
+
+### 0.7: Logging + Audit → перенесена перед Phase 6
 
 > **Примечание:** Базовый structlog уже работает (Phase 0.3). Полноценный аудит нужен
 > только для финансовых операций (Phase 6). Секция перенесена как **Pre-6: Audit** —
@@ -1697,32 +1775,40 @@ POST /webhooks/stripe                 # Stripe webhook
 
 ```bash
 # App
-APP_ENV=development
-APP_DEBUG=true
-APP_SECRET_KEY=your-secret-key
+APP_ENV=production
+LOG_LEVEL=INFO
+
+# Security
+SECRET_KEY=<auto-generated by install_velo.sh>
 
 # Database
-DATABASE_URL=postgresql+asyncpg://velo:password@postgres:5432/velo
+DATABASE_URL=postgresql+asyncpg://velo:<password>@postgres:5432/velo
+POSTGRES_DB=velo
+POSTGRES_USER=velo
+POSTGRES_PASSWORD=<auto-generated>
 
 # Redis
 REDIS_URL=redis://redis:6379/0
 
+# CORS
+CORS_ORIGINS=https://web.telegram.org,https://api.talentir.info
+
 # Telegram
-TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_BOT_TOKEN=<from @BotFather>
 
-# Stripe
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
+# Stripe (uncomment when ready)
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...
+# STRIPE_PUBLISHABLE_KEY=pk_test_...
 
-# Payment Settings
-PLATFORM_COMMISSION_PERCENT=15
-MIN_WITHDRAWAL_AMOUNT=50
-WITHDRAWAL_FEE=2
-CANCELLATION_DEADLINE_HOURS=24
+# Payment Settings (future)
+# PLATFORM_COMMISSION_PERCENT=15
+# MIN_WITHDRAWAL_AMOUNT=50
+# WITHDRAWAL_FEE=2
+# CANCELLATION_DEADLINE_HOURS=24
 
-# Promo Settings
-MASTER_PROMO_DISCOUNTS=5,25,50,75,100
+# Promo Settings (future)
+# MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 ```
 
 ---
@@ -1761,8 +1847,6 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-019 | 🧪 | `test_auth.py` | `test_auth_telegram_success` требует запущенный PostgreSQL (R-3) | Документировать `make dev-up` в README, или добавить SQLite test fixture | ⬜ |
-| TD-020 | 🧪 | `test_auth.py` | Нет тестов для logout, get_current_user, get_optional_user, get_current_admin (R-5) | Написать тесты | ⬜ |
 | TD-021 | 🧪🚀 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте (P-9) — тесты не могут переопределить | Вычислять при вызове или читать из settings | ⬜ |
 
 ### Ближайшее касание соответствующего файла
@@ -1773,14 +1857,21 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 | TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в 3 местах (main.py, pyproject.toml, ?) | Вынести в одно место, читать из config или `__version__` | ⬜ |
 | TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Добавить validator (аналогично SECRET_KEY). Сейчас .env генерируется скриптом — риск минимален | ⬜ |
 
+### Закрыто в Phase 0.6
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| TD-010 | `.pre-commit-config.yaml` | `ruff-format` дублирует `black` | Оба удалены: нет pre-commit, нет black. Ruff через `velo lint` | ✅ |
+| TD-016 | Разные | Устаревшие комментарии (mypy в Makefile и т.д.) | Makefile удалён целиком. .python-version удалён | ✅ |
+| TD-018 | `test_health.py` | Хрупкие патчи (mock engine.connect as async CM) | Патчит `get_engine()`, success-тесты на реальной БД | ✅ |
+| TD-019 | `test_auth.py` | Требует запущенный PostgreSQL | Тесты запускаются внутри Docker — БД всегда доступна | ✅ |
+| TD-020 | `test_auth.py` | Нет тестов для logout | Добавлены test_logout_success, test_logout_no_token, test_logout_invalid_token, test_logout_inactive_user | ✅ |
+
 ### Косметика — без дедлайна
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-010 | 🧪 | `.pre-commit-config.yaml` | `ruff-format` дублирует `black` | Убрать `black`, оставить `ruff-format` | ⬜ |
-| TD-016 | 🧪 | Разные | Устаревшие комментарии (mypy в Makefile, ValidationError в exceptions.py, Phase 0.3 в conftest) | Обновить при касании файлов | ⬜ |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
-| TD-018 | 🧪 | `test_health.py` | Хрупкие патчи (mock engine.connect as async CM) | Рефакторить при добавлении новых тестов | ⬜ |
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум (P-12) | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
 | TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (P-7, неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
 
@@ -1788,9 +1879,9 @@ MASTER_PROMO_DISCOUNTS=5,25,50,75,100
 
 Следующие замечания были рассмотрены и признаны **не требующими исправления**:
 
-- `warn_unused_ignores = false` в mypy — осознанный выбор из-за разницы type stubs между pip и pre-commit (Phase 0.3)
 - Race condition на `_redis_client` — теоретически возможен, но `init_redis()` вызывается однократно в lifespan до приёма запросов
 - `.env` в Docker image — уже исключён через `.dockerignore`
+- Dev-зависимости в production image — осознанный выбор: тесты запускаются в том же контейнере через `velo test`. Образ чуть больше, но единая среда (Phase 0.6)
 
 ---
 

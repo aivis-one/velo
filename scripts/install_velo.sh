@@ -456,34 +456,7 @@ EOF
 
     chmod 600 "$ENV_FILE"
 
-    # Save credentials separately for reference
-    mkdir -p "$INSTALL_BASE/creds"
-    cat > "$INSTALL_BASE/creds/credentials.txt" << EOF
-VELO Credentials
-================
-Generated: $(date)
-
-PostgreSQL:
-  Database: velo
-  User: velo
-  Password: ${PG_PASSWORD}
-
-Redis:
-  Password: (none, internal Docker network only)
-
-Secret Key:
-  ${SECRET_KEY}
-
-Telegram Bot Token:
-  ${TELEGRAM_BOT_TOKEN:-not set}
-
-.env location: ${ENV_FILE}
-EOF
-
-    chmod 600 "$INSTALL_BASE/creds/credentials.txt"
-
     success ".env generated"
-    info "Credentials saved to $INSTALL_BASE/creds/credentials.txt"
 }
 
 generate_env
@@ -1148,13 +1121,8 @@ info "Directory structure:"
 echo "  $INSTALL_BASE/"
 echo "  ├── repo/              # Git repository"
 echo "  │   └── backend/       # Docker stack lives here"
-echo "  ├── creds/             # Generated credentials"
 echo "  ├── scripts/           # Management script"
 echo "  └── backups/           # Daily backups"
-echo ""
-
-warn "Credentials saved to:"
-echo "  $INSTALL_BASE/creds/credentials.txt"
 echo ""
 
 log "Management commands:"
