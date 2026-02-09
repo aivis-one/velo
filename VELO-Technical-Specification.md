@@ -476,15 +476,19 @@ get_current_admin(user) → User                   # 403 если не admin
 
 ---
 
-### 1.4: CRUD профиля юзера
+### 1.4: CRUD профиля юзера ✅
 
 **Цель:** Endpoints для профиля.
 
 **Задачи:**
-- [ ] app/modules/users/schemas.py — Pydantic schemas
-- [ ] app/modules/users/service.py — get, update
-- [ ] app/modules/users/router.py — GET/PATCH /users/me
-- [ ] Тесты
+- [x] app/modules/users/schemas.py — UserResponse (перенесён из auth/schemas.py), UserUpdate
+- [x] app/modules/users/service.py — update_user (partial update через merge + exclude_unset)
+- [x] app/modules/users/router.py — GET/PATCH /api/v1/users/me
+- [x] auth/schemas.py — импортирует UserResponse из users/schemas.py (без дупликации)
+- [x] main.py — include_router(users_router)
+- [x] tests/helpers.py — общие хелперы (build_init_data, login_user, auth_headers)
+- [x] tests/test_users.py — 10 тестов
+- [x] tests/test_auth.py — рефакторинг на shared helpers
 
 **Endpoints:**
 ```
@@ -492,7 +496,32 @@ GET  /api/v1/users/me        → UserResponse
 PATCH /api/v1/users/me       → UserResponse (body: UserUpdate)
 ```
 
-**Критерий готовности:** Юзер может видеть и редактировать свой профиль.
+**Результат:**
+```
+backend/app/modules/users/
+├── __init__.py
+├── models.py           ← (из Phase 1.1)
+├── schemas.py          ← UserResponse + UserUpdate
+├── service.py          ← update_user()
+└── router.py           ← GET/PATCH /users/me
+
+backend/tests/
+├── helpers.py          ← Shared: build_init_data, login_user, auth_headers
+├── test_auth.py        ← Рефакторинг: импорты из helpers
+└── test_users.py       ← 10 тестов (GET, PATCH, auth, validation)
+```
+
+**Решения, принятые при реализации:**
+- `UserResponse` перенесён в users/schemas.py (домен users), auth/schemas.py импортирует оттуда — при распиле на микросервисы оба варианта эквивалентны (всё равно дупликация или shared-lib)
+- `session.merge(user)` в service — user приходит из read-only сессии (get_db_reader), PATCH пишет через get_db_session. Merge переносит объект в write-сессию
+- `exclude_unset=True` — различаем "поле не отправлено" и "поле отправлено как null". Пустой body `{}` = ничего не меняем, 200
+- `min_length=1` на всех полях UserUpdate — пустые строки отклоняются (422). Очистка поля — через null
+- `avatar_url` не входит в UserUpdate — управляется Telegram (будущее: Bot API getUserProfilePhotos)
+- Тестовые хелперы вынесены в tests/helpers.py (не conftest — это функции, не fixtures). Устранена дупликация между test_auth.py и test_users.py
+- telegram_id ranges: auth тесты 77xxx/99xxx, users тесты 88xxx — без конфликтов
+- Closes TD-021
+
+**Критерий готовности:** Юзер может видеть и редактировать свой профиль. 31 тест, 0 warnings. ✅
 
 ---
 
@@ -1843,13 +1872,11 @@ TELEGRAM_BOT_TOKEN=<from @BotFather>
 | TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
 | TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
 
-### Phase 1.4 — закрыть при старте Phase 1.4
+### Закрыто в Phase 1.4
 
-| ID | Среда | Файл | Проблема | Решение | Статус |
-|----|-------|------|----------|---------|--------|
-| TD-021 | 🧪🚀 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте (P-9) — тесты не могут переопределить | Вычислять при вызове или читать из settings | ⬜ |
-
-### Ближайшее касание соответствующего файла
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| TD-021 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте — тесты не могут переопределить | `_get_session_ttl()` вычисляет при каждом вызове | ✅ |
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
