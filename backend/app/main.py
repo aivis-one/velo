@@ -20,6 +20,7 @@ from sqlalchemy import text
 from starlette.requests import Request
 
 from app.core.config import settings
+from app.modules.users.router import router as users_router
 from app.core.database import dispose_engine, get_engine
 from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
@@ -65,7 +66,7 @@ app = FastAPI(
 )
 
 app.include_router(auth_router)
-
+app.include_router(users_router)
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)

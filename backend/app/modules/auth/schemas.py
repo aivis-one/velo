@@ -4,15 +4,14 @@
 #
 # Pydantic models for auth request/response validation.
 # FastAPI auto-generates OpenAPI docs from these.
+#
+# NOTE: UserResponse lives in users/schemas.py (moved in Phase 1.4).
+# Imported here for AuthResponse backward compatibility.
 # =============================================================================
-
-from datetime import datetime
-from decimal import Decimal
-from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.modules.users.models import UserRole
+from app.modules.users.schemas import UserResponse
 
 
 class TelegramAuthRequest(BaseModel):
@@ -23,25 +22,6 @@ class TelegramAuthRequest(BaseModel):
         description="Raw initData string from Telegram WebApp",
         min_length=1,
     )
-
-
-class UserResponse(BaseModel):
-    """User data in auth response."""
-
-    id: UUID
-    telegram_id: int | None
-    role: UserRole
-    first_name: str | None
-    last_name: str | None
-    avatar_url: str | None
-    timezone: str
-    language: str
-    is_active: bool
-    balance_user: Decimal
-    created_at: datetime
-    last_login_at: datetime | None
-
-    model_config = {"from_attributes": True}
 
 
 class AuthResponse(BaseModel):
