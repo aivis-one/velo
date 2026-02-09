@@ -16,13 +16,20 @@
 #   frozen_amount    — funds locked until practice completion (Phase 6)
 #   available_amount — funds available for withdrawal (Phase 6)
 #   Both are 0 until Phase 6: Payments. Updated by ledger listeners.
+#
+# RELATIONSHIP STRATEGY:
+#   Unidirectional: MasterProfile → User only. User does NOT have a
+#   back-reference to MasterProfile. This avoids side-effect imports
+#   in main.py. When masters router is added (Phase 2.2), it will
+#   import MasterProfile naturally. Bidirectional relationship can
+#   be added then if needed.
 # =============================================================================
 
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -77,8 +84,10 @@ class MasterProfile(Base):
     )
 
     # -- Relationships --
+    # Unidirectional: MasterProfile → User. No back_populates on User
+    # to avoid requiring MasterProfile import at app startup.
     user: Mapped["User"] = relationship(  # type: ignore[name-defined]  # noqa: F821
-        back_populates="master_profile",
+        back_populates=None,
     )
 
     def __repr__(self) -> str:

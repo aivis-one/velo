@@ -26,6 +26,8 @@ from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
 from app.core.redis import close_redis, get_redis, init_redis
 from app.modules.auth.router import router as auth_router
+from app.modules.masters.models import MasterProfile
+
 
 logger = structlog.get_logger()
 
