@@ -22,7 +22,7 @@ from decimal import Decimal
 
 from sqlalchemy import BigInteger, DateTime, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.mixins import TimestampMixin, UUIDMixin
@@ -109,6 +109,16 @@ class User(UUIDMixin, TimestampMixin, Base):
     # last_login_at is NOT in TimestampMixin because it's domain-specific.
     last_login_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
+    )
+
+    # -- Relationships --
+    # Async SQLAlchemy: default lazy loading will raise MissingGreenlet
+    # if accessed without explicit loading. This is intentional —
+    # master_profile should be loaded explicitly in masters module
+    # queries, not on every User access.
+    master_profile: Mapped["MasterProfile | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821
+        back_populates="user",
+        uselist=False,
     )
 
     def __repr__(self) -> str:

@@ -30,6 +30,7 @@ from app.core.database import Base
 # Import all models so Alembic can detect them via Base.metadata.
 # Add new model imports here as modules are created.
 from app.modules.users.models import User  # noqa: F401
+from app.modules.masters.models import MasterProfile  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to alembic.ini values.
