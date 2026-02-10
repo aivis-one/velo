@@ -2,9 +2,11 @@
 # Test: Masters Module — application flow
 # =============================================================================
 
+from collections.abc import AsyncGenerator
+
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
@@ -17,6 +19,19 @@ from tests.helpers import auth_headers, login_user
 # ---------------------------------------------------------------------------
 
 APPLY_URL = "/api/v1/masters/apply"
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_test_masters(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Remove master_profiles for test users (55xxx) after each test."""
+    yield
+    await db_session.execute(
+        text(
+            "DELETE FROM master_profiles WHERE user_id IN "
+            "(SELECT id FROM users WHERE telegram_id BETWEEN 55000 AND 55999)"
+        )
+    )
+    await db_session.commit()
 
 
 def _valid_apply_body() -> dict:
