@@ -28,7 +28,7 @@ from app.core.database import Base
 from app.core.mixins import TimestampMixin, UUIDMixin
 
 
-class UserRole(str, enum.Enum):
+class UserRole(enum.StrEnum):
     """User roles in the platform.
 
     USER:   default role, can browse and book practices.
