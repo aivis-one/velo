@@ -22,6 +22,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import UUID as SA_UUID
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm.attributes import flag_modified
 
 
 class UUIDMixin:
@@ -55,3 +56,44 @@ class TimestampMixin:
         DateTime(timezone=True),
         onupdate=func.now(),
     )
+
+
+class JSONBMixin:
+    """Safe JSONB mutation for SQLAlchemy models.
+
+    PROBLEM:
+        SQLAlchemy tracks changes to columns by comparing old vs new Python
+        object identity. JSONB columns hold dicts — if you mutate a dict
+        in-place (e.g. obj.data["key"] = "val") or even reassign a shallow
+        copy, SQLAlchemy may NOT detect the change and will skip the UPDATE.
+
+    SOLUTION:
+        Always use set_jsonb() to update JSONB columns. It assigns the new
+        value AND calls flag_modified() to force SQLAlchemy to include the
+        column in the next UPDATE statement.
+
+    USAGE:
+        # In service code:
+        profile.set_jsonb("data", new_data)
+
+        # In tests:
+        profile.set_jsonb("data", modified_data)
+        await session.commit()
+
+    RULE:
+        NEVER assign JSONB columns directly (obj.data = ...).
+        ALWAYS use obj.set_jsonb("field", value).
+    """
+
+    def set_jsonb(self, field: str, value: dict) -> None:
+        """Safely set a JSONB column value with change tracking.
+
+        Args:
+            field: Name of the JSONB column (e.g. "data", "credentials").
+            value: New dict value to assign.
+
+        Raises:
+            AttributeError: If the field does not exist on the model.
+        """
+        setattr(self, field, value)
+        flag_modified(self, field)

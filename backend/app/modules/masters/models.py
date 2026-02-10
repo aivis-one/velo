@@ -23,6 +23,10 @@
 #   in main.py. When masters router is added (Phase 2.2), it will
 #   import MasterProfile naturally. Bidirectional relationship can
 #   be added then if needed.
+#
+# JSONB SAFETY:
+#   Inherits JSONBMixin — use set_jsonb("data", value) for all mutations.
+#   NEVER assign self.data = ... directly. See core/mixins.py.
 # =============================================================================
 
 from datetime import datetime
@@ -34,9 +38,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.mixins import JSONBMixin
 
 
-class MasterProfile(Base):
+class MasterProfile(JSONBMixin, Base):
     """Master profile — extends User with master-specific data.
 
     Primary key is user_id (not a separate UUID) — enforces one-to-one

@@ -2,6 +2,7 @@
 # Test: Masters Module — application flow
 # =============================================================================
 
+import copy
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -131,7 +132,8 @@ async def test_apply_master_reapply_after_rejection(
     )
     assert resp1.status_code == 201
 
-    # Simulate admin rejection by updating JSONB directly.
+    # Simulate admin rejection using set_jsonb (deep copy to avoid
+    # SQLAlchemy shallow-reference tracking issues).
     user_id = auth["user"]["id"]
     stmt = select(MasterProfile).where(
         MasterProfile.user_id == user_id
@@ -139,11 +141,11 @@ async def test_apply_master_reapply_after_rejection(
     result = await db_session.execute(stmt)
     profile = result.scalar_one()
 
-    data = dict(profile.data)
-    data["account"]["status"] = "rejected"
-    data["account"]["rejected_at"] = "2026-02-09T00:00:00Z"
-    data["account"]["rejection_reason"] = "Not enough experience"
-    profile.data = data
+    rejected_data = copy.deepcopy(profile.data)
+    rejected_data["account"]["status"] = "rejected"
+    rejected_data["account"]["rejected_at"] = "2026-02-09T00:00:00Z"
+    rejected_data["account"]["rejection_reason"] = "Not enough experience"
+    profile.set_jsonb("data", rejected_data)
     await db_session.commit()
 
     # Reapply with updated info.

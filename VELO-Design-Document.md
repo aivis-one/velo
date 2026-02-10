@@ -233,6 +233,29 @@ Notification Service:
   └── notification_deliveries
 ```
 
+### 4.5. JSONB Safety Rule
+
+**Проблема:** SQLAlchemy отслеживает изменения колонок по идентичности
+Python-объектов. JSONB-колонки хранят dict — при мутации dict in-place
+или при переприсвоении shallow copy SQLAlchemy **не видит изменение**
+и пропускает UPDATE. Это известная проблема SQLAlchemy с mutable types.
+
+**Решение:** `JSONBMixin` в `app/core/mixins.py`. Предоставляет метод
+`set_jsonb(field, value)`, который выполняет `setattr()` + `flag_modified()`.
+
+**Правило (обязательное):**
+- **НИКОГДА** не присваивать JSONB-колонки напрямую: `obj.data = new_dict`
+- **ВСЕГДА** использовать: `obj.set_jsonb("data", new_dict)`
+- Это касается ВСЕХ JSONB-колонок во ВСЕХ моделях проекта
+- Модели с JSONB **обязаны** наследовать `JSONBMixin`
+
+**Текущие JSONB-колонки:**
+
+| Модель | Колонка | Наследует JSONBMixin |
+|--------|---------|---------------------|
+| MasterProfile | data | ✅ |
+| User | credentials | ⬜ (мутируется только через raw SQL, добавить при первой ORM-мутации) |
+
 ---
 
 ## 5. Роли и права доступа

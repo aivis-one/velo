@@ -12,6 +12,10 @@
 #      c) Profile with status "pending" → ConflictError (already pending)
 #      d) Profile with status "verified" → should not happen (role=master)
 #   3. Return updated/created MasterProfile
+#
+# JSONB SAFETY:
+#   All mutations to MasterProfile.data use set_jsonb() (from JSONBMixin).
+#   NEVER assign profile.data = ... directly.
 # =============================================================================
 
 import logging
@@ -84,7 +88,7 @@ def _build_reapply_data(
                 "rejection_reason"
             ),
         }
-        old_rejections.append(rejection_record)
+        old_rejections = [*old_rejections, rejection_record]
 
     new_data["account"]["rejections"] = old_rejections
 
@@ -120,7 +124,8 @@ async def apply_for_master(
             raise ConflictError("Already verified as master")
 
         # Status is "rejected" — allow reapplication.
-        existing.data = _build_reapply_data(existing.data, body)
+        # Uses set_jsonb() to ensure SQLAlchemy detects the JSONB change.
+        existing.set_jsonb("data", _build_reapply_data(existing.data, body))
         logger.info(
             "Master reapplication submitted: user_id=%s", user.id
         )

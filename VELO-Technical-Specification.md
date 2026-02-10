@@ -589,7 +589,48 @@ class MasterProfile(Base):
 }
 ```
 
-**Критерий готовности:** Миграция применена.
+**Решения, принятые при реализации:**
+- Relationship: unidirectional (`MasterProfile → User`, без `back_populates` на User) — избегает циклических импортов при старте app
+- Миграция написана вручную (нет локальной БД для autogenerate)
+- `MasterProfile` наследует `JSONBMixin` — см. архитектурное правило ниже
+
+**Критерий готовности:** Миграция применена. ✅
+
+---
+
+### Архитектурное правило: JSONBMixin (введено Phase 2.1)
+
+**Контекст:** SQLAlchemy не детектит изменения JSONB-колонок при прямом
+присвоении dict (shallow copy сохраняет ссылки на вложенные объекты,
+SQLAlchemy сравнивает identity и считает значение неизменённым).
+Это приводит к silent bugs — данные не сохраняются в БД.
+
+**Правило:**
+```python
+# ❌ ЗАПРЕЩЕНО — SQLAlchemy может не увидеть изменение:
+profile.data = new_data
+profile.data["account"]["status"] = "verified"
+
+# ✅ ОБЯЗАТЕЛЬНО — гарантирует UPDATE:
+profile.set_jsonb("data", new_data)
+```
+
+**Реализация:** `JSONBMixin` в `app/core/mixins.py`:
+```python
+from sqlalchemy.orm.attributes import flag_modified
+
+class JSONBMixin:
+    def set_jsonb(self, field: str, value: dict) -> None:
+        setattr(self, field, value)
+        flag_modified(self, field)
+```
+
+**Где применяется:**
+- `MasterProfile(JSONBMixin, Base)` — колонка `data`
+- `User` — колонка `credentials` (пока мутируется только через raw SQL INSERT ON CONFLICT; JSONBMixin добавить при первой ORM-мутации)
+- Все будущие модели с JSONB-колонками обязаны наследовать `JSONBMixin`
+
+**TD-024:** Добавить `JSONBMixin` к `User` при первой ORM-мутации `credentials`.
 
 ---
 
