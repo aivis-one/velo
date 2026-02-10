@@ -45,6 +45,9 @@ class UserUpdate(BaseModel):
 
     Empty strings are rejected (min_length=1). To clear a field,
     send null explicitly: {"last_name": null}.
+
+    timezone and language are NOT NULL in DB — sending null for them
+    is rejected by _reject_null_for_required_fields (mode="before").
     """
 
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
@@ -52,10 +55,26 @@ class UserUpdate(BaseModel):
     timezone: str | None = Field(default=None, min_length=1, max_length=50)
     language: str | None = Field(default=None, min_length=1, max_length=5)
 
+    @field_validator("timezone", "language", mode="before")
+    @classmethod
+    def _reject_null_for_required_fields(cls, v: str | None) -> str | None:
+        """Reject explicit null for NOT NULL DB columns.
+
+        timezone and language have server defaults ("UTC", "en") but
+        cannot be set to NULL. Sending null would cause IntegrityError.
+        """
+        if v is None:
+            raise ValueError("This field cannot be set to null")
+        return v
+
     @field_validator("timezone")
     @classmethod
     def validate_timezone(cls, v: str | None) -> str | None:
-        """Validate timezone is a valid IANA timezone identifier."""
+        """Validate timezone is a valid IANA timezone identifier.
+
+        Runs after _reject_null_for_required_fields (mode="before"),
+        so v is guaranteed to be a non-None string here.
+        """
         if v is None:
             return v
         try:

@@ -20,9 +20,14 @@
 #
 # SECURITY:
 #   _parse_user_id() validates that user_id from Redis is a proper UUID
-#   before passing it to SQL. If Redis is compromised and contains a
-#   non-UUID string, asyncpg would throw DataError → 500. We catch it
-#   early and return a clean 401 instead.
+#   before passing it to SQL. Catches all failure modes:
+#   - KeyError: missing key
+#   - ValueError: malformed string
+#   - TypeError: None value (UUID(None))
+#   - AttributeError: non-string type (UUID(123))
+#
+#   Deleted user with valid session returns 401, not 404 — prevents
+#   information leak about whether a user_id ever existed.
 # =============================================================================
 
 from uuid import UUID
@@ -33,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader
-from app.core.exceptions import ForbiddenError, NotFoundError, UnauthorizedError
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.modules.auth.service import get_session
 from app.modules.users.models import User, UserRole
 
@@ -51,12 +56,14 @@ def _extract_token(request: Request) -> str | None:
 def _parse_user_id(session_data: dict) -> UUID:
     """Validate and parse user_id from Redis session data.
 
-    Prevents asyncpg DataError (→ 500) if Redis contains a corrupted
-    or non-UUID value. Returns clean 401 instead.
+    Prevents asyncpg DataError (→ 500) if Redis contains corrupted
+    or non-UUID values. Returns clean 401 instead.
+
+    Covers: missing key, malformed string, None, non-string types.
     """
     try:
         return UUID(session_data["user_id"])
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, TypeError, AttributeError):
         raise UnauthorizedError("Invalid session data") from None
 
 
@@ -81,8 +88,10 @@ async def get_current_user(
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
 
+    # Return 401, not 404 — valid Redis session but deleted user means
+    # the session is effectively stale. 404 would leak that user_id existed.
     if not user:
-        raise NotFoundError("User not found")
+        raise UnauthorizedError("Invalid or expired session")
 
     if not user.is_active:
         raise ForbiddenError("Account is deactivated")
