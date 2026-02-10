@@ -20,17 +20,21 @@ from tests.helpers import auth_headers, login_user
 
 APPLY_URL = "/api/v1/masters/apply"
 
+_CLEANUP_SQL = text(
+    "DELETE FROM master_profiles WHERE user_id IN "
+    "(SELECT id FROM users WHERE telegram_id BETWEEN 55000 AND 55999)"
+)
+
 
 @pytest.fixture(autouse=True)
 async def cleanup_test_masters(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Remove master_profiles for test users (55xxx) after each test."""
+    """Remove master_profiles for test users (55xxx) before and after each test."""
+    # Before: clean leftover data from previous test runs / deploys.
+    await db_session.execute(_CLEANUP_SQL)
+    await db_session.commit()
     yield
-    await db_session.execute(
-        text(
-            "DELETE FROM master_profiles WHERE user_id IN "
-            "(SELECT id FROM users WHERE telegram_id BETWEEN 55000 AND 55999)"
-        )
-    )
+    # After: clean data created by this test.
+    await db_session.execute(_CLEANUP_SQL)
     await db_session.commit()
 
 
