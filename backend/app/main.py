@@ -20,13 +20,14 @@ from sqlalchemy import text
 from starlette.requests import Request
 
 from app.core.config import settings
-from app.modules.users.router import router as users_router
 from app.core.database import dispose_engine, get_engine
 from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
 from app.core.redis import close_redis, get_redis, init_redis
+from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.masters.router import router as masters_router
+from app.modules.users.router import router as users_router
 
 
 logger = structlog.get_logger()
@@ -70,6 +71,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(masters_router)
+app.include_router(admin_router)
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
@@ -77,14 +79,23 @@ app.include_router(masters_router)
 @app.exception_handler(VeloError)
 async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     """Convert VeloError exceptions into proper HTTP responses."""
-    logger.warning(
-        "velo_error",
-        status_code=exc.status_code,
-        code=exc.code,
-        message=exc.message,
-        path=request.url.path,
-        method=request.method,
-    )
+    if exc.status_code >= 500:
+        logger.error(
+            "unhandled_velo_error",
+            status_code=exc.status_code,
+            code=exc.code,
+            message=exc.message,
+            path=request.url.path,
+        )
+    else:
+        logger.warning(
+            "velo_error",
+            status_code=exc.status_code,
+            code=exc.code,
+            message=exc.message,
+            path=request.url.path,
+        )
+
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": exc.code, "message": exc.message},
@@ -92,14 +103,13 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
 
 
 # ---------------------------------------------------------------------------
-# CORS Middleware (TD-002)
+# CORS
 # ---------------------------------------------------------------------------
-_cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
-_allow_all = _cors_origins == ["*"]
+_allow_all = settings.cors_origins == ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
+    allow_origins=settings.cors_origins,
     allow_credentials=not _allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -107,65 +117,78 @@ app.add_middleware(
 
 
 # ---------------------------------------------------------------------------
-# Health checks
+# Root
 # ---------------------------------------------------------------------------
-_HEALTH_CHECK_TIMEOUT = 5.0
+@app.get("/")
+async def root() -> dict:
+    """API info — name and version."""
+    return {"name": "VELO API", "version": "0.1.0"}
 
 
-async def _check_db() -> str:
-    """Check PostgreSQL connectivity."""
-    try:
-        async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
-            async with get_engine().connect() as conn:
-                await conn.execute(text("SELECT 1"))
-        return "ok"
-    except Exception as e:
-        logger.error("health_check_db_failed", error=str(e))
-        return "error"
-
-
-async def _check_redis() -> str:
-    """Check Redis connectivity."""
-    try:
-        async with asyncio.timeout(_HEALTH_CHECK_TIMEOUT):
-            redis = get_redis()
-            pong = await redis.ping()  # type: ignore[misc]
-            if pong:
-                return "ok"
-        return "error"
-    except Exception as e:
-        logger.error("health_check_redis_failed", error=str(e))
-        return "error"
-
-
-async def _check_health() -> dict[str, str]:
-    """Check DB and Redis in parallel."""
-    db_status, redis_status = await asyncio.gather(
-        _check_db(),
-        _check_redis(),
-    )
-    status = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
-    return {"status": status, "db": db_status, "redis": redis_status}
-
-
+# ---------------------------------------------------------------------------
+# Health / Ready
+# ---------------------------------------------------------------------------
 @app.get("/health")
-async def health() -> dict[str, str]:
-    """Health check — always returns 200."""
-    return await _check_health()
+async def health() -> dict:
+    """Health check — always returns 200.
+
+    Reports DB and Redis connectivity status. Used by monitoring tools
+    that only care "is the process alive?".
+    """
+    result: dict = {"status": "ok", "db": "unknown", "redis": "unknown"}
+
+    # Check DB.
+    try:
+        engine = get_engine()
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        result["db"] = "ok"
+    except Exception:
+        result["db"] = "error"
+        result["status"] = "degraded"
+
+    # Check Redis.
+    try:
+        redis = get_redis()
+        await redis.ping()
+        result["redis"] = "ok"
+    except Exception:
+        result["redis"] = "error"
+        result["status"] = "degraded"
+
+    return result
 
 
 @app.get("/ready")
 async def ready() -> JSONResponse:
-    """Readiness probe — returns 503 when degraded."""
-    result = await _check_health()
-    status_code = 200 if result["status"] == "ok" else 503
-    return JSONResponse(content=result, status_code=status_code)
+    """Readiness probe — returns 503 if any dependency is down.
 
+    Used by load balancers to decide whether to route traffic here.
+    """
+    checks: dict = {"db": "unknown", "redis": "unknown"}
+    all_ok = True
 
-# ---------------------------------------------------------------------------
-# Root
-# ---------------------------------------------------------------------------
-@app.get("/")
-async def root() -> dict[str, str]:
-    """API name and version."""
-    return {"name": "VELO API", "version": "0.1.0"}
+    try:
+        engine = get_engine()
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["db"] = "ok"
+    except Exception:
+        checks["db"] = "error"
+        all_ok = False
+
+    try:
+        redis = get_redis()
+        pong = await asyncio.wait_for(redis.ping(), timeout=2.0)
+        checks["redis"] = "ok" if pong else "error"
+        if not pong:
+            all_ok = False
+    except Exception:
+        checks["redis"] = "error"
+        all_ok = False
+
+    status_code = 200 if all_ok else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={"status": "ok" if all_ok else "degraded", **checks},
+    )
