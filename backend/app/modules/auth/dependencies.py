@@ -17,7 +17,15 @@
 #   async def list_practices(user: User | None = Depends(get_optional_user)):
 #       # user is None for anonymous requests
 #       ...
+#
+# SECURITY:
+#   _parse_user_id() validates that user_id from Redis is a proper UUID
+#   before passing it to SQL. If Redis is compromised and contains a
+#   non-UUID string, asyncpg would throw DataError → 500. We catch it
+#   early and return a clean 401 instead.
 # =============================================================================
+
+from uuid import UUID
 
 import structlog
 from fastapi import Depends, Request
@@ -40,6 +48,18 @@ def _extract_token(request: Request) -> str | None:
     return None
 
 
+def _parse_user_id(session_data: dict) -> UUID:
+    """Validate and parse user_id from Redis session data.
+
+    Prevents asyncpg DataError (→ 500) if Redis contains a corrupted
+    or non-UUID value. Returns clean 401 instead.
+    """
+    try:
+        return UUID(session_data["user_id"])
+    except (KeyError, ValueError):
+        raise UnauthorizedError("Invalid session data") from None
+
+
 async def get_current_user(
     request: Request,
     session: AsyncSession = Depends(get_db_reader),
@@ -56,7 +76,7 @@ async def get_current_user(
     if not session_data:
         raise UnauthorizedError("Invalid or expired session")
 
-    user_id = session_data["user_id"]
+    user_id = _parse_user_id(session_data)
     stmt = select(User).where(User.id == user_id)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -86,7 +106,7 @@ async def get_optional_user(
     if not session_data:
         return None
 
-    user_id = session_data["user_id"]
+    user_id = _parse_user_id(session_data)
     stmt = select(User).where(User.id == user_id)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()

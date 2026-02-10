@@ -1967,6 +1967,17 @@ TELEGRAM_BOT_TOKEN=<from @BotFather>
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум (P-12) | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
 | TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (P-7, неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
 
+### Phase 2.2 аудит — backlog
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-025 | 🚀 | Все роутеры | Нет rate limiting на auth и masters endpoints | `slowapi` middleware или custom limiter (Redis-based) | ⬜ |
+| TD-026 | 🚀 | `docker-compose.yml` | Redis без пароля — доступ без аутентификации | `requirepass` в Redis + `REDIS_PASSWORD` в .env + config.py | ⬜ |
+| TD-027 | 🚀 | `main.py` / `config.py` | CORS `"*"` по умолчанию — в production нужен явный список origins | При деплое фронта заменить на конкретные домены | ⬜ |
+| TD-028 | 🧪 | `masters/schemas.py` | `documents: list[dict]` — содержимое dict'ов не ограничено | Типизировать при реализации S3/file upload | ⬜ |
+| TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия или передача user_id вместо объекта | ⬜ |
+| TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
+
 ### Осознанные решения (НЕ является долгом)
 
 Следующие замечания были рассмотрены и признаны **не требующими исправления**:

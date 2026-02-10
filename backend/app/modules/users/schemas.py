@@ -11,8 +11,9 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.modules.users.models import UserRole
 
@@ -50,3 +51,18 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     timezone: str | None = Field(default=None, min_length=1, max_length=50)
     language: str | None = Field(default=None, min_length=1, max_length=5)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, v: str | None) -> str | None:
+        """Validate timezone is a valid IANA timezone identifier."""
+        if v is None:
+            return v
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, KeyError):
+            raise ValueError(
+                f"Invalid IANA timezone: '{v}'. "
+                "Examples: 'UTC', 'Europe/Moscow', 'America/New_York'"
+            ) from None
+        return v
