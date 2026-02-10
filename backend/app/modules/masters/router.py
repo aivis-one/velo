@@ -6,8 +6,7 @@
 #   POST /api/v1/masters/apply — submit master application (user only)
 # =============================================================================
 
-import logging
-
+import structlog
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +16,7 @@ from app.modules.masters.schemas import MasterApplyRequest, MasterApplyResponse
 from app.modules.masters.service import apply_for_master
 from app.modules.users.models import User
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/v1/masters", tags=["masters"])
 
@@ -39,7 +38,10 @@ async def apply_master(
     application was rejected, updates the existing profile.
     """
     profile = await apply_for_master(user, body, session)
-    await session.commit()
+
+    # flush() to get DB-generated defaults (created_at) without
+    # explicit commit — get_db_session commits on success after yield.
+    await session.flush()
     await session.refresh(profile)
 
     return MasterApplyResponse(

@@ -13,16 +13,22 @@
 #      d) Profile with status "verified" → should not happen (role=master)
 #   3. Return updated/created MasterProfile
 #
+# RACE CONDITION GUARD:
+#   Two concurrent apply requests may both pass the SELECT check (no profile).
+#   Both try INSERT with the same user_id (PK) → one gets IntegrityError.
+#   We catch IntegrityError after flush() and convert to ConflictError.
+#
 # JSONB SAFETY:
 #   All mutations to MasterProfile.data use set_jsonb() (from JSONBMixin).
 #   NEVER assign profile.data = ... directly.
 # =============================================================================
 
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
+import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, ForbiddenError
@@ -30,7 +36,7 @@ from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import MasterApplyRequest
 from app.modules.users.models import User, UserRole
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 def _build_data(body: MasterApplyRequest) -> dict:
@@ -38,7 +44,7 @@ def _build_data(body: MasterApplyRequest) -> dict:
     return {
         "account": {
             "status": "pending",
-            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "applied_at": datetime.now(UTC).isoformat(),
             "verification": None,
             "rejections": [],
         },
@@ -51,7 +57,7 @@ def _build_data(body: MasterApplyRequest) -> dict:
             "experience_years": body.experience.experience_years,
             "certifications": body.experience.certifications,
         },
-        "documents": [doc for doc in body.documents],
+        "documents": list(body.documents),
         "availability": {
             "is_accepting": False,
             "note": None,
@@ -127,17 +133,31 @@ async def apply_for_master(
         # Uses set_jsonb() to ensure SQLAlchemy detects the JSONB change.
         existing.set_jsonb("data", _build_reapply_data(existing.data, body))
         logger.info(
-            "Master reapplication submitted: user_id=%s", user.id
+            "master_reapplication_submitted",
+            user_id=str(user.id),
         )
         return existing
 
     # No existing profile — create new one.
+    # Race condition guard: two concurrent requests may both reach this point.
+    # flush() triggers INSERT; if user_id PK already exists, IntegrityError
+    # is raised and converted to ConflictError.
     profile = MasterProfile(
         user_id=user.id,
         data=_build_data(body),
     )
     session.add(profile)
-    logger.info("Master application submitted: user_id=%s", user.id)
+
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        raise ConflictError("Application already pending")
+
+    logger.info(
+        "master_application_submitted",
+        user_id=str(user.id),
+    )
 
     return profile
 

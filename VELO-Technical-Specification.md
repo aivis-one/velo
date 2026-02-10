@@ -634,6 +634,30 @@ class JSONBMixin:
 
 ---
 
+### Архитектурное правило: Session Commit (введено Phase 2.2)
+
+**Контекст:** `get_db_session()` автоматически делает `commit()` после `yield`
+и `rollback()` при исключении. Явный `commit()` в роутере создаёт двойной
+коммит, что может привести к `InvalidRequestError` или частичному коммиту.
+
+**Правило:**
+```python
+# ❌ ЗАПРЕЩЕНО — двойной коммит:
+await session.commit()
+
+# ✅ ОБЯЗАТЕЛЬНО — flush для DB-generated значений:
+await session.flush()
+await session.refresh(obj)
+```
+
+**Сессии в VELO:**
+- `get_db_session()` — write: auto-commit после yield, rollback при ошибке
+- `get_db_reader()` — read-only: всегда rollback (TD-008)
+- В роутерах **никогда** не вызывать `session.commit()` и `session.rollback()`
+- В service-слое допустим `session.rollback()` только внутри `try/except IntegrityError`
+
+---
+
 ### 2.2: Заявка на мастера
 
 **Цель:** Flow подачи заявки (3 шага из мокапов).

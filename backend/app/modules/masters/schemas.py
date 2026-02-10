@@ -15,9 +15,14 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+
+# Constrained string for list items (methods, certifications) to prevent
+# oversized payloads. Must be 1–200 characters.
+ShortStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
 # ---------------------------------------------------------------------------
@@ -37,10 +42,10 @@ class MasterApplyProfile(BaseModel):
 class MasterApplyExperience(BaseModel):
     """Step 2 of master application — professional background."""
 
-    methods: list[str] = Field(min_length=1, max_length=20)
+    methods: list[ShortStr] = Field(min_length=1, max_length=20)
     experience_years: int = Field(ge=0, le=50)
     bio: str | None = Field(default=None, max_length=2000)
-    certifications: list[str] = Field(default_factory=list, max_length=20)
+    certifications: list[ShortStr] = Field(default_factory=list, max_length=20)
 
 
 # ---------------------------------------------------------------------------
