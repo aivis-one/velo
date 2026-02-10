@@ -105,11 +105,12 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
-_allow_all = settings.cors_origins == ["*"]
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
+_allow_all = _cors_origins == ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=_cors_origins,
     allow_credentials=not _allow_all,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -121,7 +122,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 @app.get("/")
 async def root() -> dict:
-    """API info — name and version."""
+    """API info -- name and version."""
     return {"name": "VELO API", "version": "0.1.0"}
 
 
@@ -130,7 +131,7 @@ async def root() -> dict:
 # ---------------------------------------------------------------------------
 @app.get("/health")
 async def health() -> dict:
-    """Health check — always returns 200.
+    """Health check -- always returns 200.
 
     Reports DB and Redis connectivity status. Used by monitoring tools
     that only care "is the process alive?".
@@ -161,7 +162,7 @@ async def health() -> dict:
 
 @app.get("/ready")
 async def ready() -> JSONResponse:
-    """Readiness probe — returns 503 if any dependency is down.
+    """Readiness probe -- returns 503 if any dependency is down.
 
     Used by load balancers to decide whether to route traffic here.
     """

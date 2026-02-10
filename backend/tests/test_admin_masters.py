@@ -1,19 +1,18 @@
 # =============================================================================
-# Test: Admin — Master verification and rejection (Phase 2.3)
+# Test: Admin -- Master verification and rejection (Phase 2.3)
 # =============================================================================
 #
 # telegram_id ranges:
-#   56001–56099 — master applicants
-#   56900–56999 — admin users
+#   56001-56099 -- master applicants
+#   56900-56999 -- admin users
 # =============================================================================
 
-import copy
 from collections.abc import AsyncGenerator
 from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select, text, update
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
@@ -119,14 +118,14 @@ async def _make_admin(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — success
+# POST /admin/masters/{user_id}/verify -- success
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_master_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Admin verifies pending application → status=verified, role=master."""
+    """Admin verifies pending application: status=verified, role=master."""
     # Setup: applicant + admin.
     applicant_auth, _ = await _create_applicant(client, telegram_id=56001)
     _, admin_token = await _make_admin(client, db_session)
@@ -160,14 +159,14 @@ async def test_verify_master_success(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — no notes (optional)
+# POST /admin/masters/{user_id}/verify -- no notes (optional)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_master_no_notes(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Verify without notes → success, notes=null in JSONB."""
+    """Verify without notes: success, notes=null in JSONB."""
     applicant_auth, _ = await _create_applicant(client, telegram_id=56002)
     _, admin_token = await _make_admin(client, db_session, telegram_id=56901)
 
@@ -187,14 +186,14 @@ async def test_verify_master_no_notes(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/reject — success
+# POST /admin/masters/{user_id}/reject -- success
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reject_master_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Admin rejects pending application → status=rejected, role stays USER."""
+    """Admin rejects pending application: status=rejected, role stays USER."""
     applicant_auth, _ = await _create_applicant(client, telegram_id=56003)
     _, admin_token = await _make_admin(client, db_session, telegram_id=56902)
 
@@ -225,22 +224,22 @@ async def test_reject_master_success(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — no auth → 401
+# POST /admin/masters/{user_id}/verify -- no auth
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_no_auth(client: AsyncClient) -> None:
-    """No Authorization header → 401."""
+    """No Authorization header: 401."""
     url = VERIFY_URL.format(user_id=uuid4())
     resp = await client.post(url, json={})
     assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — non-admin → 403
+# POST /admin/masters/{user_id}/verify -- non-admin
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_non_admin(client: AsyncClient) -> None:
-    """Regular user (not admin) → 403."""
+    """Regular user (not admin): 403."""
     auth = await login_user(client, telegram_id=56010, first_name="NotAdmin")
     url = VERIFY_URL.format(user_id=uuid4())
 
@@ -253,14 +252,14 @@ async def test_verify_non_admin(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — not found → 404
+# POST /admin/masters/{user_id}/verify -- not found
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_nonexistent_user(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Non-existent user_id → 404."""
+    """Non-existent user_id: 404."""
     _, admin_token = await _make_admin(client, db_session, telegram_id=56903)
 
     url = VERIFY_URL.format(user_id=uuid4())
@@ -273,38 +272,38 @@ async def test_verify_nonexistent_user(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — already verified → 409
+# POST /admin/masters/{user_id}/verify -- already verified
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_already_verified(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Verifying an already-verified master → 409."""
+    """Verifying an already-verified master: 409."""
     applicant_auth, _ = await _create_applicant(client, telegram_id=56004)
     _, admin_token = await _make_admin(client, db_session, telegram_id=56904)
 
     user_id = applicant_auth["user"]["id"]
     url = VERIFY_URL.format(user_id=user_id)
 
-    # First verify — success.
+    # First verify -- success.
     resp1 = await client.post(url, json={}, headers=auth_headers(admin_token))
     assert resp1.status_code == 200
 
-    # Second verify — conflict.
+    # Second verify -- conflict.
     resp2 = await client.post(url, json={}, headers=auth_headers(admin_token))
     assert resp2.status_code == 409
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/verify — rejected profile → 409
+# POST /admin/masters/{user_id}/verify -- rejected profile
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_verify_rejected_profile(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Cannot verify a rejected application (must reapply first) → 409."""
+    """Cannot verify a rejected application (must reapply first): 409."""
     applicant_auth, _ = await _create_applicant(client, telegram_id=56005)
     _, admin_token = await _make_admin(client, db_session, telegram_id=56905)
 
@@ -319,7 +318,7 @@ async def test_verify_rejected_profile(
     )
     assert resp1.status_code == 200
 
-    # Try to verify the rejected profile → 409.
+    # Try to verify the rejected profile.
     verify_url = VERIFY_URL.format(user_id=user_id)
     resp2 = await client.post(
         verify_url, json={}, headers=auth_headers(admin_token)
@@ -328,14 +327,14 @@ async def test_verify_rejected_profile(
 
 
 # ---------------------------------------------------------------------------
-# POST /admin/masters/{user_id}/reject — empty reason → 422
+# POST /admin/masters/{user_id}/reject -- empty reason
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reject_empty_reason(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Rejection without reason → 422 validation error."""
+    """Rejection without reason: 422 validation error."""
     _, admin_token = await _make_admin(client, db_session, telegram_id=56906)
 
     url = REJECT_URL.format(user_id=uuid4())
@@ -348,14 +347,14 @@ async def test_reject_empty_reason(
 
 
 # ---------------------------------------------------------------------------
-# Integration: reject → reapply → verify (full cycle)
+# Integration: reject -> reapply -> verify (full cycle)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_reject_reapply_verify_cycle(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Full lifecycle: apply → reject → reapply → verify."""
+    """Full lifecycle: apply -> reject -> reapply -> verify."""
     applicant_auth, applicant_token = await _create_applicant(
         client, telegram_id=56006
     )

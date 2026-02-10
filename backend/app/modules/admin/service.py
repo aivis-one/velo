@@ -5,14 +5,14 @@
 # Business logic for admin actions on master applications.
 #
 # VERIFY FLOW:
-#   1. Load MasterProfile by user_id (PK lookup)
+#   1. Load MasterProfile by user_id with FOR UPDATE (P-07)
 #   2. Validate status == "pending"
 #   3. Update JSONB: status → "verified", add verification info
 #   4. Change User.role → MASTER
 #   5. Return updated profile (caller does flush + refresh)
 #
 # REJECT FLOW:
-#   1. Load MasterProfile by user_id
+#   1. Load MasterProfile by user_id with FOR UPDATE (P-07)
 #   2. Validate status == "pending"
 #   3. Update JSONB: status → "rejected", store reason
 #   4. Do NOT change User.role
@@ -32,6 +32,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ConflictError, NotFoundError
@@ -45,20 +46,29 @@ async def _load_pending_profile(
     user_id: UUID,
     session: AsyncSession,
 ) -> MasterProfile:
-    """Load MasterProfile and validate it is in 'pending' status.
+    """Load MasterProfile with FOR UPDATE and validate 'pending' status.
+
+    Uses SELECT FOR UPDATE (P-07) to prevent race condition when two
+    admins act on the same application simultaneously.
 
     Raises NotFoundError if profile doesn't exist.
     Raises ConflictError if profile is not pending.
     """
-    profile = await session.get(MasterProfile, user_id)
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+
     if not profile:
         raise NotFoundError("Master application not found")
 
     status = profile.data.get("account", {}).get("status")
     if status != "pending":
-        raise ConflictError(
-            f"Application is not pending (current status: {status})"
-        )
+        # P-08: do not leak current status in error message.
+        raise ConflictError("Application is not pending")
 
     return profile
 
@@ -72,10 +82,10 @@ async def verify_master(
     """Verify a pending master application.
 
     Two things happen:
-      1. MasterProfile.data.account.status → "verified" (via set_jsonb)
-      2. User.role → MASTER
+      1. MasterProfile.data.account.status -> "verified" (via set_jsonb)
+      2. User.role -> MASTER
 
-    Both are in the same transaction — if either fails, nothing changes.
+    Both are in the same transaction -- if either fails, nothing changes.
     """
     profile = await _load_pending_profile(user_id, session)
 
@@ -115,7 +125,7 @@ async def reject_master(
     """Reject a pending master application.
 
     Stores rejection reason and archives it in rejection history.
-    Does NOT change User.role — user stays as USER and can reapply.
+    Does NOT change User.role -- user stays as USER and can reapply.
     """
     profile = await _load_pending_profile(user_id, session)
 
