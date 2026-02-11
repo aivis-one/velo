@@ -789,23 +789,53 @@ backend/tests/
 
 ---
 
-### 3.2: Список юзеров/мастеров
+### 3.2: Список юзеров/мастеров ✅
 
-**Цель:** Админ видит всех пользователей.
+**Цель:** Админ видит всех пользователей и мастеров с пагинацией и фильтрами.
 
 **Задачи:**
-- [ ] GET /api/v1/admin/users — список юзеров (пагинация, фильтры)
-- [ ] GET /api/v1/admin/masters — список мастеров
-- [ ] GET /api/v1/admin/masters/pending — ожидающие верификации
+- [x] GET /api/v1/admin/users — список юзеров (пагинация, фильтры role, is_active)
+- [x] GET /api/v1/admin/masters/list — список мастеров (фильтр status)
+- [x] GET /api/v1/admin/masters/pending — шорткат: pending
+- [x] GET /api/v1/admin/masters/rejected — шорткат: rejected
+- [x] app/modules/admin/users/ sub-package
+- [x] tests/test_admin_users.py — 9 тестов
 
 **Endpoints:**
 ```
-GET /api/v1/admin/users?limit=20&offset=0&role=user
-GET /api/v1/admin/masters?status=verified
+GET /api/v1/admin/users?limit=20&offset=0&role=user&is_active=true
+Response: {"items": [...], "total": 45, "limit": 20, "offset": 0}
+
+GET /api/v1/admin/masters/list?status=verified&limit=20&offset=0
 GET /api/v1/admin/masters/pending
+GET /api/v1/admin/masters/rejected
+Response: {"items": [...], "total": 12, "limit": 20, "offset": 0}
 ```
 
-**Критерий готовности:** Админ видит списки с фильтрами.
+**Результат:**
+```
+backend/app/modules/admin/users/
+├── __init__.py
+├── schemas.py           ← PaginatedUsersResponse, AdminMasterListItem, PaginatedMastersResponse
+├── service.py           ← list_users(), list_masters()
+└── router.py            ← 4 GET endpoints
+
+backend/tests/
+└── test_admin_users.py  ← 9 тестов (telegram_id range: 58xxx)
+```
+
+**Решения, принятые при реализации:**
+- `/masters/list` вместо `/masters` — избежание path conflict с `POST /masters/{user_id}/verify`. FastAPI путал бы "pending" как UUID
+- `str(user.role)` вместо `user.role.value` — при JOIN из read-only сессии role приходит как str, не enum
+- `try/except ValueError` на `UserRole(role)` — невалидный фильтр (`?role=superadmin`) возвращает 400, не 500
+- Все эндпоинты используют `get_db_reader` (read-only) — не write session
+- JOIN User + MasterProfile в одном запросе (не N+1)
+- Пагинация: limit (1-100, default 20), offset (>=0). Total count отдельным запросом
+- telegram_id ranges: users тесты 58xxx
+
+**Аудит:** 2 замечания (MEDIUM невалидный role → 500, LOW неиспользуемый класс). Исправлены.
+
+**Критерий готовности:** Админ видит списки с фильтрами. 64 теста, 0 warnings. ✅
 
 ---
 
