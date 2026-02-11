@@ -22,13 +22,16 @@
 #     TODO Phase 4: Replace practice stub with real validation.
 #
 # SESSION RULES:
-#   No session.commit() here (P-01). Router calls flush + refresh.
+#   No session.commit() here (P-01).
+#   create_report() calls flush() internally to catch IntegrityError (P-05).
+#   update_report() relies on router for flush + refresh.
 # =============================================================================
 
 from uuid import UUID
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
@@ -95,8 +98,11 @@ async def create_report(
     await _validate_target(target_type, target_id, session)
 
     # -- Prevent self-reporting --
-    if target_type == ReportTargetType.USER and target_id == user.id:
-        raise BadRequestError("Cannot report yourself")
+    # For "user" target_type, target_id is user.id directly.
+    # For "master" target_type, target_id is also user_id (FK in master_profiles).
+    if target_type in (ReportTargetType.USER, ReportTargetType.MASTER):
+        if target_id == user.id:
+            raise BadRequestError("Cannot report yourself")
 
     # -- Check for duplicate --
     existing = await _find_existing_report(user.id, target_type, target_id, session)
@@ -119,6 +125,21 @@ async def create_report(
         status=ReportStatus.PENDING.value,
     )
     session.add(report)
+
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        # Race condition: another request inserted the same report
+        # between our SELECT and INSERT. Return None so caller
+        # treats it as a duplicate (same as the normal path).
+        logger.info(
+            "report_duplicate_race",
+            reporter_id=str(user.id),
+            target_type=target_type,
+            target_id=str(target_id),
+        )
+        return None
 
     logger.info(
         "report_created",

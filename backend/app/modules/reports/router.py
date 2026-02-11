@@ -73,7 +73,6 @@ async def create_report_endpoint(
             report=ReportResponse.model_validate(existing, from_attributes=True),
         )
 
-    await session.flush()
     await session.refresh(report)
 
     response.status_code = status.HTTP_201_CREATED

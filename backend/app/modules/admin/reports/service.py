@@ -19,7 +19,6 @@
 # =============================================================================
 
 from datetime import UTC, datetime
-from typing import Literal
 from uuid import UUID
 
 import structlog

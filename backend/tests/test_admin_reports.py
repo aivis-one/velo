@@ -73,7 +73,10 @@ async def _create_report(
     target_tg_id: int,
     reason: str = "Test reason",
 ) -> tuple[str, str, str]:
-    """Create reporter + target + report. Returns (reporter_token, target_id, report_id)."""
+    """Create reporter + target + report.
+
+    Returns (reporter_token, target_id, report_id).
+    """
     reporter = await login_user(
         client, telegram_id=reporter_tg_id, first_name=f"Reporter{reporter_tg_id}"
     )
