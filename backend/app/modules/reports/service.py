@@ -100,9 +100,8 @@ async def create_report(
     # -- Prevent self-reporting --
     # For "user" target_type, target_id is user.id directly.
     # For "master" target_type, target_id is also user_id (FK in master_profiles).
-    if target_type in (ReportTargetType.USER, ReportTargetType.MASTER):
-        if target_id == user.id:
-            raise BadRequestError("Cannot report yourself")
+    if target_type in (ReportTargetType.USER, ReportTargetType.MASTER) and target_id == user.id:
+        raise BadRequestError("Cannot report yourself")
 
     # -- Check for duplicate --
     existing = await _find_existing_report(user.id, target_type, target_id, session)
