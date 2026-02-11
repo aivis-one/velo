@@ -9,13 +9,6 @@ from pydantic import BaseModel, Field
 from app.modules.users.schemas import UserResponse
 
 
-class PaginatedParams(BaseModel):
-    """Shared pagination query parameters."""
-
-    limit: int = Field(default=20, ge=1, le=100)
-    offset: int = Field(default=0, ge=0)
-
-
 class PaginatedUsersResponse(BaseModel):
     """GET /api/v1/admin/users -- paginated user list."""
 

@@ -18,6 +18,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import BadRequestError
 from app.modules.admin.users.schemas import (
     AdminMasterListItem,
     PaginatedMastersResponse,
@@ -45,8 +46,12 @@ async def list_users(
 
     # -- Filters --
     if role is not None:
-        query = query.where(User.role == UserRole(role))
-        count_query = count_query.where(User.role == UserRole(role))
+        try:
+            role_enum = UserRole(role)
+        except ValueError:
+            raise BadRequestError(f"Invalid role: {role}") from None
+        query = query.where(User.role == role_enum)
+        count_query = count_query.where(User.role == role_enum)
 
     if is_active is not None:
         query = query.where(User.is_active == is_active)
