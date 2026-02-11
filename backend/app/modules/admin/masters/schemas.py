@@ -1,9 +1,5 @@
 # =============================================================================
-# VELO Backend — Admin Schemas (Phase 2.3)
-# =============================================================================
-#
-# TEMPORARY -- only verify/reject schemas. Phase 3 will expand with
-# stats, user lists, moderation schemas. See admin/__init__.py.
+# VELO Backend -- Admin Master Schemas (Phase 2.3, moved Phase 3.1)
 # =============================================================================
 
 from uuid import UUID

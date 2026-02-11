@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Admin Service (Phase 2.3)
+# VELO Backend -- Admin Master Service (Phase 2.3, moved Phase 3.1)
 # =============================================================================
 #
 # Business logic for admin actions on master applications.
@@ -7,14 +7,14 @@
 # VERIFY FLOW:
 #   1. Load MasterProfile by user_id with FOR UPDATE (P-07)
 #   2. Validate status == "pending"
-#   3. Update JSONB: status → "verified", add verification info
-#   4. Change User.role → MASTER
+#   3. Update JSONB: status -> "verified", add verification info
+#   4. Change User.role -> MASTER
 #   5. Return updated profile (caller does flush + refresh)
 #
 # REJECT FLOW:
 #   1. Load MasterProfile by user_id with FOR UPDATE (P-07)
 #   2. Validate status == "pending"
-#   3. Update JSONB: status → "rejected", store reason
+#   3. Update JSONB: status -> "rejected", store reason
 #   4. Do NOT change User.role
 #   5. Return updated profile
 #
@@ -24,7 +24,6 @@
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router calls flush() + refresh().
-#   No IntegrityError expected (updating existing rows, not inserting).
 # =============================================================================
 
 import copy
