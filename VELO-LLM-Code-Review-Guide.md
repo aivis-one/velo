@@ -1,6 +1,6 @@
 # VELO — Гайд для LLM: предсказуемые ошибки при реализации
 
-**Цель:** Превентивный анализ ТЗ. Список паттернов ошибок, которые Claude (Opus) повторяет при реализации кода по VELO Technical Specification. Каждый паттерн подтверждён реальными находками из 4 раундов аудита.
+**Цель:** Превентивный анализ ТЗ. Список паттернов ошибок, которые Claude (Opus) повторяет при реализации кода по VELO Technical Specification. Каждый паттерн подтверждён реальными находками из 8 раундов аудита.
 
 **Как использовать:** Перед началом каждой фазы — прочитать соответствующие секции. После написания кода — проверить по чеклисту.
 
@@ -333,7 +333,143 @@ logger.info("practice_created", practice_id=str(practice.id), master_id=str(user
 
 ---
 
+### P-11: Enum(value) без try/except на пользовательском вводе
+
+**Найдено в:** Round 8 (admin/users/service.py — `UserRole(role)`)
+
+**Суть:** При фильтрации по query parameter, LLM конвертирует строку в enum через `SomeEnum(value)`. Если значение невалидное, Python бросает `ValueError`, который не перехватывается и улетает как 500 Internal Server Error вместо 400 Bad Request.
+
+**Отличие от P-04 (UUID):** P-04 — это про парсинг UUID из dict/Redis. P-11 — это про ЛЮБОЕ преобразование enum из query params, path params, или request body.
+
+**Где повторится (конкретные enum-классы и эндпоинты):**
+
+| Phase | Эндпоинт | Enum-класс | Файл (ожидаемый) |
+|---|---|---|---|
+| 4.2 | `GET /practices?type=...` | `PracticeType` | practices/service.py |
+| 4.2 | `GET /practices?status=...` | `PracticeStatus` | practices/service.py |
+| 5.2 | `GET /bookings?status=...` | `BookingStatus` | bookings/service.py |
+| 6.3 | `GET /ledger?status=...` | `LedgerStatus` | payments/service.py |
+| 6.3 | `GET /company/ledger?type=...` | `CompanyLedgerType` | payments/service.py |
+| 6.7 | `GET /promos?type=...` | `PromoType` | payments/promos/service.py |
+| 3.3 | `GET /admin/reports?status=...` | `ReportStatus` | admin/reports/service.py |
+
+**Рекомендация:** Использовать `Literal` в сигнатуре роутера (см. шаблон в Части 4) вместо ручного `Enum(value)` в сервисе. Это решает P-11 на уровне архитектуры.
+
+**Правило:**
+```python
+# ❌ Без обработки — 500 на невалидном значении:
+query = query.where(User.role == UserRole(role))
+
+# ✅ С обработкой — 400 с понятным сообщением:
+try:
+    role_enum = UserRole(role)
+except ValueError:
+    valid = ", ".join(r.value for r in UserRole)
+    raise BadRequestError(f"Invalid role: '{role}'. Valid: {valid}") from None
+query = query.where(User.role == role_enum)
+```
+
+**Альтернатива (лучше):** Использовать `Literal` или `Enum` прямо в сигнатуре роутера — FastAPI валидирует автоматически и вернёт 422:
+```python
+from typing import Literal
+
+@router.get("/users")
+async def get_users(
+    role: Literal["user", "master", "admin"] | None = Query(default=None),
+):
+    ...
+```
+
+**Чеклист:** Grep `Enum(` в service-файлах (кроме определений классов). Если аргумент — пользовательский ввод, нужен try/except или Literal в роутере.
+
+---
+
+### P-12: State machine transitions без FOR UPDATE
+
+**Найдено в:** Round 5 (admin/service.py — concurrent verify + reject)
+
+**Суть:** Подтип P-07 для admin-операций. Когда два админа одновременно выполняют разные действия над одним ресурсом (verify + reject), без `SELECT FOR UPDATE` оба видят `status=pending`, оба проходят проверку, и результат зависит от порядка коммитов. Если reject коммитится после verify:
+- `MasterProfile.data.status = "rejected"` (от reject)
+- `User.role = MASTER` (от verify, уже закоммичено)
+- **Результат: role=MASTER но status=rejected — несогласованность данных**
+
+**Отличие от P-07:** P-07 — это про числовые гонки (balance, counters). P-12 — это про state machine, где разные transitions затрагивают разные поля в разных моделях.
+
+**Где повторится (полные state machines):**
+
+**Practice (Phase 4.2):** `draft -> published -> scheduled -> completed / cancelled`
+- Concurrent: master publishes + admin cancels одну и ту же практику
+- Concurrent: cron auto-completes (по времени) + master cancels
+- Затрагивает: `Practice.status`, `Practice.current_participants`, связанные `Booking` (каскадная отмена)
+
+**Booking (Phase 5.2):** `confirmed -> completed / cancelled`
+- Concurrent: user cancels + system auto-completes после завершения практики
+- Concurrent: admin force-cancels + user cancels
+- Затрагивает: `Booking.status`, `Practice.current_participants` (декремент), `UserLedger` + `MasterLedger` (refund)
+
+**Withdrawal (Phase 6.6):** `pending -> approved / rejected`
+- Concurrent: два админа -- один approve, другой reject (идентично masters verify/reject)
+- Затрагивает: `Withdrawal.status`, `MasterLedger` (unfreeze или списание), `User.balance_master`
+
+**Report (Phase 3.3):** `pending -> resolved / dismissed`
+- Concurrent: два модератора -- один resolve, другой dismiss
+- Затрагивает: `Report.status`, возможно `User` (ban/warning)
+
+**Правило:**
+```python
+# ❌ Без блокировки — race condition:
+profile = await session.get(MasterProfile, user_id)
+
+# ✅ С блокировкой — второй запрос ждёт коммита первого:
+stmt = (
+    select(MasterProfile)
+    .where(MasterProfile.user_id == user_id)
+    .with_for_update()
+)
+result = await session.execute(stmt)
+profile = result.scalar_one_or_none()
+```
+
+**Чеклист:** Каждый service с admin state transitions (verify/reject/approve/cancel) — проверить наличие `with_for_update()`.
+
+---
+
 ## Часть 2: Предсказания по фазам
+
+### Phase 2.3: Верификация мастера -- РЕЗУЛЬТАТЫ
+
+**Предсказания vs реальность:**
+
+| Предсказание | Сбылось? | Комментарий |
+|---|---|---|
+| P-03: Прямое присвоение JSONB | **НЕТ** | Код использовал `copy.deepcopy()` + `set_jsonb()` — идеально |
+| P-01: `session.commit()` в роутере | **НЕТ** | `flush()` + `refresh()` — правильно |
+| P-08: Разные сообщения для разных ошибок | **ДА** | `"current status: {status}"` в ConflictError — статус утекал |
+| Забытый `user.role = UserRole.MASTER` | **НЕТ** | Обе операции (data + role) были на месте |
+| **НЕ ПРЕДСКАЗАНО:** Race condition на verify/reject | **ПРОПУЩЕНО** | `session.get()` без FOR UPDATE. Нашлось в аудите -> P-12 |
+
+### Phase 3.1: Admin stats -- РЕЗУЛЬТАТЫ
+
+| Предсказание | Сбылось? | Severity | Комментарий |
+|---|---|---|---|
+| P-10: stdlib logging | **НЕТ** | -- | structlog использован корректно |
+| P-01: commit в роутере | **НЕТ** | -- | Stats -- read-only endpoint, commit не нужен |
+| **НЕ ПРЕДСКАЗАНО:** Misleading docstring "GIN-path" | **ДА** | LOW | Утверждал наличие GIN-индекса, которого нет |
+
+**Точность Phase 3.1:** 0/2 предсказаний сбылись. 1 непредсказанная проблема (LOW).
+
+### Phase 3.2: Admin user/master listings -- РЕЗУЛЬТАТЫ
+
+| Предсказание | Сбылось? | Severity | Комментарий |
+|---|---|---|---|
+| P-10: stdlib logging | **НЕТ** | -- | structlog использован корректно |
+| P-01: commit в роутере | **НЕТ** | -- | Правильный flush в листингах |
+| **НЕ ПРЕДСКАЗАНО:** `UserRole(role)` -> ValueError -> 500 | **ДА** | MEDIUM | Новый паттерн -> P-11 |
+| **НЕ ПРЕДСКАЗАНО:** Dead code `PaginatedParams` | **ДА** | LOW | Определён, но не используется нигде |
+
+**Точность Phase 3.2:** 0/2 предсказаний сбылись. 2 непредсказанные проблемы (1 MEDIUM, 1 LOW).
+
+**Калибровочный вывод Phase 3.1-3.2:** P-01 и P-10 -- "зрелые" паттерны, код уже не повторяет эти ошибки. Гайд оказал профилактический эффект. Новые проблемы (P-11, dead code, misleading docs) относятся к категориям, которые гайд ещё не покрывал. **Рекомендация:** снизить приоритет P-01/P-10 в предсказаниях для поздних фаз; фокусироваться на новых паттернах (P-11, P-12).
 
 ### Phase 2.3: Верификация мастера
 
@@ -597,18 +733,21 @@ async def cancel_booking(booking_id: UUID, user: User, session: AsyncSession):
 □ Update-схема: NOT NULL поля защищены валидатором (P-02)
 □ JSONB мутации через set_jsonb() (P-03)
 □ UUID из недоверенных источников — полный except (P-04)
-□ IntegrityError catch → session.rollback() (P-05)
+□ IntegrityError catch -> session.rollback() (P-05)
 □ Ownership check на PATCH/DELETE (P-06)
 □ Конкурентные записи — атомарные операции / FOR UPDATE (P-07)
 □ Нет утечки информации через HTTP-коды (P-08)
 □ Enums — enum.StrEnum (P-09)
 □ structlog, не stdlib logging (P-10)
+□ Enum(value) из query params — try/except или Literal в роутере (P-11)
+□ Admin state transitions — with_for_update() (P-12)
 □ Все datetime — timezone-aware (UTC)
 □ Все денежные суммы — Decimal, не float
 □ Тест на happy path
 □ Тест на auth required (401)
 □ Тест на forbidden (403)
 □ Тест на валидацию входных данных (422)
+□ Тест на невалидный enum в фильтре (400)
 □ Тест на конфликт (409)
 ```
 
@@ -665,9 +804,49 @@ async def create_something(user, body, session):
     return obj
 ```
 
+```python
+# router.py -- шаблон фильтра с enum (P-11)
+# Вариант 1 (рекомендуемый): Literal в сигнатуре -- FastAPI валидирует автоматически (422)
+from typing import Literal
+from fastapi import Query
+
+@router.get("/items")
+async def list_items(
+    status: Literal["active", "cancelled", "completed"] | None = Query(default=None),
+    session: AsyncSession = Depends(get_db_reader),
+):
+    # FastAPI вернёт 422 на невалидное значение -- ничего дополнительно не нужно
+    items = await list_items_service(status=status, session=session)
+    return items
+```
+
+```python
+# service.py -- шаблон: если enum приходит как str (не через Literal)
+from app.core.exceptions import BadRequestError
+
+async def list_items_service(
+    status: str | None,
+    session: AsyncSession,
+) -> list[Item]:
+    query = select(Item)
+
+    if status is not None:                       # P-11: try/except обязателен
+        try:
+            status_enum = ItemStatus(status)
+        except ValueError:
+            valid = ", ".join(s.value for s in ItemStatus)
+            raise BadRequestError(
+                f"Invalid status: '{status}'. Valid: {valid}"
+            ) from None
+        query = query.where(Item.status == status_enum)
+
+    result = await session.execute(query)
+    return list(result.scalars().all())
+```
+
 ---
 
 **Конец документа**
 
-*Создано на основе 4 раундов аудита кодовой базы VELO (февраль 2026).*
+*Создано на основе 8 раундов аудита кодовой базы VELO (февраль 2026).*
 *Обновлять по мере обнаружения новых паттернов.*
