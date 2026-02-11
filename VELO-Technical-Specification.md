@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 1.5
-**Дата:** 10 февраля 2026
+**Версия:** 1.6
+**Дата:** 11 февраля 2026
 **Статус:** Draft
 
 ---
@@ -727,24 +727,19 @@ backend/tests/
 
 ---
 
-> **⚠️ Phase 3 NOTE:** Модуль `app/modules/admin/` создан в Phase 2.3 как ВРЕМЕННЫЙ.
-> Содержит только verify/reject эндпоинты. Phase 3 ДОЛЖНА:
-> 1. Переработать структуру admin-модуля (возможно: admin/masters.py, admin/users.py, admin/reports.py)
-> 2. Добавить stats, user lists, moderation
-> 3. Убрать пометку TEMPORARY из `__init__.py`
-> 4. НЕ тащить текущую минимальную структуру как "уже работает, не трогаем"
-
 ---
 
 ## PHASE 3: Admin
 
-### 3.1: Админские эндпоинты
+### 3.1: Админские эндпоинты + реструктуризация admin-модуля ✅
 
-**Цель:** Базовые админ-функции.
+**Цель:** Базовые админ-функции + переработка временного admin-модуля из Phase 2.3.
 
 **Задачи:**
-- [ ] Переработать app/modules/admin/ (см. ⚠️ NOTE выше)
-- [ ] GET /api/v1/admin/stats — базовая статистика
+- [x] Переработать app/modules/admin/ из плоской структуры в sub-packages
+- [x] Перенести verify/reject в admin/masters/ (без изменений логики)
+- [x] GET /api/v1/admin/stats — базовая статистика
+- [x] tests/test_admin_stats.py — 6 тестов
 
 **Endpoint:**
 ```
@@ -752,12 +747,45 @@ GET /api/v1/admin/stats
 Response: {
   "users_count": 150,
   "masters_count": 12,
-  "practices_count": 47,
+  "practices_count": 0,
   "pending_verifications": 2
 }
 ```
 
-**Критерий готовности:** Админ видит статистику.
+> **⚠️ STUB:** `practices_count` всегда 0. Заменить реальным COUNT в Phase 4.1
+> после создания модели Practice.
+
+**Результат:**
+```
+backend/app/modules/admin/
+├── __init__.py              ← модуль (убран TEMPORARY)
+├── router.py                ← агрегатор: include masters + stats sub-routers
+├── masters/
+│   ├── __init__.py
+│   ├── schemas.py           ← перенос из Phase 2.3
+│   ├── service.py           ← перенос из Phase 2.3 (FOR UPDATE)
+│   └── router.py            ← POST verify/reject (prefix=/masters)
+└── stats/
+    ├── __init__.py
+    ├── schemas.py           ← AdminStatsResponse
+    ├── service.py           ← get_stats(): 3 real COUNTs + 1 stub
+    └── router.py            ← GET /stats (get_db_reader)
+
+backend/tests/
+└── test_admin_stats.py      ← 6 тестов (telegram_id range: 57xxx)
+```
+
+**Решения, принятые при реализации:**
+- Sub-packages вместо плоской структуры — готовность к Phase 3.2 (users/), 3.3 (reports/) без раздувания файлов
+- `admin/router.py` — агрегатор, include sub-routers. Импорт в main.py не меняется: `from app.modules.admin.router import router`
+- Stats использует `get_db_reader` (read-only) — не write session
+- JSONB filter: `MasterProfile.data["account"]["status"].as_string() == "pending"` — sequential scan на master_profiles (таблица маленькая, GIN-индекс не нужен для MVP)
+- `practices_count: 0` — осознанная заглушка, не фича. Удалить и заменить реальным запросом в Phase 4.1
+- telegram_id ranges: stats тесты 57xxx (не пересекаются с 55xxx masters, 56xxx admin_masters)
+
+**Аудит:** 2 замечания (LOW docstring, LINT formatting). Исправлены.
+
+**Критерий готовности:** Админ видит статистику. 55 тестов, 0 warnings. ✅
 
 ---
 

@@ -28,8 +28,9 @@ logger = structlog.get_logger()
 async def get_stats(session: AsyncSession) -> AdminStatsResponse:
     """Compute platform-wide statistics.
 
-    Runs three COUNT queries in the same session. All are lightweight
-    index scans (role is a short string column, JSONB uses GIN-path).
+    Runs three COUNT queries in the same session. Users and masters
+    counts use indexed columns. Pending count does a sequential scan
+    on master_profiles (small table, no GIN index needed for MVP).
     """
     # -- Total users --
     users_result = await session.execute(select(func.count(User.id)))
