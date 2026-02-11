@@ -115,7 +115,7 @@ async def list_masters(
             first_name=user.first_name,
             last_name=user.last_name,
             avatar_url=user.avatar_url,
-            role=user.role.value,
+            role=str(user.role),
             is_active=user.is_active,
             master_status=profile.data.get("account", {}).get(
                 "status", "unknown"

@@ -28,9 +28,8 @@ _CLEANUP_SQL = text(
     "(SELECT id FROM users WHERE telegram_id BETWEEN 57000 AND 57999)"
 )
 
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 57000 AND 57999 AND role != 'user'"
+_DELETE_USERS_SQL = text(
+    "DELETE FROM users WHERE telegram_id BETWEEN 57000 AND 57999"
 )
 
 
@@ -39,13 +38,13 @@ _RESET_ROLES_SQL = text(
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean master_profiles and reset roles for test range before/after."""
+    """Clean master_profiles and users for test range before/after."""
     await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
+    await db_session.execute(_DELETE_USERS_SQL)
     await db_session.commit()
     yield
     await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
+    await db_session.execute(_DELETE_USERS_SQL)
     await db_session.commit()
 
 
