@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Admin Stats Router (Phase 3.1)
+# VELO Backend -- Admin Stats Router (Phase 3.1, updated Phase 4.1)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -26,8 +26,5 @@ async def get_admin_stats(
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
 ) -> AdminStatsResponse:
-    """Return platform-wide statistics for admin dashboard.
-
-    Read-only endpoint. practices_count is a stub (0) until Phase 4.
-    """
+    """Return platform-wide statistics for admin dashboard."""
     return await get_stats(session)

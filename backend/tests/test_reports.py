@@ -184,11 +184,11 @@ async def test_create_report_duplicate(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# POST /reports -- practice target (stub)
+# POST /reports -- practice target not found (real validation since Phase 4.1)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_create_report_practice_stub(client: AsyncClient) -> None:
-    """Practice target accepted (stub validation). 201."""
+async def test_create_report_practice_not_found(client: AsyncClient) -> None:
+    """Practice target with non-existent id: 404."""
     reporter = await login_user(client, telegram_id=59005, first_name="PracReporter")
 
     resp = await client.post(
@@ -200,8 +200,7 @@ async def test_create_report_practice_stub(client: AsyncClient) -> None:
         },
         headers=auth_headers(reporter["session_token"]),
     )
-    assert resp.status_code == 201
-    assert resp.json()["target_type"] == "practice"
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

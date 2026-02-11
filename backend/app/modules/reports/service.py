@@ -19,7 +19,6 @@
 #   - user: SELECT from users WHERE id = target_id
 #   - master: SELECT from master_profiles WHERE user_id = target_id
 #   - practice: STUB -- always passes (Phase 4 will add real check)
-#     TODO Phase 4: Replace practice stub with real validation.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01).
@@ -36,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.models import Practice
 from app.modules.reports.models import Report, ReportStatus, ReportTargetType
 from app.modules.users.models import User
 
@@ -53,7 +53,6 @@ async def _validate_target(
     Raises NotFoundError if target does not exist.
 
     NOTE: practice validation is a stub -- always passes.
-    TODO Phase 4: Replace with real Practice lookup.
     """
     tt = ReportTargetType(target_type)
 
@@ -73,12 +72,13 @@ async def _validate_target(
         if not result.scalar_one_or_none():
             raise NotFoundError("Target master not found")
 
+
     elif tt == ReportTargetType.PRACTICE:
-        # STUB: Practice model does not exist yet (Phase 4).
-        # Accept any UUID for now. Real validation will be added
-        # when Practice model is created.
-        # TODO Phase 4: Replace this stub with real validation.
-        pass
+        result = await session.execute(
+        select(Practice.id).where(Practice.id == target_id)
+        )
+        if not result.scalar_one_or_none():
+            raise NotFoundError("Target practice not found")
 
 
 async def create_report(
