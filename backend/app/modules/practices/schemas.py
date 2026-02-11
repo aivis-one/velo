@@ -1,0 +1,149 @@
+# =============================================================================
+# VELO Backend -- Practice Schemas (Phase 4.2)
+# =============================================================================
+#
+# VALIDATION:
+#   - scheduled_at must be in the future
+#   - timezone must be a valid IANA timezone
+#   - duration_minutes must be within config bounds
+#   - practice_type validated via Literal
+# =============================================================================
+
+from datetime import datetime, timezone
+from typing import Literal
+from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.config import settings
+
+
+class CreatePracticeRequest(BaseModel):
+    """POST /api/v1/practices -- request body."""
+
+    practice_type: Literal["live", "series", "one_on_one", "replay"]
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    scheduled_at: datetime
+    duration_minutes: int
+    timezone: str = Field(max_length=50)
+    max_participants: int | None = Field(default=None, ge=1, le=10000)
+    zoom_link: str | None = Field(default=None, max_length=500)
+    parent_practice_id: UUID | None = None
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def scheduled_at_must_be_future(cls, v: datetime) -> datetime:
+        """Reject practices scheduled in the past."""
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        if v <= datetime.now(timezone.utc):
+            raise ValueError("scheduled_at must be in the future")
+        return v
+
+    @field_validator("timezone")
+    @classmethod
+    def timezone_must_be_iana(cls, v: str) -> str:
+        """Validate timezone is a real IANA timezone."""
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, KeyError):
+            raise ValueError(
+                f"Invalid IANA timezone: {v}"
+            ) from None
+        return v
+
+    @field_validator("duration_minutes")
+    @classmethod
+    def duration_in_range(cls, v: int) -> int:
+        """Validate duration is within configured bounds."""
+        mn = settings.practice_min_duration_minutes
+        mx = settings.practice_max_duration_minutes
+        if v < mn or v > mx:
+            raise ValueError(
+                f"duration_minutes must be between {mn} and {mx}"
+            )
+        return v
+
+
+class UpdatePracticeRequest(BaseModel):
+    """PATCH /api/v1/practices/{id} -- request body.
+
+    All fields optional. Only provided fields are updated.
+    NOT NULL columns (title, timezone, duration_minutes) use
+    min_length / ge validators to prevent blank values.
+    """
+
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=5000)
+    scheduled_at: datetime | None = None
+    duration_minutes: int | None = None
+    timezone: str | None = Field(default=None, max_length=50)
+    max_participants: int | None = Field(default=None, ge=1, le=10000)
+    zoom_link: str | None = Field(default=None, max_length=500)
+    status: Literal[
+        "draft", "scheduled", "live", "completed", "cancelled"
+    ] | None = None
+
+    @field_validator("scheduled_at")
+    @classmethod
+    def scheduled_at_must_be_future(cls, v: datetime | None) -> datetime | None:
+        """Reject practices scheduled in the past."""
+        if v is None:
+            return v
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        if v <= datetime.now(timezone.utc):
+            raise ValueError("scheduled_at must be in the future")
+        return v
+
+    @field_validator("timezone")
+    @classmethod
+    def timezone_must_be_iana(cls, v: str | None) -> str | None:
+        """Validate timezone is a real IANA timezone."""
+        if v is None:
+            return v
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, KeyError):
+            raise ValueError(
+                f"Invalid IANA timezone: {v}"
+            ) from None
+        return v
+
+    @field_validator("duration_minutes")
+    @classmethod
+    def duration_in_range(cls, v: int | None) -> int | None:
+        """Validate duration is within configured bounds."""
+        if v is None:
+            return v
+        mn = settings.practice_min_duration_minutes
+        mx = settings.practice_max_duration_minutes
+        if v < mn or v > mx:
+            raise ValueError(
+                f"duration_minutes must be between {mn} and {mx}"
+            )
+        return v
+
+
+class PracticeResponse(BaseModel):
+    """Practice representation returned by all endpoints."""
+
+    id: UUID
+    master_id: UUID
+    practice_type: str
+    status: str
+    title: str
+    description: str | None
+    scheduled_at: datetime
+    duration_minutes: int
+    timezone: str
+    max_participants: int | None
+    current_participants: int
+    zoom_link: str | None
+    parent_practice_id: UUID | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = {"from_attributes": True}
