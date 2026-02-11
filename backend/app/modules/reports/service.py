@@ -105,9 +105,7 @@ async def create_report(
         raise BadRequestError("Cannot report yourself")
 
     # -- Check for duplicate --
-    existing = await _find_existing_report(
-        user.id, target_type, target_id, session
-    )
+    existing = await _find_existing_report(user.id, target_type, target_id, session)
     if existing:
         logger.info(
             "report_duplicate_found",

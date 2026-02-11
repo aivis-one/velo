@@ -50,9 +50,7 @@ async def get_stats(session: AsyncSession) -> AdminStatsResponse:
     pending_verifications = pending_result.scalar_one()
 
     # -- Total practices --
-    practices_result = await session.execute(
-        select(func.count(Practice.id))
-    )
+    practices_result = await session.execute(select(func.count(Practice.id)))
     practices_count = practices_result.scalar_one()
 
     logger.info(
