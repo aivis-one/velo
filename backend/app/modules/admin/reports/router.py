@@ -1,0 +1,97 @@
+# =============================================================================
+# VELO Backend -- Admin Reports Router (Phase 3.3)
+# =============================================================================
+#
+# ENDPOINTS:
+#   GET  /api/v1/admin/reports                -- list reports (filters, pagination)
+#   POST /api/v1/admin/reports/{id}/resolve   -- resolve a pending report
+#   POST /api/v1/admin/reports/{id}/dismiss   -- dismiss a pending report
+#
+# AUTH: get_current_admin on all endpoints.
+# SESSION: get_db_reader for listing, get_db_session for mutations.
+# =============================================================================
+
+from typing import Literal
+from uuid import UUID
+
+import structlog
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import get_db_reader, get_db_session
+from app.modules.admin.reports.schemas import (
+    DismissReportRequest,
+    PaginatedReportsResponse,
+    ResolveReportRequest,
+)
+from app.modules.admin.reports.service import (
+    dismiss_report,
+    list_reports,
+    resolve_report,
+)
+from app.modules.auth.dependencies import get_current_admin
+from app.modules.reports.schemas import ReportResponse
+from app.modules.users.models import User
+
+logger = structlog.get_logger()
+
+router = APIRouter(prefix="/reports")
+
+
+@router.get("", response_model=PaginatedReportsResponse)
+async def get_reports(
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: Literal["pending", "resolved", "dismissed"] | None = Query(default=None),
+    target_type: Literal["user", "master", "practice"] | None = Query(default=None),
+) -> PaginatedReportsResponse:
+    """List all reports with optional filters and pagination."""
+    return await list_reports(
+        session,
+        limit=limit,
+        offset=offset,
+        status=status,
+        target_type=target_type,
+    )
+
+
+@router.post("/{report_id}/resolve", response_model=ReportResponse)
+async def resolve_report_endpoint(
+    report_id: UUID,
+    body: ResolveReportRequest,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> ReportResponse:
+    """Resolve a pending report."""
+    report = await resolve_report(
+        report_id=report_id,
+        admin=admin,
+        resolution_note=body.resolution_note,
+        session=session,
+    )
+    await session.flush()
+    await session.refresh(report)
+
+    return ReportResponse.model_validate(report, from_attributes=True)
+
+
+@router.post("/{report_id}/dismiss", response_model=ReportResponse)
+async def dismiss_report_endpoint(
+    report_id: UUID,
+    body: DismissReportRequest,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> ReportResponse:
+    """Dismiss a pending report."""
+    report = await dismiss_report(
+        report_id=report_id,
+        admin=admin,
+        resolution_note=body.resolution_note,
+        session=session,
+    )
+    await session.flush()
+    await session.refresh(report)
+
+    return ReportResponse.model_validate(report, from_attributes=True)
