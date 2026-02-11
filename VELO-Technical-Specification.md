@@ -1,7 +1,7 @@
-# VELO — Техническое задание
+# VELO -- Техническое задание
 
-**Версия:** 1.4  
-**Дата:** 8 февраля 2026  
+**Версия:** 1.5
+**Дата:** 10 февраля 2026
 **Статус:** Draft
 
 ---
@@ -22,7 +22,7 @@
 | Критерий | Описание |
 |----------|----------|
 | Auth | Вход через Telegram работает |
-| Practices | Мастер может создать практику, юзер — записаться |
+| Practices | Мастер может создать практику, юзер -- записаться |
 | Payments | Пополнение баланса, оплата практики, вывод мастером |
 | Notifications | Напоминания за 24ч, 1ч, 10мин |
 | Admin | Верификация мастеров, базовая модерация |
@@ -30,10 +30,19 @@
 ### 1.3. Вне scope MVP
 
 - OAuth (Google, Apple)
-- Подписки (freemium есть, подписки — нет)
+- Подписки (freemium есть, подписки -- нет)
 - Library (записи практик)
 - AI-саммари (только розетка)
 - Мобильные приложения (только WebApp)
+
+---
+
+### Стилевое соглашение (введено Phase 2.3, Audit Round 6)
+
+В комментариях и docstrings в коде:
+- Вместо `→` используется `->` (ASCII)
+- Вместо `—` (EN DASH) используется `--` (двойной дефис)
+- ТЗ и документация вне кода могут использовать Unicode-символы
 
 ---
 
@@ -101,6 +110,7 @@ velo/                              ← GitHub repo root
 - Приложение запускается нативно (не в Docker) для быстрых итераций, Docker — только для сервисов (Phase 0.2)
 
 **Критерий готовности:** `ruff check .`, `mypy .`, `black --check .` проходят без ошибок. ✅
+
 ---
 
 ### 0.2: Docker Compose ✅
@@ -108,35 +118,12 @@ velo/                              ← GitHub repo root
 **Цель:** Локальное окружение с PostgreSQL и Redis.
 
 **Задачи:**
-- [x] docker-compose.dev.yml (postgres:16 + redis:7-alpine, БЕЗ app)
-- [x] docker-compose.yml (postgres + redis + app — для VPS/прода)
-- [x] Dockerfile для приложения (multi-stage build, python:3.12-slim)
-- [x] .dockerignore (исключение venv, tests, кэшей из Docker-контекста)
-- [x] Добавить команды в Makefile (dev-up, dev-down, dev-logs, dev-ps, dev-reset)
-- [x] Обновить .env.example (порт 5433, POSTGRES_* переменные)
-- [x] Обновить app/core/config.py (postgres_db/user/password поля)
+- [x] docker-compose.yml (postgres:16 + redis:7-alpine)
+- [x] Порты: Postgres 5433 (не 5432), Redis 6379 (стандарт)
+- [x] Volume для данных postgres (persistent)
+- [x] Healthchecks для обоих сервисов
 
-**Результат:**
-```
-backend/
-├── docker-compose.dev.yml   ← Локальная разработка (postgres + redis only)
-├── docker-compose.yml       ← Продакшн/VPS (app + postgres + redis)
-├── Dockerfile               ← Multi-stage: builder → runtime (~150MB image)
-├── .dockerignore            ← Исключения для Docker build context
-├── .env.example             ← Обновлён: порт 5433, POSTGRES_* переменные
-├── Makefile                 ← Обновлён: dev-up/down/logs/ps/reset
-└── app/core/config.py       ← Обновлён: postgres_db/user/password поля
-```
-
-**Решения, принятые при реализации:**
-- PostgreSQL на порту 5433 (не 5432) — избежание конфликта с нативным Homebrew PostgreSQL
-- Два compose-файла: dev (только сервисы) и prod (полный стек) — app не в Docker локально для быстрых итераций
-- Multi-stage Dockerfile: builder (deps) → runtime (code only) — образ ~150MB вместо ~400MB
-- python:3.12-slim (не alpine) — asyncpg/uvloop требуют glibc, которого нет в Alpine
-- Healthchecks на обоих сервисах — `depends_on: condition: service_healthy` гарантирует порядок запуска
-- `dev-reset` с подтверждением — защита от случайного удаления данных (`docker compose down -v`)
-
-**Критерий готовности:** `make dev-up` поднимает PostgreSQL + Redis, `make dev-ps` показывает healthy. ✅
+**Критерий готовности:** `docker compose up -d` поднимает pg + redis. ✅
 
 ---
 
@@ -316,12 +303,7 @@ velo ssl renew           — certbot renew
 | `docker-compose.yml` | Единственный compose-файл. Postgres/Redis без published портов. App на `127.0.0.1:8000`. |
 | `.dockerignore` | tests/ и pyproject.toml НЕ исключены (нужны в контейнере). |
 | `.env.example` | Хосты: `postgres:5432`, `redis:6379` (Docker service names, не localhost). |
-| `README.md` | Только VPS-инструкции. Убраны: macOS, Homebrew, Docker Desktop, pyenv, venv, localhost, make. |
-| `pyproject.toml` | Убраны: black, pre-commit. Добавлены: `asyncio_default_test_loop_scope = "session"`, `cache_dir = "/tmp/.pytest_cache"`. `build-backend = "setuptools.build_meta"`. |
-| `database.py` | Lazy engine initialization через `get_engine()` / `dispose_engine()`. Нет module-level `engine = create_async_engine()` — предотвращает "Future attached to different loop". |
-| `main.py` | Использует `get_engine()` вместо импорта `engine`. |
-| `conftest.py` | Session-scoped `setup_infrastructure` fixture. Миграции через `subprocess.run(["python", "-m", "alembic", "upgrade", "head"])`. Нет кастомного `event_loop` fixture (pytest-asyncio 0.26 управляет сам). |
-| `test_health.py` | Патчит `get_engine()` вместо `engine`. Success-тесты используют реальную БД/Redis. |
+| `README.md` | Только VPS-инструкции. |
 
 **install_velo.sh обновлён:**
 - `docker compose down -v` при переустановке (удаляет volumes, чтобы новый пароль PG работал)
@@ -527,15 +509,15 @@ backend/tests/
 
 ## PHASE 2: Masters
 
-### 2.1: MasterProfile + JSONB data
+### 2.1: MasterProfile + JSONB data ✅
 
 **Цель:** Модель профиля мастера.
 
 **Задачи:**
-- [ ] app/modules/masters/models.py
-- [ ] MasterProfile с JSONB data
-- [ ] Поля frozen_amount и available_amount
-- [ ] Миграция
+- [x] app/modules/masters/models.py
+- [x] MasterProfile с JSONB data
+- [x] Поля frozen_amount и available_amount
+- [x] Миграция
 
 **Модель:**
 ```python
@@ -658,16 +640,19 @@ await session.refresh(obj)
 
 ---
 
-### 2.2: Заявка на мастера
+### 2.2: Заявка на мастера ✅
 
 **Цель:** Flow подачи заявки (3 шага из мокапов).
 
 **Задачи:**
-- [ ] POST /api/v1/masters/apply — создание заявки
-- [ ] Шаг 1: Профиль (имя, email, телефон)
-- [ ] Шаг 2: Опыт (направления, сертификаты)
-- [ ] Шаг 3: Документы (загрузка)
-- [ ] Статус "pending_verification"
+- [x] POST /api/v1/masters/apply — создание заявки
+- [x] Шаг 1: Профиль (имя, email, телефон)
+- [x] Шаг 2: Опыт (направления, сертификаты)
+- [x] Шаг 3: Документы (загрузка)
+- [x] Статус "pending"
+- [x] Повторная заявка после rejection (с сохранением истории)
+- [x] Race condition guard (IntegrityError + rollback)
+- [x] tests/test_masters.py — 8 тестов
 
 **Endpoint:**
 ```
@@ -677,35 +662,77 @@ Body: {
   "experience": {...},
   "documents": [...]
 }
-Response: {"status": "pending_verification"}
+Response: {"user_id": "...", "status": "pending", "created_at": "..."}
 ```
 
-**Критерий готовности:** Юзер может подать заявку на мастера.
+**Критерий готовности:** Юзер может подать заявку на мастера. ✅
 
 ---
 
-### 2.3: Верификация мастера
+### 2.3: Верификация мастера ✅
 
-**Цель:** Админ может верифицировать мастера.
+**Цель:** Админ может верифицировать или отклонить заявку мастера.
 
 **Задачи:**
-- [ ] POST /api/v1/admin/masters/{id}/verify
-- [ ] POST /api/v1/admin/masters/{id}/reject
-- [ ] Изменение user.role на MASTER при верификации
-- [ ] Уведомление мастеру
+- [x] POST /api/v1/admin/masters/{user_id}/verify
+- [x] POST /api/v1/admin/masters/{user_id}/reject
+- [x] Изменение user.role на MASTER при верификации
+- [x] app/modules/admin/ — ВРЕМЕННЫЙ модуль (см. примечание ниже)
+- [x] tests/test_admin_masters.py — 10 тестов
 
-**Endpoint:**
+**Endpoints:**
 ```
 POST /api/v1/admin/masters/{user_id}/verify
-Body: {"notes": "Всё ок"}
-Response: {"status": "verified"}
+Body: {"notes": "Всё ок"}      (notes — опционально)
+Response: {"user_id": "...", "status": "verified"}
 
 POST /api/v1/admin/masters/{user_id}/reject
-Body: {"reason": "Недостаточно опыта"}
-Response: {"status": "rejected"}
+Body: {"reason": "Недостаточно опыта"}     (reason — обязательно, min_length=1)
+Response: {"user_id": "...", "status": "rejected"}
 ```
 
-**Критерий готовности:** Админ может верифицировать/отклонить заявку.
+**Результат:**
+```
+backend/app/modules/admin/       ← ⚠️ ВРЕМЕННЫЙ модуль
+├── __init__.py
+├── schemas.py          ← VerifyMasterRequest, RejectMasterRequest, AdminMasterActionResponse
+├── service.py          ← verify_master(), reject_master(), _load_pending_profile()
+└── router.py           ← 2 POST-эндпоинта, get_current_admin
+
+backend/tests/
+└── test_admin_masters.py  ← 10 тестов (telegram_id range: 56xxx)
+```
+
+**Решения, принятые при реализации:**
+- **Временный admin-модуль:** содержит только verify/reject. Phase 3 ДОЛЖНА переработать его в полноценный admin-модуль (stats, user lists, moderation). Не добавлять сюда новый код без плана Phase 3
+- `_load_pending_profile()` использует `SELECT ... FOR UPDATE` (P-07) — защита от race condition при двух админах одновременно
+- Все JSONB-мутации через `copy.deepcopy()` + `set_jsonb()` (P-03)
+- Никакого `session.commit()` в роутере (P-01) — только `flush()` + `refresh()`
+- Сообщение ConflictError: `"Application is not pending"` без интерполяции текущего статуса (P-08)
+- Verify выполняет ДВЕ операции: `profile.set_jsonb(...)` + `user.role = UserRole.MASTER`
+- Reject НЕ меняет роль — пользователь остаётся USER и может reapply
+- Verification info записывается в `data.account.verification` (verified_at, verified_by, notes)
+- Rejection info записывается в `data.account` (rejected_at, rejection_reason, rejected_by)
+- `get_current_admin` dependency на обоих эндпоинтах
+- structlog (P-10) для логирования всех действий
+- CORS fix: `settings.cors_origins.split(",")` — исправлен наследственный баг (str vs list)
+- telegram_id ranges: 56001-56099 (аппликанты), 56900-56999 (админы)
+
+**Аудит:**
+- Round 5: найдены 4 проблемы (race condition MEDIUM, CORS LOW, status leak LOW, lint). Все исправлены
+- Round 6: чистый проход, только косметика (ASCII стиль в комментариях)
+- Предсказанные ошибки из LLM Code Review Guide (P-01, P-03, P-10, forgotten role change) — все избежаны
+
+**Критерий готовности:** Админ может верифицировать/отклонить заявку. 49 тестов, 0 warnings. ✅
+
+---
+
+> **⚠️ Phase 3 NOTE:** Модуль `app/modules/admin/` создан в Phase 2.3 как ВРЕМЕННЫЙ.
+> Содержит только verify/reject эндпоинты. Phase 3 ДОЛЖНА:
+> 1. Переработать структуру admin-модуля (возможно: admin/masters.py, admin/users.py, admin/reports.py)
+> 2. Добавить stats, user lists, moderation
+> 3. Убрать пометку TEMPORARY из `__init__.py`
+> 4. НЕ тащить текущую минимальную структуру как "уже работает, не трогаем"
 
 ---
 
@@ -716,8 +743,7 @@ Response: {"status": "rejected"}
 **Цель:** Базовые админ-функции.
 
 **Задачи:**
-- [ ] app/modules/admin/router.py
-- [ ] Middleware проверки role=ADMIN
+- [ ] Переработать app/modules/admin/ (см. ⚠️ NOTE выше)
 - [ ] GET /api/v1/admin/stats — базовая статистика
 
 **Endpoint:**
@@ -839,6 +865,9 @@ class Practice(Base):
     updated_at: Mapped[datetime]
 ```
 
+> **Примечание (P-09):** При реализации использовать `enum.StrEnum` вместо `(str, Enum)`.
+> ТЗ написано в старом стиле — это legacy, не копировать буквально.
+
 **Критерий готовности:** Миграция применена.
 
 ---
@@ -917,10 +946,6 @@ class PracticePricing(Base):
     price_cents: Mapped[int | None]
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     
-    # Future
-    # early_bird_price_cents: int | None
-    # early_bird_until: datetime | None
-    
     created_at: Mapped[datetime]
     updated_at: Mapped[datetime]
 ```
@@ -943,11 +968,11 @@ class PracticePricing(Base):
 **Модель:**
 ```python
 class BookingStatus(str, Enum):
-    PENDING = "pending"      # Ждёт оплаты
-    CONFIRMED = "confirmed"  # Оплачено
-    ATTENDED = "attended"    # Посетил
-    NO_SHOW = "no_show"      # Не пришёл
-    CANCELLED = "cancelled"  # Отменено
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    ATTENDED = "attended"
+    NO_SHOW = "no_show"
+    CANCELLED = "cancelled"
 
 class Booking(Base):
     __tablename__ = "bookings"
@@ -958,22 +983,21 @@ class Booking(Base):
     
     status: Mapped[BookingStatus] = mapped_column(default=BookingStatus.PENDING)
     
-    # Payment reference
     purchase_id: Mapped[UUID | None] = mapped_column(ForeignKey("purchases.id"))
     
     booked_at: Mapped[datetime] = mapped_column(server_default=func.now())
     cancelled_at: Mapped[datetime | None]
     cancellation_reason: Mapped[str | None]
     
-    # Attendance
     joined_at: Mapped[datetime | None]
     left_at: Mapped[datetime | None]
     
-    # UNIQUE constraint
     __table_args__ = (
         UniqueConstraint("practice_id", "user_id", name="uq_booking_practice_user"),
     )
 ```
+
+> **Примечание (P-09):** При реализации использовать `enum.StrEnum`.
 
 **Критерий готовности:** Миграция применена.
 
@@ -1096,49 +1120,17 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
     
     event: Mapped[str] = mapped_column(String(100), index=True)
-    # Events: purchase_created, refund, withdrawal, role_changed, 
-    #         master_verified, balance_changed, booking_cancelled, etc.
+    actor_id: Mapped[UUID | None]
+    actor_type: Mapped[str] = mapped_column(String(20))
     
-    actor_id: Mapped[UUID | None]  # Who performed action (NULL for system)
-    actor_type: Mapped[str] = mapped_column(String(20))  # user, master, admin, system
-    
-    target_type: Mapped[str] = mapped_column(String(50))  # user, practice, booking, payment
+    target_type: Mapped[str] = mapped_column(String(50))
     target_id: Mapped[UUID]
     
-    data: Mapped[dict] = mapped_column(JSONB)  # Full context snapshot
+    data: Mapped[dict] = mapped_column(JSONB)
     
-    ip_address: Mapped[str | None] = mapped_column(String(45))  # IPv6
+    ip_address: Mapped[str | None] = mapped_column(String(45))
     user_agent: Mapped[str | None] = mapped_column(String(500))
     trace_id: Mapped[str | None] = mapped_column(String(36))
-```
-
-**Сервис аудита:**
-```python
-class AuditService:
-    async def record(
-        self,
-        event: str,
-        target_type: str,
-        target_id: UUID,
-        data: dict,
-        actor_id: UUID | None = None,
-        actor_type: str = "system",
-        request: Request | None = None,
-    ) -> AuditLog:
-        log = AuditLog(
-            event=event,
-            actor_id=actor_id,
-            actor_type=actor_type,
-            target_type=target_type,
-            target_id=target_id,
-            data=data,
-            ip_address=request.client.host if request else None,
-            user_agent=request.headers.get("user-agent") if request else None,
-            trace_id=structlog.contextvars.get_contextvars().get("trace_id"),
-        )
-        self.session.add(log)
-        await self.session.commit()
-        return log
 ```
 
 **Обязательные события для аудита:**
@@ -1189,7 +1181,7 @@ class UserLedger(Base):
     user_id: Mapped[UUID]
     amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
     status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
-    reason: Mapped[str]  # "payment:123", "purchase:practice=456"
+    reason: Mapped[str]
     notes: Mapped[str | None]
     created_at: Mapped[datetime]
 
@@ -1199,10 +1191,10 @@ class MasterLedger(Base):
     id: Mapped[UUID]
     user_id: Mapped[UUID]
     amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
-    is_frozen: Mapped[bool] = mapped_column(default=True)  # NEW!
+    is_frozen: Mapped[bool] = mapped_column(default=True)
     status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
-    reason: Mapped[str]  # "sale:practice=456", "commission:practice=456"
-    practice_id: Mapped[UUID | None]  # Для связи frozen → unfrozen
+    reason: Mapped[str]
+    practice_id: Mapped[UUID | None]
     notes: Mapped[str | None]
     created_at: Mapped[datetime]
     
@@ -1222,6 +1214,8 @@ class CompanyLedger(Base):
     status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
     created_at: Mapped[datetime]
 ```
+
+> **Примечание (P-09):** При реализации использовать `enum.StrEnum`.
 
 **Критерий готовности:** Миграции применены.
 
@@ -1290,25 +1284,6 @@ MasterProfile.available_amount = SUM(master_ledger.amount)
 - [ ] Заморозка у мастера
 - [ ] Event на завершение практики → разморозка + комиссия
 
-**Шаг 1: Регистрация на практику**
-```python
-# При покупке практики ($50):
-user_ledger:   amount=-50, reason="purchase:practice=456"
-master_ledger: amount=+50, is_frozen=true, reason="sale:practice=456"
-purchases:     practice_id=456, amount=50, status=pending
-# MasterProfile: frozen_amount += 50
-```
-
-**Шаг 2: Практика завершена (event)**
-```python
-# Practice.status = completed triggers:
-master_ledger: UPDATE is_frozen=false WHERE practice_id=456
-master_ledger: amount=-7.50, reason="commission:practice=456"
-company_ledger: amount=+7.50, type=commission
-purchases: UPDATE status=completed
-# MasterProfile: frozen=0, available=42.50
-```
-
 **Критерий готовности:** Деньги замораживаются при покупке, размораживаются после практики.
 
 ---
@@ -1331,21 +1306,6 @@ purchases: UPDATE status=completed
 | Мастер | Любое время | 100% возврат всем |
 | No-show | После практики | Деньги у мастера |
 
-**Возврат (юзер > 24ч):**
-```python
-master_ledger: amount=-50, reason="refund:practice=456"
-user_ledger:   amount=+50, reason="refund:practice=456"
-purchases:     UPDATE status=cancelled
-# MasterProfile: frozen_amount -= 50
-```
-
-**Отмена мастером:**
-```python
-# Для КАЖДОГО участника:
-master_ledger: amount=-50, reason="refund:practice=456,cancelled_by_master"
-user_ledger:   amount=+50, reason="refund:practice=456"
-```
-
 **Критерий готовности:** Отмены работают по правилам.
 
 ---
@@ -1355,187 +1315,74 @@ user_ledger:   amount=+50, reason="refund:practice=456"
 **Цель:** Вывод средств мастером.
 
 **Задачи:**
-- [ ] Модель Payment (direction=out)
-- [ ] POST /api/v1/masters/me/withdraw
-- [ ] Проверка available_amount >= запрос + WITHDRAWAL_FEE
+- [ ] POST /api/v1/masters/me/withdraw — запрос на вывод
+- [ ] POST /api/v1/admin/withdrawals/{id}/confirm — подтверждение админом
 - [ ] Проверка MIN_WITHDRAWAL_AMOUNT
-- [ ] Статус pending → ручное подтверждение админом
+- [ ] Комиссия WITHDRAWAL_FEE
 
-**Настраиваемые переменные:**
-```
-MIN_WITHDRAWAL_AMOUNT = 50  # минимум $50
-WITHDRAWAL_FEE = 2          # комиссия $2
-```
-
-**Flow:**
-```python
-# Запрос вывода $1000:
-master_ledger:  amount=-1000, is_frozen=false, reason="withdrawal:payment=789"
-company_ledger: amount=+2, type=withdrawal_fee
-payments:       direction=out, amount=998, status=pending
-# Админ подтверждает → status=confirmed → ручной перевод
-```
-
-**Критерий готовности:** Мастер может запросить вывод из available.
+**Критерий готовности:** Мастер может запросить вывод, админ подтверждает.
 
 ---
 
-### 6.7: Promocodes
+### 6.7: Promos
 
-**Цель:** Два типа промокодов.
+**Цель:** Промокоды.
 
 **Задачи:**
 - [ ] Модель Promo
-- [ ] POST /api/v1/admin/promos — создание Company Promo
-- [ ] POST /api/v1/masters/me/promos — создание Master Promo
-- [ ] Применение при покупке
+- [ ] POST /api/v1/purchases/{id}/apply-promo
+- [ ] Два типа: Company Promo, Master Promo
+- [ ] Валидация лимитов
 
-**Модель:**
-```python
-class PromoType(str, Enum):
-    COMPANY = "company"  # Компания платит
-    MASTER = "master"    # Мастер отказывается от выручки
-
-class Promo(Base):
-    __tablename__ = "promos"
-    
-    id: Mapped[UUID]
-    code: Mapped[str] = mapped_column(String(50), unique=True)
-    type: Mapped[PromoType]
-    
-    discount_percent: Mapped[int]  # 5, 25, 50, 75, 100
-    
-    # Для MASTER promo:
-    master_id: Mapped[UUID | None]
-    practice_id: Mapped[UUID | None]  # Опционально: только для одной практики
-    
-    # Лимиты:
-    max_uses: Mapped[int | None]
-    used_count: Mapped[int] = mapped_column(default=0)
-    valid_until: Mapped[datetime | None]
-    
-    is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime]
-```
-
-**Company Promo (100% скидка WELCOME):**
-```python
-user_ledger:    amount=0, reason="purchase:practice=456,promo:WELCOME"
-master_ledger:  amount=+50, is_frozen=true, reason="sale:practice=456"
-company_ledger: amount=-50, type=marketing, reason="promo:WELCOME"
-# После практики: комиссия $0 (юзер заплатил $0)
-```
-
-**Master Promo (100% скидка ALEX-VIP):**
-```python
-user_ledger:   amount=0, reason="purchase:practice=456,promo:ALEX-VIP"
-master_ledger: amount=0, is_frozen=true, reason="sale:practice=456,promo:ALEX-VIP"
-# Мастер отказался от денег. Company ledger не затронут.
-```
-
-**Критерий готовности:** Оба типа промокодов работают.
+**Критерий готовности:** Промокоды работают при покупке.
 
 ---
 
-### 6.8: Internal transfer (Master → User Balance)
+### 6.8: Data Consistency Semaphores
 
-**Цель:** Мастер может перевести деньги с Available на свой User Balance.
-
-**Кейс:** Мастер хочет купить практику другого мастера. Он не может платить с Master Balance напрямую — сначала переводит на User Balance.
+**Цель:** Автоматические проверки консистентности данных.
 
 **Задачи:**
-- [ ] POST /api/v1/masters/me/transfer-to-user
-- [ ] Проверка available_amount >= сумма
-- [ ] Записи в оба ledger-а
+- [ ] GET /api/v1/admin/consistency — запуск всех семафоров
+- [ ] Проверки: COUNT=COUNT, SUM=0, Computed=Actual, Orphans, Invariants
+- [ ] Алерты при расхождении
 
-**Endpoint:**
-```
-POST /api/v1/masters/me/transfer-to-user
-Body: {"amount": 50}
-Response: {"user_balance": 150, "available_amount": 200}
-```
+**Полная документация:** `VELO-Data-Consistency-Semaphores.md`
 
-**Записи в системе:**
-```python
-master_ledger:  user_id=2, amount=-50, is_frozen=false, reason="transfer:internal"
-user_ledger:    user_id=2, amount=+50, reason="transfer:internal"
-# MasterProfile: available_amount -= 50
-# User: balance_user += 50
-# Σ = -50 + 50 = 0 ✓
-```
-
-**Критерий готовности:** Мастер может перевести себе на user balance для покупок.
-
----
-
-### 6.9: Розетка для подписок
-
-**Цель:** Таблица подписок без логики.
-
-**Задачи:**
-- [ ] Модель Subscription
-- [ ] Миграция
-- [ ] TODO комментарии в коде
-
-**Модель:**
-```python
-class Subscription(Base):
-    """TODO: Implement subscription logic in future phase."""
-    __tablename__ = "subscriptions"
-    
-    id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    plan: Mapped[str]  # monthly, yearly
-    status: Mapped[str]  # active, cancelled, expired
-    stripe_subscription_id: Mapped[str | None]
-    current_period_start: Mapped[datetime]
-    current_period_end: Mapped[datetime]
-```
-
-**Критерий готовности:** Таблица создана, логика отложена.
+**Критерий готовности:** Семафоры запускаются и показывают OK/ALERT.
 
 ---
 
 ## PHASE 7: Notifications
 
-### 7.1: Модели Notification + Delivery
+### 7.1: Модель Notification
 
-**Цель:** Система уведомлений.
+**Цель:** Хранение уведомлений.
 
 **Задачи:**
 - [ ] app/modules/notifications/models.py
 - [ ] Notification + NotificationDelivery
-- [ ] Миграции
+- [ ] Миграция
 
-**Модели:** (из готового кода)
+**Модель:**
 ```python
 class Notification(Base):
     __tablename__ = "notifications"
     
-    id: Mapped[int]
-    source: Mapped[str]
-    text: Mapped[str]
-    buttons: Mapped[str | None]
+    id: Mapped[int]  # НЕ UUID — автоинкремент
+    user_id: Mapped[UUID]
+    type: Mapped[str]  # reminder, booking_confirmed, etc.
+    title: Mapped[str]
+    body: Mapped[str]
+    data: Mapped[dict] = mapped_column(JSONB)
     
-    target_type: Mapped[str]  # user, all, filter
-    target_value: Mapped[str]
+    scheduled_at: Mapped[datetime]
+    status: Mapped[str]  # pending, sent, failed
     
-    priority: Mapped[int] = mapped_column(default=5)
-    status: Mapped[str] = mapped_column(default="pending")
-    
-    # ... остальные поля
-
-class NotificationDelivery(Base):
-    __tablename__ = "notification_deliveries"
-    
-    id: Mapped[int]
-    notification_id: Mapped[int]
-    user_id: Mapped[int]
-    status: Mapped[str] = mapped_column(default="pending")
-    attempts: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime]
 ```
 
-**Критерий готовности:** Миграции применены.
+**Критерий готовности:** Миграция применена.
 
 ---
 
@@ -1707,18 +1554,6 @@ Response: {
 - [ ] app/modules/ai/mock.py — Mock implementation
 - [ ] GET /api/v1/practices/{id}/ai-summary (mock)
 
-**Interface:**
-```python
-class AIService(Protocol):
-    async def generate_summary(
-        self,
-        practice_id: UUID,
-        checkins: list[Checkin],
-        feedbacks: list[Feedback]
-    ) -> str:
-        ...
-```
-
 **Критерий готовности:** Розетка готова, mock возвращает placeholder.
 
 ---
@@ -1758,156 +1593,7 @@ class AIService(Protocol):
 
 ---
 
-## 3. Приложения
-
-### A. API Endpoints (полный список)
-
-#### Auth
-```
-POST /api/v1/auth/telegram     # Вход через Telegram
-POST /api/v1/auth/logout       # Выход
-```
-
-#### Users
-```
-GET  /api/v1/users/me          # Мой профиль
-PATCH /api/v1/users/me         # Обновить профиль
-```
-
-#### Masters
-```
-POST /api/v1/masters/apply     # Подать заявку
-GET  /api/v1/masters/me        # Мой профиль мастера
-PATCH /api/v1/masters/me       # Обновить профиль
-GET  /api/v1/masters/{id}      # Профиль мастера (публичный)
-POST /api/v1/masters/me/withdraw         # Запросить вывод
-POST /api/v1/masters/me/transfer-to-user # Перевод на User Balance
-POST /api/v1/masters/me/promos           # Создать Master Promo
-```
-
-#### Practices
-```
-POST   /api/v1/practices           # Создать практику
-GET    /api/v1/practices           # Список практик
-GET    /api/v1/practices/{id}      # Детали практики
-PATCH  /api/v1/practices/{id}      # Обновить практику
-DELETE /api/v1/practices/{id}      # Удалить практику
-GET    /api/v1/practices/{id}/insights  # Аналитика
-```
-
-#### Bookings
-```
-POST   /api/v1/bookings            # Создать бронь
-GET    /api/v1/bookings            # Мои брони
-DELETE /api/v1/bookings/{id}       # Отменить бронь
-POST   /api/v1/bookings/{id}/join  # Отметить вход
-POST   /api/v1/bookings/{id}/leave # Отметить выход
-```
-
-#### Waitlist
-```
-POST   /api/v1/practices/{id}/waitlist  # Встать в очередь
-DELETE /api/v1/waitlist/{id}            # Выйти из очереди
-```
-
-#### Payments
-```
-POST /api/v1/payments/topup            # Пополнить баланс (Stripe)
-GET  /api/v1/payments                  # История платежей
-POST /api/v1/practices/{id}/purchase   # Купить практику
-```
-
-#### Masters (дополнительно)
-```
-POST /api/v1/masters/me/withdraw       # Запросить вывод (из available)
-POST /api/v1/masters/me/transfer       # Перевести available → user balance
-GET  /api/v1/masters/me/balance        # Получить frozen + available
-POST /api/v1/masters/me/promos         # Создать Master Promo
-GET  /api/v1/masters/me/promos         # Мои промокоды
-```
-
-#### Promos
-```
-POST /api/v1/promos/apply              # Применить промокод при покупке
-GET  /api/v1/promos/{code}/validate    # Проверить валидность
-```
-
-#### Diary
-```
-POST /api/v1/practices/{id}/checkin   # Check-in
-POST /api/v1/practices/{id}/feedback  # Feedback
-GET  /api/v1/diary                    # Мой дневник
-POST /api/v1/diary                    # Новая запись
-GET  /api/v1/diary/{id}               # Запись
-PATCH /api/v1/diary/{id}              # Редактировать
-DELETE /api/v1/diary/{id}             # Удалить
-```
-
-#### Admin
-```
-GET  /api/v1/admin/stats              # Статистика
-GET  /api/v1/admin/users              # Список юзеров
-GET  /api/v1/admin/masters            # Список мастеров
-GET  /api/v1/admin/masters/pending    # Ожидают верификации
-POST /api/v1/admin/masters/{id}/verify   # Верифицировать
-POST /api/v1/admin/masters/{id}/reject   # Отклонить
-GET  /api/v1/admin/reports            # Жалобы
-POST /api/v1/admin/reports/{id}/resolve  # Решить жалобу
-GET  /api/v1/admin/payments/pending   # Выводы на подтверждение
-POST /api/v1/admin/payments/{id}/confirm # Подтвердить вывод
-POST /api/v1/admin/promos             # Создать Company Promo
-GET  /api/v1/admin/promos             # Все промокоды
-PATCH /api/v1/admin/promos/{id}       # Деактивировать промокод
-```
-
-#### Webhooks
-```
-POST /webhooks/stripe                 # Stripe webhook
-```
-
-### B. Переменные окружения
-
-```bash
-# App
-APP_ENV=production
-LOG_LEVEL=INFO
-
-# Security
-SECRET_KEY=<auto-generated by install_velo.sh>
-
-# Database
-DATABASE_URL=postgresql+asyncpg://velo:<password>@postgres:5432/velo
-POSTGRES_DB=velo
-POSTGRES_USER=velo
-POSTGRES_PASSWORD=<auto-generated>
-
-# Redis
-REDIS_URL=redis://redis:6379/0
-
-# CORS
-CORS_ORIGINS=https://web.telegram.org,https://api.talentir.info
-
-# Telegram
-TELEGRAM_BOT_TOKEN=<from @BotFather>
-
-# Stripe (uncomment when ready)
-# STRIPE_SECRET_KEY=sk_test_...
-# STRIPE_WEBHOOK_SECRET=whsec_...
-# STRIPE_PUBLISHABLE_KEY=pk_test_...
-
-# Payment Settings (future)
-# PLATFORM_COMMISSION_PERCENT=15
-# MIN_WITHDRAWAL_AMOUNT=50
-# WITHDRAWAL_FEE=2
-# CANCELLATION_DEADLINE_HOURS=24
-
-# Promo Settings (future)
-# MASTER_PROMO_DISCOUNTS=5,25,50,75,100
-```
-
----
-
-## 10. Реестр технического долга
+## 3. Реестр технического долга
 
 Замечания, выявленные при код-ревью. Сгруппированы по моменту, когда их следует закрывать.
 
@@ -1930,25 +1616,6 @@ TELEGRAM_BOT_TOKEN=<from @BotFather>
 | TD-008 | `database.py` | `get_db_session()` COMMIT на read-only | Добавлен `get_db_reader()` (rollback) | ✅ |
 | TD-009 | `main.py` | Lifespan: init_redis() fail → engine leak | `try/finally` в lifespan | ✅ |
 
-### Pre-6: Logging hardening — закрыть перед Phase 6
-
-| ID | Среда | Файл | Проблема | Решение | Статус |
-|----|-------|------|----------|---------|--------|
-| TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
-| TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
-
-### Закрыто в Phase 1.4
-
-| ID | Файл | Проблема | Решение | Статус |
-|----|------|----------|---------|--------|
-| TD-021 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте — тесты не могут переопределить | `_get_session_ttl()` вычисляет при каждом вызове | ✅ |
-
-| ID | Среда | Файл | Проблема | Решение | Статус |
-|----|-------|------|----------|---------|--------|
-| TD-013 | 🧪 | `migrations/env.py` | Engine не dispose-ится если `connect()` упадёт | try/finally вокруг async with | ⬜ |
-| TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в 3 местах (main.py, pyproject.toml, ?) | Вынести в одно место, читать из config или `__version__` | ⬜ |
-| TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Добавить validator (аналогично SECRET_KEY). Сейчас .env генерируется скриптом — риск минимален | ⬜ |
-
 ### Закрыто в Phase 0.6
 
 | ID | Файл | Проблема | Решение | Статус |
@@ -1959,13 +1626,36 @@ TELEGRAM_BOT_TOKEN=<from @BotFather>
 | TD-019 | `test_auth.py` | Требует запущенный PostgreSQL | Тесты запускаются внутри Docker — БД всегда доступна | ✅ |
 | TD-020 | `test_auth.py` | Нет тестов для logout | Добавлены test_logout_success, test_logout_no_token, test_logout_invalid_token, test_logout_inactive_user | ✅ |
 
+### Закрыто в Phase 1.4
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| TD-021 | `auth/service.py` | `_SESSION_TTL` вычисляется при импорте — тесты не могут переопределить | `_get_session_ttl()` вычисляет при каждом вызове | ✅ |
+
+### Закрыто в Phase 2.3
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| TD-031 | `main.py` | CORS: `settings.cors_origins == ["*"]` сравнивает str с list | `_cors_origins = [o.strip() for o in settings.cors_origins.split(",")]` | ✅ |
+
+### Pre-6: Logging hardening — закрыть перед Phase 6
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
+| TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
+
 ### Косметика — без дедлайна
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
+| TD-013 | 🧪 | `migrations/env.py` | Engine не dispose-ится если `connect()` упадёт | try/finally вокруг async with | ⬜ |
+| TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в 3 местах (main.py, pyproject.toml, ?) | Вынести в одно место, читать из config или `__version__` | ⬜ |
+| TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Добавить validator (аналогично SECRET_KEY). Сейчас .env генерируется скриптом — риск минимален | ⬜ |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
-| TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум (P-12) | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
-| TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (P-7, неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
+| TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
+| TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
+| TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` | ⬜ |
 
 ### Phase 2.2 аудит — backlog
 
