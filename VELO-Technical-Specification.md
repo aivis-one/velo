@@ -839,32 +839,95 @@ backend/tests/
 
 ---
 
-### 3.3: Модерация
+3.3: Модерация ✅
+Цель: Базовая система жалоб — юзеры создают жалобы, админы резолвят/отклоняют.
+Задачи:
 
-**Цель:** Базовая система жалоб.
+ Модель Report (status, target_type, reason, resolution)
+ app/modules/reports/ — новый модуль (model, schemas, service, router)
+ app/modules/admin/reports/ — admin sub-package (schemas, service, router)
+ POST /api/v1/reports — создать жалобу (юзер)
+ PATCH /api/v1/reports/{id} — редактировать свою жалобу
+ GET /api/v1/reports/me — список своих жалоб
+ GET /api/v1/admin/reports — список жалоб (фильтры, пагинация)
+ POST /api/v1/admin/reports/{id}/resolve — резолв жалобы
+ POST /api/v1/admin/reports/{id}/dismiss — отклонение жалобы
+ migrations/env.py — добавлен import Report для autogenerate
+ tests/test_reports.py — 11 тестов
+ tests/test_admin_reports.py — 13 тестов
 
-**Задачи:**
-- [ ] Модель Report (жалобы)
-- [ ] POST /api/v1/reports — создать жалобу (юзер)
-- [ ] GET /api/v1/admin/reports — список жалоб
-- [ ] POST /api/v1/admin/reports/{id}/resolve
+Endpoints:
+POST  /api/v1/reports                          → ReportResponse (201) | ExistingReportResponse (200)
+PATCH /api/v1/reports/{id}                     → ReportResponse
+GET   /api/v1/reports/me?limit=20&offset=0     → [ReportResponse]
 
-**Модель:**
-```python
-class Report(Base):
+GET   /api/v1/admin/reports?status=pending&target_type=user&limit=20&offset=0
+Response: {"items": [...], "total": 5, "limit": 20, "offset": 0}
+
+POST  /api/v1/admin/reports/{id}/resolve       → ReportResponse
+POST  /api/v1/admin/reports/{id}/dismiss       → ReportResponse
+Модель:
+pythonclass ReportStatus(enum.StrEnum):
+    PENDING = "pending"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
+
+class ReportTargetType(enum.StrEnum):
+    USER = "user"
+    MASTER = "master"
+    PRACTICE = "practice"
+
+class Report(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "reports"
-    
-    id: Mapped[UUID]
-    reporter_id: Mapped[UUID]  # Кто пожаловался
-    target_type: Mapped[str]   # user, master, practice
-    target_id: Mapped[UUID]
-    reason: Mapped[str]
-    status: Mapped[str]        # pending, resolved, dismissed
-    resolved_by: Mapped[UUID | None]
-    resolution_note: Mapped[str | None]
-```
 
-**Критерий готовности:** Жалобы можно создавать и обрабатывать.
+    reporter_id: Mapped[UUID]       # FK users.id, CASCADE
+    target_type: Mapped[str]        # String(20), polymorphic
+    target_id: Mapped[UUID]         # No FK -- polymorphic target
+    reason: Mapped[str]             # Text
+    status: Mapped[str]             # String(20), default "pending"
+    resolved_by: Mapped[UUID|None]  # FK users.id, SET NULL
+    resolution_note: Mapped[str|None]
+    resolved_at: Mapped[datetime|None]
+
+    # UniqueConstraint("reporter_id", "target_type", "target_id")
+Результат:
+backend/app/modules/reports/
+├── __init__.py
+├── models.py        ← Report, ReportStatus, ReportTargetType
+├── schemas.py       ← CreateReportRequest, UpdateReportRequest, ReportResponse, ExistingReportResponse
+├── service.py       ← create_report(), update_report(), get_existing_report()
+└── router.py        ← POST, PATCH, GET /me (prefix=/api/v1/reports)
+
+backend/app/modules/admin/reports/
+├── __init__.py
+├── schemas.py       ← ResolveReportRequest, DismissReportRequest, PaginatedReportsResponse
+├── service.py       ← resolve_report(), dismiss_report(), list_reports()
+└── router.py        ← GET, POST resolve, POST dismiss (prefix=/reports)
+
+backend/app/modules/admin/router.py  ← обновлён: include reports_router
+backend/app/main.py                  ← обновлён: include reports_router
+backend/migrations/env.py            ← обновлён: import Report
+
+backend/tests/
+├── test_reports.py       ← 11 тестов (telegram_id range: 59001-59199)
+└── test_admin_reports.py ← 13 тестов (telegram_id range: 59200-59999)
+Решения, принятые при реализации:
+
+Полиморфный target — target_type + target_id без FK constraint. Валидация в service.py на уровне приложения. Позволяет ссылаться на users, master_profiles, practices (future) одной таблицей
+Дубликаты — UniqueConstraint (reporter_id, target_type, target_id). При попытке создать дубликат: POST возвращает 200 + ExistingReportResponse с предложением отредактировать существующий, а не 409
+Race condition на UNIQUE — create_report() делает flush() внутри service с try/except IntegrityError + rollback() (P-05). Если два одинаковых запроса проходят SELECT одновременно, второй получит IntegrityError → graceful fallback на "duplicate found"
+Self-report prevention — проверка для target_type in (USER, MASTER), т.к. target_id для мастера это тоже user_id (FK в master_profiles). Practice не проверяется (мастер не может "быть" практикой)
+Два эндпоинта resolve/dismiss (не один PATCH) — консистентность с verify/reject (Phase 2.3). Явные URL, легче тестировать. Общий _load_pending_report() с with_for_update() (P-12)
+Practice validation stub — target_type="practice" принимает любой UUID. TODO Phase 4: заменить реальной проверкой после создания модели Practice
+Фильтры через Literal — status: Literal["pending", "resolved", "dismissed"] и target_type: Literal["user", "master", "practice"] в admin роутере. FastAPI возвращает 422 на невалидное значение автоматически (P-11)
+telegram_id ranges: reports тесты 59xxx (не пересекаются с 55xxx masters, 56xxx admin_masters, 57xxx stats, 58xxx users)
+
+
+⚠️ STUB: Валидация target_type="practice" — заглушка (Phase 4). При создании модели Practice заменить stub в reports/service.py:_validate_target().
+
+Аудит: 5 замечаний (1 MEDIUM race condition, 1 LOW self-report bypass, 3 LINT). Все исправлены.
+Критерий готовности: Жалобы можно создавать и обрабатывать. 89 тестов, 0 warnings. ✅
+
 
 ---
 
