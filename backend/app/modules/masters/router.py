@@ -1,19 +1,23 @@
 # =============================================================================
-# VELO Backend — Master Router
+# VELO Backend -- Master Router (updated Phase 4.2)
 # =============================================================================
 #
 # Endpoints:
-#   POST /api/v1/masters/apply — submit master application (user only)
+#   POST /api/v1/masters/apply          -- submit master application
+#   GET  /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
 # =============================================================================
 
 import structlog
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
-from app.modules.auth.dependencies import get_current_user
+from app.core.database import get_db_reader, get_db_session
+from app.modules.auth.dependencies import get_current_master, get_current_user
+from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import MasterApplyRequest, MasterApplyResponse
 from app.modules.masters.service import apply_for_master
+from app.modules.practices.schemas import PracticeResponse
+from app.modules.practices.service import list_master_practices
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -40,7 +44,7 @@ async def apply_master(
     profile = await apply_for_master(user, body, session)
 
     # flush() to get DB-generated defaults (created_at) without
-    # explicit commit — get_db_session commits on success after yield.
+    # explicit commit -- get_db_session commits on success after yield.
     await session.flush()
     await session.refresh(profile)
 
@@ -49,3 +53,28 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+@router.get(
+    "/me/practices",
+    response_model=list[PracticeResponse],
+)
+async def list_my_practices(
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master
+    ),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[PracticeResponse]:
+    """List practices owned by the current master.
+
+    Excludes deleted practices. Master sees their own drafts.
+    """
+    user, _profile = master_tuple
+    practices = await list_master_practices(
+        user, session, limit=limit, offset=offset
+    )
+    return [
+        PracticeResponse.model_validate(p) for p in practices
+    ]

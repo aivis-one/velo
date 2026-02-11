@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Auth Dependencies
+# VELO Backend -- Auth Dependencies (updated Phase 4.2)
 # =============================================================================
 #
 # FastAPI dependencies for endpoint authorization.
@@ -12,6 +12,13 @@
 #   @router.get("/admin/stats")
 #   async def stats(user: User = Depends(get_current_admin)):
 #       return ...
+#
+#   @router.post("/practices")
+#   async def create(
+#       master_tuple: tuple[User, MasterProfile] = Depends(get_current_master)
+#   ):
+#       user, profile = master_tuple
+#       ...
 #
 #   @router.get("/practices")
 #   async def list_practices(user: User | None = Depends(get_optional_user)):
@@ -26,7 +33,7 @@
 #   - TypeError: None value (UUID(None))
 #   - AttributeError: non-string type (UUID(123))
 #
-#   Deleted user with valid session returns 401, not 404 — prevents
+#   Deleted user with valid session returns 401, not 404 -- prevents
 #   information leak about whether a user_id ever existed.
 # =============================================================================
 
@@ -40,6 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader
 from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.modules.auth.service import get_session
+from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 
 logger = structlog.get_logger()
@@ -56,7 +64,7 @@ def _extract_token(request: Request) -> str | None:
 def _parse_user_id(session_data: dict) -> UUID:
     """Validate and parse user_id from Redis session data.
 
-    Prevents asyncpg DataError (→ 500) if Redis contains corrupted
+    Prevents asyncpg DataError (-> 500) if Redis contains corrupted
     or non-UUID values. Returns clean 401 instead.
 
     Covers: missing key, malformed string, None, non-string types.
@@ -88,7 +96,7 @@ async def get_current_user(
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
 
-    # Return 401, not 404 — valid Redis session but deleted user means
+    # Return 401, not 404 -- valid Redis session but deleted user means
     # the session is effectively stale. 404 would leak that user_id existed.
     if not user:
         raise UnauthorizedError("Invalid or expired session")
@@ -136,3 +144,37 @@ async def get_current_admin(
     if user.role != UserRole.ADMIN:
         raise ForbiddenError("Admin access required")
     return user
+
+
+async def get_current_master(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> tuple[User, MasterProfile]:
+    """Require verified master. Returns (User, MasterProfile) or raises 403.
+
+    Checks:
+      1. User role is MASTER
+      2. MasterProfile exists
+      3. MasterProfile status is "verified"
+
+    Use as:
+        master_tuple: tuple[User, MasterProfile] = Depends(get_current_master)
+        user, profile = master_tuple
+    """
+    if user.role != UserRole.MASTER:
+        raise ForbiddenError("Master access required")
+
+    stmt = select(MasterProfile).where(
+        MasterProfile.user_id == user.id
+    )
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+
+    if not profile:
+        raise ForbiddenError("Master profile not found")
+
+    profile_status = profile.data.get("account", {}).get("status")
+    if profile_status != "verified":
+        raise ForbiddenError("Master profile not verified")
+
+    return user, profile

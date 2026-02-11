@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Practice Model (Phase 4.1)
+# VELO Backend -- Practice Model (Phase 4.1, updated Phase 4.2)
 # =============================================================================
 #
 # Practices are the core entity of the platform. A verified master creates
@@ -13,8 +13,9 @@
 #
 # STATUS MACHINE:
 #   draft -> scheduled -> live -> completed
-#   draft -> cancelled
-#   scheduled -> cancelled
+#   draft -> deleted      (master quietly removes unpublished draft)
+#   scheduled -> cancelled (master cancels published -- Phase 5: refunds)
+#   live -> cancelled      (emergency cancel -- Phase 5: refunds)
 #
 # DENORMALIZATION:
 #   current_participants is stored but NOT USED until Phase 5.
@@ -64,6 +65,7 @@ class PracticeStatus(enum.StrEnum):
     LIVE = "live"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    DELETED = "deleted"
 
 
 class Practice(UUIDMixin, TimestampMixin, Base):

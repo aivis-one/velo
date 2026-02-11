@@ -1,12 +1,12 @@
 # =============================================================================
-# VELO Backend — Application Configuration
+# VELO Backend -- Application Configuration (updated Phase 4.2)
 # =============================================================================
 #
 # HOW IT WORKS:
 #   1. pydantic-settings reads your .env file
 #   2. Each field here maps to an environment variable (case-insensitive)
 #   3. Pydantic validates types: if DATABASE_URL is missing or malformed,
-#      the app crashes at startup with a clear error — not at runtime
+#      the app crashes at startup with a clear error -- not at runtime
 #      when a user triggers a database query.
 #
 # EXAMPLE:
@@ -19,7 +19,7 @@
 #
 # SECURITY (TD-001, TD-006):
 #   In production (APP_ENV != development), SECRET_KEY and DATABASE_URL
-#   have no defaults — the app refuses to start without a proper .env.
+#   have no defaults -- the app refuses to start without a proper .env.
 #   In development, safe defaults are provided for convenience.
 # =============================================================================
 
@@ -60,12 +60,12 @@ class Settings(BaseSettings):
     cors_origins: str = "*"
 
     # -- Security --
-    # No default in production — app won't start without it. (TD-001)
+    # No default in production -- app won't start without it. (TD-001)
     secret_key: str = ""
 
     # -- Telegram --
     # Bot token from BotFather. Required for initData validation.
-    # Dev default is a fake token — HMAC won't match real Telegram data,
+    # Dev default is a fake token -- HMAC won't match real Telegram data,
     # but tests mock validation anyway. (P-4)
     telegram_bot_token: str = ""
 
@@ -75,6 +75,10 @@ class Settings(BaseSettings):
 
     # -- Logging --
     log_level: str = "DEBUG"
+
+    # -- Practices (Phase 4.2) --
+    practice_min_duration_minutes: int = 5
+    practice_max_duration_minutes: int = 480
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
@@ -88,16 +92,21 @@ class Settings(BaseSettings):
         # DATABASE_URL: default only in dev (TD-006)
         if not self.database_url:
             if is_dev:
-                self.database_url = "postgresql+asyncpg://velo:velo@localhost:5433/velo"
+                self.database_url = (
+                    "postgresql+asyncpg://velo:velo@localhost:5433/velo"
+                )
             else:
                 raise ValueError(
-                    "DATABASE_URL is required in production. " "Set it in .env file."
+                    "DATABASE_URL is required in production. "
+                    "Set it in .env file."
                 )
 
         # SECRET_KEY: default only in dev (TD-001)
         if not self.secret_key:
             if is_dev:
-                self.secret_key = "dev-only-insecure-key-do-not-use-in-production"
+                self.secret_key = (
+                    "dev-only-insecure-key-do-not-use-in-production"
+                )
             else:
                 raise ValueError(
                     "SECRET_KEY is required in production. "
@@ -105,10 +114,12 @@ class Settings(BaseSettings):
                     'print(secrets.token_urlsafe(64))"'
                 )
 
-        # TELEGRAM_BOT_TOKEN: required in production for initData validation.
+        # TELEGRAM_BOT_TOKEN: required in production.
         if not self.telegram_bot_token:
             if is_dev:
-                self.telegram_bot_token = "dev-fake-bot-token-do-not-use"
+                self.telegram_bot_token = (
+                    "dev-fake-bot-token-do-not-use"
+                )
             else:
                 raise ValueError(
                     "TELEGRAM_BOT_TOKEN is required in production. "
@@ -118,9 +129,6 @@ class Settings(BaseSettings):
         return self
 
     # -- Pydantic Settings Config --
-    # Tells pydantic-settings WHERE to read env vars from.
-    # env_file= ".env" reads .env in the working directory.
-    # case_sensitive=False: DATABASE_URL and database_url both work.
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -129,9 +137,4 @@ class Settings(BaseSettings):
 
 
 # Singleton: one Settings instance for the entire application.
-# Every module imports `settings` and uses the same validated config.
-#
-# Usage:
-#   from app.core.config import settings
-#   print(settings.database_url)
 settings = Settings()
