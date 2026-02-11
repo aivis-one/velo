@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Report Service (Phase 3.3)
+# VELO Backend -- Report Service (Phase 3.3, updated Phase 4.1)
 # =============================================================================
 #
 # User-facing business logic for reports (complaints).
@@ -18,7 +18,7 @@
 # TARGET VALIDATION:
 #   - user: SELECT from users WHERE id = target_id
 #   - master: SELECT from master_profiles WHERE user_id = target_id
-#   - practice: STUB -- always passes (Phase 4 will add real check)
+#   - practice: SELECT from practices WHERE id = target_id
 #
 # SESSION RULES:
 #   No session.commit() here (P-01).
@@ -51,8 +51,6 @@ async def _validate_target(
 
     Raises BadRequestError if target_type is invalid.
     Raises NotFoundError if target does not exist.
-
-    NOTE: practice validation is a stub -- always passes.
     """
     tt = ReportTargetType(target_type)
 
@@ -72,10 +70,9 @@ async def _validate_target(
         if not result.scalar_one_or_none():
             raise NotFoundError("Target master not found")
 
-
     elif tt == ReportTargetType.PRACTICE:
         result = await session.execute(
-        select(Practice.id).where(Practice.id == target_id)
+            select(Practice.id).where(Practice.id == target_id)
         )
         if not result.scalar_one_or_none():
             raise NotFoundError("Target practice not found")
@@ -99,12 +96,18 @@ async def create_report(
 
     # -- Prevent self-reporting --
     # For "user" target_type, target_id is user.id directly.
-    # For "master" target_type, target_id is also user_id (FK in master_profiles).
-    if target_type in (ReportTargetType.USER, ReportTargetType.MASTER) and target_id == user.id:
+    # For "master" target_type, target_id is also user_id
+    # (FK in master_profiles).
+    if (
+        target_type in (ReportTargetType.USER, ReportTargetType.MASTER)
+        and target_id == user.id
+    ):
         raise BadRequestError("Cannot report yourself")
 
     # -- Check for duplicate --
-    existing = await _find_existing_report(user.id, target_type, target_id, session)
+    existing = await _find_existing_report(
+        user.id, target_type, target_id, session
+    )
     if existing:
         logger.info(
             "report_duplicate_found",
@@ -157,7 +160,9 @@ async def get_existing_report(
     session: AsyncSession,
 ) -> Report | None:
     """Get an existing report by reporter + target. Returns None if not found."""
-    return await _find_existing_report(user.id, target_type, target_id, session)
+    return await _find_existing_report(
+        user.id, target_type, target_id, session
+    )
 
 
 async def update_report(
