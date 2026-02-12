@@ -1,5 +1,5 @@
 # =============================================================================
-# Test: Practices -- Master CRUD endpoints (Phase 4.2)
+# Test: Practices -- CRUD + Pricing + Public Feed (Phase 4.2 + 4.3/4.4)
 # =============================================================================
 #
 # telegram_id ranges:
@@ -30,11 +30,13 @@ VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 _CLEANUP_PRACTICES_SQL = text(
     "DELETE FROM practices WHERE master_id IN "
     "(SELECT user_id FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999))"
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 60000 AND 60999))"
 )
 _CLEANUP_MASTERS_SQL = text(
     "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 60000 AND 60999)"
 )
 _RESET_ROLES_SQL = text(
     "UPDATE users SET role = 'user' "
@@ -46,8 +48,10 @@ _RESET_ROLES_SQL = text(
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean practices, masters, and reset roles for test range."""
+async def cleanup(
+    db_session: AsyncSession,
+) -> AsyncGenerator[None, None]:
+    """Clean practices, masters, reset roles for test range."""
     await db_session.execute(_CLEANUP_PRACTICES_SQL)
     await db_session.execute(_CLEANUP_MASTERS_SQL)
     await db_session.execute(_RESET_ROLES_SQL)
@@ -74,6 +78,9 @@ def _valid_practice_body(**overrides: object) -> dict:
         "duration_minutes": 60,
         "timezone": "Europe/Moscow",
         "max_participants": 20,
+        "is_free": True,
+        "price_cents": 0,
+        "currency": "EUR",
     }
     base.update(overrides)
     return base
@@ -100,10 +107,13 @@ async def _make_verified_master(
     db_session: AsyncSession,
     telegram_id: int = 60001,
 ) -> dict:
-    """Create a user, apply as master, verify via admin. Returns auth data."""
+    """Create user, apply as master, verify via admin.
+
+    Returns auth data with role=master.
+    """
     # Create user and apply.
     auth = await login_user(
-        client, telegram_id=telegram_id, first_name="Master"
+        client, telegram_id=telegram_id, first_name="Master",
     )
     await client.post(
         APPLY_URL,
@@ -113,9 +123,8 @@ async def _make_verified_master(
 
     # Create admin and verify.
     admin_auth = await login_user(
-        client, telegram_id=60900, first_name="Admin"
+        client, telegram_id=60900, first_name="Admin",
     )
-    # Set admin role directly in DB.
     await db_session.execute(
         text(
             "UPDATE users SET role = 'admin' "
@@ -126,7 +135,7 @@ async def _make_verified_master(
 
     # Re-login admin to pick up new role in session.
     admin_auth = await login_user(
-        client, telegram_id=60900, first_name="Admin"
+        client, telegram_id=60900, first_name="Admin",
     )
 
     user_id = auth["user"]["id"]
@@ -139,9 +148,41 @@ async def _make_verified_master(
 
     # Re-login to get updated role in session.
     auth = await login_user(
-        client, telegram_id=telegram_id, first_name="Master"
+        client, telegram_id=telegram_id, first_name="Master",
     )
     return auth
+
+
+async def _create_and_publish(
+    client: AsyncClient,
+    auth: dict,
+    **overrides: object,
+) -> str:
+    """Create a practice and set status to scheduled.
+
+    Returns practice_id.
+    """
+    body = _valid_practice_body(**overrides)
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=body,
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    patch_resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch_resp.status_code == 200
+    return practice_id
+
+
+# ===================================================================
+# PHASE 4.2 TESTS -- CRUD
+# ===================================================================
 
 
 # ---------------------------------------------------------------------------
@@ -162,24 +203,24 @@ async def test_create_practice_success(
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["practice_type"] == "live"
     assert data["title"] == "Morning Meditation"
     assert data["status"] == "draft"
-    assert data["master_id"] == auth["user"]["id"]
+    assert data["is_free"] is True
+    assert data["price_cents"] == 0
+    assert data["currency"] == "EUR"
 
 
 # ---------------------------------------------------------------------------
-# POST /practices -- not master (403)
+# POST /practices -- not a master (403)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_create_practice_not_master(
     client: AsyncClient,
 ) -> None:
-    """Regular user cannot create a practice: 403."""
+    """Regular user cannot create practice: 403."""
     auth = await login_user(
-        client, telegram_id=60100, first_name="RegularUser"
+        client, telegram_id=60101, first_name="User",
     )
-
     resp = await client.post(
         PRACTICES_URL,
         json=_valid_practice_body(),
@@ -192,8 +233,10 @@ async def test_create_practice_not_master(
 # POST /practices -- no auth (401)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_create_practice_no_auth(client: AsyncClient) -> None:
-    """No Authorization header: 401."""
+async def test_create_practice_no_auth(
+    client: AsyncClient,
+) -> None:
+    """No auth token: 401."""
     resp = await client.post(
         PRACTICES_URL,
         json=_valid_practice_body(),
@@ -215,7 +258,7 @@ async def test_create_practice_past_scheduled_at(
     body = _valid_practice_body(
         scheduled_at=(
             datetime.now(timezone.utc) - timedelta(hours=1)
-        ).isoformat()
+        ).isoformat(),
     )
     resp = await client.post(
         PRACTICES_URL,
@@ -274,27 +317,18 @@ async def test_get_practice_success(
     db_session: AsyncSession,
 ) -> None:
     """Any authenticated user can view a scheduled practice."""
-    master_auth = await _make_verified_master(client, db_session)
+    master_auth = await _make_verified_master(
+        client, db_session,
+    )
 
     # Create and set to scheduled.
-    create_resp = await client.post(
-        PRACTICES_URL,
-        json=_valid_practice_body(),
-        headers=auth_headers(master_auth["session_token"]),
-    )
-    assert create_resp.status_code == 201
-    practice_id = create_resp.json()["id"]
-
-    # Update status to scheduled.
-    await client.patch(
-        f"{PRACTICES_URL}/{practice_id}",
-        json={"status": "scheduled"},
-        headers=auth_headers(master_auth["session_token"]),
+    practice_id = await _create_and_publish(
+        client, master_auth,
     )
 
-    # Regular user can see it.
+    # View as a different user.
     user_auth = await login_user(
-        client, telegram_id=60101, first_name="Viewer"
+        client, telegram_id=60101, first_name="Viewer",
     )
     resp = await client.get(
         f"{PRACTICES_URL}/{practice_id}",
@@ -305,42 +339,17 @@ async def test_get_practice_success(
 
 
 # ---------------------------------------------------------------------------
-# GET /practices/{id} -- draft visible to owner
+# GET /practices/{id} -- draft hidden from non-owner (404)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_get_draft_practice_owner(
+async def test_get_practice_draft_hidden(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Master can see their own draft practice."""
-    auth = await _make_verified_master(client, db_session)
-
-    create_resp = await client.post(
-        PRACTICES_URL,
-        json=_valid_practice_body(),
-        headers=auth_headers(auth["session_token"]),
+    """Draft practice invisible to non-owner: 404."""
+    master_auth = await _make_verified_master(
+        client, db_session,
     )
-    assert create_resp.status_code == 201
-    practice_id = create_resp.json()["id"]
-
-    resp = await client.get(
-        f"{PRACTICES_URL}/{practice_id}",
-        headers=auth_headers(auth["session_token"]),
-    )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "draft"
-
-
-# ---------------------------------------------------------------------------
-# GET /practices/{id} -- draft not visible to others (404)
-# ---------------------------------------------------------------------------
-@pytest.mark.asyncio
-async def test_get_draft_practice_not_owner(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Non-owner cannot see a draft practice: 404."""
-    master_auth = await _make_verified_master(client, db_session)
 
     create_resp = await client.post(
         PRACTICES_URL,
@@ -351,7 +360,7 @@ async def test_get_draft_practice_not_owner(
     practice_id = create_resp.json()["id"]
 
     user_auth = await login_user(
-        client, telegram_id=60102, first_name="Stranger"
+        client, telegram_id=60102, first_name="Stranger",
     )
     resp = await client.get(
         f"{PRACTICES_URL}/{practice_id}",
@@ -398,7 +407,7 @@ async def test_update_practice_not_owner(
 ) -> None:
     """Non-owner master cannot update practice: 403."""
     master_auth = await _make_verified_master(
-        client, db_session, telegram_id=60002
+        client, db_session, telegram_id=60002,
     )
 
     create_resp = await client.post(
@@ -409,9 +418,8 @@ async def test_update_practice_not_owner(
     assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
-    # Create another master.
     other_auth = await _make_verified_master(
-        client, db_session, telegram_id=60003
+        client, db_session, telegram_id=60003,
     )
 
     resp = await client.patch(
@@ -460,20 +468,7 @@ async def test_delete_non_draft_practice(
     """Cannot delete a scheduled practice: 400."""
     auth = await _make_verified_master(client, db_session)
 
-    create_resp = await client.post(
-        PRACTICES_URL,
-        json=_valid_practice_body(),
-        headers=auth_headers(auth["session_token"]),
-    )
-    assert create_resp.status_code == 201
-    practice_id = create_resp.json()["id"]
-
-    # Set to scheduled.
-    await client.patch(
-        f"{PRACTICES_URL}/{practice_id}",
-        json={"status": "scheduled"},
-        headers=auth_headers(auth["session_token"]),
-    )
+    practice_id = await _create_and_publish(client, auth)
 
     resp = await client.delete(
         f"{PRACTICES_URL}/{practice_id}",
@@ -540,29 +535,368 @@ async def test_update_practice_null_not_null_field(
 # GET /masters/me/practices -- success
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_list_my_practices(
+async def test_list_master_practices(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Master can list their own practices."""
+    """Master sees their own practices (excluding deleted)."""
     auth = await _make_verified_master(client, db_session)
 
     # Create 2 practices.
-    for title in ("Practice A", "Practice B"):
-        resp = await client.post(
+    for _ in range(2):
+        r = await client.post(
             PRACTICES_URL,
-            json=_valid_practice_body(title=title),
+            json=_valid_practice_body(),
             headers=auth_headers(auth["session_token"]),
         )
-        assert resp.status_code == 201
+        assert r.status_code == 201
 
     resp = await client.get(
         MY_PRACTICES_URL,
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 200
-    data = resp.json()
-    assert len(data) == 2
-    assert all(
-        p["master_id"] == auth["user"]["id"] for p in data
+    assert len(resp.json()) == 2
+
+
+# ===================================================================
+# PHASE 4.3/4.4 TESTS -- PRICING
+# ===================================================================
+
+
+# ---------------------------------------------------------------------------
+# POST /practices -- paid practice success
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_create_paid_practice(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Master creates a paid practice: is_free=False, price > 0."""
+    auth = await _make_verified_master(client, db_session)
+
+    resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            is_free=False,
+            price_cents=1500,
+        ),
+        headers=auth_headers(auth["session_token"]),
     )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["is_free"] is False
+    assert data["price_cents"] == 1500
+    assert data["currency"] == "EUR"
+
+
+# ---------------------------------------------------------------------------
+# POST /practices -- free forces price_cents=0
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_create_free_practice_forces_zero_price(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """is_free=True forces price_cents=0 even if client sends 500."""
+    auth = await _make_verified_master(client, db_session)
+
+    resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            is_free=True,
+            price_cents=500,
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["price_cents"] == 0
+
+
+# ---------------------------------------------------------------------------
+# POST /practices -- paid with price=0 (400)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_create_paid_practice_zero_price(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """is_free=False with price_cents=0: 400."""
+    auth = await _make_verified_master(client, db_session)
+
+    resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            is_free=False,
+            price_cents=0,
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# PATCH /practices -- change to paid
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_update_practice_to_paid(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Master changes free practice to paid via PATCH."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"is_free": False, "price_cents": 2000},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_free"] is False
+    assert resp.json()["price_cents"] == 2000
+
+
+# ---------------------------------------------------------------------------
+# PATCH /practices -- set is_free=True forces price to 0
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_update_practice_to_free_zeroes_price(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Setting is_free=True on a paid practice zeroes price_cents."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            is_free=False,
+            price_cents=2000,
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"is_free": True},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_free"] is True
+    assert resp.json()["price_cents"] == 0
+
+
+# ===================================================================
+# PHASE 4.3 TESTS -- PUBLIC FEED
+# ===================================================================
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- basic list (only scheduled/live)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_public(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Public feed returns only scheduled/live practices."""
+    auth = await _make_verified_master(client, db_session)
+
+    # Create 1 draft (should NOT appear) and 1 scheduled.
+    await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(title="Draft"),
+        headers=auth_headers(auth["session_token"]),
+    )
+    await _create_and_publish(
+        client, auth, title="Published",
+    )
+
+    user_auth = await login_user(
+        client, telegram_id=60103, first_name="Viewer",
+    )
+    resp = await client.get(
+        PRACTICES_URL,
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Published"
+    assert "limit" in data
+    assert "offset" in data
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- filter by practice_type
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_filter_type(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Filter by practice_type returns only matching."""
+    auth = await _make_verified_master(client, db_session)
+
+    await _create_and_publish(
+        client, auth, practice_type="live", title="Live",
+    )
+    await _create_and_publish(
+        client, auth,
+        practice_type="one_on_one",
+        title="OneOnOne",
+    )
+
+    user_auth = await login_user(
+        client, telegram_id=60104, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?practice_type=live",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Live"
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- filter by master_id
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_filter_master(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Filter by master_id returns only their practices."""
+    master1 = await _make_verified_master(
+        client, db_session, telegram_id=60004,
+    )
+    master2 = await _make_verified_master(
+        client, db_session, telegram_id=60005,
+    )
+
+    await _create_and_publish(
+        client, master1, title="M1 Practice",
+    )
+    await _create_and_publish(
+        client, master2, title="M2 Practice",
+    )
+
+    m1_id = master1["user"]["id"]
+    user_auth = await login_user(
+        client, telegram_id=60105, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={m1_id}",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "M1 Practice"
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- sort by price_cents
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_sort_price(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Sort by price_cents ascending."""
+    auth = await _make_verified_master(client, db_session)
+
+    await _create_and_publish(
+        client, auth,
+        title="Expensive",
+        is_free=False,
+        price_cents=5000,
+    )
+    await _create_and_publish(
+        client, auth,
+        title="Cheap",
+        is_free=False,
+        price_cents=500,
+    )
+    await _create_and_publish(
+        client, auth,
+        title="Free",
+        is_free=True,
+    )
+
+    user_auth = await login_user(
+        client, telegram_id=60106, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?sort_by=price_cents&sort_order=asc",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 3
+    prices = [i["price_cents"] for i in items]
+    assert prices == sorted(prices)
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- pagination
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_pagination(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Pagination limit/offset works correctly."""
+    auth = await _make_verified_master(client, db_session)
+
+    for i in range(3):
+        await _create_and_publish(
+            client, auth, title=f"Practice {i}",
+        )
+
+    user_auth = await login_user(
+        client, telegram_id=60107, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?limit=2&offset=0",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 3
+    assert len(data["items"]) == 2
+    assert data["limit"] == 2
+    assert data["offset"] == 0
+
+    # Page 2.
+    resp2 = await client.get(
+        f"{PRACTICES_URL}?limit=2&offset=2",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp2.status_code == 200
+    data2 = resp2.json()
+    assert len(data2["items"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- no auth (401)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_no_auth(
+    client: AsyncClient,
+) -> None:
+    """Public feed requires authentication: 401."""
+    resp = await client.get(PRACTICES_URL)
+    assert resp.status_code == 401

@@ -1,34 +1,22 @@
 # =============================================================================
-# VELO Backend -- Practice Model (Phase 4.1, updated Phase 4.2)
+# VELO Backend -- Practice Model (Phase 4.1 + 4.3/4.4 pricing)
 # =============================================================================
 #
-# Practices are the core entity of the platform. A verified master creates
-# a practice; users browse and book them (Phase 5).
+# A wellness practice session created by a verified master.
+# One master can have many practices. Users book practices in Phase 5.
 #
-# TYPES:
-#   live       -- single live session (Zoom)
-#   series     -- recurring (linked via parent_practice_id)
-#   one_on_one -- private session
-#   replay     -- pre-recorded, available on-demand
+# STATE MACHINE (enforced in service.py):
+#   draft      -> scheduled, deleted
+#   scheduled  -> live, cancelled
+#   live       -> completed, cancelled
+#   completed  -> (terminal)
+#   cancelled  -> (terminal)
+#   deleted    -> (terminal)
 #
-# STATUS MACHINE:
-#   draft -> scheduled -> live -> completed
-#   draft -> deleted      (master quietly removes unpublished draft)
-#   scheduled -> cancelled (master cancels published -- Phase 5: refunds)
-#   live -> cancelled      (emergency cancel -- Phase 5: refunds)
-#
-# DENORMALIZATION:
-#   current_participants is stored but NOT USED until Phase 5.
-#   Phase 5 will decide: increment on booking or compute via COUNT.
-#   TODO Phase 5: Wire current_participants or remove the column.
-#
-# NAMING:
-#   Column is `practice_type`, not `type` -- avoids shadowing Python builtin.
-#   This is a deliberate deviation from the original spec.
-#
-# FK:
-#   master_id -> master_profiles.user_id (not users.id) -- guarantees at DB
-#   level that only users with a master profile can own practices.
+# PRICING (Phase 4.3/4.4):
+#   is_free=True  -> price_cents MUST be 0 (enforced in service)
+#   is_free=False -> price_cents MUST be > 0 (enforced in service)
+#   currency defaults to EUR for MVP.
 # =============================================================================
 
 import enum
@@ -36,6 +24,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     ForeignKey,
     Integer,
@@ -90,15 +79,21 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     )
 
     title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str | None] = mapped_column(Text, default=None)
+    description: Mapped[str | None] = mapped_column(
+        Text, default=None,
+    )
 
     # -- Scheduling --
-    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    scheduled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+    )
     duration_minutes: Mapped[int] = mapped_column(Integer)
     timezone: Mapped[str] = mapped_column(String(50))
 
     # -- Capacity --
-    max_participants: Mapped[int | None] = mapped_column(Integer, default=None)
+    max_participants: Mapped[int | None] = mapped_column(
+        Integer, default=None,
+    )
     # NOT USED until Phase 5. See header comment.
     current_participants: Mapped[int] = mapped_column(
         Integer,
@@ -106,8 +101,27 @@ class Practice(UUIDMixin, TimestampMixin, Base):
         server_default="0",
     )
 
+    # -- Pricing (Phase 4.3/4.4) --
+    is_free: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="true",
+    )
+    price_cents: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        server_default="0",
+    )
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        default="EUR",
+        server_default="EUR",
+    )
+
     # -- Zoom (manual for MVP) --
-    zoom_link: Mapped[str | None] = mapped_column(String(500), default=None)
+    zoom_link: Mapped[str | None] = mapped_column(
+        String(500), default=None,
+    )
 
     # -- Series support (self-referential FK) --
     parent_practice_id: Mapped[UUID | None] = mapped_column(
@@ -118,5 +132,6 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     def __repr__(self) -> str:
         return (
             f"<Practice id={self.id} type={self.practice_type} "
-            f"status={self.status} title={self.title!r}>"
+            f"status={self.status} title={self.title!r} "
+            f"is_free={self.is_free} price_cents={self.price_cents}>"
         )

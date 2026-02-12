@@ -1,8 +1,8 @@
 # =============================================================================
-# VELO Backend -- Practice Service (Phase 4.2)
+# VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4)
 # =============================================================================
 #
-# Business logic for practice CRUD (master-facing).
+# Business logic for practice CRUD (master-facing) and public listing.
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete) verify master_id == user.id.
@@ -16,6 +16,10 @@
 #   cancelled  -> (terminal)
 #   deleted    -> (terminal)
 #
+# PRICING (Phase 4.3/4.4):
+#   is_free=True  -> price_cents forced to 0 (service overrides any value)
+#   is_free=False -> price_cents must be > 0 (service raises 400)
+#
 # CONCURRENCY:
 #   update_practice() and delete_practice() use with_for_update() (P-12)
 #   to prevent lost updates on status transitions.
@@ -28,16 +32,24 @@
 #   No session.commit() here (P-01). Router handles flush + refresh.
 # =============================================================================
 
+from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
+from app.core.exceptions import (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+)
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.practices.schemas import (
     CreatePracticeRequest,
+    PaginatedPracticesResponse,
+    PracticeResponse,
     UpdatePracticeRequest,
 )
 from app.modules.users.models import User
@@ -50,6 +62,12 @@ _PUBLIC_STATUSES = {
     PracticeStatus.LIVE.value,
     PracticeStatus.COMPLETED.value,
     PracticeStatus.CANCELLED.value,
+}
+
+# Statuses shown in public feed (4.3).
+_FEED_STATUSES = {
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
 }
 
 # Valid state transitions. Terminal states have no outgoing edges.
@@ -69,7 +87,33 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 }
 
 # NOT NULL columns that cannot be set to None via PATCH (P-02).
-_NOT_NULL_FIELDS = {"title", "scheduled_at", "duration_minutes", "timezone"}
+_NOT_NULL_FIELDS = {
+    "title",
+    "scheduled_at",
+    "duration_minutes",
+    "timezone",
+    "is_free",
+    "price_cents",
+    "currency",
+}
+
+
+def _enforce_pricing(
+    is_free: bool,
+    price_cents: int,
+) -> int:
+    """Enforce pricing invariant.
+
+    is_free=True  -> return 0 (override any client value).
+    is_free=False -> price_cents must be > 0, else raise 400.
+    """
+    if is_free:
+        return 0
+    if price_cents <= 0:
+        raise BadRequestError(
+            "price_cents must be > 0 for paid practices"
+        )
+    return price_cents
 
 
 async def create_practice(
@@ -78,6 +122,8 @@ async def create_practice(
     session: AsyncSession,
 ) -> Practice:
     """Create a new practice in draft status."""
+    price_cents = _enforce_pricing(body.is_free, body.price_cents)
+
     practice = Practice(
         master_id=user.id,
         practice_type=body.practice_type,
@@ -89,6 +135,9 @@ async def create_practice(
         max_participants=body.max_participants,
         zoom_link=body.zoom_link,
         parent_practice_id=body.parent_practice_id,
+        is_free=body.is_free,
+        price_cents=price_cents,
+        currency=body.currency,
     )
     session.add(practice)
 
@@ -97,6 +146,8 @@ async def create_practice(
         master_id=str(user.id),
         practice_type=body.practice_type,
         title=body.title,
+        is_free=body.is_free,
+        price_cents=price_cents,
     )
 
     return practice
@@ -144,7 +195,8 @@ async def update_practice(
     Raises ForbiddenError if not owner (P-06).
     Raises BadRequestError if practice is deleted/terminal,
         if NOT NULL field set to null (P-02),
-        or if status transition is invalid.
+        if status transition is invalid,
+        or if pricing invariant is violated.
     """
     stmt = (
         select(Practice)
@@ -179,6 +231,17 @@ async def update_practice(
                 f"Cannot transition from "
                 f"{practice.status} to {new_status}"
             )
+
+    # Enforce pricing invariant after applying updates.
+    # Resolve final is_free and price_cents from mix of
+    # existing values and incoming updates.
+    final_is_free = update_data.get("is_free", practice.is_free)
+    final_price = update_data.get(
+        "price_cents", practice.price_cents,
+    )
+    if "is_free" in update_data or "price_cents" in update_data:
+        final_price = _enforce_pricing(final_is_free, final_price)
+        update_data["price_cents"] = final_price
 
     # Apply only provided fields.
     for field, value in update_data.items():
@@ -263,3 +326,96 @@ async def list_master_practices(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def list_public_practices(
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    master_id: UUID | None = None,
+    practice_type: str | None = None,
+    status: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    sort_by: Literal[
+        "scheduled_at", "price_cents",
+    ] = "scheduled_at",
+    sort_order: Literal["asc", "desc"] = "asc",
+) -> PaginatedPracticesResponse:
+    """List practices visible in the public feed.
+
+    Only scheduled and live practices are shown (unless
+    status filter explicitly requests one of them).
+    Supports filtering by master, type, date range, and status.
+    Supports sorting by scheduled_at or price_cents.
+    """
+    # -- Base query: only feed-visible statuses --
+    base_filter = Practice.status.in_(_FEED_STATUSES)
+
+    # Override with explicit status filter (must still be in
+    # feed statuses -- Literal in router guarantees this).
+    if status is not None:
+        base_filter = Practice.status == status
+
+    query = select(Practice).where(base_filter)
+    count_query = select(func.count(Practice.id)).where(
+        base_filter,
+    )
+
+    # -- Optional filters --
+    if master_id is not None:
+        query = query.where(Practice.master_id == master_id)
+        count_query = count_query.where(
+            Practice.master_id == master_id,
+        )
+
+    if practice_type is not None:
+        query = query.where(
+            Practice.practice_type == practice_type,
+        )
+        count_query = count_query.where(
+            Practice.practice_type == practice_type,
+        )
+
+    if date_from is not None:
+        query = query.where(Practice.scheduled_at >= date_from)
+        count_query = count_query.where(
+            Practice.scheduled_at >= date_from,
+        )
+
+    if date_to is not None:
+        query = query.where(Practice.scheduled_at <= date_to)
+        count_query = count_query.where(
+            Practice.scheduled_at <= date_to,
+        )
+
+    # -- Sort --
+    sort_column = (
+        Practice.price_cents
+        if sort_by == "price_cents"
+        else Practice.scheduled_at
+    )
+    if sort_order == "desc":
+        sort_column = sort_column.desc()
+    else:
+        sort_column = sort_column.asc()
+    query = query.order_by(sort_column)
+
+    # -- Total count --
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    # -- Paginated items --
+    query = query.limit(limit).offset(offset)
+    result = await session.execute(query)
+    practices = result.scalars().all()
+
+    return PaginatedPracticesResponse(
+        items=[
+            PracticeResponse.model_validate(p) for p in practices
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
