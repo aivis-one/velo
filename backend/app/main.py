@@ -30,6 +30,7 @@ from app.modules.masters.router import router as masters_router
 from app.modules.users.router import router as users_router
 from app.modules.reports.router import router as reports_router
 from app.modules.practices.router import router as practices_router
+from app.modules.bookings.router import router as bookings_router
 
 
 logger = structlog.get_logger()
@@ -76,6 +77,7 @@ app.include_router(masters_router)
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(practices_router)
+app.include_router(bookings_router)
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)

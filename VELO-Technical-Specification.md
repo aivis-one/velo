@@ -1,6 +1,6 @@
 # VELO -- Техническое задание
 
-**Версия:** 1.7
+**Версия:** 1.8
 **Дата:** 12 февраля 2026
 **Статус:** Draft
 
@@ -1120,59 +1120,98 @@ backend/tests/
 
 ---
 
-### 4.3: Список практик для юзеров
+### 4.3+4.4: Public Feed + Pricing ✅
 
-**Цель:** Юзеры видят доступные практики.
+**Цель:** Юзеры видят доступные практики. Мастер может установить цену.
+
+> **Объединение:** 4.3 (public feed) и 4.4 (pricing) реализованы вместе,
+> т.к. price-сортировка из 4.3 требует pricing-колонки из 4.4,
+> а pricing без листинга бесполезен.
+
+> **Отказ от отдельной таблицы:** ТЗ предполагало `PracticePricing` (1:1 с Practice).
+> Решено добавить колонки прямо в `practices` — 1:1 = лишний JOIN, а цена устанавливается
+> при создании практики (часть `CreatePracticeRequest`), не отдельным endpoint-ом.
 
 **Задачи:**
-- [ ] GET /api/v1/practices — публичный список
-- [ ] Фильтры: master_id, type, date_from, date_to, status
-- [ ] Сортировка: scheduled_at, price
-- [ ] Пагинация
+- [x] Миграция: ALTER TABLE practices ADD `is_free`, `price_cents`, `currency`
+- [x] practices/models.py -- +3 pricing колонки
+- [x] practices/schemas.py -- pricing в Create/Update/Response + PaginatedPracticesResponse
+- [x] practices/service.py -- `_enforce_pricing()` + `list_public_practices()`
+- [x] practices/router.py -- GET /api/v1/practices (public feed)
+- [x] tests/test_practices.py -- 16 → 26 тестов (+4 pricing, +6 feed)
 
-**Endpoint:**
+**Endpoints (обновлённый полный список):**
 ```
-GET /api/v1/practices?type=live&date_from=2026-02-01&limit=20
+GET    /api/v1/practices                -- public feed (4.3)
+POST   /api/v1/practices               -- create (master only, 4.2)
+GET    /api/v1/practices/{id}           -- get by id (any auth, 4.2)
+PATCH  /api/v1/practices/{id}           -- update (owner master, 4.2)
+DELETE /api/v1/practices/{id}           -- soft delete draft (owner, 4.2)
+GET    /api/v1/masters/me/practices     -- my practices (master, 4.2)
+```
+
+**Public feed query params:**
+```
+GET /api/v1/practices?
+    practice_type=live              -- Literal[live,series,one_on_one,replay]
+    &status=scheduled               -- Literal[scheduled,live]
+    &master_id=uuid
+    &date_from=2026-02-01T00:00:00Z
+    &date_to=2026-03-01T00:00:00Z
+    &sort_by=price_cents            -- Literal[scheduled_at,price_cents]
+    &sort_order=asc                 -- Literal[asc,desc]
+    &limit=20                       -- 1..100
+    &offset=0                       -- >=0
+
 Response: {
-  "items": [...],
-  "total": 45,
-  "limit": 20,
-  "offset": 0
+    "items": [...PracticeResponse],
+    "total": 45,
+    "limit": 20,
+    "offset": 0
 }
 ```
 
-**Критерий готовности:** Юзер видит список практик с фильтрами.
-
----
-
-### 4.4: PracticePricing
-
-**Цель:** Цены практик.
-
-**Задачи:**
-- [ ] app/modules/practices/models.py — PracticePricing
-- [ ] Связь 1:1 с Practice
-- [ ] Миграция
-
-**Модель:**
+**Pricing колонки (в таблице practices):**
 ```python
-class PracticePricing(Base):
-    __tablename__ = "practice_pricing"
-    
-    practice_id: Mapped[UUID] = mapped_column(
-        ForeignKey("practices.id"), 
-        primary_key=True
-    )
-    
-    is_free: Mapped[bool] = mapped_column(default=True)
-    price_cents: Mapped[int | None]
-    currency: Mapped[str] = mapped_column(String(3), default="USD")
-    
-    created_at: Mapped[datetime]
-    updated_at: Mapped[datetime]
+is_free: Mapped[bool]        # default=True, server_default="true"
+price_cents: Mapped[int]     # default=0, server_default="0", NOT NULL
+currency: Mapped[str]        # String(3), default="EUR", server_default="EUR"
 ```
 
-**Критерий готовности:** Мастер может установить цену практики.
+**Результат:**
+```
+backend/app/modules/practices/
+├── models.py        ← +is_free, price_cents, currency
+├── schemas.py       ← +pricing fields + PaginatedPracticesResponse
+├── service.py       ← +_enforce_pricing() + list_public_practices()
+└── router.py        ← +GET "" public feed (before /{id})
+
+backend/migrations/versions/
+└── 2026_02_12_d4e5f6a7b8c9_add_practice_pricing.py
+
+backend/tests/
+└── test_practices.py  ← 26 тестов (telegram_id range: 60xxx)
+```
+
+**Решения, принятые при реализации:**
+
+- **Колонки в Practice** (не отдельная таблица PracticePricing) -- 1:1 = лишний JOIN, цена часть CreatePracticeRequest. Миграция: ALTER TABLE с server_default — безопасно для существующих данных (все → free/0/EUR)
+- **price_cents: int, NOT NULL, default=0** (не nullable!) -- nullable ломает SUM/AVG, усложняет сортировку. `is_free=True → price_cents=0` (invariant)
+- **Pricing invariant** (`_enforce_pricing()`):
+  - `is_free=True` → price_cents **принудительно** = 0 (даже если клиент прислал 500)
+  - `is_free=False` → price_cents **обязательно** > 0, иначе 400
+  - Применяется в create и в update (с resolve final values из existing + patch)
+- **Центы, не доллары** -- `price_cents: int` (1500 = €15.00). Совместимо с будущим Phase 6 (balance migration planned, см. TD-033)
+- **currency: "EUR"** -- MVP single currency. `Literal["EUR"]` в schema — расширяемо
+- **Public feed** -- только `scheduled` + `live` (`_FEED_STATUSES`). Draft/deleted/completed/cancelled невидимы. Фильтр status ограничен `Literal["scheduled","live"]` — нельзя запросить draft
+- **Router ordering** -- `GET ""` (list) определён **перед** `GET "/{id}"`, чтобы FastAPI не парсил query-строку как UUID
+- **Sort injection protection** -- `sort_by` через `Literal`, не строковая подстановка в SQL
+- **Count query sync** -- те же фильтры применены к items и count запросам
+- **`_NOT_NULL_FIELDS`** расширен: +`is_free`, `price_cents`, `currency`
+
+**Аудит:** Раунд 16 — чистый проход. Все 12 паттернов (P-01..P-12) пройдены. Pricing edge cases проверены (6 сценариев).
+
+**Критерий готовности:** Юзер видит практики с фильтрами. Мастер устанавливает цену. 115 тестов, 0 warnings. ✅
 
 ---
 
@@ -1443,6 +1482,11 @@ class CompanyLedger(Base):
 ```
 
 > **Примечание (P-09):** При реализации использовать `enum.StrEnum`.
+
+> **TD-033 (Phase 4.3/4.4):** `Practice.price_cents` хранит суммы в центах (int),
+> а `balance_user`, `frozen_amount`, `available_amount` — в `Numeric(18,2)` (доллары).
+> При реализации Phase 6 унифицировать все суммы в центы: `amount_cents: int`
+> вместо `amount: Decimal`. Валюта: EUR.
 
 **Критерий готовности:** Миграции применены.
 
@@ -1899,6 +1943,7 @@ Response: {
 | TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия или передача user_id вместо объекта | ⬜ |
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
+| TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировать все суммы в центы (int) при реализации Phase 6 | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
 

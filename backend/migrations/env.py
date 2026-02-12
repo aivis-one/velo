@@ -33,6 +33,7 @@ from app.modules.reports.models import Report  # noqa: F401
 from app.modules.users.models import User  # noqa: F401
 from app.modules.masters.models import MasterProfile  # noqa: F401
 from app.modules.practices.models import Practice  # noqa: F401
+from app.modules.bookings.models import Booking  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to alembic.ini values.
