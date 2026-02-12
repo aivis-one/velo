@@ -69,7 +69,7 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
 }
 
 # NOT NULL columns that cannot be set to None via PATCH (P-02).
-_NOT_NULL_FIELDS = {"scheduled_at", "duration_minutes", "timezone"}
+_NOT_NULL_FIELDS = {"title", "scheduled_at", "duration_minutes", "timezone"}
 
 
 async def create_practice(
