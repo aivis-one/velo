@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 1.6
-**Дата:** 11 февраля 2026
+**Версия:** 1.7
+**Дата:** 12 февраля 2026
 **Статус:** Draft
 
 ---
@@ -447,6 +447,7 @@ TTL: 30 days
 get_current_user(request, session) → User       # 401 если нет токена
 get_optional_user(request, session) → User|None  # None для анонимов
 get_current_admin(user) → User                   # 403 если не admin
+get_current_master(user, session) → (User, MasterProfile)  # 403 если не verified master (Phase 4.2)
 ```
 
 **Решения, принятые при реализации:**
@@ -640,6 +641,42 @@ await session.refresh(obj)
 
 ---
 
+### Архитектурное правило: State Machine (введено Phase 4.2)
+
+**Контекст:** Модели с колонкой `status` имеют допустимые переходы.
+`setattr(obj, "status", new_value)` без валидации позволяет невалидные
+переходы (например, `completed → draft`). Lost updates при concurrent
+PATCH усугубляют проблему.
+
+**Правило:**
+```python
+# ❌ ЗАПРЕЩЕНО -- слепое присвоение:
+practice.status = body.status
+
+# ✅ ОБЯЗАТЕЛЬНО -- валидация перехода + FOR UPDATE:
+stmt = select(Practice).where(...).with_for_update()  # P-12
+allowed = _VALID_TRANSITIONS.get(practice.status, set())
+if new_status not in allowed:
+    raise BadRequestError(...)
+practice.status = new_status
+```
+
+**Где применяется:**
+- `Practice` -- `_VALID_TRANSITIONS` в `practices/service.py`
+- `Booking` (Phase 5) -- обязан иметь аналогичную карту переходов
+- Все будущие модели с lifecycle-статусами
+
+**NOT NULL guard (P-02):**
+При partial update через PATCH, NOT NULL поля должны быть защищены от explicit null:
+```python
+_NOT_NULL_FIELDS = {"title", "scheduled_at", ...}
+for field in _NOT_NULL_FIELDS:
+    if field in update_data and update_data[field] is None:
+        raise BadRequestError(f"{field} cannot be null")
+```
+
+---
+
 ### 2.2: Заявка на мастера ✅
 
 **Цель:** Flow подачи заявки (3 шага из мокапов).
@@ -752,8 +789,7 @@ Response: {
 }
 ```
 
-> **⚠️ STUB:** `practices_count` всегда 0. Заменить реальным COUNT в Phase 4.1
-> после создания модели Practice.
+> **✅ RESOLVED (Phase 4.1):** `practices_count` заменён на реальный `COUNT(*)` из таблицы `practices`.
 
 **Результат:**
 ```
@@ -768,7 +804,7 @@ backend/app/modules/admin/
 └── stats/
     ├── __init__.py
     ├── schemas.py           ← AdminStatsResponse
-    ├── service.py           ← get_stats(): 3 real COUNTs + 1 stub
+    ├── service.py           ← get_stats(): 4 real COUNTs (Phase 4.1)
     └── router.py            ← GET /stats (get_db_reader)
 
 backend/tests/
@@ -780,7 +816,7 @@ backend/tests/
 - `admin/router.py` — агрегатор, include sub-routers. Импорт в main.py не меняется: `from app.modules.admin.router import router`
 - Stats использует `get_db_reader` (read-only) — не write session
 - JSONB filter: `MasterProfile.data["account"]["status"].as_string() == "pending"` — sequential scan на master_profiles (таблица маленькая, GIN-индекс не нужен для MVP)
-- `practices_count: 0` — осознанная заглушка, не фича. Удалить и заменить реальным запросом в Phase 4.1
+- `practices_count` -- было stub=0, заменено реальным COUNT(*) в Phase 4.1
 - telegram_id ranges: stats тесты 57xxx (не пересекаются с 55xxx masters, 56xxx admin_masters)
 
 **Аудит:** 2 замечания (LOW docstring, LINT formatting). Исправлены.
@@ -918,12 +954,12 @@ backend/tests/
 Race condition на UNIQUE — create_report() делает flush() внутри service с try/except IntegrityError + rollback() (P-05). Если два одинаковых запроса проходят SELECT одновременно, второй получит IntegrityError → graceful fallback на "duplicate found"
 Self-report prevention — проверка для target_type in (USER, MASTER), т.к. target_id для мастера это тоже user_id (FK в master_profiles). Practice не проверяется (мастер не может "быть" практикой)
 Два эндпоинта resolve/dismiss (не один PATCH) — консистентность с verify/reject (Phase 2.3). Явные URL, легче тестировать. Общий _load_pending_report() с with_for_update() (P-12)
-Practice validation stub — target_type="practice" принимает любой UUID. TODO Phase 4: заменить реальной проверкой после создания модели Practice
+Practice validation -- target_type="practice" заменён реальным SELECT из practices (Phase 4.1)
 Фильтры через Literal — status: Literal["pending", "resolved", "dismissed"] и target_type: Literal["user", "master", "practice"] в admin роутере. FastAPI возвращает 422 на невалидное значение автоматически (P-11)
 telegram_id ranges: reports тесты 59xxx (не пересекаются с 55xxx masters, 56xxx admin_masters, 57xxx stats, 58xxx users)
 
 
-⚠️ STUB: Валидация target_type="practice" — заглушка (Phase 4). При создании модели Practice заменить stub в reports/service.py:_validate_target().
+✅ RESOLVED (Phase 4.1): Валидация target_type="practice" заменена на реальный SELECT из таблицы practices.
 
 Аудит: 5 замечаний (1 MEDIUM race condition, 1 LOW self-report bypass, 3 LINT). Все исправлены.
 Критерий готовности: Жалобы можно создавать и обрабатывать. 89 тестов, 0 warnings. ✅
@@ -933,89 +969,154 @@ telegram_id ranges: reports тесты 59xxx (не пересекаются с 5
 
 ## PHASE 4: Practices
 
-### 4.1: Модель Practice
+### 4.1: Модель Practice ✅
 
-**Цель:** Базовая модель практики.
+**Цель:** Базовая модель практики + удаление стабов.
 
 **Задачи:**
-- [ ] app/modules/practices/models.py
-- [ ] Practice model со всеми типами
-- [ ] Миграция
+- [x] app/modules/practices/models.py -- Practice, PracticeType, PracticeStatus
+- [x] app/modules/practices/__init__.py
+- [x] Миграция `create_practices_table` (down_revision: b2c3d4e5f6a7)
+- [x] Удаление стабов: admin/stats (practices_count), reports (practice validation)
+- [x] migrations/env.py -- import Practice (для autogenerate)
 
 **Модель:**
 ```python
-class PracticeType(str, Enum):
+class PracticeType(enum.StrEnum):
     LIVE = "live"
     SERIES = "series"
     ONE_ON_ONE = "one_on_one"
     REPLAY = "replay"
 
-class PracticeStatus(str, Enum):
+class PracticeStatus(enum.StrEnum):
     DRAFT = "draft"
     SCHEDULED = "scheduled"
     LIVE = "live"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    DELETED = "deleted"  # Phase 4.2: soft delete for drafts
 
-class Practice(Base):
+class Practice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "practices"
-    
-    id: Mapped[UUID]
-    master_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
-    
-    type: Mapped[PracticeType]
-    status: Mapped[PracticeStatus] = mapped_column(default=PracticeStatus.DRAFT)
-    
+
+    master_id: Mapped[UUID] = mapped_column(
+        ForeignKey("master_profiles.user_id", ondelete="CASCADE")
+    )
+
+    practice_type: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="draft")
+
     title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str | None] = mapped_column(Text)
-    
-    scheduled_at: Mapped[datetime]
-    duration_minutes: Mapped[int]
+    description: Mapped[str | None] = mapped_column(Text, default=None)
+
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    duration_minutes: Mapped[int] = mapped_column(Integer)
     timezone: Mapped[str] = mapped_column(String(50))
-    
-    max_participants: Mapped[int | None]
-    current_participants: Mapped[int] = mapped_column(default=0)
-    
-    # Zoom (manual for MVP)
-    zoom_link: Mapped[str | None] = mapped_column(String(500))
-    
-    # Series support
-    parent_practice_id: Mapped[UUID | None] = mapped_column(ForeignKey("practices.id"))
-    
-    created_at: Mapped[datetime]
-    updated_at: Mapped[datetime]
+
+    max_participants: Mapped[int | None] = mapped_column(Integer, default=None)
+    current_participants: Mapped[int] = mapped_column(Integer, default=0)
+    # TODO Phase 5: Wire current_participants or remove
+
+    zoom_link: Mapped[str | None] = mapped_column(String(500), default=None)
+
+    parent_practice_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("practices.id", ondelete="SET NULL"), default=None
+    )
 ```
 
-> **Примечание (P-09):** При реализации использовать `enum.StrEnum` вместо `(str, Enum)`.
-> ТЗ написано в старом стиле — это legacy, не копировать буквально.
+**Индексы миграции:**
+- `ix_practices_master_id` -- listing practices by master
+- `ix_practices_scheduled_at` -- public feed chronological order
 
-**Критерий готовности:** Миграция применена.
+**Решения, принятые при реализации:**
+- **FK → master_profiles.user_id** (не users.id) -- DB-level guarantee: только мастера владеют практиками
+- **`practice_type`** (не `type`) -- избегаем shadowing Python builtin
+- **`scheduled_at` NOT NULL** -- мастер обязан указать время при создании, нет nullable drafts
+- **`parent_practice_id`** -- self-referential FK для серий, создан сразу (не отложен)
+- **`current_participants`** -- колонка создана, но НЕ ИСПОЛЬЗУЕТСЯ до Phase 5. Phase 5 решит: increment on booking или COUNT
+- **`DELETED`** -- добавлен в Phase 4.2 (soft delete для черновиков, отделён от `cancelled`)
+- **Стабы удалены**: admin/stats/service.py (practices_count → реальный COUNT), reports/service.py (practice validation → реальный SELECT)
+- **StrEnum (P-09)** -- не `(str, Enum)` как в старом ТЗ
+
+**Аудит:** 4 замечания (1 LOW stale docstring, 3 LINT formatting/indent/E501). Все исправлены.
+
+**Критерий готовности:** Миграция применена, стабы заменены. 89 тестов, 0 warnings. ✅
 
 ---
 
-### 4.2: CRUD для мастера
+### 4.2: CRUD для мастера ✅
 
 **Цель:** Мастер может управлять практиками.
 
 **Задачи:**
-- [ ] app/modules/practices/service.py
-- [ ] app/modules/practices/router.py
-- [ ] POST /practices — создание
-- [ ] GET /practices/{id} — детали
-- [ ] PATCH /practices/{id} — редактирование
-- [ ] DELETE /practices/{id} — удаление (soft delete)
-- [ ] Проверка ownership
+- [x] app/modules/practices/schemas.py -- CreatePracticeRequest, UpdatePracticeRequest, PracticeResponse
+- [x] app/modules/practices/service.py -- create, get, update, delete, list_master_practices
+- [x] app/modules/practices/router.py -- POST, GET/{id}, PATCH/{id}, DELETE/{id}
+- [x] app/modules/auth/dependencies.py -- добавлен `get_current_master`
+- [x] app/modules/masters/router.py -- добавлен GET /masters/me/practices
+- [x] app/core/config.py -- practice_min/max_duration_minutes
+- [x] State machine enforcement (VALID_TRANSITIONS)
+- [x] NOT NULL field guard (P-02)
+- [x] FOR UPDATE на мутирующих операциях (P-12)
+- [x] tests/test_practices.py -- 16 тестов
 
 **Endpoints:**
 ```
-POST   /api/v1/practices
-GET    /api/v1/practices/{id}
-PATCH  /api/v1/practices/{id}
-DELETE /api/v1/practices/{id}
-GET    /api/v1/masters/me/practices  # Мои практики
+POST   /api/v1/practices               -- создание (verified master only)
+GET    /api/v1/practices/{id}           -- детали (любой auth user, visibility rules)
+PATCH  /api/v1/practices/{id}           -- редактирование (owner master only)
+DELETE /api/v1/practices/{id}           -- soft delete draft (owner master only)
+GET    /api/v1/masters/me/practices     -- мои практики (verified master only)
 ```
 
-**Критерий готовности:** Мастер может создать и управлять практикой.
+**Результат:**
+```
+backend/app/modules/practices/
+├── __init__.py
+├── models.py        ← Phase 4.1 + DELETED status
+├── schemas.py       ← Create/Update/Response, validators
+├── service.py       ← CRUD + state machine + visibility
+└── router.py        ← 4 endpoints (prefix=/api/v1/practices)
+
+backend/app/modules/auth/dependencies.py  ← +get_current_master
+backend/app/modules/masters/router.py     ← +GET /me/practices
+backend/app/core/config.py               ← +duration bounds
+
+backend/tests/
+└── test_practices.py  ← 16 тестов (telegram_id range: 60xxx)
+```
+
+**Решения, принятые при реализации:**
+
+- **`get_current_master`** dependency -- проверяет role=MASTER + MasterProfile exists + status=verified. Возвращает `tuple[User, MasterProfile]`. Переиспользуется в Phase 6 (withdrawals), Phase 8 (insights)
+- **GET /masters/me/practices** живёт в `masters/router.py` (URL domain), service-функция в `practices/service.py` (бизнес-логика)
+- **Soft delete vs cancel:**
+  - `DELETE` на draft → `status=deleted` (мастер тихо удалил черновик, без последствий)
+  - Cancel для published практик → отдельный flow в Phase 5 (refunds, уведомления)
+  - `deleted` и `cancelled` -- разные статусы с разной семантикой
+- **State machine enforcement** -- `_VALID_TRANSITIONS` map в service:
+  ```
+  draft      → scheduled, deleted
+  scheduled  → live, cancelled
+  live       → completed, cancelled
+  completed  → (terminal)
+  cancelled  → (terminal)
+  deleted    → (terminal)
+  ```
+  PATCH с невалидным переходом → 400. Также доступен через PATCH `status=deleted` (оба пути защищены state machine)
+- **FOR UPDATE (P-12)** -- `update_practice()` и `delete_practice()` используют `with_for_update()` для предотвращения lost updates при concurrent status transitions
+- **NOT NULL guard (P-02)** -- `_NOT_NULL_FIELDS = {"title", "scheduled_at", "duration_minutes", "timezone"}`. PATCH с explicit null → 400 (не 500 IntegrityError)
+- **Visibility rules** -- GET /{id}: draft/deleted видит только owner, остальным 404 (P-08: 404 not 403). scheduled/live/completed/cancelled видят все auth users
+- **Validation** -- scheduled_at > now, IANA timezone (ZoneInfo), duration в config-bounds (5-480 min), practice_type через Literal
+- **Config** -- `PRACTICE_MIN_DURATION_MINUTES=5`, `PRACTICE_MAX_DURATION_MINUTES=480` (настраиваемо через .env)
+- **list_master_practices** -- excludes deleted, shows own drafts, ORDER BY scheduled_at DESC, limit/offset
+- **telegram_id ranges**: 60001-60099 masters, 60100-60199 regular users, 60900-60999 admins
+
+**Аудит:**
+- Round 12: 3 проблемы MEDIUM (no FOR UPDATE, no state machine, title missing from NOT_NULL_FIELDS) + 1 LOW (P-02 null for NOT NULL). Все исправлены
+- Предсказанные ошибки из Code Review Guide (P-02, P-12) -- выявлены и закрыты
+
+**Критерий готовности:** Мастер может создать и управлять практикой. 105 тестов, 0 warnings. ✅
 
 ---
 
@@ -1127,6 +1228,11 @@ class Booking(Base):
 ### 5.2: Создание/отмена брони
 
 **Цель:** Юзер может записаться и отменить.
+
+> **Из Phase 4.2:** DELETE endpoint для практик работает только на draft'ах (→ status=deleted).
+> Отмена published практик (scheduled/live → cancelled) должна быть реализована здесь,
+> т.к. требует refund-логику, уведомления бронировавших пользователей.
+> Endpoint: `POST /api/v1/practices/{id}/cancel` (или через PATCH status=cancelled с валидацией).
 
 **Задачи:**
 - [ ] POST /api/v1/bookings — создать бронь
@@ -1412,6 +1518,10 @@ MasterProfile.available_amount = SUM(master_ledger.amount)
 ### 6.5: Cancellations & Refunds
 
 **Цель:** Политика отмен.
+
+> **Из Phase 4.2:** Practice state machine уже enforcement'ится в service.
+> `scheduled → cancelled` и `live → cancelled` -- допустимые переходы.
+> Этот Phase добавляет бизнес-логику поверх: refunds, уведомления, no-show.
 
 **Задачи:**
 - [ ] CANCELLATION_DEADLINE_HOURS = 24
@@ -1788,6 +1898,7 @@ Response: {
 | TD-028 | 🧪 | `masters/schemas.py` | `documents: list[dict]` — содержимое dict'ов не ограничено | Типизировать при реализации S3/file upload | ⬜ |
 | TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия или передача user_id вместо объекта | ⬜ |
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
+| TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
 
