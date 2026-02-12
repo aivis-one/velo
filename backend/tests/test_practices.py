@@ -483,6 +483,60 @@ async def test_delete_non_draft_practice(
 
 
 # ---------------------------------------------------------------------------
+# PATCH /practices/{id} -- invalid status transition (400)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_update_practice_invalid_transition(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Cannot transition from draft to completed: 400."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "completed"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# PATCH /practices/{id} -- null NOT NULL field (400, P-02)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_update_practice_null_not_null_field(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Setting NOT NULL field to null: 400."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    resp = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"scheduled_at": None},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
 # GET /masters/me/practices -- success
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio

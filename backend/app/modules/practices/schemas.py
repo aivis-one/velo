@@ -7,6 +7,11 @@
 #   - timezone must be a valid IANA timezone
 #   - duration_minutes must be within config bounds
 #   - practice_type validated via Literal
+#
+# P-02 NOTE:
+#   NOT NULL fields (scheduled_at, duration_minutes, timezone) are typed
+#   as `X | None` in UpdatePracticeRequest so that "not sent" works with
+#   exclude_unset. The service layer guards against explicit null.
 # =============================================================================
 
 from datetime import datetime, timezone
@@ -71,8 +76,8 @@ class UpdatePracticeRequest(BaseModel):
     """PATCH /api/v1/practices/{id} -- request body.
 
     All fields optional. Only provided fields are updated.
-    NOT NULL columns (title, timezone, duration_minutes) use
-    min_length / ge validators to prevent blank values.
+    NOT NULL columns use service-layer guard against explicit null (P-02).
+    Status transitions are validated against the state machine in service.
     """
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
@@ -83,12 +88,15 @@ class UpdatePracticeRequest(BaseModel):
     max_participants: int | None = Field(default=None, ge=1, le=10000)
     zoom_link: str | None = Field(default=None, max_length=500)
     status: Literal[
-        "draft", "scheduled", "live", "completed", "cancelled"
+        "draft", "scheduled", "live",
+        "completed", "cancelled", "deleted",
     ] | None = None
 
     @field_validator("scheduled_at")
     @classmethod
-    def scheduled_at_must_be_future(cls, v: datetime | None) -> datetime | None:
+    def scheduled_at_must_be_future(
+        cls, v: datetime | None,
+    ) -> datetime | None:
         """Reject practices scheduled in the past."""
         if v is None:
             return v
@@ -100,7 +108,9 @@ class UpdatePracticeRequest(BaseModel):
 
     @field_validator("timezone")
     @classmethod
-    def timezone_must_be_iana(cls, v: str | None) -> str | None:
+    def timezone_must_be_iana(
+        cls, v: str | None,
+    ) -> str | None:
         """Validate timezone is a real IANA timezone."""
         if v is None:
             return v
@@ -114,7 +124,9 @@ class UpdatePracticeRequest(BaseModel):
 
     @field_validator("duration_minutes")
     @classmethod
-    def duration_in_range(cls, v: int | None) -> int | None:
+    def duration_in_range(
+        cls, v: int | None,
+    ) -> int | None:
         """Validate duration is within configured bounds."""
         if v is None:
             return v

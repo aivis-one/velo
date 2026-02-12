@@ -8,6 +8,18 @@
 #   All mutating operations (update, delete) verify master_id == user.id.
 #   get_practice() applies visibility rules: draft/deleted only for owner.
 #
+# STATE MACHINE:
+#   draft      -> scheduled, deleted
+#   scheduled  -> live, cancelled
+#   live       -> completed, cancelled
+#   completed  -> (terminal)
+#   cancelled  -> (terminal)
+#   deleted    -> (terminal)
+#
+# CONCURRENCY:
+#   update_practice() and delete_practice() use with_for_update() (P-12)
+#   to prevent lost updates on status transitions.
+#
 # DELETE vs CANCEL:
 #   DELETE sets status=deleted (only from draft).
 #   Cancel for published practices will be in Phase 5 (refunds needed).
@@ -39,6 +51,25 @@ _PUBLIC_STATUSES = {
     PracticeStatus.COMPLETED.value,
     PracticeStatus.CANCELLED.value,
 }
+
+# Valid state transitions. Terminal states have no outgoing edges.
+_VALID_TRANSITIONS: dict[str, set[str]] = {
+    PracticeStatus.DRAFT.value: {
+        PracticeStatus.SCHEDULED.value,
+        PracticeStatus.DELETED.value,
+    },
+    PracticeStatus.SCHEDULED.value: {
+        PracticeStatus.LIVE.value,
+        PracticeStatus.CANCELLED.value,
+    },
+    PracticeStatus.LIVE.value: {
+        PracticeStatus.COMPLETED.value,
+        PracticeStatus.CANCELLED.value,
+    },
+}
+
+# NOT NULL columns that cannot be set to None via PATCH (P-02).
+_NOT_NULL_FIELDS = {"scheduled_at", "duration_minutes", "timezone"}
 
 
 async def create_practice(
@@ -106,11 +137,20 @@ async def update_practice(
 ) -> Practice:
     """Update a practice. Only the owner master can edit.
 
+    Uses FOR UPDATE to prevent lost updates on concurrent
+    status transitions (P-12).
+
     Raises NotFoundError if not found.
     Raises ForbiddenError if not owner (P-06).
-    Raises BadRequestError if practice is deleted.
+    Raises BadRequestError if practice is deleted/terminal,
+        if NOT NULL field set to null (P-02),
+        or if status transition is invalid.
     """
-    stmt = select(Practice).where(Practice.id == practice_id)
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
     result = await session.execute(stmt)
     practice = result.scalar_one_or_none()
 
@@ -123,8 +163,24 @@ async def update_practice(
     if practice.status == PracticeStatus.DELETED.value:
         raise BadRequestError("Cannot edit a deleted practice")
 
-    # Apply only provided fields.
     update_data = body.model_dump(exclude_unset=True)
+
+    # Guard NOT NULL fields against explicit null (P-02).
+    for field in _NOT_NULL_FIELDS:
+        if field in update_data and update_data[field] is None:
+            raise BadRequestError(f"{field} cannot be null")
+
+    # Validate status transition if status is being changed.
+    if "status" in update_data:
+        new_status = update_data["status"]
+        allowed = _VALID_TRANSITIONS.get(practice.status, set())
+        if new_status not in allowed:
+            raise BadRequestError(
+                f"Cannot transition from "
+                f"{practice.status} to {new_status}"
+            )
+
+    # Apply only provided fields.
     for field, value in update_data.items():
         setattr(practice, field, value)
 
@@ -148,11 +204,17 @@ async def delete_practice(
     Only drafts can be deleted. Published practices must be cancelled
     through a separate flow (Phase 5) that handles refunds.
 
+    Uses FOR UPDATE to prevent concurrent state changes (P-12).
+
     Raises NotFoundError if not found.
     Raises ForbiddenError if not owner (P-06).
     Raises BadRequestError if not a draft.
     """
-    stmt = select(Practice).where(Practice.id == practice_id)
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
     result = await session.execute(stmt)
     practice = result.scalar_one_or_none()
 
