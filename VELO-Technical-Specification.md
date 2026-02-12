@@ -1406,17 +1406,58 @@ backend/tests/
 **Критерий готовности:** Waitlist работает автоматически. 145 тестов, 0 warnings. ✅
 ---
 
-### 5.4: Attendance tracking
+### 5.4: Attendance tracking ✅
 
-**Цель:** Учёт посещаемости.
+**Цель:** Учёт посещаемости. Юзер чекинится при входе на Zoom. Мастер финализирует практику.
 
 **Задачи:**
-- [ ] POST /api/v1/bookings/{id}/join — отметить вход
-- [ ] POST /api/v1/bookings/{id}/leave — отметить выход
-- [ ] Автоматический no_show после окончания практики
-- [ ] Статистика для мастера
+- [x] bookings/service.py -- +join_booking, leave_booking, finalize_practice, get_attendance
+- [x] bookings/router.py -- +4 endpoints + practices_attendance_router
+- [x] bookings/schemas.py -- +AttendanceItemResponse, AttendanceResponse
+- [x] main.py -- include practices_attendance_router
+- [x] tests/test_attendance.py -- 14 тестов
 
-**Критерий готовности:** Мастер видит кто пришёл.
+**Endpoints:**
+```
+POST   /api/v1/bookings/{id}/join         -- check-in (user, sets joined_at)
+POST   /api/v1/bookings/{id}/leave        -- check-out (user, sets left_at)
+POST   /api/v1/practices/{id}/finalize    -- finalize (master-owner only)
+GET    /api/v1/practices/{id}/attendance   -- attendance list (master-owner only)
+```
+
+**Результат:**
+```
+backend/app/modules/bookings/
+├── service.py       ← +4 функции (join, leave, finalize, attendance)
+├── router.py        ← +4 endpoints, +practices_attendance_router
+└── schemas.py       ← +AttendanceItemResponse, AttendanceResponse
+
+backend/tests/
+└── test_attendance.py  ← 14 тестов (telegram_id range: 63xxx)
+```
+
+**Миграция: не нужна** — joined_at, left_at уже в модели Booking (Phase 5.1). COMPLETED уже в PracticeStatus (Phase 4.1).
+
+**Ключевые решения:**
+
+- **Join ≠ attended**: join ставит только `joined_at`, статус остаётся `confirmed`. Переход в `attended` происходит при finalize. Это даёт мастеру контроль до финализации и безопаснее (случайный join не блокирует cancel)
+- **Joinable statuses**: `{scheduled, live}`. Бэкенд не привязан к расписанию Zoom — join это просто чекин. Но нельзя чекиниться в cancelled/completed/deleted/draft практику
+- **Finalize — bulk operation**: все confirmed bookings с joined_at → attended, без joined_at → no_show. Practice → completed. Идемпотентность: повторный finalize → 400 "already finalized"
+- **Leave без join → 400**: бессмысленная операция, блокируем
+- **Double join → 409**: строго, не идемпотентно (по решению)
+- **Два роутера**: booking-level (join/leave) в `router`, practice-level (finalize/attendance) в `practices_attendance_router` — аналогично waitlist pattern
+- **Attendance GET**: read-only, использует `get_db_reader`. Доступен в любом статусе практики (можно смотреть и после completed)
+- **AttendanceResponse**: содержит агрегаты (total, attended, no_show, pending) + items list
+
+**Concurrency (аудит Раунд 20):**
+- join_booking: FOR UPDATE на Booking. Practice — только чтение статуса
+- leave_booking: FOR UPDATE на Booking
+- finalize_practice: FOR UPDATE на Practice + все confirmed Bookings
+- Concurrent join + finalize: сериализуются через row-level lock на Booking. Оба порядка корректны (finalize первый → join видит status≠confirmed → 400; join первый → finalize видит joined_at → attended)
+
+**Аудит:** 0 замечаний. Все 12 паттернов (P-01…P-12) пройдены чисто.
+
+**Критерий готовности:** Мастер видит кто пришёл. 159 тестов, 0 warnings. ✅
 
 ---
 
