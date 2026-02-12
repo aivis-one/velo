@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Waitlist Service (Phase 5.3)
+# VELO Backend -- Waitlist Service (Phase 5.3, bugfix round)
 # =============================================================================
 #
 # Business logic for waitlist join, leave/decline, confirm, and
@@ -23,8 +23,11 @@
 # CONFIRM FLOW:
 #   1. FOR UPDATE on waitlist entry (P-12)
 #   2. Owner check, status must be notified, not expired
-#   3. Create booking (skip capacity check -- spot is reserved)
-#   4. status -> converted
+#   3. Lazy expiration: if expired -> EXPIRED + process_waitlist + return None
+#      (no exception -- changes must commit)
+#   4. FOR UPDATE on practice + capacity recheck (overbooking prevention)
+#      If spot taken -> WAITING (back to queue) + return None
+#   5. Create booking, status -> converted
 #
 # PROCESS_WAITLIST (internal):
 #   Called from cancel_booking and leave/decline.
@@ -33,6 +36,13 @@
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router calls flush + refresh.
+#
+# BUGFIX NOTES:
+#   - confirm_waitlist returns (entry, None) instead of raising when
+#     expired or spot taken. This ensures get_db_session commits the
+#     status changes (EXPIRED/WAITING) instead of rolling them back.
+#   - confirm_waitlist locks Practice with FOR UPDATE and rechecks
+#     capacity to prevent overbooking race with create_booking.
 # =============================================================================
 
 from datetime import UTC, datetime, timedelta
@@ -279,13 +289,21 @@ async def confirm_waitlist(
     waitlist_id: UUID,
     user: User,
     session: AsyncSession,
-) -> tuple[Waitlist, Booking]:
+) -> tuple[Waitlist, Booking | None]:
     """Confirm a waitlist spot -- creates a booking.
 
     Only works when status=notified and expires_at > now().
     Creates a booking (confirmed) and transitions to converted.
 
-    Returns (waitlist_entry, booking).
+    Returns (entry, booking) on success.
+    Returns (entry, None) when:
+    - Offer expired: entry -> EXPIRED, next user notified.
+    - Spot taken by concurrent booking: entry -> WAITING (back to queue).
+
+    IMPORTANT: Returns (entry, None) instead of raising exceptions for
+    expired/spot-taken cases. This ensures get_db_session commits the
+    status changes. If we raised, the exception would trigger rollback
+    and the changes would be lost.
     """
     stmt = (
         select(Waitlist)
@@ -306,15 +324,50 @@ async def confirm_waitlist(
         raise BadRequestError("Can only confirm a notified waitlist entry")
 
     # Lazy expiration check.
+    # Returns (entry, None) instead of raising -- changes must commit.
     now = datetime.now(UTC)
     if entry.expires_at and entry.expires_at < now:
         entry.status = WaitlistStatus.EXPIRED.value
-        # Notify next in line since this one expired.
         await process_waitlist(entry.practice_id, session)
-        raise BadRequestError("Waitlist offer has expired")
 
-    # Create booking (auto-confirmed, skip capacity check --
-    # spot was reserved when previous booking was cancelled).
+        logger.info(
+            "waitlist_confirm_expired",
+            waitlist_id=str(waitlist_id),
+            user_id=str(user.id),
+            expires_at=entry.expires_at.isoformat(),
+        )
+        return entry, None
+
+    # Lock practice and recheck capacity (overbooking prevention).
+    # Between cancel_booking (which freed a spot) and now, a concurrent
+    # create_booking could have taken the spot.
+    practice_stmt = (
+        select(Practice)
+        .where(Practice.id == entry.practice_id)
+        .with_for_update()
+    )
+    practice = (await session.execute(practice_stmt)).scalar_one()
+
+    if practice.max_participants is not None:
+        active = await _get_active_booking_count(
+            session, entry.practice_id,
+        )
+        if active >= practice.max_participants:
+            # Spot was taken -- return user to queue (not their fault).
+            entry.status = WaitlistStatus.WAITING.value
+            entry.notified_at = None
+            entry.expires_at = None
+
+            logger.info(
+                "waitlist_confirm_spot_taken",
+                waitlist_id=str(waitlist_id),
+                user_id=str(user.id),
+                active_bookings=active,
+                max_participants=practice.max_participants,
+            )
+            return entry, None
+
+    # Create booking (auto-confirmed).
     booking = Booking(
         practice_id=entry.practice_id,
         user_id=user.id,

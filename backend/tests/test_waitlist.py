@@ -539,12 +539,18 @@ async def test_confirm_waitlist_expired(
     )
     await db_session.commit()
 
-    # Try confirm -> expired.
+    # Try confirm -> expired (400 via JSONResponse, not exception).
     resp = await client.post(
         f"{WAITLIST_URL}/{wid}/confirm",
         headers=headers,
     )
     assert resp.status_code == 400
+
+    # Bugfix verification: status must be committed as EXPIRED
+    # (not rolled back to notified).
+    await db_session.expire_all()
+    entry = await db_session.get(Waitlist, wid)
+    assert entry.status == "expired"
 
 
 @pytest.mark.asyncio
@@ -779,3 +785,75 @@ async def test_decline_notifies_next(
     entry2 = await db_session.get(Waitlist, wid2)
     await db_session.refresh(entry2)
     assert entry2.status == "notified"
+
+
+# ===================================================================
+# Overbooking prevention (bugfix: capacity recheck in confirm)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_confirm_spot_taken_returns_to_waiting(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """When a concurrent booking takes the freed spot, confirm returns
+    user to WAITING instead of overbooking.
+
+    Scenario:
+      1. Practice has 1 slot, filled by filler.
+      2. Waiter joins waitlist.
+      3. Filler cancels -> waiter gets notified.
+      4. A new user books the freed slot (concurrent).
+      5. Waiter tries confirm -> spot taken -> status=waiting, 400.
+    """
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(
+        client, master, max_participants=1,
+    )
+    filler = await _fill_practice(client, pid, telegram_id=62140)
+
+    waiter = await login_user(
+        client, telegram_id=62141, first_name="Waiter",
+    )
+    waiter_headers = auth_headers(waiter["session_token"])
+
+    # Waiter joins waitlist.
+    join_resp = await client.post(
+        WAITLIST_JOIN_URL.format(practice_id=pid),
+        headers=waiter_headers,
+    )
+    assert join_resp.status_code == 201
+    wid = join_resp.json()["id"]
+
+    # Filler cancels -> waiter notified.
+    await client.delete(
+        f"{BOOKINGS_URL}/{filler['booking_id']}",
+        headers=auth_headers(filler["session_token"]),
+    )
+
+    # Concurrent user takes the freed slot.
+    sniper = await login_user(
+        client, telegram_id=62142, first_name="Sniper",
+    )
+    book_resp = await client.post(
+        BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=auth_headers(sniper["session_token"]),
+    )
+    assert book_resp.status_code == 201
+
+    # Waiter tries to confirm -> spot taken, back to waiting.
+    confirm_resp = await client.post(
+        f"{WAITLIST_URL}/{wid}/confirm",
+        headers=waiter_headers,
+    )
+    assert confirm_resp.status_code == 400
+    assert "no longer available" in confirm_resp.json()["message"]
+
+    # Verify entry is back to WAITING (committed, not rolled back).
+    await db_session.expire_all()
+    entry = await db_session.get(Waitlist, wid)
+    assert entry.status == "waiting"
+    assert entry.notified_at is None
+    assert entry.expires_at is None
