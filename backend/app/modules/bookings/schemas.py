@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Schemas (Phase 5.2)
+# VELO Backend -- Booking Schemas (Phase 5.2, extended Phase 5.4)
 # =============================================================================
 
 from datetime import datetime
@@ -38,3 +38,29 @@ class BookingResponse(BaseModel):
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+# -- Phase 5.4: Attendance --
+
+
+class AttendanceItemResponse(BaseModel):
+    """Single booking in attendance list."""
+
+    booking_id: UUID
+    user_id: UUID
+    status: str
+    joined_at: datetime | None
+    left_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
+class AttendanceResponse(BaseModel):
+    """GET /api/v1/practices/{id}/attendance -- response."""
+
+    practice_id: UUID
+    total: int
+    attended: int
+    no_show: int
+    pending: int
+    items: list[AttendanceItemResponse]

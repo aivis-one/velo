@@ -1,8 +1,8 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2, patched Phase 5.3)
+# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4)
 # =============================================================================
 #
-# Business logic for booking create and cancel.
+# Business logic for booking create, cancel, attendance, and finalize.
 #
 # STATE MACHINE:
 #   pending   -> confirmed, cancelled
@@ -11,18 +11,18 @@
 #   no_show   -> (terminal)
 #   cancelled -> (terminal)
 #
+# ATTENDANCE (Phase 5.4):
+#   join_booking:  sets joined_at (status stays confirmed)
+#   leave_booking: sets left_at (requires joined_at)
+#   finalize:      confirmed + joined_at -> attended
+#                  confirmed + no joined_at -> no_show
+#                  practice -> completed
+#
 # CAPACITY:
 #   Checked via COUNT of active bookings, not current_participants (TD-034).
 #
-# PAID PRACTICES:
-#   Blocked with 400 "Payment required" until Phase 6.
-#
-# DUPLICATE BOOKINGS:
-#   UniqueConstraint (practice_id, user_id). IntegrityError -> 409.
-#
 # WAITLIST INTEGRATION (Phase 5.3):
-#   After cancelling a booking, process_waitlist is called to
-#   notify the first waiting user in the queue.
+#   After cancelling a booking, process_waitlist is called.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router handles flush + refresh.
@@ -57,6 +57,18 @@ _ACTIVE_BOOKING_STATUSES = {
 _CANCELLABLE_STATUSES = {
     BookingStatus.PENDING.value,
     BookingStatus.CONFIRMED.value,
+}
+
+# Practice statuses that allow user check-in.
+_JOINABLE_PRACTICE_STATUSES = {
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
+}
+
+# Practice statuses that allow finalization.
+_FINALIZABLE_PRACTICE_STATUSES = {
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
 }
 
 
@@ -212,3 +224,230 @@ async def cancel_booking(
     await process_waitlist(booking.practice_id, session)
 
     return booking
+
+
+# ===================================================================
+# Phase 5.4: Attendance
+# ===================================================================
+
+
+async def join_booking(
+    booking_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Booking:
+    """Mark user as joined (check-in).
+
+    Sets joined_at timestamp. Status stays confirmed -- the
+    transition to attended happens at finalize.
+
+    Validates:
+    - Booking exists and belongs to user (P-08).
+    - Status is confirmed.
+    - Practice is in joinable state (scheduled/live).
+    - Not already joined (409).
+
+    Uses FOR UPDATE (P-12).
+    """
+    stmt = (
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+
+    if not booking:
+        raise NotFoundError("Booking not found")
+
+    if booking.user_id != user.id:
+        raise NotFoundError("Booking not found")
+
+    if booking.status != BookingStatus.CONFIRMED.value:
+        raise BadRequestError(
+            "Can only join a confirmed booking"
+        )
+
+    if booking.joined_at is not None:
+        raise ConflictError("Already joined")
+
+    # Check practice is in joinable state.
+    practice_stmt = (
+        select(Practice)
+        .where(Practice.id == booking.practice_id)
+    )
+    practice = (
+        await session.execute(practice_stmt)
+    ).scalar_one()
+
+    if practice.status not in _JOINABLE_PRACTICE_STATUSES:
+        raise BadRequestError("Cannot join this practice")
+
+    booking.joined_at = datetime.now(timezone.utc)
+
+    logger.info(
+        "booking_joined",
+        booking_id=str(booking_id),
+        user_id=str(user.id),
+        practice_id=str(booking.practice_id),
+    )
+
+    return booking
+
+
+async def leave_booking(
+    booking_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Booking:
+    """Mark user as left.
+
+    Sets left_at timestamp. Requires joined_at to be set.
+
+    Validates:
+    - Booking exists and belongs to user (P-08).
+    - joined_at is set (400 if not).
+    - left_at is not already set (409).
+
+    Uses FOR UPDATE (P-12).
+    """
+    stmt = (
+        select(Booking)
+        .where(Booking.id == booking_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    booking = result.scalar_one_or_none()
+
+    if not booking:
+        raise NotFoundError("Booking not found")
+
+    if booking.user_id != user.id:
+        raise NotFoundError("Booking not found")
+
+    if booking.joined_at is None:
+        raise BadRequestError(
+            "Cannot leave without joining first"
+        )
+
+    if booking.left_at is not None:
+        raise ConflictError("Already left")
+
+    booking.left_at = datetime.now(timezone.utc)
+
+    logger.info(
+        "booking_left",
+        booking_id=str(booking_id),
+        user_id=str(user.id),
+        practice_id=str(booking.practice_id),
+    )
+
+    return booking
+
+
+async def finalize_practice(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Practice:
+    """Finalize a practice -- set attendance statuses.
+
+    Master-only. Transitions:
+    - confirmed + joined_at IS NOT NULL -> attended
+    - confirmed + joined_at IS NULL     -> no_show
+    - Practice status -> completed
+
+    Validates:
+    - Practice exists and belongs to master (P-08: 404).
+    - Practice is in finalizable state (scheduled/live).
+
+    Uses FOR UPDATE on practice (P-12).
+    """
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    # P-08: 404 not 403 for non-owner.
+    if practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if practice.status not in _FINALIZABLE_PRACTICE_STATUSES:
+        raise BadRequestError("Practice already finalized")
+
+    # Bulk update: confirmed + joined -> attended, else -> no_show.
+    bookings_stmt = (
+        select(Booking)
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.status == BookingStatus.CONFIRMED.value,
+        )
+        .with_for_update()
+    )
+    bookings_result = await session.execute(bookings_stmt)
+    bookings = bookings_result.scalars().all()
+
+    attended_count = 0
+    no_show_count = 0
+
+    for booking in bookings:
+        if booking.joined_at is not None:
+            booking.status = BookingStatus.ATTENDED.value
+            attended_count += 1
+        else:
+            booking.status = BookingStatus.NO_SHOW.value
+            no_show_count += 1
+
+    practice.status = PracticeStatus.COMPLETED.value
+
+    logger.info(
+        "practice_finalized",
+        practice_id=str(practice_id),
+        master_id=str(user.id),
+        attended=attended_count,
+        no_show=no_show_count,
+    )
+
+    return practice
+
+
+async def get_attendance(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> tuple[Practice, list[Booking]]:
+    """Get attendance list for a practice (master-only).
+
+    Returns all non-cancelled bookings with attendance data.
+
+    Validates:
+    - Practice exists and belongs to master (P-08: 404).
+    """
+    stmt = select(Practice).where(Practice.id == practice_id)
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    if practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    bookings_stmt = (
+        select(Booking)
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.status != BookingStatus.CANCELLED.value,
+        )
+        .order_by(Booking.created_at)
+    )
+    bookings_result = await session.execute(bookings_stmt)
+    bookings = list(bookings_result.scalars().all())
+
+    return practice, bookings

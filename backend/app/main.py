@@ -30,7 +30,10 @@ from app.modules.masters.router import router as masters_router
 from app.modules.users.router import router as users_router
 from app.modules.reports.router import router as reports_router
 from app.modules.practices.router import router as practices_router
-from app.modules.bookings.router import router as bookings_router
+from app.modules.bookings.router import (
+    practices_attendance_router,  # Phase 5.4
+    router as bookings_router,
+)
 from app.modules.waitlist.router import (  # Phase 5.3
     practices_waitlist_router,
     waitlist_router,
@@ -82,8 +85,9 @@ app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(practices_router)
 app.include_router(bookings_router)
-app.include_router(practices_waitlist_router)  # Phase 5.3
-app.include_router(waitlist_router)             # Phase 5.3
+app.include_router(practices_waitlist_router)    # Phase 5.3
+app.include_router(waitlist_router)               # Phase 5.3
+app.include_router(practices_attendance_router)   # Phase 5.4
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
