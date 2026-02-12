@@ -1,6 +1,6 @@
 # VELO -- Техническое задание
 
-**Версия:** 1.8
+**Версия:** 1.9
 **Дата:** 12 февраля 2026
 **Статус:** Draft
 
@@ -1217,80 +1217,96 @@ backend/tests/
 
 ## PHASE 5: Bookings
 
-### 5.1: Модель Booking
+### 5.1+5.2: Booking Model + Create/Cancel ✅
 
-**Цель:** Бронирования практик.
+**Цель:** Модель бронирования. Юзер может записаться и отменить.
+
+> **Объединение:** 5.1 (модель) и 5.2 (endpoints) реализованы вместе.
 
 **Задачи:**
-- [ ] app/modules/bookings/models.py
-- [ ] Booking model
-- [ ] Миграция
+- [x] app/modules/bookings/models.py -- Booking, BookingStatus (StrEnum)
+- [x] app/modules/bookings/schemas.py -- CreateBookingRequest, CancelBookingRequest, BookingResponse
+- [x] app/modules/bookings/service.py -- create_booking(), cancel_booking()
+- [x] app/modules/bookings/router.py -- POST, DELETE
+- [x] Миграция create_bookings_table (down_revision: d4e5f6a7b8c9)
+- [x] tests/test_bookings.py -- 13 тестов
+
+**Endpoints:**
+```
+POST   /api/v1/bookings          -- create booking (any auth user)
+DELETE /api/v1/bookings/{id}     -- cancel booking (owner only)
+```
 
 **Модель:**
 ```python
-class BookingStatus(str, Enum):
+class BookingStatus(enum.StrEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     ATTENDED = "attended"
     NO_SHOW = "no_show"
     CANCELLED = "cancelled"
 
-class Booking(Base):
+class Booking(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "bookings"
-    
-    id: Mapped[UUID]
-    practice_id: Mapped[UUID] = mapped_column(ForeignKey("practices.id"))
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
-    
-    status: Mapped[BookingStatus] = mapped_column(default=BookingStatus.PENDING)
-    
-    purchase_id: Mapped[UUID | None] = mapped_column(ForeignKey("purchases.id"))
-    
-    booked_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    practice_id: Mapped[UUID]   # FK practices.id, CASCADE
+    user_id: Mapped[UUID]       # FK users.id, CASCADE
+    status: Mapped[str]         # String(20), default "pending"
+    purchase_id: Mapped[UUID | None]  # Stub, no FK until Phase 6.4
     cancelled_at: Mapped[datetime | None]
     cancellation_reason: Mapped[str | None]
-    
-    joined_at: Mapped[datetime | None]
-    left_at: Mapped[datetime | None]
-    
-    __table_args__ = (
-        UniqueConstraint("practice_id", "user_id", name="uq_booking_practice_user"),
-    )
+    joined_at: Mapped[datetime | None]   # Phase 5.4
+    left_at: Mapped[datetime | None]     # Phase 5.4
+
+    UniqueConstraint("practice_id", "user_id")
 ```
 
-> **Примечание (P-09):** При реализации использовать `enum.StrEnum`.
+**State machine:**
+```
+pending   -> confirmed, cancelled
+confirmed -> attended, no_show, cancelled
+attended  -> (terminal)
+no_show   -> (terminal)
+cancelled -> (terminal)
+```
 
-**Критерий готовности:** Миграция применена.
+**Результат:**
+```
+backend/app/modules/bookings/
+├── __init__.py
+├── models.py        ← Booking + BookingStatus
+├── schemas.py       ← Create/Cancel/Response
+├── service.py       ← create_booking, cancel_booking
+└── router.py        ← POST + DELETE
 
----
+backend/migrations/versions/
+└── 2026_02_12_e5f6a7b8c9d0_create_bookings_table.py
 
-### 5.2: Создание/отмена брони
+backend/tests/
+└── test_bookings.py  ← 13 тестов (telegram_id range: 61xxx)
+```
 
-**Цель:** Юзер может записаться и отменить.
+**Решения, принятые при реализации:**
+
+- **`booked_at` убран** -- дублирует `created_at` из TimestampMixin. Косяк ТЗ, исправлен
+- **`purchase_id: UUID | None`** без FK -- таблицы purchases ещё нет. FK добавим ALTER TABLE в Phase 6.4
+- **`joined_at / left_at`** включены сразу -- Phase 5.4 (attendance) в той же Phase 5
+- **Capacity: COUNT** (не increment `current_participants`) -- `SELECT COUNT(*) FROM bookings WHERE status IN (pending, confirmed)`. Точнее, нет risk рассинхрона. `current_participants` не используется (TD-034)
+- **Только scheduled** практики допускают бронирование (`live` = уже идёт)
+- **Self-booking prevention** -- `practice.master_id == user.id` → 400 (мастер не может забронировать свою практику)
+- **Мастер как юзер** -- мастер может бронировать чужие практики (мастер = юзер за пределами своей практики)
+- **Free → auto-confirm** -- booking создаётся сразу в `confirmed` (не `pending`). Розетка для модерации мастером оставлена на будущее (за пределами MVP)
+- **Paid → 400** "Payment required" -- stub до Phase 6. Предельно тупой блок
+- **Duplicate → 409** -- UniqueConstraint + `try/except IntegrityError` + `rollback()` (P-05)
+- **FOR UPDATE на Practice** при создании booking -- capacity check + INSERT атомарны, предотвращает overbooking
+- **P-08** -- cancel_booking: non-owner получает 404 (не 403), аналогично practices
 
 > **Из Phase 4.2:** DELETE endpoint для практик работает только на draft'ах (→ status=deleted).
-> Отмена published практик (scheduled/live → cancelled) должна быть реализована здесь,
-> т.к. требует refund-логику, уведомления бронировавших пользователей.
-> Endpoint: `POST /api/v1/practices/{id}/cancel` (или через PATCH status=cancelled с валидацией).
+> Отмена published практик (scheduled/live → cancelled) с refund-логикой -- Phase 6.5.
 
-**Задачи:**
-- [ ] POST /api/v1/bookings — создать бронь
-- [ ] DELETE /api/v1/bookings/{id} — отменить
-- [ ] Проверка лимита мест
-- [ ] Проверка оплаты (если платная)
-- [ ] Уведомления
+**Аудит:** 1 замечание LOW (P-08 cancel 403→404). Исправлено.
 
-**Endpoints:**
-```
-POST   /api/v1/bookings
-Body: {"practice_id": "uuid"}
-Response: {"booking": {...}, "status": "confirmed|pending_payment"}
-
-DELETE /api/v1/bookings/{id}
-Response: {"status": "cancelled"}
-```
-
-**Критерий готовности:** Юзер может записаться на практику.
+**Критерий готовности:** Юзер может записаться и отменить. 128 тестов, 0 warnings. ✅
 
 ---
 
@@ -1944,6 +1960,7 @@ Response: {
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
 | TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировать все суммы в центы (int) при реализации Phase 6 | ⬜ |
+| TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | Либо wire к booking create/cancel, либо удалить колонку. Оптимизация при масштабировании | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
 
