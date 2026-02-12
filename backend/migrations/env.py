@@ -34,6 +34,7 @@ from app.modules.users.models import User  # noqa: F401
 from app.modules.masters.models import MasterProfile  # noqa: F401
 from app.modules.practices.models import Practice  # noqa: F401
 from app.modules.bookings.models import Booking  # noqa: F401
+from app.modules.waitlist.models import Waitlist  # noqa: F401  # Phase 5.3
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to alembic.ini values.
@@ -47,8 +48,6 @@ if config.config_file_name is not None:
 # ---------------------------------------------------------------------------
 # Target metadata — Alembic compares this against DB to find changes.
 # ---------------------------------------------------------------------------
-# When you add a model that inherits from Base, its table automatically
-# appears in Base.metadata. Alembic sees it and generates a migration.
 target_metadata = Base.metadata
 
 

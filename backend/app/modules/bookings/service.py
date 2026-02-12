@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2)
+# VELO Backend -- Booking Service (Phase 5.1+5.2, patched Phase 5.3)
 # =============================================================================
 #
 # Business logic for booking create and cancel.
@@ -19,6 +19,10 @@
 #
 # DUPLICATE BOOKINGS:
 #   UniqueConstraint (practice_id, user_id). IntegrityError -> 409.
+#
+# WAITLIST INTEGRATION (Phase 5.3):
+#   After cancelling a booking, process_waitlist is called to
+#   notify the first waiting user in the queue.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router handles flush + refresh.
@@ -166,6 +170,9 @@ async def cancel_booking(
     Only the booking owner can cancel. Only pending/confirmed
     bookings can be cancelled. No refund logic (stub until Phase 6).
 
+    After cancellation, triggers waitlist processing to notify
+    the next waiting user (Phase 5.3).
+
     Uses FOR UPDATE to prevent concurrent cancellation (P-12).
     """
     stmt = (
@@ -199,5 +206,9 @@ async def cancel_booking(
         user_id=str(user.id),
         reason=reason,
     )
+
+    # Phase 5.3: Notify next waiting user in the queue.
+    from app.modules.waitlist.service import process_waitlist
+    await process_waitlist(booking.practice_id, session)
 
     return booking
