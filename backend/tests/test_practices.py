@@ -36,6 +36,10 @@ _CLEANUP_MASTERS_SQL = text(
     "DELETE FROM master_profiles WHERE user_id IN "
     "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
 )
+_RESET_ROLES_SQL = text(
+    "UPDATE users SET role = 'user' "
+    "WHERE telegram_id BETWEEN 60000 AND 60999"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -43,13 +47,15 @@ _CLEANUP_MASTERS_SQL = text(
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean practices and masters for test range before/after."""
+    """Clean practices, masters, and reset roles for test range."""
     await db_session.execute(_CLEANUP_PRACTICES_SQL)
     await db_session.execute(_CLEANUP_MASTERS_SQL)
+    await db_session.execute(_RESET_ROLES_SQL)
     await db_session.commit()
     yield
     await db_session.execute(_CLEANUP_PRACTICES_SQL)
     await db_session.execute(_CLEANUP_MASTERS_SQL)
+    await db_session.execute(_RESET_ROLES_SQL)
     await db_session.commit()
 
 
@@ -118,12 +124,18 @@ async def _make_verified_master(
     )
     await db_session.commit()
 
+    # Re-login admin to pick up new role in session.
+    admin_auth = await login_user(
+        client, telegram_id=60900, first_name="Admin"
+    )
+
     user_id = auth["user"]["id"]
-    await client.post(
+    verify_resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
         json={},
         headers=auth_headers(admin_auth["session_token"]),
     )
+    assert verify_resp.status_code == 200
 
     # Re-login to get updated role in session.
     auth = await login_user(
@@ -270,6 +282,7 @@ async def test_get_practice_success(
         json=_valid_practice_body(),
         headers=auth_headers(master_auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     # Update status to scheduled.
@@ -307,6 +320,7 @@ async def test_get_draft_practice_owner(
         json=_valid_practice_body(),
         headers=auth_headers(auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     resp = await client.get(
@@ -333,6 +347,7 @@ async def test_get_draft_practice_not_owner(
         json=_valid_practice_body(),
         headers=auth_headers(master_auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     user_auth = await login_user(
@@ -361,6 +376,7 @@ async def test_update_practice_success(
         json=_valid_practice_body(),
         headers=auth_headers(auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     resp = await client.patch(
@@ -390,6 +406,7 @@ async def test_update_practice_not_owner(
         json=_valid_practice_body(),
         headers=auth_headers(master_auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     # Create another master.
@@ -421,6 +438,7 @@ async def test_delete_draft_practice(
         json=_valid_practice_body(),
         headers=auth_headers(auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     resp = await client.delete(
@@ -447,6 +465,7 @@ async def test_delete_non_draft_practice(
         json=_valid_practice_body(),
         headers=auth_headers(auth["session_token"]),
     )
+    assert create_resp.status_code == 201
     practice_id = create_resp.json()["id"]
 
     # Set to scheduled.
@@ -476,11 +495,12 @@ async def test_list_my_practices(
 
     # Create 2 practices.
     for title in ("Practice A", "Practice B"):
-        await client.post(
+        resp = await client.post(
             PRACTICES_URL,
             json=_valid_practice_body(title=title),
             headers=auth_headers(auth["session_token"]),
         )
+        assert resp.status_code == 201
 
     resp = await client.get(
         MY_PRACTICES_URL,
