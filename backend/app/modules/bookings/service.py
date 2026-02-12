@@ -35,7 +35,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import (
     BadRequestError,
     ConflictError,
-    ForbiddenError,
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
@@ -180,8 +179,9 @@ async def cancel_booking(
     if not booking:
         raise NotFoundError("Booking not found")
 
+    # P-08: 404 not 403 to avoid revealing booking existence.
     if booking.user_id != user.id:
-        raise ForbiddenError("Not the owner of this booking")
+        raise NotFoundError("Booking not found")
 
     if booking.status not in _CANCELLABLE_STATUSES:
         raise BadRequestError(

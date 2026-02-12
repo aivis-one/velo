@@ -463,7 +463,7 @@ async def test_cancel_booking_not_owner(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Non-owner cannot cancel: 403."""
+    """Non-owner cannot cancel: 404 (P-08)."""
     master = await _make_verified_master(
         client, db_session,
     )
@@ -487,7 +487,7 @@ async def test_cancel_booking_not_owner(
         f"{BOOKINGS_URL}/{bid}",
         headers=auth_headers(user2["session_token"]),
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
