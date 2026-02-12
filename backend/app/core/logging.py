@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Structured Logging (structlog)
+# VELO Backend -- Structured Logging (structlog)
 # =============================================================================
 #
 # WHY STRUCTLOG?
@@ -13,6 +13,17 @@
 # TWO MODES:
 #   Development: colored, human-readable output (ConsoleRenderer)
 #   Production:  JSON lines, one event per line (JSONRenderer)
+#
+# FILTERING (TD-011):
+#   make_filtering_bound_logger(level) creates a wrapper class that
+#   drops events below the configured level BEFORE processing. This
+#   is more efficient than filtering in the processor chain.
+#
+# IDEMPOTENCY (TD-012):
+#   setup_logging() is guarded by _configured flag. If called twice
+#   (e.g., app startup + test setup), the second call is a no-op.
+#   This prevents cache_logger_on_first_use from locking in a wrong
+#   config if structlog.get_logger() was called between two setups.
 #
 # USAGE:
 #   import structlog
@@ -28,6 +39,9 @@ import sys
 
 import structlog
 
+# Guard flag for idempotency (TD-012).
+_configured: bool = False
+
 
 def setup_logging(log_level: str = "DEBUG", json_logs: bool = False) -> None:
     """Configure structlog for the application.
@@ -36,7 +50,12 @@ def setup_logging(log_level: str = "DEBUG", json_logs: bool = False) -> None:
         log_level: Minimum severity to log (DEBUG/INFO/WARNING/ERROR).
         json_logs: True = JSON output (production), False = pretty (dev).
     """
-    # Convert string level to logging constant: "DEBUG" → logging.DEBUG
+    global _configured
+    if _configured:
+        return
+    _configured = True
+
+    # Convert string level to logging constant: "DEBUG" -> logging.DEBUG
     level = getattr(logging, log_level.upper(), logging.DEBUG)
 
     # -- Shared processors (run on every log event) --
@@ -67,18 +86,17 @@ def setup_logging(log_level: str = "DEBUG", json_logs: bool = False) -> None:
 
     structlog.configure(
         processors=[
-            # Filter events below the configured level.
             *shared_processors,
             # Format exceptions as readable tracebacks.
             structlog.processors.format_exc_info,
             # Final step: render to JSON or console.
             renderer,
         ],
-        # dict is the fastest context class for structlog.
         context_class=dict,
-        # BoundLogger wraps stdlib logging — compatible with
-        # existing Python logging infrastructure.
-        wrapper_class=structlog.stdlib.BoundLogger,
+        # TD-011: make_filtering_bound_logger drops events below
+        # the configured level at the binding stage -- before any
+        # processor runs. Much more efficient than stdlib filtering.
+        wrapper_class=structlog.make_filtering_bound_logger(level),
         logger_factory=structlog.PrintLoggerFactory(
             file=sys.stdout,
         ),
@@ -87,7 +105,7 @@ def setup_logging(log_level: str = "DEBUG", json_logs: bool = False) -> None:
     )
 
     # Also configure stdlib logging (used by uvicorn, sqlalchemy, etc.)
-    # so their output goes through structlog too.
+    # so their output respects the same level.
     logging.basicConfig(
         format="%(message)s",
         level=level,

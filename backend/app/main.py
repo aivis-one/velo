@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.database import dispose_engine, get_engine
 from app.core.exceptions import VeloError
 from app.core.logging import setup_logging
+from app.core.middleware import TraceIdMiddleware
 from app.core.redis import close_redis, get_redis, init_redis
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
@@ -131,6 +132,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------------------------------------------------------------------------
+# Trace ID (Pre-6.1)
+# ---------------------------------------------------------------------------
+# Added AFTER CORSMiddleware so Starlette applies it as the outermost
+# layer (LIFO order). Every request gets a trace_id before CORS runs.
+app.add_middleware(TraceIdMiddleware)
 
 
 # ---------------------------------------------------------------------------
