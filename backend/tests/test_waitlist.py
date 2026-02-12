@@ -548,7 +548,7 @@ async def test_confirm_waitlist_expired(
 
     # Bugfix verification: status must be committed as EXPIRED
     # (not rolled back to notified).
-    await db_session.expire_all()
+    db_session.expire_all()
     entry = await db_session.get(Waitlist, wid)
     assert entry.status == "expired"
 
@@ -852,7 +852,7 @@ async def test_confirm_spot_taken_returns_to_waiting(
     assert "no longer available" in confirm_resp.json()["message"]
 
     # Verify entry is back to WAITING (committed, not rolled back).
-    await db_session.expire_all()
+    db_session.expire_all()
     entry = await db_session.get(Waitlist, wid)
     assert entry.status == "waiting"
     assert entry.notified_at is None
