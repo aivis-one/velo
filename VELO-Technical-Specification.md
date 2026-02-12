@@ -1310,34 +1310,100 @@ backend/tests/
 
 ---
 
-### 5.3: Waitlist
+### 5.3: Waitlist ✅
 
-**Цель:** Очередь ожидания.
+**Цель:** Очередь ожидания. При отмене брони — автоматическое уведомление первого в очереди.
 
 **Задачи:**
-- [ ] Модель Waitlist
-- [ ] POST /api/v1/practices/{id}/waitlist — встать в очередь
-- [ ] DELETE /api/v1/waitlist/{id} — выйти из очереди
-- [ ] При отмене брони — уведомить первого в очереди
-- [ ] 30 минут на подтверждение
+- [x] app/modules/waitlist/models.py -- Waitlist, WaitlistStatus (StrEnum)
+- [x] app/modules/waitlist/schemas.py -- WaitlistEntryResponse, WaitlistConfirmResponse
+- [x] app/modules/waitlist/service.py -- join_waitlist, leave_waitlist, confirm_waitlist, process_waitlist
+- [x] app/modules/waitlist/router.py -- 3 endpoints (2 роутера)
+- [x] Миграция create_waitlist_table (down_revision: e5f6a7b8c9d0)
+- [x] Патч bookings/service.py -- cancel_booking → process_waitlist
+- [x] Патч main.py -- include waitlist routers
+- [x] tests/test_waitlist.py -- 19 тестов
+
+**Endpoints:**
+```
+POST   /api/v1/practices/{id}/waitlist   -- join waitlist (any auth user)
+DELETE /api/v1/waitlist/{id}             -- leave / decline (owner only)
+POST   /api/v1/waitlist/{id}/confirm     -- confirm spot (creates booking)
+```
 
 **Модель:**
 ```python
-class Waitlist(Base):
+class WaitlistStatus(enum.StrEnum):
+    WAITING = "waiting"
+    NOTIFIED = "notified"
+    CONVERTED = "converted"
+    LEFT = "left"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+
+class Waitlist(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "waitlist"
-    
-    id: Mapped[UUID]
-    practice_id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    position: Mapped[int]
-    joined_at: Mapped[datetime]
+
+    practice_id: Mapped[UUID]       # FK practices.id, CASCADE
+    user_id: Mapped[UUID]           # FK users.id, CASCADE
+    position: Mapped[int]           # computed at INSERT/re-join
+    status: Mapped[str]             # String(20), default "waiting"
+    joined_at: Mapped[datetime]     # updated on re-join
     notified_at: Mapped[datetime | None]
-    expires_at: Mapped[datetime | None]
-    status: Mapped[str]  # waiting, notified, converted, expired
+    expires_at: Mapped[datetime | None]  # notified_at + 30 min
+
+    UniqueConstraint("practice_id", "user_id")
+    Index("ix_waitlist_practice_status_position", practice_id, status, position)
 ```
 
-**Критерий готовности:** Waitlist работает автоматически.
+**State machine:**
+```
+waiting   -> notified, left
+notified  -> converted, declined, expired, left
+converted -> (terminal)
+left      -> waiting (re-join: UPDATE position, joined_at, status)
+declined  -> waiting (re-join)
+expired   -> waiting (re-join)
+```
 
+**Результат:**
+```
+backend/app/modules/waitlist/
+├── __init__.py
+├── models.py        ← Waitlist + WaitlistStatus + REJOINABLE/ACTIVE sets
+├── schemas.py       ← WaitlistEntryResponse, WaitlistConfirmResponse
+├── service.py       ← join, leave, confirm, process_waitlist
+└── router.py        ← 2 роутера (practices_waitlist_router, waitlist_router)
+
+backend/migrations/versions/
+└── 2026_02_12_f6a7b8c9d0e1_create_waitlist_table.py
+
+backend/tests/
+└── test_waitlist.py  ← 19 тестов (telegram_id range: 62xxx)
+```
+
+**Решения, принятые при реализации:**
+
+- **Soft delete** -- нет hard delete. Leave/decline/expire меняют статус. Re-join обновляет ту же строку (UniqueConstraint остаётся простым)
+- **Position: stored column** -- `MAX(position) + 1` subquery, race-safe т.к. Practice залочен FOR UPDATE. "Дырки" (1, 3, 5) допустимы — порядок сохраняется
+- **Re-join** -- UPDATE существующей строки с новым position в конце очереди. Справедливо: ушёл — вернулся в хвост
+- **Два роутера** -- `practices_waitlist_router` (`/practices/{id}/waitlist`) + `waitlist_router` (`/waitlist/{id}`) из-за разных URL-префиксов
+- **process_waitlist** -- внутренняя функция, вызывается из cancel_booking (lazy import для circular prevention) и из leave (при decline)
+- **Notifications** -- stub через `logger.info("waitlist_notification_stub", ...)`, реальные Telegram уведомления в Phase 7
+- **Lazy expiration** -- проверка в confirm endpoint как safety net. Полная periodic task — отдельный тикет (Pre-6 или Phase 7)
+
+**Баги найденные и исправленные (Раунд 18-19):**
+
+1. **MEDIUM — Overbooking race** (Раунд 18): `confirm_waitlist` не проверял capacity. Между cancel и confirm конкурентный `create_booking` мог занять место → overbooking. **Фикс:** FOR UPDATE на Practice + capacity recheck. Если место занято → `entry.status = WAITING` (обратно в очередь, пользователь не виноват) + `return (entry, None)`
+
+2. **MEDIUM — Lazy expiration rollback** (Раунд 18): `BadRequestError` после `entry.status = EXPIRED` + `process_waitlist` вызывал rollback в `get_db_session` → изменения терялись, entry "застревал" в notified. **Фикс:** `return (entry, None)` вместо raise. Роутер проверяет `booking is None` → `JSONResponse(400)` (не exception → get_db_session коммитит)
+
+**Паттерн `return None + JSONResponse`:**
+Когда service-функция должна одновременно (a) закоммитить изменения состояния и (b) вернуть ошибку клиенту — нельзя бросать exception (P-01: get_db_session откатит). Решение: service возвращает маркер (None), роутер возвращает JSONResponse(400) напрямую. Коммит происходит нормально.
+
+**Аудит:** 2 замечания MEDIUM (overbooking race, expiration rollback). Исправлены. Re-check Раунд 19: ✅ чисто.
+
+**Критерий готовности:** Waitlist работает автоматически. 145 тестов, 0 warnings. ✅
 ---
 
 ### 5.4: Attendance tracking
