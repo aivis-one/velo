@@ -389,7 +389,7 @@ backend/app/
 - `telegram_id` — отдельная колонка (BigInteger, unique, indexed) для быстрого поиска при логине. Правило: ищем по колонке, храним в JSONB
 - `credentials` — JSONB-песочница для данных auth неясной структуры (telegram username, photo, будущие email/password/OAuth)
 - `role` хранится как `String(20)` (не PostgreSQL ENUM) — asyncpg не умеет кастить строки в PG ENUM при server_default. Python-side `UserRole(str, Enum)` валидирует
-- `balance_user` — `Numeric(18, 2)`, default=0, не трогаем до Phase 6
+- `balance_cents` — `Integer`, default=0, EUR cents (Phase 6.1, TD-033 resolved)
 - Миксины: `UUIDMixin` (uuid4 app-side), `TimestampMixin` (created_at server_default, updated_at ORM-level onupdate)
 - Все datetime-колонки — `DateTime(timezone=True)` (TIMESTAMP WITH TIME ZONE)
 
@@ -1466,39 +1466,40 @@ backend/tests/
 > Перенесена из Phase 0.6. Базовый structlog уже работает (Phase 0.3).
 > Здесь: доработка логирования + аудит финансовых операций, необходимый для Phase 6.
 
-### Pre-6.1: Logging hardening
+### Pre-6.1: Logging hardening ✅
 
 **Цель:** Довести structlog до production-качества.
 
 **Задачи:**
-- [ ] Фильтрация по LOG_LEVEL (structlog `make_filtering_bound_logger`)
-- [ ] Идемпотентность `setup_logging()` (защита от двойной инициализации)
-- [ ] Middleware для trace_id (X-Trace-ID в каждый запрос/ответ)
+- [x] Фильтрация по LOG_LEVEL (structlog `make_filtering_bound_logger`)
+- [x] Идемпотентность `setup_logging()` (защита от двойной инициализации)
+- [x] Middleware для trace_id (X-Trace-ID в каждый запрос/ответ)
 
-**Middleware для trace_id:**
-```python
-@app.middleware("http")
-async def trace_id_middleware(request: Request, call_next):
-    trace_id = request.headers.get("X-Trace-ID", str(uuid4()))
-    structlog.contextvars.clear_contextvars()
-    structlog.contextvars.bind_contextvars(trace_id=trace_id)
-    response = await call_next(request)
-    response.headers["X-Trace-ID"] = trace_id
-    return response
-```
+**Решения, принятые при реализации:**
+- Pure ASGI `TraceIdMiddleware` (не `BaseHTTPMiddleware` — избегаем двойное чтение body)
+- Middleware также извлекает `ip_address` (X-Forwarded-For → ASGI client) и `user_agent` → contextvars
+- `ip_address` и `user_agent` подхватываются `record_audit()` автоматически через `get_contextvars()`
+- **Trace_id guard:** входящий `X-Trace-ID` длиннее 36 символов отбрасывается → генерируется uuid4. Защита от `DataError` в `AuditLog.trace_id = String(36)` при финансовых транзакциях
 
-**Критерий готовности:** `LOG_LEVEL=WARNING` фильтрует debug/info, trace_id в каждом лог-сообщении.
+**Критерий готовности:** `LOG_LEVEL=WARNING` фильтрует debug/info, trace_id в каждом лог-сообщении. ✅
 
 ---
 
-### Pre-6.2: Audit Service
+### Pre-6.2: Audit Service ✅
 
 **Цель:** Аудит финансовых операций — юридическое требование.
 
 **Задачи:**
-- [ ] app/core/audit.py — сервис аудита
-- [ ] Модель AuditLog
-- [ ] Миграция
+- [x] app/core/audit.py — модель + сервис (единый файл, инфраструктурный слой)
+- [x] Модель AuditLog (immutable, без TimestampMixin)
+- [x] Миграция `a0b1c2d3e4f5`
+- [x] 4 теста
+
+**Решения, принятые при реализации:**
+- AuditLog наследует `Base` напрямую (не UUIDMixin) — explicit uuid4 default, без `updated_at` (immutable)
+- `actor_type: String(20)` — значения `"user"`, `"admin"`, `"system"` (не enum, задокументировано в docstring)
+- `record_audit()` не коммитит (P-01), читает `trace_id`, `ip_address`, `user_agent` из contextvars
+- structlog kwarg: `audit_event=event` (не `event=event` — конфликт с positional arg structlog)
 
 **Модель AuditLog:**
 ```python
@@ -1547,97 +1548,72 @@ class AuditLog(Base):
 
 ## PHASE 6: Payments
 
-### 6.1: Ledgers
+### 6.1: Ledgers ✅
 
 **Цель:** Три журнала транзакций.
 
 **Задачи:**
-- [ ] app/modules/payments/models.py
-- [ ] UserLedger, MasterLedger, CompanyLedger
-- [ ] Миграции
+- [x] app/modules/payments/models.py — UserLedger, MasterLedger, CompanyLedger
+- [x] Миграция `b1c2d3e4f5a6` — три таблицы
+- [x] Миграция `c2d3e4f5a6b7` — TD-033: `Numeric(18,2)` → `Integer` (cents) + rename
 
-**Модели:**
-```python
-class LedgerStatus(str, Enum):
-    PENDING = "pending"
-    DONE = "done"
-    CANCELLED = "cancelled"
+**Модели (актуальные):**
+- `LedgerStatus(StrEnum)`: `pending`, `done`, `cancelled`
+- `CompanyLedgerType(StrEnum)`: `commission`, `marketing`, `refund`, `withdrawal_fee`
+- `UserLedger`: UUIDMixin, `user_id`, `amount_cents: int`, `status`, `reason`, `notes`, `created_at`
+- `MasterLedger`: UUIDMixin, `user_id`, `amount_cents: int`, `is_frozen: bool`, `status`, `reason`, `practice_id`, `notes`, `created_at`
+- `CompanyLedger`: UUIDMixin, `amount_cents: int`, `type`, `status`, `reason`, `reference_id: UUID | None`, `created_at`
 
-class UserLedger(Base):
-    __tablename__ = "user_ledger"
-    
-    id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
-    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
-    reason: Mapped[str]
-    notes: Mapped[str | None]
-    created_at: Mapped[datetime]
+**Решения, принятые при реализации:**
+- Все суммы в EUR cents (`Integer`), не `Decimal` (TD-033 resolved)
+- `StrEnum` (P-09), хранение как `String(20)` (не PG ENUM)
+- UUIDMixin для `id`, без TimestampMixin (immutable — только `created_at`, нет `updated_at`)
+- `CompanyLedger.reference_id` — опциональная ссылка на purchase/withdrawal для audit trail
+- **Rename balance columns:** `User.balance_user` → `balance_cents`, `MasterProfile.frozen_amount` → `frozen_cents`, `MasterProfile.available_amount` → `available_cents`
+- Обновлены schemas: `UserResponse.balance_cents: int`, `MasterProfileResponse.frozen_cents: int`, `available_cents: int`
+- Индексы: `user_id`, `practice_id`, `created_at`, `reference_id`
 
-class MasterLedger(Base):
-    __tablename__ = "master_ledger"
-    
-    id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
-    is_frozen: Mapped[bool] = mapped_column(default=True)
-    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
-    reason: Mapped[str]
-    practice_id: Mapped[UUID | None]
-    notes: Mapped[str | None]
-    created_at: Mapped[datetime]
-    
-class CompanyLedgerType(str, Enum):
-    COMMISSION = "commission"
-    MARKETING = "marketing"
-    REFUND = "refund"
-    WITHDRAWAL_FEE = "withdrawal_fee"
-
-class CompanyLedger(Base):
-    __tablename__ = "company_ledger"
-    
-    id: Mapped[UUID]
-    amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2))
-    type: Mapped[CompanyLedgerType]
-    reason: Mapped[str]
-    status: Mapped[LedgerStatus] = mapped_column(default=LedgerStatus.DONE)
-    created_at: Mapped[datetime]
-```
-
-> **Примечание (P-09):** При реализации использовать `enum.StrEnum`.
-
-> **TD-033 (Phase 4.3/4.4):** `Practice.price_cents` хранит суммы в центах (int),
-> а `balance_user`, `frozen_amount`, `available_amount` — в `Numeric(18,2)` (доллары).
-> При реализации Phase 6 унифицировать все суммы в центы: `amount_cents: int`
-> вместо `amount: Decimal`. Валюта: EUR.
-
-**Критерий готовности:** Миграции применены.
+**Критерий готовности:** Миграции применены. 170 тестов. ✅
 
 ---
 
-### 6.2: Balance listeners
+### 6.2: Balance listeners ✅
 
 **Цель:** Автоматический пересчёт балансов.
 
 **Задачи:**
-- [ ] app/modules/payments/listeners.py
-- [ ] Listener на user_ledger → User.balance_user
-- [ ] Listener на master_ledger → MasterProfile.frozen_amount / available_amount
-- [ ] Защита от прямого изменения балансов
+- [x] app/modules/payments/service.py — три `record_*` функции
+- [x] Listener на user_ledger → User.balance_cents
+- [x] Listener на master_ledger → MasterProfile.frozen_cents / available_cents
+- [x] Защита от прямого изменения балансов (`__setattr__` guard)
+- [x] 5 тестов
 
-**Логика:**
+**Логика (актуальная):**
 ```python
-# User balance
-User.balance_user = SUM(user_ledger.amount) WHERE status='done'
+# User balance (SUM in cents)
+User.balance_cents = SUM(user_ledger.amount_cents) WHERE status='done'
 
-# Master balance (ДВА поля!)
-MasterProfile.frozen_amount = SUM(master_ledger.amount) 
-    WHERE status='done' AND is_frozen=true
-MasterProfile.available_amount = SUM(master_ledger.amount) 
-    WHERE status='done' AND is_frozen=false
+# Master balance — ДВА поля, ОДИН запрос (CASE SUM)
+MasterProfile.frozen_cents = SUM(CASE WHEN is_frozen THEN amount_cents ELSE 0)
+    WHERE status='done'
+MasterProfile.available_cents = SUM(CASE WHEN NOT is_frozen THEN amount_cents ELSE 0)
+    WHERE status='done'
 ```
 
-**Критерий готовности:** Балансы автоматически обновляются при записи в ledger.
+**Решения, принятые при реализации:**
+- **Не event listeners** — SQLAlchemy `@event.listens_for` синхронный, в async (asyncpg) не работает. Используем явные сервисные функции: `record_user_ledger()`, `record_master_ledger()`, `record_company_ledger()`
+- **Паттерн:** `add → flush → SELECT SUM() → FOR UPDATE on owner row → update cache → flush`
+- **Concurrency (P-07):** `session.get(User, id, with_for_update=True)` сериализует конкурентные записи одного владельца
+- **Balance guard:** `__setattr__` на User и MasterProfile — логирует `warning("direct_balance_write")` при прямом присвоении `balance_cents`/`frozen_cents`/`available_cents`. НЕ блокирует — safety net
+- **`_ledger_update` flag bypass:** `record_*` функции устанавливают `object.__setattr__(obj, '_ledger_update', True)` перед присвоением, чтобы guard молчал. `object.__setattr__` для флага, обычное присвоение для значения (SQLAlchemy instrumentation)
+
+> **Архитектурное правило (P-13): `object.__setattr__` vs SQLAlchemy instrumentation.**
+> `object.__setattr__(model, "field", value)` обходит SQLAlchemy instrumented descriptor —
+> ORM НЕ видит изменение, НЕ включает поле в UPDATE. `flag_modified()` тоже не помогает
+> (дескриптор не участвовал). Для обхода custom `__setattr__` guard'а при сохранении
+> ORM tracking: использовать `_ledger_update` flag + обычное присвоение + `flush()`.
+
+**Критерий готовности:** Балансы автоматически обновляются при записи в ledger. 170 тестов. ✅
 
 ---
 
@@ -2040,8 +2016,8 @@ Response: {
 
 | ID | Среда | Файл | Проблема | Решение | Статус |
 |----|-------|------|----------|---------|--------|
-| TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ⬜ |
-| TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг или проверка на повторный вызов | ⬜ |
+| TD-011 | 🧪🚀 | `logging.py` | structlog не фильтрует по log level — `LOG_LEVEL=WARNING` не работает | `make_filtering_bound_logger` с уровнем из config | ✅ |
+| TD-012 | 🧪🚀 | `logging.py` | `setup_logging()` не идемпотентна — `cache_logger_on_first_use` может закешировать дефолт | Guard-флаг `_configured` | ✅ |
 
 ### Косметика — без дедлайна
 
@@ -2051,7 +2027,7 @@ Response: {
 | TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в 3 местах (main.py, pyproject.toml, ?) | Вынести в одно место, читать из config или `__version__` | ⬜ |
 | TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Добавить validator (аналогично SECRET_KEY). Сейчас .env генерируется скриптом — риск минимален | ⬜ |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
-| TD-022 | 🧪 | `auth/schemas.py` | `balance_user` в AuthResponse — всегда 0 до Phase 6, шум | Убрать из AuthResponse, вернуть в Phase 6 | ⬜ |
+| TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в AuthResponse — всегда 0 до реальных платежей, шум | Убрать из AuthResponse или оставить (фронт может показывать баланс) | ⬜ |
 | TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
 | TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` | ⬜ |
 
@@ -2066,7 +2042,7 @@ Response: {
 | TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия или передача user_id вместо объекта | ⬜ |
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
-| TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировать все суммы в центы (int) при реализации Phase 6 | ⬜ |
+| TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировано: все суммы в центы (int), миграция `c2d3e4f5a6b7` | ✅ |
 | TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | Либо wire к booking create/cancel, либо удалить колонку. Оптимизация при масштабировании | ⬜ |
 
 ### Осознанные решения (НЕ является долгом)
