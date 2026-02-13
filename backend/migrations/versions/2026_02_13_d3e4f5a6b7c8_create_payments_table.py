@@ -54,7 +54,7 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column(
-            "metadata",
+            "stripe_metadata",
             postgresql.JSONB(astext_type=sa.Text()),
             nullable=True,
         ),

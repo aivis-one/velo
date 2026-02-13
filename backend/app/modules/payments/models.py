@@ -323,7 +323,8 @@ class Payment(UUIDMixin, Base):
     )
 
     # -- Metadata (freeform JSONB for Stripe event data) --
-    metadata: Mapped[dict | None] = mapped_column(
+    stripe_metadata: Mapped[dict | None] = mapped_column(
+        "stripe_metadata",
         JSONB,
         default=None,
     )

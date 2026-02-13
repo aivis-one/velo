@@ -270,7 +270,7 @@ async def handle_checkout_completed(
     payment.stripe_payment_intent_id = event_data.get(
         "payment_intent"
     )
-    payment.metadata = {
+    payment.stripe_metadata = {
         "stripe_event": {
             "customer_email": event_data.get("customer_email"),
             "amount_total": event_data.get("amount_total"),
