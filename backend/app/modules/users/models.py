@@ -116,3 +116,18 @@ class User(UUIDMixin, TimestampMixin, Base):
             f"tg={self.telegram_id} "
             f"role={self.role.value}>"
         )
+
+    # -- Balance guard (Phase 6.2) --
+    # Warns if balance_cents is set directly instead of via
+    # record_user_ledger(). Does NOT block — just logs a warning.
+    _GUARDED_FIELDS = frozenset({"balance_cents"})
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in self._GUARDED_FIELDS:
+            import structlog
+            structlog.get_logger().warning(
+                "direct_balance_write",
+                field=name,
+                hint="Use record_user_ledger() instead",
+            )
+        super().__setattr__(name, value)

@@ -98,3 +98,18 @@ class MasterProfile(JSONBMixin, Base):
     def __repr__(self) -> str:
         status = self.data.get("account", {}).get("status", "unknown")
         return f"<MasterProfile user_id={self.user_id} status={status}>"
+
+    # -- Balance guard (Phase 6.2) --
+    # Warns if frozen_cents/available_cents are set directly instead
+    # of via record_master_ledger(). Does NOT block — just logs.
+    _GUARDED_FIELDS = frozenset({"frozen_cents", "available_cents"})
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name in self._GUARDED_FIELDS:
+            import structlog
+            structlog.get_logger().warning(
+                "direct_balance_write",
+                field=name,
+                hint="Use record_master_ledger() instead",
+            )
+        super().__setattr__(name, value)
