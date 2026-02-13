@@ -139,6 +139,8 @@ class Settings(BaseSettings):
                 )
 
         # STRIPE_SECRET_KEY: required in production. (Phase 6.3)
+        # Value "TEST" is accepted as a stub -- app starts but
+        # topup endpoint returns 503 (checked in stripe.py).
         if not self.stripe_secret_key:
             if is_dev:
                 self.stripe_secret_key = (
@@ -147,7 +149,8 @@ class Settings(BaseSettings):
             else:
                 raise ValueError(
                     "STRIPE_SECRET_KEY is required in production. "
-                    "Get it from Stripe Dashboard."
+                    "Set to 'TEST' to start without Stripe, or "
+                    "provide a real key from Stripe Dashboard."
                 )
 
         # STRIPE_WEBHOOK_SECRET: required in production. (Phase 6.3)
@@ -159,7 +162,8 @@ class Settings(BaseSettings):
             else:
                 raise ValueError(
                     "STRIPE_WEBHOOK_SECRET is required in production. "
-                    "Get it from Stripe Dashboard -> Webhooks."
+                    "Set to 'TEST' to start without Stripe, or "
+                    "provide a real key from Stripe Dashboard -> Webhooks."
                 )
 
         # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)
@@ -171,7 +175,8 @@ class Settings(BaseSettings):
             else:
                 raise ValueError(
                     "STRIPE_SUCCESS_URL is required in production. "
-                    "Set to your Telegram WebApp success page URL."
+                    "Set to 'TEST' to start without Stripe, or "
+                    "provide your Telegram WebApp success page URL."
                 )
 
         # STRIPE_CANCEL_URL: required in production. (Phase 6.3)
@@ -183,7 +188,8 @@ class Settings(BaseSettings):
             else:
                 raise ValueError(
                     "STRIPE_CANCEL_URL is required in production. "
-                    "Set to your Telegram WebApp cancel page URL."
+                    "Set to 'TEST' to start without Stripe, or "
+                    "provide your Telegram WebApp cancel page URL."
                 )
 
         return self
@@ -194,6 +200,11 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
+
+    @property
+    def is_stripe_stub(self) -> bool:
+        """True when Stripe is not configured (keys set to 'TEST')."""
+        return self.stripe_secret_key.upper() == "TEST"
 
 
 # Singleton: one Settings instance for the entire application.

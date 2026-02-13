@@ -81,6 +81,12 @@ async def create_topup_session(
     """
     _configure_stripe()
 
+    # Guard: reject topup if Stripe is not configured (stub mode).
+    if settings.is_stripe_stub:
+        raise BadRequestError(
+            "Payment system is not configured yet"
+        )
+
     # Step 1: Create pending Payment record.
     payment = Payment(
         user_id=user_id,
