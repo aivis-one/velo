@@ -30,7 +30,6 @@ from uuid import UUID
 import structlog
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.attributes import flag_modified
 
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
@@ -82,9 +81,11 @@ async def record_user_ledger(
         User, user_id, with_for_update=True,
     )
     balance = await _sum_user_balance(user_id, session)
-    # Bypass __setattr__ guard — this IS the legitimate updater.
-    object.__setattr__(user, "balance_cents", balance)
-    flag_modified(user, "balance_cents")
+    # Set via normal assignment so SQLAlchemy tracks the change.
+    # _ledger_update flag suppresses the __setattr__ guard.
+    object.__setattr__(user, '_ledger_update', True)
+    user.balance_cents = balance
+    object.__setattr__(user, '_ledger_update', False)
 
     logger.info(
         "user_ledger_recorded",
@@ -140,11 +141,12 @@ async def record_master_ledger(
         MasterProfile, user_id, with_for_update=True,
     )
     frozen, available = await _sum_master_balances(user_id, session)
-    # Bypass __setattr__ guard — this IS the legitimate updater.
-    object.__setattr__(profile, "frozen_cents", frozen)
-    flag_modified(profile, "frozen_cents")
-    object.__setattr__(profile, "available_cents", available)
-    flag_modified(profile, "available_cents")
+    # Set via normal assignment so SQLAlchemy tracks the change.
+    # _ledger_update flag suppresses the __setattr__ guard.
+    object.__setattr__(profile, '_ledger_update', True)
+    profile.frozen_cents = frozen
+    profile.available_cents = available
+    object.__setattr__(profile, '_ledger_update', False)
 
     logger.info(
         "master_ledger_recorded",

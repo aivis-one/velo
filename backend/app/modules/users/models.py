@@ -123,7 +123,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     _GUARDED_FIELDS = frozenset({"balance_cents"})
 
     def __setattr__(self, name: str, value: object) -> None:
-        if name in self._GUARDED_FIELDS:
+        if name in self._GUARDED_FIELDS and not getattr(self, '_ledger_update', False):
             import structlog
             structlog.get_logger().warning(
                 "direct_balance_write",
