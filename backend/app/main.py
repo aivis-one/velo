@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Application Entry Point
+# VELO Backend -- Application Entry Point (updated Phase 6.3)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -39,6 +39,8 @@ from app.modules.waitlist.router import (  # Phase 5.3
     practices_waitlist_router,
     waitlist_router,
 )
+from app.modules.payments.router import router as payments_router  # Phase 6.3
+from app.modules.payments.webhook_router import webhook_router     # Phase 6.3
 
 
 logger = structlog.get_logger()
@@ -89,6 +91,8 @@ app.include_router(bookings_router)
 app.include_router(practices_waitlist_router)    # Phase 5.3
 app.include_router(waitlist_router)               # Phase 5.3
 app.include_router(practices_attendance_router)   # Phase 5.4
+app.include_router(payments_router)               # Phase 6.3
+app.include_router(webhook_router)                # Phase 6.3
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
@@ -142,32 +146,24 @@ app.add_middleware(TraceIdMiddleware)
 
 
 # ---------------------------------------------------------------------------
-# Root
+# Root & Health Endpoints
 # ---------------------------------------------------------------------------
 @app.get("/")
 async def root() -> dict:
-    """API info -- name and version."""
+    """Root endpoint -- API info."""
     return {"name": "VELO API", "version": "0.1.0"}
 
 
-# ---------------------------------------------------------------------------
-# Health / Ready
-# ---------------------------------------------------------------------------
 @app.get("/health")
 async def health() -> dict:
-    """Health check -- always returns 200.
-
-    Reports DB and Redis connectivity status. Used by monitoring tools
-    that only care "is the process alive?".
-    """
-    result: dict = {"status": "ok", "db": "unknown", "redis": "unknown"}
+    """Health check -- DB and Redis connectivity."""
+    result = {"status": "ok", "db": "ok", "redis": "ok"}
 
     # Check DB.
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        result["db"] = "ok"
     except Exception:
         result["db"] = "error"
         result["status"] = "degraded"
@@ -175,8 +171,7 @@ async def health() -> dict:
     # Check Redis.
     try:
         redis = get_redis()
-        await redis.ping()
-        result["redis"] = "ok"
+        await asyncio.wait_for(redis.ping(), timeout=2.0)
     except Exception:
         result["redis"] = "error"
         result["status"] = "degraded"
@@ -185,35 +180,9 @@ async def health() -> dict:
 
 
 @app.get("/ready")
-async def ready() -> JSONResponse:
-    """Readiness probe -- returns 503 if any dependency is down.
-
-    Used by load balancers to decide whether to route traffic here.
-    """
-    checks: dict = {"db": "unknown", "redis": "unknown"}
-    all_ok = True
-
-    try:
-        engine = get_engine()
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        checks["db"] = "ok"
-    except Exception:
-        checks["db"] = "error"
-        all_ok = False
-
-    try:
-        redis = get_redis()
-        pong = await asyncio.wait_for(redis.ping(), timeout=2.0)
-        checks["redis"] = "ok" if pong else "error"
-        if not pong:
-            all_ok = False
-    except Exception:
-        checks["redis"] = "error"
-        all_ok = False
-
-    status_code = 200 if all_ok else 503
-    return JSONResponse(
-        status_code=status_code,
-        content={"status": "ok" if all_ok else "degraded", **checks},
-    )
+async def readiness() -> JSONResponse:
+    """Readiness probe -- returns 503 if degraded (TD-003)."""
+    check = await health()
+    if check["status"] != "ok":
+        return JSONResponse(status_code=503, content=check)
+    return JSONResponse(status_code=200, content=check)

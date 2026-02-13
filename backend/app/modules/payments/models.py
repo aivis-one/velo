@@ -1,23 +1,28 @@
 # =============================================================================
-# VELO Backend — Payment Ledger Models (Phase 6.1)
+# VELO Backend -- Payment Models (Phase 6.1, updated Phase 6.3)
 # =============================================================================
 #
 # Double-entry bookkeeping: every cent is tracked across three journals.
 # Golden rule: SUM(user_ledger + master_ledger + company_ledger) = 0
 #
 # THREE LEDGERS:
-#   UserLedger    — all movements on a user's wallet (topup, purchase, refund)
-#   MasterLedger  — all movements on a master's earnings (sale, commission, withdrawal)
-#   CompanyLedger — platform revenue (commissions, marketing spend, refunds, fees)
+#   UserLedger    -- all movements on a user's wallet (topup, purchase, refund)
+#   MasterLedger  -- all movements on a master's earnings (sale, commission, withdrawal)
+#   CompanyLedger -- platform revenue (commissions, marketing spend, refunds, fees)
+#
+# PAYMENT (Phase 6.3):
+#   Payment -- external money movements (Stripe topups, withdrawals).
+#   Tracks Stripe session/intent IDs for reconciliation.
+#   Linked to UserLedger via reason="payment:{payment.id}".
 #
 # AMOUNT CONVENTION (TD-033):
-#   All amounts in EUR cents (integer). 1500 = €15.00.
+#   All amounts in EUR cents (integer). 1500 = EUR 15.00.
 #   Positive = credit, negative = debit.
 #   Matches Practice.price_cents already in use since Phase 4.3.
 #
 # IMMUTABILITY:
 #   Ledger rows are append-only. No updated_at, no UPDATEs.
-#   Status transitions (pending → done/cancelled) are the ONLY mutation,
+#   Status transitions (pending -> done/cancelled) are the ONLY mutation,
 #   handled via UPDATE on the status column only.
 #   UUIDMixin used for id. No TimestampMixin (no updated_at needed).
 #
@@ -44,6 +49,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -81,11 +87,37 @@ class CompanyLedgerType(enum.StrEnum):
     WITHDRAWAL_FEE = "withdrawal_fee"
 
 
-# -- Models ------------------------------------------------------------------
+class PaymentDirection(enum.StrEnum):
+    """Direction of external money movement.
+
+    IN:  money enters the system (Stripe topup).
+    OUT: money leaves the system (withdrawal to bank).
+    """
+
+    IN = "in"
+    OUT = "out"
+
+
+class PaymentStatus(enum.StrEnum):
+    """External payment lifecycle status.
+
+    PENDING:   Stripe session created, awaiting user action.
+    CONFIRMED: Stripe webhook confirmed payment success.
+    FAILED:    Payment failed or session expired.
+    REFUNDED:  Payment refunded via Stripe.
+    """
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+
+# -- Ledger Models -----------------------------------------------------------
 
 
 class UserLedger(UUIDMixin, Base):
-    """User wallet journal — every movement on a user's balance.
+    """User wallet journal -- every movement on a user's balance.
 
     Positive amount_cents = credit (topup, refund).
     Negative amount_cents = debit (purchase, transfer to master balance).
@@ -128,7 +160,7 @@ class UserLedger(UUIDMixin, Base):
 
 
 class MasterLedger(UUIDMixin, Base):
-    """Master earnings journal — every movement on a master's account.
+    """Master earnings journal -- every movement on a master's account.
 
     Tracks both frozen (awaiting practice completion) and available
     (withdrawable) funds separately via is_frozen flag.
@@ -189,9 +221,9 @@ class MasterLedger(UUIDMixin, Base):
 
 
 class CompanyLedger(UUIDMixin, Base):
-    """Platform revenue journal — commissions, marketing, refunds, fees.
+    """Platform revenue journal -- commissions, marketing, refunds, fees.
 
-    No user_id — this is the platform's own account.
+    No user_id -- this is the platform's own account.
     reference_id links back to the purchase/withdrawal that triggered
     this entry for audit trail purposes.
     """
@@ -229,4 +261,87 @@ class CompanyLedger(UUIDMixin, Base):
         return (
             f"<CompanyLedger id={self.id} type={self.type} "
             f"amount={self.amount_cents} status={self.status}>"
+        )
+
+
+# -- Payment Model (Phase 6.3) ----------------------------------------------
+
+
+class Payment(UUIDMixin, Base):
+    """External money movement -- Stripe topups and bank withdrawals.
+
+    Tracks the lifecycle of external transactions. Linked to ledger
+    entries via reason="payment:{payment.id}".
+
+    STATUS TRANSITIONS:
+      pending -> confirmed  (Stripe webhook: checkout.session.completed)
+      pending -> failed     (Stripe webhook: session expired / payment failed)
+      confirmed -> refunded (manual Stripe refund, future phase)
+
+    IDEMPOTENCY:
+      stripe_session_id is unique -- duplicate webhooks are safe.
+    """
+
+    __tablename__ = "payments"
+
+    # -- Owner --
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # -- Direction --
+    direction: Mapped[str] = mapped_column(String(5))
+
+    # -- Amount in cents --
+    amount_cents: Mapped[int] = mapped_column(Integer)
+
+    # -- Currency (configurable, default "eur") --
+    currency: Mapped[str] = mapped_column(
+        String(3),
+        default="eur",
+        server_default="eur",
+    )
+
+    # -- Status --
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default=PaymentStatus.PENDING.value,
+        server_default=PaymentStatus.PENDING.value,
+    )
+
+    # -- Stripe identifiers --
+    stripe_session_id: Mapped[str | None] = mapped_column(
+        String(200),
+        unique=True,
+        index=True,
+        default=None,
+    )
+    stripe_payment_intent_id: Mapped[str | None] = mapped_column(
+        String(200),
+        default=None,
+    )
+
+    # -- Metadata (freeform JSONB for Stripe event data) --
+    metadata: Mapped[dict | None] = mapped_column(
+        JSONB,
+        default=None,
+    )
+
+    # -- Timestamps --
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        index=True,
+    )
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        default=None,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Payment id={self.id} user={self.user_id} "
+            f"direction={self.direction} amount={self.amount_cents} "
+            f"status={self.status}>"
         )

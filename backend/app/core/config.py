@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 4.2)
+# VELO Backend -- Application Configuration (updated Phase 6.3)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     practice_min_duration_minutes: int = 5
     practice_max_duration_minutes: int = 480
 
+    # -- Stripe (Phase 6.3) --
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_success_url: str = ""
+    stripe_cancel_url: str = ""
+
+    # -- Topup limits (Phase 6.3) --
+    # All amounts in EUR cents.
+    min_topup_cents: int = 100      # EUR 1.00
+    max_topup_cents: int = 50000    # EUR 500.00
+    default_currency: str = "eur"
+
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
         """Apply safe defaults for development, enforce secrets in production.
@@ -124,6 +136,54 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "TELEGRAM_BOT_TOKEN is required in production. "
                     "Get it from @BotFather in Telegram."
+                )
+
+        # STRIPE_SECRET_KEY: required in production. (Phase 6.3)
+        if not self.stripe_secret_key:
+            if is_dev:
+                self.stripe_secret_key = (
+                    "sk_test_fake_dev_key_do_not_use"
+                )
+            else:
+                raise ValueError(
+                    "STRIPE_SECRET_KEY is required in production. "
+                    "Get it from Stripe Dashboard."
+                )
+
+        # STRIPE_WEBHOOK_SECRET: required in production. (Phase 6.3)
+        if not self.stripe_webhook_secret:
+            if is_dev:
+                self.stripe_webhook_secret = (
+                    "whsec_fake_dev_secret_do_not_use"
+                )
+            else:
+                raise ValueError(
+                    "STRIPE_WEBHOOK_SECRET is required in production. "
+                    "Get it from Stripe Dashboard -> Webhooks."
+                )
+
+        # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)
+        if not self.stripe_success_url:
+            if is_dev:
+                self.stripe_success_url = (
+                    "http://localhost:3000/topup/success"
+                )
+            else:
+                raise ValueError(
+                    "STRIPE_SUCCESS_URL is required in production. "
+                    "Set to your Telegram WebApp success page URL."
+                )
+
+        # STRIPE_CANCEL_URL: required in production. (Phase 6.3)
+        if not self.stripe_cancel_url:
+            if is_dev:
+                self.stripe_cancel_url = (
+                    "http://localhost:3000/topup/cancel"
+                )
+            else:
+                raise ValueError(
+                    "STRIPE_CANCEL_URL is required in production. "
+                    "Set to your Telegram WebApp cancel page URL."
                 )
 
         return self
