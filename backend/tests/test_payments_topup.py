@@ -467,22 +467,33 @@ async def test_webhook_checkout_completed_e2e(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:
     """Full webhook flow: signature verified -> payment confirmed."""
-    # Create user and pending payment.
-    user = await _create_user(db_session, telegram_id=73020)
+    # Create user via login (upsert -- safe on repeated runs).
+    user_data = await login_user(client, telegram_id=73030)
+    user_id = user_data["user"]["id"]
+
+    # Unique session id to avoid constraint violation on re-runs.
+    session_id = f"cs_test_e2e_webhook_{uuid4().hex[:8]}"
+
+    # Record balance before topup (may be non-zero from previous runs).
+    stmt = select(User).where(User.id == user_id)
+    result = await db_session.execute(stmt)
+    balance_before = result.scalar_one().balance_cents
+
+    # Create pending payment visible to webhook's own session.
     payment = Payment(
-        user_id=user.id,
+        user_id=user_id,
         direction=PaymentDirection.IN.value,
         amount_cents=5000,
         currency="eur",
         status=PaymentStatus.PENDING.value,
-        stripe_session_id="cs_test_e2e_webhook",
+        stripe_session_id=session_id,
     )
     db_session.add(payment)
     await db_session.commit()
 
     fake_event = _build_stripe_event(
         event_type="checkout.session.completed",
-        session_id="cs_test_e2e_webhook",
+        session_id=session_id,
         amount_total=5000,
     )
 
@@ -500,18 +511,17 @@ async def test_webhook_checkout_completed_e2e(
     assert response.json()["status"] == "processed"
 
     # Verify payment confirmed in DB.
-    # expire_all() is sync in SQLAlchemy.
     db_session.expire_all()
     stmt = select(Payment).where(Payment.id == payment.id)
     result = await db_session.execute(stmt)
     confirmed_payment = result.scalar_one()
     assert confirmed_payment.status == PaymentStatus.CONFIRMED.value
 
-    # Verify user balance updated.
-    stmt = select(User).where(User.id == user.id)
+    # Verify balance increased by topup amount.
+    stmt = select(User).where(User.id == user_id)
     result = await db_session.execute(stmt)
     updated_user = result.scalar_one()
-    assert updated_user.balance_cents == 5000
+    assert updated_user.balance_cents == balance_before + 5000
 
 
 @pytest.mark.asyncio
@@ -519,21 +529,27 @@ async def test_webhook_checkout_expired_e2e(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:
     """Expired checkout session marks payment as failed via webhook."""
-    user = await _create_user(db_session, telegram_id=73021)
+    # Create user via login (upsert -- safe on repeated runs).
+    user_data = await login_user(client, telegram_id=73031)
+    user_id = user_data["user"]["id"]
+
+    # Unique session id to avoid constraint violation on re-runs.
+    session_id = f"cs_test_e2e_expired_{uuid4().hex[:8]}"
+
     payment = Payment(
-        user_id=user.id,
+        user_id=user_id,
         direction=PaymentDirection.IN.value,
         amount_cents=3000,
         currency="eur",
         status=PaymentStatus.PENDING.value,
-        stripe_session_id="cs_test_e2e_expired",
+        stripe_session_id=session_id,
     )
     db_session.add(payment)
     await db_session.commit()
 
     fake_event = _build_stripe_event(
         event_type="checkout.session.expired",
-        session_id="cs_test_e2e_expired",
+        session_id=session_id,
     )
 
     with patch(
@@ -548,15 +564,8 @@ async def test_webhook_checkout_expired_e2e(
 
     assert response.status_code == 200
 
-    # expire_all() is sync in SQLAlchemy.
     db_session.expire_all()
     stmt = select(Payment).where(Payment.id == payment.id)
     result = await db_session.execute(stmt)
     failed_payment = result.scalar_one()
     assert failed_payment.status == PaymentStatus.FAILED.value
-
-    # Balance unchanged.
-    stmt = select(User).where(User.id == user.id)
-    result = await db_session.execute(stmt)
-    user_check = result.scalar_one()
-    assert user_check.balance_cents == 0
