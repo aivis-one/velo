@@ -46,14 +46,21 @@ class TraceIdMiddleware:
             await self.app(scope, receive, send)
             return
 
-        # Extract trace_id from request headers or generate a new one.
-        trace_id = _extract_trace_id(scope) or str(uuid4())
+        # Extract request context from ASGI scope headers.
+        trace_id = _extract_header(scope, b"x-trace-id") or str(uuid4())
+        ip_address = _extract_client_ip(scope)
+        user_agent = _extract_header(scope, b"user-agent")
 
         # Bind to structlog contextvars -- every log call in this
         # request will include trace_id automatically via
-        # merge_contextvars processor.
+        # merge_contextvars processor. ip_address and user_agent
+        # are consumed by record_audit() (Pre-6.2).
         structlog.contextvars.clear_contextvars()
-        structlog.contextvars.bind_contextvars(trace_id=trace_id)
+        structlog.contextvars.bind_contextvars(
+            trace_id=trace_id,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
 
         async def send_with_trace_id(message: dict) -> None:
             """Inject X-Trace-ID into response headers."""
@@ -65,14 +72,32 @@ class TraceIdMiddleware:
         await self.app(scope, receive, send_with_trace_id)
 
 
-def _extract_trace_id(scope: Scope) -> str | None:
-    """Read X-Trace-ID from ASGI scope headers.
+def _extract_header(scope: Scope, name: bytes) -> str | None:
+    """Read a single header value from ASGI scope.
 
     ASGI headers are list of (name, value) byte-tuples.
     Returns None if header is missing or empty.
     """
-    for name, value in scope.get("headers", []):
-        if name == b"x-trace-id":
-            decoded = value.decode("latin-1")
+    for header_name, header_value in scope.get("headers", []):
+        if header_name == name:
+            decoded = header_value.decode("latin-1")
             return decoded if decoded else None
+    return None
+
+
+def _extract_client_ip(scope: Scope) -> str | None:
+    """Extract client IP address.
+
+    Prefers X-Forwarded-For (set by Nginx reverse proxy),
+    falls back to ASGI scope client address.
+    """
+    forwarded = _extract_header(scope, b"x-forwarded-for")
+    if forwarded:
+        # X-Forwarded-For can be "client, proxy1, proxy2".
+        return forwarded.split(",")[0].strip()
+
+    client = scope.get("client")
+    if client:
+        return client[0]
+
     return None
