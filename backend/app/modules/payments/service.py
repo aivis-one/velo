@@ -30,6 +30,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
@@ -83,6 +84,7 @@ async def record_user_ledger(
     balance = await _sum_user_balance(user_id, session)
     # Bypass __setattr__ guard — this IS the legitimate updater.
     object.__setattr__(user, "balance_cents", balance)
+    flag_modified(user, "balance_cents")
 
     logger.info(
         "user_ledger_recorded",
@@ -140,7 +142,9 @@ async def record_master_ledger(
     frozen, available = await _sum_master_balances(user_id, session)
     # Bypass __setattr__ guard — this IS the legitimate updater.
     object.__setattr__(profile, "frozen_cents", frozen)
+    flag_modified(profile, "frozen_cents")
     object.__setattr__(profile, "available_cents", available)
+    flag_modified(profile, "available_cents")
 
     logger.info(
         "master_ledger_recorded",

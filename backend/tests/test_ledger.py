@@ -32,7 +32,7 @@ async def _create_user(session: AsyncSession, telegram_id: int) -> User:
     user = User(
         telegram_id=telegram_id,
         first_name="LedgerTest",
-        role=UserRole.USER.value,
+        role=UserRole.USER,
     )
     session.add(user)
     await session.flush()
@@ -44,7 +44,7 @@ async def _create_master(session: AsyncSession, telegram_id: int) -> tuple[User,
     user = User(
         telegram_id=telegram_id,
         first_name="MasterTest",
-        role=UserRole.MASTER.value,
+        role=UserRole.MASTER,
     )
     session.add(user)
     await session.flush()
