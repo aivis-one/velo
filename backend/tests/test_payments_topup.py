@@ -341,9 +341,10 @@ async def test_topup_endpoint_success(client: AsyncClient) -> None:
     user_data = await login_user(client, telegram_id=73010)
     token = user_data["session_token"]
 
+    mock_session_id = f"cs_test_router_{uuid4().hex[:8]}"
     mock_checkout = _mock_stripe_checkout_session(
-        session_id="cs_test_router_1",
-        url="https://checkout.stripe.com/pay/cs_test_router_1",
+        session_id=mock_session_id,
+        url=f"https://checkout.stripe.com/pay/{mock_session_id}",
     )
 
     with (
@@ -364,7 +365,7 @@ async def test_topup_endpoint_success(client: AsyncClient) -> None:
     assert data["amount_cents"] == 1000
     assert data["currency"] == "eur"
     assert data["checkout_url"] == (
-        "https://checkout.stripe.com/pay/cs_test_router_1"
+        f"https://checkout.stripe.com/pay/{mock_session_id}"
     )
     assert "payment_id" in data
 
@@ -490,6 +491,7 @@ async def test_webhook_checkout_completed_e2e(
     )
     db_session.add(payment)
     await db_session.commit()
+    payment_id = payment.id  # Save before expire.
 
     fake_event = _build_stripe_event(
         event_type="checkout.session.completed",
@@ -512,7 +514,7 @@ async def test_webhook_checkout_completed_e2e(
 
     # Verify payment confirmed in DB.
     db_session.expire_all()
-    stmt = select(Payment).where(Payment.id == payment.id)
+    stmt = select(Payment).where(Payment.id == payment_id)
     result = await db_session.execute(stmt)
     confirmed_payment = result.scalar_one()
     assert confirmed_payment.status == PaymentStatus.CONFIRMED.value
@@ -546,6 +548,7 @@ async def test_webhook_checkout_expired_e2e(
     )
     db_session.add(payment)
     await db_session.commit()
+    payment_id = payment.id  # Save before expire.
 
     fake_event = _build_stripe_event(
         event_type="checkout.session.expired",
@@ -565,7 +568,7 @@ async def test_webhook_checkout_expired_e2e(
     assert response.status_code == 200
 
     db_session.expire_all()
-    stmt = select(Payment).where(Payment.id == payment.id)
+    stmt = select(Payment).where(Payment.id == payment_id)
     result = await db_session.execute(stmt)
     failed_payment = result.scalar_one()
     assert failed_payment.status == PaymentStatus.FAILED.value
