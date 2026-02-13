@@ -14,7 +14,6 @@
 # =============================================================================
 
 from datetime import datetime
-from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -86,7 +85,7 @@ class MasterProfileResponse(BaseModel):
     bio: str | None = None
     methods: list[str] = Field(default_factory=list)
     experience_years: int | None = None
-    frozen_amount: Decimal
-    available_amount: Decimal
+    frozen_cents: int
+    available_cents: int
     created_at: datetime
     updated_at: datetime | None = None

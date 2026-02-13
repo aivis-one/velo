@@ -11,16 +11,15 @@
 #     photo_url, future email/password, OAuth tokens, etc.).
 #   Rule: search by column, store in JSONB.
 #
-# BALANCE:
-#   balance_user is a cached value computed from user_ledger (Phase 6).
-#   Default 0, not touched until Phase 6: Payments.
+# BALANCE (Phase 6.1, TD-033):
+#   balance_cents is a cached value in EUR cents computed from user_ledger.
+#   Updated by ledger listeners (Phase 6.2). Do NOT modify directly.
 # =============================================================================
 
 import enum
 from datetime import datetime
-from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, Numeric, String
+from sqlalchemy import BigInteger, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -96,12 +95,12 @@ class User(UUIDMixin, TimestampMixin, Base):
         server_default="true",
     )
 
-    # -- Balance --
-    # Cached value computed from user_ledger (Phase 6: Payments).
-    # Do NOT modify directly — use ledger transactions.
-    balance_user: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2),
-        default=Decimal("0"),
+    # -- Balance (Phase 6.1, TD-033) --
+    # Cached value in EUR cents computed from user_ledger.
+    # 1500 = €15.00. Do NOT modify directly — use ledger transactions.
+    balance_cents: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         server_default="0",
     )
 
@@ -113,5 +112,7 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return (
-            f"<User id={self.id} " f"tg={self.telegram_id} " f"role={self.role.value}>"
+            f"<User id={self.id} "
+            f"tg={self.telegram_id} "
+            f"role={self.role.value}>"
         )

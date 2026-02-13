@@ -12,10 +12,10 @@
 #   data.settings    — auto-confirm, default max participants
 #   data.stats       — computed counters (total practices, avg rating)
 #
-# BALANCE FIELDS:
-#   frozen_amount    — funds locked until practice completion (Phase 6)
-#   available_amount — funds available for withdrawal (Phase 6)
-#   Both are 0 until Phase 6: Payments. Updated by ledger listeners.
+# BALANCE FIELDS (Phase 6.1, TD-033):
+#   frozen_cents   — funds locked until practice completion, in EUR cents
+#   available_cents— funds available for withdrawal, in EUR cents
+#   Updated by ledger listeners (Phase 6.2). Do NOT modify directly.
 #
 # RELATIONSHIP STRATEGY:
 #   Unidirectional: MasterProfile → User only. User does NOT have a
@@ -30,10 +30,9 @@
 # =============================================================================
 
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, func
+from sqlalchemy import DateTime, ForeignKey, Integer, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -65,16 +64,17 @@ class MasterProfile(JSONBMixin, Base):
         server_default="{}",
     )
 
-    # -- Balance fields (Phase 6: Payments) --
-    # Do NOT modify directly — updated by ledger listeners.
-    frozen_amount: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2),
-        default=Decimal("0"),
+    # -- Balance fields (Phase 6.1, TD-033) --
+    # EUR cents. Do NOT modify directly — updated by ledger listeners.
+    # 1500 = €15.00.
+    frozen_cents: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         server_default="0",
     )
-    available_amount: Mapped[Decimal] = mapped_column(
-        Numeric(18, 2),
-        default=Decimal("0"),
+    available_cents: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
         server_default="0",
     )
 

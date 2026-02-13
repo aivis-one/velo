@@ -9,7 +9,6 @@
 # =============================================================================
 
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -30,7 +29,7 @@ class UserResponse(BaseModel):
     timezone: str
     language: str
     is_active: bool
-    balance_user: Decimal
+    balance_cents: int
     created_at: datetime
     last_login_at: datetime | None
 
