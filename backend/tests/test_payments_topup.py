@@ -13,6 +13,11 @@
 #   - create_topup_session (service-level)
 #   - handle_checkout_completed (ledger + balance update)
 #   - handle_checkout_expired_or_failed
+#
+# FIXES applied:
+#   - auth returns "session_token" not "token"
+#   - expire_all() is sync (no await)
+#   - patch settings.stripe_secret_key to bypass is_stripe_stub guard
 # =============================================================================
 
 import json
@@ -25,6 +30,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog
+from app.core.config import settings
 from app.modules.payments.models import (
     Payment,
     PaymentDirection,
@@ -92,6 +98,13 @@ def _build_stripe_event(
     }
 
 
+def _bypass_stripe_stub():
+    """Patch settings so is_stripe_stub returns False."""
+    return patch.object(
+        settings, "stripe_secret_key", "sk_test_not_stub",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Service-level tests (direct function calls)
 # ---------------------------------------------------------------------------
@@ -106,9 +119,12 @@ async def test_create_topup_session_success(
 
     mock_checkout = _mock_stripe_checkout_session()
 
-    with patch(
-        "app.modules.payments.stripe.stripe.checkout.Session.create",
-        return_value=mock_checkout,
+    with (
+        patch(
+            "app.modules.payments.stripe.stripe.checkout.Session.create",
+            return_value=mock_checkout,
+        ),
+        _bypass_stripe_stub(),
     ):
         payment, url = await create_topup_session(
             user_id=user.id,
@@ -323,16 +339,19 @@ async def test_handle_expired_idempotent(
 async def test_topup_endpoint_success(client: AsyncClient) -> None:
     """POST /api/v1/payments/topup returns 201 + checkout URL."""
     user_data = await login_user(client, telegram_id=73010)
-    token = user_data["token"]
+    token = user_data["session_token"]
 
     mock_checkout = _mock_stripe_checkout_session(
         session_id="cs_test_router_1",
         url="https://checkout.stripe.com/pay/cs_test_router_1",
     )
 
-    with patch(
-        "app.modules.payments.stripe.stripe.checkout.Session.create",
-        return_value=mock_checkout,
+    with (
+        patch(
+            "app.modules.payments.stripe.stripe.checkout.Session.create",
+            return_value=mock_checkout,
+        ),
+        _bypass_stripe_stub(),
     ):
         response = await client.post(
             "/api/v1/payments/topup",
@@ -354,7 +373,7 @@ async def test_topup_endpoint_success(client: AsyncClient) -> None:
 async def test_topup_below_minimum(client: AsyncClient) -> None:
     """Amount below MIN_TOPUP_CENTS is rejected (422)."""
     user_data = await login_user(client, telegram_id=73011)
-    token = user_data["token"]
+    token = user_data["session_token"]
 
     response = await client.post(
         "/api/v1/payments/topup",
@@ -368,7 +387,7 @@ async def test_topup_below_minimum(client: AsyncClient) -> None:
 async def test_topup_above_maximum(client: AsyncClient) -> None:
     """Amount above MAX_TOPUP_CENTS is rejected (422)."""
     user_data = await login_user(client, telegram_id=73012)
-    token = user_data["token"]
+    token = user_data["session_token"]
 
     response = await client.post(
         "/api/v1/payments/topup",
@@ -481,7 +500,8 @@ async def test_webhook_checkout_completed_e2e(
     assert response.json()["status"] == "processed"
 
     # Verify payment confirmed in DB.
-    await db_session.expire_all()
+    # expire_all() is sync in SQLAlchemy.
+    db_session.expire_all()
     stmt = select(Payment).where(Payment.id == payment.id)
     result = await db_session.execute(stmt)
     confirmed_payment = result.scalar_one()
@@ -528,7 +548,8 @@ async def test_webhook_checkout_expired_e2e(
 
     assert response.status_code == 200
 
-    await db_session.expire_all()
+    # expire_all() is sync in SQLAlchemy.
+    db_session.expire_all()
     stmt = select(Payment).where(Payment.id == payment.id)
     result = await db_session.execute(stmt)
     failed_payment = result.scalar_one()
