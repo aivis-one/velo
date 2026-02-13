@@ -86,6 +86,7 @@ async def record_user_ledger(
     object.__setattr__(user, '_ledger_update', True)
     user.balance_cents = balance
     object.__setattr__(user, '_ledger_update', False)
+    await session.flush()
 
     logger.info(
         "user_ledger_recorded",
@@ -147,6 +148,7 @@ async def record_master_ledger(
     profile.frozen_cents = frozen
     profile.available_cents = available
     object.__setattr__(profile, '_ledger_update', False)
+    await session.flush()
 
     logger.info(
         "master_ledger_recorded",
