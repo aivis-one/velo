@@ -47,7 +47,11 @@ class TraceIdMiddleware:
             return
 
         # Extract request context from ASGI scope headers.
-        trace_id = _extract_header(scope, b"x-trace-id") or str(uuid4())
+        # Guard: AuditLog.trace_id is String(36). If client sends
+        # a longer value, discard it and generate a fresh uuid4
+        # to prevent DataError in financial transactions (Phase 6+).
+        raw_trace = _extract_header(scope, b"x-trace-id") or ""
+        trace_id = raw_trace if 0 < len(raw_trace) <= 36 else str(uuid4())
         ip_address = _extract_client_ip(scope)
         user_agent = _extract_header(scope, b"user-agent")
 
