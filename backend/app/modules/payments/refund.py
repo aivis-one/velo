@@ -102,9 +102,12 @@ async def refund_booking(
         (status != PENDING). This makes the function idempotent.
     """
     # Load purchase with FOR UPDATE (P-12).
+    # Use Purchase.booking_id (UNIQUE, always set at creation) instead
+    # of booking.purchase_id back-reference which may not be loaded
+    # when booking is re-fetched from DB in a separate query.
     stmt = (
         select(Purchase)
-        .where(Purchase.id == booking.purchase_id)
+        .where(Purchase.booking_id == booking.id)
         .with_for_update()
     )
     result = await session.execute(stmt)
@@ -204,9 +207,12 @@ async def early_finalize_booking(
         (status != PENDING). This makes the function idempotent.
     """
     # Load purchase with FOR UPDATE (P-12).
+    # Use Purchase.booking_id (UNIQUE, always set at creation) instead
+    # of booking.purchase_id back-reference which may not be loaded
+    # when booking is re-fetched from DB in a separate query.
     stmt = (
         select(Purchase)
-        .where(Purchase.id == booking.purchase_id)
+        .where(Purchase.booking_id == booking.id)
         .with_for_update()
     )
     result = await session.execute(stmt)

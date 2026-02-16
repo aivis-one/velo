@@ -69,6 +69,7 @@ async def create_booking_endpoint(
     booking = await create_booking(
         user, body.practice_id, session,
     )
+    await session.flush()
     await session.refresh(booking)
     return BookingResponse.model_validate(booking)
 
@@ -83,10 +84,7 @@ async def cancel_booking_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> BookingResponse:
-    """Cancel a booking (owner only).
-
-    No refund logic -- stub until Phase 6.
-    """
+    """Cancel a booking (owner only)."""
     reason = body.reason if body else None
     booking = await cancel_booking(
         booking_id, user, session, reason=reason,
