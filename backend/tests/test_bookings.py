@@ -1,5 +1,5 @@
 # =============================================================================
-# Test: Bookings -- Create + Cancel (Phase 5.1+5.2)
+# Test: Bookings -- Create + Cancel (Phase 5.1+5.2, updated Phase 6.4)
 # =============================================================================
 #
 # telegram_id ranges:
@@ -26,6 +26,31 @@ PRACTICES_URL = "/api/v1/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
+# Cleanup in dependency order (ledger -> purchases -> bookings -> practices).
+_CLEANUP_LEDGER_SQL = text(
+    "DELETE FROM user_ledger WHERE user_id IN "
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 61000 AND 61999)"
+)
+_CLEANUP_MASTER_LEDGER_SQL = text(
+    "DELETE FROM master_ledger WHERE user_id IN "
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 61000 AND 61999)"
+)
+_CLEANUP_COMPANY_LEDGER_SQL = text(
+    "DELETE FROM company_ledger WHERE reason LIKE 'commission:practice=%'"
+    " AND reason LIKE '%practice=%'"
+)
+_NULLIFY_PURCHASE_ID_SQL = text(
+    "UPDATE bookings SET purchase_id = NULL WHERE user_id IN "
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 61000 AND 61999)"
+)
+_CLEANUP_PURCHASES_SQL = text(
+    "DELETE FROM purchases WHERE user_id IN "
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 61000 AND 61999)"
+)
 _CLEANUP_BOOKINGS_SQL = text(
     "DELETE FROM bookings WHERE user_id IN "
     "(SELECT id FROM users "
@@ -47,27 +72,37 @@ _RESET_ROLES_SQL = text(
     "UPDATE users SET role = 'user' "
     "WHERE telegram_id BETWEEN 61000 AND 61999"
 )
+_RESET_BALANCE_SQL = text(
+    "UPDATE users SET balance_cents = 0 "
+    "WHERE telegram_id BETWEEN 61000 AND 61999"
+)
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+async def _full_cleanup(db_session: AsyncSession) -> None:
+    """Run all cleanup queries in dependency order."""
+    await db_session.execute(_CLEANUP_LEDGER_SQL)
+    await db_session.execute(_CLEANUP_MASTER_LEDGER_SQL)
+    await db_session.execute(_NULLIFY_PURCHASE_ID_SQL)
+    await db_session.execute(_CLEANUP_PURCHASES_SQL)
+    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
+    await db_session.execute(_CLEANUP_PRACTICES_SQL)
+    await db_session.execute(_CLEANUP_MASTERS_SQL)
+    await db_session.execute(_RESET_ROLES_SQL)
+    await db_session.execute(_RESET_BALANCE_SQL)
+    await db_session.commit()
+
+
 @pytest.fixture(autouse=True)
 async def cleanup(
     db_session: AsyncSession,
 ) -> AsyncGenerator[None, None]:
     """Clean bookings, practices, masters, reset roles."""
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _full_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _full_cleanup(db_session)
 
 
 # ---------------------------------------------------------------------------
@@ -296,11 +331,11 @@ async def test_create_booking_own_practice(
 
 
 @pytest.mark.asyncio
-async def test_create_booking_paid_practice(
+async def test_create_booking_paid_practice_insufficient_balance(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Paid practice blocked until Phase 6: 400."""
+    """Paid practice with zero balance: 400 Insufficient balance."""
     master = await _make_verified_master(
         client, db_session,
     )
@@ -318,6 +353,7 @@ async def test_create_booking_paid_practice(
         headers=auth_headers(user["session_token"]),
     )
     assert resp.status_code == 400
+    assert "Insufficient balance" in resp.json()["message"]
 
 
 @pytest.mark.asyncio

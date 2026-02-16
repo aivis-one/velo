@@ -1,18 +1,19 @@
 # =============================================================================
-# VELO Backend -- Payment Schemas (Phase 6.3)
+# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.4)
 # =============================================================================
 #
-# Pydantic schemas for payment (topup) endpoints.
+# Pydantic schemas for payment (topup) and purchase endpoints.
 #
-# TopupRequest:  amount_cents from user, validated against config limits.
-# TopupResponse: returns Stripe checkout URL + payment ID.
-# PaymentResponse: full payment record representation.
+# TopupRequest:      amount_cents from user, validated against config limits.
+# TopupResponse:     returns Stripe checkout URL + payment ID.
+# PaymentResponse:   full payment record representation.
+# PurchaseResponse:  purchase details with financial info (Phase 6.4).
 # =============================================================================
 
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import settings
 
@@ -50,4 +51,25 @@ class PaymentResponse(BaseModel):
     created_at: datetime
     confirmed_at: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
+
+
+# -- Purchase (Phase 6.4) ---------------------------------------------------
+
+
+class PurchaseResponse(BaseModel):
+    """Purchase details returned to client."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    practice_id: UUID
+    booking_id: UUID
+    paid_cents: int
+    currency: str
+    commission_cents: int
+    status: str
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime | None

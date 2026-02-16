@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 6.3)
+# VELO Backend -- Application Configuration (updated Phase 6.4)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     min_topup_cents: int = 100      # EUR 1.00
     max_topup_cents: int = 50000    # EUR 500.00
     default_currency: str = "eur"
+
+    # -- Commission (Phase 6.4) --
+    # Platform commission deducted from master earnings on practice completion.
+    # Integer percent: 15 = 15%.
+    commission_percent: int = 15
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":

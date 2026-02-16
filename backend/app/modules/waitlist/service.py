@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Waitlist Service (Phase 5.3, bugfix round)
+# VELO Backend -- Waitlist Service (Phase 5.3, bugfix round, updated Phase 6.4)
 # =============================================================================
 #
 # Business logic for waitlist join, leave/decline, confirm, and
@@ -27,7 +27,7 @@
 #      (no exception -- changes must commit)
 #   4. FOR UPDATE on practice + capacity recheck (overbooking prevention)
 #      If spot taken -> WAITING (back to queue) + return None
-#   5. Create booking, status -> converted
+#   5. Create booking + purchase (double-entry), status -> converted
 #
 # PROCESS_WAITLIST (internal):
 #   Called from cancel_booking and leave/decline.
@@ -59,6 +59,7 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.payments.purchase import create_purchase_for_booking
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 from app.modules.waitlist.models import (
@@ -290,10 +291,11 @@ async def confirm_waitlist(
     user: User,
     session: AsyncSession,
 ) -> tuple[Waitlist, Booking | None]:
-    """Confirm a waitlist spot -- creates a booking.
+    """Confirm a waitlist spot -- creates a booking + purchase.
 
     Only works when status=notified and expires_at > now().
-    Creates a booking (confirmed) and transitions to converted.
+    Creates a booking (confirmed), a purchase (double-entry),
+    and transitions to converted.
 
     Returns (entry, booking) on success.
     Returns (entry, None) when:
@@ -382,6 +384,16 @@ async def confirm_waitlist(
         raise ConflictError(
             "Already booked for this practice"
         ) from None
+
+    # Double-entry purchase (always, Semaphore 1.1).
+    # Load user for balance check inside create_purchase_for_booking.
+    user_obj = await session.get(User, user.id)
+    await create_purchase_for_booking(
+        booking=booking,
+        practice=practice,
+        user=user_obj,
+        session=session,
+    )
 
     entry.status = WaitlistStatus.CONVERTED.value
 

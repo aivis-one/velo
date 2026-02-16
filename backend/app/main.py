@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 6.3)
+# VELO Backend -- Application Entry Point (updated Phase 6.4)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -41,6 +41,9 @@ from app.modules.waitlist.router import (  # Phase 5.3
 )
 from app.modules.payments.router import router as payments_router  # Phase 6.3
 from app.modules.payments.webhook_router import webhook_router     # Phase 6.3
+from app.modules.payments.purchase_router import (                 # Phase 6.4
+    router as purchase_router,
+)
 
 
 logger = structlog.get_logger()
@@ -93,6 +96,7 @@ app.include_router(waitlist_router)               # Phase 5.3
 app.include_router(practices_attendance_router)   # Phase 5.4
 app.include_router(payments_router)               # Phase 6.3
 app.include_router(webhook_router)                # Phase 6.3
+app.include_router(purchase_router)               # Phase 6.4
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
@@ -146,43 +150,72 @@ app.add_middleware(TraceIdMiddleware)
 
 
 # ---------------------------------------------------------------------------
-# Root & Health Endpoints
+# Health / Readiness Probes
 # ---------------------------------------------------------------------------
-@app.get("/")
+@app.get("/", tags=["health"])
 async def root() -> dict:
-    """Root endpoint -- API info."""
-    return {"name": "VELO API", "version": "0.1.0"}
+    """API identity."""
+    return {"api": "VELO", "version": "0.1.0"}
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 async def health() -> dict:
-    """Health check -- DB and Redis connectivity."""
-    result = {"status": "ok", "db": "ok", "redis": "ok"}
+    """Health check -- always 200, reports component status."""
+    components: dict[str, str] = {}
 
-    # Check DB.
+    # Database
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
+        components["database"] = "ok"
     except Exception:
-        result["db"] = "error"
-        result["status"] = "degraded"
+        components["database"] = "error"
 
-    # Check Redis.
+    # Redis
+    try:
+        redis = get_redis()
+        await redis.ping()
+        components["redis"] = "ok"
+    except Exception:
+        components["redis"] = "error"
+
+    return {"status": "healthy", "components": components}
+
+
+@app.get("/ready", tags=["health"])
+async def ready() -> JSONResponse:
+    """Readiness probe -- 200 if all components up, 503 if degraded."""
+    components: dict[str, str] = {}
+    all_ok = True
+
+    # Database
+    try:
+        engine = get_engine()
+        async with engine.connect() as conn:
+            await asyncio.wait_for(
+                conn.execute(text("SELECT 1")),
+                timeout=2.0,
+            )
+        components["database"] = "ok"
+    except Exception:
+        components["database"] = "error"
+        all_ok = False
+
+    # Redis
     try:
         redis = get_redis()
         await asyncio.wait_for(redis.ping(), timeout=2.0)
+        components["redis"] = "ok"
     except Exception:
-        result["redis"] = "error"
-        result["status"] = "degraded"
+        components["redis"] = "error"
+        all_ok = False
 
-    return result
-
-
-@app.get("/ready")
-async def readiness() -> JSONResponse:
-    """Readiness probe -- returns 503 if degraded (TD-003)."""
-    check = await health()
-    if check["status"] != "ok":
-        return JSONResponse(status_code=503, content=check)
-    return JSONResponse(status_code=200, content=check)
+    status_code = 200 if all_ok else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if all_ok else "degraded",
+            "components": components,
+        },
+    )

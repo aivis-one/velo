@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4)
+# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4, updated Phase 6.4)
 # =============================================================================
 #
 # Business logic for booking create, cancel, attendance, and finalize.
@@ -17,6 +17,10 @@
 #   finalize:      confirmed + joined_at -> attended
 #                  confirmed + no joined_at -> no_show
 #                  practice -> completed
+#
+# PURCHASE INTEGRATION (Phase 6.4):
+#   create_booking: creates Purchase + double-entry ledger (always, even free)
+#   finalize:       finalizes Purchases (unfreeze + commission)
 #
 # CAPACITY:
 #   Checked via COUNT of active bookings, not current_participants (TD-034).
@@ -42,6 +46,10 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.payments.purchase import (
+    create_purchase_for_booking,
+    finalize_purchases,
+)
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 
@@ -98,11 +106,12 @@ async def create_booking(
     Validates:
     - Practice exists and is scheduled.
     - User is not the practice owner.
-    - Practice is free (paid blocked until Phase 6).
+    - User has sufficient balance for paid practices.
     - Capacity not exceeded (if max_participants set).
     - No duplicate booking.
 
     Free practices are auto-confirmed (pending -> confirmed).
+    Creates a Purchase with double-entry ledger (always, even free).
     """
     # Load practice with FOR UPDATE (capacity check + booking
     # must be atomic to prevent overbooking).
@@ -127,12 +136,6 @@ async def create_booking(
     if practice.master_id == user.id:
         raise BadRequestError(
             "Cannot book your own practice"
-        )
-
-    # Paid practices blocked until Phase 6.
-    if not practice.is_free:
-        raise BadRequestError(
-            "Payment required for paid practices"
         )
 
     # Check capacity.
@@ -160,12 +163,22 @@ async def create_booking(
             "Already booked for this practice"
         ) from None
 
+    # Double-entry purchase (always, even for free practices).
+    purchase = await create_purchase_for_booking(
+        booking=booking,
+        practice=practice,
+        user=user,
+        session=session,
+    )
+
     logger.info(
         "booking_created",
         booking_id=str(booking.id),
+        purchase_id=str(purchase.id),
         practice_id=str(practice_id),
         user_id=str(user.id),
         status=booking.status,
+        paid_cents=purchase.paid_cents,
     )
 
     return booking
@@ -180,7 +193,7 @@ async def cancel_booking(
     """Cancel a booking.
 
     Only the booking owner can cancel. Only pending/confirmed
-    bookings can be cancelled. No refund logic (stub until Phase 6).
+    bookings can be cancelled. No refund logic (stub until Phase 6.5).
 
     After cancellation, triggers waitlist processing to notify
     the next waiting user (Phase 5.3).
@@ -350,12 +363,13 @@ async def finalize_practice(
     user: User,
     session: AsyncSession,
 ) -> Practice:
-    """Finalize a practice -- set attendance statuses.
+    """Finalize a practice -- set attendance statuses + financial settlement.
 
     Master-only. Transitions:
     - confirmed + joined_at IS NOT NULL -> attended
     - confirmed + joined_at IS NULL     -> no_show
     - Practice status -> completed
+    - All pending purchases -> completed (unfreeze + commission)
 
     Validates:
     - Practice exists and belongs to master (P-08: 404).
@@ -406,12 +420,20 @@ async def finalize_practice(
 
     practice.status = PracticeStatus.COMPLETED.value
 
+    # Finalize all purchases: unfreeze + commission (double-entry).
+    finalized = await finalize_purchases(
+        practice_id=practice_id,
+        practice=practice,
+        session=session,
+    )
+
     logger.info(
         "practice_finalized",
         practice_id=str(practice_id),
         master_id=str(user.id),
         attended=attended_count,
         no_show=no_show_count,
+        purchases_finalized=len(finalized),
     )
 
     return practice

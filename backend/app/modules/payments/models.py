@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Payment Models (Phase 6.1, updated Phase 6.3)
+# VELO Backend -- Payment Models (Phase 6.1, updated Phase 6.4)
 # =============================================================================
 #
 # Double-entry bookkeeping: every cent is tracked across three journals.
@@ -15,6 +15,11 @@
 #   Tracks Stripe session/intent IDs for reconciliation.
 #   Linked to UserLedger via reason="payment:{payment.id}".
 #
+# PURCHASE (Phase 6.4):
+#   Purchase -- double-entry record linking a booking to financial flow.
+#   Created for EVERY booking (free and paid). Semaphore 1.1 requires
+#   COUNT(bookings) == COUNT(purchases) for active records.
+#
 # AMOUNT CONVENTION (TD-033):
 #   All amounts in EUR cents (integer). 1500 = EUR 15.00.
 #   Positive = credit, negative = debit.
@@ -25,6 +30,7 @@
 #   Status transitions (pending -> done/cancelled) are the ONLY mutation,
 #   handled via UPDATE on the status column only.
 #   UUIDMixin used for id. No TimestampMixin (no updated_at needed).
+#   Exception: Purchase uses TimestampMixin (status + commission updated on finalize).
 #
 # BALANCE CACHE:
 #   User.balance_cents           = SUM(user_ledger.amount_cents) WHERE status='done'
@@ -53,7 +59,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.core.mixins import UUIDMixin
+from app.core.mixins import TimestampMixin, UUIDMixin
 
 
 # -- Enums (P-09: StrEnum) --------------------------------------------------
@@ -111,6 +117,21 @@ class PaymentStatus(enum.StrEnum):
     CONFIRMED = "confirmed"
     FAILED = "failed"
     REFUNDED = "refunded"
+
+
+class PurchaseStatus(enum.StrEnum):
+    """Purchase lifecycle status.
+
+    PENDING:   Practice not yet completed. Master funds frozen.
+    COMPLETED: Practice finalized. Commission deducted, funds unfrozen.
+    REFUNDED:  User refund (cancellation or master cancellation).
+    CANCELLED: Booking cancelled without refund.
+    """
+
+    PENDING = "pending"
+    COMPLETED = "completed"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
 
 
 # -- Ledger Models -----------------------------------------------------------
@@ -344,5 +365,71 @@ class Payment(UUIDMixin, Base):
         return (
             f"<Payment id={self.id} user={self.user_id} "
             f"direction={self.direction} amount={self.amount_cents} "
+            f"status={self.status}>"
+        )
+
+
+# -- Purchase Model (Phase 6.4) ---------------------------------------------
+
+
+class Purchase(UUIDMixin, TimestampMixin, Base):
+    """Purchase -- double-entry record linking a booking to financial flow.
+
+    Created for EVERY booking (free and paid). Semaphore 1.1 requires
+    COUNT(bookings) == COUNT(purchases) for active records.
+
+    Double-entry on creation:
+        user_ledger:   -paid_cents (debit from user wallet)
+        master_ledger: +paid_cents (credit to master, frozen)
+
+    Double-entry on finalization:
+        master_ledger: unfreeze (UPDATE is_frozen=False)
+        master_ledger: -commission_cents (debit from master available)
+        company_ledger: +commission_cents (credit to company)
+    """
+
+    __tablename__ = "purchases"
+
+    # -- References --
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    practice_id: Mapped[UUID] = mapped_column(
+        ForeignKey("practices.id", ondelete="CASCADE"),
+        index=True,
+    )
+    booking_id: Mapped[UUID] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE"),
+        unique=True,
+    )
+
+    # -- Financial --
+    paid_cents: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0",
+    )
+    currency: Mapped[str] = mapped_column(
+        String(3), default="eur", server_default="eur",
+    )
+    commission_cents: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0",
+    )
+
+    # -- Status --
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default=PurchaseStatus.PENDING.value,
+        server_default=PurchaseStatus.PENDING.value,
+    )
+
+    # -- Completion --
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None,
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Purchase id={self.id} user={self.user_id} "
+            f"practice={self.practice_id} paid={self.paid_cents} "
             f"status={self.status}>"
         )
