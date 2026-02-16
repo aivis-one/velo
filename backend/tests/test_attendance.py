@@ -26,48 +26,69 @@ PRACTICES_URL = "/api/v1/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
-# Cleanup in dependency order (Phase 6.4+: ledger -> purchases -> bookings).
-_TID_RANGE = "SELECT id FROM users WHERE telegram_id BETWEEN 63000 AND 63999"
+# ---------------------------------------------------------------------------
+# Cleanup (dependency order, modeled after test_cancellation.py)
+# ---------------------------------------------------------------------------
+_TID_RANGE = (
+    "SELECT id FROM users WHERE telegram_id BETWEEN 63000 AND 63999"
+)
+_MASTER_RANGE = (
+    "SELECT user_id FROM master_profiles "
+    "WHERE user_id IN (" + _TID_RANGE + ")"
+)
 
-_CLEANUP_COMPANY_LEDGER_SQL = text(
-    "DELETE FROM company_ledger WHERE reference_id IN "
-    "(SELECT id FROM purchases WHERE user_id IN "
-    f"({_TID_RANGE}))"
-)
-_CLEANUP_MASTER_LEDGER_SQL = text(
-    f"DELETE FROM master_ledger WHERE user_id IN ({_TID_RANGE})"
-)
-_CLEANUP_USER_LEDGER_SQL = text(
-    f"DELETE FROM user_ledger WHERE user_id IN ({_TID_RANGE})"
-)
-_CLEANUP_AUDIT_SQL = text(
-    f"DELETE FROM audit_log WHERE actor_id IN ({_TID_RANGE})"
-)
-_NULLIFY_PURCHASE_ID_SQL = text(
-    f"UPDATE bookings SET purchase_id = NULL WHERE user_id IN ({_TID_RANGE})"
-)
-_CLEANUP_PURCHASES_SQL = text(
-    f"DELETE FROM purchases WHERE user_id IN ({_TID_RANGE})"
-)
-_CLEANUP_BOOKINGS_SQL = text(
-    f"DELETE FROM bookings WHERE user_id IN ({_TID_RANGE})"
-)
-_CLEANUP_PRACTICES_SQL = text(
-    "DELETE FROM practices WHERE master_id IN "
-    "(SELECT user_id FROM master_profiles "
-    f"WHERE user_id IN ({_TID_RANGE}))"
-)
-_CLEANUP_MASTERS_SQL = text(
-    f"DELETE FROM master_profiles WHERE user_id IN ({_TID_RANGE})"
-)
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 63000 AND 63999"
-)
-_RESET_BALANCE_SQL = text(
-    "UPDATE users SET balance_cents = 0 "
-    "WHERE telegram_id BETWEEN 63000 AND 63999"
-)
+_CLEANUP_QUERIES = [
+    # 1. Audit logs (table name: audit_logs, with 's').
+    text(
+        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
+    ),
+    # 2. Company ledger (via purchases linked to our users).
+    text(
+        "DELETE FROM company_ledger WHERE reference_id IN "
+        "(SELECT id FROM purchases WHERE user_id IN "
+        "(" + _TID_RANGE + "))"
+    ),
+    # 3. Master ledger.
+    text(
+        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 4. User ledger.
+    text(
+        "DELETE FROM user_ledger WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 5. Nullify booking.purchase_id FK before deleting purchases.
+    text(
+        "UPDATE bookings SET purchase_id = NULL "
+        "WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 6. Purchases.
+    text(
+        "DELETE FROM purchases WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 7. Waitlist (POST /cancel clears waitlist entries).
+    text(
+        "DELETE FROM waitlist WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 8. Bookings.
+    text(
+        "DELETE FROM bookings WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 9. Practices (owned by masters in our range).
+    text(
+        "DELETE FROM practices WHERE master_id IN "
+        "(" + _MASTER_RANGE + ")"
+    ),
+    # 10. Master profiles.
+    text(
+        "DELETE FROM master_profiles WHERE user_id IN "
+        "(" + _TID_RANGE + ")"
+    ),
+    # 11. Reset roles and balance.
+    text(
+        "UPDATE users SET role = 'user', balance_cents = 0 "
+        "WHERE telegram_id BETWEEN 63000 AND 63999"
+    ),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -75,17 +96,8 @@ _RESET_BALANCE_SQL = text(
 # ---------------------------------------------------------------------------
 async def _full_cleanup(db_session: AsyncSession) -> None:
     """Run all cleanup queries in dependency order."""
-    await db_session.execute(_CLEANUP_COMPANY_LEDGER_SQL)
-    await db_session.execute(_CLEANUP_AUDIT_SQL)
-    await db_session.execute(_CLEANUP_MASTER_LEDGER_SQL)
-    await db_session.execute(_CLEANUP_USER_LEDGER_SQL)
-    await db_session.execute(_NULLIFY_PURCHASE_ID_SQL)
-    await db_session.execute(_CLEANUP_PURCHASES_SQL)
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.execute(_RESET_BALANCE_SQL)
+    for stmt in _CLEANUP_QUERIES:
+        await db_session.execute(stmt)
     await db_session.commit()
 
 
@@ -93,7 +105,7 @@ async def _full_cleanup(db_session: AsyncSession) -> None:
 async def cleanup(
     db_session: AsyncSession,
 ) -> AsyncGenerator[None, None]:
-    """Clean bookings, practices, masters, reset roles."""
+    """Clean all attendance-test data before and after each test."""
     await _full_cleanup(db_session)
     yield
     await _full_cleanup(db_session)
@@ -309,7 +321,8 @@ async def test_join_booking_cancelled_practice(
     user_data = await _book_user(client, pid, telegram_id=63104)
 
     # Cancel the practice via POST /cancel (Phase 6.5).
-    # This also cancels all active bookings with refund.
+    # PATCH status=cancelled is blocked in _VALID_TRANSITIONS.
+    # POST /cancel also refunds all active bookings.
     cancel_resp = await client.post(
         f"{PRACTICES_URL}/{pid}/cancel",
         headers=auth_headers(master["session_token"]),
