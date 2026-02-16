@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 6.4)
+# VELO Backend -- Application Configuration (updated Phase 6.5)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -97,6 +97,12 @@ class Settings(BaseSettings):
     # Integer percent: 15 = 15%.
     commission_percent: int = 15
 
+    # -- Cancellation (Phase 6.5) --
+    # Hours before practice.scheduled_at when free cancellation is allowed.
+    # Cancel > N hours before -> 100% refund.
+    # Cancel <= N hours before -> 0% refund (early finalize, master keeps money).
+    cancellation_deadline_hours: int = 24
+
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
         """Apply safe defaults for development, enforce secrets in production.
@@ -144,31 +150,25 @@ class Settings(BaseSettings):
                 )
 
         # STRIPE_SECRET_KEY: required in production. (Phase 6.3)
-        # Value "TEST" is accepted as a stub -- app starts but
-        # topup endpoint returns 503 (checked in stripe.py).
         if not self.stripe_secret_key:
             if is_dev:
-                self.stripe_secret_key = (
-                    "sk_test_fake_dev_key_do_not_use"
-                )
+                self.stripe_secret_key = "TEST"
             else:
                 raise ValueError(
                     "STRIPE_SECRET_KEY is required in production. "
                     "Set to 'TEST' to start without Stripe, or "
-                    "provide a real key from Stripe Dashboard."
+                    "provide your Stripe secret key."
                 )
 
         # STRIPE_WEBHOOK_SECRET: required in production. (Phase 6.3)
         if not self.stripe_webhook_secret:
             if is_dev:
-                self.stripe_webhook_secret = (
-                    "whsec_fake_dev_secret_do_not_use"
-                )
+                self.stripe_webhook_secret = "TEST"
             else:
                 raise ValueError(
                     "STRIPE_WEBHOOK_SECRET is required in production. "
                     "Set to 'TEST' to start without Stripe, or "
-                    "provide a real key from Stripe Dashboard -> Webhooks."
+                    "provide your Stripe webhook secret."
                 )
 
         # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)

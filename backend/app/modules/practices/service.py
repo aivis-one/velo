@@ -1,32 +1,37 @@
 # =============================================================================
-# VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4)
+# VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4, updated Phase 6.5)
 # =============================================================================
 #
 # Business logic for practice CRUD (master-facing) and public listing.
 #
 # OWNERSHIP:
-#   All mutating operations (update, delete) verify master_id == user.id.
+#   All mutating operations (update, delete, cancel) verify master_id == user.id.
 #   get_practice() applies visibility rules: draft/deleted only for owner.
 #
 # STATE MACHINE:
 #   draft      -> scheduled, deleted
-#   scheduled  -> live, cancelled
-#   live       -> completed, cancelled
+#   scheduled  -> live
+#   live       -> completed
 #   completed  -> (terminal)
 #   cancelled  -> (terminal)
 #   deleted    -> (terminal)
+#
+# IMPORTANT (Phase 6.5):
+#   scheduled -> cancelled and live -> cancelled are NO LONGER allowed
+#   via PATCH status. The ONLY path to cancelled is through
+#   cancel_practice() which handles refunds for all active bookings.
 #
 # PRICING (Phase 4.3/4.4):
 #   is_free=True  -> price_cents forced to 0 (service overrides any value)
 #   is_free=False -> price_cents must be > 0 (service raises 400)
 #
 # CONCURRENCY:
-#   update_practice() and delete_practice() use with_for_update() (P-12)
-#   to prevent lost updates on status transitions.
+#   update_practice(), delete_practice(), and cancel_practice() use
+#   with_for_update() (P-12) to prevent lost updates on status transitions.
 #
 # DELETE vs CANCEL:
 #   DELETE sets status=deleted (only from draft).
-#   Cancel for published practices will be in Phase 5 (refunds needed).
+#   CANCEL sets status=cancelled + refunds all bookings (Phase 6.5).
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router handles flush + refresh.
@@ -40,11 +45,13 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.exceptions import (
     BadRequestError,
     ForbiddenError,
     NotFoundError,
 )
+from app.modules.payments.refund import refund_all_bookings_for_practice
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.practices.schemas import (
     CreatePracticeRequest,
@@ -70,7 +77,11 @@ _FEED_STATUSES = {
     PracticeStatus.LIVE.value,
 }
 
-# Valid state transitions. Terminal states have no outgoing edges.
+# Valid state transitions via PATCH. Terminal states have no outgoing edges.
+# Phase 6.5: cancelled is removed from scheduled/live transitions.
+# The ONLY way to reach cancelled is via cancel_practice() which
+# handles refunds. This prevents accidental PATCH status=cancelled
+# that would skip refund logic.
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     PracticeStatus.DRAFT.value: {
         PracticeStatus.SCHEDULED.value,
@@ -78,12 +89,16 @@ _VALID_TRANSITIONS: dict[str, set[str]] = {
     },
     PracticeStatus.SCHEDULED.value: {
         PracticeStatus.LIVE.value,
-        PracticeStatus.CANCELLED.value,
     },
     PracticeStatus.LIVE.value: {
         PracticeStatus.COMPLETED.value,
-        PracticeStatus.CANCELLED.value,
     },
+}
+
+# Statuses from which cancel_practice() is allowed.
+_CANCELLABLE_PRACTICE_STATUSES = {
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
 }
 
 # NOT NULL columns that cannot be set to None via PATCH (P-02).
@@ -265,7 +280,7 @@ async def delete_practice(
     """Soft-delete a draft practice (set status=deleted).
 
     Only drafts can be deleted. Published practices must be cancelled
-    through a separate flow (Phase 5) that handles refunds.
+    through cancel_practice() (Phase 6.5) which handles refunds.
 
     Uses FOR UPDATE to prevent concurrent state changes (P-12).
 
@@ -299,6 +314,85 @@ async def delete_practice(
         "practice_deleted",
         practice_id=str(practice_id),
         master_id=str(user.id),
+    )
+
+    return practice
+
+
+# ===================================================================
+# Phase 6.5: Cancel practice (master cancels, refund all bookings)
+# ===================================================================
+
+
+async def cancel_practice(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Practice:
+    """Cancel a scheduled/live practice with full refund to all participants.
+
+    Master-only. This is the ONLY path to Practice.status=cancelled.
+    PATCH status=cancelled is intentionally blocked in _VALID_TRANSITIONS.
+
+    Steps:
+    1. Lock practice with FOR UPDATE (P-12).
+    2. Verify ownership (P-08: 404 not 403).
+    3. Verify status is cancellable (scheduled or live).
+    4. Refund all active bookings (100% to each user).
+    5. Clear waitlist (all active entries -> left).
+    6. Set practice status -> cancelled.
+    7. Audit log.
+
+    Raises NotFoundError if not found or not owner.
+    Raises BadRequestError if practice is not in a cancellable state.
+    """
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    # P-08: 404 not 403 for non-owner.
+    if practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if practice.status not in _CANCELLABLE_PRACTICE_STATUSES:
+        raise BadRequestError(
+            f"Cannot cancel practice in status "
+            f"{practice.status}"
+        )
+
+    # Refund all active bookings + clear waitlist.
+    refunded_count = await refund_all_bookings_for_practice(
+        practice=practice,
+        session=session,
+    )
+
+    practice.status = PracticeStatus.CANCELLED.value
+
+    # Audit.
+    await record_audit(
+        event="practice_cancelled_by_master",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="practice",
+        target_id=practice.id,
+        data={
+            "refunded_bookings": refunded_count,
+        },
+        session=session,
+    )
+
+    logger.info(
+        "practice_cancelled",
+        practice_id=str(practice_id),
+        master_id=str(user.id),
+        refunded_bookings=refunded_count,
     )
 
     return practice

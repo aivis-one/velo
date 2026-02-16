@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4, updated Phase 6.4)
+# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4, updated Phase 6.5)
 # =============================================================================
 #
 # Business logic for booking create, cancel, attendance, and finalize.
@@ -22,6 +22,12 @@
 #   create_booking: creates Purchase + double-entry ledger (always, even free)
 #   finalize:       finalizes Purchases (unfreeze + commission)
 #
+# CANCELLATION POLICY (Phase 6.5):
+#   cancel_booking now handles refunds based on deadline:
+#     > cancellation_deadline_hours before practice -> 100% refund
+#     <= cancellation_deadline_hours before practice -> 0% refund (early finalize)
+#   Both paths produce double-entry ledger entries (even for free practices).
+#
 # CAPACITY:
 #   Checked via COUNT of active bookings, not current_participants (TD-034).
 #
@@ -32,7 +38,7 @@
 #   No session.commit() here (P-01). Router handles flush + refresh.
 # =============================================================================
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import structlog
@@ -40,6 +46,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.exceptions import (
     BadRequestError,
     ConflictError,
@@ -49,6 +56,10 @@ from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.payments.purchase import (
     create_purchase_for_booking,
     finalize_purchases,
+)
+from app.modules.payments.refund import (
+    early_finalize_booking,
+    refund_booking,
 )
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
@@ -190,10 +201,20 @@ async def cancel_booking(
     session: AsyncSession,
     reason: str | None = None,
 ) -> Booking:
-    """Cancel a booking.
+    """Cancel a booking with refund policy enforcement.
 
     Only the booking owner can cancel. Only pending/confirmed
-    bookings can be cancelled. No refund logic (stub until Phase 6.5).
+    bookings can be cancelled.
+
+    Refund policy (Phase 6.5):
+    - Cancel > cancellation_deadline_hours before practice:
+      100% refund (Purchase -> REFUNDED).
+    - Cancel <= cancellation_deadline_hours before practice:
+      0% refund, early finalize (Purchase -> COMPLETED,
+      master keeps money minus commission).
+
+    Both paths create double-entry ledger entries, even for
+    free practices (zero-amount entries as proof of path).
 
     After cancellation, triggers waitlist processing to notify
     the next waiting user (Phase 5.3).
@@ -225,12 +246,47 @@ async def cancel_booking(
     booking.cancelled_at = datetime.now(timezone.utc)
     booking.cancellation_reason = reason
 
-    logger.info(
-        "booking_cancelled",
-        booking_id=str(booking_id),
-        user_id=str(user.id),
-        reason=reason,
+    # Phase 6.5: Refund or early-finalize based on deadline.
+    # Load practice for scheduled_at (read-only, no FOR UPDATE needed).
+    practice_stmt = (
+        select(Practice)
+        .where(Practice.id == booking.practice_id)
     )
+    practice = (
+        await session.execute(practice_stmt)
+    ).scalar_one()
+
+    deadline = practice.scheduled_at - timedelta(
+        hours=settings.cancellation_deadline_hours,
+    )
+    now = datetime.now(timezone.utc)
+
+    if now < deadline:
+        # Early cancel: full refund.
+        await refund_booking(
+            booking=booking,
+            practice=practice,
+            session=session,
+        )
+        logger.info(
+            "booking_cancelled_with_refund",
+            booking_id=str(booking_id),
+            user_id=str(user.id),
+            reason=reason,
+        )
+    else:
+        # Late cancel: master keeps the money (early finalize).
+        await early_finalize_booking(
+            booking=booking,
+            practice=practice,
+            session=session,
+        )
+        logger.info(
+            "booking_cancelled_no_refund",
+            booking_id=str(booking_id),
+            user_id=str(user.id),
+            reason=reason,
+        )
 
     # Phase 5.3: Notify next waiting user in the queue.
     from app.modules.waitlist.service import process_waitlist

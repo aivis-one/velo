@@ -1,17 +1,18 @@
 # =============================================================================
-# VELO Backend -- Practice Router (Phase 4.2 + 4.3/4.4)
+# VELO Backend -- Practice Router (Phase 4.2 + 4.3/4.4, updated Phase 6.5)
 # =============================================================================
 #
 # ENDPOINTS:
-#   GET    /api/v1/practices          -- public feed (4.3)
-#   POST   /api/v1/practices          -- create (master only)
-#   GET    /api/v1/practices/{id}     -- get by id (any auth user)
-#   PATCH  /api/v1/practices/{id}     -- update (owner master only)
-#   DELETE /api/v1/practices/{id}     -- soft delete draft (owner only)
+#   GET    /api/v1/practices              -- public feed (4.3)
+#   POST   /api/v1/practices              -- create (master only)
+#   GET    /api/v1/practices/{id}         -- get by id (any auth user)
+#   PATCH  /api/v1/practices/{id}         -- update (owner master only)
+#   DELETE /api/v1/practices/{id}         -- soft delete draft (owner only)
+#   POST   /api/v1/practices/{id}/cancel  -- cancel + refund all (6.5)
 #
 # AUTH:
 #   GET list uses get_current_user (any authenticated user).
-#   POST/PATCH/DELETE use get_current_master (verified master).
+#   POST/PATCH/DELETE/CANCEL use get_current_master (verified master).
 #   GET by id uses get_current_user (any authenticated user).
 #
 # SESSION:
@@ -42,6 +43,7 @@ from app.modules.practices.schemas import (
     UpdatePracticeRequest,
 )
 from app.modules.practices.service import (
+    cancel_practice,
     create_practice,
     delete_practice,
     get_practice,
@@ -184,10 +186,39 @@ async def delete_practice_endpoint(
     """Soft-delete a draft practice (owner master only).
 
     Sets status=deleted. Only works on drafts. Published practices
-    must be cancelled via a separate endpoint (Phase 5).
+    must be cancelled via POST /{id}/cancel (Phase 6.5).
     """
     user, _profile = master_tuple
     practice = await delete_practice(practice_id, user, session)
+    await session.flush()
+    await session.refresh(practice)
+    return PracticeResponse.model_validate(practice)
+
+
+# ------------------------------------------------------------------
+# POST /api/v1/practices/{id}/cancel -- cancel + refund (Phase 6.5)
+# ------------------------------------------------------------------
+@router.post(
+    "/{practice_id}/cancel",
+    response_model=PracticeResponse,
+)
+async def cancel_practice_endpoint(
+    practice_id: UUID,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> PracticeResponse:
+    """Cancel a practice and refund all participants (owner master only).
+
+    100% refund to every active booking. Waitlist entries cleared.
+    Only works on scheduled/live practices. This is the only way
+    to transition a practice to cancelled status.
+    """
+    user, _profile = master_tuple
+    practice = await cancel_practice(
+        practice_id, user, session,
+    )
     await session.flush()
     await session.refresh(practice)
     return PracticeResponse.model_validate(practice)
