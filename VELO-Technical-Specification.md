@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 1.9
-**Дата:** 12 февраля 2026
+**Версия:** 2.0
+**Дата:** 16 февраля 2026
 **Статус:** Draft
 
 ---
@@ -1617,44 +1617,252 @@ MasterProfile.available_cents = SUM(CASE WHEN NOT is_frozen THEN amount_cents EL
 
 ---
 
-### 6.3: Stripe integration (пополнение)
+### 6.3: Stripe integration (пополнение) ✅
 
 **Цель:** Пополнение баланса через Stripe.
 
 **Задачи:**
-- [ ] app/modules/payments/stripe.py
-- [ ] POST /api/v1/payments/topup — создать Stripe session
-- [ ] Webhook для подтверждения
-- [ ] Запись в user_ledger
+- [x] app/modules/payments/models.py -- +Payment, PaymentDirection, PaymentStatus
+- [x] app/modules/payments/schemas.py -- TopupRequest, TopupResponse, PaymentResponse
+- [x] app/modules/payments/stripe.py -- Stripe SDK wrapper (create_topup_session, verify_webhook_signature, handle_checkout_completed, handle_checkout_expired_or_failed)
+- [x] app/modules/payments/router.py -- POST /api/v1/payments/topup
+- [x] app/modules/payments/webhook_router.py -- POST /webhooks/stripe
+- [x] core/config.py -- +6 Stripe settings, +2 topup limits
+- [x] Миграция `d3e4f5a6b7c8` -- payments table
+- [x] tests/test_payments_topup.py -- 11 тестов (telegram_id range: 73xxx)
+- [x] tests/test_payments_stripe_integration.py -- 1 тест (real Stripe, skipped by default)
+
+**Endpoints:**
+```
+POST /api/v1/payments/topup       -- создать Stripe Checkout Session (auth)
+POST /webhooks/stripe             -- Stripe webhook (no auth, signature verify)
+```
 
 **Flow:**
 ```
-1. User: POST /payments/topup {amount: 100}
-2. Server: Create Stripe Checkout Session
-3. Server: Return {checkout_url: "..."}
+1. User: POST /payments/topup {amount_cents: 1000}
+2. Server: Create Payment(status=pending) + Stripe Checkout Session
+3. Server: Return {payment_id, checkout_url, amount_cents, currency}
 4. User: Redirect to Stripe, оплачивает
-5. Stripe: Webhook → /webhooks/stripe
+5. Stripe: Webhook → /webhooks/stripe (checkout.session.completed)
 6. Server: 
-   - payments: direction=in, amount=100, status=confirmed
-   - user_ledger: amount=+100, reason="payment:123"
+   - Payment: pending → confirmed
+   - user_ledger: +amount_cents, reason="payment:{payment.id}"
+   - Balance: recalculated via record_user_ledger
+   - Audit: payment_topup_confirmed
 ```
 
-**Критерий готовности:** Юзер может пополнить баланс.
+**Модель Payment:**
+```python
+class PaymentDirection(StrEnum):
+    IN = "in"    # Stripe topup
+    OUT = "out"  # withdrawal to bank
+
+class PaymentStatus(StrEnum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    FAILED = "failed"
+    REFUNDED = "refunded"
+
+class Payment(UUIDMixin, Base):
+    __tablename__ = "payments"
+
+    user_id: Mapped[UUID]              # FK users.id, CASCADE
+    direction: Mapped[str]             # String(5), "in"/"out"
+    amount_cents: Mapped[int]          # Integer
+    currency: Mapped[str]              # String(3), default "eur"
+    status: Mapped[str]                # String(20), default "pending"
+    stripe_session_id: Mapped[str | None]          # String(200), UNIQUE
+    stripe_payment_intent_id: Mapped[str | None]   # String(200)
+    stripe_metadata: Mapped[dict | None]           # JSONB
+    created_at: Mapped[datetime]
+    confirmed_at: Mapped[datetime | None]
+```
+
+**Config (новые поля):**
+```python
+stripe_secret_key: str = ""           # sk_test_... или "TEST" (stub)
+stripe_webhook_secret: str = ""       # whsec_...
+stripe_success_url: str = ""          # Redirect after success
+stripe_cancel_url: str = ""           # Redirect after cancel
+min_topup_cents: int = 100            # EUR 1.00
+max_topup_cents: int = 50000          # EUR 500.00
+default_currency: str = "eur"
+
+@property
+def is_stripe_stub(self) -> bool:     # True when key == "TEST"
+```
+
+**Результат:**
+```
+backend/app/modules/payments/
+├── models.py              ← +Payment, PaymentDirection, PaymentStatus
+├── schemas.py             ← +TopupRequest, TopupResponse, PaymentResponse
+├── stripe.py              ← NEW: Stripe SDK wrapper
+├── router.py              ← NEW: POST /payments/topup
+├── webhook_router.py      ← NEW: POST /webhooks/stripe
+└── service.py             ← (Phase 6.2, без изменений)
+
+backend/app/core/config.py ← +stripe_*, min/max_topup, is_stripe_stub
+
+backend/migrations/versions/
+└── ..._d3e4f5a6b7c8_create_payments_table.py
+
+backend/tests/
+├── test_payments_topup.py             ← 11 тестов (mocked Stripe)
+└── test_payments_stripe_integration.py ← 1 тест (real Stripe, skip by default)
+```
+
+**Решения, принятые при реализации:**
+
+- **Lazy `_configure_stripe()`** -- Stripe API key устанавливается при каждом вызове, не при импорте. Позволяет тестам мокать `settings.stripe_secret_key` без побочных эффектов
+- **Stub mode** -- `settings.is_stripe_stub` (property: `stripe_secret_key.upper() == "TEST"`). Приложение стартует без Stripe, topup endpoint возвращает `BadRequestError("Payment system is not configured yet")`
+- **Config validators** -- `stripe_secret_key`, `stripe_webhook_secret`, `stripe_success_url`, `stripe_cancel_url` — обязательны в production, auto-generated dev defaults в development
+- **Webhook router — отдельный файл** -- `webhook_router.py` (не `router.py`), потому что: (a) нет Bearer auth (Stripe аутентифицируется через signature), (b) нужен raw body (bytes) для верификации подписи, (c) manual session management (`get_session_factory()` вместо `Depends(get_db_session)`)
+- **Raw body** -- `Request.body()` перед парсингом. Stripe Webhook construct_event требует именно bytes, не parsed JSON
+- **Idempotency** -- `handle_checkout_completed` проверяет `Payment.status == CONFIRMED` перед обновлением. Дублирующие webhooks — no-op. `stripe_session_id` UNIQUE — защита от дублей на уровне БД
+- **FOR UPDATE** -- `handle_checkout_completed` и `handle_checkout_expired_or_failed` блокируют Payment row через `.with_for_update()` (P-07)
+- **Return 200 always** -- после валидной подписи webhook всегда возвращает 200, даже при ошибке бизнес-логики. Stripe ретрит на не-2xx, а мы не хотим retry для наших ошибок. Payment остаётся pending для ручного разбора
+- **Unhandled events** -- логируем и возвращаем `{"status": "ignored"}`. Будущие event types добавляются в `_HANDLED_EVENTS`
+- **TopupRequest validation** -- `amount_cents: int = Field(ge=min_topup_cents, le=max_topup_cents)`. Pydantic даёт 422 при нарушении
+- **Audit** -- два события: `payment_topup_created` (actor=user) при создании session, `payment_topup_confirmed` (actor=system) при webhook. Связаны через `target_id=payment.id`
+- **Stripe metadata** -- `metadata={"payment_id": str, "user_id": str}` в Checkout Session. Для reconciliation в Stripe Dashboard
+- **stripe_metadata JSONB** -- на Payment: хранит event data от webhook (customer_email, amount_total, currency). Для дебаггинга расхождений
+
+**Аудит:** Раунд 24 — 0 замечаний. P-01 (no commit), P-07 (FOR UPDATE), P-08 (auth) пройдены.
+
+**Критерий готовности:** Юзер может пополнить баланс через Stripe. 183 теста (3 skipped: Stripe integration). ✅
 
 ---
 
-### 6.4: Purchase flow (frozen → unfrozen)
+### 6.4: Purchase flow (frozen → unfrozen) ✅
 
-**Цель:** Покупка практики с заморозкой.
+**Цель:** Покупка практики с заморозкой средств и комиссией при финализации.
+
+> **Архитектурное правило:** Каждая финансовая операция создаёт ЧЁТНОЕ количество
+> ledger-записей. Всегда. Даже для бесплатных практик (paid_cents=0). Нулевые
+> записи доказывают, что транзакция прошла полный путь, и поддерживают целостность
+> семафоров (COUNT(bookings) = COUNT(purchases), SUM(all ledgers) = 0).
 
 **Задачи:**
-- [ ] Модель Purchase
-- [ ] POST /api/v1/practices/{id}/purchase
-- [ ] Проверка баланса
-- [ ] Заморозка у мастера
-- [ ] Event на завершение практики → разморозка + комиссия
+- [x] app/modules/payments/purchase.py -- create_purchase_for_booking(), finalize_purchases()
+- [x] app/modules/payments/purchase_router.py -- POST /api/v1/practices/{id}/purchase
+- [x] app/modules/payments/models.py -- +Purchase, PurchaseStatus (обновлён)
+- [x] app/modules/payments/schemas.py -- +PurchaseResponse (обновлён)
+- [x] app/modules/bookings/service.py -- purchase integration в create_booking и finalize_practice
+- [x] app/modules/waitlist/service.py -- purchase integration в confirm_waitlist
+- [x] core/config.py -- +commission_percent: int = 15
+- [x] main.py -- +purchase_router
+- [x] Миграция `e4f5a6b7c8d9` -- purchases table + FK bookings.purchase_id
+- [x] tests/test_purchase.py -- 12 тестов (telegram_id range: 75xxx)
+- [x] tests/test_bookings.py -- обновлён (purchase cleanup + assertion fix)
 
-**Критерий готовности:** Деньги замораживаются при покупке, размораживаются после практики.
+**Endpoints:**
+```
+POST /api/v1/practices/{id}/purchase  -- purchase (creates booking + purchase)
+```
+
+> Endpoint является alias для booking flow: создаёт Booking + Purchase в одной транзакции.
+> Возвращает PurchaseResponse (богаче BookingResponse — включает финансовые детали).
+
+**Double-entry бухгалтерия:**
+
+Создание (create_purchase_for_booking):
+```
+user_ledger:   -price_cents  (дебет пользователя)
+master_ledger: +price_cents  (кредит мастера, is_frozen=True)
+Σ = 0 ✅
+```
+
+Финализация (finalize_purchases):
+```
+1. Bulk UPDATE: master_ledger.is_frozen = False (разморозка)
+2. Per purchase:
+   master_ledger:  -commission_cents (дебет мастера)
+   company_ledger: +commission_cents (кредит компании)
+   Σ = 0 ✅
+```
+
+Бесплатные практики (price_cents=0):
+```
+Ledger entries создаются с amount=0 -- инвариант double-entry соблюдён.
+Commission = int(0 * rate) = 0 -- корректно.
+```
+
+**Модель Purchase:**
+```python
+class PurchaseStatus(StrEnum):
+    PENDING = "pending"      # Practice not yet completed. Funds frozen.
+    COMPLETED = "completed"  # Finalized. Commission deducted, funds unfrozen.
+    REFUNDED = "refunded"    # User refund (Phase 6.5).
+    CANCELLED = "cancelled"  # Booking cancelled without refund.
+
+class Purchase(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "purchases"
+
+    user_id: Mapped[UUID]          # FK users.id, CASCADE
+    practice_id: Mapped[UUID]      # FK practices.id, CASCADE
+    booking_id: Mapped[UUID]       # FK bookings.id, CASCADE, UNIQUE
+    paid_cents: Mapped[int]        # Integer, default=0
+    currency: Mapped[str]          # String(3), default "eur"
+    commission_cents: Mapped[int]  # Integer, default=0
+    status: Mapped[str]            # String(20), default "pending"
+    completed_at: Mapped[datetime | None]
+```
+
+**Результат:**
+```
+backend/app/modules/payments/
+├── purchase.py         ← NEW: create_purchase_for_booking, finalize_purchases
+├── purchase_router.py  ← NEW: POST /practices/{id}/purchase
+├── models.py           ← +Purchase, PurchaseStatus (updated)
+├── schemas.py          ← +PurchaseResponse (updated)
+├── stripe.py           ← (Phase 6.3, без изменений)
+├── router.py           ← (Phase 6.3, без изменений)
+├── webhook_router.py   ← (Phase 6.3, без изменений)
+└── service.py          ← (Phase 6.2, без изменений)
+
+backend/app/modules/bookings/
+└── service.py          ← PATCHED: +create_purchase_for_booking, +finalize_purchases
+
+backend/app/modules/waitlist/
+└── service.py          ← PATCHED: +create_purchase_for_booking в confirm_waitlist
+
+backend/app/core/config.py  ← +commission_percent: int = 15
+backend/app/main.py         ← +purchase_router include
+
+backend/migrations/versions/
+└── ..._e4f5a6b7c8d9_create_purchases_table.py
+
+backend/tests/
+├── test_purchase.py    ← 12 тестов (telegram_id range: 75xxx)
+└── test_bookings.py    ← UPDATED: +purchase cleanup, assertion fix
+```
+
+**Решения, принятые при реализации:**
+
+- **Purchase для КАЖДОГО booking** -- даже бесплатного. Semaphore 1.1 требует COUNT(bookings) == COUNT(purchases) для active records. Нулевые записи — это не мусор, а proof of path
+- **booking_id UNIQUE** -- одна покупка на один booking. Двойная покупка невозможна ни на уровне кода (purchase создаётся внутри create_booking), ни на уровне БД (UNIQUE constraint)
+- **FOR UPDATE на User** (P-07) -- `session.get(User, id, with_for_update=True)` перед проверкой баланса. Конкурентные покупки сериализуются через row-level lock
+- **Commission — int math, truncate** -- `int(paid_cents * commission_percent / 100)`. Без Decimal, без округления. Центы — целые числа
+- **commission_percent в config** -- `settings.commission_percent: int = 15`. Настраивается через .env. Тест `test_configurable_commission_percent` мокает через `patch.object(settings, "commission_percent", 20)`
+- **Bulk unfreeze** -- `UPDATE master_ledger SET is_frozen=False WHERE practice_id=X AND is_frozen=True`. Один запрос вместо N. Следующий `record_master_ledger(-commission)` пересчитывает balance cache
+- **Purchase router — alias** -- `POST /practices/{id}/purchase` вызывает `create_booking()` внутри, затем загружает Purchase. Это тот же flow, что и `POST /bookings`, но возвращает PurchaseResponse (с financial details)
+- **bookings/service.py integration** -- `create_booking` вызывает `create_purchase_for_booking()` после flush booking. `finalize_practice` вызывает `finalize_purchases()` после bulk status update. Import на уровне модуля (не lazy, circular deps нет)
+- **waitlist/service.py integration** -- `confirm_waitlist` загружает user объект и вызывает `create_purchase_for_booking()` после booking flush
+- **Миграция e4f5a6b7c8d9** -- таблица purchases (FK на users, practices, bookings), booking_id UNIQUE. FK `fk_bookings_purchase_id` (ondelete=SET NULL) добавлен на bookings.purchase_id. Индексы: ix_purchases_user_id, ix_purchases_practice_id, ix_purchases_status. Downgrade: FK → индексы → таблица (правильный порядок)
+- **Test cleanup fixture** -- autouse, before+after каждый тест. Порядок: ledger → nullify purchase_id → purchases → bookings → practices → master_profiles → reset roles/balance. Использует raw SQL text() (TD-032 backlog)
+
+**Анализ конкурентности (из ревью Раунд 25):**
+
+- **Двойная покупка одного booking:** Невозможна — booking_id UNIQUE + purchase создаётся в той же транзакции
+- **Конкурентные покупки разных пользователей:** Сериализуются через FOR UPDATE на User (каждый свой row). Capacity check на уровне create_booking с FOR UPDATE на Practice
+- **finalize_purchases:** Practice заблокирована вызывающим кодом. Purchases блокируются через .with_for_update()
+- **Waitlist confirm + direct booking race:** confirm_waitlist блокирует Practice с FOR UPDATE и перепроверяет capacity. Если spot занят → WAITING
+
+**Аудит:** Раунд 25 — 0 замечаний (CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0). Double-entry верифицирован. P-01 (no commit), P-05 (IntegrityError), P-07 (FOR UPDATE), P-12 (state machine) пройдены.
+
+**Критерий готовности:** Деньги замораживаются при покупке, размораживаются после практики. Комиссия рассчитывается и записывается. 196 тестов (3 skipped), 0 warnings. ✅
 
 ---
 
