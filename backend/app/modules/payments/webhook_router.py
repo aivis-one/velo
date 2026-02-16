@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Stripe Webhook Router (Phase 6.3)
+# VELO Backend -- Stripe Webhook Router (Phase 6.3, Batch 3 fix)
 # =============================================================================
 #
 # ENDPOINT:
@@ -17,6 +17,14 @@
 #   and manage commit/rollback explicitly.
 #
 # IDEMPOTENCY: Handlers skip already-processed events (safe to retry).
+#
+# ERROR STRATEGY (M-03):
+#   - Signature invalid → 400 (Stripe won't retry 4xx).
+#   - Unhandled event type → 200 (acknowledged, ignored).
+#   - Handler succeeds → 200.
+#   - Transient error (DB down, network) → 500 (Stripe WILL retry).
+#   Handlers are idempotent, so retries are safe. Returning 200 on
+#   transient errors would cause payments to be stuck in pending forever.
 #
 # HANDLED EVENTS:
 #   checkout.session.completed -- topup confirmed
@@ -54,12 +62,10 @@ async def stripe_webhook(request: Request) -> JSONResponse:
     1. Read raw body (required for signature verification).
     2. Verify signature using Stripe-Signature header.
     3. Dispatch to event-specific handler.
-    4. Return 200 to acknowledge receipt.
+    4. Return 200 on success, 500 on transient failure (M-03).
 
-    Always returns 200 to Stripe after successful signature check --
-    even for unhandled events or processing errors. Stripe retries
-    on non-2xx, and we don't want retries for events we
-    intentionally skip.
+    Stripe retries on 5xx with exponential backoff (up to 3 days).
+    Handlers are idempotent, so retries are safe.
     """
     # Step 1: Raw body.
     payload = await request.body()
@@ -130,9 +136,14 @@ async def stripe_webhook(request: Request) -> JSONResponse:
             event_type=event_type,
             event_id=event_id,
         )
-        # Return 200 even on error -- we don't want Stripe to
-        # retry if our business logic failed. Payment stays
-        # in pending state for manual investigation.
+        # M-03 fix: return 500 on transient errors so Stripe retries.
+        # Handlers are idempotent (skip already-processed events),
+        # so retries are safe. Returning 200 here would cause payments
+        # to be stuck in pending state forever if DB is temporarily down.
+        return JSONResponse(
+            status_code=500,
+            content={"error": "processing_failed"},
+        )
     finally:
         await session.close()
 

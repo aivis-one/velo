@@ -21,11 +21,20 @@
 #   "admin"  -- admin performing moderation/verification
 #   "system" -- automated action (cron, listener, webhook)
 #
-# MANDATORY EVENTS (Phase 6+):
-#   balance_topup, purchase_created, purchase_refunded,
+# MANDATORY EVENTS (actual names used in code):
+#   payment_topup_created       -- user initiates Stripe checkout
+#   payment_topup_confirmed     -- Stripe webhook confirms payment
+#   payment_topup_failed        -- Stripe checkout expired / failed
+#   purchase_created            -- user books a paid practice
+#   purchase_completed          -- practice finalized or late cancel
+#   purchase_refunded           -- user cancel > 24h or master cancel
+#   master_verified             -- admin verifies master application
+#   master_rejected             -- admin rejects master application
+#   practice_cancelled_by_master -- master cancels own practice
+#
+# FUTURE (not yet implemented):
 #   withdrawal_requested, withdrawal_confirmed,
-#   master_verified, master_rejected, role_changed,
-#   user_blocked, practice_cancelled
+#   role_changed, user_blocked
 #
 # TRACE ID LINKAGE:
 #   trace_id, ip_address, and user_agent are read from structlog

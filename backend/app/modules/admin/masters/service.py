@@ -9,14 +9,16 @@
 #   2. Validate status == "pending"
 #   3. Update JSONB: status -> "verified", add verification info
 #   4. Change User.role -> MASTER
-#   5. Return updated profile (caller does flush + refresh)
+#   5. Record audit event (M-01)
+#   6. Return updated profile (caller does flush + refresh)
 #
 # REJECT FLOW:
 #   1. Load MasterProfile by user_id with FOR UPDATE (P-07)
 #   2. Validate status == "pending"
 #   3. Update JSONB: status -> "rejected", store reason
 #   4. Do NOT change User.role
-#   5. Return updated profile
+#   5. Record audit event (M-01)
+#   6. Return updated profile
 #
 # JSONB SAFETY:
 #   All mutations use copy.deepcopy() + set_jsonb() (P-03).
@@ -34,6 +36,7 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.exceptions import ConflictError, NotFoundError
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
@@ -106,6 +109,17 @@ async def verify_master(
 
     user.role = UserRole.MASTER
 
+    # M-01: audit trail for master verification.
+    await record_audit(
+        event="master_verified",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"notes": notes},
+        session=session,
+    )
+
     logger.info(
         "master_verified",
         user_id=str(user_id),
@@ -135,6 +149,17 @@ async def reject_master(
     new_data["account"]["rejection_reason"] = reason
     new_data["account"]["rejected_by"] = str(admin.id)
     profile.set_jsonb("data", new_data)
+
+    # M-01: audit trail for master rejection.
+    await record_audit(
+        event="master_rejected",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"reason": reason},
+        session=session,
+    )
 
     logger.info(
         "master_rejected",

@@ -5,7 +5,6 @@
 # A booking ties a user to a practice session.
 #
 # STATE MACHINE (enforced in service.py):
-#   pending   -> confirmed, cancelled
 #   confirmed -> attended, no_show, cancelled
 #   attended  -> (terminal)
 #   no_show   -> (terminal)
@@ -16,11 +15,15 @@
 #   See TD-034.
 #
 # PURCHASE:
-#   purchase_id is a stub column (no FK). Will reference purchases
-#   table in Phase 6.4.
+#   purchase_id FK -> purchases.id (added Phase 6.4).
 #
 # ATTENDANCE:
 #   joined_at / left_at included for Phase 5.4 (attendance tracking).
+#
+# UNIQUE INDEX (H-02):
+#   Partial unique index on (practice_id, user_id) WHERE status != 'cancelled'.
+#   This allows re-booking after cancellation while preventing duplicate
+#   active bookings. Old absolute UniqueConstraint blocked re-booking.
 # =============================================================================
 
 import enum
@@ -30,9 +33,10 @@ from uuid import UUID
 from sqlalchemy import (
     DateTime,
     ForeignKey,
+    Index,
     String,
     Text,
-    UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -70,7 +74,7 @@ class Booking(UUIDMixin, TimestampMixin, Base):
         server_default=BookingStatus.PENDING.value,
     )
 
-    # -- Purchase (stub, no FK until Phase 6.4) --
+    # -- Purchase --
     purchase_id: Mapped[UUID | None] = mapped_column(
         default=None,
     )
@@ -91,11 +95,15 @@ class Booking(UUIDMixin, TimestampMixin, Base):
         DateTime(timezone=True), default=None,
     )
 
+    # H-02: partial unique index -- prevents duplicate active bookings
+    # but allows re-booking after cancellation.
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_booking_practice_user_active",
             "practice_id",
             "user_id",
-            name="uq_booking_practice_user",
+            unique=True,
+            postgresql_where=text("status != 'cancelled'"),
         ),
     )
 

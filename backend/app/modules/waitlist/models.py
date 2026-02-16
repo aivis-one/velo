@@ -8,7 +8,7 @@
 # STATE MACHINE (enforced in service.py):
 #   waiting   -> notified, left
 #   notified  -> converted, declined, expired, left
-#   converted -> (terminal)
+#   converted -> waiting (re-join after booking cancel)
 #   left      -> waiting (re-join: UPDATE position + joined_at + status)
 #   declined  -> waiting (re-join)
 #   expired   -> waiting (re-join)
@@ -56,11 +56,16 @@ class WaitlistStatus(enum.StrEnum):
     EXPIRED = "expired"
 
 
-# Statuses that allow re-join (UPDATE existing row).
+# H-02: converted added -- allows re-join after user cancels
+# a booking that was created from a waitlist confirmation.
+# Without this, converted entries block re-join (not in
+# REJOINABLE, not in ACTIVE) and fall through to INSERT
+# which hits UniqueConstraint.
 REJOINABLE_STATUSES = {
     WaitlistStatus.LEFT.value,
     WaitlistStatus.DECLINED.value,
     WaitlistStatus.EXPIRED.value,
+    WaitlistStatus.CONVERTED.value,
 }
 
 # Statuses that mean "actively in queue".
