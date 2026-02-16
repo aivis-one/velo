@@ -26,25 +26,46 @@ PRACTICES_URL = "/api/v1/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
+# Cleanup in dependency order (Phase 6.4+: ledger -> purchases -> bookings).
+_TID_RANGE = "SELECT id FROM users WHERE telegram_id BETWEEN 63000 AND 63999"
+
+_CLEANUP_COMPANY_LEDGER_SQL = text(
+    "DELETE FROM company_ledger WHERE reference_id IN "
+    "(SELECT id FROM purchases WHERE user_id IN "
+    f"({_TID_RANGE}))"
+)
+_CLEANUP_MASTER_LEDGER_SQL = text(
+    f"DELETE FROM master_ledger WHERE user_id IN ({_TID_RANGE})"
+)
+_CLEANUP_USER_LEDGER_SQL = text(
+    f"DELETE FROM user_ledger WHERE user_id IN ({_TID_RANGE})"
+)
+_CLEANUP_AUDIT_SQL = text(
+    f"DELETE FROM audit_log WHERE actor_id IN ({_TID_RANGE})"
+)
+_NULLIFY_PURCHASE_ID_SQL = text(
+    f"UPDATE bookings SET purchase_id = NULL WHERE user_id IN ({_TID_RANGE})"
+)
+_CLEANUP_PURCHASES_SQL = text(
+    f"DELETE FROM purchases WHERE user_id IN ({_TID_RANGE})"
+)
 _CLEANUP_BOOKINGS_SQL = text(
-    "DELETE FROM bookings WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 63000 AND 63999)"
+    f"DELETE FROM bookings WHERE user_id IN ({_TID_RANGE})"
 )
 _CLEANUP_PRACTICES_SQL = text(
     "DELETE FROM practices WHERE master_id IN "
     "(SELECT user_id FROM master_profiles "
-    "WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 63000 AND 63999))"
+    f"WHERE user_id IN ({_TID_RANGE}))"
 )
 _CLEANUP_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 63000 AND 63999)"
+    f"DELETE FROM master_profiles WHERE user_id IN ({_TID_RANGE})"
 )
 _RESET_ROLES_SQL = text(
     "UPDATE users SET role = 'user' "
+    "WHERE telegram_id BETWEEN 63000 AND 63999"
+)
+_RESET_BALANCE_SQL = text(
+    "UPDATE users SET balance_cents = 0 "
     "WHERE telegram_id BETWEEN 63000 AND 63999"
 )
 
@@ -52,22 +73,30 @@ _RESET_ROLES_SQL = text(
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+async def _full_cleanup(db_session: AsyncSession) -> None:
+    """Run all cleanup queries in dependency order."""
+    await db_session.execute(_CLEANUP_COMPANY_LEDGER_SQL)
+    await db_session.execute(_CLEANUP_AUDIT_SQL)
+    await db_session.execute(_CLEANUP_MASTER_LEDGER_SQL)
+    await db_session.execute(_CLEANUP_USER_LEDGER_SQL)
+    await db_session.execute(_NULLIFY_PURCHASE_ID_SQL)
+    await db_session.execute(_CLEANUP_PURCHASES_SQL)
+    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
+    await db_session.execute(_CLEANUP_PRACTICES_SQL)
+    await db_session.execute(_CLEANUP_MASTERS_SQL)
+    await db_session.execute(_RESET_ROLES_SQL)
+    await db_session.execute(_RESET_BALANCE_SQL)
+    await db_session.commit()
+
+
 @pytest.fixture(autouse=True)
 async def cleanup(
     db_session: AsyncSession,
 ) -> AsyncGenerator[None, None]:
     """Clean bookings, practices, masters, reset roles."""
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _full_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _full_cleanup(db_session)
 
 
 # ---------------------------------------------------------------------------
@@ -186,7 +215,8 @@ async def _book_user(
     practice_id: str,
     telegram_id: int,
 ) -> dict:
-    """Book a user into a practice. Returns auth + booking_id."""
+    """Book a user into a practice.
+    Returns auth + booking_id."""
     user = await login_user(
         client, telegram_id=telegram_id, first_name="User",
     )
@@ -278,13 +308,15 @@ async def test_join_booking_cancelled_practice(
     pid = await _create_scheduled_practice(client, master)
     user_data = await _book_user(client, pid, telegram_id=63104)
 
-    # Cancel the practice.
-    await client.patch(
-        f"{PRACTICES_URL}/{pid}",
-        json={"status": "cancelled"},
+    # Cancel the practice via POST /cancel (Phase 6.5).
+    # This also cancels all active bookings with refund.
+    cancel_resp = await client.post(
+        f"{PRACTICES_URL}/{pid}/cancel",
         headers=auth_headers(master["session_token"]),
     )
+    assert cancel_resp.status_code == 200
 
+    # Booking is now cancelled -> join returns 400.
     resp = await client.post(
         f"{BOOKINGS_URL}/{user_data['booking_id']}/join",
         headers=auth_headers(user_data["session_token"]),
