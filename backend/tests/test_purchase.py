@@ -277,7 +277,7 @@ async def test_purchase_insufficient_balance(
         headers=auth_headers(user_data["session_token"]),
     )
     assert resp.status_code == 400
-    assert "Insufficient balance" in resp.json()["detail"]
+    assert "Insufficient balance" in resp.json()["message"]
 
 
 @pytest.mark.asyncio

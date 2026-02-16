@@ -150,72 +150,43 @@ app.add_middleware(TraceIdMiddleware)
 
 
 # ---------------------------------------------------------------------------
-# Health / Readiness Probes
+# Root & Health Endpoints
 # ---------------------------------------------------------------------------
-@app.get("/", tags=["health"])
+@app.get("/")
 async def root() -> dict:
-    """API identity."""
-    return {"api": "VELO", "version": "0.1.0"}
+    """Root endpoint -- API info."""
+    return {"name": "VELO API", "version": "0.1.0"}
 
 
-@app.get("/health", tags=["health"])
+@app.get("/health")
 async def health() -> dict:
-    """Health check -- always 200, reports component status."""
-    components: dict[str, str] = {}
+    """Health check -- DB and Redis connectivity."""
+    result = {"status": "ok", "db": "ok", "redis": "ok"}
 
-    # Database
+    # Check DB.
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        components["database"] = "ok"
     except Exception:
-        components["database"] = "error"
+        result["db"] = "error"
+        result["status"] = "degraded"
 
-    # Redis
-    try:
-        redis = get_redis()
-        await redis.ping()
-        components["redis"] = "ok"
-    except Exception:
-        components["redis"] = "error"
-
-    return {"status": "healthy", "components": components}
-
-
-@app.get("/ready", tags=["health"])
-async def ready() -> JSONResponse:
-    """Readiness probe -- 200 if all components up, 503 if degraded."""
-    components: dict[str, str] = {}
-    all_ok = True
-
-    # Database
-    try:
-        engine = get_engine()
-        async with engine.connect() as conn:
-            await asyncio.wait_for(
-                conn.execute(text("SELECT 1")),
-                timeout=2.0,
-            )
-        components["database"] = "ok"
-    except Exception:
-        components["database"] = "error"
-        all_ok = False
-
-    # Redis
+    # Check Redis.
     try:
         redis = get_redis()
         await asyncio.wait_for(redis.ping(), timeout=2.0)
-        components["redis"] = "ok"
     except Exception:
-        components["redis"] = "error"
-        all_ok = False
+        result["redis"] = "error"
+        result["status"] = "degraded"
 
-    status_code = 200 if all_ok else 503
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "status": "ready" if all_ok else "degraded",
-            "components": components,
-        },
-    )
+    return result
+
+
+@app.get("/ready")
+async def readiness() -> JSONResponse:
+    """Readiness probe -- returns 503 if degraded (TD-003)."""
+    check = await health()
+    if check["status"] != "ok":
+        return JSONResponse(status_code=503, content=check)
+    return JSONResponse(status_code=200, content=check)
