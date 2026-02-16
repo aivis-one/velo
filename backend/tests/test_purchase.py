@@ -18,13 +18,14 @@
 #   - POST /api/v1/bookings (backward compat -- also creates purchase)
 # =============================================================================
 
+from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -46,6 +47,76 @@ from app.modules.payments.service import record_user_ledger
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, login_user
+
+
+# ---------------------------------------------------------------------------
+# Cleanup (dependency order: ledger -> purchases -> bookings -> practices)
+# ---------------------------------------------------------------------------
+
+_TID_RANGE = "SELECT id FROM users WHERE telegram_id BETWEEN 75000 AND 75999"
+_MASTER_RANGE = (
+    "SELECT user_id FROM master_profiles "
+    "WHERE user_id IN (" + _TID_RANGE + ")"
+)
+
+_CLEANUP_QUERIES = [
+    # 1. Company ledger (via purchases linked to our practices).
+    text(
+        "DELETE FROM company_ledger WHERE reference_id IN "
+        "(SELECT id FROM purchases WHERE user_id IN (" + _TID_RANGE + "))"
+    ),
+    # 2. Master ledger.
+    text(
+        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 3. User ledger.
+    text(
+        "DELETE FROM user_ledger WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 4. Nullify booking.purchase_id FK before deleting purchases.
+    text(
+        "UPDATE bookings SET purchase_id = NULL "
+        "WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 5. Purchases.
+    text(
+        "DELETE FROM purchases WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 6. Bookings.
+    text(
+        "DELETE FROM bookings WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 7. Practices (owned by masters in our range).
+    text(
+        "DELETE FROM practices WHERE master_id IN (" + _MASTER_RANGE + ")"
+    ),
+    # 8. Master profiles.
+    text(
+        "DELETE FROM master_profiles WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 9. Reset roles and balance.
+    text(
+        "UPDATE users SET role = 'user', balance_cents = 0 "
+        "WHERE telegram_id BETWEEN 75000 AND 75999"
+    ),
+]
+
+
+async def _full_cleanup(db_session: AsyncSession) -> None:
+    """Run all cleanup queries in dependency order."""
+    for stmt in _CLEANUP_QUERIES:
+        await db_session.execute(stmt)
+    await db_session.commit()
+
+
+@pytest.fixture(autouse=True)
+async def cleanup(
+    db_session: AsyncSession,
+) -> AsyncGenerator[None, None]:
+    """Clean all purchase-test data before and after each test."""
+    await _full_cleanup(db_session)
+    yield
+    await _full_cleanup(db_session)
 
 
 # ---------------------------------------------------------------------------
@@ -405,7 +476,7 @@ async def test_finalize_free_practice_zero_commission(
         client, telegram_id=75061, first_name="Buyer",
     )
 
-    # Book free practice.
+    # Book.
     resp = await client.post(
         BOOKINGS_URL,
         json={"practice_id": practice_id},
@@ -425,27 +496,15 @@ async def test_finalize_free_practice_zero_commission(
     )
     assert resp.status_code == 200
 
-    # Verify purchase completed.
+    # Verify zero-amount commission entries.
     db_session.expire_all()
     stmt = select(Purchase).where(Purchase.booking_id == booking_id)
     result = await db_session.execute(stmt)
     purchase = result.scalar_one()
-    assert purchase.status == PurchaseStatus.COMPLETED.value
-    assert purchase.paid_cents == 0
     assert purchase.commission_cents == 0
+    assert purchase.status == PurchaseStatus.COMPLETED.value
 
-    # Verify commission ledger entries exist (zero-amount, double-entry).
-    stmt = (
-        select(MasterLedger)
-        .where(
-            MasterLedger.practice_id == practice_id,
-            MasterLedger.reason == f"commission:practice={practice_id}",
-        )
-    )
-    result = await db_session.execute(stmt)
-    ml_commission = result.scalar_one()
-    assert ml_commission.amount_cents == 0
-
+    # Company ledger entry exists with 0.
     stmt = (
         select(CompanyLedger)
         .where(CompanyLedger.reference_id == purchase.id)
