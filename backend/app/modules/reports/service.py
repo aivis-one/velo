@@ -11,7 +11,7 @@
 #   4. If no duplicate -- create new report with status=pending
 #
 # UPDATE FLOW:
-#   1. Load report by id, verify ownership (reporter_id == user.id)
+#   1. Load report by id with FOR UPDATE, verify ownership
 #   2. Verify status == pending (can't edit resolved/dismissed)
 #   3. Update reason
 #
@@ -33,7 +33,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
 from app.modules.reports.models import Report, ReportStatus, ReportTargetType
@@ -171,19 +171,20 @@ async def update_report(
 ) -> Report:
     """Update the reason of a user's own pending report.
 
-    Raises NotFoundError if report not found.
-    Raises ForbiddenError if user is not the reporter.
+    Raises NotFoundError if report not found or user is not the reporter (P-08).
     Raises BadRequestError if report is not pending.
     """
-    stmt = select(Report).where(Report.id == report_id)
+    # M-05 fix: FOR UPDATE prevents race with concurrent admin resolve/dismiss.
+    stmt = select(Report).where(Report.id == report_id).with_for_update()
     result = await session.execute(stmt)
     report = result.scalar_one_or_none()
 
     if not report:
         raise NotFoundError("Report not found")
 
+    # M-04 fix: return 404 (not 403) to avoid leaking resource existence (P-08).
     if report.reporter_id != user.id:
-        raise ForbiddenError("Cannot edit someone else's report")
+        raise NotFoundError("Report not found")
 
     if report.status != ReportStatus.PENDING.value:
         raise BadRequestError("Can only edit pending reports")

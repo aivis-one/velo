@@ -279,7 +279,7 @@ async def test_update_report_success(client: AsyncClient) -> None:
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_update_report_not_owner(client: AsyncClient) -> None:
-    """Cannot edit someone else's report: 403."""
+    """Cannot edit someone else's report: 404 (P-08)."""
     reporter = await login_user(client, telegram_id=59009, first_name="Owner")
     other = await login_user(client, telegram_id=59010, first_name="Other")
     target = await _create_target_user(client, telegram_id=59103)
@@ -302,7 +302,8 @@ async def test_update_report_not_owner(client: AsyncClient) -> None:
         json={"reason": "Hijacked"},
         headers=auth_headers(other["session_token"]),
     )
-    assert resp2.status_code == 403
+    # M-04 fix: 404 instead of 403 to avoid leaking resource existence (P-08).
+    assert resp2.status_code == 404
 
 
 # ---------------------------------------------------------------------------

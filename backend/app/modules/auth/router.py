@@ -39,7 +39,7 @@ async def auth_telegram(
     Flow:
       1. Validate initData signature (HMAC-SHA256)
       2. Find or create User by telegram_id
-      3. Commit DB changes (P-2: before Redis to avoid ghost sessions)
+      3. Flush DB (get user.id) -- commit deferred to get_db_session
       4. Create session in Redis (token, TTL 30 days)
       5. Return user + session_token
     """
@@ -56,9 +56,10 @@ async def auth_telegram(
     # Create or update user.
     user = await upsert_user_on_login(telegram_user, session)
 
-    # P-2: commit DB first. If commit fails, no orphan session in Redis.
-    # get_db_session auto-commits on success, but we need it NOW before Redis.
-    await session.commit()
+    # M-02 fix: flush (not commit) to get user.id for Redis.
+    # get_db_session will commit after return. If Redis fails,
+    # the entire transaction rolls back -- no orphan DB records.
+    await session.flush()
 
     # Create session in Redis.
     token = await create_session(user)

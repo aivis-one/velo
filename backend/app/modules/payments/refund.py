@@ -228,8 +228,8 @@ async def early_finalize_booking(
         return purchase
 
     reason_suffix = f"practice={practice.id}"
-    commission_rate = settings.commission_percent / 100
-    commission = int(purchase.paid_cents * commission_rate)
+    # L-07 fix: pure integer math -- no float intermediate.
+    commission = purchase.paid_cents * settings.commission_percent // 100
 
     # Step 1: Reverse the original frozen credit.
     await record_master_ledger(

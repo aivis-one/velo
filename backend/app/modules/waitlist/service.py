@@ -97,7 +97,9 @@ async def _get_active_booking_count(
     return result.scalar_one()
 
 
-async def _next_position_subquery(practice_id: UUID) -> int:
+# L-03 fix: removed async -- this function contains only synchronous
+# SQLAlchemy expression building (no I/O, no awaits).
+def _next_position_subquery(practice_id: UUID):
     """Build a scalar subquery for next position in waitlist.
 
     Returns a correlated subquery: COALESCE(MAX(position), 0) + 1
@@ -179,7 +181,8 @@ async def join_waitlist(
     existing = existing_result.scalar_one_or_none()
 
     now = datetime.now(UTC)
-    next_pos = await _next_position_subquery(practice_id)
+    # L-03 fix: no longer awaited (sync function).
+    next_pos = _next_position_subquery(practice_id)
 
     if existing:
         if existing.status in ACTIVE_STATUSES:

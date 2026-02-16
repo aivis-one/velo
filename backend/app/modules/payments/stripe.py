@@ -19,6 +19,7 @@
 #   Integration tests use Stripe Test Mode (separate test file).
 # =============================================================================
 
+import asyncio
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -99,8 +100,11 @@ async def create_topup_session(
     await session.flush()
 
     # Step 2: Create Stripe Checkout Session.
+    # H-01 fix: stripe SDK is synchronous -- offload to thread pool
+    # to avoid blocking the asyncio event loop (200ms-2s per call).
     try:
-        checkout = stripe.checkout.Session.create(
+        checkout = await asyncio.to_thread(
+            stripe.checkout.Session.create,
             mode="payment",
             payment_method_types=["card"],
             line_items=[
