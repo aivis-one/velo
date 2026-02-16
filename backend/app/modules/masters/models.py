@@ -33,6 +33,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, Integer, func
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -106,10 +107,18 @@ class MasterProfile(JSONBMixin, Base):
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in self._GUARDED_FIELDS and not getattr(self, '_ledger_update', False):
-            import structlog
-            structlog.get_logger().warning(
-                "direct_balance_write",
-                field=name,
-                hint="Use record_master_ledger() instead",
-            )
+            # M-06: only warn for persistent objects (already loaded from DB).
+            # Skips ORM hydration (constructor defaults on SELECT) and
+            # initial object creation, preventing log spam.
+            try:
+                if sa_inspect(self).persistent:
+                    import structlog
+                    structlog.get_logger().warning(
+                        "direct_balance_write",
+                        field=name,
+                        hint="Use record_master_ledger() instead",
+                    )
+            except Exception:
+                # Not yet tracked by SQLAlchemy (during __init__).
+                pass
         super().__setattr__(name, value)

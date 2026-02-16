@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 6.4)
+# VELO Backend -- Application Entry Point (updated Phase 6.4, Batch 2)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -127,6 +127,25 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     )
 
 
+# L-06: global handler for unexpected (non-VeloError) exceptions.
+# Without this, unhandled exceptions leak stack traces to the client
+# as FastAPI's default 500 HTML/text response.
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Catch-all for unexpected exceptions -- return generic 500 JSON."""
+    logger.error(
+        "unhandled_exception",
+        exc_type=type(exc).__name__,
+        exc_message=str(exc),
+        path=request.url.path,
+        method=request.method,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"error": "internal_error", "message": "Internal server error"},
+    )
+
+
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
@@ -145,7 +164,8 @@ app.add_middleware(
 # Trace ID (Pre-6.1)
 # ---------------------------------------------------------------------------
 # Added AFTER CORSMiddleware so Starlette applies it as the outermost
-# layer (LIFO order). Every request gets a trace_id before CORS runs.
+# layer (LIFO order).
+# Every request gets a trace_id before CORS runs.
 app.add_middleware(TraceIdMiddleware)
 
 

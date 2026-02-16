@@ -47,6 +47,10 @@ from app.core.database import Base
 
 logger = structlog.get_logger()
 
+# L-05: user_agent column is String(500). Bots and crawlers can send
+# arbitrarily long User-Agent headers that would cause DataError.
+_MAX_USER_AGENT_LEN = 500
+
 
 # ---------------------------------------------------------------------------
 # Model
@@ -143,6 +147,11 @@ async def record_audit(
     trace_id = ctx.get("trace_id")
     ip_address = ctx.get("ip_address")
     user_agent = ctx.get("user_agent")
+
+    # L-05: truncate user_agent to fit String(500) column.
+    # Bots and crawlers can send arbitrarily long User-Agent headers.
+    if user_agent and len(user_agent) > _MAX_USER_AGENT_LEN:
+        user_agent = user_agent[:_MAX_USER_AGENT_LEN]
 
     entry = AuditLog(
         event=event,
