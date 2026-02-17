@@ -571,7 +571,10 @@ async def test_list_master_practices(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Master sees their own practices (excluding deleted)."""
+    """Master sees their own practices (excluding deleted).
+
+    R-04: response is now PaginatedPracticesResponse with total/limit/offset.
+    """
     auth = await _make_verified_master(client, db_session)
 
     # Create 2 practices.
@@ -588,7 +591,11 @@ async def test_list_master_practices(
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 200
-    assert len(resp.json()) == 2
+    data = resp.json()
+    assert data["total"] == 2
+    assert len(data["items"]) == 2
+    assert "limit" in data
+    assert "offset" in data
 
 
 # ===================================================================

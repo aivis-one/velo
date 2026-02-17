@@ -405,23 +405,43 @@ async def list_master_practices(
     session: AsyncSession,
     limit: int = 20,
     offset: int = 0,
-) -> list[Practice]:
+) -> PaginatedPracticesResponse:
     """List practices owned by the current master.
+
+    R-04 fix: returns PaginatedPracticesResponse (with total count),
+    consistent with list_public_practices().
 
     Excludes deleted practices. Master sees their own drafts.
     """
+    base_filter = (
+        Practice.master_id == user.id,
+        Practice.status != PracticeStatus.DELETED.value,
+    )
+
+    # -- Total count --
+    count_query = select(func.count(Practice.id)).where(*base_filter)
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    # -- Paginated items --
     stmt = (
         select(Practice)
-        .where(
-            Practice.master_id == user.id,
-            Practice.status != PracticeStatus.DELETED.value,
-        )
+        .where(*base_filter)
         .order_by(Practice.scheduled_at.desc())
         .limit(limit)
         .offset(offset)
     )
     result = await session.execute(stmt)
-    return list(result.scalars().all())
+    practices = result.scalars().all()
+
+    return PaginatedPracticesResponse(
+        items=[
+            PracticeResponse.model_validate(p) for p in practices
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 async def list_public_practices(

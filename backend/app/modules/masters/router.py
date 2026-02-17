@@ -16,7 +16,7 @@ from app.modules.auth.dependencies import get_current_master, get_current_user
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import MasterApplyRequest, MasterApplyResponse
 from app.modules.masters.service import apply_for_master
-from app.modules.practices.schemas import PracticeResponse
+from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
 from app.modules.users.models import User
 
@@ -55,9 +55,11 @@ async def apply_master(
     )
 
 
+# R-04 fix: PaginatedPracticesResponse (with total count),
+# consistent with list_public_practices().
 @router.get(
     "/me/practices",
-    response_model=list[PracticeResponse],
+    response_model=PaginatedPracticesResponse,
 )
 async def list_my_practices(
     master_tuple: tuple[User, MasterProfile] = Depends(
@@ -66,15 +68,13 @@ async def list_my_practices(
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-) -> list[PracticeResponse]:
+) -> PaginatedPracticesResponse:
     """List practices owned by the current master.
 
     Excludes deleted practices. Master sees their own drafts.
+    Returns paginated response with total count.
     """
     user, _profile = master_tuple
-    practices = await list_master_practices(
-        user, session, limit=limit, offset=offset
+    return await list_master_practices(
+        user, session, limit=limit, offset=offset,
     )
-    return [
-        PracticeResponse.model_validate(p) for p in practices
-    ]

@@ -789,7 +789,11 @@ async def test_patch_status_cancelled_blocked(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """PATCH status=cancelled is blocked (must use POST /cancel)."""
+    """PATCH status=cancelled is blocked (must use POST /cancel).
+
+    I-04: 'cancelled' removed from UpdatePracticeRequest Literal,
+    so FastAPI rejects with 422 before reaching service layer.
+    """
     master_data = await _make_verified_master(
         client, db_session, telegram_id=76014,
     )
@@ -802,8 +806,8 @@ async def test_patch_status_cancelled_blocked(
         json={"status": "cancelled"},
         headers=auth_headers(master_data["session_token"]),
     )
-    assert resp.status_code == 400
-    assert "Cannot transition" in resp.json()["message"]
+    # I-04: Pydantic Literal validation rejects before service (422 not 400).
+    assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
