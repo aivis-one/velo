@@ -8,7 +8,7 @@ waitlist.user_id     -- future GET /waitlist/me.
 practices.master_id already has ix_practices_master_id (Phase 4.1
 migration), only model synced (no DB change needed).
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 0a1b2c3d4e5f
 Revises: f5a6b7c8d9e0
 Create Date: 2026-02-18
 """
@@ -17,7 +17,7 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "0a1b2c3d4e5f"
 down_revision: str | None = "f5a6b7c8d9e0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
