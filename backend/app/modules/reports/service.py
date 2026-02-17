@@ -127,9 +127,9 @@ async def create_report(
     session.add(report)
 
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         # Race condition: another request inserted the same report
         # between our SELECT and INSERT. Return None so caller
         # treats it as a duplicate (same as the normal path).

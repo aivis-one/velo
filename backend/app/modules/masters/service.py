@@ -149,9 +149,9 @@ async def apply_for_master(
     session.add(profile)
 
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         raise ConflictError("Application already pending")
 
     logger.info(

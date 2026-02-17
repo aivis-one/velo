@@ -167,9 +167,9 @@ async def create_booking(
 
     # Flush to trigger UniqueConstraint check (P-05).
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         raise ConflictError(
             "Already booked for this practice"
         ) from None

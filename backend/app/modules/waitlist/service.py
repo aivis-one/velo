@@ -219,9 +219,9 @@ async def join_waitlist(
     session.add(entry)
 
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         raise ConflictError(
             "Already on waitlist for this practice"
         ) from None
