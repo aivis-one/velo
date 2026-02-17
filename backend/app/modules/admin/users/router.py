@@ -16,6 +16,8 @@
 # SESSION: get_db_reader -- all read-only.
 # =============================================================================
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -52,7 +54,11 @@ async def get_masters(
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    status: str | None = Query(default=None),
+    # L-04 fix: Literal validates status at FastAPI layer (422 on invalid).
+    # Consistent with admin/reports/router.py (P-11).
+    status: Literal["pending", "verified", "rejected"] | None = Query(
+        default=None,
+    ),
 ) -> PaginatedMastersResponse:
     """List all masters with optional status filter."""
     return await list_masters(

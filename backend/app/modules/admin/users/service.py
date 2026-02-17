@@ -14,6 +14,8 @@
 #   Shortcuts /pending and /rejected are just status filters.
 # =============================================================================
 
+from typing import Literal
+
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,7 +81,8 @@ async def list_masters(
     *,
     limit: int = 20,
     offset: int = 0,
-    status: str | None = None,
+    # L-04 fix: type aligned with router Literal (P-11).
+    status: Literal["pending", "verified", "rejected"] | None = None,
 ) -> PaginatedMastersResponse:
     """List masters (users with MasterProfile) with optional status filter.
 
