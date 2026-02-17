@@ -71,8 +71,10 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "practices"
 
     # -- Owner --
+    # R-07: index=True synced with existing ix_practices_master_id in DB.
     master_id: Mapped[UUID] = mapped_column(
         ForeignKey("master_profiles.user_id", ondelete="CASCADE"),
+        index=True,
     )
 
     # -- Core fields --

@@ -24,6 +24,12 @@
 #   Partial unique index on (practice_id, user_id) WHERE status != 'cancelled'.
 #   This allows re-booking after cancellation while preventing duplicate
 #   active bookings. Old absolute UniqueConstraint blocked re-booking.
+#
+# INDEXES (R-07):
+#   practice_id and user_id have individual B-tree indexes for:
+#   - COUNT(bookings) WHERE practice_id=X (capacity check, every booking)
+#   - SELECT bookings WHERE user_id=X (GET /bookings/me)
+#   The partial unique index does NOT cover single-column lookups.
 # =============================================================================
 
 import enum
@@ -60,11 +66,15 @@ class Booking(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "bookings"
 
     # -- References --
+    # R-07: index=True for capacity check (COUNT WHERE practice_id=X).
     practice_id: Mapped[UUID] = mapped_column(
         ForeignKey("practices.id", ondelete="CASCADE"),
+        index=True,
     )
+    # R-07: index=True for user's booking list (GET /bookings/me).
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
     )
 
     # -- Status --

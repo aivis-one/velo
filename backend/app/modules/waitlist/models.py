@@ -26,6 +26,13 @@
 #   Periodic task (out of scope Phase 5.3) will transition
 #   notified -> expired when expires_at < now(). Lazy check
 #   in confirm endpoint as a safety net.
+#
+# INDEXES (R-07):
+#   practice_id and user_id have individual B-tree indexes for:
+#   - process_waitlist WHERE practice_id=X (every cancellation)
+#   - GET /waitlist/me WHERE user_id=X
+#   UniqueConstraint covers composite (practice_id, user_id) lookups
+#   but NOT single-column scans.
 # =============================================================================
 
 import enum
@@ -81,11 +88,15 @@ class Waitlist(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "waitlist"
 
     # -- References --
+    # R-07: index=True for process_waitlist (WHERE practice_id=X).
     practice_id: Mapped[UUID] = mapped_column(
         ForeignKey("practices.id", ondelete="CASCADE"),
+        index=True,
     )
+    # R-07: index=True for user's waitlist list (GET /waitlist/me).
     user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
     )
 
     # -- Queue position (per-practice, computed at insert/re-join) --
