@@ -6,6 +6,7 @@
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete, cancel) verify master_id == user.id.
+#   Non-owners receive 404 (P-08: do not reveal resource existence).
 #   get_practice() applies visibility rules: draft/deleted only for owner.
 #
 # STATE MACHINE:
@@ -48,7 +49,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import record_audit
 from app.core.exceptions import (
     BadRequestError,
-    ForbiddenError,
     NotFoundError,
 )
 from app.modules.payments.refund import refund_all_bookings_for_practice
@@ -206,8 +206,7 @@ async def update_practice(
     Uses FOR UPDATE to prevent lost updates on concurrent
     status transitions (P-12).
 
-    Raises NotFoundError if not found.
-    Raises ForbiddenError if not owner (P-06).
+    Raises NotFoundError if not found or not owner (P-08).
     Raises BadRequestError if practice is deleted/terminal,
         if NOT NULL field set to null (P-02),
         if status transition is invalid,
@@ -224,8 +223,10 @@ async def update_practice(
     if not practice:
         raise NotFoundError("Practice not found")
 
+    # R-01 fix: 404 not 403 for non-owner (P-08).
+    # Consistent with cancel_practice(), bookings, waitlist, reports.
     if practice.master_id != user.id:
-        raise ForbiddenError("Not the owner of this practice")
+        raise NotFoundError("Practice not found")
 
     if practice.status == PracticeStatus.DELETED.value:
         raise BadRequestError("Cannot edit a deleted practice")
@@ -284,8 +285,7 @@ async def delete_practice(
 
     Uses FOR UPDATE to prevent concurrent state changes (P-12).
 
-    Raises NotFoundError if not found.
-    Raises ForbiddenError if not owner (P-06).
+    Raises NotFoundError if not found or not owner (P-08).
     Raises BadRequestError if not a draft.
     """
     stmt = (
@@ -299,8 +299,10 @@ async def delete_practice(
     if not practice:
         raise NotFoundError("Practice not found")
 
+    # R-01 fix: 404 not 403 for non-owner (P-08).
+    # Consistent with cancel_practice(), bookings, waitlist, reports.
     if practice.master_id != user.id:
-        raise ForbiddenError("Not the owner of this practice")
+        raise NotFoundError("Practice not found")
 
     if practice.status != PracticeStatus.DRAFT.value:
         raise BadRequestError(

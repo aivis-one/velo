@@ -134,11 +134,11 @@ except (KeyError, ValueError, TypeError, AttributeError):
 
 ---
 
-### P-05: IntegrityError без rollback
+### P-05: IntegrityError без savepoint (begin_nested)
 
 **Найдено в:** Round 2 (masters/service.py — race condition на apply)
 
-**Суть:** PostgreSQL при нарушении constraint (UNIQUE, FK, PK) переводит транзакцию в состояние "aborted". Любая следующая операция в этой сессии упадёт с `InFailedSqlTransaction`. Необходим `session.rollback()` перед продолжением работы.
+**Суть:** PostgreSQL при нарушении constraint (UNIQUE, FK, PK) переводит транзакцию в состояние "aborted". Любая следующая операция в этой сессии упадёт с `InFailedSqlTransaction`. Использование `session.rollback()` убивает ВСЮ транзакцию, включая FOR UPDATE-блокировки и предыдущие операции. Правильное решение — `session.begin_nested()` (SAVEPOINT): при IntegrityError откатывается только savepoint, внешняя транзакция остаётся живой.
 
 **Где повторится:**
 - Phase 5.2: Бронирование — `UNIQUE(practice_id, user_id)`. Два одновременных POST /bookings от одного юзера
@@ -148,15 +148,31 @@ except (KeyError, ValueError, TypeError, AttributeError):
 
 **Паттерн:**
 ```python
+session.add(obj)
 try:
-    session.add(obj)
-    await session.flush()
+    async with session.begin_nested():  # SAVEPOINT
+        await session.flush()
 except IntegrityError:
-    await session.rollback()  # ОБЯЗАТЕЛЬНО для PostgreSQL
     raise ConflictError("Already exists") from None
 ```
 
-**Чеклист:** Grep `IntegrityError` — если есть catch, проверить наличие `session.rollback()`.
+**Почему НЕ `session.rollback()`:**
+```python
+# ❌ rollback() убивает ВСЮ транзакцию:
+#    - FOR UPDATE блокировки теряются
+#    - Ранее добавленные объекты (audit log и т.п.) теряются
+#    - Session становится непредсказуемой
+await session.rollback()
+
+# ✅ begin_nested() создаёт SAVEPOINT:
+#    - Откатывается ТОЛЬКО flush внутри savepoint
+#    - Внешняя транзакция и все блокировки живы
+#    - Можно продолжать работу в той же сессии
+async with session.begin_nested():
+    await session.flush()
+```
+
+**Чеклист:** Grep `IntegrityError` — если есть catch, проверить наличие `session.begin_nested()`. Наличие `session.rollback()` рядом с IntegrityError — баг.
 
 ---
 
@@ -539,7 +555,7 @@ def validate_timezone(cls, v):
 
 **Ожидаемые ошибки:**
 1. **P-07**: Overbooking — `current_participants` increment без атомарности
-2. **P-05**: UNIQUE(practice_id, user_id) — IntegrityError без rollback
+2. **P-05**: UNIQUE(practice_id, user_id) — IntegrityError без savepoint (begin_nested)
 3. **P-06**: DELETE /bookings/{id} без проверки ownership
 4. **P-01**: Двойной коммит при создании бронирования
 5. **Новый:** Бронирование на свою практику — мастер не должен бронировать у себя
@@ -575,9 +591,9 @@ async def create_booking(user: User, practice_id: UUID, session: AsyncSession):
     booking = Booking(practice_id=practice_id, user_id=user.id)
     session.add(booking)
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         raise ConflictError("Already booked") from None
 ```
 
@@ -592,7 +608,7 @@ async def create_booking(user: User, practice_id: UUID, session: AsyncSession):
 3. **Новый: Frozen vs Available путаница** — списание из frozen вместо available при выводе
 4. **Новый: Listener не обновляет cached balance** — `User.balance_user` рассинхронизируется с `SUM(user_ledger)`
 5. **P-01**: Двойной коммит в каждом финансовом эндпоинте
-6. **P-05**: IntegrityError без rollback при дубликате платежа
+6. **P-05**: IntegrityError без savepoint (begin_nested) при дубликате платежа
 7. **Новый: Комиссия считается неточно** — float вместо Decimal
 
 **Критический чеклист для каждой финансовой операции:**
@@ -733,7 +749,7 @@ async def cancel_booking(booking_id: UUID, user: User, session: AsyncSession):
 □ Update-схема: NOT NULL поля защищены валидатором (P-02)
 □ JSONB мутации через set_jsonb() (P-03)
 □ UUID из недоверенных источников — полный except (P-04)
-□ IntegrityError catch -> session.rollback() (P-05)
+□ IntegrityError catch -> session.begin_nested() обёртка (P-05)
 □ Ownership check на PATCH/DELETE (P-06)
 □ Конкурентные записи — атомарные операции / FOR UPDATE (P-07)
 □ Нет утечки информации через HTTP-коды (P-08)
@@ -794,9 +810,9 @@ async def create_something(user, body, session):
     obj = Model(...)
     session.add(obj)
     try:
-        await session.flush()
+        async with session.begin_nested():    # P-05: savepoint, НЕ rollback
+            await session.flush()
     except IntegrityError:
-        await session.rollback()              # P-05: rollback обязателен
         raise ConflictError("...") from None
 
     logger.info("something_created",          # structlog keyword args

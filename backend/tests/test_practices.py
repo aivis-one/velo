@@ -398,14 +398,14 @@ async def test_update_practice_success(
 
 
 # ---------------------------------------------------------------------------
-# PATCH /practices/{id} -- not owner (403)
+# PATCH /practices/{id} -- not owner (404, P-08)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_update_practice_not_owner(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Non-owner master cannot update practice: 403."""
+    """Non-owner master cannot update practice: 404 (P-08)."""
     master_auth = await _make_verified_master(
         client, db_session, telegram_id=60002,
     )
@@ -427,7 +427,7 @@ async def test_update_practice_not_owner(
         json={"title": "Hijacked"},
         headers=auth_headers(other_auth["session_token"]),
     )
-    assert resp.status_code == 403
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -475,6 +475,38 @@ async def test_delete_non_draft_practice(
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# DELETE /practices/{id} -- not owner (404, P-08)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_delete_practice_not_owner(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Non-owner master cannot delete practice: 404 (P-08)."""
+    master_auth = await _make_verified_master(
+        client, db_session, telegram_id=60006,
+    )
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(master_auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    other_auth = await _make_verified_master(
+        client, db_session, telegram_id=60007,
+    )
+
+    resp = await client.delete(
+        f"{PRACTICES_URL}/{practice_id}",
+        headers=auth_headers(other_auth["session_token"]),
+    )
+    assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------
