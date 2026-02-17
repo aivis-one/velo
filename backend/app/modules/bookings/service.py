@@ -28,6 +28,14 @@
 #     <= cancellation_deadline_hours before practice -> 0% refund (early finalize)
 #   Both paths produce double-entry ledger entries (even for free practices).
 #
+# PARTICIPANT COUNT (Frontend Backlog A-03):
+#   recalculate_participants() updates Practice.current_participants
+#   after every booking status change. Analogous to balance listeners
+#   in payments/service.py. Counts confirmed + attended bookings.
+#   Called from: create_booking, cancel_booking, finalize_practice,
+#   confirm_waitlist (waitlist/service.py), refund_all_bookings
+#   (payments/refund.py).
+#
 # CAPACITY:
 #   Checked via COUNT of active bookings, not current_participants (TD-034).
 #
@@ -66,7 +74,7 @@ from app.modules.users.models import User
 
 logger = structlog.get_logger()
 
-# Statuses that count toward capacity.
+# Statuses that count toward capacity (for overbooking prevention).
 _ACTIVE_BOOKING_STATUSES = {
     BookingStatus.PENDING.value,
     BookingStatus.CONFIRMED.value,
@@ -90,6 +98,15 @@ _FINALIZABLE_PRACTICE_STATUSES = {
     PracticeStatus.LIVE.value,
 }
 
+# Statuses that count toward current_participants (display count).
+# Different from _ACTIVE_BOOKING_STATUSES which includes pending
+# for capacity checks. This counts who is actually "in" the practice.
+# Consistent with Semaphore 3.4.
+_PARTICIPANT_STATUSES = {
+    BookingStatus.CONFIRMED.value,
+    BookingStatus.ATTENDED.value,
+}
+
 
 async def _get_active_booking_count(
     session: AsyncSession,
@@ -105,6 +122,55 @@ async def _get_active_booking_count(
     )
     result = await session.execute(stmt)
     return result.scalar_one()
+
+
+async def recalculate_participants(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> int:
+    """Recalculate and update Practice.current_participants.
+
+    Counts bookings with status IN (confirmed, attended).
+    Uses FOR UPDATE on Practice to prevent concurrent cached writes.
+
+    This is the ONLY correct way to update current_participants.
+    Analogous to balance recalculation in payments/service.py.
+
+    Called after every booking status change:
+      - create_booking (bookings/service.py)
+      - cancel_booking (bookings/service.py)
+      - finalize_practice (bookings/service.py)
+      - confirm_waitlist (waitlist/service.py)
+      - refund_all_bookings_for_practice (payments/refund.py)
+
+    Returns the new participant count.
+    """
+    count_stmt = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.status.in_(_PARTICIPANT_STATUSES),
+        )
+    )
+    result = await session.execute(count_stmt)
+    count = result.scalar_one()
+
+    # Lock practice row and update cached field.
+    # Same pattern as balance recalculation (payments/service.py).
+    practice = await session.get(
+        Practice, practice_id, with_for_update=True,
+    )
+    if practice is not None:
+        practice.current_participants = count
+        await session.flush()
+
+    logger.info(
+        "participants_recalculated",
+        practice_id=str(practice_id),
+        current_participants=count,
+    )
+
+    return count
 
 
 async def create_booking(
@@ -181,6 +247,9 @@ async def create_booking(
         user=user,
         session=session,
     )
+
+    # Update cached participant count (Frontend Backlog A-03).
+    await recalculate_participants(practice_id, session)
 
     logger.info(
         "booking_created",
@@ -287,6 +356,9 @@ async def cancel_booking(
             user_id=str(user.id),
             reason=reason,
         )
+
+    # Update cached participant count (Frontend Backlog A-03).
+    await recalculate_participants(booking.practice_id, session)
 
     # Phase 5.3: Notify next waiting user in the queue.
     from app.modules.waitlist.service import process_waitlist
@@ -482,6 +554,10 @@ async def finalize_practice(
         practice=practice,
         session=session,
     )
+
+    # Update cached participant count (Frontend Backlog A-03).
+    # After finalize: attended stays in count, no_show drops out.
+    await recalculate_participants(practice_id, session)
 
     logger.info(
         "practice_finalized",

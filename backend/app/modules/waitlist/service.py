@@ -28,6 +28,7 @@
 #   4. FOR UPDATE on practice + capacity recheck (overbooking prevention)
 #      If spot taken -> WAITING (back to queue) + return None
 #   5. Create booking + purchase (double-entry), status -> converted
+#   6. Recalculate current_participants (Frontend Backlog A-03)
 #
 # PROCESS_WAITLIST (internal):
 #   Called from cancel_booking and leave/decline.
@@ -59,6 +60,7 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.bookings.service import recalculate_participants
 from app.modules.payments.purchase import create_purchase_for_booking
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
@@ -246,6 +248,7 @@ async def leave_waitlist(
 ) -> Waitlist:
     """Leave the waitlist or decline a notification.
 
+    Transitions:
     - waiting -> left
     - notified -> declined (triggers process_waitlist for next user)
 
@@ -399,6 +402,9 @@ async def confirm_waitlist(
     )
 
     entry.status = WaitlistStatus.CONVERTED.value
+
+    # Update cached participant count (Frontend Backlog A-03).
+    await recalculate_participants(entry.practice_id, session)
 
     logger.info(
         "waitlist_confirmed",

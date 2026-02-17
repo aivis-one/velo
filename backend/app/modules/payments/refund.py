@@ -26,6 +26,7 @@
 #   C) Master cancels entire practice (refund_all_bookings_for_practice):
 #      - 100% refund to every active booking
 #      - All waitlist entries -> left
+#      - Recalculate current_participants -> 0 (Frontend Backlog A-03)
 #
 # WHY REVERSAL, NOT UPDATE?
 #   master_ledger entries don't carry booking_id, so we can't
@@ -316,6 +317,7 @@ async def refund_all_bookings_for_practice(
     2. Call refund_booking (double-entry reversal)
 
     Also clears the waitlist: all active entries -> left.
+    Recalculates current_participants -> 0 (Frontend Backlog A-03).
 
     Args:
         practice: The practice being cancelled (already locked FOR UPDATE).
@@ -366,6 +368,12 @@ async def refund_all_bookings_for_practice(
     )
     wl_result = await session.execute(wl_stmt)
     waitlist_cleared = wl_result.rowcount  # type: ignore[union-attr]
+
+    # Update cached participant count (Frontend Backlog A-03).
+    # Lazy import to avoid circular dependency:
+    # bookings.service -> payments.refund -> bookings.service.
+    from app.modules.bookings.service import recalculate_participants
+    await recalculate_participants(practice.id, session)
 
     logger.info(
         "practice_bookings_refunded",
