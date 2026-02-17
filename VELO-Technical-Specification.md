@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.0
-**Дата:** 16 февраля 2026
+**Версия:** 2.1
+**Дата:** 18 февраля 2026
 **Статус:** Draft
 
 ---
@@ -320,7 +320,7 @@ velo ssl renew           — certbot renew
 backend/
 ├── app/
 │   ├── core/
-│   │   ├── database.py        ← Lazy engine: get_engine() / dispose_engine()
+│   │   ├── database.py        ← Lazy engine: get_engine() / dispose_engine() + cached session factory (L-02)
 │   │   ├── redis.py
 │   │   ├── logging.py
 │   │   ├── config.py
@@ -529,9 +529,9 @@ class MasterProfile(Base):
     data: Mapped[dict] = mapped_column(JSONB, default=dict)
     # data содержит: account, availability, profile, settings, stats
     
-    # Balance fields (updated by listeners on master_ledger)
-    frozen_amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
-    available_amount: Mapped[Decimal] = mapped_column(DECIMAL(18, 2), default=0)
+    # Balance fields (updated by ledger listeners, Phase 6.2)
+    frozen_cents: Mapped[int] = mapped_column(Integer, default=0)     # EUR cents
+    available_cents: Mapped[int] = mapped_column(Integer, default=0)  # EUR cents
     
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(onupdate=func.now())
@@ -864,6 +864,7 @@ backend/tests/
 - `/masters/list` вместо `/masters` — избежание path conflict с `POST /masters/{user_id}/verify`. FastAPI путал бы "pending" как UUID
 - `str(user.role)` вместо `user.role.value` — при JOIN из read-only сессии role приходит как str, не enum
 - `try/except ValueError` на `UserRole(role)` — невалидный фильтр (`?role=superadmin`) возвращает 400, не 500
+- `status` filter на `/masters/list`: `Literal["pending", "verified", "rejected"] | None` (L-04). FastAPI возвращает 422 на невалидное значение автоматически (P-11)
 - Все эндпоинты используют `get_db_reader` (read-only) — не write session
 - JOIN User + MasterProfile в одном запросе (не N+1)
 - Пагинация: limit (1-100, default 20), offset (>=0). Total count отдельным запросом
@@ -1000,7 +1001,8 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "practices"
 
     master_id: Mapped[UUID] = mapped_column(
-        ForeignKey("master_profiles.user_id", ondelete="CASCADE")
+        ForeignKey("master_profiles.user_id", ondelete="CASCADE"),
+        index=True,  # R-07: synced with ix_practices_master_id in migration
     )
 
     practice_type: Mapped[str] = mapped_column(String(20))
@@ -1015,7 +1017,8 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 
     max_participants: Mapped[int | None] = mapped_column(Integer, default=None)
     current_participants: Mapped[int] = mapped_column(Integer, default=0)
-    # TODO Phase 5: Wire current_participants or remove
+    # NOT USED -- capacity is checked via COUNT(bookings) (TD-034).
+    # Column retained for potential future denormalization.
 
     zoom_link: Mapped[str | None] = mapped_column(String(500), default=None)
 
@@ -1033,7 +1036,7 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 - **`practice_type`** (не `type`) -- избегаем shadowing Python builtin
 - **`scheduled_at` NOT NULL** -- мастер обязан указать время при создании, нет nullable drafts
 - **`parent_practice_id`** -- self-referential FK для серий, создан сразу (не отложен)
-- **`current_participants`** -- колонка создана, но НЕ ИСПОЛЬЗУЕТСЯ до Phase 5. Phase 5 решит: increment on booking или COUNT
+- **`current_participants`** -- колонка создана, но **НЕ ИСПОЛЬЗУЕТСЯ**. Capacity проверяется через `COUNT(bookings)` (TD-034). Колонка сохранена для потенциальной денормализации
 - **`DELETED`** -- добавлен в Phase 4.2 (soft delete для черновиков, отделён от `cancelled`)
 - **Стабы удалены**: admin/stats/service.py (practices_count → реальный COUNT), reports/service.py (practice validation → реальный SELECT)
 - **StrEnum (P-09)** -- не `(str, Enum)` как в старом ТЗ
@@ -1058,7 +1061,7 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 - [x] State machine enforcement (VALID_TRANSITIONS)
 - [x] NOT NULL field guard (P-02)
 - [x] FOR UPDATE на мутирующих операциях (P-12)
-- [x] tests/test_practices.py -- 16 тестов
+- [x] tests/test_practices.py -- 27 тестов
 
 **Endpoints:**
 ```
@@ -1083,29 +1086,32 @@ backend/app/modules/masters/router.py     ← +GET /me/practices
 backend/app/core/config.py               ← +duration bounds
 
 backend/tests/
-└── test_practices.py  ← 16 тестов (telegram_id range: 60xxx)
+└── test_practices.py  ← 27 тестов (telegram_id range: 60xxx)
 ```
 
 **Решения, принятые при реализации:**
 
 - **`get_current_master`** dependency -- проверяет role=MASTER + MasterProfile exists + status=verified. Возвращает `tuple[User, MasterProfile]`. Переиспользуется в Phase 6 (withdrawals), Phase 8 (insights)
-- **GET /masters/me/practices** живёт в `masters/router.py` (URL domain), service-функция в `practices/service.py` (бизнес-логика)
+- **GET /masters/me/practices** живёт в `masters/router.py` (URL domain), service-функция в `practices/service.py` (бизнес-логика). Возвращает `PaginatedPracticesResponse` с total/limit/offset (R-04, консистентно с public feed)
 - **Soft delete vs cancel:**
   - `DELETE` на draft → `status=deleted` (мастер тихо удалил черновик, без последствий)
-  - Cancel для published практик → отдельный flow в Phase 5 (refunds, уведомления)
+  - Cancel для published практик → `cancel_practice()` в Phase 6.5 (refunds, уведомления)
   - `deleted` и `cancelled` -- разные статусы с разной семантикой
 - **State machine enforcement** -- `_VALID_TRANSITIONS` map в service:
   ```
-  draft      → scheduled, deleted
-  scheduled  → live, cancelled
-  live       → completed, cancelled
+  draft      → scheduled, deleted (via PATCH)
+  scheduled  → live (via PATCH)
+  scheduled  → cancelled (via cancel_practice() ONLY — Phase 6.5)
+  live       → completed (via PATCH)
+  live       → cancelled (via cancel_practice() ONLY — Phase 6.5)
   completed  → (terminal)
   cancelled  → (terminal)
   deleted    → (terminal)
   ```
-  PATCH с невалидным переходом → 400. Также доступен через PATCH `status=deleted` (оба пути защищены state machine)
+  PATCH с невалидным переходом → 400. `UpdatePracticeRequest.status` Literal: `scheduled, live, completed, deleted` (I-04: `cancelled` и `draft` убраны — недостижимы через PATCH). Попытка PATCH status=cancelled → 422 от Pydantic
 - **FOR UPDATE (P-12)** -- `update_practice()` и `delete_practice()` используют `with_for_update()` для предотвращения lost updates при concurrent status transitions
 - **NOT NULL guard (P-02)** -- `_NOT_NULL_FIELDS = {"title", "scheduled_at", "duration_minutes", "timezone"}`. PATCH с explicit null → 400 (не 500 IntegrityError)
+- **Ownership checks (P-08)** -- update_practice и delete_practice возвращают 404 (не 403) при чужом ресурсе, единообразно с cancel_practice, bookings, waitlist, reports (R-01 fix)
 - **Visibility rules** -- GET /{id}: draft/deleted видит только owner, остальным 404 (P-08: 404 not 403). scheduled/live/completed/cancelled видят все auth users
 - **Validation** -- scheduled_at > now, IANA timezone (ZoneInfo), duration в config-bounds (5-480 min), practice_type через Literal
 - **Config** -- `PRACTICE_MIN_DURATION_MINUTES=5`, `PRACTICE_MAX_DURATION_MINUTES=480` (настраиваемо через .env)
@@ -1116,7 +1122,7 @@ backend/tests/
 - Round 12: 3 проблемы MEDIUM (no FOR UPDATE, no state machine, title missing from NOT_NULL_FIELDS) + 1 LOW (P-02 null for NOT NULL). Все исправлены
 - Предсказанные ошибки из Code Review Guide (P-02, P-12) -- выявлены и закрыты
 
-**Критерий готовности:** Мастер может создать и управлять практикой. 105 тестов, 0 warnings. ✅
+**Критерий готовности:** Мастер может создать и управлять практикой. 115 тестов, 0 warnings. ✅
 
 ---
 
@@ -1138,7 +1144,7 @@ backend/tests/
 - [x] practices/schemas.py -- pricing в Create/Update/Response + PaginatedPracticesResponse
 - [x] practices/service.py -- `_enforce_pricing()` + `list_public_practices()`
 - [x] practices/router.py -- GET /api/v1/practices (public feed)
-- [x] tests/test_practices.py -- 16 → 26 тестов (+4 pricing, +6 feed)
+- [x] tests/test_practices.py -- 26 → 27 тестов (+4 pricing, +6 feed, +1 delete_not_owner R-01)
 
 **Endpoints (обновлённый полный список):**
 ```
@@ -1249,16 +1255,19 @@ class BookingStatus(enum.StrEnum):
 class Booking(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "bookings"
 
-    practice_id: Mapped[UUID]   # FK practices.id, CASCADE
-    user_id: Mapped[UUID]       # FK users.id, CASCADE
+    practice_id: Mapped[UUID]   # FK practices.id, CASCADE, index=True (R-07)
+    user_id: Mapped[UUID]       # FK users.id, CASCADE, index=True (R-07)
     status: Mapped[str]         # String(20), default "pending"
-    purchase_id: Mapped[UUID | None]  # Stub, no FK until Phase 6.4
+    purchase_id: Mapped[UUID | None]  # FK purchases.id (Phase 6.4)
     cancelled_at: Mapped[datetime | None]
     cancellation_reason: Mapped[str | None]
     joined_at: Mapped[datetime | None]   # Phase 5.4
     left_at: Mapped[datetime | None]     # Phase 5.4
 
-    UniqueConstraint("practice_id", "user_id")
+    # H-02: partial unique index -- prevents duplicate active bookings
+    # but allows re-booking after cancellation.
+    Index("uq_booking_practice_user_active", practice_id, user_id,
+          unique=True, postgresql_where=text("status != 'cancelled'"))
 ```
 
 **State machine:**
@@ -1280,7 +1289,8 @@ backend/app/modules/bookings/
 └── router.py        ← POST + DELETE
 
 backend/migrations/versions/
-└── 2026_02_12_e5f6a7b8c9d0_create_bookings_table.py
+├── 2026_02_12_e5f6a7b8c9d0_create_bookings_table.py
+└── 2026_02_17_f5a6b7c8d9e0_booking_partial_unique_index.py (H-02)
 
 backend/tests/
 └── test_bookings.py  ← 13 тестов (telegram_id range: 61xxx)
@@ -1289,17 +1299,18 @@ backend/tests/
 **Решения, принятые при реализации:**
 
 - **`booked_at` убран** -- дублирует `created_at` из TimestampMixin. Косяк ТЗ, исправлен
-- **`purchase_id: UUID | None`** без FK -- таблицы purchases ещё нет. FK добавим ALTER TABLE в Phase 6.4
+- **`purchase_id: UUID | None`** -- FK добавлен в Phase 6.4 (миграция `e4f5a6b7c8d9`)
 - **`joined_at / left_at`** включены сразу -- Phase 5.4 (attendance) в той же Phase 5
+- **H-02: partial unique index** -- заменяет абсолютный UniqueConstraint. Позволяет re-booking после отмены (миграция `f5a6b7c8d9e0`). Два отменённых booking'а для (practice, user) допустимы
+- **R-07: index=True** на practice_id и user_id -- индексы существовали в миграции с Phase 5.1, `index=True` в модели добавлен для синхронности
 - **Capacity: COUNT** (не increment `current_participants`) -- `SELECT COUNT(*) FROM bookings WHERE status IN (pending, confirmed)`. Точнее, нет risk рассинхрона. `current_participants` не используется (TD-034)
 - **Только scheduled** практики допускают бронирование (`live` = уже идёт)
 - **Self-booking prevention** -- `practice.master_id == user.id` → 400 (мастер не может забронировать свою практику)
 - **Мастер как юзер** -- мастер может бронировать чужие практики (мастер = юзер за пределами своей практики)
 - **Free → auto-confirm** -- booking создаётся сразу в `confirmed` (не `pending`). Розетка для модерации мастером оставлена на будущее (за пределами MVP)
-- **Paid → 400** "Payment required" -- stub до Phase 6. Предельно тупой блок
-- **Duplicate → 409** -- UniqueConstraint + `try/except IntegrityError` + `rollback()` (P-05)
+- **Duplicate → 409** -- partial unique index (H-02) WHERE status != 'cancelled' + `try/except IntegrityError` + `rollback()` (P-05). Позволяет re-booking после отмены
 - **FOR UPDATE на Practice** при создании booking -- capacity check + INSERT атомарны, предотвращает overbooking
-- **P-08** -- cancel_booking: non-owner получает 404 (не 403), аналогично practices
+- **P-08** -- cancel_booking: non-owner получает 404 (не 403), единообразно со всеми модулями
 
 > **Из Phase 4.2:** DELETE endpoint для практик работает только на draft'ах (→ status=deleted).
 > Отмена published практик (scheduled/live → cancelled) с refund-логикой -- Phase 6.5.
@@ -1344,8 +1355,8 @@ class WaitlistStatus(enum.StrEnum):
 class Waitlist(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "waitlist"
 
-    practice_id: Mapped[UUID]       # FK practices.id, CASCADE
-    user_id: Mapped[UUID]           # FK users.id, CASCADE
+    practice_id: Mapped[UUID]       # FK practices.id, CASCADE, index=True (R-07)
+    user_id: Mapped[UUID]           # FK users.id, CASCADE, index=True (R-07)
     position: Mapped[int]           # computed at INSERT/re-join
     status: Mapped[str]             # String(20), default "waiting"
     joined_at: Mapped[datetime]     # updated on re-join
@@ -1844,7 +1855,7 @@ backend/tests/
 - **Purchase для КАЖДОГО booking** -- даже бесплатного. Semaphore 1.1 требует COUNT(bookings) == COUNT(purchases) для active records. Нулевые записи — это не мусор, а proof of path
 - **booking_id UNIQUE** -- одна покупка на один booking. Двойная покупка невозможна ни на уровне кода (purchase создаётся внутри create_booking), ни на уровне БД (UNIQUE constraint)
 - **FOR UPDATE на User** (P-07) -- `session.get(User, id, with_for_update=True)` перед проверкой баланса. Конкурентные покупки сериализуются через row-level lock
-- **Commission — int math, truncate** -- `int(paid_cents * commission_percent / 100)`. Без Decimal, без округления. Центы — целые числа
+- **Commission — pure integer math** -- `paid_cents * commission_percent // 100`. Без float промежуточных значений, без Decimal. Центы — целые числа (L-07 fix, консистентно с refund.py)
 - **commission_percent в config** -- `settings.commission_percent: int = 15`. Настраивается через .env. Тест `test_configurable_commission_percent` мокает через `patch.object(settings, "commission_percent", 20)`
 - **Bulk unfreeze** -- `UPDATE master_ledger SET is_frozen=False WHERE practice_id=X AND is_frozen=True`. Один запрос вместо N. Следующий `record_master_ledger(-commission)` пересчитывает balance cache
 - **Purchase router — alias** -- `POST /practices/{id}/purchase` вызывает `create_booking()` внутри, затем загружает Purchase. Это тот же flow, что и `POST /bookings`, но возвращает PurchaseResponse (с financial details)
@@ -1866,29 +1877,57 @@ backend/tests/
 
 ---
 
-### 6.5: Cancellations & Refunds
+### 6.5: Cancellations & Refunds ✅
 
-**Цель:** Политика отмен.
+**Цель:** Политика отмен с refund-логикой.
 
 > **Из Phase 4.2:** Practice state machine уже enforcement'ится в service.
-> `scheduled → cancelled` и `live → cancelled` -- допустимые переходы.
-> Этот Phase добавляет бизнес-логику поверх: refunds, уведомления, no-show.
+> `scheduled → cancelled` и `live → cancelled` -- допустимые переходы, но
+> ТОЛЬКО через `cancel_practice()` (не через PATCH status). Это гарантирует
+> прохождение refund-логики.
 
 **Задачи:**
-- [ ] CANCELLATION_DEADLINE_HOURS = 24
-- [ ] DELETE /api/v1/bookings/{id} — проверка дедлайна
-- [ ] Автовозврат при отмене мастером
-- [ ] No-show логика
+- [x] app/modules/practices/service.py -- cancel_practice() (Phase 6.5 endpoint)
+- [x] app/modules/payments/refund.py -- refund_booking(), refund_all_bookings(), early_finalize_booking()
+- [x] practices/router.py -- POST /api/v1/practices/{id}/cancel
+- [x] CANCELLATION_DEADLINE_HOURS = 24
+- [x] Автовозврат при отмене мастером (100% всем)
+- [x] Early finalize для юзерской отмены (комиссия мастеру)
+- [x] Waitlist cleanup при отмене практики
+- [x] tests/test_cancellation.py
+
+**Endpoint:**
+```
+POST /api/v1/practices/{id}/cancel  -- cancel practice (master-owner only)
+```
 
 **Бизнес-правила:**
 | Кто отменяет | Когда | Результат |
 |--------------|-------|-----------|
-| Юзер | > 24ч до практики | 100% возврат |
-| Юзер | < 24ч до практики | 0% возврат |
-| Мастер | Любое время | 100% возврат всем |
-| No-show | После практики | Деньги у мастера |
+| Юзер | > 24ч до практики | 100% возврат, мастер получает комиссию |
+| Юзер | < 24ч до практики | 0% возврат, средства мастеру |
+| Мастер | Любое время | 100% возврат всем, waitlist cleared |
+| No-show | После практики | Деньги у мастера (finalize) |
 
-**Критерий готовности:** Отмены работают по правилам.
+**Результат:**
+```
+backend/app/modules/practices/
+└── service.py       ← +cancel_practice()
+
+backend/app/modules/payments/
+└── refund.py        ← refund_booking, refund_all_bookings, early_finalize_booking
+
+backend/tests/
+└── test_cancellation.py
+```
+
+**Решения, принятые при реализации:**
+- **cancel_practice()** -- единственный путь к статусу `cancelled`. PATCH status=cancelled заблокирован на уровне Pydantic Literal (I-04). Это гарантирует, что refund-логика не будет обойдена
+- **refund_all_bookings()** -- bulk: все active bookings → cancelled + refund. Waitlist active → left
+- **early_finalize_booking()** -- при юзерской отмене > 24ч: разморозка средств мастеру + комиссия. Использует `paid_cents * commission_percent // 100` (L-07, integer math)
+- **P-08** -- cancel_practice: non-owner получает 404, консистентно со всеми модулями
+
+**Критерий готовности:** Отмены работают по правилам. ✅
 
 ---
 
@@ -2251,7 +2290,30 @@ Response: {
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
 | TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировано: все суммы в центы (int), миграция `c2d3e4f5a6b7` | ✅ |
-| TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | Либо wire к booking create/cancel, либо удалить колонку. Оптимизация при масштабировании | ⬜ |
+| TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | Варианты: (a) compute COUNT в PracticeResponse для фронтенда (A-03), (b) убрать из PracticeResponse, (c) denormalize via trigger. Приоритет P1 для фронтенда | ⬜ |
+
+### Code Review Feb 2026 — исправлено
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| R-01 | `practices/service.py` | update/delete_practice: ForbiddenError вместо NotFoundError | 404 not 403 (P-08), единообразно со всеми модулями | ✅ |
+| R-04 | `practices/service.py`, `masters/router.py` | GET /masters/me/practices: голый list без total | PaginatedPracticesResponse с total/limit/offset | ✅ |
+| I-04 | `practices/schemas.py` | UpdatePracticeRequest.status содержит `cancelled` и `draft` | Убраны — недостижимы через PATCH. Только `scheduled, live, completed, deleted` | ✅ |
+| R-10 | `practices/models.py` | State machine комментарий не отражает Phase 6.5 | Обновлён: cancelled только через cancel_practice() | ✅ |
+| L-02 | `core/database.py` | get_session_factory() создаёт новый async_sessionmaker на каждый запрос | Singleton-кэш, сброс в dispose_engine() | ✅ |
+| L-04 | `admin/users/router.py`, `service.py` | status filter: str вместо Literal | `Literal["pending", "verified", "rejected"] | None` | ✅ |
+| L-07 | `payments/purchase.py` | commission через float: `int(x * rate)` | `paid_cents * commission_percent // 100` (integer math) | ✅ |
+| R-07 | `bookings/models.py`, `waitlist/models.py`, `practices/models.py` | Модели без `index=True` на FK-колонках (индексы были в миграциях) | Синхронизация моделей: `index=True` на practice_id, user_id, master_id | ✅ |
+
+### Frontend Report Feb 2026 — backlog
+
+| ID | Проблема | Тип | Приоритет |
+|----|----------|-----|-----------|
+| A-01 | Нет GET /bookings/{id} (deep link из уведомлений) | Новый эндпоинт | P1 |
+| A-02 | GET /reports/me возвращает list без total (нужна пагинация) | Исправление схемы | P2 |
+| A-03 | current_participants в PracticeResponse всегда 0 (нужен computed COUNT) | Исправление логики | P1 |
+| B-03 | Нет cron для экспирации NOTIFIED waitlist записей (зависают навечно) | Инфра | P2 |
+| B-04 | Нет POST /auth/logout-all (инвалидация всех сессий) | Новый эндпоинт | P3 |
 
 ### Осознанные решения (НЕ является долгом)
 
