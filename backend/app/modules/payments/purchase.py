@@ -161,7 +161,7 @@ async def finalize_purchases(
 
     For each pending purchase:
     1. Unfreeze master_ledger entries (UPDATE is_frozen=False)
-    2. Calculate commission (paid_cents * commission_percent / 100)
+    2. Calculate commission (paid_cents * commission_percent // 100)
     3. Double-entry: master_ledger(-commission) + company_ledger(+commission)
     4. Mark purchase as completed
 
@@ -176,8 +176,6 @@ async def finalize_purchases(
     Returns:
         List of finalized Purchase objects.
     """
-    commission_rate = settings.commission_percent / 100
-
     # Get all pending purchases for this practice.
     stmt = (
         select(Purchase)
@@ -208,8 +206,9 @@ async def finalize_purchases(
     now = datetime.now(timezone.utc)
 
     for purchase in purchases:
-        # Calculate commission (integer math, truncate).
-        commission = int(purchase.paid_cents * commission_rate)
+        # L-07 fix: pure integer math -- no float intermediate.
+        # Consistent with refund.py early_finalize_booking().
+        commission = purchase.paid_cents * settings.commission_percent // 100
 
         # Double-entry: master debit + company credit.
         await record_master_ledger(

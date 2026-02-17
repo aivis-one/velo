@@ -6,12 +6,17 @@
 # One master can have many practices. Users book practices in Phase 5.
 #
 # STATE MACHINE (enforced in service.py):
-#   draft      -> scheduled, deleted
-#   scheduled  -> live, cancelled
-#   live       -> completed, cancelled
+#   draft      -> scheduled, deleted       (via PATCH)
+#   scheduled  -> live                     (via PATCH)
+#   scheduled  -> cancelled                (via cancel_practice() ONLY)
+#   live       -> completed                (via PATCH)
+#   live       -> cancelled                (via cancel_practice() ONLY)
 #   completed  -> (terminal)
 #   cancelled  -> (terminal)
 #   deleted    -> (terminal)
+#
+# Phase 6.5: scheduled/live -> cancelled is NOT allowed via PATCH status.
+# The ONLY path to cancelled is cancel_practice() which handles refunds.
 #
 # PRICING (Phase 4.3/4.4):
 #   is_free=True  -> price_cents MUST be 0 (enforced in service)
@@ -94,7 +99,8 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     max_participants: Mapped[int | None] = mapped_column(
         Integer, default=None,
     )
-    # NOT USED until Phase 5. See header comment.
+    # NOT USED -- capacity is checked via COUNT(bookings) (TD-034).
+    # Column retained for potential future denormalization.
     current_participants: Mapped[int] = mapped_column(
         Integer,
         default=0,

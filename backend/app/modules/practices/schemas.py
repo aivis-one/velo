@@ -106,9 +106,11 @@ class UpdatePracticeRequest(BaseModel):
         default=None, ge=1, le=10000,
     )
     zoom_link: str | None = Field(default=None, max_length=500)
+    # I-04 fix: only statuses reachable via _VALID_TRANSITIONS in service.
+    # "cancelled" removed -- only reachable via cancel_practice() (Phase 6.5).
+    # "draft" removed -- nothing transitions TO draft.
     status: Literal[
-        "draft", "scheduled", "live",
-        "completed", "cancelled", "deleted",
+        "scheduled", "live", "completed", "deleted",
     ] | None = None
 
     # -- Pricing (Phase 4.3/4.4) --

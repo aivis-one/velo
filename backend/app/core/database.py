@@ -7,6 +7,10 @@
 #   get_engine(). This prevents "Future attached to a different loop"
 #   errors in pytest, where the event loop is created after module imports.
 #
+# LAZY SESSION FACTORY:
+#   Session factory is cached alongside the engine (L-02).
+#   Reset together in dispose_engine().
+#
 # DEPENDENCY INJECTION:
 #   get_db_session()  — read-write: commits on success, rollback on error.
 #   get_db_reader()   — read-only: always rolls back (TD-008).
@@ -30,9 +34,10 @@ class Base(DeclarativeBase):
 
 
 # ---------------------------------------------------------------------------
-# Lazy engine — created on first access, not at import time
+# Lazy engine + session factory — created on first access, not at import time
 # ---------------------------------------------------------------------------
 _engine: AsyncEngine | None = None
+_session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_engine() -> AsyncEngine:
@@ -51,20 +56,29 @@ def get_engine() -> AsyncEngine:
 
 
 async def dispose_engine() -> None:
-    """Dispose the engine and reset singleton. Used in shutdown/tests."""
-    global _engine
+    """Dispose the engine and reset singletons. Used in shutdown/tests."""
+    global _engine, _session_factory
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+    # L-02: reset factory so it rebinds to the new engine on next call.
+    _session_factory = None
 
 
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
-    """Get a session factory bound to the current engine."""
-    return async_sessionmaker(
-        bind=get_engine(),
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
+    """Get or create a session factory bound to the current engine (singleton).
+
+    L-02 fix: cached to avoid recreating async_sessionmaker on every
+    request. Reset in dispose_engine() alongside the engine.
+    """
+    global _session_factory
+    if _session_factory is None:
+        _session_factory = async_sessionmaker(
+            bind=get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _session_factory
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
