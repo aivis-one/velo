@@ -1,11 +1,11 @@
 # =============================================================================
-# VELO Backend — Auth Service
+# VELO Backend — Auth Service (updated W-06: logout-all)
 # =============================================================================
 #
 # RESPONSIBILITIES:
 #   1. Validate Telegram WebApp initData (HMAC-SHA256)
 #   2. Create or update User on login
-#   3. Manage sessions in Redis (create / get / delete)
+#   3. Manage sessions in Redis (create / get / delete / delete-all)
 #
 # TELEGRAM initData VALIDATION:
 #   Telegram sends a query string signed with HMAC-SHA256.
@@ -17,6 +17,13 @@
 #   Key:   session:{token}
 #   Value: JSON {"user_id": "uuid", "telegram_id": 123, "created_at": "iso"}
 #   TTL:   30 days (configurable via SESSION_TTL_DAYS)
+#
+# SESSION INDEX (W-06):
+#   Key:   user_sessions:{user_id}
+#   Type:  Redis SET of token strings
+#   TTL:   Same as session TTL (garbage-collected automatically)
+#   Purpose: Reverse index for logout-all. Allows finding all tokens
+#            belonging to a user without scanning the entire keyspace.
 # =============================================================================
 
 import hashlib
@@ -25,6 +32,7 @@ import json
 import secrets
 from datetime import UTC, datetime
 from urllib.parse import parse_qs, unquote
+from uuid import UUID
 
 import structlog
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -38,6 +46,9 @@ logger = structlog.get_logger()
 
 # Session key prefix in Redis.
 _SESSION_PREFIX = "session:"
+
+# Reverse index prefix: SET of tokens per user (W-06).
+_USER_SESSIONS_PREFIX = "user_sessions:"
 
 
 def _get_session_ttl() -> int:
@@ -196,9 +207,12 @@ async def create_session(user: User) -> str:
     """Create a new session in Redis and return the token.
 
     Token is a cryptographically random 64-char string.
+    Also registers the token in the user's session index (W-06)
+    so logout-all can find and invalidate all sessions.
     """
     token = secrets.token_urlsafe(48)
     redis = get_redis()
+    ttl = _get_session_ttl()
 
     session_data = json.dumps(
         {
@@ -208,11 +222,17 @@ async def create_session(user: User) -> str:
         }
     )
 
+    # Store session data.
     await redis.set(
         f"{_SESSION_PREFIX}{token}",
         session_data,
-        ex=_get_session_ttl(),
+        ex=ttl,
     )
+
+    # W-06: Add token to user's session index SET.
+    index_key = f"{_USER_SESSIONS_PREFIX}{user.id}"
+    await redis.sadd(index_key, token)
+    await redis.expire(index_key, ttl)
 
     logger.info("session_created", user_id=str(user.id))
     return token
@@ -233,6 +253,56 @@ async def get_session(token: str) -> dict | None:
 
 
 async def delete_session(token: str) -> None:
-    """Delete a session from Redis (logout)."""
+    """Delete a session from Redis (logout).
+
+    Also removes the token from the user's session index (W-06).
+    """
     redis = get_redis()
+
+    # Read session data to get user_id for index cleanup.
+    data = await redis.get(f"{_SESSION_PREFIX}{token}")
     await redis.delete(f"{_SESSION_PREFIX}{token}")
+
+    # W-06: Remove from user session index.
+    if data is not None:
+        session_data = json.loads(data)
+        user_id = session_data.get("user_id")
+        if user_id:
+            await redis.srem(
+                f"{_USER_SESSIONS_PREFIX}{user_id}", token,
+            )
+
+
+async def delete_all_sessions(user_id: UUID) -> int:
+    """Delete ALL sessions for a user (logout-all, W-06).
+
+    Iterates the user's session index SET, deletes each session key,
+    then deletes the index itself.
+
+    Returns the number of sessions invalidated.
+    """
+    redis = get_redis()
+    index_key = f"{_USER_SESSIONS_PREFIX}{user_id}"
+
+    # Get all tokens for this user.
+    tokens = await redis.smembers(index_key)
+
+    if not tokens:
+        return 0
+
+    # Delete each session key. Expired tokens produce noop DELETEs.
+    session_keys = [
+        f"{_SESSION_PREFIX}{t}" for t in tokens
+    ]
+    await redis.delete(*session_keys)
+
+    # Remove the index itself.
+    await redis.delete(index_key)
+
+    logger.info(
+        "all_sessions_deleted",
+        user_id=str(user_id),
+        count=len(tokens),
+    )
+
+    return len(tokens)

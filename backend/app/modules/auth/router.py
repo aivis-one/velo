@@ -1,9 +1,11 @@
 # =============================================================================
-# VELO Backend — Auth Router
+# VELO Backend — Auth Router (updated W-06: logout-all)
 # =============================================================================
 #
 # ENDPOINTS:
-#   POST /api/v1/auth/telegram — Login via Telegram WebApp initData
+#   POST /api/v1/auth/telegram     — Login via Telegram WebApp initData
+#   POST /api/v1/auth/logout       — Logout current session
+#   POST /api/v1/auth/logout-all   — Logout all sessions (W-06)
 # =============================================================================
 
 import structlog
@@ -18,6 +20,7 @@ from app.modules.auth.schemas import AuthResponse, TelegramAuthRequest
 from app.modules.auth.service import (
     TelegramValidationError,
     create_session,
+    delete_all_sessions,
     delete_session,
     upsert_user_on_login,
     validate_telegram_init_data,
@@ -81,3 +84,21 @@ async def logout(
     if token:
         await delete_session(token)
     logger.info("user_logout", user_id=str(user.id))
+
+
+@router.post("/logout-all", status_code=204)
+async def logout_all(
+    user: User = Depends(get_current_user),
+) -> None:
+    """Logout all sessions for the current user (W-06).
+
+    Invalidates every active session token. The current request
+    succeeds (user is already authenticated), but all subsequent
+    requests with any of the user's tokens will fail with 401.
+    """
+    count = await delete_all_sessions(user.id)
+    logger.info(
+        "user_logout_all",
+        user_id=str(user.id),
+        sessions_invalidated=count,
+    )
