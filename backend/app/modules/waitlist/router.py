@@ -1,14 +1,19 @@
 # =============================================================================
-# VELO Backend -- Waitlist Router (Phase 5.3, bugfix round)
+# VELO Backend -- Waitlist Router (Phase 5.3 + Frontend Backlog)
 # =============================================================================
 #
 # ENDPOINTS:
 #   POST   /api/v1/practices/{id}/waitlist    -- join waitlist
+#   GET    /api/v1/waitlist/me               -- my waitlist entries (Backlog)
 #   DELETE /api/v1/waitlist/{id}              -- leave / decline
 #   POST   /api/v1/waitlist/{id}/confirm      -- confirm spot
 #
+# ROUTE ORDER:
+#   /me MUST come before /{waitlist_id} to avoid FastAPI parsing "me"
+#   as a UUID path parameter.
+#
 # AUTH: get_current_user on all endpoints.
-# SESSION: All mutating -- get_db_session (write).
+# SESSION: Mutating = get_db_session. Read = get_db_reader.
 #
 # BUGFIX: confirm endpoint returns JSONResponse(400) instead of raising
 # when confirm_waitlist returns (entry, None). This ensures get_db_session
@@ -17,22 +22,26 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
+from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_user
+from app.modules.practices.schemas import PracticeSummary
 from app.modules.users.models import User
 from app.modules.waitlist.models import WaitlistStatus
 from app.modules.waitlist.schemas import (
+    PaginatedWaitlistResponse,
     WaitlistConfirmResponse,
     WaitlistEntryResponse,
+    WaitlistWithPracticeResponse,
 )
 from app.modules.waitlist.service import (
     confirm_waitlist,
     join_waitlist,
     leave_waitlist,
+    list_user_waitlist,
 )
 
 # Two routers: one for the nested practices path, one for direct waitlist.
@@ -60,6 +69,66 @@ async def join_waitlist_endpoint(
     return WaitlistEntryResponse.model_validate(entry)
 
 
+# ===================================================================
+# Frontend Backlog: GET /me -- my waitlist entries (BEFORE /{id})
+# ===================================================================
+
+
+@waitlist_router.get(
+    "/me",
+    response_model=PaginatedWaitlistResponse,
+)
+async def list_my_waitlist_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+    status_filter: str | None = Query(
+        default=None, alias="status",
+    ),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedWaitlistResponse:
+    """List waitlist entries for the current user.
+
+    Returns paginated list with embedded PracticeSummary so the
+    frontend can render cards without additional API calls.
+
+    Optional ``status`` filter (e.g. ``?status=waiting``).
+    """
+    items, total = await list_user_waitlist(
+        user, session,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+    return PaginatedWaitlistResponse(
+        items=[
+            WaitlistWithPracticeResponse(
+                id=entry.id,
+                practice_id=entry.practice_id,
+                user_id=entry.user_id,
+                position=entry.position,
+                status=entry.status,
+                joined_at=entry.joined_at,
+                notified_at=entry.notified_at,
+                expires_at=entry.expires_at,
+                created_at=entry.created_at,
+                updated_at=entry.updated_at,
+                practice=PracticeSummary.model_validate(practice),
+            )
+            for entry, practice in items
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+# ===================================================================
+# DELETE /{waitlist_id} -- leave / decline
+# ===================================================================
+
+
 @waitlist_router.delete(
     "/{waitlist_id}",
     response_model=WaitlistEntryResponse,
@@ -74,6 +143,11 @@ async def leave_waitlist_endpoint(
     await session.flush()
     await session.refresh(entry)
     return WaitlistEntryResponse.model_validate(entry)
+
+
+# ===================================================================
+# POST /{waitlist_id}/confirm -- confirm spot
+# ===================================================================
 
 
 @waitlist_router.post(

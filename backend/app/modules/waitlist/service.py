@@ -468,3 +468,49 @@ async def process_waitlist(
     )
 
     return entry
+
+
+# ===================================================================
+# Frontend Backlog: User-facing list endpoint
+# ===================================================================
+
+
+async def list_user_waitlist(
+    user: User,
+    session: AsyncSession,
+    *,
+    status_filter: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[tuple[Waitlist, Practice]], int]:
+    """List waitlist entries for the current user with practice data.
+
+    Returns (items, total) where items are (Waitlist, Practice) tuples.
+    Supports filtering by waitlist status and pagination.
+
+    Used by GET /api/v1/waitlist/me.
+    """
+    filters: list = [Waitlist.user_id == user.id]
+    if status_filter:
+        filters.append(Waitlist.status == status_filter)
+
+    # Total count.
+    count_stmt = (
+        select(func.count(Waitlist.id))
+        .where(*filters)
+    )
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    # Paginated items with practice JOIN.
+    stmt = (
+        select(Waitlist, Practice)
+        .join(Practice, Waitlist.practice_id == Practice.id)
+        .where(*filters)
+        .order_by(Waitlist.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    items = [(row[0], row[1]) for row in result.all()]
+
+    return items, total
