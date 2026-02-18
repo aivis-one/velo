@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 6.4, Batch 2)
+# VELO Backend -- Application Entry Point (updated Frontend Backlog)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -43,6 +43,7 @@ from app.modules.payments.router import router as payments_router  # Phase 6.3
 from app.modules.payments.webhook_router import webhook_router     # Phase 6.3
 from app.modules.payments.purchase_router import (                 # Phase 6.4
     router as purchase_router,
+    purchases_user_router,                                         # Frontend Backlog
 )
 
 
@@ -97,6 +98,7 @@ app.include_router(practices_attendance_router)   # Phase 5.4
 app.include_router(payments_router)               # Phase 6.3
 app.include_router(webhook_router)                # Phase 6.3
 app.include_router(purchase_router)               # Phase 6.4
+app.include_router(purchases_user_router)         # Frontend Backlog
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)

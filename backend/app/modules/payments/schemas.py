@@ -1,13 +1,15 @@
 # =============================================================================
-# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.4)
+# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.4 + Backlog)
 # =============================================================================
 #
 # Pydantic schemas for payment (topup) and purchase endpoints.
 #
-# TopupRequest:      amount_cents from user, validated against config limits.
-# TopupResponse:     returns Stripe checkout URL + payment ID.
-# PaymentResponse:   full payment record representation.
-# PurchaseResponse:  purchase details with financial info (Phase 6.4).
+# TopupRequest:                   amount_cents from user.
+# TopupResponse:                  Stripe checkout URL + payment ID.
+# PaymentResponse:                full payment record representation.
+# PurchaseResponse:               purchase details with financial info.
+# PurchaseWithPracticeResponse:   purchase + PracticeSummary (for list views).
+# PaginatedPurchasesResponse:     paginated list of purchases.
 # =============================================================================
 
 from datetime import datetime
@@ -16,6 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.config import settings
+from app.modules.practices.schemas import PracticeSummary
 
 
 class TopupRequest(BaseModel):
@@ -73,3 +76,38 @@ class PurchaseResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime | None
+
+
+# -- Frontend Backlog: Enriched purchase schemas ---------------------------
+
+
+class PurchaseWithPracticeResponse(BaseModel):
+    """Purchase with lightweight practice summary for list views.
+
+    Used by GET /api/v1/purchases/me. Gives the frontend enough data
+    for purchase history rendering (title, time, amount, status).
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    practice_id: UUID
+    booking_id: UUID
+    paid_cents: int
+    currency: str
+    commission_cents: int
+    status: str
+    completed_at: datetime | None
+    created_at: datetime
+    updated_at: datetime | None
+    practice: PracticeSummary
+
+
+class PaginatedPurchasesResponse(BaseModel):
+    """GET /api/v1/purchases/me -- paginated list."""
+
+    items: list[PurchaseWithPracticeResponse]
+    total: int
+    limit: int
+    offset: int

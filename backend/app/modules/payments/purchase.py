@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Purchase Service (Phase 6.4)
+# VELO Backend -- Purchase Service (Phase 6.4, updated Backlog)
 # =============================================================================
 #
 # Double-entry purchase logic for booking flow.
@@ -17,6 +17,9 @@
 #   3. Purchase -> completed
 #   4. Audit: purchase_completed
 #
+# LIST USER PURCHASES (Frontend Backlog):
+#   Read-only paginated list with practice JOIN for display.
+#
 # INVARIANTS:
 #   - Every Booking has exactly one Purchase (Semaphore 1.1/1.2)
 #   - Every Purchase creates paired ledger entries (Semaphore 2.1)
@@ -31,7 +34,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
@@ -256,3 +259,49 @@ async def finalize_purchases(
     )
 
     return purchases
+
+
+# ===================================================================
+# Frontend Backlog: User-facing list endpoint
+# ===================================================================
+
+
+async def list_user_purchases(
+    user: User,
+    session: AsyncSession,
+    *,
+    status_filter: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[tuple[Purchase, Practice]], int]:
+    """List purchases for the current user with practice data.
+
+    Returns (items, total) where items are (Purchase, Practice) tuples.
+    Supports filtering by purchase status and pagination.
+
+    Used by GET /api/v1/purchases/me.
+    """
+    filters: list = [Purchase.user_id == user.id]
+    if status_filter:
+        filters.append(Purchase.status == status_filter)
+
+    # Total count.
+    count_stmt = (
+        select(func.count(Purchase.id))
+        .where(*filters)
+    )
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    # Paginated items with practice JOIN.
+    stmt = (
+        select(Purchase, Practice)
+        .join(Practice, Purchase.practice_id == Practice.id)
+        .where(*filters)
+        .order_by(Purchase.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    items = [(row[0], row[1]) for row in result.all()]
+
+    return items, total
