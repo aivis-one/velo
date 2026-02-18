@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 6.5)
+# VELO Backend -- Application Configuration (updated Phase 6.6)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -102,6 +102,12 @@ class Settings(BaseSettings):
     # Cancel > N hours before -> 100% refund.
     # Cancel <= N hours before -> 0% refund (early finalize, master keeps money).
     cancellation_deadline_hours: int = 24
+
+    # -- Withdrawals (Phase 6.6) --
+    # Minimum withdrawal amount in EUR cents. 5000 = EUR 50.00.
+    min_withdrawal_cents: int = 5000
+    # Fixed platform fee deducted from withdrawal amount. 200 = EUR 2.00.
+    withdrawal_fee_cents: int = 200
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
