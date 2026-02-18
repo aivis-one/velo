@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Practice Schemas (Phase 4.2 + 4.3/4.4)
+# VELO Backend -- Practice Schemas (Phase 4.2 + 4.3/4.4 + Frontend Backlog)
 # =============================================================================
 #
 # VALIDATION:
@@ -12,6 +12,11 @@
 #   - is_free=True  -> price_cents forced to 0 in service
 #   - is_free=False -> price_cents must be > 0 (validated in service)
 #   - currency validated via Literal (EUR only for MVP)
+#
+# PRACTICE SUMMARY (Frontend Backlog A-03):
+#   Lightweight practice representation for embedding in booking /
+#   waitlist / purchase responses. Contains only the fields needed
+#   for list-view cards (title, type, time, duration, master).
 #
 # P-02 NOTE:
 #   NOT NULL fields are typed as `X | None` in UpdatePracticeRequest
@@ -200,3 +205,24 @@ class PaginatedPracticesResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# -- Frontend Backlog A-03: Lightweight practice summary -------------------
+
+
+class PracticeSummary(BaseModel):
+    """Compact practice representation for embedding in related responses.
+
+    Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse,
+    and PurchaseWithPracticeResponse to give the frontend enough data
+    for list-view cards without a separate GET /practices/{id} call.
+    """
+
+    id: UUID
+    title: str
+    practice_type: str
+    scheduled_at: datetime
+    duration_minutes: int
+    master_id: UUID
+
+    model_config = {"from_attributes": True}

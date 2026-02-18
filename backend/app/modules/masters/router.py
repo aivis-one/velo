@@ -1,9 +1,10 @@
 # =============================================================================
-# VELO Backend -- Master Router (updated Phase 4.2)
+# VELO Backend -- Master Router (updated Phase 4.2 + Frontend Backlog)
 # =============================================================================
 #
 # Endpoints:
 #   POST /api/v1/masters/apply          -- submit master application
+#   GET  /api/v1/masters/me             -- my master profile (Frontend Backlog)
 #   GET  /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
 # =============================================================================
 
@@ -14,7 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_master, get_current_user
 from app.modules.masters.models import MasterProfile
-from app.modules.masters.schemas import MasterApplyRequest, MasterApplyResponse
+from app.modules.masters.schemas import (
+    MasterApplyRequest,
+    MasterApplyResponse,
+    MasterProfileResponse,
+)
 from app.modules.masters.service import apply_for_master
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
@@ -53,6 +58,52 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+# ===================================================================
+# Frontend Backlog: GET /me -- master profile
+# ===================================================================
+
+
+@router.get(
+    "/me",
+    response_model=MasterProfileResponse,
+)
+async def get_my_master_profile(
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_reader),
+) -> MasterProfileResponse:
+    """Return the current master's profile.
+
+    Extracts display fields from the JSONB ``data`` column and
+    combines them with cached balance columns (frozen_cents,
+    available_cents).  The ``status`` field reflects the master's
+    verification status (pending / verified / rejected).
+    """
+    _user, profile = master_tuple
+    data = profile.data
+    account = data.get("account", {})
+    prof = data.get("profile", {})
+
+    return MasterProfileResponse(
+        user_id=profile.user_id,
+        status=account.get("status", "pending"),
+        display_name=prof.get("display_name"),
+        bio=prof.get("bio"),
+        methods=prof.get("methods", []),
+        experience_years=prof.get("experience_years"),
+        frozen_cents=profile.frozen_cents,
+        available_cents=profile.available_cents,
+        created_at=profile.created_at,
+        updated_at=profile.updated_at,
+    )
+
+
+# ===================================================================
+# Phase 4.2: GET /me/practices -- my practices
+# ===================================================================
 
 
 # R-04 fix: PaginatedPracticesResponse (with total count),
