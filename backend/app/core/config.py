@@ -197,6 +197,14 @@ class Settings(BaseSettings):
                     "provide your Telegram WebApp cancel page URL."
                 )
 
+        # CORS_ORIGINS: must not be wildcard in production (S-04).
+        if not is_dev and self.cors_origins == "*":
+            raise ValueError(
+                "CORS_ORIGINS must not be '*' in production. "
+                "Set to specific domain(s), e.g. "
+                "'https://app.example.com'."
+            )
+
         return self
 
     # -- Pydantic Settings Config --

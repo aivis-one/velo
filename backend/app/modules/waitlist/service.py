@@ -60,7 +60,11 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.bookings.service import recalculate_participants
+from app.modules.bookings.service import (
+    _ACTIVE_BOOKING_STATUSES,
+    _get_active_booking_count,
+    recalculate_participants,
+)
 from app.modules.payments.purchase import create_purchase_for_booking
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
@@ -75,28 +79,6 @@ logger = structlog.get_logger()
 
 # How long a notified user has to confirm.
 _CONFIRM_WINDOW = timedelta(minutes=30)
-
-# Booking statuses that count toward capacity (same as bookings/service.py).
-_ACTIVE_BOOKING_STATUSES = {
-    BookingStatus.PENDING.value,
-    BookingStatus.CONFIRMED.value,
-}
-
-
-async def _get_active_booking_count(
-    session: AsyncSession,
-    practice_id: UUID,
-) -> int:
-    """Count active bookings for a practice (TD-034)."""
-    stmt = (
-        select(func.count(Booking.id))
-        .where(
-            Booking.practice_id == practice_id,
-            Booking.status.in_(_ACTIVE_BOOKING_STATUSES),
-        )
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one()
 
 
 # L-03 fix: removed async -- this function contains only synchronous
