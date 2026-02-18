@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Report Router (Phase 3.3)
+# VELO Backend -- Report Router (Phase 3.3 + Frontend Backlog)
 # =============================================================================
 #
 # User-facing endpoints for reports (complaints).
@@ -7,7 +7,7 @@
 # ENDPOINTS:
 #   POST  /api/v1/reports          -- create a report (or get existing)
 #   PATCH /api/v1/reports/{id}     -- edit own pending report
-#   GET   /api/v1/reports/me       -- list own reports
+#   GET   /api/v1/reports/me       -- list own reports (paginated, Backlog fix)
 #
 # AUTH: get_current_user on all endpoints.
 #
@@ -20,7 +20,7 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
@@ -29,6 +29,7 @@ from app.modules.reports.models import Report
 from app.modules.reports.schemas import (
     CreateReportRequest,
     ExistingReportResponse,
+    PaginatedUserReportsResponse,
     ReportResponse,
     UpdateReportRequest,
 )
@@ -99,14 +100,22 @@ async def update_report_endpoint(
     return ReportResponse.model_validate(report, from_attributes=True)
 
 
-@router.get("/me", response_model=list[ReportResponse])
+@router.get("/me", response_model=PaginatedUserReportsResponse)
 async def get_my_reports(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-) -> list[ReportResponse]:
-    """List current user's reports."""
+) -> PaginatedUserReportsResponse:
+    """List current user's reports with pagination."""
+    # Total count.
+    count_stmt = (
+        select(func.count(Report.id))
+        .where(Report.reporter_id == user.id)
+    )
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    # Paginated items.
     stmt = (
         select(Report)
         .where(Report.reporter_id == user.id)
@@ -117,7 +126,12 @@ async def get_my_reports(
     result = await session.execute(stmt)
     reports = result.scalars().all()
 
-    return [
-        ReportResponse.model_validate(r, from_attributes=True)
-        for r in reports
-    ]
+    return PaginatedUserReportsResponse(
+        items=[
+            ReportResponse.model_validate(r, from_attributes=True)
+            for r in reports
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

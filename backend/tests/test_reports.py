@@ -1,5 +1,5 @@
 # =============================================================================
-# Test: Reports -- User-facing report endpoints (Phase 3.3)
+# Test: Reports -- User-facing report endpoints (Phase 3.3 + Frontend Backlog)
 # =============================================================================
 #
 # telegram_id ranges:
@@ -307,11 +307,11 @@ async def test_update_report_not_owner(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
-# GET /reports/me -- list own reports
+# GET /reports/me -- list own reports (Frontend Backlog: paginated response)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_list_my_reports(client: AsyncClient) -> None:
-    """User can list their own reports."""
+    """User can list their own reports (paginated response)."""
     reporter = await login_user(client, telegram_id=59011, first_name="Lister")
     target = await _create_target_user(client, telegram_id=59104)
 
@@ -332,6 +332,10 @@ async def test_list_my_reports(client: AsyncClient) -> None:
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert data[0]["reporter_id"] == reporter["user"]["id"]
+    assert "items" in data
+    assert "total" in data
+    assert "limit" in data
+    assert "offset" in data
+    assert data["total"] >= 1
+    assert len(data["items"]) >= 1
+    assert data["items"][0]["reporter_id"] == reporter["user"]["id"]

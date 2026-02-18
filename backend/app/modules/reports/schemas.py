@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Report Schemas (Phase 3.3)
+# VELO Backend -- Report Schemas (Phase 3.3 + Frontend Backlog)
 # =============================================================================
 #
 # Pydantic schemas for user-facing report endpoints.
@@ -7,6 +7,7 @@
 # CREATE: user submits a report (target_type, target_id, reason).
 # UPDATE: user edits their own pending report (reason only).
 # RESPONSE: report data returned to user/admin.
+# PAGINATED: GET /reports/me now returns paginated response (Backlog fix).
 # =============================================================================
 
 from datetime import datetime
@@ -59,3 +60,15 @@ class ExistingReportResponse(BaseModel):
 
     message: str = "You already reported this target. You can edit your report."
     report: ReportResponse
+
+
+# -- Frontend Backlog: Paginated user reports ------------------------------
+
+
+class PaginatedUserReportsResponse(BaseModel):
+    """GET /api/v1/reports/me -- paginated list of user's own reports."""
+
+    items: list[ReportResponse]
+    total: int
+    limit: int
+    offset: int
