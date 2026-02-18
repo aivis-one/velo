@@ -1,8 +1,9 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4, updated Phase 6.5)
+# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4+6.5, Backlog)
 # =============================================================================
 #
-# Business logic for booking create, cancel, attendance, and finalize.
+# Business logic for booking create, cancel, attendance, finalize,
+# and user-facing list/detail endpoints (Frontend Backlog).
 #
 # STATE MACHINE:
 #   pending   -> confirmed, cancelled
@@ -605,3 +606,84 @@ async def get_attendance(
     bookings = list(bookings_result.scalars().all())
 
     return practice, bookings
+
+
+# ===================================================================
+# Frontend Backlog: User-facing list & detail endpoints
+# ===================================================================
+
+
+async def list_user_bookings(
+    user: User,
+    session: AsyncSession,
+    *,
+    status_filter: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[tuple[Booking, Practice]], int]:
+    """List bookings for the current user with practice data.
+
+    Returns (items, total) where items are (Booking, Practice) tuples.
+    Supports filtering by booking status and pagination.
+
+    Used by GET /api/v1/bookings/me.
+    """
+    filters: list = [Booking.user_id == user.id]
+    if status_filter:
+        filters.append(Booking.status == status_filter)
+
+    # Total count.
+    count_stmt = (
+        select(func.count(Booking.id))
+        .where(*filters)
+    )
+    total = (await session.execute(count_stmt)).scalar_one()
+
+    # Paginated items with practice JOIN.
+    stmt = (
+        select(Booking, Practice)
+        .join(Practice, Booking.practice_id == Practice.id)
+        .where(*filters)
+        .order_by(Booking.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    items = [(row[0], row[1]) for row in result.all()]
+
+    return items, total
+
+
+async def get_booking_by_id(
+    booking_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> tuple[Booking, Practice]:
+    """Get a single booking with full practice data.
+
+    Access control (A+B):
+      A) Booking owner (deep link from notification).
+      B) Master of the practice (attendance dashboard).
+
+    Used by GET /api/v1/bookings/{id}.
+
+    Raises NotFoundError if not found or not authorized (P-08).
+    """
+    stmt = (
+        select(Booking, Practice)
+        .join(Practice, Booking.practice_id == Practice.id)
+        .where(Booking.id == booking_id)
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+
+    if not row:
+        raise NotFoundError("Booking not found")
+
+    booking, practice = row[0], row[1]
+
+    # Access: owner OR master of the practice.
+    if booking.user_id != user.id and practice.master_id != user.id:
+        raise NotFoundError("Booking not found")
+
+    return booking, practice
