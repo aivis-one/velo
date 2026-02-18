@@ -87,6 +87,7 @@ class Booking(UUIDMixin, TimestampMixin, Base):
     # -- Purchase --
     purchase_id: Mapped[UUID | None] = mapped_column(
         default=None,
+        index=True,
     )
 
     # -- Cancellation --
