@@ -1,6 +1,6 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.1
+**Версия:** 2.2
 **Дата:** 18 февраля 2026
 **Статус:** Draft
 
@@ -411,8 +411,9 @@ backend/app/
 
 **Endpoints:**
 ```
-POST /api/v1/auth/telegram  → AuthResponse {user, session_token}
-POST /api/v1/auth/logout    → 204 No Content
+POST /api/v1/auth/telegram      → AuthResponse {user, session_token}
+POST /api/v1/auth/logout        → 204 No Content
+POST /api/v1/auth/logout-all    → 204 No Content (W-06: invalidate all sessions)
 ```
 
 **Решения, принятые при реализации:**
@@ -430,16 +431,20 @@ POST /api/v1/auth/logout    → 204 No Content
 **Цель:** Управление сессиями через Redis.
 
 **Задачи:**
-- [x] Сессии в auth/service.py (create/get/delete) — не отдельный файл
+- [x] Сессии в auth/service.py (create/get/delete/delete_all) — не отдельный файл
 - [x] FastAPI Dependency вместо Middleware (решение Phase 0.5 обсуждение)
 - [x] app/modules/auth/dependencies.py — get_current_user, get_optional_user, get_current_admin
 - [x] TTL 30 дней (настраивается через SESSION_TTL_DAYS)
+- [x] Session index (W-06): reverse index в Redis для logout-all
 
 **Формат сессии в Redis:**
 ```
 Key: session:{token}    (token = secrets.token_urlsafe(48))
 Value: {"user_id": "uuid", "telegram_id": 123, "created_at": "iso"}
 TTL: 30 days
+
+Key: user_sessions:{user_id}    (Redis SET of tokens, W-06)
+TTL: Same as session TTL
 ```
 
 **Dependencies (вместо middleware):**
@@ -1017,8 +1022,9 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 
     max_participants: Mapped[int | None] = mapped_column(Integer, default=None)
     current_participants: Mapped[int] = mapped_column(Integer, default=0)
-    # NOT USED -- capacity is checked via COUNT(bookings) (TD-034).
-    # Column retained for potential future denormalization.
+    # Updated by recalculate_participants() after every booking status change.
+    # Capacity checks still use COUNT(bookings) (TD-034). This is a denormalized
+    # cache for PracticeResponse display only.
 
     zoom_link: Mapped[str | None] = mapped_column(String(500), default=None)
 
@@ -1036,7 +1042,7 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 - **`practice_type`** (не `type`) -- избегаем shadowing Python builtin
 - **`scheduled_at` NOT NULL** -- мастер обязан указать время при создании, нет nullable drafts
 - **`parent_practice_id`** -- self-referential FK для серий, создан сразу (не отложен)
-- **`current_participants`** -- колонка создана, но **НЕ ИСПОЛЬЗУЕТСЯ**. Capacity проверяется через `COUNT(bookings)` (TD-034). Колонка сохранена для потенциальной денормализации
+- **`current_participants`** -- denormalized cache, updated by `recalculate_participants()` (bookings/service.py) after every booking/waitlist/refund status change. Capacity checks still use `COUNT(bookings)` (TD-034). Cache is for PracticeResponse display only
 - **`DELETED`** -- добавлен в Phase 4.2 (soft delete для черновиков, отделён от `cancelled`)
 - **Стабы удалены**: admin/stats/service.py (practices_count → реальный COUNT), reports/service.py (practice validation → реальный SELECT)
 - **StrEnum (P-09)** -- не `(str, Enum)` как в старом ТЗ
@@ -1258,7 +1264,7 @@ class Booking(UUIDMixin, TimestampMixin, Base):
     practice_id: Mapped[UUID]   # FK practices.id, CASCADE, index=True (R-07)
     user_id: Mapped[UUID]       # FK users.id, CASCADE, index=True (R-07)
     status: Mapped[str]         # String(20), default "pending"
-    purchase_id: Mapped[UUID | None]  # FK purchases.id (Phase 6.4)
+    purchase_id: Mapped[UUID | None]  # Phase 6.4, index=True (W-02), FK in migration e4f5a6b7c8d9
     cancelled_at: Mapped[datetime | None]
     cancellation_reason: Mapped[str | None]
     joined_at: Mapped[datetime | None]   # Phase 5.4
@@ -1290,7 +1296,8 @@ backend/app/modules/bookings/
 
 backend/migrations/versions/
 ├── 2026_02_12_e5f6a7b8c9d0_create_bookings_table.py
-└── 2026_02_17_f5a6b7c8d9e0_booking_partial_unique_index.py (H-02)
+├── 2026_02_17_f5a6b7c8d9e0_booking_partial_unique_index.py (H-02)
+└── 2026_02_18_a7b8c9d0e1f2_add_index_booking_purchase_id.py (W-02)
 
 backend/tests/
 └── test_bookings.py  ← 13 тестов (telegram_id range: 61xxx)
@@ -1299,11 +1306,11 @@ backend/tests/
 **Решения, принятые при реализации:**
 
 - **`booked_at` убран** -- дублирует `created_at` из TimestampMixin. Косяк ТЗ, исправлен
-- **`purchase_id: UUID | None`** -- FK добавлен в Phase 6.4 (миграция `e4f5a6b7c8d9`)
+- **`purchase_id: UUID | None`** -- FK added in Phase 6.4 (migration `e4f5a6b7c8d9`), `index=True` added by W-02 (migration `a7b8c9d0e1f2`)
 - **`joined_at / left_at`** включены сразу -- Phase 5.4 (attendance) в той же Phase 5
 - **H-02: partial unique index** -- заменяет абсолютный UniqueConstraint. Позволяет re-booking после отмены (миграция `f5a6b7c8d9e0`). Два отменённых booking'а для (practice, user) допустимы
 - **R-07: index=True** на practice_id и user_id -- индексы существовали в миграции с Phase 5.1, `index=True` в модели добавлен для синхронности
-- **Capacity: COUNT** (не increment `current_participants`) -- `SELECT COUNT(*) FROM bookings WHERE status IN (pending, confirmed)`. Точнее, нет risk рассинхрона. `current_participants` не используется (TD-034)
+- **Capacity: COUNT** (not increment `current_participants`) -- `SELECT COUNT(*) FROM bookings WHERE status IN (pending, confirmed)`. Точнее, нет risk рассинхрона. `current_participants` обновляется через `recalculate_participants()` как denormalized cache для PracticeResponse (TD-034 resolved)
 - **Только scheduled** практики допускают бронирование (`live` = уже идёт)
 - **Self-booking prevention** -- `practice.master_id == user.id` → 400 (мастер не может забронировать свою практику)
 - **Мастер как юзер** -- мастер может бронировать чужие практики (мастер = юзер за пределами своей практики)
@@ -2284,13 +2291,13 @@ Response: {
 |----|-------|------|----------|---------|--------|
 | TD-025 | 🚀 | Все роутеры | Нет rate limiting на auth и masters endpoints | `slowapi` middleware или custom limiter (Redis-based) | ⬜ |
 | TD-026 | 🚀 | `docker-compose.yml` | Redis без пароля — доступ без аутентификации | `requirepass` в Redis + `REDIS_PASSWORD` в .env + config.py | ⬜ |
-| TD-027 | 🚀 | `main.py` / `config.py` | CORS `"*"` по умолчанию — в production нужен явный список origins | При деплое фронта заменить на конкретные домены | ⬜ |
+| TD-027 | 🚀 | `main.py` / `config.py` | CORS `"*"` по умолчанию — в production нужен явный список origins | S-04: `ValueError` в `_apply_env_defaults_and_validate` если `cors_origins == "*"` в production | ✅ |
 | TD-028 | 🧪 | `masters/schemas.py` | `documents: list[dict]` — содержимое dict'ов не ограничено | Типизировать при реализации S3/file upload | ⬜ |
 | TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия или передача user_id вместо объекта | ⬜ |
 | TD-030 | 🧪 | `main.py` | Health checks не различают timeout vs connection error | Разные статусы/сообщения для timeout и connection refused | ⬜ |
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
 | TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировано: все суммы в центы (int), миграция `c2d3e4f5a6b7` | ✅ |
-| TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | Варианты: (a) compute COUNT в PracticeResponse для фронтенда (A-03), (b) убрать из PracticeResponse, (c) denormalize via trigger. Приоритет P1 для фронтенда | ⬜ |
+| TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | `recalculate_participants()` в bookings/service.py обновляет кэш после каждого изменения статуса booking/waitlist/refund. Capacity checks по-прежнему через COUNT | ✅ |
 
 ### Code Review Feb 2026 — исправлено
 
@@ -2307,13 +2314,57 @@ Response: {
 
 ### Frontend Report Feb 2026 — backlog
 
-| ID | Проблема | Тип | Приоритет |
-|----|----------|-----|-----------|
-| A-01 | Нет GET /bookings/{id} (deep link из уведомлений) | Новый эндпоинт | P1 |
-| A-02 | GET /reports/me возвращает list без total (нужна пагинация) | Исправление схемы | P2 |
-| A-03 | current_participants в PracticeResponse всегда 0 (нужен computed COUNT) | Исправление логики | P1 |
-| B-03 | Нет cron для экспирации NOTIFIED waitlist записей (зависают навечно) | Инфра | P2 |
-| B-04 | Нет POST /auth/logout-all (инвалидация всех сессий) | Новый эндпоинт | P3 |
+| ID | Проблема | Тип | Приоритет | Статус |
+|----|----------|-----|-----------|--------|
+| A-01 | Нет GET /bookings/{id} (deep link из уведомлений) | Новый эндпоинт | P1 | ✅ bookings/router.py + service.py |
+| A-02 | GET /reports/me возвращает list без total (нужна пагинация) | Исправление схемы | P2 | ✅ PaginatedUserReportsResponse |
+| A-03 | current_participants в PracticeResponse всегда 0 (нужен computed COUNT) | Исправление логики | P1 | ✅ recalculate_participants() |
+| B-03 | Нет cron для экспирации NOTIFIED waitlist записей (зависают навечно) | Инфра | P2 | ⬜ Осознанный tech debt |
+| B-04 | Нет POST /auth/logout-all (инвалидация всех сессий) | Новый эндпоинт | P3 | ✅ W-06: session index + delete_all_sessions |
+
+### Frontend Backlog — реализованные эндпоинты (Feb 2026)
+
+**Задачи:**
+- [x] GET /api/v1/bookings/me — пагинированный список бронирований с PracticeSummary
+- [x] GET /api/v1/bookings/{id} — детали бронирования с PracticeResponse (A-01)
+- [x] GET /api/v1/waitlist/me — пагинированный список waitlist с PracticeSummary
+- [x] GET /api/v1/masters/me — профиль мастера (status, display_name, bio, methods, balances)
+- [x] GET /api/v1/purchases/me — пагинированный список покупок с PracticeSummary
+- [x] GET /api/v1/reports/me — исправлен: PaginatedUserReportsResponse (A-02)
+- [x] POST /api/v1/auth/logout-all — инвалидация всех сессий (B-04/W-06)
+- [x] recalculate_participants() — listener для current_participants (A-03/TD-034)
+
+**Новые схемы:**
+- `PracticeSummary` (id, title, practice_type, scheduled_at, duration_minutes, master_id)
+- `BookingWithPracticeResponse`, `BookingDetailResponse`, `PaginatedBookingsResponse`
+- `WaitlistWithPracticeResponse`, `PaginatedWaitlistResponse`
+- `PurchaseWithPracticeResponse`, `PaginatedPurchasesResponse`
+- `PaginatedUserReportsResponse`
+
+**Решения, принятые при реализации:**
+- `/me` эндпоинты определяются ПЕРЕД `/{id}` чтобы FastAPI не парсил "me" как UUID
+- Ответы конструируются вручную (не model_validate) — Booking ORM не имеет `.practice` relationship
+- `recalculate_participants()` вызывается из create_booking, cancel_booking, finalize_practice, confirm_waitlist, refund_all_bookings_for_practice — единственный корректный способ обновления кэша
+- `_get_active_booking_count` и `_ACTIVE_BOOKING_STATUSES` определены только в bookings/service.py — waitlist/service.py импортирует оттуда (W-04 fix)
+
+### Security Audit Feb 2026 — результаты
+
+| ID | Тип | Серьёзность | Описание | Статус |
+|----|-----|-------------|----------|--------|
+| S-04 | Безопасность | MEDIUM | CORS `*` не валидируется в production | ✅ config.py: ValueError если cors_origins=="*" в production |
+| W-04 | Слабость | MEDIUM | Дублирование _get_active_booking_count в waitlist | ✅ Импорт из bookings.service |
+| W-02 | Слабость | HIGH | purchase_id без index | ✅ index=True + миграция a7b8c9d0e1f2 |
+| W-06 | Слабость | LOW | Нет logout-all | ✅ POST /auth/logout-all + session index |
+| W-01 | Слабость | MEDIUM | Нет cron для waitlist expiration | ⬜ Осознанный tech debt |
+| S-01 | Безопасность | MEDIUM | Нет rate limiting | ⬜ nginx limit_req при деплое |
+| S-03 | Безопасность | LOW | Webhook без IP whitelist | ⬜ nginx при деплое |
+| W-03 | Слабость | LOW | purchase_id без FK constraint (circular FK) | ⬜ Осознанное решение |
+
+**Миграции добавленные:**
+- `f5a6b7c8d9e0` — H-02: partial unique index для re-booking (Phase 5.1)
+- `a7b8c9d0e1f2` — W-02: index на bookings.purchase_id
+
+**Тесты:** 213 passed, 3 skipped, 0 warnings.
 
 ### Осознанные решения (НЕ является долгом)
 
