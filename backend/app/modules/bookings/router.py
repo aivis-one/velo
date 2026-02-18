@@ -1,14 +1,20 @@
 # =============================================================================
-# VELO Backend -- Booking Router (Phase 5.2 + 5.4)
+# VELO Backend -- Booking Router (Phase 5.2 + 5.4 + Frontend Backlog)
 # =============================================================================
 #
 # ENDPOINTS:
 #   POST   /api/v1/bookings              -- create booking
+#   GET    /api/v1/bookings/me           -- my bookings (Frontend Backlog)
+#   GET    /api/v1/bookings/{id}         -- booking detail (Frontend Backlog)
 #   DELETE /api/v1/bookings/{id}         -- cancel booking
 #   POST   /api/v1/bookings/{id}/join    -- check-in (Phase 5.4)
 #   POST   /api/v1/bookings/{id}/leave   -- check-out (Phase 5.4)
 #   POST   /api/v1/practices/{id}/finalize   -- finalize (Phase 5.4)
 #   GET    /api/v1/practices/{id}/attendance  -- attendance list (Phase 5.4)
+#
+# ROUTE ORDER:
+#   /me MUST come before /{booking_id} to avoid FastAPI parsing "me"
+#   as a UUID path parameter.
 #
 # AUTH: get_current_user on booking endpoints.
 #       get_current_master on practice-level endpoints.
@@ -17,7 +23,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
@@ -29,20 +35,25 @@ from app.modules.bookings.models import BookingStatus
 from app.modules.bookings.schemas import (
     AttendanceItemResponse,
     AttendanceResponse,
+    BookingDetailResponse,
     BookingResponse,
+    BookingWithPracticeResponse,
     CancelBookingRequest,
     CreateBookingRequest,
+    PaginatedBookingsResponse,
 )
 from app.modules.bookings.service import (
     cancel_booking,
     create_booking,
     finalize_practice,
     get_attendance,
+    get_booking_by_id,
     join_booking,
     leave_booking,
+    list_user_bookings,
 )
 from app.modules.masters.models import MasterProfile
-from app.modules.practices.schemas import PracticeResponse
+from app.modules.practices.schemas import PracticeSummary, PracticeResponse
 from app.modules.users.models import User
 
 router = APIRouter(
@@ -72,6 +83,109 @@ async def create_booking_endpoint(
     await session.flush()
     await session.refresh(booking)
     return BookingResponse.model_validate(booking)
+
+
+# ===================================================================
+# Frontend Backlog: GET /me -- my bookings (BEFORE /{booking_id})
+# ===================================================================
+
+
+@router.get(
+    "/me",
+    response_model=PaginatedBookingsResponse,
+)
+async def list_my_bookings_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+    status_filter: str | None = Query(
+        default=None, alias="status",
+    ),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedBookingsResponse:
+    """List bookings for the current user.
+
+    Returns paginated list with embedded PracticeSummary so the
+    frontend can render cards without additional API calls.
+
+    Optional ``status`` filter (e.g. ``?status=confirmed``).
+    """
+    items, total = await list_user_bookings(
+        user, session,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+    return PaginatedBookingsResponse(
+        items=[
+            BookingWithPracticeResponse(
+                id=booking.id,
+                practice_id=booking.practice_id,
+                user_id=booking.user_id,
+                status=booking.status,
+                purchase_id=booking.purchase_id,
+                cancelled_at=booking.cancelled_at,
+                cancellation_reason=booking.cancellation_reason,
+                joined_at=booking.joined_at,
+                left_at=booking.left_at,
+                created_at=booking.created_at,
+                updated_at=booking.updated_at,
+                practice=PracticeSummary.model_validate(practice),
+            )
+            for booking, practice in items
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+# ===================================================================
+# Frontend Backlog: GET /{booking_id} -- booking detail
+# ===================================================================
+
+
+@router.get(
+    "/{booking_id}",
+    response_model=BookingDetailResponse,
+)
+async def get_booking_detail_endpoint(
+    booking_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> BookingDetailResponse:
+    """Get a single booking with full practice details.
+
+    Access control:
+      - Booking owner (deep link from notification).
+      - Master of the practice (attendance dashboard).
+
+    Returns 404 for non-existent or unauthorized bookings (P-08).
+    """
+    booking, practice = await get_booking_by_id(
+        booking_id, user, session,
+    )
+
+    return BookingDetailResponse(
+        id=booking.id,
+        practice_id=booking.practice_id,
+        user_id=booking.user_id,
+        status=booking.status,
+        purchase_id=booking.purchase_id,
+        cancelled_at=booking.cancelled_at,
+        cancellation_reason=booking.cancellation_reason,
+        joined_at=booking.joined_at,
+        left_at=booking.left_at,
+        created_at=booking.created_at,
+        updated_at=booking.updated_at,
+        practice=PracticeResponse.model_validate(practice),
+    )
+
+
+# ===================================================================
+# DELETE /{booking_id} -- cancel booking
+# ===================================================================
 
 
 @router.delete(

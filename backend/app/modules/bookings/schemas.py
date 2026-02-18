@@ -1,11 +1,21 @@
 # =============================================================================
-# VELO Backend -- Booking Schemas (Phase 5.2, extended Phase 5.4)
+# VELO Backend -- Booking Schemas (Phase 5.2 + 5.4 + Frontend Backlog)
+# =============================================================================
+#
+# BookingResponse:                Base booking representation.
+# BookingWithPracticeResponse:    Booking + PracticeSummary (for list views).
+# BookingDetailResponse:          Booking + full PracticeResponse (for detail).
+# PaginatedBookingsResponse:      Paginated list of BookingWithPractice items.
+# AttendanceItemResponse:         Single booking in attendance list (Phase 5.4).
+# AttendanceResponse:             Full attendance summary (Phase 5.4).
 # =============================================================================
 
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from app.modules.practices.schemas import PracticeSummary, PracticeResponse
 
 
 class CreateBookingRequest(BaseModel):
@@ -38,6 +48,65 @@ class BookingResponse(BaseModel):
     updated_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+# -- Frontend Backlog: Enriched booking schemas ----------------------------
+
+
+class BookingWithPracticeResponse(BaseModel):
+    """Booking with lightweight practice summary for list views.
+
+    Used by GET /api/v1/bookings/me. Gives the frontend enough data
+    for card rendering (title, time, type, master) without N+1 calls.
+    """
+
+    id: UUID
+    practice_id: UUID
+    user_id: UUID
+    status: str
+    purchase_id: UUID | None
+    cancelled_at: datetime | None
+    cancellation_reason: str | None
+    joined_at: datetime | None
+    left_at: datetime | None
+    created_at: datetime
+    updated_at: datetime | None
+    practice: PracticeSummary
+
+    model_config = {"from_attributes": True}
+
+
+class BookingDetailResponse(BaseModel):
+    """Booking with full practice details for single-booking view.
+
+    Used by GET /api/v1/bookings/{id}. Returns the complete
+    PracticeResponse so the frontend can render a full detail page
+    (deep link from notification, master dashboard, etc.).
+    """
+
+    id: UUID
+    practice_id: UUID
+    user_id: UUID
+    status: str
+    purchase_id: UUID | None
+    cancelled_at: datetime | None
+    cancellation_reason: str | None
+    joined_at: datetime | None
+    left_at: datetime | None
+    created_at: datetime
+    updated_at: datetime | None
+    practice: PracticeResponse
+
+    model_config = {"from_attributes": True}
+
+
+class PaginatedBookingsResponse(BaseModel):
+    """GET /api/v1/bookings/me -- paginated list."""
+
+    items: list[BookingWithPracticeResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 # -- Phase 5.4: Attendance --
