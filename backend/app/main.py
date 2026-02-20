@@ -48,6 +48,9 @@ from app.modules.payments.purchase_router import (                 # Phase 6.4
 from app.modules.withdrawals.router import (                       # Phase 6.6
     router as withdrawals_router,
 )
+from app.modules.admin.withdrawals.router import (                 # Phase 6.6 Batch 3
+    router as admin_withdrawals_router,
+)
 
 
 logger = structlog.get_logger()
@@ -103,6 +106,7 @@ app.include_router(webhook_router)                # Phase 6.3
 app.include_router(purchase_router)               # Phase 6.4
 app.include_router(purchases_user_router)         # Frontend Backlog
 app.include_router(withdrawals_router)            # Phase 6.6
+app.include_router(admin_withdrawals_router, prefix="/api/v1/admin", tags=["admin"])  # Phase 6.6 Batch 3
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)

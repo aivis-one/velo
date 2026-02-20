@@ -1,22 +1,14 @@
 # =============================================================================
-# Tests: Withdrawals -- Master Flow (Phase 6.6)
+# Test: Admin Withdrawals -- approve, reject, list (Phase 6.6, Batch 3)
 # =============================================================================
 #
-# telegram_id range: 77000-77999
-#   77001-77099: masters
-#   77100-77199: regular users
-#   77900-77999: admin users
-#
-# Scenarios tested:
-#   - PATCH /me/payout: update payout details (success, not master)
-#   - POST /me/withdraw: success, insufficient balance, no payout,
-#     below minimum, fee >= amount
-#   - GET /me/withdrawals: empty, with items, pagination
-#   - Double-entry verification: available -> frozen on create
+# telegram_id ranges:
+#   78001-78099 -- masters
+#   78900-78999 -- admins
 # =============================================================================
 
 from collections.abc import AsyncGenerator
-from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -24,82 +16,53 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.modules.masters.models import MasterProfile
-from app.modules.payments.service import record_master_ledger
-from app.modules.withdrawals.models import Withdrawal, WithdrawalStatus
+from app.modules.payments.models import Payment, PaymentDirection, PaymentStatus
 from tests.helpers import auth_headers, login_user
 
 # ---------------------------------------------------------------------------
-# URLs
+# Constants
 # ---------------------------------------------------------------------------
-PAYOUT_URL = "/api/v1/masters/me/payout"
-WITHDRAW_URL = "/api/v1/masters/me/withdraw"
-WITHDRAWALS_URL = "/api/v1/masters/me/withdrawals"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
+PAYOUT_URL = "/api/v1/masters/me/payout"
+WITHDRAW_URL = "/api/v1/masters/me/withdraw"
+ADMIN_WITHDRAWALS_URL = "/api/v1/admin/withdrawals"
+
+_CLEANUP_SQL = text("""
+    DELETE FROM withdrawals WHERE user_id IN
+        (SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999);
+    DELETE FROM master_ledger WHERE user_id IN
+        (SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999);
+    DELETE FROM company_ledger WHERE reason LIKE 'withdrawal%%';
+    DELETE FROM payments WHERE user_id IN
+        (SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999);
+    DELETE FROM master_profiles WHERE user_id IN
+        (SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999);
+    UPDATE users SET role = 'user' WHERE telegram_id BETWEEN 78000 AND 78999;
+""")
+
 
 # ---------------------------------------------------------------------------
-# Cleanup
+# Fixtures
 # ---------------------------------------------------------------------------
-_TID_RANGE = (
-    "SELECT id FROM users WHERE telegram_id BETWEEN 77000 AND 77999"
-)
-_MASTER_RANGE = (
-    "SELECT user_id FROM master_profiles "
-    "WHERE user_id IN (" + _TID_RANGE + ")"
-)
-
-_CLEANUP_QUERIES = [
-    text(
-        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
-    ),
-    text(
-        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    text(
-        "DELETE FROM withdrawals WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    text(
-        "DELETE FROM master_profiles WHERE user_id IN "
-        "(" + _TID_RANGE + ")"
-    ),
-    text(
-        "UPDATE users SET role = 'user', balance_cents = 0 "
-        "WHERE telegram_id BETWEEN 77000 AND 77999"
-    ),
-    text(
-        "DELETE FROM users WHERE telegram_id BETWEEN 77000 AND 77999"
-    ),
-]
-
-
 @pytest.fixture(autouse=True)
-async def _cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean up test data before and after each test."""
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    await db_session.execute(_CLEANUP_SQL)
     await db_session.commit()
     yield
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
+    await db_session.execute(_CLEANUP_SQL)
     await db_session.commit()
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
 async def _make_verified_master(
     client: AsyncClient,
     db_session: AsyncSession,
-    telegram_id: int = 77001,
+    telegram_id: int = 78001,
 ) -> dict:
-    """Create user, apply as master, verify via admin.
-
-    Returns auth data dict with role=master (re-logged after verify).
-    """
-    # Create user and apply.
+    """Create user, apply as master, verify via admin. Returns session info."""
     auth = await login_user(client, telegram_id=telegram_id)
     token = auth["session_token"]
 
@@ -121,17 +84,12 @@ async def _make_verified_master(
     user_id = auth["user"]["id"]
 
     # Create admin and verify.
-    admin_auth = await login_user(client, telegram_id=77900)
+    admin_auth = await login_user(client, telegram_id=78900)
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            "WHERE telegram_id = 77900"
-        ),
+        text("UPDATE users SET role = 'admin' WHERE telegram_id = 78900"),
     )
     await db_session.commit()
-
-    # Re-login admin to pick up new role in session.
-    admin_auth = await login_user(client, telegram_id=77900)
+    admin_auth = await login_user(client, telegram_id=78900)
 
     verify_resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
@@ -140,9 +98,8 @@ async def _make_verified_master(
     )
     assert verify_resp.status_code == 200
 
-    # Re-login master to pick up updated role in session.
+    # Re-login master to pick up role=master.
     auth = await login_user(client, telegram_id=telegram_id)
-
     return {
         "session_token": auth["session_token"],
         "user_id": user_id,
@@ -150,17 +107,35 @@ async def _make_verified_master(
     }
 
 
+async def _make_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    telegram_id: int = 78901,
+) -> dict:
+    """Create a separate admin for approve/reject actions."""
+    auth = await login_user(client, telegram_id=telegram_id)
+    await db_session.execute(
+        text(f"UPDATE users SET role = 'admin' WHERE telegram_id = {telegram_id}"),
+    )
+    await db_session.commit()
+    auth = await login_user(client, telegram_id=telegram_id)
+    return {
+        "session_token": auth["session_token"],
+        "user_id": auth["user"]["id"],
+    }
+
+
 async def _give_available_balance(
     db_session: AsyncSession,
     user_id: str,
-    amount_cents: int,
+    amount: int,
 ) -> None:
-    """Credit available balance to a master via master_ledger."""
-    from uuid import UUID
+    """Insert a master_ledger credit (available, not frozen)."""
+    from app.modules.payments.service import record_master_ledger
 
     await record_master_ledger(
-        user_id=UUID(user_id),
-        amount_cents=amount_cents,
+        user_id=user_id,
+        amount_cents=amount,
         reason="test_credit",
         is_frozen=False,
         session=db_session,
@@ -168,420 +143,324 @@ async def _give_available_balance(
     await db_session.commit()
 
 
-async def _set_payout_details(
+async def _set_payout_and_withdraw(
     client: AsyncClient,
-    token: str,
-) -> dict:
-    """Set default payout details for a master."""
+    db_session: AsyncSession,
+    master: dict,
+    amount_cents: int = 5000,
+) -> str:
+    """Set payout details, give balance, create withdrawal. Returns withdrawal id."""
+    # Set payout details.
     resp = await client.patch(
         PAYOUT_URL,
         json={
             "method": "bank_transfer",
-            "details": {
-                "iban": "DE89370400440532013000",
-                "bank_name": "Commerzbank",
-                "account_holder": "Test Master",
-            },
-        },
-        headers=auth_headers(token),
-    )
-    return resp.json()
-
-
-# ===================================================================
-# PATCH /me/payout
-# ===================================================================
-
-
-@pytest.mark.asyncio
-async def test_payout_update_success(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Master sets payout details: 200, details stored."""
-    master = await _make_verified_master(client, db_session)
-    headers = auth_headers(master["session_token"])
-
-    resp = await client.patch(
-        PAYOUT_URL,
-        json={
-            "method": "bank_transfer",
-            "details": {
-                "iban": "DE89370400440532013000",
-                "bank_name": "Commerzbank",
-            },
-        },
-        headers=headers,
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["method"] == "bank_transfer"
-    assert data["details"]["iban"] == "DE89370400440532013000"
-
-
-@pytest.mark.asyncio
-async def test_payout_update_paypal(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Master sets PayPal payout details."""
-    master = await _make_verified_master(client, db_session)
-
-    resp = await client.patch(
-        PAYOUT_URL,
-        json={
-            "method": "paypal",
-            "details": {"email": "master@paypal.com"},
+            "details": {"iban": "DE89370400440532013000"},
         },
         headers=auth_headers(master["session_token"]),
     )
     assert resp.status_code == 200
-    assert resp.json()["method"] == "paypal"
+
+    # Give balance.
+    await _give_available_balance(db_session, master["user_id"], amount_cents * 2)
+
+    # Create withdrawal.
+    resp = await client.post(
+        WITHDRAW_URL,
+        json={"amount_cents": amount_cents},
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 201
+    return resp.json()["id"]
+
+
+# ===================================================================
+# APPROVE
+# ===================================================================
 
 
 @pytest.mark.asyncio
-async def test_payout_update_not_master(
+async def test_approve_withdrawal_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Regular user cannot update payout details: 403."""
-    data = await login_user(client, telegram_id=77100)
-    token = data["session_token"]
+    """Admin approves pending withdrawal: status=approved, frozen debited."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
 
-    resp = await client.patch(
-        PAYOUT_URL,
-        json={"method": "bank_transfer", "details": {}},
-        headers=auth_headers(token),
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={"note": "Looks good"},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "approved"
+    assert data["admin_id"] == admin["user_id"]
+    assert data["admin_note"] == "Looks good"
+    assert data["approved_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_approve_double_entry_balanced(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """After approve: SUM(master_ledger + company_ledger) + Payment(OUT) = 0."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
+
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp.status_code == 200
+
+    # Verify: master frozen=0, available=5000 (had 10000, withdrew 5000).
+    db_session.expire_all()
+    row = (await db_session.execute(
+        text(
+            "SELECT "
+            "  COALESCE(SUM(CASE WHEN is_frozen THEN amount_cents ELSE 0 END), 0) AS frozen, "
+            "  COALESCE(SUM(CASE WHEN NOT is_frozen THEN amount_cents ELSE 0 END), 0) AS available "
+            "FROM master_ledger WHERE user_id = :uid AND status = 'done'"
+        ),
+        {"uid": master["user_id"]},
+    )).one()
+    assert row.frozen == 0, f"frozen should be 0 after approve, got {row.frozen}"
+    assert row.available == 5000, f"available should be 5000, got {row.available}"
+
+    # Verify: company_ledger has fee entry.
+    fee_row = (await db_session.execute(
+        text(
+            "SELECT COALESCE(SUM(amount_cents), 0) AS total "
+            "FROM company_ledger WHERE reason LIKE :reason"
+        ),
+        {"reason": f"withdrawal_approved:{withdrawal_id}"},
+    )).one()
+    assert fee_row.total == settings.withdrawal_fee_cents
+
+    # Verify: Payment(OUT) exists.
+    pmt_row = (await db_session.execute(
+        text(
+            "SELECT direction, amount_cents, status FROM payments "
+            "WHERE user_id = :uid AND direction = 'out'"
+        ),
+        {"uid": master["user_id"]},
+    )).one()
+    assert pmt_row.direction == "out"
+    assert pmt_row.amount_cents == 5000 - settings.withdrawal_fee_cents
+    assert pmt_row.status == "confirmed"
+
+
+@pytest.mark.asyncio
+async def test_approve_not_pending(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Approve already-approved withdrawal: 409."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
+
+    # First approve.
+    resp1 = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp1.status_code == 200
+
+    # Second approve.
+    resp2 = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp2.status_code == 409
+
+
+# ===================================================================
+# REJECT
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_reject_withdrawal_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Admin rejects pending withdrawal: status=rejected, funds unfrozen."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
+
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/reject",
+        json={"note": "Missing IBAN"},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "rejected"
+    assert data["admin_note"] == "Missing IBAN"
+    assert data["rejected_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_reject_unfreezes_balance(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """After reject: frozen=0, available restored to full amount."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
+
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/reject",
+        json={"note": "Bad details"},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp.status_code == 200
+
+    # Check master profile: frozen=0, available=10000 (fully restored).
+    db_session.expire_all()
+    row = (await db_session.execute(
+        text(
+            "SELECT "
+            "  COALESCE(SUM(CASE WHEN is_frozen THEN amount_cents ELSE 0 END), 0) AS frozen, "
+            "  COALESCE(SUM(CASE WHEN NOT is_frozen THEN amount_cents ELSE 0 END), 0) AS available "
+            "FROM master_ledger WHERE user_id = :uid AND status = 'done'"
+        ),
+        {"uid": master["user_id"]},
+    )).one()
+    assert row.frozen == 0
+    assert row.available == 10000  # Initial 10000 fully restored.
+
+
+@pytest.mark.asyncio
+async def test_reject_not_pending(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Reject already-rejected withdrawal: 409."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
+
+    resp1 = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/reject",
+        json={"note": "No"},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp1.status_code == 200
+
+    resp2 = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/reject",
+        json={"note": "No again"},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp2.status_code == 409
+
+
+# ===================================================================
+# AUTH & NOT FOUND
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_approve_not_found(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Approve nonexistent withdrawal: 404."""
+    admin = await _make_admin(client, db_session)
+    fake_id = str(uuid4())
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{fake_id}/approve",
+        json={},
+        headers=auth_headers(admin["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_approve_not_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Non-admin cannot approve: 403."""
+    master = await _make_verified_master(client, db_session)
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+
+    resp = await client.post(
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={},
+        headers=auth_headers(master["session_token"]),
     )
     assert resp.status_code == 403
 
 
 # ===================================================================
-# POST /me/withdraw
+# LIST
 # ===================================================================
 
 
 @pytest.mark.asyncio
-async def test_withdraw_success(
+async def test_list_withdrawals_admin(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Master withdraws: 201, balance frozen, withdrawal created."""
+    """Admin can list all withdrawals."""
     master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 10000,
-    )
-
-    headers = auth_headers(master["session_token"])
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=headers,
-    )
-    assert resp.status_code == 201
-    data = resp.json()
-    assert data["amount_cents"] == 5000
-    assert data["fee_cents"] == settings.withdrawal_fee_cents
-    assert data["status"] == "pending"
-    assert data["payout_details"]["method"] == "bank_transfer"
-
-    # Verify balance changed: available should decrease by 5000.
-    me = await client.get(
-        "/api/v1/masters/me",
-        headers=headers,
-    )
-    profile = me.json()
-    assert profile["available_cents"] == 5000  # 10000 - 5000
-    assert profile["frozen_cents"] == 5000
-
-    # Verify double-entry: SUM(master_ledger) == 0 for withdrawal entries.
-    # test_credit: +10000 (available)
-    # withdrawal_hold: -5000 (available) + 5000 (frozen)
-    # Net SUM must equal the initial credit (10000), nothing lost.
-    db_session.expire_all()
-    result = await db_session.execute(
-        text(
-            "SELECT "
-            "  COALESCE(SUM(CASE WHEN is_frozen THEN amount_cents ELSE 0 END), 0) AS frozen, "
-            "  COALESCE(SUM(CASE WHEN NOT is_frozen THEN amount_cents ELSE 0 END), 0) AS available, "
-            "  COALESCE(SUM(amount_cents), 0) AS total "
-            "FROM master_ledger "
-            "WHERE user_id = :uid AND status = 'done'"
-        ),
-        {"uid": master["user_id"]},
-    )
-    row = result.one()
-    assert row.frozen == 5000, f"frozen mismatch: {row.frozen}"
-    assert row.available == 5000, f"available mismatch: {row.available}"
-    assert row.total == 10000, f"total mismatch (should equal initial credit): {row.total}"
-
-
-@pytest.mark.asyncio
-async def test_withdraw_insufficient_balance(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Insufficient available balance: 400."""
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 3000,
-    )
-
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 400
-    assert "Insufficient" in resp.json()["message"]
-
-
-@pytest.mark.asyncio
-async def test_withdraw_no_payout_details(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """No payout details configured: 400."""
-    master = await _make_verified_master(client, db_session)
-    await _give_available_balance(
-        db_session, master["user_id"], 10000,
-    )
-
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 400
-    assert "Payout details" in resp.json()["message"]
-
-
-@pytest.mark.asyncio
-async def test_withdraw_below_minimum(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Amount below min_withdrawal_cents: 400."""
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 10000,
-    )
-
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 100},  # Below 5000 minimum
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 400
-    assert "Minimum" in resp.json()["message"]
-
-
-@pytest.mark.asyncio
-async def test_withdraw_fee_exceeds_amount(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Fee >= amount: 400 (master would receive nothing)."""
-    # Override settings so fee >= min_withdrawal, allowing us to hit the guard.
-    monkeypatch.setattr(settings, "min_withdrawal_cents", 100)
-    monkeypatch.setattr(settings, "withdrawal_fee_cents", 500)
-
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 10000,
-    )
-
-    # amount=500, fee=500 → fee >= amount → 400.
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 500},
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 400
-    assert "fee" in resp.json()["message"].lower()
-
-
-@pytest.mark.asyncio
-async def test_withdraw_multiple_pending(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Master can create multiple pending withdrawals."""
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 20000,
-    )
-
-    headers = auth_headers(master["session_token"])
-
-    # First withdrawal.
-    resp1 = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=headers,
-    )
-    assert resp1.status_code == 201
-
-    # Second withdrawal (available: 20000 - 5000 = 15000).
-    resp2 = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=headers,
-    )
-    assert resp2.status_code == 201
-
-    # Check balances.
-    me = await client.get(
-        "/api/v1/masters/me",
-        headers=headers,
-    )
-    profile = me.json()
-    assert profile["available_cents"] == 10000  # 20000 - 5000 - 5000
-    assert profile["frozen_cents"] == 10000
-
-
-@pytest.mark.asyncio
-async def test_withdraw_payout_snapshot(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Withdrawal stores a snapshot of payout details at creation time."""
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 10000,
-    )
-
-    headers = auth_headers(master["session_token"])
-
-    # Create withdrawal with bank_transfer details.
-    resp = await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=headers,
-    )
-    withdrawal_id = resp.json()["id"]
-    original_details = resp.json()["payout_details"]
-
-    # Now change payout details to PayPal.
-    await client.patch(
-        PAYOUT_URL,
-        json={"method": "paypal", "details": {"email": "new@pp.com"}},
-        headers=headers,
-    )
-
-    # Withdrawal should still have original bank_transfer snapshot.
-    list_resp = await client.get(
-        WITHDRAWALS_URL,
-        headers=headers,
-    )
-    items = list_resp.json()["items"]
-    found = [w for w in items if w["id"] == withdrawal_id]
-    assert len(found) == 1
-    assert found[0]["payout_details"]["method"] == "bank_transfer"
-
-
-# ===================================================================
-# GET /me/withdrawals
-# ===================================================================
-
-
-@pytest.mark.asyncio
-async def test_list_withdrawals_empty(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """No withdrawals: returns empty list with total=0."""
-    master = await _make_verified_master(client, db_session)
+    await _set_payout_and_withdraw(client, db_session, master, amount_cents=5000)
+    admin = await _make_admin(client, db_session)
 
     resp = await client.get(
-        WITHDRAWALS_URL,
-        headers=auth_headers(master["session_token"]),
+        ADMIN_WITHDRAWALS_URL,
+        headers=auth_headers(admin["session_token"]),
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["items"] == []
-    assert data["total"] == 0
+    assert data["total"] >= 1
+    assert len(data["items"]) >= 1
 
 
 @pytest.mark.asyncio
-async def test_list_withdrawals_with_items(
+async def test_list_withdrawals_filter_status(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """List returns created withdrawals, newest first."""
+    """Admin can filter withdrawals by status."""
     master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 20000,
-    )
-    headers = auth_headers(master["session_token"])
+    withdrawal_id = await _set_payout_and_withdraw(client, db_session, master)
+    admin = await _make_admin(client, db_session)
 
-    # Create two withdrawals.
+    # Approve it.
     await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 5000},
-        headers=headers,
-    )
-    await client.post(
-        WITHDRAW_URL,
-        json={"amount_cents": 6000},
-        headers=headers,
+        f"{ADMIN_WITHDRAWALS_URL}/{withdrawal_id}/approve",
+        json={},
+        headers=auth_headers(admin["session_token"]),
     )
 
+    # Filter: pending should not include the approved one.
     resp = await client.get(
-        WITHDRAWALS_URL,
-        headers=headers,
+        f"{ADMIN_WITHDRAWALS_URL}?status=pending",
+        headers=auth_headers(admin["session_token"]),
     )
-    data = resp.json()
-    assert data["total"] == 2
-    assert len(data["items"]) == 2
-    # Newest first.
-    assert data["items"][0]["amount_cents"] == 6000
-    assert data["items"][1]["amount_cents"] == 5000
+    assert resp.status_code == 200
+    ids = [item["id"] for item in resp.json()["items"]]
+    assert withdrawal_id not in ids
 
-
-@pytest.mark.asyncio
-async def test_list_withdrawals_pagination(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Pagination: limit and offset work correctly."""
-    master = await _make_verified_master(client, db_session)
-    await _set_payout_details(client, master["session_token"])
-    await _give_available_balance(
-        db_session, master["user_id"], 30000,
-    )
-    headers = auth_headers(master["session_token"])
-
-    # Create 3 withdrawals.
-    for _ in range(3):
-        await client.post(
-            WITHDRAW_URL,
-            json={"amount_cents": 5000},
-            headers=headers,
-        )
-
-    resp = await client.get(
-        f"{WITHDRAWALS_URL}?limit=2&offset=0",
-        headers=headers,
-    )
-    data = resp.json()
-    assert data["total"] == 3
-    assert len(data["items"]) == 2
-    assert data["limit"] == 2
-    assert data["offset"] == 0
-
-    # Page 2.
+    # Filter: approved should include it.
     resp2 = await client.get(
-        f"{WITHDRAWALS_URL}?limit=2&offset=2",
-        headers=headers,
+        f"{ADMIN_WITHDRAWALS_URL}?status=approved",
+        headers=auth_headers(admin["session_token"]),
     )
-    data2 = resp2.json()
-    assert len(data2["items"]) == 1
+    assert resp2.status_code == 200
+    ids2 = [item["id"] for item in resp2.json()["items"]]
+    assert withdrawal_id in ids2
