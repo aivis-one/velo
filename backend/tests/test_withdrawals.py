@@ -95,11 +95,14 @@ async def _make_verified_master(
     db_session: AsyncSession,
     telegram_id: int = 77001,
 ) -> dict:
-    """Create, apply, and verify a master. Returns session info."""
-    data = await login_user(client, telegram_id=telegram_id)
-    token = data["session_token"]
+    """Create user, apply as master, verify via admin.
 
-    # Apply.
+    Returns auth data dict with role=master (re-logged after verify).
+    """
+    # Create user and apply.
+    auth = await login_user(client, telegram_id=telegram_id)
+    token = auth["session_token"]
+
     await client.post(
         APPLY_URL,
         json={
@@ -115,16 +118,10 @@ async def _make_verified_master(
         headers=auth_headers(token),
     )
 
-    # Get user_id.
-    me = await client.get(
-        "/api/v1/users/me",
-        headers=auth_headers(token),
-    )
-    user_id = me.json()["id"]
+    user_id = auth["user"]["id"]
 
-    # Admin verify.
-    admin_data = await login_user(client, telegram_id=77900)
-    admin_token = admin_data["session_token"]
+    # Create admin and verify.
+    admin_auth = await login_user(client, telegram_id=77900)
     await db_session.execute(
         text(
             "UPDATE users SET role = 'admin' "
@@ -133,13 +130,21 @@ async def _make_verified_master(
     )
     await db_session.commit()
 
-    await client.post(
+    # Re-login admin to pick up new role in session.
+    admin_auth = await login_user(client, telegram_id=77900)
+
+    verify_resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
-        headers=auth_headers(admin_token),
+        json={},
+        headers=auth_headers(admin_auth["session_token"]),
     )
+    assert verify_resp.status_code == 200
+
+    # Re-login master to pick up updated role in session.
+    auth = await login_user(client, telegram_id=telegram_id)
 
     return {
-        "session_token": token,
+        "session_token": auth["session_token"],
         "user_id": user_id,
         "telegram_id": telegram_id,
     }
@@ -289,6 +294,27 @@ async def test_withdraw_success(
     profile = me.json()
     assert profile["available_cents"] == 5000  # 10000 - 5000
     assert profile["frozen_cents"] == 5000
+
+    # Verify double-entry: SUM(master_ledger) == 0 for withdrawal entries.
+    # test_credit: +10000 (available)
+    # withdrawal_hold: -5000 (available) + 5000 (frozen)
+    # Net SUM must equal the initial credit (10000), nothing lost.
+    db_session.expire_all()
+    result = await db_session.execute(
+        text(
+            "SELECT "
+            "  COALESCE(SUM(CASE WHEN is_frozen THEN amount_cents ELSE 0 END), 0) AS frozen, "
+            "  COALESCE(SUM(CASE WHEN NOT is_frozen THEN amount_cents ELSE 0 END), 0) AS available, "
+            "  COALESCE(SUM(amount_cents), 0) AS total "
+            "FROM master_ledger "
+            "WHERE user_id = :uid AND status = 'done'"
+        ),
+        {"uid": master["user_id"]},
+    )
+    row = result.one()
+    assert row.frozen == 5000, f"frozen mismatch: {row.frozen}"
+    assert row.available == 5000, f"available mismatch: {row.available}"
+    assert row.total == 10000, f"total mismatch (should equal initial credit): {row.total}"
 
 
 @pytest.mark.asyncio
