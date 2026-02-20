@@ -1,12 +1,15 @@
 # =============================================================================
-# VELO Backend -- Master Router (updated Phase 4.2 + Frontend Backlog)
+# VELO Backend -- Master Router (updated Phase 6.6)
 # =============================================================================
 #
 # Endpoints:
-#   POST /api/v1/masters/apply          -- submit master application
-#   GET  /api/v1/masters/me             -- my master profile (Frontend Backlog)
-#   GET  /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
+#   POST  /api/v1/masters/apply          -- submit master application
+#   GET   /api/v1/masters/me             -- my master profile (Frontend Backlog)
+#   PATCH /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
+#   GET   /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
 # =============================================================================
+
+import copy
 
 import structlog
 from fastapi import APIRouter, Depends, Query, status
@@ -19,6 +22,8 @@ from app.modules.masters.schemas import (
     MasterApplyRequest,
     MasterApplyResponse,
     MasterProfileResponse,
+    PayoutDetailsResponse,
+    PayoutDetailsUpdate,
 )
 from app.modules.masters.service import apply_for_master
 from app.modules.practices.schemas import PaginatedPracticesResponse
@@ -99,6 +104,51 @@ async def get_my_master_profile(
         created_at=profile.created_at,
         updated_at=profile.updated_at,
     )
+
+
+# ===================================================================
+# Phase 6.6: PATCH /me/payout -- update payout details
+# ===================================================================
+
+
+@router.patch(
+    "/me/payout",
+    response_model=PayoutDetailsResponse,
+)
+async def update_payout_details(
+    body: PayoutDetailsUpdate,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> PayoutDetailsResponse:
+    """Update master's payout details (bank, PayPal, etc.).
+
+    Stored in MasterProfile.data.payout. Snapshotted into each
+    Withdrawal at creation time (A+C pattern).
+    """
+    _user, profile = master_tuple
+
+    payout_data = {
+        "method": body.method,
+        "details": body.details,
+    }
+
+    # P-03: deepcopy + set_jsonb for safe JSONB mutation.
+    data = copy.deepcopy(profile.data)
+    data["payout"] = payout_data
+    profile.set_jsonb("data", data)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    logger.info(
+        "payout_details_updated",
+        user_id=str(profile.user_id),
+        method=body.method,
+    )
+
+    return PayoutDetailsResponse(**payout_data)
 
 
 # ===================================================================

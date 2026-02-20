@@ -1,11 +1,15 @@
 # =============================================================================
-# VELO Backend — Master Schemas
+# VELO Backend — Master Schemas (updated Phase 6.6)
 # =============================================================================
 #
-# Pydantic schemas for master application flow.
+# Pydantic schemas for master application flow and payout details.
 #
 # INPUT: MasterApplyRequest — 3-step form collected on frontend, sent as
 #   one POST. Fields map to data JSONB sections in MasterProfile.
+#
+# PAYOUT (Phase 6.6): PayoutDetailsUpdate — flexible JSONB with minimal
+#   validation. Stored in MasterProfile.data.payout, snapshotted into
+#   each Withdrawal record at creation time.
 #
 # DOCUMENTS: list[dict] for now (JSONB sandbox). Each dict is freeform —
 #   could be {"type": "certificate", "number": "123"} or
@@ -89,3 +93,29 @@ class MasterProfileResponse(BaseModel):
     available_cents: int
     created_at: datetime
     updated_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# Payout details (Phase 6.6)
+# ---------------------------------------------------------------------------
+
+
+class PayoutDetailsUpdate(BaseModel):
+    """PATCH /api/v1/masters/me/payout -- request body.
+
+    Flexible JSONB with minimal validation. The ``method`` field
+    is required; ``details`` is freeform and depends on method:
+      bank_transfer: {iban, bank_name, account_holder, swift}
+      paypal:        {email}
+      revolut:       {tag or phone}
+    """
+
+    method: str = Field(min_length=1, max_length=50)
+    details: dict = Field(default_factory=dict)
+
+
+class PayoutDetailsResponse(BaseModel):
+    """Payout details stored in MasterProfile.data.payout."""
+
+    method: str
+    details: dict = Field(default_factory=dict)
