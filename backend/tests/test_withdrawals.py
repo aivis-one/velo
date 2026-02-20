@@ -96,7 +96,8 @@ async def _make_verified_master(
     telegram_id: int = 77001,
 ) -> dict:
     """Create, apply, and verify a master. Returns session info."""
-    token = await login_user(client, telegram_id=telegram_id)
+    data = await login_user(client, telegram_id=telegram_id)
+    token = data["session_token"]
 
     # Apply.
     await client.post(
@@ -122,7 +123,8 @@ async def _make_verified_master(
     user_id = me.json()["id"]
 
     # Admin verify.
-    admin_token = await login_user(client, telegram_id=77900)
+    admin_data = await login_user(client, telegram_id=77900)
+    admin_token = admin_data["session_token"]
     await db_session.execute(
         text(
             "UPDATE users SET role = 'admin' "
@@ -238,7 +240,8 @@ async def test_payout_update_not_master(
     db_session: AsyncSession,
 ) -> None:
     """Regular user cannot update payout details: 403."""
-    token = await login_user(client, telegram_id=77100)
+    data = await login_user(client, telegram_id=77100)
+    token = data["session_token"]
 
     resp = await client.patch(
         PAYOUT_URL,
