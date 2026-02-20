@@ -111,7 +111,7 @@ class PayoutDetailsUpdate(BaseModel):
     """
 
     method: str = Field(min_length=1, max_length=50)
-    details: dict = Field(default_factory=dict)
+    details: dict = Field(min_length=1)  # At least one key required
 
 
 class PayoutDetailsResponse(BaseModel):

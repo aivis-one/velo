@@ -91,6 +91,8 @@ async def create_withdrawal(
     locked_profile = await session.get(
         MasterProfile, user.id, with_for_update=True,
     )
+    if not locked_profile:
+        raise BadRequestError("Master profile not found")
     if locked_profile.available_cents < amount_cents:
         raise BadRequestError(
             "Insufficient available balance"

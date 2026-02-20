@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
+from app.core.exceptions import BadRequestError
 from app.modules.auth.dependencies import get_current_master, get_current_user
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import (
@@ -134,6 +135,8 @@ async def update_payout_details(
     # (reader); we need the profile bound to THIS session for
     # flush() + refresh() to work.
     profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
 
     payout_data = {
         "method": body.method,

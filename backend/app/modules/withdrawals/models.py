@@ -38,6 +38,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
@@ -70,6 +71,10 @@ class Withdrawal(UUIDMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "withdrawals"
+    __table_args__ = (
+        CheckConstraint("amount_cents > 0", name="ck_withdrawals_amount_positive"),
+        CheckConstraint("fee_cents >= 0", name="ck_withdrawals_fee_non_negative"),
+    )
 
     # -- Owner (master) --
     user_id: Mapped[UUID] = mapped_column(
@@ -107,6 +112,7 @@ class Withdrawal(UUIDMixin, TimestampMixin, Base):
     # -- Admin decision --
     admin_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
         default=None,
     )
     admin_note: Mapped[str | None] = mapped_column(

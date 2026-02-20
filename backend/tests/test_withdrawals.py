@@ -383,26 +383,27 @@ async def test_withdraw_below_minimum(
 async def test_withdraw_fee_exceeds_amount(
     client: AsyncClient,
     db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Fee >= amount: 400 (master would receive nothing)."""
+    # Override settings so fee >= min_withdrawal, allowing us to hit the guard.
+    monkeypatch.setattr(settings, "min_withdrawal_cents", 100)
+    monkeypatch.setattr(settings, "withdrawal_fee_cents", 500)
+
     master = await _make_verified_master(client, db_session)
     await _set_payout_details(client, master["session_token"])
     await _give_available_balance(
         db_session, master["user_id"], 10000,
     )
 
-    # This will fail on min_withdrawal check first (200 < 5000),
-    # but if we override min, fee=200 >= amount=200 is also caught.
-    # Test with amount == fee_cents (if min were lower).
-    # Since min=5000 and fee=200, any valid amount > fee.
-    # This test verifies the guard exists by checking the service logic
-    # indirectly: we just ensure a valid withdrawal passes.
+    # amount=500, fee=500 → fee >= amount → 400.
     resp = await client.post(
         WITHDRAW_URL,
-        json={"amount_cents": 5000},
+        json={"amount_cents": 500},
         headers=auth_headers(master["session_token"]),
     )
-    assert resp.status_code == 201
+    assert resp.status_code == 400
+    assert "fee" in resp.json()["message"].lower()
 
 
 @pytest.mark.asyncio
