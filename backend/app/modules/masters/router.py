@@ -127,7 +127,13 @@ async def update_payout_details(
     Stored in MasterProfile.data.payout. Snapshotted into each
     Withdrawal at creation time (A+C pattern).
     """
-    _user, profile = master_tuple
+    user, _profile = master_tuple
+
+    # Re-load profile in the writer session.
+    # get_current_master loads the object in its own session context
+    # (reader); we need the profile bound to THIS session for
+    # flush() + refresh() to work.
+    profile = await session.get(MasterProfile, user.id)
 
     payout_data = {
         "method": body.method,
