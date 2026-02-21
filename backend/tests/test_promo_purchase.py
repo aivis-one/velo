@@ -878,6 +878,7 @@ async def test_promo_used_count_increment(
         max_uses=5,
     )
     assert promo.used_count == 0
+    promo_id = promo.id  # Save before expire.
 
     user_data = await login_user(client, telegram_id=81039, first_name="Buyer")
     await _topup_user(user_data["user"]["id"], 1500)
@@ -891,7 +892,7 @@ async def test_promo_used_count_increment(
 
     db_session.expire_all()
     refreshed = (await db_session.execute(
-        select(Promo).where(Promo.id == promo.id),
+        select(Promo).where(Promo.id == promo_id),
     )).scalar_one()
     assert refreshed.used_count == 1
 
