@@ -96,15 +96,16 @@ async def create_master_promo(
         valid_until=body.valid_until,
         first_purchase_only=body.first_purchase_only,
     )
-    session.add(promo)
 
-    try:
-        await session.flush()
-    except IntegrityError:
-        await session.rollback()
-        raise BadRequestError(
-            f"Promo code '{code_upper}' already exists"
-        )
+    # SAVEPOINT: catch duplicate code without killing the whole transaction (P-05).
+    async with session.begin_nested():
+        session.add(promo)
+        try:
+            await session.flush()
+        except IntegrityError:
+            raise BadRequestError(
+                f"Promo code '{code_upper}' already exists"
+            )
 
     # 5. Audit.
     await record_audit(

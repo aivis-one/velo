@@ -14,6 +14,8 @@
 # SESSION: POST = get_db_session (write). GET = get_db_reader (read).
 # =============================================================================
 
+from typing import Literal
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -82,7 +84,7 @@ async def purchase_practice_endpoint(
 async def list_my_purchases_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_reader),
-    status_filter: str | None = Query(
+    status_filter: Literal["pending", "completed", "refunded", "cancelled"] | None = Query(
         default=None, alias="status",
     ),
     limit: int = Query(default=20, ge=1, le=100),
