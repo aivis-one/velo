@@ -133,11 +133,7 @@ _CLEANUP_QUERIES = [
         "UPDATE users SET role = 'user', balance_cents = 0 "
         "WHERE telegram_id BETWEEN 81000 AND 81999"
     ),
-    # 12. Sessions.
-    text(
-        "DELETE FROM sessions WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 13. Users.
+    # 12. Users.
     text(
         "DELETE FROM users WHERE telegram_id BETWEEN 81000 AND 81999"
     ),
