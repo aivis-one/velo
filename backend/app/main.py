@@ -201,7 +201,8 @@ async def health() -> dict:
     except Exception:
         redis_status = "degraded"
 
-    return {"status": "ok", "db": db_status, "redis": redis_status}
+    overall = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
+    return {"status": overall, "db": db_status, "redis": redis_status}
 
 
 @app.get("/ready")
