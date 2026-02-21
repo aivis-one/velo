@@ -43,7 +43,7 @@ _CLEANUP_SQL_ORDER = [
     "DELETE FROM user_ledger WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
     "DELETE FROM master_ledger WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
     "DELETE FROM company_ledger WHERE reason LIKE '%phase68%'",
-    "DELETE FROM audit_log WHERE actor_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
+    "DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
     "DELETE FROM practices WHERE master_id IN (SELECT user_id FROM master_profiles WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999))",
     "DELETE FROM master_profiles WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
     "UPDATE users SET role = 'user' WHERE telegram_id BETWEEN 82000 AND 82999",
