@@ -182,9 +182,13 @@ async def _make_verified_master(
 
     profile = MasterProfile(
         user_id=UUID(user_id),
-        display_name=f"Master-{telegram_id}",
-        bio="Test master",
-        is_verified=True,
+        data={
+            "account": {"status": "verified"},
+            "profile": {
+                "bio": "Test master",
+                "methods": ["meditation"],
+            },
+        },
     )
     db_session.add(profile)
     await db_session.commit()
