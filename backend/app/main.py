@@ -48,9 +48,8 @@ from app.modules.payments.purchase_router import (                 # Phase 6.4
 from app.modules.withdrawals.router import (                       # Phase 6.6
     router as withdrawals_router,
 )
-from app.modules.admin.withdrawals.router import (                 # Phase 6.6 Batch 3
-    router as admin_withdrawals_router,
-)
+# NOTE: admin/withdrawals router is included via admin_router (admin/router.py).
+# Do NOT register it separately here to avoid duplicate endpoints (BUG-07).
 
 
 logger = structlog.get_logger()
@@ -106,7 +105,6 @@ app.include_router(webhook_router)                # Phase 6.3
 app.include_router(purchase_router)               # Phase 6.4
 app.include_router(purchases_user_router)         # Frontend Backlog
 app.include_router(withdrawals_router)            # Phase 6.6
-app.include_router(admin_withdrawals_router, prefix="/api/v1/admin", tags=["admin"])  # Phase 6.6 Batch 3
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
@@ -146,13 +144,12 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     logger.error(
         "unhandled_exception",
         exc_type=type(exc).__name__,
-        exc_message=str(exc),
+        exc_msg=str(exc),
         path=request.url.path,
-        method=request.method,
     )
     return JSONResponse(
         status_code=500,
-        content={"error": "internal_error", "message": "Internal server error"},
+        content={"error": "internal", "message": "Internal server error"},
     )
 
 
@@ -170,12 +167,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Trace ID (Pre-6.1)
-# ---------------------------------------------------------------------------
-# Added AFTER CORSMiddleware so Starlette applies it as the outermost
-# layer (LIFO order).
-# Every request gets a trace_id before CORS runs.
+# TraceIdMiddleware (L-03): injects X-Trace-Id into every response.
 app.add_middleware(TraceIdMiddleware)
 
 
@@ -184,39 +176,38 @@ app.add_middleware(TraceIdMiddleware)
 # ---------------------------------------------------------------------------
 @app.get("/")
 async def root() -> dict:
-    """Root endpoint -- API info."""
+    """API root -- name and version."""
     return {"name": "VELO API", "version": "0.1.0"}
 
 
 @app.get("/health")
 async def health() -> dict:
-    """Health check -- DB and Redis connectivity."""
-    result = {"status": "ok", "db": "ok", "redis": "ok"}
+    """Health check -- always 200, reports component status."""
+    db_status = "ok"
+    redis_status = "ok"
 
-    # Check DB.
+    # Check database.
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception:
-        result["db"] = "error"
-        result["status"] = "degraded"
+        db_status = "degraded"
 
     # Check Redis.
     try:
         redis = get_redis()
-        await asyncio.wait_for(redis.ping(), timeout=2.0)
+        await redis.ping()
     except Exception:
-        result["redis"] = "error"
-        result["status"] = "degraded"
+        redis_status = "degraded"
 
-    return result
+    return {"status": "ok", "db": db_status, "redis": redis_status}
 
 
 @app.get("/ready")
-async def readiness() -> JSONResponse:
-    """Readiness probe -- returns 503 if degraded (TD-003)."""
-    check = await health()
-    if check["status"] != "ok":
-        return JSONResponse(status_code=503, content=check)
-    return JSONResponse(status_code=200, content=check)
+async def ready() -> JSONResponse:
+    """Readiness probe -- 503 if any component is degraded."""
+    h = await health()
+    if h["db"] != "ok" or h["redis"] != "ok":
+        return JSONResponse(status_code=503, content=h)
+    return JSONResponse(status_code=200, content=h)

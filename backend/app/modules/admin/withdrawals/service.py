@@ -2,7 +2,7 @@
 # VELO Backend -- Admin Withdrawals Service (Phase 6.6, Batch 3)
 # =============================================================================
 #
-# APPROVE FLOW (Variant B — balanced double-entry):
+# APPROVE FLOW (Variant B -- balanced double-entry):
 #   1. Lock Withdrawal FOR UPDATE, validate status == pending.
 #   2. master_ledger: -amount_cents (frozen=True)  -> remove from frozen
 #   3. company_ledger: +fee_cents (withdrawal_fee) -> platform keeps fee
@@ -69,7 +69,7 @@ async def approve_withdrawal(
     note: str | None,
     session: AsyncSession,
 ) -> Withdrawal:
-    """Approve a pending withdrawal (Variant B — balanced double-entry).
+    """Approve a pending withdrawal (Variant B -- balanced double-entry).
 
     Debits frozen balance, credits company fee, creates Payment(OUT)
     as balancing record for the payout amount.
@@ -97,7 +97,7 @@ async def approve_withdrawal(
         session=session,
     )
 
-    # Step 3: Payment(OUT) — balancing record for payout.
+    # Step 3: Payment(OUT) -- balancing record for payout.
     payment_out = Payment(
         user_id=withdrawal.user_id,
         direction=PaymentDirection.OUT.value,
@@ -148,16 +148,19 @@ async def reject_withdrawal(
     note: str,
     session: AsyncSession,
 ) -> Withdrawal:
-    """Reject a pending withdrawal — unfreeze funds back to available."""
+    """Reject a pending withdrawal -- unfreeze funds back to available."""
     withdrawal = await _load_pending_withdrawal(withdrawal_id, session)
 
-    reason = f"withdrawal_rejected:{withdrawal.id}"
+    # BUG-09: Distinct reasons for each ledger entry to aid debugging.
+    # Both share prefix "withdrawal_rejected:" for grepability.
+    unfreeze_reason = f"withdrawal_rejected:unfreeze:{withdrawal.id}"
+    restore_reason = f"withdrawal_rejected:restore:{withdrawal.id}"
 
     # Step 1: Remove from frozen.
     await record_master_ledger(
         user_id=withdrawal.user_id,
         amount_cents=-withdrawal.amount_cents,
-        reason=reason,
+        reason=unfreeze_reason,
         is_frozen=True,
         session=session,
     )
@@ -166,7 +169,7 @@ async def reject_withdrawal(
     await record_master_ledger(
         user_id=withdrawal.user_id,
         amount_cents=withdrawal.amount_cents,
-        reason=reason,
+        reason=restore_reason,
         is_frozen=False,
         session=session,
     )

@@ -11,6 +11,7 @@
 # SESSION: flush() + refresh(), no commit (P-01).
 # =============================================================================
 
+from typing import Literal
 from uuid import UUID
 
 import structlog
@@ -47,7 +48,7 @@ async def approve_withdrawal_endpoint(
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> AdminWithdrawalResponse:
-    """Approve a pending withdrawal — debit frozen, credit company fee."""
+    """Approve a pending withdrawal -- debit frozen, credit company fee."""
     withdrawal = await approve_withdrawal(
         withdrawal_id, admin, body.note, session,
     )
@@ -68,7 +69,7 @@ async def reject_withdrawal_endpoint(
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> AdminWithdrawalResponse:
-    """Reject a pending withdrawal — unfreeze funds back to available."""
+    """Reject a pending withdrawal -- unfreeze funds back to available."""
     withdrawal = await reject_withdrawal(
         withdrawal_id, admin, body.note, session,
     )
@@ -86,7 +87,10 @@ async def reject_withdrawal_endpoint(
 async def list_withdrawals_endpoint(
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
-    status: str | None = Query(default=None),
+    # P-11: Literal validates status at FastAPI layer (422 on invalid value).
+    status: Literal["pending", "approved", "rejected"] | None = Query(
+        default=None,
+    ),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> PaginatedAdminWithdrawalsResponse:
