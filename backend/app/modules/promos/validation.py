@@ -97,7 +97,10 @@ async def validate_promo(
             select(Purchase.id)
             .where(
                 Purchase.user_id == user_id,
-                Purchase.status == PurchaseStatus.COMPLETED.value,
+                Purchase.status.in_([
+                PurchaseStatus.PENDING.value,
+                PurchaseStatus.COMPLETED.value,
+            ]),
             )
             .limit(1)
         )

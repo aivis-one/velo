@@ -24,6 +24,7 @@
 # SESSION: Mutating = get_db_session. Read = get_db_reader.
 # =============================================================================
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -35,6 +36,7 @@ from app.modules.auth.dependencies import (
     get_current_master,
     get_current_user,
 )
+from app.core.exceptions import NotFoundError
 from app.modules.bookings.models import BookingStatus
 from app.modules.bookings.schemas import (
     AttendanceItemResponse,
@@ -91,13 +93,14 @@ async def create_booking_endpoint(
     promo: Promo | None = None
     if body.promo_code:
         practice = await session.get(Practice, body.practice_id)
-        if practice:
-            promo = await validate_promo(
-                code=body.promo_code,
-                practice=practice,
-                user_id=user.id,
-                session=session,
-            )
+        if not practice:
+            raise NotFoundError("Practice not found")
+        promo = await validate_promo(
+            code=body.promo_code,
+            practice=practice,
+            user_id=user.id,
+            session=session,
+        )
 
     booking = await create_booking(
         user, body.practice_id, session, promo=promo,
@@ -119,7 +122,10 @@ async def create_booking_endpoint(
 async def list_my_bookings_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_reader),
-    status_filter: str | None = Query(
+    status_filter: Literal[
+        "pending", "confirmed", "cancelled",
+        "attended", "no_show",
+    ] | None = Query(
         default=None, alias="status",
     ),
     limit: int = Query(default=20, ge=1, le=100),
