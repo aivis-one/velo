@@ -1,1 +1,1 @@
-# Core module: database, config, shared utilities.
+# Core module: database, config, shared utilities

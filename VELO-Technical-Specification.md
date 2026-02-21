@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.2
-**Дата:** 18 февраля 2026
+**Версия:** 2.3
+**Дата:** 22 февраля 2026
 **Статус:** Draft
 
 ---
@@ -1952,17 +1952,120 @@ backend/tests/
 
 ---
 
-### 6.7: Promos
+### 6.7: Promos ✅
 
-**Цель:** Промокоды.
+**Цель:** Промокоды для скидок на практики.
 
-**Задачи:**
-- [ ] Модель Promo
-- [ ] POST /api/v1/purchases/{id}/apply-promo
-- [ ] Два типа: Company Promo, Master Promo
-- [ ] Валидация лимитов
+**Задачи (4 batch'а):**
+- [x] Batch 1: Модель Promo, миграция `d0e1f2a3b4c5` (promos table + amount_cents/discount_cents/promo_id в purchases)
+- [x] Batch 2: Master CRUD -- POST /api/v1/masters/me/promos, GET /api/v1/masters/me/promos (paginated)
+- [x] Batch 3: Admin CRUD -- POST /api/v1/admin/promos (company promo), GET/PATCH/DELETE admin endpoints
+- [x] Batch 4: Purchase интеграция -- validate_promo, create_purchase_for_booking +promo, promo-aware refund/early_finalize, preview-purchase, bookings +promo_code
 
-**Критерий готовности:** Промокоды работают при покупке.
+**Endpoints:**
+```
+POST   /api/v1/masters/me/promos          -- master creates promo
+GET    /api/v1/masters/me/promos          -- list master's promos (paginated)
+POST   /api/v1/admin/promos               -- admin creates company promo
+GET    /api/v1/admin/promos               -- list all promos (paginated, filterable)
+PATCH  /api/v1/admin/promos/{id}          -- update promo (is_active, max_uses, valid_until)
+DELETE /api/v1/admin/promos/{id}          -- soft-delete (is_active=False)
+POST   /api/v1/practices/{id}/purchase    -- +optional promo_code in body
+POST   /api/v1/practices/{id}/preview-purchase  -- preview with/without promo
+POST   /api/v1/bookings                   -- +optional promo_code in body
+```
+
+**Два типа промокодов:**
+
+| Тип | Кто создаёт | Кто платит скидку | Commission base |
+|-----|-------------|-------------------|-----------------|
+| Company | Admin | company_ledger (marketing) | 15% × paid_cents (live money) |
+| Master | Master | Master absorbs (получает меньше) | 15% × paid_cents (live money) |
+
+**Allowed discounts:** `[5, 25, 50, 75, 100]` percent (from settings.promo_allowed_discounts).
+
+**Модель Promo:**
+```python
+class PromoType(StrEnum):
+    COMPANY = "company"
+    MASTER = "master"
+
+class Promo(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "promos"
+    code: Mapped[str]              # unique, uppercased
+    type: Mapped[str]              # PromoType
+    master_id: Mapped[UUID | None] # FK users.id (master promos only)
+    practice_id: Mapped[UUID | None]  # FK practices.id (scope, nullable = all)
+    discount_percent: Mapped[int]  # CHECK > 0 AND <= 100
+    max_uses: Mapped[int | None]   # nullable = unlimited
+    used_count: Mapped[int]        # default=0, CHECK >= 0
+    valid_from: Mapped[datetime]
+    valid_until: Mapped[datetime | None]  # nullable = no expiry
+    first_purchase_only: Mapped[bool]     # default=False
+    is_active: Mapped[bool]        # soft delete
+```
+
+**Purchase Phase 6.7 columns:**
+```python
+# Added to purchases table:
+amount_cents: int    # full price before discount (server_default=0)
+discount_cents: int  # promo discount (server_default=0)
+promo_id: UUID | None  # FK promos.id (SET NULL on delete)
+# Invariant: paid_cents = amount_cents - discount_cents
+```
+
+**Результат:**
+```
+backend/app/modules/promos/
+├── __init__.py
+├── models.py          ← Promo, PromoType
+├── schemas.py         ← CreateMasterPromoRequest, CreateCompanyPromoRequest, PromoResponse, etc.
+├── service.py         ← create_master_promo, list_master_promos
+├── admin_service.py   ← create_company_promo, list_all_promos, update_promo, delete_promo
+├── admin_router.py    ← POST/GET/PATCH/DELETE /api/v1/admin/promos
+├── router.py          ← POST/GET /api/v1/masters/me/promos
+└── validation.py      ← validate_promo, calculate_discount, increment_promo_usage
+
+backend/app/modules/payments/
+├── purchase.py        ← create_purchase_for_booking +promo (3 ledger patterns)
+├── purchase_router.py ← +promo_code in purchase, +preview-purchase
+├── refund.py          ← promo-aware refund + early_finalize
+└── schemas.py         ← +PurchaseRequest, PreviewPurchaseRequest/Response
+
+backend/app/modules/bookings/
+├── router.py          ← +promo validation before create_booking
+├── service.py         ← create_booking +promo param passthrough
+└── schemas.py         ← +promo_code in CreateBookingRequest
+
+backend/tests/
+└── test_promo_purchase.py  ← 24 теста (telegram_id range 81xxx)
+
+backend/migrations/versions/
+└── 2026_02_21_d0e1f2a3b4c5_create_promos_and_update_purchases.py
+```
+
+**Решения, принятые при реализации:**
+- **Race condition (P-07):** used_count инкрементируется атомарно: `UPDATE promos SET used_count = used_count + 1 WHERE id = X AND (max_uses IS NULL OR used_count < max_uses)`. Если rowcount=0 -- promo exhausted
+- **3 ledger-паттерна:** (1) no promo -- как раньше; (2) master promo -- user платит paid_cents, master получает paid_cents (меньше full price); (3) company promo -- user платит paid_cents, master получает amount_cents (full price), company_ledger покрывает discount_cents как marketing
+- **Commission:** всегда 15% × paid_cents (live money, не discount). Даже при 100% скидке commission=0
+- **Master promo refund:** reverse paid_cents (master got less, returns less)
+- **Company promo refund:** reverse amount_cents для master + reverse discount_cents marketing для company
+- **Early finalize (company promo):** master keeps amount_cents (full price) minus commission on paid_cents; company marketing entry is NOT reversed (company absorbed the cost)
+- **first_purchase_only:** проверяет Purchase.status IN ('pending', 'completed') -- не только completed, чтобы предотвратить race condition при конкурентных бронированиях
+- **Backward compatibility:** promo_code optional в CreateBookingRequest и PurchaseRequest. Существующие клиенты работают без изменений
+- **Soft delete:** is_active=False вместо DELETE. Existing purchases сохраняют promo_id FK
+- **Code normalization:** все коды uppercased при создании и валидации
+
+**Закрытые баги:**
+- BUG-16 (HIGH): промо молча игнорировался при несуществующей practice -- добавлен explicit raise NotFoundError
+- BUG-17 (MEDIUM): first_purchase_only проверял только COMPLETED, не PENDING -- исправлено на IN ('pending', 'completed')
+- BUG-18 (MEDIUM): status_filter в bookings без Literal -- добавлен Literal constraint
+
+**telegram_id ranges:** 81000-81099
+
+**Аудит:** 5 багов найдены и закрыты (3 реальных + 2 LOW tech debt acknowledged).
+
+**Критерий готовности:** Промокоды работают при покупке. 293 теста (3 skipped), 0 warnings. ✅
 
 ---
 
