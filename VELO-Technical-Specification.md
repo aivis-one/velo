@@ -1,6 +1,6 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.3
+**Версия:** 2.4
 **Дата:** 22 февраля 2026
 **Статус:** Draft
 
@@ -2069,18 +2069,90 @@ backend/migrations/versions/
 
 ---
 
-### 6.8: Data Consistency Semaphores
+### 6.8: Data Consistency Semaphores ✅
 
-**Цель:** Автоматические проверки консистентности данных.
+**Цель:** Автоматические проверки консистентности данных — 21 семафор по 5 категориям.
 
 **Задачи:**
-- [ ] GET /api/v1/admin/consistency — запуск всех семафоров
-- [ ] Проверки: COUNT=COUNT, SUM=0, Computed=Actual, Orphans, Invariants
-- [ ] Алерты при расхождении
+- [x] GET /api/v1/admin/consistency — запуск всех семафоров
+- [x] Категория 1: COUNT=COUNT (4 семафора)
+- [x] Категория 2: SUM=0 (2 семафора)
+- [x] Категория 3: Computed=Actual (5 семафоров)
+- [x] Категория 4: Orphan Detection (4 семафора)
+- [x] Категория 5: Business Invariants (6 семафоров)
+- [x] structlog алерты при расхождении
+- [x] tests/test_admin_consistency.py — 7 тестов (telegram_id range 82xxx)
+
+**Endpoint:**
+```
+GET /api/v1/admin/consistency  -- admin-only, read-only (get_db_reader)
+```
+
+**21 семафор:**
+
+| # | Имя | Категория | Criticality | Описание |
+|---|-----|-----------|-------------|----------|
+| 1.1 | active_bookings_eq_active_purchases | count_count | critical | Активные bookings == активные purchases |
+| 1.2 | cancelled_bookings_eq_cancelled_purchases | count_count | critical | Cancelled bookings == refunded/cancelled purchases |
+| 1.3 | master_users_eq_verified_profiles | count_count | warning | Users(role=master) == MasterProfile(status=verified) |
+| 1.4 | bookings_all_have_purchase | count_count | critical | Нет bookings без purchase_id |
+| 2.1 | global_double_entry_sum_zero | sum_zero | critical | SUM(user+master+company ledger) == 0 |
+| 2.2 | purchase_paid_eq_user_debits | sum_zero | critical | SUM(paid_cents) == ABS(user_ledger purchase debits) |
+| 3.1 | user_balance_eq_ledger_sum | computed_actual | critical | User.balance_cents == SUM(user_ledger) |
+| 3.2 | master_frozen_eq_ledger_sum | computed_actual | critical | MasterProfile.frozen_cents == SUM(frozen master_ledger) |
+| 3.3 | master_available_eq_ledger_sum | computed_actual | critical | MasterProfile.available_cents == SUM(available master_ledger) |
+| 3.4 | practice_participants_eq_booking_count | computed_actual | warning | Practice.current_participants == COUNT(confirmed/attended bookings) |
+| 3.5 | promo_used_count_eq_purchase_count | computed_actual | warning | Promo.used_count == COUNT(non-cancelled purchases) |
+| 4.1 | bookings_orphan_practice | orphan_detection | critical | Bookings без practice |
+| 4.2 | bookings_orphan_user | orphan_detection | critical | Bookings без user |
+| 4.3 | purchases_orphan_user | orphan_detection | critical | Purchases без user |
+| 4.4 | master_ledger_orphan_user | orphan_detection | critical | Master ledger без user |
+| 5.1 | no_frozen_for_completed_practices | business_invariants | critical | Нет frozen entries для completed practices |
+| 5.2 | no_negative_master_available | business_invariants | critical | Нет мастеров с available_cents < 0 |
+| 5.3 | no_negative_user_balance | business_invariants | critical | Нет юзеров с balance_cents < 0 |
+| 5.4 | attended_must_have_joined_at | business_invariants | warning | Attended bookings имеют joined_at |
+| 5.5 | no_over_max_participants | business_invariants | warning | current_participants <= max_participants |
+| 5.6 | completed_purchases_have_audit | business_invariants | warning | Completed purchases имеют audit entry |
+
+**Пропущенные семафоры (Phase 7):**
+- 4.5: notification_deliveries orphans — таблица не существует до Phase 7.1
+
+**Результат:**
+```
+backend/app/modules/admin/consistency/
+├── __init__.py
+├── schemas.py         ← SemaphoreResult, ConsistencyResponse
+├── service.py         ← 5 category functions + run_all_semaphores()
+└── router.py          ← GET /consistency
+
+backend/app/modules/admin/router.py  ← PATCHED: +consistency_router
+
+backend/tests/
+└── test_admin_consistency.py  ← 7 тестов (telegram_id range 82xxx)
+```
+
+**Решения, принятые при реализации:**
+- **Чистый ORM** -- все 21 запрос через SQLAlchemy ORM, ни строки raw SQL. Subquery + JOIN для computed vs actual
+- **Stale nonzero pattern** -- семафоры 3.1-3.5 проверяют два кейса: (a) mismatch через INNER JOIN, (b) stale nonzero через NOT IN subquery (для записей без леджер-строк вообще)
+- **Семафор 2.2** -- сравнивает SUM(Purchase.paid_cents) для PENDING+COMPLETED+REFUNDED с ABS(user_ledger debits с reason LIKE 'purchase:%'). REFUNDED включены — их дебет остаётся в леджере, уравновешен кредитом refund
+- **Read-only** -- get_db_reader, никаких мутаций. Безопасно запускать в production без риска
+- **Alerting** -- structlog.warning() для каждого ALERT. Telegram-алерты отложены до Phase 7
+- **Response model** -- ConsistencyResponse: items (list[SemaphoreResult]), total, ok_count, alert_count, run_at
+
+**Закрытые баги:**
+- BUG-21 (HIGH): Семафор 2.2 давал ложный ALERT при рефандах — REFUNDED purchases не учитывались в total_paid
+- BUG-22 (MEDIUM): Семафоры 3.1-3.3 пропускали stale nonzero балансы без леджер-записей — добавлен stale_nonzero pattern
+- BUG-23 (LOW): Неиспользуемые импорты (UUID, and_, case) в service.py — удалены
+
+**telegram_id ranges:** 82000-82999
+
+**Аудит:** 3 бага найдены и закрыты. P-01 (no commit), P-10 (structlog), P-11 (Literal types) пройдены.
+
+**Критерий готовности:** Семафоры запускаются и показывают OK/ALERT. 300 тестов (3 skipped), 0 warnings. ✅
+
+---
 
 **Полная документация:** `VELO-Data-Consistency-Semaphores.md`
-
-**Критерий готовности:** Семафоры запускаются и показывают OK/ALERT.
 
 ---
 
@@ -2089,6 +2161,10 @@ backend/migrations/versions/
 ### 7.1: Модель Notification
 
 **Цель:** Хранение уведомлений.
+
+> **Из Phase 6.8:** После создания таблицы notification_deliveries добавить
+> семафор 4.5 (orphan detection) в admin/consistency/service.py.
+> Также добавить Telegram-алерты при ALERT (сейчас только structlog).
 
 **Задачи:**
 - [ ] app/modules/notifications/models.py
