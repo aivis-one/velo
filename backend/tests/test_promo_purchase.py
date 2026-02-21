@@ -208,21 +208,35 @@ async def _create_practice(
     scheduled_at = datetime.now(timezone.utc) + timedelta(hours=hours_ahead)
     body = {
         "title": "Test Practice",
-        "practice_type": "meditation",
+        "practice_type": "live",
         "scheduled_at": scheduled_at.isoformat(),
         "duration_minutes": 60,
+        "timezone": "UTC",
         "max_participants": 10,
         "is_free": is_free,
         "price_cents": 0 if is_free else price_cents,
-        "currency": "eur",
+        "currency": "EUR",
     }
+    token = master_data["session_token"]
+
+    # Step 1: Create (draft).
     resp = await client.post(
         "/api/v1/practices",
         json=body,
-        headers=auth_headers(master_data["session_token"]),
+        headers=auth_headers(token),
     )
     assert resp.status_code == 201
-    return resp.json()["id"]
+    practice_id = resp.json()["id"]
+
+    # Step 2: Publish (draft -> scheduled).
+    resp = await client.patch(
+        f"/api/v1/practices/{practice_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 200
+
+    return practice_id
 
 
 async def _topup_user(user_id: str, amount: int) -> None:
