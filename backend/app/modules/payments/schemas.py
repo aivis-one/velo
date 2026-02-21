@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.4 + Backlog)
+# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.7)
 # =============================================================================
 #
 # Pydantic schemas for payment (topup) and purchase endpoints.
@@ -57,11 +57,15 @@ class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# -- Purchase (Phase 6.4) ---------------------------------------------------
+# -- Purchase (Phase 6.4, updated Phase 6.7) --------------------------------
 
 
 class PurchaseResponse(BaseModel):
-    """Purchase details returned to client."""
+    """Purchase details returned to client.
+
+    Phase 6.7: added amount_cents, discount_cents, promo_id.
+    Invariant: paid_cents = amount_cents - discount_cents.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,6 +73,9 @@ class PurchaseResponse(BaseModel):
     user_id: UUID
     practice_id: UUID
     booking_id: UUID
+    promo_id: UUID | None
+    amount_cents: int
+    discount_cents: int
     paid_cents: int
     currency: str
     commission_cents: int
@@ -94,6 +101,9 @@ class PurchaseWithPracticeResponse(BaseModel):
     user_id: UUID
     practice_id: UUID
     booking_id: UUID
+    promo_id: UUID | None
+    amount_cents: int
+    discount_cents: int
     paid_cents: int
     currency: str
     commission_cents: int

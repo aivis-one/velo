@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 6.6)
+# VELO Backend -- Application Configuration (updated Phase 6.7)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     min_withdrawal_cents: int = 5000
     # Fixed platform fee deducted from withdrawal amount. 200 = EUR 2.00.
     withdrawal_fee_cents: int = 200
+
+    # -- Promos (Phase 6.7) --
+    # Allowed discount percentages for both company and master promos.
+    # Validated in service layer when creating a promo.
+    promo_allowed_discounts: list[int] = [5, 25, 50, 75, 100]
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":

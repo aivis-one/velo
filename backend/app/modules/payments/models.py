@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Payment Models (Phase 6.1, updated Phase 6.4)
+# VELO Backend -- Payment Models (Phase 6.1, updated Phase 6.4, Phase 6.7)
 # =============================================================================
 #
 # Double-entry bookkeeping: every cent is tracked across three journals.
@@ -15,10 +15,11 @@
 #   Tracks Stripe session/intent IDs for reconciliation.
 #   Linked to UserLedger via reason="payment:{payment.id}".
 #
-# PURCHASE (Phase 6.4):
+# PURCHASE (Phase 6.4, updated Phase 6.7):
 #   Purchase -- double-entry record linking a booking to financial flow.
 #   Created for EVERY booking (free and paid). Semaphore 1.1 requires
 #   COUNT(bookings) == COUNT(purchases) for active records.
+#   Phase 6.7: added amount_cents, discount_cents, promo_id for promo support.
 #
 # AMOUNT CONVENTION (TD-033):
 #   All amounts in EUR cents (integer). 1500 = EUR 15.00.
@@ -181,10 +182,7 @@ class UserLedger(UUIDMixin, Base):
 
 
 class MasterLedger(UUIDMixin, Base):
-    """Master earnings journal -- every movement on a master's account.
-
-    Tracks both frozen (awaiting practice completion) and available
-    (withdrawable) funds separately via is_frozen flag.
+    """Master earnings journal -- sales, commissions, withdrawals.
 
     Positive amount_cents = credit (sale).
     Negative amount_cents = debit (commission, withdrawal).
@@ -369,7 +367,7 @@ class Payment(UUIDMixin, Base):
         )
 
 
-# -- Purchase Model (Phase 6.4) ---------------------------------------------
+# -- Purchase Model (Phase 6.4, updated Phase 6.7) --------------------------
 
 
 class Purchase(UUIDMixin, TimestampMixin, Base):
@@ -381,11 +379,18 @@ class Purchase(UUIDMixin, TimestampMixin, Base):
     Double-entry on creation:
         user_ledger:   -paid_cents (debit from user wallet)
         master_ledger: +paid_cents (credit to master, frozen)
+        company_ledger: -discount_cents (marketing, company promo only)
 
     Double-entry on finalization:
         master_ledger: unfreeze (UPDATE is_frozen=False)
         master_ledger: -commission_cents (debit from master available)
         company_ledger: +commission_cents (credit to company)
+
+    Phase 6.7 additions:
+        amount_cents:   full practice price before discount.
+        discount_cents: promo discount amount (0 if no promo).
+        promo_id:       FK to promos table (nullable).
+        Invariant: paid_cents = amount_cents - discount_cents.
     """
 
     __tablename__ = "purchases"
@@ -404,7 +409,20 @@ class Purchase(UUIDMixin, TimestampMixin, Base):
         unique=True,
     )
 
+    # -- Promo (Phase 6.7) --
+    promo_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("promos.id", ondelete="SET NULL"),
+        index=True,
+        default=None,
+    )
+
     # -- Financial --
+    amount_cents: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0",
+    )
+    discount_cents: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0",
+    )
     paid_cents: Mapped[int] = mapped_column(
         Integer, default=0, server_default="0",
     )
@@ -430,6 +448,7 @@ class Purchase(UUIDMixin, TimestampMixin, Base):
     def __repr__(self) -> str:
         return (
             f"<Purchase id={self.id} user={self.user_id} "
-            f"practice={self.practice_id} paid={self.paid_cents} "
+            f"practice={self.practice_id} amount={self.amount_cents} "
+            f"discount={self.discount_cents} paid={self.paid_cents} "
             f"status={self.status}>"
         )

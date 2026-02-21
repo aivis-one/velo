@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Purchase Service (Phase 6.4, updated Backlog)
+# VELO Backend -- Purchase Service (Phase 6.4, updated Phase 6.7)
 # =============================================================================
 #
 # Double-entry purchase logic for booking flow.
@@ -7,7 +7,7 @@
 # CREATE PURCHASE (called from create_booking + confirm_waitlist):
 #   1. FOR UPDATE on user (balance check, P-07)
 #   2. Double-entry: user_ledger(-N) + master_ledger(+N, frozen)
-#   3. Create Purchase (paid_cents=N, even if N=0)
+#   3. Create Purchase (amount_cents=full, discount_cents=0, paid_cents=N)
 #   4. Link booking.purchase_id
 #   5. Audit: purchase_created
 #
@@ -25,6 +25,7 @@
 #   - Every Purchase creates paired ledger entries (Semaphore 2.1)
 #   - Free practices: paid_cents=0, ledger entries with amount=0
 #   - Commission entries created even when commission=0 (double-entry)
+#   - Phase 6.7: paid_cents = amount_cents - discount_cents
 #
 # SESSION RULES:
 #   No session.commit() (P-01). Caller manages transaction.
@@ -111,10 +112,14 @@ async def create_purchase_for_booking(
     )
 
     # Create Purchase record.
+    # Phase 6.7: amount_cents = full price, discount_cents = 0 (no promo yet).
+    # Promo integration (Batch 4) will set discount_cents > 0.
     purchase = Purchase(
         user_id=user.id,
         practice_id=practice.id,
         booking_id=booking.id,
+        amount_cents=price_cents,
+        discount_cents=0,
         paid_cents=price_cents,
         currency=practice.currency,
         commission_cents=0,

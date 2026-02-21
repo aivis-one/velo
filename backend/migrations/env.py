@@ -35,6 +35,15 @@ from app.modules.masters.models import MasterProfile  # noqa: F401
 from app.modules.practices.models import Practice  # noqa: F401
 from app.modules.bookings.models import Booking  # noqa: F401
 from app.modules.waitlist.models import Waitlist  # noqa: F401  # Phase 5.3
+from app.modules.payments.models import (  # noqa: F401  # Phase 6.1-6.4
+    CompanyLedger,
+    MasterLedger,
+    Payment,
+    Purchase,
+    UserLedger,
+)
+from app.modules.withdrawals.models import Withdrawal  # noqa: F401  # Phase 6.6
+from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to alembic.ini values.

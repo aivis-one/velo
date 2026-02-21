@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Purchase Router (Phase 6.4 + Frontend Backlog)
+# VELO Backend -- Purchase Router (Phase 6.4 + Frontend Backlog, updated 6.7)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -109,6 +109,9 @@ async def list_my_purchases_endpoint(
                 user_id=purchase.user_id,
                 practice_id=purchase.practice_id,
                 booking_id=purchase.booking_id,
+                promo_id=purchase.promo_id,
+                amount_cents=purchase.amount_cents,
+                discount_cents=purchase.discount_cents,
                 paid_cents=purchase.paid_cents,
                 currency=purchase.currency,
                 commission_cents=purchase.commission_cents,
