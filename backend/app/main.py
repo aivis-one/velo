@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 6.6)
+# VELO Backend -- Application Entry Point (updated Phase 6.7)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -42,16 +42,16 @@ from app.modules.waitlist.router import (  # Phase 5.3
 from app.modules.payments.router import router as payments_router  # Phase 6.3
 from app.modules.payments.webhook_router import webhook_router     # Phase 6.3
 from app.modules.payments.purchase_router import (                 # Phase 6.4
-
     router as purchase_router,
     purchases_user_router,                                         # Frontend Backlog
 )
 from app.modules.withdrawals.router import (                       # Phase 6.6
     router as withdrawals_router,
 )
-from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7 (no router yet)
-# NOTE: admin/withdrawals router is included via admin_router (admin/router.py).
-# Do NOT register it separately here to avoid duplicate endpoints (BUG-07).
+from app.modules.promos.router import router as promos_router      # Phase 6.7
+
+# Model imports for Alembic and relationship resolution.
+from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 
 
 logger = structlog.get_logger()
@@ -107,6 +107,7 @@ app.include_router(webhook_router)                # Phase 6.3
 app.include_router(purchase_router)               # Phase 6.4
 app.include_router(purchases_user_router)         # Frontend Backlog
 app.include_router(withdrawals_router)            # Phase 6.6
+app.include_router(promos_router)                 # Phase 6.7
 
 # ---------------------------------------------------------------------------
 # Exception Handlers (TD-007)
@@ -184,7 +185,7 @@ app.add_middleware(TraceIdMiddleware)
 # ---------------------------------------------------------------------------
 @app.get("/")
 async def root() -> dict:
-    """API root -- name and version."""
+    """Root endpoint -- API info."""
     return {"name": "VELO API", "version": "0.1.0"}
 
 
