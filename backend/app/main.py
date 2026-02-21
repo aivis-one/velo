@@ -144,12 +144,13 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     logger.error(
         "unhandled_exception",
         exc_type=type(exc).__name__,
-        exc_msg=str(exc),
+        exc_message=str(exc),
         path=request.url.path,
+        method=request.method,
     )
     return JSONResponse(
         status_code=500,
-        content={"error": "internal", "message": "Internal server error"},
+        content={"error": "internal_error", "message": "Internal server error"},
     )
 
 
@@ -167,7 +168,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# TraceIdMiddleware (L-03): injects X-Trace-Id into every response.
+# ---------------------------------------------------------------------------
+# Trace ID (Pre-6.1)
+# ---------------------------------------------------------------------------
+# Added AFTER CORSMiddleware so Starlette applies it as the outermost
+# layer (LIFO order).
+# Every request gets a trace_id before CORS runs.
 app.add_middleware(TraceIdMiddleware)
 
 
@@ -182,33 +188,33 @@ async def root() -> dict:
 
 @app.get("/health")
 async def health() -> dict:
-    """Health check -- always 200, reports component status."""
-    db_status = "ok"
-    redis_status = "ok"
+    """Health check -- DB and Redis connectivity."""
+    result = {"status": "ok", "db": "ok", "redis": "ok"}
 
-    # Check database.
+    # Check DB.
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
     except Exception:
-        db_status = "degraded"
+        result["db"] = "error"
+        result["status"] = "degraded"
 
     # Check Redis.
     try:
         redis = get_redis()
-        await redis.ping()
+        await asyncio.wait_for(redis.ping(), timeout=2.0)
     except Exception:
-        redis_status = "degraded"
+        result["redis"] = "error"
+        result["status"] = "degraded"
 
-    overall = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
-    return {"status": overall, "db": db_status, "redis": redis_status}
+    return result
 
 
 @app.get("/ready")
-async def ready() -> JSONResponse:
-    """Readiness probe -- 503 if any component is degraded."""
-    h = await health()
-    if h["db"] != "ok" or h["redis"] != "ok":
-        return JSONResponse(status_code=503, content=h)
-    return JSONResponse(status_code=200, content=h)
+async def readiness() -> JSONResponse:
+    """Readiness probe -- returns 503 if degraded (TD-003)."""
+    check = await health()
+    if check["status"] != "ok":
+        return JSONResponse(status_code=503, content=check)
+    return JSONResponse(status_code=200, content=check)
