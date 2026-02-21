@@ -23,10 +23,9 @@
 # =============================================================================
 
 from datetime import datetime, timezone
-from uuid import UUID
 
 import structlog
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog
@@ -220,6 +219,7 @@ async def _check_sum_zero(
         Purchase.status.in_({
             PurchaseStatus.PENDING.value,
             PurchaseStatus.COMPLETED.value,
+            PurchaseStatus.REFUNDED.value,
         }),
     )
     total_paid = (await session.execute(total_paid_stmt)).scalar_one()
@@ -280,13 +280,31 @@ async def _check_computed_actual(
         .where(User.balance_cents != user_ledger_sum.c.computed)
     )
     mismatched_users = (await session.execute(mismatch_3_1_stmt)).scalar_one()
+
+    # Also check users with balance_cents != 0 but no ledger entries at all.
+    stale_balance_stmt = (
+        select(func.count())
+        .select_from(User)
+        .where(
+            User.balance_cents != 0,
+            ~User.id.in_(
+                select(user_ledger_sum.c.user_id)
+            ),
+        )
+    )
+    stale_balance = (await session.execute(stale_balance_stmt)).scalar_one()
+    total_user_mismatch = mismatched_users + stale_balance
+
     results.append(SemaphoreResult(
         name="3.1_user_balance_eq_ledger_sum",
         category="computed_actual",
-        status="OK" if mismatched_users == 0 else "ALERT",
+        status="OK" if total_user_mismatch == 0 else "ALERT",
         expected="0",
-        actual=str(mismatched_users),
-        details={"mismatched_user_count": mismatched_users},
+        actual=str(total_user_mismatch),
+        details={
+            "mismatched_with_ledger": mismatched_users,
+            "stale_nonzero_without_ledger": stale_balance,
+        },
         criticality="critical",
     ))
 
@@ -310,13 +328,31 @@ async def _check_computed_actual(
         .where(MasterProfile.frozen_cents != frozen_sum.c.computed)
     )
     mismatched_frozen = (await session.execute(mismatch_3_2_stmt)).scalar_one()
+
+    # Also check masters with frozen_cents != 0 but no frozen ledger entries.
+    stale_frozen_stmt = (
+        select(func.count())
+        .select_from(MasterProfile)
+        .where(
+            MasterProfile.frozen_cents != 0,
+            ~MasterProfile.user_id.in_(
+                select(frozen_sum.c.user_id)
+            ),
+        )
+    )
+    stale_frozen = (await session.execute(stale_frozen_stmt)).scalar_one()
+    total_frozen_mismatch = mismatched_frozen + stale_frozen
+
     results.append(SemaphoreResult(
         name="3.2_master_frozen_eq_ledger_sum",
         category="computed_actual",
-        status="OK" if mismatched_frozen == 0 else "ALERT",
+        status="OK" if total_frozen_mismatch == 0 else "ALERT",
         expected="0",
-        actual=str(mismatched_frozen),
-        details={"mismatched_master_frozen_count": mismatched_frozen},
+        actual=str(total_frozen_mismatch),
+        details={
+            "mismatched_with_ledger": mismatched_frozen,
+            "stale_nonzero_without_ledger": stale_frozen,
+        },
         criticality="critical",
     ))
 
@@ -340,13 +376,31 @@ async def _check_computed_actual(
         .where(MasterProfile.available_cents != available_sum.c.computed)
     )
     mismatched_available = (await session.execute(mismatch_3_3_stmt)).scalar_one()
+
+    # Also check masters with available_cents != 0 but no available ledger entries.
+    stale_available_stmt = (
+        select(func.count())
+        .select_from(MasterProfile)
+        .where(
+            MasterProfile.available_cents != 0,
+            ~MasterProfile.user_id.in_(
+                select(available_sum.c.user_id)
+            ),
+        )
+    )
+    stale_available = (await session.execute(stale_available_stmt)).scalar_one()
+    total_available_mismatch = mismatched_available + stale_available
+
     results.append(SemaphoreResult(
         name="3.3_master_available_eq_ledger_sum",
         category="computed_actual",
-        status="OK" if mismatched_available == 0 else "ALERT",
+        status="OK" if total_available_mismatch == 0 else "ALERT",
         expected="0",
-        actual=str(mismatched_available),
-        details={"mismatched_master_available_count": mismatched_available},
+        actual=str(total_available_mismatch),
+        details={
+            "mismatched_with_ledger": mismatched_available,
+            "stale_nonzero_without_ledger": stale_available,
+        },
         criticality="critical",
     ))
 
