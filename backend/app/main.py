@@ -42,12 +42,14 @@ from app.modules.waitlist.router import (  # Phase 5.3
 from app.modules.payments.router import router as payments_router  # Phase 6.3
 from app.modules.payments.webhook_router import webhook_router     # Phase 6.3
 from app.modules.payments.purchase_router import (                 # Phase 6.4
+
     router as purchase_router,
     purchases_user_router,                                         # Frontend Backlog
 )
 from app.modules.withdrawals.router import (                       # Phase 6.6
     router as withdrawals_router,
 )
+from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7 (no router yet)
 # NOTE: admin/withdrawals router is included via admin_router (admin/router.py).
 # Do NOT register it separately here to avoid duplicate endpoints (BUG-07).
 
