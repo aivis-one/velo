@@ -1,17 +1,20 @@
 # =============================================================================
-# VELO Backend -- Purchase Router (Phase 6.4 + Frontend Backlog, updated 6.7)
+# VELO Backend -- Purchase Router (Phase 6.4 + Backlog, updated 6.7 Batch 4)
 # =============================================================================
 #
 # ENDPOINTS:
-#   POST /api/v1/practices/{practice_id}/purchase  -- purchase a practice
-#   GET  /api/v1/purchases/me                      -- my purchases (Backlog)
+#   POST /api/v1/practices/{practice_id}/purchase          -- purchase
+#   POST /api/v1/practices/{practice_id}/preview-purchase   -- preview pricing
+#   GET  /api/v1/purchases/me                               -- my purchases
 #
 # Two routers:
-#   router                -- prefix /api/v1/practices (existing alias)
-#   purchases_user_router -- prefix /api/v1/purchases (new user-facing)
+#   router                -- prefix /api/v1/practices (purchase + preview)
+#   purchases_user_router -- prefix /api/v1/purchases (user-facing list)
 #
 # AUTH: get_current_user.
-# SESSION: POST = get_db_session (write). GET = get_db_reader (read).
+# SESSION: POST purchase = get_db_session (write).
+#          POST preview  = get_db_reader (read-only, no side effects).
+#          GET list       = get_db_reader (read).
 # =============================================================================
 
 from typing import Literal
@@ -19,6 +22,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
@@ -28,10 +32,16 @@ from app.modules.payments.models import Purchase
 from app.modules.payments.purchase import list_user_purchases
 from app.modules.payments.schemas import (
     PaginatedPurchasesResponse,
+    PreviewPurchaseRequest,
+    PreviewPurchaseResponse,
+    PurchaseRequest,
     PurchaseResponse,
     PurchaseWithPracticeResponse,
 )
+from app.modules.practices.models import Practice
 from app.modules.practices.schemas import PracticeSummary
+from app.modules.promos.models import Promo
+from app.modules.promos.validation import calculate_discount, validate_promo
 from app.modules.users.models import User
 
 router = APIRouter(
@@ -52,17 +62,32 @@ purchases_user_router = APIRouter(
 )
 async def purchase_practice_endpoint(
     practice_id: UUID,
+    body: PurchaseRequest | None = None,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> PurchaseResponse:
     """Purchase a practice -- creates Booking + Purchase.
 
+    Optional promo_code in request body to apply a discount.
     For free practices: paid_cents=0, ledger entries with amount=0.
     For paid practices: checks balance, deducts from user, freezes at master.
 
     Returns full purchase details including financial info.
     """
-    booking = await create_booking(user, practice_id, session)
+    # Validate promo if provided.
+    promo: Promo | None = None
+    if body and body.promo_code:
+        # Load practice for validation (need master_id for scope check).
+        practice = await session.get(Practice, practice_id)
+        if practice:
+            promo = await validate_promo(
+                code=body.promo_code,
+                practice=practice,
+                user_id=user.id,
+                session=session,
+            )
+
+    booking = await create_booking(user, practice_id, session, promo=promo)
     await session.flush()
 
     # Load the Purchase created inside create_booking.
@@ -70,6 +95,64 @@ async def purchase_practice_endpoint(
     await session.refresh(purchase)
 
     return PurchaseResponse.model_validate(purchase)
+
+
+@router.post(
+    "/{practice_id}/preview-purchase",
+    response_model=PreviewPurchaseResponse,
+)
+async def preview_purchase_endpoint(
+    practice_id: UUID,
+    body: PreviewPurchaseRequest | None = None,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> PreviewPurchaseResponse:
+    """Preview purchase pricing with optional promo code.
+
+    Read-only endpoint -- no booking, no purchase, no ledger entries.
+    Shows what the user would pay with/without a promo code.
+    """
+    stmt = select(Practice).where(Practice.id == practice_id)
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError("Practice not found")
+
+    price_cents = practice.price_cents
+    promo: Promo | None = None
+
+    if body and body.promo_code:
+        promo = await validate_promo(
+            code=body.promo_code,
+            practice=practice,
+            user_id=user.id,
+            session=session,
+        )
+
+    if promo:
+        amount_cents, discount_cents, paid_cents = calculate_discount(
+            promo, price_cents,
+        )
+        return PreviewPurchaseResponse(
+            practice_id=practice.id,
+            amount_cents=amount_cents,
+            discount_cents=discount_cents,
+            paid_cents=paid_cents,
+            currency=practice.currency,
+            promo_code=promo.code,
+            promo_type=promo.type,
+            discount_percent=promo.discount_percent,
+        )
+
+    return PreviewPurchaseResponse(
+        practice_id=practice.id,
+        amount_cents=price_cents,
+        discount_cents=0,
+        paid_cents=price_cents,
+        currency=practice.currency,
+    )
 
 
 # ===================================================================

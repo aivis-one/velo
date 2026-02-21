@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.7)
+# VELO Backend -- Payment Schemas (Phase 6.3, updated Phase 6.7 Batch 4)
 # =============================================================================
 #
 # Pydantic schemas for payment (topup) and purchase endpoints.
@@ -7,9 +7,12 @@
 # TopupRequest:                   amount_cents from user.
 # TopupResponse:                  Stripe checkout URL + payment ID.
 # PaymentResponse:                full payment record representation.
+# PurchaseRequest:                optional promo_code for purchase (Batch 4).
 # PurchaseResponse:               purchase details with financial info.
 # PurchaseWithPracticeResponse:   purchase + PracticeSummary (for list views).
 # PaginatedPurchasesResponse:     paginated list of purchases.
+# PreviewPurchaseRequest:         optional promo_code for preview (Batch 4).
+# PreviewPurchaseResponse:        pricing preview before purchase (Batch 4).
 # =============================================================================
 
 from datetime import datetime
@@ -57,7 +60,21 @@ class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# -- Purchase (Phase 6.4, updated Phase 6.7) --------------------------------
+# -- Purchase (Phase 6.4, updated Phase 6.7 Batch 4) ------------------------
+
+
+class PurchaseRequest(BaseModel):
+    """POST /api/v1/practices/{id}/purchase -- optional request body.
+
+    promo_code is optional. If omitted or null, no promo is applied.
+    Existing clients that send no body continue to work (all fields optional).
+    """
+
+    promo_code: str | None = Field(
+        default=None,
+        min_length=1, max_length=50,
+        description="Optional promo code to apply.",
+    )
 
 
 class PurchaseResponse(BaseModel):
@@ -121,3 +138,35 @@ class PaginatedPurchasesResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# -- Preview (Phase 6.7, Batch 4) -----------------------------------------
+
+
+class PreviewPurchaseRequest(BaseModel):
+    """POST /api/v1/practices/{id}/preview-purchase -- request body.
+
+    Optional promo_code for pricing preview.
+    """
+
+    promo_code: str | None = Field(
+        default=None,
+        min_length=1, max_length=50,
+        description="Optional promo code to preview pricing.",
+    )
+
+
+class PreviewPurchaseResponse(BaseModel):
+    """Pricing preview before purchase -- no side effects.
+
+    Shows what the user would pay with/without a promo code.
+    """
+
+    practice_id: UUID
+    amount_cents: int
+    discount_cents: int
+    paid_cents: int
+    currency: str
+    promo_code: str | None = None
+    promo_type: str | None = None
+    discount_percent: int | None = None

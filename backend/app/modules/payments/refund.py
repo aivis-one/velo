@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Refund Service (Phase 6.5)
+# VELO Backend -- Refund Service (Phase 6.5, updated Phase 6.7 Batch 4)
 # =============================================================================
 #
 # Refund and early-finalize logic for booking/practice cancellations.
@@ -7,26 +7,39 @@
 # THREE SCENARIOS:
 #
 #   A) User cancels > 24h before practice (refund_booking):
-#      - Reverse frozen master credit + refund user
-#      - Double-entry: master_ledger(-N, frozen) + user_ledger(+N)
-#      - Purchase -> REFUNDED
+#      - Reverse frozen master credit + refund user.
+#      - No promo / Master promo:
+#          master_ledger(-paid_cents, frozen) + user_ledger(+paid_cents)
+#      - Company promo:
+#          master_ledger(-amount_cents, frozen) + user_ledger(+paid_cents)
+#          + company_ledger(+discount_cents, marketing reversal)
+#      - Purchase -> REFUNDED.
 #
 #   B) User cancels <= 24h before practice (early_finalize_booking):
 #      - Master keeps the money. Immediate unfreeze + commission.
-#      - Reversal approach: create offsetting frozen entry, then
-#        add available entry and commission -- same net result as
-#        finalize_purchases but for a single purchase.
-#      - Double-entry:
-#          master_ledger(-N, frozen)      -- reverses original frozen credit
-#          master_ledger(+N, available)   -- adds to available balance
-#          master_ledger(-C, available)   -- commission deduction
-#          company_ledger(+C)             -- company revenue
-#      - Purchase -> COMPLETED
+#      - No promo / Master promo:
+#          master_ledger(-paid_cents, frozen reversal)
+#          master_ledger(+paid_cents, available)
+#          master_ledger(-commission, available) + company_ledger(+commission)
+#      - Company promo:
+#          master_ledger(-amount_cents, frozen reversal)
+#          master_ledger(+amount_cents, available)
+#          master_ledger(-commission, available) + company_ledger(+commission)
+#          (marketing debit stays -- practice was "consumed")
+#      - Purchase -> COMPLETED.
 #
 #   C) Master cancels entire practice (refund_all_bookings_for_practice):
-#      - 100% refund to every active booking
-#      - All waitlist entries -> left
-#      - Recalculate current_participants -> 0 (Frontend Backlog A-03)
+#      - 100% refund to every active booking (uses refund_booking).
+#      - All waitlist entries -> left.
+#      - Recalculate current_participants -> 0 (Frontend Backlog A-03).
+#
+# KEY PROMO INSIGHT:
+#   "Master reversal amount" = what master originally received (frozen):
+#   - No promo:      paid_cents (= price)
+#   - Master promo:  paid_cents (master absorbed discount)
+#   - Company promo: amount_cents (company covered gap, master got full price)
+#
+#   Helper _master_frozen_amount(purchase) encapsulates this logic.
 #
 # WHY REVERSAL, NOT UPDATE?
 #   master_ledger entries don't carry booking_id, so we can't
@@ -68,9 +81,39 @@ from app.modules.payments.service import (
     record_user_ledger,
 )
 from app.modules.practices.models import Practice
+from app.modules.promos.models import Promo, PromoType
 from app.modules.waitlist.models import ACTIVE_STATUSES as WL_ACTIVE, WaitlistStatus, Waitlist
 
 logger = structlog.get_logger()
+
+
+async def _get_master_frozen_amount(
+    purchase: Purchase,
+    session: AsyncSession,
+) -> int:
+    """Determine what the master originally received (frozen).
+
+    Loads the promo to determine type. Returns:
+    - Company promo: amount_cents (master got full price).
+    - Master promo / no promo: paid_cents.
+    """
+    if purchase.promo_id and purchase.discount_cents > 0:
+        promo = await session.get(Promo, purchase.promo_id)
+        if promo and promo.type == PromoType.COMPANY.value:
+            return purchase.amount_cents
+
+    return purchase.paid_cents
+
+
+async def _is_company_promo(
+    purchase: Purchase,
+    session: AsyncSession,
+) -> bool:
+    """Check if purchase used a company promo."""
+    if not purchase.promo_id or purchase.discount_cents == 0:
+        return False
+    promo = await session.get(Promo, purchase.promo_id)
+    return promo is not None and promo.type == PromoType.COMPANY.value
 
 
 async def refund_booking(
@@ -82,9 +125,14 @@ async def refund_booking(
 ) -> Purchase:
     """Refund a single booking: 100% return to user.
 
-    Creates two ledger entries (double-entry reversal):
+    No promo / Master promo:
         master_ledger: -paid_cents (frozen, reverses original credit)
         user_ledger:   +paid_cents (refund to user wallet)
+
+    Company promo:
+        master_ledger:  -amount_cents (frozen, reverses FULL price credit)
+        user_ledger:    +paid_cents   (refund what user actually paid)
+        company_ledger: +discount_cents (marketing reversal)
 
     Even for free practices (paid_cents=0), zero-amount entries
     are created to maintain the double-entry proof-of-path invariant.
@@ -103,9 +151,6 @@ async def refund_booking(
         (status != PENDING). This makes the function idempotent.
     """
     # Load purchase with FOR UPDATE (P-12).
-    # Use Purchase.booking_id (UNIQUE, always set at creation) instead
-    # of booking.purchase_id back-reference which may not be loaded
-    # when booking is re-fetched from DB in a separate query.
     stmt = (
         select(Purchase)
         .where(Purchase.booking_id == booking.id)
@@ -126,21 +171,37 @@ async def refund_booking(
     trigger = "master_cancel" if cancelled_by_master else "user_cancel"
     reason_suffix = f"practice={practice.id}"
 
-    # Double-entry reversal: master debit (frozen) + user credit.
+    # Determine master frozen amount (depends on promo type).
+    master_frozen = await _get_master_frozen_amount(purchase, session)
+    is_company = await _is_company_promo(purchase, session)
+
+    # Step 1: Reverse master frozen credit.
     await record_master_ledger(
         user_id=practice.master_id,
-        amount_cents=-purchase.paid_cents,
+        amount_cents=-master_frozen,
         reason=f"refund:{reason_suffix}",
         is_frozen=True,
         practice_id=practice.id,
         session=session,
     )
+
+    # Step 2: Refund user (what they actually paid).
     await record_user_ledger(
         user_id=booking.user_id,
         amount_cents=purchase.paid_cents,
         reason=f"refund:{reason_suffix}",
         session=session,
     )
+
+    # Step 3: Company promo marketing reversal.
+    if is_company and purchase.discount_cents > 0:
+        await record_company_ledger(
+            amount_cents=purchase.discount_cents,
+            ledger_type=CompanyLedgerType.MARKETING.value,
+            reason=f"refund_promo:{reason_suffix}",
+            reference_id=purchase.id,
+            session=session,
+        )
 
     # Update purchase status.
     purchase.status = PurchaseStatus.REFUNDED.value
@@ -156,6 +217,8 @@ async def refund_booking(
             "practice_id": str(practice.id),
             "booking_id": str(booking.id),
             "refunded_cents": purchase.paid_cents,
+            "master_reversal_cents": master_frozen,
+            "marketing_reversal_cents": purchase.discount_cents if is_company else 0,
             "trigger": trigger,
         },
         session=session,
@@ -168,6 +231,7 @@ async def refund_booking(
         practice_id=str(practice.id),
         user_id=str(booking.user_id),
         refunded_cents=purchase.paid_cents,
+        master_reversal_cents=master_frozen,
         trigger=trigger,
     )
 
@@ -186,11 +250,18 @@ async def early_finalize_booking(
     The master receives the funds immediately (minus commission),
     rather than waiting for practice finalization.
 
-    Creates ledger entries via reversal approach:
+    No promo / Master promo:
         master_ledger: -paid_cents (frozen, reverses original credit)
         master_ledger: +paid_cents (available, adds to spendable balance)
         master_ledger: -commission  (available, platform fee)
         company_ledger: +commission (platform revenue)
+
+    Company promo:
+        master_ledger: -amount_cents (frozen, reverses FULL price)
+        master_ledger: +amount_cents (available, FULL price)
+        master_ledger: -commission   (available, on paid_cents only)
+        company_ledger: +commission  (on paid_cents only)
+        (marketing debit stays -- practice was "consumed")
 
     Even for free practices (paid_cents=0), zero-amount entries
     are created to maintain the double-entry proof-of-path invariant.
@@ -208,9 +279,6 @@ async def early_finalize_booking(
         (status != PENDING). This makes the function idempotent.
     """
     # Load purchase with FOR UPDATE (P-12).
-    # Use Purchase.booking_id (UNIQUE, always set at creation) instead
-    # of booking.purchase_id back-reference which may not be loaded
-    # when booking is re-fetched from DB in a separate query.
     stmt = (
         select(Purchase)
         .where(Purchase.booking_id == booking.id)
@@ -230,12 +298,16 @@ async def early_finalize_booking(
 
     reason_suffix = f"practice={practice.id}"
     # L-07 fix: pure integer math -- no float intermediate.
+    # Commission on live money only (paid_cents).
     commission = purchase.paid_cents * settings.commission_percent // 100
+
+    # Determine master frozen amount (depends on promo type).
+    master_frozen = await _get_master_frozen_amount(purchase, session)
 
     # Step 1: Reverse the original frozen credit.
     await record_master_ledger(
         user_id=practice.master_id,
-        amount_cents=-purchase.paid_cents,
+        amount_cents=-master_frozen,
         reason=f"late_cancel_reversal:{reason_suffix}",
         is_frozen=True,
         practice_id=practice.id,
@@ -245,7 +317,7 @@ async def early_finalize_booking(
     # Step 2: Add to available balance (unfrozen).
     await record_master_ledger(
         user_id=practice.master_id,
-        amount_cents=purchase.paid_cents,
+        amount_cents=master_frozen,
         reason=f"late_cancel_earnings:{reason_suffix}",
         is_frozen=False,
         practice_id=practice.id,
@@ -286,6 +358,7 @@ async def early_finalize_booking(
             "practice_id": str(practice.id),
             "booking_id": str(booking.id),
             "paid_cents": purchase.paid_cents,
+            "master_amount": master_frozen,
             "commission_cents": commission,
             "trigger": "late_cancel",
         },
@@ -299,6 +372,7 @@ async def early_finalize_booking(
         practice_id=str(practice.id),
         user_id=str(booking.user_id),
         paid_cents=purchase.paid_cents,
+        master_amount=master_frozen,
         commission_cents=commission,
     )
 

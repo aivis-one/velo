@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4+6.5, Backlog)
+# VELO Backend -- Booking Service (Phase 5.1+5.2+5.3+5.4+6.5+6.7, Backlog)
 # =============================================================================
 #
 # Business logic for booking create, cancel, attendance, finalize,
@@ -23,6 +23,10 @@
 #   create_booking: creates Purchase + double-entry ledger (always, even free)
 #   finalize:       finalizes Purchases (unfreeze + commission)
 #
+# PROMO INTEGRATION (Phase 6.7 Batch 4):
+#   create_booking: optional promo param, passed to create_purchase_for_booking.
+#   Promo validation happens in the caller (router or purchase_router).
+#
 # CANCELLATION POLICY (Phase 6.5):
 #   cancel_booking now handles refunds based on deadline:
 #     > cancellation_deadline_hours before practice -> 100% refund
@@ -31,11 +35,7 @@
 #
 # PARTICIPANT COUNT (Frontend Backlog A-03):
 #   recalculate_participants() updates Practice.current_participants
-#   after every booking status change. Analogous to balance listeners
-#   in payments/service.py. Counts confirmed + attended bookings.
-#   Called from: create_booking, cancel_booking, finalize_practice,
-#   confirm_waitlist (waitlist/service.py), refund_all_bookings
-#   (payments/refund.py).
+#   after every booking status change.
 #
 # CAPACITY:
 #   Checked via COUNT of active bookings, not current_participants (TD-034).
@@ -71,6 +71,7 @@ from app.modules.payments.refund import (
     refund_booking,
 )
 from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.promos.models import Promo
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -178,6 +179,7 @@ async def create_booking(
     user: User,
     practice_id: UUID,
     session: AsyncSession,
+    promo: Promo | None = None,
 ) -> Booking:
     """Book a user into a practice.
 
@@ -190,6 +192,10 @@ async def create_booking(
 
     Free practices are auto-confirmed (pending -> confirmed).
     Creates a Purchase with double-entry ledger (always, even free).
+
+    Phase 6.7: optional promo param for discount. Promo validation
+    is done by the caller (router). This function just passes it
+    through to create_purchase_for_booking.
     """
     # Load practice with FOR UPDATE (capacity check + booking
     # must be atomic to prevent overbooking).
@@ -242,11 +248,13 @@ async def create_booking(
         ) from None
 
     # Double-entry purchase (always, even for free practices).
+    # Phase 6.7: pass promo for discount calculation.
     purchase = await create_purchase_for_booking(
         booking=booking,
         practice=practice,
         user=user,
         session=session,
+        promo=promo,
     )
 
     # Update cached participant count (Frontend Backlog A-03).
@@ -260,6 +268,7 @@ async def create_booking(
         user_id=str(user.id),
         status=booking.status,
         paid_cents=purchase.paid_cents,
+        promo_code=promo.code if promo else None,
     )
 
     return booking
@@ -584,9 +593,7 @@ async def get_attendance(
     Validates:
     - Practice exists and belongs to master (P-08: 404).
     """
-    stmt = select(Practice).where(Practice.id == practice_id)
-    result = await session.execute(stmt)
-    practice = result.scalar_one_or_none()
+    practice = await session.get(Practice, practice_id)
 
     if not practice:
         raise NotFoundError("Practice not found")
@@ -594,7 +601,7 @@ async def get_attendance(
     if practice.master_id != user.id:
         raise NotFoundError("Practice not found")
 
-    bookings_stmt = (
+    stmt = (
         select(Booking)
         .where(
             Booking.practice_id == practice_id,
@@ -602,14 +609,14 @@ async def get_attendance(
         )
         .order_by(Booking.created_at)
     )
-    bookings_result = await session.execute(bookings_stmt)
-    bookings = list(bookings_result.scalars().all())
+    result = await session.execute(stmt)
+    bookings = list(result.scalars().all())
 
     return practice, bookings
 
 
 # ===================================================================
-# Frontend Backlog: User-facing list & detail endpoints
+# Frontend Backlog: list / detail
 # ===================================================================
 
 
@@ -621,37 +628,37 @@ async def list_user_bookings(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[tuple[Booking, Practice]], int]:
-    """List bookings for the current user with practice data.
+    """List bookings for a user with practice details (paginated).
 
-    Returns (items, total) where items are (Booking, Practice) tuples.
-    Supports filtering by booking status and pagination.
-
-    Used by GET /api/v1/bookings/me.
+    Returns:
+        Tuple of (list of (Booking, Practice) pairs, total count).
     """
-    filters: list = [Booking.user_id == user.id]
-    if status_filter:
-        filters.append(Booking.status == status_filter)
-
-    # Total count.
-    count_stmt = (
-        select(func.count(Booking.id))
-        .where(*filters)
-    )
-    total = (await session.execute(count_stmt)).scalar_one()
-
-    # Paginated items with practice JOIN.
-    stmt = (
+    base = (
         select(Booking, Practice)
         .join(Practice, Booking.practice_id == Practice.id)
-        .where(*filters)
+        .where(Booking.user_id == user.id)
+    )
+    count_base = (
+        select(func.count(Booking.id))
+        .where(Booking.user_id == user.id)
+    )
+
+    if status_filter:
+        base = base.where(Booking.status == status_filter)
+        count_base = count_base.where(Booking.status == status_filter)
+
+    total = (await session.execute(count_base)).scalar_one()
+
+    items_stmt = (
+        base
         .order_by(Booking.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
-    result = await session.execute(stmt)
-    items = [(row[0], row[1]) for row in result.all()]
+    result = await session.execute(items_stmt)
+    rows = result.all()
 
-    return items, total
+    return [(row[0], row[1]) for row in rows], total
 
 
 async def get_booking_by_id(
@@ -659,15 +666,13 @@ async def get_booking_by_id(
     user: User,
     session: AsyncSession,
 ) -> tuple[Booking, Practice]:
-    """Get a single booking with full practice data.
+    """Get a single booking with full practice details.
 
-    Access control (A+B):
-      A) Booking owner (deep link from notification).
-      B) Master of the practice (attendance dashboard).
+    Access control:
+    - Booking owner.
+    - Master of the associated practice.
 
-    Used by GET /api/v1/bookings/{id}.
-
-    Raises NotFoundError if not found or not authorized (P-08).
+    Returns 404 for non-existent or unauthorized bookings (P-08).
     """
     stmt = (
         select(Booking, Practice)
@@ -682,7 +687,7 @@ async def get_booking_by_id(
 
     booking, practice = row[0], row[1]
 
-    # Access: owner OR master of the practice.
+    # P-08: owner or practice master.
     if booking.user_id != user.id and practice.master_id != user.id:
         raise NotFoundError("Booking not found")
 

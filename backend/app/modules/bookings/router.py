@@ -1,9 +1,9 @@
 # =============================================================================
-# VELO Backend -- Booking Router (Phase 5.2 + 5.4 + Frontend Backlog)
+# VELO Backend -- Booking Router (Phase 5.2 + 5.4 + Backlog, updated 6.7)
 # =============================================================================
 #
 # ENDPOINTS:
-#   POST   /api/v1/bookings              -- create booking
+#   POST   /api/v1/bookings              -- create booking (+ optional promo)
 #   GET    /api/v1/bookings/me           -- my bookings (Frontend Backlog)
 #   GET    /api/v1/bookings/{id}         -- booking detail (Frontend Backlog)
 #   DELETE /api/v1/bookings/{id}         -- cancel booking
@@ -11,6 +11,9 @@
 #   POST   /api/v1/bookings/{id}/leave   -- check-out (Phase 5.4)
 #   POST   /api/v1/practices/{id}/finalize   -- finalize (Phase 5.4)
 #   GET    /api/v1/practices/{id}/attendance  -- attendance list (Phase 5.4)
+#
+# Phase 6.7 Batch 4: POST /bookings now accepts optional promo_code
+# in CreateBookingRequest. Promo is validated before booking creation.
 #
 # ROUTE ORDER:
 #   /me MUST come before /{booking_id} to avoid FastAPI parsing "me"
@@ -24,6 +27,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
@@ -53,7 +57,10 @@ from app.modules.bookings.service import (
     list_user_bookings,
 )
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.models import Practice
 from app.modules.practices.schemas import PracticeSummary, PracticeResponse
+from app.modules.promos.models import Promo
+from app.modules.promos.validation import validate_promo
 from app.modules.users.models import User
 
 router = APIRouter(
@@ -76,9 +83,24 @@ async def create_booking_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> BookingResponse:
-    """Book the current user into a practice."""
+    """Book the current user into a practice.
+
+    Phase 6.7: optional promo_code in body for discount.
+    """
+    # Validate promo if provided.
+    promo: Promo | None = None
+    if body.promo_code:
+        practice = await session.get(Practice, body.practice_id)
+        if practice:
+            promo = await validate_promo(
+                code=body.promo_code,
+                practice=practice,
+                user_id=user.id,
+                session=session,
+            )
+
     booking = await create_booking(
-        user, body.practice_id, session,
+        user, body.practice_id, session, promo=promo,
     )
     await session.flush()
     await session.refresh(booking)
@@ -246,7 +268,7 @@ async def leave_booking_endpoint(
 
 
 # ===================================================================
-# Phase 5.4: Attendance (practice-level, master-only)
+# Phase 5.4: Attendance (practice-level)
 # ===================================================================
 
 
@@ -261,10 +283,7 @@ async def finalize_practice_endpoint(
     ),
     session: AsyncSession = Depends(get_db_session),
 ) -> PracticeResponse:
-    """Finalize a practice (master only).
-
-    Sets attended/no_show on bookings, practice -> completed.
-    """
+    """Finalize a practice -- resolve attendance + financial settlement."""
     user, _profile = master_tuple
     practice = await finalize_practice(
         practice_id, user, session,
@@ -285,7 +304,7 @@ async def get_attendance_endpoint(
     ),
     session: AsyncSession = Depends(get_db_reader),
 ) -> AttendanceResponse:
-    """Get attendance list for a practice (master only)."""
+    """Get attendance list for a practice (master-only)."""
     user, _profile = master_tuple
     practice, bookings = await get_attendance(
         practice_id, user, session,
@@ -302,23 +321,18 @@ async def get_attendance_endpoint(
         for b in bookings
     ]
 
+    attended = sum(1 for b in bookings if b.status == BookingStatus.ATTENDED.value)
+    no_show = sum(1 for b in bookings if b.status == BookingStatus.NO_SHOW.value)
+    pending = sum(
+        1 for b in bookings
+        if b.status in {BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value}
+    )
+
     return AttendanceResponse(
         practice_id=practice.id,
-        total=len(items),
-        attended=sum(
-            1 for b in bookings
-            if b.status == BookingStatus.ATTENDED.value
-        ),
-        no_show=sum(
-            1 for b in bookings
-            if b.status == BookingStatus.NO_SHOW.value
-        ),
-        pending=sum(
-            1 for b in bookings
-            if b.status in {
-                BookingStatus.PENDING.value,
-                BookingStatus.CONFIRMED.value,
-            }
-        ),
+        total=len(bookings),
+        attended=attended,
+        no_show=no_show,
+        pending=pending,
         items=items,
     )

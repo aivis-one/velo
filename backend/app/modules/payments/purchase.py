@@ -1,21 +1,28 @@
 # =============================================================================
-# VELO Backend -- Purchase Service (Phase 6.4, updated Phase 6.7)
+# VELO Backend -- Purchase Service (Phase 6.4, updated Phase 6.7 Batch 4)
 # =============================================================================
 #
 # Double-entry purchase logic for booking flow.
 #
 # CREATE PURCHASE (called from create_booking + confirm_waitlist):
 #   1. FOR UPDATE on user (balance check, P-07)
-#   2. Double-entry: user_ledger(-N) + master_ledger(+N, frozen)
-#   3. Create Purchase (amount_cents=full, discount_cents=0, paid_cents=N)
-#   4. Link booking.purchase_id
-#   5. Audit: purchase_created
+#   2. Calculate discount if promo applied.
+#   3. Double-entry ledger (varies by promo type):
+#      - No promo:     user_ledger(-price) + master_ledger(+price, frozen)
+#      - Master promo: user_ledger(-paid)  + master_ledger(+paid, frozen)
+#      - Company promo: user_ledger(-paid) + master_ledger(+price, frozen)
+#                       + company_ledger(-discount, marketing)
+#   4. Atomic increment promo used_count (P-07).
+#   5. Create Purchase (amount_cents, discount_cents, paid_cents, promo_id).
+#   6. Link booking.purchase_id.
+#   7. Audit: purchase_created.
 #
 # FINALIZE PURCHASES (called from finalize_practice):
 #   1. Unfreeze master_ledger entries (UPDATE is_frozen=False)
-#   2. Double-entry commission: master_ledger(-C) + company_ledger(+C)
-#   3. Purchase -> completed
-#   4. Audit: purchase_completed
+#   2. Commission = paid_cents * commission_percent // 100
+#      (commission on live money only -- promo discount excluded)
+#   3. Double-entry: master_ledger(-commission) + company_ledger(+commission)
+#   4. Purchase -> completed
 #
 # LIST USER PURCHASES (Frontend Backlog):
 #   Read-only paginated list with practice JOIN for display.
@@ -25,7 +32,8 @@
 #   - Every Purchase creates paired ledger entries (Semaphore 2.1)
 #   - Free practices: paid_cents=0, ledger entries with amount=0
 #   - Commission entries created even when commission=0 (double-entry)
-#   - Phase 6.7: paid_cents = amount_cents - discount_cents
+#   - paid_cents = amount_cents - discount_cents
+#   - SUM(user_ledger + master_ledger + company_ledger) = 0 always
 #
 # SESSION RULES:
 #   No session.commit() (P-01). Caller manages transaction.
@@ -55,6 +63,11 @@ from app.modules.payments.service import (
     record_user_ledger,
 )
 from app.modules.practices.models import Practice
+from app.modules.promos.models import Promo, PromoType
+from app.modules.promos.validation import (
+    calculate_discount,
+    increment_promo_usage,
+)
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -66,61 +79,111 @@ async def create_purchase_for_booking(
     practice: Practice,
     user: User,
     session: AsyncSession,
+    promo: Promo | None = None,
 ) -> Purchase:
     """Create a Purchase linked to a Booking with double-entry ledger.
 
     Called from create_booking and confirm_waitlist. Always creates
     ledger entries -- even for free practices (amount_cents=0).
 
-    Double-entry pair:
+    Three ledger patterns depending on promo type:
+
+    NO PROMO:
         user_ledger:   -price_cents (debit)
         master_ledger: +price_cents (credit, frozen)
+
+    MASTER PROMO (master absorbs discount):
+        user_ledger:   -paid_cents (debit, reduced)
+        master_ledger: +paid_cents (credit, frozen, reduced)
+
+    COMPANY PROMO (company pays from marketing budget):
+        user_ledger:    -paid_cents     (debit, reduced)
+        master_ledger:  +amount_cents   (credit, frozen, FULL price)
+        company_ledger: -discount_cents (marketing expense)
 
     Args:
         booking: Already-created Booking (flushed, has id).
         practice: Practice being purchased (already loaded with FOR UPDATE).
         user: Buyer (current user).
         session: Active async session (caller manages transaction).
+        promo: Optional validated Promo to apply.
 
     Returns:
         The created Purchase.
 
     Raises:
-        BadRequestError: If user balance is insufficient for paid practice.
+        BadRequestError: If user balance is insufficient.
+        ConflictError: If promo usage race condition occurs.
     """
     price_cents = practice.price_cents  # 0 for free practices.
 
+    # Calculate amounts based on promo.
+    if promo:
+        amount_cents, discount_cents, paid_cents = calculate_discount(
+            promo, price_cents,
+        )
+    else:
+        amount_cents = price_cents
+        discount_cents = 0
+        paid_cents = price_cents
+
+    # Build reason suffix for ledger entries.
+    reason_suffix = f"practice={practice.id}"
+    if promo:
+        reason_suffix += f",promo:{promo.code}"
+
     # FOR UPDATE on user row -- serialize concurrent purchases (P-07).
     user_locked = await session.get(User, user.id, with_for_update=True)
-    if user_locked.balance_cents < price_cents:
+    if user_locked.balance_cents < paid_cents:
         raise BadRequestError("Insufficient balance")
 
-    # Double-entry: user debit + master credit (frozen).
+    # Double-entry: user debit (what user actually pays).
     await record_user_ledger(
         user_id=user.id,
-        amount_cents=-price_cents,
-        reason=f"purchase:practice={practice.id}",
+        amount_cents=-paid_cents,
+        reason=f"purchase:{reason_suffix}",
         session=session,
     )
+
+    # Double-entry: master credit (depends on promo type).
+    if promo and promo.type == PromoType.COMPANY.value:
+        # Company promo: master gets FULL price (company covers gap).
+        master_credit = amount_cents
+    else:
+        # No promo or master promo: master gets what user paid.
+        master_credit = paid_cents
+
     await record_master_ledger(
         user_id=practice.master_id,
-        amount_cents=price_cents,
-        reason=f"sale:practice={practice.id}",
+        amount_cents=master_credit,
+        reason=f"sale:{reason_suffix}",
         is_frozen=True,
         practice_id=practice.id,
         session=session,
     )
 
+    # Company promo: company pays the discount from marketing budget.
+    if promo and promo.type == PromoType.COMPANY.value and discount_cents > 0:
+        await record_company_ledger(
+            amount_cents=-discount_cents,
+            ledger_type=CompanyLedgerType.MARKETING.value,
+            reason=f"promo:{promo.code},{reason_suffix}",
+            session=session,
+        )
+
+    # Atomic promo usage increment (P-07).
+    if promo:
+        await increment_promo_usage(promo_id=promo.id, session=session)
+
     # Create Purchase record.
-    # Phase 6.7: amount_cents = full price, discount_cents = 0 (no promo yet).
-    # Promo integration (Batch 4) will set discount_cents > 0.
     purchase = Purchase(
         user_id=user.id,
         practice_id=practice.id,
         booking_id=booking.id,
-        amount_cents=price_cents,
-        discount_cents=0,
-        paid_cents=price_cents,
+        promo_id=promo.id if promo else None,
+        amount_cents=amount_cents,
+        discount_cents=discount_cents,
+        paid_cents=paid_cents,
         currency=practice.currency,
         commission_cents=0,
         status=PurchaseStatus.PENDING.value,
@@ -141,7 +204,11 @@ async def create_purchase_for_booking(
         data={
             "practice_id": str(practice.id),
             "booking_id": str(booking.id),
-            "paid_cents": price_cents,
+            "amount_cents": amount_cents,
+            "discount_cents": discount_cents,
+            "paid_cents": paid_cents,
+            "promo_code": promo.code if promo else None,
+            "promo_type": promo.type if promo else None,
             "is_free": practice.is_free,
         },
         session=session,
@@ -153,7 +220,10 @@ async def create_purchase_for_booking(
         booking_id=str(booking.id),
         practice_id=str(practice.id),
         user_id=str(user.id),
-        paid_cents=price_cents,
+        amount_cents=amount_cents,
+        discount_cents=discount_cents,
+        paid_cents=paid_cents,
+        promo_code=promo.code if promo else None,
     )
 
     return purchase
@@ -172,6 +242,9 @@ async def finalize_purchases(
     2. Calculate commission (paid_cents * commission_percent // 100)
     3. Double-entry: master_ledger(-commission) + company_ledger(+commission)
     4. Mark purchase as completed
+
+    Commission is ALWAYS based on paid_cents (live money from user).
+    Promo discounts do not generate commission.
 
     Even for free purchases (paid_cents=0), commission entries are
     created with amount=0 to maintain double-entry invariant.
@@ -215,7 +288,7 @@ async def finalize_purchases(
 
     for purchase in purchases:
         # L-07 fix: pure integer math -- no float intermediate.
-        # Consistent with refund.py early_finalize_booking().
+        # Commission on live money only (paid_cents, not amount_cents).
         commission = purchase.paid_cents * settings.commission_percent // 100
 
         # Double-entry: master debit + company credit.
@@ -243,32 +316,28 @@ async def finalize_purchases(
         # Audit.
         await record_audit(
             event="purchase_completed",
-            actor_id=None,
-            actor_type="system",
+            actor_id=purchase.user_id,
+            actor_type="user",
             target_type="purchase",
             target_id=purchase.id,
             data={
                 "practice_id": str(practice_id),
-                "user_id": str(purchase.user_id),
                 "paid_cents": purchase.paid_cents,
                 "commission_cents": commission,
+                "promo_id": str(purchase.promo_id) if purchase.promo_id else None,
             },
             session=session,
         )
 
-    logger.info(
-        "purchases_finalized",
-        practice_id=str(practice_id),
-        count=len(purchases),
-        total_commission=sum(p.commission_cents for p in purchases),
-    )
+        logger.info(
+            "purchase_finalized",
+            purchase_id=str(purchase.id),
+            practice_id=str(practice_id),
+            paid_cents=purchase.paid_cents,
+            commission_cents=commission,
+        )
 
     return purchases
-
-
-# ===================================================================
-# Frontend Backlog: User-facing list endpoint
-# ===================================================================
 
 
 async def list_user_purchases(
@@ -279,34 +348,36 @@ async def list_user_purchases(
     limit: int = 20,
     offset: int = 0,
 ) -> tuple[list[tuple[Purchase, Practice]], int]:
-    """List purchases for the current user with practice data.
+    """List purchases for a user with practice details (paginated).
 
-    Returns (items, total) where items are (Purchase, Practice) tuples.
-    Supports filtering by purchase status and pagination.
-
-    Used by GET /api/v1/purchases/me.
+    Returns:
+        Tuple of (list of (Purchase, Practice) pairs, total count).
     """
-    filters: list = [Purchase.user_id == user.id]
-    if status_filter:
-        filters.append(Purchase.status == status_filter)
+    from app.modules.practices.models import Practice
 
-    # Total count.
-    count_stmt = (
-        select(func.count(Purchase.id))
-        .where(*filters)
-    )
-    total = (await session.execute(count_stmt)).scalar_one()
-
-    # Paginated items with practice JOIN.
-    stmt = (
+    base = (
         select(Purchase, Practice)
         .join(Practice, Purchase.practice_id == Practice.id)
-        .where(*filters)
+        .where(Purchase.user_id == user.id)
+    )
+    count_base = (
+        select(func.count(Purchase.id))
+        .where(Purchase.user_id == user.id)
+    )
+
+    if status_filter:
+        base = base.where(Purchase.status == status_filter)
+        count_base = count_base.where(Purchase.status == status_filter)
+
+    total = (await session.execute(count_base)).scalar_one()
+
+    items_stmt = (
+        base
         .order_by(Purchase.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
-    result = await session.execute(stmt)
-    items = [(row[0], row[1]) for row in result.all()]
+    result = await session.execute(items_stmt)
+    rows = result.all()
 
-    return items, total
+    return [(row[0], row[1]) for row in rows], total

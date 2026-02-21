@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Schemas (Phase 5.2 + 5.4 + Frontend Backlog)
+# VELO Backend -- Booking Schemas (Phase 5.2 + 5.4 + Backlog, updated 6.7)
 # =============================================================================
 #
 # BookingResponse:                Base booking representation.
@@ -8,6 +8,8 @@
 # PaginatedBookingsResponse:      Paginated list of BookingWithPractice items.
 # AttendanceItemResponse:         Single booking in attendance list (Phase 5.4).
 # AttendanceResponse:             Full attendance summary (Phase 5.4).
+#
+# Phase 6.7 Batch 4: CreateBookingRequest gains optional promo_code.
 # =============================================================================
 
 from datetime import datetime
@@ -19,9 +21,18 @@ from app.modules.practices.schemas import PracticeSummary, PracticeResponse
 
 
 class CreateBookingRequest(BaseModel):
-    """POST /api/v1/bookings -- request body."""
+    """POST /api/v1/bookings -- request body.
+
+    Phase 6.7: optional promo_code for discount.
+    Existing clients that omit promo_code continue to work unchanged.
+    """
 
     practice_id: UUID
+    promo_code: str | None = Field(
+        default=None,
+        min_length=1, max_length=50,
+        description="Optional promo code to apply.",
+    )
 
 
 class CancelBookingRequest(BaseModel):
