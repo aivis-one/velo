@@ -28,10 +28,49 @@ PAYOUT_URL = "/api/v1/masters/me/payout"
 WITHDRAW_URL = "/api/v1/masters/me/withdraw"
 ADMIN_WITHDRAWALS_URL = "/api/v1/admin/withdrawals"
 
-_CLEANUP_SQL = text(
-    "DELETE FROM withdrawals WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999)"
+# ---------------------------------------------------------------------------
+# Cleanup (dependency order: audit -> company_ledger -> master_ledger ->
+#   payments -> withdrawals -> master_profiles -> reset users -> delete users)
+# ---------------------------------------------------------------------------
+_TID_RANGE = (
+    "SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999"
 )
+
+_CLEANUP_QUERIES = [
+    # 1. Audit logs referencing our users.
+    text(
+        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
+    ),
+    # 2. Company ledger (withdrawal fees reference our withdrawals).
+    text(
+        "DELETE FROM company_ledger WHERE reason LIKE 'withdrawal%%'"
+    ),
+    # 3. Master ledger.
+    text(
+        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 4. Payments (OUT records from approve).
+    text(
+        "DELETE FROM payments WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 5. Withdrawals.
+    text(
+        "DELETE FROM withdrawals WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 6. Master profiles.
+    text(
+        "DELETE FROM master_profiles WHERE user_id IN (" + _TID_RANGE + ")"
+    ),
+    # 7. Reset roles and balance.
+    text(
+        "UPDATE users SET role = 'user', balance_cents = 0 "
+        "WHERE telegram_id BETWEEN 78000 AND 78999"
+    ),
+    # 8. Delete users.
+    text(
+        "DELETE FROM users WHERE telegram_id BETWEEN 78000 AND 78999"
+    ),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -39,10 +78,13 @@ _CLEANUP_SQL = text(
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    await db_session.execute(_CLEANUP_SQL)
+    """Clean up test data before and after each test."""
+    for q in _CLEANUP_QUERIES:
+        await db_session.execute(q)
     await db_session.commit()
     yield
-    await db_session.execute(_CLEANUP_SQL)
+    for q in _CLEANUP_QUERIES:
+        await db_session.execute(q)
     await db_session.commit()
 
 
@@ -107,7 +149,10 @@ async def _make_admin(
     """Create a separate admin for approve/reject actions."""
     auth = await login_user(client, telegram_id=telegram_id)
     await db_session.execute(
-        text(f"UPDATE users SET role = 'admin' WHERE telegram_id = {telegram_id}"),
+        text(
+            "UPDATE users SET role = 'admin' "
+            f"WHERE telegram_id = {telegram_id}"
+        ),
     )
     await db_session.commit()
     auth = await login_user(client, telegram_id=telegram_id)
@@ -141,7 +186,10 @@ async def _set_payout_and_withdraw(
     master: dict,
     amount_cents: int = 5000,
 ) -> str:
-    """Set payout details, give balance, create withdrawal. Returns withdrawal id."""
+    """Set payout details, give balance, create withdrawal.
+
+    Returns withdrawal id.
+    """
     # Set payout details.
     resp = await client.patch(
         PAYOUT_URL,
