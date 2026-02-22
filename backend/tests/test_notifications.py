@@ -79,9 +79,8 @@ async def _create_user(
     """Create a user directly in DB for notification tests."""
     user = User(
         telegram_id=telegram_id,
-        display_name=f"User{telegram_id}",
+        first_name=f"User{telegram_id}",
         role=role,
-        is_active=True,
     )
     session.add(user)
     await session.flush()
