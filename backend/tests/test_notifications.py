@@ -18,7 +18,6 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from httpx import AsyncClient
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,7 +46,6 @@ from app.modules.notifications.service import (
 )
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
 
 
 # ---------------------------------------------------------------------------

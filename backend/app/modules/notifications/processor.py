@@ -117,23 +117,17 @@ async def _poll_cycle() -> bool:
 
     Returns True if any work was done (resets backoff).
     """
-    work_done = False
-
     # Stage 1: Resolve pending notifications into deliveries.
     resolved = await _stage_resolve()
-    if resolved > 0:
-        work_done = True
 
     # Stage 2: Deliver pending deliveries.
     delivered = await _stage_deliver()
-    if delivered > 0:
-        work_done = True
 
-    # Stage 3: Rollup notification statuses.
-    if work_done:
-        await _stage_rollup()
+    # Stage 3: Always run rollup — catches stragglers from failed
+    # previous cycles.  On empty queue it's a cheap SELECT.
+    await _stage_rollup()
 
-    return work_done
+    return resolved > 0 or delivered > 0
 
 
 # ===================================================================
