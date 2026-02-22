@@ -56,17 +56,59 @@ from tests.helpers import auth_headers, login_user
 
 @pytest.fixture
 async def cleanup_notifications(db_session: AsyncSession):
-    """Clean up notification tables after each test."""
+    """Clean up all test entities before and after each test.
+
+    Covers: notification_deliveries, notifications, bookings,
+    practices, master_profiles, users (telegram_id 83000-83999).
+    Before+after pattern protects against interrupted previous runs.
+    """
+    await _do_cleanup(db_session)
     yield
-    # Rollback any pending/failed transaction before cleanup.
-    await db_session.rollback()
-    await db_session.execute(
+    await _do_cleanup(db_session)
+
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Delete all test entities in FK-safe order."""
+    await session.rollback()
+
+    # 1. notification_deliveries (FK → notifications, users).
+    await session.execute(
         NotificationDelivery.__table__.delete()
     )
-    await db_session.execute(
+    # 2. notifications.
+    await session.execute(
         Notification.__table__.delete()
     )
-    await db_session.commit()
+    # 3. bookings where user is in our telegram_id range.
+    user_ids_subq = (
+        select(User.id).where(
+            User.telegram_id.between(83000, 83999),
+        )
+    )
+    await session.execute(
+        Booking.__table__.delete().where(
+            Booking.user_id.in_(user_ids_subq),
+        )
+    )
+    # 4. practices where master is in our range.
+    await session.execute(
+        Practice.__table__.delete().where(
+            Practice.master_id.in_(user_ids_subq),
+        )
+    )
+    # 5. master_profiles where user is in our range.
+    await session.execute(
+        MasterProfile.__table__.delete().where(
+            MasterProfile.user_id.in_(user_ids_subq),
+        )
+    )
+    # 6. users in our telegram_id range.
+    await session.execute(
+        User.__table__.delete().where(
+            User.telegram_id.between(83000, 83999),
+        )
+    )
+    await session.commit()
 
 
 # ---------------------------------------------------------------------------
