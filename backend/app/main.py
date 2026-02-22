@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 6.7)
+# VELO Backend -- Application Entry Point (updated Phase 7.2)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -54,6 +54,9 @@ from app.modules.promos.router import router as promos_router      # Phase 6.7
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
 
+# Notification processor (Phase 7.2).
+from app.modules.notifications.processor import run_processor  # Phase 7.2
+
 
 logger = structlog.get_logger()
 
@@ -69,8 +72,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         json_logs=settings.app_env == "production",
     )
 
+    processor_task: asyncio.Task | None = None
     try:
         await init_redis()
+
+        # Start notification processor as background task (Phase 7.2).
+        processor_task = asyncio.create_task(
+            run_processor(), name="notification_processor",
+        )
+
         logger.info(
             "app_started",
             env=settings.app_env,
@@ -78,6 +88,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         )
         yield
     finally:
+        # Stop notification processor.
+        if processor_task is not None and not processor_task.done():
+            processor_task.cancel()
+            try:
+                await processor_task
+            except asyncio.CancelledError:
+                pass
+
         await close_redis()
         await dispose_engine()
         logger.info("app_stopped")

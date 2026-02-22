@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 6.7)
+# VELO Backend -- Application Configuration (updated Phase 7.2)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -113,6 +113,14 @@ class Settings(BaseSettings):
     # Allowed discount percentages for both company and master promos.
     # Validated in service layer when creating a promo.
     promo_allowed_discounts: list[int] = [5, 25, 50, 75, 100]
+
+    # -- Notifications (Phase 7.2) --
+    # Processor polling interval in seconds (resets on work found).
+    notification_poll_interval_seconds: int = 5
+    # Max backoff when queue is empty (exponential up to this).
+    notification_max_backoff_seconds: int = 60
+    # Max delivery attempts before marking as failed.
+    notification_max_delivery_attempts: int = 3
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
