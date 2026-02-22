@@ -23,6 +23,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.database import get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
 from app.modules.notifications.formatters import DeliveryResult, StubFormatter
@@ -109,6 +110,20 @@ async def _do_cleanup(session: AsyncSession) -> None:
         )
     )
     await session.commit()
+
+
+async def _fresh_scalar(stmt):
+    """Execute statement in a fresh session to bypass test transaction isolation.
+
+    Processor stages commit in their own sessions (via get_session_factory).
+    The test db_session is wrapped in a savepoint-based transaction whose
+    MVCC snapshot never sees those commits.  This helper opens a short-lived
+    independent session, runs the query, and returns scalar_one().
+    """
+    factory = get_session_factory()
+    async with factory() as fresh:
+        result = await fresh.execute(stmt)
+        return result.scalar_one()
 
 
 # ---------------------------------------------------------------------------
@@ -410,12 +425,9 @@ class TestStageResolve:
         resolved = await _stage_resolve()
         assert resolved >= 1
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
-        # Verify deliveries were created.
+        # Processor committed in its own session — use fresh session.
         stmt = select(func.count(NotificationDelivery.id))
-        count = (await db_session.execute(stmt)).scalar_one()
+        count = await _fresh_scalar(stmt)
         assert count >= 1
 
     @pytest.mark.asyncio
@@ -465,14 +477,10 @@ class TestStageResolve:
 
         await _stage_resolve()
 
-        # Processor committed in its own session — reset test session
-        # to see changes.
-        await db_session.rollback()
-
-        # Refresh from a new query to see processor's changes.
+        # Processor committed in its own session — use fresh session
+        # to bypass test transaction MVCC isolation.
         stmt = select(Notification).where(Notification.id == nid)
-        result = await db_session.execute(stmt)
-        refreshed = result.scalar_one()
+        refreshed = await _fresh_scalar(stmt)
         assert refreshed.status == NotificationStatus.EXPIRED.value
 
 
@@ -511,15 +519,11 @@ class TestStageDeliver:
         delivered = await _stage_deliver()
         assert delivered >= 1
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
-        # Check delivery status.
+        # Processor committed in its own session — use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
-        result = await db_session.execute(stmt)
-        delivery = result.scalar_one()
+        delivery = await _fresh_scalar(stmt)
         assert delivery.status == DeliveryStatus.SENT.value
         assert delivery.sent_at is not None
         assert delivery.attempts == 1
@@ -563,15 +567,11 @@ class TestStageDeliver:
 
             await _stage_deliver()
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
-        # Delivery should still be pending (1 attempt < 3 max).
+        # Processor committed in its own session — use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
-        result = await db_session.execute(stmt)
-        delivery = result.scalar_one()
+        delivery = await _fresh_scalar(stmt)
         assert delivery.status == DeliveryStatus.PENDING.value
         assert delivery.attempts == 1
         assert delivery.error_message == "Connection timeout"
@@ -618,15 +618,11 @@ class TestStageDeliver:
             for _ in range(max_att):
                 await _stage_deliver()
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
-        # Delivery should be failed.
+        # Processor committed in its own session — use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
-        result = await db_session.execute(stmt)
-        delivery = result.scalar_one()
+        delivery = await _fresh_scalar(stmt)
         assert delivery.status == DeliveryStatus.FAILED.value
         assert delivery.attempts == max_att
 
@@ -666,14 +662,11 @@ class TestRollup:
         # Rollup.
         await _stage_rollup()
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
+        # Processor committed in its own session — use fresh session.
         stmt = select(Notification).where(
             Notification.id == notification.id,
         )
-        result = await db_session.execute(stmt)
-        refreshed = result.scalar_one()
+        refreshed = await _fresh_scalar(stmt)
         assert refreshed.status == NotificationStatus.SENT.value
 
     @pytest.mark.asyncio
@@ -718,12 +711,9 @@ class TestRollup:
         # Rollup.
         await _stage_rollup()
 
-        # Processor committed in its own session — reset test session.
-        await db_session.rollback()
-
+        # Processor committed in its own session — use fresh session.
         stmt = select(Notification).where(
             Notification.id == notification.id,
         )
-        result = await db_session.execute(stmt)
-        refreshed = result.scalar_one()
+        refreshed = await _fresh_scalar(stmt)
         assert refreshed.status == NotificationStatus.FAILED.value
