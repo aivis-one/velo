@@ -8,8 +8,8 @@
 
 """create_notifications_tables
 
-Revision ID: e1f2a3b4c5d6
-Revises: d0e1f2a3b4c5
+Revision ID: f2a3b4c5d6e7
+Revises: e1f2a3b4c5d6
 Create Date: 2026-02-22
 """
 
@@ -18,8 +18,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "e1f2a3b4c5d6"
-down_revision: str | None = "d0e1f2a3b4c5"
+revision: str = "f2a3b4c5d6e7"
+down_revision: str | None = "e1f2a3b4c5d6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -163,8 +163,6 @@ def upgrade() -> None:
         "notification_deliveries",
         ["user_id"],
     )
-    # Composite index for delivery processor:
-    # WHERE status = 'pending' ORDER BY created_at
     op.create_index(
         "ix_notification_deliveries_status",
         "notification_deliveries",
