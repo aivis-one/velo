@@ -17,6 +17,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "f2a3b4c5d6e7"
 down_revision: str | None = "e1f2a3b4c5d6"
@@ -38,7 +39,7 @@ def upgrade() -> None:
         sa.Column("target_value", sa.String(200), nullable=False),
         sa.Column(
             "action_data",
-            sa.JSON(),
+            postgresql.JSONB(astext_type=sa.Text()),
             nullable=True,
         ),
         sa.Column(
@@ -115,7 +116,7 @@ def upgrade() -> None:
         sa.Column("channel", sa.String(20), nullable=False),
         sa.Column(
             "channel_options",
-            sa.JSON(),
+            postgresql.JSONB(astext_type=sa.Text()),
             nullable=True,
         ),
         sa.Column(
@@ -163,6 +164,8 @@ def upgrade() -> None:
         "notification_deliveries",
         ["user_id"],
     )
+    # Composite index for delivery processor:
+    # WHERE status = 'pending' ORDER BY created_at
     op.create_index(
         "ix_notification_deliveries_status",
         "notification_deliveries",
