@@ -52,6 +52,7 @@ from app.modules.promos.router import router as promos_router      # Phase 6.7
 
 # Model imports for Alembic and relationship resolution.
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
+from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
 
 
 logger = structlog.get_logger()

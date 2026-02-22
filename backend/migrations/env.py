@@ -44,6 +44,7 @@ from app.modules.payments.models import (  # noqa: F401  # Phase 6.1-6.4
 )
 from app.modules.withdrawals.models import Withdrawal  # noqa: F401  # Phase 6.6
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
+from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
 
 # ---------------------------------------------------------------------------
 # Alembic Config object — provides access to alembic.ini values.
