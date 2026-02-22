@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.masters.models import MasterProfile
 from app.modules.notifications.formatters import DeliveryResult, StubFormatter
 from app.modules.notifications.models import (
     DeliveryChannel,
@@ -57,6 +58,8 @@ from tests.helpers import auth_headers, login_user
 async def cleanup_notifications(db_session: AsyncSession):
     """Clean up notification tables after each test."""
     yield
+    # Rollback any pending/failed transaction before cleanup.
+    await db_session.rollback()
     await db_session.execute(
         NotificationDelivery.__table__.delete()
     )
@@ -243,6 +246,11 @@ class TestTargetResolution:
         user2 = await _create_user(db_session, telegram_id=83022)
         user3 = await _create_user(db_session, telegram_id=83023)
 
+        # FK: practices.master_id -> master_profiles.user_id.
+        master_profile = MasterProfile(user_id=master.id)
+        db_session.add(master_profile)
+        await db_session.flush()
+
         # Create a practice.
         practice = Practice(
             master_id=master.id,
@@ -360,6 +368,9 @@ class TestStageResolve:
         resolved = await _stage_resolve()
         assert resolved >= 1
 
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
+
         # Verify deliveries were created.
         stmt = select(func.count(NotificationDelivery.id))
         count = (await db_session.execute(stmt)).scalar_one()
@@ -412,6 +423,10 @@ class TestStageResolve:
 
         await _stage_resolve()
 
+        # Processor committed in its own session — reset test session
+        # to see changes.
+        await db_session.rollback()
+
         # Refresh from a new query to see processor's changes.
         stmt = select(Notification).where(Notification.id == nid)
         result = await db_session.execute(stmt)
@@ -453,6 +468,9 @@ class TestStageDeliver:
 
         delivered = await _stage_deliver()
         assert delivered >= 1
+
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
 
         # Check delivery status.
         stmt = select(NotificationDelivery).where(
@@ -502,6 +520,9 @@ class TestStageDeliver:
             mock_get.return_value = mock_formatter
 
             await _stage_deliver()
+
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
 
         # Delivery should still be pending (1 attempt < 3 max).
         stmt = select(NotificationDelivery).where(
@@ -555,6 +576,9 @@ class TestStageDeliver:
             for _ in range(max_att):
                 await _stage_deliver()
 
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
+
         # Delivery should be failed.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
@@ -599,6 +623,9 @@ class TestRollup:
 
         # Rollup.
         await _stage_rollup()
+
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
 
         stmt = select(Notification).where(
             Notification.id == notification.id,
@@ -648,6 +675,9 @@ class TestRollup:
 
         # Rollup.
         await _stage_rollup()
+
+        # Processor committed in its own session — reset test session.
+        await db_session.rollback()
 
         stmt = select(Notification).where(
             Notification.id == notification.id,
