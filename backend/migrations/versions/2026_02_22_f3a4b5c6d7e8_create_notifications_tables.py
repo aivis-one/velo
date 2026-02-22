@@ -8,8 +8,8 @@
 
 """create_notifications_tables
 
-Revision ID: e1f2a3b4c5d6
-Revises: d0e1f2a3b4c5
+Revision ID: f3a4b5c6d7e8
+Revises: e1f2a3b4c5d6
 Create Date: 2026-02-22
 """
 
@@ -19,8 +19,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "e1f2a3b4c5d6"
-down_revision: str | None = "d0e1f2a3b4c5"
+revision: str = "f3a4b5c6d7e8"
+down_revision: str | None = "e1f2a3b4c5d6"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
