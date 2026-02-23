@@ -52,7 +52,7 @@ from app.modules.notifications.service import (
 )
 from app.modules.notifications.template_engine import (
     SafeDict,
-    _normalize_language,
+    normalize_language,
     load_templates,
     render,
 )
@@ -799,29 +799,29 @@ class TestTemplateEngine:
         result = "{a} + {b}".format_map(sd)
         assert result == "1 + 2"
 
-    def test_normalize_language_supported(self) -> None:
+    def testnormalize_language_supported(self) -> None:
         """Supported language codes pass through."""
-        assert _normalize_language("en") == "en"
-        assert _normalize_language("de") == "de"
-        assert _normalize_language("es") == "es"
-        assert _normalize_language("ru") == "ru"
+        assert normalize_language("en") == "en"
+        assert normalize_language("de") == "de"
+        assert normalize_language("es") == "es"
+        assert normalize_language("ru") == "ru"
 
-    def test_normalize_language_with_region(self) -> None:
+    def testnormalize_language_with_region(self) -> None:
         """Language codes with region are truncated."""
-        assert _normalize_language("en-US") == "en"
-        assert _normalize_language("de-AT") == "de"
-        assert _normalize_language("ru-RU") == "ru"
+        assert normalize_language("en-US") == "en"
+        assert normalize_language("de-AT") == "de"
+        assert normalize_language("ru-RU") == "ru"
 
-    def test_normalize_language_unsupported(self) -> None:
+    def testnormalize_language_unsupported(self) -> None:
         """Unsupported languages fall back to en."""
-        assert _normalize_language("pt") == "en"
-        assert _normalize_language("ja") == "en"
-        assert _normalize_language("zh-CN") == "en"
+        assert normalize_language("pt") == "en"
+        assert normalize_language("ja") == "en"
+        assert normalize_language("zh-CN") == "en"
 
-    def test_normalize_language_none(self) -> None:
+    def testnormalize_language_none(self) -> None:
         """None falls back to en."""
-        assert _normalize_language(None) == "en"
-        assert _normalize_language("") == "en"
+        assert normalize_language(None) == "en"
+        assert normalize_language("") == "en"
 
     def test_load_templates_returns_count(self) -> None:
         """load_templates() returns number of entries loaded."""
