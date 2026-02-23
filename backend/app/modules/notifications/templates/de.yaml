@@ -16,6 +16,20 @@ reminder_10min:
   title: "Praxis beginnt gleich"
   body: "🔔 <b>{practice_title}</b> beginnt in 10 Minuten!\n\n👤 Lehrer: {master_name}"
 
+# -- Meister-Erinnerungen (Phase 7.4) --
+
+master_reminder_24h:
+  title: "Deine Praxis ist morgen"
+  body: "⏰ Erinnerung: deine Praxis <b>{practice_title}</b> beginnt in 24 Stunden.\n\n📅 {scheduled_at}\n👥 Teilnehmer: {participants_count}"
+
+master_reminder_1h:
+  title: "Deine Praxis in 1 Stunde"
+  body: "⏰ Deine Praxis <b>{practice_title}</b> beginnt in 1 Stunde!\n\n📅 {scheduled_at}\n👥 Teilnehmer: {participants_count}"
+
+master_reminder_10min:
+  title: "Deine Praxis beginnt gleich"
+  body: "🔔 Deine Praxis <b>{practice_title}</b> beginnt in 10 Minuten!\n\n👥 Teilnehmer: {participants_count}"
+
 # -- Buchungsablauf --
 
 booking_confirmed:

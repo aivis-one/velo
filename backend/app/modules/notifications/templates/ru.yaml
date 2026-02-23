@@ -16,6 +16,20 @@ reminder_10min:
   title: "Практика скоро начнётся"
   body: "🔔 <b>{practice_title}</b> начнётся через 10 минут!\n\n👤 Мастер: {master_name}"
 
+# -- Напоминания для мастера (Phase 7.4) --
+
+master_reminder_24h:
+  title: "Ваша практика завтра"
+  body: "⏰ Напоминание: ваша практика <b>{practice_title}</b> начнётся через 24 часа.\n\n📅 {scheduled_at}\n👥 Участников: {participants_count}"
+
+master_reminder_1h:
+  title: "Ваша практика через 1 час"
+  body: "⏰ Ваша практика <b>{practice_title}</b> начнётся через 1 час!\n\n📅 {scheduled_at}\n👥 Участников: {participants_count}"
+
+master_reminder_10min:
+  title: "Ваша практика скоро начнётся"
+  body: "🔔 Ваша практика <b>{practice_title}</b> начнётся через 10 минут!\n\n👥 Участников: {participants_count}"
+
 # -- Бронирования --
 
 booking_confirmed:
