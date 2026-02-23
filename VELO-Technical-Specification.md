@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.5
-**Дата:** 23 февраля 2026
+**Версия:** 2.6
+**Дата:** 24 февраля 2026
 **Статус:** Draft
 
 ---
@@ -2176,7 +2176,7 @@ backend/tests/
 - Двухуровневая архитектура: Notification (что отправить) → NotificationDelivery (кому, каким каналом)
 - Target routing: target_type + target_value → user:<uuid>, practice:<uuid>, role:master, all
 - action_data JSONB для deep linking (channel-agnostic navigation intent)
-- NotificationType — StrEnum с 18 типами (reminders, booking, practice, waitlist, master, payments, feedback, system)
+- NotificationType — StrEnum с 21 типами (reminders, master_reminders, booking, practice, waitlist, master, payments, feedback, system)
 - Priority: 1=urgent, 5=low (default 5)
 
 **Критерий готовности:** Миграция применена. ✅
@@ -2256,18 +2256,61 @@ backend/app/modules/notifications/
 
 ---
 
-### 7.4: Напоминания
+### 7.4: Напоминания ✅
 
 **Цель:** Авто-напоминания о практиках.
 
 **Задачи:**
-- [ ] При создании booking → планировать 3 напоминания
-- [ ] 24 часа до практики
-- [ ] 1 час до практики
-- [ ] 10 минут до практики
-- [ ] APScheduler или Celery Beat
+- [x] app/modules/notifications/reminders.py — 5 публичных функций
+- [x] Пользовательские напоминания: 24ч, 1ч, 10мин до практики (при создании booking)
+- [x] Мастерские напоминания: 24ч, 1ч, 10мин до практики (при draft → scheduled)
+- [x] Отмена напоминаний при cancel_booking (только юзерские)
+- [x] Отмена всех напоминаний при cancel_practice (юзерские + мастерские)
+- [x] Перепланирование всех напоминаний при изменении scheduled_at
+- [x] Интеграция с waitlist (confirm_waitlist → schedule_reminders)
+- [x] models.py: +3 enum (MASTER_REMINDER_24H/1H/10MIN)
+- [x] templates/{en,de,es,ru}.yaml: +3 master_reminder шаблона × 4 языка (всего 80 шаблонов)
+- [x] 17 тестов (test_reminders.py, telegram_id range 84000-84999)
 
-**Критерий готовности:** Напоминания приходят автоматически.
+**Решения, принятые при реализации:**
+- Без APScheduler/Celery — используется существующий NotificationProcessor (Phase 7.2). Напоминания создаются как Notification с future scheduled_at, процессор подхватывает их при наступлении времени
+- 5-минутный буфер (_MIN_LEAD_TIME): не создаём напоминания, если до практики меньше 5 минут
+- Раздельные типы для юзера (REMINDER_*) и мастера (MASTER_REMINDER_*) — разные шаблоны, чистая отмена
+- action_data["practice_id"] как ключ фильтрации (JSONB astext query)
+- expiry_at = practice.scheduled_at — процессор не отправит напоминание после начала практики
+- Lazy imports в точках интеграции (bookings/service.py, practices/service.py, waitlist/service.py) — избегаем циклических зависимостей
+- Master display_name: MasterProfile.data.profile.display_name → User.first_name → "Master"
+- Priority: 2 (выше дефолтных 5, ниже urgent 1)
+
+**Структура файлов Phase 7.4:**
+```
+backend/app/modules/notifications/
+├── reminders.py             ← NEW: schedule/cancel/reschedule (5 functions)
+├── models.py                ← PATCHED: +3 MASTER_REMINDER enum values
+├── templates/
+│   ├── en.yaml              ← PATCHED: +3 master_reminder templates (20 total)
+│   ├── de.yaml              ← PATCHED: +3 master_reminder templates
+│   ├── es.yaml              ← PATCHED: +3 master_reminder templates
+│   └── ru.yaml              ← PATCHED: +3 master_reminder templates
+
+backend/app/modules/
+├── bookings/service.py      ← PATCHED: +schedule_reminders, +cancel_reminders
+├── practices/service.py     ← PATCHED: +schedule_master, +reschedule, +cancel_all
+├── waitlist/service.py      ← PATCHED: +schedule_reminders
+
+backend/tests/
+└── test_reminders.py        ← NEW: 17 tests (84000-84999)
+```
+
+**Закрытые баги:**
+- BUG-31 (LOW): Неиспользуемые импорты auth_headers, login_user в test_reminders.py — удалены
+
+**Закрытый документационный долг:**
+- TODO в models.py header: "Update TS Phase 7.1 to reflect UUID decision" — убран, комментарий обновлён
+
+**telegram_id ranges:** 84000-84999
+
+**Критерий готовности:** Напоминания приходят автоматически. 80 шаблонов загружены на проде. ✅
 
 ---
 
