@@ -1,0 +1,87 @@
+# =============================================================================
+# VELO -- Шаблоны уведомлений (Русский)
+# =============================================================================
+
+# -- Напоминания (Phase 7.4) --
+
+reminder_24h:
+  title: "Практика завтра"
+  body: "⏰ Напоминание: <b>{practice_title}</b> начнётся через 24 часа.\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}"
+
+reminder_1h:
+  title: "Практика через 1 час"
+  body: "⏰ <b>{practice_title}</b> начнётся через 1 час!\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}"
+
+reminder_10min:
+  title: "Практика скоро начнётся"
+  body: "🔔 <b>{practice_title}</b> начнётся через 10 минут!\n\n👤 Мастер: {master_name}"
+
+# -- Бронирования --
+
+booking_confirmed:
+  title: "Бронирование подтверждено"
+  body: "✅ Ваше бронирование на <b>{practice_title}</b> подтверждено.\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}\n💰 Оплачено: €{paid_amount}"
+
+booking_cancelled:
+  title: "Бронирование отменено"
+  body: "❌ Ваше бронирование на <b>{practice_title}</b> отменено.\n\n📅 {scheduled_at}"
+
+# -- Практики --
+
+practice_cancelled:
+  title: "Практика отменена"
+  body: "❌ Практика <b>{practice_title}</b> {scheduled_at} была отменена мастером.\n\n💰 Оплата возвращена на ваш баланс."
+
+practice_updated:
+  title: "Практика обновлена"
+  body: "📝 Практика <b>{practice_title}</b> была обновлена.\n\n📅 Новое время: {scheduled_at}\n👤 Мастер: {master_name}"
+
+# -- Лист ожидания --
+
+waitlist_spot_available:
+  title: "Место освободилось!"
+  body: "🎉 Освободилось место на <b>{practice_title}</b>!\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}\n\nВы были автоматически записаны."
+
+waitlist_expired:
+  title: "Лист ожидания истёк"
+  body: "⏳ Ваша запись в листе ожидания на <b>{practice_title}</b> истекла.\n\n📅 {scheduled_at}"
+
+# -- Верификация мастера --
+
+master_verified:
+  title: "Заявка одобрена"
+  body: "🎉 Поздравляем! Ваша заявка мастера одобрена.\n\nТеперь вы можете создавать и управлять практиками."
+
+master_rejected:
+  title: "Заявка отклонена"
+  body: "Ваша заявка мастера была рассмотрена и, к сожалению, не была одобрена.\n\nВы можете подать новую заявку."
+
+# -- Платежи --
+
+topup_confirmed:
+  title: "Пополнение подтверждено"
+  body: "💰 Ваш кошелёк пополнен на <b>€{amount}</b>.\n\n💳 Новый баланс: €{new_balance}"
+
+withdrawal_approved:
+  title: "Вывод одобрен"
+  body: "💸 Ваш вывод на сумму <b>€{amount}</b> одобрен.\n\nСредства будут переведены на ваш счёт."
+
+withdrawal_rejected:
+  title: "Вывод отклонён"
+  body: "Ваш запрос на вывод <b>€{amount}</b> отклонён.\n\nПричина: {reason}\n\nСредства возвращены на ваш доступный баланс."
+
+# -- Обратная связь (Phase 8) --
+
+leave_review:
+  title: "Как прошла практика?"
+  body: "🙏 Вы посетили <b>{practice_title}</b> с {master_name}.\n\nПожалуйста, оставьте отзыв!"
+
+leave_feedback:
+  title: "Поделитесь впечатлениями"
+  body: "🙏 Как вам <b>{practice_title}</b>?\n\nВаш отзыв поможет {master_name} улучшить практики."
+
+# -- Системные --
+
+system_announcement:
+  title: "{title}"
+  body: "{body}"

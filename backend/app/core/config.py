@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 7.2)
+# VELO Backend -- Application Configuration (updated Phase 7.3)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -68,6 +68,9 @@ class Settings(BaseSettings):
     # Dev default is a fake token -- HMAC won't match real Telegram data,
     # but tests mock validation anyway. (P-4)
     telegram_bot_token: str = ""
+    # Bot URL for deep link buttons in notifications (Phase 7.3).
+    # Example: "https://t.me/velo_testbot"
+    telegram_bot_url: str = ""
 
     # -- Sessions --
     # How long a session token lives in Redis (days).
