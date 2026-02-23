@@ -1,35 +1,42 @@
 # =============================================================================
-# VELO Backend -- Notification Processor (Phase 7.2)
+# VELO Backend -- Notification Processor (Phase 7.2, updated 7.3)
 # =============================================================================
 #
 # Background asyncio.Task that runs inside FastAPI lifespan.
-# Two-stage pipeline:
+# Three-stage pipeline:
 #
-# STAGE 1 — RESOLUTION:
+# STAGE 1 -- RESOLUTION:
 #   Poll notifications WHERE status=pending AND scheduled_at <= now().
 #   For each: check expiry, resolve target into deliveries, set processing.
 #
-# STAGE 2 — DELIVERY:
+# STAGE 2 -- DELIVERY:
 #   Poll deliveries WHERE status=pending AND attempts < max.
-#   For each: send via channel formatter, update status/attempts/error.
+#   For each: render template (Phase 7.3), send via channel formatter,
+#   update status/attempts/error.
 #
-# ROLLUP:
+# STAGE 3 -- ROLLUP:
 #   After delivery batch, check if all deliveries for a notification are
 #   terminal (sent/failed). Update notification status accordingly:
-#     any sent → notification=sent
-#     all failed → notification=failed
+#     any sent -> notification=sent
+#     all failed -> notification=failed
+#
+# TEMPLATE RENDERING (Phase 7.3):
+#   Before calling formatter.send(), processor renders notification
+#   title/body via template_engine.render(). If a template exists
+#   for (notification.type, user.language), it replaces the DB-stored
+#   title/body. If not found, DB values are used as fallback.
+#
+# PERMANENT FAILURES (Phase 7.3):
+#   DeliveryResult.permanent=True (e.g. "bot blocked by user") causes
+#   immediate failure without retries.
 #
 # BACKOFF:
-#   Empty poll → interval doubles (up to max_backoff).
-#   Found work → interval resets to base.
+#   Empty poll -> interval doubles (up to max_backoff).
+#   Found work -> interval resets to base.
 #
 # SESSION MANAGEMENT:
 #   Processor runs outside request context. Uses get_session_factory()
 #   to create sessions manually, same pattern as webhook_router.
-#
-# DEPLOYMENT:
-#   MVP: background task in FastAPI lifespan (Phase 7.2).
-#   Future: separate Docker service with own entrypoint (Phase 9+).
 #
 # ERROR HANDLING:
 #   Each notification/delivery is processed independently. One failure
@@ -54,6 +61,7 @@ from app.modules.notifications.models import (
     NotificationStatus,
 )
 from app.modules.notifications.service import resolve_notification
+from app.modules.notifications.template_engine import render as render_template
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -123,7 +131,7 @@ async def _poll_cycle() -> bool:
     # Stage 2: Deliver pending deliveries.
     delivered = await _stage_deliver()
 
-    # Stage 3: Always run rollup — catches stragglers from failed
+    # Stage 3: Always run rollup -- catches stragglers from failed
     # previous cycles.  On empty queue it's a cheap SELECT.
     await _stage_rollup()
 
@@ -188,7 +196,7 @@ async def _stage_resolve() -> int:
             )
 
             if not deliveries:
-                # No recipients — mark as sent (nothing to do).
+                # No recipients -- mark as sent (nothing to do).
                 notification.status = NotificationStatus.SENT.value
                 logger.info(
                     "notification_sent_no_recipients",
@@ -221,6 +229,8 @@ async def _stage_resolve() -> int:
 
 async def _stage_deliver() -> int:
     """Poll pending deliveries and send via channel formatters.
+
+    Phase 7.3: renders templates before send(), respects permanent failures.
 
     Returns count of deliveries attempted.
     """
@@ -266,16 +276,30 @@ async def _stage_deliver() -> int:
                 notification.action_data,
             )
 
+            # Phase 7.3: Render template for user's language.
+            # Falls back to notification.title / notification.body
+            # if no template found.
+            title = notification.title
+            body = notification.body
+
+            rendered = render_template(
+                notification_type=notification.type,
+                lang=user.language,
+                variables=notification.action_data or {},
+            )
+            if rendered is not None:
+                title, body = rendered
+
             try:
                 send_result = await formatter.send(
-                    title=notification.title,
-                    body=notification.body,
+                    title=title,
+                    body=body,
                     user_telegram_id=user.telegram_id,
                     deep_link=deep_link,
                     channel_options=delivery.channel_options,
                 )
             except Exception as exc:
-                # Formatter raised — treat as failure.
+                # Formatter raised -- treat as failure.
                 send_result = None
                 delivery.attempts += 1
                 delivery.error_message = str(exc)[:500]
@@ -308,7 +332,15 @@ async def _stage_deliver() -> int:
                     send_result.error_message or "Unknown error"
                 )[:500]
 
-                if delivery.attempts >= max_attempts:
+                # Phase 7.3: Permanent failure -- skip retries.
+                if getattr(send_result, "permanent", False):
+                    delivery.status = DeliveryStatus.FAILED.value
+                    logger.warning(
+                        "notification_delivery_permanent_failure",
+                        delivery_id=str(delivery.id),
+                        error=delivery.error_message,
+                    )
+                elif delivery.attempts >= max_attempts:
                     delivery.status = DeliveryStatus.FAILED.value
                     logger.warning(
                         "notification_delivery_failed_final",
@@ -352,8 +384,8 @@ async def _stage_rollup() -> None:
 
     For each notification in 'processing' status:
       - If no pending deliveries remain:
-        - Any sent → notification=sent
-        - All failed → notification=failed
+        - Any sent -> notification=sent
+        - All failed -> notification=failed
     """
     factory = get_session_factory()
     session = factory()

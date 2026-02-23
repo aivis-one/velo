@@ -1,20 +1,22 @@
 # =============================================================================
-# Test: Notifications Module — Phase 7.2
+# Test: Notifications Module -- Phase 7.2, updated Phase 7.3
 # =============================================================================
 #
 # Tests cover:
 #   1. create_notification() helper
 #   2. Target resolution (user, practice, role)
-#   3. Delivery processing (stub formatter, status transitions)
-#   4. Retry logic (attempts < max → pending, >= max → failed)
-#   5. Expiry (expired notifications skip delivery)
-#   6. Rollup (notification status based on deliveries)
+#   3. Processor: Stage Resolve
+#   4. Processor: Stage Deliver (stub formatter, status transitions)
+#   5. Processor: Rollup (notification status based on deliveries)
+#   6. Template engine (Phase 7.3)
+#   7. TelegramFormatter (Phase 7.3, mocked)
+#   8. Permanent failure handling (Phase 7.3)
 #
 # telegram_id range: 83000-83999
 # =============================================================================
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -25,7 +27,11 @@ from app.core.config import settings
 from app.core.database import get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
-from app.modules.notifications.formatters import DeliveryResult, StubFormatter
+from app.modules.notifications.formatters import (
+    DeliveryResult,
+    StubFormatter,
+    TelegramFormatter,
+)
 from app.modules.notifications.models import (
     DeliveryChannel,
     DeliveryStatus,
@@ -43,6 +49,12 @@ from app.modules.notifications.processor import (
 from app.modules.notifications.service import (
     create_notification,
     resolve_notification,
+)
+from app.modules.notifications.template_engine import (
+    SafeDict,
+    _normalize_language,
+    load_templates,
+    render,
 )
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.users.models import User, UserRole
@@ -70,7 +82,7 @@ async def _do_cleanup(session: AsyncSession) -> None:
     """Delete all test entities in FK-safe order."""
     await session.rollback()
 
-    # 1. notification_deliveries (FK → notifications, users).
+    # 1. notification_deliveries (FK -> notifications, users).
     await session.execute(
         NotificationDelivery.__table__.delete()
     )
@@ -244,7 +256,7 @@ class TestTargetResolution:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """user target → exactly 1 delivery."""
+        """user target -> exactly 1 delivery."""
         user = await _create_user(db_session, telegram_id=83010)
 
         notification = await create_notification(
@@ -271,7 +283,7 @@ class TestTargetResolution:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """user target with nonexistent UUID → 0 deliveries."""
+        """user target with nonexistent UUID -> 0 deliveries."""
         notification = await create_notification(
             type=NotificationType.BOOKING_CONFIRMED.value,
             title="Confirmed",
@@ -293,7 +305,7 @@ class TestTargetResolution:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """practice target → delivery for each booked user."""
+        """practice target -> delivery for each booked user."""
         master = await _create_user(
             db_session, telegram_id=83020, role=UserRole.MASTER.value,
         )
@@ -363,7 +375,7 @@ class TestTargetResolution:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """role target → delivery for each user with that role."""
+        """role target -> delivery for each user with that role."""
         master1 = await _create_user(
             db_session, telegram_id=83030, role=UserRole.MASTER.value,
         )
@@ -423,7 +435,7 @@ class TestStageResolve:
         resolved = await _stage_resolve()
         assert resolved >= 1
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(func.count(NotificationDelivery.id))
         count = await _fresh_scalar(stmt)
         assert count >= 1
@@ -475,7 +487,7 @@ class TestStageResolve:
 
         await _stage_resolve()
 
-        # Processor committed in its own session — use fresh session
+        # Processor committed in its own session -- use fresh session
         # to bypass test transaction MVCC isolation.
         stmt = select(Notification).where(Notification.id == nid)
         refreshed = await _fresh_scalar(stmt)
@@ -496,7 +508,7 @@ class TestStageDeliver:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """StubFormatter sends successfully → delivery.status=sent."""
+        """StubFormatter sends successfully -> delivery.status=sent."""
         user = await _create_user(db_session, telegram_id=83050)
 
         notification = await create_notification(
@@ -517,7 +529,7 @@ class TestStageDeliver:
         delivered = await _stage_deliver()
         assert delivered >= 1
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
@@ -532,7 +544,7 @@ class TestStageDeliver:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """Failed send → attempts incremented, stays pending if under max."""
+        """Failed send -> attempts incremented, stays pending if under max."""
         user = await _create_user(db_session, telegram_id=83051)
 
         notification = await create_notification(
@@ -565,7 +577,7 @@ class TestStageDeliver:
 
             await _stage_deliver()
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
@@ -580,7 +592,7 @@ class TestStageDeliver:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """After max_attempts failures → delivery.status=failed."""
+        """After max_attempts failures -> delivery.status=failed."""
         user = await _create_user(db_session, telegram_id=83052)
 
         notification = await create_notification(
@@ -616,13 +628,63 @@ class TestStageDeliver:
             for _ in range(max_att):
                 await _stage_deliver()
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(NotificationDelivery).where(
             NotificationDelivery.notification_id == notification.id,
         )
         delivery = await _fresh_scalar(stmt)
         assert delivery.status == DeliveryStatus.FAILED.value
         assert delivery.attempts == max_att
+
+    @pytest.mark.asyncio
+    async def test_permanent_failure_skips_retries(
+        self,
+        db_session: AsyncSession,
+        cleanup_notifications,
+    ) -> None:
+        """Permanent failure (e.g. bot blocked) -> immediate failed, no retries."""
+        user = await _create_user(db_session, telegram_id=83053)
+
+        notification = await create_notification(
+            type=NotificationType.BOOKING_CONFIRMED.value,
+            title="Confirmed",
+            body="Done.",
+            target_type=TargetType.USER.value,
+            target_value=str(user.id),
+            session=db_session,
+        )
+        notification.status = NotificationStatus.PROCESSING.value
+        await resolve_notification(notification, db_session)
+        await db_session.commit()
+
+        # Patch formatter to return permanent failure.
+        perm_result = DeliveryResult(
+            success=False,
+            error_message="bot was blocked by the user",
+            permanent=True,
+        )
+
+        with patch(
+            "app.modules.notifications.processor.get_formatter",
+        ) as mock_get:
+            mock_formatter = StubFormatter()
+
+            async def _perm_fail(**kwargs):
+                return perm_result
+
+            mock_formatter.send = _perm_fail
+            mock_get.return_value = mock_formatter
+
+            await _stage_deliver()
+
+        # Should be failed after just 1 attempt (not 3).
+        stmt = select(NotificationDelivery).where(
+            NotificationDelivery.notification_id == notification.id,
+        )
+        delivery = await _fresh_scalar(stmt)
+        assert delivery.status == DeliveryStatus.FAILED.value
+        assert delivery.attempts == 1
+        assert "blocked" in delivery.error_message
 
 
 # ===================================================================
@@ -639,7 +701,7 @@ class TestRollup:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """When all deliveries are sent → notification.status=sent."""
+        """When all deliveries are sent -> notification.status=sent."""
         user = await _create_user(db_session, telegram_id=83060)
 
         notification = await create_notification(
@@ -660,7 +722,7 @@ class TestRollup:
         # Rollup.
         await _stage_rollup()
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(Notification).where(
             Notification.id == notification.id,
         )
@@ -673,7 +735,7 @@ class TestRollup:
         db_session: AsyncSession,
         cleanup_notifications,
     ) -> None:
-        """When all deliveries are failed → notification.status=failed."""
+        """When all deliveries are failed -> notification.status=failed."""
         user = await _create_user(db_session, telegram_id=83061)
 
         notification = await create_notification(
@@ -709,9 +771,257 @@ class TestRollup:
         # Rollup.
         await _stage_rollup()
 
-        # Processor committed in its own session — use fresh session.
+        # Processor committed in its own session -- use fresh session.
         stmt = select(Notification).where(
             Notification.id == notification.id,
         )
         refreshed = await _fresh_scalar(stmt)
         assert refreshed.status == NotificationStatus.FAILED.value
+
+
+# ===================================================================
+# 6. Template Engine (Phase 7.3)
+# ===================================================================
+
+
+class TestTemplateEngine:
+    """Tests for notification template engine."""
+
+    def test_safe_dict_missing_key(self) -> None:
+        """SafeDict returns literal placeholder for missing keys."""
+        sd = SafeDict({"name": "Alice"})
+        result = "Hello {name}, your code is {code}".format_map(sd)
+        assert result == "Hello Alice, your code is {code}"
+
+    def test_safe_dict_all_present(self) -> None:
+        """SafeDict works normally when all keys present."""
+        sd = SafeDict({"a": "1", "b": "2"})
+        result = "{a} + {b}".format_map(sd)
+        assert result == "1 + 2"
+
+    def test_normalize_language_supported(self) -> None:
+        """Supported language codes pass through."""
+        assert _normalize_language("en") == "en"
+        assert _normalize_language("de") == "de"
+        assert _normalize_language("es") == "es"
+        assert _normalize_language("ru") == "ru"
+
+    def test_normalize_language_with_region(self) -> None:
+        """Language codes with region are truncated."""
+        assert _normalize_language("en-US") == "en"
+        assert _normalize_language("de-AT") == "de"
+        assert _normalize_language("ru-RU") == "ru"
+
+    def test_normalize_language_unsupported(self) -> None:
+        """Unsupported languages fall back to en."""
+        assert _normalize_language("pt") == "en"
+        assert _normalize_language("ja") == "en"
+        assert _normalize_language("zh-CN") == "en"
+
+    def test_normalize_language_none(self) -> None:
+        """None falls back to en."""
+        assert _normalize_language(None) == "en"
+        assert _normalize_language("") == "en"
+
+    def test_load_templates_returns_count(self) -> None:
+        """load_templates() returns number of entries loaded."""
+        count = load_templates()
+        # 4 languages * N templates each.
+        assert count > 0
+
+    def test_render_english_booking_confirmed(self) -> None:
+        """Render booking_confirmed in English with variables."""
+        load_templates()
+        result = render(
+            "booking_confirmed",
+            "en",
+            {
+                "practice_title": "Morning Yoga",
+                "scheduled_at": "2026-03-01 10:00",
+                "master_name": "Anna",
+                "paid_amount": "15.00",
+            },
+        )
+        assert result is not None
+        title, body = result
+        assert "confirmed" in title.lower()
+        assert "Morning Yoga" in body
+        assert "Anna" in body
+
+    def test_render_russian_template(self) -> None:
+        """Render booking_confirmed in Russian."""
+        load_templates()
+        result = render(
+            "booking_confirmed",
+            "ru",
+            {"practice_title": "Йога", "scheduled_at": "01.03", "master_name": "Анна", "paid_amount": "15"},
+        )
+        assert result is not None
+        title, body = result
+        assert "Йога" in body
+
+    def test_render_fallback_to_english(self) -> None:
+        """Unsupported language falls back to English template."""
+        load_templates()
+        result = render("booking_confirmed", "ja", {"practice_title": "Test"})
+        assert result is not None  # Fell back to en.
+
+    def test_render_unknown_type_returns_none(self) -> None:
+        """Unknown notification type returns None."""
+        load_templates()
+        result = render("nonexistent_type_xyz", "en", {})
+        assert result is None
+
+    def test_render_missing_variables_safe(self) -> None:
+        """Missing variables produce literal placeholders, not crashes."""
+        load_templates()
+        result = render("booking_confirmed", "en", {})
+        assert result is not None
+        title, body = result
+        # Placeholders like {practice_title} appear literally.
+        assert "{practice_title}" in body
+
+
+# ===================================================================
+# 7. TelegramFormatter (Phase 7.3, mocked)
+# ===================================================================
+
+
+class TestTelegramFormatter:
+    """Tests for TelegramFormatter with mocked aiogram Bot."""
+
+    def test_format_deep_link_with_params(self) -> None:
+        """Deep link includes action and params."""
+        mock_bot = MagicMock()
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        link = fmt.format_deep_link({
+            "action": "open_practice",
+            "params": {"practice_id": "abc-123"},
+        })
+        assert link == "https://t.me/velo_testbot?startapp=open_practice__abc-123"
+
+    def test_format_deep_link_no_params(self) -> None:
+        """Deep link with action only."""
+        mock_bot = MagicMock()
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        link = fmt.format_deep_link({"action": "dashboard"})
+        assert link == "https://t.me/velo_testbot?startapp=dashboard"
+
+    def test_format_deep_link_none(self) -> None:
+        """None action_data returns None."""
+        mock_bot = MagicMock()
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+        assert fmt.format_deep_link(None) is None
+
+    @pytest.mark.asyncio
+    async def test_send_no_telegram_id(self) -> None:
+        """No telegram_id -> permanent failure."""
+        mock_bot = MagicMock()
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        result = await fmt.send(
+            title="Test",
+            body="Body",
+            user_telegram_id=None,
+            deep_link=None,
+            channel_options=None,
+        )
+        assert result.success is False
+        assert result.permanent is True
+
+    @pytest.mark.asyncio
+    async def test_send_success(self) -> None:
+        """Successful send via mocked bot."""
+        mock_bot = MagicMock()
+        mock_bot.send_message = AsyncMock(return_value=MagicMock())
+
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        result = await fmt.send(
+            title="Hello",
+            body="World",
+            user_telegram_id=12345,
+            deep_link=None,
+            channel_options=None,
+        )
+        assert result.success is True
+        mock_bot.send_message.assert_called_once()
+
+        # Verify HTML format.
+        call_kwargs = mock_bot.send_message.call_args
+        assert "<b>Hello</b>" in call_kwargs.kwargs["text"]
+        assert "World" in call_kwargs.kwargs["text"]
+
+    @pytest.mark.asyncio
+    async def test_send_with_deep_link_button(self) -> None:
+        """Deep link produces inline keyboard button."""
+        mock_bot = MagicMock()
+        mock_bot.send_message = AsyncMock(return_value=MagicMock())
+
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        result = await fmt.send(
+            title="Check",
+            body="It out",
+            user_telegram_id=12345,
+            deep_link="https://t.me/velo_testbot?startapp=test",
+            channel_options=None,
+        )
+        assert result.success is True
+
+        call_kwargs = mock_bot.send_message.call_args
+        keyboard = call_kwargs.kwargs["reply_markup"]
+        assert keyboard is not None
+
+    @pytest.mark.asyncio
+    async def test_send_blocked_user_permanent(self) -> None:
+        """Bot blocked by user -> permanent failure."""
+        from aiogram.exceptions import TelegramForbiddenError
+
+        mock_bot = MagicMock()
+        mock_bot.send_message = AsyncMock(
+            side_effect=TelegramForbiddenError(
+                method=MagicMock(),
+                message="Forbidden: bot was blocked by the user",
+            ),
+        )
+
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        result = await fmt.send(
+            title="Test",
+            body="Body",
+            user_telegram_id=12345,
+            deep_link=None,
+            channel_options=None,
+        )
+        assert result.success is False
+        assert result.permanent is True
+
+    @pytest.mark.asyncio
+    async def test_send_transient_error_retryable(self) -> None:
+        """Non-permanent Telegram error -> retryable failure."""
+        from aiogram.exceptions import TelegramRetryAfter
+
+        mock_bot = MagicMock()
+        mock_bot.send_message = AsyncMock(
+            side_effect=TelegramRetryAfter(
+                method=MagicMock(),
+                message="Flood control exceeded. Retry in 10 seconds",
+                retry_after=10,
+            ),
+        )
+
+        fmt = TelegramFormatter(bot=mock_bot, bot_url="https://t.me/velo_testbot")
+
+        result = await fmt.send(
+            title="Test",
+            body="Body",
+            user_telegram_id=12345,
+            deep_link=None,
+            channel_options=None,
+        )
+        assert result.success is False
+        assert result.permanent is False

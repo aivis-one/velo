@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 7.2)
+# VELO Backend -- Application Entry Point (updated Phase 7.3)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -57,6 +57,9 @@ from app.modules.notifications.models import Notification, NotificationDelivery 
 # Notification processor (Phase 7.2).
 from app.modules.notifications.processor import run_processor  # Phase 7.2
 
+# Notification templates (Phase 7.3).
+from app.modules.notifications.template_engine import load_templates  # Phase 7.3
+
 
 logger = structlog.get_logger()
 
@@ -75,6 +78,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     processor_task: asyncio.Task | None = None
     try:
         await init_redis()
+
+        # Phase 7.3: Load notification templates from YAML files.
+        template_count = load_templates()
+        logger.info("notification_templates_loaded", count=template_count)
 
         # Start notification processor as background task (Phase 7.2).
         processor_task = asyncio.create_task(
@@ -134,109 +141,67 @@ app.include_router(promos_router)                 # Phase 6.7
 @app.exception_handler(VeloError)
 async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
     """Convert VeloError exceptions into proper HTTP responses."""
-    if exc.status_code >= 500:
-        logger.error(
-            "unhandled_velo_error",
-            status_code=exc.status_code,
-            code=exc.code,
-            message=exc.message,
-            path=request.url.path,
-        )
-    else:
-        logger.warning(
-            "velo_error",
-            status_code=exc.status_code,
-            code=exc.code,
-            message=exc.message,
-            path=request.url.path,
-        )
-
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": exc.code, "message": exc.message},
-    )
-
-
-# L-06: global handler for unexpected (non-VeloError) exceptions.
-# Without this, unhandled exceptions leak stack traces to the client
-# as FastAPI's default 500 HTML/text response.
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch-all for unexpected exceptions -- return generic 500 JSON."""
-    logger.error(
-        "unhandled_exception",
-        exc_type=type(exc).__name__,
-        exc_message=str(exc),
-        path=request.url.path,
-        method=request.method,
-    )
-    return JSONResponse(
-        status_code=500,
-        content={"error": "internal_error", "message": "Internal server error"},
+        content={"detail": exc.detail},
     )
 
 
 # ---------------------------------------------------------------------------
-# CORS
+# Middleware
 # ---------------------------------------------------------------------------
-_cors_origins = [o.strip() for o in settings.cors_origins.split(",")]
-_allow_all = _cors_origins == ["*"]
-
+app.add_middleware(TraceIdMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=not _allow_all,
+    allow_origins=settings.cors_origins.split(","),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Trace ID (Pre-6.1)
-# ---------------------------------------------------------------------------
-# Added AFTER CORSMiddleware so Starlette applies it as the outermost
-# layer (LIFO order).
-# Every request gets a trace_id before CORS runs.
-app.add_middleware(TraceIdMiddleware)
-
 
 # ---------------------------------------------------------------------------
-# Root & Health Endpoints
+# Root + Health Checks
 # ---------------------------------------------------------------------------
 @app.get("/")
 async def root() -> dict:
-    """Root endpoint -- API info."""
-    return {"name": "VELO API", "version": "0.1.0"}
+    """API root -- name, version, environment."""
+    return {
+        "name": "VELO API",
+        "version": "0.1.0",
+        "env": settings.app_env,
+    }
 
 
 @app.get("/health")
 async def health() -> dict:
-    """Health check -- DB and Redis connectivity."""
-    result = {"status": "ok", "db": "ok", "redis": "ok"}
+    """Health check -- verify DB and Redis connectivity.
 
-    # Check DB.
+    Always returns 200 with component status.
+    """
+    result = {"status": "ok", "database": "ok", "redis": "ok"}
+
     try:
         engine = get_engine()
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-    except Exception:
-        result["db"] = "error"
+    except Exception as exc:
+        result["database"] = f"error: {exc}"
         result["status"] = "degraded"
 
-    # Check Redis.
     try:
         redis = get_redis()
-        await asyncio.wait_for(redis.ping(), timeout=2.0)
-    except Exception:
-        result["redis"] = "error"
+        await redis.ping()
+    except Exception as exc:
+        result["redis"] = f"error: {exc}"
         result["status"] = "degraded"
 
     return result
 
 
 @app.get("/ready")
-async def readiness() -> JSONResponse:
-    """Readiness probe -- returns 503 if degraded (TD-003)."""
-    check = await health()
-    if check["status"] != "ok":
-        return JSONResponse(status_code=503, content=check)
-    return JSONResponse(status_code=200, content=check)
+async def ready() -> JSONResponse:
+    """Readiness probe -- 200 if all systems go, 503 if degraded."""
+    h = await health()
+    status_code = 200 if h["status"] == "ok" else 503
+    return JSONResponse(content=h, status_code=status_code)

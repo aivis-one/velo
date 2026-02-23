@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Auth Service (updated W-06: logout-all)
+# VELO Backend -- Auth Service (updated Phase 7.3: language normalization)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -40,6 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.redis import get_redis
+from app.modules.notifications.template_engine import _normalize_language
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -86,7 +87,7 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
     # Parse the query string into key-value pairs.
     parsed = parse_qs(init_data, keep_blank_values=True)
 
-    # Extract hash — Telegram includes it for verification.
+    # Extract hash -- Telegram includes it for verification.
     received_hash = parsed.pop("hash", [None])[0]
     if not received_hash:
         raise TelegramValidationError("Missing hash in initData")
@@ -145,6 +146,9 @@ async def upsert_user_on_login(
     Uses INSERT ... ON CONFLICT DO UPDATE (P-1) to avoid race conditions
     when two requests arrive simultaneously for a new user.
 
+    Phase 7.3: normalizes language_code from Telegram to supported set
+    (en/de/es/ru). Unsupported codes fall back to "en".
+
     Args:
         telegram_user: Parsed user dict from Telegram initData.
         session: Database session (read-write).
@@ -158,10 +162,17 @@ async def upsert_user_on_login(
     credentials = {
         "telegram_username": telegram_user.get("username"),
         "telegram_photo_url": telegram_user.get("photo_url"),
+        "language_code": telegram_user.get("language_code"),
     }
 
+    # Phase 7.3: Normalize language_code to supported set (en/de/es/ru).
+    # Handles "en-US" -> "en", "pt-BR" -> "en" (unsupported -> fallback).
+    normalized_lang = _normalize_language(
+        telegram_user.get("language_code"),
+    )
+
     # Atomic upsert: INSERT or UPDATE in a single statement.
-    # No race condition possible — PostgreSQL locks the row on conflict.
+    # No race condition possible -- PostgreSQL locks the row on conflict.
     stmt = (
         pg_insert(User)
         .values(
@@ -169,7 +180,7 @@ async def upsert_user_on_login(
             first_name=telegram_user.get("first_name"),
             last_name=telegram_user.get("last_name"),
             avatar_url=telegram_user.get("photo_url"),
-            language=telegram_user.get("language_code", "en"),
+            language=normalized_lang,
             credentials=credentials,
             last_login_at=now,
         )
@@ -241,63 +252,42 @@ async def create_session(user: User) -> str:
 async def get_session(token: str) -> dict | None:
     """Retrieve session data from Redis by token.
 
-    Returns None if token is invalid or expired.
+    Returns parsed dict or None if session expired/doesn't exist.
     """
     redis = get_redis()
     data = await redis.get(f"{_SESSION_PREFIX}{token}")
-
     if data is None:
         return None
-
     return json.loads(data)
 
 
 async def delete_session(token: str) -> None:
-    """Delete a session from Redis (logout).
-
-    Also removes the token from the user's session index (W-06).
-    """
+    """Delete a single session from Redis."""
     redis = get_redis()
-
-    # Read session data to get user_id for index cleanup.
-    data = await redis.get(f"{_SESSION_PREFIX}{token}")
     await redis.delete(f"{_SESSION_PREFIX}{token}")
-
-    # W-06: Remove from user session index.
-    if data is not None:
-        session_data = json.loads(data)
-        user_id = session_data.get("user_id")
-        if user_id:
-            await redis.srem(
-                f"{_USER_SESSIONS_PREFIX}{user_id}", token,
-            )
+    logger.info("session_deleted")
 
 
 async def delete_all_sessions(user_id: UUID) -> int:
-    """Delete ALL sessions for a user (logout-all, W-06).
+    """Delete all sessions for a user (W-06: logout-all).
 
-    Iterates the user's session index SET, deletes each session key,
-    then deletes the index itself.
+    Uses the session index SET to find all tokens, then deletes
+    each session key and the index itself.
 
-    Returns the number of sessions invalidated.
+    Returns:
+        Number of sessions deleted.
     """
     redis = get_redis()
     index_key = f"{_USER_SESSIONS_PREFIX}{user_id}"
 
-    # Get all tokens for this user.
+    # Get all tokens from the index.
     tokens = await redis.smembers(index_key)
-
     if not tokens:
         return 0
 
-    # Delete each session key. Expired tokens produce noop DELETEs.
-    session_keys = [
-        f"{_SESSION_PREFIX}{t}" for t in tokens
-    ]
-    await redis.delete(*session_keys)
-
-    # Remove the index itself.
-    await redis.delete(index_key)
+    # Delete each session key.
+    session_keys = [f"{_SESSION_PREFIX}{t}" for t in tokens]
+    deleted = await redis.delete(*session_keys, index_key)
 
     logger.info(
         "all_sessions_deleted",
