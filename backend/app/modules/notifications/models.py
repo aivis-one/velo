@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Notification Models (Phase 7.1)
+# VELO Backend -- Notification Models (Phase 7.1, updated Phase 7.4)
 # =============================================================================
 #
 # Two-level architecture:
@@ -37,9 +37,7 @@
 #     Web push -> "/practices/uuid"
 #
 # UUID PRIMARY KEYS:
-#   TS spec originally had int autoincrement for Notification.id.
-#   Changed to UUID for consistency with the rest of the project.
-#   TODO: Update TS Phase 7.1 to reflect UUID decision.
+#   UUID for consistency with the rest of the project.
 #
 # SESSION RULES:
 #   No session.commit() in service (P-01). Service layer uses flush.
@@ -75,6 +73,11 @@ class NotificationType(enum.StrEnum):
     REMINDER_24H = "reminder_24h"
     REMINDER_1H = "reminder_1h"
     REMINDER_10MIN = "reminder_10min"
+
+    # Master reminders (Phase 7.4).
+    MASTER_REMINDER_24H = "master_reminder_24h"
+    MASTER_REMINDER_1H = "master_reminder_1h"
+    MASTER_REMINDER_10MIN = "master_reminder_10min"
 
     # Booking lifecycle.
     BOOKING_CONFIRMED = "booking_confirmed"
