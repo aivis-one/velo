@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.4
-**Дата:** 22 февраля 2026
+**Версия:** 2.5
+**Дата:** 23 февраля 2026
 **Статус:** Draft
 
 ---
@@ -2158,7 +2158,7 @@ backend/tests/
 
 ## PHASE 7: Notifications
 
-### 7.1: Модель Notification
+### 7.1: Модель Notification ✅
 
 **Цель:** Хранение уведомлений.
 
@@ -2167,56 +2167,92 @@ backend/tests/
 > Также добавить Telegram-алерты при ALERT (сейчас только structlog).
 
 **Задачи:**
-- [ ] app/modules/notifications/models.py
-- [ ] Notification + NotificationDelivery
-- [ ] Миграция
+- [x] app/modules/notifications/models.py
+- [x] Notification + NotificationDelivery (двухуровневая архитектура)
+- [x] Миграция
 
-**Модель:**
-```python
-class Notification(Base):
-    __tablename__ = "notifications"
-    
-    id: Mapped[int]  # НЕ UUID — автоинкремент
-    user_id: Mapped[UUID]
-    type: Mapped[str]  # reminder, booking_confirmed, etc.
-    title: Mapped[str]
-    body: Mapped[str]
-    data: Mapped[dict] = mapped_column(JSONB)
-    
-    scheduled_at: Mapped[datetime]
-    status: Mapped[str]  # pending, sent, failed
-    
-    created_at: Mapped[datetime]
-```
+**Решения, принятые при реализации:**
+- UUID PK вместо autoincrement (консистентность с остальным проектом)
+- Двухуровневая архитектура: Notification (что отправить) → NotificationDelivery (кому, каким каналом)
+- Target routing: target_type + target_value → user:<uuid>, practice:<uuid>, role:master, all
+- action_data JSONB для deep linking (channel-agnostic navigation intent)
+- NotificationType — StrEnum с 18 типами (reminders, booking, practice, waitlist, master, payments, feedback, system)
+- Priority: 1=urgent, 5=low (default 5)
 
-**Критерий готовности:** Миграция применена.
+**Критерий готовности:** Миграция применена. ✅
 
 ---
 
-### 7.2: NotificationProcessor
+### 7.2: NotificationProcessor ✅
 
 **Цель:** Фоновый воркер для отправки.
 
 **Задачи:**
-- [ ] app/modules/notifications/processor.py
-- [ ] Polling pending notifications
-- [ ] Retry logic (3 попытки)
-- [ ] Priority queue
+- [x] app/modules/notifications/processor.py — трёхстадийный pipeline
+- [x] app/modules/notifications/service.py — create_notification(), resolve_notification()
+- [x] app/modules/notifications/formatters.py — ChannelFormatter Protocol + StubFormatter
+- [x] Polling pending notifications (exponential backoff)
+- [x] Retry logic (3 попытки, configurable)
+- [x] Target resolution (user, practice, role, all)
+- [x] Stage 1: Resolution → Stage 2: Delivery → Stage 3: Rollup
+- [x] 21 тест (test_notifications.py, telegram_id range 83000-83999)
 
-**Критерий готовности:** Уведомления отправляются автоматически.
+**Решения, принятые при реализации:**
+- Background asyncio.Task в FastAPI lifespan (не отдельный сервис)
+- get_session_factory() для сессий вне request context (как webhook_router)
+- Exponential backoff: 5s → 10s → 20s → ... → 60s (configurable)
+- StubFormatter для всех каналов до Phase 7.3
+- ChannelFormatter Protocol — типобезопасный интерфейс без наследования
+
+**Критерий готовности:** Уведомления отправляются автоматически. ✅
 
 ---
 
-### 7.3: Telegram-бот
+### 7.3: TelegramFormatter + Templates ✅
 
-**Цель:** Бот для уведомлений.
+**Цель:** Реальная отправка уведомлений через Telegram Bot API + мультиязычные шаблоны.
 
 **Задачи:**
-- [ ] app/bot/main.py — aiogram bot
-- [ ] Интеграция с NotificationProcessor
-- [ ] Отправка сообщений юзерам
+- [x] app/modules/notifications/template_engine.py — SafeDict, YAML loading, render с language fallback
+- [x] app/modules/notifications/templates/{en,de,es,ru}.yaml — 18 шаблонов × 4 языка
+- [x] app/modules/notifications/formatters.py — TelegramFormatter (aiogram 3.x, send-only)
+- [x] Lazy initialization: real token → TelegramFormatter, fake token → StubFormatter
+- [x] Template rendering в processor._stage_deliver() перед send()
+- [x] Permanent failure handling (bot blocked → immediate failed, no retries)
+- [x] User.language нормализация при upsert (language_code "en-US" → "en")
+- [x] Admin endpoint: POST /api/v1/admin/templates/reload
+- [x] load_templates() в lifespan
+- [x] pyproject.toml: +aiogram>=3.13.0, +pyyaml>=6.0.0
+- [x] config.py: +telegram_bot_url
+- [x] scripts/test_telegram_send.py — ручной тест с 5 реальными аккаунтами
+- [x] 34 теста (13 новых Phase 7.3 + 21 existing)
 
-**Критерий готовности:** Бот отправляет уведомления в Telegram.
+**Решения, принятые при реализации:**
+- aiogram Bot без Dispatcher — send-only, нет конфликта event loop с uvicorn
+- SafeDict для format_map — отсутствующие переменные не ломают рендеринг
+- YAML шаблоны с HTML-тегами (Telegram HTML parse_mode)
+- Language fallback: lang → "en" (если нет шаблона для языка)
+- Template fallback: если нет шаблона для notification.type → используем DB title/body
+- Deep link формат: https://t.me/velo_testbot?startapp={action}__{param}
+- Permanent errors (frozenset): "bot was blocked", "user is deactivated", "chat not found" и др.
+- language обновляется при повторном логине (on_conflict_do_update)
+
+**Структура файлов Phase 7.3:**
+```
+backend/app/modules/notifications/
+├── template_engine.py          ← SafeDict, load/render, cache
+├── templates/
+│   ├── en.yaml                 ← English (18 templates)
+│   ├── de.yaml                 ← German
+│   ├── es.yaml                 ← Spanish
+│   └── ru.yaml                 ← Russian
+├── formatters.py               ← StubFormatter + TelegramFormatter + registry
+├── processor.py                ← Updated: template render + permanent failures
+├── models.py                   ← Unchanged
+└── service.py                  ← Unchanged
+```
+
+**Критерий готовности:** Бот отправляет уведомления в Telegram. 336 passed, 3 skipped. ✅
 
 ---
 
@@ -2543,7 +2579,7 @@ Response: {
 - `f5a6b7c8d9e0` — H-02: partial unique index для re-booking (Phase 5.1)
 - `a7b8c9d0e1f2` — W-02: index на bookings.purchase_id
 
-**Тесты:** 213 passed, 3 skipped, 0 warnings.
+**Тесты:** 336 passed, 3 skipped, 0 warnings.
 
 ### Осознанные решения (НЕ является долгом)
 
