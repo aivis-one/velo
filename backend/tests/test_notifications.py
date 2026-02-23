@@ -799,26 +799,26 @@ class TestTemplateEngine:
         result = "{a} + {b}".format_map(sd)
         assert result == "1 + 2"
 
-    def testnormalize_language_supported(self) -> None:
+    def test_normalize_language_supported(self) -> None:
         """Supported language codes pass through."""
         assert normalize_language("en") == "en"
         assert normalize_language("de") == "de"
         assert normalize_language("es") == "es"
         assert normalize_language("ru") == "ru"
 
-    def testnormalize_language_with_region(self) -> None:
+    def test_normalize_language_with_region(self) -> None:
         """Language codes with region are truncated."""
         assert normalize_language("en-US") == "en"
         assert normalize_language("de-AT") == "de"
         assert normalize_language("ru-RU") == "ru"
 
-    def testnormalize_language_unsupported(self) -> None:
+    def test_normalize_language_unsupported(self) -> None:
         """Unsupported languages fall back to en."""
         assert normalize_language("pt") == "en"
         assert normalize_language("ja") == "en"
         assert normalize_language("zh-CN") == "en"
 
-    def testnormalize_language_none(self) -> None:
+    def test_normalize_language_none(self) -> None:
         """None falls back to en."""
         assert normalize_language(None) == "en"
         assert normalize_language("") == "en"
