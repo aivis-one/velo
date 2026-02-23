@@ -40,7 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.redis import get_redis
-from app.modules.notifications.template_engine import _normalize_language
+from app.modules.notifications.template_engine import normalize_language
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -167,7 +167,7 @@ async def upsert_user_on_login(
 
     # Phase 7.3: Normalize language_code to supported set (en/de/es/ru).
     # Handles "en-US" -> "en", "pt-BR" -> "en" (unsupported -> fallback).
-    normalized_lang = _normalize_language(
+    normalized_lang = normalize_language(
         telegram_user.get("language_code"),
     )
 
@@ -190,6 +190,7 @@ async def upsert_user_on_login(
                 "first_name": telegram_user.get("first_name"),
                 "last_name": telegram_user.get("last_name"),
                 "avatar_url": telegram_user.get("photo_url"),
+                "language": normalized_lang,
                 "credentials": credentials,
                 "last_login_at": now,
             },

@@ -180,7 +180,7 @@ def render(
         return None
 
     # Normalize language to supported set.
-    normalized_lang = _normalize_language(lang)
+    normalized_lang = normalize_language(lang)
 
     # Lookup: requested language -> fallback to "en".
     template = _cache.get((notification_type, normalized_lang))
@@ -216,7 +216,7 @@ def render(
 # ===================================================================
 
 
-def _normalize_language(lang: str | None) -> str:
+def normalize_language(lang: str | None) -> str:
     """Normalize language code to a supported value.
 
     Handles cases like "en-US" -> "en", "DE" -> "de", None -> "en".
