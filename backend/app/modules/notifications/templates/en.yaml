@@ -21,6 +21,20 @@ reminder_10min:
   title: "Practice starting soon"
   body: "🔔 <b>{practice_title}</b> starts in 10 minutes!\n\n👤 Master: {master_name}"
 
+# -- Master Reminders (Phase 7.4) --
+
+master_reminder_24h:
+  title: "Your practice is tomorrow"
+  body: "⏰ Reminder: your practice <b>{practice_title}</b> starts in 24 hours.\n\n📅 {scheduled_at}\n👥 Participants: {participants_count}"
+
+master_reminder_1h:
+  title: "Your practice in 1 hour"
+  body: "⏰ Your practice <b>{practice_title}</b> starts in 1 hour!\n\n📅 {scheduled_at}\n👥 Participants: {participants_count}"
+
+master_reminder_10min:
+  title: "Your practice starting soon"
+  body: "🔔 Your practice <b>{practice_title}</b> starts in 10 minutes!\n\n👥 Participants: {participants_count}"
+
 # -- Booking lifecycle --
 
 booking_confirmed:

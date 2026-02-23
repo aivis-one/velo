@@ -16,6 +16,20 @@ reminder_10min:
   title: "Práctica a punto de comenzar"
   body: "🔔 <b>{practice_title}</b> comienza en 10 minutos.\n\n👤 Maestro: {master_name}"
 
+# -- Recordatorios para el maestro (Phase 7.4) --
+
+master_reminder_24h:
+  title: "Tu práctica es mañana"
+  body: "⏰ Recordatorio: tu práctica <b>{practice_title}</b> comienza en 24 horas.\n\n📅 {scheduled_at}\n👥 Participantes: {participants_count}"
+
+master_reminder_1h:
+  title: "Tu práctica en 1 hora"
+  body: "⏰ Tu práctica <b>{practice_title}</b> comienza en 1 hora!\n\n📅 {scheduled_at}\n👥 Participantes: {participants_count}"
+
+master_reminder_10min:
+  title: "Tu práctica comienza pronto"
+  body: "🔔 Tu práctica <b>{practice_title}</b> comienza en 10 minutos!\n\n👥 Participantes: {participants_count}"
+
 # -- Ciclo de reservas --
 
 booking_confirmed:
