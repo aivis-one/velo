@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#6C5CE7" />
+
+    <!-- Telegram WebApp SDK (CDN per Telegram recommendation) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- PWA support (Phase F0.4) -->
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <title>VELO</title>
+  </head>
+  <body>
+    <!-- Vue mounts here. Like FastAPI's app = FastAPI(). -->
+    <div id="app"></div>
+    <!-- Vite injects the <script> tag during build. -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
