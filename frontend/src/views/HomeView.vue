@@ -32,7 +32,6 @@
       </p>
       <div class="home__details">
         <span class="home__role">{{ user.role }}</span>
-        <span class="home__id">@{{ user.username || 'no username' }}</span>
       </div>
     </div>
 
@@ -123,11 +122,6 @@ async function handleLogout(): Promise<void> {
   text-transform: uppercase;
   border-radius: var(--radius-full);
   letter-spacing: 0.05em;
-}
-
-.home__id {
-  font-size: var(--text-sm);
-  color: var(--velo-text-muted);
 }
 
 .home__version {
