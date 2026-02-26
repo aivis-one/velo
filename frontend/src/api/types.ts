@@ -24,17 +24,17 @@ export interface AuthResponse {
 
 export interface UserResponse {
   id: string
-  telegram_id: number
-  first_name: string
-  last_name: string | null
-  username: string | null
+  telegram_id: number | null
   role: 'user' | 'master' | 'admin'
-  language: string
+  first_name: string | null
+  last_name: string | null
+  avatar_url: string | null
   timezone: string
+  language: string
   is_active: boolean
   balance_cents: number
   created_at: string
-  updated_at: string | null
+  last_login_at: string | null
 }
 
 export interface UserUpdate {
