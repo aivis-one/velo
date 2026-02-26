@@ -1,10 +1,7 @@
 <!--
-  VELO Frontend -- Standalone Stub View (Phase F1.3)
+  VELO Frontend -- Standalone Stub View (Phase F1.3, fixed 10.3)
 
-  Shown when the app is opened outside Telegram (direct browser, PWA).
-  No auth is possible without Telegram initData in MVP.
-
-  Phase F10 will replace this with a real login form (email / magic link).
+  FIX 10.3: Bot URL from env variable, not hardcoded.
 -->
 
 <template>
@@ -12,27 +9,14 @@
     <div class="stub__logo">
       <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="32" cy="32" r="30" fill="var(--velo-primary)" />
-        <text
-          x="32"
-          y="40"
-          text-anchor="middle"
-          fill="white"
-          font-size="24"
-          font-weight="700"
-          font-family="system-ui, sans-serif"
-        >V</text>
+        <text x="32" y="40" text-anchor="middle" fill="white" font-size="24" font-weight="700" font-family="system-ui, sans-serif">V</text>
       </svg>
     </div>
     <h1 class="stub__title">VELO</h1>
     <p class="stub__message">
       Для входа откройте приложение через Telegram-бот
     </p>
-    <a
-      :href="botUrl"
-      class="stub__button"
-      target="_blank"
-      rel="noopener"
-    >
+    <a :href="botUrl" class="stub__button" target="_blank" rel="noopener">
       Открыть в Telegram
     </a>
     <p class="stub__hint">
@@ -42,8 +26,8 @@
 </template>
 
 <script setup lang="ts">
-// Bot URL -- hardcoded for now, will be configurable in Phase F10.
-const botUrl = 'https://t.me/velo_testbot'
+// FIX 10.3: configurable via env, fallback to test bot.
+const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testbot'
 </script>
 
 <style scoped>
@@ -58,11 +42,7 @@ const botUrl = 'https://t.me/velo_testbot'
   background: var(--velo-bg-start);
   text-align: center;
 }
-
-.stub__logo {
-  margin-bottom: var(--space-2);
-}
-
+.stub__logo { margin-bottom: var(--space-2); }
 .stub__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
@@ -71,7 +51,6 @@ const botUrl = 'https://t.me/velo_testbot'
   letter-spacing: 0.1em;
   margin: 0 0 var(--space-6) 0;
 }
-
 .stub__message {
   font-size: var(--text-base);
   color: var(--velo-text-secondary);
@@ -79,7 +58,6 @@ const botUrl = 'https://t.me/velo_testbot'
   max-width: 280px;
   line-height: 1.5;
 }
-
 .stub__button {
   display: inline-flex;
   align-items: center;
@@ -94,11 +72,7 @@ const botUrl = 'https://t.me/velo_testbot'
   transition: background var(--transition-fast);
   min-width: 200px;
 }
-
-.stub__button:hover {
-  background: var(--velo-primary-dark);
-}
-
+.stub__button:hover { background: var(--velo-primary-dark); }
 .stub__hint {
   font-size: var(--text-sm);
   color: var(--velo-text-muted);

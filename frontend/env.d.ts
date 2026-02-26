@@ -10,6 +10,8 @@ declare module '*.vue' {
 // Vite environment variables (VITE_ prefix required).
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
+  readonly VITE_TELEGRAM_BOT_URL?: string
+  readonly VITE_TELEGRAM_BOT_URL?: string
 }
 
 interface ImportMeta {

@@ -1,18 +1,21 @@
 // =============================================================================
-// VELO Frontend -- Telegram Platform (Phase F1.1)
+// VELO Frontend -- Telegram Platform (Phase F1.1, fixed 10.1)
 // =============================================================================
 //
-// Real implementation that wraps the Telegram WebApp SDK.
-// SDK is loaded via CDN <script> in index.html -- window.Telegram.WebApp
-// is available by the time this code runs.
-//
-// Only instantiated when initData is present (user came from Telegram bot).
+// FIX 10.1: WebApp accessed lazily via getter, not at module level.
+// If CDN is blocked (VPN, proxy, downtime), standalone mode still works.
 // =============================================================================
 
 import type { Platform } from './types'
 
-/** Telegram WebApp SDK object (loaded from CDN script in index.html). */
-const webApp = window.Telegram!.WebApp
+/** Lazy accessor -- avoids crash if SDK didn't load. */
+function getWebApp(): TelegramWebApp {
+  const wa = window.Telegram?.WebApp
+  if (!wa) {
+    throw new Error('Telegram WebApp SDK not available')
+  }
+  return wa
+}
 
 /** Active BackButton callback reference (for cleanup on hide). */
 let _backButtonCallback: (() => void) | null = null
@@ -21,35 +24,31 @@ export const telegramPlatform: Platform = {
   name: 'telegram',
 
   async init(): Promise<void> {
-    // Tell Telegram the app is ready to be displayed.
+    const webApp = getWebApp()
     webApp.ready()
-
-    // Expand to full viewport height (removes half-screen mode).
     webApp.expand()
-
-    // Set header and background colors to match VELO design.
-    // Uses Telegram's built-in theming -- respects dark/light mode.
     webApp.setHeaderColor('#334D6E')
     webApp.setBackgroundColor('#F8FAFC')
   },
 
   getInitData(): string | null {
-    return webApp.initData || null
+    return getWebApp().initData || null
   },
 
   getTheme(): 'light' | 'dark' {
-    return webApp.colorScheme || 'light'
+    return getWebApp().colorScheme || 'light'
   },
 
   hapticFeedback(style: 'light' | 'medium' | 'heavy'): void {
     try {
-      webApp.HapticFeedback.impactOccurred(style)
+      getWebApp().HapticFeedback.impactOccurred(style)
     } catch {
-      // Silently ignore -- older Telegram clients may not support this.
+      // Silently ignore -- older clients or missing SDK.
     }
   },
 
   showBackButton(callback: () => void): void {
+    const webApp = getWebApp()
     _backButtonCallback = callback
     webApp.BackButton.onClick(callback)
     webApp.BackButton.show()
@@ -57,13 +56,13 @@ export const telegramPlatform: Platform = {
 
   hideBackButton(): void {
     if (_backButtonCallback) {
-      webApp.BackButton.offClick(_backButtonCallback)
+      getWebApp().BackButton.offClick(_backButtonCallback)
       _backButtonCallback = null
     }
-    webApp.BackButton.hide()
+    getWebApp().BackButton.hide()
   },
 
   close(): void {
-    webApp.close()
+    getWebApp().close()
   },
 }
