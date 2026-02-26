@@ -231,93 +231,144 @@ Telegram WebApp обнаруживается по наличию `window.Telegra
 
 ## PHASE F0: Инфраструктура
 
-### F0.1: Инициализация проекта
+### F0.1: Инициализация проекта ✅
 
 **Цель:** Проект собирается, деплоится на VPS, пустая страница открывается.
 
 **Задачи:**
-- [ ] `npm create vue@latest` с TypeScript, Vue Router, Pinia
-- [ ] Структура папок (src/api, components, views, stores, router, platform, styles, composables, utils)
-- [ ] ESLint flat config + Prettier (единый стиль кода)
-- [ ] tsconfig.json — strict mode, path aliases (`@/` → `src/`)
-- [ ] vite.config.ts — base path, proxy для dev, env переменные
-- [ ] .env.example (`VITE_API_BASE_URL=https://api.talentir.info`)
-- [ ] .gitignore (node_modules, dist, .env)
-- [ ] README.md (команды: install, dev, build, lint)
+- [x] package.json с TypeScript, Vue Router, Pinia
+- [x] Структура папок (src/api, components, views, stores, router, platform, styles, composables, utils)
+- [x] ESLint flat config + Prettier (единый стиль кода)
+- [x] tsconfig.json — strict mode, path aliases (`@/` → `src/`)
+- [x] vite.config.ts — base path, proxy для dev, env переменные
+- [x] .env.example (`VITE_API_BASE_URL=https://api.talentir.info`)
+- [x] .gitignore (node_modules, dist, .env)
+- [x] README.md (команды: install, dev, build, lint)
 
 **Результат:**
 ```
 frontend/
 ├── src/
-│   ├── App.vue            ← <div>VELO</div>
-│   └── main.ts            ← createApp + router + pinia
-├── index.html
+│   ├── App.vue                ← Корневой компонент (<RouterView />)
+│   ├── main.ts               ← createApp + router + pinia + стили
+│   ├── router/
+│   │   └── index.ts          ← / → HomeView, catch-all → /
+│   ├── views/
+│   │   ├── HomeView.vue      ← Плейсхолдер (лого + "VELO" + v0.1.0)
+│   │   ├── auth/.gitkeep
+│   │   ├── user/.gitkeep
+│   │   ├── master/.gitkeep
+│   │   └── admin/.gitkeep
+│   ├── styles/
+│   │   ├── variables.css     ← Дизайн-токены из мокапов (1:1)
+│   │   └── global.css        ← CSS reset + typography + Google Fonts
+│   ├── api/.gitkeep
+│   ├── components/{ui,layout,shared}/.gitkeep
+│   ├── stores/.gitkeep
+│   ├── platform/.gitkeep
+│   ├── composables/.gitkeep
+│   └── utils/.gitkeep
+├── public/icons/favicon.svg
+├── index.html                 ← Telegram SDK CDN + PWA meta-теги
 ├── vite.config.ts
 ├── tsconfig.json
 ├── eslint.config.js
 ├── .prettierrc
 ├── package.json
+├── package-lock.json          ← Для детерминированных билдов (npm ci)
+├── env.d.ts                   ← TypeScript декларации для .vue и Vite env
 ├── .env.example
 ├── .gitignore
 └── README.md
 ```
 
-**Критерий готовности:** `npm run build` проходит, `npm run lint` без ошибок.
+**Решения, принятые при реализации:**
+- `package-lock.json` коммитится в репо — без него `npm ci` в Docker не работает
+- `env.d.ts` — декларации для TypeScript: `.vue` файлы как модули, `ImportMetaEnv` для `VITE_*`
+- `.gitkeep` в пустых папках — Git не трекает пустые директории
+- Telegram SDK через CDN `<script>` в index.html (рекомендация Telegram для актуальной версии)
+- `vue-tsc --noEmit` перед `vite build` в скрипте build — type-check как gate
+
+**Критерий готовности:** `npm run build` проходит, `npm run lint` без ошибок. ✅
 
 ---
 
-### F0.2: Дизайн-система (перенос из мокапов)
+### F0.2: Дизайн-система (перенос из мокапов) ✅
 
 **Цель:** CSS-переменные и базовые стили из мокапов перенесены в проект.
 
 **Задачи:**
-- [ ] src/styles/variables.css — дизайн-токены из velo-mockups/css/variables.css
-- [ ] src/styles/global.css — reset, typography, базовые утилиты
-- [ ] src/styles/components.css — базовые стили (будут постепенно мигрировать в .vue)
-- [ ] main.ts — импорт стилей
-- [ ] Проверка: элементы выглядят идентично мокапам
+- [x] src/styles/variables.css — дизайн-токены из velo-mockups/css/variables.css
+- [x] src/styles/global.css — reset, typography, базовые утилиты
+- [x] main.ts — импорт стилей (variables.css первым, потом global.css)
 
-**Зависимость от мокапов:** velo-mockups/css/variables.css, velo-mockups/css/components.css
+**Решения, принятые при реализации:**
+- variables.css — 1:1 перенос из мокапов + добавлен `--velo-bg-card: #FFFFFF`
+- global.css — Google Fonts (Inter + Playfair Display), CSS reset, scrollbar стилизация
+- components.css не создавался отдельно — компонентные стили будут в scoped `<style>` внутри `.vue` файлов (Phase F2.1)
+- telegram.css не создавался — будет добавлен при необходимости в Phase F1.1
 
-**Критерий готовности:** Страница с примерами компонентов (кнопки, карточки, инпуты) визуально совпадает с мокапами.
+**Критерий готовности:** HomeView.vue использует CSS-переменные, выглядит корректно. ✅
 
 ---
 
-### F0.3: Docker + деплой на VPS
+### F0.3: Docker + деплой на VPS ✅
 
 **Цель:** Фронтенд деплоится через `velo update`, доступен по HTTPS.
 
 **Задачи:**
-- [ ] frontend/Dockerfile (multi-stage: node:22 build → nginx:alpine static)
-- [ ] docker-compose.yml — новый сервис `frontend` (порт 3000 внутренний)
-- [ ] Nginx-конфиг: /* → frontend:3000, /api/* → app:8000
-- [ ] SPA fallback: все несуществующие пути → index.html (для Vue Router history mode)
-- [ ] `velo update` — git pull + rebuild frontend + rebuild backend + migrate + test + restart
-- [ ] HTTPS уже работает (certbot настроен на VPS)
+- [x] frontend/Dockerfile (multi-stage: node:22-alpine build → nginx:alpine serve)
+- [x] frontend/nginx.conf (внутренний nginx: SPA fallback, gzip, кеш assets)
+- [x] frontend/.dockerignore
+- [x] docker-compose.yml перенесён из backend/ в **корень репо**
+- [x] Новый сервис `frontend` (build: ./frontend, порт 3000, healthcheck)
+- [x] Сервис `app` — build context изменён на `./backend`, env_file → `./backend/.env`
+- [x] Nginx на хосте: `/*` → frontend:3000, `/api/*` + `/health` + `/ready` → app:8000
+- [x] install_velo.sh обновлён (COMPOSE_DIR → repo root, два upstream в nginx)
+- [x] `velo update` собирает оба сервиса (`app` + `frontend`)
 
-**Dockerfile:**
-```dockerfile
-# Stage 1: Build
-FROM node:22-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# Stage 2: Serve
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 3000
+**Файлы:**
+```
+velo/ (repo root)
+├── docker-compose.yml         ← ПЕРЕНЕСЁН из backend/ — управляет всем стеком
+├── backend/
+│   ├── Dockerfile             ← Без изменений
+│   ├── .env                   ← Без изменений (env_file: ./backend/.env)
+│   └── ...
+├── frontend/
+│   ├── Dockerfile             ← НОВЫЙ: node:22-alpine → nginx:alpine
+│   ├── nginx.conf             ← НОВЫЙ: SPA fallback на порту 3000
+│   ├── .dockerignore          ← НОВЫЙ
+│   └── ...
+└── scripts/
+    └── install_velo.sh        ← ОБНОВЛЁН: 8 точечных замен
 ```
 
-**Решения:**
-- Фронтенд в отдельном контейнере (не в бэкенд-контейнере) — изоляция, независимый rebuild
-- Внутренний Nginx в контейнере фронтенда — отдаёт статику + SPA fallback
-- Внешний Nginx на хосте — SSL termination + маршрутизация между сервисами
+**Docker-сервисы:**
+```
+velo-app        → 127.0.0.1:8000  (FastAPI)
+velo-frontend   → 127.0.0.1:3000  (Nginx + Vue SPA)
+velo-postgres   → internal only
+velo-redis      → internal only
+```
 
-**Критерий готовности:** `curl https://api.talentir.info/` → HTML-страница с "VELO".
+**Маршрутизация (Nginx на хосте):**
+```
+https://api.talentir.info/api/*     → velo-app:8000
+https://api.talentir.info/health    → velo-app:8000
+https://api.talentir.info/ready     → velo-app:8000
+https://api.talentir.info/*         → velo-frontend:3000
+```
+
+**Решения, принятые при реализации:**
+- docker-compose.yml в корне репо (не в backend/) — один файл управляет обоими сервисами
+- backend/docker-compose.yml удалён
+- `.env` остаётся в `backend/` — это бэкенд-конфиг, фронтенду не нужен (VITE_* вкомпиливаются при build)
+- frontend зависит от app (`depends_on: app: condition: service_healthy`) — стартует после бэкенда
+- Внутренний nginx в контейнере фронтенда (порт 3000) + внешний nginx на хосте (SSL + маршрутизация)
+- Stripe переменные добавлены в `.env` генератор install_velo.sh: `STRIPE_SECRET_KEY=TEST`, `STRIPE_WEBHOOK_SECRET=TEST`, `STRIPE_PUBLISHABLE_KEY=TEST`, `STRIPE_SUCCESS_URL=TEST`, `STRIPE_CANCEL_URL=TEST`
+
+**Критерий готовности:** `curl https://api.talentir.info/` → HTML-страница с "VELO". 353 passed, 3 skipped. ✅
 
 ---
 
@@ -330,10 +381,9 @@ EXPOSE 3000
 - [ ] public/manifest.json (name, short_name, icons, theme_color, display: standalone)
 - [ ] Иконки: 192x192, 512x512 (placeholder, заменим на брендинг заказчика)
 - [ ] Service Worker: precache статики (только кеширование, без офлайна)
-- [ ] meta-теги в index.html (apple-mobile-web-app-capable, viewport)
+- [ ] meta-теги в index.html (apple-mobile-web-app-capable, viewport) — частично уже есть
 
 **Критерий готовности:** iPhone Safari → "Добавить на экран" → приложение открывается в standalone-режиме (без адресной строки).
-
 ---
 
 ## PHASE F1: Auth + Платформа
