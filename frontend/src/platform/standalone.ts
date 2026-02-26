@@ -1,0 +1,50 @@
+// =============================================================================
+// VELO Frontend -- Standalone Platform (Phase F1.1)
+// =============================================================================
+//
+// Stub implementation for when the app is opened outside Telegram:
+// direct browser visit, PWA from Home Screen, etc.
+//
+// All methods are safe no-ops. getInitData() returns null, which
+// signals to the auth flow that Telegram login is not available.
+//
+// Phase F10 will replace the stubs with real standalone auth
+// (email / magic link).
+// =============================================================================
+
+import type { Platform } from './types'
+
+export const standalonePlatform: Platform = {
+  name: 'standalone',
+
+  async init(): Promise<void> {
+    // Nothing to initialize outside Telegram.
+  },
+
+  getInitData(): string | null {
+    // No Telegram initData available -- auth flow will show
+    // "Open via Telegram" stub screen.
+    return null
+  },
+
+  getTheme(): 'light' | 'dark' {
+    // Dark theme is out of MVP scope.
+    return 'light'
+  },
+
+  hapticFeedback(): void {
+    // Browser has no haptic API.
+  },
+
+  showBackButton(): void {
+    // Browser has its own back button.
+  },
+
+  hideBackButton(): void {
+    // No-op.
+  },
+
+  close(): void {
+    // Can't programmatically close a browser tab.
+  },
+}
