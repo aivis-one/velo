@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Vite Configuration
+// VELO Frontend -- Vite Configuration (updated Phase F0.4: PWA)
 // =============================================================================
 //
 // Vite is the build tool (like Docker build for frontend).
@@ -9,14 +9,32 @@
 //   - resolve.alias: @/ -> src/ (short imports)
 //   - server.proxy: /api requests -> backend during local dev
 //   - build.outDir: dist/ (what Nginx serves)
+//   - VitePWA: generates service worker for precaching static assets
 // =============================================================================
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [
+    vue(),
+    VitePWA({
+      // Generate SW automatically from build output.
+      strategies: 'generateSW',
+      // Auto-register the service worker (no manual code needed).
+      registerType: 'autoUpdate',
+      // Include these file types in precache.
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Don't precache source maps.
+        globIgnores: ['**/*.map'],
+      },
+      // Manifest is served from public/manifest.json (not inlined).
+      manifest: false,
+    }),
+  ],
 
   resolve: {
     alias: {
