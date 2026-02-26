@@ -51,6 +51,20 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16
+    container_name: velo-postgres
+    env_file:
+      - ./backend/.env
+    volumes:
+      - velo_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U velo -d velo"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   redis:
     image: redis:7-alpine
     container_name: velo-redis
