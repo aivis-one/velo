@@ -13,7 +13,7 @@
 //   await initAuth()
 // =============================================================================
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { platform } from '@/platform'
 import { useAuthStore } from '@/stores/auth'
 
@@ -65,7 +65,7 @@ export function useAuth() {
     /** Auth flow has finished (may or may not be logged in). */
     isReady,
     /** User is logged in with a valid session. */
-    isAuthenticated: authStore.isAuthenticated,
+    isAuthenticated: computed(() => authStore.isAuthenticated),
     /** App is running outside Telegram (no auto-login possible). */
     isStandalone,
     /** Run the auth flow (call once from App.vue). */
