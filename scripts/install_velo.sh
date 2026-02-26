@@ -30,7 +30,7 @@ DOMAIN="api.talentir.info"
 REPO_URL=""  # Set after SSH key setup
 GITHUB_REPO="inzoddwetrust/velo"
 DEPLOY_USER="velo"
-DOCKER_COMPOSE_FILE="backend/docker-compose.yml"
+DOCKER_COMPOSE_FILE="docker-compose.yml"
 
 # === Colors ===
 RED='\033[0;31m'
@@ -135,7 +135,7 @@ if [ -d "$INSTALL_BASE/repo" ]; then
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Stopping existing services and removing volumes..."
-        cd "$INSTALL_BASE/repo/backend" 2>/dev/null && docker compose down -v 2>/dev/null || true
+        cd "$INSTALL_BASE/repo" 2>/dev/null && docker compose down -v 2>/dev/null || true
         cd "$INSTALL_BASE"
         log "Removing existing installation..."
         rm -rf "$INSTALL_BASE/repo"
@@ -472,26 +472,27 @@ setup_nginx() {
     rm -f /etc/nginx/sites-enabled/default
 
     cat > "/etc/nginx/sites-available/velo" << 'NGINX_EOF'
-# VELO API — Nginx reverse proxy
-# Upstream: Docker container on port 8000
+# VELO Platform — Nginx reverse proxy (frontend + backend)
 
 upstream velo_api {
     server 127.0.0.1:8000;
 }
 
-# HTTP → HTTPS redirect (also serves certbot challenges)
+upstream velo_frontend {
+    server 127.0.0.1:3000;
+}
+
+# HTTP -> HTTPS redirect (also serves certbot challenges)
 server {
     listen 80;
     listen [::]:80;
     server_name DOMAIN_PLACEHOLDER;
 
-    # Certbot ACME challenge
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
         allow all;
     }
 
-    # Redirect everything else to HTTPS
     location / {
         return 301 https://$host$request_uri;
     }
@@ -520,23 +521,44 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-    # Proxy to FastAPI
-    location / {
+    # --- Backend API ---
+    location /api/ {
         proxy_pass http://velo_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support (for future use)
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-
-        # Timeouts
         proxy_connect_timeout 60s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
+    }
+
+    location = /health {
+        proxy_pass http://velo_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location = /ready {
+        proxy_pass http://velo_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # --- Frontend: everything else ---
+    location / {
+        proxy_pass http://velo_frontend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     # Block access to hidden files
@@ -639,10 +661,10 @@ setup_ssl
 start_stack() {
     log "Starting VELO Docker stack..."
 
-    cd "$INSTALL_BASE/repo/backend"
+    cd "$INSTALL_BASE/repo"
 
     # Build and start
-    docker compose build --no-cache
+    docker compose build --no-cache app frontend
     docker compose up -d
 
     # Wait for health
@@ -689,7 +711,7 @@ create_management_script() {
 # ==============================================================================
 
 INSTALL_BASE="/opt/velo"
-COMPOSE_DIR="$INSTALL_BASE/repo/backend"
+COMPOSE_DIR="$INSTALL_BASE/repo"
 COMPOSE_CMD="docker compose"
 DOMAIN="api.talentir.info"
 
@@ -790,6 +812,9 @@ case "${1:-}" in
             redis)
                 $COMPOSE_CMD logs -f --tail=100 redis
                 ;;
+            frontend)
+                $COMPOSE_CMD logs -f --tail=100 frontend
+                ;;
             all|"")
                 $COMPOSE_CMD logs -f --tail=100
                 ;;
@@ -860,7 +885,7 @@ case "${1:-}" in
         # Rebuild and restart
         echo "Rebuilding Docker image..."
         cd "$COMPOSE_DIR"
-        $COMPOSE_CMD build app
+        $COMPOSE_CMD build app frontend
 
         echo "Restarting services..."
         $COMPOSE_CMD down
@@ -1120,10 +1145,11 @@ echo ""
 info "Directory structure:"
 echo "  $INSTALL_BASE/"
 echo "  ├── repo/              # Git repository"
-echo "  │   └── backend/       # Docker stack lives here"
+echo "  │   ├── backend/       # FastAPI backend"
+echo "  │   ├── frontend/      # Vue frontend"
+echo "  │   └── docker-compose.yml"
 echo "  ├── scripts/           # Management script"
 echo "  └── backups/           # Daily backups"
-echo ""
 
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"

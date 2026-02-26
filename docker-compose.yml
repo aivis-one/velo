@@ -1,23 +1,30 @@
 # =============================================================================
-# VELO Backend — Docker Compose (VPS)
+# VELO Platform -- Docker Compose (root)
 # =============================================================================
 #
-# Single compose file. No docker-compose.dev.yml. No local development.
+# Single compose file for the entire stack:
+#   - app:       FastAPI backend (Python)
+#   - frontend:  Vue SPA served by Nginx (static files)
+#   - postgres:  Database
+#   - redis:     Cache / sessions
 #
 # Usage:
-#   velo update   — pull, build, migrate, test, restart
-#   velo test     — run tests inside container
-#   velo status   — health check
+#   velo update   -- pull, build, migrate, test, restart
+#   velo test     -- run tests inside container
+#   velo status   -- health check
+#
+# Note: docker-compose.yml lives in repo root because it manages
+# both backend/ and frontend/ build contexts.
 # =============================================================================
 
 services:
   app:
-    build: .
+    build: ./backend
     container_name: velo-app
     ports:
       - "127.0.0.1:8000:8000"
     env_file:
-      - .env
+      - ./backend/.env
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -29,15 +36,30 @@ services:
       start_period: 15s
     restart: unless-stopped
 
+  frontend:
+    build: ./frontend
+    container_name: velo-frontend
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      app: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
   postgres:
     image: postgres:16
     container_name: velo-postgres
-    ports:
-      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-velo}
       POSTGRES_USER: ${POSTGRES_USER:-velo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+    env_file:
+      - ./backend/.env
     volumes:
       - velo_postgres_data:/var/lib/postgresql/data
     healthcheck:
