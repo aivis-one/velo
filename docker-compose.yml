@@ -56,6 +56,8 @@ services:
     container_name: velo-postgres
     env_file:
       - ./backend/.env
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - velo_postgres_data:/var/lib/postgresql/data
     healthcheck:
