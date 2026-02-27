@@ -244,6 +244,11 @@ async def create_session(user: User) -> str:
     timestamp as score instead of plain SET. On each login, expired
     tokens are garbage-collected via ZREMRANGEBYSCORE to prevent
     unbounded memory growth.
+
+    CRITICAL-05: All Redis writes (SET + ZADD + ZREMRANGEBYSCORE + EXPIRE)
+    are executed in a single MULTI/EXEC pipeline for atomicity.
+    Without this, a crash between SET and ZADD could create an
+    orphan session not tracked by the index.
     """
     token = secrets.token_urlsafe(48)
     redis = get_redis()
@@ -259,31 +264,31 @@ async def create_session(user: User) -> str:
         }
     )
 
-    # Store session data with TTL.
-    await redis.set(
-        f"{_SESSION_PREFIX}{token}",
-        session_data,
-        ex=ttl,
-    )
-
-    # FIX 2.3: Add token to Sorted Set with timestamp score.
+    session_key = f"{_SESSION_PREFIX}{token}"
     index_key = f"{_USER_SESSIONS_PREFIX}{user.id}"
-    await redis.zadd(index_key, {token: now_ts})
 
-    # GC: remove tokens whose creation time is older than TTL.
+    # GC cutoff: remove tokens whose creation time is older than TTL.
     # These sessions have expired by Redis TTL but their entries
-    # remain in the Sorted Set. Cutoff = now - ttl.
+    # remain in the Sorted Set.
     cutoff = now_ts - ttl
-    removed = await redis.zremrangebyscore(index_key, "-inf", cutoff)
+
+    # CRITICAL-05: MULTI/EXEC pipeline for atomic session creation.
+    # All four operations execute as a single atomic unit.
+    pipe = redis.pipeline(transaction=True)
+    pipe.set(session_key, session_data, ex=ttl)
+    pipe.zadd(index_key, {token: now_ts})
+    pipe.zremrangebyscore(index_key, "-inf", cutoff)
+    pipe.expire(index_key, ttl)
+    results = await pipe.execute()
+
+    # results[2] is the count of removed expired tokens from GC.
+    removed = results[2]
     if removed:
         logger.debug(
             "session_index_gc",
             user_id=str(user.id),
             removed=removed,
         )
-
-    # Refresh index TTL (keep alive while user is active).
-    await redis.expire(index_key, ttl)
 
     logger.info("session_created", user_id=str(user.id))
     return token
