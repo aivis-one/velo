@@ -51,6 +51,7 @@ from app.core.exceptions import (
     BadRequestError,
     NotFoundError,
 )
+from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.payments.refund import refund_all_bookings_for_practice
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.practices.schemas import (
@@ -112,6 +113,12 @@ _NOT_NULL_FIELDS = {
     "currency",
 }
 
+# Booking statuses that count as "active" for the price-change guard.
+_ACTIVE_BOOKING_STATUSES = {
+    BookingStatus.PENDING.value,
+    BookingStatus.CONFIRMED.value,
+}
+
 
 def _enforce_pricing(
     is_free: bool,
@@ -129,6 +136,26 @@ def _enforce_pricing(
             "price_cents must be > 0 for paid practices"
         )
     return price_cents
+
+
+async def _has_active_bookings(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> bool:
+    """Check if a practice has any active (pending/confirmed) bookings.
+
+    CQ-05: used to prevent price changes on practices that already
+    have participants who paid the original price.
+    """
+    stmt = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.status.in_(_ACTIVE_BOOKING_STATUSES),
+        )
+    )
+    result = await session.execute(stmt)
+    return result.scalar_one() > 0
 
 
 async def create_practice(
@@ -210,7 +237,8 @@ async def update_practice(
     Raises BadRequestError if practice is deleted/terminal,
         if NOT NULL field set to null (P-02),
         if status transition is invalid,
-        or if pricing invariant is violated.
+        if pricing invariant is violated,
+        or if price is changed with active bookings (CQ-05).
     """
     stmt = (
         select(Practice)
@@ -247,6 +275,23 @@ async def update_practice(
                 f"Cannot transition from "
                 f"{practice.status} to {new_status}"
             )
+
+    # CQ-05: prevent price/is_free changes when active bookings exist.
+    # Participants paid the original price; changing it mid-flight
+    # creates a mismatch between Purchase.paid_cents and Practice.price_cents.
+    pricing_changed = (
+        "is_free" in update_data
+        and update_data["is_free"] != practice.is_free
+    ) or (
+        "price_cents" in update_data
+        and update_data["price_cents"] != practice.price_cents
+    )
+    if pricing_changed and await _has_active_bookings(
+        practice.id, session,
+    ):
+        raise BadRequestError(
+            "Cannot change price with active bookings"
+        )
 
     # Enforce pricing invariant after applying updates.
     # Resolve final is_free and price_cents from mix of

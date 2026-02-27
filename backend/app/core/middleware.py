@@ -15,13 +15,26 @@
 #     2. Returned in X-Trace-ID response header -> client can correlate
 #   In Phase 6 (Payments), trace_id will link AuditLog entries to
 #   application logs for financial operation tracing.
+#
+# SECURITY (SEC-01):
+#   Client-provided trace_id is validated against a safe character set
+#   (alphanumeric + dots, hyphens, underscores). This prevents log
+#   injection, header injection, and JSONB pollution via crafted
+#   X-Trace-ID values that end up in AuditLog.trace_id (String(36)).
 # =============================================================================
 
+import re
 from uuid import uuid4
 
 import structlog
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+# SEC-01: Safe character set for client-provided trace IDs.
+# Allows UUIDs (hex + hyphens), custom IDs like "my-custom-trace-42",
+# and dotted formats like "svc.req.123". Rejects spaces, newlines,
+# unicode, quotes, slashes, and other injection vectors.
+_TRACE_ID_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 
 class TraceIdMiddleware:
@@ -50,8 +63,18 @@ class TraceIdMiddleware:
         # Guard: AuditLog.trace_id is String(36). If client sends
         # a longer value, discard it and generate a fresh uuid4
         # to prevent DataError in financial transactions (Phase 6+).
+        #
+        # SEC-01: additionally validate character set to prevent
+        # log injection and JSONB pollution via crafted trace IDs.
         raw_trace = _extract_header(scope, b"x-trace-id") or ""
-        trace_id = raw_trace if 0 < len(raw_trace) <= 36 else str(uuid4())
+        if (
+            0 < len(raw_trace) <= 36
+            and _TRACE_ID_RE.match(raw_trace)
+        ):
+            trace_id = raw_trace
+        else:
+            trace_id = str(uuid4())
+
         ip_address = _extract_client_ip(scope)
         user_agent = _extract_header(scope, b"user-agent")
 

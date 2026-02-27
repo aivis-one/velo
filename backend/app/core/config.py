@@ -227,6 +227,16 @@ class Settings(BaseSettings):
                 "'https://app.example.com'."
             )
 
+        # CQ-02: commission_percent must be within valid range.
+        # Prevents misconfiguration: negative commission or > 100%
+        # would break integer math in purchase finalization
+        # (paid_cents * commission_percent // 100).
+        if not 0 <= self.commission_percent <= 100:
+            raise ValueError(
+                "commission_percent must be between 0 and 100, "
+                f"got {self.commission_percent}"
+            )
+
         return self
 
     # -- Pydantic Settings Config --
