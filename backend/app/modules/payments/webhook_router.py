@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Stripe Webhook Router (Phase 6.3, Batch 3 fix, HIGH-4)
+# VELO Backend -- Stripe Webhook Router (Phase 6.3, Batch 3 fix)
 # =============================================================================
 #
 # ENDPOINT:
@@ -18,19 +18,13 @@
 #
 # IDEMPOTENCY: Handlers skip already-processed events (safe to retry).
 #
-# ERROR STRATEGY (M-03, HIGH-4):
+# ERROR STRATEGY (M-03):
 #   - Signature invalid → 400 (Stripe won't retry 4xx).
 #   - Unhandled event type → 200 (acknowledged, ignored).
 #   - Handler succeeds → 200.
-#   - BadRequestError (application logic) → 400 (no retry needed).
 #   - Transient error (DB down, network) → 500 (Stripe WILL retry).
 #   Handlers are idempotent, so retries are safe. Returning 200 on
 #   transient errors would cause payments to be stuck in pending forever.
-#
-# HIGH-4: Previous code caught bare Exception in the handler block,
-#   which swallowed BadRequestError from verify_webhook_signature and
-#   returned 500. Stripe would retry forever on invalid signatures.
-#   Now BadRequestError is caught separately and returns 400.
 #
 # HANDLED EVENTS:
 #   checkout.session.completed -- topup confirmed
@@ -42,7 +36,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.core.database import get_session_factory
-from app.core.exceptions import BadRequestError
 from app.modules.payments.stripe import (
     handle_checkout_completed,
     handle_checkout_expired_or_failed,
@@ -69,7 +62,7 @@ async def stripe_webhook(request: Request) -> JSONResponse:
     1. Read raw body (required for signature verification).
     2. Verify signature using Stripe-Signature header.
     3. Dispatch to event-specific handler.
-    4. Return 200 on success, 400 on bad request, 500 on transient failure.
+    4. Return 200 on success, 500 on transient failure (M-03).
 
     Stripe retries on 5xx with exponential backoff (up to 3 days).
     Handlers are idempotent, so retries are safe.
@@ -86,14 +79,14 @@ async def stripe_webhook(request: Request) -> JSONResponse:
             content={"error": "Missing Stripe-Signature header"},
         )
 
-    # HIGH-4: Catch BadRequestError explicitly (invalid signature/payload).
-    # Returns 400 so Stripe does NOT retry — the payload will never be valid.
     try:
         event = verify_webhook_signature(payload, sig_header)
-    except BadRequestError as exc:
+    except Exception:
+        # verify_webhook_signature raises BadRequestError
+        # on invalid signature / payload. Return 400.
         return JSONResponse(
             status_code=400,
-            content={"error": str(exc)},
+            content={"error": "Invalid signature"},
         )
 
     event_type = event.get("type", "unknown")
