@@ -478,7 +478,7 @@ async def test_confirm_waitlist_success(
     )
     assert confirm_resp.status_code == 201
     data = confirm_resp.json()
-    assert data["status"] == "confirmed"
+    assert data["waitlist_entry"]["status"] == "confirmed"
     assert data["booking_id"] is not None
 
 
