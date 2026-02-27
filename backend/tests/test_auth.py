@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import json
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from urllib.parse import urlencode
 
 import pytest
@@ -114,7 +114,21 @@ async def test_auth_telegram_success_mocked_redis(client: AsyncClient) -> None:
         patch("app.modules.auth.service.get_redis") as mock_get_redis,
     ):
         mock_settings.telegram_bot_token = BOT_TOKEN
-        mock_redis = AsyncMock()
+
+        # CRITICAL-05: create_session now uses pipeline(transaction=True).
+        # redis.pipeline() is a SYNC call returning a Pipeline object.
+        # Pipeline methods (.set, .zadd, etc.) are also sync (they queue).
+        # Only .execute() is async (sends MULTI/EXEC to Redis).
+        mock_pipe = MagicMock()
+        mock_pipe.set = MagicMock(return_value=mock_pipe)
+        mock_pipe.zadd = MagicMock(return_value=mock_pipe)
+        mock_pipe.zremrangebyscore = MagicMock(return_value=mock_pipe)
+        mock_pipe.expire = MagicMock(return_value=mock_pipe)
+        # execute() returns list of results; [2] is zremrangebyscore count.
+        mock_pipe.execute = AsyncMock(return_value=[True, 1, 0, True])
+
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=mock_pipe)
         mock_get_redis.return_value = mock_redis
 
         response = await client.post(
@@ -127,8 +141,10 @@ async def test_auth_telegram_success_mocked_redis(client: AsyncClient) -> None:
     assert "session_token" in data
     assert data["user"]["telegram_id"] == 99999
     assert data["user"]["first_name"] == "Tester"
-    # Verify Redis was called to store session.
-    mock_redis.set.assert_called_once()
+    # Verify pipeline was used to store session atomically.
+    mock_redis.pipeline.assert_called_once_with(transaction=True)
+    mock_pipe.set.assert_called_once()
+    mock_pipe.execute.assert_awaited_once()
 
 
 async def test_auth_telegram_invalid_data(client: AsyncClient) -> None:
@@ -199,3 +215,63 @@ async def test_logout_inactive_user(
         headers=auth_headers(token),
     )
     assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/logout-all (W-06)
+# ---------------------------------------------------------------------------
+
+
+async def test_logout_all_invalidates_all_sessions(
+    client: AsyncClient,
+) -> None:
+    """logout-all invalidates every session for the user."""
+    # Create two sessions for the same user.
+    data1 = await login_user(client, telegram_id=77010, first_name="Multi")
+    data2 = await login_user(client, telegram_id=77010, first_name="Multi")
+    token1 = data1["session_token"]
+    token2 = data2["session_token"]
+
+    # Both tokens work.
+    r1 = await client.get("/api/v1/users/me", headers=auth_headers(token1))
+    r2 = await client.get("/api/v1/users/me", headers=auth_headers(token2))
+    assert r1.status_code == 200
+    assert r2.status_code == 200
+
+    # Logout-all using token1.
+    response = await client.post(
+        "/api/v1/auth/logout-all",
+        headers=auth_headers(token1),
+    )
+    assert response.status_code == 204
+
+    # Both tokens should now be invalid.
+    r1 = await client.get("/api/v1/users/me", headers=auth_headers(token1))
+    r2 = await client.get("/api/v1/users/me", headers=auth_headers(token2))
+    assert r1.status_code == 401
+    assert r2.status_code == 401
+
+
+async def test_logout_all_other_user_unaffected(
+    client: AsyncClient,
+) -> None:
+    """logout-all for user A does not affect user B."""
+    data_a = await login_user(client, telegram_id=77020, first_name="UserA")
+    data_b = await login_user(client, telegram_id=77021, first_name="UserB")
+    token_a = data_a["session_token"]
+    token_b = data_b["session_token"]
+
+    # Logout-all for user A.
+    response = await client.post(
+        "/api/v1/auth/logout-all",
+        headers=auth_headers(token_a),
+    )
+    assert response.status_code == 204
+
+    # User A is logged out.
+    r_a = await client.get("/api/v1/users/me", headers=auth_headers(token_a))
+    assert r_a.status_code == 401
+
+    # User B is unaffected.
+    r_b = await client.get("/api/v1/users/me", headers=auth_headers(token_b))
+    assert r_b.status_code == 200
