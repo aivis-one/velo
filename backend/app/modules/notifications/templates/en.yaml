@@ -56,10 +56,11 @@ practice_updated:
   body: "📝 Practice <b>{practice_title}</b> has been updated.\n\n📅 New time: {scheduled_at}\n👤 Master: {master_name}"
 
 # -- Waitlist --
+# FIX 3.1: User must confirm within 30 minutes (not auto-booked).
 
 waitlist_spot_available:
   title: "Spot available!"
-  body: "🎉 A spot opened up for <b>{practice_title}</b>!\n\n📅 {scheduled_at}\n👤 Master: {master_name}\n\nYou have been automatically booked."
+  body: "🎉 A spot opened up for <b>{practice_title}</b>!\n\n📅 {scheduled_at}\n👤 Master: {master_name}\n\n⏳ You have <b>30 minutes</b> to confirm your spot.\nTap the button below to book now."
 
 waitlist_expired:
   title: "Waitlist expired"
@@ -79,25 +80,25 @@ master_rejected:
 
 topup_confirmed:
   title: "Top-up confirmed"
-  body: "💰 Your wallet has been topped up with <b>€{amount}</b>.\n\n💳 New balance: €{new_balance}"
+  body: "💰 Your balance has been topped up by <b>€{amount}</b>.\n\nCurrent balance: €{balance}"
 
 withdrawal_approved:
   title: "Withdrawal approved"
-  body: "💸 Your withdrawal of <b>€{amount}</b> has been approved.\n\nFunds will be transferred to your payout account."
+  body: "💸 Your withdrawal of <b>€{amount}</b> has been approved and is being processed."
 
 withdrawal_rejected:
   title: "Withdrawal rejected"
-  body: "Your withdrawal request of <b>€{amount}</b> has been rejected.\n\nReason: {reason}\n\nFunds have been returned to your available balance."
+  body: "Your withdrawal request for €{amount} was not approved.\n\nReason: {reason}"
 
 # -- Feedback (Phase 8) --
 
 leave_review:
   title: "How was your practice?"
-  body: "🙏 You attended <b>{practice_title}</b> with {master_name}.\n\nPlease leave a review to help the community!"
+  body: "📝 You attended <b>{practice_title}</b> with {master_name}.\n\nTap to leave a review and help other students."
 
 leave_feedback:
   title: "Share your feedback"
-  body: "🙏 How was <b>{practice_title}</b>?\n\nYour feedback helps {master_name} improve their practices."
+  body: "📝 How was <b>{practice_title}</b>?\n\nYour feedback helps masters improve their practices."
 
 # -- System --
 

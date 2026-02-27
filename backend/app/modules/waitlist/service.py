@@ -33,7 +33,9 @@
 # PROCESS_WAITLIST (internal):
 #   Called from cancel_booking and leave/decline.
 #   Finds first waiting entry, transitions to notified,
-#   sets expires_at = now + 30 min. Stub notification log.
+#   sets expires_at = now + 30 min.
+#   FIX 3.1: creates real Notification (WAITLIST_SPOT_AVAILABLE) instead
+#   of stub logger. Template includes 30-min deadline + deep link.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router calls flush + refresh.
@@ -97,6 +99,35 @@ def _next_position_subquery(practice_id: UUID):
         .where(Waitlist.practice_id == practice_id)
         .scalar_subquery()
     )
+
+
+async def _get_master_display_name(
+    master_id: UUID,
+    session: AsyncSession,
+) -> str:
+    """Get master's display name for notification templates.
+
+    Checks MasterProfile.data.profile.display_name first,
+    falls back to User.first_name, then "Master".
+    """
+    # Lazy import to avoid circular dependency with masters module.
+    from app.modules.masters.models import MasterProfile
+
+    profile = await session.get(MasterProfile, master_id)
+    if profile:
+        display_name = (
+            profile.data
+            .get("profile", {})
+            .get("display_name")
+        )
+        if display_name:
+            return display_name
+
+    user = await session.get(User, master_id)
+    if user and user.first_name:
+        return user.first_name
+
+    return "Master"
 
 
 async def join_waitlist(
@@ -419,6 +450,11 @@ async def process_waitlist(
     Finds the first 'waiting' entry by position, transitions
     to 'notified', and sets expires_at.
 
+    FIX 3.1: Creates a real Notification (WAITLIST_SPOT_AVAILABLE)
+    instead of a stub logger call. Template tells the user they have
+    30 minutes to confirm (not "automatically booked"). Deep link
+    points to the confirm action.
+
     Returns the notified entry, or None if queue is empty.
     """
     stmt = (
@@ -446,14 +482,46 @@ async def process_waitlist(
     entry.notified_at = now
     entry.expires_at = now + _CONFIRM_WINDOW
 
-    # Stub notification -- real implementation in Phase 7.
+    # FIX 3.1: Create real notification instead of stub logger.
+    # Lazy imports to avoid circular dependencies.
+    from app.modules.notifications.models import (
+        NotificationType,
+        TargetType,
+    )
+    from app.modules.notifications.service import create_notification
+
+    # Load practice for template variables.
+    practice = await session.get(Practice, practice_id)
+    master_name = await _get_master_display_name(
+        practice.master_id, session,
+    )
+
+    await create_notification(
+        type=NotificationType.WAITLIST_SPOT_AVAILABLE.value,
+        title="Spot available",
+        body="A spot opened up",
+        target_type=TargetType.USER.value,
+        target_value=str(entry.user_id),
+        session=session,
+        action_data={
+            "action": "confirm_waitlist",
+            "params": {"waitlist_id": str(entry.id)},
+            "practice_id": str(practice_id),
+            "practice_title": practice.title,
+            "scheduled_at": practice.scheduled_at.isoformat(),
+            "master_name": master_name,
+            "expires_at": entry.expires_at.isoformat(),
+        },
+        priority=2,
+        expiry_at=entry.expires_at,
+    )
+
     logger.info(
-        "waitlist_notification_stub",
+        "waitlist_user_notified",
         waitlist_id=str(entry.id),
         practice_id=str(practice_id),
         user_id=str(entry.user_id),
         expires_at=entry.expires_at.isoformat(),
-        message="TODO: Send Telegram notification to user",
     )
 
     return entry

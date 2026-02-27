@@ -51,10 +51,11 @@ practice_updated:
   body: "📝 La práctica <b>{practice_title}</b> ha sido actualizada.\n\n📅 Nueva hora: {scheduled_at}\n👤 Maestro: {master_name}"
 
 # -- Lista de espera --
+# FIX 3.1: El usuario debe confirmar en 30 minutos.
 
 waitlist_spot_available:
   title: "¡Plaza disponible!"
-  body: "🎉 Se ha liberado una plaza para <b>{practice_title}</b>.\n\n📅 {scheduled_at}\n👤 Maestro: {master_name}\n\nHas sido reservado automáticamente."
+  body: "🎉 Se ha liberado una plaza para <b>{practice_title}</b>.\n\n📅 {scheduled_at}\n👤 Maestro: {master_name}\n\n⏳ Tienes <b>30 minutos</b> para confirmar tu plaza.\nToca el botón para reservar ahora."
 
 waitlist_expired:
   title: "Lista de espera expirada"
@@ -74,25 +75,25 @@ master_rejected:
 
 topup_confirmed:
   title: "Recarga confirmada"
-  body: "💰 Tu monedero ha sido recargado con <b>€{amount}</b>.\n\n💳 Nuevo saldo: €{new_balance}"
+  body: "💰 Tu saldo ha sido recargado con <b>€{amount}</b>.\n\nSaldo actual: €{balance}"
 
 withdrawal_approved:
   title: "Retiro aprobado"
-  body: "💸 Tu retiro de <b>€{amount}</b> ha sido aprobado.\n\nLos fondos serán transferidos a tu cuenta de pago."
+  body: "💸 Tu retiro de <b>€{amount}</b> ha sido aprobado y está siendo procesado."
 
 withdrawal_rejected:
   title: "Retiro rechazado"
-  body: "Tu solicitud de retiro de <b>€{amount}</b> ha sido rechazada.\n\nMotivo: {reason}\n\nLos fondos han sido devueltos a tu saldo disponible."
+  body: "Tu solicitud de retiro por €{amount} no fue aprobada.\n\nMotivo: {reason}"
 
 # -- Feedback (Phase 8) --
 
 leave_review:
   title: "¿Cómo fue tu práctica?"
-  body: "🙏 Asististe a <b>{practice_title}</b> con {master_name}.\n\n¡Por favor deja una reseña para ayudar a la comunidad!"
+  body: "📝 Asististe a <b>{practice_title}</b> con {master_name}.\n\nToca para dejar una reseña."
 
 leave_feedback:
   title: "Comparte tu opinión"
-  body: "🙏 ¿Cómo fue <b>{practice_title}</b>?\n\nTu opinión ayuda a {master_name} a mejorar sus prácticas."
+  body: "📝 ¿Cómo fue <b>{practice_title}</b>?\n\nTu opinión ayuda a los maestros a mejorar."
 
 # -- Sistema --
 
