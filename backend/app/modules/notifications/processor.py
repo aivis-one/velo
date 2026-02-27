@@ -413,16 +413,30 @@ async def _stage_rollup() -> None:
         result = await session.execute(stmt)
         notifications = list(result.scalars().all())
 
-        for notification in notifications:
-            # Count sent deliveries.
-            sent_stmt = (
-                select(func.count(NotificationDelivery.id))
-                .where(
-                    NotificationDelivery.notification_id == notification.id,
-                    NotificationDelivery.status == DeliveryStatus.SENT.value,
-                )
+        if not notifications:
+            # Nothing to roll up -- skip commit overhead.
+            return
+
+        # FIX 5.1: Single GROUP BY query replaces N individual COUNTs.
+        # Before: one SELECT COUNT per notification (N+1 pattern).
+        # After:  one grouped query for all notification IDs.
+        notification_ids = [n.id for n in notifications]
+        sent_counts_stmt = (
+            select(
+                NotificationDelivery.notification_id,
+                func.count(NotificationDelivery.id),
             )
-            sent_count = (await session.execute(sent_stmt)).scalar_one()
+            .where(
+                NotificationDelivery.notification_id.in_(notification_ids),
+                NotificationDelivery.status == DeliveryStatus.SENT.value,
+            )
+            .group_by(NotificationDelivery.notification_id)
+        )
+        sent_counts_result = await session.execute(sent_counts_stmt)
+        sent_map: dict = dict(sent_counts_result.all())
+
+        for notification in notifications:
+            sent_count = sent_map.get(notification.id, 0)
 
             if sent_count > 0:
                 notification.status = NotificationStatus.SENT.value
@@ -436,8 +450,7 @@ async def _stage_rollup() -> None:
                 sent_deliveries=sent_count,
             )
 
-        if notifications:
-            await session.commit()
+        await session.commit()
 
     except Exception:
         await session.rollback()
