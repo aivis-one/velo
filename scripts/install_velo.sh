@@ -448,10 +448,12 @@ CORS_ORIGINS=https://web.telegram.org,https://${DOMAIN}
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 
-# --- Future (uncomment when ready) ---
-# STRIPE_SECRET_KEY=sk_test_...
-# STRIPE_WEBHOOK_SECRET=whsec_...
-# STRIPE_PUBLISHABLE_KEY=pk_test_...
+# --- Stripe (set to TEST to start without Stripe) ---
+STRIPE_SECRET_KEY=TEST
+STRIPE_WEBHOOK_SECRET=TEST
+STRIPE_PUBLISHABLE_KEY=TEST
+STRIPE_SUCCESS_URL=TEST
+STRIPE_CANCEL_URL=TEST
 EOF
 
     chmod 600 "$ENV_FILE"
@@ -518,7 +520,7 @@ server {
     # Security headers
     # 10.5: CSP frame-ancestors replaces X-Frame-Options DENY which blocked
     # Telegram WebApp iframe loading on web.telegram.org.
-    add_header Content-Security-Policy "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org" always;
+    add_header Content-Security-Policy "frame-ancestors 'self' https://web.telegram.org" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
