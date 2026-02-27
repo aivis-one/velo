@@ -1,16 +1,17 @@
 <!--
-  VELO Frontend -- Standalone Stub View (Phase F1.3, fixed 10.3)
+  VELO Frontend -- Standalone Stub View (Phase F1.3)
 
-  FIX 10.3: Bot URL from env variable, not hardcoded.
+  Shown when user opens app outside Telegram (no initData).
+  Directs them to open via the bot.
+
+  FIX 10.3: Bot URL from VITE_TELEGRAM_BOT_URL env variable, not hardcoded.
+  FIX 10.8: VeloLogo shared component (DRY).
 -->
 
 <template>
   <div class="stub">
     <div class="stub__logo">
-      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="32" cy="32" r="30" fill="var(--velo-primary)" />
-        <text x="32" y="40" text-anchor="middle" fill="white" font-size="24" font-weight="700" font-family="system-ui, sans-serif">V</text>
-      </svg>
+      <VeloLogo :size="64" />
     </div>
     <h1 class="stub__title">VELO</h1>
     <p class="stub__message">
@@ -26,6 +27,8 @@
 </template>
 
 <script setup lang="ts">
+import VeloLogo from '@/components/ui/VeloLogo.vue'
+
 // FIX 10.3: configurable via env, fallback to test bot.
 const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testbot'
 </script>
@@ -42,7 +45,11 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   background: var(--velo-bg-start);
   text-align: center;
 }
-.stub__logo { margin-bottom: var(--space-2); }
+
+.stub__logo {
+  margin-bottom: var(--space-2);
+}
+
 .stub__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
@@ -51,6 +58,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   letter-spacing: 0.1em;
   margin: 0 0 var(--space-6) 0;
 }
+
 .stub__message {
   font-size: var(--text-base);
   color: var(--velo-text-secondary);
@@ -58,6 +66,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   max-width: 280px;
   line-height: 1.5;
 }
+
 .stub__button {
   display: inline-flex;
   align-items: center;
@@ -72,7 +81,11 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   transition: background var(--transition-fast);
   min-width: 200px;
 }
-.stub__button:hover { background: var(--velo-primary-dark); }
+
+.stub__button:hover {
+  background: var(--velo-primary-dark);
+}
+
 .stub__hint {
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
