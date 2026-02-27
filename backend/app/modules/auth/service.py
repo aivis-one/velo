@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1)
+# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1, HIGH-1)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -51,6 +51,11 @@ _SESSION_PREFIX = "session:"
 
 # Reverse index prefix: ZSET of tokens per user (W-06, FIX 2.3).
 _USER_SESSIONS_PREFIX = "user_sessions:"
+
+# HIGH-1: Maximum clock skew tolerance for auth_date (seconds).
+# Rejects initData with auth_date more than 60s in the future,
+# which would bypass the 5-minute expiry check.
+_MAX_CLOCK_SKEW = 60
 
 
 def _get_session_ttl() -> int:
@@ -123,6 +128,12 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
     now = int(datetime.now(UTC).timestamp())
     if now - auth_date > 300:  # 5 minutes
         raise TelegramValidationError("initData expired")
+
+    # HIGH-1: Reject auth_date from the future (clock skew tolerance 60s).
+    # Without this, an attacker can set auth_date far in the future,
+    # making the token valid indefinitely (now - future_date < 0 < 300).
+    if auth_date > now + _MAX_CLOCK_SKEW:
+        raise TelegramValidationError("initData auth_date is in the future")
 
     # Parse user JSON from the query string.
     user_data_str = parsed.get("user", [None])[0]
