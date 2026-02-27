@@ -140,7 +140,16 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
     if not user_data_str:
         raise TelegramValidationError("Missing user in initData")
 
-    user_data = json.loads(unquote(user_data_str))
+    # ERR-03: guard against malformed JSON in user field.
+    # Without this, a corrupted or forged user value causes an
+    # unhandled JSONDecodeError -> 500 instead of a clean 400.
+    try:
+        user_data = json.loads(unquote(user_data_str))
+    except json.JSONDecodeError:
+        raise TelegramValidationError(
+            "Invalid user data in initData"
+        ) from None
+
     return user_data
 
 

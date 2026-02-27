@@ -67,6 +67,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.config import settings
+from app.core.exceptions import NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.payments.models import (
     CompanyLedgerType,
@@ -147,8 +148,7 @@ async def refund_booking(
         The updated Purchase (status=REFUNDED).
 
     Raises:
-        None -- silently skips if purchase already processed
-        (status != PENDING). This makes the function idempotent.
+        NotFoundError: If no purchase exists for this booking (ERR-04).
     """
     # Load purchase with FOR UPDATE (P-12).
     stmt = (
@@ -157,7 +157,14 @@ async def refund_booking(
         .with_for_update()
     )
     result = await session.execute(stmt)
-    purchase = result.scalar_one()
+    # ERR-04: scalar_one_or_none + explicit guard instead of bare
+    # scalar_one which raises unhandled NoResultFound -> 500.
+    purchase = result.scalar_one_or_none()
+
+    if not purchase:
+        raise NotFoundError(
+            f"Purchase not found for booking {booking.id}"
+        )
 
     # Idempotency guard: skip if already processed.
     if purchase.status != PurchaseStatus.PENDING.value:
@@ -275,8 +282,7 @@ async def early_finalize_booking(
         The updated Purchase (status=COMPLETED).
 
     Raises:
-        None -- silently skips if purchase already processed
-        (status != PENDING). This makes the function idempotent.
+        NotFoundError: If no purchase exists for this booking (ERR-04).
     """
     # Load purchase with FOR UPDATE (P-12).
     stmt = (
@@ -285,7 +291,14 @@ async def early_finalize_booking(
         .with_for_update()
     )
     result = await session.execute(stmt)
-    purchase = result.scalar_one()
+    # ERR-04: scalar_one_or_none + explicit guard instead of bare
+    # scalar_one which raises unhandled NoResultFound -> 500.
+    purchase = result.scalar_one_or_none()
+
+    if not purchase:
+        raise NotFoundError(
+            f"Purchase not found for booking {booking.id}"
+        )
 
     # Idempotency guard: skip if already processed.
     if purchase.status != PurchaseStatus.PENDING.value:
