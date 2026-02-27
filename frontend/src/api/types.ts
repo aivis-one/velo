@@ -58,12 +58,13 @@ export interface PaginatedResponse<T> {
 
 // -- Errors --
 
+// Backend returns string detail on most errors (400, 401, 403, 404, 409)
+// and an array of validation objects on 422.
+// client.ts normalises the array to a joined string before throwing.
 export interface ApiError {
-  detail: string | ApiValidationError[]
-}
-
-export interface ApiValidationError {
-  loc: (string | number)[]
-  msg: string
-  type: string
+  detail: string | Array<{
+    loc: (string | number)[]
+    msg: string
+    type: string
+  }>
 }
