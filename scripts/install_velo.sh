@@ -439,7 +439,8 @@ POSTGRES_USER=velo
 POSTGRES_PASSWORD=${PG_PASSWORD}
 
 # --- Redis ---
-REDIS_URL=redis://redis:6379/0
+REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # --- CORS ---
 # Telegram WebApp origins. Add more as needed.
