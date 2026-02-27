@@ -3,10 +3,10 @@
  * =============================================================================
  * CSS reset + base typography.
  * Imported once in main.ts, applies to the entire app.
+ *
+ * FIX 10.6: Google Fonts loaded via <link> in index.html instead of
+ * @import here. Eliminates render-blocking CSS request (+200-500ms FCP).
  * =========================================================================== */
-
-/* Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
 
 /* === Reset === */
 *,

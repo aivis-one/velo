@@ -1,15 +1,15 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2)
+// VELO Frontend -- API Types (Phase F1.2, username fix)
 // =============================================================================
 //
-// TypeScript interfaces that mirror backend Pydantic schemas.
-// Manual typings (not OpenAPI codegen) -- see Frontend Spec section 3.2.
+// TypeScript interfaces matching backend Pydantic schemas.
+// Manual typing (not auto-generated from OpenAPI).
 //
-// Populated incrementally as frontend phases are implemented.
-// Phase F1: auth + user basics.
+// USERNAME FIX: backend UserResponse has no `username` field.
+// telegram_username is stored in credentials JSONB, not exposed.
 // =============================================================================
 
-// -- Auth (Phase 1.2 backend) --
+// -- Auth --
 
 export interface TelegramAuthRequest {
   init_data: string
@@ -20,12 +20,14 @@ export interface AuthResponse {
   session_token: string
 }
 
-// -- Users (Phase 1.4 backend) --
+// -- Users --
+
+export type UserRole = 'user' | 'master' | 'admin'
 
 export interface UserResponse {
   id: string
   telegram_id: number | null
-  role: 'user' | 'master' | 'admin'
+  role: UserRole
   first_name: string | null
   last_name: string | null
   avatar_url: string | null
@@ -38,31 +40,30 @@ export interface UserResponse {
 }
 
 export interface UserUpdate {
-  first_name?: string
+  first_name?: string | null
   last_name?: string | null
-  language?: string
   timezone?: string
+  language?: string
 }
 
-// -- Generic paginated response (reused across modules) --
+// -- Pagination --
 
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
-  limit: number
-  offset: number
+  page: number
+  per_page: number
+  pages: number
 }
 
-// -- API error shape (matches FastAPI/Pydantic error responses) --
-
-export interface ApiValidationError {
-  detail: Array<{
-    loc: (string | number)[]
-    msg: string
-    type: string
-  }>
-}
+// -- Errors --
 
 export interface ApiError {
-  detail: string
+  detail: string | ApiValidationError[]
+}
+
+export interface ApiValidationError {
+  loc: (string | number)[]
+  msg: string
+  type: string
 }

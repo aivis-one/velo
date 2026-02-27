@@ -4,23 +4,14 @@
   Displayed while auth initialization is in progress.
   Shows VELO logo + subtle loading indicator.
   Replaced by actual content once auth completes.
+
+  FIX 10.8: VeloLogo shared component (DRY).
 -->
 
 <template>
   <div class="loading">
     <div class="loading__logo">
-      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="32" cy="32" r="30" fill="var(--velo-primary)" />
-        <text
-          x="32"
-          y="40"
-          text-anchor="middle"
-          fill="white"
-          font-size="24"
-          font-weight="700"
-          font-family="system-ui, sans-serif"
-        >V</text>
-      </svg>
+      <VeloLogo :size="64" />
     </div>
     <h1 class="loading__title">VELO</h1>
     <div class="loading__spinner" />
@@ -28,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-// No logic -- purely visual placeholder during auth.
+import VeloLogo from '@/components/ui/VeloLogo.vue'
 </script>
 
 <style scoped>
@@ -67,11 +58,17 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 </style>
