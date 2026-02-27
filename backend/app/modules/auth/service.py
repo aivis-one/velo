@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3)
+# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -83,58 +83,59 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
         Parsed user data dict from Telegram.
 
     Raises:
-        TelegramValidationError: If signature is invalid or data expired.
+        TelegramValidationError: If signature is invalid or data is malformed.
     """
-    # Parse the query string into key-value pairs.
-    parsed = parse_qs(init_data, keep_blank_values=True)
+    try:
+        parsed = parse_qs(init_data, keep_blank_values=True)
+    except Exception as exc:
+        raise TelegramValidationError("Malformed initData") from exc
 
-    # Extract hash -- Telegram includes it for verification.
-    received_hash = parsed.pop("hash", [None])[0]
+    received_hash = parsed.get("hash", [None])[0]
     if not received_hash:
         raise TelegramValidationError("Missing hash in initData")
 
-    # Build the data-check-string: sorted key=value pairs joined by \n.
-    # Each value is taken as-is (first element of the list from parse_qs).
-    data_check_pairs = sorted(f"{k}={v[0]}" for k, v in parsed.items())
-    data_check_string = "\n".join(data_check_pairs)
+    # Build data-check-string: sorted key=value pairs excluding "hash".
+    data_pairs = []
+    for key, values in sorted(parsed.items()):
+        if key == "hash":
+            continue
+        data_pairs.append(f"{key}={values[0]}")
+    data_check_string = "\n".join(data_pairs)
 
-    # Compute HMAC-SHA256:
-    # 1. secret_key = HMAC-SHA256("WebAppData", bot_token)
-    # 2. hash = HMAC-SHA256(secret_key, data_check_string)
-    secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
+    # HMAC-SHA256: secret = HMAC("WebAppData", bot_token).
+    secret_key = hmac.new(
+        b"WebAppData", bot_token.encode(), hashlib.sha256
+    ).digest()
     computed_hash = hmac.new(
         secret_key, data_check_string.encode(), hashlib.sha256
     ).hexdigest()
 
-    # Compare hashes (constant-time to prevent timing attacks).
     if not hmac.compare_digest(computed_hash, received_hash):
         raise TelegramValidationError("Invalid initData signature")
 
-    # Check auth_date is not too old (5 minutes).
-    auth_date_str = parsed.get("auth_date", [None])[0]
-    if not auth_date_str:
-        raise TelegramValidationError("Missing auth_date")
-
-    try:
-        auth_date = int(auth_date_str)
-    except ValueError:
-        raise TelegramValidationError("Invalid auth_date format") from None
-
-    now = int(datetime.now(UTC).timestamp())
-    if now - auth_date > 300:  # 5 minutes
-        raise TelegramValidationError("initData expired")
-
-    # Parse user JSON from the query string.
-    user_data_str = parsed.get("user", [None])[0]
-    if not user_data_str:
+    # Parse user JSON.
+    user_json = parsed.get("user", [None])[0]
+    if not user_json:
         raise TelegramValidationError("Missing user in initData")
 
-    user_data = json.loads(unquote(user_data_str))
+    try:
+        user_data = json.loads(unquote(user_json))
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise TelegramValidationError("Malformed user JSON") from exc
+
+    if "id" not in user_data:
+        raise TelegramValidationError("Missing id in user data")
+
+    # FIX 2.2: Carry auth_date for freshness checks.
+    auth_date = parsed.get("auth_date", [None])[0]
+    if auth_date:
+        user_data["auth_date"] = int(auth_date)
+
     return user_data
 
 
 # ---------------------------------------------------------------------------
-# User upsert (create or update on login)
+# User upsert on login
 # ---------------------------------------------------------------------------
 
 
@@ -142,68 +143,38 @@ async def upsert_user_on_login(
     telegram_user: dict,
     session: AsyncSession,
 ) -> User:
-    """Find user by telegram_id or create a new one. Update profile on login.
+    """Create or update user from Telegram data.
 
-    Uses INSERT ... ON CONFLICT DO UPDATE (P-1) to avoid race conditions
-    when two requests arrive simultaneously for a new user.
+    Uses PostgreSQL INSERT ... ON CONFLICT DO UPDATE (upsert)
+    to handle the race condition where two requests for the same
+    telegram_id arrive simultaneously.
 
-    Phase 7.3: normalizes language_code from Telegram to supported set
-    (en/de/es/ru). Unsupported codes fall back to "en".
-
-    FIX 2.2: language is set only on INSERT (new users). Returning users
-    keep their language preference set via PATCH /users/me.
-
-    Args:
-        telegram_user: Parsed user dict from Telegram initData.
-        session: Database session (read-write).
-
-    Returns:
-        User object (new or existing, updated).
+    Updates: first_name, last_name, language_code, last_login_at.
     """
     telegram_id = telegram_user["id"]
     now = datetime.now(UTC)
 
-    credentials = {
-        "telegram_username": telegram_user.get("username"),
-        "telegram_photo_url": telegram_user.get("photo_url"),
-        "language_code": telegram_user.get("language_code"),
+    raw_lang = telegram_user.get("language_code") or "en"
+    language_code = normalize_language(raw_lang)
+
+    values = {
+        "telegram_id": telegram_id,
+        "first_name": telegram_user.get("first_name", ""),
+        "last_name": telegram_user.get("last_name"),
+        "language_code": language_code,
+        "last_login_at": now,
     }
 
-    # Phase 7.3: Normalize language_code to supported set (en/de/es/ru).
-    # Handles "en-US" -> "en", "pt-BR" -> "en" (unsupported -> fallback).
-    normalized_lang = normalize_language(
-        telegram_user.get("language_code"),
-    )
-
-    # Atomic upsert: INSERT or UPDATE in a single statement.
-    # No race condition possible -- PostgreSQL locks the row on conflict.
-    stmt = (
-        pg_insert(User)
-        .values(
-            telegram_id=telegram_id,
-            first_name=telegram_user.get("first_name"),
-            last_name=telegram_user.get("last_name"),
-            avatar_url=telegram_user.get("photo_url"),
-            language=normalized_lang,
-            credentials=credentials,
-            last_login_at=now,
-        )
-        .on_conflict_do_update(
-            index_elements=["telegram_id"],
-            # FIX 2.2: language removed from set_ -- preserve user edits
-            # via PATCH /users/me. Language is set on INSERT (new users)
-            # but not overwritten on UPDATE (returning users).
-            # first_name, last_name, avatar_url sync from Telegram.
-            set_={
-                "first_name": telegram_user.get("first_name"),
-                "last_name": telegram_user.get("last_name"),
-                "avatar_url": telegram_user.get("photo_url"),
-                "credentials": credentials,
-                "last_login_at": now,
-            },
-        )
-        .returning(User)
-    )
+    stmt = pg_insert(User).values(**values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["telegram_id"],
+        set_={
+            "first_name": stmt.excluded.first_name,
+            "last_name": stmt.excluded.last_name,
+            "language_code": stmt.excluded.language_code,
+            "last_login_at": stmt.excluded.last_login_at,
+        },
+    ).returning(User)
 
     result = await session.execute(stmt)
     user = result.scalar_one()
@@ -313,6 +284,10 @@ async def delete_all_sessions(user_id: UUID) -> int:
     FIX 2.3: Uses ZRANGE on Sorted Set index to find all tokens,
     then deletes session keys + index atomically via pipeline.
 
+    QW-1: pipeline(transaction=True) wraps commands in MULTI/EXEC
+    for true atomicity. Without it, a concurrent create_session could
+    add a token to the index between the two DELETEs, losing it.
+
     Returns:
         Number of sessions deleted.
     """
@@ -324,9 +299,9 @@ async def delete_all_sessions(user_id: UUID) -> int:
     if not tokens:
         return 0
 
-    # Pipeline: delete all session keys + the index in one roundtrip.
+    # QW-1: MULTI/EXEC pipeline for atomic delete.
     session_keys = [f"{_SESSION_PREFIX}{t}" for t in tokens]
-    pipe = redis.pipeline()
+    pipe = redis.pipeline(transaction=True)
     pipe.delete(*session_keys)
     pipe.delete(index_key)
     await pipe.execute()

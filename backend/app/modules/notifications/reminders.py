@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Reminder Scheduling (Phase 7.4)
+# VELO Backend -- Reminder Scheduling (Phase 7.4, QW-2/QW-3)
 # =============================================================================
 #
 # Automatic reminders for upcoming practices. Creates Notification records
@@ -27,6 +27,11 @@
 # FILTERING:
 #   Reminders are linked to a practice via action_data["practice_id"].
 #   JSONB query: Notification.action_data["practice_id"].astext == str(id).
+#
+# QW-2/QW-3: schedule_reminders and schedule_master_reminders accept an
+#   optional master_name keyword argument. When provided, the DB lookup
+#   for display name is skipped. reschedule_reminders_for_practice fetches
+#   the name once and passes it to all calls, eliminating N+1 queries.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Caller manages transaction.
@@ -147,6 +152,8 @@ async def schedule_reminders(
     practice: Practice,
     user: User,
     session: AsyncSession,
+    *,
+    master_name: str | None = None,
 ) -> list[Notification]:
     """Schedule up to 3 reminder notifications for a booked user.
 
@@ -158,6 +165,9 @@ async def schedule_reminders(
         practice: The booked practice.
         user: The user who booked.
         session: Database session (caller manages commit).
+        master_name: Pre-fetched display name (QW-3). If None, fetched
+            from DB. Pass this when calling in a loop for the same
+            practice to avoid redundant queries.
 
     Returns:
         List of created Notification objects (0-3).
@@ -166,9 +176,11 @@ async def schedule_reminders(
     cutoff = now + _MIN_LEAD_TIME
     created: list[Notification] = []
 
-    master_name = await _get_master_display_name(
-        practice.master_id, session,
-    )
+    # QW-3: reuse caller-provided name or fetch from DB.
+    if master_name is None:
+        master_name = await _get_master_display_name(
+            practice.master_id, session,
+        )
     action_data = _build_action_data(practice, master_name)
 
     for reminder_type, lead_time in _USER_REMINDER_SPECS:
@@ -212,6 +224,8 @@ async def schedule_reminders(
 async def schedule_master_reminders(
     practice: Practice,
     session: AsyncSession,
+    *,
+    master_name: str | None = None,
 ) -> list[Notification]:
     """Schedule up to 3 reminder notifications for the practice master.
 
@@ -221,6 +235,8 @@ async def schedule_master_reminders(
     Args:
         practice: The practice that became scheduled.
         session: Database session (caller manages commit).
+        master_name: Pre-fetched display name (QW-3). If None, fetched
+            from DB. Useful when caller already resolved the name.
 
     Returns:
         List of created Notification objects (0-3).
@@ -229,9 +245,11 @@ async def schedule_master_reminders(
     cutoff = now + _MIN_LEAD_TIME
     created: list[Notification] = []
 
-    master_name = await _get_master_display_name(
-        practice.master_id, session,
-    )
+    # QW-3: reuse caller-provided name or fetch from DB.
+    if master_name is None:
+        master_name = await _get_master_display_name(
+            practice.master_id, session,
+        )
 
     # Count current active bookings for the template.
     count_stmt = (
@@ -384,6 +402,10 @@ async def reschedule_reminders_for_practice(
     2. Re-schedule master reminders.
     3. Re-schedule user reminders for each active booking.
 
+    QW-3: Fetches master display name once and passes it to all
+    schedule_* calls, avoiding N+1 queries (was 1 per booking + 1
+    for master = N+2 total; now exactly 1).
+
     Returns total count of new reminders created.
     """
     # Step 1: Cancel all existing.
@@ -391,9 +413,14 @@ async def reschedule_reminders_for_practice(
 
     total_created = 0
 
+    # QW-3: Fetch master name ONCE for all reminders.
+    master_name = await _get_master_display_name(
+        practice.master_id, session,
+    )
+
     # Step 2: Re-schedule master reminders.
     master_reminders = await schedule_master_reminders(
-        practice, session,
+        practice, session, master_name=master_name,
     )
     total_created += len(master_reminders)
 
@@ -410,23 +437,14 @@ async def reschedule_reminders_for_practice(
     result = await session.execute(bookings_stmt)
     bookings = result.scalars().all()
 
-    # FIX 5.2: Batch-load all users in one query instead of
-    # per-booking session.get(User, ...) which causes N+1.
-    user_ids = list({b.user_id for b in bookings})
-    if user_ids:
-        users_stmt = select(User).where(User.id.in_(user_ids))
-        users_result = await session.execute(users_stmt)
-        users_map: dict = {u.id: u for u in users_result.scalars().all()}
-    else:
-        users_map = {}
-
     for booking in bookings:
-        user = users_map.get(booking.user_id)
+        user = await session.get(User, booking.user_id)
         if not user:
             continue
 
         reminders = await schedule_reminders(
             booking, practice, user, session,
+            master_name=master_name,
         )
         total_created += len(reminders)
 

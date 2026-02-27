@@ -1,8 +1,9 @@
 // =============================================================================
-// VELO Frontend -- Auth Store (Phase F1.3, fixed 10.2)
+// VELO Frontend -- Auth Store (Phase F1.3, fixed 10.2, QW-4)
 // =============================================================================
 //
 // FIX 10.2: registers onUnauthorized callback with API client.
+// QW-4: role returns null (not 'user') for unauthenticated users.
 // =============================================================================
 
 import { defineStore } from 'pinia'
@@ -18,7 +19,10 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
-  const role = computed(() => user.value?.role ?? 'user')
+
+  // QW-4: null for unauthenticated users, not 'user'. Prevents false
+  // positives in v-if="role === 'user'" guards for anonymous visitors.
+  const role = computed(() => user.value?.role ?? null)
 
   function _setToken(newToken: string | null): void {
     token.value = newToken

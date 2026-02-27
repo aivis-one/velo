@@ -1,8 +1,12 @@
 <!--
-  VELO Frontend -- VeloLogo Component (Fix 10.8)
+  VELO Frontend -- VeloLogo Component (Fix 10.8, QW-5)
 
   Shared SVG logo. Was copy-pasted in HomeView, LoadingView,
   StandaloneStubView. Now a single source of truth.
+
+  QW-5: CSS fallback #334D6E for --velo-primary. Without it,
+  the circle is transparent if variables.css hasn't loaded yet
+  (SSR, test runners, standalone contexts).
 
   Props:
     size — width/height in px (default 64)
@@ -16,7 +20,7 @@
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <circle cx="32" cy="32" r="30" fill="var(--velo-primary)" />
+    <circle cx="32" cy="32" r="30" fill="var(--velo-primary, #334D6E)" />
     <text
       x="32"
       y="40"
