@@ -39,6 +39,12 @@
 #   MasterProfile.available_cents= SUM(master_ledger.amount_cents) WHERE status='done' AND is_frozen=false
 #   Updated by listeners (Phase 6.2), NOT by direct writes.
 #
+# FK POLICY (CRITICAL-02):
+#   Financial tables use ondelete="RESTRICT" on user_id, practice_id,
+#   booking_id FKs. Deleting a user/practice/booking that has financial
+#   records MUST fail -- audit trail is preserved for 5-year retention.
+#   Only promo_id and MasterLedger.practice_id use SET NULL (soft refs).
+#
 # SESSION RULES:
 #   No session.commit() in service functions (P-01).
 # =============================================================================
@@ -80,13 +86,7 @@ class LedgerStatus(enum.StrEnum):
 
 
 class CompanyLedgerType(enum.StrEnum):
-    """Types of company ledger entries.
-
-    COMMISSION:     platform fee from completed practices (15%).
-    MARKETING:      company-funded promo spending.
-    REFUND:         money returned to users from company funds.
-    WITHDRAWAL_FEE: fixed fee charged on master withdrawals.
-    """
+    """Types of platform revenue entries."""
 
     COMMISSION = "commission"
     MARKETING = "marketing"
@@ -94,25 +94,8 @@ class CompanyLedgerType(enum.StrEnum):
     WITHDRAWAL_FEE = "withdrawal_fee"
 
 
-class PaymentDirection(enum.StrEnum):
-    """Direction of external money movement.
-
-    IN:  money enters the system (Stripe topup).
-    OUT: money leaves the system (withdrawal to bank).
-    """
-
-    IN = "in"
-    OUT = "out"
-
-
 class PaymentStatus(enum.StrEnum):
-    """External payment lifecycle status.
-
-    PENDING:   Stripe session created, awaiting user action.
-    CONFIRMED: Stripe webhook confirmed payment success.
-    FAILED:    Payment failed or session expired.
-    REFUNDED:  Payment refunded via Stripe.
-    """
+    """External payment lifecycle."""
 
     PENDING = "pending"
     CONFIRMED = "confirmed"
@@ -121,10 +104,10 @@ class PaymentStatus(enum.StrEnum):
 
 
 class PurchaseStatus(enum.StrEnum):
-    """Purchase lifecycle status.
+    """Purchase lifecycle.
 
-    PENDING:   Practice not yet completed. Master funds frozen.
-    COMPLETED: Practice finalized. Commission deducted, funds unfrozen.
+    PENDING:   Booking created, funds frozen.
+    COMPLETED: Practice done. Commission deducted, funds unfrozen.
     REFUNDED:  User refund (cancellation or master cancellation).
     CANCELLED: Booking cancelled without refund.
     """
@@ -148,8 +131,9 @@ class UserLedger(UUIDMixin, Base):
     __tablename__ = "user_ledger"
 
     # -- Owner --
+    # CRITICAL-02: RESTRICT prevents deleting a user who has financial records.
     user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         index=True,
     )
 
@@ -191,8 +175,9 @@ class MasterLedger(UUIDMixin, Base):
     __tablename__ = "master_ledger"
 
     # -- Owner --
+    # CRITICAL-02: RESTRICT prevents deleting a user who has financial records.
     user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         index=True,
     )
 
@@ -304,8 +289,9 @@ class Payment(UUIDMixin, Base):
     __tablename__ = "payments"
 
     # -- Owner --
+    # CRITICAL-02: RESTRICT prevents deleting a user who has payment records.
     user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         index=True,
     )
 
@@ -396,16 +382,17 @@ class Purchase(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "purchases"
 
     # -- References --
+    # CRITICAL-02: RESTRICT on all three -- audit trail must be preserved.
     user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("users.id", ondelete="RESTRICT"),
         index=True,
     )
     practice_id: Mapped[UUID] = mapped_column(
-        ForeignKey("practices.id", ondelete="CASCADE"),
+        ForeignKey("practices.id", ondelete="RESTRICT"),
         index=True,
     )
     booking_id: Mapped[UUID] = mapped_column(
-        ForeignKey("bookings.id", ondelete="CASCADE"),
+        ForeignKey("bookings.id", ondelete="RESTRICT"),
         unique=True,
     )
 
