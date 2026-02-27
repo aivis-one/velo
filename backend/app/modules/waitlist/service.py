@@ -12,7 +12,7 @@
 #      - active (waiting/notified) -> 409
 #      - rejoinable (left/declined/expired) -> UPDATE (re-join, new position)
 #      - none -> INSERT with position = MAX+1 subquery
-#   4. IntegrityError -> rollback + 409 (P-05)
+#   4. IntegrityError -> savepoint rollback + 409 (P-05, FIX 2.1)
 #
 # LEAVE/DECLINE FLOW:
 #   1. FOR UPDATE on waitlist entry (P-12)
@@ -44,6 +44,9 @@
 #     status changes (EXPIRED/WAITING) instead of rolling them back.
 #   - confirm_waitlist locks Practice with FOR UPDATE and rechecks
 #     capacity to prevent overbooking race with create_booking.
+#   - FIX 2.1: confirm_waitlist uses begin_nested() (SAVEPOINT) instead
+#     of session.rollback() on IntegrityError. Rollback kills the entire
+#     transaction; savepoint rolls back only the failed flush.
 # =============================================================================
 
 from datetime import UTC, datetime, timedelta
@@ -365,10 +368,14 @@ async def confirm_waitlist(
     )
     session.add(booking)
 
+    # FIX 2.1: begin_nested() (SAVEPOINT) instead of session.rollback().
+    # Rollback kills the entire transaction including FOR UPDATE locks
+    # and the entry status changes above. Savepoint rolls back only
+    # the failed flush, keeping the outer transaction alive.
     try:
-        await session.flush()
+        async with session.begin_nested():
+            await session.flush()
     except IntegrityError:
-        await session.rollback()
         raise ConflictError(
             "Already booked for this practice"
         ) from None

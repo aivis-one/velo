@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Auth Router (updated W-06: logout-all)
+# VELO Backend — Auth Router (updated W-06: logout-all, FIX 2.3)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -82,7 +82,8 @@ async def logout(
     auth_header = request.headers.get("Authorization", "")
     token = auth_header[7:] if auth_header.startswith("Bearer ") else ""
     if token:
-        await delete_session(token)
+        # FIX 2.3: pass user_id to clean up Sorted Set index entry.
+        await delete_session(token, user_id=user.id)
     logger.info("user_logout", user_id=str(user.id))
 
 

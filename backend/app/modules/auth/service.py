@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Auth Service (updated Phase 7.3: language normalization)
+# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -18,12 +18,13 @@
 #   Value: JSON {"user_id": "uuid", "telegram_id": 123, "created_at": "iso"}
 #   TTL:   30 days (configurable via SESSION_TTL_DAYS)
 #
-# SESSION INDEX (W-06):
+# SESSION INDEX (W-06, FIX 2.3):
 #   Key:   user_sessions:{user_id}
-#   Type:  Redis SET of token strings
-#   TTL:   Same as session TTL (garbage-collected automatically)
-#   Purpose: Reverse index for logout-all. Allows finding all tokens
-#            belonging to a user without scanning the entire keyspace.
+#   Type:  Redis ZSET (Sorted Set), score = creation timestamp
+#   TTL:   Same as session TTL
+#   Purpose: Reverse index for logout-all. Sorted Set allows efficient
+#            GC of expired tokens via ZREMRANGEBYSCORE on each login.
+#            Prevents unbounded memory growth from dead session entries.
 # =============================================================================
 
 import hashlib
@@ -48,7 +49,7 @@ logger = structlog.get_logger()
 # Session key prefix in Redis.
 _SESSION_PREFIX = "session:"
 
-# Reverse index prefix: SET of tokens per user (W-06).
+# Reverse index prefix: ZSET of tokens per user (W-06, FIX 2.3).
 _USER_SESSIONS_PREFIX = "user_sessions:"
 
 
@@ -149,6 +150,9 @@ async def upsert_user_on_login(
     Phase 7.3: normalizes language_code from Telegram to supported set
     (en/de/es/ru). Unsupported codes fall back to "en".
 
+    FIX 2.2: language is set only on INSERT (new users). Returning users
+    keep their language preference set via PATCH /users/me.
+
     Args:
         telegram_user: Parsed user dict from Telegram initData.
         session: Database session (read-write).
@@ -186,11 +190,14 @@ async def upsert_user_on_login(
         )
         .on_conflict_do_update(
             index_elements=["telegram_id"],
+            # FIX 2.2: language removed from set_ -- preserve user edits
+            # via PATCH /users/me. Language is set on INSERT (new users)
+            # but not overwritten on UPDATE (returning users).
+            # first_name, last_name, avatar_url sync from Telegram.
             set_={
                 "first_name": telegram_user.get("first_name"),
                 "last_name": telegram_user.get("last_name"),
                 "avatar_url": telegram_user.get("photo_url"),
-                "language": normalized_lang,
                 "credentials": credentials,
                 "last_login_at": now,
             },
@@ -221,29 +228,50 @@ async def create_session(user: User) -> str:
     Token is a cryptographically random 64-char string.
     Also registers the token in the user's session index (W-06)
     so logout-all can find and invalidate all sessions.
+
+    FIX 2.3: Session index uses Sorted Set (ZSET) with creation
+    timestamp as score instead of plain SET. On each login, expired
+    tokens are garbage-collected via ZREMRANGEBYSCORE to prevent
+    unbounded memory growth.
     """
     token = secrets.token_urlsafe(48)
     redis = get_redis()
     ttl = _get_session_ttl()
+    now = datetime.now(UTC)
+    now_ts = now.timestamp()
 
     session_data = json.dumps(
         {
             "user_id": str(user.id),
             "telegram_id": user.telegram_id,
-            "created_at": datetime.now(UTC).isoformat(),
+            "created_at": now.isoformat(),
         }
     )
 
-    # Store session data.
+    # Store session data with TTL.
     await redis.set(
         f"{_SESSION_PREFIX}{token}",
         session_data,
         ex=ttl,
     )
 
-    # W-06: Add token to user's session index SET.
+    # FIX 2.3: Add token to Sorted Set with timestamp score.
     index_key = f"{_USER_SESSIONS_PREFIX}{user.id}"
-    await redis.sadd(index_key, token)
+    await redis.zadd(index_key, {token: now_ts})
+
+    # GC: remove tokens whose creation time is older than TTL.
+    # These sessions have expired by Redis TTL but their entries
+    # remain in the Sorted Set. Cutoff = now - ttl.
+    cutoff = now_ts - ttl
+    removed = await redis.zremrangebyscore(index_key, "-inf", cutoff)
+    if removed:
+        logger.debug(
+            "session_index_gc",
+            user_id=str(user.id),
+            removed=removed,
+        )
+
+    # Refresh index TTL (keep alive while user is active).
     await redis.expire(index_key, ttl)
 
     logger.info("session_created", user_id=str(user.id))
@@ -262,18 +290,28 @@ async def get_session(token: str) -> dict | None:
     return json.loads(data)
 
 
-async def delete_session(token: str) -> None:
-    """Delete a single session from Redis."""
+async def delete_session(token: str, user_id: UUID | None = None) -> None:
+    """Delete a single session from Redis.
+
+    FIX 2.3: Also removes token from user's Sorted Set index
+    if user_id is provided. Prevents stale entries in the index.
+    """
     redis = get_redis()
     await redis.delete(f"{_SESSION_PREFIX}{token}")
+
+    # Clean up index entry if we know the user.
+    if user_id is not None:
+        index_key = f"{_USER_SESSIONS_PREFIX}{user_id}"
+        await redis.zrem(index_key, token)
+
     logger.info("session_deleted")
 
 
 async def delete_all_sessions(user_id: UUID) -> int:
     """Delete all sessions for a user (W-06: logout-all).
 
-    Uses the session index SET to find all tokens, then deletes
-    each session key and the index itself.
+    FIX 2.3: Uses ZRANGE on Sorted Set index to find all tokens,
+    then deletes session keys + index atomically via pipeline.
 
     Returns:
         Number of sessions deleted.
@@ -281,14 +319,17 @@ async def delete_all_sessions(user_id: UUID) -> int:
     redis = get_redis()
     index_key = f"{_USER_SESSIONS_PREFIX}{user_id}"
 
-    # Get all tokens from the index.
-    tokens = await redis.smembers(index_key)
+    # Get all tokens from the Sorted Set index.
+    tokens = await redis.zrange(index_key, 0, -1)
     if not tokens:
         return 0
 
-    # Delete each session key.
+    # Pipeline: delete all session keys + the index in one roundtrip.
     session_keys = [f"{_SESSION_PREFIX}{t}" for t in tokens]
-    deleted = await redis.delete(*session_keys, index_key)
+    pipe = redis.pipeline()
+    pipe.delete(*session_keys)
+    pipe.delete(index_key)
+    await pipe.execute()
 
     logger.info(
         "all_sessions_deleted",

@@ -2,8 +2,8 @@
 // VELO Frontend -- API Client (Phase F1.2, fixed 10.2)
 // =============================================================================
 //
-// FIX 10.2: 401 handler clears token via setAuthToken + sessionStorage
-// only. Auth store reactivity handles the rest (App.vue shows stub).
+// FIX 10.2: 401 handler delegates cleanup to auth store via
+// onUnauthorized callback. No direct token/sessionStorage mutation.
 // No window.location.href redirect -- Vue reactivity does it.
 // =============================================================================
 
@@ -44,6 +44,18 @@ export function getAuthToken(): string | null {
   return _token
 }
 
+// -- 401 callback (FIX 10.2) --
+
+let _onUnauthorized: (() => void) | null = null
+
+/**
+ * Register a callback invoked on 401 responses.
+ * Auth store calls this once at init to wire up _clearSession().
+ */
+export function setOnUnauthorized(cb: () => void): void {
+  _onUnauthorized = cb
+}
+
 // -- Core request --
 
 async function request<T>(
@@ -78,9 +90,10 @@ async function request<T>(
     return undefined as T
   }
 
-  // 401 Unauthorized -- just throw, let auth store handle cleanup.
+  // 401 Unauthorized -- notify auth store, then throw.
   // FIX 10.2: no direct token/sessionStorage mutation here.
   if (response.status === 401) {
+    _onUnauthorized?.()
     throw new ApiResponseError(401, 'Session expired')
   }
 
