@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Payment Service (Phase 6.2)
+# VELO Backend — Payment Service (Phase 6.2, HIGH-3)
 # =============================================================================
 #
 # Ledger recording functions with automatic balance recalculation.
@@ -23,6 +23,11 @@
 #   Balance recalculation uses with_for_update() on the owner row
 #   (User / MasterProfile) to prevent concurrent writes from
 #   producing inconsistent cached balances (P-07).
+#
+# HIGH-3: record_master_ledger now guards against missing MasterProfile.
+#   If profile is None (deleted between purchase and finalization),
+#   the ledger entry is still created (audit trail preserved) but
+#   cached balance update is skipped with a critical log.
 # =============================================================================
 
 from uuid import UUID
@@ -141,6 +146,21 @@ async def record_master_ledger(
     profile = await session.get(
         MasterProfile, user_id, with_for_update=True,
     )
+
+    # HIGH-3: Guard against missing MasterProfile.
+    # This can happen if MasterProfile was deleted between booking
+    # creation and practice finalization. Ledger entry is preserved
+    # (audit trail), but cached balance update is skipped.
+    if profile is None:
+        logger.critical(
+            "master_profile_missing_for_ledger",
+            user_id=str(user_id),
+            amount_cents=amount_cents,
+            reason=reason,
+            hint="Ledger entry created but cached balance NOT updated",
+        )
+        return entry
+
     frozen, available = await _sum_master_balances(user_id, session)
     # Set via normal assignment so SQLAlchemy tracks the change.
     # _ledger_update flag suppresses the __setattr__ guard.
