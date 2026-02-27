@@ -51,10 +51,11 @@ practice_updated:
   body: "📝 Практика <b>{practice_title}</b> была обновлена.\n\n📅 Новое время: {scheduled_at}\n👤 Мастер: {master_name}"
 
 # -- Лист ожидания --
+# FIX 3.1: Пользователь должен подтвердить в течение 30 минут.
 
 waitlist_spot_available:
   title: "Место освободилось!"
-  body: "🎉 Освободилось место на <b>{practice_title}</b>!\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}\n\nВы были автоматически записаны."
+  body: "🎉 Освободилось место на <b>{practice_title}</b>!\n\n📅 {scheduled_at}\n👤 Мастер: {master_name}\n\n⏳ У вас <b>30 минут</b> на подтверждение.\nНажмите кнопку, чтобы забронировать."
 
 waitlist_expired:
   title: "Лист ожидания истёк"
@@ -74,27 +75,27 @@ master_rejected:
 
 topup_confirmed:
   title: "Пополнение подтверждено"
-  body: "💰 Ваш кошелёк пополнен на <b>€{amount}</b>.\n\n💳 Новый баланс: €{new_balance}"
+  body: "💰 Ваш баланс пополнен на <b>€{amount}</b>.\n\nТекущий баланс: €{balance}"
 
 withdrawal_approved:
   title: "Вывод одобрен"
-  body: "💸 Ваш вывод на сумму <b>€{amount}</b> одобрен.\n\nСредства будут переведены на ваш счёт."
+  body: "💸 Ваш вывод <b>€{amount}</b> одобрен и обрабатывается."
 
 withdrawal_rejected:
   title: "Вывод отклонён"
-  body: "Ваш запрос на вывод <b>€{amount}</b> отклонён.\n\nПричина: {reason}\n\nСредства возвращены на ваш доступный баланс."
+  body: "Ваш запрос на вывод €{amount} не был одобрен.\n\nПричина: {reason}"
 
-# -- Обратная связь (Phase 8) --
+# -- Feedback (Phase 8) --
 
 leave_review:
   title: "Как прошла практика?"
-  body: "🙏 Вы посетили <b>{practice_title}</b> с {master_name}.\n\nПожалуйста, оставьте отзыв!"
+  body: "📝 Вы посетили <b>{practice_title}</b> с {master_name}.\n\nНажмите, чтобы оставить отзыв."
 
 leave_feedback:
   title: "Поделитесь впечатлениями"
-  body: "🙏 Как вам <b>{practice_title}</b>?\n\nВаш отзыв поможет {master_name} улучшить практики."
+  body: "📝 Как вам <b>{practice_title}</b>?\n\nВаш отзыв помогает мастерам улучшать практики."
 
-# -- Системные --
+# -- Система --
 
 system_announcement:
   title: "{title}"

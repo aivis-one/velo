@@ -51,10 +51,11 @@ practice_updated:
   body: "📝 Die Praxis <b>{practice_title}</b> wurde aktualisiert.\n\n📅 Neue Zeit: {scheduled_at}\n👤 Lehrer: {master_name}"
 
 # -- Warteliste --
+# FIX 3.1: Benutzer muss innerhalb von 30 Minuten bestätigen.
 
 waitlist_spot_available:
   title: "Platz frei!"
-  body: "🎉 Ein Platz für <b>{practice_title}</b> ist frei geworden!\n\n📅 {scheduled_at}\n👤 Lehrer: {master_name}\n\nDu wurdest automatisch gebucht."
+  body: "🎉 Ein Platz für <b>{practice_title}</b> ist frei geworden!\n\n📅 {scheduled_at}\n👤 Lehrer: {master_name}\n\n⏳ Du hast <b>30 Minuten</b>, um deinen Platz zu bestätigen.\nTippe auf den Button, um jetzt zu buchen."
 
 waitlist_expired:
   title: "Warteliste abgelaufen"
@@ -74,25 +75,25 @@ master_rejected:
 
 topup_confirmed:
   title: "Aufladung bestätigt"
-  body: "💰 Dein Guthaben wurde um <b>€{amount}</b> aufgeladen.\n\n💳 Neues Guthaben: €{new_balance}"
+  body: "💰 Dein Guthaben wurde um <b>€{amount}</b> aufgeladen.\n\nAktueller Kontostand: €{balance}"
 
 withdrawal_approved:
   title: "Auszahlung genehmigt"
-  body: "💸 Deine Auszahlung von <b>€{amount}</b> wurde genehmigt.\n\nDas Geld wird auf dein Auszahlungskonto überwiesen."
+  body: "💸 Deine Auszahlung von <b>€{amount}</b> wurde genehmigt und wird bearbeitet."
 
 withdrawal_rejected:
   title: "Auszahlung abgelehnt"
-  body: "Deine Auszahlung von <b>€{amount}</b> wurde abgelehnt.\n\nGrund: {reason}\n\nDas Geld wurde auf dein verfügbares Guthaben zurückgebucht."
+  body: "Deine Auszahlungsanfrage über €{amount} wurde nicht genehmigt.\n\nGrund: {reason}"
 
 # -- Feedback (Phase 8) --
 
 leave_review:
   title: "Wie war deine Praxis?"
-  body: "🙏 Du hast an <b>{practice_title}</b> mit {master_name} teilgenommen.\n\nBitte hinterlasse eine Bewertung!"
+  body: "📝 Du hast an <b>{practice_title}</b> mit {master_name} teilgenommen.\n\nTippe, um eine Bewertung abzugeben."
 
 leave_feedback:
   title: "Teile dein Feedback"
-  body: "🙏 Wie war <b>{practice_title}</b>?\n\nDein Feedback hilft {master_name}, die Praxen zu verbessern."
+  body: "📝 Wie war <b>{practice_title}</b>?\n\nDein Feedback hilft Lehrern, ihre Praxen zu verbessern."
 
 # -- System --
 
