@@ -86,7 +86,13 @@ class LedgerStatus(enum.StrEnum):
 
 
 class CompanyLedgerType(enum.StrEnum):
-    """Types of platform revenue entries."""
+    """Types of company ledger entries.
+
+    COMMISSION:     platform fee from completed practices (15%).
+    MARKETING:      company-funded promo spending.
+    REFUND:         money returned to users from company funds.
+    WITHDRAWAL_FEE: fixed fee charged on master withdrawals.
+    """
 
     COMMISSION = "commission"
     MARKETING = "marketing"
@@ -94,8 +100,25 @@ class CompanyLedgerType(enum.StrEnum):
     WITHDRAWAL_FEE = "withdrawal_fee"
 
 
+class PaymentDirection(enum.StrEnum):
+    """Direction of external money movement.
+
+    IN:  money enters the system (Stripe topup).
+    OUT: money leaves the system (withdrawal to bank).
+    """
+
+    IN = "in"
+    OUT = "out"
+
+
 class PaymentStatus(enum.StrEnum):
-    """External payment lifecycle."""
+    """External payment lifecycle status.
+
+    PENDING:   Stripe session created, awaiting user action.
+    CONFIRMED: Stripe webhook confirmed payment success.
+    FAILED:    Payment failed or session expired.
+    REFUNDED:  Payment refunded via Stripe.
+    """
 
     PENDING = "pending"
     CONFIRMED = "confirmed"
@@ -104,10 +127,10 @@ class PaymentStatus(enum.StrEnum):
 
 
 class PurchaseStatus(enum.StrEnum):
-    """Purchase lifecycle.
+    """Purchase lifecycle status.
 
-    PENDING:   Booking created, funds frozen.
-    COMPLETED: Practice done. Commission deducted, funds unfrozen.
+    PENDING:   Practice not yet completed. Master funds frozen.
+    COMPLETED: Practice finalized. Commission deducted, funds unfrozen.
     REFUNDED:  User refund (cancellation or master cancellation).
     CANCELLED: Booking cancelled without refund.
     """
