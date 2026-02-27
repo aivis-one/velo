@@ -19,7 +19,7 @@
 #
 # IMPORTANT (Phase 6.5):
 #   scheduled -> cancelled and live -> cancelled are NO LONGER allowed
-#   via PATCH status. The ONLY path to cancelled is through
+#   via PATCH. The ONLY path to cancelled is through
 #   cancel_practice() which handles refunds for all active bookings.
 #
 # PRICING (Phase 4.3/4.4):
@@ -466,45 +466,27 @@ async def list_public_practices(
     Supports filtering by master, type, date range, and status.
     Supports sorting by scheduled_at or price_cents.
     """
-    # -- Base query: only feed-visible statuses --
-    base_filter = Practice.status.in_(_FEED_STATUSES)
+    # FIX 5.3: Build filter list once, apply to both queries (DRY).
+    # Before: each filter was applied separately to query and count_query.
+    # After:  single filters list applied via .where(*filters).
+    filters: list = []
 
-    # Override with explicit status filter (must still be in
-    # feed statuses -- Literal in router guarantees this).
     if status is not None:
-        base_filter = Practice.status == status
+        filters.append(Practice.status == status)
+    else:
+        filters.append(Practice.status.in_(_FEED_STATUSES))
 
-    query = select(Practice).where(base_filter)
-    count_query = select(func.count(Practice.id)).where(
-        base_filter,
-    )
-
-    # -- Optional filters --
     if master_id is not None:
-        query = query.where(Practice.master_id == master_id)
-        count_query = count_query.where(
-            Practice.master_id == master_id,
-        )
+        filters.append(Practice.master_id == master_id)
 
     if practice_type is not None:
-        query = query.where(
-            Practice.practice_type == practice_type,
-        )
-        count_query = count_query.where(
-            Practice.practice_type == practice_type,
-        )
+        filters.append(Practice.practice_type == practice_type)
 
     if date_from is not None:
-        query = query.where(Practice.scheduled_at >= date_from)
-        count_query = count_query.where(
-            Practice.scheduled_at >= date_from,
-        )
+        filters.append(Practice.scheduled_at >= date_from)
 
     if date_to is not None:
-        query = query.where(Practice.scheduled_at <= date_to)
-        count_query = count_query.where(
-            Practice.scheduled_at <= date_to,
-        )
+        filters.append(Practice.scheduled_at <= date_to)
 
     # -- Sort --
     sort_column = (
@@ -516,14 +498,20 @@ async def list_public_practices(
         sort_column = sort_column.desc()
     else:
         sort_column = sort_column.asc()
-    query = query.order_by(sort_column)
 
     # -- Total count --
+    count_query = select(func.count(Practice.id)).where(*filters)
     total_result = await session.execute(count_query)
     total = total_result.scalar_one()
 
     # -- Paginated items --
-    query = query.limit(limit).offset(offset)
+    query = (
+        select(Practice)
+        .where(*filters)
+        .order_by(sort_column)
+        .limit(limit)
+        .offset(offset)
+    )
     result = await session.execute(query)
     practices = result.scalars().all()
 

@@ -410,8 +410,18 @@ async def reschedule_reminders_for_practice(
     result = await session.execute(bookings_stmt)
     bookings = result.scalars().all()
 
+    # FIX 5.2: Batch-load all users in one query instead of
+    # per-booking session.get(User, ...) which causes N+1.
+    user_ids = list({b.user_id for b in bookings})
+    if user_ids:
+        users_stmt = select(User).where(User.id.in_(user_ids))
+        users_result = await session.execute(users_stmt)
+        users_map: dict = {u.id: u for u in users_result.scalars().all()}
+    else:
+        users_map = {}
+
     for booking in bookings:
-        user = await session.get(User, booking.user_id)
+        user = users_map.get(booking.user_id)
         if not user:
             continue
 
