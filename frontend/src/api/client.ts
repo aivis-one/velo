@@ -108,8 +108,18 @@ async function request<T>(
     return data as T
   }
 
+  // Extract error detail. Backend returns either a string (most errors)
+  // or an array of validation objects (422). Normalise to string so
+  // ApiResponseError.detail is always a string for consumers.
   const errorData = data as ApiError
-  const detail = errorData?.detail || `Request failed (${response.status})`
+  const rawDetail = errorData?.detail
+  const detail =
+    typeof rawDetail === 'string'
+      ? rawDetail
+      : Array.isArray(rawDetail)
+        ? rawDetail.map((e) => e.msg).join('; ')
+        : `Request failed (${response.status})`
+
   throw new ApiResponseError(response.status, detail)
 }
 
