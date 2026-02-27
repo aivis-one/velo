@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Master Service
+# VELO Backend — Master Service (updated RACE-06)
 # =============================================================================
 #
 # Business logic for master applications.
@@ -7,16 +7,21 @@
 # APPLY FLOW:
 #   1. Check user.role == USER (masters can't reapply)
 #   2. Check if MasterProfile exists:
-#      a) No profile → create with status "pending"
-#      b) Profile with status "rejected" → update data, reset to "pending"
-#      c) Profile with status "pending" → ConflictError (already pending)
-#      d) Profile with status "verified" → should not happen (role=master)
+#      a) No profile -> create with status "pending"
+#      b) Profile with status "rejected" -> update data, reset to "pending"
+#      c) Profile with status "pending" -> ConflictError (already pending)
+#      d) Profile with status "verified" -> should not happen (role=master)
 #   3. Return updated/created MasterProfile
 #
 # RACE CONDITION GUARD:
 #   Two concurrent apply requests may both pass the SELECT check (no profile).
-#   Both try INSERT with the same user_id (PK) → one gets IntegrityError.
+#   Both try INSERT with the same user_id (PK) -> one gets IntegrityError.
 #   We catch IntegrityError after flush() and convert to ConflictError.
+#
+#   RACE-06: Reapplication path (status=rejected -> pending) now uses
+#   SELECT ... FOR UPDATE. Without this, two concurrent reapplications
+#   both see status=rejected and both call set_jsonb -- last write wins,
+#   potentially losing rejection history from the first write.
 #
 # JSONB SAFETY:
 #   All mutations to MasterProfile.data use set_jsonb() (from JSONBMixin).
@@ -114,8 +119,15 @@ async def apply_for_master(
     if user.role != UserRole.USER:
         raise ForbiddenError("Only users with role 'user' can apply")
 
-    # Check for existing profile.
-    stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
+    # RACE-06: FOR UPDATE prevents two concurrent reapplications from
+    # both seeing status=rejected and overwriting each other's set_jsonb.
+    # The second request will block until the first commits, then see
+    # status=pending -> ConflictError.
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user.id)
+        .with_for_update()
+    )
     result = await session.execute(stmt)
     existing = result.scalar_one_or_none()
 
@@ -129,7 +141,7 @@ async def apply_for_master(
             # Should not happen (user.role would be MASTER), but guard anyway.
             raise ConflictError("Already verified as master")
 
-        # Status is "rejected" — allow reapplication.
+        # Status is "rejected" -- allow reapplication.
         # Uses set_jsonb() to ensure SQLAlchemy detects the JSONB change.
         existing.set_jsonb("data", _build_reapply_data(existing.data, body))
         logger.info(
@@ -138,7 +150,7 @@ async def apply_for_master(
         )
         return existing
 
-    # No existing profile — create new one.
+    # No existing profile -- create new one.
     # Race condition guard: two concurrent requests may both reach this point.
     # flush() triggers INSERT; if user_id PK already exists, IntegrityError
     # is raised and converted to ConflictError.
