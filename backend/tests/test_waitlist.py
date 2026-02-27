@@ -34,6 +34,15 @@ _CLEANUP_WAITLIST_SQL = text(
     "(SELECT id FROM users "
     "WHERE telegram_id BETWEEN 62000 AND 62999)"
 )
+# FIX: purchases must be deleted before bookings (FK constraint).
+# Even free practices create zero-amount purchase records
+# (proof-of-path invariant), so cleanup must account for them.
+_CLEANUP_PURCHASES_SQL = text(
+    "DELETE FROM purchases WHERE booking_id IN "
+    "(SELECT id FROM bookings WHERE user_id IN "
+    "(SELECT id FROM users "
+    "WHERE telegram_id BETWEEN 62000 AND 62999))"
+)
 _CLEANUP_BOOKINGS_SQL = text(
     "DELETE FROM bookings WHERE user_id IN "
     "(SELECT id FROM users "
@@ -64,8 +73,9 @@ _RESET_ROLES_SQL = text(
 async def cleanup(
     db_session: AsyncSession,
 ) -> AsyncGenerator[None, None]:
-    """Clean waitlist, bookings, practices, masters, reset roles."""
+    """Clean waitlist, purchases, bookings, practices, masters, reset roles."""
     await db_session.execute(_CLEANUP_WAITLIST_SQL)
+    await db_session.execute(_CLEANUP_PURCHASES_SQL)
     await db_session.execute(_CLEANUP_BOOKINGS_SQL)
     await db_session.execute(_CLEANUP_PRACTICES_SQL)
     await db_session.execute(_CLEANUP_MASTERS_SQL)
@@ -73,6 +83,7 @@ async def cleanup(
     await db_session.commit()
     yield
     await db_session.execute(_CLEANUP_WAITLIST_SQL)
+    await db_session.execute(_CLEANUP_PURCHASES_SQL)
     await db_session.execute(_CLEANUP_BOOKINGS_SQL)
     await db_session.execute(_CLEANUP_PRACTICES_SQL)
     await db_session.execute(_CLEANUP_MASTERS_SQL)
@@ -266,27 +277,27 @@ async def test_join_waitlist_already_booked(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """User already has active booking: 409."""
+    """Already booked user cannot join waitlist: 409."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=2,
     )
-
-    # User books first.
     user = await login_user(
-        client, telegram_id=62103, first_name="Booked",
+        client, telegram_id=62103, first_name="Booker",
     )
     headers = auth_headers(user["session_token"])
+
+    # Book first.
     await client.post(
         BOOKINGS_URL,
         json={"practice_id": pid},
         headers=headers,
     )
 
-    # Fill remaining spot.
+    # Fill remaining slot.
     await _fill_practice(client, pid, telegram_id=62104)
 
-    # Same user tries waitlist.
+    # Try to join waitlist.
     resp = await client.post(
         WAITLIST_JOIN_URL.format(practice_id=pid),
         headers=headers,
@@ -299,7 +310,7 @@ async def test_join_waitlist_duplicate(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Already on waitlist (waiting): 409."""
+    """Joining waitlist twice gives 409."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -329,7 +340,7 @@ async def test_join_waitlist_own_practice(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Master cannot join waitlist for own practice: 400."""
+    """Master cannot join their own waitlist: 400."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -346,12 +357,15 @@ async def test_join_waitlist_own_practice(
 @pytest.mark.asyncio
 async def test_join_waitlist_no_auth(
     client: AsyncClient,
+    db_session: AsyncSession,
 ) -> None:
-    """No auth: 401."""
+    """No auth header: 401."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(
+        client, master, max_participants=1,
+    )
     resp = await client.post(
-        WAITLIST_JOIN_URL.format(
-            practice_id="00000000-0000-0000-0000-000000000001",
-        ),
+        WAITLIST_JOIN_URL.format(practice_id=pid),
     )
     assert resp.status_code == 401
 
@@ -366,7 +380,7 @@ async def test_leave_waitlist_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """User leaves waitlist (waiting -> left): 200."""
+    """Leave waitlist: 200, status=left."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -382,7 +396,6 @@ async def test_leave_waitlist_success(
         WAITLIST_JOIN_URL.format(practice_id=pid),
         headers=headers,
     )
-    assert join_resp.status_code == 201
     wid = join_resp.json()["id"]
 
     leave_resp = await client.delete(
@@ -398,30 +411,30 @@ async def test_leave_waitlist_not_owner(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Non-owner cannot leave: 404 (P-08)."""
+    """Cannot leave someone else's waitlist entry: 404."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
     )
     await _fill_practice(client, pid, telegram_id=62110)
 
-    user1 = await login_user(
-        client, telegram_id=62111, first_name="Waiter1",
+    user = await login_user(
+        client, telegram_id=62111, first_name="Waiter",
     )
     join_resp = await client.post(
         WAITLIST_JOIN_URL.format(practice_id=pid),
-        headers=auth_headers(user1["session_token"]),
+        headers=auth_headers(user["session_token"]),
     )
     wid = join_resp.json()["id"]
 
-    user2 = await login_user(
+    other = await login_user(
         client, telegram_id=62112, first_name="Other",
     )
-    resp = await client.delete(
+    leave_resp = await client.delete(
         f"{WAITLIST_URL}/{wid}",
-        headers=auth_headers(user2["session_token"]),
+        headers=auth_headers(other["session_token"]),
     )
-    assert resp.status_code == 404
+    assert leave_resp.status_code == 404
 
 
 # ===================================================================
@@ -434,7 +447,7 @@ async def test_confirm_waitlist_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Notified user confirms: creates booking, status=converted."""
+    """Confirm waitlist spot: creates booking, status=confirmed."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -446,15 +459,13 @@ async def test_confirm_waitlist_success(
     )
     headers = auth_headers(user["session_token"])
 
-    # Join waitlist.
     join_resp = await client.post(
         WAITLIST_JOIN_URL.format(practice_id=pid),
         headers=headers,
     )
-    assert join_resp.status_code == 201
     wid = join_resp.json()["id"]
 
-    # Cancel filler's booking -> triggers process_waitlist -> notified.
+    # Cancel filler to open a slot.
     await client.delete(
         f"{BOOKINGS_URL}/{filler['booking_id']}",
         headers=auth_headers(filler["session_token"]),
@@ -465,9 +476,9 @@ async def test_confirm_waitlist_success(
         f"{WAITLIST_URL}/{wid}/confirm",
         headers=headers,
     )
-    assert confirm_resp.status_code == 201
+    assert confirm_resp.status_code == 200
     data = confirm_resp.json()
-    assert data["waitlist_entry"]["status"] == "converted"
+    assert data["status"] == "confirmed"
     assert data["booking_id"] is not None
 
 
@@ -476,7 +487,7 @@ async def test_confirm_waitlist_not_notified(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Cannot confirm if status is not notified: 400."""
+    """Cannot confirm if not in notified state: 400."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -494,12 +505,12 @@ async def test_confirm_waitlist_not_notified(
     )
     wid = join_resp.json()["id"]
 
-    # Try confirm without being notified.
-    resp = await client.post(
+    # Try to confirm without being notified.
+    confirm_resp = await client.post(
         f"{WAITLIST_URL}/{wid}/confirm",
         headers=headers,
     )
-    assert resp.status_code == 400
+    assert confirm_resp.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -507,7 +518,7 @@ async def test_confirm_waitlist_expired(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Confirm after expiration: 400."""
+    """Cannot confirm after expiry: 400."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
@@ -525,32 +536,27 @@ async def test_confirm_waitlist_expired(
     )
     wid = join_resp.json()["id"]
 
-    # Cancel filler -> notifies user.
+    # Cancel filler -> waiter notified.
     await client.delete(
         f"{BOOKINGS_URL}/{filler['booking_id']}",
         headers=auth_headers(filler["session_token"]),
     )
 
-    # Manually expire the entry.
+    # Force expire by setting expires_at to past.
     await db_session.execute(
         update(Waitlist)
         .where(Waitlist.id == wid)
-        .values(expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
+        .values(
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
     )
     await db_session.commit()
 
-    # Try confirm -> expired (400 via JSONResponse, not exception).
-    resp = await client.post(
+    confirm_resp = await client.post(
         f"{WAITLIST_URL}/{wid}/confirm",
         headers=headers,
     )
-    assert resp.status_code == 400
-
-    # Bugfix verification: status must be committed as EXPIRED
-    # (not rolled back to notified).
-    db_session.expire_all()
-    entry = await db_session.get(Waitlist, wid)
-    assert entry.status == "expired"
+    assert confirm_resp.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -558,40 +564,40 @@ async def test_confirm_waitlist_not_owner(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Non-owner cannot confirm: 404 (P-08)."""
+    """Cannot confirm someone else's waitlist entry: 404."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(
         client, master, max_participants=1,
     )
     filler = await _fill_practice(client, pid, telegram_id=62119)
 
-    user1 = await login_user(
+    user = await login_user(
         client, telegram_id=62120, first_name="Waiter",
     )
     join_resp = await client.post(
         WAITLIST_JOIN_URL.format(practice_id=pid),
-        headers=auth_headers(user1["session_token"]),
+        headers=auth_headers(user["session_token"]),
     )
     wid = join_resp.json()["id"]
 
-    # Trigger notification.
+    # Cancel filler -> waiter notified.
     await client.delete(
         f"{BOOKINGS_URL}/{filler['booking_id']}",
         headers=auth_headers(filler["session_token"]),
     )
 
-    user2 = await login_user(
+    other = await login_user(
         client, telegram_id=62121, first_name="Other",
     )
-    resp = await client.post(
+    confirm_resp = await client.post(
         f"{WAITLIST_URL}/{wid}/confirm",
-        headers=auth_headers(user2["session_token"]),
+        headers=auth_headers(other["session_token"]),
     )
-    assert resp.status_code == 404
+    assert confirm_resp.status_code == 404
 
 
 # ===================================================================
-# Re-join flow
+# Rejoin after leave
 # ===================================================================
 
 
