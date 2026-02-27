@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Stripe Integration (Phase 6.3)
+# VELO Backend -- Stripe Integration (Phase 6.3, CRITICAL-3)
 # =============================================================================
 #
 # Thin wrapper around Stripe SDK for:
@@ -10,6 +10,11 @@
 # IDEMPOTENCY:
 #   Webhook handlers check Payment.status before acting.
 #   Duplicate webhooks for already-confirmed payments are no-ops.
+#
+# CRITICAL-3: handle_checkout_completed now verifies that the amount
+#   Stripe actually charged (amount_total) matches what we expect
+#   (payment.amount_cents). Mismatch → payment marked as failed,
+#   no balance credited. Defense-in-depth against key leaks or bugs.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Caller handles transaction.
@@ -226,9 +231,10 @@ async def handle_checkout_completed(
 
     1. Look up Payment by stripe_session_id.
     2. Skip if already confirmed (idempotency).
-    3. Update Payment status -> confirmed.
-    4. Record user_ledger entry (balance topup).
-    5. Record audit event.
+    3. CRITICAL-3: Verify amount_total matches payment.amount_cents.
+    4. Update Payment status -> confirmed.
+    5. Record user_ledger entry (balance topup).
+    6. Record audit event.
 
     Args:
         event_data: The Stripe event data object (checkout session).
@@ -264,6 +270,44 @@ async def handle_checkout_completed(
             "stripe_webhook_already_confirmed",
             payment_id=str(payment.id),
             stripe_session_id=stripe_session_id,
+        )
+        return payment
+
+    # CRITICAL-3: Verify Stripe charged the expected amount.
+    # Stripe amount_total is in cents of the session currency.
+    # If it doesn't match our record, something is wrong — mark
+    # payment as failed and do NOT credit user balance.
+    stripe_amount = event_data.get("amount_total")
+    if stripe_amount is not None and stripe_amount != payment.amount_cents:
+        logger.critical(
+            "stripe_amount_mismatch",
+            payment_id=str(payment.id),
+            expected_cents=payment.amount_cents,
+            stripe_cents=stripe_amount,
+            stripe_session_id=stripe_session_id,
+        )
+        payment.status = PaymentStatus.FAILED.value
+        payment.stripe_metadata = {
+            "stripe_event": {
+                "customer_email": event_data.get("customer_email"),
+                "amount_total": stripe_amount,
+                "currency": event_data.get("currency"),
+            },
+            "failure_reason": "amount_mismatch",
+        }
+
+        await record_audit(
+            event="payment_topup_amount_mismatch",
+            actor_id=None,
+            actor_type="system",
+            target_type="payment",
+            target_id=payment.id,
+            data={
+                "expected_cents": payment.amount_cents,
+                "stripe_cents": stripe_amount,
+                "stripe_session_id": stripe_session_id,
+            },
+            session=session,
         )
         return payment
 

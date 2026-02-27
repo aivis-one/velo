@@ -1,3 +1,9 @@
 .DS_Store
 .idea/
 desc/
+
+# Secrets & Environment — safety net for root-level .env files.
+# Subdirectories (backend/, frontend/) have their own .gitignore
+# that also excludes .env, but this catches misplaced files.
+.env
+.env.*

@@ -1,12 +1,12 @@
 # =============================================================================
-# VELO Platform -- Docker Compose (root)
+# VELO Platform -- Docker Compose (root, CRITICAL-4: Redis auth)
 # =============================================================================
 #
 # Single compose file for the entire stack:
 #   - app:       FastAPI backend (Python)
 #   - frontend:  Vue SPA served by Nginx (static files)
 #   - postgres:  Database
-#   - redis:     Cache / sessions
+#   - redis:     Cache / sessions (password-protected)
 #
 # Usage:
 #   velo update   -- pull, build, migrate, test, restart
@@ -70,10 +70,24 @@ services:
   redis:
     image: redis:7-alpine
     container_name: velo-redis
+    env_file:
+      - ./backend/.env
+    # CRITICAL-4: Start Redis with password from .env.
+    # In development (REDIS_PASSWORD=change-me or empty), still works --
+    # clients must include password in REDIS_URL.
+    command: >
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+        redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes;
+      else
+        redis-server --appendonly yes;
+      fi'
     volumes:
       - velo_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # CRITICAL-4: Use REDISCLI_AUTH env var for authenticated ping.
+      # Docker passes REDIS_PASSWORD from env_file; redis-cli reads
+      # REDISCLI_AUTH automatically (no password in CLI args).
+      test: ["CMD-SHELL", "export REDISCLI_AUTH=$$REDIS_PASSWORD; redis-cli ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
