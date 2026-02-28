@@ -77,7 +77,9 @@ class Settings(BaseSettings):
     session_ttl_days: int = 30
 
     # -- Logging --
-    log_level: str = "DEBUG"
+    # CQ-06: default INFO (not DEBUG) -- DEBUG is too noisy for production
+    # and even dev. Override with LOG_LEVEL=DEBUG in .env if needed.
+    log_level: str = "INFO"
 
     # -- Practices (Phase 4.2) --
     practice_min_duration_minutes: int = 5
@@ -235,6 +237,21 @@ class Settings(BaseSettings):
             raise ValueError(
                 "commission_percent must be between 0 and 100, "
                 f"got {self.commission_percent}"
+            )
+
+        # CQ-06: log_level must be a valid Python logging level.
+        # In production, DEBUG is not allowed -- too noisy and may
+        # leak sensitive data (request bodies, SQL queries, etc.).
+        _valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        if self.log_level.upper() not in _valid_levels:
+            raise ValueError(
+                f"log_level must be one of {_valid_levels}, "
+                f"got '{self.log_level}'"
+            )
+        if not is_dev and self.log_level.upper() == "DEBUG":
+            raise ValueError(
+                "log_level DEBUG is not allowed in production. "
+                "Use INFO or higher."
             )
 
         return self
