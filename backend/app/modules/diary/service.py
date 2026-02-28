@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Diary Service (Phase 8.1-8.3)
+# VELO Backend -- Diary Service (Phase 8.1-8.4)
 # =============================================================================
 #
 # UPSERT CHECKIN (8.1):
@@ -11,6 +11,10 @@
 # DIARY ENTRY CRUD (8.3):
 #   Create / get / update / delete / list.
 #   If practice_id provided: validate practice exists + user has booking.
+#
+# PRACTICE INSIGHTS (8.4, master-facing):
+#   Aggregated mood/rating distributions + participants + comments count.
+#   Anonymous: no user IDs, names, or comment texts.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router manages transaction.
@@ -640,6 +644,97 @@ async def list_user_diary_entries(
     items = list(result.scalars().all())
 
     return items, total
+
+
+# ===================================================================
+# Practice insights (Phase 8.4, master-facing)
+# ===================================================================
+
+
+async def get_practice_insights(
+    user: User,
+    practice_id: UUID,
+    session: AsyncSession,
+) -> dict:
+    """Get aggregated anonymous insights for a completed practice.
+
+    Only the practice's master can access insights.
+
+    Args:
+        user: Authenticated user (must be practice owner).
+        practice_id: Target practice UUID.
+        session: Read session.
+
+    Returns:
+        Dict with participants, checkins distribution, feedbacks
+        distribution, and comments_count.
+
+    Raises:
+        NotFoundError: Practice not found or user is not the owner (P-08).
+        BadRequestError: Practice is not completed.
+    """
+    # 1. Load practice and verify ownership.
+    practice = await session.get(Practice, practice_id)
+
+    if practice is None or practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if practice.status != PracticeStatus.COMPLETED.value:
+        raise BadRequestError(
+            "Insights are only available for completed practices"
+        )
+
+    # 2. Count attended participants.
+    participants_stmt = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.status == BookingStatus.ATTENDED.value,
+        )
+    )
+    participants = (await session.execute(participants_stmt)).scalar_one()
+
+    # 3. Mood distribution from check-ins.
+    mood_stmt = (
+        select(Checkin.mood, func.count(Checkin.id))
+        .where(Checkin.practice_id == practice_id)
+        .group_by(Checkin.mood)
+    )
+    mood_rows = (await session.execute(mood_stmt)).all()
+    mood_dist = {"high": 0, "mid": 0, "low": 0}
+    for mood_val, cnt in mood_rows:
+        if mood_val in mood_dist:
+            mood_dist[mood_val] = cnt
+
+    # 4. Rating distribution from feedbacks.
+    rating_stmt = (
+        select(Feedback.rating, func.count(Feedback.id))
+        .where(Feedback.practice_id == practice_id)
+        .group_by(Feedback.rating)
+    )
+    rating_rows = (await session.execute(rating_stmt)).all()
+    rating_dist = {"fire": 0, "good": 0, "confused": 0}
+    for rating_val, cnt in rating_rows:
+        if rating_val in rating_dist:
+            rating_dist[rating_val] = cnt
+
+    # 5. Count non-null feedback comments.
+    comments_stmt = (
+        select(func.count(Feedback.id))
+        .where(
+            Feedback.practice_id == practice_id,
+            Feedback.comment.isnot(None),
+        )
+    )
+    comments_count = (await session.execute(comments_stmt)).scalar_one()
+
+    return {
+        "practice_id": practice_id,
+        "participants": participants,
+        "checkins": mood_dist,
+        "feedbacks": rating_dist,
+        "comments_count": comments_count,
+    }
 
 
 # ===================================================================

@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Diary Schemas (Phase 8.1-8.3)
+# VELO Backend -- Diary Schemas (Phase 8.1-8.4)
 # =============================================================================
 #
 # CHECKIN:
@@ -11,6 +11,9 @@
 # DIARY ENTRY:
 #   CreateDiaryEntryRequest / UpdateDiaryEntryRequest
 #   DiaryEntryResponse / PaginatedDiaryEntriesResponse
+#
+# INSIGHTS (master-facing):
+#   MoodDistribution / RatingDistribution / PracticeInsightsResponse
 #
 # SUGGESTION-6 fix: ConfigDict(from_attributes=True) instead of dict style.
 # =============================================================================
@@ -148,3 +151,38 @@ class PaginatedDiaryEntriesResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ===================================================================
+# Practice Insights schemas (Phase 8.4, master-facing)
+# ===================================================================
+
+
+class MoodDistribution(BaseModel):
+    """Check-in mood counts for a practice."""
+
+    high: int = 0
+    mid: int = 0
+    low: int = 0
+
+
+class RatingDistribution(BaseModel):
+    """Feedback rating counts for a practice."""
+
+    fire: int = 0
+    good: int = 0
+    confused: int = 0
+
+
+class PracticeInsightsResponse(BaseModel):
+    """GET /api/v1/practices/{id}/insights -- aggregated data.
+
+    All data is anonymous: no user IDs, names, or comment texts.
+    Only numeric distributions and counts.
+    """
+
+    practice_id: UUID
+    participants: int
+    checkins: MoodDistribution
+    feedbacks: RatingDistribution
+    comments_count: int
