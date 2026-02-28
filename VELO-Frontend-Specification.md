@@ -1,8 +1,8 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.0
-**Дата:** 22 февраля 2026
-**Статус:** Draft
+**Версия:** 1.1
+**Дата:** 28 февраля 2026
+**Статус:** Active
 
 ---
 
@@ -372,99 +372,215 @@ https://api.talentir.info/*         → velo-frontend:3000
 
 ---
 
-### F0.4: PWA-заготовка
+### F0.4: PWA-заготовка ✅
 
 **Цель:** Приложение можно добавить на Home Screen.
 
 **Задачи:**
-- [ ] vite-plugin-pwa в vite.config.ts
-- [ ] public/manifest.json (name, short_name, icons, theme_color, display: standalone)
-- [ ] Иконки: 192x192, 512x512 (placeholder, заменим на брендинг заказчика)
-- [ ] Service Worker: precache статики (только кеширование, без офлайна)
-- [ ] meta-теги в index.html (apple-mobile-web-app-capable, viewport) — частично уже есть
+- [x] vite-plugin-pwa в vite.config.ts
+- [x] public/manifest.json (name, short_name, icons, theme_color, display: standalone)
+- [x] Иконки: 192x192, 512x512 (placeholder, заменим на брендинг заказчика)
+- [x] Service Worker: precache статики (только кеширование, без офлайна)
+- [x] meta-теги в index.html (apple-mobile-web-app-capable, viewport)
 
-**Критерий готовности:** iPhone Safari → "Добавить на экран" → приложение открывается в standalone-режиме (без адресной строки).
+**Решения, принятые при реализации:**
+- VitePWA: стратегия `generateSW` (автогенерация SW из build output), `registerType: 'autoUpdate'` (автообновление без промпта)
+- `manifest: false` в VitePWA — манифест обслуживается из `public/manifest.json` напрямую, а не инлайнится плагином
+- Workbox glob patterns: `**/*.{js,css,html,ico,png,svg,woff2}` — precache всей статики, source maps исключены
+- manifest.json: `display: standalone`, `orientation: portrait`, `theme_color: #334D6E`, `background_color: #F8FAFC`
+- Иконки с `purpose: "any maskable"` — работают и как обычные, и как адаптивные (Android)
+- index.html meta-теги: `apple-mobile-web-app-capable: yes`, `apple-mobile-web-app-status-bar-style: black-translucent`, `apple-touch-icon` → icon-192.png
+- Google Fonts загружаются через `<link>` в index.html (FIX 10.6: заменяет `@import` в global.css — устраняет FOIT)
+
+**Критерий готовности:** iPhone Safari → "Добавить на экран" → приложение открывается в standalone-режиме (без адресной строки). ✅
+
 ---
 
-## PHASE F1: Auth + Платформа
+## PHASE F1: Auth + Платформа ✅
 
-### F1.1: Платформенная абстракция
+### F1.1: Платформенная абстракция ✅
 
 **Цель:** Приложение знает, где запущено, и адаптируется.
 
 **Задачи:**
-- [ ] src/platform/types.ts — интерфейс Platform
-- [ ] src/platform/telegram.ts — обёртка над `window.Telegram.WebApp`:
-  - `init()` — вызов `WebApp.ready()`, expand, задание цвета
-  - `getInitData()` — `WebApp.initData`
-  - `getTheme()` — `WebApp.colorScheme`
-  - `hapticFeedback()` — `WebApp.HapticFeedback.impactOccurred()`
-  - `showBackButton() / hideBackButton()` — `WebApp.BackButton`
+- [x] src/platform/types.ts — интерфейс Platform (8 методов)
+- [x] src/platform/telegram.ts — обёртка над `window.Telegram.WebApp`:
+  - `init()` — `WebApp.ready()`, `expand()`, `setHeaderColor('#334D6E')`, `setBackgroundColor('#F8FAFC')`
+  - `getInitData()` — `WebApp.initData || null`
+  - `getTheme()` — `WebApp.colorScheme || 'light'`
+  - `hapticFeedback(style)` — `WebApp.HapticFeedback.impactOccurred(style)` в try/catch
+  - `showBackButton(cb) / hideBackButton()` — `WebApp.BackButton` с onClick/offClick cleanup
   - `close()` — `WebApp.close()`
-- [ ] src/platform/standalone.ts — заглушки:
+- [x] src/platform/standalone.ts — safe no-op заглушки:
   - `getInitData()` → `null`
   - `getTheme()` → `'light'`
-  - `hapticFeedback()` → no-op
-  - Кнопка назад → Vue Router `router.back()`
-- [ ] src/platform/index.ts — автодетект: `window.Telegram?.WebApp` → telegram, иначе → standalone
-- [ ] Тип в index.html: подключение Telegram WebApp SDK через `<script src="https://telegram.org/js/telegram-web-app.js">`
+  - Все остальные методы — no-op
+- [x] src/platform/index.ts — автодетект: `!!window.Telegram?.WebApp?.initData` → telegram, иначе → standalone
+- [x] env.d.ts — TypeScript-декларации для Telegram WebApp SDK (интерфейс `TelegramWebApp`, расширение `Window`)
+- [x] index.html — Telegram WebApp SDK подключён через `<script src="https://telegram.org/js/telegram-web-app.js">`
 
-**Решение:** SDK подключается через `<script>` в index.html (не через npm — Telegram рекомендует CDN для актуальной версии).
+**Файлы:**
+```
+src/platform/
+├── types.ts           ← Interface Platform (8 methods, readonly name)
+├── telegram.ts        ← Real SDK calls via lazy getWebApp() accessor
+├── standalone.ts      ← Safe no-ops for browser/PWA
+└── index.ts           ← Singleton: auto-detect + export `platform`
 
-**Критерий готовности:** `platform.name === 'telegram'` в Telegram, `platform.name === 'standalone'` в браузере.
+env.d.ts               ← +TelegramWebApp interface, +Window.Telegram declaration
+```
+
+**Решения, принятые при реализации:**
+- SDK подключается через `<script>` в index.html (не через npm — Telegram рекомендует CDN для актуальной версии)
+- Детект по `initData`, не по `window.Telegram.WebApp`: SDK загружается из CDN всегда (даже в браузере), поэтому `window.Telegram.WebApp` существует везде. Надёжный сигнал — `initData` непустой только когда Telegram реально запустил WebApp
+- WebApp доступ через lazy getter `getWebApp()` (FIX 10.1): если CDN заблокирован (VPN, прокси), standalone-режим всё равно работает — crash невозможен
+- BackButton: хранение callback в `_backButtonCallback` + `offClick()` при `hideBackButton()` — без утечки обработчиков
+- `hapticFeedback()` обёрнут в try/catch — старые клиенты или отсутствующий SDK не ломают приложение
+- Типы Telegram SDK живут в `env.d.ts` рядом с остальными глобальными декларациями (Vite env, .vue модули). Типизированы только методы, реально используемые в `telegram.ts` — минимальный surface area
+- telegram.css не создавался — Telegram-specific overrides пока не нужны, цвета задаются через `setHeaderColor`/`setBackgroundColor`
+
+**Критерий готовности:** `platform.name === 'telegram'` в Telegram, `platform.name === 'standalone'` в браузере. ✅
 
 ---
 
-### F1.2: API-клиент
+### F1.2: API-клиент ✅
 
 **Цель:** Типизированный HTTP-клиент для общения с бэкендом.
 
 **Задачи:**
-- [ ] src/api/client.ts:
+- [x] src/api/client.ts:
   - `BASE_URL` из `import.meta.env.VITE_API_BASE_URL`
   - Обёртка над fetch: `get<T>()`, `post<T>()`, `patch<T>()`, `delete()`
-  - Авто-подстановка `Authorization: Bearer {token}` из auth store
-  - Обработка 401 → разлогин + редирект
-  - Обработка 422 → парсинг Pydantic ValidationError
-  - Обработка сетевых ошибок → toast "Нет подключения"
-- [ ] src/api/types.ts — TypeScript-интерфейсы, соответствующие Pydantic-схемам бэкенда:
-  - `UserResponse`, `UserUpdate`
-  - `AuthResponse`, `TelegramAuthRequest`
-  - `PracticeResponse`, `PaginatedPracticesResponse`
-  - `BookingResponse`, `PaginatedBookingsResponse`
-  - `PurchaseResponse`
-  - и т.д. (заполняется по мере реализации фаз)
+  - Авто-подстановка `Authorization: Bearer {token}` через модульный `_token` (не импорт из store — избежание циклических зависимостей)
+  - Обработка 401 → callback `_onUnauthorized()` → auth store очищает сессию (FIX 10.2)
+  - Обработка 422 → парсинг массива ValidationError → join в строку
+  - Обработка 204 → `return undefined as T` (logout и другие no-content ответы)
+  - Обработка сетевых ошибок → `ApiNetworkError`
+- [x] src/api/types.ts — TypeScript-интерфейсы:
+  - `TelegramAuthRequest`, `AuthResponse`
+  - `UserResponse`, `UserUpdate`, `UserRole`
+  - `PaginatedResponse<T>` (generic)
+  - `ApiError` (string | ValidationError[])
 
-**Решение:** Ручная типизация (не автогенерация из OpenAPI). Причина: контроль над типами, проще поддерживать, OpenAPI-генераторы для Vue/TS часто генерируют неидиоматичный код.
+**Файлы:**
+```
+src/api/
+├── client.ts          ← request<T>(), api.get/post/patch/delete, error classes
+└── types.ts           ← TS interfaces matching backend Pydantic schemas
+```
 
-**Критерий готовности:** `api.get<UserResponse>('/api/v1/users/me')` возвращает типизированный ответ.
+**Экспорты client.ts:**
+```typescript
+// Error classes
+export class ApiResponseError extends Error { status: number; detail: string }
+export class ApiNetworkError extends Error {}
+
+// Token management (decoupled from Pinia to avoid circular imports)
+export function setAuthToken(token: string | null): void
+export function getAuthToken(): string | null
+
+// 401 callback registration (FIX 10.2)
+export function setOnUnauthorized(cb: () => void): void
+
+// HTTP methods
+export const api = {
+  get<T>(path: string): Promise<T>,
+  post<T>(path: string, body?: unknown): Promise<T>,
+  patch<T>(path: string, body?: unknown): Promise<T>,
+  delete(path: string): Promise<void>,
+}
+```
+
+**Решения, принятые при реализации:**
+- Ручная типизация (не автогенерация из OpenAPI). Причина: контроль над типами, проще поддерживать, OpenAPI-генераторы для Vue/TS часто генерируют неидиоматичный код
+- Токен хранится в модульной переменной `_token` (не в Pinia) — `client.ts` не импортирует stores, что исключает circular dependency `client → store → client`
+- 401 обработка через callback `setOnUnauthorized()`: client не знает о store, store регистрирует `_clearSession` при инициализации (FIX 10.2). Нет `window.location.href` redirect — Vue reactivity через `isAuthenticated` computed сама переключает App.vue
+- Ошибки нормализованы: backend возвращает `string` на 400/401/403/404/409 и `Array<ValidationError>` на 422 — `client.ts` всегда приводит `detail` к строке
+- `PaginatedResponse<T>` — generic интерфейс с `items`, `total`, `page`, `per_page`, `pages` (соответствует бэкенд-пагинации)
+
+**Критерий готовности:** `api.get<UserResponse>('/api/v1/users/me')` возвращает типизированный ответ. ✅
 
 ---
 
-### F1.3: Auth flow (Telegram)
+### F1.3: Auth flow (Telegram) ✅
 
 **Цель:** Юзер открывает WebApp → автоматически авторизован.
 
 **Задачи:**
-- [ ] src/stores/auth.ts (Pinia):
+- [x] src/stores/auth.ts (Pinia):
   - `user: UserResponse | null`
   - `token: string | null`
-  - `isAuthenticated: boolean` (computed)
-  - `role: string` (computed из user.role)
-  - `login()` — POST /auth/telegram с initData
-  - `logout()` — POST /auth/logout + очистка store
+  - `loading: boolean`
+  - `isAuthenticated: boolean` (computed: `!!token && !!user`)
+  - `role: UserRole | null` (computed из `user.role ?? null`, QW-4: null для неавторизованных)
+  - `loginViaTelegram(initData)` — POST /auth/telegram → set token + user
+  - `restoreSession()` — sessionStorage → set token → GET /users/me → set user
   - `fetchMe()` — GET /users/me (обновление профиля)
-  - Персистенция token в `sessionStorage` (для page reload в Telegram)
-- [ ] src/composables/useAuth.ts — объединяет platform.getInitData() + auth store:
-  - Telegram: автоматический login при mount
-  - Standalone: показ заглушки "Откройте через Telegram"
-- [ ] src/views/auth/LoadingView.vue — экран загрузки (логотип + спиннер)
-- [ ] src/views/auth/StandaloneStubView.vue — "Войдите через Telegram" (заглушка для Phase F10)
-- [ ] src/router/guards.ts — `beforeEach`: не авторизован → LoadingView → login → redirect
+  - `logout()` — POST /auth/logout + очистка store
+  - Персистенция token в `sessionStorage` под ключом `velo_token`
+  - Регистрация `_onUnauthorized` callback в API client (FIX 10.2)
+- [x] src/composables/useAuth.ts — объединяет platform + auth store:
+  - `initAuth()` — вызывается один раз из App.vue `onMounted`:
+    1. `platform.init()`
+    2. `authStore.restoreSession()` — если сохранённый токен валиден → готово
+    3. `platform.getInitData()` → если есть → `authStore.loginViaTelegram(initData)`
+    4. Если нет → `isStandalone = true`
+  - Module-level refs `isReady`, `isStandalone` (singleton composable pattern)
+  - `resetAuthState()` — для тестов (FIX 10.4)
+- [x] src/views/auth/LoadingView.vue — экран загрузки (VeloLogo + заголовок "VELO" + CSS spinner)
+- [x] src/views/auth/StandaloneStubView.vue — "Для входа откройте приложение через Telegram-бот" + кнопка "Открыть в Telegram"
+- [x] src/components/ui/VeloLogo.vue — SVG лого как shared компонент (FIX 10.8: DRY)
+- [x] src/App.vue — auth-шлюз на уровне корневого компонента:
+  - `!isReady` → LoadingView
+  - `isStandalone || !isAuthenticated` → StandaloneStubView
+  - иначе → `<RouterView />`
+
+**Файлы:**
+```
+src/stores/
+└── auth.ts                    ← Pinia store: user, token, login/logout/restore
+
+src/composables/
+└── useAuth.ts                 ← initAuth() flow, isReady, isStandalone refs
+
+src/views/auth/
+├── LoadingView.vue            ← Logo + spinner (shown during auth init)
+└── StandaloneStubView.vue     ← "Open via Telegram" message + bot link
+
+src/components/ui/
+└── VeloLogo.vue               ← Shared SVG logo (FIX 10.8: DRY)
+
+src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneStub / RouterView)
+```
+
+**Решения, принятые при реализации:**
+- **Auth guard на уровне App.vue, а не router `beforeEach`:** App.vue выступает внешним шлюзом (авторизован / не авторизован). Router guards не добавлялись в F1 — они появятся в Phase F2.2 для ролевого доступа (`roleGuard('master')`, `roleGuard('admin')`, `masterStatusGuard`). Причина: в F1 есть только один маршрут (`/` → HomeView), ролевого роутинга ещё нет, а auth-шлюз в App.vue проще, надёжнее и не зависит от конфигурации маршрутов
+- `role` computed возвращает `null` для неавторизованных (QW-4), не `'user'` — предотвращает false positives в `v-if="role === 'user'"` guards для анонимных посетителей
+- `sessionStorage` (не `localStorage`) для токена: Telegram WebApp закрывает вкладку при выходе → sessionStorage очищается автоматически. localStorage бы оставил протухший токен
+- StandaloneStubView: URL бота из `VITE_TELEGRAM_BOT_URL` env variable (FIX 10.3), fallback `https://t.me/velo_testbot` — не захардкожен
+- VeloLogo.vue: SVG с CSS fallback `var(--velo-primary, #334D6E)` (QW-5) — рендерится корректно даже если `variables.css` ещё не загрузился
+- Google Fonts перенесены из `@import` в CSS в `<link>` в index.html (FIX 10.6) — устраняет Flash of Invisible Text (FOIT), шрифты загружаются параллельно с JS
 
 **Зависимость от бэкенда:** POST /api/v1/auth/telegram (Phase 1.2 ✅).
 
-**Критерий готовности:** Открываем WebApp в Telegram → автоматический логин → видим user в DevTools.
+**Критерий готовности:** Открываем WebApp в Telegram → автоматический логин → видим user в DevTools. ✅
+
+---
+
+### F1: Аудит и исправления
+
+Аудит проведён после завершения F1. Обнаружены и исправлены следующие проблемы:
+
+| ID | Описание | Файл | Статус |
+|----|----------|------|--------|
+| FIX 10.1 | WebApp accessed lazily via getter, not at module level — prevents crash if CDN blocked | `platform/telegram.ts` | ✅ |
+| FIX 10.2 | 401 handler delegates cleanup to auth store via `onUnauthorized` callback — no direct token/sessionStorage mutation in client.ts | `api/client.ts`, `stores/auth.ts` | ✅ |
+| FIX 10.3 | Bot URL from `VITE_TELEGRAM_BOT_URL` env variable, not hardcoded | `views/auth/StandaloneStubView.vue` | ✅ |
+| FIX 10.4 | `isReady`/`isStandalone` as module-level refs (singleton composable pattern), `resetAuthState()` exposed for tests | `composables/useAuth.ts` | ✅ |
+| FIX 10.6 | Google Fonts via `<link>` in index.html instead of `@import` in CSS — eliminates FOIT | `index.html`, `styles/global.css` | ✅ |
+| FIX 10.8 | VeloLogo extracted to shared component (was copy-pasted in 3 views) | `components/ui/VeloLogo.vue` | ✅ |
+| QW-4 | `role` computed returns `null` (not `'user'`) for unauthenticated users | `stores/auth.ts` | ✅ |
+| QW-5 | CSS fallback `var(--velo-primary, #334D6E)` in VeloLogo SVG | `components/ui/VeloLogo.vue` | ✅ |
 
 ---
 
@@ -551,7 +667,7 @@ https://api.talentir.info/*         → velo-frontend:3000
 /404                       → NotFoundView
 ```
 
-- [ ] src/router/guards.ts:
+- [ ] src/router/guards.ts (**перенесён из F1.3** — в F1 auth guard реализован на уровне App.vue, router guards нужны только когда появляется ролевой роутинг):
   - `authGuard` — не авторизован → /loading
   - `roleGuard('master')` — role не master/admin → /user/dashboard
   - `roleGuard('admin')` — role не admin → /user/dashboard
@@ -893,7 +1009,7 @@ https://api.talentir.info/*         → velo-frontend:3000
   - Перед практикой (за N часов): баннер "Как вы себя чувствуете?"
   - После практики: баннер "Как прошла практика?"
 
-**Зависимость от бэкенда:** Phase 8 бэкенда — **НЕ ГОТОВ. БЛОКИРУЮЩАЯ ЗАВИСИМОСТЬ.**
+**Зависимость от бэкенда:** Phase 8 бэкенда (Phase 8.4 ✅ — **разблокировано**).
 
 ---
 
@@ -907,7 +1023,7 @@ https://api.talentir.info/*         → velo-frontend:3000
   - CRUD записей дневника
   - GET /api/v1/diary
 
-**Зависимость от бэкенда:** Phase 8 бэкенда — **НЕ ГОТОВ. БЛОКИРУЮЩАЯ ЗАВИСИМОСТЬ.**
+**Зависимость от бэкенда:** Phase 8 бэкенда (Phase 8.4 ✅ — **разблокировано**).
 
 ---
 
@@ -922,7 +1038,7 @@ https://api.talentir.info/*         → velo-frontend:3000
   - Распределение feedbacks (fire/good/confused) — прогресс-бары
   - Количество комментариев
 
-**Зависимость от бэкенда:** Phase 8.4 бэкенда — **НЕ ГОТОВ. БЛОКИРУЮЩАЯ ЗАВИСИМОСТЬ.**
+**Зависимость от бэкенда:** Phase 8.4 бэкенда ✅ — **разблокировано**.
 
 ---
 
@@ -978,8 +1094,8 @@ https://api.talentir.info/*         → velo-frontend:3000
 
 | Frontend Phase | Backend Phase | Статус бэка | Блокирует? |
 |---------------|---------------|-------------|------------|
-| F0: Инфра | — | — | Нет |
-| F1: Auth | 1.2, 1.4 | ✅ | Нет |
+| F0: Инфра ✅ | — | — | Нет |
+| F1: Auth ✅ | 1.2, 1.4 | ✅ | Нет |
 | F2: Компоненты | 1.4 | ✅ | Нет |
 | F3: Каталог | 4.3 | ✅ | Нет |
 | F4: Бронирование | 5+6 | ✅ | Нет |
@@ -987,7 +1103,7 @@ https://api.talentir.info/*         → velo-frontend:3000
 | F6: Master | 2+4+5.4 | ✅ | Нет |
 | F7: Финансы | 6.6 | ✅ | Нет |
 | F8: Admin | 3+6.8 | ✅ | Нет |
-| F9: Diary | **8** | **Нет** | **Да** |
+| F9: Diary | 8.4 | ✅ | **Нет (разблокировано)** |
 | F10: PWA | 7.3 + новый auth | **Частично** | **Частично** |
 
 ---
@@ -1008,6 +1124,9 @@ https://api.talentir.info/*         → velo-frontend:3000
 | Свой CSS вместо Tailwind | Дизайн-система уже готова в мокапах, переносить проще 1:1 |
 | Внутренний Nginx в Docker фронтенда | SPA fallback + кеширование без усложнения хост-конфига |
 | Telegram SDK через CDN script (не npm) | Рекомендация Telegram — всегда актуальная версия |
+| Auth guard в App.vue, а не в router beforeEach | В F1 один маршрут, ролевого роутинга нет; router guards добавляются в F2.2 |
+| Telegram SDK типы в env.d.ts (не отдельный .d.ts) | Минимальный surface — типизированы только используемые методы; вынести при росте |
+| Token decoupled от Pinia (модульная переменная в client.ts) | Исключает circular dependency client → store → client |
 
 ---
 
@@ -1099,6 +1218,22 @@ window.Telegram.WebApp.HapticFeedback.impactOccurred('medium')
 
 // ✅ ПРАВИЛЬНО — через абстракцию:
 platform.hapticFeedback('medium')
+```
+
+### FP-08: Не мутировать token/sessionStorage напрямую из API client
+
+```typescript
+// ❌ ЗАПРЕЩЕНО в client.ts:
+if (response.status === 401) {
+  sessionStorage.removeItem('velo_token')
+  window.location.href = '/'
+}
+
+// ✅ ПРАВИЛЬНО — через callback:
+if (response.status === 401) {
+  _onUnauthorized?.()  // auth store handles cleanup
+  throw new ApiResponseError(401, 'Session expired')
+}
 ```
 
 ---
