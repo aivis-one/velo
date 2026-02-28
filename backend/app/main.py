@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 7.3)
+# VELO Backend -- Application Entry Point (updated Phase 8.1)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -49,10 +49,15 @@ from app.modules.withdrawals.router import (                       # Phase 6.6
     router as withdrawals_router,
 )
 from app.modules.promos.router import router as promos_router      # Phase 6.7
+from app.modules.diary.router import (                             # Phase 8.1
+    practices_checkin_router,
+    checkins_router,
+)
 
 # Model imports for Alembic and relationship resolution.
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
+from app.modules.diary.models import Checkin  # noqa: F401  # Phase 8.1
 
 # Notification processor (Phase 7.2).
 from app.modules.notifications.processor import run_processor  # Phase 7.2
@@ -134,6 +139,8 @@ app.include_router(purchase_router)               # Phase 6.4
 app.include_router(purchases_user_router)         # Frontend Backlog
 app.include_router(withdrawals_router)            # Phase 6.6
 app.include_router(promos_router)                 # Phase 6.7
+app.include_router(practices_checkin_router)      # Phase 8.1
+app.include_router(checkins_router)               # Phase 8.1
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 7.3)
+# VELO Backend -- Application Configuration (updated Phase 8.1)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -126,6 +126,14 @@ class Settings(BaseSettings):
     notification_max_backoff_seconds: int = 60
     # Max delivery attempts before marking as failed.
     notification_max_delivery_attempts: int = 3
+
+    # -- Diary (Phase 8) --
+    # Hours before practice.scheduled_at when check-in window opens.
+    checkin_window_hours: int = 3
+    # Hours after practice completion when feedback window closes.
+    feedback_window_hours: int = 72
+    # Max length of comment in check-ins and feedbacks.
+    diary_comment_max_length: int = 1000
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":
