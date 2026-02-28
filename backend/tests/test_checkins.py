@@ -14,8 +14,8 @@
 #   - Auth checks (401, no booking 404)
 # =============================================================================
 
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -25,7 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.diary.models import CheckType, Checkin, Mood
+from app.modules.diary.models import Checkin
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.users.models import User, UserRole
@@ -33,6 +33,73 @@ from tests.helpers import auth_headers, login_user
 
 CHECKIN_URL = "/api/v1/practices/{practice_id}/checkin"
 MY_CHECKINS_URL = "/api/v1/users/me/checkins"
+
+# telegram_id range for this test file.
+_TID_MIN = 85000
+_TID_MAX = 85999
+
+
+# ===================================================================
+# Cleanup
+# ===================================================================
+
+
+@pytest.fixture(autouse=True)
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean test data before/after each test in FK-safe order."""
+    await _do_cleanup(db_session)
+    yield
+    await _do_cleanup(db_session)
+
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Delete all test entities for telegram_id 85000-85999."""
+    await session.rollback()
+
+    user_ids_subq = (
+        select(User.id).where(
+            User.telegram_id.between(_TID_MIN, _TID_MAX),
+        )
+    )
+
+    # 1. checkins (FK -> bookings, practices, users).
+    await session.execute(
+        Checkin.__table__.delete().where(
+            Checkin.user_id.in_(user_ids_subq),
+        )
+    )
+    # 2. audit_logs for our users.
+    from app.core.audit import AuditLog
+    await session.execute(
+        AuditLog.__table__.delete().where(
+            AuditLog.actor_id.in_(user_ids_subq),
+        )
+    )
+    # 3. bookings (FK -> practices, users).
+    await session.execute(
+        Booking.__table__.delete().where(
+            Booking.user_id.in_(user_ids_subq),
+        )
+    )
+    # 4. practices (FK -> master_profiles).
+    await session.execute(
+        Practice.__table__.delete().where(
+            Practice.master_id.in_(user_ids_subq),
+        )
+    )
+    # 5. master_profiles (FK -> users).
+    await session.execute(
+        MasterProfile.__table__.delete().where(
+            MasterProfile.user_id.in_(user_ids_subq),
+        )
+    )
+    # 6. users.
+    await session.execute(
+        User.__table__.delete().where(
+            User.telegram_id.between(_TID_MIN, _TID_MAX),
+        )
+    )
+    await session.commit()
 
 
 # ===================================================================
