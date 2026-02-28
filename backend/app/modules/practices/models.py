@@ -101,8 +101,9 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     max_participants: Mapped[int | None] = mapped_column(
         Integer, default=None,
     )
-    # NOT USED -- capacity is checked via COUNT(bookings) (TD-034).
-    # Column retained for potential future denormalization.
+    # Cached counter -- updated by recalculate_participants() after
+    # booking status changes. Capacity checks use COUNT(bookings);
+    # this field is for display in PracticeResponse (TD-034).
     current_participants: Mapped[int] = mapped_column(
         Integer,
         default=0,

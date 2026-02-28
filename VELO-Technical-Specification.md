@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.6
-**Дата:** 24 февраля 2026
+**Версия:** 2.7
+**Дата:** 28 февраля 2026
 **Статус:** Draft
 
 ---
@@ -2279,8 +2279,9 @@ backend/app/modules/notifications/
 - action_data["practice_id"] как ключ фильтрации (JSONB astext query)
 - expiry_at = practice.scheduled_at — процессор не отправит напоминание после начала практики
 - Lazy imports в точках интеграции (bookings/service.py, practices/service.py, waitlist/service.py) — избегаем циклических зависимостей
-- Master display_name: MasterProfile.data.profile.display_name → User.first_name → "Master"
+- Master display_name: `get_master_display_name()` в masters/service.py (NEW-01: extracted из reminders.py, единый источник)
 - Priority: 2 (выше дефолтных 5, ниже urgent 1)
+- reschedule_reminders_for_practice: batch-load users через `WHERE id IN (...)` вместо N+1 `session.get()` (NEW-06)
 
 **Структура файлов Phase 7.4:**
 ```
@@ -2542,6 +2543,7 @@ Response: {
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в AuthResponse — всегда 0 до реальных платежей, шум | Убрать из AuthResponse или оставить (фронт может показывать баланс) | ⬜ |
 | TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
 | TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` | ⬜ |
+| PERF-04 | 🚀 | `notifications/service.py` | `_resolve_target_users` для ALL и ROLE загружает все user IDs в память | При росте базы (10k+): batched processing / server-side cursor / stream_scalars | ⬜ |
 
 ### Phase 2.2 аудит — backlog
 
@@ -2569,6 +2571,55 @@ Response: {
 | L-04 | `admin/users/router.py`, `service.py` | status filter: str вместо Literal | `Literal["pending", "verified", "rejected"] | None` | ✅ |
 | L-07 | `payments/purchase.py` | commission через float: `int(x * rate)` | `paid_cents * commission_percent // 100` (integer math) | ✅ |
 | R-07 | `bookings/models.py`, `waitlist/models.py`, `practices/models.py` | Модели без `index=True` на FK-колонках (индексы были в миграциях) | Синхронизация моделей: `index=True` на practice_id, user_id, master_id | ✅ |
+
+### Code Review #2 Feb 2026 — исправлено
+
+15 фиксов в 3 батчах. Все тесты: 355 passed, 3 skipped.
+
+**BATCH 1 — Production blockers (3 фикса):**
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| CRITICAL-05 | `payments/purchase.py` | `create_purchase_for_booking` без FOR UPDATE на practice — concurrent purchases не блокируются | `select(Practice).with_for_update()` перед чтением price_cents | ✅ |
+| ERR-01 | `core/middleware.py` | `request.url.path` вместо `scope["path"]` — KeyError в ASGI scope | `scope["path"]` напрямую | ✅ |
+| ERR-02 | `core/middleware.py` | AuditLog.trace_id = String(36), а uuid4().hex = 32 символа | `str(uuid4())` — 36 символов с дефисами | ✅ |
+
+**BATCH 2 — High-priority (8 фиксов):**
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| ERR-03 | `auth/service.py` | `json.loads(session_data)` без try/except — corrupted Redis data → 500 | try/except JSONDecodeError + ValueError → delete key, return None | ✅ |
+| RACE-06 | `masters/service.py` | Reapplication (rejected→pending) без FOR UPDATE — concurrent set_jsonb overwrites | `select(MasterProfile).with_for_update()` | ✅ |
+| ERR-04 | `payments/refund.py` | `scalar_one()` без guard — если purchase/booking не найдена → NoResultFound 500 | `scalar_one_or_none()` + explicit NotFoundError | ✅ |
+| CQ-05 | `practices/service.py` | Можно изменить цену практики при наличии active bookings — юзеры уже заплатили | Guard: `_has_active_bookings()` → BadRequestError если `is_free` или `price_cents` меняется | ✅ |
+| CQ-02 | `core/config.py` | commission_percent без bounds check — отрицательная или >100% ломает integer math | Validator: `0 <= commission_percent <= 100` при startup | ✅ |
+| SEC-01 | `core/middleware.py` | X-Trace-ID header принимается без валидации — injection vector | Regex `^[a-zA-Z0-9._-]+$`, длина ≤36; невалидные → uuid4 | ✅ |
+| TEST-FIX | `tests/test_waitlist.py` | FK-ошибка в cleanup + assertion bugs (скрытые за FK-ошибкой) | Порядок cleanup; status 201; `data["waitlist_entry"]["status"] == "converted"` | ✅ |
+| TEST-FIX | `tests/test_waitlist.py` | Stale practice от waitlist-тестов ломала practices-тесты | Cleanup теперь корректно удаляет все FK-зависимости | ✅ |
+
+**BATCH 3 — Quick wins + refactoring (4 фикса):**
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| ERR-05 | `promos/service.py`, `admin/promos/service.py` | try/except IntegrityError ВНУТРИ begin_nested — savepoint не откатывается | try/except СНАРУЖИ begin_nested — `__aexit__` видит исключение, rollback savepoint корректен | ✅ |
+| SEC-07 | `promos/validation.py` | 8 разных error messages в validate_promo — enumeration attack | Единое сообщение `"Invalid or expired promo code"`, конкретная причина в structlog | ✅ |
+| CQ-06 | `core/config.py` | log_level default DEBUG — шумно в prod, может утечь sensitive data | Default INFO; validator: DEBUG запрещён в production | ✅ |
+| NEW-01 | `masters/service.py`, `reminders.py`, `waitlist/service.py` | `_get_master_display_name` дублирована в 2 файлах | Extracted в `masters/service.py` как public `get_master_display_name()`, остальные импортируют | ✅ |
+
+**Дополнительные улучшения (в рамках BATCH 2-3):**
+
+| ID | Файл | Улучшение | Статус |
+|----|------|-----------|--------|
+| NEW-06 | `reminders.py` | `reschedule_reminders_for_practice`: N+1 `session.get(User)` в цикле → batch-load `WHERE id IN (...)` | ✅ |
+
+**Закрытые false positives (не требуют исправления):**
+
+| ID | Причина закрытия |
+|----|-----------------|
+| CRITICAL-06 | `scalar_one()` в `_get_active_booking_count` — всегда возвращает число (COUNT + COALESCE), NoResultFound невозможен |
+| SEC-04 | `json.loads(body.initData)` в webhook_router — тело приходит из Stripe SDK, не от юзера; + уже внутри try/except |
+| ERR-06 | `resolve_notification` scalar_one_or_none — уже реализовано корректно, False Positive |
+| RACE-04 | `deactivate_promo` без FOR UPDATE — `session.get(..., with_for_update=True)` уже используется |
 
 ### Frontend Report Feb 2026 — backlog
 
@@ -2622,7 +2673,7 @@ Response: {
 - `f5a6b7c8d9e0` — H-02: partial unique index для re-booking (Phase 5.1)
 - `a7b8c9d0e1f2` — W-02: index на bookings.purchase_id
 
-**Тесты:** 336 passed, 3 skipped, 0 warnings.
+**Тесты:** 355 passed, 3 skipped, 0 warnings.
 
 ### Осознанные решения (НЕ является долгом)
 

@@ -19,13 +19,17 @@
 import enum
 from datetime import datetime
 
+import structlog
 from sqlalchemy import BigInteger, DateTime, Integer, String
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 from app.core.mixins import TimestampMixin, UUIDMixin
+
+logger = structlog.get_logger()
 
 
 class UserRole(enum.StrEnum):
@@ -44,14 +48,14 @@ class UserRole(enum.StrEnum):
 class User(UUIDMixin, TimestampMixin, Base):
     """Platform user — student, master, or admin.
 
-    One row per person regardless of role. Role upgrades (user → master)
+    One row per person regardless of role. Role upgrades (user -> master)
     happen in place, no separate tables.
     """
 
     __tablename__ = "users"
 
     # -- Auth --
-    # Telegram user ID — unique, indexed, used for login lookup.
+    # Telegram user ID -- unique, indexed, used for login lookup.
     # BigInteger because Telegram IDs can exceed 2^31.
     telegram_id: Mapped[int | None] = mapped_column(
         BigInteger,
@@ -98,7 +102,7 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     # -- Balance (Phase 6.1, TD-033) --
     # Cached value in EUR cents computed from user_ledger.
-    # 1500 = €15.00. Do NOT modify directly — use ledger transactions.
+    # 1500 = €15.00. Do NOT modify directly -- use ledger transactions.
     balance_cents: Mapped[int] = mapped_column(
         Integer,
         default=0,
@@ -120,7 +124,7 @@ class User(UUIDMixin, TimestampMixin, Base):
 
     # -- Balance guard (Phase 6.2) --
     # Warns if balance_cents is set directly instead of via
-    # record_user_ledger(). Does NOT block — just logs a warning.
+    # record_user_ledger(). Does NOT block -- just logs a warning.
     _GUARDED_FIELDS = frozenset({"balance_cents"})
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -130,13 +134,12 @@ class User(UUIDMixin, TimestampMixin, Base):
             # initial object creation, preventing log spam.
             try:
                 if sa_inspect(self).persistent:
-                    import structlog
-                    structlog.get_logger().warning(
+                    logger.warning(
                         "direct_balance_write",
                         field=name,
                         hint="Use record_user_ledger() instead",
                     )
-            except Exception:
+            except NoInspectionAvailable:
                 # Not yet tracked by SQLAlchemy (during __init__).
                 pass
         super().__setattr__(name, value)
