@@ -3,48 +3,52 @@
 # =============================================================================
 #
 # One-to-one with User. Created when a user submits a master application.
-# Role upgrade (user → master) happens on User.role, not here.
+# Role upgrade (user -> master) happens on User.role, not here.
 #
 # JSONB DATA STRUCTURE:
-#   data.account     — status, verification info, rejection history
-#   data.availability — accepting bookings flag, availability note
-#   data.profile     — bio, methods, experience, certifications
-#   data.settings    — auto-confirm, default max participants
-#   data.stats       — computed counters (total practices, avg rating)
+#   data.account     -- status, verification info, rejection history
+#   data.availability -- accepting bookings flag, availability note
+#   data.profile     -- bio, methods, experience, certifications
+#   data.settings    -- auto-confirm, default max participants
+#   data.stats       -- computed counters (total practices, avg rating)
 #
 # BALANCE FIELDS (Phase 6.1, TD-033):
-#   frozen_cents   — funds locked until practice completion, in EUR cents
-#   available_cents— funds available for withdrawal, in EUR cents
+#   frozen_cents   -- funds locked until practice completion, in EUR cents
+#   available_cents-- funds available for withdrawal, in EUR cents
 #   Updated by ledger listeners (Phase 6.2). Do NOT modify directly.
 #
 # RELATIONSHIP STRATEGY:
-#   Unidirectional: MasterProfile → User only. User does NOT have a
+#   Unidirectional: MasterProfile -> User only. User does NOT have a
 #   back-reference to MasterProfile. This avoids side-effect imports
 #   in main.py. When masters router is added (Phase 2.2), it will
 #   import MasterProfile naturally. Bidirectional relationship can
 #   be added then if needed.
 #
 # JSONB SAFETY:
-#   Inherits JSONBMixin — use set_jsonb("data", value) for all mutations.
+#   Inherits JSONBMixin -- use set_jsonb("data", value) for all mutations.
 #   NEVER assign self.data = ... directly. See core/mixins.py.
 # =============================================================================
 
 from datetime import datetime
 from uuid import UUID
 
+import structlog
 from sqlalchemy import DateTime, ForeignKey, Integer, func
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.core.mixins import JSONBMixin
 
+logger = structlog.get_logger()
+
 
 class MasterProfile(JSONBMixin, Base):
-    """Master profile — extends User with master-specific data.
+    """Master profile -- extends User with master-specific data.
 
-    Primary key is user_id (not a separate UUID) — enforces one-to-one
+    Primary key is user_id (not a separate UUID) -- enforces one-to-one
     at the database level. No user can have two master profiles.
     """
 
@@ -66,7 +70,7 @@ class MasterProfile(JSONBMixin, Base):
     )
 
     # -- Balance fields (Phase 6.1, TD-033) --
-    # EUR cents. Do NOT modify directly — updated by ledger listeners.
+    # EUR cents. Do NOT modify directly -- updated by ledger listeners.
     # 1500 = €15.00.
     frozen_cents: Mapped[int] = mapped_column(
         Integer,
@@ -90,7 +94,7 @@ class MasterProfile(JSONBMixin, Base):
     )
 
     # -- Relationships --
-    # Unidirectional: MasterProfile → User. No back_populates on User
+    # Unidirectional: MasterProfile -> User. No back_populates on User
     # to avoid requiring MasterProfile import at app startup.
     user: Mapped["User"] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates=None,
@@ -102,7 +106,7 @@ class MasterProfile(JSONBMixin, Base):
 
     # -- Balance guard (Phase 6.2) --
     # Warns if frozen_cents/available_cents are set directly instead
-    # of via record_master_ledger(). Does NOT block — just logs.
+    # of via record_master_ledger(). Does NOT block -- just logs.
     _GUARDED_FIELDS = frozenset({"frozen_cents", "available_cents"})
 
     def __setattr__(self, name: str, value: object) -> None:
@@ -112,13 +116,12 @@ class MasterProfile(JSONBMixin, Base):
             # initial object creation, preventing log spam.
             try:
                 if sa_inspect(self).persistent:
-                    import structlog
-                    structlog.get_logger().warning(
+                    logger.warning(
                         "direct_balance_write",
                         field=name,
                         hint="Use record_master_ledger() instead",
                     )
-            except Exception:
+            except NoInspectionAvailable:
                 # Not yet tracked by SQLAlchemy (during __init__).
                 pass
         super().__setattr__(name, value)
