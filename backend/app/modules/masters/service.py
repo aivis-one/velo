@@ -182,3 +182,33 @@ async def get_master_profile(
     stmt = select(MasterProfile).where(MasterProfile.user_id == user_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
+
+
+async def get_master_display_name(
+    master_id: UUID,
+    session: AsyncSession,
+) -> str:
+    """Get master's display name for notification templates.
+
+    NEW-01: Extracted from reminders.py to shared location.
+    Used by reminders, waitlist notifications, and any future
+    module that needs a human-readable master name.
+
+    Lookup order:
+      1. MasterProfile.data.profile.display_name
+      2. User.first_name
+      3. Fallback: "Master"
+    """
+    profile = await session.get(MasterProfile, master_id)
+    if profile:
+        display_name = (
+            profile.data.get("profile", {}).get("display_name")
+        )
+        if display_name:
+            return display_name
+
+    user = await session.get(User, master_id)
+    if user and user.first_name:
+        return user.first_name
+
+    return "Master"

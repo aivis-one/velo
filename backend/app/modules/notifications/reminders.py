@@ -33,6 +33,9 @@
 #   for display name is skipped. reschedule_reminders_for_practice fetches
 #   the name once and passes it to all calls, eliminating N+1 queries.
 #
+# NEW-01: get_master_display_name extracted to masters/service.py.
+#   reminders.py imports it from there (single source of truth).
+#
 # NEW-06: reschedule_reminders_for_practice batch-loads all User objects
 #   in one query instead of session.get(User, ...) per booking (N+1).
 #
@@ -48,7 +51,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.masters.models import MasterProfile
+from app.modules.masters.service import get_master_display_name
 from app.modules.notifications.models import (
     Notification,
     NotificationStatus,
@@ -91,28 +94,8 @@ _ALL_REMINDER_TYPES = _ALL_USER_REMINDER_TYPES | _ALL_MASTER_REMINDER_TYPES
 # ===================================================================
 
 
-async def _get_master_display_name(
-    master_id: UUID,
-    session: AsyncSession,
-) -> str:
-    """Get master's display name for notification templates.
-
-    Checks MasterProfile.data.profile.display_name first,
-    falls back to User.first_name, then "Master".
-    """
-    profile = await session.get(MasterProfile, master_id)
-    if profile:
-        display_name = (
-            profile.data.get("profile", {}).get("display_name")
-        )
-        if display_name:
-            return display_name
-
-    user = await session.get(User, master_id)
-    if user and user.first_name:
-        return user.first_name
-
-    return "Master"
+# NEW-01: get_master_display_name removed -- now imported from
+# masters/service.py as get_master_display_name (shared helper).
 
 
 def _build_action_data(
@@ -174,7 +157,7 @@ async def schedule_reminders(
 
     # QW-3: reuse caller-provided name or fetch from DB.
     if master_name is None:
-        master_name = await _get_master_display_name(
+        master_name = await get_master_display_name(
             practice.master_id, session,
         )
     action_data = _build_action_data(practice, master_name)
@@ -243,7 +226,7 @@ async def schedule_master_reminders(
 
     # QW-3: reuse caller-provided name or fetch from DB.
     if master_name is None:
-        master_name = await _get_master_display_name(
+        master_name = await get_master_display_name(
             practice.master_id, session,
         )
 
@@ -414,7 +397,7 @@ async def reschedule_reminders_for_practice(
     total_created = 0
 
     # QW-3: Fetch master name ONCE for all reminders.
-    master_name = await _get_master_display_name(
+    master_name = await get_master_display_name(
         practice.master_id, session,
     )
 

@@ -14,6 +14,12 @@
 #   7. Master promo practice scope: promo.practice_id == practice.id (if set).
 #   8. Company promo: no scope restrictions (platform-wide).
 #
+# SEC-07: All validation errors return the same generic message
+#   "Invalid or expired promo code" to prevent information leakage.
+#   An attacker cannot distinguish between "code doesn't exist",
+#   "code is deactivated", "code is expired", "code has reached
+#   usage limit", etc. Specific reasons are logged server-side.
+#
 # calculate_discount():
 #   Pure function. price_cents * discount_percent // 100.
 #   Returns (amount_cents, discount_cents, paid_cents).
@@ -41,6 +47,11 @@ from app.modules.promos.models import Promo, PromoType
 
 logger = structlog.get_logger()
 
+# SEC-07: Single generic message for all promo validation failures.
+# Prevents enumeration: attacker cannot distinguish "not found" from
+# "expired" from "inactive" from "wrong scope".
+_INVALID_PROMO_MSG = "Invalid or expired promo code"
+
 
 async def validate_promo(
     *,
@@ -53,6 +64,9 @@ async def validate_promo(
 
     Does NOT increment used_count -- that happens atomically
     in increment_promo_usage() after ledger entries are created.
+
+    SEC-07: All validation failures raise the same generic error
+    message. Specific failure reasons are logged server-side only.
 
     Args:
         code: Promo code (will be uppercased for lookup).
@@ -74,22 +88,51 @@ async def validate_promo(
     promo = result.scalar_one_or_none()
 
     if not promo:
-        raise BadRequestError(f"Promo code '{code_upper}' not found")
+        logger.info(
+            "promo_validation_failed",
+            reason="not_found",
+            code=code_upper,
+        )
+        raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 2. Check active.
     if not promo.is_active:
-        raise BadRequestError("Promo code is no longer active")
+        logger.info(
+            "promo_validation_failed",
+            reason="inactive",
+            code=code_upper,
+            promo_id=str(promo.id),
+        )
+        raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 3. Check validity window.
     now = datetime.now(timezone.utc)
     if promo.valid_from and now < promo.valid_from:
-        raise BadRequestError("Promo code is not yet valid")
+        logger.info(
+            "promo_validation_failed",
+            reason="not_yet_valid",
+            code=code_upper,
+            promo_id=str(promo.id),
+        )
+        raise BadRequestError(_INVALID_PROMO_MSG)
     if promo.valid_until and now > promo.valid_until:
-        raise BadRequestError("Promo code has expired")
+        logger.info(
+            "promo_validation_failed",
+            reason="expired",
+            code=code_upper,
+            promo_id=str(promo.id),
+        )
+        raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 4. Check usage limit (soft check -- atomic increment later).
     if promo.max_uses is not None and promo.used_count >= promo.max_uses:
-        raise BadRequestError("Promo code has reached its usage limit")
+        logger.info(
+            "promo_validation_failed",
+            reason="max_uses_reached",
+            code=code_upper,
+            promo_id=str(promo.id),
+        )
+        raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 5. Check first_purchase_only.
     if promo.first_purchase_only:
@@ -98,30 +141,44 @@ async def validate_promo(
             .where(
                 Purchase.user_id == user_id,
                 Purchase.status.in_([
-                PurchaseStatus.PENDING.value,
-                PurchaseStatus.COMPLETED.value,
-            ]),
+                    PurchaseStatus.PENDING.value,
+                    PurchaseStatus.COMPLETED.value,
+                ]),
             )
             .limit(1)
         )
         existing = (await session.execute(existing_stmt)).scalar_one_or_none()
         if existing is not None:
-            raise BadRequestError(
-                "Promo code is only valid for first purchase"
+            logger.info(
+                "promo_validation_failed",
+                reason="not_first_purchase",
+                code=code_upper,
+                promo_id=str(promo.id),
+                user_id=str(user_id),
             )
+            raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 6-7. Scope checks based on promo type.
     if promo.type == PromoType.MASTER.value:
         # Master promo: must belong to the practice's master.
         if promo.master_id != practice.master_id:
-            raise BadRequestError(
-                "Promo code is not valid for this master's practices"
+            logger.info(
+                "promo_validation_failed",
+                reason="wrong_master",
+                code=code_upper,
+                promo_id=str(promo.id),
+                practice_master_id=str(practice.master_id),
             )
+            raise BadRequestError(_INVALID_PROMO_MSG)
         # Practice scope (if set).
         if promo.practice_id and promo.practice_id != practice.id:
-            raise BadRequestError(
-                "Promo code is not valid for this practice"
+            logger.info(
+                "promo_validation_failed",
+                reason="wrong_practice",
+                code=code_upper,
+                promo_id=str(promo.id),
             )
+            raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 8. Company promo: no scope restrictions (platform-wide).
 

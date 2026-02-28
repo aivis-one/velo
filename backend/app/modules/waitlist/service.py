@@ -70,6 +70,7 @@ from app.modules.bookings.service import (
     _get_active_booking_count,
     recalculate_participants,
 )
+from app.modules.masters.service import get_master_display_name
 from app.modules.payments.purchase import create_purchase_for_booking
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
@@ -99,35 +100,6 @@ def _next_position_subquery(practice_id: UUID):
         .where(Waitlist.practice_id == practice_id)
         .scalar_subquery()
     )
-
-
-async def _get_master_display_name(
-    master_id: UUID,
-    session: AsyncSession,
-) -> str:
-    """Get master's display name for notification templates.
-
-    Checks MasterProfile.data.profile.display_name first,
-    falls back to User.first_name, then "Master".
-    """
-    # Lazy import to avoid circular dependency with masters module.
-    from app.modules.masters.models import MasterProfile
-
-    profile = await session.get(MasterProfile, master_id)
-    if profile:
-        display_name = (
-            profile.data
-            .get("profile", {})
-            .get("display_name")
-        )
-        if display_name:
-            return display_name
-
-    user = await session.get(User, master_id)
-    if user and user.first_name:
-        return user.first_name
-
-    return "Master"
 
 
 async def join_waitlist(
@@ -492,7 +464,7 @@ async def process_waitlist(
 
     # Load practice for template variables.
     practice = await session.get(Practice, practice_id)
-    master_name = await _get_master_display_name(
+    master_name = await get_master_display_name(
         practice.master_id, session,
     )
 
