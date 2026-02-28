@@ -27,16 +27,17 @@ MY_PRACTICES_URL = "/api/v1/masters/me/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
+_CLEANUP_AUDIT_SQL = text(
+    "DELETE FROM audit_logs WHERE actor_id IN "
+    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
+)
 _CLEANUP_PRACTICES_SQL = text(
     "DELETE FROM practices WHERE master_id IN "
-    "(SELECT user_id FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 60000 AND 60999))"
+    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
 )
 _CLEANUP_MASTERS_SQL = text(
     "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 60000 AND 60999)"
+    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
 )
 _RESET_ROLES_SQL = text(
     "UPDATE users SET role = 'user' "
@@ -52,15 +53,19 @@ async def cleanup(
     db_session: AsyncSession,
 ) -> AsyncGenerator[None, None]:
     """Clean practices, masters, reset roles for test range."""
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _do_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _do_cleanup(db_session)
+
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Delete all test entities for telegram_id 60000-60999 in FK-safe order."""
+    await session.rollback()
+    await session.execute(_CLEANUP_AUDIT_SQL)
+    await session.execute(_CLEANUP_PRACTICES_SQL)
+    await session.execute(_CLEANUP_MASTERS_SQL)
+    await session.execute(_RESET_ROLES_SQL)
+    await session.commit()
 
 
 # ---------------------------------------------------------------------------
