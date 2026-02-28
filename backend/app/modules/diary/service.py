@@ -1,0 +1,248 @@
+# =============================================================================
+# VELO Backend -- Diary Service (Phase 8.1: Check-ins)
+# =============================================================================
+#
+# UPSERT CHECKIN:
+#   1. Find confirmed booking for (user, practice).
+#   2. Validate time window: scheduled_at - checkin_window_hours .. scheduled_at.
+#   3. Insert or update checkin (one per booking + check_type).
+#   4. Audit log: checkin_created or checkin_updated.
+#
+# LIST CHECKINS:
+#   Paginated, filtered by practice_id and/or date range.
+#   Read-only (get_db_reader in router).
+#
+# SESSION RULES:
+#   No session.commit() here (P-01). Router manages transaction.
+# =============================================================================
+
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
+import structlog
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.audit import record_audit
+from app.core.config import settings
+from app.core.exceptions import BadRequestError, NotFoundError
+from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.diary.models import CheckType, Checkin
+from app.modules.practices.models import Practice
+from app.modules.users.models import User
+
+logger = structlog.get_logger()
+
+
+# ===================================================================
+# Upsert checkin
+# ===================================================================
+
+
+async def upsert_checkin(
+    user: User,
+    practice_id: UUID,
+    mood: str,
+    session: AsyncSession,
+    *,
+    comment: str | None = None,
+) -> tuple[Checkin, bool]:
+    """Create or update a pre-practice check-in.
+
+    Args:
+        user: Authenticated user.
+        practice_id: Target practice UUID.
+        mood: One of low/mid/high.
+        session: Write session (caller manages commit).
+        comment: Optional text (max length validated in schema).
+
+    Returns:
+        Tuple of (checkin, is_new). is_new=True if created, False if updated.
+
+    Raises:
+        NotFoundError: No confirmed booking for this practice.
+        BadRequestError: Outside check-in window.
+    """
+    # 1. Find confirmed booking for this user + practice.
+    booking_stmt = (
+        select(Booking)
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.user_id == user.id,
+            Booking.status == BookingStatus.CONFIRMED.value,
+        )
+    )
+    result = await session.execute(booking_stmt)
+    booking = result.scalar_one_or_none()
+
+    if booking is None:
+        raise NotFoundError(
+            "No confirmed booking found for this practice"
+        )
+
+    # 2. Load practice to check time window.
+    practice = await session.get(Practice, practice_id)
+    if practice is None:
+        raise NotFoundError("Practice not found")
+
+    _validate_checkin_window(practice)
+
+    # 3. Check for existing checkin (upsert).
+    existing_stmt = (
+        select(Checkin)
+        .where(
+            Checkin.booking_id == booking.id,
+            Checkin.check_type == CheckType.PRE.value,
+        )
+    )
+    result = await session.execute(existing_stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing is not None:
+        # Update existing checkin.
+        existing.mood = mood
+        existing.comment = comment
+        await session.flush()
+
+        await record_audit(
+            event="checkin_updated",
+            actor_id=user.id,
+            actor_type="user",
+            target_type="checkin",
+            target_id=existing.id,
+            data={"mood": mood, "practice_id": str(practice_id)},
+            session=session,
+        )
+
+        logger.info(
+            "checkin_updated",
+            checkin_id=str(existing.id),
+            user_id=str(user.id),
+            practice_id=str(practice_id),
+            mood=mood,
+        )
+        return existing, False
+
+    # 4. Create new checkin.
+    checkin = Checkin(
+        practice_id=practice_id,
+        user_id=user.id,
+        booking_id=booking.id,
+        mood=mood,
+        comment=comment,
+        check_type=CheckType.PRE.value,
+    )
+    session.add(checkin)
+    await session.flush()
+
+    await record_audit(
+        event="checkin_created",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="checkin",
+        target_id=checkin.id,
+        data={"mood": mood, "practice_id": str(practice_id)},
+        session=session,
+    )
+
+    logger.info(
+        "checkin_created",
+        checkin_id=str(checkin.id),
+        user_id=str(user.id),
+        practice_id=str(practice_id),
+        mood=mood,
+    )
+    return checkin, True
+
+
+# ===================================================================
+# List user checkins
+# ===================================================================
+
+
+async def list_user_checkins(
+    user: User,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    practice_id: UUID | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> tuple[list[Checkin], int]:
+    """List check-ins for a user with optional filters.
+
+    Args:
+        user: Authenticated user.
+        session: Read session.
+        limit: Page size.
+        offset: Page offset.
+        practice_id: Filter by practice.
+        date_from: Filter by created_at >= date_from.
+        date_to: Filter by created_at <= date_to.
+
+    Returns:
+        Tuple of (items, total_count).
+    """
+    base = select(Checkin).where(Checkin.user_id == user.id)
+    count_base = select(func.count(Checkin.id)).where(
+        Checkin.user_id == user.id,
+    )
+
+    if practice_id is not None:
+        base = base.where(Checkin.practice_id == practice_id)
+        count_base = count_base.where(
+            Checkin.practice_id == practice_id,
+        )
+
+    if date_from is not None:
+        base = base.where(Checkin.created_at >= date_from)
+        count_base = count_base.where(Checkin.created_at >= date_from)
+
+    if date_to is not None:
+        base = base.where(Checkin.created_at <= date_to)
+        count_base = count_base.where(Checkin.created_at <= date_to)
+
+    # Total count.
+    total = (await session.execute(count_base)).scalar_one()
+
+    # Paginated items (newest first).
+    items_stmt = (
+        base
+        .order_by(Checkin.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(items_stmt)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+# ===================================================================
+# Helpers
+# ===================================================================
+
+
+def _validate_checkin_window(practice: Practice) -> None:
+    """Validate that current time is within the check-in window.
+
+    Window: [scheduled_at - checkin_window_hours, scheduled_at].
+
+    Raises:
+        BadRequestError: If outside the window.
+    """
+    now = datetime.now(UTC)
+    window_hours = settings.checkin_window_hours
+    window_start = practice.scheduled_at - timedelta(hours=window_hours)
+    window_end = practice.scheduled_at
+
+    if now < window_start:
+        raise BadRequestError(
+            f"Check-in window opens {window_hours} hours before the practice"
+        )
+
+    if now > window_end:
+        raise BadRequestError(
+            "Check-in window has closed (practice has started)"
+        )
