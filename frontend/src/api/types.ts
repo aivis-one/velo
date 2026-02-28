@@ -1,12 +1,12 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2, username fix)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
 // Manual typing (not auto-generated from OpenAPI).
 //
-// USERNAME FIX: backend UserResponse has no `username` field.
-// telegram_username is stored in credentials JSONB, not exposed.
+// F3.1: PaginatedResponse fixed to limit/offset (matches backend).
+//        Practice types added for catalog feature.
 // =============================================================================
 
 // -- Auth --
@@ -51,9 +51,50 @@ export interface UserUpdate {
 export interface PaginatedResponse<T> {
   items: T[]
   total: number
-  page: number
-  per_page: number
-  pages: number
+  limit: number
+  offset: number
+}
+
+// -- Practices --
+
+export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
+
+export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
+
+export interface PracticeResponse {
+  id: string
+  master_id: string
+  master_name: string | null
+  practice_type: PracticeType
+  status: PracticeStatus
+  title: string
+  description: string | null
+  scheduled_at: string
+  duration_minutes: number
+  timezone: string
+  max_participants: number | null
+  current_participants: number
+  zoom_link: string | null
+  parent_practice_id: string | null
+  is_free: boolean
+  price_cents: number
+  currency: string
+  created_at: string
+  updated_at: string | null
+}
+
+export type PaginatedPracticesResponse = PaginatedResponse<PracticeResponse>
+
+// -- Practice filters (used by store and API module) --
+
+export interface PracticeFilters {
+  practice_type?: PracticeType
+  status?: 'scheduled' | 'live'
+  master_id?: string
+  date_from?: string
+  date_to?: string
+  sort_by?: 'scheduled_at' | 'price_cents'
+  sort_order?: 'asc' | 'desc'
 }
 
 // -- Errors --
