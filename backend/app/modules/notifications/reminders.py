@@ -33,6 +33,9 @@
 #   for display name is skipped. reschedule_reminders_for_practice fetches
 #   the name once and passes it to all calls, eliminating N+1 queries.
 #
+# NEW-06: reschedule_reminders_for_practice batch-loads all User objects
+#   in one query instead of session.get(User, ...) per booking (N+1).
+#
 # SESSION RULES:
 #   No session.commit() here (P-01). Caller manages transaction.
 # =============================================================================
@@ -77,14 +80,14 @@ _MASTER_REMINDER_SPECS: list[tuple[str, timedelta]] = [
     (NotificationType.MASTER_REMINDER_10MIN.value, timedelta(minutes=10)),
 ]
 
-# All reminder types (user + master) for bulk queries.
+# Sets for filtering queries.
 _ALL_USER_REMINDER_TYPES = {spec[0] for spec in _USER_REMINDER_SPECS}
 _ALL_MASTER_REMINDER_TYPES = {spec[0] for spec in _MASTER_REMINDER_SPECS}
 _ALL_REMINDER_TYPES = _ALL_USER_REMINDER_TYPES | _ALL_MASTER_REMINDER_TYPES
 
 
 # ===================================================================
-# Helper: get master display name
+# Helpers
 # ===================================================================
 
 
@@ -92,7 +95,7 @@ async def _get_master_display_name(
     master_id: UUID,
     session: AsyncSession,
 ) -> str:
-    """Get master's display name for template variables.
+    """Get master's display name for notification templates.
 
     Checks MasterProfile.data.profile.display_name first,
     falls back to User.first_name, then "Master".
@@ -100,9 +103,7 @@ async def _get_master_display_name(
     profile = await session.get(MasterProfile, master_id)
     if profile:
         display_name = (
-            profile.data
-            .get("profile", {})
-            .get("display_name")
+            profile.data.get("profile", {}).get("display_name")
         )
         if display_name:
             return display_name
@@ -112,11 +113,6 @@ async def _get_master_display_name(
         return user.first_name
 
     return "Master"
-
-
-# ===================================================================
-# Helper: build action_data for templates + deep linking
-# ===================================================================
 
 
 def _build_action_data(
@@ -400,11 +396,15 @@ async def reschedule_reminders_for_practice(
     Steps:
     1. Cancel all existing reminders (user + master).
     2. Re-schedule master reminders.
-    3. Re-schedule user reminders for each active booking.
+    3. Batch-load users for active bookings (NEW-06).
+    4. Re-schedule user reminders for each active booking.
 
     QW-3: Fetches master display name once and passes it to all
     schedule_* calls, avoiding N+1 queries (was 1 per booking + 1
     for master = N+2 total; now exactly 1).
+
+    NEW-06: Users are loaded in a single SELECT ... WHERE id IN (...)
+    instead of session.get(User, ...) per booking (was N+1, now 1).
 
     Returns total count of new reminders created.
     """
@@ -424,7 +424,7 @@ async def reschedule_reminders_for_practice(
     )
     total_created += len(master_reminders)
 
-    # Step 3: Re-schedule user reminders for active bookings.
+    # Step 3: Load active bookings.
     bookings_stmt = (
         select(Booking)
         .where(
@@ -437,8 +437,18 @@ async def reschedule_reminders_for_practice(
     result = await session.execute(bookings_stmt)
     bookings = result.scalars().all()
 
+    # NEW-06: Batch-load all users in one query instead of
+    # session.get(User, booking.user_id) per booking (N+1 → 1).
+    users_by_id: dict[UUID, User] = {}
+    if bookings:
+        user_ids = [b.user_id for b in bookings]
+        users_stmt = select(User).where(User.id.in_(user_ids))
+        users_result = await session.execute(users_stmt)
+        users_by_id = {u.id: u for u in users_result.scalars().all()}
+
+    # Step 4: Re-schedule user reminders for each active booking.
     for booking in bookings:
-        user = await session.get(User, booking.user_id)
+        user = users_by_id.get(booking.user_id)
         if not user:
             continue
 
