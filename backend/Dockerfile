@@ -4,7 +4,7 @@
 #
 # MULTI-STAGE BUILD:
 #   Stage 1 ("builder"): installs ALL dependencies (prod + dev) into a venv.
-#   Stage 2 ("runtime"): copies venv + app code + tests.
+#   Stage 2 ("runtime"): copies venv + app code + tests + scripts.
 #
 # Dev dependencies (pytest, ruff, httpx) are ALWAYS installed because
 # tests run inside this same container on the VPS. There is no separate
@@ -43,6 +43,7 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy everything the app needs.
 COPY app/ ./app/
 COPY tests/ ./tests/
+COPY scripts/ ./scripts/
 COPY pyproject.toml ./
 COPY alembic.ini ./
 COPY migrations/ ./migrations/

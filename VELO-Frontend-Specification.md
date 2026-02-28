@@ -589,14 +589,14 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 ---
 
-## PHASE F2: Компоненты + Layout
+## PHASE F2: Компоненты + Layout ✅
 
-### F2.1: UI-компоненты (дизайн-система)
+### F2.1: UI-компоненты (дизайн-система) ✅
 
 **Цель:** Библиотека переиспользуемых компонентов из мокапов.
 
 **Задачи:**
-- [ ] Компоненты из мокапов (1:1 перенос визуала):
+- [x] Компоненты из мокапов (1:1 перенос визуала):
 
 **Примитивы (src/components/ui/):**
 
@@ -630,12 +630,12 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 ---
 
-### F2.2: Роутинг + Layout
+### F2.2: Роутинг + Layout ✅
 
 **Цель:** Навигация между экранами, role-based доступ.
 
 **Задачи:**
-- [ ] src/router/index.ts — маршруты:
+- [x] src/router/index.ts — маршруты:
 
 ```
 /                          → редирект на /user/dashboard (или /master/ или /admin/)
@@ -672,13 +672,13 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 /404                       → NotFoundView
 ```
 
-- [ ] src/router/guards.ts (**перенесён из F1.3** — в F1 auth guard реализован на уровне App.vue, router guards нужны только когда появляется ролевой роутинг):
+- [x] src/router/guards.ts (**перенесён из F1.3** — в F1 auth guard реализован на уровне App.vue, router guards нужны только когда появляется ролевой роутинг):
   - `authGuard` — не авторизован → /loading
   - `roleGuard('master')` — role не master/admin → /user/dashboard
   - `roleGuard('admin')` — role не admin → /user/dashboard
   - `masterStatusGuard` — мастер не верифицирован → /master/pending
 
-- [ ] Tab bar конфигурация по ролям:
+- [x] Tab bar конфигурация по ролям:
 
 | Роль | Таб 1 | Таб 2 | Таб 3 | Таб 4 |
 |------|-------|-------|-------|-------|
@@ -686,7 +686,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | master | 📊 Дашборд | 📅 Практики | 📈 Аналитика | 👤 Профиль |
 | admin | 📊 Дашборд | 👥 Мастера | ⚠️ Модерация | — |
 
-- [ ] Пустые View-заглушки для всех маршрутов (заполняются в следующих фазах)
+- [x] Пустые View-заглушки для всех маршрутов (заполняются в следующих фазах)
 
 **Зависимость от бэкенда:** GET /api/v1/users/me (role) — Phase 1.4 ✅.
 
@@ -694,33 +694,33 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 ---
 
-## PHASE F3: Каталог практик
+## PHASE F3: Каталог практик ✅
 
-### F3.1: Список практик
+### F3.1: Список практик ✅
 
 **Цель:** Юзер видит доступные практики.
 
 **Задачи:**
-- [ ] src/stores/practices.ts (Pinia):
+- [x] src/stores/practices.ts (Pinia):
   - `practices: PracticeResponse[]`
   - `total: number`
   - `filters: { date_from, date_to, type, sort_by }`
   - `loading: boolean`
   - `fetchPractices()` — GET /api/v1/practices с фильтрами и пагинацией
-- [ ] src/api/practices.ts — типизированные методы API
-- [ ] src/components/shared/PracticeCard.vue:
+- [x] src/api/practices.ts — типизированные методы API
+- [x] src/components/shared/PracticeCard.vue:
   - Карточка практики (из мокапов): иконка типа, название, мастер, дата/время, цена, кол-во мест
   - Бейдж статуса (scheduled, live)
   - Клик → /user/practices/:id
-- [ ] src/views/user/DashboardView.vue:
+- [x] src/views/user/DashboardView.vue:
   - Приветствие с именем
   - "Ближайшие практики" — горизонтальный скролл или список
   - "Все практики" → ссылка на календарь
-- [ ] src/views/user/CalendarView.vue:
+- [x] src/views/user/CalendarView.vue:
   - Вид по дням (список, не сетка — проще для MVP)
   - Фильтры: тип практики, диапазон дат
   - Бесконечный скролл (или кнопка "Показать ещё")
-- [ ] src/composables/usePagination.ts — переиспользуемая пагинация
+- [x] src/composables/usePagination.ts — переиспользуемая пагинация
 
 **Зависимость от бэкенда:** GET /api/v1/practices (Phase 4.3 ✅).
 
@@ -728,12 +728,12 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 ---
 
-### F3.2: Детали практики
+### F3.2: Детали практики ✅
 
 **Цель:** Экран конкретной практики с полной информацией.
 
 **Задачи:**
-- [ ] src/views/user/PracticeDetailView.vue:
+- [x] src/views/user/PracticeDetailView.vue:
   - Заголовок, описание, мастер (имя, аватар)
   - Дата, время, длительность, timezone
   - Тип практики
@@ -741,7 +741,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
   - Кол-во мест (свободно / всего)
   - Кнопка "Записаться" (или "Вы записаны" / "Мест нет")
   - Ссылка на waitlist, если мест нет (Phase F4)
-- [ ] src/api/practices.ts — `getPractice(id)`: GET /api/v1/practices/:id
+- [x] src/api/practices.ts — `getPractice(id)`: GET /api/v1/practices/:id
 
 **Зависимость от бэкенда:** GET /api/v1/practices/:id (Phase 4.3 ✅).
 
@@ -1101,8 +1101,8 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 |---------------|---------------|-------------|------------|
 | F0: Инфра ✅ | — | — | Нет |
 | F1: Auth ✅ | 1.2, 1.4 | ✅ | Нет |
-| F2: Компоненты | 1.4 | ✅ | Нет |
-| F3: Каталог | 4.3 | ✅ | Нет |
+| F2: Компоненты ✅ | 1.4 | ✅ | Нет |
+| F3: Каталог ✅ | 4.3 | ✅ | Нет |
 | F4: Бронирование | 5+6 | ✅ | Нет |
 | F5: Stripe | 6.3 | ✅ | Нет |
 | F6: Master | 2+4+5.4 | ✅ | Нет |
