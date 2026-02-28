@@ -1,6 +1,6 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.1
+**Версия:** 1.2
 **Дата:** 28 февраля 2026
 **Статус:** Active
 
@@ -153,6 +153,8 @@ velo/                              ← GitHub repo root (уже существу
 │   ├── public/
 │   │   ├── manifest.json          ← PWA-манифест
 │   │   ├── sw.js                  ← Service Worker (через vite-plugin-pwa)
+│   │   ├── js/
+│   │   │   └── telegram-web-app.js ← Локальная копия Telegram SDK (3331 строка)
 │   │   └── icons/                 ← Иконки приложения (192, 512)
 │   │
 │   ├── index.html                 ← SPA entry point
@@ -417,7 +419,7 @@ https://api.talentir.info/*         → velo-frontend:3000
   - Все остальные методы — no-op
 - [x] src/platform/index.ts — автодетект: `!!window.Telegram?.WebApp?.initData` → telegram, иначе → standalone
 - [x] env.d.ts — TypeScript-декларации для Telegram WebApp SDK (интерфейс `TelegramWebApp`, расширение `Window`)
-- [x] index.html — Telegram WebApp SDK подключён через `<script src="https://telegram.org/js/telegram-web-app.js">`
+- [x] index.html — Telegram WebApp SDK подключён через `<script src="/js/telegram-web-app.js">` (локальная копия, см. ниже)
 
 **Файлы:**
 ```
@@ -427,11 +429,14 @@ src/platform/
 ├── standalone.ts      ← Safe no-ops for browser/PWA
 └── index.ts           ← Singleton: auto-detect + export `platform`
 
+public/js/
+└── telegram-web-app.js ← Local copy of Telegram SDK (3331 lines, replaces CDN)
+
 env.d.ts               ← +TelegramWebApp interface, +Window.Telegram declaration
 ```
 
 **Решения, принятые при реализации:**
-- SDK подключается через `<script>` в index.html (не через npm — Telegram рекомендует CDN для актуальной версии)
+- SDK подключается через `<script>` в index.html. Изначально использовался CDN (`https://telegram.org/js/telegram-web-app.js`), но из-за блокировки CDN Telegram в некоторых регионах (ТСПУ) создана локальная копия `public/js/telegram-web-app.js` (3331 строка). Долгосрочное решение: миграция на npm-пакет `@telegram-apps/sdk` (см. TD-SDK)
 - Детект по `initData`, не по `window.Telegram.WebApp`: SDK загружается из CDN всегда (даже в браузере), поэтому `window.Telegram.WebApp` существует везде. Надёжный сигнал — `initData` непустой только когда Telegram реально запустил WebApp
 - WebApp доступ через lazy getter `getWebApp()` (FIX 10.1): если CDN заблокирован (VPN, прокси), standalone-режим всё равно работает — crash невозможен
 - BackButton: хранение callback в `_backButtonCallback` + `offClick()` при `hideBackButton()` — без утечки обработчиков
@@ -1123,10 +1128,17 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | sessionStorage вместо localStorage для token | Telegram WebApp закрывает вкладку — sessionStorage очищается, localStorage нет |
 | Свой CSS вместо Tailwind | Дизайн-система уже готова в мокапах, переносить проще 1:1 |
 | Внутренний Nginx в Docker фронтенда | SPA fallback + кеширование без усложнения хост-конфига |
-| Telegram SDK через CDN script (не npm) | Рекомендация Telegram — всегда актуальная версия |
+| Telegram SDK через локальную копию script (не npm) | CDN Telegram заблокирован ТСПУ; локальная копия гарантирует загрузку. Миграция на npm `@telegram-apps/sdk` — см. TD-SDK |
 | Auth guard в App.vue, а не в router beforeEach | В F1 один маршрут, ролевого роутинга нет; router guards добавляются в F2.2 |
 | Telegram SDK типы в env.d.ts (не отдельный .d.ts) | Минимальный surface — типизированы только используемые методы; вынести при росте |
 | Token decoupled от Pinia (модульная переменная в client.ts) | Исключает circular dependency client → store → client |
+
+### Инфраструктура — перед публичным запуском 🚀
+
+| ID | Среда | Описание | Решение | Статус |
+|----|-------|----------|---------|--------|
+| TD-RU-PROXY | 🚀 | Hetzner IP (`api.talentir.info`) заблокирован ТСПУ из России. `ERR_CONNECTION_TIMED_OUT` — сервер полностью недоступен без VPN. Не только Telegram WebView, но и обычные браузеры | Российский VPS reverse proxy (Timeweb/Selectel, ~300-500₽/мес) или DDoS-Guard CDN. DNS `api.talentir.info` → российский IP. SSL через Let's Encrypt. Бэкенд и фронтенд остаются на Hetzner | ⬜ |
+| TD-SDK | 🧪 | Telegram WebApp SDK подключается как локальная копия `public/js/telegram-web-app.js` (3331 строка). Ручное обновление при новых версиях SDK | Миграция на npm-пакет `@telegram-apps/sdk` для управления версиями через package.json | ⬜ |
 
 ---
 
