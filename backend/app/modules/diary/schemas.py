@@ -1,28 +1,25 @@
 # =============================================================================
-# VELO Backend -- Diary Schemas (Phase 8.1: Check-ins, Phase 8.2: Feedbacks)
+# VELO Backend -- Diary Schemas (Phase 8.1-8.3)
 # =============================================================================
 #
 # CHECKIN:
-#   CheckinRequest  -- mood (required), comment (optional, max 1000 chars).
-#   CheckinResponse -- full checkin data.
-#   PaginatedCheckinsResponse -- paginated list.
+#   CheckinRequest / CheckinResponse / PaginatedCheckinsResponse
 #
 # FEEDBACK:
-#   FeedbackRequest  -- rating (required), comment (optional, max 1000 chars).
-#   FeedbackResponse -- full feedback data.
-#   PaginatedFeedbacksResponse -- paginated list.
+#   FeedbackRequest / FeedbackResponse / PaginatedFeedbacksResponse
 #
-# VALIDATION:
-#   mood:    must be one of low/mid/high (Literal).
-#   rating:  must be one of fire/good/confused (Literal).
-#   comment: max 1000 chars (from config).
+# DIARY ENTRY:
+#   CreateDiaryEntryRequest / UpdateDiaryEntryRequest
+#   DiaryEntryResponse / PaginatedDiaryEntriesResponse
+#
+# SUGGESTION-6 fix: ConfigDict(from_attributes=True) instead of dict style.
 # =============================================================================
 
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ===================================================================
@@ -50,7 +47,7 @@ class CheckinResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedCheckinsResponse(BaseModel):
@@ -86,13 +83,68 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PaginatedFeedbacksResponse(BaseModel):
     """GET /api/v1/users/me/feedbacks -- paginated list."""
 
     items: list[FeedbackResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+# ===================================================================
+# Diary Entry schemas (Phase 8.3)
+# ===================================================================
+
+
+class CreateDiaryEntryRequest(BaseModel):
+    """POST /api/v1/diary body."""
+
+    content: str = Field(min_length=1, max_length=10000)
+    title: str | None = Field(default=None, max_length=200)
+    mood: Literal["low", "mid", "high"] | None = None
+    practice_id: UUID | None = None
+
+
+class UpdateDiaryEntryRequest(BaseModel):
+    """PATCH /api/v1/diary/{id} body.
+
+    All fields optional. Only provided fields are updated.
+    """
+
+    content: str | None = Field(default=None, min_length=1, max_length=10000)
+    title: str | None = Field(default=None, max_length=200)
+    mood: Literal["low", "mid", "high"] | None = None
+    practice_id: UUID | None = None
+    # Sentinel to distinguish "not provided" from "set to null".
+    # If clear_mood is True, mood is set to None even if mood field is absent.
+    clear_mood: bool = False
+    clear_title: bool = False
+    clear_practice: bool = False
+
+
+class DiaryEntryResponse(BaseModel):
+    """Single diary entry in API responses."""
+
+    id: UUID
+    user_id: UUID
+    practice_id: UUID | None
+    title: str | None
+    content: str
+    mood: str | None
+    created_at: datetime
+    updated_at: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedDiaryEntriesResponse(BaseModel):
+    """GET /api/v1/diary -- paginated list."""
+
+    items: list[DiaryEntryResponse]
     total: int
     limit: int
     offset: int

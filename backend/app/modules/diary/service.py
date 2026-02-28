@@ -1,23 +1,16 @@
 # =============================================================================
-# VELO Backend -- Diary Service (Phase 8.1: Check-ins, Phase 8.2: Feedbacks)
+# VELO Backend -- Diary Service (Phase 8.1-8.3)
 # =============================================================================
 #
-# UPSERT CHECKIN:
-#   1. Find confirmed booking for (user, practice).
-#   2. Validate time window: scheduled_at - checkin_window_hours .. scheduled_at.
-#   3. Insert or update checkin (one per booking + check_type).
-#   4. Audit log: checkin_created or checkin_updated.
+# UPSERT CHECKIN (8.1):
+#   Find confirmed booking → validate window → insert or update.
 #
-# UPSERT FEEDBACK:
-#   1. Find attended booking for (user, practice).
-#   2. Validate practice is completed.
-#   3. Validate time window: practice_end .. practice_end + feedback_window_hours.
-#   4. Insert or update feedback (one per practice + user).
-#   5. Audit log: feedback_created or feedback_updated.
+# UPSERT FEEDBACK (8.2):
+#   Find attended booking → validate completed + window → insert or update.
 #
-# LIST CHECKINS / FEEDBACKS:
-#   Paginated, filtered by practice_id, rating, and/or date range.
-#   Read-only (get_db_reader in router).
+# DIARY ENTRY CRUD (8.3):
+#   Create / get / update / delete / list.
+#   If practice_id provided: validate practice exists + user has booking.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router manages transaction.
@@ -34,7 +27,7 @@ from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.diary.models import CheckType, Checkin, Feedback
+from app.modules.diary.models import CheckType, Checkin, DiaryEntry, Feedback
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 
@@ -179,15 +172,6 @@ async def list_user_checkins(
 ) -> tuple[list[Checkin], int]:
     """List check-ins for a user with optional filters.
 
-    Args:
-        user: Authenticated user.
-        session: Read session.
-        limit: Page size.
-        offset: Page offset.
-        practice_id: Filter by practice.
-        date_from: Filter by created_at >= date_from.
-        date_to: Filter by created_at <= date_to.
-
     Returns:
         Tuple of (items, total_count).
     """
@@ -210,10 +194,8 @@ async def list_user_checkins(
         base = base.where(Checkin.created_at <= date_to)
         count_base = count_base.where(Checkin.created_at <= date_to)
 
-    # Total count.
     total = (await session.execute(count_base)).scalar_one()
 
-    # Paginated items (newest first).
     items_stmt = (
         base
         .order_by(Checkin.created_at.desc())
@@ -364,16 +346,6 @@ async def list_user_feedbacks(
 ) -> tuple[list[Feedback], int]:
     """List feedbacks for a user with optional filters.
 
-    Args:
-        user: Authenticated user.
-        session: Read session.
-        limit: Page size.
-        offset: Page offset.
-        practice_id: Filter by practice.
-        rating: Filter by rating value.
-        date_from: Filter by created_at >= date_from.
-        date_to: Filter by created_at <= date_to.
-
     Returns:
         Tuple of (items, total_count).
     """
@@ -400,13 +372,267 @@ async def list_user_feedbacks(
         base = base.where(Feedback.created_at <= date_to)
         count_base = count_base.where(Feedback.created_at <= date_to)
 
-    # Total count.
     total = (await session.execute(count_base)).scalar_one()
 
-    # Paginated items (newest first).
     items_stmt = (
         base
         .order_by(Feedback.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(items_stmt)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+# ===================================================================
+# Create diary entry (Phase 8.3)
+# ===================================================================
+
+
+async def create_diary_entry(
+    user: User,
+    content: str,
+    session: AsyncSession,
+    *,
+    title: str | None = None,
+    mood: str | None = None,
+    practice_id: UUID | None = None,
+) -> DiaryEntry:
+    """Create a personal diary entry.
+
+    Args:
+        user: Authenticated user.
+        content: Entry text (1-10000 chars, validated in schema).
+        session: Write session.
+        title: Optional title (max 200 chars).
+        mood: Optional mood (low/mid/high).
+        practice_id: Optional link to a practice.
+
+    Returns:
+        Created DiaryEntry.
+
+    Raises:
+        NotFoundError: practice_id provided but practice not found.
+        BadRequestError: practice_id provided but user has no booking.
+    """
+    if practice_id is not None:
+        await _validate_practice_link(user.id, practice_id, session)
+
+    entry = DiaryEntry(
+        user_id=user.id,
+        practice_id=practice_id,
+        title=title,
+        content=content,
+        mood=mood,
+    )
+    session.add(entry)
+    await session.flush()
+
+    await record_audit(
+        event="diary_entry_created",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="diary_entry",
+        target_id=entry.id,
+        data={"practice_id": str(practice_id) if practice_id else None},
+        session=session,
+    )
+
+    logger.info(
+        "diary_entry_created",
+        entry_id=str(entry.id),
+        user_id=str(user.id),
+        practice_id=str(practice_id) if practice_id else None,
+    )
+    return entry
+
+
+# ===================================================================
+# Get single diary entry (Phase 8.3)
+# ===================================================================
+
+
+async def get_diary_entry(
+    user: User,
+    entry_id: UUID,
+    session: AsyncSession,
+) -> DiaryEntry:
+    """Get a single diary entry owned by the user.
+
+    Raises:
+        NotFoundError: Entry not found or not owned by user (P-08).
+    """
+    entry = await session.get(DiaryEntry, entry_id)
+
+    if entry is None or entry.user_id != user.id:
+        raise NotFoundError("Diary entry not found")
+
+    return entry
+
+
+# ===================================================================
+# Update diary entry (Phase 8.3)
+# ===================================================================
+
+
+async def update_diary_entry(
+    user: User,
+    entry_id: UUID,
+    session: AsyncSession,
+    *,
+    content: str | None = None,
+    title: str | None = None,
+    mood: str | None = None,
+    practice_id: UUID | None = None,
+    clear_mood: bool = False,
+    clear_title: bool = False,
+    clear_practice: bool = False,
+) -> DiaryEntry:
+    """Update a diary entry owned by the user.
+
+    Only provided fields are updated. Use clear_* flags to set
+    nullable fields to None.
+
+    Raises:
+        NotFoundError: Entry not found or not owned by user.
+        BadRequestError: New practice_id invalid.
+    """
+    entry = await session.get(DiaryEntry, entry_id)
+
+    if entry is None or entry.user_id != user.id:
+        raise NotFoundError("Diary entry not found")
+
+    # Validate new practice link if provided.
+    if practice_id is not None:
+        await _validate_practice_link(user.id, practice_id, session)
+        entry.practice_id = practice_id
+    elif clear_practice:
+        entry.practice_id = None
+
+    if content is not None:
+        entry.content = content
+
+    if title is not None:
+        entry.title = title
+    elif clear_title:
+        entry.title = None
+
+    if mood is not None:
+        entry.mood = mood
+    elif clear_mood:
+        entry.mood = None
+
+    await session.flush()
+
+    await record_audit(
+        event="diary_entry_updated",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="diary_entry",
+        target_id=entry.id,
+        data={"practice_id": str(entry.practice_id) if entry.practice_id else None},
+        session=session,
+    )
+
+    logger.info(
+        "diary_entry_updated",
+        entry_id=str(entry.id),
+        user_id=str(user.id),
+    )
+    return entry
+
+
+# ===================================================================
+# Delete diary entry (Phase 8.3)
+# ===================================================================
+
+
+async def delete_diary_entry(
+    user: User,
+    entry_id: UUID,
+    session: AsyncSession,
+) -> None:
+    """Hard-delete a diary entry owned by the user.
+
+    Raises:
+        NotFoundError: Entry not found or not owned by user.
+    """
+    entry = await session.get(DiaryEntry, entry_id)
+
+    if entry is None or entry.user_id != user.id:
+        raise NotFoundError("Diary entry not found")
+
+    await record_audit(
+        event="diary_entry_deleted",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="diary_entry",
+        target_id=entry.id,
+        data={"title": entry.title},
+        session=session,
+    )
+
+    await session.delete(entry)
+    await session.flush()
+
+    logger.info(
+        "diary_entry_deleted",
+        entry_id=str(entry_id),
+        user_id=str(user.id),
+    )
+
+
+# ===================================================================
+# List user diary entries (Phase 8.3)
+# ===================================================================
+
+
+async def list_user_diary_entries(
+    user: User,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    practice_id: UUID | None = None,
+    mood: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> tuple[list[DiaryEntry], int]:
+    """List diary entries for a user with optional filters.
+
+    Returns:
+        Tuple of (items, total_count).
+    """
+    base = select(DiaryEntry).where(DiaryEntry.user_id == user.id)
+    count_base = select(func.count(DiaryEntry.id)).where(
+        DiaryEntry.user_id == user.id,
+    )
+
+    if practice_id is not None:
+        base = base.where(DiaryEntry.practice_id == practice_id)
+        count_base = count_base.where(
+            DiaryEntry.practice_id == practice_id,
+        )
+
+    if mood is not None:
+        base = base.where(DiaryEntry.mood == mood)
+        count_base = count_base.where(DiaryEntry.mood == mood)
+
+    if date_from is not None:
+        base = base.where(DiaryEntry.created_at >= date_from)
+        count_base = count_base.where(DiaryEntry.created_at >= date_from)
+
+    if date_to is not None:
+        base = base.where(DiaryEntry.created_at <= date_to)
+        count_base = count_base.where(DiaryEntry.created_at <= date_to)
+
+    total = (await session.execute(count_base)).scalar_one()
+
+    items_stmt = (
+        base
+        .order_by(DiaryEntry.created_at.desc())
         .limit(limit)
         .offset(offset)
     )
@@ -471,4 +697,36 @@ def _validate_feedback_window(practice: Practice) -> None:
         raise BadRequestError(
             "Feedback window has closed "
             f"({window_hours} hours after practice ended)"
+        )
+
+
+async def _validate_practice_link(
+    user_id: UUID,
+    practice_id: UUID,
+    session: AsyncSession,
+) -> None:
+    """Validate that practice exists and user has a booking for it.
+
+    Raises:
+        NotFoundError: Practice does not exist.
+        BadRequestError: User has no booking for this practice.
+    """
+    practice = await session.get(Practice, practice_id)
+    if practice is None:
+        raise NotFoundError("Practice not found")
+
+    # Check user has any non-cancelled booking.
+    booking_stmt = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.user_id == user_id,
+            Booking.status != BookingStatus.CANCELLED.value,
+        )
+    )
+    count = (await session.execute(booking_stmt)).scalar_one()
+
+    if count == 0:
+        raise BadRequestError(
+            "Cannot link diary entry to a practice without a booking"
         )

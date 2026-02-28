@@ -1,9 +1,10 @@
 # =============================================================================
-# VELO Backend -- Diary Models (Phase 8.1: Check-ins, Phase 8.2: Feedbacks)
+# VELO Backend -- Diary Models (Phase 8.1-8.3)
 # =============================================================================
 #
-# Checkin: user's mood before a practice session.
-# Feedback: user's rating after a completed practice.
+# Checkin:    user's mood before a practice session.
+# Feedback:   user's rating after a completed practice.
+# DiaryEntry: personal journal entry, optionally linked to a practice.
 #
 # CHECKIN LIFECYCLE:
 #   Window opens: scheduled_at - checkin_window_hours (config).
@@ -12,18 +13,20 @@
 #   Upsert: one checkin per booking, updatable within window.
 #
 # FEEDBACK LIFECYCLE:
-#   Window opens: practice.status == completed (i.e. after completion).
+#   Window opens: practice.status == completed.
 #   Window closes: scheduled_at + duration_minutes + feedback_window_hours.
 #   Condition: booking.status == attended.
 #   Upsert: one feedback per (practice, user), updatable within window.
 #
-# CHECK TYPE (rose socket for future post-check-in):
-#   "pre"  -- before practice (MVP, the only value used now).
-#   "post" -- after practice (future Phase 9+).
+# DIARY ENTRY:
+#   No time window. User can create/edit/delete anytime.
+#   Optional link to practice (validated: practice exists + user has booking).
+#   Hard delete on DELETE -- personal data, no soft delete.
 #
-# UNIQUE CONSTRAINTS:
-#   checkins:  (booking_id, check_type) -- one pre and one post per booking.
-#   feedbacks: (practice_id, user_id)   -- one feedback per user per practice.
+# CHECK CONSTRAINTS (WARNING-9 fix):
+#   DB-level validation for mood and rating columns.
+#   Defense-in-depth: Pydantic Literal validates at API level,
+#   CheckConstraint validates at DB level for non-API write paths.
 #
 # SESSION RULES:
 #   No session.commit() in service (P-01). Router manages transaction.
@@ -34,6 +37,7 @@ import enum
 from uuid import UUID
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     String,
@@ -71,6 +75,11 @@ class Rating(enum.StrEnum):
     FIRE = "fire"
     GOOD = "good"
     CONFUSED = "confused"
+
+
+# ===================================================================
+# Checkin (Phase 8.1)
+# ===================================================================
 
 
 class Checkin(UUIDMixin, TimestampMixin, Base):
@@ -117,6 +126,10 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
             "check_type",
             name="uq_checkin_booking_type",
         ),
+        CheckConstraint(
+            "mood IN ('low', 'mid', 'high')",
+            name="ck_checkin_mood",
+        ),
     )
 
     def __repr__(self) -> str:
@@ -124,6 +137,11 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
             f"<Checkin id={self.id} booking={self.booking_id} "
             f"mood={self.mood} type={self.check_type}>"
         )
+
+
+# ===================================================================
+# Feedback (Phase 8.2)
+# ===================================================================
 
 
 class Feedback(UUIDMixin, TimestampMixin, Base):
@@ -163,10 +181,66 @@ class Feedback(UUIDMixin, TimestampMixin, Base):
             "user_id",
             name="uq_feedback_practice_user",
         ),
+        CheckConstraint(
+            "rating IN ('fire', 'good', 'confused')",
+            name="ck_feedback_rating",
+        ),
     )
 
     def __repr__(self) -> str:
         return (
             f"<Feedback id={self.id} practice={self.practice_id} "
             f"user={self.user_id} rating={self.rating}>"
+        )
+
+
+# ===================================================================
+# DiaryEntry (Phase 8.3)
+# ===================================================================
+
+
+class DiaryEntry(UUIDMixin, TimestampMixin, Base):
+    """Personal journal entry, optionally linked to a practice.
+
+    No time window restrictions. User can create, edit, and delete
+    entries at any time. Hard delete on DELETE (personal data).
+    """
+
+    __tablename__ = "diary_entries"
+
+    # -- Owner --
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+
+    # -- Optional practice link --
+    practice_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("practices.id", ondelete="SET NULL"),
+        index=True,
+        default=None,
+    )
+
+    # -- Content --
+    title: Mapped[str | None] = mapped_column(
+        String(200), default=None,
+    )
+    content: Mapped[str] = mapped_column(
+        Text, nullable=False,
+    )
+    mood: Mapped[str | None] = mapped_column(
+        String(10), default=None,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "mood IS NULL OR mood IN ('low', 'mid', 'high')",
+            name="ck_diary_entry_mood",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<DiaryEntry id={self.id} user={self.user_id} "
+            f"title={self.title!r} mood={self.mood}>"
         )
