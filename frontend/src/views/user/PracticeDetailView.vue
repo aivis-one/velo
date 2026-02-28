@@ -14,16 +14,16 @@
 
 <template>
   <!-- Loading -->
-  <div v-if="store.detailLoading" class="detail__loader">
+  <div v-if="store.selectedLoading" class="detail__loader">
     <VLoader size="lg" />
   </div>
 
   <!-- Error -->
   <VEmptyState
-    v-else-if="store.detailError"
+    v-else-if="store.selectedError"
     icon="⚠️"
     title="Практика не найдена"
-    :description="store.detailError"
+    :description="store.selectedError"
   >
     <VButton size="sm" @click="router.back()">Назад</VButton>
   </VEmptyState>

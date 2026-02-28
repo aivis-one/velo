@@ -14,7 +14,7 @@
 //   reset()                       // clear and start over
 // =============================================================================
 
-import { ref, computed } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 
 export interface PaginatedResult<T> {
   items: T[]
@@ -29,7 +29,7 @@ export function usePagination<T>(
   fetchFn: FetchFn<T>,
   pageSize = 20,
 ) {
-  const items = ref<T[]>([]) as { value: T[] }
+  const items = ref<T[]>([]) as Ref<T[]>
   const total = ref(0)
   const offset = ref(0)
   const loading = ref(false)
