@@ -1,21 +1,23 @@
 # =============================================================================
-# VELO Backend -- Diary Router (Phase 8.1: Check-ins, Phase 8.2: Feedbacks)
+# VELO Backend -- Diary Router (Phase 8.1-8.3)
 # =============================================================================
 #
 # ENDPOINTS:
-#   POST /api/v1/practices/{id}/checkin    -- create or update check-in
-#   GET  /api/v1/users/me/checkins         -- list my check-ins (paginated)
-#   POST /api/v1/practices/{id}/feedback   -- create or update feedback
-#   GET  /api/v1/users/me/feedbacks        -- list my feedbacks (paginated)
+#   POST  /api/v1/practices/{id}/checkin    -- upsert check-in
+#   GET   /api/v1/users/me/checkins         -- list my check-ins
+#   POST  /api/v1/practices/{id}/feedback   -- upsert feedback
+#   GET   /api/v1/users/me/feedbacks        -- list my feedbacks
+#   POST  /api/v1/diary                     -- create diary entry
+#   GET   /api/v1/diary                     -- list my diary entries
+#   GET   /api/v1/diary/{id}                -- get single entry
+#   PATCH /api/v1/diary/{id}                -- update entry
+#   DELETE /api/v1/diary/{id}               -- delete entry
 #
-# Routers:
-#   practices_checkin_router  -- nested under /practices (POST checkin).
-#   checkins_router           -- under /users/me (GET list).
-#   practices_feedback_router -- nested under /practices (POST feedback).
-#   feedbacks_router          -- under /users/me (GET list).
+# CRITICAL-6 fix: removed redundant flush() in upsert endpoints.
+#   refresh() only on update path (to fetch server-side updated_at).
 #
 # AUTH: get_current_user on all endpoints.
-# SESSION: POST uses get_db_session (write). GET uses get_db_reader.
+# SESSION: write endpoints use get_db_session, read use get_db_reader.
 # =============================================================================
 
 from datetime import datetime
@@ -30,14 +32,23 @@ from app.modules.auth.dependencies import get_current_user
 from app.modules.diary.schemas import (
     CheckinRequest,
     CheckinResponse,
+    CreateDiaryEntryRequest,
+    DiaryEntryResponse,
     FeedbackRequest,
     FeedbackResponse,
     PaginatedCheckinsResponse,
+    PaginatedDiaryEntriesResponse,
     PaginatedFeedbacksResponse,
+    UpdateDiaryEntryRequest,
 )
 from app.modules.diary.service import (
+    create_diary_entry,
+    delete_diary_entry,
+    get_diary_entry,
     list_user_checkins,
+    list_user_diary_entries,
     list_user_feedbacks,
+    update_diary_entry,
     upsert_checkin,
     upsert_feedback,
 )
@@ -59,15 +70,16 @@ feedbacks_router = APIRouter(
     prefix="/api/v1/users/me", tags=["diary"],
 )
 
+diary_router = APIRouter(
+    prefix="/api/v1/diary", tags=["diary"],
+)
+
 
 # ===================================================================
 # Check-in endpoints (Phase 8.1)
 # ===================================================================
 
 
-# ------------------------------------------------------------------
-# POST /api/v1/practices/{practice_id}/checkin
-# ------------------------------------------------------------------
 @practices_checkin_router.post(
     "/{practice_id}/checkin",
     response_model=CheckinResponse,
@@ -82,25 +94,21 @@ async def upsert_checkin_endpoint(
     """Create or update a pre-practice check-in.
 
     Returns 200 for both create and update (upsert semantics).
-    The check-in window is enforced server-side: opens
-    checkin_window_hours before scheduled_at, closes at scheduled_at.
     """
-    checkin, _is_new = await upsert_checkin(
+    checkin, is_new = await upsert_checkin(
         user,
         practice_id,
         mood=body.mood,
         session=session,
         comment=body.comment,
     )
-    await session.flush()
-    await session.refresh(checkin)
+    # CRITICAL-6 fix: refresh only on update to fetch server-side updated_at.
+    if not is_new:
+        await session.refresh(checkin)
 
     return CheckinResponse.model_validate(checkin)
 
 
-# ------------------------------------------------------------------
-# GET /api/v1/users/me/checkins
-# ------------------------------------------------------------------
 @checkins_router.get(
     "/checkins",
     response_model=PaginatedCheckinsResponse,
@@ -114,12 +122,7 @@ async def list_my_checkins_endpoint(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> PaginatedCheckinsResponse:
-    """List the current user's check-ins with optional filters.
-
-    Filters:
-      - practice_id: show check-ins for a specific practice.
-      - date_from / date_to: date range on created_at.
-    """
+    """List the current user's check-ins with optional filters."""
     items, total = await list_user_checkins(
         user,
         session,
@@ -145,9 +148,6 @@ async def list_my_checkins_endpoint(
 # ===================================================================
 
 
-# ------------------------------------------------------------------
-# POST /api/v1/practices/{practice_id}/feedback
-# ------------------------------------------------------------------
 @practices_feedback_router.post(
     "/{practice_id}/feedback",
     response_model=FeedbackResponse,
@@ -162,25 +162,21 @@ async def upsert_feedback_endpoint(
     """Create or update a post-practice feedback.
 
     Returns 200 for both create and update (upsert semantics).
-    Requires attended booking and completed practice.
-    Feedback window: up to feedback_window_hours after practice end.
     """
-    feedback, _is_new = await upsert_feedback(
+    feedback, is_new = await upsert_feedback(
         user,
         practice_id,
         rating=body.rating,
         session=session,
         comment=body.comment,
     )
-    await session.flush()
-    await session.refresh(feedback)
+    # CRITICAL-6 fix: refresh only on update to fetch server-side updated_at.
+    if not is_new:
+        await session.refresh(feedback)
 
     return FeedbackResponse.model_validate(feedback)
 
 
-# ------------------------------------------------------------------
-# GET /api/v1/users/me/feedbacks
-# ------------------------------------------------------------------
 @feedbacks_router.get(
     "/feedbacks",
     response_model=PaginatedFeedbacksResponse,
@@ -197,13 +193,7 @@ async def list_my_feedbacks_endpoint(
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> PaginatedFeedbacksResponse:
-    """List the current user's feedbacks with optional filters.
-
-    Filters:
-      - practice_id: show feedbacks for a specific practice.
-      - rating: filter by rating value (fire/good/confused).
-      - date_from / date_to: date range on created_at.
-    """
+    """List the current user's feedbacks with optional filters."""
     items, total = await list_user_feedbacks(
         user,
         session,
@@ -223,3 +213,129 @@ async def list_my_feedbacks_endpoint(
         limit=limit,
         offset=offset,
     )
+
+
+# ===================================================================
+# Diary entry endpoints (Phase 8.3)
+# ===================================================================
+
+
+@diary_router.post(
+    "",
+    response_model=DiaryEntryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_diary_entry_endpoint(
+    body: CreateDiaryEntryRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> DiaryEntryResponse:
+    """Create a new personal diary entry."""
+    entry = await create_diary_entry(
+        user,
+        content=body.content,
+        session=session,
+        title=body.title,
+        mood=body.mood,
+        practice_id=body.practice_id,
+    )
+
+    return DiaryEntryResponse.model_validate(entry)
+
+
+@diary_router.get(
+    "",
+    response_model=PaginatedDiaryEntriesResponse,
+)
+async def list_my_diary_entries_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    practice_id: UUID | None = Query(default=None),
+    mood: Literal["low", "mid", "high"] | None = Query(default=None),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+) -> PaginatedDiaryEntriesResponse:
+    """List the current user's diary entries with optional filters."""
+    items, total = await list_user_diary_entries(
+        user,
+        session,
+        limit=limit,
+        offset=offset,
+        practice_id=practice_id,
+        mood=mood,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    return PaginatedDiaryEntriesResponse(
+        items=[
+            DiaryEntryResponse.model_validate(e) for e in items
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@diary_router.get(
+    "/{entry_id}",
+    response_model=DiaryEntryResponse,
+)
+async def get_diary_entry_endpoint(
+    entry_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> DiaryEntryResponse:
+    """Get a single diary entry owned by the current user."""
+    entry = await get_diary_entry(user, entry_id, session)
+    return DiaryEntryResponse.model_validate(entry)
+
+
+@diary_router.patch(
+    "/{entry_id}",
+    response_model=DiaryEntryResponse,
+)
+async def update_diary_entry_endpoint(
+    entry_id: UUID,
+    body: UpdateDiaryEntryRequest,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> DiaryEntryResponse:
+    """Update a diary entry owned by the current user.
+
+    Only provided fields are updated. Use clear_* flags to set
+    nullable fields (mood, title, practice_id) to null.
+    """
+    entry = await update_diary_entry(
+        user,
+        entry_id,
+        session,
+        content=body.content,
+        title=body.title,
+        mood=body.mood,
+        practice_id=body.practice_id,
+        clear_mood=body.clear_mood,
+        clear_title=body.clear_title,
+        clear_practice=body.clear_practice,
+    )
+    await session.refresh(entry)
+
+    return DiaryEntryResponse.model_validate(entry)
+
+
+@diary_router.delete(
+    "/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_diary_entry_endpoint(
+    entry_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete a diary entry owned by the current user.
+
+    Hard delete -- personal data is permanently removed.
+    """
+    await delete_diary_entry(user, entry_id, session)
