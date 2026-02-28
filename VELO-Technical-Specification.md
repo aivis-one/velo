@@ -2317,108 +2317,118 @@ backend/tests/
 
 ## PHASE 8: Diary/State
 
-### 8.1: Check-ins
+### 8.1: Check-ins ✅
 
 **Цель:** Состояние до практики.
 
 **Задачи:**
-- [ ] app/modules/diary/models.py — Checkin
-- [ ] POST /api/v1/practices/{id}/checkin
-- [ ] GET /api/v1/users/me/checkins
+- [x] app/modules/diary/models.py — Checkin, Mood enum, CheckType enum
+- [x] app/modules/diary/schemas.py — CheckinRequest, CheckinResponse, PaginatedCheckinsResponse
+- [x] app/modules/diary/service.py — upsert_checkin, list_user_checkins, _validate_checkin_window
+- [x] app/modules/diary/router.py — practices_checkin_router, checkins_router
+- [x] POST /api/v1/practices/{id}/checkin (upsert semantics)
+- [x] GET /api/v1/users/me/checkins (paginated, filters: practice_id, date_from, date_to)
+- [x] Миграция: a8b1c2d3e4f5 (create checkins table)
+- [x] 13 тестов (test_checkins.py, telegram_id range 85000-85999)
 
-**Модель:**
-```python
-class Checkin(Base):
-    __tablename__ = "checkins"
-    
-    id: Mapped[UUID]
-    practice_id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    booking_id: Mapped[UUID]
-    
-    mood: Mapped[str]  # low, mid, high
-    comment: Mapped[str | None]
-    
-    created_at: Mapped[datetime]
-```
+**Решения, принятые при реализации:**
+- Upsert паттерн: один чекин на booking, повторный POST перезаписывает mood/comment
+- Окно: scheduled_at - checkin_window_hours (3ч) .. scheduled_at
+- Условие: booking.status == confirmed (только подтверждённые)
+- CheckType enum (PRE/POST) — розетка для будущего post-check-in (Phase 9+)
+- UniqueConstraint(booking_id, check_type) — один PRE и один POST на booking
+- Все FK indexed (practice_id, user_id, booking_id)
+- comment: max 1000 chars, nullable, min_length=1 (пустая строка запрещена)
 
-**Критерий готовности:** Юзер может отправить check-in.
+**Критерий готовности:** Юзер может отправить check-in. 368 passed, 3 skipped. ✅
 
 ---
 
-### 8.2: Feedbacks
+### 8.2: Feedbacks ✅
 
 **Цель:** Обратная связь после практики.
 
 **Задачи:**
-- [ ] Модель Feedback
-- [ ] POST /api/v1/practices/{id}/feedback
-- [ ] GET /api/v1/users/me/feedbacks
+- [x] Модель Feedback + Rating enum
+- [x] FeedbackRequest, FeedbackResponse, PaginatedFeedbacksResponse
+- [x] upsert_feedback, list_user_feedbacks, _validate_feedback_window
+- [x] practices_feedback_router, feedbacks_router
+- [x] POST /api/v1/practices/{id}/feedback (upsert semantics)
+- [x] GET /api/v1/users/me/feedbacks (paginated, filters: practice_id, rating, date_from, date_to)
+- [x] Миграция: b9c2d3e4f5a6 (create feedbacks table)
+- [x] 15 тестов (test_feedbacks.py, telegram_id range 86000-86999)
 
-**Модель:**
-```python
-class Feedback(Base):
-    __tablename__ = "feedbacks"
-    
-    id: Mapped[UUID]
-    practice_id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    booking_id: Mapped[UUID]
-    
-    rating: Mapped[str]  # fire, good, confused
-    comment: Mapped[str | None]
-    
-    created_at: Mapped[datetime]
-```
+**Решения, принятые при реализации:**
+- Upsert паттерн: один feedback на (practice, user), повторный POST перезаписывает
+- Окно: scheduled_at + duration_minutes .. + feedback_window_hours (72ч)
+- Условие: booking.status == attended (только реально пришедшие, не confirmed/no_show/cancelled)
+- practice.status == completed (обязательно)
+- Rating enum: fire, good, confused (StrEnum)
+- UniqueConstraint(practice_id, user_id)
+- comment: max 1000 chars, nullable, min_length=1
 
-**Критерий готовности:** Юзер может оставить feedback.
+**Критерий готовности:** Юзер может оставить feedback. 383 passed, 3 skipped. ✅
 
 ---
 
-### 8.3: Diary entries
+### 8.3: Diary entries ✅
 
 **Цель:** Личные записи дневника.
 
 **Задачи:**
-- [ ] Модель DiaryEntry
-- [ ] CRUD /api/v1/diary
-- [ ] Не связано с практикой (опционально)
+- [x] Модель DiaryEntry
+- [x] CreateDiaryEntryRequest, UpdateDiaryEntryRequest (clear_* sentinels), DiaryEntryResponse
+- [x] create_diary_entry, get_diary_entry, update_diary_entry, delete_diary_entry, list_user_diary_entries
+- [x] diary_router: POST, GET list, GET /{id}, PATCH /{id}, DELETE /{id}
+- [x] _validate_practice_link (practice exists + user has non-cancelled booking)
+- [x] Миграция: c0d1e2f3a4b5 (create diary_entries table + CheckConstraints на checkins/feedbacks)
+- [x] 19 тестов (test_diary_entries.py, telegram_id range 87000-87999)
 
-**Модель:**
-```python
-class DiaryEntry(Base):
-    __tablename__ = "diary_entries"
-    
-    id: Mapped[UUID]
-    user_id: Mapped[UUID]
-    practice_id: Mapped[UUID | None]  # Optional
-    
-    title: Mapped[str | None]
-    content: Mapped[str]
-    mood: Mapped[str | None]
-    
-    created_at: Mapped[datetime]
-    updated_at: Mapped[datetime]
-```
+**Решения, принятые при реализации:**
+- CRUD: POST /api/v1/diary, GET /api/v1/diary, GET /api/v1/diary/{id}, PATCH /api/v1/diary/{id}, DELETE /api/v1/diary/{id}
+- Hard delete — личные данные, без soft delete
+- practice_id: nullable FK с ondelete="SET NULL" (запись переживёт удаление практики)
+- Если practice_id указан — валидируем: practice exists + user has non-cancelled booking
+- title: max 200 chars, nullable
+- content: max 10000 chars, required, min_length=1
+- mood: nullable, тот же Mood enum (low/mid/high)
+- clear_* sentinel-флаги в PATCH: clear_mood, clear_title, clear_practice — для обнуления nullable полей
+- P-08: 404 вместо 403 при чужой записи
 
-**Критерий готовности:** Юзер может вести дневник.
+**Закрытые аудит-находки (применены в 8.3):**
+- CRITICAL-6: Убран лишний flush() + refresh() только при `not is_new` в router
+- WARNING-9: CheckConstraint на mood/rating на уровне БД (ck_checkin_mood, ck_feedback_rating, ck_diary_entry_mood)
+- SUGGESTION-6: ConfigDict(from_attributes=True) вместо dict-style model_config
+
+**Критерий готовности:** Юзер может вести дневник. 402 passed, 3 skipped. ✅
 
 ---
 
-### 8.4: Агрегация для мастера
+### 8.4: Агрегация для мастера ✅
 
 **Цель:** Мастер видит сводку по практике.
 
 **Задачи:**
-- [ ] GET /api/v1/practices/{id}/insights
-- [ ] Агрегированные check-ins (анонимно)
-- [ ] Агрегированные feedbacks (анонимно)
-- [ ] Статистика: % high/mid/low, % fire/good/confused
+- [x] GET /api/v1/practices/{id}/insights
+- [x] MoodDistribution, RatingDistribution, PracticeInsightsResponse
+- [x] get_practice_insights — 5 запросов (practice, participants, mood GROUP BY, rating GROUP BY, comments count)
+- [x] practices_insights_router (read-only, get_db_reader)
+- [x] 9 тестов (test_insights.py, telegram_id range 88000-88999)
+
+**Решения, принятые при реализации:**
+- Доступ: только мастер-владелец практики (practice.master_id == user.id)
+- Практика должна быть completed (400 если не completed)
+- participants = COUNT(bookings WHERE status == attended), не все записавшиеся
+- comments_count = только feedback comments (не checkin)
+- Анонимность: никаких user_id, booking_id, текстов комментариев — только числа
+- Тест test_insights_no_user_data_exposed проверяет отсутствие утечек
+- Без миграции — read-only агрегация по существующим таблицам
 
 **Endpoint:**
 ```
 GET /api/v1/practices/{id}/insights
 Response: {
+  "practice_id": "uuid",
   "participants": 15,
   "checkins": {"high": 8, "mid": 5, "low": 2},
   "feedbacks": {"fire": 10, "good": 4, "confused": 1},
@@ -2426,7 +2436,38 @@ Response: {
 }
 ```
 
-**Критерий готовности:** Мастер видит аналитику по практике.
+**Закрытые аудит-находки (пост-8.4 патч):**
+- WARNING: isnot() → is_not() (deprecated SQLAlchemy method)
+- SUGGESTION: comment min_length=1 в CheckinRequest/FeedbackRequest (пустая строка ломала insights count)
+
+**Структура файлов Phase 8:**
+```
+backend/app/modules/diary/
+├── __init__.py
+├── models.py          ← Checkin, Feedback, DiaryEntry + Mood, Rating, CheckType enums
+├── schemas.py         ← 13 schema classes (request/response/paginated/insights)
+├── service.py         ← 10 public functions + 3 validators
+└── router.py          ← 6 routers, 10 endpoints
+
+backend/migrations/versions/
+├── a8b1c2d3e4f5_create_checkins_table.py       ← Phase 8.1
+├── b9c2d3e4f5a6_create_feedbacks_table.py      ← Phase 8.2
+└── c0d1e2f3a4b5_create_diary_entries_table.py  ← Phase 8.3 + CheckConstraints
+
+backend/tests/
+├── test_checkins.py        ← 13 tests (85000-85999)
+├── test_feedbacks.py       ← 15 tests (86000-86999)
+├── test_diary_entries.py   ← 19 tests (87000-87999)
+└── test_insights.py        ← 9 tests  (88000-88999)
+```
+
+**telegram_id ranges:** 85000-85999 (checkins), 86000-86999 (feedbacks), 87000-87999 (diary entries), 88000-88999 (insights)
+
+**Известный техдолг:**
+- `_make_verified_master()` дублируется в 15+ тестовых файлах → вынести в tests/helpers.py
+- Audit log при diary_entry_updated не фиксирует changed_fields → улучшить data dict
+
+**Критерий готовности:** Мастер видит аналитику по практике. ✅
 
 ---
 

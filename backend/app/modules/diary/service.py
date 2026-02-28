@@ -723,7 +723,7 @@ async def get_practice_insights(
         select(func.count(Feedback.id))
         .where(
             Feedback.practice_id == practice_id,
-            Feedback.comment.isnot(None),
+            Feedback.comment.is_not(None),
         )
     )
     comments_count = (await session.execute(comments_stmt)).scalar_one()
