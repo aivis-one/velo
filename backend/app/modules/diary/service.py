@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Diary Service (Phase 8.1: Check-ins)
+# VELO Backend -- Diary Service (Phase 8.1: Check-ins, Phase 8.2: Feedbacks)
 # =============================================================================
 #
 # UPSERT CHECKIN:
@@ -8,8 +8,15 @@
 #   3. Insert or update checkin (one per booking + check_type).
 #   4. Audit log: checkin_created or checkin_updated.
 #
-# LIST CHECKINS:
-#   Paginated, filtered by practice_id and/or date range.
+# UPSERT FEEDBACK:
+#   1. Find attended booking for (user, practice).
+#   2. Validate practice is completed.
+#   3. Validate time window: practice_end .. practice_end + feedback_window_hours.
+#   4. Insert or update feedback (one per practice + user).
+#   5. Audit log: feedback_created or feedback_updated.
+#
+# LIST CHECKINS / FEEDBACKS:
+#   Paginated, filtered by practice_id, rating, and/or date range.
 #   Read-only (get_db_reader in router).
 #
 # SESSION RULES:
@@ -27,15 +34,15 @@ from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.diary.models import CheckType, Checkin
-from app.modules.practices.models import Practice
+from app.modules.diary.models import CheckType, Checkin, Feedback
+from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
 
 
 # ===================================================================
-# Upsert checkin
+# Upsert checkin (Phase 8.1)
 # ===================================================================
 
 
@@ -156,7 +163,7 @@ async def upsert_checkin(
 
 
 # ===================================================================
-# List user checkins
+# List user checkins (Phase 8.1)
 # ===================================================================
 
 
@@ -220,6 +227,196 @@ async def list_user_checkins(
 
 
 # ===================================================================
+# Upsert feedback (Phase 8.2)
+# ===================================================================
+
+
+async def upsert_feedback(
+    user: User,
+    practice_id: UUID,
+    rating: str,
+    session: AsyncSession,
+    *,
+    comment: str | None = None,
+) -> tuple[Feedback, bool]:
+    """Create or update a post-practice feedback.
+
+    Args:
+        user: Authenticated user.
+        practice_id: Target practice UUID.
+        rating: One of fire/good/confused.
+        session: Write session (caller manages commit).
+        comment: Optional text (max length validated in schema).
+
+    Returns:
+        Tuple of (feedback, is_new). is_new=True if created, False if updated.
+
+    Raises:
+        NotFoundError: No attended booking for this practice.
+        BadRequestError: Practice not completed or outside feedback window.
+    """
+    # 1. Find attended booking for this user + practice.
+    booking_stmt = (
+        select(Booking)
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.user_id == user.id,
+            Booking.status == BookingStatus.ATTENDED.value,
+        )
+    )
+    result = await session.execute(booking_stmt)
+    booking = result.scalar_one_or_none()
+
+    if booking is None:
+        raise NotFoundError(
+            "No attended booking found for this practice"
+        )
+
+    # 2. Load practice to check status and time window.
+    practice = await session.get(Practice, practice_id)
+    if practice is None:
+        raise NotFoundError("Practice not found")
+
+    _validate_feedback_window(practice)
+
+    # 3. Check for existing feedback (upsert).
+    existing_stmt = (
+        select(Feedback)
+        .where(
+            Feedback.practice_id == practice_id,
+            Feedback.user_id == user.id,
+        )
+    )
+    result = await session.execute(existing_stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing is not None:
+        # Update existing feedback.
+        existing.rating = rating
+        existing.comment = comment
+        await session.flush()
+
+        await record_audit(
+            event="feedback_updated",
+            actor_id=user.id,
+            actor_type="user",
+            target_type="feedback",
+            target_id=existing.id,
+            data={"rating": rating, "practice_id": str(practice_id)},
+            session=session,
+        )
+
+        logger.info(
+            "feedback_updated",
+            feedback_id=str(existing.id),
+            user_id=str(user.id),
+            practice_id=str(practice_id),
+            rating=rating,
+        )
+        return existing, False
+
+    # 4. Create new feedback.
+    feedback = Feedback(
+        practice_id=practice_id,
+        user_id=user.id,
+        booking_id=booking.id,
+        rating=rating,
+        comment=comment,
+    )
+    session.add(feedback)
+    await session.flush()
+
+    await record_audit(
+        event="feedback_created",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="feedback",
+        target_id=feedback.id,
+        data={"rating": rating, "practice_id": str(practice_id)},
+        session=session,
+    )
+
+    logger.info(
+        "feedback_created",
+        feedback_id=str(feedback.id),
+        user_id=str(user.id),
+        practice_id=str(practice_id),
+        rating=rating,
+    )
+    return feedback, True
+
+
+# ===================================================================
+# List user feedbacks (Phase 8.2)
+# ===================================================================
+
+
+async def list_user_feedbacks(
+    user: User,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    practice_id: UUID | None = None,
+    rating: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> tuple[list[Feedback], int]:
+    """List feedbacks for a user with optional filters.
+
+    Args:
+        user: Authenticated user.
+        session: Read session.
+        limit: Page size.
+        offset: Page offset.
+        practice_id: Filter by practice.
+        rating: Filter by rating value.
+        date_from: Filter by created_at >= date_from.
+        date_to: Filter by created_at <= date_to.
+
+    Returns:
+        Tuple of (items, total_count).
+    """
+    base = select(Feedback).where(Feedback.user_id == user.id)
+    count_base = select(func.count(Feedback.id)).where(
+        Feedback.user_id == user.id,
+    )
+
+    if practice_id is not None:
+        base = base.where(Feedback.practice_id == practice_id)
+        count_base = count_base.where(
+            Feedback.practice_id == practice_id,
+        )
+
+    if rating is not None:
+        base = base.where(Feedback.rating == rating)
+        count_base = count_base.where(Feedback.rating == rating)
+
+    if date_from is not None:
+        base = base.where(Feedback.created_at >= date_from)
+        count_base = count_base.where(Feedback.created_at >= date_from)
+
+    if date_to is not None:
+        base = base.where(Feedback.created_at <= date_to)
+        count_base = count_base.where(Feedback.created_at <= date_to)
+
+    # Total count.
+    total = (await session.execute(count_base)).scalar_one()
+
+    # Paginated items (newest first).
+    items_stmt = (
+        base
+        .order_by(Feedback.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(items_stmt)
+    items = list(result.scalars().all())
+
+    return items, total
+
+
+# ===================================================================
 # Helpers
 # ===================================================================
 
@@ -245,4 +442,33 @@ def _validate_checkin_window(practice: Practice) -> None:
     if now > window_end:
         raise BadRequestError(
             "Check-in window has closed (practice has started)"
+        )
+
+
+def _validate_feedback_window(practice: Practice) -> None:
+    """Validate that practice is completed and within feedback window.
+
+    Precondition: practice.status == completed.
+    Window: [practice_end, practice_end + feedback_window_hours].
+    Where practice_end = scheduled_at + duration_minutes.
+
+    Raises:
+        BadRequestError: If practice not completed or outside window.
+    """
+    if practice.status != PracticeStatus.COMPLETED.value:
+        raise BadRequestError(
+            "Feedback can only be submitted for completed practices"
+        )
+
+    now = datetime.now(UTC)
+    window_hours = settings.feedback_window_hours
+    practice_end = practice.scheduled_at + timedelta(
+        minutes=practice.duration_minutes,
+    )
+    window_close = practice_end + timedelta(hours=window_hours)
+
+    if now > window_close:
+        raise BadRequestError(
+            "Feedback window has closed "
+            f"({window_hours} hours after practice ended)"
         )
