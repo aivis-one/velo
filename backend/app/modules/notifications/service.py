@@ -234,6 +234,13 @@ async def _resolve_target_users(
 
     if target_type == TargetType.ROLE.value:
         # All active users with a specific role.
+        # PERF-04 TODO: Add LIMIT/pagination when user base grows.
+        # Currently loads all matching user IDs into memory. For a
+        # small user base this is fine, but at scale (10k+ users per
+        # role) this should be converted to batched processing:
+        #   - Add LIMIT/OFFSET loop here, or
+        #   - Resolve in chunks in the processor stage, or
+        #   - Use server-side cursor (stream_scalars).
         stmt = select(User.id).where(
             User.role == target_value,
             User.is_active.is_(True),
@@ -243,6 +250,10 @@ async def _resolve_target_users(
 
     if target_type == TargetType.ALL.value:
         # All active users.
+        # PERF-04 TODO: Add LIMIT/pagination when user base grows.
+        # Same concern as ROLE above -- loads all user IDs at once.
+        # At scale, switch to batched delivery creation to avoid
+        # large in-memory lists and long-running transactions.
         stmt = select(User.id).where(User.is_active.is_(True))
         result = await session.execute(stmt)
         return list(result.scalars().all())

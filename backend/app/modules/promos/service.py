@@ -97,15 +97,20 @@ async def create_master_promo(
         first_purchase_only=body.first_purchase_only,
     )
 
-    # SAVEPOINT: catch duplicate code without killing the whole transaction (P-05).
-    async with session.begin_nested():
-        session.add(promo)
-        try:
+    # ERR-05: try/except OUTSIDE begin_nested (P-05).
+    # Previously, the except was INSIDE the async with block, which
+    # caught IntegrityError before __aexit__ could rollback the
+    # savepoint. This left the savepoint in a broken state.
+    # Now: begin_nested __aexit__ sees the exception, rolls back the
+    # savepoint cleanly, then our except converts it to BadRequestError.
+    try:
+        async with session.begin_nested():
+            session.add(promo)
             await session.flush()
-        except IntegrityError:
-            raise BadRequestError(
-                f"Promo code '{code_upper}' already exists"
-            )
+    except IntegrityError:
+        raise BadRequestError(
+            f"Promo code '{code_upper}' already exists"
+        ) from None
 
     # 5. Audit.
     await record_audit(
