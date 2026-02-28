@@ -388,6 +388,27 @@ def ask_telegram_ids() -> tuple[list[int], list[int]]:
     print()
     user_tids = _read_ids("User", 2)
     print()
+
+    # Deduplicate within each list.
+    orig_master_count = len(master_tids)
+    master_tids = list(dict.fromkeys(master_tids))
+    if len(master_tids) < orig_master_count:
+        warn("Duplicate master IDs removed — using unique only.")
+
+    orig_user_count = len(user_tids)
+    user_tids = list(dict.fromkeys(user_tids))
+    if len(user_tids) < orig_user_count:
+        warn("Duplicate user IDs removed — using unique only.")
+
+    # Warn if all IDs are the same person.
+    all_unique = set(master_tids) | set(user_tids)
+    if len(all_unique) == 1:
+        warn(
+            f"All IDs are the same ({master_tids[0]}). "
+            "This person will be a master. "
+            "Bookings will be created on dummy masters' practices."
+        )
+
     return master_tids, user_tids
 
 
