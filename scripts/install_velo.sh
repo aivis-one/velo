@@ -430,7 +430,7 @@ REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # --- CORS ---
-CORS_ORIGINS=*
+CORS_ORIGINS=https://api.talentir.info
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
