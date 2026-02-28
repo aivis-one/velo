@@ -34,7 +34,7 @@ class CheckinRequest(BaseModel):
     """POST /api/v1/practices/{id}/checkin body."""
 
     mood: Literal["low", "mid", "high"]
-    comment: str | None = Field(default=None, max_length=1000)
+    comment: str | None = Field(default=None, min_length=1, max_length=1000)
 
 
 class CheckinResponse(BaseModel):
@@ -71,7 +71,7 @@ class FeedbackRequest(BaseModel):
     """POST /api/v1/practices/{id}/feedback body."""
 
     rating: Literal["fire", "good", "confused"]
-    comment: str | None = Field(default=None, max_length=1000)
+    comment: str | None = Field(default=None, min_length=1, max_length=1000)
 
 
 class FeedbackResponse(BaseModel):
