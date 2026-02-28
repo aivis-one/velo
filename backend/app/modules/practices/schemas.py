@@ -18,6 +18,12 @@
 #   waitlist / purchase responses. Contains only the fields needed
 #   for list-view cards (title, type, time, duration, master).
 #
+# MASTER_NAME (Frontend F3 prep):
+#   master_name added to PracticeResponse and PracticeSummary.
+#   Populated via JOIN with users table in service layer.
+#   Default None for backward compatibility with model_validate()
+#   on raw Practice ORM objects (e.g. in booking/waitlist schemas).
+#
 # P-02 NOTE:
 #   NOT NULL fields are typed as `X | None` in UpdatePracticeRequest
 #   so that "not sent" works with exclude_unset. The service layer
@@ -175,6 +181,7 @@ class PracticeResponse(BaseModel):
 
     id: UUID
     master_id: UUID
+    master_name: str | None = None
     practice_type: str
     status: str
     title: str
@@ -224,5 +231,6 @@ class PracticeSummary(BaseModel):
     scheduled_at: datetime
     duration_minutes: int
     master_id: UUID
+    master_name: str | None = None
 
     model_config = {"from_attributes": True}

@@ -1,5 +1,6 @@
 # =============================================================================
-# VELO Backend -- Practice Router (Phase 4.2 + 4.3/4.4, updated Phase 6.5)
+# VELO Backend -- Practice Router (Phase 4.2 + 4.3/4.4, updated Phase 6.5,
+#                                  updated Frontend F3 prep)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -9,6 +10,11 @@
 #   PATCH  /api/v1/practices/{id}         -- update (owner master only)
 #   DELETE /api/v1/practices/{id}         -- soft delete draft (owner only)
 #   POST   /api/v1/practices/{id}/cancel  -- cancel + refund all (6.5)
+#
+# MASTER_NAME (Frontend F3 prep):
+#   - list/get endpoints: service returns master_name via JOIN.
+#   - create/update/delete/cancel: user object already available from
+#     get_current_master dependency, so practice_to_response(p, user.first_name).
 #
 # AUTH:
 #   GET list uses get_current_user (any authenticated user).
@@ -48,6 +54,7 @@ from app.modules.practices.service import (
     delete_practice,
     get_practice,
     list_public_practices,
+    practice_to_response,
     update_practice,
 )
 from app.modules.users.models import User
@@ -121,7 +128,7 @@ async def create_practice_endpoint(
     practice = await create_practice(user, body, session)
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    return practice_to_response(practice, user.first_name)
 
 
 # ------------------------------------------------------------------
@@ -140,8 +147,10 @@ async def get_practice_endpoint(
 
     Draft/deleted practices are visible only to the owner master.
     """
-    practice = await get_practice(practice_id, user, session)
-    return PracticeResponse.model_validate(practice)
+    practice, master_name = await get_practice(
+        practice_id, user, session,
+    )
+    return practice_to_response(practice, master_name)
 
 
 # ------------------------------------------------------------------
@@ -166,7 +175,7 @@ async def update_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    return practice_to_response(practice, user.first_name)
 
 
 # ------------------------------------------------------------------
@@ -192,7 +201,7 @@ async def delete_practice_endpoint(
     practice = await delete_practice(practice_id, user, session)
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    return practice_to_response(practice, user.first_name)
 
 
 # ------------------------------------------------------------------
@@ -221,4 +230,4 @@ async def cancel_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    return practice_to_response(practice, user.first_name)
