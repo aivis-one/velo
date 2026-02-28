@@ -1,8 +1,15 @@
 # =============================================================================
-# VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4, updated Phase 6.5)
+# VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4, updated Phase 6.5,
+#                                   updated Frontend F3 prep)
 # =============================================================================
 #
 # Business logic for practice CRUD (master-facing) and public listing.
+#
+# MASTER_NAME (Frontend F3 prep):
+#   practice_to_response() helper builds PracticeResponse with master_name
+#   populated from User.first_name via JOIN. All list/get functions now
+#   JOIN with users table. Mutating functions (create/update/delete/cancel)
+#   return Practice; the router uses the already-available User object.
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete, cancel) verify master_id == user.id.
@@ -120,6 +127,11 @@ _ACTIVE_BOOKING_STATUSES = {
 }
 
 
+# ===================================================================
+# Helpers
+# ===================================================================
+
+
 def _enforce_pricing(
     is_free: bool,
     price_cents: int,
@@ -156,6 +168,26 @@ async def _has_active_bookings(
     )
     result = await session.execute(stmt)
     return result.scalar_one() > 0
+
+
+def practice_to_response(
+    practice: Practice,
+    master_name: str | None = None,
+) -> PracticeResponse:
+    """Build PracticeResponse from ORM object with master_name.
+
+    Frontend F3 prep: master_name is populated from User.first_name
+    via JOIN in list/get functions, or from the User object in
+    create/update/delete/cancel endpoints.
+    """
+    resp = PracticeResponse.model_validate(practice)
+    resp.master_name = master_name
+    return resp
+
+
+# ===================================================================
+# CRUD
+# ===================================================================
 
 
 async def create_practice(
@@ -199,18 +231,26 @@ async def get_practice(
     practice_id: UUID,
     user: User,
     session: AsyncSession,
-) -> Practice:
+) -> tuple[Practice, str | None]:
     """Get a practice by id with visibility rules.
+
+    Returns (Practice, master_name) tuple.
 
     Draft/deleted practices are visible only to the owner master.
     All other statuses are visible to any authenticated user.
     """
-    stmt = select(Practice).where(Practice.id == practice_id)
+    stmt = (
+        select(Practice, User.first_name)
+        .join(User, Practice.master_id == User.id)
+        .where(Practice.id == practice_id)
+    )
     result = await session.execute(stmt)
-    practice = result.scalar_one_or_none()
+    row = result.one_or_none()
 
-    if not practice:
+    if not row:
         raise NotFoundError("Practice not found")
+
+    practice, master_name = row
 
     # Draft/deleted visible only to owner (P-08: 404 not 403).
     if (
@@ -219,7 +259,7 @@ async def get_practice(
     ):
         raise NotFoundError("Practice not found")
 
-    return practice
+    return practice, master_name
 
 
 async def update_practice(
@@ -445,6 +485,11 @@ async def cancel_practice(
     return practice
 
 
+# ===================================================================
+# Listings
+# ===================================================================
+
+
 async def list_master_practices(
     user: User,
     session: AsyncSession,
@@ -468,20 +513,22 @@ async def list_master_practices(
     total_result = await session.execute(count_query)
     total = total_result.scalar_one()
 
-    # -- Paginated items --
+    # -- Paginated items with master name --
     stmt = (
-        select(Practice)
+        select(Practice, User.first_name)
+        .join(User, Practice.master_id == User.id)
         .where(*base_filter)
         .order_by(Practice.scheduled_at.desc())
         .limit(limit)
         .offset(offset)
     )
     result = await session.execute(stmt)
-    practices = result.scalars().all()
+    rows = result.all()
 
     return PaginatedPracticesResponse(
         items=[
-            PracticeResponse.model_validate(p) for p in practices
+            practice_to_response(p, master_name)
+            for p, master_name in rows
         ],
         total=total,
         limit=limit,
@@ -549,20 +596,22 @@ async def list_public_practices(
     total_result = await session.execute(count_query)
     total = total_result.scalar_one()
 
-    # -- Paginated items --
+    # -- Paginated items with master name --
     query = (
-        select(Practice)
+        select(Practice, User.first_name)
+        .join(User, Practice.master_id == User.id)
         .where(*filters)
         .order_by(sort_column)
         .limit(limit)
         .offset(offset)
     )
     result = await session.execute(query)
-    practices = result.scalars().all()
+    rows = result.all()
 
     return PaginatedPracticesResponse(
         items=[
-            PracticeResponse.model_validate(p) for p in practices
+            practice_to_response(p, master_name)
+            for p, master_name in rows
         ],
         total=total,
         limit=limit,
