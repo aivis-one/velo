@@ -33,12 +33,12 @@ const props = withDefaults(
 
 const initials = computed(() => {
   const parts = props.name.trim().split(/\s+/)
-  const first = parts[0] ?? ''
-  const second = parts[1] ?? ''
+  const first = (parts[0] ?? '').charAt(0)
+  const second = (parts[1] ?? '').charAt(0)
   if (first && second) {
-    return (first[0] + second[0]).toUpperCase()
+    return (first + second).toUpperCase()
   }
-  return (first[0] ?? '?').toUpperCase()
+  return (first || '?').toUpperCase()
 })
 </script>
 
