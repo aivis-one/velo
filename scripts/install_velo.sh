@@ -669,7 +669,7 @@ create_management_script() {
 #!/bin/bash
 
 # ==============================================================================
-# VELO Management Script v1.2
+# VELO Management Script v1.3
 # Usage: velo {command} [options]
 # ==============================================================================
 
@@ -1046,7 +1046,7 @@ case "${1:-}" in
     # === Version ===
 
     version)
-        echo "VELO Management Script v1.2"
+        echo "VELO Management Script v1.3"
         echo ""
         cd "$INSTALL_BASE/repo" 2>/dev/null && {
             echo -n "Commit: "
@@ -1060,6 +1060,18 @@ case "${1:-}" in
         cd_compose
         echo "Docker containers:"
         $COMPOSE_CMD ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || $COMPOSE_CMD ps
+        ;;
+
+    # === Seed ===
+
+    seed)
+        echo "Running database seed..."
+        cd_compose
+        SEED_ARGS=""
+        if [ "${2:-}" = "--reset" ]; then
+            SEED_ARGS="--reset"
+        fi
+        $COMPOSE_CMD exec app python scripts/seed.py $SEED_ARGS
         ;;
 
     # === Nginx ===
@@ -1111,6 +1123,8 @@ case "${1:-}" in
         echo "  db dump             — Create SQL dump"
         echo "  db restore <file>   — Restore from dump"
         echo "  db migrate          — Run Alembic migrations"
+        echo "  seed                — Populate DB with test data"
+        echo "  seed --reset        — Clean seed data & re-seed"
         echo ""
         echo "Maintenance:"
         echo "  backup              — Backup DB + .env"
@@ -1181,6 +1195,7 @@ echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
 echo -e "  ${CYAN}velo restart${NC}         — Restart all services"
 echo -e "  ${CYAN}velo db connect${NC}      — Open psql"
 echo -e "  ${CYAN}velo backup${NC}          — Manual backup"
+echo -e "  ${CYAN}velo seed${NC}            — Populate DB with test data"
 echo ""
 
 warn "Next steps:"
