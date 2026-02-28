@@ -1,10 +1,13 @@
 # =============================================================================
-# VELO Frontend -- Dockerfile
+# VELO Frontend -- Dockerfile (updated: test gate)
 # =============================================================================
 #
 # MULTI-STAGE BUILD:
-#   Stage 1 ("builder"): npm ci + npm run build -> produces dist/
+#   Stage 1 ("builder"): npm ci + npm run test + npm run build -> produces dist/
 #   Stage 2 ("runtime"): nginx serves dist/ as static files
+#
+# Tests run BEFORE build — if tests fail, image is not built.
+# This is the gate for `velo update` (docker compose build will fail).
 #
 # Internal Nginx handles SPA fallback (all routes -> index.html).
 # External Nginx on the host handles SSL + routing between services.
@@ -23,6 +26,11 @@ RUN npm ci
 
 # Copy source and build.
 COPY . .
+
+# Test gate: unit tests must pass before we build.
+RUN npm run test
+
+# Type-check + bundle (npm run build = vue-tsc --noEmit && vite build).
 RUN npm run build
 
 # ---------------------------------------------------------------------------

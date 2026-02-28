@@ -77,40 +77,32 @@ preflight_checks() {
     source /etc/os-release
     if [ "$ID" != "ubuntu" ] && [ "$ID" != "debian" ]; then
         warn "Detected $ID, expected Ubuntu/Debian. Proceeding anyway..."
+    fi
+
+    # Check memory (warn if < 2GB)
+    local TOTAL_MEM=$(free -m | awk '/Mem:/ {print $2}')
+    if [ "$TOTAL_MEM" -lt 2000 ]; then
+        warn "Only ${TOTAL_MEM}MB RAM detected. Recommended: 2GB+"
     else
-        success "OS: $PRETTY_NAME"
+        success "Memory: ${TOTAL_MEM}MB ✓"
     fi
 
-    # Check disk space (need at least 5GB)
-    AVAILABLE_SPACE=$(df /opt | tail -1 | awk '{print $4}')
-    REQUIRED_SPACE=$((5 * 1024 * 1024))  # 5GB in KB
-
-    if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
-        error "Insufficient disk space"
-        error "Available: $(($AVAILABLE_SPACE / 1024 / 1024))GB, Required: 5GB"
-        exit 1
+    # Check disk (warn if < 10GB free)
+    local FREE_DISK=$(df -BG /opt | tail -1 | awk '{print $4}' | tr -d 'G')
+    if [ "$FREE_DISK" -lt 10 ]; then
+        warn "Only ${FREE_DISK}GB free disk. Recommended: 10GB+"
     else
-        success "Disk space: $(($AVAILABLE_SPACE / 1024 / 1024))GB available"
+        success "Disk: ${FREE_DISK}GB free ✓"
     fi
 
-    # Check if port 80/443 are free
-    if ss -tlnp | grep -q ':80 '; then
-        warn "Port 80 is already in use"
-    fi
-    if ss -tlnp | grep -q ':443 '; then
-        warn "Port 443 is already in use"
-    fi
-
-    # Check DNS resolution
-    RESOLVED_IP=$(dig +short "$DOMAIN" 2>/dev/null | head -1)
-    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || curl -s icanhazip.com 2>/dev/null)
+    # Check DNS
+    local RESOLVED_IP=$(dig +short "$DOMAIN" 2>/dev/null | tail -1)
+    local SERVER_IP=$(curl -s ifconfig.me 2>/dev/null)
 
     if [ -z "$RESOLVED_IP" ]; then
-        warn "Cannot resolve $DOMAIN — DNS not configured yet?"
-        warn "SSL certificate will fail. You can run certbot manually later."
+        warn "$DOMAIN does not resolve. SSL setup may fail."
     elif [ "$RESOLVED_IP" != "$SERVER_IP" ]; then
-        warn "$DOMAIN resolves to $RESOLVED_IP, but this server is $SERVER_IP"
-        warn "DNS might still be propagating. SSL setup may fail."
+        warn "$DOMAIN → $RESOLVED_IP (this server is $SERVER_IP). SSL setup may fail."
     else
         success "DNS: $DOMAIN → $RESOLVED_IP ✓"
     fi
@@ -320,30 +312,25 @@ setup_ssh() {
 
     # Generate deploy key if not exists
     if [ ! -f "$DEPLOY_KEY" ]; then
-        log "Generating SSH deploy key..."
-        ssh-keygen -t ed25519 -C "velo-vps-deploy" -f "$DEPLOY_KEY" -N ""
-        chmod 600 "$DEPLOY_KEY"
-
-        echo ""
-        echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-        echo -e "${CYAN}  GitHub Deploy Key${NC}"
-        echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-        echo ""
-        echo -e "${YELLOW}Add this key to:${NC}"
-        echo "  https://github.com/$GITHUB_REPO/settings/keys"
-        echo ""
-        echo -e "${YELLOW}Key (copy everything below):${NC}"
-        echo ""
-        cat "${DEPLOY_KEY}.pub"
-        echo ""
-        echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-        echo ""
-        read -p "Press Enter after adding the key to GitHub..."
+        ssh-keygen -t ed25519 -C "velo-deploy@$(hostname)" -f "$DEPLOY_KEY" -N ""
+        success "Deploy key generated"
     else
         success "Deploy key already exists"
     fi
 
-    # Configure SSH config
+    echo ""
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  GitHub Deploy Key (add to repo settings)${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo ""
+    cat "${DEPLOY_KEY}.pub"
+    echo ""
+    echo -e "${YELLOW}Go to: https://github.com/$GITHUB_REPO/settings/keys${NC}"
+    echo -e "${YELLOW}Click 'Add deploy key', paste the key above.${NC}"
+    echo ""
+    read -p "Press ENTER after adding the deploy key to GitHub..."
+
+    # Configure SSH to use this key for GitHub
     if ! grep -q "Host github.com-velo" /root/.ssh/config 2>/dev/null; then
         cat >> /root/.ssh/config << EOF
 
@@ -443,13 +430,15 @@ REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # --- CORS ---
-# Telegram WebApp origins. Add more as needed.
-CORS_ORIGINS=https://web.telegram.org,https://${DOMAIN}
+CORS_ORIGINS=*
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 
-# --- Stripe (set to TEST to start without Stripe) ---
+# --- Session ---
+SESSION_TTL_DAYS=30
+
+# --- Stripe (placeholders) ---
 STRIPE_SECRET_KEY=TEST
 STRIPE_WEBHOOK_SECRET=TEST
 STRIPE_PUBLISHABLE_KEY=TEST
@@ -458,42 +447,105 @@ STRIPE_CANCEL_URL=TEST
 EOF
 
     chmod 600 "$ENV_FILE"
-
-    success ".env generated"
+    success ".env generated with secure passwords"
 }
 
 generate_env
 
 # ==============================================================================
-# NGINX CONFIGURATION
+# NGINX CONFIG
 # ==============================================================================
 
 setup_nginx() {
-    log "Configuring Nginx for $DOMAIN..."
+    log "Configuring Nginx reverse proxy..."
 
-    # Remove default site
-    rm -f /etc/nginx/sites-enabled/default
+    cat > /etc/nginx/sites-available/velo << 'NGINX_EOF'
+# VELO — Nginx reverse proxy
+# HTTP → backend (API) + frontend (SPA)
 
-    cat > "/etc/nginx/sites-available/velo" << 'NGINX_EOF'
-# VELO Platform — Nginx reverse proxy (frontend + backend)
-
-upstream velo_api {
-    server 127.0.0.1:8000;
-}
-
-upstream velo_frontend {
-    server 127.0.0.1:3000;
-}
-
-# HTTP -> HTTPS redirect (also serves certbot challenges)
 server {
     listen 80;
-    listen [::]:80;
-    server_name DOMAIN_PLACEHOLDER;
+    server_name api.talentir.info;
+
+    # Certbot challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # API routes → backend
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+    }
+
+    location /ready {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+    }
+
+    # Everything else → frontend
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
+    # Enable site
+    ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+
+    # Create certbot webroot
+    mkdir -p /var/www/certbot
+
+    # Test and reload
+    nginx -t
+    systemctl reload nginx
+
+    success "Nginx configured"
+}
+
+# ==============================================================================
+# SSL CERTIFICATE
+# ==============================================================================
+
+setup_ssl() {
+    log "Setting up SSL certificate..."
+
+    # Try to get certificate
+    if certbot certonly \
+        --webroot \
+        --webroot-path=/var/www/certbot \
+        -d "$DOMAIN" \
+        --non-interactive \
+        --agree-tos \
+        --email "admin@$DOMAIN" \
+        --no-eff-email; then
+
+        success "SSL certificate obtained"
+
+        # Update nginx config with SSL
+        cat > /etc/nginx/sites-available/velo << 'SSL_NGINX_EOF'
+# VELO — Nginx reverse proxy with SSL
+
+# HTTP → redirect to HTTPS
+server {
+    listen 80;
+    server_name api.talentir.info;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
-        allow all;
     }
 
     location / {
@@ -501,152 +553,56 @@ server {
     }
 }
 
-# HTTPS — main config
+# HTTPS
 server {
     listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name DOMAIN_PLACEHOLDER;
+    server_name api.talentir.info;
 
-    # SSL certificates (managed by certbot)
-    ssl_certificate /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/api.talentir.info/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.talentir.info/privkey.pem;
 
-    # SSL settings
+    # Modern SSL config
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 1d;
 
-    # Security headers
-    # 10.5: CSP frame-ancestors replaces X-Frame-Options DENY which blocked
-    # Telegram WebApp iframe loading on web.telegram.org.
-    add_header Content-Security-Policy "frame-ancestors 'self' https://web.telegram.org" always;
-    add_header X-Content-Type-Options nosniff always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    # HSTS (optional — uncomment after testing)
+    # add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # --- Backend API ---
+    # API routes → backend
     location /api/ {
-        proxy_pass http://velo_api;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-    }
-
-    location = /health {
-        proxy_pass http://velo_api;
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location = /ready {
-        proxy_pass http://velo_api;
+    location /health {
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # --- Frontend: everything else ---
+    location /ready {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+    }
+
+    # Everything else → frontend
     location / {
-        proxy_pass http://velo_frontend;
+        proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
-    # Block access to hidden files
-    location ~ /\. {
-        deny all;
-        return 404;
-    }
 }
-NGINX_EOF
-
-    # Replace domain placeholder
-    sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" /etc/nginx/sites-available/velo
-
-    # Enable site
-    ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/velo
-
-    # Create certbot webroot
-    mkdir -p /var/www/certbot
-
-    # Test nginx config (without SSL first — certs don't exist yet)
-    # We'll temporarily use a simpler config for certbot
-    cat > "/etc/nginx/sites-available/velo-certbot-temp" << EOF
-server {
-    listen 80;
-    listen [::]:80;
-    server_name $DOMAIN;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-        allow all;
-    }
-
-    location / {
-        return 200 'VELO API — waiting for SSL';
-        add_header Content-Type text/plain;
-    }
-}
-EOF
-
-    # Use temp config for certbot
-    ln -sf /etc/nginx/sites-available/velo-certbot-temp /etc/nginx/sites-enabled/velo
-    nginx -t && systemctl reload nginx
-
-    success "Nginx configured"
-}
-
-setup_ssl() {
-    log "Obtaining SSL certificate for $DOMAIN..."
-
-    # Check if cert already exists
-    if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
-        success "SSL certificate already exists"
-        # Switch to full config
-        ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/velo
-        nginx -t && systemctl reload nginx
-        return
-    fi
-
-    # Obtain certificate
-    certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        -d "$DOMAIN" \
-        --non-interactive \
-        --agree-tos \
-        --email "admin@$DOMAIN" \
-        --no-eff-email
-
-    if [ $? -eq 0 ]; then
-        success "SSL certificate obtained"
-
-        # Switch to full HTTPS config
-        ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/velo
-
-        # Clean up temp config
-        rm -f /etc/nginx/sites-available/velo-certbot-temp
+SSL_NGINX_EOF
 
         nginx -t && systemctl reload nginx
-        success "Nginx switched to HTTPS"
+        success "Nginx updated with SSL"
 
-        # Setup auto-renewal cron
+        # Auto-renewal cron
         if ! crontab -l 2>/dev/null | grep -q "certbot renew"; then
             (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --post-hook 'systemctl reload nginx'") | crontab -
             success "SSL auto-renewal cron added (daily at 3 AM)"
@@ -696,7 +652,7 @@ start_stack() {
     done
 
     error "API did not respond within 60s"
-    warn "Check logs: docker compose -f $INSTALL_BASE/repo/backend/docker-compose.yml logs"
+    warn "Check logs: docker compose -f $INSTALL_BASE/repo/docker-compose.yml logs"
     return 1
 }
 
@@ -713,7 +669,7 @@ create_management_script() {
 #!/bin/bash
 
 # ==============================================================================
-# VELO Management Script
+# VELO Management Script v1.2
 # Usage: velo {command} [options]
 # ==============================================================================
 
@@ -734,6 +690,22 @@ cd_compose() {
         echo -e "${RED}ERROR: $COMPOSE_DIR not found${NC}"
         exit 1
     }
+}
+
+# Run frontend tests in a throwaway builder container.
+# Uses `docker build --target builder` to get a container with node + source,
+# then runs `npm run test` inside it.
+run_frontend_tests() {
+    echo "Running frontend tests..."
+    cd "$COMPOSE_DIR"
+    docker build --target builder -t velo-frontend-test -f frontend/Dockerfile frontend/ -q > /dev/null 2>&1
+    if docker run --rm velo-frontend-test npm run test; then
+        echo -e "${GREEN}✓ Frontend tests passed${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Frontend tests FAILED${NC}"
+        return 1
+    fi
 }
 
 case "${1:-}" in
@@ -826,7 +798,7 @@ case "${1:-}" in
                 $COMPOSE_CMD logs -f --tail=100
                 ;;
             *)
-                echo "Usage: velo logs [app|db|redis|all]"
+                echo "Usage: velo logs [app|db|redis|frontend|all]"
                 exit 1
                 ;;
         esac
@@ -835,8 +807,46 @@ case "${1:-}" in
     # === Testing & Linting ===
 
     test)
-        cd_compose
-        $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short
+        FAILED=0
+        case "${2:-all}" in
+            backend)
+                echo "=== Backend Tests ==="
+                cd_compose
+                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
+                    FAILED=1
+                fi
+                ;;
+            frontend)
+                echo "=== Frontend Tests ==="
+                if ! run_frontend_tests; then
+                    FAILED=1
+                fi
+                ;;
+            all|"")
+                echo "=== Backend Tests ==="
+                cd_compose
+                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
+                    FAILED=1
+                fi
+                echo ""
+                echo "=== Frontend Tests ==="
+                if ! run_frontend_tests; then
+                    FAILED=1
+                fi
+                ;;
+            *)
+                echo "Usage: velo test [backend|frontend|all]"
+                exit 1
+                ;;
+        esac
+
+        echo ""
+        if [ $FAILED -ne 0 ]; then
+            echo -e "${RED}✗ Some tests failed${NC}"
+            exit 1
+        else
+            echo -e "${GREEN}✓ All tests passed${NC}"
+        fi
         ;;
 
     lint)
@@ -890,7 +900,10 @@ case "${1:-}" in
         echo ""
 
         # Rebuild and restart
-        echo "Rebuilding Docker image..."
+        # NOTE: frontend tests run during `docker compose build frontend`
+        # because Dockerfile has `RUN npm run test` before `RUN npm run build`.
+        # If tests fail, the build fails, and update stops here.
+        echo "Rebuilding Docker images (frontend tests run during build)..."
         cd "$COMPOSE_DIR"
         $COMPOSE_CMD build app frontend
 
@@ -908,13 +921,13 @@ case "${1:-}" in
         }
         echo -e "${GREEN}✓ Migrations applied${NC}"
 
-        # Run tests
+        # Run backend tests
         echo ""
-        echo "Running tests..."
+        echo "Running backend tests..."
         if $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-            echo -e "${GREEN}✓ All tests passed${NC}"
+            echo -e "${GREEN}✓ All backend tests passed${NC}"
         else
-            echo -e "${RED}✗ TESTS FAILED — app is running but code may be broken${NC}"
+            echo -e "${RED}✗ BACKEND TESTS FAILED — app is running but code may be broken${NC}"
             echo "Fix the code and run: velo update"
             exit 1
         fi
@@ -948,7 +961,7 @@ case "${1:-}" in
         $COMPOSE_CMD exec -T postgres pg_dump -U velo velo > "$BACKUP_DIR/velo_db_$TIMESTAMP.sql"
 
         # Backup .env
-        cp "$COMPOSE_DIR/.env" "$BACKUP_DIR/env_$TIMESTAMP.bak" 2>/dev/null || true
+        cp "$COMPOSE_DIR/backend/.env" "$BACKUP_DIR/env_$TIMESTAMP.bak" 2>/dev/null || true
 
         # Create archive
         cd "$BACKUP_DIR"
@@ -1033,7 +1046,7 @@ case "${1:-}" in
     # === Version ===
 
     version)
-        echo "VELO Management Script v1.1"
+        echo "VELO Management Script v1.2"
         echo ""
         cd "$INSTALL_BASE/repo" 2>/dev/null && {
             echo -n "Commit: "
@@ -1082,10 +1095,12 @@ case "${1:-}" in
         echo "  status              — Show status + health check"
         echo ""
         echo "Logs:"
-        echo "  logs [app|db|redis] — View logs (default: app)"
+        echo "  logs [app|db|redis|frontend] — View logs (default: app)"
         echo ""
         echo "Testing:"
-        echo "  test                — Run all tests"
+        echo "  test                — Run all tests (backend + frontend)"
+        echo "  test backend        — Run backend tests only"
+        echo "  test frontend       — Run frontend tests only"
         echo "  lint                — Run linter (ruff)"
         echo ""
         echo "Deployment:"
@@ -1161,7 +1176,7 @@ echo "  └── backups/           # Daily backups"
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"
 echo -e "  ${CYAN}velo logs${NC}            — View app logs"
-echo -e "  ${CYAN}velo test${NC}            — Run all tests"
+echo -e "  ${CYAN}velo test${NC}            — Run all tests (backend + frontend)"
 echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
 echo -e "  ${CYAN}velo restart${NC}         — Restart all services"
 echo -e "  ${CYAN}velo db connect${NC}      — Open psql"

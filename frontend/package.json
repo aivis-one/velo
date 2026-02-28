@@ -11,7 +11,10 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "vue": "^3.5.0",
@@ -29,6 +32,8 @@
     "typescript-eslint": "^8.24.0",
     "eslint-plugin-vue": "^9.32.0",
     "prettier": "^3.5.0",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "vitest": "^3.0.0",
+    "happy-dom": "^17.0.0"
   }
 }
