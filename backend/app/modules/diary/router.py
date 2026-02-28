@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Diary Router (Phase 8.1-8.3)
+# VELO Backend -- Diary Router (Phase 8.1-8.4)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -12,6 +12,7 @@
 #   GET   /api/v1/diary/{id}                -- get single entry
 #   PATCH /api/v1/diary/{id}                -- update entry
 #   DELETE /api/v1/diary/{id}               -- delete entry
+#   GET   /api/v1/practices/{id}/insights   -- master: aggregated insights
 #
 # CRITICAL-6 fix: removed redundant flush() in upsert endpoints.
 #   refresh() only on update path (to fetch server-side updated_at).
@@ -39,12 +40,14 @@ from app.modules.diary.schemas import (
     PaginatedCheckinsResponse,
     PaginatedDiaryEntriesResponse,
     PaginatedFeedbacksResponse,
+    PracticeInsightsResponse,
     UpdateDiaryEntryRequest,
 )
 from app.modules.diary.service import (
     create_diary_entry,
     delete_diary_entry,
     get_diary_entry,
+    get_practice_insights,
     list_user_checkins,
     list_user_diary_entries,
     list_user_feedbacks,
@@ -72,6 +75,10 @@ feedbacks_router = APIRouter(
 
 diary_router = APIRouter(
     prefix="/api/v1/diary", tags=["diary"],
+)
+
+practices_insights_router = APIRouter(
+    prefix="/api/v1/practices", tags=["diary"],
 )
 
 
@@ -339,3 +346,27 @@ async def delete_diary_entry_endpoint(
     Hard delete -- personal data is permanently removed.
     """
     await delete_diary_entry(user, entry_id, session)
+
+
+# ===================================================================
+# Practice insights endpoint (Phase 8.4, master-facing)
+# ===================================================================
+
+
+@practices_insights_router.get(
+    "/{practice_id}/insights",
+    response_model=PracticeInsightsResponse,
+)
+async def get_practice_insights_endpoint(
+    practice_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> PracticeInsightsResponse:
+    """Get aggregated anonymous insights for a completed practice.
+
+    Master-only: returns mood distribution, rating distribution,
+    participant count, and feedback comments count.
+    No individual user data is exposed.
+    """
+    data = await get_practice_insights(user, practice_id, session)
+    return PracticeInsightsResponse(**data)
