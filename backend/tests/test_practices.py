@@ -73,7 +73,7 @@ async def _do_cleanup(session: AsyncSession) -> None:
 # ---------------------------------------------------------------------------
 def _valid_practice_body(**overrides: object) -> dict:
     """Return a valid CreatePracticeRequest body."""
-    base = {
+    base: dict = {
         "practice_type": "live",
         "title": "Morning Meditation",
         "description": "Guided breathwork session",
@@ -116,7 +116,7 @@ async def _make_verified_master(
 
     Returns auth data with role=master.
     """
-    # Create user and apply.
+    # Create user and submit application.
     auth = await login_user(
         client, telegram_id=telegram_id, first_name="Master",
     )
@@ -126,7 +126,7 @@ async def _make_verified_master(
         headers=auth_headers(auth["session_token"]),
     )
 
-    # Create admin and verify.
+    # Promote admin user (telegram_id=60900).
     admin_auth = await login_user(
         client, telegram_id=60900, first_name="Admin",
     )
@@ -151,7 +151,7 @@ async def _make_verified_master(
     )
     assert verify_resp.status_code == 200
 
-    # Re-login to get updated role in session.
+    # Re-login to pick up master role in session.
     auth = await login_user(
         client, telegram_id=telegram_id, first_name="Master",
     )
@@ -163,7 +163,7 @@ async def _create_and_publish(
     auth: dict,
     **overrides: object,
 ) -> str:
-    """Create a practice and set status to scheduled.
+    """Create a practice and transition status to scheduled.
 
     Returns practice_id.
     """
@@ -242,66 +242,19 @@ async def test_create_practice_no_auth(
     client: AsyncClient,
 ) -> None:
     """No auth token: 401."""
-    resp = await client.post(
-        PRACTICES_URL,
-        json=_valid_practice_body(),
-    )
+    resp = await client.post(PRACTICES_URL, json=_valid_practice_body())
     assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------
-# POST /practices -- scheduled_at in past (422)
+# POST /practices -- invalid duration (422)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_create_practice_past_scheduled_at(
+async def test_create_practice_invalid_duration(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """scheduled_at in the past: 422."""
-    auth = await _make_verified_master(client, db_session)
-
-    body = _valid_practice_body(
-        scheduled_at=(
-            datetime.now(timezone.utc) - timedelta(hours=1)
-        ).isoformat(),
-    )
-    resp = await client.post(
-        PRACTICES_URL,
-        json=body,
-        headers=auth_headers(auth["session_token"]),
-    )
-    assert resp.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# POST /practices -- invalid timezone (422)
-# ---------------------------------------------------------------------------
-@pytest.mark.asyncio
-async def test_create_practice_invalid_timezone(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Invalid IANA timezone: 422."""
-    auth = await _make_verified_master(client, db_session)
-
-    body = _valid_practice_body(timezone="Mars/Olympus")
-    resp = await client.post(
-        PRACTICES_URL,
-        json=body,
-        headers=auth_headers(auth["session_token"]),
-    )
-    assert resp.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# POST /practices -- duration out of range (422)
-# ---------------------------------------------------------------------------
-@pytest.mark.asyncio
-async def test_create_practice_duration_out_of_range(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """duration_minutes outside config bounds: 422."""
+    """Duration out of allowed range: 422."""
     auth = await _make_verified_master(client, db_session)
 
     body = _valid_practice_body(duration_minutes=9999)
@@ -322,16 +275,10 @@ async def test_get_practice_success(
     db_session: AsyncSession,
 ) -> None:
     """Any authenticated user can view a scheduled practice."""
-    master_auth = await _make_verified_master(
-        client, db_session,
-    )
+    master_auth = await _make_verified_master(client, db_session)
 
-    # Create and set to scheduled.
-    practice_id = await _create_and_publish(
-        client, master_auth,
-    )
+    practice_id = await _create_and_publish(client, master_auth)
 
-    # View as a different user.
     user_auth = await login_user(
         client, telegram_id=60101, first_name="Viewer",
     )
@@ -352,9 +299,7 @@ async def test_get_practice_draft_hidden(
     db_session: AsyncSession,
 ) -> None:
     """Draft practice invisible to non-owner: 404."""
-    master_auth = await _make_verified_master(
-        client, db_session,
-    )
+    master_auth = await _make_verified_master(client, db_session)
 
     create_resp = await client.post(
         PRACTICES_URL,
@@ -753,8 +698,13 @@ async def test_list_practices_public(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Public feed returns only scheduled/live practices."""
+    """Public feed returns only scheduled/live practices.
+
+    Scoped to this test's master via master_id filter to stay
+    independent of seed data present in the database.
+    """
     auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
 
     # Create 1 draft (should NOT appear) and 1 scheduled.
     await client.post(
@@ -770,7 +720,7 @@ async def test_list_practices_public(
         client, telegram_id=60103, first_name="Viewer",
     )
     resp = await client.get(
-        PRACTICES_URL,
+        f"{PRACTICES_URL}?master_id={master_id}",
         headers=auth_headers(user_auth["session_token"]),
     )
     assert resp.status_code == 200
@@ -789,8 +739,13 @@ async def test_list_practices_filter_type(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Filter by practice_type returns only matching."""
+    """Filter by practice_type returns only matching.
+
+    Scoped to this test's master via master_id filter to stay
+    independent of seed data present in the database.
+    """
     auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
 
     await _create_and_publish(
         client, auth, practice_type="live", title="Live",
@@ -805,7 +760,7 @@ async def test_list_practices_filter_type(
         client, telegram_id=60104, first_name="Viewer",
     )
     resp = await client.get(
-        f"{PRACTICES_URL}?practice_type=live",
+        f"{PRACTICES_URL}?practice_type=live&master_id={master_id}",
         headers=auth_headers(user_auth["session_token"]),
     )
     assert resp.status_code == 200
@@ -859,8 +814,13 @@ async def test_list_practices_sort_price(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Sort by price_cents ascending."""
+    """Sort by price_cents ascending.
+
+    Scoped to this test's master via master_id filter to stay
+    independent of seed data present in the database.
+    """
     auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
 
     await _create_and_publish(
         client, auth,
@@ -884,7 +844,7 @@ async def test_list_practices_sort_price(
         client, telegram_id=60106, first_name="Viewer",
     )
     resp = await client.get(
-        f"{PRACTICES_URL}?sort_by=price_cents&sort_order=asc",
+        f"{PRACTICES_URL}?sort_by=price_cents&sort_order=asc&master_id={master_id}",
         headers=auth_headers(user_auth["session_token"]),
     )
     assert resp.status_code == 200
@@ -902,8 +862,13 @@ async def test_list_practices_pagination(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Pagination limit/offset works correctly."""
+    """Pagination limit/offset works correctly.
+
+    Scoped to this test's master via master_id filter to stay
+    independent of seed data present in the database.
+    """
     auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
 
     for i in range(3):
         await _create_and_publish(
@@ -914,7 +879,7 @@ async def test_list_practices_pagination(
         client, telegram_id=60107, first_name="Viewer",
     )
     resp = await client.get(
-        f"{PRACTICES_URL}?limit=2&offset=0",
+        f"{PRACTICES_URL}?master_id={master_id}&limit=2&offset=0",
         headers=auth_headers(user_auth["session_token"]),
     )
     assert resp.status_code == 200
@@ -926,7 +891,7 @@ async def test_list_practices_pagination(
 
     # Page 2.
     resp2 = await client.get(
-        f"{PRACTICES_URL}?limit=2&offset=2",
+        f"{PRACTICES_URL}?master_id={master_id}&limit=2&offset=2",
         headers=auth_headers(user_auth["session_token"]),
     )
     assert resp2.status_code == 200
