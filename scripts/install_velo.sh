@@ -659,6 +659,24 @@ start_stack() {
 start_stack
 
 # ==============================================================================
+# DATABASE MIGRATIONS
+# ==============================================================================
+
+run_migrations() {
+    log "Running database migrations..."
+
+    cd "$INSTALL_BASE/repo"
+    docker compose exec -T app python -m alembic upgrade head || {
+        error "Migration failed! Check logs: docker compose logs app"
+        return 1
+    }
+
+    success "Database migrations applied"
+}
+
+run_migrations
+
+# ==============================================================================
 # MANAGEMENT SCRIPT
 # ==============================================================================
 

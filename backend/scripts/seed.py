@@ -844,6 +844,19 @@ async def seed(reset: bool = False) -> None:
     factory = get_session_factory()
     async with factory() as session:
         try:
+            # -- Verify tables exist (migrations must run first) --
+            from sqlalchemy import text
+
+            try:
+                await session.execute(
+                    text("SELECT 1 FROM users LIMIT 1"),
+                )
+            except Exception:
+                await session.rollback()
+                err("Tables do not exist. Run migrations first:")
+                err("  velo db migrate")
+                return
+
             # -- Reset if requested --
             if reset:
                 await reset_seed_data(session)
