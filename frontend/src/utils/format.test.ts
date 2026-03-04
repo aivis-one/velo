@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- format.ts Unit Tests
+// VELO Frontend -- format.ts Unit Tests (updated Phase F4.2)
 // =============================================================================
 
 import { describe, it, expect } from 'vitest'
@@ -16,8 +16,15 @@ import {
 // formatMoney
 // -----------------------------------------------------------------------
 describe('formatMoney', () => {
-  it('returns "Бесплатно" for 0 cents', () => {
+  it('returns "Бесплатно" for 0 cents by default', () => {
     expect(formatMoney(0, 'EUR')).toBe('Бесплатно')
+  })
+
+  it('formats 0 cents as currency when allowZero is true', () => {
+    const result = formatMoney(0, 'EUR', 'ru', true)
+    // Should contain "0" and NOT be "Бесплатно"
+    expect(result).toContain('0')
+    expect(result).not.toBe('Бесплатно')
   })
 
   it('formats EUR cents into euros', () => {
@@ -40,6 +47,12 @@ describe('formatMoney', () => {
     // 999900 cents = 9999 EUR
     expect(result).toContain('9')
     expect(result).not.toBe('Бесплатно')
+  })
+
+  it('allowZero does not affect non-zero amounts', () => {
+    const withFlag = formatMoney(1500, 'EUR', 'ru', true)
+    const withoutFlag = formatMoney(1500, 'EUR', 'ru', false)
+    expect(withFlag).toBe(withoutFlag)
   })
 })
 

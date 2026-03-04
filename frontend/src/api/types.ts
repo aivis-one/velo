@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -7,6 +7,7 @@
 //
 // F3.1: PaginatedResponse fixed to limit/offset (matches backend).
 //        Practice types added for catalog feature.
+// F4.1: Booking, Purchase, and Preview types added for booking flow.
 // =============================================================================
 
 // -- Auth --
@@ -95,6 +96,71 @@ export interface PracticeFilters {
   date_to?: string
   sort_by?: 'scheduled_at' | 'price_cents'
   sort_order?: 'asc' | 'desc'
+}
+
+// -- Bookings (Phase F4.1) --
+
+export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
+
+/**
+ * Compact practice representation embedded in booking/purchase responses.
+ * Matches backend PracticeSummary schema.
+ */
+export interface PracticeSummary {
+  id: string
+  title: string
+  practice_type: PracticeType
+  scheduled_at: string
+  duration_minutes: number
+  master_id: string
+  master_name: string | null
+}
+
+export interface BookingWithPracticeResponse {
+  id: string
+  practice_id: string
+  user_id: string
+  status: BookingStatus
+  purchase_id: string | null
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  joined_at: string | null
+  left_at: string | null
+  created_at: string
+  updated_at: string | null
+  practice: PracticeSummary
+}
+
+export type PaginatedBookingsResponse = PaginatedResponse<BookingWithPracticeResponse>
+
+// -- Purchases (Phase F4.1) --
+
+export interface PurchaseResponse {
+  id: string
+  user_id: string
+  practice_id: string
+  booking_id: string
+  promo_id: string | null
+  amount_cents: number
+  discount_cents: number
+  paid_cents: number
+  currency: string
+  commission_cents: number
+  status: string
+  completed_at: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PreviewPurchaseResponse {
+  practice_id: string
+  amount_cents: number
+  discount_cents: number
+  paid_cents: number
+  currency: string
+  promo_code: string | null
+  promo_type: string | null
+  discount_percent: number | null
 }
 
 // -- Errors --

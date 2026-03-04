@@ -1,15 +1,18 @@
 <!--
-  VELO Frontend -- PracticeDetailView (Phase F3.2)
+  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1)
 
   Full practice detail screen. Matches mockup practice-detail layout:
     - Hero header: emoji + title + meta (date, duration, spots)
     - Sections: description, master info
     - Sticky footer: price + "Book" button
 
+  Phase F4.1:
+    - "Book" button opens BookingPopup (purchase flow with promo)
+    - After successful purchase: booked flag shown, button disabled
+    - Local booked state (no backend is_booked field yet)
+
   Route: /user/practices/:id
   Param: id (practice UUID)
-
-  Booking button is a stub until Phase F4 (POST /bookings).
 -->
 
 <template>
@@ -84,6 +87,16 @@
         </span>
       </div>
       <VButton
+        v-if="booked"
+        variant="secondary"
+        size="lg"
+        block
+        disabled
+      >
+        ✓ Вы записаны
+      </VButton>
+      <VButton
+        v-else
         variant="primary"
         size="lg"
         block
@@ -93,15 +106,23 @@
         {{ bookButtonText }}
       </VButton>
     </div>
+
+    <!-- Booking popup -->
+    <BookingPopup
+      :practice="practice"
+      :open="showBookingPopup"
+      @close="showBookingPopup = false"
+      @purchased="onPurchased"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
-import { useToast } from '@/composables/useToast'
+import BookingPopup from '@/components/shared/BookingPopup.vue'
 import {
   formatDate,
   formatDuration,
@@ -114,9 +135,12 @@ import type { PracticeType } from '@/api/types'
 const route = useRoute()
 const router = useRouter()
 const store = usePracticesStore()
-const toast = useToast()
 
 const practice = computed(() => store.selected)
+
+// -- Booking state --
+const showBookingPopup = ref(false)
+const booked = ref(false)
 
 // -- Type labels --
 const TYPE_EMOJI: Record<PracticeType, string> = {
@@ -181,8 +205,15 @@ const bookButtonText = computed(() => {
 
 // -- Actions --
 function onBook(): void {
-  // Stub until Phase F4 (booking flow)
-  toast.info('Бронирование будет доступно в следующем обновлении')
+  showBookingPopup.value = true
+}
+
+function onPurchased(): void {
+  showBookingPopup.value = false
+  booked.value = true
+  // Refresh practice to update participant count.
+  const id = route.params.id as string
+  store.fetchPractice(id)
 }
 
 // -- Lifecycle --

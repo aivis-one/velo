@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Practices API (Phase F3.1)
+// VELO Frontend -- Practices API (Phase F3.1, updated F4.1)
 // =============================================================================
 //
 // Typed wrappers over api.get() for practice endpoints.
@@ -8,31 +8,16 @@
 //   GET /api/v1/practices          — public feed (scheduled + live)
 //   GET /api/v1/practices/{id}     — single practice detail
 //
-// Query params are built manually because api.get() accepts only a
-// path string (no params object). buildQuery() strips undefined values.
+// F4.1: buildQuery extracted to @/api/utils (shared with bookings.ts).
 // =============================================================================
 
 import { api } from '@/api/client'
+import { buildQuery } from '@/api/utils'
 import type {
   PaginatedPracticesResponse,
   PracticeFilters,
   PracticeResponse,
 } from '@/api/types'
-
-/**
- * Build query string from an object, skipping undefined/null values.
- */
-function buildQuery(params: Record<string, string | number | undefined | null>): string {
-  const entries = Object.entries(params).filter(
-    (entry): entry is [string, string | number] =>
-      entry[1] !== undefined && entry[1] !== null,
-  )
-  if (entries.length === 0) return ''
-  const qs = new URLSearchParams(
-    entries.map(([k, v]) => [k, String(v)]),
-  )
-  return `?${qs.toString()}`
-}
 
 /**
  * Fetch paginated list of public practices.

@@ -1,26 +1,33 @@
 // =============================================================================
-// VELO Frontend -- Format Utilities (Phase F3.1)
+// VELO Frontend -- Format Utilities (Phase F3.1, updated F4.2)
 // =============================================================================
 //
 // Pure formatting functions used across practice cards, detail views,
 // and any future components that display money, dates, or durations.
 //
 // All functions are locale-aware where applicable (defaults to 'ru').
+//
+// F4.2: formatMoney gains allowZero param for balance display.
 // =============================================================================
 
 /**
  * Format cents into a currency string using Intl.NumberFormat.
  *
+ * By default, 0 cents returns "Бесплатно" (for practice prices).
+ * Pass allowZero=true to format 0 as "€0,00" (for balance display).
+ *
  * Examples:
- *   formatMoney(1500, 'EUR')  → "15,00 €"  (in ru locale)
- *   formatMoney(0, 'EUR')     → "Бесплатно"
+ *   formatMoney(1500, 'EUR')              → "15,00 €"  (in ru locale)
+ *   formatMoney(0, 'EUR')                 → "Бесплатно"
+ *   formatMoney(0, 'EUR', 'ru', true)     → "0,00 €"
  */
 export function formatMoney(
   cents: number,
   currency: string,
   locale = 'ru',
+  allowZero = false,
 ): string {
-  if (cents === 0) return 'Бесплатно'
+  if (cents === 0 && !allowZero) return 'Бесплатно'
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
