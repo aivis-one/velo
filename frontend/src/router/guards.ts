@@ -1,19 +1,24 @@
 // =============================================================================
-// VELO Frontend -- Router Guards (Phase F2.2)
+// VELO Frontend -- Router Guards (Phase F2.2, updated F6)
 // =============================================================================
 //
 // Navigation guards for role-based access control.
 //
 // Auth gate (authenticated yes/no) lives in App.vue (Phase F1.3).
 // These guards handle ROLE-BASED routing for authenticated users:
-//   - roleGuard: checks user role matches required role
-//   - masterStatusGuard: checks master verification status (stub for F6)
+//   - roleRedirect: redirect / to role-specific dashboard
+//   - roleGuard:    require a minimum role to access a route group
+//   - masterStatusGuard: require verified master profile
 //
-// Guards are applied per-route in router/index.ts via beforeEnter.
+// F6 update: masterStatusGuard is now fully implemented.
+//   - Calls useMasterStore().fetchMyProfile() lazily (skips if loaded)
+//   - Redirects to /master/pending if profile missing or not verified
+//   - Guards are applied per-route in router/index.ts via beforeEnter
 // =============================================================================
 
 import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useMasterStore } from '@/stores/master'
 import type { UserRole } from '@/api/types'
 
 /**
@@ -35,8 +40,8 @@ export const roleRedirect: NavigationGuardWithThis<undefined> = () => {
 /**
  * Factory: require a minimum role to access a route group.
  *
- * roleGuard('master') — allows master + admin
- * roleGuard('admin')  — allows admin only
+ * roleGuard('master') -- allows master + admin
+ * roleGuard('admin')  -- allows admin only
  */
 export function roleGuard(
   required: Extract<UserRole, 'master' | 'admin'>,
@@ -58,15 +63,30 @@ export function roleGuard(
 }
 
 /**
- * Check master verification status before allowing access.
+ * Require verified master profile before accessing protected master routes.
  *
- * STUB: always passes in F2.2. Real implementation in F6.1 will
- * check master profile status and redirect to /master/pending
- * if not verified.
+ * Applied to: practices/*, finance (routes that require active master status).
+ * NOT applied to: dashboard, profile, apply, pending.
+ *
+ * Flow:
+ *   1. Lazy-fetch master profile (skipped if already loaded in this session)
+ *   2. If fetch fails or profile is null -> redirect to /master/pending
+ *   3. If profile.status !== 'verified' -> redirect to /master/pending
+ *   4. Otherwise -> allow navigation
+ *
+ * Note: role=master and status=verified are kept in sync by the backend
+ * (admin verify sets both atomically). This guard adds a second layer
+ * of safety for edge cases.
  */
-export const masterStatusGuard: NavigationGuardWithThis<undefined> = () => {
-  // TODO (F6.1): check master store verification status
-  // const masterStore = useMasterStore()
-  // if (masterStore.status !== 'verified') return { path: '/master/pending' }
+export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () => {
+  const masterStore = useMasterStore()
+
+  // Lazy-load: skip network call if already fetched this session.
+  await masterStore.fetchMyProfile()
+
+  if (!masterStore.profile || masterStore.profile.status !== 'verified') {
+    return { path: '/master/pending' }
+  }
+
   return true
 }

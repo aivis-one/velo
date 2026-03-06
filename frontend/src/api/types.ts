@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1, fixed F5 review)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6, fixed F5 review)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -9,6 +9,7 @@
 //        Practice types added for catalog feature.
 // F4.1: Booking, Purchase, and Preview types added for booking flow.
 // F5 review: W-28 -- PurchaseStatus union type (was string).
+// F6: Master profile, apply flow, attendance, practice CRUD types.
 // =============================================================================
 
 // -- Auth --
@@ -61,7 +62,13 @@ export interface PaginatedResponse<T> {
 
 export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
 
-export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
+export type PracticeStatus =
+  | 'draft'
+  | 'scheduled'
+  | 'live'
+  | 'completed'
+  | 'cancelled'
+  | 'deleted'
 
 export interface PracticeResponse {
   id: string
@@ -97,6 +104,41 @@ export interface PracticeFilters {
   date_to?: string
   sort_by?: 'scheduled_at' | 'price_cents'
   sort_order?: 'asc' | 'desc'
+}
+
+// -- Practice CRUD requests (Phase F6.2) --
+
+export interface CreatePracticeRequest {
+  practice_type: PracticeType
+  title: string
+  description?: string | null
+  scheduled_at: string            // ISO 8601, must be in the future
+  duration_minutes: number
+  timezone: string                // IANA timezone, e.g. "Europe/Berlin"
+  max_participants?: number | null
+  zoom_link?: string | null
+  parent_practice_id?: string | null
+  is_free?: boolean
+  price_cents?: number
+  currency?: 'EUR'
+}
+
+// Only statuses reachable via state machine (backend _VALID_TRANSITIONS).
+// "cancelled" is NOT here -- use cancelPractice() instead.
+export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
+
+export interface UpdatePracticeRequest {
+  title?: string | null
+  description?: string | null
+  scheduled_at?: string | null
+  duration_minutes?: number | null
+  timezone?: string | null
+  max_participants?: number | null
+  zoom_link?: string | null
+  status?: PracticeStatusTransition | null
+  is_free?: boolean | null
+  price_cents?: number | null
+  currency?: 'EUR' | null
 }
 
 // -- Bookings (Phase F4.1) --
@@ -166,15 +208,84 @@ export interface PreviewPurchaseResponse {
   discount_percent: number | null
 }
 
+// -- Masters (Phase F6.1) --
+
+export type MasterStatus = 'pending' | 'verified' | 'rejected'
+
+export interface MasterProfileResponse {
+  user_id: string
+  status: MasterStatus
+  display_name: string | null
+  bio: string | null
+  methods: string[]
+  experience_years: number | null
+  frozen_cents: number
+  available_cents: number
+  created_at: string
+  updated_at: string | null
+}
+
+// Step 1 of the 3-step apply form
+export interface MasterApplyProfile {
+  display_name: string
+  email?: string | null
+  phone?: string | null
+}
+
+// Step 2 of the 3-step apply form
+export interface MasterApplyExperience {
+  methods: string[]
+  experience_years: number
+  bio?: string | null
+  certifications?: string[]
+}
+
+// Combined request sent as one POST to /api/v1/masters/apply
+export interface MasterApplyRequest {
+  profile: MasterApplyProfile
+  experience: MasterApplyExperience
+  documents?: Record<string, unknown>[]
+}
+
+export interface MasterApplyResponse {
+  user_id: string
+  status: MasterStatus
+  created_at: string
+}
+
+// -- Attendance (Phase F6.3) --
+
+// Subset of BookingStatus relevant to attendance tracking
+export type AttendanceBookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show'
+
+export interface AttendanceItemResponse {
+  booking_id: string
+  user_id: string
+  status: AttendanceBookingStatus
+  joined_at: string | null
+  left_at: string | null
+}
+
+export interface AttendanceResponse {
+  practice_id: string
+  total: number
+  attended: number
+  no_show: number
+  pending: number
+  items: AttendanceItemResponse[]
+}
+
 // -- Errors --
 
 // Backend returns string detail on most errors (400, 401, 403, 404, 409)
 // and an array of validation objects on 422.
 // client.ts normalises the array to a joined string before throwing.
 export interface ApiError {
-  detail: string | Array<{
-    loc: (string | number)[]
-    msg: string
-    type: string
-  }>
+  detail:
+    | string
+    | Array<{
+        loc: (string | number)[]
+        msg: string
+        type: string
+      }>
 }

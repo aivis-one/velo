@@ -1,35 +1,879 @@
 <!--
-  VELO Frontend -- Редактирование (Phase F2.2 stub)
-  Implementation: Phase F6.2
+  VELO Frontend -- EditPracticeView (Phase F6.2 + F6.3)
+
+  Edit an existing practice and trigger state machine transitions.
+  Protected by masterStatusGuard. Rendered inside MasterShell.
+
+  Load order:
+    1. Try masterStore.practices cache (instant if already loaded)
+    2. Fallback: GET /api/v1/practices/:id
+
+  Editable fields (draft / scheduled only -- completed/cancelled are readonly):
+    title, description, scheduled_at (date+time), duration_minutes,
+    timezone, max_participants, is_free, price_cents, zoom_link
+
+  State machine action buttons (below form):
+    draft      -> "Опубликовать"  PATCH status=scheduled
+                  "Удалить"       DELETE  (soft-delete, draft only)
+    scheduled  -> "Начать эфир"   PATCH status=live
+                  "Отменить"      POST /cancel (+ confirm dialog)
+    live       -> "Завершить"     POST /finalize (+ confirm dialog)
+                  "Отменить"      POST /cancel   (+ confirm dialog)
+    completed / cancelled / deleted -> readonly info banner
+
+  After any successful mutation:
+    - refreshMyPractices() to invalidate cache
+    - navigate back to master-practices
 -->
 
 <template>
-  <div class="view-stub">
-    <span class="view-stub__icon">✏️</span>
-    <h2 class="view-stub__title">Редактирование</h2>
-    <p class="view-stub__phase">Phase F6.2</p>
+  <div class="edit-practice">
+    <VHeader
+      title="Редактировать"
+      show-back
+      @back="router.push({ name: 'master-practices' })"
+    />
+
+    <!-- Loading -->
+    <div v-if="loading" class="edit-practice__loader">
+      <VLoader size="lg" />
+    </div>
+
+    <!-- Error / not found -->
+    <div v-else-if="!practice" class="edit-practice__content">
+      <VEmptyState icon="⚠️" title="Практика не найдена">
+        <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practices' })">
+          Назад
+        </VButton>
+      </VEmptyState>
+    </div>
+
+    <template v-else>
+      <!-- ================================================================
+           READONLY BANNER for terminal statuses
+           ================================================================ -->
+      <div v-if="isTerminal" class="edit-practice__readonly-banner">
+        <VBadge :variant="statusVariant(practice.status)">
+          {{ statusLabel(practice.status) }}
+        </VBadge>
+        <span class="edit-practice__readonly-text">Редактирование недоступно</span>
+      </div>
+
+      <div class="edit-practice__content">
+        <!-- ================================================================
+             FORM (editable for draft / scheduled only)
+             ================================================================ -->
+        <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">📝 ОСНОВНОЕ</div>
+            <VInput
+              v-model="form.title"
+              label="Название *"
+              :error="errors.title"
+            />
+            <!-- practice_type is immutable after creation -->
+            <div class="edit-practice__field">
+              <label class="edit-practice__label">Тип практики</label>
+              <span class="edit-practice__readonly-value">
+                {{ practiceTypeLabel(practice.practice_type) }}
+              </span>
+            </div>
+          </div>
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
+
+            <div class="edit-practice__field">
+              <label class="edit-practice__label">Дата</label>
+              <input
+                v-model="form.date"
+                type="date"
+                class="edit-practice__date-input"
+                :disabled="isTerminal"
+              />
+            </div>
+
+            <div class="edit-practice__field">
+              <label class="edit-practice__label">Время</label>
+              <input
+                v-model="form.time"
+                type="time"
+                class="edit-practice__date-input"
+                :disabled="isTerminal"
+              />
+            </div>
+
+            <VSelect
+              v-model="form.duration_minutes"
+              label="Длительность"
+              :options="DURATION_OPTIONS"
+            />
+
+            <VSelect
+              v-model="form.timezone"
+              label="Часовой пояс"
+              :options="TIMEZONE_OPTIONS"
+            />
+          </div>
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">👥 УЧАСТНИКИ</div>
+            <VInput
+              v-model="form.max_participants_raw"
+              label="Максимум (пусто = без ограничений)"
+              type="number"
+              :error="errors.max_participants"
+            />
+          </div>
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">💰 ЦЕНА</div>
+            <div class="edit-practice__payment-options">
+              <label
+                class="edit-practice__payment-option"
+                :class="{ 'edit-practice__payment-option--active': form.is_free }"
+                @click="!isTerminal && (form.is_free = true)"
+              >
+                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': form.is_free }" />
+                <span>Бесплатно</span>
+              </label>
+              <label
+                class="edit-practice__payment-option"
+                :class="{ 'edit-practice__payment-option--active': !form.is_free }"
+                @click="!isTerminal && (form.is_free = false)"
+              >
+                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': !form.is_free }" />
+                <span>Платно</span>
+              </label>
+            </div>
+            <template v-if="!form.is_free">
+              <VInput
+                v-model="form.price_eur_raw"
+                label="Цена (EUR)"
+                type="number"
+                :error="errors.price_cents"
+              />
+              <div v-if="priceCents > 0" class="edit-practice__price-calc">
+                <div class="edit-practice__price-row">
+                  <span>Комиссия 15%</span>
+                  <span>{{ formatMoney(Math.round(priceCents * 0.15), 'EUR') }}</span>
+                </div>
+                <div class="edit-practice__price-row edit-practice__price-row--total">
+                  <span>Вы получите</span>
+                  <span>{{ formatMoney(Math.round(priceCents * 0.85), 'EUR') }}</span>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">📝 ОПИСАНИЕ</div>
+            <VTextarea
+              v-model="form.description"
+              label="Описание"
+              :rows="4"
+            />
+          </div>
+
+          <div class="edit-practice__section">
+            <div class="edit-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+            <VInput
+              v-model="form.zoom_link"
+              label="Zoom ссылка"
+              type="url"
+              :error="errors.zoom_link"
+            />
+          </div>
+
+          <!-- Save button (not shown for terminal statuses) -->
+          <VButton
+            v-if="!isTerminal"
+            variant="secondary"
+            block
+            :loading="saving"
+            @click="save"
+          >
+            Сохранить изменения
+          </VButton>
+        </fieldset>
+
+        <!-- ================================================================
+             STATE MACHINE ACTIONS
+             ================================================================ -->
+        <div v-if="!isTerminal" class="edit-practice__actions">
+          <div class="edit-practice__section-title">⚡ ДЕЙСТВИЯ</div>
+
+          <!-- draft -> scheduled -->
+          <VButton
+            v-if="practice.status === 'draft'"
+            variant="primary"
+            block
+            :loading="transitioning"
+            @click="publish"
+          >
+            ▶️ Опубликовать практику
+          </VButton>
+
+          <!-- scheduled -> live -->
+          <VButton
+            v-if="practice.status === 'scheduled'"
+            variant="primary"
+            block
+            :loading="transitioning"
+            @click="startLive"
+          >
+            🎬 Начать эфир
+          </VButton>
+
+          <!-- live -> completed (finalize) -->
+          <VButton
+            v-if="practice.status === 'live'"
+            variant="primary"
+            block
+            :loading="transitioning"
+            @click="confirmFinalize"
+          >
+            ✅ Завершить практику
+          </VButton>
+
+          <!-- live / scheduled -> attendance (only for live to check who's in) -->
+          <VButton
+            v-if="practice.status === 'live' || practice.status === 'scheduled'"
+            variant="outline"
+            block
+            @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
+          >
+            👥 Посещаемость
+          </VButton>
+
+          <!-- draft -> deleted -->
+          <VButton
+            v-if="practice.status === 'draft'"
+            variant="danger"
+            block
+            :loading="deleting"
+            @click="confirmDelete"
+          >
+            🗑 Удалить черновик
+          </VButton>
+
+          <!-- scheduled / live -> cancelled -->
+          <VButton
+            v-if="practice.status === 'scheduled' || practice.status === 'live'"
+            variant="danger"
+            block
+            :loading="cancelling"
+            @click="confirmCancel"
+          >
+            ❌ Отменить практику
+          </VButton>
+        </div>
+
+        <!-- Attendance link for completed -->
+        <div v-if="practice.status === 'completed'" class="edit-practice__actions">
+          <VButton
+            variant="outline"
+            block
+            @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
+          >
+            👥 Посещаемость
+          </VButton>
+        </div>
+      </div>
+
+      <!-- ================================================================
+           CONFIRM DIALOG (inline -- no VModal needed for simple confirms)
+           ================================================================ -->
+      <Teleport to="body">
+        <div v-if="confirmDialog.visible" class="edit-practice__overlay" @click.self="confirmDialog.visible = false">
+          <div class="edit-practice__dialog">
+            <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
+            <div class="edit-practice__dialog-actions">
+              <VButton variant="ghost" @click="confirmDialog.visible = false">Отмена</VButton>
+              <VButton :variant="confirmDialog.danger ? 'danger' : 'primary'" :loading="confirmDialog.loading" @click="confirmDialog.onConfirm">
+                {{ confirmDialog.confirmLabel }}
+              </VButton>
+            </div>
+          </div>
+        </div>
+      </Teleport>
+    </template>
   </div>
 </template>
 
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { VHeader, VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
+import { useToast } from '@/composables/useToast'
+import { useMasterStore } from '@/stores/master'
+import {
+  getPractice,
+  updatePractice,
+  deletePractice,
+  cancelPractice,
+  finalizePractice,
+} from '@/api/practices'
+import { formatMoney } from '@/utils/format'
+import { ApiResponseError } from '@/api/client'
+import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
+
+const route = useRoute()
+const router = useRouter()
+const toast = useToast()
+const masterStore = useMasterStore()
+
+const practiceId = route.params.id as string
+
+// -- Practice data --
+const practice = ref<PracticeResponse | null>(null)
+const loading = ref(false)
+
+// -- Action loading states --
+const saving = ref(false)
+const transitioning = ref(false)
+const cancelling = ref(false)
+const deleting = ref(false)
+
+// -- Confirm dialog state --
+const confirmDialog = reactive({
+  visible: false,
+  message: '',
+  confirmLabel: 'Подтвердить',
+  danger: false,
+  loading: false,
+  onConfirm: (): void => { /* filled per use */ },
+})
+
+// -- Duration / timezone options (same as CreatePracticeView) --
+const DURATION_OPTIONS = [
+  { label: '30 минут', value: '30' },
+  { label: '45 минут', value: '45' },
+  { label: '60 минут', value: '60' },
+  { label: '75 минут', value: '75' },
+  { label: '90 минут', value: '90' },
+  { label: '120 минут', value: '120' },
+]
+
+const TIMEZONE_OPTIONS = [
+  { label: 'Europe/Moscow (UTC+3)',     value: 'Europe/Moscow' },
+  { label: 'Europe/Berlin (UTC+1/2)',   value: 'Europe/Berlin' },
+  { label: 'Europe/London (UTC+0/1)',   value: 'Europe/London' },
+  { label: 'UTC',                       value: 'UTC' },
+  { label: 'Asia/Yerevan (UTC+4)',      value: 'Asia/Yerevan' },
+  { label: 'Asia/Tbilisi (UTC+4)',      value: 'Asia/Tbilisi' },
+  { label: 'Asia/Almaty (UTC+5)',       value: 'Asia/Almaty' },
+  { label: 'Asia/Dubai (UTC+4)',        value: 'Asia/Dubai' },
+  { label: 'America/New_York (UTC-5/4)', value: 'America/New_York' },
+]
+
+// -- Form state (populated from practice on load) --
+const form = reactive({
+  title: '',
+  date: '',
+  time: '',
+  duration_minutes: '60',
+  timezone: 'Europe/Moscow',
+  max_participants_raw: '',
+  is_free: false,
+  price_eur_raw: '',
+  description: '',
+  zoom_link: '',
+})
+
+const errors = reactive({
+  title: '',
+  max_participants: '',
+  price_cents: '',
+  zoom_link: '',
+})
+
+// -- Derived --
+const isTerminal = computed((): boolean =>
+  practice.value?.status === 'completed' ||
+  practice.value?.status === 'cancelled' ||
+  practice.value?.status === 'deleted',
+)
+
+const priceCents = computed((): number => {
+  const eur = parseFloat(form.price_eur_raw)
+  return isNaN(eur) || eur <= 0 ? 0 : Math.round(eur * 100)
+})
+
+// -- Label helpers --
+const PRACTICE_TYPE_LABELS: Record<PracticeType, string> = {
+  live: 'Живая группа',
+  series: 'Серия занятий',
+  one_on_one: 'Индивидуально',
+  replay: 'Запись',
+}
+function practiceTypeLabel(t: PracticeType): string {
+  return PRACTICE_TYPE_LABELS[t] ?? t
+}
+
+const STATUS_LABELS: Record<PracticeStatus, string> = {
+  draft: 'Черновик',
+  scheduled: 'Запланирована',
+  live: 'В эфире',
+  completed: 'Завершена',
+  cancelled: 'Отменена',
+  deleted: 'Удалена',
+}
+function statusLabel(s: PracticeStatus): string {
+  return STATUS_LABELS[s] ?? s
+}
+
+function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
+  switch (s) {
+    case 'live':      return 'success'
+    case 'scheduled': return 'info'
+    case 'draft':     return 'warning'
+    case 'completed': return 'info'
+    default:          return 'error'
+  }
+}
+
+// -- Populate form from practice --
+function populateForm(p: PracticeResponse): void {
+  form.title = p.title
+  // Parse ISO string to local date/time for inputs
+  const dt = new Date(p.scheduled_at)
+  // Format: YYYY-MM-DD
+  form.date = dt.toLocaleDateString('en-CA', { timeZone: p.timezone })
+  // Format: HH:MM
+  form.time = dt.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: p.timezone,
+  })
+  form.duration_minutes = String(p.duration_minutes)
+  form.timezone = p.timezone
+  form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
+  form.is_free = p.is_free
+  form.price_eur_raw = p.is_free ? '' : String(p.price_cents / 100)
+  form.description = p.description ?? ''
+  form.zoom_link = p.zoom_link ?? ''
+}
+
+// -- Load practice --
+onMounted(async () => {
+  // Try store cache first (avoids extra network call)
+  const cached = masterStore.practices.find((p) => p.id === practiceId)
+  if (cached) {
+    practice.value = cached
+    populateForm(cached)
+    return
+  }
+  // Fallback: fetch from API
+  loading.value = true
+  try {
+    const p = await getPractice(practiceId)
+    practice.value = p
+    populateForm(p)
+  } catch (e) {
+    const message = e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить практику'
+    toast.error(message)
+  } finally {
+    loading.value = false
+  }
+})
+
+// -- Validate editable fields --
+function validate(): boolean {
+  let ok = true
+  errors.title = ''
+  errors.max_participants = ''
+  errors.price_cents = ''
+  errors.zoom_link = ''
+
+  if (!form.title.trim()) {
+    errors.title = 'Введите название'
+    ok = false
+  }
+  if (form.max_participants_raw) {
+    const n = parseInt(form.max_participants_raw, 10)
+    if (isNaN(n) || n < 1) {
+      errors.max_participants = 'Введите положительное число или оставьте пустым'
+      ok = false
+    }
+  }
+  if (!form.is_free && priceCents.value < 100) {
+    errors.price_cents = 'Минимальная цена — €1,00'
+    ok = false
+  }
+  if (form.zoom_link && !form.zoom_link.startsWith('https://')) {
+    errors.zoom_link = 'Ссылка должна начинаться с https://'
+    ok = false
+  }
+  return ok
+}
+
+// -- Save (PATCH editable fields) --
+async function save(): Promise<void> {
+  if (!validate() || saving.value) return
+  saving.value = true
+  try {
+    const scheduledAt =
+      form.date && form.time
+        ? new Date(`${form.date}T${form.time}`).toISOString()
+        : undefined
+
+    const updated = await updatePractice(practiceId, {
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      scheduled_at: scheduledAt ?? null,
+      duration_minutes: parseInt(form.duration_minutes, 10),
+      timezone: form.timezone,
+      max_participants: form.max_participants_raw
+        ? parseInt(form.max_participants_raw, 10)
+        : null,
+      zoom_link: form.zoom_link.trim() || null,
+      is_free: form.is_free,
+      price_cents: form.is_free ? 0 : priceCents.value,
+    })
+    practice.value = updated
+    toast.success('Сохранено')
+    await masterStore.refreshMyPractices()
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Ошибка сохранения')
+  } finally {
+    saving.value = false
+  }
+}
+
+// -- Publish: draft -> scheduled --
+async function publish(): Promise<void> {
+  if (transitioning.value) return
+  transitioning.value = true
+  try {
+    const updated = await updatePractice(practiceId, { status: 'scheduled' })
+    practice.value = updated
+    toast.success('Практика опубликована!')
+    await masterStore.refreshMyPractices()
+    router.push({ name: 'master-practices' })
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось опубликовать')
+  } finally {
+    transitioning.value = false
+  }
+}
+
+// -- Start live: scheduled -> live --
+async function startLive(): Promise<void> {
+  if (transitioning.value) return
+  transitioning.value = true
+  try {
+    const updated = await updatePractice(practiceId, { status: 'live' })
+    practice.value = updated
+    toast.success('Эфир начат!')
+    await masterStore.refreshMyPractices()
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось начать эфир')
+  } finally {
+    transitioning.value = false
+  }
+}
+
+// -- Confirm finalize dialog --
+function confirmFinalize(): void {
+  confirmDialog.message = 'Завершить практику? Посещаемость будет зафиксирована.'
+  confirmDialog.confirmLabel = 'Завершить'
+  confirmDialog.danger = false
+  confirmDialog.visible = true
+  confirmDialog.onConfirm = finalize
+}
+
+// -- Finalize: live -> completed --
+async function finalize(): Promise<void> {
+  if (confirmDialog.loading) return
+  confirmDialog.loading = true
+  try {
+    const updated = await finalizePractice(practiceId)
+    practice.value = updated
+    confirmDialog.visible = false
+    toast.success('Практика завершена!')
+    await masterStore.refreshMyPractices()
+    router.push({ name: 'master-attendance', params: { id: practiceId } })
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось завершить')
+  } finally {
+    confirmDialog.loading = false
+  }
+}
+
+// -- Confirm cancel dialog --
+function confirmCancel(): void {
+  confirmDialog.message = 'Отменить практику? Все участники получат полный возврат средств.'
+  confirmDialog.confirmLabel = 'Отменить практику'
+  confirmDialog.danger = true
+  confirmDialog.visible = true
+  confirmDialog.onConfirm = cancel
+}
+
+// -- Cancel: scheduled/live -> cancelled --
+async function cancel(): Promise<void> {
+  if (confirmDialog.loading) return
+  confirmDialog.loading = true
+  try {
+    const updated = await cancelPractice(practiceId)
+    practice.value = updated
+    confirmDialog.visible = false
+    toast.success('Практика отменена, возвраты выполнены')
+    await masterStore.refreshMyPractices()
+    router.push({ name: 'master-practices' })
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось отменить')
+  } finally {
+    confirmDialog.loading = false
+  }
+}
+
+// -- Confirm delete dialog --
+function confirmDelete(): void {
+  confirmDialog.message = 'Удалить черновик? Это действие нельзя отменить.'
+  confirmDialog.confirmLabel = 'Удалить'
+  confirmDialog.danger = true
+  confirmDialog.visible = true
+  confirmDialog.onConfirm = remove
+}
+
+// -- Delete: draft -> deleted (soft) --
+async function remove(): Promise<void> {
+  if (confirmDialog.loading) return
+  confirmDialog.loading = true
+  try {
+    await deletePractice(practiceId)
+    confirmDialog.visible = false
+    toast.success('Черновик удалён')
+    await masterStore.refreshMyPractices()
+    router.push({ name: 'master-practices' })
+  } catch (e) {
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось удалить')
+  } finally {
+    confirmDialog.loading = false
+  }
+}
+</script>
+
 <style scoped>
-.view-stub {
+.edit-practice {
+  min-height: 100%;
+  background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
   display: flex;
   flex-direction: column;
-  align-items: center;
+}
+
+.edit-practice__loader {
+  display: flex;
   justify-content: center;
-  min-height: 60vh;
-  text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-12) 0;
 }
-.view-stub__icon { font-size: 48px; margin-bottom: var(--space-3); }
-.view-stub__title {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-2);
+
+/* -- Readonly banner -- */
+.edit-practice__readonly-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--velo-bg-subtle);
+  border-bottom: 1px solid var(--velo-border);
 }
-.view-stub__phase {
+
+.edit-practice__readonly-text {
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
+}
+
+/* -- Content -- */
+.edit-practice__content {
+  flex: 1;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* -- Fieldset reset (we use it for disabled state) -- */
+.edit-practice__fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.edit-practice__fieldset:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* -- Section -- */
+.edit-practice__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.edit-practice__section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--velo-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--velo-border);
+}
+
+/* -- Readonly value (practice_type) -- */
+.edit-practice__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.edit-practice__label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--velo-text-secondary);
+}
+
+.edit-practice__readonly-value {
+  font-size: var(--text-base);
+  color: var(--velo-text-muted);
+  padding: 10px var(--space-3);
+  background: var(--velo-bg-subtle);
+  border: 1px solid var(--velo-border);
+  border-radius: var(--radius-md);
+}
+
+/* -- Date/time inputs -- */
+.edit-practice__date-input {
+  width: 100%;
+  padding: 12px var(--space-3);
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.edit-practice__date-input:focus {
+  border-color: var(--velo-primary);
+}
+
+/* -- Payment toggle (same as CreatePracticeView) -- */
+.edit-practice__payment-options {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.edit-practice__payment-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--velo-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  background: var(--velo-bg-card);
+  transition: border-color var(--transition-fast);
+}
+
+.edit-practice__payment-option--active {
+  border-color: var(--velo-primary);
+  color: var(--velo-primary);
+  background: var(--velo-primary-light, #e8edf5);
+}
+
+.edit-practice__radio {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--velo-border);
+  flex-shrink: 0;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.edit-practice__radio--active {
+  border-color: var(--velo-primary);
+  background: var(--velo-primary);
+}
+
+/* -- Price calc -- */
+.edit-practice__price-calc {
+  background: var(--velo-bg-subtle);
+  border: 1px solid var(--velo-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.edit-practice__price-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+}
+
+.edit-practice__price-row--total {
+  font-weight: 600;
+  color: var(--velo-text-primary);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--velo-border);
+}
+
+/* -- Actions section -- */
+.edit-practice__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--velo-border);
+}
+
+/* -- Confirm overlay + dialog -- */
+.edit-practice__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  z-index: var(--z-modal, 400);
+  padding: var(--space-4);
+}
+
+.edit-practice__dialog {
+  width: 100%;
+  background: var(--velo-bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.edit-practice__dialog-text {
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.edit-practice__dialog-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.edit-practice__dialog-actions > * {
+  flex: 1;
 }
 </style>
