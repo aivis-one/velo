@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Stripe Integration (Phase 6.3, CRITICAL-3)
+# VELO Backend -- Stripe Integration (Phase 6.3, CRITICAL-3, updated F5)
 # =============================================================================
 #
 # Thin wrapper around Stripe SDK for:
@@ -13,8 +13,14 @@
 #
 # CRITICAL-3: handle_checkout_completed now verifies that the amount
 #   Stripe actually charged (amount_total) matches what we expect
-#   (payment.amount_cents). Mismatch → payment marked as failed,
+#   (payment.amount_cents). Mismatch -> payment marked as failed,
 #   no balance credited. Defense-in-depth against key leaks or bugs.
+#
+# F5 STUB MODE:
+#   When is_stripe_stub is True (STRIPE_SECRET_KEY="TEST"), topup
+#   bypasses Stripe entirely: creates a confirmed Payment, credits
+#   user balance via ledger, returns stripe_success_url as checkout_url.
+#   This allows full end-to-end testing without real Stripe keys.
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Caller handles transaction.
@@ -68,10 +74,11 @@ async def create_topup_session(
 ) -> tuple[Payment, str]:
     """Create a Stripe Checkout Session for balance topup.
 
-    1. Create a Payment record (status=pending).
-    2. Call Stripe API to create a Checkout Session.
-    3. Store stripe_session_id on the Payment.
-    4. Record audit event.
+    In stub mode (is_stripe_stub=True): skips Stripe, instantly
+    confirms payment and credits user balance. Returns success URL.
+
+    In real mode: creates pending Payment, calls Stripe API,
+    returns Stripe checkout URL for redirect.
 
     Args:
         user_id: The user topping up.
@@ -85,13 +92,17 @@ async def create_topup_session(
     Raises:
         BadRequestError: If Stripe API call fails.
     """
-    _configure_stripe()
-
-    # Guard: reject topup if Stripe is not configured (stub mode).
+    # -- Stub mode: instant topup without Stripe --
     if settings.is_stripe_stub:
-        raise BadRequestError(
-            "Payment system is not configured yet"
+        return await _create_stub_topup(
+            user_id=user_id,
+            amount_cents=amount_cents,
+            currency=currency,
+            session=session,
         )
+
+    # -- Real Stripe mode --
+    _configure_stripe()
 
     # Step 1: Create pending Payment record.
     payment = Payment(
@@ -174,6 +185,70 @@ async def create_topup_session(
     )
 
     return payment, checkout.url
+
+
+async def _create_stub_topup(
+    *,
+    user_id: UUID,
+    amount_cents: int,
+    currency: str,
+    session: AsyncSession,
+) -> tuple[Payment, str]:
+    """Stub topup: instant confirmation without Stripe.
+
+    Used when STRIPE_SECRET_KEY="TEST". Creates a confirmed Payment,
+    credits user balance via ledger, returns success URL.
+
+    This enables full end-to-end testing of the topup flow
+    (frontend -> backend -> balance update) without Stripe keys.
+    """
+    now = datetime.now(UTC)
+
+    # Create Payment record (already confirmed).
+    payment = Payment(
+        user_id=user_id,
+        direction=PaymentDirection.IN.value,
+        amount_cents=amount_cents,
+        currency=currency,
+        status=PaymentStatus.CONFIRMED.value,
+        confirmed_at=now,
+        stripe_session_id="STUB",
+    )
+    session.add(payment)
+    await session.flush()
+
+    # Credit user balance via double-entry ledger.
+    await record_user_ledger(
+        user_id=user_id,
+        amount_cents=amount_cents,
+        reason=f"payment:{payment.id}",
+        session=session,
+        notes="Stub topup (Stripe not configured)",
+    )
+
+    # Audit.
+    await record_audit(
+        event="payment_topup_stub_confirmed",
+        actor_id=user_id,
+        actor_type="user",
+        target_type="payment",
+        target_id=payment.id,
+        data={
+            "amount_cents": amount_cents,
+            "currency": currency,
+            "stub": True,
+        },
+        session=session,
+    )
+
+    logger.info(
+        "topup_stub_confirmed",
+        payment_id=str(payment.id),
+        user_id=str(user_id),
+        amount_cents=amount_cents,
+    )
+
+    return payment, settings.stripe_success_url
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +350,7 @@ async def handle_checkout_completed(
 
     # CRITICAL-3: Verify Stripe charged the expected amount.
     # Stripe amount_total is in cents of the session currency.
-    # If it doesn't match our record, something is wrong — mark
+    # If it doesn't match our record, something is wrong -- mark
     # payment as failed and do NOT credit user balance.
     stripe_amount = event_data.get("amount_total")
     if stripe_amount is not None and stripe_amount != payment.amount_cents:
