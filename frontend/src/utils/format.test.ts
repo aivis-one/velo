@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- format.ts Unit Tests (updated Phase F4.2)
+// VELO Frontend -- format.ts Unit Tests (updated F5 review)
 // =============================================================================
 
 import { describe, it, expect } from 'vitest'
@@ -27,19 +27,18 @@ describe('formatMoney', () => {
     expect(result).not.toBe('Бесплатно')
   })
 
-  it('formats EUR cents into euros', () => {
+  it('formats EUR cents into euros with 2 decimal places', () => {
     const result = formatMoney(1500, 'EUR', 'ru')
-    // Intl.NumberFormat output may vary by environment, but should
-    // contain "15" and euro sign/code
+    // S-24: always 2 decimals -> should contain "15" and ",00" or ".00"
     expect(result).toContain('15')
-    // Should not show "Бесплатно"
     expect(result).not.toBe('Бесплатно')
   })
 
-  it('formats small amounts correctly', () => {
+  it('formats small amounts with 2 decimal places', () => {
     const result = formatMoney(50, 'EUR', 'ru')
-    // 50 cents = 0.50 EUR
+    // 50 cents = 0.50 EUR -> should show "0,50" not "0,5"
     expect(result).toContain('0')
+    expect(result).toMatch(/0[,.]50/)
   })
 
   it('formats large amounts', () => {
@@ -53,6 +52,12 @@ describe('formatMoney', () => {
     const withFlag = formatMoney(1500, 'EUR', 'ru', true)
     const withoutFlag = formatMoney(1500, 'EUR', 'ru', false)
     expect(withFlag).toBe(withoutFlag)
+  })
+
+  it('whole euro amounts still show decimals (S-24)', () => {
+    const result = formatMoney(500, 'EUR', 'ru')
+    // 500 cents = 5.00 EUR -> must show "5,00" not just "5"
+    expect(result).toMatch(/5[,.]00/)
   })
 })
 
@@ -118,7 +123,7 @@ describe('formatTime', () => {
   })
 
   it('respects timezone offset', () => {
-    // UTC 07:00 → Europe/Moscow is UTC+3 → 10:00
+    // UTC 07:00 -> Europe/Moscow is UTC+3 -> 10:00
     const result = formatTime('2026-02-28T07:00:00Z', 'Europe/Moscow')
     expect(result).toBe('10:00')
   })

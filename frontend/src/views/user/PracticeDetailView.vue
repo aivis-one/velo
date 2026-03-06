@@ -1,15 +1,15 @@
 <!--
-  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1)
+  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, fixed F5 review)
 
   Full practice detail screen. Matches mockup practice-detail layout:
     - Hero header: emoji + title + meta (date, duration, spots)
     - Sections: description, master info
     - Sticky footer: price + "Book" button
 
-  Phase F4.1:
-    - "Book" button opens BookingPopup (purchase flow with promo)
-    - After successful purchase: booked flag shown, button disabled
-    - Local booked state (no backend is_booked field yet)
+  F4.1: BookingPopup (purchase flow with promo).
+  F5 review fix:
+    W-21: booked state derived from bookingsStore instead of local ref.
+          Survives navigation (back/forward).
 
   Route: /user/practices/:id
   Param: id (practice UUID)
@@ -121,6 +121,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
+import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import {
@@ -135,12 +136,27 @@ import type { PracticeType } from '@/api/types'
 const route = useRoute()
 const router = useRouter()
 const store = usePracticesStore()
+const bookingsStore = useBookingsStore()
 
 const practice = computed(() => store.selected)
 
 // -- Booking state --
 const showBookingPopup = ref(false)
-const booked = ref(false)
+
+// W-21: Derive booked state from bookingsStore (survives navigation).
+// Falls back to local flag for immediate feedback after purchase.
+const justPurchased = ref(false)
+
+const booked = computed(() => {
+  if (justPurchased.value) return true
+  if (!practice.value) return false
+  // Check if any active booking matches this practice.
+  return bookingsStore.bookings.some(
+    (b) =>
+      b.practice_id === practice.value!.id &&
+      (b.status === 'confirmed' || b.status === 'pending'),
+  )
+})
 
 // -- Type labels --
 const TYPE_EMOJI: Record<PracticeType, string> = {
@@ -210,16 +226,20 @@ function onBook(): void {
 
 function onPurchased(): void {
   showBookingPopup.value = false
-  booked.value = true
+  justPurchased.value = true
   // Refresh practice to update participant count.
   const id = route.params.id as string
   store.fetchPractice(id)
+  // Refresh bookings so booked computed works on next visit.
+  bookingsStore.refreshBookings()
 }
 
 // -- Lifecycle --
 onMounted(() => {
   const id = route.params.id as string
   store.fetchPractice(id)
+  // Pre-load bookings for booked state check (W-21).
+  bookingsStore.fetchMyBookings()
 })
 
 onUnmounted(() => {

@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- TopupView (Phase F5)
+  VELO Frontend -- TopupView (Phase F5, fixed F5 review)
 
   Balance topup screen:
     - Current balance display
@@ -7,8 +7,9 @@
     - Custom amount input (EUR 1-500)
     - "Пополнить" button -> POST /api/v1/payments/topup -> redirect
 
-  In stub mode (Stripe not configured): backend instantly credits
-  balance and returns success URL. Redirect lands on TopupSuccessView.
+  F5 review fixes:
+    C-1: Validate checkout_url before redirect (whitelist)
+    W-27: Use formatMoney instead of local formatEur
 
   Route: /user/topup (name: 'user-topup')
 -->
@@ -31,7 +32,7 @@
         :class="{ 'topup__preset--active': selectedCents === preset && !customMode }"
         @click="selectPreset(preset)"
       >
-        {{ formatEur(preset) }}
+        {{ formatMoney(preset, 'EUR') }}
       </button>
     </div>
 
@@ -95,12 +96,18 @@ const balanceStore = useBalanceStore()
 const toast = useToast()
 
 // -- Constants --
-const PRESETS = [500, 1000, 2000, 5000] // cents: €5, €10, €20, €50
-const MIN_CENTS = 100    // €1.00 (from backend config)
-const MAX_CENTS = 50000  // €500.00 (from backend config)
+const PRESETS = [500, 1000, 2000, 5000] // cents: EUR 5, 10, 20, 50
+const MIN_CENTS = 100    // EUR 1.00 (from backend config)
+const MAX_CENTS = 50000  // EUR 500.00 (from backend config)
+
+// C-1: Allowed URL prefixes for checkout redirect.
+const ALLOWED_REDIRECT_PREFIXES = [
+  'https://checkout.stripe.com/',
+  import.meta.env.VITE_API_BASE_URL || 'https://api.talentir.info',
+]
 
 // -- State --
-const selectedCents = ref(1000) // default €10
+const selectedCents = ref(1000) // default EUR 10
 const customMode = ref(false)
 const customValue = ref('')
 const loading = ref(false)
@@ -139,10 +146,6 @@ const selectedLabel = computed(() => {
 
 // -- Actions --
 
-function formatEur(cents: number): string {
-  return `€${cents / 100}`
-}
-
 function selectPreset(cents: number): void {
   customMode.value = false
   customValue.value = ''
@@ -161,12 +164,26 @@ function onCustomInput(): void {
   if (val < 0) customValue.value = ''
 }
 
+/**
+ * C-1: Validate checkout URL against whitelist before redirect.
+ * Prevents open redirect if backend is compromised.
+ */
+function isAllowedRedirectUrl(url: string): boolean {
+  return ALLOWED_REDIRECT_PREFIXES.some((prefix) => url.startsWith(prefix))
+}
+
 async function onTopup(): Promise<void> {
-  if (!canSubmit.value) return
+  if (!canSubmit.value || loading.value) return
 
   loading.value = true
   try {
     const response = await createTopup(effectiveCents.value)
+
+    // C-1: Validate redirect URL before navigating.
+    if (!isAllowedRedirectUrl(response.checkout_url)) {
+      toast.error('Некорректный URL платёжной системы')
+      return
+    }
 
     // Redirect to Stripe checkout (or success URL in stub mode).
     window.location.href = response.checkout_url

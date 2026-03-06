@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Format Utilities (Phase F3.1, updated F4.2)
+// VELO Frontend -- Format Utilities (Phase F3.1, updated F4.2, fixed F5 review)
 // =============================================================================
 //
 // Pure formatting functions used across practice cards, detail views,
@@ -8,18 +8,21 @@
 // All functions are locale-aware where applicable (defaults to 'ru').
 //
 // F4.2: formatMoney gains allowZero param for balance display.
+// F5 review: S-24 -- minimumFractionDigits: 2 for consistent money format.
 // =============================================================================
 
 /**
  * Format cents into a currency string using Intl.NumberFormat.
  *
  * By default, 0 cents returns "Бесплатно" (for practice prices).
- * Pass allowZero=true to format 0 as "€0,00" (for balance display).
+ * Pass allowZero=true to format 0 as "0,00 €" (for balance display).
+ *
+ * S-24: Always uses 2 decimal places for consistency in payment context.
  *
  * Examples:
- *   formatMoney(1500, 'EUR')              → "15,00 €"  (in ru locale)
- *   formatMoney(0, 'EUR')                 → "Бесплатно"
- *   formatMoney(0, 'EUR', 'ru', true)     → "0,00 €"
+ *   formatMoney(1500, 'EUR')              -> "15,00 €"  (in ru locale)
+ *   formatMoney(0, 'EUR')                 -> "Бесплатно"
+ *   formatMoney(0, 'EUR', 'ru', true)     -> "0,00 €"
  */
 export function formatMoney(
   cents: number,
@@ -31,7 +34,7 @@ export function formatMoney(
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(cents / 100)
 }
@@ -40,8 +43,8 @@ export function formatMoney(
  * Format an ISO datetime string into a human-readable date + time.
  *
  * Examples:
- *   formatDate('2026-02-28T07:00:00Z') → "28 февраля, 10:00" (in Europe/Moscow)
- *   formatDate('2026-02-28T07:00:00Z', 'UTC') → "28 февраля, 07:00"
+ *   formatDate('2026-02-28T07:00:00Z') -> "28 февраля, 10:00" (in Europe/Moscow)
+ *   formatDate('2026-02-28T07:00:00Z', 'UTC') -> "28 февраля, 07:00"
  */
 export function formatDate(
   isoString: string,
@@ -116,9 +119,9 @@ export function formatTime(
  * Format duration in minutes into a readable string.
  *
  * Examples:
- *   formatDuration(45)  → "45 мин"
- *   formatDuration(90)  → "1 ч 30 мин"
- *   formatDuration(120) → "2 ч"
+ *   formatDuration(45)  -> "45 мин"
+ *   formatDuration(90)  -> "1 ч 30 мин"
+ *   formatDuration(120) -> "2 ч"
  */
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} мин`

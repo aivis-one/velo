@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1, fixed F5 review)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -8,6 +8,7 @@
 // F3.1: PaginatedResponse fixed to limit/offset (matches backend).
 //        Practice types added for catalog feature.
 // F4.1: Booking, Purchase, and Preview types added for booking flow.
+// F5 review: W-28 -- PurchaseStatus union type (was string).
 // =============================================================================
 
 // -- Auth --
@@ -133,7 +134,9 @@ export interface BookingWithPracticeResponse {
 
 export type PaginatedBookingsResponse = PaginatedResponse<BookingWithPracticeResponse>
 
-// -- Purchases (Phase F4.1) --
+// -- Purchases (Phase F4.1, W-28 fix) --
+
+export type PurchaseStatus = 'pending' | 'completed' | 'refunded' | 'failed'
 
 export interface PurchaseResponse {
   id: string
@@ -146,7 +149,7 @@ export interface PurchaseResponse {
   paid_cents: number
   currency: string
   commission_cents: number
-  status: string
+  status: PurchaseStatus
   completed_at: string | null
   created_at: string
   updated_at: string | null

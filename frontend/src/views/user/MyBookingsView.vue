@@ -1,10 +1,13 @@
 <!--
-  VELO Frontend -- MyBookingsView (Phase F4.1)
+  VELO Frontend -- MyBookingsView (Phase F4.1, fixed F5 review)
 
   User's bookings list. Matches mockup screen-bookings layout:
     - Status filter tabs (all, confirmed, cancelled, attended)
     - BookingCard list with load-more
     - Cancel flow via CancelBookingPopup
+
+  F5 review fix:
+    W-22: Pass cancelling loading state to CancelBookingPopup
 
   Route: /user/bookings (name: 'user-bookings')
 -->
@@ -74,6 +77,7 @@
       v-if="cancelTarget"
       :booking="cancelTarget"
       :open="showCancelPopup"
+      :loading="cancelling"
       @close="closeCancelPopup"
       @confirm="onConfirmCancel"
     />
@@ -105,6 +109,7 @@ const filterTabs: Array<{ label: string; value: BookingStatus | undefined }> = [
 // -- Cancel popup --
 const showCancelPopup = ref(false)
 const cancelTarget = ref<BookingWithPracticeResponse | null>(null)
+const cancelling = ref(false)
 
 function openCancelPopup(booking: BookingWithPracticeResponse): void {
   cancelTarget.value = booking
@@ -112,21 +117,26 @@ function openCancelPopup(booking: BookingWithPracticeResponse): void {
 }
 
 function closeCancelPopup(): void {
+  if (cancelling.value) return
   showCancelPopup.value = false
   cancelTarget.value = null
 }
 
 async function onConfirmCancel(): Promise<void> {
-  if (!cancelTarget.value) return
+  if (!cancelTarget.value || cancelling.value) return
 
-  const success = await store.cancelBooking(cancelTarget.value.id)
-  if (success) {
+  cancelling.value = true
+  const result = await store.cancelBooking(cancelTarget.value.id)
+
+  if (result.ok) {
     toast.success('Бронирование отменено')
     // Refresh balance (refund may have been applied).
     await balanceStore.refresh()
   } else {
-    toast.error('Не удалось отменить бронирование')
+    toast.error(result.error)
   }
+
+  cancelling.value = false
   closeCancelPopup()
 }
 
