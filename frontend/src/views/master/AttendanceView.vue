@@ -177,7 +177,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VHeader, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VHeader } from '@/components/layout'
+import { VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'

@@ -199,7 +199,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader, VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VHeader } from '@/components/layout'
+import { VButton, VInput, VTextarea, VSelect, VCheckbox } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'

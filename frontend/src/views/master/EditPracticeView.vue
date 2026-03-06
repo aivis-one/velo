@@ -305,7 +305,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VHeader, VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
+import { VHeader } from '@/components/layout'
+import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
