@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.8
-**Дата:** 28 февраля 2026
+**Версия:** 2.9
+**Дата:** 4 марта 2026
 **Статус:** Draft
 
 ---
@@ -1649,6 +1649,7 @@ MasterProfile.available_cents = SUM(CASE WHEN NOT is_frozen THEN amount_cents EL
 - [x] Миграция `d3e4f5a6b7c8` -- payments table
 - [x] tests/test_payments_topup.py -- 11 тестов (telegram_id range: 73xxx)
 - [x] tests/test_payments_stripe_integration.py -- 1 тест (real Stripe, skipped by default)
+- [x] **F5 Stub mode:** `_create_stub_topup()` в stripe.py — instant topup без Stripe для e2e тестирования
 
 **Endpoints:**
 ```
@@ -1669,6 +1670,19 @@ POST /webhooks/stripe             -- Stripe webhook (no auth, signature verify)
    - Balance: recalculated via record_user_ledger
    - Audit: payment_topup_confirmed
 ```
+
+**Stub mode flow (is_stripe_stub=True, добавлено в F5):**
+```
+1. User: POST /payments/topup {amount_cents: 1000}
+2. Server: _create_stub_topup():
+   - Create Payment(status=confirmed, stripe_session_id="STUB")
+   - record_user_ledger: +amount_cents (instant balance credit)
+   - Audit: payment_topup_stub_confirmed
+   - Return {payment_id, checkout_url=stripe_success_url, amount_cents, currency}
+3. Frontend: redirect to /user/topup/success (no Stripe involved)
+4. TopupSuccessView: balanceStore.refresh() → shows updated balance
+```
+Stub mode позволяет тестировать полный end-to-end flow (UI → API → ledger → balance) без Stripe ключей. Для перехода на реальный Stripe: заменить `STRIPE_SECRET_KEY=TEST` на настоящий ключ в `.env`.
 
 **Модель Payment:**
 ```python
@@ -2714,7 +2728,7 @@ backend/tests/
 - `f5a6b7c8d9e0` — H-02: partial unique index для re-booking (Phase 5.1)
 - `a7b8c9d0e1f2` — W-02: index на bookings.purchase_id
 
-**Тесты:** 355 passed, 3 skipped, 0 warnings.
+**Тесты:** 406 passed, 3 skipped, 5 failed (test isolation issue — practices cleanup scope, не связано с F5). 0 warnings.
 
 ### Инфраструктура — перед публичным запуском для российской аудитории 🚀
 

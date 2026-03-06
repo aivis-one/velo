@@ -1,7 +1,7 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.2
-**Дата:** 28 февраля 2026
+**Версия:** 1.3
+**Дата:** 4 марта 2026
 **Статус:** Active
 
 ---
@@ -94,18 +94,19 @@ velo/                              ← GitHub repo root (уже существу
 │   │   ├── api/                   ← HTTP-клиент + типизированные методы
 │   │   │   ├── client.ts          ← Base fetch обёртка, interceptors
 │   │   │   ├── types.ts           ← TypeScript-интерфейсы (из OpenAPI)
+│   │   │   ├── utils.ts           ← Shared helpers (buildQuery)
 │   │   │   ├── auth.ts            ← POST /auth/telegram, logout
 │   │   │   ├── users.ts           ← GET/PATCH /users/me
 │   │   │   ├── practices.ts       ← CRUD практик
-│   │   │   ├── bookings.ts        ← Бронирования
-│   │   │   ├── payments.ts        ← Topup, purchases, withdrawals
+│   │   │   ├── bookings.ts        ← Бронирования + purchase + preview
+│   │   │   ├── payments.ts        ← Topup
 │   │   │   ├── masters.ts         ← Apply, profile, payout
 │   │   │   └── admin.ts           ← Stats, verify, reports, consistency
 │   │   │
 │   │   ├── components/            ← Переиспользуемые UI-компоненты
 │   │   │   ├── ui/                ← Примитивы: VButton, VInput, VCard...
 │   │   │   ├── layout/            ← VHeader, VTabBar, MobileLayout...
-│   │   │   └── shared/            ← PracticeCard, BookingCard, BalanceDisplay...
+│   │   │   └── shared/            ← PracticeCard, BookingCard, BookingPopup, CancelBookingPopup...
 │   │   │
 │   │   ├── views/                 ← Экраны (по ролям)
 │   │   │   ├── auth/              ← LoginView, LoadingView
@@ -616,6 +617,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | VToast | — (composable) | Всплывающее уведомление |
 | VStatCard | value, label, icon | Числовая карточка статистики |
 | VProgressBar | value, max, color | Полоска прогресса |
+| VModal | open, closeOnOverlay, showClose | Модальное окно (F4.1) |
 
 **Layout-компоненты (src/components/layout/):**
 
@@ -749,87 +751,215 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 ---
 
-## PHASE F4: Бронирование + Баланс
+## PHASE F4: Бронирование + Баланс ✅
 
-### F4.1: Бронирование
+### F4.1: Бронирование ✅
 
 **Цель:** Юзер записывается на практику.
 
 **Задачи:**
-- [ ] Кнопка "Записаться" на PracticeDetailView:
+- [x] Кнопка "Записаться" на PracticeDetailView:
   - POST /api/v1/practices/:id/purchase
   - Обработка ошибок: недостаточно средств (→ предложить пополнить), полная, уже записан
   - Success toast: "Вы записаны!"
-- [ ] Промокод (опционально):
-  - Поле ввода на экране практики
-  - POST /api/v1/practices/:id/purchase/preview — показ скидки
+- [x] Промокод:
+  - Поле ввода в BookingPopup
+  - POST /api/v1/practices/:id/preview-purchase — показ скидки
   - Применение при бронировании
-- [ ] src/stores/bookings.ts (Pinia):
+- [x] src/stores/bookings.ts (Pinia):
   - `bookings: BookingWithPracticeResponse[]`
   - `total: number`
   - `fetchMyBookings()` — GET /api/v1/bookings/me
-- [ ] src/views/user/MyBookingsView.vue:
-  - Список бронирований с фильтром по статусу (confirmed, cancelled, attended)
+  - `cancelBooking(id)` — DELETE /api/v1/bookings/:id (returns `{ ok, error }`)
+  - `statusFilter` + `setStatusFilter()` — фильтр по статусу с auto-refresh
+  - Uses `usePagination` composable
+- [x] src/views/user/MyBookingsView.vue:
+  - Список бронирований с pill-фильтром по статусу (все, confirmed, cancelled, attended)
   - BookingCard: практика, статус, дата, кнопка отмены
-- [ ] src/components/shared/BookingCard.vue:
-  - Карточка бронирования (из мокапов)
-  - Бейдж статуса, мини-инфо о практике
-- [ ] Отмена бронирования:
-  - POST /api/v1/bookings/:id/cancel
-  - Подтверждение: "Отменить запись?" (с информацией о refund policy)
-  - Обновление списка
+  - Load more через store
+  - Cancel flow через CancelBookingPopup
+- [x] src/components/shared/BookingCard.vue:
+  - Карточка бронирования: emoji по типу, VBadge статуса, дата+мастер
+  - Кнопка "Отменить" только для pending/confirmed
+- [x] src/components/shared/BookingPopup.vue:
+  - Popup бронирования поверх VModal
+  - Summary: название, дата, мастер, цена
+  - Промокод: поле + "OK" → preview → показ скидки + итого
+  - "Оплатить" → purchase → toast "Вы записаны!"
+  - Обработка ошибок: insufficient balance → redirect topup, full, already booked (409)
+  - C-2 fix: double-tap guard (`if (purchasing.value) return`)
+  - C-3 fix: `balanceStore.refresh()` при открытии popup
+- [x] src/components/shared/CancelBookingPopup.vue:
+  - Popup отмены поверх VModal
+  - Динамический refund warning: `scheduled_at - now > 24h` → зелёный "вернутся" / красный "НЕ будут возвращены"
+  - Loading state на кнопках (W-22 fix)
+- [x] src/components/ui/VModal.vue:
+  - Переиспользуемый modal: Teleport, backdrop, Escape, aria-modal, transition
+  - Mobile: bottom sheet. Desktop (>640px): centered dialog
+  - Body scroll lock when open
+- [x] Отмена бронирования:
+  - DELETE /api/v1/bookings/:id
+  - Подтверждение через CancelBookingPopup (с refund policy)
+  - Обновление списка + баланса
+- [x] src/api/bookings.ts — типизированные обёртки:
+  - `purchasePractice(id, promoCode?)` → POST /practices/:id/purchase
+  - `previewPurchase(id, promoCode?)` → POST /practices/:id/preview-purchase
+  - `getMyBookings(status?, limit, offset)` → GET /bookings/me
+  - `cancelBooking(id)` → DELETE /bookings/:id
+- [x] src/api/utils.ts — `buildQuery()` вынесен из practices.ts (DRY)
+- [x] src/api/types.ts — новые типы:
+  - `BookingStatus`, `PracticeSummary`, `BookingWithPracticeResponse`
+  - `PaginatedBookingsResponse`, `PurchaseStatus`, `PurchaseResponse`, `PreviewPurchaseResponse`
+- [x] src/views/user/PracticeDetailView.vue — обновлён:
+  - Stub `onBook()` заменён на BookingPopup
+  - `booked` computed из bookingsStore (W-21 fix, выживает навигацию)
+  - After purchase: refresh practice + bookings
+- [x] src/views/user/UserProfileView.vue — реализован (был stub):
+  - Аватар, имя, стат "практик"
+  - Карточка баланса (из stores/balance) + кнопка "Пополнить" → topup
+  - Меню: бронирования (навигация), уведомления/язык/поддержка (stubs), выход
+
+**Файлы (новые):**
+```
+src/components/ui/VModal.vue           ← Reusable modal (bottom sheet / centered)
+src/components/shared/BookingPopup.vue  ← Purchase flow with promo
+src/components/shared/BookingCard.vue   ← Booking list card
+src/components/shared/CancelBookingPopup.vue ← Cancel confirmation
+src/api/bookings.ts                     ← Booking/purchase API wrappers
+src/api/utils.ts                        ← Shared buildQuery() helper
+src/stores/bookings.ts                  ← Bookings Pinia store
+src/stores/balance.ts                   ← Balance Pinia store
+```
+
+**Файлы (обновлённые):**
+```
+src/api/types.ts         ← +Booking/Purchase types, PurchaseStatus union
+src/api/practices.ts     ← buildQuery extracted to api/utils.ts
+src/utils/format.ts      ← +allowZero param, minimumFractionDigits: 2 (S-24)
+src/components/ui/index.ts ← +VModal export
+src/views/user/PracticeDetailView.vue ← BookingPopup integration
+src/views/user/UserProfileView.vue    ← Full implementation (was stub)
+```
+
+**Решения, принятые при реализации:**
+- VModal как bottom sheet на мобилке, centered dialog на десктопе (media query 640px) — паттерн из мокапов
+- `buildQuery` вынесен из practices.ts в api/utils.ts — используется и в bookings.ts
+- `formatMoney` получил `allowZero` параметр — 0 баланс показывает "€0,00" а не "Бесплатно"
+- S-24: `minimumFractionDigits: 2` — единообразный формат €5,00 вместо €5
+- Balance store — тонкая обёртка над auth store, читает `user.balance_cents`, refresh через `authStore.fetchMe()`
+- Баланс отображается только на экране профиля (не в header)
+- Отмена: `DELETE` (не POST), reason не включён в MVP (бэкенд примет null)
+- Cancel refund warning: динамический расчёт `scheduled_at - now` на клиенте (бэкенд принимает финальное решение)
+
+**F4 Code Review фиксы (применены):**
+| ID | Проблема | Фикс |
+|----|----------|------|
+| C-2 | Double tap на "Забронировать" | `if (purchasing.value) return` в начале onPurchase |
+| C-3 | Stale balance при покупке | `balanceStore.refresh()` при открытии BookingPopup |
+| W-21 | booked ref сбрасывается при навигации | booked computed из bookingsStore |
+| W-22 | Cancel кнопка без loading | `:loading` + `:disabled` props в CancelBookingPopup |
+| W-25 | Ошибка отмены проглатывается | cancelBooking возвращает `{ ok, error }` с текстом |
+| W-28 | PurchaseResponse.status: string | `PurchaseStatus` union type |
+| S-24 | minimumFractionDigits: 0 | Всегда 2 десятичных знака в formatMoney |
 
 **Зависимость от бэкенда:** bookings + purchase (Phase 5+6 ✅).
 
-**Критерий готовности:** Юзер записывается, видит бронирование, может отменить.
+**Критерий готовности:** Юзер записывается, видит бронирование, может отменить. ✅
 
 ---
 
-### F4.2: Отображение баланса
+### F4.2: Отображение баланса ✅
 
 **Цель:** Баланс виден в интерфейсе.
 
 **Задачи:**
-- [ ] src/stores/balance.ts (Pinia):
-  - `balanceCents: number` (из user.balance_cents)
-  - `formattedBalance: string` (computed: "€15.00")
-  - `refresh()` — GET /users/me, обновить баланс
-- [ ] Отображение баланса:
-  - В header или на экране профиля
-  - На экране практики (достаточно ли для бронирования)
-- [ ] src/utils/format.ts:
-  - `formatCents(cents: number, currency?: string): string` → "€15.00"
-  - `formatDate(iso: string, timezone?: string): string` → "22 фев, 10:00"
-  - `formatDuration(minutes: number): string` → "1ч 30мин"
+- [x] src/stores/balance.ts (Pinia):
+  - `balanceCents: number` (из user.balance_cents через auth store)
+  - `formattedBalance: string` (computed через `formatMoney` с `allowZero=true`)
+  - `hasEnough(amountCents)` — проверка достаточности средств
+  - `refresh()` — вызывает `authStore.fetchMe()` для обновления баланса
+- [x] Отображение баланса:
+  - На экране профиля (UserProfileView) — карточка баланса + кнопка "Пополнить"
+  - В BookingPopup — проверка достаточности, warning при недостатке
+- [x] src/utils/format.ts — обновлён:
+  - `formatMoney(cents, currency, locale, allowZero)` — существующий, добавлен параметр `allowZero`
+  - `formatCents` не создавался — используем `formatMoney` (DRY, без дублирования)
+  - S-24: `minimumFractionDigits: 2` — единообразный формат (€5,00 не €5)
+
+**Решения:**
+- Отдельный balance store (не в auth) — single responsibility, другие stores могут импортировать без circular deps
+- `allowZero=true` для баланса: €0,00 вместо "Бесплатно" (которое для цен практик)
+- Баланс только на профиле (не в header) — по решению заказчика
+- Hardcoded EUR для MVP — бэкенд тоже EUR-only
 
 **Зависимость от бэкенда:** GET /api/v1/users/me (Phase 1.4 ✅).
 
-**Критерий готовности:** Баланс отображается, форматирование корректно.
+**Критерий готовности:** Баланс отображается, форматирование корректно. ✅
 
 ---
 
-## PHASE F5: Пополнение (Stripe)
+## PHASE F5: Пополнение (Stripe) ✅
 
-### F5.1: Topup flow
+### F5.1: Topup flow ✅
 
 **Цель:** Юзер пополняет баланс через Stripe.
 
 **Задачи:**
-- [ ] src/views/user/TopupView.vue:
-  - Текущий баланс
-  - Предустановленные суммы (€5, €10, €20, €50) + произвольная сумма
-  - Кнопка "Пополнить" → POST /api/v1/payments/topup → redirect на Stripe Checkout
-- [ ] src/views/user/TopupSuccessView.vue:
-  - "Баланс пополнен!" + обновление баланса из API
-  - Кнопка "Вернуться" → dashboard
-- [ ] src/views/user/TopupCancelView.vue:
-  - "Оплата отменена" + кнопка "Попробовать снова"
-- [ ] .env: VITE_API_BASE_URL (Stripe success/cancel URL-ы указывают на фронтенд-роуты)
-- [ ] Бэкенд: убедиться, что STRIPE_SUCCESS_URL и STRIPE_CANCEL_URL указывают на фронтенд-роуты
+- [x] src/views/user/TopupView.vue:
+  - Текущий баланс (из balanceStore)
+  - Предустановленные суммы (€5, €10, €20, €50) — grid 2x2
+  - Произвольная сумма — input с валидацией (€1–€500, из backend config)
+  - Кнопка "Пополнить" → POST /api/v1/payments/topup → redirect на checkout_url
+  - C-1 fix: whitelist валидация checkout_url перед redirect (Stripe + наш домен)
+  - W-27 fix: `formatMoney` вместо локального `formatEur`
+- [x] src/views/user/TopupSuccessView.vue:
+  - "✅ Баланс пополнен!" + обновлённый баланс из API (refresh на mount)
+  - Кнопки: "На главную" (dashboard) / "Пополнить ещё" (topup)
+- [x] src/views/user/TopupCancelView.vue:
+  - "😕 Оплата отменена" + кнопки: "Попробовать снова" / "На главную"
+- [x] src/api/payments.ts:
+  - `createTopup(amountCents)` → POST /api/v1/payments/topup
+  - Types: `TopupRequest`, `TopupResponse`
+- [x] Бэкенд stub mode (stripe.py):
+  - `is_stripe_stub=True` → instant confirm: Payment(confirmed) + record_user_ledger + return success_url
+  - Позволяет тестировать полный flow без Stripe ключей
+  - При подключении Stripe — просто заменить ключи в .env
 
-**Зависимость от бэкенда:** POST /api/v1/payments/topup (Phase 6.3 ✅). Нужно обновить STRIPE_SUCCESS_URL / STRIPE_CANCEL_URL в .env бэкенда.
+**Файлы (новые):**
+```
+src/api/payments.ts                    ← createTopup() wrapper
+```
 
-**Критерий готовности:** Юзер пополняет баланс через Stripe, видит обновлённую сумму.
+**Файлы (обновлённые):**
+```
+src/views/user/TopupView.vue           ← Full implementation (was stub)
+src/views/user/TopupSuccessView.vue    ← Full implementation (was stub)
+src/views/user/TopupCancelView.vue     ← Full implementation (was stub)
+backend/app/modules/payments/stripe.py ← +_create_stub_topup() for testing
+```
+
+**F5 Code Review фиксы (применены):**
+| ID | Проблема | Фикс |
+|----|----------|------|
+| C-1 | Open redirect через checkout_url | Whitelist валидация: `checkout.stripe.com` + `VITE_API_BASE_URL` |
+| W-27 | formatEur дублирует formatMoney | Заменён на formatMoney |
+
+**Решения, принятые при реализации:**
+- Preset суммы как центы `[500, 1000, 2000, 5000]` — отформатированы через `formatMoney`
+- Custom amount: `parseFloat` + `Math.round(euros * 100)` — достаточная точность для EUR
+- Min/max захардкожены на фронтенде (€1/€500) — бэкенд дублирует валидацию
+- Redirect: `window.location.href = checkout_url` — работает и в Telegram WebView, и в standalone
+- Stub mode на бэкенде: `_create_stub_topup()` создаёт Payment(confirmed), зачисляет баланс через ledger, audit, возвращает `stripe_success_url`. Весь flow (фронтенд → бэкенд → баланс) тестируется end-to-end
+
+**Требования к .env на сервере:**
+```
+STRIPE_SUCCESS_URL=https://api.talentir.info/user/topup/success
+STRIPE_CANCEL_URL=https://api.talentir.info/user/topup/cancel
+```
+
+**Зависимость от бэкенда:** POST /api/v1/payments/topup (Phase 6.3 ✅). Stub mode добавлен в F5.
+
+**Критерий готовности:** Юзер пополняет баланс (stub mode или Stripe), видит обновлённую сумму. ✅
 
 ---
 
@@ -1103,8 +1233,8 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | F1: Auth ✅ | 1.2, 1.4 | ✅ | Нет |
 | F2: Компоненты ✅ | 1.4 | ✅ | Нет |
 | F3: Каталог ✅ | 4.3 | ✅ | Нет |
-| F4: Бронирование | 5+6 | ✅ | Нет |
-| F5: Stripe | 6.3 | ✅ | Нет |
+| F4: Бронирование ✅ | 5+6 | ✅ | Нет |
+| F5: Stripe ✅ | 6.3 | ✅ | Нет |
 | F6: Master | 2+4+5.4 | ✅ | Нет |
 | F7: Финансы | 6.6 | ✅ | Нет |
 | F8: Admin | 3+6.8 | ✅ | Нет |
