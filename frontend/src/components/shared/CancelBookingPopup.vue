@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- CancelBookingPopup Component (Phase F4.1)
+  VELO Frontend -- CancelBookingPopup Component (Phase F4.1, fixed F5 review)
 
   Confirmation popup for cancelling a booking. Built on VModal.
 
@@ -7,17 +7,21 @@
     - If practice starts in > 24h: green "Средства вернутся на баланс"
     - If practice starts in <= 24h: red "Средства НЕ будут возвращены"
 
+  F5 review fix:
+    W-22: Added loading prop + disabled state on confirm button
+
   Props:
-    booking  — BookingWithPracticeResponse (for title + scheduled_at)
-    open     — controls visibility
+    booking  -- BookingWithPracticeResponse (for title + scheduled_at)
+    open     -- controls visibility
+    loading  -- true while cancel request is in progress
 
   Emits:
-    close    — user dismissed the popup
-    confirm  — user confirmed cancellation (parent calls store.cancelBooking)
+    close    -- user dismissed the popup
+    confirm  -- user confirmed cancellation (parent calls store.cancelBooking)
 -->
 
 <template>
-  <VModal :open="open" @close="$emit('close')">
+  <VModal :open="open" @close="onClose">
     <h2 class="cancel__title">Отменить бронирование?</h2>
 
     <p class="cancel__text">
@@ -45,6 +49,8 @@
       <VButton
         variant="danger"
         block
+        :loading="loading"
+        :disabled="loading"
         @click="$emit('confirm')"
       >
         Да, отменить
@@ -52,7 +58,8 @@
       <VButton
         variant="ghost"
         block
-        @click="$emit('close')"
+        :disabled="loading"
+        @click="onClose"
       >
         Нет, оставить
       </VButton>
@@ -67,15 +74,26 @@ import type { BookingWithPracticeResponse } from '@/api/types'
 
 const REFUND_DEADLINE_HOURS = 24
 
-const props = defineProps<{
-  booking: BookingWithPracticeResponse
-  open: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    booking: BookingWithPracticeResponse
+    open: boolean
+    loading?: boolean
+  }>(),
+  {
+    loading: false,
+  },
+)
 
-defineEmits<{
+const emit = defineEmits<{
   close: []
   confirm: []
 }>()
+
+function onClose(): void {
+  if (props.loading) return
+  emit('close')
+}
 
 /**
  * True if the practice starts more than 24 hours from now

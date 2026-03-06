@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- BookingPopup Component (Phase F4.1)
+  VELO Frontend -- BookingPopup Component (Phase F4.1, fixed F5 review)
 
   Purchase flow popup built on VModal.
 
@@ -10,13 +10,17 @@
     4. "Оплатить" button -> purchase API (booking + ledger)
     5. Error handling: insufficient balance, full, already booked
 
+  F5 review fixes:
+    C-2: Double tap guard (if purchasing return early)
+    C-3: Refresh balance on popup open (watch props.open)
+
   Props:
-    practice   — PracticeResponse from the detail view
-    open       — controls visibility (v-model pattern via emit)
+    practice   -- PracticeResponse from the detail view
+    open       -- controls visibility (v-model pattern via emit)
 
   Emits:
-    close      — close the popup
-    purchased  — purchase succeeded (parent refreshes data)
+    close      -- close the popup
+    purchased  -- purchase succeeded (parent refreshes data)
 -->
 
 <template>
@@ -104,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VModal, VButton } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
@@ -133,6 +137,16 @@ const promoCode = ref('')
 const previewing = ref(false)
 const purchasing = ref(false)
 const preview = ref<PreviewPurchaseResponse | null>(null)
+
+// -- C-3: Refresh balance when popup opens (prevents stale cache) --
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) {
+      balanceStore.refresh()
+    }
+  },
+)
 
 // -- Computed --
 const formattedDate = computed(() =>
@@ -212,6 +226,9 @@ async function onApplyPromo(): Promise<void> {
 }
 
 async function onPurchase(): Promise<void> {
+  // C-2: Guard against double tap / rapid clicks.
+  if (purchasing.value) return
+
   // Redirect to topup if insufficient balance.
   if (insufficientBalance.value) {
     resetState()
