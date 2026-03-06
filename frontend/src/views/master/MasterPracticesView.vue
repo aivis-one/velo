@@ -153,7 +153,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VHeader } from '@/components/layout'
+import { VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import PracticeListItem from '@/components/master/PracticeListItem.vue'
 import type { PracticeResponse } from '@/api/types'
