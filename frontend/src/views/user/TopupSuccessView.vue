@@ -1,18 +1,62 @@
 <!--
-  VELO Frontend -- Оплата успешна (Phase F2.2 stub)
-  Implementation: Phase F5.1
+  VELO Frontend -- TopupSuccessView (Phase F5)
+
+  Shown after successful Stripe checkout (or stub topup).
+  Refreshes balance from API, shows updated balance, link to dashboard.
+
+  Route: /user/topup/success (name: 'user-topup-success')
 -->
 
 <template>
-  <div class="view-stub">
-    <span class="view-stub__icon">✅</span>
-    <h2 class="view-stub__title">Оплата успешна</h2>
-    <p class="view-stub__phase">Phase F5.1</p>
+  <div class="topup-result">
+    <div class="topup-result__icon">✅</div>
+    <h1 class="topup-result__title">Баланс пополнен!</h1>
+    <p class="topup-result__text">
+      Ваш текущий баланс:
+    </p>
+    <div class="topup-result__balance">
+      <VLoader v-if="loading" size="sm" />
+      <span v-else>{{ balanceStore.formattedBalance }}</span>
+    </div>
+    <div class="topup-result__actions">
+      <VButton
+        variant="primary"
+        size="lg"
+        block
+        @click="router.push({ name: 'user-dashboard' })"
+      >
+        На главную
+      </VButton>
+      <VButton
+        variant="ghost"
+        block
+        @click="router.push({ name: 'user-topup' })"
+      >
+        Пополнить ещё
+      </VButton>
+    </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { VButton, VLoader } from '@/components/ui'
+import { useBalanceStore } from '@/stores/balance'
+
+const router = useRouter()
+const balanceStore = useBalanceStore()
+const loading = ref(true)
+
+onMounted(async () => {
+  // Refresh balance from API to show actual amount after topup.
+  await balanceStore.refresh()
+  loading.value = false
+})
+</script>
+
 <style scoped>
-.view-stub {
+.topup-result {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -21,15 +65,41 @@
   text-align: center;
   padding: var(--space-6);
 }
-.view-stub__icon { font-size: 48px; margin-bottom: var(--space-3); }
-.view-stub__title {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-2);
+
+.topup-result__icon {
+  font-size: 64px;
+  margin-bottom: var(--space-4);
 }
-.view-stub__phase {
-  font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+
+.topup-result__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--velo-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.topup-result__text {
+  font-size: var(--text-base);
+  color: var(--velo-text-secondary);
+  margin: 0 0 var(--space-3);
+}
+
+.topup-result__balance {
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--velo-primary);
+  margin-bottom: var(--space-8);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+}
+
+.topup-result__actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 </style>

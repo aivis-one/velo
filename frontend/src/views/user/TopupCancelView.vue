@@ -1,18 +1,48 @@
 <!--
-  VELO Frontend -- Оплата отменена (Phase F2.2 stub)
-  Implementation: Phase F5.1
+  VELO Frontend -- TopupCancelView (Phase F5)
+
+  Shown when user cancels Stripe checkout (clicks browser back
+  or Stripe cancel button).
+
+  Route: /user/topup/cancel (name: 'user-topup-cancel')
 -->
 
 <template>
-  <div class="view-stub">
-    <span class="view-stub__icon">❌</span>
-    <h2 class="view-stub__title">Оплата отменена</h2>
-    <p class="view-stub__phase">Phase F5.1</p>
+  <div class="topup-result">
+    <div class="topup-result__icon">😕</div>
+    <h1 class="topup-result__title">Оплата отменена</h1>
+    <p class="topup-result__text">
+      Ваш баланс не изменился. Вы можете попробовать снова.
+    </p>
+    <div class="topup-result__actions">
+      <VButton
+        variant="primary"
+        size="lg"
+        block
+        @click="router.push({ name: 'user-topup' })"
+      >
+        Попробовать снова
+      </VButton>
+      <VButton
+        variant="ghost"
+        block
+        @click="router.push({ name: 'user-dashboard' })"
+      >
+        На главную
+      </VButton>
+    </div>
   </div>
 </template>
 
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { VButton } from '@/components/ui'
+
+const router = useRouter()
+</script>
+
 <style scoped>
-.view-stub {
+.topup-result {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -21,15 +51,31 @@
   text-align: center;
   padding: var(--space-6);
 }
-.view-stub__icon { font-size: 48px; margin-bottom: var(--space-3); }
-.view-stub__title {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-2);
+
+.topup-result__icon {
+  font-size: 64px;
+  margin-bottom: var(--space-4);
 }
-.view-stub__phase {
-  font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+
+.topup-result__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--velo-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.topup-result__text {
+  font-size: var(--text-base);
+  color: var(--velo-text-secondary);
+  margin: 0 0 var(--space-8);
+  line-height: 1.5;
+}
+
+.topup-result__actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 </style>
