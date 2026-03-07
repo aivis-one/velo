@@ -14,6 +14,9 @@
 
   Back button on step 1 -> router.back() (returns to previous page,
   typically /user/profile). Steps 2-3 -> go to previous step.
+
+  Note on checkboxes: uses custom native-checkbox markup (.apply-view__checkbox-item),
+  NOT the VCheckbox component -- VCheckbox is intentionally NOT imported here.
 -->
 
 <template>
@@ -77,7 +80,7 @@
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Methods checkboxes -->
+        <!-- Methods checkboxes (custom native markup -- not VCheckbox) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
           <div class="apply-view__checkbox-list">
@@ -165,7 +168,7 @@
           <p class="apply-view__hint">Можно загрузить несколько файлов.</p>
         </div>
 
-        <!-- Terms checkbox -->
+        <!-- Terms checkbox (custom native markup) -->
         <div class="apply-view__terms">
           <label class="apply-view__checkbox-item" @click="form.termsAccepted = !form.termsAccepted">
             <span
@@ -200,7 +203,7 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCheckbox } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
