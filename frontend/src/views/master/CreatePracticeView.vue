@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- CreatePracticeView (Phase F6.2, fixed W-2, W-7, W-9)
+  VELO Frontend -- CreatePracticeView (Phase F6.2, fixed W-2, W-6, W-7, W-9)
 
   Create a new practice. Protected by masterStatusGuard.
   Standalone within MasterShell (back button -> master-practices).
@@ -16,8 +16,9 @@
   On success -> show toast + navigate to master-practices + refreshMyPractices().
 
   Fixes:
-    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS moved to @/utils/practiceOptions
-    W-7: todayDate is a computed ref -- no longer goes stale after midnight
+    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS imported from @/utils/practiceOptions
+    W-6: priceCents uses eurStringToCents() -- no parseFloat * 100 float trap
+    W-7: todayDate is a computed ref -- not stale after midnight
     W-9: commission calc uses COMMISSION_RATE from @/utils/commission
 
   Timezone note:
@@ -67,6 +68,7 @@
 
         <div class="create-practice__field">
           <label class="create-practice__label">Дата *</label>
+          <!-- W-7: todayDate is computed -- never stale after midnight -->
           <input
             v-model="form.date"
             type="date"
@@ -220,6 +222,7 @@ import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
+import { eurStringToCents } from '@/utils/currency'
 import type { PracticeType } from '@/api/types'
 
 const router = useRouter()
@@ -231,16 +234,16 @@ const submitting = ref(false)
 
 // -- Practice type options --
 const PRACTICE_TYPE_OPTIONS: { label: string; value: string }[] = [
-  { label: 'Живая группа (live)', value: 'live' },
-  { label: 'Серия занятий (series)', value: 'series' },
+  { label: 'Живая группа (live)',     value: 'live' },
+  { label: 'Серия занятий (series)',  value: 'series' },
   { label: 'Индивидуально (1-on-1)', value: 'one_on_one' },
-  { label: 'Запись (replay)', value: 'replay' },
+  { label: 'Запись (replay)',         value: 'replay' },
 ]
 
-// W-7: computed so todayDate updates correctly after midnight (not stale).
+// W-7: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
-// W-9: human-readable percentage for template display
+// W-9: human-readable commission percentage for template
 const commissionPct = Math.round(COMMISSION_RATE * 100)
 
 // -- Form state --
@@ -270,18 +273,14 @@ const errors = reactive({
   zoom_link: '',
 })
 
-// -- Computed: price in cents --
-const priceCents = computed((): number => {
-  const eur = parseFloat(form.price_eur_raw)
-  if (isNaN(eur) || eur <= 0) return 0
-  return Math.round(eur * 100)
-})
+// W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
+const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
 // -- Validation --
 function validate(): boolean {
   let ok = true
 
-  // Reset
+  // Reset all errors
   Object.keys(errors).forEach((k) => {
     errors[k as keyof typeof errors] = ''
   })
@@ -367,12 +366,11 @@ async function submit(): Promise<void> {
     })
 
     toast.success('Практика создана!')
-    // Invalidate cached list so it reloads on practices view.
+    // Invalidate cached list so it reloads on practices view
     await masterStore.refreshMyPractices()
     router.push({ name: 'master-practices' })
   } catch (e) {
-    const message = e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику'
-    toast.error(message)
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
   } finally {
     submitting.value = false
   }

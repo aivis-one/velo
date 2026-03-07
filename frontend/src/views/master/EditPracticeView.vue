@@ -26,10 +26,13 @@
     - navigate back to master-practices
 
   Fixes:
-    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS moved to @/utils/practiceOptions
-    W-3: publish() and startLive() also guard on saving.value
-    W-5: confirm dialog overlay click blocked while action is loading
-    W-6: populateForm uses .toFixed(2) to avoid float precision issues
+    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS imported from @/utils/practiceOptions
+    W-3: anyLoading computed = saving || transitioning || cancelling || deleting.
+         All action buttons and Save use :disabled="anyLoading" -- prevents
+         concurrent save + publish / save + cancel / etc.
+    W-5: confirm dialog overlay click blocked while confirmDialog.loading is true
+    W-6: priceCents uses eurStringToCents() -- no float arithmetic.
+         populateForm uses centsToEurString() -- no float precision issues.
     W-8: date input has :min="todayDate" to prevent setting past dates
     W-9: commission calc uses COMMISSION_RATE from @/utils/commission
 -->
@@ -198,11 +201,13 @@
           </div>
 
           <!-- Save button (not shown for terminal statuses) -->
+          <!-- W-3: :disabled="anyLoading" prevents Save while action is running -->
           <VButton
             v-if="!isTerminal"
             variant="secondary"
             block
             :loading="saving"
+            :disabled="anyLoading"
             @click="save"
           >
             Сохранить изменения
@@ -211,6 +216,8 @@
 
         <!-- ================================================================
              STATE MACHINE ACTIONS
+             W-3: all buttons :disabled="anyLoading" -- prevents concurrent
+             save + publish / save + cancel / save + delete etc.
              ================================================================ -->
         <div v-if="!isTerminal" class="edit-practice__actions">
           <div class="edit-practice__section-title">⚡ ДЕЙСТВИЯ</div>
@@ -221,6 +228,7 @@
             variant="primary"
             block
             :loading="transitioning"
+            :disabled="anyLoading"
             @click="publish"
           >
             ▶️ Опубликовать практику
@@ -232,6 +240,7 @@
             variant="primary"
             block
             :loading="transitioning"
+            :disabled="anyLoading"
             @click="startLive"
           >
             🎬 Начать эфир
@@ -243,6 +252,7 @@
             variant="primary"
             block
             :loading="transitioning"
+            :disabled="anyLoading"
             @click="confirmFinalize"
           >
             ✅ Завершить практику
@@ -253,6 +263,7 @@
             v-if="practice.status === 'live' || practice.status === 'scheduled'"
             variant="outline"
             block
+            :disabled="anyLoading"
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
             👥 Посещаемость
@@ -264,6 +275,7 @@
             variant="danger"
             block
             :loading="deleting"
+            :disabled="anyLoading"
             @click="confirmDelete"
           >
             🗑 Удалить черновик
@@ -275,6 +287,7 @@
             variant="danger"
             block
             :loading="cancelling"
+            :disabled="anyLoading"
             @click="confirmCancel"
           >
             ❌ Отменить практику
@@ -294,7 +307,7 @@
       </div>
 
       <!-- ================================================================
-           CONFIRM DIALOG (inline -- no VModal needed for simple confirms)
+           CONFIRM DIALOG
            W-5: overlay click blocked while confirmDialog.loading is true
            ================================================================ -->
       <Teleport to="body">
@@ -306,7 +319,13 @@
           <div class="edit-practice__dialog">
             <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
             <div class="edit-practice__dialog-actions">
-              <VButton variant="ghost" :disabled="confirmDialog.loading" @click="confirmDialog.visible = false">Отмена</VButton>
+              <VButton
+                variant="ghost"
+                :disabled="confirmDialog.loading"
+                @click="confirmDialog.visible = false"
+              >
+                Отмена
+              </VButton>
               <VButton
                 :variant="confirmDialog.danger ? 'danger' : 'primary'"
                 :loading="confirmDialog.loading"
@@ -339,6 +358,7 @@ import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
+import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
 
 const route = useRoute()
@@ -358,6 +378,13 @@ const transitioning = ref(false)
 const cancelling = ref(false)
 const deleting = ref(false)
 
+// W-3: single guard covering all mutually exclusive actions.
+// Every action button and the Save button use :disabled="anyLoading".
+// Prevents concurrent save + publish, save + cancel, etc.
+const anyLoading = computed(
+  () => saving.value || transitioning.value || cancelling.value || deleting.value,
+)
+
 // -- Confirm dialog state --
 const confirmDialog = reactive({
   visible: false,
@@ -368,10 +395,10 @@ const confirmDialog = reactive({
   onConfirm: (): void => { /* filled per use */ },
 })
 
-// W-9: human-readable percentage for template display
+// W-9: human-readable commission percentage for template
 const commissionPct = Math.round(COMMISSION_RATE * 100)
 
-// W-8: computed so todayDate updates correctly after midnight (not stale).
+// W-8: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
 // -- Form state (populated from practice on load) --
@@ -402,10 +429,8 @@ const isTerminal = computed((): boolean =>
   practice.value?.status === 'deleted',
 )
 
-const priceCents = computed((): number => {
-  const eur = parseFloat(form.price_eur_raw)
-  return isNaN(eur) || eur <= 0 ? 0 : Math.round(eur * 100)
-})
+// W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
+const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
 // -- Label helpers --
 const PRACTICE_TYPE_LABELS: Record<PracticeType, string> = {
@@ -443,7 +468,6 @@ function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'in
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {
   form.title = p.title
-  // Parse ISO string to local date/time for inputs
   const dt = new Date(p.scheduled_at)
   form.date = dt.toLocaleDateString('en-CA', { timeZone: p.timezone })
   form.time = dt.toLocaleTimeString('en-GB', {
@@ -455,36 +479,33 @@ function populateForm(p: PracticeResponse): void {
   form.timezone = p.timezone
   form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
   form.is_free = p.is_free
-  // W-6: toFixed(2) avoids float precision issues like 1.1000000000000001
-  form.price_eur_raw = p.is_free ? '' : (p.price_cents / 100).toFixed(2)
+  // W-6: centsToEurString uses integer division + toFixed(2), no float multiplication.
+  form.price_eur_raw = p.is_free ? '' : centsToEurString(p.price_cents)
   form.description = p.description ?? ''
   form.zoom_link = p.zoom_link ?? ''
 }
 
 // -- Load practice --
 onMounted(async () => {
-  // Try store cache first (avoids extra network call)
   const cached = masterStore.practices.find((p) => p.id === practiceId)
   if (cached) {
     practice.value = cached
     populateForm(cached)
     return
   }
-  // Fallback: fetch from API
   loading.value = true
   try {
     const p = await getPractice(practiceId)
     practice.value = p
     populateForm(p)
   } catch (e) {
-    const message = e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить практику'
-    toast.error(message)
+    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить практику')
   } finally {
     loading.value = false
   }
 })
 
-// -- Validate editable fields --
+// -- Validate --
 function validate(): boolean {
   let ok = true
   errors.title = ''
@@ -514,7 +535,7 @@ function validate(): boolean {
   return ok
 }
 
-// -- Save (PATCH editable fields) --
+// -- Save --
 async function save(): Promise<void> {
   if (!validate() || saving.value) return
   saving.value = true
@@ -548,9 +569,8 @@ async function save(): Promise<void> {
 }
 
 // -- Publish: draft -> scheduled --
-// W-3: also guard on saving.value to prevent concurrent save + publish
 async function publish(): Promise<void> {
-  if (transitioning.value || saving.value) return
+  if (anyLoading.value) return
   transitioning.value = true
   try {
     const updated = await updatePractice(practiceId, { status: 'scheduled' })
@@ -566,9 +586,8 @@ async function publish(): Promise<void> {
 }
 
 // -- Start live: scheduled -> live --
-// W-3: also guard on saving.value
 async function startLive(): Promise<void> {
-  if (transitioning.value || saving.value) return
+  if (anyLoading.value) return
   transitioning.value = true
   try {
     const updated = await updatePractice(practiceId, { status: 'live' })
@@ -582,7 +601,7 @@ async function startLive(): Promise<void> {
   }
 }
 
-// -- Confirm finalize dialog --
+// -- Confirm finalize --
 function confirmFinalize(): void {
   confirmDialog.message = 'Завершить практику? Посещаемость будет зафиксирована.'
   confirmDialog.confirmLabel = 'Завершить'
@@ -609,7 +628,7 @@ async function finalize(): Promise<void> {
   }
 }
 
-// -- Confirm cancel dialog --
+// -- Confirm cancel --
 function confirmCancel(): void {
   confirmDialog.message = 'Отменить практику? Все участники получат полный возврат средств.'
   confirmDialog.confirmLabel = 'Отменить практику'
@@ -636,7 +655,7 @@ async function cancel(): Promise<void> {
   }
 }
 
-// -- Confirm delete dialog --
+// -- Confirm delete --
 function confirmDelete(): void {
   confirmDialog.message = 'Удалить черновик? Это действие нельзя отменить.'
   confirmDialog.confirmLabel = 'Удалить'
@@ -701,7 +720,7 @@ async function remove(): Promise<void> {
   gap: var(--space-5);
 }
 
-/* -- Fieldset reset (we use it for disabled state) -- */
+/* -- Fieldset reset -- */
 .edit-practice__fieldset {
   border: none;
   padding: 0;
@@ -772,7 +791,7 @@ async function remove(): Promise<void> {
   border-color: var(--velo-primary);
 }
 
-/* -- Payment toggle (same as CreatePracticeView) -- */
+/* -- Payment toggle -- */
 .edit-practice__payment-options {
   display: flex;
   gap: var(--space-3);
