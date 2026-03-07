@@ -11,6 +11,10 @@
 // while auth.role is still null, and every user is sent to /user/dashboard.
 // Fix: export waitUntilReady() so roleRedirect can await auth completion
 // before reading auth.role.
+//
+// P-3: waitUntilReady() has a 10s timeout. If initAuth() hangs (network
+// failure, frozen platform SDK), the guard resolves anyway instead of
+// leaving the user on a white screen forever. A console warning is logged.
 // =============================================================================
 
 import { ref, computed, watch } from 'vue'
@@ -23,6 +27,9 @@ const isReady = ref(false)
 /** Whether we're in standalone mode (no Telegram initData). */
 const isStandalone = ref(false)
 
+/** Timeout for waitUntilReady() in milliseconds (P-3). */
+const READY_TIMEOUT_MS = 10_000
+
 /**
  * Reset auth state (for testing).
  */
@@ -33,15 +40,19 @@ function resetAuthState(): void {
 
 /**
  * Returns a Promise that resolves once isReady becomes true.
- * If isReady is already true, resolves immediately (synchronously in microtask).
+ * If isReady is already true, resolves immediately.
  *
- * Used by roleRedirect guard to wait for auth before reading auth.role.
+ * P-3: Races against a 10s timeout. If initAuth() hangs (network issue,
+ * frozen Telegram SDK), the promise resolves anyway so the router guard
+ * doesn't block forever. Logs a console warning on timeout.
+ *
+ * Used by roleRedirect guard and router beforeEach.
  * Safe to call multiple times -- each call gets its own Promise.
  */
 export function waitUntilReady(): Promise<void> {
   if (isReady.value) return Promise.resolve()
 
-  return new Promise<void>((resolve) => {
+  const waitPromise = new Promise<void>((resolve) => {
     const stop = watch(isReady, (ready) => {
       if (ready) {
         stop()
@@ -49,6 +60,15 @@ export function waitUntilReady(): Promise<void> {
       }
     })
   })
+
+  const timeoutPromise = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      console.warn('[useAuth] waitUntilReady() timed out after', READY_TIMEOUT_MS, 'ms -- proceeding anyway')
+      resolve()
+    }, READY_TIMEOUT_MS)
+  })
+
+  return Promise.race([waitPromise, timeoutPromise])
 }
 
 /**

@@ -20,23 +20,47 @@
 //   application without being blocked by roleGuard('master').
 //   Both views render directly in App.vue's <RouterView />.
 //
-// BUG-role-redirect fix (global beforeEach):
-//   /user/* has no roleGuard, so a master arriving at /user/dashboard
-//   (e.g. from a saved URL or after role upgrade) would stay in the wrong
-//   shell. The global guard intercepts every navigation, waits for auth to
-//   initialize on the first call, then redirects master/admin away from
-//   /user/* to their correct dashboard.
+// BUG-role-redirect fixes:
+//   1. roleRedirect (guards.ts) is now async -- awaits waitUntilReady()
+//      before reading auth.role. Fixes race condition on first load.
+//
+//   2. Global beforeEach (below) redirects master/admin away from the
+//      /user/dashboard entry point. Only the dashboard is blocked --
+//      masters are also users and need access to /user/practices/:id,
+//      /user/bookings, /user/topup etc. (P-1 fix).
+//
+//   3. /master/apply has a beforeEnter guard that redirects already-
+//      verified masters to /master/dashboard (S-6 fix).
 // =============================================================================
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
+import { useMasterStore } from '@/stores/master'
 
 // Shells (layout wrappers) -- small, loaded eagerly
 import UserShell from '@/views/shells/UserShell.vue'
 import MasterShell from '@/views/shells/MasterShell.vue'
 import AdminShell from '@/views/shells/AdminShell.vue'
+
+// =============================================================================
+// S-6: guard for /master/apply -- redirect verified masters to their dashboard.
+// A master who is already verified has no reason to visit the apply form.
+// =============================================================================
+const applyGuard = async () => {
+  await waitUntilReady()
+  const auth = useAuthStore()
+  if (auth.role !== 'master') return true
+
+  const masterStore = useMasterStore()
+  // Lazy-fetch profile (skips network if already loaded this session).
+  await masterStore.fetchMyProfile()
+  if (masterStore.profile?.status === 'verified') {
+    return { path: '/master/dashboard' }
+  }
+  return true
+}
 
 const router = createRouter({
   history: createWebHistory(),
@@ -184,6 +208,8 @@ const router = createRouter({
     {
       path: '/master/apply',
       name: 'master-apply',
+      // S-6: verified masters have nothing to do on the apply form.
+      beforeEnter: applyGuard,
       component: () => import('@/views/master/MasterApplyView.vue'),
     },
     {
@@ -254,16 +280,18 @@ const router = createRouter({
 })
 
 // =============================================================================
-// Global guard: redirect master/admin out of /user/*
+// Global guard: redirect master/admin away from /user/dashboard only (P-1 fix).
 //
 // Problem: /user/* has no roleGuard. A master can land on /user/dashboard via:
-//   - saved URL in browser history (after role upgrade from user -> master)
-//   - direct navigation
-//   - restoreSession() which skips the / -> roleRedirect path entirely
+//   - saved URL in browser history (after role upgrade user -> master)
+//   - restoreSession() which skips / -> roleRedirect entirely
 //
-// This guard fires on every navigation. On the very first call it awaits
-// waitUntilReady() so auth.role is guaranteed to be set before the check.
-// Subsequent calls resolve immediately (isReady is already true).
+// P-1 fix: only block /user/dashboard (and /user bare path).
+// All other /user/* routes (/user/practices/:id, /user/bookings, /user/topup
+// etc.) remain accessible -- masters are also users and need them.
+//
+// waitUntilReady() is called only on the first navigation (authInitialized
+// flag) -- subsequent navigations resolve immediately with no overhead.
 // =============================================================================
 let authInitialized = false
 
@@ -274,8 +302,11 @@ router.beforeEach(async (to) => {
     authInitialized = true
   }
 
-  // Only intercept /user/* routes.
-  if (!to.path.startsWith('/user')) return true
+  // Only intercept the dashboard entry point, not all of /user/*.
+  // Masters need /user/practices/:id, /user/bookings, /user/topup etc.
+  if (to.name !== 'user-dashboard' && to.path !== '/user' && to.path !== '/user/') {
+    return true
+  }
 
   const auth = useAuthStore()
 
