@@ -17,9 +17,9 @@ import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 
 // -- Shell layouts --
-import UserShell from '@/components/layout/UserShell.vue'
-import MasterShell from '@/components/layout/MasterShell.vue'
-import AdminShell from '@/components/layout/AdminShell.vue'
+import UserShell from '@/views/shells/UserShell.vue'
+import MasterShell from '@/views/shells/MasterShell.vue'
+import AdminShell from '@/views/shells/AdminShell.vue'
 
 // =============================================================================
 // applyGuard: verified masters don't need to visit the apply form.
