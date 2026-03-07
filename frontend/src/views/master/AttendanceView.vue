@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- AttendanceView (Phase F6.3)
+  VELO Frontend -- AttendanceView (Phase F6.3, fixed W-5)
 
   Attendance list and aggregates for a specific practice.
   Protected by masterStatusGuard. Rendered inside MasterShell.
@@ -17,6 +17,9 @@
   Note on names: AttendanceItemResponse contains only user_id (UUID),
   not user display names. MVP shows first 8 chars of UUID as identifier.
   Full names require an additional endpoint (not in scope for F6).
+
+  Fix W-5: overlay @click.self now guarded by !finalizing to prevent
+  accidental dismiss while the finalize request is in-flight.
 -->
 
 <template>
@@ -156,13 +159,29 @@
 
       <!-- Confirm dialog -->
       <Teleport to="body">
-        <div v-if="confirmVisible" class="attendance__overlay" @click.self="confirmVisible = false">
+        <!--
+          W-5: @click.self guarded by !finalizing.
+          Without the guard, clicking the overlay while the request is in-flight
+          sets confirmVisible=false, so the loading spinner disappears and the
+          user thinks the action was cancelled -- but it actually still runs.
+        -->
+        <div
+          v-if="confirmVisible"
+          class="attendance__overlay"
+          @click.self="!finalizing && (confirmVisible = false)"
+        >
           <div class="attendance__dialog">
             <p class="attendance__dialog-text">
               Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены.
             </p>
             <div class="attendance__dialog-actions">
-              <VButton variant="ghost" @click="confirmVisible = false">Отмена</VButton>
+              <VButton
+                variant="ghost"
+                :disabled="finalizing"
+                @click="confirmVisible = false"
+              >
+                Отмена
+              </VButton>
               <VButton variant="primary" :loading="finalizing" @click="finalize">
                 Финализировать
               </VButton>
@@ -177,8 +196,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VHeader, VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
