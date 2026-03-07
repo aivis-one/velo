@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Router (Phase F2.2, updated F6)
+// VELO Frontend -- Router (Phase F2.2, updated F6, BUG-role-redirect)
 // =============================================================================
 //
 // URL -> Component mapping with role-based access.
@@ -19,10 +19,19 @@
 //   This allows role='user' to access /master/apply to submit an
 //   application without being blocked by roleGuard('master').
 //   Both views render directly in App.vue's <RouterView />.
+//
+// BUG-role-redirect fix (global beforeEach):
+//   /user/* has no roleGuard, so a master arriving at /user/dashboard
+//   (e.g. from a saved URL or after role upgrade) would stay in the wrong
+//   shell. The global guard intercepts every navigation, waits for auth to
+//   initialize on the first call, then redirects master/admin away from
+//   /user/* to their correct dashboard.
 // =============================================================================
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
+import { waitUntilReady } from '@/composables/useAuth'
+import { useAuthStore } from '@/stores/auth'
 
 // Shells (layout wrappers) -- small, loaded eagerly
 import UserShell from '@/views/shells/UserShell.vue'
@@ -102,7 +111,7 @@ const router = createRouter({
     },
 
     // =========================================================================
-    // MASTER routes (role=master required via MasterShell)
+    // MASTER routes (role=master required via roleGuard)
     // =========================================================================
     {
       path: '/master',
@@ -242,6 +251,43 @@ const router = createRouter({
       redirect: '/404',
     },
   ],
+})
+
+// =============================================================================
+// Global guard: redirect master/admin out of /user/*
+//
+// Problem: /user/* has no roleGuard. A master can land on /user/dashboard via:
+//   - saved URL in browser history (after role upgrade from user -> master)
+//   - direct navigation
+//   - restoreSession() which skips the / -> roleRedirect path entirely
+//
+// This guard fires on every navigation. On the very first call it awaits
+// waitUntilReady() so auth.role is guaranteed to be set before the check.
+// Subsequent calls resolve immediately (isReady is already true).
+// =============================================================================
+let authInitialized = false
+
+router.beforeEach(async (to) => {
+  // Wait for auth on first navigation only.
+  if (!authInitialized) {
+    await waitUntilReady()
+    authInitialized = true
+  }
+
+  // Only intercept /user/* routes.
+  if (!to.path.startsWith('/user')) return true
+
+  const auth = useAuthStore()
+
+  if (auth.role === 'master') {
+    return { path: '/master/dashboard' }
+  }
+
+  if (auth.role === 'admin') {
+    return { path: '/admin/dashboard' }
+  }
+
+  return true
 })
 
 export default router
