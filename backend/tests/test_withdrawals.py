@@ -556,3 +556,64 @@ async def test_list_withdrawals_pagination(
     )
     data2 = resp2.json()
     assert len(data2["items"]) == 1
+
+# =============================================================================
+# NEW TESTS (Batch 1, Phase F7) -- add to test_withdrawals.py
+# =============================================================================
+#
+# Verifies that GET /api/v1/masters/me now returns the payout field
+# introduced by F7 (MasterProfileResponse.payout).
+#
+# Add these two test functions to the existing test_withdrawals.py file,
+# after the existing PATCH /me/payout tests.
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_profile_payout_none_when_not_configured(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /masters/me returns payout=null when payout not yet configured."""
+    master = await _make_verified_master(client, db_session)
+
+    resp = await client.get(
+        "/api/v1/masters/me",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    profile = resp.json()
+    # F7: payout field must be present and null before configuration.
+    assert "payout" in profile
+    assert profile["payout"] is None
+
+
+@pytest.mark.asyncio
+async def test_profile_payout_returned_after_update(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /masters/me returns payout details after PATCH /me/payout."""
+    master = await _make_verified_master(client, db_session)
+    headers = auth_headers(master["session_token"])
+
+    # Configure payout details.
+    await client.patch(
+        PAYOUT_URL,
+        json={
+            "method": "paypal",
+            "details": {"email": "master@example.com"},
+        },
+        headers=headers,
+    )
+
+    # Profile must now reflect the configured payout.
+    resp = await client.get(
+        "/api/v1/masters/me",
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    profile = resp.json()
+    assert profile["payout"] is not None
+    assert profile["payout"]["method"] == "paypal"
+    assert profile["payout"]["details"]["email"] == "master@example.com"

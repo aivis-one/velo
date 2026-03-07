@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Master Router (updated Phase 6.6)
+# VELO Backend -- Master Router (updated Phase F7)
 # =============================================================================
 #
 # Endpoints:
@@ -7,6 +7,9 @@
 #   GET   /api/v1/masters/me             -- my master profile (Frontend Backlog)
 #   PATCH /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
 #   GET   /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
+#
+# F7: _make_profile_response() now includes payout field extracted from
+#   MasterProfile.data.get("payout"). Returns None when not configured.
 # =============================================================================
 
 import copy
@@ -34,6 +37,43 @@ from app.modules.users.models import User
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/v1/masters", tags=["masters"])
+
+
+def _make_profile_response(
+    master_tuple: tuple[User, MasterProfile],
+) -> MasterProfileResponse:
+    """Build MasterProfileResponse from ORM objects.
+
+    Extracts display fields from the JSONB ``data`` column and
+    combines them with cached balance columns (frozen_cents,
+    available_cents). The ``status`` field reflects the master's
+    verification status (pending / verified / rejected).
+
+    F7: payout field is extracted from data.get("payout").
+    Returns None when master has not configured payout details yet.
+    """
+    _user, profile = master_tuple
+    data = profile.data
+    account = data.get("account", {})
+    prof = data.get("profile", {})
+
+    # F7: extract payout details if configured.
+    payout_raw = data.get("payout")
+    payout = PayoutDetailsResponse(**payout_raw) if payout_raw else None
+
+    return MasterProfileResponse(
+        user_id=profile.user_id,
+        status=account.get("status", "pending"),
+        display_name=prof.get("display_name"),
+        bio=prof.get("bio"),
+        methods=prof.get("methods", []),
+        experience_years=prof.get("experience_years"),
+        frozen_cents=profile.frozen_cents,
+        available_cents=profile.available_cents,
+        payout=payout,
+        created_at=profile.created_at,
+        updated_at=profile.updated_at,
+    )
 
 
 @router.post(
@@ -85,26 +125,12 @@ async def get_my_master_profile(
 
     Extracts display fields from the JSONB ``data`` column and
     combines them with cached balance columns (frozen_cents,
-    available_cents).  The ``status`` field reflects the master's
+    available_cents). The ``status`` field reflects the master's
     verification status (pending / verified / rejected).
-    """
-    _user, profile = master_tuple
-    data = profile.data
-    account = data.get("account", {})
-    prof = data.get("profile", {})
 
-    return MasterProfileResponse(
-        user_id=profile.user_id,
-        status=account.get("status", "pending"),
-        display_name=prof.get("display_name"),
-        bio=prof.get("bio"),
-        methods=prof.get("methods", []),
-        experience_years=prof.get("experience_years"),
-        frozen_cents=profile.frozen_cents,
-        available_cents=profile.available_cents,
-        created_at=profile.created_at,
-        updated_at=profile.updated_at,
-    )
+    F7: Response now includes payout field (None until configured).
+    """
+    return _make_profile_response(master_tuple)
 
 
 # ===================================================================
@@ -173,18 +199,17 @@ async def update_payout_details(
 )
 async def list_my_practices(
     master_tuple: tuple[User, MasterProfile] = Depends(
-        get_current_master
+        get_current_master,
     ),
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> PaginatedPracticesResponse:
-    """List practices owned by the current master.
-
-    Excludes deleted practices. Master sees their own drafts.
-    Returns paginated response with total count.
-    """
+    """List practices owned by the current master (newest first)."""
     user, _profile = master_tuple
     return await list_master_practices(
-        user, session, limit=limit, offset=offset,
+        master_id=user.id,
+        session=session,
+        limit=limit,
+        offset=offset,
     )

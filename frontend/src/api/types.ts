@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6, fixed F5 review)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -10,6 +10,8 @@
 // F4.1: Booking, Purchase, and Preview types added for booking flow.
 // F5 review: W-28 -- PurchaseStatus union type (was string).
 // F6: Master profile, apply flow, attendance, practice CRUD types.
+// F7: PayoutDetails, WithdrawalStatus, WithdrawalResponse,
+//     PaginatedWithdrawalsResponse. MasterProfileResponse + payout field.
 // =============================================================================
 
 // -- Auth --
@@ -208,9 +210,21 @@ export interface PreviewPurchaseResponse {
   discount_percent: number | null
 }
 
-// -- Masters (Phase F6.1) --
+// -- Masters (Phase F6.1, updated F7) --
 
 export type MasterStatus = 'pending' | 'verified' | 'rejected'
+
+/**
+ * Payout configuration stored in MasterProfile.data.payout.
+ * method determines which keys are expected in details:
+ *   bank_transfer -> { iban, account_holder?, swift? }
+ *   paypal        -> { email }
+ *   revolut       -> { tag? } or { phone? }
+ */
+export interface PayoutDetails {
+  method: string
+  details: Record<string, unknown>
+}
 
 export interface MasterProfileResponse {
   user_id: string
@@ -221,6 +235,8 @@ export interface MasterProfileResponse {
   experience_years: number | null
   frozen_cents: number
   available_cents: number
+  /** F7: payout details. null until master configures via PATCH /me/payout. */
+  payout: PayoutDetails | null
   created_at: string
   updated_at: string | null
 }
@@ -273,6 +289,35 @@ export interface AttendanceResponse {
   no_show: number
   pending: number
   items: AttendanceItemResponse[]
+}
+
+// -- Withdrawals (Phase F7) --
+
+export type WithdrawalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface WithdrawalResponse {
+  id: string
+  user_id: string
+  amount_cents: number
+  /** Platform fee deducted from amount_cents on approval. */
+  fee_cents: number
+  currency: string
+  status: WithdrawalStatus
+  /** Snapshot of payout details at withdrawal creation time. */
+  payout_details: PayoutDetails
+  admin_id: string | null
+  admin_note: string | null
+  approved_at: string | null
+  rejected_at: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PaginatedWithdrawalsResponse {
+  items: WithdrawalResponse[]
+  total: number
+  limit: number
+  offset: number
 }
 
 // -- Errors --
