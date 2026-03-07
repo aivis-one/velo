@@ -1,13 +1,19 @@
 // =============================================================================
-// VELO Frontend -- useAuth Composable (Phase F1.3, fixed 10.4)
+// VELO Frontend -- useAuth Composable (Phase F1.3, fixed 10.4, BUG-role-redirect)
 // =============================================================================
 //
 // FIX 10.4: isReady/isStandalone are reactive refs inside composable scope,
 // but shared via module-level refs (Vue pattern for singleton composables).
 // Testable: reset by calling initAuth() in test setup.
+//
+// BUG-role-redirect: Vue Router is created and begins its first navigation
+// before App.vue mounts and calls initAuth(). This means roleRedirect fires
+// while auth.role is still null, and every user is sent to /user/dashboard.
+// Fix: export waitUntilReady() so roleRedirect can await auth completion
+// before reading auth.role.
 // =============================================================================
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { platform } from '@/platform'
 import { useAuthStore } from '@/stores/auth'
 
@@ -23,6 +29,26 @@ const isStandalone = ref(false)
 function resetAuthState(): void {
   isReady.value = false
   isStandalone.value = false
+}
+
+/**
+ * Returns a Promise that resolves once isReady becomes true.
+ * If isReady is already true, resolves immediately (synchronously in microtask).
+ *
+ * Used by roleRedirect guard to wait for auth before reading auth.role.
+ * Safe to call multiple times -- each call gets its own Promise.
+ */
+export function waitUntilReady(): Promise<void> {
+  if (isReady.value) return Promise.resolve()
+
+  return new Promise<void>((resolve) => {
+    const stop = watch(isReady, (ready) => {
+      if (ready) {
+        stop()
+        resolve()
+      }
+    })
+  })
 }
 
 /**
