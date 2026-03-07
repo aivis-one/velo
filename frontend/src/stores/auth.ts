@@ -1,9 +1,10 @@
 // =============================================================================
-// VELO Frontend -- Auth Store (Phase F1.3, fixed 10.2, QW-4)
+// VELO Frontend -- Auth Store (Phase F1.3, fixed 10.2, QW-4, W-1)
 // =============================================================================
 //
 // FIX 10.2: registers onUnauthorized callback with API client.
 // QW-4: role returns null (not 'user') for unauthenticated users.
+// W-1: logout() resets masterStore to prevent data leak between sessions.
 // =============================================================================
 
 import { defineStore } from 'pinia'
@@ -44,7 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
     _setUser(null)
   }
 
-  // 10.2: register callback so API client delegates 401 handling here.
+  // FIX 10.2: register callback so API client delegates 401 handling here.
   setOnUnauthorized(() => _clearSession())
 
   async function loginViaTelegram(initData: string): Promise<boolean> {
@@ -99,6 +100,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout(): Promise<void> {
+    // W-1: reset master store before clearing session to prevent stale
+    // profile/practices data leaking to the next user session.
+    // Dynamic import breaks the potential circular dep auth -> master -> auth.
+    const { useMasterStore } = await import('@/stores/master')
+    useMasterStore().$reset()
+
     try {
       await api.post('/api/v1/auth/logout')
     } catch {

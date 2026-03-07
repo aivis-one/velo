@@ -1,18 +1,10 @@
 // =============================================================================
-// VELO Frontend -- Master Store (Phase F6)
+// VELO Frontend -- Master Store (Phase F6, fixed W-4)
 // =============================================================================
 //
-// Pinia store for master-facing data:
-//   - profile: MasterProfileResponse (fetched once, lazy)
-//   - practices: paginated list of master's own practices
-//
-// fetchMyProfile() is called lazily by masterStatusGuard on first
-// navigation into any /master/* route that requires verified status.
-// Views can call it again with force=true to refresh after apply/verify.
-//
-// fetchMyPractices() follows the same pattern as usePracticesStore --
-// uses usePagination composable, skips if already loaded.
-// refreshMyPractices() forces a full reload (called after CRUD ops).
+// W-4: fetchMyPractices() now uses a dedicated practicesLoaded flag instead
+// of checking items.length > 0. The old guard incorrectly re-fetched every
+// time a master with zero practices visited the list view.
 // =============================================================================
 
 import { defineStore } from 'pinia'
@@ -69,13 +61,18 @@ export const useMasterStore = defineStore('master', () => {
     (limit, offset) => getMyPractices(limit, offset),
   )
 
+  // W-4: separate flag instead of items.length > 0 check.
+  // Prevents re-fetching when master legitimately has zero practices.
+  const practicesLoaded = ref(false)
+
   /**
    * Initial load of master's practices.
    * Skips if already loaded (navigating back to list).
    */
   async function fetchMyPractices(): Promise<void> {
-    if (pagination.items.value.length > 0) return
+    if (practicesLoaded.value) return
     await pagination.refresh()
+    practicesLoaded.value = true
   }
 
   /**
@@ -84,10 +81,11 @@ export const useMasterStore = defineStore('master', () => {
    */
   async function refreshMyPractices(): Promise<void> {
     await pagination.refresh()
+    practicesLoaded.value = true
   }
 
   // =========================================================================
-  // Reset (on logout)
+  // Reset (on logout -- W-1)
   // =========================================================================
 
   function $reset(): void {
@@ -97,6 +95,7 @@ export const useMasterStore = defineStore('master', () => {
     profileLoaded.value = false
     pagination.items.value = []
     pagination.total.value = 0
+    practicesLoaded.value = false
   }
 
   return {
