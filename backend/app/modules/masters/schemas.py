@@ -1,17 +1,18 @@
 # =============================================================================
-# VELO Backend — Master Schemas (updated Phase 6.6)
+# VELO Backend -- Master Schemas (updated Phase F7)
 # =============================================================================
 #
-# Pydantic schemas for master application flow and payout details.
-#
-# INPUT: MasterApplyRequest — 3-step form collected on frontend, sent as
+# INPUT: MasterApplyRequest -- 3-step form collected on frontend, sent as
 #   one POST. Fields map to data JSONB sections in MasterProfile.
 #
-# PAYOUT (Phase 6.6): PayoutDetailsUpdate — flexible JSONB with minimal
+# PAYOUT (Phase 6.6): PayoutDetailsUpdate -- flexible JSONB with minimal
 #   validation. Stored in MasterProfile.data.payout, snapshotted into
 #   each Withdrawal record at creation time.
 #
-# DOCUMENTS: list[dict] for now (JSONB sandbox). Each dict is freeform —
+# F7: MasterProfileResponse now includes payout field (PayoutDetailsResponse
+#   or None). Extracted from data.get("payout") in _make_profile_response().
+#
+# DOCUMENTS: list[dict] for now (JSONB sandbox). Each dict is freeform --
 #   could be {"type": "certificate", "number": "123"} or
 #   {"type": "link", "url": "https://..."}.
 #   TODO: Replace with file upload when S3/storage is ready.
@@ -24,7 +25,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
 # Constrained string for list items (methods, certifications) to prevent
-# oversized payloads. Must be 1–200 characters.
+# oversized payloads. Must be 1-200 characters.
 ShortStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
@@ -32,7 +33,7 @@ ShortStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 # Step 1: Profile info
 # ---------------------------------------------------------------------------
 class MasterApplyProfile(BaseModel):
-    """Step 1 of master application — basic profile."""
+    """Step 1 of master application -- basic profile."""
 
     display_name: str = Field(min_length=1, max_length=100)
     email: EmailStr | None = Field(default=None)
@@ -43,7 +44,7 @@ class MasterApplyProfile(BaseModel):
 # Step 2: Experience
 # ---------------------------------------------------------------------------
 class MasterApplyExperience(BaseModel):
-    """Step 2 of master application — professional background."""
+    """Step 2 of master application -- professional background."""
 
     methods: list[ShortStr] = Field(min_length=1, max_length=20)
     experience_years: int = Field(ge=0, le=50)
@@ -80,21 +81,6 @@ class MasterApplyResponse(BaseModel):
     created_at: datetime
 
 
-class MasterProfileResponse(BaseModel):
-    """Public master profile representation."""
-
-    user_id: UUID
-    status: str
-    display_name: str | None = None
-    bio: str | None = None
-    methods: list[str] = Field(default_factory=list)
-    experience_years: int | None = None
-    frozen_cents: int
-    available_cents: int
-    created_at: datetime
-    updated_at: datetime | None = None
-
-
 # ---------------------------------------------------------------------------
 # Payout details (Phase 6.6)
 # ---------------------------------------------------------------------------
@@ -119,3 +105,27 @@ class PayoutDetailsResponse(BaseModel):
 
     method: str
     details: dict = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Master profile response (updated Phase F7: added payout field)
+# ---------------------------------------------------------------------------
+class MasterProfileResponse(BaseModel):
+    """Public master profile representation.
+
+    F7: payout field added -- extracted from data.get("payout").
+    None when master has not configured payout details yet.
+    """
+
+    user_id: UUID
+    status: str
+    display_name: str | None = None
+    bio: str | None = None
+    methods: list[str] = Field(default_factory=list)
+    experience_years: int | None = None
+    frozen_cents: int
+    available_cents: int
+    # F7: payout details (None until master sets them via PATCH /me/payout)
+    payout: PayoutDetailsResponse | None = None
+    created_at: datetime
+    updated_at: datetime | None = None
