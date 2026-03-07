@@ -1,51 +1,28 @@
 // =============================================================================
-// VELO Frontend -- Router (Phase F2.2, updated F6, BUG-role-redirect)
+// VELO Frontend -- Router (Phase F2.2, updated F9)
 // =============================================================================
 //
-// URL -> Component mapping with role-based access.
+// F9: Added two new user routes:
+//   /user/checkin/:practiceId  → CheckinView  (full-screen check-in form)
+//   /user/feedback/:practiceId → FeedbackView (full-screen feedback form)
 //
-// Architecture:
-//   /          -> redirect to role-specific dashboard
-//   /user/*    -> UserShell (MobileLayout + tab bar) -> child views
-//   /master/*  -> MasterShell (MobileLayout + tab bar) -> child views
-//   /admin/*   -> AdminShell (AdminLayout + tab bar) -> child views
-//   /404       -> NotFoundView
-//
-// Auth gate (authenticated/not) is in App.vue (Phase F1.3).
-// Guards here handle role-based routing only.
-//
-// F6 update: /master/apply and /master/pending moved OUT of MasterShell.
-//   They are now standalone routes (no parent shell, no roleGuard).
-//   This allows role='user' to access /master/apply to submit an
-//   application without being blocked by roleGuard('master').
-//   Both views render directly in App.vue's <RouterView />.
-//
-// BUG-role-redirect fixes:
-//   1. roleRedirect (guards.ts) is now async -- awaits waitUntilReady()
-//      before reading auth.role. Fixes race condition on first load.
-//
-//   2. Global beforeEach (below) redirects master/admin away from the
-//      /user/dashboard entry point. Only the dashboard is blocked --
-//      masters are also users and need access to /user/practices/:id,
-//      /user/bookings, /user/topup etc. (P-1 fix).
-//
-//   3. /master/apply has a beforeEnter guard that redirects already-
-//      verified masters to /master/dashboard (S-6 fix).
+// Both are accessible to users AND masters (no roleGuard) because masters
+// are also users and may participate in practices.
 // =============================================================================
 
 import { createRouter, createWebHistory } from 'vue-router'
-import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
-import { waitUntilReady } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
+import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
+import { waitUntilReady } from '@/composables/useAuth'
 
-// Shells (layout wrappers) -- small, loaded eagerly
-import UserShell from '@/views/shells/UserShell.vue'
-import MasterShell from '@/views/shells/MasterShell.vue'
-import AdminShell from '@/views/shells/AdminShell.vue'
+// -- Shell layouts --
+import UserShell from '@/components/layout/UserShell.vue'
+import MasterShell from '@/components/layout/MasterShell.vue'
+import AdminShell from '@/components/layout/AdminShell.vue'
 
 // =============================================================================
-// S-6: guard for /master/apply -- redirect verified masters to their dashboard.
+// applyGuard: verified masters don't need to visit the apply form.
 // A master who is already verified has no reason to visit the apply form.
 // =============================================================================
 const applyGuard = async () => {
@@ -110,6 +87,17 @@ const router = createRouter({
           path: 'bookings',
           name: 'user-bookings',
           component: () => import('@/views/user/MyBookingsView.vue'),
+        },
+        // F9: check-in and feedback -- full-screen flows
+        {
+          path: 'checkin/:practiceId',
+          name: 'user-checkin',
+          component: () => import('@/views/user/CheckinView.vue'),
+        },
+        {
+          path: 'feedback/:practiceId',
+          name: 'user-feedback',
+          component: () => import('@/views/user/FeedbackView.vue'),
         },
         {
           path: 'topup',
