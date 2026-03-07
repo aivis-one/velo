@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7 + F8)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7 + F8 + F9)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -13,6 +13,7 @@
 // F7: PayoutDetails, WithdrawalStatus, WithdrawalResponse,
 //     PaginatedWithdrawalsResponse. MasterProfileResponse + payout field.
 // F8 (S-5): Admin types moved here from api/admin.ts for consistency.
+// F9: Checkin, Feedback, DiaryEntry, PracticeInsights types.
 // =============================================================================
 
 // -- Auth --
@@ -389,4 +390,122 @@ export interface ApiError {
         msg: string
         type: string
       }>
+}
+
+// =============================================================================
+// Phase F9: Diary / Check-in / Feedback / Insights
+// =============================================================================
+
+// -- Check-in (Phase F9.1) --
+
+export type Mood = 'low' | 'mid' | 'high'
+
+export interface CheckinRequest {
+  mood: Mood
+  comment?: string | null
+}
+
+export interface CheckinResponse {
+  id: string
+  practice_id: string
+  user_id: string
+  booking_id: string
+  mood: Mood
+  comment: string | null
+  check_type: string
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PaginatedCheckinsResponse {
+  items: CheckinResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// -- Feedback (Phase F9.1) --
+
+export type FeedbackRating = 'fire' | 'good' | 'confused'
+
+export interface FeedbackRequest {
+  rating: FeedbackRating
+  comment?: string | null
+}
+
+export interface FeedbackResponse {
+  id: string
+  practice_id: string
+  user_id: string
+  booking_id: string
+  rating: FeedbackRating
+  comment: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PaginatedFeedbacksResponse {
+  items: FeedbackResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// -- Diary entries (Phase F9.2) --
+
+export interface CreateDiaryEntryRequest {
+  content: string
+  title?: string | null
+  mood?: Mood | null
+  practice_id?: string | null
+}
+
+export interface UpdateDiaryEntryRequest {
+  content?: string | null
+  title?: string | null
+  mood?: Mood | null
+  practice_id?: string | null
+  clear_mood?: boolean
+  clear_title?: boolean
+  clear_practice?: boolean
+}
+
+export interface DiaryEntryResponse {
+  id: string
+  user_id: string
+  practice_id: string | null
+  title: string | null
+  content: string
+  mood: Mood | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PaginatedDiaryEntriesResponse {
+  items: DiaryEntryResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// -- Practice insights (Phase F9.3, master-facing) --
+
+export interface MoodDistribution {
+  high: number
+  mid: number
+  low: number
+}
+
+export interface RatingDistribution {
+  fire: number
+  good: number
+  confused: number
+}
+
+export interface PracticeInsightsResponse {
+  practice_id: string
+  participants: number
+  checkins: MoodDistribution
+  feedbacks: RatingDistribution
+  comments_count: number
 }
