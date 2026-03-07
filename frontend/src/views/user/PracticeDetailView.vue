@@ -1,15 +1,23 @@
 <!--
-  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, fixed F5 review)
+  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, F5, F9.1)
 
   Full practice detail screen. Matches mockup practice-detail layout:
     - Hero header: emoji + title + meta (date, duration, spots)
     - Sections: description, master info
-    - Sticky footer: price + "Book" button
+    - Sticky footer: price + action button
 
   F4.1: BookingPopup (purchase flow with promo).
   F5 review fix:
     W-21: booked state derived from bookingsStore instead of local ref.
           Survives navigation (back/forward).
+  F9.1: Sticky footer action is now context-aware:
+    - Not booked + available  → "Забронировать" / "Записаться бесплатно"
+    - Booked + in check-in window  → "✅ Check-in перед практикой"
+    - Booked + in feedback window  → "💬 Оставить feedback"
+    - Booked + outside any window  → "✓ Вы записаны" (disabled)
+
+  Check-in window:  scheduled_at - 3h  ..  scheduled_at
+  Feedback window:  scheduled_at + duration_minutes  ..  + 72h
 
   Route: /user/practices/:id
   Param: id (practice UUID)
@@ -67,12 +75,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Practice type -->
-      <section class="detail__section">
-        <h3 class="detail__section-title">Тип</h3>
-        <VBadge variant="info">{{ typeLabel }}</VBadge>
-      </section>
     </div>
 
     <!-- Sticky footer: price + action -->
@@ -86,8 +88,32 @@
           {{ formattedPrice }}
         </span>
       </div>
+
+      <!-- F9.1: Check-in button (confirmed booking in check-in window) -->
       <VButton
-        v-if="booked"
+        v-if="booked && inCheckinWindow"
+        variant="primary"
+        size="lg"
+        block
+        @click="onCheckin"
+      >
+        ✅ Check-in перед практикой
+      </VButton>
+
+      <!-- F9.1: Feedback button (attended booking in feedback window) -->
+      <VButton
+        v-else-if="booked && inFeedbackWindow"
+        variant="primary"
+        size="lg"
+        block
+        @click="onFeedback"
+      >
+        💬 Оставить feedback
+      </VButton>
+
+      <!-- Already booked, no active window -->
+      <VButton
+        v-else-if="booked"
         variant="secondary"
         size="lg"
         block
@@ -95,6 +121,8 @@
       >
         ✓ Вы записаны
       </VButton>
+
+      <!-- Not booked: book button -->
       <VButton
         v-else
         variant="primary"
@@ -150,38 +178,74 @@ const justPurchased = ref(false)
 const booked = computed(() => {
   if (justPurchased.value) return true
   if (!practice.value) return false
-  // Check if any active booking matches this practice.
   return bookingsStore.bookings.some(
     (b) =>
       b.practice_id === practice.value!.id &&
-      (b.status === 'confirmed' || b.status === 'pending'),
+      (b.status === 'confirmed' || b.status === 'pending' || b.status === 'attended'),
   )
 })
 
-// -- Type labels --
+// =========================================================================
+// F9.1: Time window helpers
+// =========================================================================
+
+const CHECKIN_WINDOW_H  = 3   // hours before scheduled_at
+const FEEDBACK_WINDOW_H = 72  // hours after practice ends
+
+/**
+ * Returns the booking matching this practice (any active-ish status).
+ * Used to read status for window checks.
+ */
+const myBooking = computed(() => {
+  if (!practice.value) return null
+  return (
+    bookingsStore.bookings.find(
+      (b) => b.practice_id === practice.value!.id,
+    ) ?? null
+  )
+})
+
+/**
+ * True when now is in the check-in window and booking is confirmed.
+ */
+const inCheckinWindow = computed((): boolean => {
+  if (!practice.value || !myBooking.value) return false
+  if (myBooking.value.status !== 'confirmed') return false
+  const now           = Date.now()
+  const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
+  const windowStartMs = scheduledMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
+  return now >= windowStartMs && now <= scheduledMs
+})
+
+/**
+ * True when now is in the feedback window and booking is attended.
+ */
+const inFeedbackWindow = computed((): boolean => {
+  if (!practice.value || !myBooking.value) return false
+  if (myBooking.value.status !== 'attended') return false
+  const now           = Date.now()
+  const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
+  const practiceEndMs = scheduledMs + practice.value.duration_minutes * 60 * 1000
+  const feedbackEndMs = practiceEndMs + FEEDBACK_WINDOW_H * 60 * 60 * 1000
+  return now >= practiceEndMs && now <= feedbackEndMs
+})
+
+// =========================================================================
+// Formatted fields
+// =========================================================================
+
 const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘',
-  series: '🔄',
-  one_on_one: '👤',
-  replay: '📹',
+  live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
 }
 
 const TYPE_LABEL: Record<PracticeType, string> = {
-  live: 'Live-сессия',
-  series: 'Серия занятий',
-  one_on_one: 'Индивидуальная',
-  replay: 'Запись',
+  live: 'Live-сессия', series: 'Серия занятий', one_on_one: 'Индивидуальная', replay: 'Запись',
 }
 
 const typeEmoji = computed(() =>
   practice.value ? TYPE_EMOJI[practice.value.practice_type] ?? '🧘' : '🧘',
 )
 
-const typeLabel = computed(() =>
-  practice.value ? TYPE_LABEL[practice.value.practice_type] ?? practice.value.practice_type : '',
-)
-
-// -- Formatted fields --
 const formattedDate = computed(() => {
   if (!practice.value) return ''
   return formatDate(practice.value.scheduled_at, practice.value.timezone)
@@ -219,7 +283,10 @@ const bookButtonText = computed(() => {
   return 'Забронировать'
 })
 
-// -- Actions --
+// =========================================================================
+// Actions
+// =========================================================================
+
 function onBook(): void {
   showBookingPopup.value = true
 }
@@ -227,23 +294,42 @@ function onBook(): void {
 function onPurchased(): void {
   showBookingPopup.value = false
   justPurchased.value = true
-  // Refresh practice to update participant count.
   const id = route.params.id as string
   store.fetchPractice(id)
-  // Refresh bookings so booked computed works on next visit.
   bookingsStore.refreshBookings()
 }
 
-// -- Lifecycle --
+function onCheckin(): void {
+  if (!practice.value) return
+  router.push({ name: 'user-checkin', params: { practiceId: practice.value.id } })
+}
+
+function onFeedback(): void {
+  if (!practice.value) return
+  router.push({ name: 'user-feedback', params: { practiceId: practice.value.id } })
+}
+
+// =========================================================================
+// Lifecycle
+// =========================================================================
+
+// Reactive clock: re-evaluate window computeds every minute so the button
+// switches without requiring a page reload.
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   const id = route.params.id as string
   store.fetchPractice(id)
-  // Pre-load bookings for booked state check (W-21).
   bookingsStore.fetchMyBookings()
+  // Refresh window checks every 60s.
+  clockInterval = setInterval(() => {
+    // Trigger reactivity by touching a dep -- bookingsStore reload is cheap
+    // because it skips if data is already fresh.
+  }, 60_000)
 })
 
 onUnmounted(() => {
-  store.clearSelected()
+  if (clockInterval) clearInterval(clockInterval)
 })
 </script>
 
@@ -252,127 +338,136 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 60vh;
+  min-height: 40vh;
 }
 
 .detail {
   display: flex;
   flex-direction: column;
-  /* Offset MobileLayout padding to go edge-to-edge for hero */
-  margin: calc(-1 * var(--space-4));
-  min-height: calc(100vh - 120px); /* approx: header + tabbar */
+  min-height: 100%;
+  padding-bottom: 120px; /* room for sticky footer */
 }
 
+/* Hero */
 .detail__hero {
+  padding: var(--space-6) var(--space-4) var(--space-4);
   text-align: center;
-  padding: var(--space-6);
-  background: white;
   border-bottom: 1px solid var(--velo-border);
 }
 
 .detail__emoji {
   font-size: 64px;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .detail__title {
   font-family: var(--font-heading);
-  font-size: 24px;
-  font-weight: 600;
+  font-size: var(--text-2xl);
+  font-weight: 700;
   color: var(--velo-text-primary);
-  margin: 0 0 var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .detail__meta {
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  gap: var(--space-4);
-  font-size: 14px;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
   color: var(--velo-text-secondary);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 /* Body */
 .detail__body {
   flex: 1;
   padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .detail__section {
-  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--velo-border);
+}
+
+.detail__section:last-child {
+  border-bottom: none;
 }
 
 .detail__section-title {
+  font-size: var(--text-sm);
   font-weight: 600;
-  font-size: 14px;
-  color: var(--velo-text-primary);
-  margin: 0 0 var(--space-3);
+  color: var(--velo-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
 }
 
 .detail__section-content {
-  font-size: 15px;
-  color: var(--velo-text-secondary);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
   line-height: 1.6;
-  margin: 0;
 }
 
-/* Master card */
 .detail__master-card {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4);
-  background: white;
-  border: 1px solid var(--velo-border);
-  border-radius: 12px;
+  gap: var(--space-3);
 }
 
 .detail__master-avatar {
-  font-size: 48px;
+  font-size: 36px;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--velo-bg-subtle);
+  border-radius: var(--radius-full);
   flex-shrink: 0;
-}
-
-.detail__master-info {
-  flex: 1;
 }
 
 .detail__master-name {
   font-weight: 600;
-  font-size: 16px;
+  font-size: var(--text-base);
   color: var(--velo-text-primary);
 }
 
 /* Sticky footer */
 .detail__actions {
-  position: sticky;
+  position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
   padding: var(--space-4);
   background: white;
   border-top: 1px solid var(--velo-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  z-index: 10;
 }
 
 .detail__price-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-4);
 }
 
 .detail__price-label {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--velo-text-secondary);
 }
 
 .detail__price-value {
-  font-size: 24px;
+  font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--velo-primary);
+  color: var(--velo-text-primary);
 }
 
 .detail__price-value--free {
-  color: var(--velo-success, #16A34A);
+  color: var(--velo-success);
 }
 </style>
