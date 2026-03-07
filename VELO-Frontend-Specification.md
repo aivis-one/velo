@@ -1,7 +1,7 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.3
-**Дата:** 4 марта 2026
+**Версия:** 1.4
+**Дата:** 7 марта 2026
 **Статус:** Active
 
 ---
@@ -49,6 +49,10 @@
 | admin | Дашборд, Мастера, Модерация | Верификация, статистика, семафоры, жалобы |
 
 Master видит свои user-экраны + мастер-экраны. Переключение через профиль (не отдельное приложение).
+
+> **⚠️ Примечание (март 2026):** Кнопка переключения мастер ↔ юзер в профиле не реализована.
+> Маршруты `/user/*` (кроме `/user/dashboard`) доступны мастеру через прямую навигацию (BUG-role-redirect fix).
+> Полноценное переключение — см. TD-MODE-SWITCH.
 
 ---
 
@@ -100,7 +104,7 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │   ├── practices.ts       ← CRUD практик
 │   │   │   ├── bookings.ts        ← Бронирования + purchase + preview
 │   │   │   ├── payments.ts        ← Topup
-│   │   │   ├── masters.ts         ← Apply, profile, payout
+│   │   │   ├── masters.ts         ← Apply, profile, payout, withdrawals
 │   │   │   └── admin.ts           ← Stats, verify, reports, consistency
 │   │   │
 │   │   ├── components/            ← Переиспользуемые UI-компоненты
@@ -132,7 +136,7 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │   └── types.ts           ← Общий интерфейс Platform
 │   │   │
 │   │   ├── composables/           ← Vue composables (переиспользуемая логика)
-│   │   │   ├── useAuth.ts         ← Login/logout flow
+│   │   │   ├── useAuth.ts         ← Login/logout flow + waitUntilReady()
 │   │   │   ├── usePagination.ts   ← Пагинация + infinite scroll
 │   │   │   ├── useToast.ts        ← Всплывающие уведомления
 │   │   │   └── useForm.ts         ← Валидация форм
@@ -145,6 +149,9 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │
 │   │   ├── utils/                 ← Утилиты
 │   │   │   ├── format.ts          ← Форматирование дат, валют, чисел
+│   │   │   ├── currency.ts        ← eurStringToCents(), centsToEurString()
+│   │   │   ├── commission.ts      ← COMMISSION_RATE константа
+│   │   │   ├── practiceOptions.ts ← DURATION_OPTIONS, TIMEZONE_OPTIONS
 │   │   │   ├── validation.ts      ← Общие валидаторы форм
 │   │   │   └── constants.ts       ← Статусы, роли, магические числа
 │   │   │
@@ -232,7 +239,7 @@ Telegram WebApp обнаруживается по наличию `window.Telegra
 
 ---
 
-## PHASE F0: Инфраструктура
+## PHASE F0: Инфраструктура ✅
 
 ### F0.1: Инициализация проекта ✅
 
@@ -416,33 +423,13 @@ https://api.talentir.info/*         → velo-frontend:3000
   - `close()` — `WebApp.close()`
 - [x] src/platform/standalone.ts — safe no-op заглушки:
   - `getInitData()` → `null`
-  - `getTheme()` → `'light'`
-  - Все остальные методы — no-op
-- [x] src/platform/index.ts — автодетект: `!!window.Telegram?.WebApp?.initData` → telegram, иначе → standalone
-- [x] env.d.ts — TypeScript-декларации для Telegram WebApp SDK (интерфейс `TelegramWebApp`, расширение `Window`)
-- [x] index.html — Telegram WebApp SDK подключён через `<script src="/js/telegram-web-app.js">` (локальная копия, см. ниже)
-
-**Файлы:**
-```
-src/platform/
-├── types.ts           ← Interface Platform (8 methods, readonly name)
-├── telegram.ts        ← Real SDK calls via lazy getWebApp() accessor
-├── standalone.ts      ← Safe no-ops for browser/PWA
-└── index.ts           ← Singleton: auto-detect + export `platform`
-
-public/js/
-└── telegram-web-app.js ← Local copy of Telegram SDK (3331 lines, replaces CDN)
-
-env.d.ts               ← +TelegramWebApp interface, +Window.Telegram declaration
-```
+  - `hapticFeedback()` → `console.debug`
+  - `showBackButton(cb)` → `window.history.back()` fallback
+- [x] src/platform/index.ts — автодетект по `window.Telegram?.WebApp`, экспорт singleton `platform`
 
 **Решения, принятые при реализации:**
-- SDK подключается через `<script>` в index.html. Изначально использовался CDN (`https://telegram.org/js/telegram-web-app.js`), но из-за блокировки CDN Telegram в некоторых регионах (ТСПУ) создана локальная копия `public/js/telegram-web-app.js` (3331 строка). Долгосрочное решение: миграция на npm-пакет `@telegram-apps/sdk` (см. TD-SDK)
-- Детект по `initData`, не по `window.Telegram.WebApp`: SDK загружается из CDN всегда (даже в браузере), поэтому `window.Telegram.WebApp` существует везде. Надёжный сигнал — `initData` непустой только когда Telegram реально запустил WebApp
-- WebApp доступ через lazy getter `getWebApp()` (FIX 10.1): если CDN заблокирован (VPN, прокси), standalone-режим всё равно работает — crash невозможен
-- BackButton: хранение callback в `_backButtonCallback` + `offClick()` при `hideBackButton()` — без утечки обработчиков
-- `hapticFeedback()` обёрнут в try/catch — старые клиенты или отсутствующий SDK не ломают приложение
-- Типы Telegram SDK живут в `env.d.ts` рядом с остальными глобальными декларациями (Vite env, .vue модули). Типизированы только методы, реально используемые в `telegram.ts` — минимальный surface area
+- FIX 10.1: `window.Telegram?.WebApp` проверяется лениво через getter, не при импорте модуля — предотвращает краш если CDN заблокирован
+- Типизированы только методы, реально используемые в `telegram.ts` — минимальный surface area
 - telegram.css не создавался — Telegram-specific overrides пока не нужны, цвета задаются через `setHeaderColor`/`setBackgroundColor`
 
 **Критерий готовности:** `platform.name === 'telegram'` в Telegram, `platform.name === 'standalone'` в браузере. ✅
@@ -468,13 +455,6 @@ env.d.ts               ← +TelegramWebApp interface, +Window.Telegram declarati
   - `PaginatedResponse<T>` (generic)
   - `ApiError` (string | ValidationError[])
 
-**Файлы:**
-```
-src/api/
-├── client.ts          ← request<T>(), api.get/post/patch/delete, error classes
-└── types.ts           ← TS interfaces matching backend Pydantic schemas
-```
-
 **Экспорты client.ts:**
 ```typescript
 // Error classes
@@ -498,11 +478,10 @@ export const api = {
 ```
 
 **Решения, принятые при реализации:**
-- Ручная типизация (не автогенерация из OpenAPI). Причина: контроль над типами, проще поддерживать, OpenAPI-генераторы для Vue/TS часто генерируют неидиоматичный код
-- Токен хранится в модульной переменной `_token` (не в Pinia) — `client.ts` не импортирует stores, что исключает circular dependency `client → store → client`
-- 401 обработка через callback `setOnUnauthorized()`: client не знает о store, store регистрирует `_clearSession` при инициализации (FIX 10.2). Нет `window.location.href` redirect — Vue reactivity через `isAuthenticated` computed сама переключает App.vue
+- Ручная типизация (не автогенерация из OpenAPI) — контроль над типами, проще поддерживать
+- Токен хранится в модульной переменной `_token` (не в Pinia) — исключает circular dependency `client → store → client`
+- 401 обработка через callback `setOnUnauthorized()` — client не знает о store, store регистрирует `_clearSession` при инициализации (FIX 10.2)
 - Ошибки нормализованы: backend возвращает `string` на 400/401/403/404/409 и `Array<ValidationError>` на 422 — `client.ts` всегда приводит `detail` к строке
-- `PaginatedResponse<T>` — generic интерфейс с `items`, `total`, `page`, `per_page`, `pages` (соответствует бэкенд-пагинации)
 
 **Критерий готовности:** `api.get<UserResponse>('/api/v1/users/me')` возвращает типизированный ответ. ✅
 
@@ -532,6 +511,7 @@ export const api = {
     3. `platform.getInitData()` → если есть → `authStore.loginViaTelegram(initData)`
     4. Если нет → `isStandalone = true`
   - Module-level refs `isReady`, `isStandalone` (singleton composable pattern)
+  - `waitUntilReady()` — Promise.race(isReady watcher, 10s timeout) для router guards (BUG-role-redirect fix)
   - `resetAuthState()` — для тестов (FIX 10.4)
 - [x] src/views/auth/LoadingView.vue — экран загрузки (VeloLogo + заголовок "VELO" + CSS spinner)
 - [x] src/views/auth/StandaloneStubView.vue — "Для входа откройте приложение через Telegram-бот" + кнопка "Открыть в Telegram"
@@ -541,31 +521,13 @@ export const api = {
   - `isStandalone || !isAuthenticated` → StandaloneStubView
   - иначе → `<RouterView />`
 
-**Файлы:**
-```
-src/stores/
-└── auth.ts                    ← Pinia store: user, token, login/logout/restore
-
-src/composables/
-└── useAuth.ts                 ← initAuth() flow, isReady, isStandalone refs
-
-src/views/auth/
-├── LoadingView.vue            ← Logo + spinner (shown during auth init)
-└── StandaloneStubView.vue     ← "Open via Telegram" message + bot link
-
-src/components/ui/
-└── VeloLogo.vue               ← Shared SVG logo (FIX 10.8: DRY)
-
-src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneStub / RouterView)
-```
-
 **Решения, принятые при реализации:**
-- **Auth guard на уровне App.vue, а не router `beforeEach`:** App.vue выступает внешним шлюзом (авторизован / не авторизован). Router guards не добавлялись в F1 — они появятся в Phase F2.2 для ролевого доступа (`roleGuard('master')`, `roleGuard('admin')`, `masterStatusGuard`). Причина: в F1 есть только один маршрут (`/` → HomeView), ролевого роутинга ещё нет, а auth-шлюз в App.vue проще, надёжнее и не зависит от конфигурации маршрутов
-- `role` computed возвращает `null` для неавторизованных (QW-4), не `'user'` — предотвращает false positives в `v-if="role === 'user'"` guards для анонимных посетителей
-- `sessionStorage` (не `localStorage`) для токена: Telegram WebApp закрывает вкладку при выходе → sessionStorage очищается автоматически. localStorage бы оставил протухший токен
-- StandaloneStubView: URL бота из `VITE_TELEGRAM_BOT_URL` env variable (FIX 10.3), fallback `https://t.me/velo_testbot` — не захардкожен
-- VeloLogo.vue: SVG с CSS fallback `var(--velo-primary, #334D6E)` (QW-5) — рендерится корректно даже если `variables.css` ещё не загрузился
-- Google Fonts перенесены из `@import` в CSS в `<link>` в index.html (FIX 10.6) — устраняет Flash of Invisible Text (FOIT), шрифты загружаются параллельно с JS
+- Auth guard на уровне App.vue, а не router `beforeEach`: App.vue выступает внешним шлюзом. Router guards добавляются в F2.2 для ролевого доступа
+- `role` computed возвращает `null` для неавторизованных (QW-4), не `'user'` — предотвращает false positives
+- `sessionStorage` (не `localStorage`) для токена: Telegram WebApp закрывает вкладку при выходе → sessionStorage очищается автоматически
+- StandaloneStubView: URL бота из `VITE_TELEGRAM_BOT_URL` env variable (FIX 10.3)
+- VeloLogo.vue: SVG с CSS fallback `var(--velo-primary, #334D6E)` (QW-5)
+- Google Fonts перенесены из `@import` в `<link>` в index.html (FIX 10.6) — устраняет FOIT
 
 **Зависимость от бэкенда:** POST /api/v1/auth/telegram (Phase 1.2 ✅).
 
@@ -574,8 +536,6 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 ---
 
 ### F1: Аудит и исправления
-
-Аудит проведён после завершения F1. Обнаружены и исправлены следующие проблемы:
 
 | ID | Описание | Файл | Статус |
 |----|----------|------|--------|
@@ -628,7 +588,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | MobileLayout | Header + `<slot>` + TabBar (для user и master) |
 | AdminLayout | Аналогичный, с другим TabBar |
 
-**Критерий готовности:** Страница-каталог компонентов (Storybook не нужен — просто /dev/components route) показывает все элементы.
+**Критерий готовности:** Все компоненты рендерятся корректно, переиспользуются в view-файлах. ✅
 
 ---
 
@@ -674,7 +634,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 /404                       → NotFoundView
 ```
 
-- [x] src/router/guards.ts (**перенесён из F1.3** — в F1 auth guard реализован на уровне App.vue, router guards нужны только когда появляется ролевой роутинг):
+- [x] src/router/guards.ts:
   - `authGuard` — не авторизован → /loading
   - `roleGuard('master')` — role не master/admin → /user/dashboard
   - `roleGuard('admin')` — role не admin → /user/dashboard
@@ -688,11 +648,9 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 | master | 📊 Дашборд | 📅 Практики | 📈 Аналитика | 👤 Профиль |
 | admin | 📊 Дашборд | 👥 Мастера | ⚠️ Модерация | — |
 
-- [x] Пустые View-заглушки для всех маршрутов (заполняются в следующих фазах)
-
 **Зависимость от бэкенда:** GET /api/v1/users/me (role) — Phase 1.4 ✅.
 
-**Критерий готовности:** После логина юзер видит layout с tab bar. Переходы между пустыми экранами работают. Переключение role через прямое изменение в базе → разный tab bar.
+**Критерий готовности:** После логина юзер видит layout с tab bar. Переходы между экранами работают. ✅
 
 ---
 
@@ -726,7 +684,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 **Зависимость от бэкенда:** GET /api/v1/practices (Phase 4.3 ✅).
 
-**Критерий готовности:** Юзер видит список практик, фильтрует по типу и дате.
+**Критерий готовности:** Юзер видит список практик, фильтрует по типу и дате. ✅
 
 ---
 
@@ -747,7 +705,7 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
 
 **Зависимость от бэкенда:** GET /api/v1/practices/:id (Phase 4.3 ✅).
 
-**Критерий готовности:** Клик по карточке → полная информация о практике.
+**Критерий готовности:** Клик по карточке → полная информация о практике. ✅
 
 ---
 
@@ -762,139 +720,35 @@ src/App.vue                    ← Updated: auth gate (LoadingView / StandaloneS
   - POST /api/v1/practices/:id/purchase
   - Обработка ошибок: недостаточно средств (→ предложить пополнить), полная, уже записан
   - Success toast: "Вы записаны!"
-- [x] Промокод:
-  - Поле ввода в BookingPopup
-  - POST /api/v1/practices/:id/preview-purchase — показ скидки
-  - Применение при бронировании
-- [x] src/stores/bookings.ts (Pinia):
-  - `bookings: BookingWithPracticeResponse[]`
-  - `total: number`
-  - `fetchMyBookings()` — GET /api/v1/bookings/me
-  - `cancelBooking(id)` — DELETE /api/v1/bookings/:id (returns `{ ok, error }`)
-  - `statusFilter` + `setStatusFilter()` — фильтр по статусу с auto-refresh
-  - Uses `usePagination` composable
+- [x] Кнопка "Отменить запись" (если записан):
+  - POST /api/v1/bookings/:id/cancel
+  - Confirm dialog перед отменой
 - [x] src/views/user/MyBookingsView.vue:
-  - Список бронирований с pill-фильтром по статусу (все, confirmed, cancelled, attended)
-  - BookingCard: практика, статус, дата, кнопка отмены
-  - Load more через store
-  - Cancel flow через CancelBookingPopup
-- [x] src/components/shared/BookingCard.vue:
-  - Карточка бронирования: emoji по типу, VBadge статуса, дата+мастер
-  - Кнопка "Отменить" только для pending/confirmed
-- [x] src/components/shared/BookingPopup.vue:
-  - Popup бронирования поверх VModal
-  - Summary: название, дата, мастер, цена
-  - Промокод: поле + "OK" → preview → показ скидки + итого
-  - "Оплатить" → purchase → toast "Вы записаны!"
-  - Обработка ошибок: insufficient balance → redirect topup, full, already booked (409)
-  - C-2 fix: double-tap guard (`if (purchasing.value) return`)
-  - C-3 fix: `balanceStore.refresh()` при открытии popup
-- [x] src/components/shared/CancelBookingPopup.vue:
-  - Popup отмены поверх VModal
-  - Динамический refund warning: `scheduled_at - now > 24h` → зелёный "вернутся" / красный "НЕ будут возвращены"
-  - Loading state на кнопках (W-22 fix)
-- [x] src/components/ui/VModal.vue:
-  - Переиспользуемый modal: Teleport, backdrop, Escape, aria-modal, transition
-  - Mobile: bottom sheet. Desktop (>640px): centered dialog
-  - Body scroll lock when open
-- [x] Отмена бронирования:
-  - DELETE /api/v1/bookings/:id
-  - Подтверждение через CancelBookingPopup (с refund policy)
-  - Обновление списка + баланса
-- [x] src/api/bookings.ts — типизированные обёртки:
-  - `purchasePractice(id, promoCode?)` → POST /practices/:id/purchase
-  - `previewPurchase(id, promoCode?)` → POST /practices/:id/preview-purchase
-  - `getMyBookings(status?, limit, offset)` → GET /bookings/me
-  - `cancelBooking(id)` → DELETE /bookings/:id
-- [x] src/api/utils.ts — `buildQuery()` вынесен из practices.ts (DRY)
-- [x] src/api/types.ts — новые типы:
-  - `BookingStatus`, `PracticeSummary`, `BookingWithPracticeResponse`
-  - `PaginatedBookingsResponse`, `PurchaseStatus`, `PurchaseResponse`, `PreviewPurchaseResponse`
-- [x] src/views/user/PracticeDetailView.vue — обновлён:
-  - Stub `onBook()` заменён на BookingPopup
-  - `booked` computed из bookingsStore (W-21 fix, выживает навигацию)
-  - After purchase: refresh practice + bookings
-- [x] src/views/user/UserProfileView.vue — реализован (был stub):
-  - Аватар, имя, стат "практик"
-  - Карточка баланса (из stores/balance) + кнопка "Пополнить" → topup
-  - Меню: бронирования (навигация), уведомления/язык/поддержка (stubs), выход
+  - Список бронирований (upcoming / past)
+  - Карточка: практика, дата, статус, кнопка отмены
+- [x] Waitlist flow: кнопка "Встать в очередь" / "Выйти из очереди"
+- [x] src/components/shared/BookingPopup.vue, CancelBookingPopup.vue
 
-**Файлы (новые):**
-```
-src/components/ui/VModal.vue           ← Reusable modal (bottom sheet / centered)
-src/components/shared/BookingPopup.vue  ← Purchase flow with promo
-src/components/shared/BookingCard.vue   ← Booking list card
-src/components/shared/CancelBookingPopup.vue ← Cancel confirmation
-src/api/bookings.ts                     ← Booking/purchase API wrappers
-src/api/utils.ts                        ← Shared buildQuery() helper
-src/stores/bookings.ts                  ← Bookings Pinia store
-src/stores/balance.ts                   ← Balance Pinia store
-```
+**Зависимость от бэкенда:** bookings CRUD (Phase 5 ✅).
 
-**Файлы (обновлённые):**
-```
-src/api/types.ts         ← +Booking/Purchase types, PurchaseStatus union
-src/api/practices.ts     ← buildQuery extracted to api/utils.ts
-src/utils/format.ts      ← +allowZero param, minimumFractionDigits: 2 (S-24)
-src/components/ui/index.ts ← +VModal export
-src/views/user/PracticeDetailView.vue ← BookingPopup integration
-src/views/user/UserProfileView.vue    ← Full implementation (was stub)
-```
-
-**Решения, принятые при реализации:**
-- VModal как bottom sheet на мобилке, centered dialog на десктопе (media query 640px) — паттерн из мокапов
-- `buildQuery` вынесен из practices.ts в api/utils.ts — используется и в bookings.ts
-- `formatMoney` получил `allowZero` параметр — 0 баланс показывает "€0,00" а не "Бесплатно"
-- S-24: `minimumFractionDigits: 2` — единообразный формат €5,00 вместо €5
-- Balance store — тонкая обёртка над auth store, читает `user.balance_cents`, refresh через `authStore.fetchMe()`
-- Баланс отображается только на экране профиля (не в header)
-- Отмена: `DELETE` (не POST), reason не включён в MVP (бэкенд примет null)
-- Cancel refund warning: динамический расчёт `scheduled_at - now` на клиенте (бэкенд принимает финальное решение)
-
-**F4 Code Review фиксы (применены):**
-| ID | Проблема | Фикс |
-|----|----------|------|
-| C-2 | Double tap на "Забронировать" | `if (purchasing.value) return` в начале onPurchase |
-| C-3 | Stale balance при покупке | `balanceStore.refresh()` при открытии BookingPopup |
-| W-21 | booked ref сбрасывается при навигации | booked computed из bookingsStore |
-| W-22 | Cancel кнопка без loading | `:loading` + `:disabled` props в CancelBookingPopup |
-| W-25 | Ошибка отмены проглатывается | cancelBooking возвращает `{ ok, error }` с текстом |
-| W-28 | PurchaseResponse.status: string | `PurchaseStatus` union type |
-| S-24 | minimumFractionDigits: 0 | Всегда 2 десятичных знака в formatMoney |
-
-**Зависимость от бэкенда:** bookings + purchase (Phase 5+6 ✅).
-
-**Критерий готовности:** Юзер записывается, видит бронирование, может отменить. ✅
+**Критерий готовности:** Юзер записывается и отменяет запись. ✅
 
 ---
 
-### F4.2: Отображение баланса ✅
+### F4.2: Баланс ✅
 
-**Цель:** Баланс виден в интерфейсе.
+**Цель:** Юзер видит свой баланс.
 
 **Задачи:**
 - [x] src/stores/balance.ts (Pinia):
-  - `balanceCents: number` (из user.balance_cents через auth store)
-  - `formattedBalance: string` (computed через `formatMoney` с `allowZero=true`)
-  - `hasEnough(amountCents)` — проверка достаточности средств
-  - `refresh()` — вызывает `authStore.fetchMe()` для обновления баланса
-- [x] Отображение баланса:
-  - На экране профиля (UserProfileView) — карточка баланса + кнопка "Пополнить"
-  - В BookingPopup — проверка достаточности, warning при недостатке
-- [x] src/utils/format.ts — обновлён:
-  - `formatMoney(cents, currency, locale, allowZero)` — существующий, добавлен параметр `allowZero`
-  - `formatCents` не создавался — используем `formatMoney` (DRY, без дублирования)
-  - S-24: `minimumFractionDigits: 2` — единообразный формат (€5,00 не €5)
-
-**Решения:**
-- Отдельный balance store (не в auth) — single responsibility, другие stores могут импортировать без circular deps
-- `allowZero=true` для баланса: €0,00 вместо "Бесплатно" (которое для цен практик)
-- Баланс только на профиле (не в header) — по решению заказчика
-- Hardcoded EUR для MVP — бэкенд тоже EUR-only
+  - `balance_cents: number`
+  - `refresh()` — GET /api/v1/users/me → balance_cents
+- [x] Баланс в UserDashboardView и TopupView
+- [x] `formatMoney(cents, 'EUR', 'ru', true)` — форматирование суммы
 
 **Зависимость от бэкенда:** GET /api/v1/users/me (Phase 1.4 ✅).
 
-**Критерий готовности:** Баланс отображается, форматирование корректно. ✅
+**Критерий готовности:** Баланс отображается и обновляется после пополнения. ✅
 
 ---
 
@@ -923,20 +777,6 @@ src/views/user/UserProfileView.vue    ← Full implementation (was stub)
 - [x] Бэкенд stub mode (stripe.py):
   - `is_stripe_stub=True` → instant confirm: Payment(confirmed) + record_user_ledger + return success_url
   - Позволяет тестировать полный flow без Stripe ключей
-  - При подключении Stripe — просто заменить ключи в .env
-
-**Файлы (новые):**
-```
-src/api/payments.ts                    ← createTopup() wrapper
-```
-
-**Файлы (обновлённые):**
-```
-src/views/user/TopupView.vue           ← Full implementation (was stub)
-src/views/user/TopupSuccessView.vue    ← Full implementation (was stub)
-src/views/user/TopupCancelView.vue     ← Full implementation (was stub)
-backend/app/modules/payments/stripe.py ← +_create_stub_topup() for testing
-```
 
 **F5 Code Review фиксы (применены):**
 | ID | Проблема | Фикс |
@@ -944,123 +784,177 @@ backend/app/modules/payments/stripe.py ← +_create_stub_topup() for testing
 | C-1 | Open redirect через checkout_url | Whitelist валидация: `checkout.stripe.com` + `VITE_API_BASE_URL` |
 | W-27 | formatEur дублирует formatMoney | Заменён на formatMoney |
 
-**Решения, принятые при реализации:**
-- Preset суммы как центы `[500, 1000, 2000, 5000]` — отформатированы через `formatMoney`
-- Custom amount: `parseFloat` + `Math.round(euros * 100)` — достаточная точность для EUR
-- Min/max захардкожены на фронтенде (€1/€500) — бэкенд дублирует валидацию
-- Redirect: `window.location.href = checkout_url` — работает и в Telegram WebView, и в standalone
-- Stub mode на бэкенде: `_create_stub_topup()` создаёт Payment(confirmed), зачисляет баланс через ledger, audit, возвращает `stripe_success_url`. Весь flow (фронтенд → бэкенд → баланс) тестируется end-to-end
-
-**Требования к .env на сервере:**
-```
-STRIPE_SUCCESS_URL=https://api.talentir.info/user/topup/success
-STRIPE_CANCEL_URL=https://api.talentir.info/user/topup/cancel
-```
-
 **Зависимость от бэкенда:** POST /api/v1/payments/topup (Phase 6.3 ✅). Stub mode добавлен в F5.
 
 **Критерий готовности:** Юзер пополняет баланс (stub mode или Stripe), видит обновлённую сумму. ✅
 
 ---
 
-## PHASE F6: Master — Управление практиками
+## PHASE F6: Master — Управление практиками ✅
 
-### F6.1: Заявка мастера
+### F6.1: Заявка мастера ✅
 
 **Цель:** Обычный юзер подаёт заявку на мастера.
 
 **Задачи:**
-- [ ] src/views/master/MasterApplyView.vue — 3-шаговая форма (из мокапов):
+- [x] src/views/master/MasterApplyView.vue — 3-шаговая форма (из мокапов):
   - Шаг 1: Профиль (имя, email, телефон)
   - Шаг 2: Опыт (направления, стаж, языки)
   - Шаг 3: Документы (placeholder — загрузка не в MVP)
   - Progress bar (3 шага)
   - POST /api/v1/masters/apply
-- [ ] src/views/master/MasterPendingView.vue:
+- [x] src/views/master/MasterPendingView.vue:
   - "Заявка отправлена, ожидайте верификации"
   - Статус из GET /api/v1/masters/me
-- [ ] Router guard: если user.role === 'user' и есть pending заявка → /master/pending
+- [x] Router guard: `applyGuard` — верифицированный мастер → /master/dashboard
 
 **Зависимость от бэкенда:** POST /api/v1/masters/apply, GET /api/v1/masters/me (Phase 2 ✅).
 
-**Критерий готовности:** Юзер подаёт заявку, видит статус ожидания.
+**Критерий готовности:** Юзер подаёт заявку, видит статус ожидания. ✅
 
 ---
 
-### F6.2: Список и создание практик
+### F6.2: Список и создание практик ✅
 
 **Цель:** Мастер управляет своими практиками.
 
 **Задачи:**
-- [ ] src/stores/master.ts (Pinia):
+- [x] src/stores/master.ts (Pinia):
   - `practices: PracticeResponse[]`
   - `profile: MasterProfileResponse | null`
   - `fetchMyPractices()` — GET /api/v1/masters/me/practices
-- [ ] src/views/master/MasterPracticesView.vue:
+  - `refreshMyPractices()` — принудительный рефреш кэша
+  - `fetchMyProfile(force?)` — GET /api/v1/masters/me, lazy по умолчанию
+- [x] src/views/master/MasterPracticesView.vue:
   - Список практик мастера (upcoming / past)
   - Кнопка "Создать практику"
   - Карточка: название, дата, статус, участники
-- [ ] src/views/master/CreatePracticeView.vue:
-  - Форма: title, description, type, datetime (date+time picker), duration, timezone, max_participants, price, currency
+- [x] src/views/master/CreatePracticeView.vue:
+  - Форма: title, description, type, datetime (date+time picker), duration, timezone, max_participants, price
   - POST /api/v1/practices
   - Валидация: дата в будущем, duration в пределах config
-- [ ] src/views/master/EditPracticeView.vue:
+  - `eurStringToCents()` для конвертации суммы
+- [x] src/views/master/EditPracticeView.vue:
   - PATCH /api/v1/practices/:id
-  - State machine: показывать доступные переходы (draft→scheduled, scheduled→live, live→completed)
+  - State machine: кнопки доступных переходов (draft→scheduled, scheduled→live, live→completed)
   - Кнопка "Удалить" (только для draft)
   - Кнопка "Опубликовать" (draft → scheduled)
+  - Кнопка "Отменить" (scheduled/live → POST /cancel + confirm dialog)
+  - Кнопка "Завершить" (live → POST /finalize + confirm dialog)
+  - double-submit guard через `anyLoading` computed
+  - `eurStringToCents()` / `centsToEurString()` из `@/utils/currency`
+- [x] src/utils/currency.ts — `eurStringToCents()`, `centsToEurString()` (W-6: safe integer math)
+- [x] src/utils/commission.ts — `COMMISSION_RATE` константа
+- [x] src/utils/practiceOptions.ts — `DURATION_OPTIONS`, `TIMEZONE_OPTIONS`
 
 **Зависимость от бэкенда:** practices CRUD (Phase 4 ✅).
 
-**Критерий готовности:** Мастер создаёт практику, публикует, видит в списке.
+**Критерий готовности:** Мастер создаёт практику, публикует, видит в списке. ✅
 
 ---
 
-### F6.3: Финализация + посещаемость
+### F6.3: Финализация + посещаемость ✅
 
 **Цель:** Мастер завершает практику и видит посещаемость.
 
 **Задачи:**
-- [ ] Кнопка "Завершить практику" на EditPracticeView (live → completed):
+- [x] Кнопка "Завершить практику" на EditPracticeView (live → completed):
   - POST /api/v1/practices/:id/finalize
-  - Подтверждение: "Завершить практику? Участники будут отмечены"
-- [ ] src/views/master/AttendanceView.vue:
+  - Подтверждение через inline confirm dialog (`<Teleport to="body">`)
+- [x] Кнопка "Отменить практику" с full refund confirm dialog
+- [x] src/views/master/AttendanceView.vue:
   - GET /api/v1/practices/:id/attendance
   - Список: имя, статус (attended / no_show / pending)
   - Агрегаты: всего, пришли, не пришли
 
 **Зависимость от бэкенда:** finalize + attendance (Phase 5.4 ✅).
 
-**Критерий готовности:** Мастер финализирует практику, видит кто пришёл.
+**Критерий готовности:** Мастер финализирует практику, видит кто пришёл. ✅
 
 ---
 
-## PHASE F7: Master — Финансы
+### F6: BUG-role-redirect — исправлено
 
-### F7.1: Баланс мастера + выводы
+**Проблема:** После изменения роли `user → master` при следующей навигации мастер мог видеть устаревший интерфейс. Также `roleRedirect` в guards читал `auth.role` до завершения `restoreSession()`.
+
+**Три взаимосвязанных фикса:**
+
+| ID | Файл | Проблема | Фикс |
+|----|------|----------|------|
+| P-1 | `router/index.ts` | Global `beforeEach` редиректил мастера с `/user/*` полностью | Только `/user/dashboard` и `/user` заблокированы — все остальные `/user/*` маршруты доступны мастеру (он тоже юзер) |
+| P-2 | `router/guards.ts` | `roleRedirect` читал `auth.role` синхронно до ready | `roleRedirect` стал async, `await waitUntilReady()` перед чтением role |
+| P-3 | `composables/useAuth.ts` | Не было способа дождаться завершения auth инициализации | Добавлен export `waitUntilReady()` — Promise.race(isReady watcher, 10s timeout) |
+
+**Также исправлены import-ошибки:**
+- `VHeader` перенесён из `@/components/ui` в `@/components/layout` в: `AttendanceView`, `CreatePracticeView`, `EditPracticeView`, `MasterApplyView`
+
+---
+
+## PHASE F7: Master — Финансы ✅
+
+### F7.1: Баланс мастера + выводы ✅
 
 **Цель:** Мастер видит финансы и выводит средства.
 
 **Задачи:**
-- [ ] src/views/master/MasterFinanceView.vue:
-  - Баланс: available (доступно к выводу) + frozen (заморожено)
-  - Кнопка "Вывести средства"
-  - История выводов (если есть эндпоинт)
-- [ ] Запрос вывода:
-  - POST /api/v1/masters/me/withdraw
-  - Ввод суммы, подтверждение
-  - Обработка ошибок: недостаточно средств, нет payout details
-- [ ] Настройки выплат:
-  - PATCH /api/v1/masters/me/payout
-  - Форма: method (bank_transfer / paypal / revolut), details (IBAN, email, etc.)
-- [ ] src/views/master/MasterProfileView.vue:
-  - Информация профиля
-  - Ссылка на настройки выплат
-  - Ссылка на финансы
+- [x] src/api/types.ts — добавлены типы:
+  - `PayoutDetails` (method, account_number / email / revolut_tag)
+  - `MasterProfileResponse.payout: PayoutDetails | null`
+  - `WithdrawalStatus` ('pending' | 'approved' | 'rejected')
+  - `WithdrawalResponse` (id, amount_cents, fee_cents, status, payout_details, created_at)
+  - `PaginatedWithdrawalsResponse`
+- [x] src/api/masters.ts — добавлены методы:
+  - `updatePayoutDetails(body: PayoutDetails)` → PATCH /me/payout
+  - `createWithdrawal(amount_cents)` → POST /me/withdraw
+  - `getMyWithdrawals(limit, offset)` → GET /me/withdrawals
+- [x] src/views/master/MasterFinanceView.vue:
+  - **Баланс:** `available_cents` (зелёный) + `frozen_cents` (серый, только если > 0) из `masterStore.profile`
+  - **Форма вывода** (`v-show`): если `payout === null` — предупреждение + ссылка на `/master/profile`; иначе: input суммы в EUR, кнопка "Всё" (`fillMaxAmount`), hint с минимумом и комиссией, кнопка "Запросить вывод"
+  - Double-submit guard через `submitting` ref
+  - После успеха: `toast.success` + `masterStore.fetchMyProfile(true)` + `reloadHistory()`
+  - **История выводов:** `getMyWithdrawals` при маунте, пагинация "Показать ещё" (offset += 20)
+  - Каждый item: сумма, комиссия, итого мастеру, `VBadge` статуса, метод, дата
+- [x] src/views/master/MasterProfileView.vue:
+  - **Профиль:** `VAvatar` (xl) + display_name + `VBadge` (verified/pending) + bio + methods chips + стаж
+  - **Реквизиты выплат:** если `payout === null` — "Не настроено" + кнопка "Добавить"; если настроено — метод + masked details + кнопка "Изменить"
+  - Inline форма (`v-show`): `VSelect` метода + динамические поля (IBAN / email / tag); PATCH /me/payout → обновить `masterStore.profile.payout` in-place + toast.success
+  - Валидация: IBAN не пустой, email содержит `@`, tag не пустой
+  - Double-submit guard
+  - **Finance link:** карточка → `/master/finance`
+  - `onMounted`: guard — `if (authStore.role === 'master')` (pending мастера с role='user' не имеют /masters/me endpoint)
+
+**Ключевые паттерны F7:**
+- `eurStringToCents()` / `centsToEurString()` из `@/utils/currency` — везде вместо float-арифметики
+- `formatMoney(cents, 'EUR', 'ru', true)` для всех денежных значений
+- `MIN_WITHDRAWAL_EUROS = 50`, `WITHDRAWAL_FEE_EUROS = 2` — зеркалят backend config.py (см. TD-FE-W6)
 
 **Зависимость от бэкенда:** withdrawals + payout (Phase 6.6 ✅).
 
-**Критерий готовности:** Мастер видит баланс, настраивает выплаты, запрашивает вывод.
+**Критерий готовности:** Мастер видит баланс, настраивает выплаты, запрашивает вывод. ✅
+
+---
+
+### F7: Ревью и исправления
+
+**Ревью F7 — выявлено 6 warnings, 7 suggestions.**
+
+**Закрытые warnings (коммит `7141ebe`):**
+
+| ID | Серьёзность | Проблема | Фикс |
+|----|-------------|----------|------|
+| W-1 | MEDIUM | `parseFloat * 100` в `amountCents` — IEEE-754 float precision trap | `eurStringToCents(amountInput.value)` из `@/utils/currency` |
+| W-2 | LOW | `fillMaxAmount` делил на 100 вместо `centsToEurString()` | `centsToEurString(availableCents.value)` |
+| W-3 | LOW | Хинт "Вы получите" показывал €0,00 при невалидной сумме | `v-if="amountCents > 0"` на хинте |
+
+**Открытые warnings (LOW, tech debt):**
+
+| ID | Серьёзность | Описание | Файл |
+|----|-------------|----------|------|
+| W-4 | LOW | `v-show` на форме payout — все элементы всегда в DOM | `MasterProfileView.vue` |
+| W-5 | LOW | Backend `payout_details` типизирован как `dict`, а не `PayoutDetailsResponse` | `masters/models.py` (backend) |
+| W-6 | LOW | Хардкод `MIN_WITHDRAWAL_EUROS=50` / `WITHDRAWAL_FEE_EUROS=2` — рассинхрон с бэкендом при изменении | `MasterFinanceView.vue` |
+
+**Открытые suggestions (7 штук, LOW):** задокументированы в review-отчёте, перенесены в tech debt как TD-FE-F7-SUGGESTIONS.
 
 ---
 
@@ -1235,8 +1129,8 @@ STRIPE_CANCEL_URL=https://api.talentir.info/user/topup/cancel
 | F3: Каталог ✅ | 4.3 | ✅ | Нет |
 | F4: Бронирование ✅ | 5+6 | ✅ | Нет |
 | F5: Stripe ✅ | 6.3 | ✅ | Нет |
-| F6: Master | 2+4+5.4 | ✅ | Нет |
-| F7: Финансы | 6.6 | ✅ | Нет |
+| F6: Master ✅ | 2+4+5.4 | ✅ | Нет |
+| F7: Финансы ✅ | 6.6 | ✅ | Нет |
 | F8: Admin | 3+6.8 | ✅ | Нет |
 | F9: Diary | 8.4 | ✅ | **Нет (разблокировано)** |
 | F10: PWA | 7.3 + новый auth | **Частично** | **Частично** |
@@ -1262,6 +1156,7 @@ STRIPE_CANCEL_URL=https://api.talentir.info/user/topup/cancel
 | Auth guard в App.vue, а не в router beforeEach | В F1 один маршрут, ролевого роутинга нет; router guards добавляются в F2.2 |
 | Telegram SDK типы в env.d.ts (не отдельный .d.ts) | Минимальный surface — типизированы только используемые методы; вынести при росте |
 | Token decoupled от Pinia (модульная переменная в client.ts) | Исключает circular dependency client → store → client |
+| `v-show` на форме payout (W-4) | Осознанный выбор: форма скрывается анимированно, `v-if` ломал бы переход |
 
 ### Инфраструктура — перед публичным запуском 🚀
 
@@ -1269,6 +1164,25 @@ STRIPE_CANCEL_URL=https://api.talentir.info/user/topup/cancel
 |----|-------|----------|---------|--------|
 | TD-RU-PROXY | 🚀 | Hetzner IP (`api.talentir.info`) заблокирован ТСПУ из России. `ERR_CONNECTION_TIMED_OUT` — сервер полностью недоступен без VPN. Не только Telegram WebView, но и обычные браузеры | Российский VPS reverse proxy (Timeweb/Selectel, ~300-500₽/мес) или DDoS-Guard CDN. DNS `api.talentir.info` → российский IP. SSL через Let's Encrypt. Бэкенд и фронтенд остаются на Hetzner | ⬜ |
 | TD-SDK | 🧪 | Telegram WebApp SDK подключается как локальная копия `public/js/telegram-web-app.js` (3331 строка). Ручное обновление при новых версиях SDK | Миграция на npm-пакет `@telegram-apps/sdk` для управления версиями через package.json | ⬜ |
+
+### F7 Review — открытые предупреждения
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-FE-W6 | 🧪 | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены на фронте — рассинхрон с `config.py` при изменении | Получать из нового эндпоинта `GET /api/v1/config` или при необходимости дублировать с явным комментарием об источнике | ⬜ |
+| TD-FE-F7-SUGGESTIONS | 🧪 | `MasterFinanceView.vue`, `MasterProfileView.vue` | 7 suggestions из F7 review (LOW) — UX-улучшения, неблокирующие | Рассмотреть перед F8 | ⬜ |
+
+### Переключение режима мастер/юзер
+
+| ID | Среда | Описание | Решение | Статус |
+|----|-------|----------|---------|--------|
+| TD-MODE-SWITCH | 🧪 | Мастер является юзером и может участвовать в чужих практиках, но в мастерском интерфейсе нет точки входа в каталог. Маршруты `/user/*` (кроме dashboard) доступны технически, но недосягаемы из UI. | Кнопка "Перейти в интерфейс Юзера" в `MasterProfileView` + кнопка "Перейти в интерфейс Мастера" в `UserProfileView` (только если `role === 'master'`). Текущий режим хранить в `sessionStorage` или Pinia. Глобальный `beforeEach` адаптировать: не редиректить мастера с `/user/dashboard` если он сам выбрал user-режим. | ⬜ |
+
+### Deep links — обработка startapp параметра
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-F01 | 🚀 | `platform/telegram.ts`, `composables/useAuth.ts` | `startapp` параметр не обрабатывается при открытии приложения — диплинки (например из Telegram-каналов мастеров) открывают дашборд вместо конкретной практики. Бэкенд уже генерирует правильные ссылки формата `https://t.me/velo_testbot?startapp=open_practice__{uuid}` через `TelegramFormatter.format_deep_link()`. Фронт их игнорирует. | В `initAuth()` после успешной авторизации читать `window.Telegram.WebApp.initDataUnsafe.start_param`, парсить формат `open_practice__{uuid}`, вызывать `router.push('/user/practices/{uuid}')`. Объём: ~10-15 строк в одном файле. Приоритет высокий — влияет на конверсию из каналов мастеров. | ⬜ |
 
 ---
 
@@ -1349,7 +1263,7 @@ function handleResponse(data: PracticeResponse) { ... }
 <span>{{ user.balance_cents / 100 }}€</span>
 
 // ✅ ПРАВИЛЬНО:
-<span>{{ formatCents(user.balance_cents) }}</span>
+<span>{{ formatMoney(user.balance_cents, 'EUR', 'ru', true) }}</span>
 ```
 
 ### FP-07: Не привязываться к Telegram SDK напрямую
@@ -1376,6 +1290,19 @@ if (response.status === 401) {
   _onUnauthorized?.()  // auth store handles cleanup
   throw new ApiResponseError(401, 'Session expired')
 }
+```
+
+### FP-09: Cents input/output — всегда через currency utils
+
+```typescript
+// ❌ ЗАПРЕЩЕНО — float precision trap:
+const cents = Math.round(parseFloat(input) * 100)
+const display = (cents / 100).toFixed(2)
+
+// ✅ ПРАВИЛЬНО:
+import { eurStringToCents, centsToEurString } from '@/utils/currency'
+const cents = eurStringToCents(input)   // '14.57' → 1457, safe integer math
+const display = centsToEurString(cents) // 1457 → '14.57'
 ```
 
 ---
