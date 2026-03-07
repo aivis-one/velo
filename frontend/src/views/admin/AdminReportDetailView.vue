@@ -1,11 +1,11 @@
 <!--
-  VELO Frontend -- AdminReportDetailView (Phase F8.3, updated F8-fix W-5)
+  VELO Frontend -- AdminReportDetailView (Phase F8.3, updated F8-fix S-1/S-2)
 
   Full report detail with resolve / dismiss actions.
-  W-5: statusVariant / statusLabel / targetLabel replaced with adminHelpers.
 
-  Data source: router state (history.state.report) from AdminReportsView.
-  Fallback (W-2 fix): GET /api/v1/admin/reports/{id} single resource fetch.
+  S-1/S-2: after resolve/dismiss use router.push({ name: 'admin-reports' })
+  instead of router.back(). Guarantees a fresh mount of AdminReportsView
+  and a fresh loadInitial() -- no stale reports shown.
 -->
 
 <template>
@@ -24,7 +24,9 @@
           <VBadge :variant="reportStatusVariant(currentStatus)">
             {{ reportStatusLabel(currentStatus) }}
           </VBadge>
-          <span class="report-detail__type">{{ reportTargetLabel(report.target_type) }}</span>
+          <span class="report-detail__type">
+            {{ reportTargetLabel(report.target_type) }}
+          </span>
         </div>
 
         <!-- Report content -->
@@ -49,12 +51,16 @@
             </div>
             <div class="report-detail__meta-row">
               <span class="report-detail__meta-key">Создана</span>
-              <span class="report-detail__meta-val">{{ formatDateTime(report.created_at) }}</span>
+              <span class="report-detail__meta-val">
+                {{ formatDateTime(report.created_at) }}
+              </span>
             </div>
             <template v-if="report.resolved_at">
               <div class="report-detail__meta-row">
                 <span class="report-detail__meta-key">Обработана</span>
-                <span class="report-detail__meta-val">{{ formatDateTime(report.resolved_at) }}</span>
+                <span class="report-detail__meta-val">
+                  {{ formatDateTime(report.resolved_at) }}
+                </span>
               </div>
             </template>
             <template v-if="report.resolution_note">
@@ -68,7 +74,6 @@
 
         <!-- Actions: only for pending -->
         <template v-if="currentStatus === 'pending'">
-          <!-- Resolve form -->
           <div class="report-detail__section">
             <div class="report-detail__section-title">Решить жалобу</div>
             <div class="report-detail__action-form">
@@ -91,7 +96,6 @@
             </div>
           </div>
 
-          <!-- Dismiss form -->
           <div class="report-detail__section">
             <div class="report-detail__section-title">Отклонить жалобу</div>
             <div class="report-detail__action-form">
@@ -158,8 +162,6 @@ const reportId = route.params.id as string
 
 const report = ref<ReportResponse | null>(null)
 const loading = ref(false)
-
-// Local status -- updated after action so UI reflects result immediately.
 const currentStatus = ref<string>('pending')
 
 const resolveNote = ref('')
@@ -171,15 +173,12 @@ const dismissing = ref(false)
 const anyLoading = computed(() => resolving.value || dismissing.value)
 
 async function loadReport(): Promise<void> {
-  // Standard flow: data passed from AdminReportsView via router state.
   const stateData = (history.state as { report?: ReportResponse }).report
   if (stateData && stateData.id === reportId) {
     report.value = stateData
     currentStatus.value = stateData.status
     return
   }
-
-  // W-2 fix: fallback -- single resource fetch.
   loading.value = true
   try {
     const fetched = await getReportById(reportId)
@@ -202,10 +201,10 @@ async function onResolve(): Promise<void> {
   if (resolving.value) return
   resolving.value = true
   try {
-    const updated = await resolveReport(reportId, resolveNote.value.trim())
-    currentStatus.value = updated.status
+    await resolveReport(reportId, resolveNote.value.trim())
     toast.success('Жалоба решена')
-    router.back()
+    // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
+    router.push({ name: 'admin-reports' })
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при обработке'
     toast.error(msg)
@@ -218,13 +217,10 @@ async function onDismiss(): Promise<void> {
   if (dismissing.value) return
   dismissing.value = true
   try {
-    const updated = await dismissReport(
-      reportId,
-      dismissNote.value.trim() || undefined,
-    )
-    currentStatus.value = updated.status
+    await dismissReport(reportId, dismissNote.value.trim() || undefined)
     toast.success('Жалоба отклонена')
-    router.back()
+    // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
+    router.push({ name: 'admin-reports' })
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при обработке'
     toast.error(msg)
@@ -254,7 +250,6 @@ onMounted(loadReport)
   padding: var(--space-8) 0;
 }
 
-/* -- Header -- */
 .report-detail__header {
   display: flex;
   align-items: center;
@@ -267,7 +262,6 @@ onMounted(loadReport)
   margin-left: auto;
 }
 
-/* -- Section -- */
 .report-detail__section-title {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -287,7 +281,6 @@ onMounted(loadReport)
   line-height: 1.6;
 }
 
-/* -- Meta -- */
 .report-detail__meta-list {
   background: var(--velo-bg-card);
   border: 1px solid var(--velo-border);
@@ -338,14 +331,12 @@ onMounted(loadReport)
   margin-top: var(--space-1);
 }
 
-/* -- Action forms -- */
 .report-detail__action-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
-/* -- Processed -- */
 .report-detail__processed {
   text-align: center;
   font-size: var(--text-sm);

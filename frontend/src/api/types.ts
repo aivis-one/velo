@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7)
+// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7 + F8)
 // =============================================================================
 //
 // TypeScript interfaces matching backend Pydantic schemas.
@@ -12,6 +12,7 @@
 // F6: Master profile, apply flow, attendance, practice CRUD types.
 // F7: PayoutDetails, WithdrawalStatus, WithdrawalResponse,
 //     PaginatedWithdrawalsResponse. MasterProfileResponse + payout field.
+// F8 (S-5): Admin types moved here from api/admin.ts for consistency.
 // =============================================================================
 
 // -- Auth --
@@ -114,9 +115,9 @@ export interface CreatePracticeRequest {
   practice_type: PracticeType
   title: string
   description?: string | null
-  scheduled_at: string            // ISO 8601, must be in the future
+  scheduled_at: string
   duration_minutes: number
-  timezone: string                // IANA timezone, e.g. "Europe/Berlin"
+  timezone: string
   max_participants?: number | null
   zoom_link?: string | null
   parent_practice_id?: string | null
@@ -125,8 +126,6 @@ export interface CreatePracticeRequest {
   currency?: 'EUR'
 }
 
-// Only statuses reachable via state machine (backend _VALID_TRANSITIONS).
-// "cancelled" is NOT here -- use cancelPractice() instead.
 export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
 
 export interface UpdatePracticeRequest {
@@ -147,10 +146,6 @@ export interface UpdatePracticeRequest {
 
 export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
 
-/**
- * Compact practice representation embedded in booking/purchase responses.
- * Matches backend PracticeSummary schema.
- */
 export interface PracticeSummary {
   id: string
   title: string
@@ -214,13 +209,6 @@ export interface PreviewPurchaseResponse {
 
 export type MasterStatus = 'pending' | 'verified' | 'rejected'
 
-/**
- * Payout configuration stored in MasterProfile.data.payout.
- * method determines which keys are expected in details:
- *   bank_transfer -> { iban, account_holder?, swift? }
- *   paypal        -> { email }
- *   revolut       -> { tag? } or { phone? }
- */
 export interface PayoutDetails {
   method: string
   details: Record<string, unknown>
@@ -241,14 +229,12 @@ export interface MasterProfileResponse {
   updated_at: string | null
 }
 
-// Step 1 of the 3-step apply form
 export interface MasterApplyProfile {
   display_name: string
   email?: string | null
   phone?: string | null
 }
 
-// Step 2 of the 3-step apply form
 export interface MasterApplyExperience {
   methods: string[]
   experience_years: number
@@ -256,7 +242,6 @@ export interface MasterApplyExperience {
   certifications?: string[]
 }
 
-// Combined request sent as one POST to /api/v1/masters/apply
 export interface MasterApplyRequest {
   profile: MasterApplyProfile
   experience: MasterApplyExperience
@@ -271,7 +256,6 @@ export interface MasterApplyResponse {
 
 // -- Attendance (Phase F6.3) --
 
-// Subset of BookingStatus relevant to attendance tracking
 export type AttendanceBookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show'
 
 export interface AttendanceItemResponse {
@@ -299,11 +283,9 @@ export interface WithdrawalResponse {
   id: string
   user_id: string
   amount_cents: number
-  /** Platform fee deducted from amount_cents on approval. */
   fee_cents: number
   currency: string
   status: WithdrawalStatus
-  /** Snapshot of payout details at withdrawal creation time. */
   payout_details: PayoutDetails
   admin_id: string | null
   admin_note: string | null
@@ -320,11 +302,85 @@ export interface PaginatedWithdrawalsResponse {
   offset: number
 }
 
+// -- Admin (Phase F8, moved from api/admin.ts per S-5) --
+
+/** Single item in admin masters list -- user data + master status. */
+export interface AdminMasterListItem {
+  id: string
+  telegram_id: number | null
+  first_name: string | null
+  last_name: string | null
+  avatar_url: string | null
+  role: string
+  is_active: boolean
+  master_status: 'pending' | 'verified' | 'rejected'
+}
+
+export interface PaginatedMastersResponse {
+  items: AdminMasterListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface AdminStatsResponse {
+  users_count: number
+  masters_count: number
+  practices_count: number
+  pending_verifications: number
+}
+
+export interface AdminMasterActionResponse {
+  user_id: string
+  status: string
+}
+
+/** Report item -- same schema for user-facing and admin endpoints. */
+export interface ReportResponse {
+  id: string
+  reporter_id: string
+  target_type: 'user' | 'master' | 'practice'
+  target_id: string
+  reason: string
+  status: 'pending' | 'resolved' | 'dismissed'
+  resolved_by: string | null
+  resolution_note: string | null
+  resolved_at: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface PaginatedReportsResponse {
+  items: ReportResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** Single semaphore check result. */
+export interface SemaphoreResult {
+  name: string
+  category: string
+  status: 'OK' | 'ALERT'
+  expected: string
+  actual: string
+  details: Record<string, unknown> | null
+  criticality: 'critical' | 'warning' | 'info'
+}
+
+export interface ConsistencyResponse {
+  items: SemaphoreResult[]
+  total: number
+  ok_count: number
+  alert_count: number
+  run_at: string
+}
+
+export type ReportStatusFilter = 'pending' | 'resolved' | 'dismissed'
+export type ReportTargetTypeFilter = 'user' | 'master' | 'practice'
+
 // -- Errors --
 
-// Backend returns string detail on most errors (400, 401, 403, 404, 409)
-// and an array of validation objects on 422.
-// client.ts normalises the array to a joined string before throwing.
 export interface ApiError {
   detail:
     | string

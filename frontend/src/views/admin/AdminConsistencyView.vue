@@ -1,10 +1,10 @@
 <!--
-  VELO Frontend -- AdminConsistencyView (Phase F8.3, updated F8-fix W-4)
+  VELO Frontend -- AdminConsistencyView (Phase F8.3, updated F8-fix S-3)
 
   Data consistency semaphores: 21 checks grouped by category.
-  W-4: replaced hardcoded hex colors with CSS semantic tint variables.
-
-  Data: GET /api/v1/admin/consistency
+  S-3: separate `rerunning` ref for the re-run button -- initial load uses
+  `loading` (shows full skeleton), re-run uses `rerunning` (inline spinner
+  on button only, existing results stay visible).
 -->
 
 <template>
@@ -12,14 +12,19 @@
     <VHeader title="Семафоры" />
 
     <div class="consistency__content">
-      <!-- Loading -->
+      <!-- Initial loading -->
       <div v-if="loading" class="consistency__loader">
         <VLoader size="lg" />
       </div>
 
       <template v-else-if="data">
         <!-- Summary bar -->
-        <div class="consistency__summary" :class="data.alert_count > 0 ? 'consistency__summary--alert' : 'consistency__summary--ok'">
+        <div
+          class="consistency__summary"
+          :class="data.alert_count > 0
+            ? 'consistency__summary--alert'
+            : 'consistency__summary--ok'"
+        >
           <div class="consistency__summary-left">
             <span class="consistency__summary-icon">
               {{ data.alert_count > 0 ? '🔴' : '✅' }}
@@ -35,7 +40,8 @@
               </div>
             </div>
           </div>
-          <VButton variant="outline" size="sm" :loading="loading" @click="loadData">
+          <!-- S-3: rerunning ref -- only button spins, results stay visible. -->
+          <VButton variant="outline" size="sm" :loading="rerunning" @click="rerun">
             ↺
           </VButton>
         </div>
@@ -57,20 +63,29 @@
               v-for="item in group"
               :key="item.name"
               class="consistency__item"
-              :class="item.status === 'ALERT' ? 'consistency__item--alert' : 'consistency__item--ok'"
+              :class="item.status === 'ALERT'
+                ? 'consistency__item--alert'
+                : 'consistency__item--ok'"
             >
               <div class="consistency__item-header">
                 <span class="consistency__item-icon">
                   {{ item.status === 'ALERT' ? '🔴' : '✅' }}
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
-                <VBadge :variant="criticalityVariant(item.criticality)" class="consistency__item-crit">
+                <VBadge
+                  :variant="criticalityVariant(item.criticality)"
+                  class="consistency__item-crit"
+                >
                   {{ item.criticality }}
                 </VBadge>
               </div>
               <div v-if="item.status === 'ALERT'" class="consistency__item-detail">
-                <span class="consistency__item-expected">ожидалось: {{ item.expected }}</span>
-                <span class="consistency__item-actual">фактически: {{ item.actual }}</span>
+                <span class="consistency__item-expected">
+                  ожидалось: {{ item.expected }}
+                </span>
+                <span class="consistency__item-actual">
+                  фактически: {{ item.actual }}
+                </span>
               </div>
             </div>
           </div>
@@ -105,9 +120,12 @@ import { formatDateTime } from '@/utils/adminHelpers'
 const toast = useToast()
 
 const data = ref<ConsistencyResponse | null>(null)
+// S-3: two separate loading states.
+// `loading` -- initial fetch (shows full skeleton).
+// `rerunning` -- re-run button (inline spinner, existing results stay visible).
 const loading = ref(false)
+const rerunning = ref(false)
 
-// Group items by category, preserving insertion order.
 const groupedItems = computed((): [string, SemaphoreResult[]][] => {
   if (!data.value) return []
   const map = new Map<string, SemaphoreResult[]>()
@@ -119,9 +137,7 @@ const groupedItems = computed((): [string, SemaphoreResult[]][] => {
   return Array.from(map.entries())
 })
 
-function criticalityVariant(
-  c: string,
-): 'error' | 'warning' | 'info' {
+function criticalityVariant(c: string): 'error' | 'warning' | 'info' {
   if (c === 'critical') return 'error'
   if (c === 'warning') return 'warning'
   return 'info'
@@ -136,6 +152,21 @@ async function loadData(): Promise<void> {
     toast.error(msg)
   } finally {
     loading.value = false
+  }
+}
+
+// S-3: re-run triggered by button -- keeps existing data visible, only
+// spins the button. Replaces data silently on success.
+async function rerun(): Promise<void> {
+  if (rerunning.value) return
+  rerunning.value = true
+  try {
+    data.value = await getConsistency()
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка повторного запуска'
+    toast.error(msg)
+  } finally {
+    rerunning.value = false
   }
 }
 

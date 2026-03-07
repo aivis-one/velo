@@ -1,11 +1,11 @@
 <!--
-  VELO Frontend -- AdminMastersView (Phase F8.2, updated F8-fix W-5)
+  VELO Frontend -- AdminMastersView (Phase F8.2, updated F8-fix S-4)
 
   List of pending master applications.
   Click on a card -> AdminMasterReviewView with master data in router state.
-  W-5: displayName / statusVariant / statusLabel replaced with adminHelpers.
 
-  Data: GET /api/v1/admin/masters/pending (paginated, load-more)
+  S-4: added separate `error` ref; on fetch failure shows VEmptyState with
+  retry button instead of silently showing empty "Все заявки обработаны".
 -->
 
 <template>
@@ -14,13 +14,25 @@
 
     <div class="admin-masters__content">
       <!-- Loading: initial -->
-      <div v-if="loading && items.length === 0" class="admin-masters__loader">
+      <div v-if="loading" class="admin-masters__loader">
         <VLoader size="lg" />
       </div>
 
-      <!-- Empty state -->
+      <!-- Fetch error -->
       <VEmptyState
-        v-else-if="!loading && items.length === 0"
+        v-else-if="error"
+        icon="⚠️"
+        title="Не удалось загрузить заявки"
+        description="Проверьте соединение и попробуйте ещё раз"
+      >
+        <template #action>
+          <VButton variant="primary" @click="loadInitial">Повторить</VButton>
+        </template>
+      </VEmptyState>
+
+      <!-- Empty state (genuine) -->
+      <VEmptyState
+        v-else-if="items.length === 0"
         icon="✅"
         title="Новых заявок нет"
         description="Все заявки обработаны"
@@ -98,15 +110,19 @@ const total = ref(0)
 const loading = ref(false)
 const loadingMore = ref(false)
 const hasMore = ref(false)
+// S-4: separate error state so retry button is shown instead of empty state.
+const error = ref(false)
 
 async function loadInitial(): Promise<void> {
   loading.value = true
+  error.value = false
   try {
     const res = await getPendingMasters(LIMIT, 0)
     items.value = res.items
     total.value = res.total
     hasMore.value = res.items.length < res.total
   } catch (e) {
+    error.value = true
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки заявок'
     toast.error(msg)
   } finally {
@@ -129,8 +145,6 @@ async function loadMore(): Promise<void> {
 }
 
 function openReview(item: AdminMasterListItem): void {
-  // Serialize to plain object: vue-router HistoryState requires index signature
-  // for 'number' which TypeScript interfaces don't satisfy directly.
   router.push({
     name: 'admin-master-review',
     params: { id: item.id },
