@@ -1,31 +1,43 @@
 // =============================================================================
-// VELO Frontend -- Router Guards (Phase F2.2, updated F6)
+// VELO Frontend -- Router Guards (Phase F2.2, updated F6, BUG-role-redirect)
 // =============================================================================
 //
 // Navigation guards for role-based access control.
 //
 // Auth gate (authenticated yes/no) lives in App.vue (Phase F1.3).
 // These guards handle ROLE-BASED routing for authenticated users:
-//   - roleRedirect: redirect / to role-specific dashboard
-//   - roleGuard:    require a minimum role to access a route group
+//   - roleRedirect:      redirect / to role-specific dashboard
+//   - roleGuard:         require a minimum role to access a route group
 //   - masterStatusGuard: require verified master profile
 //
 // F6 update: masterStatusGuard is now fully implemented.
 //   - Calls useMasterStore().fetchMyProfile() lazily (skips if loaded)
 //   - Redirects to /master/pending if profile missing or not verified
 //   - Guards are applied per-route in router/index.ts via beforeEnter
+//
+// BUG-role-redirect fix: roleRedirect is now async and awaits waitUntilReady()
+// before reading auth.role. Without this, the guard fires during the first
+// navigation (before App.vue mounts), sees role=null, and redirects every
+// user to /user/dashboard regardless of their real role.
 // =============================================================================
 
 import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
+import { waitUntilReady } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
 
 /**
  * Redirect `/` to the correct dashboard based on user role.
  * Falls back to /user/dashboard for unknown roles.
+ *
+ * Async: awaits auth initialization so role is guaranteed to be set
+ * before the switch. Without the await, role is always null on first load.
  */
-export const roleRedirect: NavigationGuardWithThis<undefined> = () => {
+export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
+  // Wait for initAuth() to complete so auth.role reflects the real session.
+  await waitUntilReady()
+
   const auth = useAuthStore()
   switch (auth.role) {
     case 'admin':
