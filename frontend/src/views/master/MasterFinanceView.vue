@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterFinanceView (Phase F7)
+  VELO Frontend -- MasterFinanceView (Phase F7, fixed W-1/W-2/W-3)
 
   Master finance screen. Route: /master/finance (inside MasterShell).
   Guard: masterStatusGuard (verified masters only).
@@ -24,6 +24,11 @@
     - formatMoney(cents, 'EUR', 'ru', true) for all monetary values.
     - MIN_WITHDRAWAL_EUROS = 50 (mirrors backend min_withdrawal_cents=5000).
     - WITHDRAWAL_FEE_EUROS = 2 (mirrors backend withdrawal_fee_cents=200).
+
+  Fixes (W-1/W-2/W-3 from F7 review):
+    W-1: amountCents uses eurStringToCents() -- no parseFloat * 100 float trap.
+    W-2: fillMaxAmount uses centsToEurString() -- consistent utility usage.
+    W-3: "Вы получите" hint hidden when amountCents === 0 (empty/invalid input).
 -->
 
 <template>
@@ -99,8 +104,11 @@
           </div>
           <p class="finance-view__hint">
             Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
-            Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }} ·
-            Вы получите {{ formattedNetAmount }}
+            Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }}
+            <!-- W-3: show net amount only when input is valid (amountCents > 0) -->
+            <template v-if="amountCents > 0">
+              · Вы получите {{ formattedNetAmount }}
+            </template>
           </p>
           <p v-if="amountError" class="finance-view__error">{{ amountError }}</p>
         </div>
@@ -189,6 +197,7 @@ import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney, formatDateShort } from '@/utils/format'
+import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { WithdrawalResponse, WithdrawalStatus } from '@/api/types'
 
 // ---------------------------------------------------------------------------
@@ -243,17 +252,17 @@ function toggleWithdrawForm(): void {
   }
 }
 
-/** Fill amount input with full available balance in euros. */
+/** Fill amount input with full available balance in euros.
+ * W-2: centsToEurString() uses integer division + toFixed(2) -- no float issues.
+ */
 function fillMaxAmount(): void {
-  amountInput.value = (availableCents.value / 100).toFixed(2)
+  amountInput.value = centsToEurString(availableCents.value)
 }
 
-/** Parsed amount in cents (0 when input is invalid). */
-const amountCents = computed((): number => {
-  const parsed = parseFloat(amountInput.value)
-  if (isNaN(parsed) || parsed <= 0) return 0
-  return Math.round(parsed * 100)
-})
+// W-1: eurStringToCents() avoids IEEE-754 float precision trap.
+// parseFloat('14.57') * 100 = 1456.9999... -- unreliable.
+// eurStringToCents parses integer + fractional parts as integers.
+const amountCents = computed((): number => eurStringToCents(amountInput.value))
 
 /** Inline validation message for amount input. */
 const amountError = computed((): string => {
