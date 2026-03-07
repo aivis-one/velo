@@ -1,8 +1,8 @@
 # VELO -- Техническое задание
 
-**Версия:** 2.9
-**Дата:** 4 марта 2026
-**Статус:** Draft
+**Версия:** 3.0
+**Дата:** 7 марта 2026
+**Статус:** Active
 
 ---
 
@@ -2729,6 +2729,43 @@ backend/tests/
 - `a7b8c9d0e1f2` — W-02: index на bookings.purchase_id
 
 **Тесты:** 406 passed, 3 skipped, 5 failed (test isolation issue — practices cleanup scope, не связано с F5). 0 warnings.
+
+### F7 Fixes — март 2026
+
+**BUG: `list_master_practices` вызывался с неверным ключевым аргументом**
+
+| ID | Файл | Проблема | Решение | Статус |
+|----|------|----------|---------|--------|
+| BUG-F7-01 | `masters/router.py` | `list_master_practices(master_id=user.id, ...)` — неверный kwarg; реальная сигнатура `list_master_practices(user, session, ...)` | `list_master_practices(user, session, limit=limit, offset=offset)` | ✅ |
+
+Симптом: `test_list_master_practices` — `TypeError: list_master_practices() got an unexpected keyword argument 'master_id'`. Коммит: вместе с F7 batch1.
+
+**F7 Backend: `payout` в `MasterProfileResponse`**
+
+| Файл | Изменение | Статус |
+|------|-----------|--------|
+| `masters/schemas.py` | Добавлено `payout: PayoutDetailsResponse \| None = None` в конец `MasterProfileResponse` | ✅ |
+| `masters/router.py` | `_make_profile_response()` — извлекает `payout_raw = data.get("payout")`, конструирует `PayoutDetailsResponse` | ✅ |
+
+**Тесты (добавлены в `tests/test_withdrawals.py`):**
+- `test_profile_payout_none_when_not_configured` — GET /masters/me возвращает `payout=null` до настройки
+- `test_profile_payout_returned_after_update` — GET /masters/me возвращает payout после PATCH /me/payout
+
+**Итоговые тесты после F7:** 411 passed, 3 skipped, 0 failed.
+
+### Открытый техдолг — F7 Review
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-F7-W5 | 🧪 | `masters/models.py` (Withdrawal) | `payout_details: dict` — содержимое dict не ограничено схемой | Типизировать как `PayoutDetailsResponse` или `PayoutDetailsDict` | ⬜ |
+
+### Открытый техдолг — Frontend F7 Review (перенесён из ревью)
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-FE-W4 | 🧪 | `MasterProfileView.vue` | `v-show` на форме payout — все DOM-элементы всегда присутствуют; незначительная нагрузка | Заменить на `v-if` если форма не нужна при переходе с анимацией | ⬜ |
+| TD-FE-W6 | 🧪 | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены на фронте — рассинхронизируются при изменении `config.py` | Либо GET endpoint, возвращающий лимиты, либо задокументировать как осознанное решение и синхронизировать вручную | ⬜ |
+| TD-FE-ROLE-SWITCH | 🧪 | `MasterProfileView.vue` / `UserProfileView.vue` | Мастер не имеет точки входа в каталог практик (юзерский интерфейс). `/user/dashboard` редиректит обратно на мастерский, хотя `/user/calendar`, `/user/bookings` и т.д. доступны напрямую | Кнопка «Перейти в интерфейс юзера» в `MasterProfileView`, «Перейти в интерфейс мастера» в `UserProfileView` (только если `role === 'master'`). Режим хранится в Pinia (не sessionStorage), при переключении — редирект на dashboard нужной роли, `beforeEach` уважает выбранный режим | ⬜ |
 
 ### Инфраструктура — перед публичным запуском для российской аудитории 🚀
 
