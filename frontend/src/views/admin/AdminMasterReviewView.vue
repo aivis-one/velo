@@ -1,13 +1,11 @@
 <!--
-  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix W-5)
+  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix S-1/S-2)
 
   Review a master application: show available data + verify / reject actions.
-  W-5: displayName / statusVariant / statusLabel replaced with adminHelpers.
 
-  Data source: router state (history.state.master) populated by AdminMastersView.
-  Fallback (W-1 fix): GET /api/v1/admin/masters/{id} single resource fetch.
-
-  W-6 fix: double-submit guard checked before validation in onReject.
+  S-1/S-2: after verify/reject use router.push({ name: 'admin-masters' })
+  instead of router.back(). This guarantees a fresh mount of AdminMastersView
+  and a fresh loadInitial() call -- no stale pending count shown.
 -->
 
 <template>
@@ -50,11 +48,15 @@
             </div>
             <div class="review__meta-row">
               <span class="review__meta-key">Статус аккаунта</span>
-              <span class="review__meta-val">{{ master.is_active ? 'Активен' : 'Заблокирован' }}</span>
+              <span class="review__meta-val">
+                {{ master.is_active ? 'Активен' : 'Заблокирован' }}
+              </span>
             </div>
             <div class="review__meta-row">
               <span class="review__meta-key">Статус заявки</span>
-              <span class="review__meta-val">{{ masterStatusLabel(master.master_status) }}</span>
+              <span class="review__meta-val">
+                {{ masterStatusLabel(master.master_status) }}
+              </span>
             </div>
           </div>
         </div>
@@ -173,14 +175,11 @@ const rejectError = ref('')
 const anyLoading = computed(() => verifying.value || rejecting.value)
 
 async function loadMaster(): Promise<void> {
-  // Standard flow: data passed from AdminMastersView via router state.
   const stateData = (history.state as { master?: AdminMasterListItem }).master
   if (stateData && stateData.id === masterId) {
     master.value = stateData
     return
   }
-
-  // W-1 fix: fallback -- single resource fetch.
   loading.value = true
   try {
     master.value = await getMasterById(masterId)
@@ -198,7 +197,8 @@ async function onVerify(): Promise<void> {
   try {
     await verifyMaster(masterId)
     toast.success('Мастер верифицирован')
-    router.back()
+    // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
+    router.push({ name: 'admin-masters' })
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка верификации'
     toast.error(msg)
@@ -208,7 +208,7 @@ async function onVerify(): Promise<void> {
 }
 
 async function onReject(): Promise<void> {
-  // W-6 fix: guard before validation to prevent double-submit on rapid clicks.
+  // W-6: guard before validation.
   if (rejecting.value) return
   rejectError.value = ''
   if (!rejectReason.value.trim()) {
@@ -219,7 +219,8 @@ async function onReject(): Promise<void> {
   try {
     await rejectMaster(masterId, rejectReason.value.trim())
     toast.success('Заявка отклонена')
-    router.back()
+    // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
+    router.push({ name: 'admin-masters' })
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка при отклонении'
     toast.error(msg)
