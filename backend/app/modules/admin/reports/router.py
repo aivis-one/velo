@@ -1,14 +1,18 @@
 # =============================================================================
-# VELO Backend -- Admin Reports Router (Phase 3.3)
+# VELO Backend -- Admin Reports Router (Phase 3.3, updated F8-fix)
 # =============================================================================
 #
 # ENDPOINTS:
 #   GET  /api/v1/admin/reports                -- list reports (filters, pagination)
+#   GET  /api/v1/admin/reports/{id}           -- single report by id (F8-fix W-2)
 #   POST /api/v1/admin/reports/{id}/resolve   -- resolve a pending report
 #   POST /api/v1/admin/reports/{id}/dismiss   -- dismiss a pending report
 #
+# ROUTE ORDER: GET /{id} must be registered before POST /{id}/resolve|dismiss
+#   to avoid any potential ambiguity (FastAPI resolves in declaration order).
+#
 # AUTH: get_current_admin on all endpoints.
-# SESSION: get_db_reader for listing, get_db_session for mutations.
+# SESSION: get_db_reader for listing + single fetch, get_db_session for mutations.
 # =============================================================================
 
 from typing import Literal
@@ -26,6 +30,7 @@ from app.modules.admin.reports.schemas import (
 )
 from app.modules.admin.reports.service import (
     dismiss_report,
+    get_report_by_id,
     list_reports,
     resolve_report,
 )
@@ -55,6 +60,21 @@ async def get_reports(
         status=status,
         target_type=target_type,
     )
+
+
+@router.get("/{report_id}", response_model=ReportResponse)
+async def get_report(
+    report_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_reader),
+) -> ReportResponse:
+    """Fetch a single report by id.
+
+    Used by admin detail screen as fallback when router state is unavailable
+    (direct URL navigation, page refresh). Returns 404 if not found.
+    """
+    report = await get_report_by_id(report_id, session)
+    return ReportResponse.model_validate(report, from_attributes=True)
 
 
 @router.post("/{report_id}/resolve", response_model=ReportResponse)

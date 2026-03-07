@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Admin Users Service (Phase 3.2)
+# VELO Backend -- Admin Users Service (Phase 3.2, updated F8-fix)
 # =============================================================================
 #
 # Queries for admin user/master listings.
@@ -12,15 +12,21 @@
 # MASTERS LIST:
 #   Joins User + MasterProfile, filters by JSONB account.status.
 #   Shortcuts /pending and /rejected are just status filters.
+#
+# F8-fix (W-1):
+#   get_master_by_id() -- single master lookup by user_id.
+#   Used by GET /admin/masters/{user_id} so the frontend review screen
+#   can do a proper single-resource fetch instead of scanning 100 items.
 # =============================================================================
 
 from typing import Literal
+from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BadRequestError
+from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.admin.users.schemas import (
     AdminMasterListItem,
     PaginatedMastersResponse,
@@ -137,4 +143,39 @@ async def list_masters(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+async def get_master_by_id(
+    user_id: UUID,
+    session: AsyncSession,
+) -> AdminMasterListItem:
+    """Fetch a single master by user_id.
+
+    Joins User + MasterProfile. Raises NotFoundError if the user has
+    no MasterProfile (i.e. never applied).
+
+    Used by GET /api/v1/admin/masters/{user_id} (F8-fix W-1).
+    """
+    stmt = (
+        select(User, MasterProfile)
+        .join(MasterProfile, User.id == MasterProfile.user_id)
+        .where(User.id == user_id)
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+
+    if row is None:
+        raise NotFoundError("Master not found")
+
+    user, profile = row
+    return AdminMasterListItem(
+        id=user.id,
+        telegram_id=user.telegram_id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        avatar_url=user.avatar_url,
+        role=str(user.role),
+        is_active=user.is_active,
+        master_status=profile.data.get("account", {}).get("status", "unknown"),
     )

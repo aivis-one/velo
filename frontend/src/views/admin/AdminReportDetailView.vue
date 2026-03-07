@@ -1,10 +1,11 @@
 <!--
-  VELO Frontend -- AdminReportDetailView (Phase F8.3)
+  VELO Frontend -- AdminReportDetailView (Phase F8.3, updated F8-fix)
 
   Full report detail with resolve / dismiss actions.
 
   Data source: router state (history.state.report) from AdminReportsView.
-  Fallback: no single-report GET endpoint exists -- shows empty state with back button.
+  Fallback (W-2 fix): GET /api/v1/admin/reports/{id} -- single resource fetch,
+  used when navigating directly by URL (refresh, deep link).
 
   Backend rules:
     resolve: resolution_note required (min 1)
@@ -16,16 +17,12 @@
     <VHeader title="Жалоба" :show-back="true" @back="router.back()" />
 
     <div class="report-detail__content">
-      <div v-if="!report" class="report-detail__not-found">
-        <VEmptyState
-          icon="❓"
-          title="Жалоба не найдена"
-          description="Вернитесь к списку жалоб"
-        />
-        <VButton variant="outline" block @click="router.back()">Назад</VButton>
+      <!-- Loading -->
+      <div v-if="loading" class="report-detail__loader">
+        <VLoader size="lg" />
       </div>
 
-      <template v-else>
+      <template v-else-if="report">
         <!-- Status + type header -->
         <div class="report-detail__header">
           <VBadge :variant="statusVariant(currentStatus)">
@@ -126,17 +123,27 @@
           Жалоба уже обработана — статус: <strong>{{ statusLabel(currentStatus) }}</strong>
         </div>
       </template>
+
+      <!-- Not found -->
+      <div v-else class="report-detail__not-found">
+        <VEmptyState
+          icon="❓"
+          title="Жалоба не найдена"
+          description="Вернитесь к списку жалоб"
+        />
+        <VButton variant="outline" block @click="router.back()">Назад</VButton>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VTextarea, VEmptyState } from '@/components/ui'
+import { VBadge, VButton, VTextarea, VEmptyState, VLoader } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
-import { resolveReport, dismissReport } from '@/api/admin'
+import { getReportById, resolveReport, dismissReport } from '@/api/admin'
 import type { ReportResponse } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 
@@ -144,14 +151,13 @@ const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 
-// Load from router state -- no fallback fetch (no single-report endpoint).
-const stateData = (history.state as { report?: ReportResponse }).report
-const report = ref<ReportResponse | null>(
-  stateData?.id === (route.params.id as string) ? stateData : null,
-)
+const reportId = route.params.id as string
+
+const report = ref<ReportResponse | null>(null)
+const loading = ref(false)
 
 // Local status -- updated after action to prevent double-submit UI.
-const currentStatus = ref(report.value?.status ?? 'pending')
+const currentStatus = ref<string>('pending')
 
 const resolveNote = ref('')
 const resolveError = ref('')
@@ -192,6 +198,30 @@ function formatDate(iso: string): string {
   })
 }
 
+// Load report: from router state (standard flow) or single fetch (fallback).
+async function loadReport(): Promise<void> {
+  // Standard flow: data passed from AdminReportsView via router state.
+  const stateData = (history.state as { report?: ReportResponse }).report
+  if (stateData && stateData.id === reportId) {
+    report.value = stateData
+    currentStatus.value = stateData.status
+    return
+  }
+
+  // W-2 fix: fallback -- single resource fetch instead of showing empty state.
+  loading.value = true
+  try {
+    const fetched = await getReportById(reportId)
+    report.value = fetched
+    currentStatus.value = fetched.status
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки жалобы'
+    toast.error(msg)
+  } finally {
+    loading.value = false
+  }
+}
+
 async function onResolve(): Promise<void> {
   resolveError.value = ''
   if (!resolveNote.value.trim()) {
@@ -201,10 +231,7 @@ async function onResolve(): Promise<void> {
   if (resolving.value) return
   resolving.value = true
   try {
-    const updated = await resolveReport(
-      route.params.id as string,
-      resolveNote.value.trim(),
-    )
+    const updated = await resolveReport(reportId, resolveNote.value.trim())
     currentStatus.value = updated.status
     toast.success('Жалоба решена')
     router.back()
@@ -221,7 +248,7 @@ async function onDismiss(): Promise<void> {
   dismissing.value = true
   try {
     const updated = await dismissReport(
-      route.params.id as string,
+      reportId,
       dismissNote.value.trim() || undefined,
     )
     currentStatus.value = updated.status
@@ -234,6 +261,8 @@ async function onDismiss(): Promise<void> {
     dismissing.value = false
   }
 }
+
+onMounted(loadReport)
 </script>
 
 <style scoped>
@@ -246,6 +275,12 @@ async function onDismiss(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.report-detail__loader {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) 0;
 }
 
 /* -- Header -- */
