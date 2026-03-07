@@ -1,10 +1,11 @@
 <!--
-  VELO Frontend -- AdminReportsView (Phase F8.3)
+  VELO Frontend -- AdminReportsView (Phase F8.3, updated F8-fix W-3 + W-5)
 
-  List of reports with filters by status and target_type.
-  Click on a report -> AdminReportDetailView with report data in router state.
+  List of reports with status + target_type filters and pagination.
+  W-3: generation counter prevents stale responses from racing filter changes.
+  W-5: statusVariant / statusLabel / targetLabel replaced with adminHelpers.
 
-  Data: GET /api/v1/admin/reports (paginated, load-more)
+  Data: GET /api/v1/admin/reports
 -->
 
 <template>
@@ -14,28 +15,18 @@
     <div class="admin-reports__content">
       <!-- Filters -->
       <div class="admin-reports__filters">
-        <div class="admin-reports__filter-row">
-          <button
-            v-for="s in STATUS_OPTIONS"
-            :key="String(s.value)"
-            class="admin-reports__filter-chip"
-            :class="{ 'admin-reports__filter-chip--active': statusFilter === s.value }"
-            @click="setStatusFilter(s.value)"
-          >
-            {{ s.label }}
-          </button>
-        </div>
-        <div class="admin-reports__filter-row">
-          <button
-            v-for="t in TARGET_OPTIONS"
-            :key="String(t.value)"
-            class="admin-reports__filter-chip"
-            :class="{ 'admin-reports__filter-chip--active': targetFilter === t.value }"
-            @click="setTargetFilter(t.value)"
-          >
-            {{ t.label }}
-          </button>
-        </div>
+        <VSelect
+          v-model="filterStatus"
+          label="Статус"
+          :options="statusOptions"
+          @update:model-value="onFilterChange"
+        />
+        <VSelect
+          v-model="filterTargetType"
+          label="Тип цели"
+          :options="targetTypeOptions"
+          @update:model-value="onFilterChange"
+        />
       </div>
 
       <!-- Loading: initial -->
@@ -53,7 +44,9 @@
 
       <template v-else>
         <!-- Count -->
-        <div class="admin-reports__count">Всего: {{ total }}</div>
+        <div class="admin-reports__count">
+          Найдено: <strong>{{ total }}</strong>
+        </div>
 
         <!-- List -->
         <div class="admin-reports__list">
@@ -63,15 +56,17 @@
             class="admin-reports__card"
             @click="openDetail(item)"
           >
-            <div class="admin-reports__card-top">
-              <VBadge :variant="statusVariant(item.status)">
-                {{ statusLabel(item.status) }}
+            <div class="admin-reports__card-header">
+              <VBadge :variant="reportStatusVariant(item.status)">
+                {{ reportStatusLabel(item.status) }}
               </VBadge>
-              <span class="admin-reports__card-type">{{ targetLabel(item.target_type) }}</span>
+              <span class="admin-reports__card-type">
+                {{ reportTargetLabel(item.target_type) }}
+              </span>
             </div>
             <div class="admin-reports__card-reason">{{ item.reason }}</div>
             <div class="admin-reports__card-date">
-              {{ formatDate(item.created_at) }}
+              {{ formatShortDate(item.created_at) }}
             </div>
           </div>
         </div>
@@ -96,27 +91,19 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VBadge, VButton, VLoader, VEmptyState, VSelect } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getReports } from '@/api/admin'
 import type { ReportResponse, ReportStatusFilter, ReportTargetTypeFilter } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import {
+  reportStatusVariant,
+  reportStatusLabel,
+  reportTargetLabel,
+  formatShortDate,
+} from '@/utils/adminHelpers'
 
 const LIMIT = 20
-
-const STATUS_OPTIONS: Array<{ value: ReportStatusFilter | undefined; label: string }> = [
-  { value: undefined, label: 'Все' },
-  { value: 'pending', label: 'Ожидают' },
-  { value: 'resolved', label: 'Решены' },
-  { value: 'dismissed', label: 'Отклонены' },
-]
-
-const TARGET_OPTIONS: Array<{ value: ReportTargetTypeFilter | undefined; label: string }> = [
-  { value: undefined, label: 'Все типы' },
-  { value: 'user', label: 'Юзер' },
-  { value: 'master', label: 'Мастер' },
-  { value: 'practice', label: 'Практика' },
-]
 
 const router = useRouter()
 const toast = useToast()
@@ -127,51 +114,60 @@ const loading = ref(false)
 const loadingMore = ref(false)
 const hasMore = ref(false)
 
-const statusFilter = ref<ReportStatusFilter | undefined>('pending')
-const targetFilter = ref<ReportTargetTypeFilter | undefined>(undefined)
+const filterStatus = ref<ReportStatusFilter | ''>('')
+const filterTargetType = ref<ReportTargetTypeFilter | ''>('')
 
-function statusVariant(status: string): 'warning' | 'success' | 'error' | 'info' {
-  if (status === 'pending') return 'warning'
-  if (status === 'resolved') return 'success'
-  if (status === 'dismissed') return 'info'
-  return 'info'
-}
+// W-3: generation counter to discard stale responses from rapid filter changes.
+// Each loadInitial() call captures the generation at call time.
+// If the counter has advanced by the time the response arrives, the result is dropped.
+let generation = 0
 
-function statusLabel(status: string): string {
-  if (status === 'pending') return 'Ожидает'
-  if (status === 'resolved') return 'Решена'
-  if (status === 'dismissed') return 'Отклонена'
-  return status
-}
+const statusOptions = [
+  { value: '', label: 'Все статусы' },
+  { value: 'pending', label: 'Ожидает' },
+  { value: 'resolved', label: 'Решена' },
+  { value: 'dismissed', label: 'Отклонена' },
+]
 
-function targetLabel(type: string): string {
-  if (type === 'user') return '👤 Юзер'
-  if (type === 'master') return '🧘 Мастер'
-  if (type === 'practice') return '📅 Практика'
-  return type
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+const targetTypeOptions = [
+  { value: '', label: 'Все типы' },
+  { value: 'user', label: '👤 Юзер' },
+  { value: 'master', label: '🧘 Мастер' },
+  { value: 'practice', label: '📅 Практика' },
+]
 
 async function loadInitial(): Promise<void> {
+  // Capture generation before await -- any newer call will have incremented it.
+  generation += 1
+  const myGeneration = generation
+
   loading.value = true
   items.value = []
+  total.value = 0
+  hasMore.value = false
+
   try {
-    const res = await getReports(statusFilter.value, targetFilter.value, LIMIT, 0)
+    const res = await getReports(
+      filterStatus.value || undefined,
+      filterTargetType.value || undefined,
+      LIMIT,
+      0,
+    )
+
+    // W-3: discard if a newer request has started since we awaited.
+    if (myGeneration !== generation) return
+
     items.value = res.items
     total.value = res.total
     hasMore.value = res.items.length < res.total
   } catch (e) {
+    if (myGeneration !== generation) return
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки жалоб'
     toast.error(msg)
   } finally {
-    loading.value = false
+    if (myGeneration === generation) {
+      loading.value = false
+    }
   }
 }
 
@@ -179,8 +175,8 @@ async function loadMore(): Promise<void> {
   loadingMore.value = true
   try {
     const res = await getReports(
-      statusFilter.value,
-      targetFilter.value,
+      filterStatus.value || undefined,
+      filterTargetType.value || undefined,
       LIMIT,
       items.value.length,
     )
@@ -194,19 +190,11 @@ async function loadMore(): Promise<void> {
   }
 }
 
-function setStatusFilter(value: ReportStatusFilter | undefined): void {
-  statusFilter.value = value
-  loadInitial()
-}
-
-function setTargetFilter(value: ReportTargetTypeFilter | undefined): void {
-  targetFilter.value = value
+function onFilterChange(): void {
   loadInitial()
 }
 
 function openDetail(item: ReportResponse): void {
-  // Serialize to plain object: vue-router HistoryState requires index signature
-  // for 'number' which TypeScript interfaces don't satisfy directly.
   router.push({
     name: 'admin-report-detail',
     params: { id: item.id },
@@ -231,33 +219,9 @@ onMounted(loadInitial)
 
 /* -- Filters -- */
 .admin-reports__filters {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-2);
-}
-
-.admin-reports__filter-row {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.admin-reports__filter-chip {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-card);
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.admin-reports__filter-chip--active {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-  color: #fff;
 }
 
 /* -- Loader -- */
@@ -267,6 +231,7 @@ onMounted(loadInitial)
   padding: var(--space-8) 0;
 }
 
+/* -- Count -- */
 .admin-reports__count {
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
@@ -286,6 +251,9 @@ onMounted(loadInitial)
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .admin-reports__card:hover {
@@ -293,17 +261,16 @@ onMounted(loadInitial)
   box-shadow: var(--shadow-sm);
 }
 
-.admin-reports__card-top {
+.admin-reports__card-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
 }
 
 .admin-reports__card-type {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  margin-left: auto;
 }
 
 .admin-reports__card-reason {
@@ -319,9 +286,9 @@ onMounted(loadInitial)
 .admin-reports__card-date {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  margin-top: var(--space-2);
 }
 
+/* -- Load more -- */
 .admin-reports__load-more {
   padding-top: var(--space-2);
 }

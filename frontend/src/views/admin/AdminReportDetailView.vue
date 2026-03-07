@@ -1,15 +1,11 @@
 <!--
-  VELO Frontend -- AdminReportDetailView (Phase F8.3, updated F8-fix)
+  VELO Frontend -- AdminReportDetailView (Phase F8.3, updated F8-fix W-5)
 
   Full report detail with resolve / dismiss actions.
+  W-5: statusVariant / statusLabel / targetLabel replaced with adminHelpers.
 
   Data source: router state (history.state.report) from AdminReportsView.
-  Fallback (W-2 fix): GET /api/v1/admin/reports/{id} -- single resource fetch,
-  used when navigating directly by URL (refresh, deep link).
-
-  Backend rules:
-    resolve: resolution_note required (min 1)
-    dismiss: resolution_note optional
+  Fallback (W-2 fix): GET /api/v1/admin/reports/{id} single resource fetch.
 -->
 
 <template>
@@ -25,10 +21,10 @@
       <template v-else-if="report">
         <!-- Status + type header -->
         <div class="report-detail__header">
-          <VBadge :variant="statusVariant(currentStatus)">
-            {{ statusLabel(currentStatus) }}
+          <VBadge :variant="reportStatusVariant(currentStatus)">
+            {{ reportStatusLabel(currentStatus) }}
           </VBadge>
-          <span class="report-detail__type">{{ targetLabel(report.target_type) }}</span>
+          <span class="report-detail__type">{{ reportTargetLabel(report.target_type) }}</span>
         </div>
 
         <!-- Report content -->
@@ -53,12 +49,12 @@
             </div>
             <div class="report-detail__meta-row">
               <span class="report-detail__meta-key">Создана</span>
-              <span class="report-detail__meta-val">{{ formatDate(report.created_at) }}</span>
+              <span class="report-detail__meta-val">{{ formatDateTime(report.created_at) }}</span>
             </div>
             <template v-if="report.resolved_at">
               <div class="report-detail__meta-row">
                 <span class="report-detail__meta-key">Обработана</span>
-                <span class="report-detail__meta-val">{{ formatDate(report.resolved_at) }}</span>
+                <span class="report-detail__meta-val">{{ formatDateTime(report.resolved_at) }}</span>
               </div>
             </template>
             <template v-if="report.resolution_note">
@@ -120,7 +116,8 @@
 
         <!-- Already processed -->
         <div v-else class="report-detail__processed">
-          Жалоба уже обработана — статус: <strong>{{ statusLabel(currentStatus) }}</strong>
+          Жалоба уже обработана — статус:
+          <strong>{{ reportStatusLabel(currentStatus) }}</strong>
         </div>
       </template>
 
@@ -146,6 +143,12 @@ import { useToast } from '@/composables/useToast'
 import { getReportById, resolveReport, dismissReport } from '@/api/admin'
 import type { ReportResponse } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import {
+  reportStatusVariant,
+  reportStatusLabel,
+  reportTargetLabel,
+  formatDateTime,
+} from '@/utils/adminHelpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -156,7 +159,7 @@ const reportId = route.params.id as string
 const report = ref<ReportResponse | null>(null)
 const loading = ref(false)
 
-// Local status -- updated after action to prevent double-submit UI.
+// Local status -- updated after action so UI reflects result immediately.
 const currentStatus = ref<string>('pending')
 
 const resolveNote = ref('')
@@ -167,38 +170,6 @@ const resolving = ref(false)
 const dismissing = ref(false)
 const anyLoading = computed(() => resolving.value || dismissing.value)
 
-function statusVariant(status: string): 'warning' | 'success' | 'error' | 'info' {
-  if (status === 'pending') return 'warning'
-  if (status === 'resolved') return 'success'
-  if (status === 'dismissed') return 'info'
-  return 'info'
-}
-
-function statusLabel(status: string): string {
-  if (status === 'pending') return 'Ожидает'
-  if (status === 'resolved') return 'Решена'
-  if (status === 'dismissed') return 'Отклонена'
-  return status
-}
-
-function targetLabel(type: string): string {
-  if (type === 'user') return '👤 Юзер'
-  if (type === 'master') return '🧘 Мастер'
-  if (type === 'practice') return '📅 Практика'
-  return type
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-// Load report: from router state (standard flow) or single fetch (fallback).
 async function loadReport(): Promise<void> {
   // Standard flow: data passed from AdminReportsView via router state.
   const stateData = (history.state as { report?: ReportResponse }).report
@@ -208,7 +179,7 @@ async function loadReport(): Promise<void> {
     return
   }
 
-  // W-2 fix: fallback -- single resource fetch instead of showing empty state.
+  // W-2 fix: fallback -- single resource fetch.
   loading.value = true
   try {
     const fetched = await getReportById(reportId)

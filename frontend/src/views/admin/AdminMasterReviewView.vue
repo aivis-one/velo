@@ -1,15 +1,11 @@
 <!--
-  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix)
+  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix W-5)
 
   Review a master application: show available data + verify / reject actions.
+  W-5: displayName / statusVariant / statusLabel replaced with adminHelpers.
 
   Data source: router state (history.state.master) populated by AdminMastersView.
-  Fallback (W-1 fix): GET /api/v1/admin/masters/{id} -- single resource fetch,
-  used when navigating directly by URL (refresh, deep link).
-
-  Limitation (MVP): AdminMasterListItem contains only User fields +
-  master_status. No bio/methods/experience from MasterProfile.data JSONB --
-  no dedicated full-profile endpoint exists.
+  Fallback (W-1 fix): GET /api/v1/admin/masters/{id} single resource fetch.
 
   W-6 fix: double-submit guard checked before validation in onReject.
 -->
@@ -28,13 +24,15 @@
         <!-- Profile card -->
         <div class="review__profile">
           <VAvatar
-            :name="displayName"
+            :name="masterDisplayName(master)"
             :url="master.avatar_url ?? undefined"
             size="xl"
           />
           <div class="review__profile-info">
-            <div class="review__profile-name">{{ displayName }}</div>
-            <VBadge :variant="statusVariant">{{ statusLabel }}</VBadge>
+            <div class="review__profile-name">{{ masterDisplayName(master) }}</div>
+            <VBadge :variant="masterStatusVariant(master.master_status)">
+              {{ masterStatusLabel(master.master_status) }}
+            </VBadge>
           </div>
         </div>
 
@@ -56,7 +54,7 @@
             </div>
             <div class="review__meta-row">
               <span class="review__meta-key">Статус заявки</span>
-              <span class="review__meta-val">{{ statusLabel }}</span>
+              <span class="review__meta-val">{{ masterStatusLabel(master.master_status) }}</span>
             </div>
           </div>
         </div>
@@ -69,7 +67,6 @@
 
         <!-- Actions: only for pending applications -->
         <template v-if="master.master_status === 'pending'">
-          <!-- Verify -->
           <VButton
             variant="primary"
             block
@@ -80,7 +77,6 @@
             ✅ Верифицировать
           </VButton>
 
-          <!-- Reject toggle -->
           <div v-if="!showRejectForm" class="review__reject-toggle">
             <VButton
               variant="danger"
@@ -92,7 +88,6 @@
             </VButton>
           </div>
 
-          <!-- Reject form -->
           <div v-else class="review__reject-form">
             <VTextarea
               v-model="rejectReason"
@@ -123,7 +118,8 @@
 
         <!-- Already processed -->
         <div v-else class="review__processed">
-          Заявка уже обработана — статус: <strong>{{ statusLabel }}</strong>
+          Заявка уже обработана — статус:
+          <strong>{{ masterStatusLabel(master.master_status) }}</strong>
         </div>
       </template>
 
@@ -154,6 +150,11 @@ import { useToast } from '@/composables/useToast'
 import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import {
+  masterDisplayName,
+  masterStatusVariant,
+  masterStatusLabel,
+} from '@/utils/adminHelpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -171,31 +172,6 @@ const rejectError = ref('')
 
 const anyLoading = computed(() => verifying.value || rejecting.value)
 
-const displayName = computed(() => {
-  if (!master.value) return ''
-  const parts = [master.value.first_name, master.value.last_name].filter(Boolean)
-  return parts.length > 0 ? parts.join(' ') : 'Пользователь'
-})
-
-const statusVariant = computed((): 'warning' | 'success' | 'error' | 'info' => {
-  switch (master.value?.master_status) {
-    case 'pending': return 'warning'
-    case 'verified': return 'success'
-    case 'rejected': return 'error'
-    default: return 'info'
-  }
-})
-
-const statusLabel = computed(() => {
-  switch (master.value?.master_status) {
-    case 'pending': return 'Ожидает верификации'
-    case 'verified': return 'Верифицирован'
-    case 'rejected': return 'Отклонён'
-    default: return '—'
-  }
-})
-
-// Load master data: from router state (standard flow) or single fetch (fallback).
 async function loadMaster(): Promise<void> {
   // Standard flow: data passed from AdminMastersView via router state.
   const stateData = (history.state as { master?: AdminMasterListItem }).master
@@ -204,7 +180,7 @@ async function loadMaster(): Promise<void> {
     return
   }
 
-  // W-1 fix: fallback -- single resource fetch instead of scanning 100 items.
+  // W-1 fix: fallback -- single resource fetch.
   loading.value = true
   try {
     master.value = await getMasterById(masterId)
@@ -232,7 +208,7 @@ async function onVerify(): Promise<void> {
 }
 
 async function onReject(): Promise<void> {
-  // W-6 fix: guard before validation to avoid double-submit on rapid clicks.
+  // W-6 fix: guard before validation to prevent double-submit on rapid clicks.
   if (rejecting.value) return
   rejectError.value = ''
   if (!rejectReason.value.trim()) {
@@ -273,7 +249,6 @@ onMounted(loadMaster)
   padding: var(--space-8) 0;
 }
 
-/* -- Profile card -- */
 .review__profile {
   display: flex;
   align-items: center;
@@ -291,7 +266,6 @@ onMounted(loadMaster)
   margin-bottom: var(--space-1);
 }
 
-/* -- Section -- */
 .review__section-title {
   font-size: var(--text-xs);
   font-weight: 600;
@@ -331,7 +305,6 @@ onMounted(loadMaster)
   color: var(--velo-text-primary);
 }
 
-/* -- Note -- */
 .review__note {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
@@ -341,7 +314,6 @@ onMounted(loadMaster)
   line-height: 1.5;
 }
 
-/* -- Reject form -- */
 .review__reject-form {
   display: flex;
   flex-direction: column;
@@ -357,7 +329,6 @@ onMounted(loadMaster)
   gap: var(--space-2);
 }
 
-/* -- Processed state -- */
 .review__processed {
   text-align: center;
   font-size: var(--text-sm);

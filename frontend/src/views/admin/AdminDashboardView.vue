@@ -1,7 +1,8 @@
 <!--
-  VELO Frontend -- AdminDashboardView (Phase F8.1)
+  VELO Frontend -- AdminDashboardView (Phase F8.1, updated F8-fix W-4)
 
   Admin dashboard: 4 stat cards + alert banner when pending_verifications > 0.
+  W-4: replaced hardcoded hex colors with CSS semantic tint variables.
 
   Data: GET /api/v1/admin/stats
 -->
@@ -157,8 +158,8 @@ onMounted(loadStats)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: #FEF3C7;
-  border: 1px solid #F59E0B;
+  background: var(--velo-warning-bg);
+  border: 1px solid var(--velo-warning-border);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
@@ -166,7 +167,7 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__alert:hover {
-  background: #FDE68A;
+  background: var(--velo-warning-bg-hover);
 }
 
 .admin-dashboard__alert-icon {
@@ -181,17 +182,17 @@ onMounted(loadStats)
 .admin-dashboard__alert-title {
   font-size: var(--text-sm);
   font-weight: 600;
-  color: #92400E;
+  color: var(--velo-warning-text);
 }
 
 .admin-dashboard__alert-sub {
   font-size: var(--text-xs);
-  color: #B45309;
+  color: var(--velo-warning-text-light);
   margin-top: 2px;
 }
 
 .admin-dashboard__alert-arrow {
-  color: #92400E;
+  color: var(--velo-warning-text);
   font-weight: 600;
   flex-shrink: 0;
 }
