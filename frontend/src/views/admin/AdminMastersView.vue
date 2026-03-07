@@ -142,11 +142,12 @@ async function loadMore(): Promise<void> {
 }
 
 function openReview(item: AdminMasterListItem): void {
-  // Pass full item via router state to avoid extra fetch on detail screen.
+  // Serialize to plain object: vue-router HistoryState requires index signature
+  // for 'number' which TypeScript interfaces don't satisfy directly.
   router.push({
     name: 'admin-master-review',
     params: { id: item.id },
-    state: { master: item },
+    state: { master: JSON.parse(JSON.stringify(item)) },
   })
 }
 

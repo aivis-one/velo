@@ -49,9 +49,11 @@
           🔄 Перезапустить проверку
         </VButton>
 
-        <!-- Groups by category -->
+        <!-- Groups by category.
+             groupedItems returns [category, items][] entries to avoid
+             Record<string, T> index returning T | undefined under strict TS. -->
         <div
-          v-for="(group, category) in groupedItems"
+          v-for="[category, group] in groupedItems"
           :key="category"
           class="consistency__group"
         >
@@ -127,17 +129,17 @@ const toast = useToast()
 const data = ref<ConsistencyResponse | null>(null)
 const loading = ref(false)
 
-// Group semaphore results by category, preserving insertion order.
-const groupedItems = computed((): Record<string, SemaphoreResult[]> => {
-  if (!data.value) return {}
-  return data.value.items.reduce(
-    (acc, item) => {
-      if (!acc[item.category]) acc[item.category] = []
-      acc[item.category].push(item)
-      return acc
-    },
-    {} as Record<string, SemaphoreResult[]>,
-  )
+// Returns entries array [category, items][] instead of Record<string, T[]>.
+// Record index access returns T | undefined under strict TS (TS2532),
+// while array destructuring in v-for guarantees both values are defined.
+const groupedItems = computed((): [string, SemaphoreResult[]][] => {
+  if (!data.value) return []
+  const map: Record<string, SemaphoreResult[]> = {}
+  for (const item of data.value.items) {
+    if (!map[item.category]) map[item.category] = []
+    map[item.category]!.push(item)
+  }
+  return Object.entries(map)
 })
 
 function groupHasAlerts(group: SemaphoreResult[]): boolean {

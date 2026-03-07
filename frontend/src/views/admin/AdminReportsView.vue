@@ -205,10 +205,12 @@ function setTargetFilter(value: ReportTargetTypeFilter | undefined): void {
 }
 
 function openDetail(item: ReportResponse): void {
+  // Serialize to plain object: vue-router HistoryState requires index signature
+  // for 'number' which TypeScript interfaces don't satisfy directly.
   router.push({
     name: 'admin-report-detail',
     params: { id: item.id },
-    state: { report: item },
+    state: { report: JSON.parse(JSON.stringify(item)) },
   })
 }
 
