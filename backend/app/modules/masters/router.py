@@ -208,8 +208,5 @@ async def list_my_practices(
     """List practices owned by the current master (newest first)."""
     user, _profile = master_tuple
     return await list_master_practices(
-        master_id=user.id,
-        session=session,
-        limit=limit,
-        offset=offset,
+        user, session, limit=limit, offset=offset,
     )
