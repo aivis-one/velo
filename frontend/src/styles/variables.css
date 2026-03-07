@@ -3,6 +3,10 @@
  * =============================================================================
  * Source: velo-mockups/css/variables.css (1:1 transfer)
  * Single source of truth for all visual values.
+ *
+ * F8-fix (W-4): Added semantic tint variables (bg, border, text) for
+ * warning / error / success / alert states. Admin views use these instead
+ * of hardcoded hex values.
  * =========================================================================== */
 
 :root {
@@ -26,11 +30,37 @@
   --velo-border: #E2E8F0;
   --velo-border-light: #F1F5F9;
 
-  /* === Colors: Semantic === */
+  /* === Colors: Semantic base === */
   --velo-success: #22C55E;
   --velo-warning: #F59E0B;
   --velo-error: #EF4444;
   --velo-info: #3B82F6;
+
+  /* === Colors: Semantic tints (W-4) ===
+   * Used in admin banners, semaphore cards, status indicators.
+   * Replaces hardcoded hex values across admin views.
+   */
+
+  /* Warning (amber) */
+  --velo-warning-bg: #FEF3C7;
+  --velo-warning-bg-hover: #FDE68A;
+  --velo-warning-border: #F59E0B;
+  --velo-warning-text: #92400E;
+  --velo-warning-text-light: #B45309;
+
+  /* Error / Alert (red) */
+  --velo-error-bg: #FEE2E2;
+  --velo-error-bg-subtle: #FFF5F5;
+  --velo-error-border: #FCA5A5;
+  --velo-error-text: #DC2626;
+
+  /* Success (green) */
+  --velo-success-bg: #DCFCE7;
+  --velo-success-text: #166534;
+
+  /* Info (blue) */
+  --velo-info-bg: #DBEAFE;
+  --velo-info-text: #1E40AF;
 
   /* === Colors: Mood (Phase F9) === */
   --velo-mood-low: #EF4444;

@@ -1,15 +1,15 @@
 <!--
-  VELO Frontend -- AdminConsistencyView (Phase F8.3)
+  VELO Frontend -- AdminConsistencyView (Phase F8.3, updated F8-fix W-4)
 
   Data consistency semaphores: 21 checks grouped by category.
-  Summary counters at top. Re-run button to refresh.
+  W-4: replaced hardcoded hex colors with CSS semantic tint variables.
 
   Data: GET /api/v1/admin/consistency
 -->
 
 <template>
   <div class="consistency">
-    <VHeader title="Семафоры данных" />
+    <VHeader title="Семафоры" />
 
     <div class="consistency__content">
       <!-- Loading -->
@@ -19,92 +19,69 @@
 
       <template v-else-if="data">
         <!-- Summary bar -->
-        <div class="consistency__summary">
-          <div class="consistency__summary-item consistency__summary-item--ok">
-            <span class="consistency__summary-value">{{ data.ok_count }}</span>
-            <span class="consistency__summary-label">OK</span>
+        <div class="consistency__summary" :class="data.alert_count > 0 ? 'consistency__summary--alert' : 'consistency__summary--ok'">
+          <div class="consistency__summary-left">
+            <span class="consistency__summary-icon">
+              {{ data.alert_count > 0 ? '🔴' : '✅' }}
+            </span>
+            <div>
+              <div class="consistency__summary-title">
+                {{ data.alert_count > 0
+                  ? `${data.alert_count} проблем обнаружено`
+                  : 'Все проверки пройдены' }}
+              </div>
+              <div class="consistency__summary-sub">
+                {{ data.ok_count }} / {{ data.total }} OK
+              </div>
+            </div>
           </div>
-          <div class="consistency__summary-divider" />
-          <div
-            class="consistency__summary-item"
-            :class="data.alert_count > 0 ? 'consistency__summary-item--alert' : 'consistency__summary-item--ok'"
-          >
-            <span class="consistency__summary-value">{{ data.alert_count }}</span>
-            <span class="consistency__summary-label">ALERT</span>
-          </div>
-          <div class="consistency__summary-divider" />
-          <div class="consistency__summary-item consistency__summary-item--total">
-            <span class="consistency__summary-value">{{ data.total }}</span>
-            <span class="consistency__summary-label">всего</span>
-          </div>
+          <VButton variant="outline" size="sm" :loading="loading" @click="loadData">
+            ↺
+          </VButton>
         </div>
 
-        <!-- Run time -->
+        <!-- Run timestamp -->
         <div class="consistency__run-at">
-          Последняя проверка: {{ formatDateTime(data.run_at) }}
+          Проверено: {{ formatDateTime(data.run_at) }}
         </div>
 
-        <!-- Re-run button -->
-        <VButton variant="outline" block :loading="loading" @click="loadData">
-          🔄 Перезапустить проверку
-        </VButton>
-
-        <!-- Groups by category.
-             groupedItems returns [category, items][] entries to avoid
-             Record<string, T> index returning T | undefined under strict TS. -->
+        <!-- Groups -->
         <div
           v-for="[category, group] in groupedItems"
           :key="category"
           class="consistency__group"
         >
-          <div class="consistency__group-title">
-            {{ categoryLabel(category) }}
-            <span
-              class="consistency__group-badge"
-              :class="groupHasAlerts(group) ? 'consistency__group-badge--alert' : 'consistency__group-badge--ok'"
-            >
-              {{ group.filter((i) => i.status === 'ALERT').length }} ALERT
-            </span>
-          </div>
-
-          <div class="consistency__items">
+          <div class="consistency__group-title">{{ category }}</div>
+          <div class="consistency__group-list">
             <div
               v-for="item in group"
               :key="item.name"
               class="consistency__item"
               :class="item.status === 'ALERT' ? 'consistency__item--alert' : 'consistency__item--ok'"
             >
-              <div class="consistency__item-top">
-                <span class="consistency__item-indicator">
-                  {{ item.status === 'OK' ? '✅' : '🚨' }}
+              <div class="consistency__item-header">
+                <span class="consistency__item-icon">
+                  {{ item.status === 'ALERT' ? '🔴' : '✅' }}
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
-                <VBadge :variant="criticalityVariant(item.criticality)">
+                <VBadge :variant="criticalityVariant(item.criticality)" class="consistency__item-crit">
                   {{ item.criticality }}
                 </VBadge>
               </div>
-              <template v-if="item.status === 'ALERT'">
-                <div class="consistency__item-diff">
-                  <span class="consistency__item-diff-label">Ожидалось:</span>
-                  <span class="consistency__item-diff-val">{{ item.expected }}</span>
-                </div>
-                <div class="consistency__item-diff">
-                  <span class="consistency__item-diff-label">Получено:</span>
-                  <span class="consistency__item-diff-val consistency__item-diff-val--alert">
-                    {{ item.actual }}
-                  </span>
-                </div>
-              </template>
+              <div v-if="item.status === 'ALERT'" class="consistency__item-detail">
+                <span class="consistency__item-expected">ожидалось: {{ item.expected }}</span>
+                <span class="consistency__item-actual">фактически: {{ item.actual }}</span>
+              </div>
             </div>
           </div>
         </div>
       </template>
 
-      <!-- Error state -->
+      <!-- Error -->
       <VEmptyState
         v-else
         icon="⚠️"
-        title="Не удалось запустить проверку"
+        title="Не удалось загрузить данные"
         description="Проверьте соединение и попробуйте ещё раз"
       >
         <template #action>
@@ -123,54 +100,31 @@ import { useToast } from '@/composables/useToast'
 import { getConsistency } from '@/api/admin'
 import type { ConsistencyResponse, SemaphoreResult } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import { formatDateTime } from '@/utils/adminHelpers'
 
 const toast = useToast()
 
 const data = ref<ConsistencyResponse | null>(null)
 const loading = ref(false)
 
-// Returns entries array [category, items][] instead of Record<string, T[]>.
-// Record index access returns T | undefined under strict TS (TS2532),
-// while array destructuring in v-for guarantees both values are defined.
+// Group items by category, preserving insertion order.
 const groupedItems = computed((): [string, SemaphoreResult[]][] => {
   if (!data.value) return []
-  const map: Record<string, SemaphoreResult[]> = {}
+  const map = new Map<string, SemaphoreResult[]>()
   for (const item of data.value.items) {
-    if (!map[item.category]) map[item.category] = []
-    map[item.category]!.push(item)
+    const list = map.get(item.category) ?? []
+    list.push(item)
+    map.set(item.category, list)
   }
-  return Object.entries(map)
+  return Array.from(map.entries())
 })
 
-function groupHasAlerts(group: SemaphoreResult[]): boolean {
-  return group.some((i) => i.status === 'ALERT')
-}
-
-function categoryLabel(category: string): string {
-  const labels: Record<string, string> = {
-    count_count: '1. COUNT = COUNT',
-    sum_zero: '2. SUM = 0',
-    computed_actual: '3. COMPUTED = ACTUAL',
-    orphan_detection: '4. Orphan Detection',
-    business_invariants: '5. Business Invariants',
-  }
-  return labels[category] ?? category
-}
-
-function criticalityVariant(criticality: string): 'error' | 'warning' | 'info' {
-  if (criticality === 'critical') return 'error'
-  if (criticality === 'warning') return 'warning'
+function criticalityVariant(
+  c: string,
+): 'error' | 'warning' | 'info' {
+  if (c === 'critical') return 'error'
+  if (c === 'warning') return 'warning'
   return 'info'
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  })
 }
 
 async function loadData(): Promise<void> {
@@ -178,7 +132,7 @@ async function loadData(): Promise<void> {
   try {
     data.value = await getConsistency()
   } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка запуска семафоров'
+    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки семафоров'
     toast.error(msg)
   } finally {
     loading.value = false
@@ -210,149 +164,125 @@ onMounted(loadData)
 .consistency__summary {
   display: flex;
   align-items: center;
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  justify-content: space-between;
+  gap: var(--space-3);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid;
 }
 
-.consistency__summary-item {
-  flex: 1;
+.consistency__summary--ok {
+  background: var(--velo-success-bg);
+  border-color: var(--velo-success);
+}
+
+.consistency__summary--alert {
+  background: var(--velo-error-bg);
+  border-color: var(--velo-error-border);
+}
+
+.consistency__summary-left {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: var(--space-3);
+  gap: var(--space-3);
 }
 
-.consistency__summary-item--ok .consistency__summary-value {
-  color: #166534;
+.consistency__summary-icon {
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
-.consistency__summary-item--alert .consistency__summary-value {
-  color: #DC2626;
-}
-
-.consistency__summary-item--total .consistency__summary-value {
+.consistency__summary-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--velo-text-primary);
 }
 
-.consistency__summary-value {
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  line-height: 1;
-}
-
-.consistency__summary-label {
+.consistency__summary-sub {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  margin-top: var(--space-1);
+  margin-top: 2px;
 }
 
-.consistency__summary-divider {
-  width: 1px;
-  height: 40px;
-  background: var(--velo-border);
-}
-
-/* -- Run time -- */
+/* -- Run at -- */
 .consistency__run-at {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  text-align: center;
+  text-align: right;
 }
 
 /* -- Group -- */
 .consistency__group-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   margin-bottom: var(--space-2);
 }
 
-.consistency__group-badge {
-  margin-left: auto;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-}
-
-.consistency__group-badge--ok {
-  background: #DCFCE7;
-  color: #166534;
-}
-
-.consistency__group-badge--alert {
-  background: #FEE2E2;
-  color: #DC2626;
-}
-
-/* -- Items -- */
-.consistency__items {
+.consistency__group-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
+/* -- Item -- */
 .consistency__item {
   border-radius: var(--radius-md);
-  padding: var(--space-3);
-  border: 1px solid var(--velo-border);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid;
 }
 
 .consistency__item--ok {
   background: var(--velo-bg-card);
+  border-color: var(--velo-border);
 }
 
 .consistency__item--alert {
-  background: #FFF5F5;
-  border-color: #FCA5A5;
+  background: var(--velo-error-bg-subtle);
+  border-color: var(--velo-error-border);
 }
 
-.consistency__item-top {
+.consistency__item-header {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.consistency__item-indicator {
+.consistency__item-icon {
   font-size: 14px;
   flex-shrink: 0;
 }
 
 .consistency__item-name {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  font-family: monospace;
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--velo-text-primary);
 }
 
-.consistency__item-diff {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  font-size: var(--text-xs);
-}
-
-.consistency__item-diff-label {
-  color: var(--velo-text-muted);
+.consistency__item-crit {
   flex-shrink: 0;
 }
 
-.consistency__item-diff-val {
-  color: var(--velo-text-secondary);
-  font-weight: 500;
+.consistency__item-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--velo-error-border);
 }
 
-.consistency__item-diff-val--alert {
-  color: #DC2626;
-  font-weight: 700;
+.consistency__item-expected {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+}
+
+.consistency__item-actual {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--velo-error-text);
 }
 </style>

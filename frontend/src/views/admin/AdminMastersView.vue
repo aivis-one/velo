@@ -1,8 +1,9 @@
 <!--
-  VELO Frontend -- AdminMastersView (Phase F8.2)
+  VELO Frontend -- AdminMastersView (Phase F8.2, updated F8-fix W-5)
 
   List of pending master applications.
   Click on a card -> AdminMasterReviewView with master data in router state.
+  W-5: displayName / statusVariant / statusLabel replaced with adminHelpers.
 
   Data: GET /api/v1/admin/masters/pending (paginated, load-more)
 -->
@@ -40,15 +41,15 @@
             @click="openReview(item)"
           >
             <VAvatar
-              :name="displayName(item)"
+              :name="masterDisplayName(item)"
               :url="item.avatar_url ?? undefined"
               size="md"
             />
             <div class="admin-masters__card-body">
-              <div class="admin-masters__card-name">{{ displayName(item) }}</div>
+              <div class="admin-masters__card-name">{{ masterDisplayName(item) }}</div>
               <div class="admin-masters__card-meta">
-                <VBadge :variant="statusVariant(item.master_status)">
-                  {{ statusLabel(item.master_status) }}
+                <VBadge :variant="masterStatusVariant(item.master_status)">
+                  {{ masterStatusLabel(item.master_status) }}
                 </VBadge>
               </div>
             </div>
@@ -81,6 +82,11 @@ import { useToast } from '@/composables/useToast'
 import { getPendingMasters } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import {
+  masterDisplayName,
+  masterStatusVariant,
+  masterStatusLabel,
+} from '@/utils/adminHelpers'
 
 const LIMIT = 20
 
@@ -92,25 +98,6 @@ const total = ref(0)
 const loading = ref(false)
 const loadingMore = ref(false)
 const hasMore = ref(false)
-
-function displayName(item: AdminMasterListItem): string {
-  const parts = [item.first_name, item.last_name].filter(Boolean)
-  return parts.length > 0 ? parts.join(' ') : 'Пользователь'
-}
-
-function statusVariant(status: string): 'warning' | 'success' | 'error' | 'info' {
-  if (status === 'pending') return 'warning'
-  if (status === 'verified') return 'success'
-  if (status === 'rejected') return 'error'
-  return 'info'
-}
-
-function statusLabel(status: string): string {
-  if (status === 'pending') return 'Ожидает'
-  if (status === 'verified') return 'Верифицирован'
-  if (status === 'rejected') return 'Отклонён'
-  return status
-}
 
 async function loadInitial(): Promise<void> {
   loading.value = true
