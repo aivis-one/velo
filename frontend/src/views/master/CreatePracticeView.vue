@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- CreatePracticeView (Phase F6.2)
+  VELO Frontend -- CreatePracticeView (Phase F6.2, fixed W-2, W-7, W-9)
 
   Create a new practice. Protected by masterStatusGuard.
   Standalone within MasterShell (back button -> master-practices).
@@ -14,6 +14,11 @@
 
   Submit: POST /api/v1/practices (status defaults to 'draft' in backend).
   On success -> show toast + navigate to master-practices + refreshMyPractices().
+
+  Fixes:
+    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS moved to @/utils/practiceOptions
+    W-7: todayDate is a computed ref -- no longer goes stale after midnight
+    W-9: commission calc uses COMMISSION_RATE from @/utils/commission
 
   Timezone note:
     datetime-local input returns local browser time. We convert it to UTC
@@ -145,15 +150,15 @@
             placeholder="15"
             :error="errors.price_cents"
           />
-          <!-- Commission preview -->
+          <!-- W-9: commission calc via COMMISSION_RATE constant -->
           <div v-if="priceCents > 0" class="create-practice__price-calc">
             <div class="create-practice__price-row">
-              <span>Комиссия 15%</span>
-              <span>{{ formatMoney(Math.round(priceCents * 0.15), 'EUR') }}</span>
+              <span>Комиссия {{ commissionPct }}%</span>
+              <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
             </div>
             <div class="create-practice__price-row create-practice__price-row--total">
               <span>Вы получите</span>
-              <span>{{ formatMoney(Math.round(priceCents * 0.85), 'EUR') }}</span>
+              <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
             </div>
           </div>
         </template>
@@ -206,14 +211,15 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VHeader, VButton, VInput, VTextarea, VSelect } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { createPractice } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
+import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
+import { COMMISSION_RATE } from '@/utils/commission'
 import type { PracticeType } from '@/api/types'
 
 const router = useRouter()
@@ -231,31 +237,11 @@ const PRACTICE_TYPE_OPTIONS: { label: string; value: string }[] = [
   { label: 'Запись (replay)', value: 'replay' },
 ]
 
-// -- Duration options (minutes -> label) --
-const DURATION_OPTIONS: { label: string; value: string }[] = [
-  { label: '30 минут', value: '30' },
-  { label: '45 минут', value: '45' },
-  { label: '60 минут', value: '60' },
-  { label: '75 минут', value: '75' },
-  { label: '90 минут', value: '90' },
-  { label: '120 минут', value: '120' },
-]
+// W-7: computed so todayDate updates correctly after midnight (not stale).
+const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
-// -- Common IANA timezones --
-const TIMEZONE_OPTIONS: { label: string; value: string }[] = [
-  { label: 'Europe/Moscow (UTC+3)',  value: 'Europe/Moscow' },
-  { label: 'Europe/Berlin (UTC+1/2)', value: 'Europe/Berlin' },
-  { label: 'Europe/London (UTC+0/1)', value: 'Europe/London' },
-  { label: 'UTC',                    value: 'UTC' },
-  { label: 'Asia/Yerevan (UTC+4)',   value: 'Asia/Yerevan' },
-  { label: 'Asia/Tbilisi (UTC+4)',   value: 'Asia/Tbilisi' },
-  { label: 'Asia/Almaty (UTC+5)',    value: 'Asia/Almaty' },
-  { label: 'Asia/Dubai (UTC+4)',     value: 'Asia/Dubai' },
-  { label: 'America/New_York (UTC-5/4)', value: 'America/New_York' },
-]
-
-// -- Today's date string for date input min --
-const todayDate = new Date().toISOString().split('T')[0] as string
+// W-9: human-readable percentage for template display
+const commissionPct = Math.round(COMMISSION_RATE * 100)
 
 // -- Form state --
 const form = reactive({

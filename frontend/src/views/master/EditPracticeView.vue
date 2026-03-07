@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- EditPracticeView (Phase F6.2 + F6.3)
+  VELO Frontend -- EditPracticeView (Phase F6.2 + F6.3, fixed W-2..W-9)
 
   Edit an existing practice and trigger state machine transitions.
   Protected by masterStatusGuard. Rendered inside MasterShell.
@@ -24,6 +24,14 @@
   After any successful mutation:
     - refreshMyPractices() to invalidate cache
     - navigate back to master-practices
+
+  Fixes:
+    W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS moved to @/utils/practiceOptions
+    W-3: publish() and startLive() also guard on saving.value
+    W-5: confirm dialog overlay click blocked while action is loading
+    W-6: populateForm uses .toFixed(2) to avoid float precision issues
+    W-8: date input has :min="todayDate" to prevent setting past dates
+    W-9: commission calc uses COMMISSION_RATE from @/utils/commission
 -->
 
 <template>
@@ -84,12 +92,14 @@
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
 
+            <!-- W-8: min attribute prevents setting past dates -->
             <div class="edit-practice__field">
               <label class="edit-practice__label">Дата</label>
               <input
                 v-model="form.date"
                 type="date"
                 class="edit-practice__date-input"
+                :min="todayDate"
                 :disabled="isTerminal"
               />
             </div>
@@ -154,14 +164,15 @@
                 type="number"
                 :error="errors.price_cents"
               />
+              <!-- W-9: commission calc via COMMISSION_RATE constant -->
               <div v-if="priceCents > 0" class="edit-practice__price-calc">
                 <div class="edit-practice__price-row">
-                  <span>Комиссия 15%</span>
-                  <span>{{ formatMoney(Math.round(priceCents * 0.15), 'EUR') }}</span>
+                  <span>Комиссия {{ commissionPct }}%</span>
+                  <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
                 </div>
                 <div class="edit-practice__price-row edit-practice__price-row--total">
                   <span>Вы получите</span>
-                  <span>{{ formatMoney(Math.round(priceCents * 0.85), 'EUR') }}</span>
+                  <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
                 </div>
               </div>
             </template>
@@ -237,7 +248,7 @@
             ✅ Завершить практику
           </VButton>
 
-          <!-- live / scheduled -> attendance (only for live to check who's in) -->
+          <!-- scheduled / live -> attendance -->
           <VButton
             v-if="practice.status === 'live' || practice.status === 'scheduled'"
             variant="outline"
@@ -284,14 +295,23 @@
 
       <!-- ================================================================
            CONFIRM DIALOG (inline -- no VModal needed for simple confirms)
+           W-5: overlay click blocked while confirmDialog.loading is true
            ================================================================ -->
       <Teleport to="body">
-        <div v-if="confirmDialog.visible" class="edit-practice__overlay" @click.self="confirmDialog.visible = false">
+        <div
+          v-if="confirmDialog.visible"
+          class="edit-practice__overlay"
+          @click.self="!confirmDialog.loading && (confirmDialog.visible = false)"
+        >
           <div class="edit-practice__dialog">
             <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
             <div class="edit-practice__dialog-actions">
-              <VButton variant="ghost" @click="confirmDialog.visible = false">Отмена</VButton>
-              <VButton :variant="confirmDialog.danger ? 'danger' : 'primary'" :loading="confirmDialog.loading" @click="confirmDialog.onConfirm">
+              <VButton variant="ghost" :disabled="confirmDialog.loading" @click="confirmDialog.visible = false">Отмена</VButton>
+              <VButton
+                :variant="confirmDialog.danger ? 'danger' : 'primary'"
+                :loading="confirmDialog.loading"
+                @click="confirmDialog.onConfirm"
+              >
                 {{ confirmDialog.confirmLabel }}
               </VButton>
             </div>
@@ -305,8 +325,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
+import { VHeader, VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -318,6 +337,8 @@ import {
 } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
+import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
+import { COMMISSION_RATE } from '@/utils/commission'
 import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
 
 const route = useRoute()
@@ -347,27 +368,11 @@ const confirmDialog = reactive({
   onConfirm: (): void => { /* filled per use */ },
 })
 
-// -- Duration / timezone options (same as CreatePracticeView) --
-const DURATION_OPTIONS = [
-  { label: '30 минут', value: '30' },
-  { label: '45 минут', value: '45' },
-  { label: '60 минут', value: '60' },
-  { label: '75 минут', value: '75' },
-  { label: '90 минут', value: '90' },
-  { label: '120 минут', value: '120' },
-]
+// W-9: human-readable percentage for template display
+const commissionPct = Math.round(COMMISSION_RATE * 100)
 
-const TIMEZONE_OPTIONS = [
-  { label: 'Europe/Moscow (UTC+3)',     value: 'Europe/Moscow' },
-  { label: 'Europe/Berlin (UTC+1/2)',   value: 'Europe/Berlin' },
-  { label: 'Europe/London (UTC+0/1)',   value: 'Europe/London' },
-  { label: 'UTC',                       value: 'UTC' },
-  { label: 'Asia/Yerevan (UTC+4)',      value: 'Asia/Yerevan' },
-  { label: 'Asia/Tbilisi (UTC+4)',      value: 'Asia/Tbilisi' },
-  { label: 'Asia/Almaty (UTC+5)',       value: 'Asia/Almaty' },
-  { label: 'Asia/Dubai (UTC+4)',        value: 'Asia/Dubai' },
-  { label: 'America/New_York (UTC-5/4)', value: 'America/New_York' },
-]
+// W-8: computed so todayDate updates correctly after midnight (not stale).
+const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
 // -- Form state (populated from practice on load) --
 const form = reactive({
@@ -440,9 +445,7 @@ function populateForm(p: PracticeResponse): void {
   form.title = p.title
   // Parse ISO string to local date/time for inputs
   const dt = new Date(p.scheduled_at)
-  // Format: YYYY-MM-DD
   form.date = dt.toLocaleDateString('en-CA', { timeZone: p.timezone })
-  // Format: HH:MM
   form.time = dt.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
@@ -452,7 +455,8 @@ function populateForm(p: PracticeResponse): void {
   form.timezone = p.timezone
   form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
   form.is_free = p.is_free
-  form.price_eur_raw = p.is_free ? '' : String(p.price_cents / 100)
+  // W-6: toFixed(2) avoids float precision issues like 1.1000000000000001
+  form.price_eur_raw = p.is_free ? '' : (p.price_cents / 100).toFixed(2)
   form.description = p.description ?? ''
   form.zoom_link = p.zoom_link ?? ''
 }
@@ -544,8 +548,9 @@ async function save(): Promise<void> {
 }
 
 // -- Publish: draft -> scheduled --
+// W-3: also guard on saving.value to prevent concurrent save + publish
 async function publish(): Promise<void> {
-  if (transitioning.value) return
+  if (transitioning.value || saving.value) return
   transitioning.value = true
   try {
     const updated = await updatePractice(practiceId, { status: 'scheduled' })
@@ -561,8 +566,9 @@ async function publish(): Promise<void> {
 }
 
 // -- Start live: scheduled -> live --
+// W-3: also guard on saving.value
 async function startLive(): Promise<void> {
-  if (transitioning.value) return
+  if (transitioning.value || saving.value) return
   transitioning.value = true
   try {
     const updated = await updatePractice(practiceId, { status: 'live' })
