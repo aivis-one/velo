@@ -1,14 +1,16 @@
 // =============================================================================
-// VELO Frontend -- Admin API (Phase F8)
+// VELO Frontend -- Admin API (Phase F8, updated F8-fix)
 // =============================================================================
 //
 // Typed wrappers for all admin endpoints:
 //   GET  /api/v1/admin/stats                      -- platform statistics
 //   GET  /api/v1/admin/masters/pending             -- pending applications list
 //   GET  /api/v1/admin/masters/list                -- all masters with filter
+//   GET  /api/v1/admin/masters/{id}               -- single master (F8-fix W-1)
 //   POST /api/v1/admin/masters/{id}/verify         -- approve application
 //   POST /api/v1/admin/masters/{id}/reject         -- reject application
 //   GET  /api/v1/admin/reports                     -- reports list with filters
+//   GET  /api/v1/admin/reports/{id}               -- single report (F8-fix W-2)
 //   POST /api/v1/admin/reports/{id}/resolve        -- resolve report
 //   POST /api/v1/admin/reports/{id}/dismiss        -- dismiss report
 //   GET  /api/v1/admin/consistency                 -- data consistency semaphores
@@ -28,8 +30,9 @@ export interface AdminStatsResponse {
   pending_verifications: number
 }
 
-// Item returned by /admin/masters/pending and /admin/masters/list.
-// Contains only User + master_status -- no JSONB profile data.
+// Item returned by /admin/masters/pending, /admin/masters/list and
+// /admin/masters/{id}. Contains only User + master_status --
+// no JSONB profile data (bio, methods, experience).
 export interface AdminMasterListItem {
   id: string
   telegram_id: number | null
@@ -122,7 +125,6 @@ export function getPendingMasters(
 
 /**
  * Fetch masters list with optional status filter.
- * Used as fallback fetch in AdminMasterReviewView when router state is missing.
  */
 export function getMastersList(
   status?: 'pending' | 'verified' | 'rejected',
@@ -131,6 +133,15 @@ export function getMastersList(
 ): Promise<PaginatedMastersResponse> {
   const query = buildQuery({ limit, offset, status })
   return api.get<PaginatedMastersResponse>(`/api/v1/admin/masters/list${query}`)
+}
+
+/**
+ * Fetch a single master by user_id.
+ * Used as fallback in AdminMasterReviewView when router state is missing.
+ * Returns 404 if the user has no MasterProfile.
+ */
+export function getMasterById(userId: string): Promise<AdminMasterListItem> {
+  return api.get<AdminMasterListItem>(`/api/v1/admin/masters/${userId}`)
 }
 
 /**
@@ -176,6 +187,15 @@ export function getReports(
 ): Promise<PaginatedReportsResponse> {
   const query = buildQuery({ status, target_type, limit, offset })
   return api.get<PaginatedReportsResponse>(`/api/v1/admin/reports${query}`)
+}
+
+/**
+ * Fetch a single report by id.
+ * Used as fallback in AdminReportDetailView when router state is missing.
+ * Returns 404 if report does not exist.
+ */
+export function getReportById(reportId: string): Promise<ReportResponse> {
+  return api.get<ReportResponse>(`/api/v1/admin/reports/${reportId}`)
 }
 
 /**

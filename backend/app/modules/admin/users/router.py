@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Admin Users Router (Phase 3.2)
+# VELO Backend -- Admin Users Router (Phase 3.2, updated F8-fix)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -7,26 +7,32 @@
 #   GET /api/v1/admin/masters/list          -- list all masters (with status filter)
 #   GET /api/v1/admin/masters/pending       -- shortcut: pending applications
 #   GET /api/v1/admin/masters/rejected      -- shortcut: rejected applications
+#   GET /api/v1/admin/masters/{user_id}     -- single master by user_id (F8-fix W-1)
 #
 # NOTE: masters/list (not just /masters) to avoid path conflict with
 #   POST /masters/{user_id}/verify in admin/masters/router.py.
 #   FastAPI would confuse "pending" as a user_id UUID otherwise.
+#
+# ROUTE ORDER: static paths (/list, /pending, /rejected) MUST be registered
+#   before the dynamic /{user_id} route so FastAPI does not swallow them.
 #
 # AUTH: get_current_admin on every endpoint.
 # SESSION: get_db_reader -- all read-only.
 # =============================================================================
 
 from typing import Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader
 from app.modules.admin.users.schemas import (
+    AdminMasterListItem,
     PaginatedMastersResponse,
     PaginatedUsersResponse,
 )
-from app.modules.admin.users.service import list_masters, list_users
+from app.modules.admin.users.service import get_master_by_id, list_masters, list_users
 from app.modules.auth.dependencies import get_current_admin
 from app.modules.users.models import User
 
@@ -90,3 +96,18 @@ async def get_rejected_masters(
     return await list_masters(
         session, limit=limit, offset=offset, status="rejected"
     )
+
+
+@router.get("/masters/{user_id}", response_model=AdminMasterListItem)
+async def get_master(
+    user_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_reader),
+) -> AdminMasterListItem:
+    """Fetch a single master by user_id.
+
+    Used by admin review screen as fallback when router state is unavailable
+    (direct URL navigation, page refresh). Returns 404 if user has no
+    MasterProfile.
+    """
+    return await get_master_by_id(user_id, session)

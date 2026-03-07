@@ -1,15 +1,17 @@
 <!--
-  VELO Frontend -- AdminMasterReviewView (Phase F8.2)
+  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix)
 
   Review a master application: show available data + verify / reject actions.
 
   Data source: router state (history.state.master) populated by AdminMastersView.
-  Fallback: GET /api/v1/admin/masters/list to find item by id when navigating
-  directly by URL (e.g. refresh or deep link).
+  Fallback (W-1 fix): GET /api/v1/admin/masters/{id} -- single resource fetch,
+  used when navigating directly by URL (refresh, deep link).
 
   Limitation (MVP): AdminMasterListItem contains only User fields +
   master_status. No bio/methods/experience from MasterProfile.data JSONB --
-  no dedicated GET /admin/masters/{id} endpoint exists.
+  no dedicated full-profile endpoint exists.
+
+  W-6 fix: double-submit guard checked before validation in onReject.
 -->
 
 <template>
@@ -149,7 +151,7 @@ import {
   VEmptyState,
 } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
-import { getMastersList, verifyMaster, rejectMaster } from '@/api/admin'
+import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 
@@ -193,7 +195,7 @@ const statusLabel = computed(() => {
   }
 })
 
-// Load master data: from router state (standard flow) or fetch (fallback).
+// Load master data: from router state (standard flow) or single fetch (fallback).
 async function loadMaster(): Promise<void> {
   // Standard flow: data passed from AdminMastersView via router state.
   const stateData = (history.state as { master?: AdminMasterListItem }).master
@@ -202,11 +204,10 @@ async function loadMaster(): Promise<void> {
     return
   }
 
-  // Fallback: direct URL navigation -- search in masters list.
+  // W-1 fix: fallback -- single resource fetch instead of scanning 100 items.
   loading.value = true
   try {
-    const res = await getMastersList(undefined, 100, 0)
-    master.value = res.items.find((item) => item.id === masterId) ?? null
+    master.value = await getMasterById(masterId)
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки данных'
     toast.error(msg)
@@ -231,12 +232,13 @@ async function onVerify(): Promise<void> {
 }
 
 async function onReject(): Promise<void> {
+  // W-6 fix: guard before validation to avoid double-submit on rapid clicks.
+  if (rejecting.value) return
   rejectError.value = ''
   if (!rejectReason.value.trim()) {
     rejectError.value = 'Укажите причину отказа'
     return
   }
-  if (rejecting.value) return
   rejecting.value = true
   try {
     await rejectMaster(masterId, rejectReason.value.trim())
