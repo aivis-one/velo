@@ -165,7 +165,7 @@ async function onSubmit(): Promise<void> {
   })
 
   if (result.ok) {
-    platform.hapticFeedback('success')
+    platform.hapticFeedback('medium')
     submitted.value = true
   } else {
     toast.error(result.error)

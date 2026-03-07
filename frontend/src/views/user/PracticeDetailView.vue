@@ -238,10 +238,6 @@ const TYPE_EMOJI: Record<PracticeType, string> = {
   live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
 }
 
-const TYPE_LABEL: Record<PracticeType, string> = {
-  live: 'Live-сессия', series: 'Серия занятий', one_on_one: 'Индивидуальная', replay: 'Запись',
-}
-
 const typeEmoji = computed(() =>
   practice.value ? TYPE_EMOJI[practice.value.practice_type] ?? '🧘' : '🧘',
 )

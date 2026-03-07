@@ -520,7 +520,7 @@ async function onCreateEntry(): Promise<void> {
   formSubmitting.value = false
 
   if (result.ok) {
-    platform.hapticFeedback('success')
+    platform.hapticFeedback('medium')
     toast.success('Запись сохранена')
     backToList()
   } else {
@@ -561,7 +561,7 @@ async function onUpdateEntry(): Promise<void> {
   formSubmitting.value = false
 
   if (result.ok) {
-    platform.hapticFeedback('success')
+    platform.hapticFeedback('medium')
     toast.success('Запись обновлена')
     // Re-fetch entry to show updated state.
     await diaryStore.fetchEntry(selectedEntry.value.id)
@@ -583,7 +583,7 @@ async function onConfirmDelete(): Promise<void> {
   formSubmitting.value = false
 
   if (result.ok) {
-    platform.hapticFeedback('success')
+    platform.hapticFeedback('medium')
     toast.success('Запись удалена')
     backToList()
   } else {

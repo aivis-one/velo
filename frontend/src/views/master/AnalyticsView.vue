@@ -260,15 +260,12 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { getPracticeInsights } from '@/api/diary'
-import { useToast } from '@/composables/useToast'
 import { ApiResponseError } from '@/api/client'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { formatDate } from '@/utils/format'
 import type { PracticeInsightsResponse, PracticeType } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
-const toast = useToast()
 
 // =========================================================================
 // Tabs
