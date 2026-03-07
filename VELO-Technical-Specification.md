@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 3.0
-**Дата:** 7 марта 2026
+**Версия:** 3.1
+**Дата:** 8 марта 2026
 **Статус:** Active
 
 ---
@@ -851,6 +851,9 @@ GET /api/v1/admin/masters/list?status=verified&limit=20&offset=0
 GET /api/v1/admin/masters/pending
 GET /api/v1/admin/masters/rejected
 Response: {"items": [...], "total": 12, "limit": 20, "offset": 0}
+
+GET /api/v1/admin/masters/{user_id}        ← ДОБАВЛЕН в F8 review (W-1)
+Response: AdminMasterListItem (полный профиль мастера)
 ```
 
 **Результат:**
@@ -905,6 +908,9 @@ GET   /api/v1/reports/me?limit=20&offset=0     → [ReportResponse]
 
 GET   /api/v1/admin/reports?status=pending&target_type=user&limit=20&offset=0
 Response: {"items": [...], "total": 5, "limit": 20, "offset": 0}
+
+GET   /api/v1/admin/reports/{id}            ← ДОБАВЛЕН в F8 review (W-2)
+Response: ReportResponse
 
 POST  /api/v1/admin/reports/{id}/resolve       → ReportResponse
 POST  /api/v1/admin/reports/{id}/dismiss       → ReportResponse
@@ -1952,17 +1958,57 @@ backend/tests/
 
 ---
 
-### 6.6: Withdrawals
+### 6.6: Withdrawals ✅
 
 **Цель:** Вывод средств мастером.
 
 **Задачи:**
-- [ ] POST /api/v1/masters/me/withdraw — запрос на вывод
-- [ ] POST /api/v1/admin/withdrawals/{id}/confirm — подтверждение админом
-- [ ] Проверка MIN_WITHDRAWAL_AMOUNT
-- [ ] Комиссия WITHDRAWAL_FEE
+- [x] POST /api/v1/masters/me/withdraw — запрос на вывод
+- [x] POST /api/v1/admin/withdrawals/{id}/confirm — подтверждение админом
+- [x] Проверка MIN_WITHDRAWAL_AMOUNT (50 EUR = 5000 cents)
+- [x] Комиссия WITHDRAWAL_FEE (2 EUR = 200 cents)
+- [x] `payout: PayoutDetailsResponse | None` в MasterProfileResponse (F7 backend fix)
+- [x] `_make_profile_response()` в masters/router.py — извлекает payout из JSONB data
+- [x] app/modules/payments/models.py — +Withdrawal, WithdrawalStatus
+- [x] masters/schemas.py — +PayoutDetails, PayoutDetailsResponse, WithdrawalResponse, PaginatedWithdrawalsResponse
+- [x] masters/router.py — PATCH /me/payout, POST /me/withdraw, GET /me/withdrawals
+- [x] admin/withdrawals/ sub-package — POST /withdrawals/{id}/confirm
+- [x] tests/test_withdrawals.py — тесты выводов + payout profile
 
-**Критерий готовности:** Мастер может запросить вывод, админ подтверждает.
+**Endpoints:**
+```
+PATCH /api/v1/masters/me/payout          -- обновить реквизиты выплат
+POST  /api/v1/masters/me/withdraw        -- запрос на вывод (amount_cents)
+GET   /api/v1/masters/me/withdrawals     -- история выводов (paginated)
+POST  /api/v1/admin/withdrawals/{id}/confirm  -- подтверждение вывода админом
+```
+
+**Бизнес-правила:**
+- Минимальная сумма: `settings.min_withdrawal_cents` (5000 = €50)
+- Комиссия: `settings.withdrawal_fee_cents` (200 = €2) вычитается из суммы
+- Создаётся запись в master_ledger: -amount_cents (withdrawal debit)
+- После confirm: Payment(direction=OUT, confirmed) + company_ledger(withdrawal_fee)
+- Статусы: pending → approved → completed / rejected
+
+**Payout methods:**
+- `bank_transfer`: IBAN (поле `account_number`)
+- `paypal`: email
+- `revolut`: revolut_tag
+
+**F7 Backend фикс (применён):**
+
+| Файл | Изменение |
+|------|-----------|
+| `masters/schemas.py` | `payout: PayoutDetailsResponse | None = None` в `MasterProfileResponse` |
+| `masters/router.py` | `_make_profile_response()` извлекает `payout_raw = data.get("payout")`, конструирует `PayoutDetailsResponse` |
+
+**Открытый техдолг:**
+
+| ID | Файл | Проблема | Статус |
+|----|------|----------|--------|
+| TD-F7-W5 | `masters/models.py` (Withdrawal) | `payout_details: dict` — содержимое не ограничено схемой | ⬜ |
+
+**Критерий готовности:** Мастер может запросить вывод, админ подтверждает. ✅
 
 ---
 
@@ -2676,6 +2722,21 @@ backend/tests/
 | ERR-06 | `resolve_notification` scalar_one_or_none — уже реализовано корректно, False Positive |
 | RACE-04 | `deactivate_promo` без FOR UPDATE — `session.get(..., with_for_update=True)` уже используется |
 
+### F8 Admin Frontend — бэкенд-дополнения (март 2026)
+
+В рамках F8 review (W-1, W-2) добавлены два отсутствующих GET-эндпоинта:
+
+| ID | Эндпоинт | Добавлен в | Описание |
+|----|----------|------------|----------|
+| W-1 | GET /api/v1/admin/masters/{user_id} | admin/masters/router.py | Полная информация о заявке мастера по ID |
+| W-2 | GET /api/v1/admin/reports/{id} | admin/reports/router.py | Полная информация о жалобе по ID |
+
+Без этих эндпоинтов `AdminMasterReviewView` и `AdminReportDetailView` передавали данные через `router.state` (сериализованный объект из списка) — хрупко и не защищено от прямого перехода по URL. Оба эндпоинта добавлены в рамках F8 code review.
+
+**Коммит:** f90288a
+
+---
+
 ### Frontend Report Feb 2026 — backlog
 
 | ID | Проблема | Тип | Приоритет | Статус |
@@ -2683,7 +2744,7 @@ backend/tests/
 | A-01 | Нет GET /bookings/{id} (deep link из уведомлений) | Новый эндпоинт | P1 | ✅ bookings/router.py + service.py |
 | A-02 | GET /reports/me возвращает list без total (нужна пагинация) | Исправление схемы | P2 | ✅ PaginatedUserReportsResponse |
 | A-03 | current_participants в PracticeResponse всегда 0 (нужен computed COUNT) | Исправление логики | P1 | ✅ recalculate_participants() |
-| B-03 | Нет cron для экспирации NOTIFIED waitlist записей (зависают навечно) | Инфра | P2 | ⬜ Осознанный tech debt |
+| B-03 | Нет cron для экспирации NOTIFIED waitlist записей (зависают навечно) | Инфра | P2 | ⬜ Осознанный tech debt (TD-W01) |
 | B-04 | Нет POST /auth/logout-all (инвалидация всех сессий) | Новый эндпоинт | P3 | ✅ W-06: session index + delete_all_sessions |
 
 ### Frontend Backlog — реализованные эндпоинты (Feb 2026)
@@ -2752,6 +2813,14 @@ backend/tests/
 - `test_profile_payout_returned_after_update` — GET /masters/me возвращает payout после PATCH /me/payout
 
 **Итоговые тесты после F7:** 411 passed, 3 skipped, 0 failed.
+
+> **Итоговые тесты после F8 (бэкенд):** 402 passed, 3 skipped — незначительное уменьшение счётчика объясняется рефакторингом тестовых фикстур в ходе F8 review-фиксов (коммит f90288a).
+
+### F8 Review — открытый техдолг (Frontend)
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-FE-A11Y | 🧪 | Admin views (5 файлов) | Clickable `<div>` без `role="button"`, `tabindex="0"`, `@keydown` handlers. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards. Нарушение WCAG 2.1 AA 2.1.1 | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop`/`@keydown.space.prevent` на каждый clickable div в admin-вью | ⬜ |
 
 ### Открытый техдолг — F7 Review
 

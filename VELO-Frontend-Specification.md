@@ -1,7 +1,7 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.4
-**Дата:** 7 марта 2026
+**Версия:** 1.5
+**Дата:** 8 марта 2026
 **Статус:** Active
 
 ---
@@ -26,7 +26,7 @@
 | Бронирование | Юзер записывается и отменяет запись |
 | Баланс | Пополнение через Stripe, отображение баланса |
 | Master CRUD | Мастер создаёт, редактирует, финализирует практики |
-| Admin | Верификация мастеров, статистика, модерация |
+| Admin | Верификация мастеров, статистика, модерация ✅ |
 | PWA | Приложение добавляется на Home Screen |
 
 ### 1.3. Вне scope MVP (Frontend)
@@ -153,7 +153,8 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │   ├── commission.ts      ← COMMISSION_RATE константа
 │   │   │   ├── practiceOptions.ts ← DURATION_OPTIONS, TIMEZONE_OPTIONS
 │   │   │   ├── validation.ts      ← Общие валидаторы форм
-│   │   │   └── constants.ts       ← Статусы, роли, магические числа
+│   │   │   ├── constants.ts       ← Статусы, роли, магические числа
+│   │   │   └── adminHelpers.ts    ← Общие хелперы для admin-вью (F8)
 │   │   │
 │   │   ├── App.vue                ← Корневой компонент
 │   │   └── main.ts                ← Точка входа: createApp, router, pinia
@@ -958,64 +959,108 @@ export const api = {
 
 ---
 
-## PHASE F8: Admin
+## PHASE F8: Admin ✅
 
-### F8.1: Дашборд + статистика
+### F8.1: Дашборд + статистика ✅
 
 **Цель:** Админ видит ключевые метрики.
 
 **Задачи:**
-- [ ] src/views/admin/AdminDashboardView.vue:
+- [x] src/views/admin/AdminDashboardView.vue:
   - GET /api/v1/admin/stats
   - Карточки: users_count, masters_count, practices_count, pending_verifications
-  - Алерты (если pending > 0)
+  - VStatCard с иконками, алертовый баннер если pending_verifications > 0
+  - Навигационные ссылки-кнопки в кол-во мастеров → /admin/masters, в жалобы → /admin/reports
 
 **Зависимость от бэкенда:** GET /api/v1/admin/stats (Phase 3.1 ✅).
 
-**Критерий готовности:** Админ видит статистику.
+**Критерий готовности:** Админ видит статистику. ✅
 
 ---
 
-### F8.2: Верификация мастеров
+### F8.2: Верификация мастеров ✅
 
 **Цель:** Админ верифицирует или отклоняет заявки.
 
 **Задачи:**
-- [ ] src/views/admin/AdminMastersView.vue:
-  - Список pending заявок — GET /api/v1/admin/masters?status=pending
-  - Карточка: имя, направления, стаж, дата заявки
-- [ ] src/views/admin/AdminMasterReviewView.vue:
-  - Полная информация о заявке
+- [x] src/views/admin/AdminMastersView.vue:
+  - Список мастеров с фильтром по статусу (pending/all) — GET /api/v1/admin/masters/pending + /list
+  - Карточки: имя, методы, стаж, дата заявки, VBadge статуса
+  - `error` ref + VEmptyState с кнопкой "Повторить" при ошибке загрузки (S-4)
+  - Клик → /admin/masters/:id
+- [x] src/views/admin/AdminMasterReviewView.vue:
+  - GET /api/v1/admin/masters/:id — полная информация о заявке (W-1: новый эндпоинт)
+  - Профиль мастера: имя, email, bio, методы, стаж, языки, статус
   - Кнопка "Верифицировать" → POST /api/v1/admin/masters/:id/verify
-  - Кнопка "Отклонить" → POST /api/v1/admin/masters/:id/reject (с причиной)
+  - Кнопка "Отклонить" → POST /api/v1/admin/masters/:id/reject (с полем причины)
+  - Double-submit guard на обеих кнопках
   - Toast: "Мастер верифицирован" / "Заявка отклонена"
+  - После действия: `router.push({ name: 'admin-masters' })` — список перезагружается (S-1/S-2)
 
-**Зависимость от бэкенда:** admin masters endpoints (Phase 2.3 ✅).
+**Зависимость от бэкенда:** admin masters endpoints (Phase 2.3 ✅) + GET /admin/masters/{id} (W-1 добавлен в Phase 3.2 ✅).
 
-**Критерий готовности:** Админ верифицирует и отклоняет заявки.
+**Критерий готовности:** Админ верифицирует и отклоняет заявки. ✅
 
 ---
 
-### F8.3: Модерация + Семафоры
+### F8.3: Модерация + Семафоры ✅
 
 **Цель:** Обработка жалоб и мониторинг целостности данных.
 
 **Задачи:**
-- [ ] src/views/admin/AdminReportsView.vue:
+- [x] src/views/admin/AdminReportsView.vue:
   - Список жалоб — GET /api/v1/admin/reports?status=pending
-  - Фильтр по статусу, типу
-- [ ] src/views/admin/AdminReportDetailView.vue:
-  - Информация о жалобе
-  - Кнопки: resolve / dismiss
-- [ ] src/views/admin/AdminConsistencyView.vue:
+  - Фильтр по статусу и типу (pending/resolved/dismissed × user/master/practice)
+  - VBadge для статуса, generation counter (W-3: сколько раз список обновлён)
+  - Клик → /admin/reports/:id
+- [x] src/views/admin/AdminReportDetailView.vue:
+  - GET /api/v1/admin/reports/:id — полная информация о жалобе (W-2: новый эндпоинт)
+  - reporter, target_type, target_id, reason, status, timestamps
+  - Кнопки: resolve (с полем resolution_note) / dismiss
+  - Double-submit guard
+  - Toast: "Жалоба обработана" / "Жалоба отклонена"
+  - После действия: `router.push({ name: 'admin-reports' })` — список перезагружается (S-1/S-2)
+- [x] src/views/admin/AdminConsistencyView.vue:
   - GET /api/v1/admin/consistency
-  - Список из 21 семафора: имя, статус (OK/ALERT), категория
-  - Цветовая индикация: зелёный/красный
-  - ok_count / alert_count / total
+  - Список из 21 семафора: имя, статус (OK/ALERT), категория, criticality
+  - Цветовая индикация: зелёный/красный VBadge
+  - ok_count / alert_count / total + время запроса
+  - Кнопка "↺ Перезапустить" — отдельный `rerunning` ref (S-3): спиннер на кнопке, результаты остаются видимыми
+  - `loading` ref — только для первоначальной загрузки
 
-**Зависимость от бэкенда:** reports + consistency (Phase 3.3 + 6.8 ✅).
+**Зависимость от бэкенда:** reports + consistency (Phase 3.3 ✅ + Phase 6.8 ✅) + GET /admin/reports/{id} (W-2 добавлен в Phase 3.3 ✅).
 
-**Критерий готовности:** Админ обрабатывает жалобы, видит семафоры.
+**Критерий готовности:** Админ обрабатывает жалобы, видит семафоры. ✅
+
+---
+
+### F8: Code Review — итог
+
+**Выявлено: 0 critical, 6 warnings, 6 suggestions.**
+
+**Warnings (все закрыты, коммиты 30a0e2f, 749c9aa):**
+
+| ID | Серьёзность | Проблема | Фикс |
+|----|-------------|----------|------|
+| W-1 | MEDIUM | Нет GET /admin/masters/{id} — `AdminMasterReviewView` делал GET /list и искал локально | Новый эндпоинт на бэке + `getMasterById()` в api/admin.ts |
+| W-2 | MEDIUM | Нет GET /admin/reports/{id} — детали показывались из router state | Новый эндпоинт на бэке + `getReportById()` в api/admin.ts + VLoader |
+| W-3 | LOW | `AdminReportsView` не имел счётчика обновлений — неясно, когда список актуален | `generation` ref, инкремент при каждом fetch |
+| W-4 | LOW | Семантические CSS-переменные отсутствовали — статусы хардкожены | Добавлены `--color-status-*` в `variables.css` |
+| W-5 | LOW | `adminHelpers.ts` не существовал — хелперы копировались в каждый файл | `utils/adminHelpers.ts` с общими функциями форматирования |
+| W-6 | LOW | Double-submit guard проверялся ПОСЛЕ валидации — одиночный submit мог проскочить | Guard перенесён ДО валидации |
+
+**Suggestions:**
+
+| ID | Статус | Что сделано |
+|----|--------|-------------|
+| S-1 | ✅ CLOSED | `router.back()` → `router.push({ name: 'admin-masters' })` после verify/reject — список всегда перезагружается |
+| S-2 | ✅ CLOSED | `router.back()` → `router.push({ name: 'admin-reports' })` после resolve/dismiss |
+| S-3 | ✅ CLOSED | Отдельный `rerunning` ref в `AdminConsistencyView` — кнопка крутится, результаты видны |
+| S-4 | ✅ CLOSED | `error` ref + `VEmptyState` с кнопкой "Повторить" в `AdminMastersView` |
+| S-5 | ✅ CLOSED | Admin-типы перенесены в `api/types.ts`, re-export из `api/admin.ts` для обратной совместимости |
+| S-6 | ➡️ TD | Clickable divs без `role="button"`, `tabindex`, keyboard handlers → TD-FE-A11Y |
+
+**Финальный счёт F8:** 0 critical, 0 warnings, 5/6 suggestions closed.
 
 ---
 
@@ -1131,7 +1176,7 @@ export const api = {
 | F5: Stripe ✅ | 6.3 | ✅ | Нет |
 | F6: Master ✅ | 2+4+5.4 | ✅ | Нет |
 | F7: Финансы ✅ | 6.6 | ✅ | Нет |
-| F8: Admin | 3+6.8 | ✅ | Нет |
+| F8: Admin ✅ | 3+6.8 | ✅ | Нет |
 | F9: Diary | 8.4 | ✅ | **Нет (разблокировано)** |
 | F10: PWA | 7.3 + новый auth | **Частично** | **Частично** |
 
@@ -1170,13 +1215,19 @@ export const api = {
 | ID | Среда | Файл | Описание | Решение | Статус |
 |----|-------|------|----------|---------|--------|
 | TD-FE-W6 | 🧪 | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены на фронте — рассинхрон с `config.py` при изменении | Получать из нового эндпоинта `GET /api/v1/config` или при необходимости дублировать с явным комментарием об источнике | ⬜ |
-| TD-FE-F7-SUGGESTIONS | 🧪 | `MasterFinanceView.vue`, `MasterProfileView.vue` | 7 suggestions из F7 review (LOW) — UX-улучшения, неблокирующие | Рассмотреть перед F8 | ⬜ |
+| TD-FE-F7-SUGGESTIONS | 🧪 | `MasterFinanceView.vue`, `MasterProfileView.vue` | 7 suggestions из F7 review (LOW) — UX-улучшения, неблокирующие | Рассмотреть перед F8 | ✅ (закрыто как осознанное решение — не критично для MVP) |
 
 ### Переключение режима мастер/юзер
 
 | ID | Среда | Описание | Решение | Статус |
 |----|-------|----------|---------|--------|
 | TD-MODE-SWITCH | 🧪 | Мастер является юзером и может участвовать в чужих практиках, но в мастерском интерфейсе нет точки входа в каталог. Маршруты `/user/*` (кроме dashboard) доступны технически, но недосягаемы из UI. | Кнопка "Перейти в интерфейс Юзера" в `MasterProfileView` + кнопка "Перейти в интерфейс Мастера" в `UserProfileView` (только если `role === 'master'`). Текущий режим хранить в `sessionStorage` или Pinia. Глобальный `beforeEach` адаптировать: не редиректить мастера с `/user/dashboard` если он сам выбрал user-режим. | ⬜ |
+
+### Keyboard Accessibility (F8)
+
+| ID | Среда | Описание | Решение | Статус |
+|----|-------|----------|---------|--------|
+| TD-FE-A11Y | 🧪 | Clickable `<div>` элементы в admin-вью не имеют `role="button"`, `tabindex="0"`, обработчиков `@keydown.enter`/`@keydown.space`. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards. Нарушает WCAG 2.1 AA (Success Criterion 2.1.1) | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop="handler"`, `@keydown.space.prevent="handler"` на каждый clickable div. Приоритет: LOW, post-MVP. | ⬜ |
 
 ### Deep links — обработка startapp параметра
 
