@@ -194,7 +194,8 @@ import { useRouter } from 'vue-router'
 import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import type { PracticeType, PracticeStatus } from '@/api/types'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import type { PracticeStatus } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -230,15 +231,9 @@ const nearestPractice = computed(() => {
   return upcoming[0] ?? null
 })
 
-// -- Practice type emoji --
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘',
-  series: '🔄',
-  one_on_one: '👤',
-  replay: '📹',
-}
-function typeEmoji(t: PracticeType): string {
-  return TYPE_EMOJI[t] ?? '🧘'
+// -- Practice type emoji -- imported from displayHelpers
+function typeEmoji(t: Parameters<typeof PRACTICE_TYPE_EMOJI>[0]): string {
+  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
 }
 
 // -- Practice status badge helpers --

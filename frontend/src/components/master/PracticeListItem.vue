@@ -41,21 +41,15 @@
 import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import type { PracticeResponse, PracticeStatus } from '@/api/types'
 
 const props = defineProps<{
   practice: PracticeResponse
 }>()
 
-// -- Type emoji --
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘',
-  series: '🔄',
-  one_on_one: '👤',
-  replay: '📹',
-}
-
-const typeEmoji = computed((): string => TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
+// -- Type emoji -- imported from displayHelpers
+const typeEmoji = computed((): string => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
 
 // -- Status label --
 const STATUS_LABEL: Record<PracticeStatus, string> = {

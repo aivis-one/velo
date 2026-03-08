@@ -53,7 +53,8 @@
 import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatMoney, formatTime, formatDuration, formatParticipants, isFull } from '@/utils/format'
-import type { PracticeResponse, PracticeType } from '@/api/types'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
   practice: PracticeResponse
@@ -63,15 +64,8 @@ defineEmits<{
   click: [id: string]
 }>()
 
-// -- Type → Emoji mapping --
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘',
-  series: '🔄',
-  one_on_one: '👤',
-  replay: '📹',
-}
-
-const typeEmoji = computed(() => TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
+// -- Type emoji -- imported from displayHelpers
+const typeEmoji = computed(() => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
 
 const time = computed(() =>
   formatTime(props.practice.scheduled_at, props.practice.timezone),
