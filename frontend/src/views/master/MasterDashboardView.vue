@@ -195,7 +195,7 @@ import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeStatus } from '@/api/types'
+import type { PracticeType, PracticeStatus } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -232,7 +232,7 @@ const nearestPractice = computed(() => {
 })
 
 // -- Practice type emoji -- imported from displayHelpers
-function typeEmoji(t: Parameters<typeof PRACTICE_TYPE_EMOJI>[0]): string {
+function typeEmoji(t: PracticeType): string {
   return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
 }
 
