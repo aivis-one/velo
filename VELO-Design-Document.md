@@ -1,34 +1,36 @@
 # VELO — Дизайн-документ (Конституция)
 
-**Версия:** 1.0  
-**Дата:** 5 февраля 2026  
-**Статус:** Draft
+**Версия:** 2.0
+**Дата:** 8 марта 2026
+**Статус:** Active
 
 ---
 
-## 1. Введение
+## 1. Что такое VELO
 
-### 1.1. Миссия продукта
+### 1.1. Миссия
 
-> **Мастера хотят творить, а не быть бухгалтерами и секретарями.**
-> 
-> VELO снимает рутину по максимуму.
+> **Мастера хотят творить, а не быть бухгалтерами и секретарями. VELO снимает рутину.**
 
-VELO — платформа для мастеров медитаций, йоги, breathwork и других практик. Она автоматизирует:
-- Записи на практики
-- Очереди ожидания
-- Напоминания участникам
-- Сбор оплаты
-- Учёт посещаемости
-- Сбор обратной связи
-- Аналитику
+VELO — платформа для мастеров практик (медитация, йога, breathwork и смежные направления).
+Автоматизирует всё, что мешает мастеру заниматься своим делом:
 
-### 1.2. Целевая аудитория
+| Рутина | До VELO | После VELO |
+|--------|---------|------------|
+| Записи на практику | Сообщения в чат "запишите меня" | Автоматические бронирования |
+| Очередь ожидания | "Напишу, если место освободится" | Waitlist + авто-уведомления |
+| Напоминания участникам | Ручная рассылка | Авто: 24ч, 1ч, 10мин |
+| Сбор оплаты | "Переведите на карту" | Stripe, автоматически |
+| Учёт посещений | Галочки в блокноте | Attendance tracking |
+| Обратная связь | "Напишите как вам" | Check-in / Feedback формы |
+| Аналитика | Никакой | Insights по каждой практике |
+
+### 1.2. Аудитория
 
 | Роль | Описание |
 |------|----------|
-| **User (Участник)** | Человек, который посещает практики |
-| **Master (Мастер)** | Ведущий практик. Может быть одновременно участником чужих практик |
+| **User** | Участник практик. Бронирует, платит, оставляет обратную связь |
+| **Master** | Ведущий практик. Одновременно может быть участником чужих практик |
 | **Admin** | Администратор платформы. Верификация мастеров, модерация, поддержка |
 
 ### 1.3. Глоссарий
@@ -37,50 +39,17 @@ VELO — платформа для мастеров медитаций, йоги
 |--------|-------------|
 | **Практика** | Сессия (медитация, йога, breathwork и т.д.), проводимая мастером |
 | **Бронирование** | Резервация места на практике участником |
-| **Check-in** | Фиксация состояния участника ДО практики |
-| **Feedback** | Обратная связь участника ПОСЛЕ практики |
+| **Check-in** | Фиксация состояния участника ДО практики (mood: low/mid/high) |
+| **Feedback** | Обратная связь участника ПОСЛЕ практики (rating: fire/good/confused) |
 | **Ledger** | Журнал финансовых транзакций (принцип double-entry) |
 | **Waitlist** | Очередь ожидания на заполненную практику |
+| **Розетка** | Заготовка под будущую функцию: интерфейс определён, логика не реализована |
 
 ---
 
-## 2. Принципы продукта
+## 2. Технологический стек
 
-### 2.1. Мастера хотят творить, а не быть бухгалтерами
-
-Каждая функция VELO должна отвечать на вопрос: **"Это снимает рутину с мастера?"**
-
-| Рутина | Было (вручную) | Стало (VELO) |
-|--------|----------------|--------------|
-| Записи на практику | Сообщения "запишите меня" | Автоматические брони |
-| Очередь ожидания | "Напишу если место освободится" | Waitlist + авто-уведомления |
-| Напоминания | "Не забудьте, завтра в 10:00" | Авто (24ч, 1ч, 10мин) |
-| Сбор оплаты | "Переведите на карту" | Stripe, автоматически |
-| Учёт посещений | Галочки в блокноте | Attendance tracking |
-| Обратная связь | "Напишите как вам" | Check-in / Feedback формы |
-
-### 2.2. Бесшовная миграция
-
-Мастера уже работают в Telegram. VELO не должен ломать их привычки:
-
-- Поддерживаем те же типы практик (live, series, one_on_one, replay)
-- Telegram WebApp — привычная среда
-- Постепенное добавление функций, не шоковая терапия
-
-### 2.3. Архитектура готова к масштабированию
-
-Модульный монолит сейчас → микросервисы потом:
-
-- Каждый модуль изолирован
-- БД спроектирована под будущий распил
-- JSONB для неустоявшихся структур (credentials, master_profile)
-- Отдельные таблицы для разных доменов
-
----
-
-## 3. Технологический стек
-
-### 3.1. Backend
+### 2.1. Backend
 
 | Компонент | Технология | Версия |
 |-----------|------------|--------|
@@ -88,641 +57,347 @@ VELO — платформа для мастеров медитаций, йоги
 | Фреймворк | FastAPI | latest |
 | ORM | SQLAlchemy | 2.0 (async) |
 | Валидация | Pydantic | v2 |
-| Тестирование | pytest, pytest-asyncio | latest |
+| Миграции | Alembic | latest |
+| Тестирование | pytest + pytest-asyncio | latest |
+| Логирование | structlog | latest |
 
-### 3.2. Database
+### 2.2. База данных и кэш
 
 | Компонент | Технология | Назначение |
 |-----------|------------|------------|
 | Primary DB | PostgreSQL 16 | Все данные |
-| Cache/Sessions | Redis 7 | Сессии, очереди, кэш |
+| Cache / Sessions | Redis 7 | Сессии, очереди задач, кэш |
 
-### 3.3. External Services
+### 2.3. Frontend
+
+| Компонент | Технология | Версия |
+|-----------|------------|--------|
+| Фреймворк | Vue 3 | latest |
+| Язык | TypeScript | 5.x |
+| Сборка | Vite | latest |
+| Роутинг | Vue Router | 4.x |
+| Стейт | Pinia | latest |
+| HTTP | Fetch (обёртка `client.ts`) | native |
+| PWA | vite-plugin-pwa | latest |
+| Стили | Свой CSS (дизайн-токены из мокапов) | -- |
+| Линтинг | ESLint + Prettier | latest |
+
+### 2.4. Внешние сервисы
 
 | Сервис | Назначение |
 |--------|------------|
-| Stripe | Платежи (пополнение, выводы) |
-| Telegram Bot API | Уведомления |
-| Telegram WebApp | Фронтенд (MVP) |
+| Stripe | Пополнение баланса юзера, вывод средств мастером |
+| Telegram Bot API | Уведомления (aiogram), Telegram WebApp (фронтенд MVP) |
 
-### 3.4. Infrastructure
+### 2.5. Инфраструктура
 
 | Компонент | Технология |
 |-----------|------------|
 | Контейнеризация | Docker + Docker Compose |
-| Хостинг | VPS |
-| CI/CD | GitHub Actions |
+| Хостинг | VPS (Hetzner, NL) |
+| Reverse proxy | Nginx (на хосте) |
+| SSL | Let's Encrypt (certbot) |
+| Деплой | Ручной: `velo update` (git pull + rebuild + migrate + restart) |
 
 ---
 
-## 4. Архитектура
+## 3. Архитектура
 
-### 4.1. Модульный монолит → Микросервисы
+### 3.1. Модульный монолит сейчас — микросервисы потом
 
-**MVP:** Один сервис, разбитый на модули.
-
-**Будущее:** Каждый модуль может стать отдельным микросервисом.
+MVP — один сервис, разбитый на изолированные модули. Каждый модуль
+самодостаточен и спроектирован так, чтобы в будущем стать отдельным
+микросервисом без переписывания бизнес-логики.
 
 ```
-velo-backend/
-├── app/
-│   ├── modules/
-│   │   ├── auth/           # Telegram auth, сессии
-│   │   ├── users/          # Профили, роли
-│   │   ├── masters/        # Профили мастеров
-│   │   ├── practices/      # CRUD практик
-│   │   ├── bookings/       # Бронирования, waitlist
-│   │   ├── payments/       # Ledgers, Stripe
-│   │   ├── notifications/  # Telegram-бот, напоминания
-│   │   ├── diary/          # Check-ins, feedbacks, entries
-│   │   └── admin/          # Верификация, модерация
-│   ├── core/               # DB, Redis, config, middlewares
-│   └── api/                # FastAPI routers
-├── tests/
-└── docker-compose.yml
+backend/app/modules/
+├── auth/           -- Telegram auth, сессии (Redis)
+├── users/          -- Профили, роли
+├── masters/        -- Профили мастеров, верификация, балансы
+├── practices/      -- CRUD практик, state machine
+├── bookings/       -- Бронирования, waitlist
+├── payments/       -- Ledgers (double-entry), Stripe, промокоды, выводы
+├── notifications/  -- Telegram-бот, процессор, шаблоны, напоминания
+├── diary/          -- Check-ins, feedbacks, diary entries, insights
+└── admin/          -- Верификация мастеров, модерация, семафоры
 ```
 
-### 4.2. Структура модуля
+### 3.2. Структура модуля
 
 Каждый модуль содержит:
 
 ```
 module/
-├── models.py       # SQLAlchemy models
-├── schemas.py      # Pydantic schemas
-├── service.py      # Business logic
-├── router.py       # FastAPI endpoints
-└── exceptions.py   # Module-specific exceptions
+├── models.py       -- SQLAlchemy ORM models
+├── schemas.py      -- Pydantic request/response schemas
+├── service.py      -- Business logic (единственное место для логики)
+├── router.py       -- FastAPI endpoints (только маршрутизация)
+└── exceptions.py   -- Module-specific exceptions (опционально)
 ```
 
-### 4.3. Схема БД
+### 3.3. Будущий распил на микросервисы
 
-#### Core
-| Таблица | Назначение | Особенности |
-|---------|------------|-------------|
-| `users` | Все пользователи | `credentials: JSONB` |
-| `master_profiles` | Профили мастеров | `data: JSONB`, `frozen_amount`, `available_amount` |
-
-#### Practices
-| Таблица | Назначение | Особенности |
-|---------|------------|-------------|
-| `practices` | Практики | type: live, series, one_on_one, replay |
-| `practice_pricing` | Цены практик | Отдельно для Payment Service |
-
-#### Bookings
-| Таблица | Назначение |
-|---------|------------|
-| `bookings` | Бронирования |
-| `waitlist` | Очередь ожидания |
-
-#### Payments (Double-Entry Ledgers)
-| Таблица | Назначение |
-|---------|------------|
-| `user_ledger` | Баланс юзеров |
-| `master_ledger` | Баланс мастеров (с `is_frozen`) |
-| `company_ledger` | Revenue компании |
-| `payments` | Внешние операции (Stripe) |
-| `purchases` | История покупок |
-| `promos` | Промокоды (Company + Master) |
-
-#### State (Diary)
-| Таблица | Назначение |
-|---------|------------|
-| `checkins` | Состояние ДО практики |
-| `feedbacks` | Обратная связь ПОСЛЕ практики |
-| `diary_entries` | Личные записи юзера |
-
-#### Notifications
-| Таблица | Назначение |
-|---------|------------|
-| `notifications` | Уведомления |
-| `notification_deliveries` | Статус доставки |
-
-### 4.4. Будущий распил на микросервисы
+Таблицы БД уже сгруппированы по будущим сервисам:
 
 ```
-User Service:
-  ├── users
-  ├── user_auths (из credentials JSONB)
-  └── diary_entries
-
-Master Service:
-  └── master_profiles
-
-Practice Service:
-  └── practices
-
-Booking Service:
-  ├── bookings
-  └── waitlist
-
-Payment Service:
-  ├── practice_pricing
-  ├── user_ledger
-  ├── master_ledger
-  ├── company_ledger
-  ├── payments
-  └── purchases
-
-State Service:
-  ├── checkins
-  └── feedbacks
-
-Notification Service:
-  ├── notifications
-  └── notification_deliveries
+User Service:       users, diary_entries
+Master Service:     master_profiles, withdrawals
+Practice Service:   practices, practice_pricing
+Booking Service:    bookings, waitlist
+Payment Service:    user_ledger, master_ledger, company_ledger,
+                    payments, purchases, promos
+State Service:      checkins, feedbacks
+Notification Service: notifications, notification_deliveries
+Admin Service:      reports, audit_log
 ```
 
-### 4.5. JSONB Safety Rule
+### 3.4. Frontend: три роли, одно приложение
 
-**Проблема:** SQLAlchemy отслеживает изменения колонок по идентичности
-Python-объектов. JSONB-колонки хранят dict — при мутации dict in-place
-или при переприсвоении shallow copy SQLAlchemy **не видит изменение**
-и пропускает UPDATE. Это известная проблема SQLAlchemy с mutable types.
+Одно SPA с ролевым роутингом. Роль определяется из `GET /api/v1/users/me`.
 
-**Решение:** `JSONBMixin` в `app/core/mixins.py`. Предоставляет метод
-`set_jsonb(field, value)`, который выполняет `setattr()` + `flag_modified()`.
+| Роль | Shell | Tab Bar |
+|------|-------|---------|
+| user | UserShell | Дашборд / Календарь / Дневник / Профиль |
+| master | MasterShell | Дашборд / Практики / Аналитика / Профиль |
+| admin | AdminShell | Дашборд / Мастера / Модерация |
 
-**Правило (обязательное):**
-- **НИКОГДА** не присваивать JSONB-колонки напрямую: `obj.data = new_dict`
-- **ВСЕГДА** использовать: `obj.set_jsonb("data", new_dict)`
-- Это касается ВСЕХ JSONB-колонок во ВСЕХ моделях проекта
-- Модели с JSONB **обязаны** наследовать `JSONBMixin`
+Мастер имеет доступ к обоим интерфейсам (user + master).
+Переключение через профиль (TD-FE-ROLE-SWITCH).
 
-**Текущие JSONB-колонки:**
+### 3.5. Платёжная архитектура (Double-Entry)
 
-| Модель | Колонка | Наследует JSONBMixin |
-|--------|---------|---------------------|
-| MasterProfile | data | ✅ |
-| User | credentials | ⬜ (мутируется только через raw SQL, добавить при первой ORM-мутации) |
+**Принцип:** каждая операция — две записи в журналах. Сумма всех записей = 0.
 
-### 4.6. Session Commit Rule
-
-**Проблема:** `get_db_session()` — FastAPI-зависимость для write-операций —
-делает `await session.commit()` автоматически после `yield`. Если в роутере
-вызвать `await session.commit()` явно, происходит **двойной коммит**. Это
-может привести к `InvalidRequestError` или непредсказуемому поведению
-транзакций (частичный коммит при ошибке между двумя коммитами).
-
-**Как работают сессии:**
-```
-get_db_session()   — write: auto-commit после yield, rollback при исключении
-get_db_reader()    — read-only: всегда rollback (TD-008)
-```
-
-**Правило (обязательное):**
-- **НИКОГДА** не вызывать `session.commit()` в роутерах
-- Использовать `await session.flush()` когда нужно получить DB-generated значения (id, created_at) до конца запроса
-- `await session.refresh(obj)` — для загрузки обновлённых полей после flush
-- `get_db_session()` сам сделает единственный commit в конце запроса
-
-**Паттерн для роутера:**
-```python
-# ✅ Правильно:
-profile = await apply_for_master(user, body, session)
-await session.flush()        # получить created_at
-await session.refresh(profile)
-return MasterApplyResponse(...)
-
-# ❌ Запрещено:
-profile = await apply_for_master(user, body, session)
-await session.commit()       # ДВОЙНОЙ КОММИТ — get_db_session тоже коммитит
-```
-
----
-
-## 5. Роли и права доступа
-
-### 5.1. User (Участник)
-
-**Может:**
-- Просматривать практики
-- Бронировать / отменять брони
-- Пополнять баланс
-- Покупать практики
-- Заполнять check-in / feedback
-- Вести дневник
-- Редактировать свой профиль
-- Подавать заявку на мастера
-
-**Не может:**
-- Создавать практики
-- Видеть данные других юзеров
-- Выводить деньги (только тратить)
-
-### 5.2. Master (Мастер)
-
-**Всё что User, плюс:**
-- Создавать / редактировать / удалять свои практики
-- Видеть список участников своих практик
-- Видеть агрегированные check-ins / feedbacks своих практик
-- Видеть свою аналитику (статистика, заработок)
-- Выводить деньги с master_balance
-- Переводить деньги с master_balance на user_balance
-
-**Не может:**
-- Видеть данные чужих практик
-- Верифицировать других мастеров
-
-### 5.3. Admin
-
-**Всё что Master, плюс:**
-- Видеть всех юзеров и мастеров
-- Верифицировать / блокировать мастеров
-- Модерировать жалобы
-- Подтверждать выводы средств
-- Видеть финансовую аналитику платформы
-- Отправлять broadcast-уведомления
-
----
-
-## 6. Платежи и балансы
-
-### 6.1. Принцип Double-Entry
-
-> **Золотое правило:** Сумма всех дебетов = Сумма всех кредитов
->
-> Если где-то что-то записалось, значит где-то что-то списалось.
-> Сумма всех операций в системе ВСЕГДА = 0.
-
-Каждая операция — минимум 2 записи в разных журналах.
-
-### 6.2. Три журнала
+Три журнала:
 
 | Журнал | Владелец | Назначение |
 |--------|----------|------------|
-| `user_ledger` | User | Кошелёк юзера (пополнения, покупки) |
-| `master_ledger` | Master | Заработок мастера (frozen + available) |
-| `company_ledger` | Platform | Доход компании (комиссии, маркетинг) |
+| `user_ledger` | Каждый юзер | Баланс кошелька |
+| `master_ledger` | Каждый мастер | Заработок (frozen + available) |
+| `company_ledger` | Платформа | Комиссии, маркетинг, возвраты |
 
-### 6.3. Master Balance: Frozen vs Available
-
-> **Master Balance — это ЗАРАБОТОК. User Balance — это КОШЕЛЁК. Никогда не смешиваем.**
-
-| | Frozen | Available |
-|--|--------|-----------|
-| **Когда появляется** | Юзер оплатил практику | Практика успешно завершена |
-| **Можно вывести** | ❌ Нет | ✅ Да |
-| **Можно перевести на User Balance** | ❌ Нет | ✅ Да |
-| **При отмене практики** | Возвращается юзеру | — |
-
-В `MasterProfile` хранятся два поля для быстрого доступа:
-- `frozen_amount` — заморожено (ожидает практик)
-- `available_amount` — доступно для вывода
-
-Обновляются listeners при записи в `master_ledger`.
-
-### 6.4. Потоки денег
-
-#### Пополнение баланса (Stripe → User)
-```
-payments:     direction=in, amount=+100, status=confirmed
-user_ledger:  user_id=1, amount=+100, reason="payment:123"
-──────────────────────────────────────────────────
-Σ = 0 ✓ (деньги вошли в систему извне)
-```
-
-#### Покупка практики ($50) — Шаг 1: Регистрация
-> Юзер платит Мастеру 100%. Деньги замораживаются.
-```
-user_ledger:   user_id=1, amount=-50, reason="purchase:practice=456"
-master_ledger: user_id=2, amount=+50, is_frozen=true, reason="sale:practice=456"
-purchases:     user_id=1, practice_id=456, amount=50, status=pending
-──────────────────────────────────────────────────
-Master Profile: frozen_amount += 50
-Σ = -50 + 50 = 0 ✓
-```
-
-#### Покупка практики ($50) — Шаг 2: Практика завершена
-> Разморозка + списание комиссии 15%.
-```
-master_ledger: user_id=2, UPDATE is_frozen=false WHERE practice=456
-master_ledger: user_id=2, amount=-7.50, reason="commission:practice=456"
-company_ledger: amount=+7.50, type=commission, reason="commission:practice=456"
-purchases:     UPDATE status=completed
-──────────────────────────────────────────────────
-Master Profile: frozen=0, available=42.50
-Σ = -7.50 + 7.50 = 0 ✓
-```
-
-#### Бесплатная практика (price = $0)
-> Комиссия = 15% от живых денег. Нет денег = нет комиссии.
-```
-user_ledger:   user_id=1, amount=0, reason="purchase:practice=789"
-master_ledger: user_id=2, amount=0, is_frozen=true, reason="sale:practice=789"
-──────────────────────────────────────────────────
-После завершения: company_ledger записи НЕТ (комиссия $0)
-Σ = 0 ✓
-```
-**Зачем нулевые записи:** консистентность отчётности. `COUNT(purchases)` = все участники.
-
-#### Перевод Master → User (для покупки чужой практики)
-> Только из Available. Frozen переводить нельзя.
-```
-master_ledger: user_id=2, amount=-50, reason="transfer:internal"
-user_ledger:   user_id=2, amount=+50, reason="transfer:internal"
-──────────────────────────────────────────────────
-Master Profile: available_amount -= 50
-Σ = -50 + 50 = 0 ✓
-```
-
-#### Вывод мастером
-> Только из Available. Минимальная сумма и комиссия — настраиваемые.
-```
-master_ledger:  user_id=2, amount=-1000, reason="withdrawal:payment=789"
-company_ledger: amount=+2, type=withdrawal_fee, reason="withdrawal:payment=789"
-payments:       direction=out, user_id=2, amount=998, status=pending
-──────────────────────────────────────────────────
-Master Profile: available_amount -= 1000
-Σ = 0 ✓ (деньги покидают систему)
-```
-**Важно:** выводы подтверждает админ вручную. Автоматических выплат нет.
-
-### 6.5. Отмены и возвраты
-
-#### Юзер отменяет бронирование
-| Условие | Результат |
-|---------|-----------|
-| > 24ч до практики | 100% возврат |
-| < 24ч до практики | 0% возврат (деньги остаются frozen) |
-
-```
-# Отмена > 24ч:
-master_ledger: user_id=2, amount=-50, reason="refund:practice=456"
-user_ledger:   user_id=1, amount=+50, reason="refund:practice=456"
-──────────────────────────────────────────────────
-Master Profile: frozen_amount -= 50
-Σ = +50 - 50 = 0 ✓
-```
-
-#### Мастер отменяет практику
-> Автоматический 100% возврат всем участникам.
-```
-# Для каждого участника:
-master_ledger: user_id=2, amount=-50, reason="refund:practice=456,cancelled_by_master"
-user_ledger:   user_id=N, amount=+50, reason="refund:practice=456"
-```
-
-#### No-show (юзер не пришёл)
-> Деньги остаются у мастера. Стандартный flow завершения практики.
-
-### 6.6. Промокоды
-
-#### Company Promo (компания платит за маркетинг)
-> Мастер получает деньги из маркетингового бюджета компании.
-```
-# Промокод WELCOME (100% скидка), практика $50:
-user_ledger:    user_id=1, amount=0, reason="purchase:practice=456,promo:WELCOME"
-master_ledger:  user_id=2, amount=+50, is_frozen=true, reason="sale:practice=456"
-company_ledger: amount=-50, type=marketing, reason="promo:WELCOME,practice=456"
-──────────────────────────────────────────────────
-После практики: комиссия $0 (юзер заплатил $0 живых денег)
-Σ = 0 ✓
-```
-
-#### Master Promo (мастер отказывается от выручки)
-> Промокод создаёт сам мастер. Компания ничего не платит.
-```
-# Промокод ALEX-VIP (100% скидка), практика $50:
-user_ledger:   user_id=1, amount=0, reason="purchase:practice=456,promo:ALEX-VIP"
-master_ledger: user_id=2, amount=0, is_frozen=true, reason="sale:practice=456,promo:ALEX-VIP"
-──────────────────────────────────────────────────
-Мастер решил не брать деньги. Company ledger не затронут.
-Σ = 0 ✓
-```
-
-### 6.7. Настраиваемые переменные
-
-| Переменная | Описание | Значение |
-|------------|----------|----------|
-| `PLATFORM_COMMISSION_PERCENT` | Комиссия платформы | 15% |
-| `MIN_WITHDRAWAL_AMOUNT` | Минимум для вывода | $50 |
-| `WITHDRAWAL_FEE` | Комиссия за вывод | $2 |
-| `CANCELLATION_DEADLINE_HOURS` | Дедлайн отмены с возвратом | 24ч |
-| `MASTER_PROMO_DISCOUNTS` | Доступные скидки | [5, 25, 50, 75, 100] |
+**Ключевые правила:**
+- Юзер платит мастеру 100% при бронировании (деньги идут в `frozen`)
+- Мастер платит платформе 15% комиссии после завершения практики
+- Комиссия только с живых денег: бесплатная практика = нулевые записи
+- Вывод средств мастером -- только из `available`, только вручную (админ подтверждает)
+- Юзер не может выводить деньги из системы
 
 ---
 
-## 7. Правила разработки
+## 4. Принципы и запреты
 
-### 7.1. Что можно
+### 4.1. Архитектурные принципы
 
-- Использовать только ORM (SQLAlchemy)
-- Комментарии к коду — на английском
-- Общение — на русском
-- JSONB для неустоявшихся структур
-- Type hints везде
-- Async/await для I/O операций
+| Принцип | Описание |
+|---------|----------|
+| **ORM only** | Никакого raw SQL. Только SQLAlchemy ORM |
+| **Service layer** | Вся бизнес-логика -- в `service.py`. Роутеры только маршрутизируют |
+| **No commit in routers** | `get_db_session()` делает commit сам. В роутерах -- только `flush()` + `refresh()` |
+| **JSONBMixin** | Все мутации JSONB-колонок -- только через `set_jsonb()`. Прямое присвоение dict не детектится SQLAlchemy |
+| **State machine** | Переходы статусов -- только через явные функции в service.py. `setattr(obj, "status", x)` без валидации -- запрещено |
+| **Double-entry** | Прямое изменение балансов запрещено. Только через ledger-записи + listeners |
+| **Async I/O** | Все I/O операции -- async/await. Синхронные вызовы блокируют event loop |
 
-### 7.2. Что нельзя
+### 4.2. Запреты (бэкенд)
 
-| Запрещено | Почему |
-|-----------|--------|
-| Raw SQL | Только ORM |
-| Прямое изменение балансов | Только через ledger + listener |
-| Синхронные I/O операции | Блокируют event loop |
-| Хардкод конфигов | Только env variables |
-| Бизнес-логика в роутерах | Только в service layer |
+```python
+# ЗАПРЕЩЕНО:
+await session.commit()          # в роутерах -- двойной коммит
+raw_sql = text("SELECT ...")    # только ORM
+profile.data["key"] = value     # JSONB мутация без set_jsonb()
+user.balance_cents += amount    # прямое изменение баланса
+practice.status = "completed"   # статус без валидации перехода
+import logging                  # только structlog
+```
 
-### 7.3. Код-стайл
+### 4.3. Запреты (фронтенд)
 
-- **Formatter:** black
-- **Linter:** ruff
-- **Type checker:** mypy (strict mode)
-- **Naming:** snake_case для функций/переменных, PascalCase для классов
-- **Docstrings:** Google style
+```css
+/* ЗАПРЕЩЕНО -- хардкод hex: */
+color: #334D6E;
+background: #FEF2F2;
 
-### 7.4. Консистентность данных
+/* ПРАВИЛЬНО -- CSS-переменные: */
+color: var(--velo-primary);
+background: var(--velo-error-bg-subtle);
+```
 
-> **Принцип:** Данные должны быть проверяемыми. Если что-то можно посчитать двумя способами — оба способа должны давать одинаковый результат.
+```typescript
+// ЗАПРЕЩЕНО -- локальные дубли маппингов:
+const TYPE_EMOJI = { live: '🧘', ... }
+const MOOD_EMOJI = { low: '😔', ... }
 
-#### Data Consistency Semaphores
+// ПРАВИЛЬНО -- единый источник:
+import { PRACTICE_TYPE_EMOJI, MOOD_EMOJI, RATING_EMOJI } from '@/utils/displayHelpers'
 
-Семафоры — это простые SQL-проверки, которые должны возвращать ожидаемый результат. Расхождение = алерт.
+// ЗАПРЕЩЕНО -- русские литералы в .vue/.ts:
+title="Новая практика"
 
-**Категории проверок:**
+// ПРАВИЛЬНО -- ключи i18n (пост-MVP):
+:title="t('practice.create.title')"
+```
 
-| Категория | Пример | Ожидание |
-|-----------|--------|----------|
-| COUNT = COUNT | bookings vs purchases | Равны |
-| SUM = 0 | Σ всех ledgers | = 0 (double-entry) |
-| Computed = Actual | User.balance_user vs SUM(ledger) | Равны |
-| Orphan Detection | Booking без Practice | 0 записей |
-| Invariants | Отрицательный баланс | 0 записей |
+### 4.4. Соглашения по коду
 
-**Правило для разработки:**
-
-При добавлении новой таблицы или связи:
-1. **1:1 связь?** → Добавь COUNT = COUNT семафор
-2. **Кэшированное поле?** → Добавь Computed = Actual семафор
-3. **FK на другую таблицу?** → Добавь Orphan Detection
-4. **Бизнес-правило?** → Добавь Invariant семафор
-
-**Полная документация:** `VELO-Data-Consistency-Semaphores.md`
-
-### 7.5. Логирование и аудит
-
-> **Принцип:** Каждая финансовая операция должна быть отслеживаема. Логи — это доказательная база.
-
-#### Application Logs
-
-| Level | Когда | Пример |
-|-------|-------|--------|
-| DEBUG | Детали для отладки | "Checking user balance" |
-| INFO | Бизнес-события | "Practice created" |
-| WARNING | Потенциальные проблемы | "Retry attempt 2/3" |
-| ERROR | Ошибки (recoverable) | "Stripe API timeout" |
-| CRITICAL | Система сломана | "Database connection lost" |
-
-**Формат:** JSON (structlog)  
-**Retention:** 30 дней
-
-#### Audit Logs (таблица в БД)
-
-Неизменяемый лог всех критичных операций:
-
-| Событие | Что логируем |
-|---------|--------------|
-| `balance_topup` | user_id, amount, stripe_id |
-| `purchase_created` | user_id, practice_id, amount, promo |
-| `purchase_refunded` | user_id, practice_id, amount, reason |
-| `withdrawal_requested` | master_id, amount |
-| `withdrawal_confirmed` | master_id, amount, admin_id |
-| `master_verified` | master_id, admin_id |
-| `role_changed` | user_id, old_role, new_role, admin_id |
-
-**Retention:** 5 лет (требования для финансовых операций)
-
-#### Distributed Tracing
-
-Каждый запрос получает `trace_id`, который передаётся между сервисами. Позволяет отследить путь запроса при распиле на микросервисы.
+| Правило | Значение |
+|---------|---------|
+| Комментарии в коде | Только английский |
+| Общение / документация | Русский |
+| Символ `→` в коде | Заменять на `->` (ASCII) |
+| Символ `—` в коде | Заменять на `--` (двойной дефис) |
+| Unicode-символы | Допустимы только в документации вне кода |
+| Backend formatter | ruff (black удалён в Phase 0.6) |
+| Backend type checker | mypy (strict) |
+| Frontend formatter | Prettier |
+| Frontend linter | ESLint (flat config) |
 
 ---
 
-## 8. Розетки для будущего
+## 5. Структура репозитория
 
-### 8.1. AI-саммари
+```
+velo/                              -- GitHub repo root
+├── backend/
+│   ├── app/
+│   │   ├── main.py                -- FastAPI app + lifespan
+│   │   ├── core/                  -- DB, Redis, config, exceptions, mixins
+│   │   └── modules/               -- Бизнес-модули (см. раздел 3.1)
+│   ├── migrations/                -- Alembic migrations
+│   ├── tests/                     -- pytest (402 passed, 3 skipped)
+│   ├── scripts/                   -- seed.py и прочие утилиты
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── frontend/
+│   ├── src/
+│   │   ├── api/                   -- HTTP-клиент + методы по модулям
+│   │   ├── components/            -- ui/, layout/, shared/
+│   │   ├── composables/           -- useAuth, usePagination и др.
+│   │   ├── platform/              -- Telegram / Standalone абстракция
+│   │   ├── router/                -- Vue Router + guards
+│   │   ├── stores/                -- Pinia stores
+│   │   ├── styles/                -- variables.css (дизайн-токены), global.css
+│   │   ├── utils/                 -- format.ts, displayHelpers.ts, adminHelpers.ts
+│   │   └── views/                 -- user/, master/, admin/, auth/, shells/
+│   ├── public/                    -- manifest.json, иконки, telegram-web-app.js
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml             -- Весь стек: app + frontend + postgres + redis
+├── scripts/
+│   └── install_velo.sh            -- Первоначальная установка на VPS
+├── diagrams/                      -- Mermaid-схемы (УСТАРЕЛИ, не источник правды)
+├── velo-mockups/                  -- HTML-прототипы (UI-reference, не источник кода)
+└── VELO-Design-Document.md        -- Этот файл
+```
 
-**Статус:** Розетка (внешний сервис)
+**Источник правды по схеме БД:** `backend/app/modules/*/models.py`
 
-**Интерфейс:**
+---
+
+## 6. Дорожная карта за MVP
+
+### 6.1. Standalone PWA (F10)
+
+Сейчас приложение работает только через Telegram WebApp. После MVP:
+
+- Standalone-авторизация (email + magic link или email + пароль)
+- Полноценная реализация `platform/standalone.ts` (сейчас -- заглушки)
+- Push-уведомления через Service Worker
+- Новый бэкенд-эндпоинт: `POST /api/v1/auth/email`
+
+Платформенная абстракция (`src/platform/`) уже готова к этому: Telegram и Standalone реализуют единый интерфейс `Platform`.
+
+### 6.2. Мультиязычность (i18n)
+
+Сейчас фронтенд содержит ~486 русских литералов в 54 файлах.
+Бэкенд чист (коды ошибок), notification templates уже в `ru.yaml`.
+
+План: `vue-i18n v10`, локали `ru` (основной) + `en`.
+Оценка: 9-14 дней работы. Подробный план: `VELO-i18n-Plan.md`.
+
+### 6.3. Микросервисы
+
+Таблицы БД уже сгруппированы по будущим сервисам (см. раздел 3.3).
+`trace_id` пробрасывается в каждом запросе -- готова основа для distributed tracing.
+Распил не требует переписывания бизнес-логики, только разделения транспорта.
+
+### 6.4. Российская аудитория (TD-RU-PROXY)
+
+Hetzner IP (`api.talentir.info`) заблокирован ТСПУ. До публичного запуска
+в России нужен российский VPS-reverse-proxy (Timeweb/Selectel, ~300-500₽/мес)
+или DDoS-Guard CDN. Бэкенд и фронтенд остаются на Hetzner.
+
+---
+
+## 7. Розетки
+
+Заготовки, которые намеренно не реализованы в MVP.
+Интерфейсы определены, чтобы будущая реализация не ломала архитектуру.
+
+### 7.1. AI-саммари
+
+Интерфейс в `backend/app/modules/ai/interface.py` (Protocol):
+
 ```python
 class AIService(Protocol):
     async def generate_summary(
         self,
         practice_id: UUID,
         checkins: list[Checkin],
-        feedbacks: list[Feedback]
-    ) -> str:
-        """Generate AI summary for master."""
-        ...
+        feedbacks: list[Feedback],
+    ) -> str: ...
 ```
 
-**MVP:** Mock-реализация или заглушка.
+Эндпоинт `GET /api/v1/practices/{id}/ai-summary` возвращает placeholder.
 
-### 8.2. Library (Записи практик)
+### 7.2. Library (Записи практик)
 
-**Статус:** TODO
+Будущие таблицы: `recordings` (метаданные) + S3 для файлов.
+В коде -- TODO-комментарии в нужных местах.
 
-**Таблицы (будущие):**
-- `recordings` — метаданные записей
-- S3 для хранения файлов
+### 7.3. Подписки
 
-### 8.3. Подписки
+Таблица `subscriptions` спроектирована, логика не реализована:
 
-**Статус:** Розетка в payments
-
-**Таблица:**
 ```python
 class Subscription:
-    id: UUID
-    user_id: UUID
-    plan: Enum  # monthly, yearly
-    status: Enum  # active, cancelled, expired
+    plan: Enum          # monthly | yearly
+    status: Enum        # active | cancelled | expired
     stripe_subscription_id: str
-    current_period_start: datetime
-    current_period_end: datetime
 ```
 
-**MVP:** Таблица создана, логика не реализована.
+### 7.4. OAuth (Google, Apple)
 
-### 8.4. OAuth (Google, Apple)
+`User.credentials` -- JSONB, структура поддерживает несколько провайдеров:
 
-**Статус:** Розетка в credentials JSONB
-
-**MVP:** Только Telegram auth.
-
-**Будущее:**
 ```json
 {
   "telegram": {"id": 123456789},
-  "google": {"id": "...", "email": "..."},
-  "apple": {"id": "..."}
+  "google":   {"id": "...", "email": "..."},
+  "apple":    {"id": "..."}
 }
 ```
 
-Затем миграция в отдельную таблицу `user_auths`.
+При необходимости -- миграция в отдельную таблицу `user_auths`.
+
+### 7.5. Standalone-авторизация
+
+`src/platform/standalone.ts` -- safe no-op заглушки.
+`src/views/auth/StandaloneStubView.vue` -- экран "Откройте через Telegram".
+Полноценная реализация -- в F10.
 
 ---
 
-## 9. Мокапы и UI
+## 8. Артефакты
 
-### 9.1. User App
-
-**Tab Bar:**
-- 🏠 Дашборд
-- 📅 Календарь
-- 📔 Дневник
-- 👤 Профиль
-
-**Основные flow:**
-1. Auth: Welcome → Login → Onboarding → Dashboard
-2. Practice: Calendar → Detail → Book → Check-in → Live → Feedback
-3. Diary: Tabs (All / Check-ins / Feedbacks / Entries)
-
-### 9.2. Master App
-
-**Tab Bar:**
-- 📊 Дашборд
-- 📅 Практики
-- 📈 Аналитика
-- 👤 Профиль
-
-**Основные flow:**
-1. Auth: Landing → Заявка (3 шага) → Pending → Onboarding
-2. Dashboard: AI-саммари, статистика, ученики
-3. Practices: Upcoming/Past, создание, редактирование
-
-### 9.3. Admin Panel
-
-**Bottom Nav:**
-- 📊 Дашборд
-- 👥 Мастера
-- ⚠️ Модерация
-
-**Основные flow:**
-1. Dashboard: Алерты, метрики
-2. Masters: Верификация (pending → verified)
-3. Moderation: Обращения, жалобы
-
----
-
-## Приложения
-
-### A. Ссылки на мокапы
-
-- `velo-mockups/user.html` — User App
-- `velo-mockups/master.html` — Master App
-- `velo-mockups/admin.html` — Admin Panel
-
-### B. Готовые компоненты для переиспользования
-
-- `notification.py` — модель уведомлений
-- `notification_processor.py` — фоновый воркер
-- `message_manager.py` — отправка через aiogram
-- `templates.py` — шаблоны сообщений
-- `user_decorator.py` — middleware для инъекции user
-- `balance_listeners.py` — пересчёт балансов
+| Артефакт | Путь | Статус |
+|----------|------|--------|
+| Бэковый Кодекс | `VELO-Backend.md` | Актуален |
+| Фронтовый Кодекс | `VELO-Frontend.md` | Актуален |
+| План i18n | `VELO-i18n-Plan.md` | Рабочий документ |
+| UI-прототипы | `velo-mockups/` | Reference, не источник кода |
+| Mermaid-схемы | `diagrams/` | Устарели, не источник правды |
+| Схема БД (правда) | `backend/app/modules/*/models.py` | Актуальна |
 
 ---
 
