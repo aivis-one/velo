@@ -14,11 +14,18 @@
 #   python scripts/seed.py --reset
 #
 # CREATED DATA:
-#   - 4+ masters (2 real + 2 dummy) with verified MasterProfiles
-#   - 30+ users (2+ real + 28 dummy)
+#   - Up to 5 admins  (ADMIN role + verified MasterProfile)
+#   - Up to 5 masters (MASTER role + verified MasterProfile)
+#   - Up to 5 users   (USER role)
+#   - 2 dummy masters + 28 dummy users (fixed, always created)
 #   - 12 practices across all types and statuses
 #   - Bookings with full double-entry ledger
 #   - User balances via topup ledger entries
+#
+# ROLE RULES:
+#   - Admin is always also a master (MasterProfile created).
+#   - Same ID in multiple lists → highest role wins (ADMIN > MASTER > USER).
+#   - Existing user with higher role than requested → warn, keep existing role.
 #
 # IDEMPOTENCY:
 #   Repeated runs skip existing records (no duplicates).
@@ -358,22 +365,33 @@ PRACTICE_TEMPLATES: list[dict] = [
 # Interactive input
 # ===================================================================
 
-def ask_telegram_ids() -> tuple[list[int], list[int]]:
-    """Prompt for real Telegram IDs. Returns (master_tids, user_tids)."""
+def ask_telegram_ids() -> tuple[list[int], list[int], list[int]]:
+    """Prompt for real Telegram IDs. Returns (master_tids, user_tids, admin_tids).
+
+    Each list accepts up to 5 IDs; 0 is allowed for users and admins.
+    At least one master or admin must be provided (so there is someone to
+    own practices).
+
+    Role priority when the same ID appears in multiple lists: ADMIN > MASTER > USER.
+    The ID is assigned the highest role and a warning is printed.
+    """
     print(f"\n{C}{'=' * 55}{N}")
     print(f"{C}  VELO Seed -- Enter real Telegram IDs{N}")
     print(f"{C}{'=' * 55}{N}")
-    print(f"{Y}  Masters can also book other masters' practices.{N}")
-    print(f"{Y}  Same ID in both lists is OK (role will be master).{N}\n")
+    print(f"{Y}  Up to 5 IDs per role. Press Enter to skip / stop.{N}")
+    print(f"{Y}  Admins are also masters (MasterProfile is created).{N}")
+    print(f"{Y}  Same ID in multiple lists → highest role wins.{N}\n")
 
-    def _read_ids(label: str, count: int) -> list[int]:
+    def _read_ids(label: str, max_count: int, required: bool) -> list[int]:
+        """Read up to max_count integer IDs interactively."""
         ids: list[int] = []
-        for i in range(count):
-            suffix = " (Enter to skip)" if i > 0 else ""
+        for i in range(max_count):
+            is_first = i == 0
+            suffix = " (Enter to skip)" if not is_first or not required else ""
             while True:
                 raw = input(f"  {label} {i + 1} Telegram ID{suffix}: ").strip()
                 if not raw:
-                    if i == 0:
+                    if is_first and required:
                         err("At least one ID is required.")
                         continue
                     return ids
@@ -384,32 +402,55 @@ def ask_telegram_ids() -> tuple[list[int], list[int]]:
                     err("Must be a number.")
         return ids
 
-    master_tids = _read_ids("Master", 2)
+    master_tids = _read_ids("Master", 5, required=True)
     print()
-    user_tids = _read_ids("User", 2)
+    user_tids = _read_ids("User", 5, required=False)
+    print()
+    admin_tids = _read_ids("Admin", 5, required=False)
     print()
 
-    # Deduplicate within each list.
-    orig_master_count = len(master_tids)
-    master_tids = list(dict.fromkeys(master_tids))
-    if len(master_tids) < orig_master_count:
-        warn("Duplicate master IDs removed — using unique only.")
+    # Deduplicate within each list, preserving order.
+    def _dedup(ids: list[int], label: str) -> list[int]:
+        result = list(dict.fromkeys(ids))
+        if len(result) < len(ids):
+            warn(f"Duplicate {label} IDs removed — using unique only.")
+        return result
 
-    orig_user_count = len(user_tids)
-    user_tids = list(dict.fromkeys(user_tids))
-    if len(user_tids) < orig_user_count:
-        warn("Duplicate user IDs removed — using unique only.")
+    master_tids = _dedup(master_tids, "master")
+    user_tids   = _dedup(user_tids,   "user")
+    admin_tids  = _dedup(admin_tids,  "admin")
 
-    # Warn if all IDs are the same person.
-    all_unique = set(master_tids) | set(user_tids)
-    if len(all_unique) == 1:
-        warn(
-            f"All IDs are the same ({master_tids[0]}). "
-            "This person will be a master. "
-            "Bookings will be created on dummy masters' practices."
-        )
+    # Resolve conflicts: ADMIN > MASTER > USER.
+    # Build a mapping tid → highest role, then split back.
+    _ROLE_RANK = {UserRole.USER: 0, UserRole.MASTER: 1, UserRole.ADMIN: 2}
+    tid_role: dict[int, UserRole] = {}
 
-    return master_tids, user_tids
+    for tid in user_tids:
+        tid_role[tid] = UserRole.USER
+    for tid in master_tids:
+        if tid not in tid_role or _ROLE_RANK[tid_role[tid]] < _ROLE_RANK[UserRole.MASTER]:
+            tid_role[tid] = UserRole.MASTER
+    for tid in admin_tids:
+        if tid not in tid_role or _ROLE_RANK[tid_role[tid]] < _ROLE_RANK[UserRole.ADMIN]:
+            tid_role[tid] = UserRole.ADMIN
+
+    # Warn about any demotions.
+    for tid in master_tids:
+        if tid_role[tid] == UserRole.ADMIN:
+            warn(f"TID {tid} appears in both master and admin lists — assigning ADMIN.")
+    for tid in user_tids:
+        if tid_role[tid] in (UserRole.MASTER, UserRole.ADMIN):
+            warn(f"TID {tid} appears in user list but also in a higher role — assigning {tid_role[tid].value.upper()}.")
+
+    # Rebuild clean lists from resolved mapping.
+    master_tids = [t for t in master_tids if tid_role[t] == UserRole.MASTER]
+    user_tids   = [t for t in user_tids   if tid_role[t] == UserRole.USER]
+    admin_tids  = list(dict.fromkeys(
+        [t for t in admin_tids] +
+        [t for t, r in tid_role.items() if r == UserRole.ADMIN and t not in admin_tids]
+    ))
+
+    return master_tids, user_tids, admin_tids
 
 
 # ===================================================================
@@ -598,16 +639,36 @@ async def get_or_create_user(
     last_name: str | None = None,
     role: UserRole = UserRole.USER,
 ) -> tuple[User, bool]:
-    """Find or create a user by telegram_id. Returns (user, created)."""
+    """Find or create a user by telegram_id. Returns (user, created).
+
+    Role upgrade rules:
+      - If existing role < requested role → upgrade silently.
+      - If existing role > requested role → warn and keep existing role.
+      - Equal → no change.
+
+    Priority order: ADMIN (2) > MASTER (1) > USER (0).
+    """
+    _ROLE_RANK = {UserRole.USER: 0, UserRole.MASTER: 1, UserRole.ADMIN: 2}
+
     stmt = select(User).where(User.telegram_id == telegram_id)
     existing = (await session.execute(stmt)).scalar_one_or_none()
 
     if existing is not None:
-        # Upgrade role if needed (user -> master).
-        if role == UserRole.MASTER and existing.role != UserRole.MASTER:
-            existing.role = UserRole.MASTER
+        existing_rank = _ROLE_RANK[existing.role]
+        requested_rank = _ROLE_RANK[role]
+
+        if existing_rank < requested_rank:
+            # Upgrade: USER → MASTER, USER → ADMIN, MASTER → ADMIN.
+            existing.role = role
             await session.flush()
-            log(f"  User {telegram_id} upgraded to master")
+            log(f"  User {telegram_id} upgraded: {existing.role.value} → {role.value}")
+        elif existing_rank > requested_rank:
+            # Downgrade: warn and keep existing role.
+            warn(
+                f"User {telegram_id} is already a "
+                f"{existing.role.value.upper()} — cannot downgrade to "
+                f"{role.value.upper()}. Keeping existing role."
+            )
         return existing, False
 
     user = User(
@@ -863,15 +924,36 @@ async def seed(reset: bool = False) -> None:
                 await session.commit()
 
             # -- Interactive input --
-            master_tids, user_tids = ask_telegram_ids()
+            master_tids, user_tids, admin_tids = ask_telegram_ids()
 
             # ========================================
             # STEP 1: Create users and masters
             # ========================================
             log("Creating users and masters...")
 
+            # Real admins (ADMIN role + MasterProfile).
+            all_admins: list[User] = []
+            for i, tid in enumerate(admin_tids):
+                user, created = await get_or_create_user(
+                    session, tid,
+                    first_name=f"Админ {i + 1}",
+                    role=UserRole.ADMIN,
+                )
+                await ensure_master_profile(
+                    session, user,
+                    display_name=user.first_name or f"Админ {i + 1}",
+                    bio=(
+                        "Администратор платформы. Также ведёт практики "
+                        "по медитации и дыхательным техникам."
+                    ),
+                    methods=["meditation", "breathwork"],
+                )
+                all_admins.append(user)
+                status = "created" if created else "exists"
+                log(f"  Admin: tg={tid} ({status})")
+
             # Real masters.
-            all_masters: list[User] = []
+            all_masters: list[User] = list(all_admins)  # admins are also masters
             for i, tid in enumerate(master_tids):
                 user, created = await get_or_create_user(
                     session, tid,
@@ -911,14 +993,15 @@ async def seed(reset: bool = False) -> None:
             # Real users.
             all_users: list[User] = []
             seen_tids: set[int] = set()
+            all_master_tids = {m.telegram_id for m in all_masters}
             for i, tid in enumerate(user_tids):
-                if tid in {m.telegram_id for m in all_masters}:
-                    # Already created as master -- reuse.
+                if tid in all_master_tids:
+                    # Already created as master or admin -- reuse.
                     user = next(
                         m for m in all_masters if m.telegram_id == tid
                     )
                     all_users.append(user)
-                    log(f"  User: tg={tid} (already master, can book others)")
+                    log(f"  User: tg={tid} (already {user.role.value}, can book others)")
                     seen_tids.add(tid)
                     continue
                 user, created = await get_or_create_user(
@@ -1070,6 +1153,7 @@ async def seed(reset: bool = False) -> None:
             print(f"\n{G}{'=' * 55}{N}")
             print(f"{G}  VELO Seed Complete ✓{N}")
             print(f"{G}{'=' * 55}{N}")
+            print(f"  Admins:     {len(all_admins)}")
             print(f"  Masters:    {len(all_masters)}")
             print(f"  Users:      {len(all_users)}")
             print(f"  Practices:  {len(practices)}")
