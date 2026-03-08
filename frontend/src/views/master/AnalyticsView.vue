@@ -261,7 +261,7 @@ import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { PRACTICE_TYPE_EMOJI, RATING_EMOJI, RATING_LABEL, RATING_COLOR } from '@/utils/displayHelpers'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
 const router = useRouter()
@@ -363,11 +363,11 @@ interface RatingBar {
 }
 
 // RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
-// Colors reference RATING_COLOR from displayHelpers (CSS variables -- no hex).
-const RATING_BARS_CONFIG = [
-  { key: 'fire'     as const, emoji: RATING_EMOJI.fire,     label: RATING_LABEL.fire,     color: RATING_COLOR.fire },
-  { key: 'good'     as const, emoji: RATING_EMOJI.good,     label: RATING_LABEL.good,     color: RATING_COLOR.good },
-  { key: 'confused' as const, emoji: RATING_EMOJI.confused, label: RATING_LABEL.confused, color: RATING_COLOR.confused },
+// Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
+const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: string; label: string; color: string }> = [
+  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--velo-error-text)' },
+  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--velo-success)' },
+  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--velo-warning)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
