@@ -162,7 +162,7 @@
                 <!-- Error -->
                 <div v-else-if="insightsError.has(practice.id)" class="analytics__insights-error">
                   ⚠️ {{ insightsError.get(practice.id) }}
-                  <button class="analytics__retry-btn" @click="loadInsights(practice.id)">
+                  <button class="analytics__retry-btn" @click="diaryStore.loadInsights(practice.id)">
                     Повторить
                   </button>
                 </div>
@@ -256,16 +256,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
-import { getPracticeInsights } from '@/api/diary'
-import { ApiResponseError } from '@/api/client'
+import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import type { PracticeInsightsResponse, PracticeType } from '@/api/types'
+import { PRACTICE_TYPE_EMOJI, RATING_EMOJI, RATING_LABEL, RATING_COLOR } from '@/utils/displayHelpers'
+import type { PracticeType } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
+const diaryStore = useDiaryStore()
+
+// Convenience aliases so templates don't change at all.
+const insightsCache    = diaryStore.insightsCache
+const loadingInsights  = diaryStore.insightsLoadingSet
+const insightsError    = diaryStore.insightsErrorMap
 
 // =========================================================================
 // Tabs
@@ -284,33 +290,13 @@ const pastPractices = computed(() =>
 )
 
 // =========================================================================
-// Insights cache (local, within this session)
+// Insights -- delegated to diaryStore (S-4)
 // =========================================================================
 
-// Using reactive Maps so Vue can track additions.
-const insightsCache = reactive(new Map<string, PracticeInsightsResponse>())
-const loadingInsights = reactive(new Set<string>())
-const insightsError = reactive(new Map<string, string>())
+// insightsCache / loadingInsights / insightsError are aliased above.
+// loadInsights() is the store action -- cache persists across nav sessions.
 
 const expandedId = ref<string | null>(null)
-
-async function loadInsights(practiceId: string): Promise<void> {
-  if (loadingInsights.has(practiceId)) return
-
-  // Clear previous error for retry.
-  insightsError.delete(practiceId)
-  loadingInsights.add(practiceId)
-
-  try {
-    const data = await getPracticeInsights(practiceId)
-    insightsCache.set(practiceId, data)
-  } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
-    insightsError.set(practiceId, msg)
-  } finally {
-    loadingInsights.delete(practiceId)
-  }
-}
 
 function togglePractice(practiceId: string): void {
   if (expandedId.value === practiceId) {
@@ -319,9 +305,7 @@ function togglePractice(practiceId: string): void {
   }
   expandedId.value = practiceId
   // Lazy-load if not already cached.
-  if (!insightsCache.has(practiceId)) {
-    loadInsights(practiceId)
-  }
+  diaryStore.loadInsights(practiceId)
 }
 
 // =========================================================================
@@ -378,11 +362,13 @@ interface RatingBar {
   color: string
 }
 
+// RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
+// Colors reference RATING_COLOR from displayHelpers (CSS variables -- no hex).
 const RATING_BARS_CONFIG = [
-  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: '#DC2626' },
-  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: '#22C55E' },
-  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: '#F59E0B' },
-] as const
+  { key: 'fire'     as const, emoji: RATING_EMOJI.fire,     label: RATING_LABEL.fire,     color: RATING_COLOR.fire },
+  { key: 'good'     as const, emoji: RATING_EMOJI.good,     label: RATING_LABEL.good,     color: RATING_COLOR.good },
+  { key: 'confused' as const, emoji: RATING_EMOJI.confused, label: RATING_LABEL.confused, color: RATING_COLOR.confused },
+]
 
 const ratingBars = computed((): RatingBar[] => {
   const totals = { fire: 0, good: 0, confused: 0 }
@@ -437,14 +423,11 @@ function insightRatingBars(practiceId: string): RatingBar[] {
 }
 
 // =========================================================================
-// Type emoji
+// Type emoji -- imported from displayHelpers
 // =========================================================================
 
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
-}
 function typeEmoji(t: PracticeType): string {
-  return TYPE_EMOJI[t] ?? '🧘'
+  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
 }
 
 // =========================================================================
@@ -474,7 +457,7 @@ onMounted(async () => {
   // stats grid is not empty on first open.
   const first = pastPractices.value[0]
   if (first) {
-    await loadInsights(first.id)
+    await diaryStore.loadInsights(first.id)
   }
 })
 </script>

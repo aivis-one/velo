@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePracticesStore } from '@/stores/practices'
@@ -117,12 +117,16 @@ const authStore = useAuthStore()
 const store = usePracticesStore()
 const bookingsStore = useBookingsStore()
 
-// -- Max cards shown on dashboard --
 const DASHBOARD_LIMIT = 5
 
 // -- Time windows (must match backend settings) --
 const CHECKIN_WINDOW_H  = 3   // hours before scheduled_at
 const FEEDBACK_WINDOW_H = 72  // hours after practice ends
+
+// Reactive clock -- updated every 60s so alert computeds re-evaluate
+// without requiring a page reload (W-1 fix).
+const now = ref(Date.now())
+let clockInterval: ReturnType<typeof setInterval> | null = null
 
 const userName = computed(() => authStore.user?.first_name ?? 'Друг')
 
@@ -147,13 +151,12 @@ const upcomingPractices = computed(() =>
  * Window: scheduled_at - CHECKIN_WINDOW_H  ..  scheduled_at
  */
 const checkinAlert = computed((): BookingWithPracticeResponse | null => {
-  const now = Date.now()
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'confirmed') return false
       const scheduledMs   = new Date(b.practice.scheduled_at).getTime()
       const windowStartMs = scheduledMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
-      return now >= windowStartMs && now <= scheduledMs
+      return now.value >= windowStartMs && now.value <= scheduledMs
     }) ?? null
   )
 })
@@ -164,7 +167,7 @@ const checkinAlert = computed((): BookingWithPracticeResponse | null => {
  */
 const checkinAlertTime = computed((): string => {
   if (!checkinAlert.value) return ''
-  const diffMs      = new Date(checkinAlert.value.practice.scheduled_at).getTime() - Date.now()
+  const diffMs      = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
   const diffMinutes = Math.round(diffMs / 60_000)
   if (diffMinutes <= 0)   return '· Сейчас'
   if (diffMinutes < 60)   return `· через ${diffMinutes} мин`
@@ -177,14 +180,13 @@ const checkinAlertTime = computed((): string => {
  * Window: scheduled_at + duration_minutes  ..  + FEEDBACK_WINDOW_H
  */
 const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
-  const now = Date.now()
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'attended') return false
       const scheduledMs     = new Date(b.practice.scheduled_at).getTime()
       const practiceEndMs   = scheduledMs + b.practice.duration_minutes * 60 * 1000
       const feedbackEndMs   = practiceEndMs + FEEDBACK_WINDOW_H * 60 * 60 * 1000
-      return now >= practiceEndMs && now <= feedbackEndMs
+      return now.value >= practiceEndMs && now.value <= feedbackEndMs
     }) ?? null
   )
 })
@@ -210,6 +212,12 @@ onMounted(() => {
   store.fetchPractices()
   // Ensure bookings are loaded so alert computeds have data.
   bookingsStore.fetchMyBookings()
+  // Tick every 60s so alert banners appear/disappear without reload.
+  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
 })
 </script>
 
@@ -246,8 +254,8 @@ onMounted(() => {
 }
 
 .dashboard__alert--checkin {
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
-  border: 1px solid #F59E0B;
+  background: linear-gradient(135deg, var(--velo-warning-bg) 0%, var(--velo-warning-bg-hover) 100%);
+  border: 1px solid var(--velo-warning-border);
 }
 
 .dashboard__alert--checkin:hover {
@@ -255,8 +263,8 @@ onMounted(() => {
 }
 
 .dashboard__alert--feedback {
-  background: linear-gradient(135deg, #DBEAFE 0%, #BFDBFE 100%);
-  border: 1px solid #3B82F6;
+  background: linear-gradient(135deg, var(--velo-info-bg) 0%, var(--velo-info-bg) 100%);
+  border: 1px solid var(--velo-info);
 }
 
 .dashboard__alert--feedback:hover {
@@ -281,21 +289,21 @@ onMounted(() => {
 }
 
 .dashboard__alert--checkin .dashboard__alert-text h4 {
-  color: #92400E;
+  color: var(--velo-warning-text);
 }
 
 .dashboard__alert--checkin .dashboard__alert-text p {
   font-size: 13px;
-  color: #B45309;
+  color: var(--velo-warning-text-light);
 }
 
 .dashboard__alert--feedback .dashboard__alert-text h4 {
-  color: #1E40AF;
+  color: var(--velo-info-text);
 }
 
 .dashboard__alert--feedback .dashboard__alert-text p {
   font-size: 13px;
-  color: #1D4ED8;
+  color: var(--velo-info-text);
 }
 
 /* ===== Upcoming practices ===== */
@@ -318,6 +326,9 @@ onMounted(() => {
 }
 
 .dashboard__link {
+  background: none;
+  border: none;
+  padding: 0;
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--velo-primary);

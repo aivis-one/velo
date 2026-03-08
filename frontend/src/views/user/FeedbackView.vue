@@ -116,7 +116,8 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton, VLoader } from '@/components/ui'
-import type { FeedbackRating, PracticeType } from '@/api/types'
+import { RATING_OPTIONS, PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import type { FeedbackRating } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -136,18 +137,9 @@ const comment = ref('')
 const submitted = ref(false)
 
 // -- Rating options (order matches mockup: confused → good → fire) --
-const RATING_OPTIONS: Array<{ value: FeedbackRating; emoji: string; label: string }> = [
-  { value: 'confused', emoji: '❓', label: 'Есть вопросы' },
-  { value: 'good',     emoji: '👍', label: 'Хорошо' },
-  { value: 'fire',     emoji: '🔥', label: 'Огонь!' },
-]
-
-// -- Practice type emoji --
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
-}
+// -- Rating options and practice type emoji -- imported from displayHelpers
 const typeEmoji = computed(() =>
-  practice.value ? (TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
+  practice.value ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
 )
 
 // -- Actions --
@@ -200,7 +192,7 @@ onMounted(() => {
   min-height: 100%;
   padding: var(--space-6);
   text-align: center;
-  background: linear-gradient(135deg, #DCFCE7 0%, #D1FAE5 100%);
+  background: linear-gradient(135deg, var(--velo-success-bg) 0%, var(--velo-success-bg) 100%);
 }
 
 .feedback-success__icon {
@@ -212,13 +204,13 @@ onMounted(() => {
   font-family: var(--font-heading);
   font-size: 28px;
   font-weight: 600;
-  color: #166534;
+  color: var(--velo-success-text);
   margin-bottom: var(--space-3);
 }
 
 .feedback-success__text {
   font-size: 15px;
-  color: #15803D;
+  color: var(--velo-success-text);
   margin-bottom: var(--space-8);
   max-width: 280px;
 }
@@ -356,17 +348,17 @@ onMounted(() => {
 
 /* Selected states per rating */
 .feedback__rating-btn--selected.feedback__rating-btn--confused {
-  border-color: #F59E0B;
+  border-color: var(--velo-warning);
   background: rgba(245, 158, 11, 0.1);
 }
 
 .feedback__rating-btn--selected.feedback__rating-btn--good {
-  border-color: #22C55E;
+  border-color: var(--velo-success);
   background: rgba(34, 197, 94, 0.1);
 }
 
 .feedback__rating-btn--selected.feedback__rating-btn--fire {
-  border-color: #DC2626;
+  border-color: var(--velo-error-text);
   background: rgba(220, 38, 38, 0.08);
 }
 

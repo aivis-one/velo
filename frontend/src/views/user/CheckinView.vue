@@ -126,7 +126,8 @@ import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton, VLoader } from '@/components/ui'
 import { formatDate } from '@/utils/format'
-import type { Mood, PracticeType } from '@/api/types'
+import { MOOD_OPTIONS, PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import type { Mood } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -146,18 +147,9 @@ const comment = ref('')
 const submitted = ref(false)
 
 // -- Mood options --
-const MOOD_OPTIONS: Array<{ value: Mood; emoji: string; label: string }> = [
-  { value: 'low',  emoji: '😔', label: 'Не очень' },
-  { value: 'mid',  emoji: '😐', label: 'Нормально' },
-  { value: 'high', emoji: '😊', label: 'Хорошо' },
-]
-
-// -- Practice type emoji --
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
-}
+// -- Practice type emoji -- imported from displayHelpers
 const typeEmoji = computed(() =>
-  practice.value ? (TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
+  practice.value ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
 )
 
 const formattedDate = computed(() =>
@@ -221,7 +213,7 @@ onMounted(() => {
   min-height: 100%;
   padding: var(--space-6);
   text-align: center;
-  background: linear-gradient(135deg, #DCFCE7 0%, #D1FAE5 100%);
+  background: linear-gradient(135deg, var(--velo-success-bg) 0%, var(--velo-success-bg) 100%);
 }
 
 .checkin-success__icon {
@@ -233,13 +225,13 @@ onMounted(() => {
   font-family: var(--font-heading);
   font-size: 28px;
   font-weight: 600;
-  color: #166534;
+  color: var(--velo-success-text);
   margin-bottom: var(--space-3);
 }
 
 .checkin-success__text {
   font-size: 15px;
-  color: #15803D;
+  color: var(--velo-success-text);
   margin-bottom: var(--space-8);
   max-width: 280px;
 }
@@ -382,17 +374,17 @@ onMounted(() => {
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--low {
-  border-color: #94A3B8;
+  border-color: var(--velo-text-muted);
   background: rgba(148, 163, 184, 0.1);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--mid {
-  border-color: #F59E0B;
+  border-color: var(--velo-mood-mid);
   background: rgba(245, 158, 11, 0.1);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--high {
-  border-color: #22C55E;
+  border-color: var(--velo-mood-high);
   background: rgba(34, 197, 94, 0.1);
 }
 

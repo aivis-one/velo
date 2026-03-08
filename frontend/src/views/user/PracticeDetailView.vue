@@ -159,7 +159,7 @@ import {
   formatParticipants,
   isFull,
 } from '@/utils/format'
-import type { PracticeType } from '@/api/types'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 
 const route = useRoute()
 const router = useRouter()
@@ -192,6 +192,10 @@ const booked = computed(() => {
 const CHECKIN_WINDOW_H  = 3   // hours before scheduled_at
 const FEEDBACK_WINDOW_H = 72  // hours after practice ends
 
+// Reactive clock -- updated every 60s so window computeds re-evaluate
+// without requiring a page reload (C-1 fix).
+const now = ref(Date.now())
+
 /**
  * Returns the booking matching this practice (any active-ish status).
  * Used to read status for window checks.
@@ -211,10 +215,9 @@ const myBooking = computed(() => {
 const inCheckinWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'confirmed') return false
-  const now           = Date.now()
   const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
   const windowStartMs = scheduledMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
-  return now >= windowStartMs && now <= scheduledMs
+  return now.value >= windowStartMs && now.value <= scheduledMs
 })
 
 /**
@@ -223,23 +226,18 @@ const inCheckinWindow = computed((): boolean => {
 const inFeedbackWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'attended') return false
-  const now           = Date.now()
   const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
   const practiceEndMs = scheduledMs + practice.value.duration_minutes * 60 * 1000
   const feedbackEndMs = practiceEndMs + FEEDBACK_WINDOW_H * 60 * 60 * 1000
-  return now >= practiceEndMs && now <= feedbackEndMs
+  return now.value >= practiceEndMs && now.value <= feedbackEndMs
 })
 
 // =========================================================================
 // Formatted fields
 // =========================================================================
 
-const TYPE_EMOJI: Record<PracticeType, string> = {
-  live: '🧘', series: '🔄', one_on_one: '👤', replay: '📹',
-}
-
 const typeEmoji = computed(() =>
-  practice.value ? TYPE_EMOJI[practice.value.practice_type] ?? '🧘' : '🧘',
+  practice.value ? PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘' : '🧘',
 )
 
 const formattedDate = computed(() => {
@@ -319,8 +317,7 @@ onMounted(() => {
   bookingsStore.fetchMyBookings()
   // Refresh window checks every 60s.
   clockInterval = setInterval(() => {
-    // Trigger reactivity by touching a dep -- bookingsStore reload is cheap
-    // because it skips if data is already fresh.
+    now.value = Date.now()
   }, 60_000)
 })
 
