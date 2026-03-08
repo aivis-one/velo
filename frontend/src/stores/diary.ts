@@ -26,7 +26,7 @@
 // =============================================================================
 
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { ApiResponseError } from '@/api/client'
 import { usePagination } from '@/composables/usePagination'
 import {
@@ -278,30 +278,36 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   // ===========================================================================
-  // Practice insights (AnalyticsView, master-facing)
+  // Practice insights cache (AnalyticsView, master-facing)
+  //
+  // Using reactive Maps so Vue tracks additions and AnalyticsView computeds
+  // update automatically as new insights arrive.
+  // Cache persists for the session -- AnalyticsView does not re-fetch on
+  // re-visit unless $reset() is called (logout).
   // ===========================================================================
 
-  const insights = ref<PracticeInsightsResponse | null>(null)
-  const insightsLoading = ref(false)
-  const insightsError = ref<string | null>(null)
+  const insightsCache     = reactive(new Map<string, PracticeInsightsResponse>())
+  const insightsLoadingSet = reactive(new Set<string>())
+  const insightsErrorMap  = reactive(new Map<string, string>())
 
   /**
-   * Fetch aggregated insights for a completed practice.
-   * Always re-fetches (practice selection can change).
+   * Load insights for a single completed practice.
+   * Skips if already cached or currently loading.
    */
-  async function fetchInsights(practiceId: string): Promise<void> {
-    insightsLoading.value = true
-    insightsError.value = null
-    insights.value = null
+  async function loadInsights(practiceId: string): Promise<void> {
+    if (insightsLoadingSet.has(practiceId) || insightsCache.has(practiceId)) return
+    insightsErrorMap.delete(practiceId)
+    insightsLoadingSet.add(practiceId)
     try {
-      insights.value = await getPracticeInsights(practiceId)
+      const data = await getPracticeInsights(practiceId)
+      insightsCache.set(practiceId, data)
     } catch (e) {
-      insightsError.value =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось загрузить аналитику'
+      insightsErrorMap.set(
+        practiceId,
+        e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить аналитику',
+      )
     } finally {
-      insightsLoading.value = false
+      insightsLoadingSet.delete(practiceId)
     }
   }
 
@@ -320,8 +326,9 @@ export const useDiaryStore = defineStore('diary', () => {
     feedbacksPagination.total.value = 0
     selectedEntry.value = null
     selectedEntryError.value = null
-    insights.value = null
-    insightsError.value = null
+    insightsCache.clear()
+    insightsLoadingSet.clear()
+    insightsErrorMap.clear()
   }
 
   return {
@@ -373,11 +380,11 @@ export const useDiaryStore = defineStore('diary', () => {
     fetchFeedbacks,
     loadMoreFeedbacks: feedbacksPagination.loadMore,
 
-    // Insights
-    insights,
-    insightsLoading,
-    insightsError,
-    fetchInsights,
+    // Insights cache
+    insightsCache,
+    insightsLoadingSet,
+    insightsErrorMap,
+    loadInsights,
 
     // Reset
     $reset,

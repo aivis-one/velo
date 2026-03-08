@@ -324,7 +324,7 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import type { CheckinResponse, FeedbackResponse, DiaryEntryResponse, Mood, FeedbackRating } from '@/api/types'
+import type { CheckinResponse, FeedbackResponse, DiaryEntryResponse } from '@/api/types'
 
 const diaryStore = useDiaryStore()
 const toast = useToast()
@@ -369,18 +369,12 @@ function setTab(tab: TabValue): void {
 // Mood / Rating display maps
 // =========================================================================
 
-const MOOD_EMOJI: Record<Mood | string, string> = {
-  low: '😔', mid: '😐', high: '😊',
-}
-const MOOD_LABEL: Record<Mood | string, string> = {
-  low: 'Не очень', mid: 'Нормально', high: 'Хорошо',
-}
-const RATING_EMOJI: Record<FeedbackRating | string, string> = {
-  fire: '🔥', good: '👍', confused: '❓',
-}
-const RATING_LABEL: Record<FeedbackRating | string, string> = {
-  fire: 'Огонь!', good: 'Хорошо', confused: 'Есть вопросы',
-}
+import {
+  MOOD_EMOJI,
+  MOOD_LABEL,
+  RATING_EMOJI,
+  RATING_LABEL,
+} from '@/utils/displayHelpers'
 
 // =========================================================================
 // Merged "all" feed (computed from store data)
@@ -429,7 +423,7 @@ const listHasMore = computed((): boolean => {
 })
 
 const listError = computed((): string | null => {
-  return diaryStore.entriesError
+  return diaryStore.entriesError ?? diaryStore.checkinsError ?? diaryStore.feedbacksError ?? null
 })
 
 // =========================================================================
@@ -607,10 +601,12 @@ async function onLoadMore(): Promise<void> {
       await diaryStore.loadMoreEntries()
       break
     default:
-      // For "all" tab load more from whichever has more, prioritise entries.
-      if (diaryStore.entriesHasMore)  await diaryStore.loadMoreEntries()
-      if (diaryStore.checkinsHasMore) await diaryStore.loadMoreCheckins()
-      if (diaryStore.feedbacksHasMore) await diaryStore.loadMoreFeedbacks()
+      // Load more from all three feeds in parallel.
+      await Promise.all([
+        diaryStore.entriesHasMore  ? diaryStore.loadMoreEntries()   : Promise.resolve(),
+        diaryStore.checkinsHasMore ? diaryStore.loadMoreCheckins()  : Promise.resolve(),
+        diaryStore.feedbacksHasMore ? diaryStore.loadMoreFeedbacks() : Promise.resolve(),
+      ])
   }
 }
 
@@ -987,14 +983,14 @@ onMounted(() => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: #FEF2F2;
-  border-bottom: 1px solid #FECACA;
+  background: var(--velo-error-bg-subtle);
+  border-bottom: 1px solid var(--velo-error-border);
 }
 
 .diary__confirm-text {
   font-size: var(--text-sm);
   font-weight: 500;
-  color: #991B1B;
+  color: var(--velo-error-text);
 }
 
 .diary__confirm-actions {
