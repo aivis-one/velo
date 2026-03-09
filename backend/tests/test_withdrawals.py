@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings

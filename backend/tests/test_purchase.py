@@ -70,14 +70,6 @@ async def _do_cleanup(session: AsyncSession) -> None:
     await full_cleanup_range(session, 75000, 75999, delete_users=False)
     await session.commit()
 
-@pytest.fixture(autouse=True)
-async def cleanup(
-    db_session: AsyncSession,
-) -> AsyncGenerator[None, None]:
-    """Clean all purchase-test data before and after each test."""
-    await _full_cleanup(db_session)
-    yield
-    await _full_cleanup(db_session)
 
 
 # ---------------------------------------------------------------------------
