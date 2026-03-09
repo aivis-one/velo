@@ -32,6 +32,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -69,6 +70,12 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "practices"
+
+    # WARNING-7: composite index for list_public_practices query pattern:
+    # WHERE status = ? AND scheduled_at >= ? ORDER BY scheduled_at
+    __table_args__ = (
+        Index("ix_practices_status_scheduled_at", "status", "scheduled_at"),
+    )
 
     # -- Owner --
     # R-07: index=True synced with existing ix_practices_master_id in DB.

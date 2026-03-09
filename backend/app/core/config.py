@@ -237,6 +237,13 @@ class Settings(BaseSettings):
                 "'https://app.example.com'."
             )
 
+        # TD-015: POSTGRES_PASSWORD must not be the default "velo" in production.
+        # A weak default password in production is a serious security risk.
+        if not is_dev and self.postgres_password == "velo":
+            raise ValueError(
+                "POSTGRES_PASSWORD must be changed from the default 'velo' "
+                "in production. Set a strong password in .env."
+            )
         # CQ-02: commission_percent must be within valid range.
         # Prevents misconfiguration: negative commission or > 100%
         # would break integer math in purchase finalization
