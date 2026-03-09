@@ -21,9 +21,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.promos.models import Promo
+from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------

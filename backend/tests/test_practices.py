@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
