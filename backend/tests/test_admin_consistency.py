@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
@@ -30,24 +30,12 @@ from app.modules.payments.models import (
 )
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 CONSISTENCY_URL = "/api/v1/admin/consistency"
-
-_CLEANUP_SQL_ORDER = [
-    "DELETE FROM purchases WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "DELETE FROM bookings WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "DELETE FROM user_ledger WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "DELETE FROM master_ledger WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "DELETE FROM company_ledger WHERE reason LIKE '%phase68%'",
-    "DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "DELETE FROM practices WHERE master_id IN (SELECT user_id FROM master_profiles WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999))",
-    "DELETE FROM master_profiles WHERE user_id IN (SELECT id FROM users WHERE telegram_id BETWEEN 82000 AND 82999)",
-    "UPDATE users SET role = 'user' WHERE telegram_id BETWEEN 82000 AND 82999",
-]
 
 
 # ---------------------------------------------------------------------------
@@ -55,15 +43,16 @@ _CLEANUP_SQL_ORDER = [
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean test data before/after each test."""
-    for sql in _CLEANUP_SQL_ORDER:
-        await db_session.execute(text(sql))
-    await db_session.commit()
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    for sql in _CLEANUP_SQL_ORDER:
-        await db_session.execute(text(sql))
-    await db_session.commit()
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 82000-82999."""
+    await full_cleanup_range(session, 82000, 82999, delete_users=False)
+    await session.commit()
 
 # ---------------------------------------------------------------------------
 # Helpers

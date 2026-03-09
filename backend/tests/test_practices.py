@@ -14,10 +14,10 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.helpers import auth_headers, login_user
+from app.modules.users.models import User, UserRole
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,45 +27,23 @@ MY_PRACTICES_URL = "/api/v1/masters/me/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
-_CLEANUP_AUDIT_SQL = text(
-    "DELETE FROM audit_logs WHERE actor_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
-)
-_CLEANUP_PRACTICES_SQL = text(
-    "DELETE FROM practices WHERE master_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
-)
-_CLEANUP_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 60000 AND 60999)"
-)
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 60000 AND 60999"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-async def cleanup(
-    db_session: AsyncSession,
-) -> AsyncGenerator[None, None]:
-    """Clean practices, masters, reset roles for test range."""
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
     await _do_cleanup(db_session)
     yield
     await _do_cleanup(db_session)
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Delete all test entities for telegram_id 60000-60999 in FK-safe order."""
-    await session.rollback()
-    await session.execute(_CLEANUP_AUDIT_SQL)
-    await session.execute(_CLEANUP_PRACTICES_SQL)
-    await session.execute(_CLEANUP_MASTERS_SQL)
-    await session.execute(_RESET_ROLES_SQL)
+    """Full ORM cleanup for telegram_id 60000-60999."""
+    await full_cleanup_range(session, 60000, 60999, delete_users=False)
     await session.commit()
+
 
 
 # ---------------------------------------------------------------------------
@@ -131,11 +109,10 @@ async def _make_verified_master(
         client, telegram_id=60900, first_name="Admin",
     )
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            "WHERE telegram_id = 60900"
-        )
-    )
+    update(User)
+    .where(User.telegram_id == 60900)
+    .values(role=UserRole.ADMIN.value)
+)
     await db_session.commit()
 
     # Re-login admin to pick up new role in session.

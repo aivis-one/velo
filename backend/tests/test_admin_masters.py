@@ -12,12 +12,12 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, cleanup_range, login_user
 
 
 # ---------------------------------------------------------------------------
@@ -27,29 +27,16 @@ VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 REJECT_URL = "/api/v1/admin/masters/{user_id}/reject"
 APPLY_URL = "/api/v1/masters/apply"
 
-_CLEANUP_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 56000 AND 56999)"
-)
-
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 56000 AND 56999 AND role != 'user'"
-)
-
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
     """Clean master_profiles and reset roles for test range before/after."""
-    await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
+    await cleanup_range(db_session, 56000, 56999)
     await db_session.commit()
     yield
-    await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
+    await cleanup_range(db_session, 56000, 56999)
     await db_session.commit()
 
 

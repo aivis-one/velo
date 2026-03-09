@@ -12,11 +12,11 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,31 +27,22 @@ MASTERS_PENDING_URL = "/api/v1/admin/masters/pending"
 MASTERS_REJECTED_URL = "/api/v1/admin/masters/rejected"
 APPLY_URL = "/api/v1/masters/apply"
 
-_CLEANUP_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 58000 AND 58999)"
-)
-
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 58000 AND 58999 AND role != 'user'"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean master_profiles and reset roles for test range."""
-    await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 58000-58999."""
+    await full_cleanup_range(session, 58000, 58999, delete_users=False)
+    await session.commit()
 
 # ---------------------------------------------------------------------------
 # Helpers

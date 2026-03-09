@@ -14,8 +14,28 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from httpx import AsyncClient
+from sqlalchemy import String, cast, delete, or_, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.audit import AuditLog
+from app.modules.bookings.models import Booking
+from app.modules.diary.models import Checkin, Feedback
+from app.modules.masters.models import MasterProfile
+from app.modules.notifications.models import Notification, NotificationDelivery
+from app.modules.payments.models import (
+    CompanyLedger,
+    MasterLedger,
+    Payment,
+    Purchase,
+    UserLedger,
+)
+from app.modules.practices.models import Practice
+from app.modules.promos.models import Promo
+from app.modules.reports.models import Report
+from app.modules.users.models import User, UserRole
+from app.modules.waitlist.models import Waitlist
+from app.modules.withdrawals.models import Withdrawal
 
 BOT_TOKEN = "123456:ABC-DEF"
 
@@ -71,3 +91,225 @@ async def login_user(
 def auth_headers(token: str) -> dict:
     """Build Authorization header."""
     return {"Authorization": f"Bearer {token}"}
+
+
+async def cleanup_range(
+    session: AsyncSession,
+    tid_min: int,
+    tid_max: int,
+) -> None:
+    """Delete master profiles and reset roles for a telegram_id range.
+
+    TD-032: lightweight cleanup for tests that only touch master_profiles
+    and roles (no bookings, ledger, practices, etc.).
+    Use full_cleanup_range for heavier test suites.
+
+    Args:
+        session: Active async session (caller must commit after).
+        tid_min: Lower bound of the telegram_id range (inclusive).
+        tid_max: Upper bound of the telegram_id range (inclusive).
+    """
+    in_range = User.telegram_id.between(tid_min, tid_max)
+    await session.execute(
+        delete(MasterProfile).where(
+            MasterProfile.user_id.in_(
+                select(User.id).where(in_range)
+            )
+        )
+    )
+    await session.execute(
+        update(User)
+        .where(in_range, User.role != UserRole.USER.value)
+        .values(role=UserRole.USER.value)
+    )
+
+
+async def full_cleanup_range(
+    session: AsyncSession,
+    tid_min: int,
+    tid_max: int,
+    *,
+    delete_users: bool = False,
+) -> None:
+    """Delete all test data for a telegram_id range in FK-safe order.
+
+    TD-032: single source of truth for test cleanup. Replaces per-file
+    raw SQL cleanup lists. Covers every table in dependency order so
+    FK constraints are never violated.
+
+    When adding a new table to the schema, add a DELETE step here in the
+    correct FK position and mark it with a comment:
+        # ADD NEW TABLES HERE (above the table they reference)
+
+    Args:
+        session: Active async session. Caller must commit after.
+        tid_min: Lower bound of telegram_id range (inclusive).
+        tid_max: Upper bound of telegram_id range (inclusive).
+        delete_users: If True, hard-delete users in the range.
+                      Use for tests that count absolute user totals
+                      (e.g. test_admin_stats). Default: False (role reset).
+    """
+    await session.rollback()
+
+    # Reusable subqueries.
+    user_ids_subq = select(User.id).where(
+        User.telegram_id.between(tid_min, tid_max)
+    )
+    practice_ids_subq = select(Practice.id).where(
+        Practice.master_id.in_(user_ids_subq)
+    )
+    purchase_ids_subq = select(Purchase.id).where(
+        Purchase.user_id.in_(user_ids_subq)
+    )
+    withdrawal_ids_subq = select(Withdrawal.id).where(
+        Withdrawal.user_id.in_(user_ids_subq)
+    )
+
+    # String-cast subqueries for JSONB / text-value comparisons.
+    user_ids_str_subq = select(cast(User.id, String)).where(
+        User.telegram_id.between(tid_min, tid_max)
+    )
+    practice_ids_str_subq = select(cast(Practice.id, String)).where(
+        Practice.master_id.in_(user_ids_subq)
+    )
+
+    # -----------------------------------------------------------------------
+    # 1. notification_deliveries
+    #    FK -> notifications.id (CASCADE), FK -> users.id (CASCADE).
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(NotificationDelivery).where(
+            NotificationDelivery.user_id.in_(user_ids_subq)
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # 2. notifications
+    #    No direct FK to users. Linked via:
+    #      target_value              — string UUID of the target user
+    #      action_data->>'practice_id' — JSONB reference to a practice
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Notification).where(
+            or_(
+                Notification.target_value.in_(user_ids_str_subq),
+                Notification.action_data["practice_id"].astext.in_(
+                    practice_ids_str_subq
+                ),
+            )
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # 3. checkins   FK -> users.id (CASCADE), practices.id (SET NULL)
+    # 4. feedbacks  FK -> users.id (CASCADE), practices.id (SET NULL)
+    # ADD NEW TABLES HERE (diary-like domain tables before audit_logs)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Checkin).where(Checkin.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(Feedback).where(Feedback.user_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 5. audit_logs  FK -> users.id (actor_id)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(AuditLog).where(AuditLog.actor_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 6. company_ledger
+    #    No user FK. reference_id points to purchases, practices, or
+    #    withdrawals in this range.
+    # ADD NEW TABLES HERE (before company_ledger if they reference it)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(CompanyLedger).where(
+            or_(
+                CompanyLedger.reference_id.in_(purchase_ids_subq),
+                CompanyLedger.reference_id.in_(practice_ids_subq),
+                CompanyLedger.reference_id.in_(withdrawal_ids_subq),
+            )
+        )
+    )
+
+    # -----------------------------------------------------------------------
+    # 7. master_ledger  FK -> users.id (RESTRICT), practices.id (SET NULL)
+    # 8. user_ledger    FK -> users.id (RESTRICT)
+    # 9. payments       FK -> users.id (RESTRICT)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(MasterLedger).where(MasterLedger.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(UserLedger).where(UserLedger.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(Payment).where(Payment.user_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 10. purchases
+    #     FK -> users.id (RESTRICT), bookings.id (RESTRICT),
+    #           practices.id (RESTRICT), promos.id (SET NULL).
+    #     Must precede bookings (RESTRICT on booking_id).
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Purchase).where(Purchase.user_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 11. waitlist    FK -> users.id (CASCADE), practices.id (CASCADE)
+    # 12. bookings    FK -> users.id (CASCADE), practices.id (CASCADE)
+    # 13. withdrawals FK -> users.id (CASCADE)
+    # 14. reports     FK -> users.id (CASCADE, reporter_id)
+    # ADD NEW TABLES HERE (domain tables that FK -> users / practices)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Waitlist).where(Waitlist.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(Booking).where(Booking.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(Withdrawal).where(Withdrawal.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(Report).where(Report.reporter_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 15. promos  FK -> users.id (CASCADE, master_id), practices.id (SET NULL)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Promo).where(Promo.master_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 16. practices       FK -> users.id (master_id)
+    # 17. master_profiles FK -> users.id
+    # ADD NEW TABLES HERE (before master_profiles / practices)
+    # -----------------------------------------------------------------------
+    await session.execute(
+        delete(Practice).where(Practice.master_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(MasterProfile).where(MasterProfile.user_id.in_(user_ids_subq))
+    )
+
+    # -----------------------------------------------------------------------
+    # 18. Reset role + balance (when keeping users).
+    # 19. users — only when delete_users=True.
+    # -----------------------------------------------------------------------
+    if not delete_users:
+        await session.execute(
+            update(User)
+            .where(User.telegram_id.between(tid_min, tid_max))
+            .values(role=UserRole.USER.value, balance_cents=0)
+        )
+    else:
+        await session.execute(
+            delete(User).where(User.telegram_id.between(tid_min, tid_max))
+        )

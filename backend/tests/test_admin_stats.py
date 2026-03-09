@@ -12,11 +12,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -26,43 +26,22 @@ APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 PRACTICES_URL = "/api/v1/practices"
 
-_CLEANUP_AUDIT_SQL = text(
-    "DELETE FROM audit_logs WHERE actor_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 57000 AND 57999)"
-)
-_CLEANUP_PRACTICES_SQL = text(
-    "DELETE FROM practices WHERE master_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 57000 AND 57999)"
-)
-_CLEANUP_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 57000 AND 57999)"
-)
-_DELETE_USERS_SQL = text(
-    "DELETE FROM users WHERE telegram_id BETWEEN 57000 AND 57999"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean all test entities for telegram_id 57000-57999 before/after."""
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
     await _do_cleanup(db_session)
     yield
     await _do_cleanup(db_session)
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Delete test entities in FK-safe order."""
-    await session.rollback()
-    await session.execute(_CLEANUP_AUDIT_SQL)
-    await session.execute(_CLEANUP_PRACTICES_SQL)
-    await session.execute(_CLEANUP_MASTERS_SQL)
-    await session.execute(_DELETE_USERS_SQL)
+    """Full ORM cleanup for telegram_id 57000-57999."""
+    await full_cleanup_range(session, 57000, 57999, delete_users=True)
     await session.commit()
-
 
 # ---------------------------------------------------------------------------
 # Helpers

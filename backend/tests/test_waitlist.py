@@ -13,11 +13,12 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.waitlist.models import Waitlist
-from tests.helpers import auth_headers, login_user
+from app.modules.users.models import User, UserRole
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -29,66 +30,22 @@ VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 WAITLIST_JOIN_URL = "/api/v1/practices/{practice_id}/waitlist"
 WAITLIST_URL = "/api/v1/waitlist"
 
-_CLEANUP_WAITLIST_SQL = text(
-    "DELETE FROM waitlist WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 62000 AND 62999)"
-)
-# FIX: purchases must be deleted before bookings (FK constraint).
-# Even free practices create zero-amount purchase records
-# (proof-of-path invariant), so cleanup must account for them.
-_CLEANUP_PURCHASES_SQL = text(
-    "DELETE FROM purchases WHERE booking_id IN "
-    "(SELECT id FROM bookings WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 62000 AND 62999))"
-)
-_CLEANUP_BOOKINGS_SQL = text(
-    "DELETE FROM bookings WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 62000 AND 62999)"
-)
-_CLEANUP_PRACTICES_SQL = text(
-    "DELETE FROM practices WHERE master_id IN "
-    "(SELECT user_id FROM master_profiles "
-    "WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 62000 AND 62999))"
-)
-_CLEANUP_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 62000 AND 62999)"
-)
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 62000 AND 62999"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-async def cleanup(
-    db_session: AsyncSession,
-) -> AsyncGenerator[None, None]:
-    """Clean waitlist, purchases, bookings, practices, masters, reset roles."""
-    await db_session.execute(_CLEANUP_WAITLIST_SQL)
-    await db_session.execute(_CLEANUP_PURCHASES_SQL)
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_WAITLIST_SQL)
-    await db_session.execute(_CLEANUP_PURCHASES_SQL)
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.commit()
+    await _do_cleanup(db_session)
+
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 62000-62999."""
+    await full_cleanup_range(session, 62000, 62999, delete_users=False)
+    await session.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -149,10 +106,9 @@ async def _make_verified_master(
         client, telegram_id=62900, first_name="Admin",
     )
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            "WHERE telegram_id = 62900"
-        )
+        update(User)
+        .where(User.telegram_id == 62900)
+        .values(role=UserRole.ADMIN.value)
     )
     await db_session.commit()
     admin_auth = await login_user(

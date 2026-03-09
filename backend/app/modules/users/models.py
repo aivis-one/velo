@@ -27,7 +27,7 @@ from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.core.mixins import TimestampMixin, UUIDMixin
+from app.core.mixins import JSONBMixin, TimestampMixin, UUIDMixin
 
 logger = structlog.get_logger()
 
@@ -45,7 +45,7 @@ class UserRole(enum.StrEnum):
     ADMIN = "admin"
 
 
-class User(UUIDMixin, TimestampMixin, Base):
+class User(JSONBMixin, UUIDMixin, TimestampMixin, Base):
     """Platform user — student, master, or admin.
 
     One row per person regardless of role. Role upgrades (user -> master)
@@ -64,6 +64,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     )
 
     # JSONB sandbox for auth-related data that doesn't need fast lookup.
+    # TD-024: JSONBMixin added -- use set_jsonb("credentials", value) for mutations.
     # Current: {telegram_username, telegram_photo_url, raw_init_data}
     # Future: {email, password_hash, google_id, apple_id, ...}
     credentials: Mapped[dict] = mapped_column(
