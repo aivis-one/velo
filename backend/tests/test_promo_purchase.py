@@ -94,8 +94,15 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 async def _do_cleanup(session: AsyncSession) -> None:
     """Full ORM cleanup for telegram_id 81000-81999."""
     await full_cleanup_range(session, 81000, 81999, delete_users=True)
+    # Promo codes created by this test suite (master_id=None promos with TEST81 prefix).
     await session.execute(
         delete(Promo).where(Promo.code.like("TEST81%"))
+    )
+    # Marketing CompanyLedger entries have reference_id=None and encode the
+    # promo code in their reason field — full_cleanup_range cannot reach them
+    # via reference_id subqueries.
+    await session.execute(
+        delete(CompanyLedger).where(CompanyLedger.reason.like("%TEST81%"))
     )
     await session.commit()
 
