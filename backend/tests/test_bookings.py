@@ -45,14 +45,6 @@ async def _do_cleanup(session: AsyncSession) -> None:
     await full_cleanup_range(session, 61000, 61999, delete_users=False)
     await session.commit()
 
-@pytest.fixture(autouse=True)
-async def cleanup(
-    db_session: AsyncSession,
-) -> AsyncGenerator[None, None]:
-    """Clean bookings, practices, masters, reset roles."""
-    await _full_cleanup(db_session)
-    yield
-    await _full_cleanup(db_session)
 
 
 # ---------------------------------------------------------------------------
