@@ -13,7 +13,7 @@
 # WHY NOT SQLAlchemy event listeners?
 #   @event.listens_for is synchronous. In async context (asyncpg)
 #   it cannot execute queries. Explicit service functions are the
-#   correct approach for async ORMs. See VELO-LLM-Code-Review-Guide.
+#   correct approach for async ORMs. See VELO-Anti-Patterns.
 #
 # SESSION RULES:
 #   No session.commit() (P-01). Caller's session handles transaction.
@@ -24,10 +24,12 @@
 #   (User / MasterProfile) to prevent concurrent writes from
 #   producing inconsistent cached balances (P-07).
 #
-# HIGH-3: record_master_ledger now guards against missing MasterProfile.
-#   If profile is None (deleted between purchase and finalization),
-#   the ledger entry is still created (audit trail preserved) but
-#   cached balance update is skipped with a critical log.
+# CRITICAL-3: record_master_ledger raises BadRequestError when
+#   MasterProfile is missing. Creating a ledger entry without
+#   updating the cached balance would cause a data inconsistency
+#   that the consistency semaphores would flag immediately.
+#   The correct response is to fail loudly and roll back the
+#   entire transaction, not silently produce corrupt state.
 # =============================================================================
 
 from uuid import UUID
@@ -36,6 +38,7 @@ import structlog
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import BadRequestError
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
     CompanyLedger,
@@ -129,6 +132,11 @@ async def record_master_ledger(
 
     Returns:
         The created MasterLedger entry.
+
+    Raises:
+        BadRequestError: If MasterProfile is missing for the given user_id.
+            Creating a ledger entry without updating the cached balance
+            would corrupt the data — fail loudly instead (CRITICAL-3).
     """
     entry = MasterLedger(
         user_id=user_id,
@@ -147,19 +155,21 @@ async def record_master_ledger(
         MasterProfile, user_id, with_for_update=True,
     )
 
-    # HIGH-3: Guard against missing MasterProfile.
-    # This can happen if MasterProfile was deleted between booking
-    # creation and practice finalization. Ledger entry is preserved
-    # (audit trail), but cached balance update is skipped.
+    # CRITICAL-3: Raise if MasterProfile is missing.
+    # A missing profile means cached balance cannot be updated,
+    # which would immediately break consistency semaphores.
+    # Rolling back the entire transaction is safer than silent corruption.
     if profile is None:
-        logger.critical(
+        logger.error(
             "master_profile_missing_for_ledger",
             user_id=str(user_id),
             amount_cents=amount_cents,
             reason=reason,
-            hint="Ledger entry created but cached balance NOT updated",
         )
-        return entry
+        raise BadRequestError(
+            "Cannot record ledger: master profile not found "
+            f"for user_id={user_id}"
+        )
 
     frozen, available = await _sum_master_balances(user_id, session)
     # Set via normal assignment so SQLAlchemy tracks the change.

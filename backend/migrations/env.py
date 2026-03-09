@@ -97,16 +97,20 @@ async def run_async_migrations() -> None:
     Standard Alembic is synchronous. Since we use asyncpg (async driver),
     we create an async engine, get a sync connection from it via
     run_sync(), and pass that to Alembic's migration runner.
+
+    TD-013: dispose() is called in finally to ensure the engine is always
+    cleaned up, even if connect() raises (e.g. DB unreachable at startup).
     """
     connectable = create_async_engine(
         settings.database_url,
         pool_pre_ping=True,
     )
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
+    try:
+        async with connectable.connect() as connection:
+            await connection.run_sync(do_run_migrations)
+    finally:
+        await connectable.dispose()
 
 
 def run_migrations_online() -> None:
