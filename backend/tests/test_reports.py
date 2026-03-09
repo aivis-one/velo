@@ -13,10 +13,9 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -24,31 +23,22 @@ from tests.helpers import auth_headers, login_user
 REPORTS_URL = "/api/v1/reports"
 REPORTS_ME_URL = "/api/v1/reports/me"
 
-_CLEANUP_REPORTS_SQL = text(
-    "DELETE FROM reports WHERE reporter_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 59000 AND 59999)"
-)
-
-_DELETE_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users WHERE telegram_id BETWEEN 59000 AND 59999)"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean reports for test range before/after."""
-    await db_session.execute(_CLEANUP_REPORTS_SQL)
-    await db_session.execute(_DELETE_MASTERS_SQL)
-    await db_session.commit()
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    await db_session.execute(_CLEANUP_REPORTS_SQL)
-    await db_session.execute(_DELETE_MASTERS_SQL)
-    await db_session.commit()
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 59000-59999."""
+    await full_cleanup_range(session, 59000, 59999, delete_users=False)
+    await session.commit()
 
 # ---------------------------------------------------------------------------
 # Helpers

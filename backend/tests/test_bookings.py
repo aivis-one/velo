@@ -13,10 +13,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.helpers import auth_headers, login_user
+from app.modules.users.models import User, UserRole
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,73 +27,22 @@ APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
 # Cleanup in dependency order (ledger -> purchases -> bookings -> practices).
-_CLEANUP_LEDGER_SQL = text(
-    "DELETE FROM user_ledger WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_CLEANUP_MASTER_LEDGER_SQL = text(
-    "DELETE FROM master_ledger WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_CLEANUP_COMPANY_LEDGER_SQL = text(
-    "DELETE FROM company_ledger WHERE reason LIKE 'commission:practice=%'"
-    " AND reason LIKE '%practice=%'"
-)
-_NULLIFY_PURCHASE_ID_SQL = text(
-    "UPDATE bookings SET purchase_id = NULL WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_CLEANUP_PURCHASES_SQL = text(
-    "DELETE FROM purchases WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_CLEANUP_BOOKINGS_SQL = text(
-    "DELETE FROM bookings WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_CLEANUP_PRACTICES_SQL = text(
-    "DELETE FROM practices WHERE master_id IN "
-    "(SELECT user_id FROM master_profiles "
-    "WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999))"
-)
-_CLEANUP_MASTERS_SQL = text(
-    "DELETE FROM master_profiles WHERE user_id IN "
-    "(SELECT id FROM users "
-    "WHERE telegram_id BETWEEN 61000 AND 61999)"
-)
-_RESET_ROLES_SQL = text(
-    "UPDATE users SET role = 'user' "
-    "WHERE telegram_id BETWEEN 61000 AND 61999"
-)
-_RESET_BALANCE_SQL = text(
-    "UPDATE users SET balance_cents = 0 "
-    "WHERE telegram_id BETWEEN 61000 AND 61999"
-)
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-async def _full_cleanup(db_session: AsyncSession) -> None:
-    """Run all cleanup queries in dependency order."""
-    await db_session.execute(_CLEANUP_LEDGER_SQL)
-    await db_session.execute(_CLEANUP_MASTER_LEDGER_SQL)
-    await db_session.execute(_NULLIFY_PURCHASE_ID_SQL)
-    await db_session.execute(_CLEANUP_PURCHASES_SQL)
-    await db_session.execute(_CLEANUP_BOOKINGS_SQL)
-    await db_session.execute(_CLEANUP_PRACTICES_SQL)
-    await db_session.execute(_CLEANUP_MASTERS_SQL)
-    await db_session.execute(_RESET_ROLES_SQL)
-    await db_session.execute(_RESET_BALANCE_SQL)
-    await db_session.commit()
+@pytest.fixture(autouse=True)
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
+    yield
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 61000-61999."""
+    await full_cleanup_range(session, 61000, 61999, delete_users=False)
+    await session.commit()
 
 @pytest.fixture(autouse=True)
 async def cleanup(
@@ -164,11 +113,10 @@ async def _make_verified_master(
         client, telegram_id=61900, first_name="Admin",
     )
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            "WHERE telegram_id = 61900"
-        )
-    )
+    update(User)
+    .where(User.telegram_id == 61900)
+    .values(role=UserRole.ADMIN.value)
+)
     await db_session.commit()
     admin_auth = await login_user(
         client, telegram_id=61900, first_name="Admin",

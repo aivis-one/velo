@@ -13,10 +13,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.helpers import auth_headers, login_user
+from app.modules.users.models import User, UserRole
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -29,77 +29,22 @@ VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 # ---------------------------------------------------------------------------
 # Cleanup (dependency order, modeled after test_cancellation.py)
 # ---------------------------------------------------------------------------
-_TID_RANGE = (
-    "SELECT id FROM users WHERE telegram_id BETWEEN 63000 AND 63999"
-)
-_MASTER_RANGE = (
-    "SELECT user_id FROM master_profiles "
-    "WHERE user_id IN (" + _TID_RANGE + ")"
-)
-
-_CLEANUP_QUERIES = [
-    # 1. Audit logs (table name: audit_logs, with 's').
-    text(
-        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
-    ),
-    # 2. Company ledger (via purchases linked to our users).
-    text(
-        "DELETE FROM company_ledger WHERE reference_id IN "
-        "(SELECT id FROM purchases WHERE user_id IN "
-        "(" + _TID_RANGE + "))"
-    ),
-    # 3. Master ledger.
-    text(
-        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 4. User ledger.
-    text(
-        "DELETE FROM user_ledger WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 5. Nullify booking.purchase_id FK before deleting purchases.
-    text(
-        "UPDATE bookings SET purchase_id = NULL "
-        "WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 6. Purchases.
-    text(
-        "DELETE FROM purchases WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 7. Waitlist (POST /cancel clears waitlist entries).
-    text(
-        "DELETE FROM waitlist WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 8. Bookings.
-    text(
-        "DELETE FROM bookings WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 9. Practices (owned by masters in our range).
-    text(
-        "DELETE FROM practices WHERE master_id IN "
-        "(" + _MASTER_RANGE + ")"
-    ),
-    # 10. Master profiles.
-    text(
-        "DELETE FROM master_profiles WHERE user_id IN "
-        "(" + _TID_RANGE + ")"
-    ),
-    # 11. Reset roles and balance.
-    text(
-        "UPDATE users SET role = 'user', balance_cents = 0 "
-        "WHERE telegram_id BETWEEN 63000 AND 63999"
-    ),
-]
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-async def _full_cleanup(db_session: AsyncSession) -> None:
-    """Run all cleanup queries in dependency order."""
-    for stmt in _CLEANUP_QUERIES:
-        await db_session.execute(stmt)
-    await db_session.commit()
+@pytest.fixture(autouse=True)
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
+    yield
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 63000-63999."""
+    await full_cleanup_range(session, 63000, 63999, delete_users=False)
+    await session.commit()
 
 @pytest.fixture(autouse=True)
 async def cleanup(
@@ -169,11 +114,10 @@ async def _make_verified_master(
         client, telegram_id=63900, first_name="Admin",
     )
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            "WHERE telegram_id = 63900"
-        )
-    )
+    update(User)
+    .where(User.telegram_id == 63900)
+    .values(role=UserRole.ADMIN.value)
+)
     await db_session.commit()
     admin_auth = await login_user(
         client, telegram_id=63900, first_name="Admin",

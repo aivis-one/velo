@@ -12,12 +12,12 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.payments.models import Payment, PaymentDirection, PaymentStatus
-from tests.helpers import auth_headers, login_user
+from app.modules.users.models import User, UserRole
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -32,61 +32,22 @@ ADMIN_WITHDRAWALS_URL = "/api/v1/admin/withdrawals"
 # Cleanup (dependency order: audit -> company_ledger -> master_ledger ->
 #   payments -> withdrawals -> master_profiles -> reset users -> delete users)
 # ---------------------------------------------------------------------------
-_TID_RANGE = (
-    "SELECT id FROM users WHERE telegram_id BETWEEN 78000 AND 78999"
-)
-
-_CLEANUP_QUERIES = [
-    # 1. Audit logs referencing our users.
-    text(
-        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
-    ),
-    # 2. Company ledger (withdrawal fees reference our withdrawals).
-    text(
-        "DELETE FROM company_ledger WHERE reason LIKE 'withdrawal%%'"
-    ),
-    # 3. Master ledger.
-    text(
-        "DELETE FROM master_ledger WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 4. Payments (OUT records from approve).
-    text(
-        "DELETE FROM payments WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 5. Withdrawals.
-    text(
-        "DELETE FROM withdrawals WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 6. Master profiles.
-    text(
-        "DELETE FROM master_profiles WHERE user_id IN (" + _TID_RANGE + ")"
-    ),
-    # 7. Reset roles and balance.
-    text(
-        "UPDATE users SET role = 'user', balance_cents = 0 "
-        "WHERE telegram_id BETWEEN 78000 AND 78999"
-    ),
-    # 8. Delete users.
-    text(
-        "DELETE FROM users WHERE telegram_id BETWEEN 78000 AND 78999"
-    ),
-]
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean up test data before and after each test."""
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
-    await db_session.commit()
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
-    await db_session.commit()
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 78000-78999."""
+    await full_cleanup_range(session, 78000, 78999, delete_users=True)
+    await session.commit()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -120,7 +81,9 @@ async def _make_verified_master(
     # Create admin and verify.
     admin_auth = await login_user(client, telegram_id=78900)
     await db_session.execute(
-        text("UPDATE users SET role = 'admin' WHERE telegram_id = 78900"),
+        update(User)
+        .where(User.telegram_id == 78900)
+        .values(role=UserRole.ADMIN.value)
     )
     await db_session.commit()
     admin_auth = await login_user(client, telegram_id=78900)
@@ -149,11 +112,10 @@ async def _make_admin(
     """Create a separate admin for approve/reject actions."""
     auth = await login_user(client, telegram_id=telegram_id)
     await db_session.execute(
-        text(
-            "UPDATE users SET role = 'admin' "
-            f"WHERE telegram_id = {telegram_id}"
-        ),
-    )
+    update(User)
+    .where(User.telegram_id == telegram_id)
+    .values(role=UserRole.ADMIN.value)
+)
     await db_session.commit()
     auth = await login_user(client, telegram_id=telegram_id)
     return {

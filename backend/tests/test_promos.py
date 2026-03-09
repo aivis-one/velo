@@ -21,11 +21,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.promos.models import Promo
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
 # URLs
@@ -38,42 +37,22 @@ VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 # ---------------------------------------------------------------------------
 # Cleanup
 # ---------------------------------------------------------------------------
-_TID_RANGE = (
-    "SELECT id FROM users WHERE telegram_id BETWEEN 79000 AND 79999"
-)
 
-_CLEANUP_QUERIES = [
-    text(
-        "DELETE FROM audit_logs WHERE actor_id IN (" + _TID_RANGE + ")"
-    ),
-    text(
-        "DELETE FROM promos WHERE master_id IN (" + _TID_RANGE + ")"
-    ),
-    text(
-        "DELETE FROM master_profiles WHERE user_id IN "
-        "(" + _TID_RANGE + ")"
-    ),
-    text(
-        "UPDATE users SET role = 'user' "
-        "WHERE telegram_id BETWEEN 79000 AND 79999"
-    ),
-    text(
-        "DELETE FROM users WHERE telegram_id BETWEEN 79000 AND 79999"
-    ),
-]
-
-
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-async def _cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean up test data before and after each test."""
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
-    await db_session.commit()
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
+    await _do_cleanup(db_session)
     yield
-    for q in _CLEANUP_QUERIES:
-        await db_session.execute(q)
-    await db_session.commit()
+    await _do_cleanup(db_session)
 
+
+async def _do_cleanup(session: AsyncSession) -> None:
+    """Full ORM cleanup for telegram_id 79000-79999."""
+    await full_cleanup_range(session, 79000, 79999, delete_users=True)
+    await session.commit()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -107,7 +86,9 @@ async def _create_verified_master(
     # Create admin and verify.
     admin_auth = await login_user(client, telegram_id=79900)
     await db_session.execute(
-        text("UPDATE users SET role = 'admin' WHERE telegram_id = 79900"),
+        update(User)
+        .where(User.telegram_id == 79900)
+        .values(role=UserRole.ADMIN.value)
     )
     await db_session.commit()
     admin_auth = await login_user(client, telegram_id=79900)

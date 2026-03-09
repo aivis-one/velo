@@ -30,78 +30,28 @@ from app.modules.diary.models import Feedback
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 FEEDBACK_URL = "/api/v1/practices/{practice_id}/feedback"
 MY_FEEDBACKS_URL = "/api/v1/users/me/feedbacks"
 
 # telegram_id range for this test file.
-_TID_MIN = 86000
-_TID_MAX = 86999
 
-
-# ===================================================================
-# Cleanup
-# ===================================================================
-
-
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
 async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
-    """Clean test data before/after each test in FK-safe order."""
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
     await _do_cleanup(db_session)
     yield
     await _do_cleanup(db_session)
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Delete all test entities for telegram_id 86000-86999."""
-    await session.rollback()
-
-    user_ids_subq = (
-        select(User.id).where(
-            User.telegram_id.between(_TID_MIN, _TID_MAX),
-        )
-    )
-
-    # 1. feedbacks (FK -> bookings, practices, users).
-    await session.execute(
-        Feedback.__table__.delete().where(
-            Feedback.user_id.in_(user_ids_subq),
-        )
-    )
-    # 2. audit_logs for our users.
-    from app.core.audit import AuditLog
-    await session.execute(
-        AuditLog.__table__.delete().where(
-            AuditLog.actor_id.in_(user_ids_subq),
-        )
-    )
-    # 3. bookings (FK -> practices, users).
-    await session.execute(
-        Booking.__table__.delete().where(
-            Booking.user_id.in_(user_ids_subq),
-        )
-    )
-    # 4. practices (FK -> master_profiles).
-    await session.execute(
-        Practice.__table__.delete().where(
-            Practice.master_id.in_(user_ids_subq),
-        )
-    )
-    # 5. master_profiles (FK -> users).
-    await session.execute(
-        MasterProfile.__table__.delete().where(
-            MasterProfile.user_id.in_(user_ids_subq),
-        )
-    )
-    # 6. users.
-    await session.execute(
-        User.__table__.delete().where(
-            User.telegram_id.between(_TID_MIN, _TID_MAX),
-        )
-    )
+    """Full ORM cleanup for telegram_id 86000-86999."""
+    await full_cleanup_range(session, 86000, 86999, delete_users=True)
     await session.commit()
-
 
 # ===================================================================
 # Helpers

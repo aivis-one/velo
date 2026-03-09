@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 # =============================================================================
 # Test: Reminders -- Phase 7.4
 # =============================================================================
@@ -21,7 +22,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
@@ -50,82 +51,22 @@ from app.modules.users.models import User, UserRole
 # Cleanup
 # ---------------------------------------------------------------------------
 
-_TID_MIN = 84000
-_TID_MAX = 84999
 
-
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-async def cleanup_reminders(db_session: AsyncSession):
-    """Clean up all test entities before and after each test."""
+async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
+    """Clean all test data before/after each test (TD-032: ORM, no raw SQL)."""
     await _do_cleanup(db_session)
     yield
     await _do_cleanup(db_session)
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Delete all test entities in FK-safe order."""
-    await session.rollback()
-
-    user_ids_subq = (
-        select(User.id).where(
-            User.telegram_id.between(_TID_MIN, _TID_MAX),
-        )
-    )
-
-    # 1. notification_deliveries.
-    await session.execute(text(
-        "DELETE FROM notification_deliveries WHERE notification_id IN "
-        "(SELECT id FROM notifications WHERE "
-        "action_data->>'practice_id' IN "
-        "(SELECT CAST(id AS TEXT) FROM practices WHERE master_id IN "
-        f"(SELECT id FROM users WHERE telegram_id BETWEEN {_TID_MIN} AND {_TID_MAX})))"
-    ))
-
-    # 2. notifications linked to test practices.
-    await session.execute(text(
-        "DELETE FROM notifications WHERE "
-        "action_data->>'practice_id' IN "
-        "(SELECT CAST(id AS TEXT) FROM practices WHERE master_id IN "
-        f"(SELECT id FROM users WHERE telegram_id BETWEEN {_TID_MIN} AND {_TID_MAX}))"
-    ))
-
-    # 3. notifications targeted at test users.
-    await session.execute(text(
-        "DELETE FROM notifications WHERE "
-        "target_value IN "
-        f"(SELECT CAST(id AS TEXT) FROM users WHERE telegram_id BETWEEN {_TID_MIN} AND {_TID_MAX})"
-    ))
-
-    # 4. bookings.
-    await session.execute(
-        Booking.__table__.delete().where(
-            Booking.user_id.in_(user_ids_subq),
-        )
-    )
-
-    # 5. practices.
-    await session.execute(
-        Practice.__table__.delete().where(
-            Practice.master_id.in_(user_ids_subq),
-        )
-    )
-
-    # 6. master_profiles.
-    await session.execute(
-        MasterProfile.__table__.delete().where(
-            MasterProfile.user_id.in_(user_ids_subq),
-        )
-    )
-
-    # 7. users.
-    await session.execute(
-        User.__table__.delete().where(
-            User.telegram_id.between(_TID_MIN, _TID_MAX),
-        )
-    )
-
+    """Full ORM cleanup for telegram_id 84000-84999."""
+    await full_cleanup_range(session, 84000, 84999, delete_users=True)
     await session.commit()
-
 
 # ---------------------------------------------------------------------------
 # Helpers
