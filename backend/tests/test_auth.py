@@ -105,7 +105,14 @@ class TestValidateTelegramInitData:
 
 
 async def test_auth_telegram_success_mocked_redis(client: AsyncClient) -> None:
-    """Full auth flow with mocked Redis (unit-test style)."""
+    """Full auth flow with mocked Redis (unit-test style).
+
+    Mocks all three Redis consumers in the auth flow:
+      1. check_init_data_replay  — redis.set(nx=True)  → AsyncMock → True
+      2. check_auth_rate_limit   — redis.incr()        → AsyncMock → 1
+                                   redis.expire()      → AsyncMock → True
+      3. create_session          — redis.pipeline()    → mock_pipe (MULTI/EXEC)
+    """
     user_data = {"id": 99999, "first_name": "Tester", "username": "tester"}
     init_data = build_init_data(user_data)
 
@@ -115,7 +122,7 @@ async def test_auth_telegram_success_mocked_redis(client: AsyncClient) -> None:
     ):
         mock_settings.telegram_bot_token = BOT_TOKEN
 
-        # CRITICAL-05: create_session now uses pipeline(transaction=True).
+        # -- Pipeline mock for create_session (CRITICAL-05) ----------------
         # redis.pipeline() is a SYNC call returning a Pipeline object.
         # Pipeline methods (.set, .zadd, etc.) are also sync (they queue).
         # Only .execute() is async (sends MULTI/EXEC to Redis).
@@ -127,7 +134,15 @@ async def test_auth_telegram_success_mocked_redis(client: AsyncClient) -> None:
         # execute() returns list of results; [2] is zremrangebyscore count.
         mock_pipe.execute = AsyncMock(return_value=[True, 1, 0, True])
 
+        # -- Direct Redis mock for check_init_data_replay + check_auth_rate_limit --
+        # WARNING-4: check_init_data_replay calls redis.set(key, "1", ex=300, nx=True).
+        #   Returns True (key was set = first use, not a replay).
+        # CRITICAL-4: check_auth_rate_limit calls redis.incr(key) and redis.expire(key, 60).
+        #   incr returns 1 (first request in window, below rate limit of 5).
         mock_redis = MagicMock()
+        mock_redis.set = AsyncMock(return_value=True)
+        mock_redis.incr = AsyncMock(return_value=1)
+        mock_redis.expire = AsyncMock(return_value=True)
         mock_redis.pipeline = MagicMock(return_value=mock_pipe)
         mock_get_redis.return_value = mock_redis
 

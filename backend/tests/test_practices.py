@@ -64,7 +64,7 @@ def _valid_practice_body(**overrides: object) -> dict:
         "max_participants": 20,
         "is_free": True,
         "price_cents": 0,
-        "currency": "EUR",
+        "currency": "eur",
     }
     base.update(overrides)
     return base
@@ -190,7 +190,7 @@ async def test_create_practice_success(
     assert data["status"] == "draft"
     assert data["is_free"] is True
     assert data["price_cents"] == 0
-    assert data["currency"] == "EUR"
+    assert data["currency"] == "eur"
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +554,7 @@ async def test_create_paid_practice(
     data = resp.json()
     assert data["is_free"] is False
     assert data["price_cents"] == 1500
-    assert data["currency"] == "EUR"
+    assert data["currency"] == "eur"
 
 
 # ---------------------------------------------------------------------------

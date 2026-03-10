@@ -134,7 +134,7 @@ async def _create_practice(
         timezone="UTC",
         is_free=True,
         price_cents=0,
-        currency="EUR",
+        currency="eur",
     )
     session.add(practice)
     await session.flush()

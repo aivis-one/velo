@@ -167,7 +167,7 @@ async def _create_practice(
         "max_participants": 10,
         "is_free": is_free,
         "price_cents": 0 if is_free else price_cents,
-        "currency": "EUR",
+        "currency": "eur",
     }
     token = master_data["session_token"]
 

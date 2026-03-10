@@ -129,7 +129,7 @@ async def _create_practice(
         "timezone": "UTC",
         "is_free": is_free,
         "price_cents": price_cents,
-        "currency": "EUR",
+        "currency": "eur",
     }
     if max_participants is not None:
         body["max_participants"] = max_participants
