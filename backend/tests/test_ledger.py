@@ -1,5 +1,5 @@
 # =============================================================================
-# Tests: Ledger recording + balance recalculation (Phase 6.2)
+# Tests: Ledger recording + balance recalculation (Phase 6.2, CRITICAL-3)
 # =============================================================================
 
 from uuid import uuid4
@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import BadRequestError
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
     CompanyLedgerType,
@@ -165,6 +166,36 @@ async def test_master_ledger_frozen_and_available(
     await db_session.refresh(profile)
     assert profile.frozen_cents == 5000
     assert profile.available_cents == 2250
+
+
+@pytest.mark.asyncio
+async def test_master_ledger_missing_profile_raises(
+    db_session: AsyncSession,
+) -> None:
+    """record_master_ledger raises BadRequestError if MasterProfile is missing.
+
+    CRITICAL-3 fix: a missing MasterProfile means the cached balance cannot
+    be updated. The function must raise immediately so the caller's transaction
+    rolls back entirely — no orphan ledger entry is persisted.
+    """
+    # Create a User without a MasterProfile.
+    user = User(
+        telegram_id=70099,
+        first_name="NoProfile",
+        role=UserRole.MASTER,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    # Attempt to record a ledger entry — must raise, not silently continue.
+    with pytest.raises(BadRequestError):
+        await record_master_ledger(
+            user_id=user.id,
+            amount_cents=1000,
+            reason="sale:practice=test",
+            is_frozen=True,
+            session=db_session,
+        )
 
 
 # ---------------------------------------------------------------------------
