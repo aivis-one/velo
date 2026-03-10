@@ -490,16 +490,17 @@ async def _validate_practice_link(
         raise NotFoundError("Practice not found")
 
     booking_stmt = (
-        select(Booking.id)
+        select(func.count(Booking.id))
         .where(
             Booking.practice_id == practice_id,
             Booking.user_id == user_id,
+            Booking.status != BookingStatus.CANCELLED.value,
         )
-        .limit(1)
     )
-    result = await session.execute(booking_stmt)
-    if result.scalar_one_or_none() is None:
-        raise NotFoundError("No booking found for this practice")
+    count = (await session.execute(booking_stmt)).scalar_one()
+
+    if count == 0:
+        raise BadRequestError("Cannot link diary entry to a practice without a booking")
 
 
 # ===================================================================
