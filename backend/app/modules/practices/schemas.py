@@ -11,7 +11,8 @@
 # PRICING VALIDATION (Phase 4.3/4.4):
 #   - is_free=True  -> price_cents forced to 0 in service
 #   - is_free=False -> price_cents must be > 0 (validated in service)
-#   - currency validated via Literal (EUR only for MVP)
+#   - currency validated via Literal (eur only for MVP)
+#   - NEW-7: Literal["eur"] (lowercase) consistent with all payment models
 #
 # PRACTICE SUMMARY (Frontend Backlog A-03):
 #   Lightweight practice representation for embedding in booking /
@@ -58,7 +59,8 @@ class CreatePracticeRequest(BaseModel):
     # -- Pricing (Phase 4.3/4.4) --
     is_free: bool = True
     price_cents: int = Field(default=0, ge=0)
-    currency: Literal["EUR"] = "EUR"
+    # NEW-7: lowercase "eur" consistent with Payment, Purchase, Withdrawal models.
+    currency: Literal["eur"] = "eur"
 
     @field_validator("scheduled_at")
     @classmethod
@@ -101,33 +103,25 @@ class UpdatePracticeRequest(BaseModel):
     """PATCH /api/v1/practices/{id} -- request body.
 
     All fields optional. Only provided fields are updated.
-    NOT NULL columns use service-layer guard against explicit
-    null (P-02). Status transitions are validated against the
-    state machine in service.
+    P-02: NOT NULL fields typed as X | None so that "not sent" works
+    with exclude_unset. Service layer guards against explicit null.
     """
 
-    title: str | None = Field(
-        default=None, min_length=1, max_length=200,
-    )
+    practice_type: Literal["live", "series", "one_on_one", "replay"] | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=5000)
     scheduled_at: datetime | None = None
     duration_minutes: int | None = None
     timezone: str | None = Field(default=None, max_length=50)
-    max_participants: int | None = Field(
-        default=None, ge=1, le=10000,
-    )
+    max_participants: int | None = Field(default=None, ge=1, le=10000)
     zoom_link: str | None = Field(default=None, max_length=500)
-    # I-04 fix: only statuses reachable via _VALID_TRANSITIONS in service.
-    # "cancelled" removed -- only reachable via cancel_practice() (Phase 6.5).
-    # "draft" removed -- nothing transitions TO draft.
-    status: Literal[
-        "scheduled", "live", "completed", "deleted",
-    ] | None = None
+    parent_practice_id: UUID | None = None
+    status: str | None = None
 
     # -- Pricing (Phase 4.3/4.4) --
     is_free: bool | None = None
     price_cents: int | None = Field(default=None, ge=0)
-    currency: Literal["EUR"] | None = None
+    currency: Literal["eur"] | None = None
 
     @field_validator("scheduled_at")
     @classmethod
