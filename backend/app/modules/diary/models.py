@@ -23,10 +23,15 @@
 #   Optional link to practice (validated: practice exists + user has booking).
 #   Hard delete on DELETE -- personal data, no soft delete.
 #
-# CHECK CONSTRAINTS (WARNING-9 fix):
-#   DB-level validation for mood and rating columns.
+# CHECK CONSTRAINTS (WARNING-9 fix + 11.3 fix):
+#   DB-level validation for mood, rating, and check_type columns.
 #   Defense-in-depth: Pydantic Literal validates at API level,
 #   CheckConstraint validates at DB level for non-API write paths.
+#
+#   11.3 fix: added ck_checkin_check_type on Checkin.check_type.
+#   mood and rating already had constraints; check_type was missing one.
+#   Non-API write paths (e.g. seed.py, tests) could insert invalid values
+#   without this constraint.
 #
 # SESSION RULES:
 #   No session.commit() in service (P-01). Router manages transaction.
@@ -129,6 +134,12 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
         CheckConstraint(
             "mood IN ('low', 'mid', 'high')",
             name="ck_checkin_mood",
+        ),
+        # 11.3 fix: check_type had no DB-level constraint. Non-API write
+        # paths could insert arbitrary strings without detection.
+        CheckConstraint(
+            "check_type IN ('pre', 'post')",
+            name="ck_checkin_check_type",
         ),
     )
 
