@@ -15,10 +15,13 @@
 # SESSION: POST purchase = get_db_session (write).
 #          POST preview  = get_db_reader (read-only, no side effects).
 #          GET list       = get_db_reader (read).
+#
+# 6.1 fix: removed redundant inline `from app.core.exceptions import
+#   NotFoundError` inside preview_purchase_endpoint. NotFoundError is
+#   already imported at module level.
 # =============================================================================
 
 from typing import Literal
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -119,7 +122,6 @@ async def preview_purchase_endpoint(
     practice = result.scalar_one_or_none()
 
     if not practice:
-        from app.core.exceptions import NotFoundError
         raise NotFoundError("Practice not found")
 
     price_cents = practice.price_cents
@@ -183,7 +185,8 @@ async def list_my_purchases_endpoint(
     Optional ``status`` filter (e.g. ``?status=completed``).
     """
     items, total = await list_user_purchases(
-        user, session,
+        user,
+        session,
         status_filter=status_filter,
         limit=limit,
         offset=offset,
@@ -192,23 +195,23 @@ async def list_my_purchases_endpoint(
     return PaginatedPurchasesResponse(
         items=[
             PurchaseWithPracticeResponse(
-                id=purchase.id,
-                user_id=purchase.user_id,
-                practice_id=purchase.practice_id,
-                booking_id=purchase.booking_id,
-                promo_id=purchase.promo_id,
-                amount_cents=purchase.amount_cents,
-                discount_cents=purchase.discount_cents,
-                paid_cents=purchase.paid_cents,
-                currency=purchase.currency,
-                commission_cents=purchase.commission_cents,
-                status=purchase.status,
-                completed_at=purchase.completed_at,
-                created_at=purchase.created_at,
-                updated_at=purchase.updated_at,
+                id=p.id,
+                practice_id=p.practice_id,
+                booking_id=p.booking_id,
+                user_id=p.user_id,
+                amount_cents=p.amount_cents,
+                discount_cents=p.discount_cents,
+                paid_cents=p.paid_cents,
+                currency=p.currency,
+                commission_cents=p.commission_cents,
+                status=p.status,
+                promo_id=p.promo_id,
+                completed_at=p.completed_at,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
                 practice=PracticeSummary.model_validate(practice),
             )
-            for purchase, practice in items
+            for p, practice in items
         ],
         total=total,
         limit=limit,

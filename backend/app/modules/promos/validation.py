@@ -9,10 +9,17 @@
 #   2. Check is_active.
 #   3. Check validity window (valid_from <= now <= valid_until).
 #   4. Check usage limit (used_count < max_uses).
-#   5. Check first_purchase_only (no completed purchases for user).
+#   5. Check first_purchase_only (no COMPLETED purchases for user).
 #   6. Master promo scope: promo.master_id == practice.master_id.
 #   7. Master promo practice scope: promo.practice_id == practice.id (if set).
 #   8. Company promo: no scope restrictions (platform-wide).
+#
+# 11.2 fix: first_purchase_only now checks only COMPLETED purchases.
+#   Previously included PENDING, which blocked a user who had a PENDING
+#   purchase (mid-transaction) from ever using a first_purchase promo —
+#   even if they'd never actually completed a purchase before.
+#   Semantic intent: "user has never COMPLETED a purchase". PENDING =
+#   in-flight booking, not a finished transaction.
 #
 # SEC-07: All validation errors return the same generic message
 #   "Invalid or expired promo code" to prevent information leakage.
@@ -135,15 +142,19 @@ async def validate_promo(
         raise BadRequestError(_INVALID_PROMO_MSG)
 
     # 5. Check first_purchase_only.
+    #
+    # 11.2 fix: check ONLY completed purchases, not pending.
+    # Pending = in-flight booking (not yet finalized). Including PENDING
+    # would prevent a user from using a first-purchase promo even if they
+    # have never actually completed a transaction — e.g. when their current
+    # booking is being processed in the same request. The semantic intent is
+    # "user has never successfully completed a purchase before."
     if promo.first_purchase_only:
         existing_stmt = (
             select(Purchase.id)
             .where(
                 Purchase.user_id == user_id,
-                Purchase.status.in_([
-                    PurchaseStatus.PENDING.value,
-                    PurchaseStatus.COMPLETED.value,
-                ]),
+                Purchase.status == PurchaseStatus.COMPLETED.value,
             )
             .limit(1)
         )

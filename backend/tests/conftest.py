@@ -6,6 +6,13 @@
 #   1. Event loop — single loop for all tests (no "Future attached to different loop")
 #   2. Lifespan — init_redis() and engine are ready before tests run
 #   3. Migrations — tables exist before tests run (alembic upgrade head)
+#
+# 7.1 fix: db_session rolls back before closing.
+#   If a test crashes mid-operation and leaves uncommitted state in the
+#   session (e.g. flushed but not committed), the rollback ensures that
+#   state is discarded and does not bleed into the next test.
+#   Tests that need data to persist use explicit session.commit() calls,
+#   which are unaffected by the rollback (only uncommitted state is cleared).
 # =============================================================================
 
 import subprocess
@@ -18,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import dispose_engine, get_session_factory
 from app.core.redis import close_redis, init_redis
 from app.main import app
+
 
 @pytest.fixture(scope="session", autouse=True)
 async def setup_infrastructure():
@@ -57,10 +65,19 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Direct database session for test setup/assertions."""
+    """Direct database session for test setup/assertions.
+
+    7.1 fix: rolls back before closing to discard any uncommitted state
+    left behind by a failing test. Prevents state from bleeding into
+    subsequent tests that share the same DB connection pool.
+
+    Tests that need data to persist must call session.commit() explicitly —
+    those commits are permanent and unaffected by this rollback.
+    """
     factory = get_session_factory()
     session = factory()
     try:
         yield session
     finally:
+        await session.rollback()  # discard any uncommitted state (7.1)
         await session.close()

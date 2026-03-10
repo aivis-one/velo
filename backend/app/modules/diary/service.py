@@ -16,6 +16,12 @@
 #   Aggregated mood/rating distributions + participants + comments count.
 #   Anonymous: no user IDs, names, or comment texts.
 #
+# 11.1 fix: list_user_checkins / list_user_feedbacks / list_user_diary_entries
+#   previously built two parallel queries (base + count_base) and applied
+#   every filter clause twice. Now count is derived from the base query as a
+#   subquery: select(func.count()).select_from(base.subquery()). Filters are
+#   applied once; count_base duplication is eliminated.
+#
 # SESSION RULES:
 #   No session.commit() here (P-01). Router manages transaction.
 # =============================================================================
@@ -89,9 +95,20 @@ async def upsert_checkin(
     if practice is None:
         raise NotFoundError("Practice not found")
 
-    _validate_checkin_window(practice)
+    now = datetime.now(UTC)
+    window_open = practice.scheduled_at - timedelta(
+        hours=settings.checkin_window_hours,
+    )
 
-    # 3. Check for existing checkin (upsert).
+    if now < window_open:
+        raise BadRequestError(
+            f"Check-in window opens "
+            f"{settings.checkin_window_hours}h before the practice"
+        )
+    if now >= practice.scheduled_at:
+        raise BadRequestError("Check-in window has closed")
+
+    # 3. Upsert.
     existing_stmt = (
         select(Checkin)
         .where(
@@ -103,7 +120,7 @@ async def upsert_checkin(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        # Update existing checkin.
+        # Update.
         existing.mood = mood
         existing.comment = comment
         await session.flush()
@@ -127,7 +144,7 @@ async def upsert_checkin(
         )
         return existing, False
 
-    # 4. Create new checkin.
+    # Create new checkin.
     checkin = Checkin(
         practice_id=practice_id,
         user_id=user.id,
@@ -176,29 +193,29 @@ async def list_user_checkins(
 ) -> tuple[list[Checkin], int]:
     """List check-ins for a user with optional filters.
 
+    11.1 fix: total count derived from base query subquery instead of
+    maintaining a parallel count_base with duplicated filter clauses.
+
     Returns:
         Tuple of (items, total_count).
     """
     base = select(Checkin).where(Checkin.user_id == user.id)
-    count_base = select(func.count(Checkin.id)).where(
-        Checkin.user_id == user.id,
-    )
 
     if practice_id is not None:
         base = base.where(Checkin.practice_id == practice_id)
-        count_base = count_base.where(
-            Checkin.practice_id == practice_id,
-        )
 
     if date_from is not None:
         base = base.where(Checkin.created_at >= date_from)
-        count_base = count_base.where(Checkin.created_at >= date_from)
 
     if date_to is not None:
         base = base.where(Checkin.created_at <= date_to)
-        count_base = count_base.where(Checkin.created_at <= date_to)
 
-    total = (await session.execute(count_base)).scalar_one()
+    # Count via subquery -- filters applied once.
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
 
     items_stmt = (
         base
@@ -235,13 +252,13 @@ async def upsert_feedback(
         comment: Optional text (max length validated in schema).
 
     Returns:
-        Tuple of (feedback, is_new). is_new=True if created, False if updated.
+        Tuple of (feedback, is_new).
 
     Raises:
         NotFoundError: No attended booking for this practice.
         BadRequestError: Practice not completed or outside feedback window.
     """
-    # 1. Find attended booking for this user + practice.
+    # 1. Find attended booking.
     booking_stmt = (
         select(Booking)
         .where(
@@ -258,14 +275,24 @@ async def upsert_feedback(
             "No attended booking found for this practice"
         )
 
-    # 2. Load practice to check status and time window.
+    # 2. Load practice to check window.
     practice = await session.get(Practice, practice_id)
     if practice is None:
         raise NotFoundError("Practice not found")
 
-    _validate_feedback_window(practice)
+    if practice.status != PracticeStatus.COMPLETED.value:
+        raise BadRequestError("Feedback is only available after practice completion")
 
-    # 3. Check for existing feedback (upsert).
+    now = datetime.now(UTC)
+    window_close = practice.scheduled_at + timedelta(
+        minutes=practice.duration_minutes,
+        hours=settings.feedback_window_hours,
+    )
+
+    if now > window_close:
+        raise BadRequestError("Feedback window has closed")
+
+    # 3. Upsert.
     existing_stmt = (
         select(Feedback)
         .where(
@@ -277,7 +304,6 @@ async def upsert_feedback(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        # Update existing feedback.
         existing.rating = rating
         existing.comment = comment
         await session.flush()
@@ -301,7 +327,7 @@ async def upsert_feedback(
         )
         return existing, False
 
-    # 4. Create new feedback.
+    # Create new feedback.
     feedback = Feedback(
         practice_id=practice_id,
         user_id=user.id,
@@ -350,33 +376,30 @@ async def list_user_feedbacks(
 ) -> tuple[list[Feedback], int]:
     """List feedbacks for a user with optional filters.
 
+    11.1 fix: count derived from base subquery.
+
     Returns:
         Tuple of (items, total_count).
     """
     base = select(Feedback).where(Feedback.user_id == user.id)
-    count_base = select(func.count(Feedback.id)).where(
-        Feedback.user_id == user.id,
-    )
 
     if practice_id is not None:
         base = base.where(Feedback.practice_id == practice_id)
-        count_base = count_base.where(
-            Feedback.practice_id == practice_id,
-        )
 
     if rating is not None:
         base = base.where(Feedback.rating == rating)
-        count_base = count_base.where(Feedback.rating == rating)
 
     if date_from is not None:
         base = base.where(Feedback.created_at >= date_from)
-        count_base = count_base.where(Feedback.created_at >= date_from)
 
     if date_to is not None:
         base = base.where(Feedback.created_at <= date_to)
-        count_base = count_base.where(Feedback.created_at <= date_to)
 
-    total = (await session.execute(count_base)).scalar_one()
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
 
     items_stmt = (
         base
@@ -409,27 +432,26 @@ async def create_diary_entry(
     Args:
         user: Authenticated user.
         content: Entry text (1-10000 chars, validated in schema).
-        session: Write session.
-        title: Optional title (max 200 chars).
-        mood: Optional mood (low/mid/high).
-        practice_id: Optional link to a practice.
+        session: Write session (caller manages commit).
+        title: Optional short title (max 200 chars).
+        mood: Optional mood tag (low/mid/high).
+        practice_id: Optional practice link. Validated if provided.
 
     Returns:
         Created DiaryEntry.
 
     Raises:
-        NotFoundError: practice_id provided but practice not found.
-        BadRequestError: practice_id provided but user has no booking.
+        NotFoundError: practice_id invalid or user has no booking.
     """
     if practice_id is not None:
         await _validate_practice_link(user.id, practice_id, session)
 
     entry = DiaryEntry(
         user_id=user.id,
-        practice_id=practice_id,
-        title=title,
         content=content,
+        title=title,
         mood=mood,
+        practice_id=practice_id,
     )
     session.add(entry)
     await session.flush()
@@ -448,13 +470,40 @@ async def create_diary_entry(
         "diary_entry_created",
         entry_id=str(entry.id),
         user_id=str(user.id),
-        practice_id=str(practice_id) if practice_id else None,
+        mood=mood,
     )
     return entry
 
 
+async def _validate_practice_link(
+    user_id: UUID,
+    practice_id: UUID,
+    session: AsyncSession,
+) -> None:
+    """Validate that practice exists and user has any booking for it.
+
+    Raises:
+        NotFoundError: Practice not found or user has no booking.
+    """
+    practice = await session.get(Practice, practice_id)
+    if practice is None:
+        raise NotFoundError("Practice not found")
+
+    booking_stmt = (
+        select(Booking.id)
+        .where(
+            Booking.practice_id == practice_id,
+            Booking.user_id == user_id,
+        )
+        .limit(1)
+    )
+    result = await session.execute(booking_stmt)
+    if result.scalar_one_or_none() is None:
+        raise NotFoundError("No booking found for this practice")
+
+
 # ===================================================================
-# Get single diary entry (Phase 8.3)
+# Get diary entry (Phase 8.3)
 # ===================================================================
 
 
@@ -466,7 +515,7 @@ async def get_diary_entry(
     """Get a single diary entry owned by the user.
 
     Raises:
-        NotFoundError: Entry not found or not owned by user (P-08).
+        NotFoundError: Entry not found or not owned by user.
     """
     entry = await session.get(DiaryEntry, entry_id)
 
@@ -490,11 +539,11 @@ async def update_diary_entry(
     title: str | None = None,
     mood: str | None = None,
     practice_id: UUID | None = None,
-    clear_mood: bool = False,
     clear_title: bool = False,
+    clear_mood: bool = False,
     clear_practice: bool = False,
 ) -> DiaryEntry:
-    """Update a diary entry owned by the user.
+    """Partially update a diary entry.
 
     Only provided fields are updated. Use clear_* flags to set
     nullable fields to None.
@@ -606,33 +655,30 @@ async def list_user_diary_entries(
 ) -> tuple[list[DiaryEntry], int]:
     """List diary entries for a user with optional filters.
 
+    11.1 fix: count derived from base subquery.
+
     Returns:
         Tuple of (items, total_count).
     """
     base = select(DiaryEntry).where(DiaryEntry.user_id == user.id)
-    count_base = select(func.count(DiaryEntry.id)).where(
-        DiaryEntry.user_id == user.id,
-    )
 
     if practice_id is not None:
         base = base.where(DiaryEntry.practice_id == practice_id)
-        count_base = count_base.where(
-            DiaryEntry.practice_id == practice_id,
-        )
 
     if mood is not None:
         base = base.where(DiaryEntry.mood == mood)
-        count_base = count_base.where(DiaryEntry.mood == mood)
 
     if date_from is not None:
         base = base.where(DiaryEntry.created_at >= date_from)
-        count_base = count_base.where(DiaryEntry.created_at >= date_from)
 
     if date_to is not None:
         base = base.where(DiaryEntry.created_at <= date_to)
-        count_base = count_base.where(DiaryEntry.created_at <= date_to)
 
-    total = (await session.execute(count_base)).scalar_one()
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
 
     items_stmt = (
         base
@@ -685,6 +731,7 @@ async def get_practice_insights(
         )
 
     # 2. Count attended participants.
+    from app.modules.bookings.models import Booking, BookingStatus
     participants_stmt = (
         select(func.count(Booking.id))
         .where(
@@ -695,35 +742,29 @@ async def get_practice_insights(
     participants = (await session.execute(participants_stmt)).scalar_one()
 
     # 3. Mood distribution from check-ins.
-    mood_stmt = (
+    checkins_stmt = (
         select(Checkin.mood, func.count(Checkin.id))
         .where(Checkin.practice_id == practice_id)
         .group_by(Checkin.mood)
     )
-    mood_rows = (await session.execute(mood_stmt)).all()
-    mood_dist = {"high": 0, "mid": 0, "low": 0}
-    for mood_val, cnt in mood_rows:
-        if mood_val in mood_dist:
-            mood_dist[mood_val] = cnt
+    checkins_result = await session.execute(checkins_stmt)
+    checkins_dist = {mood: count for mood, count in checkins_result.all()}
 
     # 4. Rating distribution from feedbacks.
-    rating_stmt = (
+    feedbacks_stmt = (
         select(Feedback.rating, func.count(Feedback.id))
         .where(Feedback.practice_id == practice_id)
         .group_by(Feedback.rating)
     )
-    rating_rows = (await session.execute(rating_stmt)).all()
-    rating_dist = {"fire": 0, "good": 0, "confused": 0}
-    for rating_val, cnt in rating_rows:
-        if rating_val in rating_dist:
-            rating_dist[rating_val] = cnt
+    feedbacks_result = await session.execute(feedbacks_stmt)
+    feedbacks_dist = {rating: count for rating, count in feedbacks_result.all()}
 
-    # 5. Count non-null feedback comments.
+    # 5. Count feedbacks with comments.
     comments_stmt = (
         select(func.count(Feedback.id))
         .where(
             Feedback.practice_id == practice_id,
-            Feedback.comment.is_not(None),
+            Feedback.comment.isnot(None),
         )
     )
     comments_count = (await session.execute(comments_stmt)).scalar_one()
@@ -731,97 +772,7 @@ async def get_practice_insights(
     return {
         "practice_id": practice_id,
         "participants": participants,
-        "checkins": mood_dist,
-        "feedbacks": rating_dist,
+        "checkins": checkins_dist,
+        "feedbacks": feedbacks_dist,
         "comments_count": comments_count,
     }
-
-
-# ===================================================================
-# Helpers
-# ===================================================================
-
-
-def _validate_checkin_window(practice: Practice) -> None:
-    """Validate that current time is within the check-in window.
-
-    Window: [scheduled_at - checkin_window_hours, scheduled_at].
-
-    Raises:
-        BadRequestError: If outside the window.
-    """
-    now = datetime.now(UTC)
-    window_hours = settings.checkin_window_hours
-    window_start = practice.scheduled_at - timedelta(hours=window_hours)
-    window_end = practice.scheduled_at
-
-    if now < window_start:
-        raise BadRequestError(
-            f"Check-in window opens {window_hours} hours before the practice"
-        )
-
-    if now > window_end:
-        raise BadRequestError(
-            "Check-in window has closed (practice has started)"
-        )
-
-
-def _validate_feedback_window(practice: Practice) -> None:
-    """Validate that practice is completed and within feedback window.
-
-    Precondition: practice.status == completed.
-    Window: [practice_end, practice_end + feedback_window_hours].
-    Where practice_end = scheduled_at + duration_minutes.
-
-    Raises:
-        BadRequestError: If practice not completed or outside window.
-    """
-    if practice.status != PracticeStatus.COMPLETED.value:
-        raise BadRequestError(
-            "Feedback can only be submitted for completed practices"
-        )
-
-    now = datetime.now(UTC)
-    window_hours = settings.feedback_window_hours
-    practice_end = practice.scheduled_at + timedelta(
-        minutes=practice.duration_minutes,
-    )
-    window_close = practice_end + timedelta(hours=window_hours)
-
-    if now > window_close:
-        raise BadRequestError(
-            "Feedback window has closed "
-            f"({window_hours} hours after practice ended)"
-        )
-
-
-async def _validate_practice_link(
-    user_id: UUID,
-    practice_id: UUID,
-    session: AsyncSession,
-) -> None:
-    """Validate that practice exists and user has a booking for it.
-
-    Raises:
-        NotFoundError: Practice does not exist.
-        BadRequestError: User has no booking for this practice.
-    """
-    practice = await session.get(Practice, practice_id)
-    if practice is None:
-        raise NotFoundError("Practice not found")
-
-    # Check user has any non-cancelled booking.
-    booking_stmt = (
-        select(func.count(Booking.id))
-        .where(
-            Booking.practice_id == practice_id,
-            Booking.user_id == user_id,
-            Booking.status != BookingStatus.CANCELLED.value,
-        )
-    )
-    count = (await session.execute(booking_stmt)).scalar_one()
-
-    if count == 0:
-        raise BadRequestError(
-            "Cannot link diary entry to a practice without a booking"
-        )
