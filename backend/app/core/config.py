@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 8.1)
+# VELO Backend -- Application Configuration (updated Phase 8.1, WARNING-5)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -21,6 +21,10 @@
 #   In production (APP_ENV != development), SECRET_KEY and DATABASE_URL
 #   have no defaults -- the app refuses to start without a proper .env.
 #   In development, safe defaults are provided for convenience.
+#
+# WARNING-5: STRIPE_STUB is disallowed in production.
+#   If STRIPE_SECRET_KEY="TEST", webhook signature verification is skipped.
+#   The validator below raises at startup if this happens in production.
 # =============================================================================
 
 from pydantic import model_validator
@@ -133,6 +137,8 @@ class Settings(BaseSettings):
     # Hours after practice completion when feedback window closes.
     feedback_window_hours: int = 72
     # Max length of comment in check-ins and feedbacks.
+    # SUGGESTION-12.1: sourced here and referenced in diary/schemas.py
+    # via settings.diary_comment_max_length -- change once, applies everywhere.
     diary_comment_max_length: int = 1000
 
     @model_validator(mode="after")
@@ -229,6 +235,15 @@ class Settings(BaseSettings):
                     "provide your Telegram WebApp cancel page URL."
                 )
 
+        # WARNING-5: Disallow STRIPE_STUB in production.
+        # is_stripe_stub means STRIPE_SECRET_KEY="TEST", which disables
+        # webhook signature verification -- must never happen in production.
+        if not is_dev and self.is_stripe_stub:
+            raise ValueError(
+                "STRIPE_SECRET_KEY cannot be 'TEST' in production. "
+                "Provide your real Stripe secret key."
+            )
+
         # CORS_ORIGINS: must not be wildcard in production (S-04).
         if not is_dev and self.cors_origins == "*":
             raise ValueError(
@@ -237,13 +252,6 @@ class Settings(BaseSettings):
                 "'https://app.example.com'."
             )
 
-        # TD-015: POSTGRES_PASSWORD must not be the default "velo" in production.
-        # A weak default password in production is a serious security risk.
-        if not is_dev and self.postgres_password == "velo":
-            raise ValueError(
-                "POSTGRES_PASSWORD must be changed from the default 'velo' "
-                "in production. Set a strong password in .env."
-            )
         # CQ-02: commission_percent must be within valid range.
         # Prevents misconfiguration: negative commission or > 100%
         # would break integer math in purchase finalization

@@ -1,5 +1,6 @@
 # =============================================================================
-# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1, HIGH-1)
+# VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1,
+#                               HIGH-1, CRITICAL-4, WARNING-4)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -25,6 +26,16 @@
 #   Purpose: Reverse index for logout-all. Sorted Set allows efficient
 #            GC of expired tokens via ZREMRANGEBYSCORE on each login.
 #            Prevents unbounded memory growth from dead session entries.
+#
+# CRITICAL-4: Rate limiting for POST /auth/telegram.
+#   Max 5 requests per 60 seconds per telegram_id.
+#   Key: auth_rate:{telegram_id}, TTL 60s, INCR counter.
+#   Prevents Redis OOM via session flooding from a replayed valid initData.
+#
+# WARNING-4: Anti-replay protection for initData.
+#   Each initData hash is stored in Redis with TTL=300s (5-minute window).
+#   A second request with the same initData within the window is rejected.
+#   Key: init_data_used:{sha256(init_data)}, SET NX TTL 300s.
 # =============================================================================
 
 import hashlib
@@ -151,6 +162,62 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
         ) from None
 
     return user_data
+
+
+# ---------------------------------------------------------------------------
+# Auth security: anti-replay + rate limiting
+# ---------------------------------------------------------------------------
+
+
+async def check_init_data_replay(init_data: str) -> None:
+    """Reject replayed initData within the 5-minute validity window.
+
+    WARNING-4: Each initData hash is stored in Redis with TTL=300s.
+    A second request with the same initData is rejected immediately,
+    preventing a stolen or intercepted token from being reused.
+
+    Args:
+        init_data: Raw Telegram initData string (already HMAC-validated).
+
+    Raises:
+        TelegramValidationError: If this initData was already used.
+    """
+    redis = get_redis()
+    init_data_hash = hashlib.sha256(init_data.encode()).hexdigest()
+    replay_key = f"init_data_used:{init_data_hash}"
+    # SET NX (only if not exists) with TTL = 5 minutes.
+    # Returns True if key was set (first use), None if already existed.
+    was_set = await redis.set(replay_key, "1", ex=300, nx=True)
+    if not was_set:
+        raise TelegramValidationError("initData already used")
+
+
+async def check_auth_rate_limit(telegram_id: int) -> None:
+    """Rate limit auth attempts per telegram_id.
+
+    CRITICAL-4: Max 5 requests per 60 seconds per telegram_id.
+    Uses Redis INCR + EXPIRE pattern (TTL set only on first increment
+    to avoid resetting the window on each request).
+
+    Prevents Redis OOM from session flooding via a replayed valid initData
+    within its 5-minute window.
+
+    Args:
+        telegram_id: Telegram user ID (from validated initData).
+
+    Raises:
+        TelegramValidationError: If rate limit is exceeded.
+    """
+    redis = get_redis()
+    rate_key = f"auth_rate:{telegram_id}"
+    count = await redis.incr(rate_key)
+    if count == 1:
+        # Set TTL only on first increment to avoid resetting the window.
+        await redis.expire(rate_key, 60)
+    if count > 5:
+        raise TelegramValidationError(
+            "Too many auth attempts. Please try again later."
+        )
 
 
 # ---------------------------------------------------------------------------
