@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import ForbiddenError, UnauthorizedError
-from app.modules.auth.redis import get_session
+from app.modules.auth.service import get_session
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 
