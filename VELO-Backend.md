@@ -456,8 +456,8 @@ velo lint          # ruff check
 | **WARNING-2** | 🧪 | `main.py` | Глобальный 500-обработчик без `request.method` и `trace_id` в логах | Добавить контекст запроса в exception handler |
 | **WARNING-4** | 🚀 | `auth/router.py` | Telegram initData replay в 5-минутном окне — нет защиты от повторного использования | Redis SET `used_init_data:{hash}` с TTL 5 минут |
 | **WARNING-5** | 🚀 | `payments/webhook.py` | Stripe webhook signature не проверяется при `STRIPE_STUB=true` | Запрет `STRIPE_STUB` в production через config validator |
-| **WARNING-6** | 🧪 | `practices/service.py` | N+1 в `finalize_practice` — отдельный `session.get(User)` для каждого участника в цикле | Batch-load `WHERE id IN (...)` |
-| **WARNING-7** | 🧪 | `practices/models.py` | `list_public_practices` без составного индекса на `(status, scheduled_at)` | `Index('ix_practices_status_scheduled', 'status', 'scheduled_at')` |
+| ~~**WARNING-6**~~ | ~~🧪~~ | ~~`practices/service.py`~~ | ~~N+1 в `finalize_practice`~~ | ✅ Закрыто Phase 8 — batch-load реализован |
+| ~~**WARNING-7**~~ | ~~🧪~~ | ~~`practices/models.py`~~ | ~~`list_public_practices` без составного индекса~~ | ✅ Закрыто 2026-03-10 — миграция `d2f3a4b5c6e7` |
 | **WARNING-14** | 🧪 | `*/service.py` | Сервисы импортируют `settings` напрямую — затрудняет unit-тестирование с другими конфигами | Инъекция через параметры или DI |
 
 ### Бэкенд — открытые
@@ -470,9 +470,9 @@ velo lint          # ruff check
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в `sqlalchemy.url` | Убрать или заменить на комментарий |
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в `AuthResponse` — всегда 0 до платежей | Убрать или оставить осознанно |
 | TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` |
-| TD-029 | 🧪 | `users/router.py` | 2 DB-сессии на `PATCH /users/me` (reader + writer) | Одна write-сессия |
-| TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM |
-| TD-034 | 🧪 | `practices/models.py` | `current_participants` — кэш, считается через COUNT bookings | Задокументировано, пересчитывается в `bookings/service.py` |
+| ~~TD-029~~ | ~~🧪~~ | ~~`users/router.py`~~ | ~~2 DB-сессии на `PATCH /users/me`~~ | ✅ Закрыто Phase 8 — `get_current_user_write` + одна write-сессия |
+| ~~TD-032~~ | ~~🧪~~ | ~~`tests/test_*.py`~~ | ~~Cleanup fixtures raw SQL вместо ORM~~ | ✅ Закрыто Phase 8 — все 18 тест-файлов переведены на ORM |
+| ~~TD-034~~ | ~~🧪~~ | ~~`practices/models.py`~~ | ~~`current_participants` — кэш~~ | ✅ Закрыто Phase 8 — задокументировано, пересчитывается в `bookings/service.py` |
 | TD-F7-W5 | 🧪 | `masters/models.py` | `payout_details: dict` — содержимое не типизировано | Создать `PayoutDetailsDict` TypedDict |
 | TD-W01 | 🧪 | `bookings/service.py` | Нет cron для экспирации `NOTIFIED` waitlist-записей | Cron job или processor расширить |
 | PERF-04 | 🚀 | `notifications/service.py` | `_resolve_target_users` для ALL и ROLE загружает все user IDs в память | Batched processing при росте базы (10k+) |
