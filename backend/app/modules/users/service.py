@@ -9,6 +9,12 @@
 # PATTERN:
 #   Functions accept AsyncSession and return ORM objects.
 #   Router handles HTTP concerns, service handles domain logic.
+#
+# TD-029 fix: removed session.merge() from update_user.
+#   Previously the user came from get_current_user (read-only session),
+#   requiring an explicit merge into the write session. Now the router
+#   uses get_current_user_write, which loads the user via the same
+#   get_db_session instance as the endpoint — merge is unnecessary.
 # =============================================================================
 
 import structlog
@@ -31,10 +37,13 @@ async def update_user(
     Uses model_dump(exclude_unset=True) to distinguish between
     "field not sent" and "field sent as null".
 
+    The user object must already be bound to the provided session
+    (TD-029: ensured by get_current_user_write in the router).
+
     Args:
-        user: Current user ORM object (from get_current_user dependency).
+        user: Current user ORM object, bound to the write session.
         data: Validated update payload.
-        session: Read-write database session.
+        session: Read-write database session (same session that loaded user).
 
     Returns:
         Updated user ORM object.
@@ -47,15 +56,12 @@ async def update_user(
     for field, value in updates.items():
         setattr(user, field, value)
 
-    # Merge into this session's identity map (user may come from
-    # a different session via get_current_user which uses get_db_reader).
-    merged_user = await session.merge(user)
     await session.flush()
 
     logger.info(
         "user_profile_updated",
-        user_id=str(merged_user.id),
+        user_id=str(user.id),
         fields=list(updates.keys()),
     )
 
-    return merged_user
+    return user

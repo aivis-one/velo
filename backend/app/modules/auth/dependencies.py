@@ -1,68 +1,59 @@
 # =============================================================================
-# VELO Backend -- Auth Dependencies (updated Phase 4.2)
+# VELO Backend — Auth Dependencies
 # =============================================================================
 #
-# FastAPI dependencies for endpoint authorization.
+# TD-029 fix: added get_current_user_write.
+#   PATCH /users/me previously opened two DB sessions:
+#     1. get_current_user → get_db_reader (read-only)
+#     2. Depends(get_db_session) in the router → write session
+#   The service had to call session.merge(user) to transfer the object
+#   from the reader to the writer, which is unnecessary overhead.
 #
-# USAGE:
-#   @router.get("/users/me")
-#   async def get_me(user: User = Depends(get_current_user)):
-#       return user
+#   get_current_user_write uses get_db_session instead of get_db_reader.
+#   FastAPI caches Depends within a request, so if the router also
+#   declares Depends(get_db_session), both receive the SAME session
+#   instance — one connection total, no merge needed.
 #
-#   @router.get("/admin/stats")
-#   async def stats(user: User = Depends(get_current_admin)):
-#       return ...
-#
-#   @router.post("/practices")
-#   async def create(
-#       master_tuple: tuple[User, MasterProfile] = Depends(get_current_master)
-#   ):
-#       user, profile = master_tuple
-#       ...
-#
-#   @router.get("/practices")
-#   async def list_practices(user: User | None = Depends(get_optional_user)):
-#       # user is None for anonymous requests
-#       ...
-#
-# SECURITY:
-#   _parse_user_id() validates that user_id from Redis is a proper UUID
-#   before passing it to SQL. Catches all failure modes:
-#   - KeyError: missing key
-#   - ValueError: malformed string
-#   - TypeError: None value (UUID(None))
-#   - AttributeError: non-string type (UUID(123))
-#
-#   Deleted user with valid session returns 401, not 404 -- prevents
-#   information leak about whether a user_id ever existed.
+# DEPENDENCY OVERVIEW:
+#   get_current_user       — any authenticated user, read session
+#   get_current_user_write — any authenticated user, write session (TD-029)
+#   get_optional_user      — optional auth, read session
+#   get_current_admin      — admin role required (wraps get_current_user)
+#   get_current_master     — verified master required (wraps get_current_user)
 # =============================================================================
 
 from uuid import UUID
 
-import structlog
 from fastapi import Depends, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_reader
+from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import ForbiddenError, UnauthorizedError
-from app.modules.auth.service import get_session
+from app.modules.auth.redis import get_session
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 
-logger = structlog.get_logger()
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 
 def _extract_token(request: Request) -> str | None:
-    """Extract Bearer token from Authorization header."""
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        return auth_header[7:]
-    return None
+    """Extract Bearer token from Authorization header.
+
+    Returns None if header is missing or malformed.
+    """
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[len("Bearer "):]
+    return token or None
 
 
 def _parse_user_id(session_data: dict) -> UUID:
-    """Validate and parse user_id from Redis session data.
+    """Parse user_id from Redis session data.
 
     Prevents asyncpg DataError (-> 500) if Redis contains corrupted
     or non-UUID values. Returns clean 401 instead.
@@ -75,13 +66,19 @@ def _parse_user_id(session_data: dict) -> UUID:
         raise UnauthorizedError("Invalid session data") from None
 
 
-async def get_current_user(
-    request: Request,
-    session: AsyncSession = Depends(get_db_reader),
-) -> User:
-    """Require authenticated user. Returns User or raises 401.
+# ---------------------------------------------------------------------------
+# Core auth helpers (extracted to avoid duplication between the two variants)
+# ---------------------------------------------------------------------------
 
-    Use as: user: User = Depends(get_current_user)
+
+async def _load_user_from_request(
+    request: Request,
+    session: AsyncSession,
+) -> User:
+    """Shared auth logic: token → Redis → DB.
+
+    Raises UnauthorizedError or ForbiddenError on failure.
+    Used by both get_current_user and get_current_user_write.
     """
     token = _extract_token(request)
     if not token:
@@ -105,6 +102,43 @@ async def get_current_user(
         raise ForbiddenError("Account is deactivated")
 
     return user
+
+
+# ---------------------------------------------------------------------------
+# Public dependencies
+# ---------------------------------------------------------------------------
+
+
+async def get_current_user(
+    request: Request,
+    session: AsyncSession = Depends(get_db_reader),
+) -> User:
+    """Require authenticated user. Returns User or raises 401.
+
+    Loads the user via read-only session (get_db_reader).
+    Use for read-only endpoints or as a base for role checks.
+
+    Use as: user: User = Depends(get_current_user)
+    """
+    return await _load_user_from_request(request, session)
+
+
+async def get_current_user_write(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+) -> User:
+    """Require authenticated user, bound to the write session.
+
+    TD-029: Use on mutating endpoints that need the user object in
+    the same write session as their DB writes. FastAPI caches
+    Depends(get_db_session) within a request, so declaring
+    Depends(get_current_user_write) + Depends(get_db_session) in
+    the same endpoint yields ONE shared session — no session.merge()
+    needed in the service layer.
+
+    Use as: user: User = Depends(get_current_user_write)
+    """
+    return await _load_user_from_request(request, session)
 
 
 async def get_optional_user(

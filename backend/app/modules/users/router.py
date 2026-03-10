@@ -5,13 +5,19 @@
 # ENDPOINTS:
 #   GET   /api/v1/users/me  — Get current user profile
 #   PATCH /api/v1/users/me  — Update current user profile
+#
+# TD-029 fix: PATCH /users/me now uses get_current_user_write instead of
+#   get_current_user. Both the dependency and the router declare
+#   Depends(get_db_session), so FastAPI reuses the same session instance
+#   for the entire request — one DB connection instead of two.
+#   The service no longer needs session.merge().
 # =============================================================================
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
-from app.modules.auth.dependencies import get_current_user
+from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
 from app.modules.users.schemas import UserResponse, UserUpdate
 from app.modules.users.service import update_user
@@ -34,14 +40,16 @@ async def get_me(
 @router.patch("/me", response_model=UserResponse)
 async def update_me(
     body: UserUpdate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user_write),
     session: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
     """Update the authenticated user's profile.
 
+    TD-029: get_current_user_write and Depends(get_db_session) share
+    the same session instance (FastAPI caches Depends within a request).
+    The user is already bound to the write session — no merge needed.
+
     Only fields present in the request body are updated.
-    User comes from get_current_user (read-only session), so service
-    merges it into the write session before updating.
     """
     updated = await update_user(user, body, session)
     return UserResponse.model_validate(updated)
