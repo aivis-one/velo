@@ -16,6 +16,9 @@
 #   MoodDistribution / RatingDistribution / PracticeInsightsResponse
 #
 # SUGGESTION-6 fix: ConfigDict(from_attributes=True) instead of dict style.
+# SUGGESTION-12.1 fix: comment max_length sourced from
+#   settings.diary_comment_max_length instead of hardcoded 1000.
+#   Change the value in config.py to take effect everywhere.
 # =============================================================================
 
 from datetime import datetime
@@ -23,6 +26,8 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.config import settings
 
 
 # ===================================================================
@@ -34,7 +39,11 @@ class CheckinRequest(BaseModel):
     """POST /api/v1/practices/{id}/checkin body."""
 
     mood: Literal["low", "mid", "high"]
-    comment: str | None = Field(default=None, min_length=1, max_length=1000)
+    comment: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=settings.diary_comment_max_length,
+    )
 
 
 class CheckinResponse(BaseModel):
@@ -71,7 +80,11 @@ class FeedbackRequest(BaseModel):
     """POST /api/v1/practices/{id}/feedback body."""
 
     rating: Literal["fire", "good", "confused"]
-    comment: str | None = Field(default=None, min_length=1, max_length=1000)
+    comment: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=settings.diary_comment_max_length,
+    )
 
 
 class FeedbackResponse(BaseModel):

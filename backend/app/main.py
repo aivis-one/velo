@@ -1,21 +1,17 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 8.4)
+# VELO Backend -- Application Entry Point (updated Phase 8.4, B-03)
 # =============================================================================
 #
 # ENDPOINTS:
 #   GET /        -> API name + version
 #   GET /health  -> DB + Redis connectivity check (always 200)
 #   GET /ready   -> Readiness probe (503 if degraded)
+#
+# B-03: allow_headers now lists headers explicitly instead of ["*"].
+#   Fetch spec forbids allow_headers=["*"] with allow_credentials=True.
 # =============================================================================
 
 import asyncio
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
-
-# TD-014: single source of truth for app version -- read from pyproject.toml.
-try:
-    _APP_VERSION = _pkg_version("velo-backend")
-except PackageNotFoundError:
-    _APP_VERSION = "0.1.0-dev"
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -130,7 +126,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="VELO API",
     description="Platform for wellness practice facilitators",
-    version=_APP_VERSION,
+    version="0.1.0",
     lifespan=lifespan,
 )
 
@@ -215,7 +211,9 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_credentials=not _allow_all,
     allow_methods=["*"],
-    allow_headers=["*"],
+    # B-03: Fetch spec forbids allow_headers=["*"] with allow_credentials=True.
+    # List headers explicitly. X-Trace-ID is our custom tracing header.
+    allow_headers=["Authorization", "Content-Type", "X-Trace-ID"],
 )
 
 # ---------------------------------------------------------------------------
@@ -232,7 +230,7 @@ app.add_middleware(TraceIdMiddleware)
 @app.get("/")
 async def root() -> dict:
     """Root endpoint -- API info."""
-    return {"name": "VELO API", "version": _APP_VERSION}
+    return {"name": "VELO API", "version": "0.1.0"}
 
 
 @app.get("/health")

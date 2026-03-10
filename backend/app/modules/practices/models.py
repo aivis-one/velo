@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Practice Model (Phase 4.1 + 4.3/4.4 pricing)
+# VELO Backend -- Practice Model (Phase 4.1 + 4.3/4.4 pricing, NEW-7)
 # =============================================================================
 #
 # A wellness practice session created by a verified master.
@@ -21,7 +21,8 @@
 # PRICING (Phase 4.3/4.4):
 #   is_free=True  -> price_cents MUST be 0 (enforced in service)
 #   is_free=False -> price_cents MUST be > 0 (enforced in service)
-#   currency defaults to EUR for MVP.
+#   currency defaults to "eur" (lowercase) consistent with all other
+#   payment models (Payment, Purchase, Withdrawal). NEW-7 fix.
 # =============================================================================
 
 import enum
@@ -32,7 +33,6 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
-    Index,
     Integer,
     String,
     Text,
@@ -70,12 +70,6 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "practices"
-
-    # WARNING-7: composite index for list_public_practices query pattern:
-    # WHERE status = ? AND scheduled_at >= ? ORDER BY scheduled_at
-    __table_args__ = (
-        Index("ix_practices_status_scheduled_at", "status", "scheduled_at"),
-    )
 
     # -- Owner --
     # R-07: index=True synced with existing ix_practices_master_id in DB.
@@ -128,10 +122,11 @@ class Practice(UUIDMixin, TimestampMixin, Base):
         default=0,
         server_default="0",
     )
+    # NEW-7: lowercase "eur" consistent with Payment, Purchase, Withdrawal.
     currency: Mapped[str] = mapped_column(
         String(3),
-        default="EUR",
-        server_default="EUR",
+        default="eur",
+        server_default="eur",
     )
 
     # -- Zoom (manual for MVP) --
