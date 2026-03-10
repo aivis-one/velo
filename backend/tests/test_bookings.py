@@ -64,7 +64,7 @@ def _valid_practice_body(**overrides: object) -> dict:
         "max_participants": 20,
         "is_free": True,
         "price_cents": 0,
-        "currency": "EUR",
+        "currency": "eur",
     }
     base.update(overrides)
     return base

@@ -13,6 +13,13 @@
 #   state is discarded and does not bleed into the next test.
 #   Tests that need data to persist use explicit session.commit() calls,
 #   which are unaffected by the rollback (only uncommitted state is cleared).
+#
+# WARNING-4 / CRITICAL-4 fix: flush_auth_redis_keys runs before every test.
+#   check_init_data_replay() writes init_data_used:{hash} with TTL=300s.
+#   check_auth_rate_limit() writes auth_rate:{telegram_id} with TTL=60s.
+#   Tests that call login_user() share telegram_ids and would collide:
+#   the second login within the TTL window gets 400 "already used".
+#   Deleting those key prefixes before each test prevents the cascade.
 # =============================================================================
 
 import subprocess
@@ -23,7 +30,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import dispose_engine, get_session_factory
-from app.core.redis import close_redis, init_redis
+from app.core.redis import close_redis, get_redis, init_redis
 from app.main import app
 
 
@@ -53,6 +60,25 @@ async def setup_infrastructure():
     # Cleanup.
     await close_redis()
     await dispose_engine()
+
+
+@pytest.fixture(autouse=True)
+async def flush_auth_redis_keys() -> AsyncGenerator[None, None]:
+    """Delete anti-replay and rate-limit Redis keys before each test.
+
+    WARNING-4: check_init_data_replay() stores init_data_used:{hash} TTL=300s.
+    CRITICAL-4: check_auth_rate_limit() stores auth_rate:{id} TTL=60s.
+
+    Tests that call login_user() with the same telegram_id would get
+    400 "already used" on the second call within the TTL window.
+    Deleting these keys before each test eliminates the collision.
+    """
+    redis = get_redis()
+    for pattern in ("init_data_used:*", "auth_rate:*"):
+        keys = await redis.keys(pattern)
+        if keys:
+            await redis.delete(*keys)
+    yield
 
 
 @pytest.fixture

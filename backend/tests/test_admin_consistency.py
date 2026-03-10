@@ -267,7 +267,7 @@ async def test_consistency_alert_participants_mismatch(
         current_participants=5,  # Stale value -- no bookings exist.
         is_free=True,
         price_cents=0,
-        currency="EUR",
+        currency="eur",
     )
     db_session.add(practice)
     await db_session.commit()

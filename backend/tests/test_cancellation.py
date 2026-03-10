@@ -178,7 +178,7 @@ async def _create_practice(
         "timezone": "UTC",
         "is_free": is_free,
         "price_cents": price_cents,
-        "currency": "EUR",
+        "currency": "eur",
     }
     if max_participants is not None:
         body["max_participants"] = max_participants
@@ -767,7 +767,7 @@ async def test_cancel_practice_wrong_status_400(
         "timezone": "UTC",
         "is_free": True,
         "price_cents": 0,
-        "currency": "EUR",
+        "currency": "eur",
     }
     resp = await client.post(
         PRACTICES_URL,
@@ -808,6 +808,11 @@ async def test_patch_status_cancelled_blocked(
     )
     # I-04: Pydantic Literal validation rejects before service (422 not 400).
     assert resp.status_code == 422
+
+
+# ===================================================================
+# AUDIT LOG TESTS
+# ===================================================================
 
 
 @pytest.mark.asyncio
