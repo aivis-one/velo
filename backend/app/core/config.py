@@ -235,14 +235,10 @@ class Settings(BaseSettings):
                     "provide your Telegram WebApp cancel page URL."
                 )
 
-        # WARNING-5: Disallow STRIPE_STUB in production.
-        # is_stripe_stub means STRIPE_SECRET_KEY="TEST", which disables
-        # webhook signature verification -- must never happen in production.
-        if not is_dev and self.is_stripe_stub:
-            raise ValueError(
-                "STRIPE_SECRET_KEY cannot be 'TEST' in production. "
-                "Provide your real Stripe secret key."
-            )
+        # WARNING-5: STRIPE_STUB check is intentionally NOT here.
+        # config.py is imported by Alembic migrations before app startup,
+        # so a startup-only guard must live in main.py lifespan, not here.
+        # See: lifespan() in main.py for the actual runtime enforcement.
 
         # CORS_ORIGINS: must not be wildcard in production (S-04).
         if not is_dev and self.cors_origins == "*":
