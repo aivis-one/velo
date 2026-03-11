@@ -52,6 +52,7 @@ if str(_backend_dir) not in sys.path:
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
@@ -88,8 +89,11 @@ NOW = datetime.now(timezone.utc)
 PRACTICE_TZ = "Europe/Berlin"
 
 # Topup amounts in EUR cents.
+# DUMMY_USER_TOPUP must exceed max possible practice debit sum across all
+# templates a single dummy user might be booked into:
+#   500+1000+2500+800+1200+1000+2000+1500+1800 = 12300 → 20000 is safe.
 REAL_USER_TOPUP = 15000   # EUR 150.00
-DUMMY_USER_TOPUP = 10000  # EUR 100.00
+DUMMY_USER_TOPUP = 20000  # EUR 200.00 (covers worst-case booking debit sum)
 
 # Terminal colors.
 G = "\033[0;32m"
@@ -882,6 +886,21 @@ async def create_seed_booking(
                 reference_id=purchase.id,
                 session=session,
             )
+        # Audit entry expected by semaphore 5.6 (mirrors finalize_purchases).
+        await record_audit(
+            event="purchase_completed",
+            actor_id=user.id,
+            actor_type="user",
+            target_type="purchase",
+            target_id=purchase.id,
+            data={
+                "practice_id": pid,
+                "paid_cents": purchase.paid_cents,
+                "commission_cents": commission,
+                "promo_id": None,
+            },
+            session=session,
+        )
     else:
         # Master credit (frozen -- practice pending).
         await record_master_ledger(
@@ -1063,6 +1082,14 @@ async def seed(reset: bool = False) -> None:
                 await record_user_ledger(
                     user_id=uid,
                     amount_cents=amount,
+                    reason=f"{SEED_REASON}topup",
+                    session=session,
+                )
+                # Offsetting company entry: platform received money (liability).
+                # Double-entry rule: user(+N) + company(-N) = 0.
+                await record_company_ledger(
+                    amount_cents=-amount,
+                    ledger_type=CompanyLedgerType.TOPUP.value,
                     reason=f"{SEED_REASON}topup",
                     session=session,
                 )

@@ -121,8 +121,9 @@ async def _check_count_count(
     ))
 
     # 1.3: Users with role=master == master_profiles rows.
+    # Admins also have verified MasterProfiles, so count both roles.
     master_users_stmt = select(func.count(User.id)).where(
-        User.role == UserRole.MASTER,
+        User.role.in_({UserRole.MASTER, UserRole.ADMIN}),
     )
     master_profiles_stmt = select(func.count(MasterProfile.user_id)).where(
         MasterProfile.data["account"]["status"].as_string() == "verified",
@@ -222,13 +223,15 @@ async def _check_sum_zero(
     )
     total_paid = (await session.execute(total_paid_stmt)).scalar_one()
 
-    # User debits for purchases (negative entries with "purchase:" reason).
+    # User debits for purchases (negative entries containing "purchase:").
+    # Pattern "%purchase:%" matches both live ("purchase:practice=…")
+    # and seed ("seed:purchase:practice=…") reasons.
     user_purchase_debits_stmt = select(
         func.coalesce(func.sum(func.abs(UserLedger.amount_cents)), 0),
     ).where(
         UserLedger.status == LedgerStatus.DONE.value,
         UserLedger.amount_cents < 0,
-        UserLedger.reason.like("purchase:%"),
+        UserLedger.reason.like("%purchase:%"),
     )
     user_purchase_debits = (await session.execute(user_purchase_debits_stmt)).scalar_one()
 

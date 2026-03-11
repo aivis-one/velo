@@ -43,11 +43,12 @@ from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
 from app.modules.payments.models import (
+    CompanyLedgerType,
     Payment,
     PaymentDirection,
     PaymentStatus,
 )
-from app.modules.payments.service import record_user_ledger
+from app.modules.payments.service import record_company_ledger, record_user_ledger
 
 logger = structlog.get_logger()
 
@@ -224,6 +225,16 @@ async def _create_stub_topup(
         reason=f"payment:{payment.id}",
         session=session,
         notes="Stub topup (Stripe not configured)",
+    )
+
+    # Offsetting company entry: platform received money from user (liability).
+    # Double-entry rule: user(+N) + company(-N) = 0.
+    await record_company_ledger(
+        amount_cents=-amount_cents,
+        ledger_type=CompanyLedgerType.TOPUP.value,
+        reason=f"topup:{payment.id}",
+        reference_id=payment.id,
+        session=session,
     )
 
     # Audit.
@@ -408,6 +419,16 @@ async def handle_checkout_completed(
         reason=f"payment:{payment.id}",
         session=session,
         notes=f"Stripe topup, session={stripe_session_id}",
+    )
+
+    # Offsetting company entry: platform received money from user (liability).
+    # Double-entry rule: user(+N) + company(-N) = 0.
+    await record_company_ledger(
+        amount_cents=-payment.amount_cents,
+        ledger_type=CompanyLedgerType.TOPUP.value,
+        reason=f"topup:{payment.id}",
+        reference_id=payment.id,
+        session=session,
     )
 
     # Audit.
