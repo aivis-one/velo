@@ -1,22 +1,19 @@
 # =============================================================================
-# VELO Backend -- Admin Consistency Service (Phase 6.8)
+# VELO Backend -- Admin Consistency Service (Phase 6.8, updated Phase 9)
 # =============================================================================
 #
-# Data consistency semaphores -- 21 checks across 5 categories.
+# Data consistency semaphores -- 22 checks across 5 categories.
 # All queries use pure ORM (no raw SQL). Session is read-only.
 #
 # CATEGORIES:
 #   1. COUNT = COUNT   (1.1 -- 1.4)  Cross-table row count parity.
 #   2. SUM = 0         (2.1 -- 2.2)  Double-entry accounting invariant.
 #   3. COMPUTED = ACTUAL (3.1 -- 3.5) Cached values match recalculated.
-#   4. ORPHAN DETECTION (4.1 -- 4.4) FK integrity beyond DB constraints.
+#   4. ORPHAN DETECTION (4.1 -- 4.5) FK integrity beyond DB constraints.
 #   5. BUSINESS INVARIANTS (5.1 -- 5.6) Domain rules.
 #
 # ALERTING:
-#   Phase 6.8 -- structlog only. Telegram alerts deferred to Phase 7.
-#
-# SKIPPED:
-#   4.5 (notification_deliveries) -- table does not exist yet (Phase 7).
+#   structlog only.
 #
 # SESSION RULES:
 #   Read-only (get_db_reader). No mutations, no commit.
@@ -35,6 +32,7 @@ from app.modules.admin.consistency.schemas import (
 )
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
+from app.modules.notifications.models import Notification, NotificationDelivery
 from app.modules.payments.models import (
     CompanyLedger,
     LedgerStatus,
@@ -585,6 +583,26 @@ async def _check_orphans(
         criticality="critical",
     ))
 
+    # 4.5: NotificationDelivery without a parent Notification (Phase 9).
+    # The FK has ondelete=CASCADE, so this should always be 0.
+    # The semaphore verifies the constraint is enforced correctly.
+    orphan_4_5_stmt = (
+        select(func.count())
+        .select_from(NotificationDelivery)
+        .where(
+            ~NotificationDelivery.notification_id.in_(select(Notification.id))
+        )
+    )
+    orphan_deliveries = (await session.execute(orphan_4_5_stmt)).scalar_one()
+    results.append(SemaphoreResult(
+        name="4.5_notification_deliveries_orphan_notification",
+        category="orphan_detection",
+        status="OK" if orphan_deliveries == 0 else "ALERT",
+        expected="0",
+        actual=str(orphan_deliveries),
+        criticality="critical",
+    ))
+
     return results
 
 
@@ -734,7 +752,7 @@ async def _check_invariants(
 async def run_all_semaphores(
     session: AsyncSession,
 ) -> ConsistencyResponse:
-    """Execute all 21 data consistency semaphores.
+    """Execute all 22 data consistency semaphores.
 
     Returns a ConsistencyResponse with individual results and summary.
     Logs ALERTs via structlog for operational visibility.

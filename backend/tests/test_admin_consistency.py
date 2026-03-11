@@ -1,5 +1,5 @@
 # =============================================================================
-# Test: Admin -- Data Consistency Semaphores (Phase 6.8)
+# Test: Admin -- Data Consistency Semaphores (Phase 6.8, updated Phase 9)
 # =============================================================================
 #
 # telegram_id ranges:
@@ -103,7 +103,7 @@ async def test_consistency_response_structure(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Response has correct structure with all 21 semaphores."""
+    """Response has correct structure with all 22 semaphores."""
     token = await _make_admin(client, db_session)
 
     resp = await client.get(
@@ -119,9 +119,9 @@ async def test_consistency_response_structure(
     assert "alert_count" in data
     assert "run_at" in data
 
-    # All 21 semaphores should be present.
-    assert data["total"] == 21
-    assert data["ok_count"] + data["alert_count"] == 21
+    # All 22 semaphores should be present.
+    assert data["total"] == 22
+    assert data["ok_count"] + data["alert_count"] == 22
 
     # Every item has required fields and valid status.
     for item in data["items"]:
@@ -143,7 +143,7 @@ async def test_consistency_all_semaphore_names(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """All 21 expected semaphores are present in response."""
+    """All 22 expected semaphores are present in response."""
     token = await _make_admin(client, db_session)
 
     resp = await client.get(
@@ -168,6 +168,7 @@ async def test_consistency_all_semaphore_names(
         "4.2_bookings_orphan_user",
         "4.3_purchases_orphan_user",
         "4.4_master_ledger_orphan_user",
+        "4.5_notification_deliveries_orphan_notification",
         "5.1_no_frozen_for_completed_practices",
         "5.2_no_negative_master_available",
         "5.3_no_negative_user_balance",
