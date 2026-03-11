@@ -1,12 +1,14 @@
 # =============================================================================
-# VELO Backend -- Admin Report Schemas (Phase 3.3)
+# VELO Backend -- Admin Report Schemas (Phase 3.3, NO-LITERALS)
 # =============================================================================
 #
-# Schemas for admin report management endpoints.
+# NO-LITERALS: resolution note field limits sourced from
+#   settings.admin_report_note_max_length -- change once, applies everywhere.
 # =============================================================================
 
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.modules.reports.schemas import ReportResponse
 
 
@@ -18,13 +20,17 @@ from app.modules.reports.schemas import ReportResponse
 class ResolveReportRequest(BaseModel):
     """Admin resolves a report."""
 
-    resolution_note: str = Field(min_length=1, max_length=2000)
+    resolution_note: str = Field(
+        min_length=1, max_length=settings.admin_report_note_max_length,
+    )
 
 
 class DismissReportRequest(BaseModel):
     """Admin dismisses a report."""
 
-    resolution_note: str | None = Field(default=None, max_length=2000)
+    resolution_note: str | None = Field(
+        default=None, max_length=settings.admin_report_note_max_length,
+    )
 
 
 # ---------------------------------------------------------------------------

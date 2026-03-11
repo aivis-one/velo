@@ -1,5 +1,9 @@
 # =============================================================================
-# VELO Backend -- Admin Withdrawals Schemas (Phase 6.6, Batch 3)
+# VELO Backend -- Admin Withdrawals Schemas (Phase 6.6, Batch 3, NO-LITERALS)
+# =============================================================================
+#
+# NO-LITERALS: note field limits sourced from
+#   settings.admin_action_note_max_length -- change once, applies everywhere.
 # =============================================================================
 
 from datetime import datetime
@@ -7,17 +11,23 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
+
 
 class ApproveWithdrawalRequest(BaseModel):
     """POST /admin/withdrawals/{id}/approve -- optional admin note."""
 
-    note: str | None = Field(default=None, max_length=1000)
+    note: str | None = Field(
+        default=None, max_length=settings.admin_action_note_max_length,
+    )
 
 
 class RejectWithdrawalRequest(BaseModel):
     """POST /admin/withdrawals/{id}/reject -- reason required."""
 
-    note: str = Field(min_length=1, max_length=1000)
+    note: str = Field(
+        min_length=1, max_length=settings.admin_action_note_max_length,
+    )
 
 
 class AdminWithdrawalResponse(BaseModel):

@@ -1,10 +1,16 @@
 # =============================================================================
-# VELO Backend -- Admin Master Schemas (Phase 2.3, moved Phase 3.1)
+# VELO Backend -- Admin Master Schemas (Phase 2.3, moved Phase 3.1, NO-LITERALS)
+# =============================================================================
+#
+# NO-LITERALS: note/reason field limits sourced from
+#   settings.admin_action_note_max_length -- change once, applies everywhere.
 # =============================================================================
 
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from app.core.config import settings
 
 
 # ---------------------------------------------------------------------------
@@ -15,7 +21,7 @@ class VerifyMasterRequest(BaseModel):
 
     notes: str | None = Field(
         default=None,
-        max_length=1000,
+        max_length=settings.admin_action_note_max_length,
         description="Optional admin notes about verification decision",
     )
 
@@ -26,7 +32,7 @@ class RejectMasterRequest(BaseModel):
     reason: str = Field(
         ...,
         min_length=1,
-        max_length=1000,
+        max_length=settings.admin_action_note_max_length,
         description="Reason for rejection (shown to applicant)",
     )
 
