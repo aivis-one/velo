@@ -118,6 +118,15 @@ class Settings(BaseSettings):
     # MVP: EUR only. To add a currency: extend this list + update Stripe config.
     practice_allowed_currencies: list[str] = ["eur"]
 
+    # Statuses allowed in PATCH /practices/{id} (I-04).
+    # "cancelled" is intentionally excluded: the only path to cancelled is
+    # POST /practices/{id}/cancel which handles refunds.
+    # Pydantic @field_validator raises ValueError -> FastAPI returns 422,
+    # which is the correct signal: schema-level rejection, not business logic.
+    practice_patch_allowed_statuses: list[str] = [
+        "draft", "scheduled", "live", "completed", "deleted",
+    ]
+
     # String field limits for Practice -- sourced here so that DB column sizes,
     # schema validators, and future admin UI all stay in sync.
     practice_title_max_length: int = 200

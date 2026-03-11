@@ -205,6 +205,27 @@ class UpdatePracticeRequest(BaseModel):
             )
         return v
 
+    @field_validator("status")
+    @classmethod
+    def status_must_be_patchable(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate status against patch-allowed values from config.
+
+        I-04: 'cancelled' is excluded from practice_patch_allowed_statuses.
+        The only path to cancelled is POST /practices/{id}/cancel (handles
+        refunds). Pydantic raises ValueError here -> FastAPI returns 422,
+        signalling schema-level rejection before the service layer.
+        """
+        if v is None:
+            return v
+        allowed = settings.practice_patch_allowed_statuses
+        if v not in allowed:
+            raise ValueError(
+                f"status must be one of {allowed}, got '{v}'"
+            )
+        return v
+
     @field_validator("scheduled_at")
     @classmethod
     def scheduled_at_must_be_future(
