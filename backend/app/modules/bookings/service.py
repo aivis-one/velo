@@ -216,7 +216,11 @@ async def create_booking(
         raise BadRequestError("Cannot book your own practice")
 
     active_count = await _get_active_booking_count(session, practice_id)
-    if active_count >= practice.max_participants:
+    # max_participants=None means unlimited capacity -- skip the check.
+    if (
+        practice.max_participants is not None
+        and active_count >= practice.max_participants
+    ):
         raise ConflictError("Practice is full")
 
     booking = Booking(
