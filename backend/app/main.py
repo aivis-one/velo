@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Entry Point (updated Phase 8.4, B-03)
+# VELO Backend -- Application Entry Point (updated Phase 9.1)
 # =============================================================================
 #
 # ENDPOINTS:
@@ -60,11 +60,13 @@ from app.modules.diary.router import (                             # Phase 8.1-8
     diary_router,
     practices_insights_router,
 )
+from app.modules.ai.router import router as ai_router              # Phase 9.1
 
 # Model imports for Alembic and relationship resolution.
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
 from app.modules.diary.models import Checkin, Feedback, DiaryEntry  # noqa: F401  # Phase 8.1-8.4
+# Library module has no active models yet (Phase 9.2 stub).
 
 # Notification processor (Phase 7.2).
 from app.modules.notifications.processor import run_processor  # Phase 7.2
@@ -152,6 +154,7 @@ app.include_router(practices_feedback_router)     # Phase 8.2
 app.include_router(feedbacks_router)              # Phase 8.2
 app.include_router(diary_router)                  # Phase 8.3
 app.include_router(practices_insights_router)     # Phase 8.4
+app.include_router(ai_router)                     # Phase 9.1
 
 
 # ---------------------------------------------------------------------------
