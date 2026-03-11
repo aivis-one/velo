@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Application Configuration (updated Phase 8.1, WARNING-5)
+# VELO Backend -- Application Configuration (updated Phase 8.1, WARNING-5, NO-LITERALS)
 # =============================================================================
 #
 # HOW IT WORKS:
@@ -80,14 +80,53 @@ class Settings(BaseSettings):
     # How long a session token lives in Redis (days).
     session_ttl_days: int = 30
 
+    # -- Auth security (Phase 1 auth/service.py) --
+    # Telegram initData validity window (seconds). Telegram signs initData
+    # with auth_date; we reject tokens older than this threshold.
+    # Also used as the Redis TTL for anti-replay protection (WARNING-4):
+    # once initData is accepted, its hash is stored for this duration so
+    # the same token cannot be reused within its validity window.
+    auth_init_data_ttl_seconds: int = 300  # 5 minutes
+
+    # Maximum allowed clock skew between client and server (seconds).
+    # Rejects initData with auth_date set in the future beyond this tolerance.
+    # Prevents tokens with a far-future auth_date from being valid indefinitely.
+    auth_clock_skew_seconds: int = 60
+
+    # Rate limiting for POST /auth/telegram (CRITICAL-4).
+    # Prevents Redis OOM from session flooding via replayed valid initData.
+    auth_rate_limit_max_requests: int = 5   # max attempts per window
+    auth_rate_limit_window_seconds: int = 60  # rolling window duration
+
     # -- Logging --
     # CQ-06: default INFO (not DEBUG) -- DEBUG is too noisy for production
     # and even dev. Override with LOG_LEVEL=DEBUG in .env if needed.
     log_level: str = "INFO"
 
-    # -- Practices (Phase 4.2) --
+    # -- Practices (Phase 4.1/4.2/4.3) --
     practice_min_duration_minutes: int = 5
     practice_max_duration_minutes: int = 480
+
+    # Allowed values for Practice.practice_type.
+    # Validated in practices/schemas.py via @field_validator -- no Literal.
+    # To add a new type: add it here, run migration, update frontend.
+    practice_allowed_types: list[str] = [
+        "live", "series", "one_on_one", "replay",
+    ]
+
+    # Accepted currency codes (lowercase ISO 4217).
+    # MVP: EUR only. To add a currency: extend this list + update Stripe config.
+    practice_allowed_currencies: list[str] = ["eur"]
+
+    # String field limits for Practice -- sourced here so that DB column sizes,
+    # schema validators, and future admin UI all stay in sync.
+    practice_title_max_length: int = 200
+    practice_description_max_length: int = 5000
+    practice_zoom_link_max_length: int = 500
+    practice_timezone_max_length: int = 50
+
+    # Upper cap for max_participants (ge=1 enforced in schema).
+    practice_max_participants_limit: int = 10000
 
     # -- Stripe (Phase 6.3) --
     stripe_secret_key: str = ""
@@ -140,6 +179,25 @@ class Settings(BaseSettings):
     # SUGGESTION-12.1: sourced here and referenced in diary/schemas.py
     # via settings.diary_comment_max_length -- change once, applies everywhere.
     diary_comment_max_length: int = 1000
+
+    # Allowed mood values for check-ins and diary entries.
+    # Validated via @field_validator -- no Literal in schemas.
+    diary_allowed_moods: list[str] = ["low", "mid", "high"]
+
+    # Allowed rating values for practice feedback.
+    # Validated via @field_validator -- no Literal in schemas.
+    diary_allowed_ratings: list[str] = ["fire", "good", "confused"]
+
+    # Diary entry field limits.
+    diary_entry_content_max_length: int = 10000
+    diary_entry_title_max_length: int = 200
+
+    # -- Admin (Phase 2.3 / 6.6 / 3.3) --
+    # Max length of admin notes on master verify/reject actions
+    # and withdrawal approve/reject notes.
+    admin_action_note_max_length: int = 1000
+    # Max length of report resolution notes.
+    admin_report_note_max_length: int = 2000
 
     @model_validator(mode="after")
     def _apply_env_defaults_and_validate(self) -> "Settings":

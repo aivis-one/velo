@@ -1,18 +1,30 @@
 # =============================================================================
-# VELO Backend -- Practice Schemas (Phase 4.2 + 4.3/4.4 + Frontend Backlog)
+# VELO Backend -- Practice Schemas (Phase 4.2 + 4.3/4.4 + Frontend Backlog,
+#                                   NO-LITERALS)
 # =============================================================================
 #
 # VALIDATION:
 #   - scheduled_at must be in the future
 #   - timezone must be a valid IANA timezone
 #   - duration_minutes must be within config bounds
-#   - practice_type validated via Literal
+#   - practice_type validated via @field_validator against settings.practice_allowed_types
 #
 # PRICING VALIDATION (Phase 4.3/4.4):
 #   - is_free=True  -> price_cents forced to 0 in service
 #   - is_free=False -> price_cents must be > 0 (validated in service)
-#   - currency validated via Literal (eur only for MVP)
-#   - NEW-7: Literal["eur"] (lowercase) consistent with all payment models
+#   - currency validated via @field_validator against settings.practice_allowed_currencies
+#   - NO-LITERALS: no Literal[...] anywhere -- all allowed values in config.py
+#
+# NO-LITERALS policy:
+#   All magic strings and magic numbers are sourced from settings:
+#     settings.practice_allowed_types      -- practice_type values
+#     settings.practice_allowed_currencies -- currency values
+#     settings.practice_title_max_length   -- title Field limit
+#     settings.practice_description_max_length
+#     settings.practice_zoom_link_max_length
+#     settings.practice_timezone_max_length
+#     settings.practice_max_participants_limit
+#   Change any of these in config.py -- schemas update automatically.
 #
 # PRACTICE SUMMARY (Frontend Backlog A-03):
 #   Lightweight practice representation for embedding in booking /
@@ -32,7 +44,6 @@
 # =============================================================================
 
 from datetime import datetime, timezone
-from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -44,23 +55,52 @@ from app.core.config import settings
 class CreatePracticeRequest(BaseModel):
     """POST /api/v1/practices -- request body."""
 
-    practice_type: Literal["live", "series", "one_on_one", "replay"]
-    title: str = Field(min_length=1, max_length=200)
-    description: str | None = Field(default=None, max_length=5000)
+    practice_type: str
+    title: str = Field(
+        min_length=1, max_length=settings.practice_title_max_length,
+    )
+    description: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
     scheduled_at: datetime
     duration_minutes: int
-    timezone: str = Field(max_length=50)
+    timezone: str = Field(max_length=settings.practice_timezone_max_length)
     max_participants: int | None = Field(
-        default=None, ge=1, le=10000,
+        default=None, ge=1, le=settings.practice_max_participants_limit,
     )
-    zoom_link: str | None = Field(default=None, max_length=500)
+    zoom_link: str | None = Field(
+        default=None, max_length=settings.practice_zoom_link_max_length,
+    )
     parent_practice_id: UUID | None = None
 
     # -- Pricing (Phase 4.3/4.4) --
     is_free: bool = True
     price_cents: int = Field(default=0, ge=0)
-    # NEW-7: lowercase "eur" consistent with Payment, Purchase, Withdrawal models.
-    currency: Literal["eur"] = "eur"
+    # Default to first allowed currency (settings.practice_allowed_currencies[0]).
+    # Validated via @field_validator against the full allowed list.
+    currency: str = Field(default="eur")
+
+    @field_validator("practice_type")
+    @classmethod
+    def practice_type_must_be_valid(cls, v: str) -> str:
+        """Validate practice_type against allowed values from config."""
+        allowed = settings.practice_allowed_types
+        if v not in allowed:
+            raise ValueError(
+                f"practice_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_valid(cls, v: str) -> str:
+        """Validate currency against allowed values from config."""
+        allowed = settings.practice_allowed_currencies
+        if v not in allowed:
+            raise ValueError(
+                f"currency must be one of {allowed}, got '{v}'"
+            )
+        return v
 
     @field_validator("scheduled_at")
     @classmethod
@@ -107,21 +147,63 @@ class UpdatePracticeRequest(BaseModel):
     with exclude_unset. Service layer guards against explicit null.
     """
 
-    practice_type: Literal["live", "series", "one_on_one", "replay"] | None = None
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = Field(default=None, max_length=5000)
+    practice_type: str | None = None
+    title: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=settings.practice_title_max_length,
+    )
+    description: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
     scheduled_at: datetime | None = None
     duration_minutes: int | None = None
-    timezone: str | None = Field(default=None, max_length=50)
-    max_participants: int | None = Field(default=None, ge=1, le=10000)
-    zoom_link: str | None = Field(default=None, max_length=500)
+    timezone: str | None = Field(
+        default=None, max_length=settings.practice_timezone_max_length,
+    )
+    max_participants: int | None = Field(
+        default=None, ge=1, le=settings.practice_max_participants_limit,
+    )
+    zoom_link: str | None = Field(
+        default=None, max_length=settings.practice_zoom_link_max_length,
+    )
     parent_practice_id: UUID | None = None
     status: str | None = None
 
     # -- Pricing (Phase 4.3/4.4) --
     is_free: bool | None = None
     price_cents: int | None = Field(default=None, ge=0)
-    currency: Literal["eur"] | None = None
+    currency: str | None = None
+
+    @field_validator("practice_type")
+    @classmethod
+    def practice_type_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate practice_type against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_types
+        if v not in allowed:
+            raise ValueError(
+                f"practice_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("currency")
+    @classmethod
+    def currency_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate currency against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_currencies
+        if v not in allowed:
+            raise ValueError(
+                f"currency must be one of {allowed}, got '{v}'"
+            )
+        return v
 
     @field_validator("scheduled_at")
     @classmethod
