@@ -52,7 +52,7 @@ if str(_backend_dir) not in sys.path:
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.audit import record_audit
+from app.core.audit import AuditLog, record_audit
 from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
@@ -526,28 +526,72 @@ async def reset_seed_data(session: AsyncSession) -> None:
     )
     log(f"  UserLedger:    {r.rowcount} deleted")
 
-    # 8. Purchases for seed practices.
+    # 8. Audit logs for seed purchases (must precede purchase deletion).
+    if seed_pids:
+        # Collect purchase IDs for seed practices before deleting them.
+        purchase_ids_stmt = select(Purchase.id).where(
+            Purchase.practice_id.in_(seed_pids)
+        )
+        seed_purchase_ids = [
+            row[0] for row in (await session.execute(purchase_ids_stmt)).all()
+        ]
+        if seed_purchase_ids:
+            r = await session.execute(
+                delete(AuditLog).where(
+                    AuditLog.target_id.in_(seed_purchase_ids),
+                    AuditLog.event.in_({
+                        "purchase_completed",
+                        "purchase_refunded",
+                    }),
+                )
+            )
+            log(f"  AuditLog:      {r.rowcount} deleted")
+
+    # 8b. UserLedger entries for seed practices (any reason containing practice id).
+    # Covers both "seed:purchase:practice={pid}" and "purchase:practice={pid}"
+    # (the latter occurs when real users buy seed practices through normal flow).
+    if seed_pids:
+        for pid in seed_pids:
+            pid_str = str(pid)
+            r = await session.execute(
+                delete(UserLedger).where(
+                    UserLedger.reason.like(f"%practice={pid_str}%"),
+                )
+            )
+            if r.rowcount:
+                log(f"  UserLedger (practice {pid_str[:8]}..): {r.rowcount} deleted")
+
+    # 8c. MasterLedger entries for seed practices (by practice_id FK).
+    if seed_pids:
+        r = await session.execute(
+            delete(MasterLedger).where(
+                MasterLedger.practice_id.in_(seed_pids),
+            )
+        )
+        log(f"  MasterLedger (by practice): {r.rowcount} deleted")
+
+    # 9. Purchases for seed practices.
     if seed_pids:
         r = await session.execute(
             delete(Purchase).where(Purchase.practice_id.in_(seed_pids))
         )
         log(f"  Purchases:     {r.rowcount} deleted")
 
-    # 9. Bookings for seed practices.
+    # 10. Bookings for seed practices.
     if seed_pids:
         r = await session.execute(
             delete(Booking).where(Booking.practice_id.in_(seed_pids))
         )
         log(f"  Bookings:      {r.rowcount} deleted")
 
-    # 10. Seed practices.
+    # 11. Seed practices.
     if seed_pids:
         r = await session.execute(
             delete(Practice).where(Practice.id.in_(seed_pids))
         )
         log(f"  Practices:     {r.rowcount} deleted")
 
-    # 11. Dummy master profiles.
+    # 12. Dummy master profiles.
     if dummy_uids:
         r = await session.execute(
             delete(MasterProfile).where(
@@ -556,7 +600,7 @@ async def reset_seed_data(session: AsyncSession) -> None:
         )
         log(f"  MasterProf:    {r.rowcount} deleted")
 
-    # 12. Dummy users.
+    # 13. Dummy users.
     r = await session.execute(
         delete(User).where(
             User.telegram_id.between(DUMMY_TID_MIN, DUMMY_TID_MAX),
@@ -566,7 +610,7 @@ async def reset_seed_data(session: AsyncSession) -> None:
 
     await session.flush()
 
-    # 13. Recalculate balances for affected REAL users.
+    # 14. Recalculate balances for affected REAL users.
     real_affected = [
         uid for uid in affected_uids if uid not in dummy_uids
     ]
@@ -585,7 +629,7 @@ async def reset_seed_data(session: AsyncSession) -> None:
         user.balance_cents = balance
         object.__setattr__(user, "_ledger_update", False)
 
-    # 14. Recalculate balances for affected REAL masters.
+    # 15. Recalculate balances for affected REAL masters.
     real_masters_affected = [
         mid for mid in affected_mids if mid not in dummy_uids
     ]
