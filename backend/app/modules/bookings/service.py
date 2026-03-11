@@ -45,6 +45,10 @@
 #
 # SESSION RULES:
 #   No session.commit() here (P-01). Router handles flush + refresh.
+#
+# B-05: list_user_bookings uses subquery pattern for count (same as
+#   list_user_checkins in diary/service.py). Eliminates parallel
+#   count_base query that required manual filter duplication.
 # =============================================================================
 
 from datetime import datetime, timedelta, timezone
@@ -184,21 +188,16 @@ async def create_booking(
     """Book a user into a practice.
 
     Validates:
-    - Practice exists and is scheduled.
+    - Practice exists and is in scheduled/live status.
     - User is not the practice owner.
-    - User has sufficient balance for paid practices.
-    - Capacity not exceeded (if max_participants set).
-    - No duplicate booking.
+    - Practice is not full.
+    - No active booking already exists (IntegrityError -> 409).
 
-    Free practices are auto-confirmed (pending -> confirmed).
-    Creates a Purchase with double-entry ledger (always, even free).
+    Phase 6.7: optional promo for discount calculation.
 
-    Phase 6.7: optional promo param for discount. Promo validation
-    is done by the caller (router). This function just passes it
-    through to create_purchase_for_booking.
+    Uses begin_nested() (SAVEPOINT) to catch IntegrityError
+    on the partial unique index without killing the outer transaction.
     """
-    # Load practice with FOR UPDATE (capacity check + booking
-    # must be atomic to prevent overbooking).
     stmt = (
         select(Practice)
         .where(Practice.id == practice_id)
@@ -210,27 +209,16 @@ async def create_booking(
     if not practice:
         raise NotFoundError("Practice not found")
 
-    # Only scheduled practices accept bookings.
-    if practice.status != PracticeStatus.SCHEDULED.value:
-        raise BadRequestError(
-            "Can only book scheduled practices"
-        )
+    if practice.status not in _JOINABLE_PRACTICE_STATUSES:
+        raise BadRequestError("Practice is not available for booking")
 
-    # Cannot book own practice.
     if practice.master_id == user.id:
-        raise BadRequestError(
-            "Cannot book your own practice"
-        )
+        raise BadRequestError("Cannot book your own practice")
 
-    # Check capacity.
-    if practice.max_participants is not None:
-        active_count = await _get_active_booking_count(
-            session, practice_id,
-        )
-        if active_count >= practice.max_participants:
-            raise BadRequestError("Practice is full")
+    active_count = await _get_active_booking_count(session, practice_id)
+    if active_count >= practice.max_participants:
+        raise ConflictError("Practice is full")
 
-    # Create booking (auto-confirm for free practices).
     booking = Booking(
         practice_id=practice_id,
         user_id=user.id,
@@ -238,7 +226,6 @@ async def create_booking(
     )
     session.add(booking)
 
-    # Flush to trigger UniqueConstraint check (P-05).
     try:
         async with session.begin_nested():
             await session.flush()
@@ -630,6 +617,10 @@ async def list_user_bookings(
 ) -> tuple[list[tuple[Booking, Practice]], int]:
     """List bookings for a user with practice details (paginated).
 
+    B-05: count derived from base query subquery instead of maintaining
+    a parallel count_base with duplicated filter clauses. Same pattern
+    as list_user_checkins in diary/service.py.
+
     Returns:
         Tuple of (list of (Booking, Practice) pairs, total count).
     """
@@ -638,16 +629,16 @@ async def list_user_bookings(
         .join(Practice, Booking.practice_id == Practice.id)
         .where(Booking.user_id == user.id)
     )
-    count_base = (
-        select(func.count(Booking.id))
-        .where(Booking.user_id == user.id)
-    )
 
     if status_filter:
         base = base.where(Booking.status == status_filter)
-        count_base = count_base.where(Booking.status == status_filter)
 
-    total = (await session.execute(count_base)).scalar_one()
+    # Count via subquery -- filters applied exactly once, no duplication.
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
 
     items_stmt = (
         base

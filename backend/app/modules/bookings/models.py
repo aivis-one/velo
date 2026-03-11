@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Booking Model (Phase 5.1)
+# VELO Backend -- Booking Model (Phase 5.1, updated B-04)
 # =============================================================================
 #
 # A booking ties a user to a practice session.
@@ -24,6 +24,17 @@
 #   Partial unique index on (practice_id, user_id) WHERE status != 'cancelled'.
 #   This allows re-booking after cancellation while preventing duplicate
 #   active bookings. Old absolute UniqueConstraint blocked re-booking.
+#
+# UNIQUE INDEX (B-04):
+#   Partial unique index on purchase_id WHERE purchase_id IS NOT NULL.
+#   Enforces 1:1 Booking <-> Purchase at the DB level from the Booking side.
+#   Purchase.booking_id already has unique=True (the other side of the 1:1).
+#   Partial (NOT NULL filter) because purchase_id is nullable -- NULL rows
+#   are excluded from uniqueness checks in PostgreSQL by default, but we
+#   make the intent explicit via the WHERE clause for clarity.
+#   Migration: 2026_03_11_f3a4b5c6d7e8_unique_booking_purchase_id.
+#   Replaces the plain B-tree index ix_bookings_purchase_id (dropped in
+#   that migration) -- the unique index already covers lookup performance.
 #
 # INDEXES (R-07):
 #   practice_id and user_id have individual B-tree indexes for:
@@ -85,9 +96,11 @@ class Booking(UUIDMixin, TimestampMixin, Base):
     )
 
     # -- Purchase --
+    # B-04: index moved to __table_args__ as a partial unique index.
+    # Do NOT add index=True here -- that would create a duplicate plain
+    # B-tree index alongside the unique index defined below.
     purchase_id: Mapped[UUID | None] = mapped_column(
         default=None,
-        index=True,
     )
 
     # -- Cancellation --
@@ -106,15 +119,24 @@ class Booking(UUIDMixin, TimestampMixin, Base):
         DateTime(timezone=True), default=None,
     )
 
-    # H-02: partial unique index -- prevents duplicate active bookings
-    # but allows re-booking after cancellation.
     __table_args__ = (
+        # H-02: prevents duplicate active bookings, allows re-booking
+        # after cancellation.
         Index(
             "uq_booking_practice_user_active",
             "practice_id",
             "user_id",
             unique=True,
             postgresql_where=text("status != 'cancelled'"),
+        ),
+        # B-04: enforces 1:1 Booking <-> Purchase from the Booking side.
+        # WHERE purchase_id IS NOT NULL: NULL rows are allowed (booking
+        # exists before purchase is created), but once set, must be unique.
+        Index(
+            "uq_booking_purchase_id",
+            "purchase_id",
+            unique=True,
+            postgresql_where=text("purchase_id IS NOT NULL"),
         ),
     )
 
