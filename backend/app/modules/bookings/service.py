@@ -221,7 +221,7 @@ async def create_booking(
         practice.max_participants is not None
         and active_count >= practice.max_participants
     ):
-        raise ConflictError("Practice is full")
+        raise BadRequestError("Practice is full")
 
     booking = Booking(
         practice_id=practice_id,
