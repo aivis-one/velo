@@ -4,10 +4,19 @@
 #
 # Utility functions used across multiple test files.
 # Not a conftest (no fixtures here) — just plain functions.
+#
+# ANTI-REPLAY FIX (build_init_data):
+#   _init_data_counter ensures every call produces a unique query_id field.
+#   Without it, two login_user() calls for the same telegram_id in the same
+#   second (e.g. in _make_verified_master: first login, then re-login after
+#   role upgrade) share identical params -> identical HMAC hash -> the 2nd
+#   call hits anti-replay protection and gets 400 "initData already used".
+#   query_id is a real Telegram initData field, HMAC validation accepts it.
 # =============================================================================
 
 import hashlib
 import hmac
+import itertools
 import json
 import time
 from unittest.mock import patch
@@ -39,19 +48,32 @@ from app.modules.withdrawals.models import Withdrawal
 
 BOT_TOKEN = "123456:ABC-DEF"
 
+# Module-level counter: makes every build_init_data() call produce a unique
+# query_id field in initData. Without this, two login_user() calls for the
+# same telegram_id within the same second generate identical auth_date + user
+# params -> identical HMAC hash -> anti-replay protection blocks the 2nd call.
+# query_id is a real Telegram initData field, so HMAC validation accepts it.
+_init_data_counter = itertools.count(1)
+
 
 def build_init_data(
     user_data: dict,
     bot_token: str = BOT_TOKEN,
     auth_date: int | None = None,
 ) -> str:
-    """Build a valid Telegram initData query string with correct HMAC."""
+    """Build a valid Telegram initData query string with correct HMAC.
+
+    Includes a unique query_id on every call (via _init_data_counter) so
+    that multiple calls for the same telegram_id within the same second
+    produce different hashes and don't trigger anti-replay protection.
+    """
     if auth_date is None:
         auth_date = int(time.time())
 
     params = {
         "user": json.dumps(user_data),
         "auth_date": str(auth_date),
+        "query_id": str(next(_init_data_counter)),
     }
 
     data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(params.items()))
