@@ -98,6 +98,7 @@ class CompanyLedgerType(enum.StrEnum):
     MARKETING = "marketing"
     REFUND = "refund"
     WITHDRAWAL_FEE = "withdrawal_fee"
+    TOPUP = "topup"
 
 
 class PaymentDirection(enum.StrEnum):
