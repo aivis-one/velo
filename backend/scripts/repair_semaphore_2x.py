@@ -116,28 +116,31 @@ async def _fix_2_1(session: AsyncSession, dry_run: bool) -> None:
     skipped = 0
 
     for entry in refund_entries:
-        # Idempotency: check if company entry already exists.
+        # Make reason unique per user so idempotency works per-entry.
+        per_user_reason = f"{COMPANY_REASON}:user={entry.user_id}"
+
+        # Idempotency: check if company entry already exists for this user.
         existing = (await session.execute(
             select(CompanyLedger.id).where(
-                CompanyLedger.reason == COMPANY_REASON,
+                CompanyLedger.reason == per_user_reason,
             ).limit(1)
         )).scalar_one_or_none()
 
         if existing:
-            warn(f"  Company offset already exists — skipping.")
+            warn(f"  Company offset already exists for user {entry.user_id} — skipping.")
             skipped += 1
             continue
 
         log(
             f"  {'[DRY] Would create' if dry_run else 'Creating'} "
-            f"CompanyLedger(amount={-entry.amount_cents}, reason={COMPANY_REASON!r})"
+            f"CompanyLedger(amount={-entry.amount_cents}, reason={per_user_reason!r})"
         )
 
         if not dry_run:
             await record_company_ledger(
                 amount_cents=-entry.amount_cents,
                 ledger_type=CompanyLedgerType.REFUND.value,
-                reason=COMPANY_REASON,
+                reason=per_user_reason,
                 session=session,
             )
         created += 1
