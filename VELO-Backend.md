@@ -1,9 +1,9 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.0
-**Дата:** 8 марта 2026
+**Версия:** 1.1
+**Дата:** 12 марта 2026
 **Статус:** Active
-**Тесты:** 402 passed, 3 skipped
+**Тесты:** 417 passed, 3 skipped
 
 ---
 
@@ -21,7 +21,8 @@
 | `waitlist` | `app/modules/waitlist/` | Очередь ожидания |
 | `payments` | `app/modules/payments/` | Stripe, пополнение баланса |
 | `promos` | `app/modules/promos/` | Промокоды (Company + Master) |
-| `ledgers` | `app/modules/ledgers/` | Double-entry журналы (user/master/company) |
+| `withdrawals` | `app/modules/withdrawals/` | Запросы на вывод средств |
+| `reports` | `app/modules/reports/` | Жалобы пользователей |
 | `notifications` | `app/modules/notifications/` | Telegram-бот, процессор, шаблоны, напоминания |
 | `diary` | `app/modules/diary/` | Check-ins, feedbacks, diary entries, insights |
 | `admin` | `app/modules/admin/` | Верификация мастеров, модерация, семафоры |
@@ -36,6 +37,7 @@
 | `app/core/exceptions.py` | `VeloError` → `NotFoundError`, `ForbiddenError`, `ConflictError`, `BadRequestError`, `UnauthorizedError` |
 | `app/core/mixins.py` | `UUIDMixin`, `TimestampMixin`, `JSONBMixin` |
 | `app/core/logging.py` | structlog setup (`setup_logging()`) |
+| `app/core/audit.py` | `record_audit()`, `AuditLog` model |
 
 ---
 
@@ -52,36 +54,41 @@ POST /api/v1/auth/logout-all        -- Выход со всех устройст
 ### Users
 
 ```
-GET  /api/v1/users/me               -- Мой профиль
+GET   /api/v1/users/me              -- Мой профиль
 PATCH /api/v1/users/me              -- Обновить профиль
+GET   /api/v1/users/me/checkins     -- Мои check-ins (пагинация)
+GET   /api/v1/users/me/feedbacks    -- Мои feedbacks (пагинация)
 ```
 
 ### Masters
 
 ```
-POST /api/v1/masters/apply                          -- Подать заявку на мастера
-GET  /api/v1/masters/{id}                           -- Профиль мастера (публичный)
-PATCH /api/v1/masters/me                            -- Обновить профиль мастера
-GET  /api/v1/masters/me/earnings                    -- Мои заработки
-POST /api/v1/masters/me/transfer                    -- Перевод Available → User Balance
-POST /api/v1/masters/me/withdraw                    -- Запрос на вывод средств
-GET  /api/v1/masters/me/withdrawals                 -- История выводов
-PATCH /api/v1/masters/me/payout-details             -- Обновить реквизиты для выплат
+POST  /api/v1/masters/apply                         -- Подать заявку на мастера
+GET   /api/v1/masters/me                            -- Мой профиль мастера
+PATCH /api/v1/masters/me/payout                     -- Обновить реквизиты для выплат
+GET   /api/v1/masters/me/practices                  -- Мои практики (пагинация)
+POST  /api/v1/masters/me/promos                     -- Создать мастерский промокод
+GET   /api/v1/masters/me/promos                     -- Мои промокоды (пагинация)
+PATCH /api/v1/masters/me/promos/{id}/deactivate     -- Деактивировать промокод
+POST  /api/v1/masters/me/withdraw                   -- Запрос на вывод средств
+GET   /api/v1/masters/me/withdrawals                -- История выводов (пагинация)
 ```
 
 ### Practices
 
 ```
-GET  /api/v1/practices              -- Публичный фид практик (фильтры: type, status, date, master)
-POST /api/v1/practices              -- Создать практику (мастер)
-GET  /api/v1/practices/{id}         -- Детали практики
-PATCH /api/v1/practices/{id}        -- Обновить практику (владелец)
-DELETE /api/v1/practices/{id}       -- Удалить черновик (владелец)
-POST /api/v1/practices/{id}/cancel  -- Отменить практику + возврат всем
-POST /api/v1/practices/{id}/checkin     -- Создать/обновить check-in
-POST /api/v1/practices/{id}/feedback    -- Создать/обновить feedback
-GET  /api/v1/practices/{id}/insights    -- Агрегированные insights (мастер)
-GET  /api/v1/practices/{id}/ai-summary  -- AI-саммари (розетка, Phase 9)
+GET    /api/v1/practices                        -- Публичный фид (фильтры: type, status, date, master)
+POST   /api/v1/practices                        -- Создать практику (мастер)
+GET    /api/v1/practices/{id}                   -- Детали практики
+PATCH  /api/v1/practices/{id}                   -- Обновить практику (владелец)
+DELETE /api/v1/practices/{id}                   -- Удалить черновик (владелец)
+POST   /api/v1/practices/{id}/cancel            -- Отменить практику + возврат всем
+POST   /api/v1/practices/{id}/finalize          -- Завершить практику (мастер)
+GET    /api/v1/practices/{id}/attendance        -- Список посещаемости (мастер)
+POST   /api/v1/practices/{id}/checkin           -- Создать/обновить check-in (юзер)
+POST   /api/v1/practices/{id}/feedback          -- Создать/обновить feedback (юзер)
+GET    /api/v1/practices/{id}/insights          -- Агрегированные insights (мастер)
+GET    /api/v1/practices/{id}/ai-summary        -- AI-саммари (розетка, Phase 9)
 ```
 
 ### Bookings
@@ -93,8 +100,6 @@ GET    /api/v1/bookings/{id}        -- Детали бронирования
 DELETE /api/v1/bookings/{id}        -- Отменить бронирование
 POST   /api/v1/bookings/{id}/join   -- Отметить приход (мастер)
 POST   /api/v1/bookings/{id}/leave  -- Отметить уход (мастер)
-POST   /api/v1/practices/{id}/finalize      -- Завершить практику (мастер)
-GET    /api/v1/practices/{id}/attendance    -- Список посещаемости (мастер)
 ```
 
 ### Waitlist
@@ -109,53 +114,65 @@ GET    /api/v1/practices/{id}/waitlist      -- Список очереди (ма
 
 ```
 POST /api/v1/payments/topup                 -- Создать сессию пополнения (Stripe Checkout)
-GET  /api/v1/payments/topup/success         -- Страница успеха
-GET  /api/v1/payments/topup/cancel          -- Страница отмены
-POST /api/v1/payments/stripe/webhook        -- Stripe webhook (payment.succeeded и др.)
+GET  /api/v1/payments/topup/success         -- Страница успеха (redirect)
+GET  /api/v1/payments/topup/cancel          -- Страница отмены (redirect)
+POST /webhooks/stripe                       -- Stripe webhook (checkout.session.completed / expired)
 ```
 
-### Promos
+### Reports
 
 ```
-POST /api/v1/promos                         -- Создать промокод (мастер или админ)
-GET  /api/v1/promos                         -- Мои промокоды (мастер)
-DELETE /api/v1/promos/{id}                  -- Деактивировать промокод
+POST  /api/v1/reports               -- Создать жалобу (или получить существующую — 200 если дубль)
+PATCH /api/v1/reports/{id}          -- Редактировать свою pending-жалобу
+GET   /api/v1/reports/me            -- Мои жалобы (пагинация)
 ```
 
 ### Diary
 
 ```
-POST   /api/v1/diary                        -- Создать запись дневника
-GET    /api/v1/diary                        -- Мои записи дневника (пагинация)
-GET    /api/v1/diary/{id}                   -- Запись дневника
-PATCH  /api/v1/diary/{id}                   -- Обновить запись
-DELETE /api/v1/diary/{id}                   -- Удалить запись
-GET    /api/v1/users/me/checkins            -- Мои check-ins (пагинация)
-GET    /api/v1/users/me/feedbacks           -- Мои feedbacks (пагинация)
+POST   /api/v1/diary                -- Создать запись дневника
+GET    /api/v1/diary                -- Мои записи дневника (пагинация)
+GET    /api/v1/diary/{id}           -- Запись дневника
+PATCH  /api/v1/diary/{id}           -- Обновить запись
+DELETE /api/v1/diary/{id}           -- Удалить запись
 ```
 
 ### Admin
 
 ```
-GET  /api/v1/admin/stats                    -- Метрики платформы
-GET  /api/v1/admin/masters/pending          -- Мастера на верификации
-GET  /api/v1/admin/masters/list             -- Все мастера
-GET  /api/v1/admin/masters/{id}             -- Профиль мастера для ревью
-POST /api/v1/admin/masters/{id}/verify      -- Верифицировать мастера
-POST /api/v1/admin/masters/{id}/reject      -- Отклонить заявку
-GET  /api/v1/admin/reports                  -- Список жалоб (фильтр по статусу/типу)
-GET  /api/v1/admin/reports/{id}             -- Детали жалобы
-POST /api/v1/admin/reports/{id}/resolve     -- Обработать жалобу
-POST /api/v1/admin/reports/{id}/dismiss     -- Отклонить жалобу
-GET  /api/v1/admin/consistency              -- Data consistency семафоры
+GET  /api/v1/admin/stats                            -- Метрики платформы
+
+GET  /api/v1/admin/users                            -- Все юзеры (фильтры: role, is_active)
+GET  /api/v1/admin/masters/pending                  -- Мастера на верификации
+GET  /api/v1/admin/masters/list                     -- Все мастера (фильтр: status)
+GET  /api/v1/admin/masters/{id}                     -- Профиль мастера для ревью
+POST /api/v1/admin/masters/{id}/verify              -- Верифицировать мастера
+POST /api/v1/admin/masters/{id}/reject              -- Отклонить заявку
+
+GET  /api/v1/admin/reports                          -- Список жалоб (фильтры: status, target_type)
+GET  /api/v1/admin/reports/{id}                     -- Детали жалобы
+POST /api/v1/admin/reports/{id}/resolve             -- Обработать жалобу
+POST /api/v1/admin/reports/{id}/dismiss             -- Отклонить жалобу
+
+GET  /api/v1/admin/withdrawals                      -- Список выводов (фильтр: status)
+POST /api/v1/admin/withdrawals/{id}/approve         -- Одобрить вывод
+POST /api/v1/admin/withdrawals/{id}/reject          -- Отклонить вывод
+
+POST /api/v1/admin/promos                           -- Создать company-промокод
+GET  /api/v1/admin/promos                           -- Список company-промокодов
+PATCH /api/v1/admin/promos/{id}/deactivate          -- Деактивировать промокод
+
+GET  /api/v1/admin/consistency                      -- Data consistency семафоры
+
+POST /api/v1/admin/templates/reload                 -- Перезагрузить шаблоны уведомлений
 ```
 
 ### System
 
 ```
-GET /                                       -- {"name": "VELO API", "version": "..."}
-GET /health                                 -- {"status": "ok", "db": "ok", "redis": "ok"} (всегда 200)
-GET /ready                                  -- То же, но 503 при деградации
+GET /           -- {"name": "VELO API", "version": "..."}
+GET /health     -- {"status": "ok", "db": "ok", "redis": "ok"} (всегда 200)
+GET /ready      -- То же, но 503 при деградации
 ```
 
 ---
@@ -218,13 +235,13 @@ await session.refresh(obj)
 Допустимые переходы:
 
 ```
-draft → scheduled   (мастер публикует)
-scheduled → live    (практика началась)
-scheduled → cancelled (отмена)
-live → completed    (finalize)
-live → cancelled    (отмена)
-completed → (финал, нет переходов)
-cancelled → (финал, нет переходов)
+draft      -> scheduled   (мастер публикует)
+scheduled  -> live        (практика началась)
+scheduled  -> cancelled   (отмена)
+live       -> completed   (finalize)
+live       -> cancelled   (отмена)
+completed  -> (финал, нет переходов)
+cancelled  -> (финал, нет переходов)
 ```
 
 ### 3.4. Pydantic PATCH — NOT NULL поля
@@ -269,7 +286,7 @@ logger.info("booking.created", booking_id=str(booking.id), user_id=str(user.id))
 | Журнал | Таблица | Содержимое |
 |--------|---------|------------|
 | User Ledger | `user_ledger` | Пополнения, списания, возвраты юзера |
-| Master Ledger | `master_ledger` | Продажи (frozen → available), комиссии, выводы |
+| Master Ledger | `master_ledger` | Продажи (frozen -> available), комиссии, выводы |
 | Company Ledger | `company_ledger` | Комиссии, маркетинг, возвраты |
 
 В `master_ledger` есть флаг `is_frozen`: деньги locked до завершения практики.
@@ -277,50 +294,17 @@ logger.info("booking.created", booking_id=str(booking.id), user_id=str(user.id))
 
 **Прямое изменение балансов запрещено.** Только через ledger-записи + listeners.
 
-### 4.2. Основные финансовые flow
+### 4.2. Stripe интеграция
 
-**Покупка практики:**
-1. `user_ledger`: -amount (списание с юзера)
-2. `master_ledger`: +amount, `is_frozen=True` (заморозка у мастера)
-3. Listener: `MasterProfile.frozen_cents += amount`
+Топап-флоу: `POST /payments/topup` → Stripe Checkout Session → webhook `checkout.session.completed` → `UserLedger(+N)` + `CompanyLedger(-N)`.
 
-**Завершение практики:**
-1. `master_ledger`: `is_frozen=False` (разморозка)
-2. Listener: `frozen -= amount`, `available += amount`
-3. `master_ledger`: `-commission` (15%)
-4. `company_ledger`: `+commission`
-5. Listener: `MasterProfile.available_cents -= commission`
+Stub-режим (`STRIPE_SECRET_KEY="TEST"`): обходит Stripe, мгновенно подтверждает оплату. Только для разработки.
 
-**Отмена практики мастером (автовозврат):**
-1. `master_ledger`: -amount из frozen (для каждого участника)
-2. `user_ledger`: +amount (возврат юзеру)
-3. Σ = 0 ✓
+### 4.3. Вывод средств
 
-**Отмена юзером > 24ч:** 100% возврат.
-**Отмена юзером < 24ч:** деньги остаются у мастера, стандартная разморозка после практики.
-
-### 4.3. Промокоды
-
-Два типа:
-
-| Тип | Кто создаёт | Кто платит за скидку |
-|-----|------------|----------------------|
-| **Company Promo** | Админ | Компания (из `company_ledger`) |
-| **Master Promo** | Мастер | Мастер (снижает свою выручку) |
-
-Комиссия платформы всегда 15% от **фактически уплаченной** суммы.
-Бесплатная практика или 100% промокод = нулевые записи = комиссия $0.
-
-Разрешённые градации скидки: `promo_allowed_discounts` в `config.py` (дефолт: `[5, 25, 50, 75, 100]`).
-
-### 4.4. Вывод средств
-
-- Только из `available_cents`
-- Минимальная сумма: `min_withdrawal_cents` (дефолт: 5000 = €50)
-- Комиссия за вывод: `withdrawal_fee_cents` (дефолт: 200 = €2)
-- Подтверждение: вручную (admin)
-- Статусы: `pending → confirmed` (admin) или `pending → rejected` (admin)
-- Физический перевод: вне системы (банковский перевод)
+Флоу: `POST /masters/me/withdraw` (freeze) → admin approve/reject → `MasterLedger(-N frozen)` + `CompanyLedger(+fee)` + `Payment(OUT)`.
+Минимальная сумма: `MIN_WITHDRAWAL_CENTS` (дефолт 5000 = €50).
+Комиссия за вывод: `WITHDRAWAL_FEE_CENTS` (дефолт 200 = €2).
 
 ---
 
@@ -328,30 +312,19 @@ logger.info("booking.created", booking_id=str(booking.id), user_id=str(user.id))
 
 ### 5.1. Архитектура
 
-Двухуровневая: `Notification` (что) → `NotificationDelivery` (кому, каким каналом).
+Два уровня:
+- `Notification` — что отправить, кому (channel-agnostic).
+- `NotificationDelivery` — конкретная доставка: юзер + канал + статус.
 
-Процессор — background `asyncio.Task` в FastAPI lifespan. Polling с exponential backoff (5s → 60s).
+### 5.2. Процессор
 
-Канальный интерфейс: `ChannelFormatter` Protocol. Текущая реализация: `TelegramFormatter`. Заготовки: `WEB_PUSH`, `IN_APP`, `EMAIL` (Phase 10).
-
-### 5.2. Типы уведомлений (21 тип)
-
-```
-Напоминания юзеру:   reminder_24h, reminder_1h, reminder_10min
-Напоминания мастеру: master_reminder_24h, master_reminder_1h, master_reminder_10min
-Бронирования:        booking_confirmed, booking_cancelled
-Практики:            practice_cancelled, practice_updated
-Waitlist:            waitlist_spot_available, waitlist_expired
-Мастера:             master_verified, master_rejected
-Платежи:             topup_confirmed, withdrawal_approved, withdrawal_rejected
-Feedback:            leave_review, leave_feedback
-Система:             system_announcement
-```
+Фоновая задача (`notifications/processor.py`). Забирает pending Notification, резолвит target → список юзеров, создаёт `NotificationDelivery` per-user, отправляет через channel-formatter.
 
 ### 5.3. Шаблоны
 
 Языки: `ru`, `en`, `de`, `es`. Файлы: `notifications/templates/{lang}.yaml`.
 Язык выбирается по `User.language`. По умолчанию: `en`.
+Перезагрузка без рестарта: `POST /api/v1/admin/templates/reload`.
 
 ### 5.4. Напоминания
 
@@ -370,7 +343,7 @@ Feedback:            leave_review, leave_feedback
 
 | Категория | Пример |
 |-----------|--------|
-| **COUNT = COUNT** | bookings ↔ purchases, users(role=master) ↔ master_profiles |
+| **COUNT = COUNT** | bookings ↔ purchases, users(role=master+admin) ↔ master_profiles |
 | **SUM = 0** | Σ(user_ledger + master_ledger + company_ledger) = 0 |
 | **Computed = Actual** | `User.balance_cents` = SUM(user_ledger), `MasterProfile.available_cents` = SUM(master_ledger WHERE NOT frozen) |
 | **Orphan Detection** | booking без practice = 0, notification_delivery без user = 0 |
@@ -393,7 +366,7 @@ Feedback:            leave_review, leave_feedback
 | `DATABASE_URL` | — | Обязателен в production |
 | `TELEGRAM_BOT_TOKEN` | `""` | Токен бота |
 | `TELEGRAM_BOT_URL` | `""` | URL бота для deep links |
-| `STRIPE_SECRET_KEY` | `""` | Stripe API key |
+| `STRIPE_SECRET_KEY` | `""` | Stripe API key (`"TEST"` = stub mode) |
 | `STRIPE_WEBHOOK_SECRET` | `""` | Stripe webhook signature |
 | `COMMISSION_PERCENT` | `15` | Комиссия платформы (%) |
 | `MIN_WITHDRAWAL_CENTS` | `5000` | Минимальный вывод (€50.00) |
@@ -408,7 +381,7 @@ Feedback:            leave_review, leave_feedback
 
 ## 8. Тесты
 
-402 passed, 3 skipped. Все запускаются внутри Docker:
+417 passed, 3 skipped. Все запускаются внутри Docker:
 
 ```bash
 velo test          # все тесты
@@ -429,6 +402,8 @@ velo lint          # ruff check
 | reminders | 84xxx |
 | diary | 86xxx |
 | admin | 87xxx |
+| cancellation | 76xxx |
+| withdrawals | 75xxx |
 
 ---
 
@@ -445,34 +420,24 @@ velo lint          # ruff check
 |----|------|----------|---------|
 | **TD-RU-PROXY** | Инфра | Hetzner IP заблокирован ТСПУ. Недоступен из России без VPN | Российский reverse proxy (Timeweb/Selectel ~300-500₽/мес) или DDoS-Guard CDN |
 | **CRITICAL-4** | `auth/router.py` | Нет rate limiting на `POST /auth/telegram`. Replay valid initData в 5-минутном окне → тысячи Redis-сессий | `slowapi` или Redis-based limiter |
+| **WARNING-4** | `auth/router.py` | Telegram initData replay в 5-минутном окне — нет защиты от повторного использования | Redis SET `used_init_data:{hash}` с TTL 5 минут |
+| **WARNING-5** | `payments/webhook.py` | Stripe webhook signature не проверяется при `STRIPE_STUB=true` | Запрет `STRIPE_STUB` в production через config validator |
 | TD-025 | Все роутеры | Нет rate limiting на masters endpoints | `slowapi` или Redis-based custom limiter |
 | TD-026 | `docker-compose.yml` | Redis без пароля | `requirepass` + `REDIS_PASSWORD` в .env |
 
-### Ревью v2 — открытые находки (март 2026)
+### Открытые находки
 
 | ID | Среда | Файл | Описание | Решение |
 |----|-------|------|----------|---------|
 | **CRITICAL-3** | 🚀 | `payments/service.py` | `record_master_ledger` при отсутствующем `MasterProfile` создаёт ledger entry но не обновляет кэшированный баланс → расхождение | Бросать `BadRequestError` вместо silent continue |
 | **WARNING-2** | 🧪 | `main.py` | Глобальный 500-обработчик без `request.method` и `trace_id` в логах | Добавить контекст запроса в exception handler |
-| **WARNING-4** | 🚀 | `auth/router.py` | Telegram initData replay в 5-минутном окне — нет защиты от повторного использования | Redis SET `used_init_data:{hash}` с TTL 5 минут |
-| **WARNING-5** | 🚀 | `payments/webhook.py` | Stripe webhook signature не проверяется при `STRIPE_STUB=true` | Запрет `STRIPE_STUB` в production через config validator |
-| ~~**WARNING-6**~~ | ~~🧪~~ | ~~`practices/service.py`~~ | ~~N+1 в `finalize_practice`~~ | ✅ Закрыто Phase 8 — batch-load реализован |
-| ~~**WARNING-7**~~ | ~~🧪~~ | ~~`practices/models.py`~~ | ~~`list_public_practices` без составного индекса~~ | ✅ Закрыто 2026-03-10 — миграция `d2f3a4b5c6e7` |
-| **WARNING-14** | 🧪 | `*/service.py` | Сервисы импортируют `settings` напрямую — затрудняет unit-тестирование с другими конфигами | Инъекция через параметры или DI |
-
-### Бэкенд — открытые
-
-| ID | Среда | Файл | Описание | Решение |
-|----|-------|------|----------|---------|
+| **WARNING-14** | 🧪 | `*/service.py` | Сервисы импортируют `settings` напрямую — затрудняет unit-тестирование | Инъекция через параметры или DI |
 | TD-013 | 🧪 | `migrations/env.py` | Engine не dispose если `connect()` упадёт | `try/finally` вокруг async with |
 | TD-014 | 🧪 | Несколько файлов | Версия `0.1.0` захардкожена в трёх местах | Единый источник в `config.py` или `__version__` |
 | TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Validator аналогично `SECRET_KEY` |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в `sqlalchemy.url` | Убрать или заменить на комментарий |
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в `AuthResponse` — всегда 0 до платежей | Убрать или оставить осознанно |
 | TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` |
-| ~~TD-029~~ | ~~🧪~~ | ~~`users/router.py`~~ | ~~2 DB-сессии на `PATCH /users/me`~~ | ✅ Закрыто Phase 8 — `get_current_user_write` + одна write-сессия |
-| ~~TD-032~~ | ~~🧪~~ | ~~`tests/test_*.py`~~ | ~~Cleanup fixtures raw SQL вместо ORM~~ | ✅ Закрыто Phase 8 — все 18 тест-файлов переведены на ORM |
-| ~~TD-034~~ | ~~🧪~~ | ~~`practices/models.py`~~ | ~~`current_participants` — кэш~~ | ✅ Закрыто Phase 8 — задокументировано, пересчитывается в `bookings/service.py` |
 | TD-F7-W5 | 🧪 | `masters/models.py` | `payout_details: dict` — содержимое не типизировано | Создать `PayoutDetailsDict` TypedDict |
 | TD-W01 | 🧪 | `bookings/service.py` | Нет cron для экспирации `NOTIFIED` waitlist-записей | Cron job или processor расширить |
 | PERF-04 | 🚀 | `notifications/service.py` | `_resolve_target_users` для ALL и ROLE загружает все user IDs в память | Batched processing при росте базы (10k+) |
@@ -481,11 +446,59 @@ velo lint          # ruff check
 
 ## 10. Phase 9 (не начата)
 
-| Задача | Описание |
-|--------|----------|
-| AI-розетка | `app/modules/ai/interface.py` (Protocol) + `mock.py`, эндпоинт `GET /practices/{id}/ai-summary` |
-| Library-розетка | Модель `Recording` (закомментирована) + TODO в коде |
-| E2E-тестирование | Основные flow: auth → practice → booking → payment → checkin → feedback → withdrawal |
+| Задача | Статус | Описание |
+|--------|--------|----------|
+| AI-розетка | ✅ Заготовка | `app/modules/ai/interface.py` (Protocol) + `mock.py`, эндпоинт `GET /practices/{id}/ai-summary` возвращает placeholder |
+| Library-розетка | ✅ Заготовка | Модель `Recording` (закомментирована) + TODO в коде |
+| E2E-тестирование | ❌ | Основные flow: auth → practice → booking → payment → checkin → feedback → withdrawal |
+| Load testing | ❌ | — |
+| Security audit | ❌ | — |
+
+---
+
+## 11. Розетки
+
+Заготовки, намеренно не реализованные в MVP. Интерфейсы определены, чтобы будущая реализация не ломала архитектуру.
+
+### 11.1. AI-саммари
+
+```python
+# app/modules/ai/interface.py
+class AIService(Protocol):
+    async def generate_summary(
+        self,
+        practice_id: UUID,
+        checkins: list[Checkin],
+        feedbacks: list[Feedback],
+    ) -> str: ...
+```
+
+### 11.2. Library (Записи практик)
+
+Будущие таблицы: `recordings` (метаданные) + S3 для файлов. В коде — TODO-комментарии.
+
+### 11.3. Подписки
+
+Таблица `subscriptions` спроектирована, логика не реализована:
+
+```python
+class Subscription:
+    plan: Enum          # monthly | yearly
+    status: Enum        # active | cancelled | expired
+    stripe_subscription_id: str
+```
+
+### 11.4. OAuth (Google, Apple)
+
+`User.credentials` — JSONB, структура поддерживает несколько провайдеров:
+
+```json
+{
+  "telegram": {"id": 123456789},
+  "google":   {"id": "...", "email": "..."},
+  "apple":    {"id": "..."}
+}
+```
 
 ---
 
