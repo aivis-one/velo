@@ -81,16 +81,6 @@ ul, ol {
   list-style: none;
 }
 
-/* === VELΘ: Photo background === */
-#app::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-background);
-  background: url('/bg/background.png') center / cover no-repeat;
-  pointer-events: none;
-}
-
 /* === Scrollbar (thin, subtle) === */
 ::-webkit-scrollbar {
   width: 4px;
@@ -103,4 +93,19 @@ ul, ol {
 ::-webkit-scrollbar-thumb {
   background: var(--velo-border);
   border-radius: var(--radius-full);
+}
+
+/* === Photo background layer === */
+#app {
+  position: relative;
+  z-index: 0;
+}
+
+#app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url('/bg/background.png') center / cover no-repeat;
+  pointer-events: none;
 }
