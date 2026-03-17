@@ -81,6 +81,16 @@ ul, ol {
   list-style: none;
 }
 
+/* === VELΘ: Photo background === */
+#app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-background);
+  background: url('/bg/background.png') center / cover no-repeat;
+  pointer-events: none;
+}
+
 /* === Scrollbar (thin, subtle) === */
 ::-webkit-scrollbar {
   width: 4px;
