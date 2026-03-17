@@ -245,20 +245,21 @@ onMounted(loadInitial)
 }
 
 .admin-reports__card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: opacity var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
-.admin-reports__card:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+.admin-reports__card:active {
+  opacity: 0.8;
 }
 
 .admin-reports__card-header {
