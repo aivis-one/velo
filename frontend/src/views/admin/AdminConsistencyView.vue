@@ -225,7 +225,7 @@ onMounted(loadData)
 
 .consistency__summary-title {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
@@ -245,7 +245,7 @@ onMounted(loadData)
 /* -- Group -- */
 .consistency__group-title {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -266,8 +266,8 @@ onMounted(loadData)
 }
 
 .consistency__item--ok {
-  background: var(--velo-bg-card);
-  border-color: var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border-color: #ffffff;
 }
 
 .consistency__item--alert {
@@ -289,7 +289,7 @@ onMounted(loadData)
 .consistency__item-name {
   flex: 1;
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
@@ -313,7 +313,7 @@ onMounted(loadData)
 
 .consistency__item-actual {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-error-text);
 }
 </style>

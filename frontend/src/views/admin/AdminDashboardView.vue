@@ -181,7 +181,7 @@ onMounted(loadStats)
 
 .admin-dashboard__alert-title {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-warning-text);
 }
 
@@ -193,7 +193,7 @@ onMounted(loadStats)
 
 .admin-dashboard__alert-arrow {
   color: var(--velo-warning-text);
-  font-weight: 600;
+  font-weight: 400;
   flex-shrink: 0;
 }
 
@@ -207,7 +207,7 @@ onMounted(loadStats)
 /* -- Quick actions -- */
 .admin-dashboard__section-title {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -220,21 +220,22 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__action-card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-2);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
   cursor: pointer;
-  transition: all var(--transition-base);
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
-.admin-dashboard__action-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+.admin-dashboard__action-card:active {
+  opacity: 0.8;
 }
 
 .admin-dashboard__action-icon {
@@ -243,7 +244,7 @@ onMounted(loadStats)
 
 .admin-dashboard__action-label {
   font-size: var(--text-xs);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   text-align: center;
 }

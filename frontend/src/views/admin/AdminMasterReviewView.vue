@@ -254,22 +254,24 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__profile-name {
   font-size: var(--text-lg);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin-bottom: var(--space-1);
 }
 
 .review__section-title {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -277,10 +279,12 @@ onMounted(loadMaster)
 }
 
 .review__meta-list {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   overflow: hidden;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__meta-row {
@@ -288,7 +292,7 @@ onMounted(loadMaster)
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 .review__meta-row:last-child {
@@ -302,14 +306,15 @@ onMounted(loadMaster)
 
 .review__meta-val {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
 .review__note {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   line-height: 1.5;
@@ -319,10 +324,12 @@ onMounted(loadMaster)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__reject-actions {
@@ -335,7 +342,7 @@ onMounted(loadMaster)
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
   padding: var(--space-4);
-  background: var(--velo-bg-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-md);
 }
 </style>
