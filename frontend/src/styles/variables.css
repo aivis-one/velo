@@ -11,30 +11,30 @@
 
 :root {
   /* === Colors: Primary === */
-  --velo-primary: #334D6E;
-  --velo-primary-light: #4A6B8A;
-  --velo-primary-dark: #1E3A5F;
+  --velo-primary: #627a9c;
+  --velo-primary-light: #627a9c;
+  --velo-primary-dark: #4c6589;
 
   /* === Colors: Background === */
-  --velo-bg-start: #F8FAFC;
-  --velo-bg-end: #EEF2F6;
-  --velo-bg-subtle: #F1F5F9;
-  --velo-bg-card: #FFFFFF;
+  --velo-bg-start: #ffffff;
+  --velo-bg-end: #ffffff;
+  --velo-bg-subtle: rgba(98,122,156,0.06);
+  --velo-bg-card: #ffffff;
 
   /* === Colors: Text === */
-  --velo-text-primary: #1E293B;
-  --velo-text-secondary: #475569;
-  --velo-text-muted: #94A3B8;
+  --velo-text-primary: #4c6589;
+  --velo-text-secondary: rgba(76,101,137,0.70);
+  --velo-text-muted: rgba(76,101,137,0.50);
 
   /* === Colors: Borders === */
-  --velo-border: #E2E8F0;
-  --velo-border-light: #F1F5F9;
+  --velo-border: #abbfda;
+  --velo-border-light: rgba(171,191,218,0.30);
 
   /* === Colors: Semantic base === */
-  --velo-success: #22C55E;
-  --velo-warning: #F59E0B;
-  --velo-error: #EF4444;
-  --velo-info: #3B82F6;
+  --velo-success: #76dde6;
+  --velo-warning: #fbc088;
+  --velo-error: #f795a2;
+  --velo-info: #76dde6;
 
   /* === Colors: Semantic tints (W-4) ===
    * Used in admin banners, semaphore cards, status indicators.
@@ -42,65 +42,65 @@
    */
 
   /* Warning (amber) */
-  --velo-warning-bg: #FEF3C7;
+  --velo-warning-bg: rgba(251,192,136,0.40);
   --velo-warning-bg-hover: #FDE68A;
-  --velo-warning-border: #F59E0B;
-  --velo-warning-text: #92400E;
+  --velo-warning-border: #fbc088;
+  --velo-warning-text: #a16124;
   --velo-warning-text-light: #B45309;
 
   /* Error / Alert (red) */
-  --velo-error-bg: #FEE2E2;
+  --velo-error-bg: rgba(253,226,226,0.40);
   --velo-error-bg-subtle: #FFF5F5;
-  --velo-error-border: #FCA5A5;
-  --velo-error-text: #DC2626;
+  --velo-error-border: #f795a2;
+  --velo-error-text: #a16124;
 
   /* Success (green) */
-  --velo-success-bg: #DCFCE7;
-  --velo-success-text: #166534;
+  --velo-success-bg: rgba(118,221,230,0.40);
+  --velo-success-text: #26767d;
 
   /* Info (blue) */
-  --velo-info-bg: #DBEAFE;
-  --velo-info-text: #1E40AF;
+  --velo-info-bg: rgba(118,221,230,0.40);
+  --velo-info-text: #2f9ea8;
 
   /* === Colors: Mood (Phase F9) === */
-  --velo-mood-low: #EF4444;
-  --velo-mood-mid: #F59E0B;
-  --velo-mood-high: #22C55E;
+  --velo-mood-low: #f795a2;
+  --velo-mood-mid: #fbc088;
+  --velo-mood-high: #76dde6;
 
   /* === Typography === */
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-body: 'Marmelad', 'Noto Sans', sans-serif;
+  --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
 
-  --text-xs: 11px;
-  --text-sm: 13px;
-  --text-base: 15px;
-  --text-lg: 17px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
-  --text-3xl: 28px;
+  --text-xs: 14px;
+  --text-sm: 15px;
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 32px;
+  --text-2xl: 50px;
+  --text-3xl: 32px;
 
   /* === Spacing === */
   --space-1: 4px;
   --space-2: 8px;
-  --space-3: 12px;
+  --space-3: 14px;
   --space-4: 16px;
-  --space-5: 20px;
+  --space-5: 24px;
   --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
+  --space-8: 33px;
+  --space-10: 48px;
 
   /* === Borders === */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+  --radius-sm: 15px;
+  --radius-md: 15px;
+  --radius-lg: 15px;
+  --radius-xl: 100px;
   --radius-full: 9999px;
 
   /* === Shadows === */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(51, 77, 110, 0.08);
-  --shadow-lg: 0 8px 24px rgba(51, 77, 110, 0.12);
-  --shadow-xl: 0 12px 40px rgba(51, 77, 110, 0.16);
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
 
   /* === Transitions === */
   --transition-fast: 0.15s ease;
@@ -113,4 +113,44 @@
   --z-modal: 300;
   --z-popup: 400;
   --z-toast: 500;
+
+  /* === VELΘ: Glass colors === */
+  --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
+  --velo-glass-blue-60: rgba(171, 191, 218, 0.60);
+  --velo-glass-teal-30: rgba(118, 221, 230, 0.30);
+  --velo-glass-teal-40: rgba(118, 221, 230, 0.40);
+  --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
+  --velo-glass-white-01: rgba(255, 255, 255, 0.01);
+
+  /* === VELΘ: Primitive palette === */
+  --velo-teal-400: #76dde6;
+  --velo-teal-600: #2f9ea8;
+  --velo-teal-700: #26767d;
+  --velo-peach-300: #fbc088;
+  --velo-peach-500: #d4863c;
+  --velo-peach-700: #a16124;
+  --velo-pink-300: #f795a2;
+  --velo-pink-100: #fde2e2;
+  --velo-blue-100: #e2f0fd;
+  --velo-blue-200: #abbfda;
+  --velo-sand-100: #fdf3e2;
+
+  /* === VELΘ: Glow shadow === */
+  --velo-shadow-glow: 0px 0px 20.9px 7px #ffffff;
+
+  /* === VELΘ: Layout === */
+  --velo-content-width: 336px;
+  --velo-screen-width: 402px;
+  --velo-screen-padding: 33px;
+
+  /* === VELΘ: Navigation === */
+  --velo-nav-active-bg: #627a9c;
+  --velo-nav-inactive-bg: rgba(98, 122, 156, 0.15);
+
+  /* === VELΘ: Border === */
+  --velo-border-input-focus: #abbfda;
+
+  /* === VELΘ: Z-index === */
+  --z-background: -1;
+  --z-content: 1;
 }
