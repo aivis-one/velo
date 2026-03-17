@@ -215,14 +215,18 @@ onMounted(() => {
 .topup__balance {
   text-align: center;
   padding: var(--space-6);
-  background: white;
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .topup__balance-label {
   display: block;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin-bottom: var(--space-2);
 }
@@ -230,17 +234,18 @@ onMounted(() => {
 .topup__balance-value {
   font-family: var(--font-heading);
   font-size: var(--text-3xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-primary);
 }
 
 /* Section title */
 .topup__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
 }
 
 /* Presets */
@@ -252,47 +257,51 @@ onMounted(() => {
 
 .topup__preset {
   padding: var(--space-4);
-  background: white;
-  border: 2px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .topup__preset:hover {
-  border-color: var(--velo-primary-light);
+  opacity: 0.8;
 }
 
 .topup__preset--active {
   border-color: var(--velo-primary);
-  background: rgba(51, 77, 110, 0.05);
+  background: var(--velo-glass-blue-60);
   color: var(--velo-primary);
+  box-shadow: var(--velo-shadow-glow);
 }
 
 /* Custom amount */
 .topup__custom-toggle {
   padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-primary);
   cursor: pointer;
   text-align: center;
-  border: 1px dashed var(--velo-border);
+  border: 1px dashed var(--velo-border-light);
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
 }
 
 .topup__custom-toggle:hover {
-  border-color: var(--velo-primary-light);
+  opacity: 0.8;
 }
 
 .topup__custom-toggle--active {
   border-color: var(--velo-primary);
-  background: rgba(51, 77, 110, 0.05);
+  background: var(--velo-glass-blue-15);
 }
 
 .topup__custom-input-wrap {
@@ -301,14 +310,15 @@ onMounted(() => {
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: white;
-  border: 2px solid var(--velo-primary);
-  border-radius: var(--radius-md);
+  background: var(--velo-glass-blue-15);
+  border: 2px solid var(--velo-border-input-focus);
+  border-radius: 5px;
 }
 
 .topup__custom-currency {
+  font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
@@ -318,7 +328,7 @@ onMounted(() => {
   outline: none;
   font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   background: transparent;
 }
@@ -341,7 +351,9 @@ onMounted(() => {
 
 /* Error */
 .topup__error {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-error);
   text-align: center;
 }

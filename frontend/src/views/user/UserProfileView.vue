@@ -151,7 +151,6 @@ onMounted(async () => {
 .profile {
   display: flex;
   flex-direction: column;
-  /* Offset MobileLayout padding for edge-to-edge header */
   margin: calc(-1 * var(--space-4));
 }
 
@@ -159,7 +158,7 @@ onMounted(async () => {
 .profile__header {
   text-align: center;
   padding: var(--space-6);
-  background: white;
+  background: transparent;
 }
 
 .profile__avatar {
@@ -169,8 +168,9 @@ onMounted(async () => {
 .profile__name {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0 0 var(--space-4);
 }
 
@@ -186,13 +186,16 @@ onMounted(async () => {
 }
 
 .profile__stat-value {
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-primary);
 }
 
 .profile__stat-label {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
@@ -203,15 +206,17 @@ onMounted(async () => {
   justify-content: space-between;
   margin: var(--space-4);
   padding: var(--space-4);
-  background: white;
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-base);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity var(--transition-fast);
 }
 
 .profile__balance:hover {
-  box-shadow: var(--shadow-md);
+  opacity: 0.9;
 }
 
 .profile__balance-left {
@@ -221,13 +226,16 @@ onMounted(async () => {
 }
 
 .profile__balance-label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
 .profile__balance-value {
+  font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-primary);
 }
 
@@ -241,20 +249,23 @@ onMounted(async () => {
 }
 
 .profile__menu-title {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
   padding: 0 var(--space-4);
 }
 
 .profile__menu-list {
-  background: white;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-md);
+  border: 1px solid #ffffff;
   overflow: hidden;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .profile__menu-item {
@@ -262,9 +273,9 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
 .profile__menu-item:last-child {
@@ -272,7 +283,7 @@ onMounted(async () => {
 }
 
 .profile__menu-item:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.8;
 }
 
 .profile__menu-icon {
@@ -283,7 +294,9 @@ onMounted(async () => {
 
 .profile__menu-text {
   flex: 1;
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 

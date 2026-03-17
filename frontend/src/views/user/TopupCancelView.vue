@@ -60,13 +60,16 @@ const router = useRouter()
 .topup-result__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0 0 var(--space-2);
 }
 
 .topup-result__text {
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0 0 var(--space-8);
   line-height: 1.5;
