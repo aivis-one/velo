@@ -1,23 +1,21 @@
 <!--
-  VELO Frontend -- Standalone Stub View (Phase F1.3)
+  VELO Frontend -- Standalone Stub View (DS-6)
 
   Shown when user opens app outside Telegram (no initData).
   Directs them to open via the bot.
-
-  FIX 10.3: Bot URL from VITE_TELEGRAM_BOT_URL env variable, not hardcoded.
-  FIX 10.8: VeloLogo shared component (DRY).
+  Matches 01_Welcome.png mockup style — glassmorphism buttons, pill shape.
 -->
 
 <template>
   <div class="stub">
     <div class="stub__logo">
-      <VeloLogo :size="64" />
+      <VeloLogo :size="120" />
     </div>
-    <h1 class="stub__title">VELO</h1>
+    <h1 class="stub__title">VELΘ</h1>
     <p class="stub__message">
-      Для входа откройте приложение через Telegram-бот
+      Пространство для практики<br />и внутреннего развития
     </p>
-    <a :href="botUrl" class="stub__button" target="_blank" rel="noopener">
+    <a :href="botUrl" class="stub__button stub__button--primary" target="_blank" rel="noopener">
       Открыть в Telegram
     </a>
     <p class="stub__hint">
@@ -29,7 +27,6 @@
 <script setup lang="ts">
 import VeloLogo from '@/components/ui/VeloLogo.vue'
 
-// FIX 10.3: configurable via env, fallback to test bot.
 const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testbot'
 </script>
 
@@ -42,7 +39,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   min-height: 100vh;
   min-height: 100dvh;
   padding: var(--space-6);
-  background: var(--velo-bg-start);
+  background: transparent;
   text-align: center;
 }
 
@@ -53,16 +50,18 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
 .stub__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
-  letter-spacing: 0.1em;
-  margin: 0 0 var(--space-6) 0;
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--space-4) 0;
 }
 
 .stub__message {
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-secondary);
-  margin: 0 0 var(--space-6) 0;
+  margin: 0 0 var(--space-8) 0;
   max-width: 280px;
   line-height: 1.5;
 }
@@ -71,23 +70,34 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-3) var(--space-6);
-  background: var(--velo-primary);
-  color: white;
+  width: 100%;
+  max-width: var(--velo-content-width);
+  height: 50px;
+  font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: 400;
   text-decoration: none;
-  border-radius: var(--radius-lg);
-  transition: background var(--transition-fast);
-  min-width: 200px;
+  border-radius: var(--radius-full);
+  border: 1px solid #ffffff;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: var(--velo-shadow-glow);
+  transition: opacity var(--transition-fast);
 }
 
 .stub__button:hover {
-  background: var(--velo-primary-dark);
+  opacity: 0.9;
+}
+
+.stub__button--primary {
+  background: var(--velo-primary);
+  color: white;
 }
 
 .stub__hint {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin: var(--space-4) 0 0 0;
   max-width: 240px;
