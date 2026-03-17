@@ -17,7 +17,10 @@
       :class="{ 'v-tabbar__item--active': active === item.to }"
       @click="$emit('navigate', item.to)"
     >
-      <span class="v-tabbar__icon">{{ item.icon }}</span>
+      <span class="v-tabbar__icon">
+        <component v-if="typeof item.icon !== 'string'" :is="item.icon" :size="20" />
+        <template v-else>{{ item.icon }}</template>
+      </span>
       <span class="v-tabbar__label">{{ item.label }}</span>
       <span v-if="item.badge" class="v-tabbar__badge">{{ item.badge }}</span>
     </button>
@@ -25,8 +28,10 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 export interface TabItem {
-  icon: string
+  icon: string | Component
   label: string
   to: string
   badge?: number | string
