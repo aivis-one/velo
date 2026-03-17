@@ -200,30 +200,36 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  border-radius: 100px;
+  background: var(--velo-glass-blue-15);
+  transition: opacity var(--transition-fast);
 }
 
 .master-practices__add-btn:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.9;
 }
 
 /* -- Tabs -- */
 .master-practices__tabs {
   display: flex;
-  border-bottom: 1px solid var(--velo-border);
-  background: var(--velo-bg-card);
-  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
 }
 
 .master-practices__tab {
   flex: 1;
-  padding: var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-muted);
-  border-bottom: 2px solid transparent;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: 100px;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -231,15 +237,16 @@ onMounted(async () => {
 }
 
 .master-practices__tab--active {
-  color: var(--velo-primary);
-  border-bottom-color: var(--velo-primary);
+  color: white;
+  background: var(--velo-primary);
+  border-color: var(--velo-primary);
 }
 
 .master-practices__tab-count {
-  background: var(--velo-primary);
-  color: white;
+  background: rgba(255, 255, 255, 0.3);
+  color: inherit;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   padding: 1px 6px;
   border-radius: var(--radius-full);
 }
