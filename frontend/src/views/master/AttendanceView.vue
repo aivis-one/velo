@@ -329,7 +329,7 @@ async function finalize(): Promise<void> {
 <style scoped>
 .attendance {
   min-height: 100%;
-  background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+  background: transparent;
   display: flex;
   flex-direction: column;
 }
@@ -373,7 +373,7 @@ async function finalize(): Promise<void> {
 .attendance__stat-value {
   font-family: var(--font-heading);
   font-size: var(--text-3xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
@@ -394,13 +394,13 @@ async function finalize(): Promise<void> {
 /* -- Divider -- */
 .attendance__divider {
   height: 1px;
-  background: var(--velo-border);
+  background: var(--velo-border-light);
 }
 
 /* -- Section titles -- */
 .attendance__section-title {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   padding: var(--space-2) 0 var(--space-1);
 }
@@ -419,7 +419,7 @@ async function finalize(): Promise<void> {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 .attendance__row:last-child {
@@ -434,7 +434,7 @@ async function finalize(): Promise<void> {
   background: var(--velo-primary);
   color: white;
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 400;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -458,7 +458,7 @@ async function finalize(): Promise<void> {
 
 .attendance__row-name {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-primary);
   font-family: var(--font-mono, monospace);
 }
@@ -485,14 +485,14 @@ async function finalize(): Promise<void> {
   background: var(--velo-success);
   color: white;
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .attendance__row-badge--absent {
   background: var(--velo-error);
   color: white;
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .attendance__row-badge--pending {
@@ -512,12 +512,15 @@ async function finalize(): Promise<void> {
 
 .attendance__dialog {
   width: 100%;
-  background: var(--velo-bg-card);
+  background: var(--velo-glass-blue-60);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .attendance__dialog-text {

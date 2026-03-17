@@ -373,7 +373,7 @@ async function submit(): Promise<void> {
 .apply-view {
   min-height: 100dvh;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+  background: transparent;
   display: flex;
   flex-direction: column;
 }
@@ -383,15 +383,17 @@ async function submit(): Promise<void> {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-bg-card);
-  border-bottom: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border-bottom: 1px solid var(--velo-border-light);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__progress-step {
   flex: 1;
   height: 4px;
   border-radius: var(--radius-full);
-  background: var(--velo-border);
+  background: var(--velo-border-light);
   transition: background var(--transition-base);
 }
 
@@ -428,7 +430,7 @@ async function submit(): Promise<void> {
 
 .apply-view__label {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -437,9 +439,11 @@ async function submit(): Promise<void> {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__checkbox-item {
@@ -464,12 +468,12 @@ async function submit(): Promise<void> {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: 2px solid var(--velo-border);
-  border-radius: var(--radius-sm);
+  border: 2px solid var(--velo-border-light);
+  border-radius: 5px;
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-primary);
-  background: var(--velo-bg-card);
+  background: var(--velo-glass-blue-15);
   flex-shrink: 0;
   transition: border-color var(--transition-fast);
 }
@@ -477,7 +481,8 @@ async function submit(): Promise<void> {
 .apply-view__checkbox-mark--checked,
 .apply-view__checkbox-item input:checked + .apply-view__checkbox-mark {
   border-color: var(--velo-primary);
-  background: var(--velo-primary-light, #e8edf5);
+  background: var(--velo-primary);
+  color: white;
 }
 
 .apply-view__checkbox-label {
@@ -497,9 +502,9 @@ async function submit(): Promise<void> {
   align-items: center;
   justify-content: center;
   padding: var(--space-5);
-  border: 2px dashed var(--velo-border);
+  border: 2px dashed var(--velo-border-light);
   border-radius: var(--radius-md);
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
   gap: var(--space-2);
   cursor: pointer;
   transition: border-color var(--transition-fast);
@@ -526,11 +531,14 @@ async function submit(): Promise<void> {
 /* -- Terms -- */
 .apply-view__terms {
   padding: var(--space-3);
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__next {

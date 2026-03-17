@@ -381,7 +381,7 @@ async function submit(): Promise<void> {
 <style scoped>
 .create-practice {
   min-height: 100%;
-  background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+  background: transparent;
   display: flex;
   flex-direction: column;
 }
@@ -402,13 +402,14 @@ async function submit(): Promise<void> {
 }
 
 .create-practice__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.02em;
   padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 /* -- Native date/time inputs -- */
@@ -419,29 +420,34 @@ async function submit(): Promise<void> {
 }
 
 .create-practice__label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
 .create-practice__date-input {
   width: 100%;
   padding: 12px var(--space-3);
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-md);
+  background: var(--velo-glass-blue-15);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
   outline: none;
   transition: border-color var(--transition-fast);
 }
 
 .create-practice__date-input:focus {
-  border-color: var(--velo-primary);
+  border-color: var(--velo-border-input-focus);
 }
 
 .create-practice__field-error {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-error);
 }
 
@@ -457,63 +463,73 @@ async function submit(): Promise<void> {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--velo-border);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   cursor: pointer;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
-  background: var(--velo-bg-card);
-  transition: border-color var(--transition-fast);
+  background: var(--velo-glass-blue-15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: all var(--transition-fast);
 }
 
 .create-practice__payment-option--active {
   border-color: var(--velo-primary);
-  color: var(--velo-primary);
-  background: var(--velo-primary-light, #e8edf5);
+  color: white;
+  background: var(--velo-primary);
 }
 
 .create-practice__radio {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid var(--velo-border);
+  border: 2px solid var(--velo-border-light);
   flex-shrink: 0;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .create-practice__radio--active {
-  border-color: var(--velo-primary);
-  background: var(--velo-primary);
+  border-color: white;
+  background: white;
 }
 
 /* -- Price calc preview -- */
 .create-practice__price-calc {
-  background: var(--velo-bg-subtle);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .create-practice__price-row {
   display: flex;
   justify-content: space-between;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
 .create-practice__price-row--total {
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border);
+  border-top: 1px solid var(--velo-border-light);
 }
 
 /* -- Hint -- */
 .create-practice__hint {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 </style>
