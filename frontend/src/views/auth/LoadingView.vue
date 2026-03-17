@@ -1,19 +1,17 @@
 <!--
-  VELO Frontend -- Loading View (Phase F1.3)
+  VELO Frontend -- Loading View (DS-6)
 
   Displayed while auth initialization is in progress.
-  Shows VELO logo + subtle loading indicator.
-  Replaced by actual content once auth completes.
-
-  FIX 10.8: VeloLogo shared component (DRY).
+  Shows VELΘ mandala logo with subtle loading spinner.
+  Matches 04_OAuth.png mockup style.
 -->
 
 <template>
   <div class="loading">
     <div class="loading__logo">
-      <VeloLogo :size="64" />
+      <VeloLogo :size="120" />
     </div>
-    <h1 class="loading__title">VELO</h1>
+    <h1 class="loading__title">VELΘ</h1>
     <div class="loading__spinner" />
   </div>
 </template>
@@ -30,7 +28,7 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--velo-bg-start);
+  background: transparent;
   gap: var(--space-4);
 }
 
@@ -41,16 +39,16 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
 .loading__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
 .loading__spinner {
   width: 24px;
   height: 24px;
-  border: 3px solid var(--velo-border);
+  border: 2px solid var(--velo-border-light);
   border-top-color: var(--velo-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
