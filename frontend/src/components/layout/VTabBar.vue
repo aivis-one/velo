@@ -48,9 +48,11 @@ defineEmits<{
   bottom: 0;
   display: flex;
   align-items: center;
-  background: white;
-  border-top: 1px solid var(--velo-border);
-  padding: var(--space-2) 0;
+  gap: var(--space-2);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: var(--space-2) var(--space-3);
   padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   z-index: var(--z-sticky, 200);
 }
@@ -63,12 +65,15 @@ defineEmits<{
   gap: 2px;
   padding: var(--space-1) 0;
   color: var(--velo-text-muted);
-  transition: color var(--transition-fast);
+  background: var(--velo-nav-inactive-bg);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
   position: relative;
 }
 
 .v-tabbar__item--active {
-  color: var(--velo-primary);
+  background: var(--velo-nav-active-bg);
+  color: white;
 }
 
 .v-tabbar__icon {
@@ -78,7 +83,7 @@ defineEmits<{
 
 .v-tabbar__label {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .v-tabbar__badge {
@@ -92,7 +97,7 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-error);
+  background: var(--velo-pink-300);
   color: white;
   font-size: 9px;
   font-weight: 700;
