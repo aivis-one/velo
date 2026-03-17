@@ -10,30 +10,29 @@ import type { TabItem } from '@/components/layout/VTabBar.vue'
 import {
   IconHome,
   IconCalendar,
-  IconBook,
-  IconUser,
-  IconChart,
-  IconTrendingUp,
-  IconUsers,
-  IconAlert,
+  IconDiary,
+  IconProfile,
+  IconBrain,
+  IconGroup,
+  IconWarning,
 } from '@/components/icons'
 
 export const USER_TABS: TabItem[] = [
   { icon: IconHome, label: 'Дашборд', to: '/user/dashboard' },
   { icon: IconCalendar, label: 'Календарь', to: '/user/calendar' },
-  { icon: IconBook, label: 'Дневник', to: '/user/diary' },
-  { icon: IconUser, label: 'Я', to: '/user/profile' },
+  { icon: IconDiary, label: 'Дневник', to: '/user/diary' },
+  { icon: IconProfile, label: 'Я', to: '/user/profile' },
 ]
 
 export const MASTER_TABS: TabItem[] = [
-  { icon: IconChart, label: 'Дашборд', to: '/master/dashboard' },
+  { icon: IconHome, label: 'Дашборд', to: '/master/dashboard' },
   { icon: IconCalendar, label: 'Практики', to: '/master/practices' },
-  { icon: IconTrendingUp, label: 'Аналитика', to: '/master/analytics' },
-  { icon: IconUser, label: 'Я', to: '/master/profile' },
+  { icon: IconBrain, label: 'Аналитика', to: '/master/analytics' },
+  { icon: IconProfile, label: 'Я', to: '/master/profile' },
 ]
 
 export const ADMIN_TABS: TabItem[] = [
-  { icon: IconChart, label: 'Дашборд', to: '/admin/dashboard' },
-  { icon: IconUsers, label: 'Мастера', to: '/admin/masters' },
-  { icon: IconAlert, label: 'Модерация', to: '/admin/reports' },
+  { icon: IconHome, label: 'Дашборд', to: '/admin/dashboard' },
+  { icon: IconGroup, label: 'Мастера', to: '/admin/masters' },
+  { icon: IconWarning, label: 'Модерация', to: '/admin/reports' },
 ]
