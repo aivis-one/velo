@@ -7,23 +7,33 @@
 // =============================================================================
 
 import type { TabItem } from '@/components/layout/VTabBar.vue'
+import {
+  IconHome,
+  IconCalendar,
+  IconBook,
+  IconUser,
+  IconChart,
+  IconTrendingUp,
+  IconUsers,
+  IconAlert,
+} from '@/components/icons'
 
 export const USER_TABS: TabItem[] = [
-  { icon: '🏠', label: 'Дашборд', to: '/user/dashboard' },
-  { icon: '📅', label: 'Календарь', to: '/user/calendar' },
-  { icon: '📔', label: 'Дневник', to: '/user/diary' },
-  { icon: '👤', label: 'Я', to: '/user/profile' },
+  { icon: IconHome, label: 'Дашборд', to: '/user/dashboard' },
+  { icon: IconCalendar, label: 'Календарь', to: '/user/calendar' },
+  { icon: IconBook, label: 'Дневник', to: '/user/diary' },
+  { icon: IconUser, label: 'Я', to: '/user/profile' },
 ]
 
 export const MASTER_TABS: TabItem[] = [
-  { icon: '📊', label: 'Дашборд', to: '/master/dashboard' },
-  { icon: '📅', label: 'Практики', to: '/master/practices' },
-  { icon: '📈', label: 'Аналитика', to: '/master/analytics' },
-  { icon: '👤', label: 'Я', to: '/master/profile' },
+  { icon: IconChart, label: 'Дашборд', to: '/master/dashboard' },
+  { icon: IconCalendar, label: 'Практики', to: '/master/practices' },
+  { icon: IconTrendingUp, label: 'Аналитика', to: '/master/analytics' },
+  { icon: IconUser, label: 'Я', to: '/master/profile' },
 ]
 
 export const ADMIN_TABS: TabItem[] = [
-  { icon: '📊', label: 'Дашборд', to: '/admin/dashboard' },
-  { icon: '👥', label: 'Мастера', to: '/admin/masters' },
-  { icon: '⚠️', label: 'Модерация', to: '/admin/reports' },
+  { icon: IconChart, label: 'Дашборд', to: '/admin/dashboard' },
+  { icon: IconUsers, label: 'Мастера', to: '/admin/masters' },
+  { icon: IconAlert, label: 'Модерация', to: '/admin/reports' },
 ]

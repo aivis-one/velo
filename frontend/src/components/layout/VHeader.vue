@@ -17,7 +17,7 @@
   <header class="v-header">
     <div class="v-header__left">
       <button v-if="showBack" class="v-header__back" @click="$emit('back')">
-        ←
+        <IconArrowLeft :size="18" />
       </button>
       <h1 class="v-header__title">{{ title }}</h1>
       <span v-if="badge" class="v-header__badge">{{ badge }}</span>
@@ -29,6 +29,8 @@
 </template>
 
 <script setup lang="ts">
+import { IconArrowLeft } from '@/components/icons'
+
 withDefaults(
   defineProps<{
     title: string
