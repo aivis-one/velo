@@ -55,10 +55,9 @@ defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--velo-border);
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   min-height: 56px;
 }
 
@@ -89,7 +88,7 @@ defineEmits<{
 .v-header__title {
   font-family: var(--font-heading);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-primary);
   white-space: nowrap;
   overflow: hidden;

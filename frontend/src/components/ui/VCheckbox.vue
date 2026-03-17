@@ -69,7 +69,7 @@ defineEmits<{
   width: 22px;
   height: 22px;
   border: 2px solid var(--velo-border);
-  border-radius: var(--radius-sm);
+  border-radius: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
