@@ -1,38 +1,44 @@
 <!--
-  VELO Frontend -- VeloLogo Component (Fix 10.8, QW-5)
+  VELO Frontend -- VeloLogo Component (DS-6)
 
-  Shared SVG logo. Was copy-pasted in HomeView, LoadingView,
-  StandaloneStubView. Now a single source of truth.
-
-  QW-5: CSS fallback #334D6E for --velo-primary. Without it,
-  the circle is transparent if variables.css hasn't loaded yet
-  (SSR, test runners, standalone contexts).
+  Uses the actual VELΘ mandala logo from Design_prototype.
+  Two variants: default (colored) and white.
+  Logo SVGs are in public/icons/ (too large for inline).
 
   Props:
     size — width/height in px (default 64)
+    variant — 'default' | 'white' (default 'default')
 -->
 
 <template>
-  <svg
+  <img
+    :src="logoSrc"
     :width="size"
     :height="size"
-    viewBox="0 0 64 64"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <circle cx="32" cy="32" r="30" fill="var(--velo-primary, #334D6E)" />
-    <text
-      x="32"
-      y="40"
-      text-anchor="middle"
-      fill="white"
-      font-size="24"
-      font-weight="700"
-      font-family="system-ui, sans-serif"
-    >V</text>
-  </svg>
+    alt="VELΘ"
+    class="velo-logo"
+  />
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{ size?: number }>(), { size: 64 })
+import { computed } from 'vue'
+
+const props = withDefaults(
+  defineProps<{
+    size?: number
+    variant?: 'default' | 'white'
+  }>(),
+  { size: 64, variant: 'default' },
+)
+
+const logoSrc = computed(() =>
+  props.variant === 'white' ? '/icons/logo-white.svg' : '/icons/logo.svg',
+)
 </script>
+
+<style scoped>
+.velo-logo {
+  display: block;
+  object-fit: contain;
+}
+</style>
