@@ -662,19 +662,20 @@ onMounted(() => {
   flex-direction: column;
   min-height: 100%;
   position: relative;
-  padding-bottom: var(--space-20, 80px); /* room for FAB */
+  padding-bottom: var(--space-20, 80px);
 }
 
 /* ===== Header ===== */
 .diary__header {
   padding: var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
 }
 
 .diary__header-title {
+  font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
@@ -687,20 +688,22 @@ onMounted(() => {
 .diary__back {
   width: 36px;
   height: 36px;
-  border: 1px solid var(--velo-border);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: transparent;
+  background: var(--velo-glass-blue-15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   font-size: var(--text-lg);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
   flex-shrink: 0;
 }
 
 .diary__back:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.8;
 }
 
 .diary__header-spacer {
@@ -718,15 +721,15 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
 .diary__header-action:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.7;
 }
 
 .diary__header-action--danger:hover {
-  background: rgba(220, 38, 38, 0.08);
+  opacity: 0.7;
 }
 
 /* ===== Tabs ===== */
@@ -735,7 +738,6 @@ onMounted(() => {
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   overflow-x: auto;
-  border-bottom: 1px solid var(--velo-border);
   scrollbar-width: none;
 }
 
@@ -745,21 +747,22 @@ onMounted(() => {
 
 .diary__tab {
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--velo-border);
-  background: white;
-  font-size: var(--text-sm);
-  font-weight: 500;
+  border-radius: 100px;
+  border: 1px solid #ffffff;
+  background: var(--velo-glass-blue-15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   cursor: pointer;
   white-space: nowrap;
   transition: all var(--transition-fast);
-  font-family: var(--font-body);
 }
 
 .diary__tab:hover {
-  border-color: var(--velo-primary-light);
-  color: var(--velo-primary);
+  opacity: 0.8;
 }
 
 .diary__tab--active {
@@ -788,17 +791,18 @@ onMounted(() => {
 
 /* ===== Diary card (checkin / feedback / entry) ===== */
 .diary-card {
-  background: white;
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .diary-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(51, 77, 110, 0.1);
+  opacity: 0.9;
 }
 
 .diary-card__header {
@@ -809,7 +813,9 @@ onMounted(() => {
 }
 
 .diary-card__date {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -818,14 +824,17 @@ onMounted(() => {
 }
 
 .diary-card__title {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin-bottom: var(--space-1);
 }
 
 .diary-card__preview {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   overflow: hidden;
   display: -webkit-box;
@@ -849,24 +858,23 @@ onMounted(() => {
   background: var(--velo-primary);
   color: white;
   font-size: 28px;
-  font-weight: 300;
-  border: none;
+  font-weight: 400;
+  border: 1px solid #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(51, 77, 110, 0.3);
+  box-shadow: var(--velo-shadow-glow);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: opacity var(--transition-fast);
   z-index: 20;
 }
 
 .diary__fab:hover {
-  transform: scale(1.05);
-  box-shadow: 0 8px 24px rgba(51, 77, 110, 0.35);
+  opacity: 0.9;
 }
 
 .diary__fab:active {
-  transform: scale(0.97);
+  opacity: 0.8;
 }
 
 /* ===== Detail view ===== */
@@ -875,7 +883,9 @@ onMounted(() => {
 }
 
 .diary__detail-date {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-2);
 }
@@ -883,14 +893,17 @@ onMounted(() => {
 .diary__detail-title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-4);
   line-height: 1.3;
 }
 
 .diary__detail-content {
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.7;
   white-space: pre-wrap;
@@ -898,10 +911,12 @@ onMounted(() => {
 }
 
 .diary__detail-context {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--velo-text-muted, var(--velo-text-secondary));
+  font-weight: 400;
+  color: var(--velo-text-muted);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--velo-border);
+  border-top: 1px solid var(--velo-border-light);
 }
 
 /* ===== Form ===== */
@@ -925,27 +940,33 @@ onMounted(() => {
 }
 
 .diary__form-label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
 .diary__input {
   width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  border-radius: 5px;
   font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
-  background: white;
+  background: var(--velo-glass-blue-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
+.diary__input::placeholder {
+  color: var(--velo-text-muted);
+}
+
 .diary__input:focus {
   outline: none;
-  border-color: var(--velo-primary);
+  border-color: var(--velo-border-input-focus);
 }
 
 .diary__textarea {
@@ -953,27 +974,31 @@ onMounted(() => {
   min-height: 240px;
   width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  border-radius: 5px;
   font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.6;
   resize: vertical;
-  background: white;
+  background: var(--velo-glass-blue-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
+.diary__textarea::placeholder {
+  color: var(--velo-text-muted);
+}
+
 .diary__textarea:focus {
   outline: none;
-  border-color: var(--velo-primary);
+  border-color: var(--velo-border-input-focus);
 }
 
 .diary__form-actions {
   padding: var(--space-4);
-  border-top: 1px solid var(--velo-border);
-  background: white;
+  background: transparent;
 }
 
 /* ===== Delete confirm bar ===== */
@@ -983,13 +1008,16 @@ onMounted(() => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-error-bg-subtle);
-  border-bottom: 1px solid var(--velo-error-border);
+  background: var(--velo-glass-peach-40);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-bottom: 1px solid var(--velo-pink-300);
 }
 
 .diary__confirm-text {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-error-text);
 }
 
