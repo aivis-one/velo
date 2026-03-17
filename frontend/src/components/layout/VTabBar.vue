@@ -17,7 +17,10 @@
       :class="{ 'v-tabbar__item--active': active === item.to }"
       @click="$emit('navigate', item.to)"
     >
-      <span class="v-tabbar__icon">{{ item.icon }}</span>
+      <span class="v-tabbar__icon">
+        <component v-if="typeof item.icon !== 'string'" :is="item.icon" :size="20" />
+        <template v-else>{{ item.icon }}</template>
+      </span>
       <span class="v-tabbar__label">{{ item.label }}</span>
       <span v-if="item.badge" class="v-tabbar__badge">{{ item.badge }}</span>
     </button>
@@ -25,8 +28,10 @@
 </template>
 
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 export interface TabItem {
-  icon: string
+  icon: string | Component
   label: string
   to: string
   badge?: number | string
@@ -48,9 +53,11 @@ defineEmits<{
   bottom: 0;
   display: flex;
   align-items: center;
-  background: white;
-  border-top: 1px solid var(--velo-border);
-  padding: var(--space-2) 0;
+  gap: var(--space-2);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: var(--space-2) var(--space-3);
   padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   z-index: var(--z-sticky, 200);
 }
@@ -63,12 +70,15 @@ defineEmits<{
   gap: 2px;
   padding: var(--space-1) 0;
   color: var(--velo-text-muted);
-  transition: color var(--transition-fast);
+  background: var(--velo-nav-inactive-bg);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
   position: relative;
 }
 
 .v-tabbar__item--active {
-  color: var(--velo-primary);
+  background: var(--velo-nav-active-bg);
+  color: white;
 }
 
 .v-tabbar__icon {
@@ -78,7 +88,7 @@ defineEmits<{
 
 .v-tabbar__label {
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .v-tabbar__badge {
@@ -92,7 +102,7 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-error);
+  background: var(--velo-pink-300);
   color: white;
   font-size: 9px;
   font-weight: 700;

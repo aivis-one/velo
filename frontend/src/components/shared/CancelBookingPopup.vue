@@ -111,13 +111,16 @@ const willRefund = computed(() => {
 .cancel__title {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0 0 var(--space-3);
 }
 
 .cancel__text {
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   line-height: 1.5;
   margin: 0 0 var(--space-4);
@@ -131,27 +134,29 @@ const willRefund = computed(() => {
 }
 
 .cancel__warning--danger {
-  background: #FEF3C7;
+  background: var(--velo-glass-peach-40);
   border: 1px solid var(--velo-warning);
 }
 
 .cancel__warning--safe {
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--velo-glass-teal-30);
   border: 1px solid var(--velo-success);
 }
 
 .cancel__warning-text {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   margin: 0;
   line-height: 1.4;
 }
 
 .cancel__warning--danger .cancel__warning-text {
-  color: #92400E;
+  color: var(--velo-warning-text);
 }
 
 .cancel__warning--safe .cancel__warning-text {
-  color: #166534;
+  color: var(--velo-success-text);
 }
 
 /* Actions */

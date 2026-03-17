@@ -407,7 +407,7 @@ onMounted(async () => {
 .finance-view__balance-card {
   background: var(--velo-primary);
   color: white;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
@@ -429,7 +429,7 @@ onMounted(async () => {
 .finance-view__balance-value {
   font-family: var(--font-heading);
   font-size: var(--text-3xl);
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.5px;
 }
 
@@ -451,15 +451,17 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .finance-view__section-title {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -468,7 +470,7 @@ onMounted(async () => {
 
 /* -- Withdraw form -- */
 .finance-view__withdraw-section {
-  border: 2px solid var(--velo-primary);
+  border: 1px solid #ffffff;
 }
 
 .finance-view__warning {
@@ -476,7 +478,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
   border-radius: var(--radius-md);
 }
 
@@ -493,7 +495,7 @@ onMounted(async () => {
 .finance-view__label {
   display: block;
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-2);
 }
@@ -509,16 +511,15 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  background: white;
-  border: 2px solid var(--velo-border);
-  border-radius: var(--radius-md);
+  background: var(--velo-glass-blue-15);
+  border: 2px solid transparent;
+  border-radius: 5px;
   transition: border-color var(--transition-base);
 }
 
 .finance-view__amount-input:focus {
   outline: none;
-  border-color: var(--velo-primary);
-  box-shadow: 0 0 0 3px rgba(51, 77, 110, 0.1);
+  border-color: var(--velo-border-input-focus);
 }
 
 .finance-view__amount-input::-webkit-inner-spin-button,
@@ -528,19 +529,19 @@ onMounted(async () => {
 
 .finance-view__all-btn {
   padding: 0 var(--space-4);
-  background: var(--velo-bg-subtle);
-  border: 2px solid var(--velo-border);
-  border-radius: var(--radius-md);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: 100px;
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-primary);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
-.finance-view__all-btn:hover {
-  background: var(--velo-border);
+.finance-view__all-btn:active {
+  opacity: 0.8;
 }
 
 .finance-view__hint {
@@ -585,7 +586,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 .finance-view__history-item:last-child {
@@ -600,7 +601,7 @@ onMounted(async () => {
 }
 
 .finance-view__history-amount {
-  font-weight: 600;
+  font-weight: 400;
   font-size: var(--text-base);
   color: var(--velo-text-primary);
 }
