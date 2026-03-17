@@ -521,6 +521,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | TD-FE-W4 | 🧪 | `MasterProfileView.vue` | `v-show` на payout-форме — весь DOM всегда присутствует | Заменить на `v-if` если форма не нужна при анимированном переходе |
 | TD-FE-W6 | 🧪 | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены — рассинхрон с `config.py` при изменении | `GET /api/v1/config` эндпоинт или явный комментарий с источником |
 | TD-FE-A11Y | 🧪 | Admin views (5 файлов) | Clickable `<div>` без `role="button"`, `tabindex="0"`, `@keydown` handlers. Нарушает WCAG 2.1 AA 2.1.1. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop`, `@keydown.space.prevent` |
+| TD-FE-LOGO-SVGO | 🧪 | `public/icons/logo.svg`, `public/icons/logo-white.svg` | SVG-логотипы загружены через `<img>` как есть из Figma-экспорта: `logo.svg` — 228KB, `logo-white.svg` — 434KB. Избыточный размер из-за неоптимизированных path-данных | Прогнать через `svgo` с дефолтными настройками — ожидаемое уменьшение в 5–10× без видимых изменений |
 
 ### Осознанные решения (не техдолг)
 
