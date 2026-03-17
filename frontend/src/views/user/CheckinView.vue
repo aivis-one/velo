@@ -213,7 +213,9 @@ onMounted(() => {
   min-height: 100%;
   padding: var(--space-6);
   text-align: center;
-  background: linear-gradient(135deg, var(--velo-success-bg) 0%, var(--velo-success-bg) 100%);
+  background: var(--velo-glass-teal-30);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .checkin-success__icon {
@@ -223,14 +225,17 @@ onMounted(() => {
 
 .checkin-success__title {
   font-family: var(--font-heading);
-  font-size: 28px;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--velo-success-text);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
 
 .checkin-success__text {
-  font-size: 15px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-success-text);
   margin-bottom: var(--space-8);
   max-width: 280px;
@@ -256,31 +261,34 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
 }
 
 .checkin__back {
   width: 36px;
   height: 36px;
-  border: 1px solid var(--velo-border);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: transparent;
+  background: var(--velo-glass-blue-15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   font-size: var(--text-lg);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
 .checkin__back:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.8;
 }
 
 .checkin__header-title {
+  font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
 }
 
 .checkin__header-spacer {
@@ -306,14 +314,18 @@ onMounted(() => {
 }
 
 .checkin__practice-name {
+  font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
 
 .checkin__practice-meta {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -329,14 +341,18 @@ onMounted(() => {
 }
 
 .checkin__question h3 {
+  font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-1);
 }
 
 .checkin__question p {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -353,39 +369,40 @@ onMounted(() => {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: white;
-  border: 2px solid var(--velo-border);
-  border-radius: 16px;
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
   min-width: 90px;
   font-family: var(--font-body);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .checkin__mood-btn:hover {
-  border-color: var(--velo-primary-light);
-  transform: translateY(-2px);
+  opacity: 0.8;
 }
 
 .checkin__mood-btn--selected {
   border-color: var(--velo-primary);
-  background: rgba(51, 77, 110, 0.05);
-  box-shadow: 0 4px 12px rgba(51, 77, 110, 0.15);
+  background: var(--velo-glass-blue-60);
+  box-shadow: var(--velo-shadow-glow);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--low {
-  border-color: var(--velo-text-muted);
-  background: rgba(148, 163, 184, 0.1);
+  border-color: var(--velo-pink-300);
+  background: var(--velo-glass-peach-40);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--mid {
-  border-color: var(--velo-mood-mid);
-  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--velo-peach-300);
+  background: var(--velo-glass-peach-40);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--high {
-  border-color: var(--velo-mood-high);
-  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--velo-teal-400);
+  background: var(--velo-glass-teal-30);
 }
 
 .checkin__mood-emoji {
@@ -393,8 +410,8 @@ onMounted(() => {
 }
 
 .checkin__mood-label {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -402,20 +419,25 @@ onMounted(() => {
 .checkin__textarea {
   width: 100%;
   padding: var(--space-3);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  border-radius: 5px;
   font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-primary);
   resize: none;
-  background: white;
+  background: var(--velo-glass-blue-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
+.checkin__textarea::placeholder {
+  color: var(--velo-text-muted);
+}
+
 .checkin__textarea:focus {
   outline: none;
-  border-color: var(--velo-primary);
+  border-color: var(--velo-border-input-focus);
 }
 
 /* Actions */

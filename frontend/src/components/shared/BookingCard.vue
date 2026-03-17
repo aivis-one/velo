@@ -108,11 +108,13 @@ const canCancel = computed(() =>
 
 <style scoped>
 .booking-card {
-  background: var(--velo-bg-card, white);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
-  transition: all var(--transition-base);
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .booking-card--clickable {
@@ -120,8 +122,7 @@ const canCancel = computed(() =>
 }
 
 .booking-card--clickable:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
+  opacity: 0.9;
 }
 
 .booking-card__header {
@@ -133,14 +134,17 @@ const canCancel = computed(() =>
 }
 
 .booking-card__title {
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-weight: 400;
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   line-height: 1.3;
 }
 
 .booking-card__meta {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
@@ -152,7 +156,7 @@ const canCancel = computed(() =>
   background: none;
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-error);
   cursor: pointer;
   transition: opacity var(--transition-fast);
