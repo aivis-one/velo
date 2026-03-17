@@ -94,3 +94,18 @@ ul, ol {
   background: var(--velo-border);
   border-radius: var(--radius-full);
 }
+
+/* === Photo background layer === */
+#app {
+  position: relative;
+  z-index: 0;
+}
+
+#app::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url('/bg/background.png') center / cover no-repeat;
+  pointer-events: none;
+}

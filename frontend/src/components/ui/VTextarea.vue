@@ -55,29 +55,28 @@ defineEmits<{
 .v-textarea__label {
   display: block;
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-2);
 }
 
 .v-textarea__field {
   width: 100%;
-  padding: 12px var(--space-4);
+  padding: 10px var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   background: white;
-  border: 2px solid var(--velo-border);
-  border-radius: var(--radius-md);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  transition: border-color var(--transition-base);
   min-height: 100px;
   resize: vertical;
 }
 
 .v-textarea__field:focus {
   outline: none;
-  border-color: var(--velo-primary);
-  box-shadow: 0 0 0 3px rgba(51, 77, 110, 0.1);
+  border-color: var(--velo-border-input-focus);
 }
 
 .v-textarea__field::placeholder {
@@ -92,10 +91,6 @@ defineEmits<{
 
 .v-textarea--error .v-textarea__field {
   border-color: var(--velo-error);
-}
-
-.v-textarea--error .v-textarea__field:focus {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
 .v-textarea__error {

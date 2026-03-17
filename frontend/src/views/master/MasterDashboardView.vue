@@ -291,7 +291,9 @@ onMounted(async () => {
 .master-dashboard__greeting-name {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
 
@@ -304,6 +306,8 @@ onMounted(async () => {
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
   transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__balance-card:active {
@@ -311,7 +315,9 @@ onMounted(async () => {
 }
 
 .master-dashboard__balance-label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   opacity: 0.8;
   margin-bottom: var(--space-1);
 }
@@ -319,12 +325,14 @@ onMounted(async () => {
 .master-dashboard__balance-value {
   font-family: var(--font-heading);
   font-size: var(--text-3xl);
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 .master-dashboard__balance-frozen {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   opacity: 0.7;
   margin-top: var(--space-1);
 }
@@ -346,24 +354,27 @@ onMounted(async () => {
 }
 
 .master-dashboard__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
 }
 
 .master-dashboard__period-toggle {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-primary);
-  font-weight: 500;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  border-radius: 100px;
+  background: var(--velo-glass-blue-15);
+  transition: opacity var(--transition-fast);
 }
 
 .master-dashboard__period-toggle:hover {
-  background: var(--velo-bg-subtle);
+  opacity: 0.9;
 }
 
 /* -- Stats grid -- */
@@ -374,22 +385,26 @@ onMounted(async () => {
 }
 
 .master-dashboard__stat-card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);
   text-align: center;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__stat-value {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
 .master-dashboard__stat-label {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin-top: 2px;
 }
@@ -397,26 +412,31 @@ onMounted(async () => {
 /* -- Divider -- */
 .master-dashboard__divider {
   height: 1px;
-  background: var(--velo-border);
+  background: var(--velo-border-light);
 }
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-bg-subtle);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__ai-header {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-2);
 }
 
 .master-dashboard__ai-content {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
   line-height: 1.6;
 }
@@ -430,16 +450,18 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
-  transition: box-shadow var(--transition-fast);
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__practice-card:active {
-  box-shadow: var(--shadow-sm);
+  opacity: 0.8;
 }
 
 .master-dashboard__practice-header {
@@ -461,7 +483,8 @@ onMounted(async () => {
 }
 
 .master-dashboard__practice-title {
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-weight: 400;
   color: var(--velo-text-primary);
   font-size: var(--text-base);
   white-space: nowrap;
@@ -470,13 +493,17 @@ onMounted(async () => {
 }
 
 .master-dashboard__practice-meta {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin-top: 2px;
 }
 
 .master-dashboard__practice-participants {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -494,15 +521,21 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast);
   cursor: pointer;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.master-dashboard__action-btn:hover {
+  opacity: 0.9;
 }
 
 .master-dashboard__action-btn:active {
-  background: var(--velo-bg-subtle);
+  opacity: 0.8;
 }
 
 .master-dashboard__action-icon {
@@ -511,8 +544,9 @@ onMounted(async () => {
 }
 
 .master-dashboard__action-label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   text-align: center;
 }

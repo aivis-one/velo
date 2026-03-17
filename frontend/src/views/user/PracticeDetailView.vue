@@ -338,14 +338,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-  padding-bottom: 120px; /* room for sticky footer */
+  padding-bottom: 120px;
 }
 
 /* Hero */
 .detail__hero {
   padding: var(--space-6) var(--space-4) var(--space-4);
   text-align: center;
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 .detail__emoji {
@@ -356,8 +356,9 @@ onUnmounted(() => {
 .detail__title {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
 
@@ -366,7 +367,9 @@ onUnmounted(() => {
   justify-content: center;
   flex-wrap: wrap;
   gap: var(--space-3);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-3);
 }
@@ -382,7 +385,7 @@ onUnmounted(() => {
 
 .detail__section {
   padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
 .detail__section:last-child {
@@ -390,16 +393,19 @@ onUnmounted(() => {
 }
 
 .detail__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
 
 .detail__section-content {
+  font-family: var(--font-body);
   font-size: var(--text-base);
+  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.6;
 }
@@ -417,13 +423,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
 
 .detail__master-name {
-  font-weight: 600;
+  font-weight: 400;
   font-size: var(--text-base);
   color: var(--velo-text-primary);
 }
@@ -435,8 +441,10 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   padding: var(--space-4);
-  background: white;
-  border-top: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-60);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-top: 1px solid #ffffff;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -450,13 +458,16 @@ onUnmounted(() => {
 }
 
 .detail__price-label {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
 .detail__price-value {
+  font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 

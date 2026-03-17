@@ -28,31 +28,40 @@ const router = useRouter()
   min-height: 100dvh;
   text-align: center;
   padding: var(--space-6);
-  background: var(--velo-bg-start);
+  background: transparent;
 }
 .not-found__icon { font-size: 64px; margin-bottom: var(--space-4); }
 .not-found__title {
   font-family: var(--font-heading);
-  font-size: 48px;
-  font-weight: 700;
+  font-size: var(--text-2xl);
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
 .not-found__text {
+  font-family: var(--font-body);
   font-size: var(--text-lg);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin-bottom: var(--space-6);
 }
 .not-found__btn {
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-6);
   background: var(--velo-primary);
   color: white;
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-weight: 400;
   font-size: var(--text-sm);
-  border-radius: var(--radius-md);
-  transition: background var(--transition-base);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: var(--velo-shadow-glow);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
 }
 .not-found__btn:hover {
-  background: var(--velo-primary-dark);
+  opacity: 0.9;
 }
 </style>

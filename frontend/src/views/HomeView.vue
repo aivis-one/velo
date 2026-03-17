@@ -1,17 +1,16 @@
 <!--
-  VELO Frontend -- Home View (Phase F1.3)
+  VELO Frontend -- Home View (DS-6)
 
-  FIX 10.7: logout via Vue reactivity (no window.location.reload).
-  FIX 10.8: VeloLogo shared component (DRY).
-  FIX username: removed user.username display (field absent from backend).
+  Landing page after auth. Shows VELΘ mandala logo, greeting, role badge.
+  Glassmorphism styling, Marmelad font, transparent bg.
 -->
 
 <template>
   <div class="home">
     <div class="home__logo">
-      <VeloLogo :size="64" />
+      <VeloLogo :size="120" />
     </div>
-    <h1 class="home__title">VELO</h1>
+    <h1 class="home__title">VELΘ</h1>
     <div v-if="user" class="home__user">
       <p class="home__greeting">{{ greeting }}, {{ user.first_name }}!</p>
       <div class="home__details">
@@ -41,8 +40,6 @@ const greeting = computed(() => {
   return 'Добрый вечер'
 })
 
-// FIX 10.7: no reload — App.vue reactivity shows stub
-// when isAuthenticated becomes false.
 async function handleLogout(): Promise<void> {
   await authStore.logout()
 }
@@ -58,7 +55,7 @@ async function handleLogout(): Promise<void> {
   min-height: 100dvh;
   padding: var(--space-6);
   text-align: center;
-  background: var(--velo-bg-start);
+  background: transparent;
 }
 
 .home__logo {
@@ -67,11 +64,11 @@ async function handleLogout(): Promise<void> {
 
 .home__title {
   font-family: var(--font-heading);
-  font-size: var(--text-3xl);
-  font-weight: 700;
+  font-size: var(--text-2xl);
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin: 0 0 var(--space-6) 0;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
 }
 
 .home__user {
@@ -79,8 +76,9 @@ async function handleLogout(): Promise<void> {
 }
 
 .home__greeting {
+  font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin: 0 0 var(--space-2) 0;
 }
@@ -95,13 +93,16 @@ async function handleLogout(): Promise<void> {
 .home__role {
   display: inline-block;
   padding: var(--space-1) var(--space-3);
-  background: var(--velo-primary);
-  color: white;
+  background: var(--velo-glass-blue-60);
+  color: var(--velo-text-primary);
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 700;
+  font-weight: 400;
   text-transform: uppercase;
   border-radius: var(--radius-full);
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .home__version {
@@ -112,17 +113,20 @@ async function handleLogout(): Promise<void> {
 
 .home__logout {
   padding: var(--space-2) var(--space-5);
-  background: transparent;
-  color: var(--velo-text-muted);
+  background: var(--velo-glass-white-01);
+  color: var(--velo-text-secondary);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-md);
+  font-weight: 400;
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  transition: opacity var(--transition-fast);
 }
 
 .home__logout:hover {
-  color: var(--velo-error);
-  border-color: var(--velo-error);
+  opacity: 0.8;
 }
 </style>

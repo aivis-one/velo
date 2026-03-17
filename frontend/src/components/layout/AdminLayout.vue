@@ -49,7 +49,7 @@ defineEmits<{
   flex-direction: column;
   min-height: 100dvh;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--velo-bg-start) 0%, var(--velo-bg-end) 100%);
+  background: transparent;
 }
 
 .admin-layout__main {

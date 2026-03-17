@@ -90,21 +90,22 @@ const full = computed(() =>
 
 <style scoped>
 .practice-card {
-  background: white;
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .practice-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(51, 77, 110, 0.12);
+  opacity: 0.9;
 }
 
 .practice-card:active {
-  transform: translateY(0);
+  opacity: 0.8;
 }
 
 .practice-card__header {
@@ -126,8 +127,9 @@ const full = computed(() =>
 }
 
 .practice-card__title {
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin: 0 0 2px;
   overflow: hidden;
@@ -136,7 +138,9 @@ const full = computed(() =>
 }
 
 .practice-card__master {
-  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0;
 }
@@ -149,7 +153,9 @@ const full = computed(() =>
 }
 
 .practice-card__meta-item {
-  font-size: var(--text-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -160,22 +166,24 @@ const full = computed(() =>
 }
 
 .practice-card__price {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
 .practice-card__price--free {
-  color: var(--velo-success, #16A34A);
+  color: var(--velo-success);
 }
 
 .practice-card__spots {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
 .practice-card__spots--full {
-  color: var(--velo-error, #DC2626);
-  font-weight: 600;
+  color: var(--velo-error);
 }
 </style>

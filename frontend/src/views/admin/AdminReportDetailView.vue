@@ -264,7 +264,7 @@ onMounted(loadReport)
 
 .report-detail__section-title {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -272,20 +272,24 @@ onMounted(loadReport)
 }
 
 .report-detail__reason {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
   font-size: var(--text-sm);
   color: var(--velo-text-primary);
   line-height: 1.6;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .report-detail__meta-list {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   overflow: hidden;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .report-detail__meta-row {
@@ -293,7 +297,7 @@ onMounted(loadReport)
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--velo-border);
+  border-bottom: 1px solid var(--velo-border-light);
   gap: var(--space-2);
 }
 
@@ -314,7 +318,7 @@ onMounted(loadReport)
 
 .report-detail__meta-val {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-text-primary);
   text-align: right;
 }
@@ -342,8 +346,8 @@ onMounted(loadReport)
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
   padding: var(--space-4);
-  background: var(--velo-bg-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-md);
 }
 
 .report-detail__not-found {

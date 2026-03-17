@@ -77,18 +77,20 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 
 <style scoped>
 .pli {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  transition: box-shadow var(--transition-fast);
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .pli:active {
-  box-shadow: var(--shadow-sm);
+  opacity: 0.8;
 }
 
 .pli__header {
@@ -109,7 +111,8 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 }
 
 .pli__title {
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-weight: 400;
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   white-space: nowrap;
@@ -118,7 +121,9 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 }
 
 .pli__meta {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-muted);
   margin-top: 2px;
 }
@@ -126,7 +131,9 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 .pli__details {
   display: flex;
   gap: var(--space-4);
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
@@ -134,6 +141,6 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
   display: flex;
   gap: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border);
+  border-top: 1px solid var(--velo-border-light);
 }
 </style>

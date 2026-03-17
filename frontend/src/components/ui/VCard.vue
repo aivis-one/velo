@@ -43,18 +43,13 @@ defineEmits<{
 .v-card {
   background: var(--velo-bg-card, white);
   border: 1px solid var(--velo-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-4);
   transition: all var(--transition-base);
 }
 
 .v-card--clickable {
   cursor: pointer;
-}
-
-.v-card--clickable:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
 }
 
 .v-card--clickable:active {
