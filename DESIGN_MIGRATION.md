@@ -1035,17 +1035,15 @@ export { default as VAccordion } from './VAccordion.vue'
 
 ---
 
-## DS-5: Иконки для VTabBar
+## DS-5: Иконки
 
-В `Design_prototype/assets/icons/` есть: `icon-calendar.svg`, `icon-clock.svg`, `icon-diary.svg`, `icon-feedback.svg`, `icon-group.svg`, `icon-brain.svg`, `icon-profile.svg`.
+Все иконки — fill-based, `currentColor`, viewBox от оригинала из Design_prototype.
 
-Для VTabBar нужны иконки которых нет в Design_prototype. Создать простые SVG-компоненты:
-
-### `frontend/src/components/ui/icons/IconHome.vue`
+Шаблон каждого компонента:
 ```vue
 <template>
-  <svg :width="size" :height="size" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M3 9.5L12 3L21 9.5V20C21 20.55 20.55 21 20 21H15V15H9V21H4C3.45 21 3 20.55 3 20V9.5Z" fill="currentColor"/>
+  <svg :width="size" :height="size" viewBox="..." fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- paths из .svg файла -->
   </svg>
 </template>
 <script setup lang="ts">
@@ -1053,11 +1051,31 @@ withDefaults(defineProps<{ size?: number }>(), { size: 24 })
 </script>
 ```
 
-### `frontend/src/components/ui/icons/IconBookings.vue`
+### Иконки из Design_prototype (SVG-содержимое брать из файлов в репо)
+
+**`frontend/src/components/ui/icons/IconHome.vue`** — из `Design_prototype/assets/icons/icon-home.svg` (viewBox="0 0 512 512")
+
+**`frontend/src/components/ui/icons/IconCalendar.vue`** — из `Design_prototype/assets/icons/icon-calendar.svg` (viewBox="0 0 512 512")
+
+**`frontend/src/components/ui/icons/IconDiary.vue`** — из `Design_prototype/assets/icons/icon-diary.svg` (viewBox="0 0 512 512")
+
+**`frontend/src/components/ui/icons/IconProfile.vue`** — из `Design_prototype/assets/icons/icon-profile.svg` (viewBox="0 0 384 512")
+
+**`frontend/src/components/ui/icons/IconBrain.vue`** — из `Design_prototype/assets/icons/icon-brain.svg` (viewBox="0 0 512 512")
+
+**`frontend/src/components/ui/icons/IconGroup.vue`** — из `Design_prototype/assets/icons/icon-group.svg` (viewBox="0 0 515 513")
+
+**`frontend/src/components/ui/icons/IconFeedback.vue`** — из `Design_prototype/assets/icons/icon-feedback.svg` (viewBox="0 0 512 491")
+
+**`frontend/src/components/ui/icons/IconClock.vue`** — из `Design_prototype/assets/icons/icon-clock.svg` (viewBox="0 0 512 512")
+
+### Иконки которых нет в Design_prototype (сделать в том же fill-стиле)
+
+**`frontend/src/components/ui/icons/IconPractices.vue`** — для master таба "Практики":
 ```vue
 <template>
-  <svg :width="size" :height="size" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM7 7H17V9H7V7ZM7 11H17V13H7V11ZM7 15H13V17H7V15Z" fill="currentColor"/>
+  <svg :width="size" :height="size" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M64 0H448L469 5L486 16L500 31L509 49L512 64V448L507 469L496 486L481 500L463 509L448 512H64L43 507L26 496L12 481L3 463L0 448V64L5 43L16 26L31 12L49 3L64 0ZM85 43L69 47L57 57L47 69L43 85V427L47 443L57 455L69 465L85 469H427L443 465L455 455L465 443L469 427V85L465 69L455 57L443 47L427 43H85ZM170 128H342L356 133L366 143L371 157V171L366 185L356 195L342 200H170L156 195L146 185L141 171V157L146 143L156 133L170 128ZM128 256H384L398 261L408 271L413 285V299L408 313L398 323L384 328H128L114 323L104 313L99 299V285L104 271L114 261L128 256ZM170 384H342L356 389L366 399L371 413V427L366 441L356 451L342 456H170L156 451L146 441L141 427V413L146 399L156 389L170 384Z" fill="currentColor"/>
   </svg>
 </template>
 <script setup lang="ts">
@@ -1065,20 +1083,39 @@ withDefaults(defineProps<{ size?: number }>(), { size: 24 })
 </script>
 ```
 
-Иконки из Design_prototype обернуть в Vue-компоненты по такому же шаблону:
-- `icon-calendar.svg` → `IconCalendar.vue`
-- `icon-diary.svg` → `IconDiary.vue`
-- `icon-profile.svg` → `IconProfile.vue`
-- `icon-brain.svg` → `IconBrain.vue`
-- `icon-group.svg` → `IconGroup.vue`
-- `icon-feedback.svg` → `IconFeedback.vue`
-- `icon-clock.svg` → `IconClock.vue`
-
-Шаблон обёртки для каждого:
+**`frontend/src/components/ui/icons/IconAnalytics.vue`** — для master таба "Аналитика":
 ```vue
 <template>
-  <svg :width="size" :height="size" viewBox="..." fill="none" xmlns="...">
-    <!-- содержимое из .svg файла -->
+  <svg :width="size" :height="size" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 512V448L171 277L277 383L512 85V149L277 447L171 341L0 512Z" fill="currentColor"/>
+    <path d="M320 0H512V192L432 112L277 267L171 161L0 332V268L171 97L277 203L432 48L320 0Z" fill="currentColor"/>
+  </svg>
+</template>
+<script setup lang="ts">
+withDefaults(defineProps<{ size?: number }>(), { size: 24 })
+</script>
+```
+
+**`frontend/src/components/ui/icons/IconDashboard.vue`** — для admin таба "Дашборд":
+```vue
+<template>
+  <svg :width="size" :height="size" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0 0H234V234H0V0ZM278 0H512V234H278V0ZM0 278H234V512H0V278ZM278 278H512V512H278V278ZM43 43V191H191V43H43ZM321 43V191H469V43H321ZM43 321V469H191V321H43ZM321 321V469H469V321H321Z" fill="currentColor"/>
+  </svg>
+</template>
+<script setup lang="ts">
+withDefaults(defineProps<{ size?: number }>(), { size: 24 })
+</script>
+```
+
+**`frontend/src/components/ui/icons/IconMasters.vue`** — для admin таба "Мастера" (использовать icon-group.svg):
+Это тот же компонент что и `IconGroup.vue` — создать как алиас или просто скопировать.
+
+**`frontend/src/components/ui/icons/IconModeration.vue`** — для admin таба "Модерация":
+```vue
+<template>
+  <svg :width="size" :height="size" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M256 0L512 128V256C512 384 416 469 256 512C96 469 0 384 0 256V128L256 0ZM256 55L43 163V256C43 358 123 428 256 464C389 428 469 358 469 256V163L256 55ZM235 149H277V299H235V149ZM235 341H277V384H235V341Z" fill="currentColor"/>
   </svg>
 </template>
 <script setup lang="ts">
@@ -1088,7 +1125,73 @@ withDefaults(defineProps<{ size?: number }>(), { size: 24 })
 
 ### `frontend/src/router/tabs.ts`
 
-Заменить emoji на компоненты пока нельзя (TabItem.icon — строка). Оставить emoji как есть. После DS-5 при желании можно рефакторить TabItem чтобы принимал компонент — это отдельная задача.
+Заменить emoji на импорты SVG-компонентов. Изменить тип `TabItem.icon` в `VTabBar.vue` с `string` на `string | Component`, рендерить через `<component :is="item.icon">` если это не строка.
+
+```typescript
+import { defineAsyncComponent } from 'vue'
+import type { Component } from 'vue'
+import type { TabItem } from '@/components/layout/VTabBar.vue'
+
+const IconHome = defineAsyncComponent(() => import('@/components/ui/icons/IconHome.vue'))
+const IconCalendar = defineAsyncComponent(() => import('@/components/ui/icons/IconCalendar.vue'))
+const IconDiary = defineAsyncComponent(() => import('@/components/ui/icons/IconDiary.vue'))
+const IconProfile = defineAsyncComponent(() => import('@/components/ui/icons/IconProfile.vue'))
+const IconDashboard = defineAsyncComponent(() => import('@/components/ui/icons/IconDashboard.vue'))
+const IconPractices = defineAsyncComponent(() => import('@/components/ui/icons/IconPractices.vue'))
+const IconAnalytics = defineAsyncComponent(() => import('@/components/ui/icons/IconAnalytics.vue'))
+const IconMasters = defineAsyncComponent(() => import('@/components/ui/icons/IconGroup.vue'))
+const IconModeration = defineAsyncComponent(() => import('@/components/ui/icons/IconModeration.vue'))
+
+export const USER_TABS: TabItem[] = [
+  { icon: IconHome,     label: 'Дашборд',   to: '/user/dashboard' },
+  { icon: IconCalendar, label: 'Календарь', to: '/user/calendar' },
+  { icon: IconDiary,    label: 'Дневник',   to: '/user/diary' },
+  { icon: IconProfile,  label: 'Я',         to: '/user/profile' },
+]
+
+export const MASTER_TABS: TabItem[] = [
+  { icon: IconDashboard,  label: 'Дашборд',   to: '/master/dashboard' },
+  { icon: IconPractices,  label: 'Практики',  to: '/master/practices' },
+  { icon: IconAnalytics,  label: 'Аналитика', to: '/master/analytics' },
+  { icon: IconProfile,    label: 'Я',         to: '/master/profile' },
+]
+
+export const ADMIN_TABS: TabItem[] = [
+  { icon: IconDashboard,   label: 'Дашборд',    to: '/admin/dashboard' },
+  { icon: IconMasters,     label: 'Мастера',    to: '/admin/masters' },
+  { icon: IconModeration,  label: 'Модерация',  to: '/admin/reports' },
+]
+```
+
+### `frontend/src/components/layout/VTabBar.vue`
+
+Обновить тип `TabItem` и шаблон:
+
+```typescript
+import type { Component } from 'vue'
+
+export interface TabItem {
+  icon: string | Component
+  label: string
+  to: string
+  badge?: number | string
+}
+```
+
+В `<template>` заменить отображение иконки:
+```html
+<!-- было -->
+<span class="v-tabbar__icon">{{ item.icon }}</span>
+
+<!-- стало -->
+<component
+  v-if="typeof item.icon !== 'string'"
+  :is="item.icon"
+  class="v-tabbar__icon"
+  :size="22"
+/>
+<span v-else class="v-tabbar__icon">{{ item.icon }}</span>
+```
 
 ---
 
@@ -1112,6 +1215,322 @@ withDefaults(defineProps<{ size?: number }>(), { size: 24 })
 
 В `<style scoped>`:
 - `.popup__title`: `font-family: var(--font-body)`, `font-weight: 400`
+
+---
+
+## DS-6: Shared Components
+
+### `frontend/src/components/shared/PracticeCard.vue`
+
+В `<style scoped>` точечные замены:
+```css
+/* .practice-card — убрать border, исправить radius */
+border: none;                        /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);     /* было: var(--radius-lg) */
+
+/* .practice-card:hover — убрать shadow */
+/* убрать строку: box-shadow: 0 8px 24px rgba(51, 77, 110, 0.12); */
+
+/* .practice-card__title */
+font-weight: 400;    /* было: 600 */
+
+/* .practice-card__price */
+font-weight: 400;    /* было: 600 */
+```
+
+---
+
+### `frontend/src/components/shared/BookingCard.vue`
+
+В `<style scoped>`:
+```css
+/* .booking-card */
+border: none;                        /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);     /* было: var(--radius-lg) */
+
+/* .booking-card--clickable:hover — убрать */
+/* убрать строку: box-shadow: var(--shadow-md); */
+
+/* .booking-card__title */
+font-weight: 400;    /* было: 600 */
+```
+
+---
+
+### `frontend/src/components/shared/BookingPopup.vue`
+
+В `<style scoped>`:
+```css
+/* .popup__title */
+font-family: var(--font-body);   /* было: var(--font-heading) */
+font-weight: 400;                /* было: 600 */
+
+/* .popup__promo-input:focus — убрать box-shadow */
+/* убрать строку: box-shadow: 0 0 0 3px rgba(51, 77, 110, 0.1); */
+```
+
+---
+
+### `frontend/src/components/shared/CancelBookingPopup.vue`
+
+В `<style scoped>`:
+```css
+/* .cancel__title */
+font-family: var(--font-body);   /* было: var(--font-heading) */
+font-weight: 400;                /* было: 600 */
+
+/* .cancel__warning--danger */
+background: var(--velo-warning-bg);    /* было: #FEF3C7 — hardcoded hex */
+
+/* .cancel__warning--safe */
+background: var(--velo-success-bg);    /* было: rgba(34, 197, 94, 0.1) */
+border: 1px solid var(--velo-success); /* было: var(--velo-success) — уже ок */
+
+/* .cancel__warning--danger .cancel__warning-text */
+color: var(--velo-warning-text);   /* было: #92400E — hardcoded hex */
+
+/* .cancel__warning--safe .cancel__warning-text */
+color: var(--velo-success-text);   /* было: #166534 — hardcoded hex */
+```
+
+---
+
+## DS-7: User Views
+
+Правило для всех user views: Claude Code проходит по каждому файлу и делает только перечисленные замены. Логику, шаблоны, TypeScript не трогать.
+
+### Общие замены по всем `frontend/src/views/user/*.vue`
+
+1. `font-family: var(--font-heading)` → `var(--font-body)`
+2. `font-weight: 700` → `400`
+3. `font-weight: 600` → `400`
+4. `font-weight: 500` → `400`
+5. `box-shadow: 0 ... rgba(51, 77, 110, ...)` → убрать строку
+6. `rgba(51, 77, 110, 0.05)` → `var(--velo-glass-blue-15)`
+7. `rgba(51, 77, 110, 0.1)` → `var(--velo-glass-blue-15)`
+8. `rgba(51, 77, 110, 0.15)` → `var(--velo-glass-blue-15)`
+9. `rgba(51, 77, 110, 0.3)` → `var(--velo-glass-blue-60)`
+
+### Дополнительные точечные правки по файлам
+
+**`frontend/src/views/user/DiaryView.vue`**
+```css
+/* .diary-card */
+border: none;                        /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);     /* было: var(--radius-lg) */
+
+/* .diary__form-actions */
+background: transparent;             /* было: white */
+
+/* .diary__input, .diary__textarea */
+border: none;                        /* было: 1px solid var(--velo-border) */
+border-radius: 5px;                  /* было: var(--radius-lg) */
+/* focus: */
+border: 2px solid var(--velo-border); /* было: border-color: var(--velo-primary) */
+```
+
+**`frontend/src/views/user/CheckinView.vue`**
+```css
+/* .checkin__mood-btn */
+border: 1px solid var(--velo-border);   /* было: 2px solid var(--velo-border) */
+border-radius: var(--radius-md);        /* было: 16px — hardcoded */
+
+/* .checkin__mood-btn--selected */
+border-color: var(--velo-primary);
+background: var(--velo-glass-blue-15);  /* было: rgba(51, 77, 110, 0.05) */
+/* убрать box-shadow */
+
+/* все .checkin__mood-btn--selected.checkin__mood-btn--* — убрать */
+/* (три блока с кастомными цветами per mood — убрать, оставить только общий selected) */
+
+/* .checkin__textarea */
+border: none;                           /* было: 1px solid var(--velo-border) */
+border-radius: 5px;                     /* было: var(--radius-lg) */
+/* focus: border: 2px solid var(--velo-border) */
+```
+
+**`frontend/src/views/user/FeedbackView.vue`**
+```css
+/* .feedback__rating-btn */
+border: 1px solid var(--velo-border);   /* было: 2px solid */
+border-radius: var(--radius-md);        /* было: 16px */
+
+/* .feedback__rating-btn--selected.* — убрать все три блока per-rating */
+/* оставить только общий: */
+.feedback__rating-btn--selected {
+  border-color: var(--velo-primary);
+  background: var(--velo-glass-blue-15);
+}
+
+/* .feedback__textarea */
+border: none;
+border-radius: 5px;
+/* focus: border: 2px solid var(--velo-border) */
+```
+
+**`frontend/src/views/user/TopupView.vue`**
+```css
+/* .topup__balance */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+
+/* .topup__balance-value */
+font-family: var(--font-body);         /* было: var(--font-heading) */
+
+/* .topup__preset */
+border: 1px solid var(--velo-border);  /* было: 2px solid */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+
+/* .topup__preset--active */
+background: var(--velo-glass-blue-15); /* было: rgba(51, 77, 110, 0.05) */
+
+/* .topup__custom-input-wrap */
+border: 1px solid var(--velo-border);  /* было: 2px solid var(--velo-primary) */
+border-radius: var(--radius-md);       /* было: var(--radius-md) — ок */
+```
+
+**`frontend/src/views/user/TopupSuccessView.vue`** и **`TopupCancelView.vue`**
+```css
+/* .topup-result__title */
+font-family: var(--font-body);
+/* font-weight уже покрыто общим правилом выше */
+
+/* .topup-result__balance */
+font-family: var(--font-body);
+```
+
+**`frontend/src/views/user/NotFoundView.vue`**
+```css
+/* .not-found */
+background: transparent;   /* было: var(--velo-bg-start) */
+
+/* .not-found__title */
+font-family: var(--font-body);
+/* font-weight покрыто общим правилом */
+
+/* .not-found__btn */
+border-radius: var(--radius-full);  /* было: var(--radius-md) */
+/* font-weight покрыто общим правилом */
+```
+
+**`frontend/src/views/user/MyBookingsView.vue`**
+```css
+/* .bookings__filter */
+/* font-weight покрыто общим правилом */
+/* border оставить — это функциональные chip-фильтры, не карточки */
+```
+
+---
+
+## DS-8: Master Views
+
+### Общие замены по всем `frontend/src/views/master/*.vue`
+
+Те же 9 правил что и для DS-7 (font-heading → font-body, font-weight → 400, rgba убрать).
+
+### Дополнительные точечные правки
+
+**`frontend/src/views/master/MasterApplyView.vue`**
+```css
+/* .apply-view */
+background: transparent;   /* было: linear-gradient(...) */
+```
+
+**`frontend/src/views/master/MasterProfileView.vue`**
+```css
+/* .master-profile__header */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+
+/* .master-profile__section */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+
+/* .master-profile__chip */
+background: var(--velo-glass-blue-15); /* было: var(--velo-bg-subtle) */
+border: none;                          /* было: 1px solid var(--velo-border) */
+
+/* .master-profile__finance-link */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+/* убрать: box-shadow + transform в hover */
+```
+
+**`frontend/src/views/master/MasterDashboardView.vue`**
+```css
+/* .master-dashboard__stat-card */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-md) — ок */
+
+/* .master-dashboard__ai-card */
+background: var(--velo-glass-blue-15); /* было: var(--velo-bg-subtle) */
+border: none;                          /* было: 1px solid var(--velo-border) */
+
+/* .master-dashboard__practice-card */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-md) — ок */
+
+/* .master-dashboard__action-btn */
+border: none;                          /* было: 1px solid var(--velo-border) */
+```
+
+**`frontend/src/views/master/MasterPracticesView.vue`**
+```css
+/* .master-practices__tabs */
+background: transparent;               /* было: var(--velo-bg-card) */
+border-bottom: none;                   /* было: 1px solid var(--velo-border) */
+```
+
+**`frontend/src/views/master/AnalyticsView.vue`**
+```css
+/* .analytics__stat-card */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+
+/* .analytics__header */
+border-bottom: none;                   /* было: 1px solid var(--velo-border) */
+
+/* .analytics__tabs */
+border-bottom: none;                   /* было: 2px solid var(--velo-border) */
+```
+
+**`frontend/src/views/master/CreatePracticeView.vue`** и **`EditPracticeView.vue`**
+```css
+/* .*__price-calc */
+background: var(--velo-glass-blue-15); /* было: var(--velo-bg-subtle) */
+border: none;                          /* было: 1px solid var(--velo-border) */
+
+/* .*__date-input */
+background: #ffffff;                   /* было: var(--velo-bg-card) */
+border: none;                          /* было: 1px solid var(--velo-border) */
+border-radius: 5px;                    /* было: var(--radius-md) */
+/* focus: border: 2px solid var(--velo-border) */
+
+/* .*__payment-option */
+background: #ffffff;                   /* было: var(--velo-bg-card) */
+border: 1px solid var(--velo-border);  /* оставить — функциональный */
+
+/* .*__dialog */
+border-radius: var(--radius-md);       /* было: var(--radius-lg) */
+```
+
+---
+
+## DS-9: Admin Views
+
+Admin — вне скоупа дизайна VELΘ. Только убрать явные сломы.
+
+### Общие замены по всем `frontend/src/views/admin/*.vue`
+
+1. `font-weight: 700` → `400`
+2. `font-weight: 600` → `400`
+3. `font-weight: 500` → `400`
+4. `border-radius: var(--radius-lg)` → `var(--radius-md)` на карточках
+
+**Не трогать в admin:**
+- Цвета предупреждений и статусов — они уже на переменных
+- `background: var(--velo-bg-card)` — оставить белый фон на карточках (admin не имеет фото-фона)
+- `border: 1px solid var(--velo-border)` — оставить, это помогает читаемости в admin
 
 ---
 
