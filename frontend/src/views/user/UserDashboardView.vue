@@ -227,48 +227,44 @@ onUnmounted(() => {
 }
 
 .dashboard__greeting-text {
-  font-size: 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0 0 var(--space-1);
 }
 
 .dashboard__greeting-name {
   font-family: var(--font-heading);
-  font-size: 26px;
-  font-weight: 600;
+  font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
 /* ===== Alert banners ===== */
 .dashboard__alert {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: var(--space-4);
   margin-bottom: var(--space-4);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 1px solid #ffffff;
+  transition: opacity var(--transition-fast);
 }
 
 .dashboard__alert:hover {
-  transform: translateY(-2px);
+  opacity: 0.9;
 }
 
 .dashboard__alert--checkin {
-  background: linear-gradient(135deg, var(--velo-warning-bg) 0%, var(--velo-warning-bg-hover) 100%);
-  border: 1px solid var(--velo-warning-border);
-}
-
-.dashboard__alert--checkin:hover {
-  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.2);
+  background: var(--velo-glass-peach-40);
 }
 
 .dashboard__alert--feedback {
-  background: linear-gradient(135deg, var(--velo-info-bg) 0%, var(--velo-info-bg) 100%);
-  border: 1px solid var(--velo-info);
-}
-
-.dashboard__alert--feedback:hover {
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+  background: var(--velo-glass-teal-40);
 }
 
 .dashboard__alert-content {
@@ -283,27 +279,15 @@ onUnmounted(() => {
 }
 
 .dashboard__alert-text h4 {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 400;
+  font-size: var(--text-sm);
   margin-bottom: 2px;
+  color: var(--velo-text-primary);
 }
 
-.dashboard__alert--checkin .dashboard__alert-text h4 {
-  color: var(--velo-warning-text);
-}
-
-.dashboard__alert--checkin .dashboard__alert-text p {
-  font-size: 13px;
-  color: var(--velo-warning-text-light);
-}
-
-.dashboard__alert--feedback .dashboard__alert-text h4 {
-  color: var(--velo-info-text);
-}
-
-.dashboard__alert--feedback .dashboard__alert-text p {
-  font-size: 13px;
-  color: var(--velo-info-text);
+.dashboard__alert-text p {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
 /* ===== Upcoming practices ===== */
@@ -319,9 +303,11 @@ onUnmounted(() => {
 }
 
 .dashboard__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
@@ -329,8 +315,9 @@ onUnmounted(() => {
   background: none;
   border: none;
   padding: 0;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   color: var(--velo-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);

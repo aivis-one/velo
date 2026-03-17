@@ -167,17 +167,24 @@ onMounted(() => {
   overflow-x: auto;
   padding-bottom: var(--space-1);
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.bookings__filters::-webkit-scrollbar {
+  display: none;
 }
 
 .bookings__filter {
   flex-shrink: 0;
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-full);
-  background: white;
+  border: 1px solid #ffffff;
+  border-radius: 100px;
+  background: var(--velo-glass-blue-15);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 500;
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -185,7 +192,7 @@ onMounted(() => {
 }
 
 .bookings__filter:hover {
-  border-color: var(--velo-primary-light);
+  opacity: 0.8;
 }
 
 .bookings__filter--active {

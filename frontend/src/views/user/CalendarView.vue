@@ -171,7 +171,6 @@ onMounted(() => {
   overflow-x: auto;
   padding-bottom: var(--space-3);
   margin-bottom: var(--space-4);
-  /* Hide scrollbar but keep scroll functionality */
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -181,21 +180,24 @@ onMounted(() => {
 }
 
 .calendar__chip {
-  padding: 8px 14px;
-  border: 1px solid var(--velo-border);
-  background: white;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid #ffffff;
+  background: var(--velo-glass-blue-15);
+  border-radius: 100px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--velo-text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .calendar__chip:hover {
-  border-color: var(--velo-primary-light, var(--velo-primary));
+  opacity: 0.8;
 }
 
 .calendar__chip--active {
@@ -205,12 +207,13 @@ onMounted(() => {
 }
 
 .calendar__date-header {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-primary);
   margin: var(--space-4) 0 var(--space-3);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.02em;
 }
 
 .calendar__date-header:first-child {
