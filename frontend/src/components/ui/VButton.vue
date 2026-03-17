@@ -1,10 +1,10 @@
 <!--
   VELO Frontend -- VButton Component (Phase F2.1)
 
-  Primary action element. Matches mockup .btn styles exactly.
+  Primary action element. VELΘ pill-shaped glass design.
 
-  Variants: primary | secondary | danger | ghost | outline
-  Sizes:    sm | md (default) | lg
+  Variants: primary | secondary | danger | ghost | outline (alias → secondary)
+  Sizes:    sm | md (default) | lg (alias → md)
   States:   disabled, loading (shows spinner + prevents clicks)
 
   Usage:
@@ -17,8 +17,8 @@
   <button
     :class="[
       'v-btn',
-      `v-btn--${variant}`,
-      `v-btn--${size}`,
+      `v-btn--${normalizedVariant}`,
+      `v-btn--${normalizedSize}`,
       {
         'v-btn--block': block,
         'v-btn--loading': loading,
@@ -35,7 +35,9 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline'
     size?: 'sm' | 'md' | 'lg'
@@ -55,6 +57,13 @@ withDefaults(
 defineEmits<{
   click: [event: MouseEvent]
 }>()
+
+const normalizedVariant = computed(() =>
+  props.variant === 'outline' ? 'secondary' : props.variant,
+)
+const normalizedSize = computed(() =>
+  props.size === 'lg' ? 'md' : props.size,
+)
 </script>
 
 <style scoped>
@@ -64,14 +73,17 @@ defineEmits<{
   justify-content: center;
   gap: var(--space-2);
   font-family: var(--font-body);
-  font-weight: 600;
-  border: 2px solid transparent;
+  font-weight: 400;
+  border: 1px solid #ffffff;
   cursor: pointer;
   transition: all var(--transition-base);
   text-decoration: none;
   position: relative;
   white-space: nowrap;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: var(--velo-shadow-glow);
 }
 
 /* -- Sizes -- */
@@ -84,70 +96,44 @@ defineEmits<{
 .v-btn--md {
   padding: 12px 24px;
   font-size: var(--text-sm);
-  min-height: 48px;
-}
-
-.v-btn--lg {
-  padding: 16px 32px;
-  font-size: var(--text-base);
-  min-height: 52px;
+  min-height: 50px;
 }
 
 /* -- Variants -- */
 .v-btn--primary {
   background: var(--velo-primary);
   color: white;
-  border-color: var(--velo-primary);
 }
 
 .v-btn--primary:hover:not(:disabled) {
   background: var(--velo-primary-dark);
-  border-color: var(--velo-primary-dark);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
 }
 
 .v-btn--secondary {
-  background: white;
-  color: var(--velo-primary);
-  border-color: var(--velo-primary);
+  background: var(--velo-glass-blue-60);
+  color: var(--velo-text-primary);
 }
 
 .v-btn--secondary:hover:not(:disabled) {
-  background: var(--velo-primary);
-  color: white;
-}
-
-.v-btn--outline {
-  background: white;
-  color: var(--velo-primary);
-  border-color: var(--velo-border);
-}
-
-.v-btn--outline:hover:not(:disabled) {
-  border-color: var(--velo-primary-light);
-  background: var(--velo-bg-subtle);
+  background: var(--velo-glass-blue-15);
 }
 
 .v-btn--danger {
-  background: white;
-  color: var(--velo-error);
-  border-color: var(--velo-error);
+  background: var(--velo-pink-300);
+  color: white;
 }
 
 .v-btn--danger:hover:not(:disabled) {
   background: var(--velo-error);
-  color: white;
 }
 
 .v-btn--ghost {
-  background: transparent;
-  color: var(--velo-primary);
-  border-color: transparent;
+  background: var(--velo-glass-white-01);
+  color: var(--velo-text-primary);
 }
 
 .v-btn--ghost:hover:not(:disabled) {
-  background: rgba(51, 77, 110, 0.1);
+  background: var(--velo-glass-blue-15);
 }
 
 /* -- Modifiers -- */
@@ -158,8 +144,6 @@ defineEmits<{
 .v-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
 }
 
 /* -- Loading -- */
