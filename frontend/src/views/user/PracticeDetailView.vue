@@ -47,6 +47,9 @@
   <!-- Content -->
   <div v-else-if="practice" class="detail">
 
+    <!-- Back button header -->
+    <VHeader title="" show-back @back="router.back()" />
+
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">
       <!-- Hero header -->
@@ -160,6 +163,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import {
   formatDate,
