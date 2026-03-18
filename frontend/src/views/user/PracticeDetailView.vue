@@ -19,6 +19,11 @@
   Check-in window:  scheduled_at - 3h  ..  scheduled_at
   Feedback window:  scheduled_at + duration_minutes  ..  + 72h
 
+  Layout note: .detail__actions is NOT position:fixed. Instead .detail is a
+  flex column filling the parent scroll container, with .detail__scrollable
+  taking flex:1 and overflow-y:auto. This ensures the tab bar (position:sticky)
+  sits below the footer naturally without z-index conflicts.
+
   Route: /user/practices/:id
   Param: id (practice UUID)
 -->
@@ -41,43 +46,47 @@
 
   <!-- Content -->
   <div v-else-if="practice" class="detail">
-    <!-- Hero header -->
-    <div class="detail__hero">
-      <div class="detail__emoji">{{ typeEmoji }}</div>
-      <h1 class="detail__title">{{ practice.title }}</h1>
-      <div class="detail__meta">
-        <span>📅 {{ formattedDate }}</span>
-        <span>⏱️ {{ formattedDuration }}</span>
-        <span>👥 {{ formattedParticipants }}</span>
+
+    <!-- Scrollable area: hero + body -->
+    <div class="detail__scrollable">
+      <!-- Hero header -->
+      <div class="detail__hero">
+        <div class="detail__emoji">{{ typeEmoji }}</div>
+        <h1 class="detail__title">{{ practice.title }}</h1>
+        <div class="detail__meta">
+          <span>📅 {{ formattedDate }}</span>
+          <span>⏱️ {{ formattedDuration }}</span>
+          <span>👥 {{ formattedParticipants }}</span>
+        </div>
+        <VBadge v-if="practice.status === 'live'" variant="success">
+          LIVE
+        </VBadge>
       </div>
-      <VBadge v-if="practice.status === 'live'" variant="success">
-        LIVE
-      </VBadge>
-    </div>
 
-    <!-- Body -->
-    <div class="detail__body">
-      <!-- Description -->
-      <section v-if="practice.description" class="detail__section">
-        <h3 class="detail__section-title">О практике</h3>
-        <p class="detail__section-content">{{ practice.description }}</p>
-      </section>
+      <!-- Body -->
+      <div class="detail__body">
+        <!-- Description -->
+        <section v-if="practice.description" class="detail__section">
+          <h3 class="detail__section-title">О практике</h3>
+          <p class="detail__section-content">{{ practice.description }}</p>
+        </section>
 
-      <!-- Master -->
-      <section class="detail__section">
-        <h3 class="detail__section-title">Мастер</h3>
-        <div class="detail__master-card">
-          <div class="detail__master-avatar">🧘‍♂️</div>
-          <div class="detail__master-info">
-            <div class="detail__master-name">
-              {{ practice.master_name ?? 'Мастер' }}
+        <!-- Master -->
+        <section class="detail__section">
+          <h3 class="detail__section-title">Мастер</h3>
+          <div class="detail__master-card">
+            <div class="detail__master-avatar">🧘‍♂️</div>
+            <div class="detail__master-info">
+              <div class="detail__master-name">
+                {{ practice.master_name ?? 'Мастер' }}
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
 
-    <!-- Sticky footer: price + action -->
+    <!-- Footer: price + action (static, not fixed) -->
     <div class="detail__actions">
       <div class="detail__price-row">
         <span class="detail__price-label">Стоимость</span>
@@ -334,11 +343,18 @@ onUnmounted(() => {
   min-height: 40vh;
 }
 
+/* Outer container: flex column filling the shell's scroll area */
 .detail {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
-  padding-bottom: 120px;
+  height: 100%;
+}
+
+/* Scrollable region: grows to fill available space */
+.detail__scrollable {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Hero */
@@ -376,7 +392,6 @@ onUnmounted(() => {
 
 /* Body */
 .detail__body {
-  flex: 1;
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
@@ -434,12 +449,9 @@ onUnmounted(() => {
   color: var(--velo-text-primary);
 }
 
-/* Sticky footer */
+/* Footer: static, sits below scrollable area */
 .detail__actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   padding: var(--space-4);
   background: var(--velo-glass-blue-60);
   backdrop-filter: blur(2px);
@@ -448,7 +460,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  z-index: 10;
 }
 
 .detail__price-row {
