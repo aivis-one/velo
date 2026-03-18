@@ -1,15 +1,19 @@
 // =============================================================================
-// VELO Frontend -- API Client (Phase F1.2, fixed 10.2)
+// VELO Frontend -- API Client (Phase F1.2, fixed 10.2, fixed CRITICAL-2)
 // =============================================================================
 //
 // FIX 10.2: 401 handler delegates cleanup to auth store via
 // onUnauthorized callback. No direct token/sessionStorage mutation.
 // No window.location.href redirect -- Vue reactivity does it.
+//
+// FIX CRITICAL-2: AbortController + 15s timeout on every request.
+// Timeout throws ApiTimeoutError. Network failure throws ApiNetworkError.
 // =============================================================================
 
 import type { ApiError } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+const REQUEST_TIMEOUT_MS = 15_000
 
 // -- Error classes --
 
@@ -27,6 +31,13 @@ export class ApiNetworkError extends Error {
   constructor() {
     super('Network error -- check your connection')
     this.name = 'ApiNetworkError'
+  }
+}
+
+export class ApiTimeoutError extends Error {
+  constructor() {
+    super(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000}s`)
+    this.name = 'ApiTimeoutError'
   }
 }
 
@@ -73,6 +84,9 @@ async function request<T>(
     headers['Content-Type'] = 'application/json'
   }
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
   let response: Response
 
   try {
@@ -80,9 +94,15 @@ async function request<T>(
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
-  } catch {
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      throw new ApiTimeoutError()
+    }
     throw new ApiNetworkError()
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   // 204 No Content (e.g. logout).

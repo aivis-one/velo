@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- UserProfileView (Phase F4.2)
+  VELO Frontend -- UserProfileView (Phase F4.2, updated TD-FE-ROLE-SWITCH)
 
   User profile screen. Matches mockup screen-profile layout:
     - Profile header: avatar, name, email
@@ -10,6 +10,10 @@
   Balance is displayed as a dedicated card below the stats row.
   Other menu items (edit profile, messages, notifications, etc.)
   are stubs navigating to future phase views.
+
+  TD-FE-ROLE-SWITCH: If current user role is 'master' or 'admin', show a
+  "Вернуться в режим мастера/админа" button above logout. Button resets
+  uiMode to 'default' and navigates to the appropriate dashboard.
 
   Route: /user/profile (name: 'user-profile')
 -->
@@ -88,6 +92,22 @@
         </div>
       </div>
 
+      <!-- Return to master/admin mode (TD-FE-ROLE-SWITCH) -->
+      <div
+        v-if="authStore.role === 'master' || authStore.role === 'admin'"
+        class="profile__menu-section"
+      >
+        <div class="profile__menu-list">
+          <div class="profile__menu-item profile__menu-item--switch" @click="returnToNativeMode">
+            <span class="profile__menu-icon">🔄</span>
+            <span class="profile__menu-text">
+              {{ authStore.role === 'admin' ? 'Вернуться в режим администратора' : 'Вернуться в режим мастера' }}
+            </span>
+            <span class="profile__menu-arrow">→</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Logout -->
       <div class="profile__menu-section">
         <div class="profile__menu-list">
@@ -107,6 +127,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBalanceStore } from '@/stores/balance'
 import { useBookingsStore } from '@/stores/bookings'
+import { useUiStore } from '@/stores/ui'
 import { VAvatar, VButton } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 
@@ -114,6 +135,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const balanceStore = useBalanceStore()
 const bookingsStore = useBookingsStore()
+const uiStore = useUiStore()
 const toast = useToast()
 
 const user = computed(() => authStore.user)
@@ -135,6 +157,16 @@ function onTopup(): void {
 async function onLogout(): Promise<void> {
   await authStore.logout()
   router.replace({ path: '/' })
+}
+
+/** Return to native role dashboard and reset uiMode (TD-FE-ROLE-SWITCH). */
+function returnToNativeMode(): void {
+  uiStore.setUiMode('default')
+  if (authStore.role === 'admin') {
+    router.push({ name: 'admin-dashboard' })
+  } else {
+    router.push({ name: 'master-dashboard' })
+  }
 }
 
 // -- Lifecycle --
@@ -254,42 +286,39 @@ onMounted(async () => {
   font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.05em;
   margin-bottom: var(--space-2);
-  padding: 0 var(--space-4);
 }
 
 .profile__menu-list {
   background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-md);
   border: 1px solid #ffffff;
-  overflow: hidden;
+  border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
+  overflow: hidden;
 }
 
 .profile__menu-item {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--velo-border-light);
+  padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  transition: opacity var(--transition-fast);
+  transition: background var(--transition-fast);
 }
 
-.profile__menu-item:last-child {
-  border-bottom: none;
+.profile__menu-item + .profile__menu-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.profile__menu-item:hover {
-  opacity: 0.8;
+.profile__menu-item:active {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .profile__menu-icon {
-  font-size: 20px;
-  width: 24px;
-  text-align: center;
+  font-size: var(--text-lg);
+  flex-shrink: 0;
 }
 
 .profile__menu-text {
@@ -301,11 +330,15 @@ onMounted(async () => {
 }
 
 .profile__menu-arrow {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   color: var(--velo-text-muted);
 }
 
 .profile__menu-item--danger .profile__menu-text {
-  color: var(--velo-error);
+  color: var(--velo-error-text);
+}
+
+.profile__menu-item--switch .profile__menu-text {
+  color: var(--velo-primary);
 }
 </style>
