@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterProfileView (Phase F7)
+  VELO Frontend -- MasterProfileView (Phase F7, updated TD-FE-ROLE-SWITCH)
 
   Master profile screen. Route: /master/profile (tab "👤 Я").
   No masterStatusGuard -- accessible even while pending (so master sees their info).
@@ -20,6 +20,9 @@
        - Double-submit guard
 
     3. Finance link -- card tapping to /master/finance.
+
+    4. Switch to user mode (TD-FE-ROLE-SWITCH) -- sets uiMode='user', navigates to
+       /user/profile. Visible to all masters (and admins in master mode).
 
   Key patterns:
     - masterStore.profile already loaded by masterStatusGuard for verified masters.
@@ -200,6 +203,19 @@
         </div>
         <span class="master-profile__finance-link-arrow">→</span>
       </div>
+
+      <!-- ==================================================================
+           SECTION 4: SWITCH TO USER MODE (TD-FE-ROLE-SWITCH)
+           ================================================================== -->
+      <div class="master-profile__section master-profile__switch-section">
+        <div class="master-profile__section-title">РЕЖИМ ПРОСМОТРА</div>
+        <p class="master-profile__switch-desc">
+          Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
+        </p>
+        <VButton variant="secondary" @click="switchToUserMode">
+          Перейти в интерфейс пользователя →
+        </VButton>
+      </div>
     </template>
   </div>
 </template>
@@ -211,6 +227,7 @@ import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader } from '@/components
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { updatePayoutDetails } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import type { PayoutDetails } from '@/api/types'
@@ -223,6 +240,7 @@ const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 
 // ---------------------------------------------------------------------------
 // Profile computed values
@@ -428,6 +446,15 @@ function maskedDetails(payout: PayoutDetails): string {
 }
 
 // ---------------------------------------------------------------------------
+// Switch to user mode (TD-FE-ROLE-SWITCH)
+// ---------------------------------------------------------------------------
+
+function switchToUserMode(): void {
+  uiStore.setUiMode('user')
+  router.push({ name: 'user-profile' })
+}
+
+// ---------------------------------------------------------------------------
 // Mount
 // ---------------------------------------------------------------------------
 
@@ -630,5 +657,18 @@ onMounted(async () => {
   font-size: var(--text-lg);
   color: var(--velo-text-muted);
   flex-shrink: 0;
+}
+
+/* -- Switch section -- */
+.master-profile__switch-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.master-profile__switch-desc {
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  line-height: 1.5;
 }
 </style>

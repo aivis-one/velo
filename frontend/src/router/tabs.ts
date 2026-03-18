@@ -1,9 +1,11 @@
 // =============================================================================
-// VELO Frontend -- Tab Bar Config (Phase F2.2)
+// VELO Frontend -- Tab Bar Config (Phase F2.2, updated TD-FE-ROLE-SWITCH)
 // =============================================================================
 //
 // Tab items per role. Used by shell components (UserShell, MasterShell,
 // AdminShell) to configure VTabBar.
+//
+// TD-FE-ROLE-SWITCH: added 4th tab to ADMIN_TABS (/admin/profile).
 // =============================================================================
 
 import type { TabItem } from '@/components/layout/VTabBar.vue'
@@ -35,4 +37,5 @@ export const ADMIN_TABS: TabItem[] = [
   { icon: IconHome, label: 'Дашборд', to: '/admin/dashboard' },
   { icon: IconGroup, label: 'Мастера', to: '/admin/masters' },
   { icon: IconWarning, label: 'Модерация', to: '/admin/reports' },
+  { icon: IconProfile, label: 'Я', to: '/admin/profile' },
 ]

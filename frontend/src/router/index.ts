@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Router (Phase F2.2, updated F9)
+// VELO Frontend -- Router (Phase F2.2, updated F9, TD-FE-ROLE-SWITCH)
 // =============================================================================
 //
 // F9: Added two new user routes:
@@ -8,10 +8,14 @@
 //
 // Both are accessible to users AND masters (no roleGuard) because masters
 // are also users and may participate in practices.
+//
+// TD-FE-ROLE-SWITCH: Added /admin/profile route.
+// beforeEach updated: if uiMode === 'user', master/admin can reach /user/dashboard.
 // =============================================================================
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { useMasterStore } from '@/stores/master'
 import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
@@ -244,6 +248,12 @@ const router = createRouter({
           name: 'admin-consistency',
           component: () => import('@/views/admin/AdminConsistencyView.vue'),
         },
+        // TD-FE-ROLE-SWITCH: admin profile with user-mode switch button.
+        {
+          path: 'profile',
+          name: 'admin-profile',
+          component: () => import('@/views/admin/AdminProfileView.vue'),
+        },
         // Default: /admin -> /admin/dashboard
         {
           path: '',
@@ -278,6 +288,9 @@ const router = createRouter({
 // All other /user/* routes (/user/practices/:id, /user/bookings, /user/topup
 // etc.) remain accessible -- masters are also users and need them.
 //
+// TD-FE-ROLE-SWITCH: if uiMode === 'user', let master/admin through to
+// /user/dashboard without redirect.
+//
 // waitUntilReady() is called only on the first navigation (authInitialized
 // flag) -- subsequent navigations resolve immediately with no overhead.
 // =============================================================================
@@ -298,12 +311,14 @@ router.beforeEach(async (to) => {
 
   const auth = useAuthStore()
 
-  if (auth.role === 'master') {
-    return { path: '/master/dashboard' }
-  }
+  if (auth.role === 'master' || auth.role === 'admin') {
+    // TD-FE-ROLE-SWITCH: allow through if user explicitly switched to user mode.
+    const uiStore = useUiStore()
+    if (uiStore.uiMode === 'user') return true
 
-  if (auth.role === 'admin') {
-    return { path: '/admin/dashboard' }
+    return auth.role === 'admin'
+      ? { path: '/admin/dashboard' }
+      : { path: '/master/dashboard' }
   }
 
   return true
