@@ -19,7 +19,6 @@ import { defineStore } from 'pinia'
 import { ref, reactive, watch } from 'vue'
 import { getPractices, getPractice } from '@/api/practices'
 import { usePagination } from '@/composables/usePagination'
-import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
 import type {
   PracticeResponse,

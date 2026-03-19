@@ -14,7 +14,6 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { getMyBookings, cancelBooking as apiCancelBooking } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
-import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
 import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
 
