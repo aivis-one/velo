@@ -1,8 +1,31 @@
 # =============================================================================
-# VELO Backend — Purchase Service (Phase 6.4)
+# VELO Backend -- Purchase Service (Phase 6.4, updated Phase 6.7 Batch 4)
 # =============================================================================
 #
-# Create and finalize purchases with double-entry ledger.
+# Double-entry purchase logic for booking flow.
+#
+# CREATE PURCHASE (called from create_booking + confirm_waitlist):
+#   1. FOR UPDATE on user (balance check, P-07)
+#   2. Calculate discount if promo applied.
+#   3. Double-entry ledger (varies by promo type):
+#      - No promo:     user_ledger(-price) + master_ledger(+price, frozen)
+#      - Master promo: user_ledger(-paid)  + master_ledger(+paid, frozen)
+#      - Company promo: user_ledger(-paid) + master_ledger(+price, frozen)
+#                       + company_ledger(-discount, marketing)
+#   4. Atomic increment promo used_count (P-07).
+#   5. Create Purchase (amount_cents, discount_cents, paid_cents, promo_id).
+#   6. Link booking.purchase_id.
+#   7. Audit: purchase_created.
+#
+# FINALIZE PURCHASES (called from finalize_practice):
+#   1. Unfreeze master_ledger entries (UPDATE is_frozen=False)
+#   2. Commission = paid_cents * commission_percent // 100
+#      (commission on live money only -- promo discount excluded)
+#   3. Double-entry: master_ledger(-commission) + company_ledger(+commission)
+#   4. Purchase -> completed
+#
+# LIST USER PURCHASES (Frontend Backlog):
+#   Read-only paginated list with practice JOIN for display.
 #
 # INVARIANTS:
 #   - Every Booking has exactly one Purchase (Semaphore 1.1/1.2)
@@ -295,22 +318,68 @@ async def finalize_purchases(
         # Audit.
         await record_audit(
             event="purchase_completed",
-            actor_id=practice.master_id,
-            actor_type="system",
+            actor_id=purchase.user_id,
+            actor_type="user",
             target_type="purchase",
             target_id=purchase.id,
             data={
                 "practice_id": str(practice_id),
                 "paid_cents": purchase.paid_cents,
                 "commission_cents": commission,
+                "promo_id": str(purchase.promo_id) if purchase.promo_id else None,
             },
             session=session,
         )
 
-    logger.info(
-        "purchases_finalized",
-        practice_id=str(practice_id),
-        count=len(purchases),
-    )
+        logger.info(
+            "purchase_finalized",
+            purchase_id=str(purchase.id),
+            practice_id=str(practice_id),
+            paid_cents=purchase.paid_cents,
+            commission_cents=commission,
+        )
 
     return purchases
+
+
+async def list_user_purchases(
+    user: User,
+    session: AsyncSession,
+    *,
+    status_filter: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[list[tuple[Purchase, Practice]], int]:
+    """List purchases for a user with practice details (paginated).
+
+    Returns:
+        Tuple of (list of (Purchase, Practice) pairs, total count).
+    """
+    from app.modules.practices.models import Practice
+
+    base = (
+        select(Purchase, Practice)
+        .join(Practice, Purchase.practice_id == Practice.id)
+        .where(Purchase.user_id == user.id)
+    )
+    count_base = (
+        select(func.count(Purchase.id))
+        .where(Purchase.user_id == user.id)
+    )
+
+    if status_filter:
+        base = base.where(Purchase.status == status_filter)
+        count_base = count_base.where(Purchase.status == status_filter)
+
+    total = (await session.execute(count_base)).scalar_one()
+
+    items_stmt = (
+        base
+        .order_by(Purchase.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(items_stmt)
+    rows = result.all()
+
+    return [(row[0], row[1]) for row in rows], total
