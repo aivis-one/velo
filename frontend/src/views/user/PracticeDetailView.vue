@@ -48,7 +48,7 @@
   <div v-else-if="practice" class="detail">
 
     <!-- Back button header -->
-    <VHeader title="" show-back @back="router.back()" />
+    <VHeader show-back @back="router.back()" />
 
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">

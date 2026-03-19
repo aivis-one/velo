@@ -1,25 +1,22 @@
 <!--
-  VELO Frontend -- VHeader Component (Phase F2.1)
+  VELO Frontend -- VHeader Component (Phase F2.1, updated back-button design)
 
   Sticky top header. Matches mockup .header styles.
-  Back button integrates with platform.showBackButton() in Telegram.
+  Back button renders as a pill (← label) matching the glassmorphism design.
 
   Usage:
     <VHeader title="Дашборд" />
-    <VHeader title="Практика" show-back @back="router.back()">
-      <template #action>
-        <VButton size="sm" variant="ghost">⚙️</VButton>
-      </template>
-    </VHeader>
+    <VHeader title="Практика" show-back @back="router.back()" />
+    <VHeader title="" show-back back-label="Check-in" @back="onBack" />
 -->
 
 <template>
   <header class="v-header">
     <div class="v-header__left">
       <button v-if="showBack" class="v-header__back" @click="$emit('back')">
-        ←
+        ← {{ backLabel }}
       </button>
-      <h1 class="v-header__title">{{ title }}</h1>
+      <h1 v-if="title" class="v-header__title">{{ title }}</h1>
       <span v-if="badge" class="v-header__badge">{{ badge }}</span>
     </div>
     <div v-if="$slots.action" class="v-header__right">
@@ -31,12 +28,15 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    title: string
+    title?: string
     showBack?: boolean
+    backLabel?: string
     badge?: string | number
   }>(),
   {
+    title: '',
     showBack: false,
+    backLabel: 'Назад',
     badge: undefined,
   },
 )
@@ -55,9 +55,7 @@ defineEmits<{
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: rgba(255, 255, 255, 0.70);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: transparent;
   min-height: 56px;
 }
 
@@ -68,21 +66,30 @@ defineEmits<{
   min-width: 0;
 }
 
+/* Pill-shaped back button matching glassmorphism design */
 .v-header__back {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  font-size: 18px;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-4);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
   color: var(--velo-text-primary);
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.v-header__back:hover {
-  background: var(--velo-bg-subtle);
+.v-header__back:active {
+  opacity: 0.7;
 }
 
 .v-header__title {
@@ -99,7 +106,7 @@ defineEmits<{
   background: var(--velo-primary);
   color: white;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   padding: 2px 8px;
   border-radius: var(--radius-full);
   flex-shrink: 0;

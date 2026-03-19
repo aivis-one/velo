@@ -1,9 +1,9 @@
 <!--
-  VELO Frontend -- FeedbackView (Phase F9.1)
+  VELO Frontend -- FeedbackView (Phase F9.1, updated back-button)
 
   Full-screen post-practice feedback form.
   Matches mockup screen-feedback layout:
-    - Header with back button
+    - Header with back button (VHeader with pill back button)
     - Practice info (emoji + name + "Завершена")
     - "Как прошла практика?" question
     - Three rating buttons: confused / good / fire
@@ -15,7 +15,7 @@
   Param: practiceId (practice UUID)
 
   On success: offers navigation to diary or dashboard.
-  Note: no "Skip" button — feedback is voluntary but if opened, user intent
+  Note: no "Skip" button -- feedback is voluntary but if opened, user intent
   is to submit. Back button serves as cancel.
 -->
 
@@ -38,11 +38,7 @@
   <!-- ===== FORM SCREEN ===== -->
   <div v-else class="feedback">
     <!-- Header -->
-    <header class="feedback__header">
-      <button class="feedback__back" @click="onBack">←</button>
-      <h1 class="feedback__header-title">Feedback</h1>
-      <span class="feedback__header-spacer" />
-    </header>
+    <VHeader show-back back-label="Feedback" @back="onBack" />
 
     <div class="feedback__body">
       <!-- Practice info -->
@@ -116,6 +112,7 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton, VLoader } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 import { RATING_OPTIONS, PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { FeedbackRating } from '@/api/types'
 
@@ -136,16 +133,16 @@ const selectedRating = ref<FeedbackRating | null>(null)
 const comment = ref('')
 const submitted = ref(false)
 
-// -- Rating options (order matches mockup: confused → good → fire) --
-// -- Rating options and practice type emoji -- imported from displayHelpers
 const typeEmoji = computed(() =>
-  practice.value ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
+  practice.value
+    ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘')
+    : '🧘',
 )
 
 // -- Actions --
 function selectRating(rating: FeedbackRating): void {
   selectedRating.value = rating
-  platform.hapticFeedback('light')
+  try { platform.hapticFeedback('light') } catch { /* silent fallback */ }
 }
 
 async function onSubmit(): Promise<void> {
@@ -157,7 +154,7 @@ async function onSubmit(): Promise<void> {
   })
 
   if (result.ok) {
-    platform.hapticFeedback('medium')
+    try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
     submitted.value = true
   } else {
     toast.error(result.error)
@@ -178,7 +175,9 @@ function goToDashboard(): void {
 
 // -- Lifecycle --
 onMounted(() => {
-  practicesStore.fetchPractice(practiceId)
+  if (practicesStore.selected?.id !== practiceId) {
+    practicesStore.fetchPractice(practiceId)
+  }
 })
 </script>
 
@@ -233,45 +232,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-
-.feedback__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-}
-
-.feedback__back {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  font-size: var(--text-lg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity var(--transition-fast);
-}
-
-.feedback__back:hover {
-  opacity: 0.8;
-}
-
-.feedback__header-title {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-}
-
-.feedback__header-spacer {
-  width: 36px;
 }
 
 .feedback__body {
@@ -363,7 +323,6 @@ onMounted(() => {
   opacity: 0.8;
 }
 
-/* Selected states per rating */
 .feedback__rating-btn--selected.feedback__rating-btn--confused {
   border-color: var(--velo-peach-300);
   background: var(--velo-glass-peach-40);
