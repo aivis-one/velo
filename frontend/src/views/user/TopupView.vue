@@ -91,6 +91,7 @@ import { useToast } from '@/composables/useToast'
 import { createTopup } from '@/api/payments'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney } from '@/utils/format'
+import { eurStringToCents } from '@/utils/currency'
 
 const balanceStore = useBalanceStore()
 const toast = useToast()
@@ -114,11 +115,9 @@ const loading = ref(false)
 const customInput = ref<HTMLInputElement | null>(null)
 
 // -- Computed --
-const customCents = computed(() => {
-  const euros = parseFloat(customValue.value)
-  if (isNaN(euros) || euros <= 0) return 0
-  return Math.round(euros * 100)
-})
+// FP-03: eurStringToCents() avoids IEEE-754 float precision trap.
+// parseFloat('0.575') * 100 = 57.499... -> rounds to 57, not 58.
+const customCents = computed(() => eurStringToCents(customValue.value))
 
 const effectiveCents = computed(() =>
   customMode.value ? customCents.value : selectedCents.value,
