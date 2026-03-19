@@ -370,6 +370,11 @@ async def cancel_booking(
     return booking
 
 
+# ===================================================================
+# Phase 5.4: Attendance
+# ===================================================================
+
+
 async def join_booking(
     booking_id: UUID,
     user: User,
@@ -601,6 +606,11 @@ async def get_attendance(
     bookings = list(result.scalars().all())
 
     return practice, bookings
+
+
+# ===================================================================
+# Frontend Backlog: list / detail
+# ===================================================================
 
 
 async def list_user_bookings(
