@@ -601,12 +601,17 @@ async function onLoadMore(): Promise<void> {
       await diaryStore.loadMoreEntries()
       break
     default:
-      // Load more from all three feeds in parallel.
-      await Promise.all([
-        diaryStore.entriesHasMore  ? diaryStore.loadMoreEntries()   : Promise.resolve(),
-        diaryStore.checkinsHasMore ? diaryStore.loadMoreCheckins()  : Promise.resolve(),
-        diaryStore.feedbacksHasMore ? diaryStore.loadMoreFeedbacks() : Promise.resolve(),
-      ])
+      // NEW-4: wrapped in try/catch -- unhandled rejection on parallel load
+      // failure would swallow errors silently.
+      try {
+        await Promise.all([
+          diaryStore.entriesHasMore   ? diaryStore.loadMoreEntries()   : Promise.resolve(),
+          diaryStore.checkinsHasMore  ? diaryStore.loadMoreCheckins()  : Promise.resolve(),
+          diaryStore.feedbacksHasMore ? diaryStore.loadMoreFeedbacks() : Promise.resolve(),
+        ])
+      } catch {
+        toast.error('Не удалось загрузить записи')
+      }
   }
 }
 

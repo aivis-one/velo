@@ -203,7 +203,7 @@ const booked = computed(() => {
 // =========================================================================
 
 // NEW-1: imported from utils/constants -- single source of truth.
-import { CHECKIN_WINDOW_H, FEEDBACK_WINDOW_H } from '@/utils/constants'
+import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 
 // Reactive clock -- updated every 60s so window computeds re-evaluate
 // without requiring a page reload (C-1 fix).
@@ -228,9 +228,8 @@ const myBooking = computed(() => {
 const inCheckinWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'confirmed') return false
-  const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
-  const windowStartMs = scheduledMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
-  return now.value >= windowStartMs && now.value <= scheduledMs
+  const scheduledMs = new Date(practice.value.scheduled_at).getTime()
+  return isInCheckinWindow(scheduledMs, now.value)
 })
 
 /**
@@ -239,10 +238,8 @@ const inCheckinWindow = computed((): boolean => {
 const inFeedbackWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'attended') return false
-  const scheduledMs   = new Date(practice.value.scheduled_at).getTime()
-  const practiceEndMs = scheduledMs + practice.value.duration_minutes * 60 * 1000
-  const feedbackEndMs = practiceEndMs + FEEDBACK_WINDOW_H * 60 * 60 * 1000
-  return now.value >= practiceEndMs && now.value <= feedbackEndMs
+  const scheduledMs = new Date(practice.value.scheduled_at).getTime()
+  return isInFeedbackWindow(scheduledMs, practice.value.duration_minutes, now.value)
 })
 
 // =========================================================================
