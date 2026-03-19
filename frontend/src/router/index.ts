@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Router (Phase F2.2, updated F9, TD-FE-ROLE-SWITCH)
+// VELO Frontend -- Router (Phase F2.2, updated F9, TD-FE-ROLE-SWITCH, WARNING-3)
 // =============================================================================
 //
 // F9: Added two new user routes:
@@ -19,6 +19,7 @@ import { useUiStore } from '@/stores/ui'
 import { useMasterStore } from '@/stores/master'
 import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
+import type { ReadyResult } from '@/composables/useAuth'
 
 // -- Shell layouts --
 import UserShell from '@/views/shells/UserShell.vue'
@@ -30,8 +31,14 @@ import AdminShell from '@/views/shells/AdminShell.vue'
 // A master who is already verified has no reason to visit the apply form.
 // =============================================================================
 const applyGuard = async () => {
-  await waitUntilReady()
+  const { timedOut }: ReadyResult = await waitUntilReady()
   const auth = useAuthStore()
+
+  // WARNING-3: if auth stalled, send to error screen.
+  if (timedOut && auth.role === null) {
+    return { path: '/auth-error' }
+  }
+
   if (auth.role !== 'master') return true
 
   const masterStore = useMasterStore()
@@ -263,6 +270,15 @@ const router = createRouter({
     },
 
     // =========================================================================
+    // Auth error -- shown when waitUntilReady() times out with null role.
+    // =========================================================================
+    {
+      path: '/auth-error',
+      name: 'auth-error',
+      component: () => import('@/views/auth/LoadingErrorView.vue'),
+    },
+
+    // =========================================================================
     // Catch-all
     // =========================================================================
     {
@@ -299,8 +315,11 @@ let authInitialized = false
 router.beforeEach(async (to) => {
   // Wait for auth on first navigation only.
   if (!authInitialized) {
-    await waitUntilReady()
+    const { timedOut }: ReadyResult = await waitUntilReady()
     authInitialized = true
+    if (timedOut) {
+      console.warn('[router] auth initialization timed out on first navigation')
+    }
   }
 
   // Only intercept the dashboard entry point, not all of /user/*.

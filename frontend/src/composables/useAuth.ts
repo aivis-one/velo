@@ -12,9 +12,9 @@
 // Fix: export waitUntilReady() so roleRedirect can await auth completion
 // before reading auth.role.
 //
-// P-3: waitUntilReady() has a 10s timeout. If initAuth() hangs (network
-// failure, frozen platform SDK), the guard resolves anyway instead of
-// leaving the user on a white screen forever. A console warning is logged.
+// WARNING-3: waitUntilReady() now returns { ok, timedOut } so callers can
+// distinguish a clean ready from a timeout and act accordingly (e.g. redirect
+// to /auth-error instead of reading a null role).
 //
 // TD-F01: Deep link handling.
 // After auth, read platform.getStartParam() and parse open_practice__{uuid}.
@@ -69,33 +69,42 @@ export function resetAuthState(): void {
   pendingDeepLink.value = null
 }
 
+/** Result returned by waitUntilReady(). */
+export interface ReadyResult {
+  /** True if auth completed normally before the timeout. */
+  ok: boolean
+  /** True if the 10s timeout fired before initAuth() finished. */
+  timedOut: boolean
+}
+
 /**
  * Returns a Promise that resolves once isReady becomes true.
- * If isReady is already true, resolves immediately.
+ * If isReady is already true, resolves immediately with { ok: true, timedOut: false }.
  *
- * P-3: Races against a 10s timeout. If initAuth() hangs (network issue,
- * frozen Telegram SDK), the promise resolves anyway so the router guard
- * doesn't block forever. Logs a console warning on timeout.
+ * WARNING-3: races against a 10s timeout and now returns { ok, timedOut }
+ * so callers can distinguish a clean ready from a network-stall timeout.
+ * On timeout, auth.role may still be null -- callers must handle that case
+ * (e.g. redirect to /auth-error) instead of falling through to role-based
+ * routing with a null role.
  *
- * Used by roleRedirect guard and router beforeEach.
+ * Used by roleRedirect guard, applyGuard, and router beforeEach.
  * Safe to call multiple times -- each call gets its own Promise.
  */
-export function waitUntilReady(): Promise<void> {
-  if (isReady.value) return Promise.resolve()
+export function waitUntilReady(): Promise<ReadyResult> {
+  if (isReady.value) return Promise.resolve({ ok: true, timedOut: false })
 
-  const waitPromise = new Promise<void>((resolve) => {
+  const waitPromise = new Promise<ReadyResult>((resolve) => {
     const stop = watch(isReady, (ready) => {
       if (ready) {
         stop()
-        resolve()
+        resolve({ ok: true, timedOut: false })
       }
     })
   })
 
-  const timeoutPromise = new Promise<void>((resolve) => {
+  const timeoutPromise = new Promise<ReadyResult>((resolve) => {
     setTimeout(() => {
-      console.warn('[useAuth] waitUntilReady() timed out after', READY_TIMEOUT_MS, 'ms -- proceeding anyway')
-      resolve()
+      resolve({ ok: false, timedOut: true })
     }, READY_TIMEOUT_MS)
   })
 

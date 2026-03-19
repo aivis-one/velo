@@ -87,7 +87,7 @@
             @click="openCheckinDetail(item)"
           >
             <div class="diary-card__header">
-              <span class="diary-card__date">{{ formatShortDate(item.created_at) }}</span>
+              <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
               <span class="diary-card__emoji">{{ MOOD_EMOJI[item.mood] }}</span>
             </div>
             <div class="diary-card__title">Check-in: {{ MOOD_LABEL[item.mood] }}</div>
@@ -101,7 +101,7 @@
             @click="openFeedbackDetail(item)"
           >
             <div class="diary-card__header">
-              <span class="diary-card__date">{{ formatShortDate(item.created_at) }}</span>
+              <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
               <span class="diary-card__emoji">{{ RATING_EMOJI[item.rating] }}</span>
             </div>
             <div class="diary-card__title">Feedback: {{ RATING_LABEL[item.rating] }}</div>
@@ -115,7 +115,7 @@
             @click="openEntryDetail(item)"
           >
             <div class="diary-card__header">
-              <span class="diary-card__date">{{ formatShortDate(item.created_at) }}</span>
+              <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
               <span v-if="item.mood" class="diary-card__emoji">{{ MOOD_EMOJI[item.mood] }}</span>
             </div>
             <div class="diary-card__title">{{ item.title || 'Без названия' }}</div>
@@ -621,7 +621,7 @@ async function onRetry(): Promise<void> {
 /**
  * Short: "22 января"  (day + month name)
  */
-function formatShortDate(iso: string): string {
+function formatLongDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
 }
 
@@ -646,13 +646,19 @@ function truncate(text: string, max: number): string {
 // Lifecycle
 // =========================================================================
 
-onMounted(() => {
-  // Load all three feeds in parallel. Each skips if already loaded.
-  Promise.all([
-    diaryStore.fetchEntries(),
-    diaryStore.fetchCheckins(),
-    diaryStore.fetchFeedbacks(),
-  ])
+onMounted(async () => {
+  // NEW-4: wrapped in try/catch -- unhandled rejection on parallel fetch failure
+  // would swallow errors silently and leave the view in an empty loading state.
+  try {
+    // Load all three feeds in parallel. Each skips if already loaded.
+    await Promise.all([
+      diaryStore.fetchEntries(),
+      diaryStore.fetchCheckins(),
+      diaryStore.fetchFeedbacks(),
+    ])
+  } catch {
+    toast.error('Не удалось загрузить дневник')
+  }
 })
 </script>
 

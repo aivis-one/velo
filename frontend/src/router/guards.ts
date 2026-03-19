@@ -20,6 +20,10 @@
 // navigation (before App.vue mounts), sees role=null, and redirects every
 // user to /user/dashboard regardless of their real role.
 //
+// WARNING-3: if waitUntilReady() timed out and role is still null, redirect
+// to /auth-error so the user sees a recoverable error screen instead of
+// landing on /user/dashboard with broken state.
+//
 // TD-F01: roleRedirect consumes pendingDeepLink after auth completes.
 // If a startapp=open_practice__{uuid} deep link was parsed during initAuth(),
 // the user is redirected to the practice detail page instead of the dashboard.
@@ -30,6 +34,7 @@ import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { waitUntilReady, pendingDeepLink } from '@/composables/useAuth'
+import type { ReadyResult } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
 
 /**
@@ -44,7 +49,15 @@ import type { UserRole } from '@/api/types'
  */
 export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
   // Wait for initAuth() to complete so auth.role reflects the real session.
-  await waitUntilReady()
+  const { timedOut }: ReadyResult = await waitUntilReady()
+
+  const auth = useAuthStore()
+
+  // WARNING-3: timeout + no role means auth stalled (network/SDK freeze).
+  // Redirect to error screen instead of routing with null role.
+  if (timedOut && auth.role === null) {
+    return { path: '/auth-error' }
+  }
 
   // TD-F01: consume pending deep link from startapp parameter.
   if (pendingDeepLink.value) {
@@ -53,7 +66,6 @@ export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
     return target
   }
 
-  const auth = useAuthStore()
   switch (auth.role) {
     case 'admin':
       return { path: '/admin/dashboard' }
