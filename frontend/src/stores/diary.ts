@@ -27,7 +27,6 @@
 
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
-import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
 import { usePagination } from '@/composables/usePagination'
 import {

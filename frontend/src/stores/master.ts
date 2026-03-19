@@ -11,7 +11,6 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getMyMasterProfile, getMyPractices } from '@/api/masters'
 import { usePagination } from '@/composables/usePagination'
-import { ApiResponseError } from '@/api/client'
 import { extractApiError } from '@/composables/useApiError'
 import type { MasterProfileResponse, PracticeResponse } from '@/api/types'
 
