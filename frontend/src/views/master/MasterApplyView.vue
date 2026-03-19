@@ -330,7 +330,11 @@ function goToStep3(): void {
 }
 
 // -- Final submit --
+// FP-04: double-submit guard must come before any validation --
+// parallel clicks both pass termsAccepted check before guard fires.
 async function submit(): Promise<void> {
+  if (submitting.value) return
+
   errors.terms = ''
 
   if (!form.termsAccepted) {
@@ -338,7 +342,6 @@ async function submit(): Promise<void> {
     return
   }
 
-  if (submitting.value) return
   submitting.value = true
 
   try {

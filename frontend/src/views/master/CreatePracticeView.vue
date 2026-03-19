@@ -339,9 +339,11 @@ function validate(): boolean {
 }
 
 // -- Submit --
+// FP-04: double-submit guard must come before validate() --
+// parallel clicks both pass validate() before guard fires.
 async function submit(): Promise<void> {
-  if (!validate()) return
   if (submitting.value) return
+  if (!validate()) return
   submitting.value = true
 
   try {
