@@ -202,8 +202,8 @@ const booked = computed(() => {
 // F9.1: Time window helpers
 // =========================================================================
 
-const CHECKIN_WINDOW_H  = 3   // hours before scheduled_at
-const FEEDBACK_WINDOW_H = 72  // hours after practice ends
+// NEW-1: imported from utils/constants -- single source of truth.
+import { CHECKIN_WINDOW_H, FEEDBACK_WINDOW_H } from '@/utils/constants'
 
 // Reactive clock -- updated every 60s so window computeds re-evaluate
 // without requiring a page reload (C-1 fix).

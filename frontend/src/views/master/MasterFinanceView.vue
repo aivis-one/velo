@@ -200,15 +200,9 @@ import { formatMoney, formatDateShort } from '@/utils/format'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { WithdrawalResponse, WithdrawalStatus } from '@/api/types'
 
-// ---------------------------------------------------------------------------
-// Constants (mirror backend config.py defaults)
-// ---------------------------------------------------------------------------
-
-/** Minimum withdrawal amount in euros (backend: min_withdrawal_cents=5000). */
-const MIN_WITHDRAWAL_EUROS = 50
-
-/** Platform fee in euros (backend: withdrawal_fee_cents=200). */
-const WITHDRAWAL_FEE_EUROS = 2
+// TD-FE-W6: imported from utils/constants -- mirrors backend config.py.
+// min_withdrawal_cents=5000, withdrawal_fee_cents=200.
+import { MIN_WITHDRAWAL_EUROS, WITHDRAWAL_FEE_EUROS } from '@/utils/constants'
 
 /** Items per history page. */
 const LIMIT = 20
