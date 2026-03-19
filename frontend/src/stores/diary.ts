@@ -28,6 +28,7 @@
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import { usePagination } from '@/composables/usePagination'
 import {
   upsertCheckin,
@@ -79,9 +80,7 @@ export const useDiaryStore = defineStore('diary', () => {
       return { ok: true, error: '' }
     } catch (e) {
       const message =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось отправить check-in'
+        extractApiError(e, 'Не удалось отправить check-in')
       return { ok: false, error: message }
     } finally {
       checkinSubmitting.value = false
@@ -109,9 +108,7 @@ export const useDiaryStore = defineStore('diary', () => {
       return { ok: true, error: '' }
     } catch (e) {
       const message =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось отправить feedback'
+        extractApiError(e, 'Не удалось отправить feedback')
       return { ok: false, error: message }
     } finally {
       feedbackSubmitting.value = false
@@ -166,7 +163,7 @@ export const useDiaryStore = defineStore('diary', () => {
       selectedEntry.value = await getDiaryEntry(id)
     } catch (e) {
       selectedEntryError.value =
-        e instanceof ApiResponseError ? e.detail : 'Запись не найдена'
+        extractApiError(e, 'Запись не найдена')
       selectedEntry.value = null
     } finally {
       selectedEntryLoading.value = false
@@ -194,9 +191,7 @@ export const useDiaryStore = defineStore('diary', () => {
       return { ok: true, error: '', entry }
     } catch (e) {
       const message =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось создать запись'
+        extractApiError(e, 'Не удалось создать запись')
       return { ok: false, error: message, entry: null }
     }
   }
@@ -218,9 +213,7 @@ export const useDiaryStore = defineStore('diary', () => {
       return { ok: true, error: '', entry }
     } catch (e) {
       const message =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось обновить запись'
+        extractApiError(e, 'Не удалось обновить запись')
       return { ok: false, error: message, entry: null }
     }
   }
@@ -238,9 +231,7 @@ export const useDiaryStore = defineStore('diary', () => {
       return { ok: true, error: '' }
     } catch (e) {
       const message =
-        e instanceof ApiResponseError
-          ? e.detail
-          : 'Не удалось удалить запись'
+        extractApiError(e, 'Не удалось удалить запись')
       return { ok: false, error: message }
     }
   }
@@ -290,6 +281,9 @@ export const useDiaryStore = defineStore('diary', () => {
   const insightsLoadingSet = reactive(new Set<string>())
   const insightsErrorMap  = reactive(new Map<string, string>())
 
+  /** NEW-6: max entries in insightsCache to prevent unbounded memory growth. */
+  const MAX_INSIGHTS_CACHE = 100
+
   /**
    * Load insights for a single completed practice.
    * Skips if already cached or currently loading.
@@ -300,11 +294,16 @@ export const useDiaryStore = defineStore('diary', () => {
     insightsLoadingSet.add(practiceId)
     try {
       const data = await getPracticeInsights(practiceId)
+      // NEW-6: LRU eviction -- remove oldest entry when cache is full.
+      if (insightsCache.size >= MAX_INSIGHTS_CACHE) {
+        const oldest = insightsCache.keys().next().value
+        if (oldest !== undefined) insightsCache.delete(oldest)
+      }
       insightsCache.set(practiceId, data)
     } catch (e) {
       insightsErrorMap.set(
         practiceId,
-        e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить аналитику',
+        extractApiError(e, 'Не удалось загрузить аналитику'),
       )
     } finally {
       insightsLoadingSet.delete(practiceId)

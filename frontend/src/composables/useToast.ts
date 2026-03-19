@@ -27,8 +27,14 @@ let _nextId = 0
 const _toasts = ref<Toast[]>([])
 
 const TOAST_DURATION_MS = 3000
+/** F-06: max simultaneous toasts -- oldest is dropped when exceeded. */
+const MAX_TOASTS = 3
 
 function _push(message: string, variant: ToastVariant) {
+  // F-06: drop oldest toast if at capacity to prevent stack overflow.
+  if (_toasts.value.length >= MAX_TOASTS) {
+    _toasts.value.shift()
+  }
   const id = ++_nextId
   _toasts.value.push({ id, message, variant })
   setTimeout(() => {
