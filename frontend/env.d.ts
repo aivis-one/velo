@@ -18,7 +18,7 @@ interface ImportMeta {
 }
 
 // =============================================================================
-// Telegram WebApp SDK (Phase F1.1)
+// Telegram WebApp SDK (Phase F1.1, updated TD-F01)
 // =============================================================================
 // Minimal type declarations for the SDK loaded via CDN in index.html.
 // Only methods actually used by src/platform/telegram.ts are typed.
@@ -37,6 +37,12 @@ interface TelegramWebApp {
       username?: string
       language_code?: string
     }
+    /**
+     * TD-F01: startapp parameter from the bot deep link.
+     * Set when the bot URL contains ?startapp=... query.
+     * Example: https://t.me/bot?startapp=open_practice__<uuid>
+     */
+    start_param?: string
   }
   /** Current color scheme: 'light' or 'dark'. */
   colorScheme: 'light' | 'dark'

@@ -1,9 +1,12 @@
 // =============================================================================
-// VELO Frontend -- Telegram Platform (Phase F1.1, fixed 10.1)
+// VELO Frontend -- Telegram Platform (Phase F1.1, fixed 10.1, updated TD-F01)
 // =============================================================================
 //
 // FIX 10.1: WebApp accessed lazily via getter, not at module level.
 // If CDN is blocked (VPN, proxy, downtime), standalone mode still works.
+//
+// TD-F01: added getStartParam() -- reads WebApp.initDataUnsafe.start_param
+// for deep link handling (open_practice__{uuid}).
 // =============================================================================
 
 import type { Platform } from './types'
@@ -33,6 +36,12 @@ export const telegramPlatform: Platform = {
 
   getInitData(): string | null {
     return getWebApp().initData || null
+  },
+
+  getStartParam(): string | null {
+    // start_param is set when the bot link contains startapp=... query.
+    // Example: https://t.me/bot?startapp=open_practice__<uuid>
+    return getWebApp().initDataUnsafe?.start_param ?? null
   },
 
   getTheme(): 'light' | 'dark' {

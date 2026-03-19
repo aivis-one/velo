@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- useAuth Composable (Phase F1.3, fixed 10.4, BUG-role-redirect)
+// VELO Frontend -- useAuth Composable (Phase F1.3, fixed 10.4, BUG-role-redirect, TD-F01)
 // =============================================================================
 //
 // FIX 10.4: isReady/isStandalone are reactive refs inside composable scope,
@@ -15,6 +15,11 @@
 // P-3: waitUntilReady() has a 10s timeout. If initAuth() hangs (network
 // failure, frozen platform SDK), the guard resolves anyway instead of
 // leaving the user on a white screen forever. A console warning is logged.
+//
+// TD-F01: Deep link handling.
+// After auth, read platform.getStartParam() and parse open_practice__{uuid}.
+// Store the target route in pendingDeepLink so roleRedirect can consume it.
+// pendingDeepLink is cleared after first use to prevent stale redirects.
 // =============================================================================
 
 import { ref, computed, watch } from 'vue'
@@ -27,15 +32,41 @@ const isReady = ref(false)
 /** Whether we're in standalone mode (no Telegram initData). */
 const isStandalone = ref(false)
 
+/**
+ * Pending deep link route from startapp parameter (TD-F01).
+ * Consumed once by roleRedirect, then cleared.
+ * Format: { name: string, params?: Record<string, string> }
+ */
+export const pendingDeepLink = ref<{ name: string; params?: Record<string, string> } | null>(null)
+
 /** Timeout for waitUntilReady() in milliseconds (P-3). */
 const READY_TIMEOUT_MS = 10_000
 
 /**
+ * Parse the Telegram startapp parameter into a router location.
+ * Returns null if the parameter is absent or unrecognized.
+ *
+ * Supported formats:
+ *   open_practice__{uuid} -> { name: 'practice-detail', params: { id: uuid } }
+ */
+function parseStartParam(startParam: string | null): { name: string; params?: Record<string, string> } | null {
+  if (!startParam) return null
+
+  const practiceMatch = startParam.match(/^open_practice__([0-9a-f-]{36})$/)
+  if (practiceMatch) {
+    return { name: 'practice-detail', params: { id: practiceMatch[1] } }
+  }
+
+  return null
+}
+
+/**
  * Reset auth state (for testing).
  */
-function resetAuthState(): void {
+export function resetAuthState(): void {
   isReady.value = false
   isStandalone.value = false
+  pendingDeepLink.value = null
 }
 
 /**
@@ -82,6 +113,11 @@ async function initAuth(): Promise<void> {
   resetAuthState()
 
   await platform.init()
+
+  // TD-F01: read startapp param before auth so it's available regardless
+  // of whether we restore a session or do a fresh login.
+  const startParam = platform.getStartParam()
+  pendingDeepLink.value = parseStartParam(startParam)
 
   // Step 1: try to restore existing session (page reload).
   const restored = await authStore.restoreSession()
