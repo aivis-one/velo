@@ -53,7 +53,7 @@ function parseStartParam(startParam: string | null): { name: string; params?: Re
   if (!startParam) return null
 
   const practiceMatch = startParam.match(/^open_practice__([0-9a-f-]{36})$/)
-  if (practiceMatch) {
+  if (practiceMatch?.[1]) {
     return { name: 'practice-detail', params: { id: practiceMatch[1] } }
   }
 
