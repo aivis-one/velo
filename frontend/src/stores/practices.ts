@@ -63,27 +63,50 @@ export const usePracticesStore = defineStore('practices', () => {
   const selectedError = ref<string | null>(null)
 
   /**
+   * Tracks the ID of the most recently requested practice.
+   * F-01: prevents a slow response for practice A from overwriting
+   * selected when the user has already navigated to practice B.
+   */
+  let _currentFetchId: string | null = null
+
+  /**
    * Fetch a single practice by ID for the detail view.
    * Tries to find it in the already-loaded catalog first (avoids
    * extra API call when navigating from list → detail).
+   *
+   * F-01: race condition guard -- if a newer fetchPractice() call was
+   * made while this one was in-flight, the stale result is discarded.
    */
   async function fetchPractice(id: string): Promise<void> {
+    _currentFetchId = id
+
     // Check catalog cache first
     const cached = pagination.items.value.find((p) => p.id === id)
     if (cached) {
-      selected.value = cached
+      // Guard: only commit if this is still the latest request.
+      if (_currentFetchId === id) {
+        selected.value = cached
+      }
       return
     }
 
     selectedLoading.value = true
     selectedError.value = null
     try {
-      selected.value = await getPractice(id)
+      const result = await getPractice(id)
+      // F-01: discard stale response if user navigated to another practice.
+      if (_currentFetchId === id) {
+        selected.value = result
+      }
     } catch (e) {
-      selectedError.value = e instanceof Error ? e.message : 'Unknown error'
-      selected.value = null
+      if (_currentFetchId === id) {
+        selectedError.value = e instanceof Error ? e.message : 'Unknown error'
+        selected.value = null
+      }
     } finally {
-      selectedLoading.value = false
+      if (_currentFetchId === id) {
+        selectedLoading.value = false
+      }
     }
   }
 
