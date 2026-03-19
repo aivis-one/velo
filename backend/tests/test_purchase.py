@@ -477,14 +477,33 @@ async def test_semaphore_bookings_equal_purchases(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Semaphore 1.1: COUNT(active bookings) == COUNT(active purchases)."""
+    """Semaphore 1.1: COUNT(active bookings) == COUNT(active purchases).
+
+    Scoped to telegram_id 75000-75999 to avoid cross-contamination with
+    other test files (e.g. test_cancellation.py range 76xxx) that leave
+    cancelled bookings whose purchases are 'refunded' or 'completed',
+    which breaks the global count invariant.
+    """
+    # Active bookings for 75xxx users only.
     stmt_bookings = (
         select(func.count(Booking.id))
-        .where(Booking.status != BookingStatus.CANCELLED.value)
+        .join(User, User.id == Booking.user_id)
+        .where(
+            Booking.status != BookingStatus.CANCELLED.value,
+            User.telegram_id.between(75000, 75999),
+        )
     )
+
+    # Active purchases for 75xxx users only.
+    # Scoped via booking -> user join.
     stmt_purchases = (
         select(func.count(Purchase.id))
-        .where(Purchase.status != PurchaseStatus.CANCELLED.value)
+        .join(Booking, Booking.id == Purchase.booking_id)
+        .join(User, User.id == Booking.user_id)
+        .where(
+            Purchase.status != PurchaseStatus.CANCELLED.value,
+            User.telegram_id.between(75000, 75999),
+        )
     )
 
     b_result = await db_session.execute(stmt_bookings)
