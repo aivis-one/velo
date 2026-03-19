@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Platform Interface (Phase F1.1)
+// VELO Frontend -- Platform Interface (Phase F1.1, updated TD-F01)
 // =============================================================================
 //
 // Contract that both Telegram and Standalone implementations follow.
@@ -7,6 +7,8 @@
 //
 // Telegram: real SDK calls (initData, haptic, back button, etc.)
 // Standalone: safe no-ops (browser, PWA from Home Screen)
+//
+// TD-F01: added getStartParam() for deep link handling.
 // =============================================================================
 
 export interface Platform {
@@ -26,6 +28,15 @@ export interface Platform {
    * Standalone: null (no Telegram auth available).
    */
   getInitData(): string | null
+
+  /**
+   * Get the startapp parameter from the deep link.
+   * Telegram: WebApp.initDataUnsafe.start_param (set when bot link has startapp=...).
+   * Standalone: null.
+   *
+   * TD-F01: used to handle open_practice__{uuid} deep links.
+   */
+  getStartParam(): string | null
 
   /**
    * Get current color scheme.

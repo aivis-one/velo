@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Standalone Platform (Phase F1.1)
+// VELO Frontend -- Standalone Platform (Phase F1.1, updated TD-F01)
 // =============================================================================
 //
 // Stub implementation for when the app is opened outside Telegram:
@@ -10,6 +10,8 @@
 //
 // Phase F10 will replace the stubs with real standalone auth
 // (email / magic link).
+//
+// TD-F01: added getStartParam() stub -- always null outside Telegram.
 // =============================================================================
 
 import type { Platform } from './types'
@@ -24,6 +26,11 @@ export const standalonePlatform: Platform = {
   getInitData(): string | null {
     // No Telegram initData available -- auth flow will show
     // "Open via Telegram" stub screen.
+    return null
+  },
+
+  getStartParam(): string | null {
+    // No deep link support outside Telegram.
     return null
   },
 
