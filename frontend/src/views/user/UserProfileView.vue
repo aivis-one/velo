@@ -171,11 +171,16 @@ function returnToNativeMode(): void {
 
 // -- Lifecycle --
 onMounted(async () => {
-  // Refresh balance and bookings count on profile open.
-  await Promise.all([
-    balanceStore.refresh(),
-    bookingsStore.fetchMyBookings(),
-  ])
+  // NEW-7: wrapped in try/catch -- unhandled rejection on balance/bookings
+  // fetch failure would leave the profile screen silently broken.
+  try {
+    await Promise.all([
+      balanceStore.refresh(),
+      bookingsStore.fetchMyBookings(),
+    ])
+  } catch {
+    // Non-critical -- profile still renders without fresh counts.
+  }
 })
 </script>
 

@@ -121,7 +121,7 @@ const DASHBOARD_LIMIT = 5
 
 // -- Time windows (must match backend settings) --
 // NEW-1: imported from utils/constants -- single source of truth.
-import { CHECKIN_WINDOW_H, FEEDBACK_WINDOW_H } from '@/utils/constants'
+import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 
 // Reactive clock -- updated every 60s so alert computeds re-evaluate
 // without requiring a page reload (W-1 fix).
@@ -154,9 +154,8 @@ const checkinAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'confirmed') return false
-      const scheduledMs   = new Date(b.practice.scheduled_at).getTime()
-      const windowStartMs = scheduledMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
-      return now.value >= windowStartMs && now.value <= scheduledMs
+      const scheduledMs = new Date(b.practice.scheduled_at).getTime()
+      return isInCheckinWindow(scheduledMs, now.value)
     }) ?? null
   )
 })
@@ -183,10 +182,8 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'attended') return false
-      const scheduledMs     = new Date(b.practice.scheduled_at).getTime()
-      const practiceEndMs   = scheduledMs + b.practice.duration_minutes * 60 * 1000
-      const feedbackEndMs   = practiceEndMs + FEEDBACK_WINDOW_H * 60 * 60 * 1000
-      return now.value >= practiceEndMs && now.value <= feedbackEndMs
+      const scheduledMs = new Date(b.practice.scheduled_at).getTime()
+      return isInFeedbackWindow(scheduledMs, b.practice.duration_minutes, now.value)
     }) ?? null
   )
 })
