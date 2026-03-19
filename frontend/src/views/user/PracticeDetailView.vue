@@ -158,7 +158,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
@@ -333,6 +333,19 @@ onMounted(() => {
     now.value = Date.now()
   }, 60_000)
 })
+
+// F-01: Vue Router may reuse this component instance when navigating between
+// practices (e.g. from search results). onMounted won't fire again, so watch
+// the route param and re-fetch when it changes.
+watch(
+  () => route.params.id as string,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      store.clearSelected()
+      store.fetchPractice(newId)
+    }
+  },
+)
 
 onUnmounted(() => {
   if (clockInterval) clearInterval(clockInterval)

@@ -242,9 +242,6 @@ async function onPurchase(): Promise<void> {
     const appliedPromo = promoApplied.value ? promoCode.value : undefined
     await purchasePractice(props.practice.id, appliedPromo)
 
-    // Refresh balance after successful purchase.
-    await balanceStore.refresh()
-
     toast.success('Вы записаны!')
     resetState()
     emit('purchased')
@@ -264,6 +261,9 @@ async function onPurchase(): Promise<void> {
       toast.error('Ошибка при бронировании')
     }
   } finally {
+    // F-02: always refresh balance -- on success deduction is confirmed,
+    // on error a concurrent operation may have changed it.
+    await balanceStore.refresh()
     purchasing.value = false
   }
 }
