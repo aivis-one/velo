@@ -247,10 +247,11 @@ async function onPurchase(): Promise<void> {
     emit('purchased')
   } catch (e) {
     if (e instanceof ApiResponseError) {
-      // Handle specific backend errors.
-      if (e.status === 400 && e.detail.includes('Insufficient balance')) {
+      // F-03: switch on machine-readable code instead of string-matching message.
+      // Backend sets unique codes via BadRequestError("...", code="...").
+      if (e.code === 'insufficient_balance') {
         toast.error('Недостаточно средств на балансе')
-      } else if (e.status === 400 && e.detail.includes('full')) {
+      } else if (e.code === 'practice_full') {
         toast.error('Мест больше нет')
       } else if (e.status === 409) {
         toast.error('Вы уже записаны на эту практику')
