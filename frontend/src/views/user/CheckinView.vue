@@ -1,9 +1,9 @@
 <!--
-  VELO Frontend -- CheckinView (Phase F9.1)
+  VELO Frontend -- CheckinView (Phase F9.1, updated back-button)
 
   Full-screen pre-practice check-in form.
   Matches mockup screen-checkin layout:
-    - Header with back button
+    - Header with back button (VHeader with pill back button)
     - Practice info (emoji + name + time)
     - "Как вы себя чувствуете?" question
     - Three mood buttons: low / mid / high
@@ -38,12 +38,7 @@
   <!-- ===== FORM SCREEN ===== -->
   <div v-else class="checkin">
     <!-- Header -->
-    <header class="checkin__header">
-      <button class="checkin__back" @click="onBack">←</button>
-      <h1 class="checkin__header-title">Check-in</h1>
-      <!-- Spacer keeps title centered -->
-      <span class="checkin__header-spacer" />
-    </header>
+    <VHeader show-back back-label="Check-in" @back="onBack" />
 
     <div class="checkin__body">
       <!-- Practice info -->
@@ -51,7 +46,7 @@
         <div class="checkin__practice-emoji">{{ typeEmoji }}</div>
         <h2 class="checkin__practice-name">{{ practice.title }}</h2>
         <p class="checkin__practice-meta">
-          с {{ practice.master_name ?? 'Мастером' }} · {{ formattedDate }}
+          с {{ practice.master_name ?? 'Мастером' }} · 📅 {{ formattedDate }}
         </p>
       </div>
       <div v-else-if="practiceLoading" class="checkin__loader">
@@ -102,14 +97,9 @@
           :loading="diaryStore.checkinSubmitting"
           @click="onSubmit"
         >
-          Отправить check-in
+          Check-in перед практикой
         </VButton>
-        <VButton
-          variant="ghost"
-          block
-          :disabled="diaryStore.checkinSubmitting"
-          @click="onSkip"
-        >
+        <VButton variant="ghost" block @click="onSkip">
           Пропустить
         </VButton>
       </div>
@@ -125,8 +115,9 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton, VLoader } from '@/components/ui'
-import { formatDate } from '@/utils/format'
+import { VHeader } from '@/components/layout'
 import { MOOD_OPTIONS, PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { formatDate } from '@/utils/format'
 import type { Mood } from '@/api/types'
 
 const route = useRoute()
@@ -146,10 +137,10 @@ const selectedMood = ref<Mood | null>(null)
 const comment = ref('')
 const submitted = ref(false)
 
-// -- Mood options --
-// -- Practice type emoji -- imported from displayHelpers
 const typeEmoji = computed(() =>
-  practice.value ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘') : '🧘',
+  practice.value
+    ? (PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘')
+    : '🧘',
 )
 
 const formattedDate = computed(() =>
@@ -161,7 +152,7 @@ const formattedDate = computed(() =>
 // -- Actions --
 function selectMood(mood: Mood): void {
   selectedMood.value = mood
-  platform.hapticFeedback('light')
+  try { platform.hapticFeedback('light') } catch { /* silent fallback */ }
 }
 
 async function onSubmit(): Promise<void> {
@@ -173,7 +164,7 @@ async function onSubmit(): Promise<void> {
   })
 
   if (result.ok) {
-    platform.hapticFeedback('medium')
+    try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
     submitted.value = true
   } else {
     toast.error(result.error)
@@ -199,7 +190,9 @@ function goToDiary(): void {
 
 // -- Lifecycle --
 onMounted(() => {
-  practicesStore.fetchPractice(practiceId)
+  if (practicesStore.selected?.id !== practiceId) {
+    practicesStore.fetchPractice(practiceId)
+  }
 })
 </script>
 
@@ -254,45 +247,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-
-.checkin__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4);
-}
-
-.checkin__back {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  font-size: var(--text-lg);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity var(--transition-fast);
-}
-
-.checkin__back:hover {
-  opacity: 0.8;
-}
-
-.checkin__header-title {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-}
-
-.checkin__header-spacer {
-  width: 36px;
 }
 
 .checkin__body {
