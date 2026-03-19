@@ -58,11 +58,10 @@ export const useAuthStore = defineStore('auth', () => {
       _setToken(response.session_token)
       _setUser(response.user)
       return true
-    } catch (error) {
+    } catch {
+      // NEW-8: no console.error -- auth failure is a normal flow in production
+      // (expired initData, banned user). Caller gets false and handles it.
       _clearSession()
-      if (error instanceof ApiResponseError) {
-        console.error('Telegram auth failed:', error.detail)
-      }
       return false
     } finally {
       loading.value = false
