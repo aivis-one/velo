@@ -12,6 +12,7 @@ import { ref } from 'vue'
 import { getMyMasterProfile, getMyPractices } from '@/api/masters'
 import { usePagination } from '@/composables/usePagination'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import type { MasterProfileResponse, PracticeResponse } from '@/api/types'
 
 export const useMasterStore = defineStore('master', () => {
@@ -46,8 +47,7 @@ export const useMasterStore = defineStore('master', () => {
       profile.value = await getMyMasterProfile()
       profileLoaded.value = true
     } catch (e) {
-      profileError.value =
-        e instanceof ApiResponseError ? e.detail : 'Не удалось загрузить профиль мастера'
+      profileError.value = extractApiError(e, 'Не удалось загрузить профиль мастера')
     } finally {
       profileLoading.value = false
     }

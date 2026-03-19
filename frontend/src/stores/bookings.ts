@@ -15,6 +15,7 @@ import { ref, watch } from 'vue'
 import { getMyBookings, cancelBooking as apiCancelBooking } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { ApiResponseError } from '@/api/client'
+import { extractApiError } from '@/composables/useApiError'
 import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
 
 export interface CancelResult {
@@ -65,9 +66,7 @@ export const useBookingsStore = defineStore('bookings', () => {
       await pagination.refresh()
       return { ok: true, error: '' }
     } catch (e) {
-      const message = e instanceof ApiResponseError
-        ? e.detail
-        : 'Не удалось отменить бронирование'
+      const message = extractApiError(e, 'Не удалось отменить бронирование')
       return { ok: false, error: message }
     }
   }

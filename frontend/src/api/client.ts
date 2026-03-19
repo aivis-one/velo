@@ -76,6 +76,14 @@ export function setOnUnauthorized(cb: () => void): void {
   _onUnauthorized = cb
 }
 
+// -- In-flight deduplication (F-09) --
+//
+// Concurrent identical GET requests (e.g. multiple components mounting at
+// the same time) share a single in-flight Promise instead of hitting the
+// network N times. The entry is removed as soon as the request settles,
+// so subsequent calls always go to the network.
+const _inFlight = new Map<string, Promise<unknown>>()
+
 // -- Core request --
 
 async function request<T>(
@@ -171,7 +179,14 @@ async function request<T>(
 
 export const api = {
   get<T>(path: string): Promise<T> {
-    return request<T>('GET', path)
+    // F-09: deduplicate simultaneous identical GET requests.
+    const existing = _inFlight.get(path)
+    if (existing) return existing as Promise<T>
+    const promise = request<T>('GET', path).finally(() => {
+      _inFlight.delete(path)
+    })
+    _inFlight.set(path, promise)
+    return promise
   },
 
   post<T>(path: string, body?: unknown): Promise<T> {
