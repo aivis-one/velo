@@ -1,85 +1,69 @@
-// =============================================================================
-// VELO Frontend -- API Types (Phase F1.2 + F3.1 + F4.1 + F6 + F7 + F8 + F9)
-// =============================================================================
-//
-// TypeScript interfaces matching backend Pydantic schemas.
-// Manual typing (not auto-generated from OpenAPI).
-//
-// F3.1: PaginatedResponse fixed to limit/offset (matches backend).
-//        Practice types added for catalog feature.
-// F4.1: Booking, Purchase, and Preview types added for booking flow.
-// F5 review: W-28 -- PurchaseStatus union type (was string).
-// F6: Master profile, apply flow, attendance, practice CRUD types.
-// F7: PayoutDetails, WithdrawalStatus, WithdrawalResponse,
-//     PaginatedWithdrawalsResponse. MasterProfileResponse + payout field.
-// F8 (S-5): Admin types moved here from api/admin.ts for consistency.
-// F9: Checkin, Feedback, DiaryEntry, PracticeInsights types.
-// =============================================================================
+// F-03: Updated ApiError to match real backend response format.
+// Backend VeloErrors return: { error: string, message: string }
+// Pydantic 422 returns:      { detail: string | Array<{loc, msg, type}> }
+// Previously only `detail` was declared, causing all non-422 errors to produce
+// "Request failed (NNN)" instead of the actual backend message.
 
-// -- Auth --
-
-export interface TelegramAuthRequest {
-  init_data: string
+export interface ApiError {
+  /** Machine-readable error code (VeloError format: "bad_request", "not_found", etc.) */
+  error?: string
+  /** Human-readable message (VeloError format). */
+  message?: string
+  /** Pydantic validation error details (422 only). */
+  detail?:
+    | string
+    | Array<{
+        loc: (string | number)[]
+        msg: string
+        type: string
+      }>
 }
+
+// =============================================================================
+// Auth
+// =============================================================================
 
 export interface AuthResponse {
-  user: UserResponse
   session_token: string
+  user: UserResponse
 }
-
-// -- Users --
 
 export type UserRole = 'user' | 'master' | 'admin'
 
 export interface UserResponse {
   id: string
   telegram_id: number | null
-  role: UserRole
   first_name: string | null
   last_name: string | null
+  username: string | null
   avatar_url: string | null
-  timezone: string
-  language: string
+  role: UserRole
   is_active: boolean
   balance_cents: number
+  timezone: string | null
+  language_code: string | null
   created_at: string
-  last_login_at: string | null
+  updated_at: string | null
 }
 
-export interface UserUpdate {
+export interface UpdateUserRequest {
   first_name?: string | null
   last_name?: string | null
-  timezone?: string
-  language?: string
+  timezone?: string | null
 }
 
-// -- Pagination --
-
-export interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  limit: number
-  offset: number
-}
-
-// -- Practices --
+// =============================================================================
+// Practices
+// =============================================================================
 
 export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
-
-export type PracticeStatus =
-  | 'draft'
-  | 'scheduled'
-  | 'live'
-  | 'completed'
-  | 'cancelled'
-  | 'deleted'
+export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
 
 export interface PracticeResponse {
   id: string
   master_id: string
   master_name: string | null
   practice_type: PracticeType
-  status: PracticeStatus
   title: string
   description: string | null
   scheduled_at: string
@@ -88,17 +72,22 @@ export interface PracticeResponse {
   max_participants: number | null
   current_participants: number
   zoom_link: string | null
-  parent_practice_id: string | null
   is_free: boolean
   price_cents: number
   currency: string
+  status: PracticeStatus
   created_at: string
   updated_at: string | null
 }
 
-export type PaginatedPracticesResponse = PaginatedResponse<PracticeResponse>
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  limit: number
+  offset: number
+}
 
-// -- Practice filters (used by store and API module) --
+export type PaginatedPracticesResponse = PaginatedResponse<PracticeResponse>
 
 export interface PracticeFilters {
   practice_type?: PracticeType
@@ -143,7 +132,9 @@ export interface UpdatePracticeRequest {
   currency?: 'EUR' | null
 }
 
-// -- Bookings (Phase F4.1) --
+// =============================================================================
+// Bookings
+// =============================================================================
 
 export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
 
@@ -174,7 +165,9 @@ export interface BookingWithPracticeResponse {
 
 export type PaginatedBookingsResponse = PaginatedResponse<BookingWithPracticeResponse>
 
-// -- Purchases (Phase F4.1, W-28 fix) --
+// =============================================================================
+// Purchases
+// =============================================================================
 
 export type PurchaseStatus = 'pending' | 'completed' | 'refunded' | 'failed'
 
@@ -206,7 +199,9 @@ export interface PreviewPurchaseResponse {
   discount_percent: number | null
 }
 
-// -- Masters (Phase F6.1, updated F7) --
+// =============================================================================
+// Masters
+// =============================================================================
 
 export type MasterStatus = 'pending' | 'verified' | 'rejected'
 
@@ -224,7 +219,7 @@ export interface MasterProfileResponse {
   experience_years: number | null
   frozen_cents: number
   available_cents: number
-  /** F7: payout details. null until master configures via PATCH /me/payout. */
+  /** null until master configures via PATCH /me/payout. */
   payout: PayoutDetails | null
   created_at: string
   updated_at: string | null
@@ -255,7 +250,9 @@ export interface MasterApplyResponse {
   created_at: string
 }
 
-// -- Attendance (Phase F6.3) --
+// =============================================================================
+// Attendance
+// =============================================================================
 
 export type AttendanceBookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show'
 
@@ -276,7 +273,9 @@ export interface AttendanceResponse {
   items: AttendanceItemResponse[]
 }
 
-// -- Withdrawals (Phase F7) --
+// =============================================================================
+// Withdrawals
+// =============================================================================
 
 export type WithdrawalStatus = 'pending' | 'approved' | 'rejected'
 
@@ -303,9 +302,10 @@ export interface PaginatedWithdrawalsResponse {
   offset: number
 }
 
-// -- Admin (Phase F8, moved from api/admin.ts per S-5) --
+// =============================================================================
+// Admin
+// =============================================================================
 
-/** Single item in admin masters list -- user data + master status. */
 export interface AdminMasterListItem {
   id: string
   telegram_id: number | null
@@ -336,7 +336,6 @@ export interface AdminMasterActionResponse {
   status: string
 }
 
-/** Report item -- same schema for user-facing and admin endpoints. */
 export interface ReportResponse {
   id: string
   reporter_id: string
@@ -358,7 +357,6 @@ export interface PaginatedReportsResponse {
   offset: number
 }
 
-/** Single semaphore check result. */
 export interface SemaphoreResult {
   name: string
   category: string
@@ -380,23 +378,9 @@ export interface ConsistencyResponse {
 export type ReportStatusFilter = 'pending' | 'resolved' | 'dismissed'
 export type ReportTargetTypeFilter = 'user' | 'master' | 'practice'
 
-// -- Errors --
-
-export interface ApiError {
-  detail:
-    | string
-    | Array<{
-        loc: (string | number)[]
-        msg: string
-        type: string
-      }>
-}
-
 // =============================================================================
-// Phase F9: Diary / Check-in / Feedback / Insights
+// Diary / Check-in / Feedback / Insights (Phase F9)
 // =============================================================================
-
-// -- Check-in (Phase F9.1) --
 
 export type Mood = 'low' | 'mid' | 'high'
 
@@ -424,8 +408,6 @@ export interface PaginatedCheckinsResponse {
   offset: number
 }
 
-// -- Feedback (Phase F9.1) --
-
 export type FeedbackRating = 'fire' | 'good' | 'confused'
 
 export interface FeedbackRequest {
@@ -450,8 +432,6 @@ export interface PaginatedFeedbacksResponse {
   limit: number
   offset: number
 }
-
-// -- Diary entries (Phase F9.2) --
 
 export interface CreateDiaryEntryRequest {
   content: string
@@ -488,8 +468,6 @@ export interface PaginatedDiaryEntriesResponse {
   offset: number
 }
 
-// -- Practice insights (Phase F9.3, master-facing) --
-
 export interface MoodDistribution {
   high: number
   mid: number
@@ -508,4 +486,72 @@ export interface PracticeInsightsResponse {
   checkins: MoodDistribution
   feedbacks: RatingDistribution
   comments_count: number
+}
+
+// =============================================================================
+// Waitlist
+// =============================================================================
+
+export type WaitlistStatus = 'waiting' | 'notified' | 'confirmed' | 'left' | 'expired' | 'declined'
+
+export interface WaitlistEntryResponse {
+  id: string
+  practice_id: string
+  user_id: string
+  position: number
+  status: WaitlistStatus
+  joined_at: string
+  notified_at: string | null
+  expires_at: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface WaitlistWithPracticeResponse extends WaitlistEntryResponse {
+  practice: PracticeSummary
+}
+
+export interface PaginatedWaitlistResponse {
+  items: WaitlistWithPracticeResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+// =============================================================================
+// Promos
+// =============================================================================
+
+export interface PromoResponse {
+  id: string
+  code: string
+  type: 'company' | 'master'
+  master_id: string | null
+  practice_id: string | null
+  discount_percent: number
+  max_uses: number | null
+  used_count: number
+  is_active: boolean
+  first_purchase_only: boolean
+  valid_from: string | null
+  valid_until: string | null
+  created_at: string
+  updated_at: string | null
+}
+
+export interface CreatePromoRequest {
+  code: string
+  discount_percent: number
+  max_uses?: number | null
+  practice_id?: string | null
+  valid_from?: string | null
+  valid_until?: string | null
+  first_purchase_only?: boolean
+}
+
+export interface PaginatedPromosResponse {
+  items: PromoResponse[]
+  total: number
+  limit: number
+  offset: number
 }

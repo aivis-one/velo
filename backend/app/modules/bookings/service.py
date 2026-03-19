@@ -221,7 +221,9 @@ async def create_booking(
         practice.max_participants is not None
         and active_count >= practice.max_participants
     ):
-        raise BadRequestError("Practice is full")
+        # F-03: unique code so frontend can switch on e.code instead of
+        # string-matching the human-readable message.
+        raise BadRequestError("Practice is full", code="practice_full")
 
     booking = Booking(
         practice_id=practice_id,
@@ -366,11 +368,6 @@ async def cancel_booking(
     await process_waitlist(booking.practice_id, session)
 
     return booking
-
-
-# ===================================================================
-# Phase 5.4: Attendance
-# ===================================================================
 
 
 async def join_booking(
@@ -604,11 +601,6 @@ async def get_attendance(
     bookings = list(result.scalars().all())
 
     return practice, bookings
-
-
-# ===================================================================
-# Frontend Backlog: list / detail
-# ===================================================================
 
 
 async def list_user_bookings(

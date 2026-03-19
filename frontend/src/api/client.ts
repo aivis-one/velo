@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- API Client (Phase F1.2, fixed 10.2, fixed CRITICAL-2)
+// VELO Frontend -- API Client (Phase F1.2, fixed 10.2, fixed CRITICAL-2, F-03)
 // =============================================================================
 //
 // FIX 10.2: 401 handler delegates cleanup to auth store via
@@ -8,6 +8,12 @@
 //
 // FIX CRITICAL-2: AbortController + 15s timeout on every request.
 // Timeout throws ApiTimeoutError. Network failure throws ApiNetworkError.
+//
+// FIX F-03: Backend returns { error: string, message: string } for VeloErrors
+// and { detail: Array<...> } for 422 Pydantic errors. Previously client.ts
+// read only `detail`, causing all non-422 errors to show "Request failed (NNN)".
+// ApiResponseError now carries both `detail` (human message) and `code`
+// (machine-readable) so callers can switch on code instead of string-matching.
 // =============================================================================
 
 import type { ApiError } from './types'
@@ -20,7 +26,10 @@ const REQUEST_TIMEOUT_MS = 15_000
 export class ApiResponseError extends Error {
   constructor(
     public status: number,
+    /** Human-readable message (for toast display). */
     public detail: string,
+    /** Machine-readable error code from backend (e.g. "insufficient_balance"). */
+    public code: string = 'unknown',
   ) {
     super(detail)
     this.name = 'ApiResponseError'
@@ -114,7 +123,7 @@ async function request<T>(
   // FIX 10.2: no direct token/sessionStorage mutation here.
   if (response.status === 401) {
     _onUnauthorized?.()
-    throw new ApiResponseError(401, 'Session expired')
+    throw new ApiResponseError(401, 'Session expired', 'unauthorized')
   }
 
   let data: unknown
@@ -128,10 +137,25 @@ async function request<T>(
     return data as T
   }
 
-  // Extract error detail. Backend returns either a string (most errors)
-  // or an array of validation objects (422). Normalise to string so
-  // ApiResponseError.detail is always a string for consumers.
+  // F-03: Backend has two error formats:
+  //   VeloError (4xx):  { error: "bad_request", message: "Insufficient balance" }
+  //   Pydantic 422:     { detail: [{ loc, msg, type }, ...] }
+  //
+  // Normalise both to ApiResponseError with:
+  //   .detail = human-readable string (for toast)
+  //   .code   = machine-readable string (for switch/if logic)
   const errorData = data as ApiError
+
+  // VeloError format: { error, message }
+  if (typeof errorData?.message === 'string') {
+    throw new ApiResponseError(
+      response.status,
+      errorData.message,
+      errorData.error ?? 'unknown',
+    )
+  }
+
+  // Pydantic 422 format: { detail: string | Array<...> }
   const rawDetail = errorData?.detail
   const detail =
     typeof rawDetail === 'string'
@@ -140,7 +164,7 @@ async function request<T>(
         ? rawDetail.map((e) => e.msg).join('; ')
         : `Request failed (${response.status})`
 
-  throw new ApiResponseError(response.status, detail)
+  throw new ApiResponseError(response.status, detail, 'validation_error')
 }
 
 // -- Public API --
