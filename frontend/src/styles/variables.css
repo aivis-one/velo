@@ -19,7 +19,7 @@
   --velo-bg-start: #ffffff;
   --velo-bg-end: #ffffff;
   --velo-bg-subtle: rgba(98,122,156,0.06);
-  --velo-bg-card: #ffffff;
+  --velo-bg-card: rgba(171, 191, 218, 0.60);
 
   /* === Colors: Text === */
   --velo-text-primary: #4c6589;

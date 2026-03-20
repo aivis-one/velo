@@ -134,9 +134,9 @@
         ✓ Вы записаны
       </VButton>
 
-      <!-- Not booked: book button -->
+      <!-- Not booked: book button (hidden for practice owner) -->
       <VButton
-        v-else
+        v-else-if="!isMaster"
         variant="primary"
         size="lg"
         block
@@ -164,6 +164,7 @@ import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
 import { VHeader } from '@/components/layout'
+import { useAuthStore } from '@/stores/auth'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import {
   formatDate,
@@ -183,6 +184,13 @@ const practice = computed(() => store.selected)
 
 // -- Booking state --
 const showBookingPopup = ref(false)
+const authStore = useAuthStore()
+
+// Prevent master from booking their own practice (backend also enforces this,
+// but we hide the button entirely to avoid a pointless UX dead-end).
+const isMaster = computed(() =>
+  !!practice.value && practice.value.master_id === authStore.user?.id,
+)
 
 // W-21: Derive booked state from bookingsStore (survives navigation).
 // Falls back to local flag for immediate feedback after purchase.
