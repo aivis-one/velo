@@ -26,7 +26,7 @@
     <!-- Header -->
     <VHeader title="📅 Практики" :badge="masterStore.practicesTotal || undefined">
       <template #action>
-        <button class="master-practices__add-btn" @click="router.push({ name: 'master-practice-new' })">
+        <button class="master-practices__add-btn" aria-label="Создать практику" @click="router.push({ name: 'master-practice-new' })">
           +
         </button>
       </template>

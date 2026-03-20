@@ -23,11 +23,12 @@
   <div class="entry-form">
     <!-- Header -->
     <header class="entry-form__header">
-      <button class="entry-form__back" @click="emit('back')">←</button>
+      <button class="entry-form__back" aria-label="Назад" @click="emit('back')">←</button>
       <h1 class="entry-form__title">{{ mode === 'new' ? 'Новая запись' : 'Редактировать' }}</h1>
       <button
         v-if="mode === 'edit'"
         class="entry-form__delete"
+        aria-label="Удалить"
         :disabled="submitting"
         @click="emit('delete')"
       >
