@@ -50,7 +50,7 @@ const initials = computed(() => {
   justify-content: center;
   background: var(--velo-bg-subtle);
   color: var(--velo-primary);
-  font-weight: 600;
+  font-weight: 400;
   flex-shrink: 0;
   overflow: hidden;
 }

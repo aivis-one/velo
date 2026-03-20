@@ -64,7 +64,7 @@ defineEmits<{
 .v-stat__value {
   font-family: var(--font-heading);
   font-size: var(--text-2xl);
-  font-weight: 700;
+  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.2;
 }

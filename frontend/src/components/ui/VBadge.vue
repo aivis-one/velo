@@ -34,7 +34,7 @@ withDefaults(
   gap: 4px;
   padding: 4px 10px;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   border-radius: var(--radius-full);
   white-space: nowrap;
 }

@@ -66,7 +66,7 @@ const pct = computed(() => {
 
 .v-progress__label {
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 400;
   color: var(--velo-text-secondary);
   min-width: 36px;
   text-align: right;
