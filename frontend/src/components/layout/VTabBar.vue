@@ -105,7 +105,7 @@ defineEmits<{
   background: var(--velo-pink-300);
   color: white;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 400;
   border-radius: var(--radius-full);
 }
 </style>

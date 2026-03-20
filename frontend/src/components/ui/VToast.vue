@@ -60,7 +60,7 @@ function icon(variant: ToastVariant): string {
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 400;
   max-width: 90%;
   text-align: center;
   cursor: pointer;
