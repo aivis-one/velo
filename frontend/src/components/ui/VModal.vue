@@ -108,8 +108,11 @@ onUnmounted(() => {
   max-width: 420px;
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--velo-bg-card, white);
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--velo-bg-card, var(--velo-glass-blue-60));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #ffffff;
+  border-radius: 20px 20px 0 0;
   padding: var(--space-6);
   box-shadow: var(--shadow-xl);
 }
@@ -168,7 +171,7 @@ onUnmounted(() => {
   }
 
   .v-modal__container {
-    border-radius: var(--radius-xl);
+    border-radius: 20px;
   }
 
   .v-modal-enter-from .v-modal__container {
