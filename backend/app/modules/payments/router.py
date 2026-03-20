@@ -59,18 +59,3 @@ async def topup_endpoint(
         amount_cents=payment.amount_cents,
         currency=payment.currency,
     )
-    payment, checkout_url = await create_topup_session(
-        user_id=user.id,
-        amount_cents=body.amount_cents,
-        currency=settings.default_currency,
-        session=session,
-    )
-    await session.flush()
-    await session.refresh(payment)
-
-    return TopupResponse(
-        payment_id=payment.id,
-        checkout_url=checkout_url,
-        amount_cents=payment.amount_cents,
-        currency=payment.currency,
-    )
