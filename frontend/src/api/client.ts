@@ -84,6 +84,16 @@ export function setOnUnauthorized(cb: () => void): void {
 // so subsequent calls always go to the network.
 const _inFlight = new Map<string, Promise<unknown>>()
 
+/**
+ * Reset all module-level state (WARNING-13).
+ * Call in test beforeEach to prevent state leaking between tests.
+ */
+export function resetClientState(): void {
+  _token = null
+  _onUnauthorized = null
+  _inFlight.clear()
+}
+
 // -- Core request --
 
 async function request<T>(
