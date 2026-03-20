@@ -36,6 +36,14 @@ class Base(DeclarativeBase):
 # ---------------------------------------------------------------------------
 # Lazy engine + session factory — created on first access, not at import time
 # ---------------------------------------------------------------------------
+# Fix 2.6: global mutable state is safe here because:
+#   - asyncio runs on a single event loop (single thread) -- no data race.
+#   - Engine is created once at startup (lifespan) before any concurrent
+#     requests arrive, so the None→engine transition is never concurrent.
+#   - Uvicorn workers are separate processes, each with their own engine
+#     instance (no shared memory between processes).
+#   - asyncio.to_thread (used for Stripe calls) runs in a thread pool but
+#     never touches _engine/_session_factory directly.
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 

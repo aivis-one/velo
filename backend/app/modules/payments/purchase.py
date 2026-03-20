@@ -352,6 +352,10 @@ async def list_user_purchases(
 ) -> tuple[list[tuple[Purchase, Practice]], int]:
     """List purchases for a user with practice details (paginated).
 
+    Fix 2.5: count derived from base query subquery (B-05 pattern) instead
+    of a separate count_base with duplicated filter clauses. Adding a new
+    filter to base is sufficient -- total stays in sync automatically.
+
     Returns:
         Tuple of (list of (Purchase, Practice) pairs, total count).
     """
@@ -362,16 +366,16 @@ async def list_user_purchases(
         .join(Practice, Purchase.practice_id == Practice.id)
         .where(Purchase.user_id == user.id)
     )
-    count_base = (
-        select(func.count(Purchase.id))
-        .where(Purchase.user_id == user.id)
-    )
 
     if status_filter:
         base = base.where(Purchase.status == status_filter)
-        count_base = count_base.where(Purchase.status == status_filter)
 
-    total = (await session.execute(count_base)).scalar_one()
+    # B-05: count via subquery -- filters applied once, no duplication.
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
 
     items_stmt = (
         base

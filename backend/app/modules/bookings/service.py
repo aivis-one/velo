@@ -328,37 +328,52 @@ async def cancel_booking(
         await session.execute(practice_stmt)
     ).scalar_one()
 
-    deadline = practice.scheduled_at - timedelta(
-        hours=settings.cancellation_deadline_hours,
-    )
-    now = datetime.now(timezone.utc)
-
-    if now < deadline:
-        # Early cancel: full refund.
+    # Fix 2.3: scheduled_at is NOT NULL in the model, but guard against
+    # incomplete ORM objects (e.g. partial loads in tests). Treat missing
+    # scheduled_at as early cancel (full refund) -- the safe default.
+    if practice.scheduled_at is None:
+        logger.warning(
+            "cancel_booking_missing_scheduled_at",
+            booking_id=str(booking_id),
+            practice_id=str(booking.practice_id),
+        )
         await refund_booking(
             booking=booking,
             practice=practice,
             session=session,
         )
-        logger.info(
-            "booking_cancelled_with_refund",
-            booking_id=str(booking_id),
-            user_id=str(user.id),
-            reason=reason,
-        )
     else:
-        # Late cancel: master keeps the money (early finalize).
-        await early_finalize_booking(
-            booking=booking,
-            practice=practice,
-            session=session,
+        deadline = practice.scheduled_at - timedelta(
+            hours=settings.cancellation_deadline_hours,
         )
-        logger.info(
-            "booking_cancelled_no_refund",
-            booking_id=str(booking_id),
-            user_id=str(user.id),
-            reason=reason,
-        )
+        now = datetime.now(timezone.utc)
+
+        if now < deadline:
+            # Early cancel: full refund.
+            await refund_booking(
+                booking=booking,
+                practice=practice,
+                session=session,
+            )
+            logger.info(
+                "booking_cancelled_with_refund",
+                booking_id=str(booking_id),
+                user_id=str(user.id),
+                reason=reason,
+            )
+        else:
+            # Late cancel: master keeps the money (early finalize).
+            await early_finalize_booking(
+                booking=booking,
+                practice=practice,
+                session=session,
+            )
+            logger.info(
+                "booking_cancelled_no_refund",
+                booking_id=str(booking_id),
+                user_id=str(user.id),
+                reason=reason,
+            )
 
     # Update cached participant count (Frontend Backlog A-03).
     await recalculate_participants(booking.practice_id, session)
