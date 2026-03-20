@@ -502,7 +502,7 @@ onMounted(async () => {
 }
 
 .master-profile__name {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-xl);
   color: var(--velo-text-primary);
   line-height: 1.2;

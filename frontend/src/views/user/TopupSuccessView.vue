@@ -72,7 +72,7 @@ onMounted(async () => {
 }
 
 .topup-result__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--velo-text-primary);
@@ -89,7 +89,7 @@ onMounted(async () => {
 }
 
 .topup-result__balance {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-3xl);
   font-weight: 400;
   color: var(--velo-primary);

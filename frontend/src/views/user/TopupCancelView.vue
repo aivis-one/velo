@@ -58,7 +58,7 @@ const router = useRouter()
 }
 
 .topup-result__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--velo-text-primary);

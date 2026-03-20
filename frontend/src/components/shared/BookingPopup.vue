@@ -272,7 +272,7 @@ async function onPurchase(): Promise<void> {
 
 <style scoped>
 .popup__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);

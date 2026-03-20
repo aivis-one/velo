@@ -418,7 +418,7 @@ async function submit(): Promise<void> {
 }
 
 .apply-view__step-title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-lg);
   color: var(--velo-text-primary);
   margin-bottom: var(--space-2);

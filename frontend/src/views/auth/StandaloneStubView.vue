@@ -48,7 +48,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
 }
 
 .stub__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--velo-text-primary);

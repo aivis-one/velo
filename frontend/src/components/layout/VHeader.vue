@@ -93,7 +93,7 @@ defineEmits<{
 }
 
 .v-header__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: 18px;
   font-weight: 400;
   color: var(--velo-primary);
