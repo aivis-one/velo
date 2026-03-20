@@ -22,7 +22,10 @@
         <div
           v-if="stats.pending_verifications > 0"
           class="admin-dashboard__alert"
+          role="button"
+          tabindex="0"
           @click="router.push({ name: 'admin-masters' })"
+          @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
         >
           <span class="admin-dashboard__alert-icon">⚠️</span>
           <div class="admin-dashboard__alert-body">
@@ -65,21 +68,30 @@
         <div class="admin-dashboard__actions">
           <div
             class="admin-dashboard__action-card"
+            role="button"
+            tabindex="0"
             @click="router.push({ name: 'admin-masters' })"
+            @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
           >
             <span class="admin-dashboard__action-icon">👥</span>
             <div class="admin-dashboard__action-label">Мастера</div>
           </div>
           <div
             class="admin-dashboard__action-card"
+            role="button"
+            tabindex="0"
             @click="router.push({ name: 'admin-reports' })"
+            @keydown.enter.space.prevent="router.push({ name: 'admin-reports' })"
           >
             <span class="admin-dashboard__action-icon">⚠️</span>
             <div class="admin-dashboard__action-label">Жалобы</div>
           </div>
           <div
             class="admin-dashboard__action-card"
+            role="button"
+            tabindex="0"
             @click="router.push({ name: 'admin-consistency' })"
+            @keydown.enter.space.prevent="router.push({ name: 'admin-consistency' })"
           >
             <span class="admin-dashboard__action-icon">🔍</span>
             <div class="admin-dashboard__action-label">Семафоры</div>

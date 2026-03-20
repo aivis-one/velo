@@ -54,7 +54,10 @@
             v-for="item in items"
             :key="item.id"
             class="admin-reports__card"
+            role="button"
+            tabindex="0"
             @click="openDetail(item)"
+            @keydown.enter.space.prevent="openDetail(item)"
           >
             <div class="admin-reports__card-header">
               <VBadge :variant="reportStatusVariant(item.status)">

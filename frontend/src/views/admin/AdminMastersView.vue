@@ -50,7 +50,10 @@
             v-for="item in items"
             :key="item.id"
             class="admin-masters__card"
+            role="button"
+            tabindex="0"
             @click="openReview(item)"
+            @keydown.enter.space.prevent="openReview(item)"
           >
             <VAvatar
               :name="masterDisplayName(item)"

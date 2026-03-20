@@ -10,7 +10,14 @@
 -->
 
 <template>
-  <div class="v-stat" :class="{ 'v-stat--clickable': clickable }" @click="clickable ? $emit('click') : undefined">
+  <div
+    class="v-stat"
+    :class="{ 'v-stat--clickable': clickable }"
+    :role="clickable ? 'button' : undefined"
+    :tabindex="clickable ? 0 : undefined"
+    @click="clickable ? $emit('click') : undefined"
+    @keydown.enter.space.prevent="clickable ? $emit('click') : undefined"
+  >
     <span v-if="icon" class="v-stat__icon">{{ icon }}</span>
     <div class="v-stat__value">{{ value }}</div>
     <div class="v-stat__label">{{ label }}</div>
