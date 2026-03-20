@@ -408,32 +408,50 @@ async def delete_all_sessions(user_id: UUID) -> int:
     FIX 2.3: Uses ZRANGE on Sorted Set index to find all tokens,
     then deletes session keys + index atomically via pipeline.
 
-    QW-1: pipeline(transaction=True) wraps commands in MULTI/EXEC
-    for true atomicity. Without it, a concurrent create_session could
-    add a token to the index between the two DELETEs, losing it.
+    QW-1 (CORRECTED): The original pipeline(transaction=True) approach
+    had a race condition -- ZRANGE ran outside the pipeline, so a
+    concurrent create_session could insert a new token between the
+    ZRANGE read and the pipeline DELETE, losing that token from the
+    index forever.
+
+    Fix: Lua script executes ZRANGE + DEL atomically on the Redis
+    server side. Redis is single-threaded in command execution, so
+    no other command can interleave between ZRANGE and DEL within
+    the Lua script.
 
     Returns:
         Number of sessions deleted.
     """
     redis = get_redis()
     index_key = f"{_USER_SESSIONS_PREFIX}{user_id}"
+    session_prefix = _SESSION_PREFIX
 
-    # Get all tokens from the Sorted Set index.
-    tokens = await redis.zrange(index_key, 0, -1)
-    if not tokens:
-        return 0
+    # Lua script: atomically read all tokens and delete index + sessions.
+    # KEYS[1] = index_key (the ZSET)
+    # ARGV[1] = session key prefix
+    # Returns the number of sessions deleted.
+    lua_script = """
+local index_key = KEYS[1]
+local session_prefix = ARGV[1]
+local tokens = redis.call('ZRANGE', index_key, 0, -1)
+if #tokens == 0 then
+    return 0
+end
+local keys_to_delete = {index_key}
+for _, token in ipairs(tokens) do
+    table.insert(keys_to_delete, session_prefix .. token)
+end
+redis.call('DEL', unpack(keys_to_delete))
+return #tokens
+"""
 
-    # QW-1: MULTI/EXEC pipeline for atomic delete.
-    session_keys = [f"{_SESSION_PREFIX}{t}" for t in tokens]
-    pipe = redis.pipeline(transaction=True)
-    pipe.delete(*session_keys)
-    pipe.delete(index_key)
-    await pipe.execute()
+    count = await redis.eval(lua_script, 1, index_key, session_prefix)
 
-    logger.info(
-        "all_sessions_deleted",
-        user_id=str(user_id),
-        count=len(tokens),
-    )
+    if count:
+        logger.info(
+            "all_sessions_deleted",
+            user_id=str(user_id),
+            count=count,
+        )
 
-    return len(tokens)
+    return int(count)
