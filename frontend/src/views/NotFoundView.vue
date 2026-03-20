@@ -32,7 +32,7 @@ const router = useRouter()
 }
 .not-found__icon { font-size: 64px; margin-bottom: var(--space-4); }
 .not-found__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--velo-text-primary);

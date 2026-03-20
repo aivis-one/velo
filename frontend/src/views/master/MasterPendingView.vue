@@ -199,7 +199,7 @@ async function refreshStatus(): Promise<void> {
 }
 
 .pending-view__title {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-2xl);
   color: var(--velo-text-primary);
   text-align: center;

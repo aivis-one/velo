@@ -107,7 +107,7 @@ async function onLogout(): Promise<void> {
 }
 
 .admin-profile__name {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);

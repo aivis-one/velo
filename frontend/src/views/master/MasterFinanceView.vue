@@ -421,7 +421,7 @@ onMounted(async () => {
 }
 
 .finance-view__balance-value {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-3xl);
   font-weight: 400;
   letter-spacing: -0.5px;

@@ -289,7 +289,7 @@ onMounted(async () => {
 }
 
 .master-dashboard__greeting-name {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
@@ -323,7 +323,7 @@ onMounted(async () => {
 }
 
 .master-dashboard__balance-value {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-3xl);
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -395,7 +395,7 @@ onMounted(async () => {
 }
 
 .master-dashboard__stat-value {
-  font-family: var(--font-heading);
+  font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
