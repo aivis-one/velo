@@ -65,7 +65,7 @@ defineEmits<{
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  background: white;
+  background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-base);

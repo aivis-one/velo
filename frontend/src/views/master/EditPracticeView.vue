@@ -843,7 +843,7 @@ async function remove(): Promise<void> {
 
 .edit-practice__radio--active {
   border-color: white;
-  background: white;
+  background: var(--velo-glass-blue-60);
 }
 
 /* -- Price calc -- */
