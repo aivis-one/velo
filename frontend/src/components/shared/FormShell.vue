@@ -170,7 +170,7 @@ const typeEmoji = computed(() =>
 }
 
 .form-shell-success__icon {
-  font-size: 80px;
+  font-size: var(--size-success-icon);
   margin-bottom: var(--space-6);
 }
 
@@ -221,7 +221,7 @@ const typeEmoji = computed(() =>
 }
 
 .form-shell__practice-emoji {
-  font-size: 56px;
+  font-size: var(--size-practice-emoji);
   margin-bottom: var(--space-3);
 }
 

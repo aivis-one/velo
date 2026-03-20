@@ -153,4 +153,9 @@
   /* === VELΘ: Z-index === */
   --z-background: -1;
   --z-content: 1;
+
+  /* === VELΘ: Component sizes === */
+  --size-success-icon: 80px;   /* success screen emoji */
+  --size-practice-emoji: 56px; /* practice type emoji in form screens */
+  --size-option-btn-min: 90px; /* mood/rating button minimum width */
 }

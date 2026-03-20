@@ -148,7 +148,7 @@ onMounted(() => {
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
-  min-width: 90px;
+  min-width: var(--size-option-btn-min);
   font-family: var(--font-body);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
