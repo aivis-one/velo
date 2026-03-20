@@ -10,7 +10,7 @@
 <template>
   <div class="diary-detail">
     <header class="diary-detail__header">
-      <button class="diary-detail__back" @click="emit('back')">←</button>
+      <button class="diary-detail__back" aria-label="Назад" @click="emit('back')">←</button>
       <h1 class="diary-detail__title">Check-in</h1>
       <span class="diary-detail__spacer" />
     </header>

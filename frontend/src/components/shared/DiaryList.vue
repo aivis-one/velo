@@ -125,7 +125,7 @@
     </div>
 
     <!-- FAB -->
-    <button class="diary-list__fab" @click="emit('open-new')">+</button>
+    <button class="diary-list__fab" aria-label="Новая запись" @click="emit('open-new')">+</button>
   </div>
 </template>
 

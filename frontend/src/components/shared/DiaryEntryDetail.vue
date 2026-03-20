@@ -11,9 +11,9 @@
 <template>
   <div class="diary-detail">
     <header class="diary-detail__header">
-      <button class="diary-detail__back" @click="emit('back')">←</button>
+      <button class="diary-detail__back" aria-label="Назад" @click="emit('back')">←</button>
       <h1 class="diary-detail__title">Запись</h1>
-      <button class="diary-detail__action" @click="emit('edit')">✏️</button>
+      <button class="diary-detail__action" aria-label="Редактировать" @click="emit('edit')">✏️</button>
     </header>
 
     <div class="diary-detail__body">
