@@ -362,6 +362,48 @@ PRACTICE_TEMPLATES: list[dict] = [
         "offset": timedelta(days=30, hours=20),
         "num_bookings": 2,
     },
+    # -- 12: BANNER -- check-in window (confirmed booking for all real users) --
+    # scheduled_at = NOW + 90 min → inside CHECKIN_WINDOW_H=3h window.
+    # Owner is always DUMMY_MASTER_DATA[0] (Елена Мирная, tid=9900029)
+    # so no real user can be the practice master.
+    {
+        "title": "Утренняя медитация",
+        "description": (
+            "Мягкая медитация для начала дня. "
+            "Дыхание, тело, намерение."
+        ),
+        "practice_type": PracticeType.LIVE.value,
+        "target_status": PracticeStatus.SCHEDULED.value,
+        "duration_minutes": 45,
+        "max_participants": 100,
+        "is_free": False,
+        "price_cents": 0,
+        "offset": timedelta(minutes=90),
+        "num_bookings": 0,
+        "seed_for_real_users": True,
+        "fixed_master_tid": 9900029,
+    },
+    # -- 13: BANNER -- feedback window (attended booking for all real users) --
+    # scheduled_at = NOW - 2h, duration=45min → ended 1h 15min ago,
+    # well inside FEEDBACK_WINDOW_H=72h window.
+    # Owner is always DUMMY_MASTER_DATA[1] (Олег Спокойный, tid=9900030).
+    {
+        "title": "Вечерняя медитация",
+        "description": (
+            "Практика завершения дня. "
+            "Снятие напряжения и подготовка ко сну."
+        ),
+        "practice_type": PracticeType.LIVE.value,
+        "target_status": PracticeStatus.COMPLETED.value,
+        "duration_minutes": 45,
+        "max_participants": 100,
+        "is_free": False,
+        "price_cents": 0,
+        "offset": timedelta(hours=-2),
+        "num_bookings": 0,
+        "seed_for_real_users": True,
+        "fixed_master_tid": 9900030,
+    },
 ]
 
 
@@ -1146,40 +1188,92 @@ async def seed(reset: bool = False) -> None:
             # ========================================
             log("Creating practices...")
 
-            practices: list[Practice] = []
+            # Build telegram_id -> User lookup for fixed_master_tid templates.
+            master_by_tid: dict[int, User] = {
+                m.telegram_id: m
+                for m in all_masters
+                if m.telegram_id is not None
+            }
+
+            # practices list mirrors PRACTICE_TEMPLATES indices for STEP 4.
+            # Banner templates (seed_for_real_users=True) are included so
+            # their index stays aligned with PRACTICE_TEMPLATES.
+            practices: list[Practice | None] = []
             for i, tmpl in enumerate(PRACTICE_TEMPLATES):
-                master = all_masters[i % len(all_masters)]
+                # Banner templates: fixed dummy master, not round-robin.
+                fixed_tid = tmpl.get("fixed_master_tid")
+                if fixed_tid is not None:
+                    fixed_master = master_by_tid.get(fixed_tid)
+                    if fixed_master is None:
+                        warn(
+                            f"  fixed_master_tid={fixed_tid} not found "
+                            f"-- skipping banner practice '{tmpl['title']}'"
+                        )
+                        practices.append(None)
+                        continue
+                    master = fixed_master
+                else:
+                    master = all_masters[i % len(all_masters)]
+
                 p = await create_seed_practice(session, tmpl, master.id)
+                practices.append(p)
                 if p is not None:
-                    practices.append(p)
                     status_icon = {
                         PracticeStatus.SCHEDULED.value: "📅",
                         PracticeStatus.LIVE.value: "🔴",
                         PracticeStatus.COMPLETED.value: "✅",
                         PracticeStatus.CANCELLED.value: "❌",
                     }.get(p.status, "❓")
+                    banner_tag = " [BANNER]" if tmpl.get("seed_for_real_users") else ""
                     price = (
                         "free" if p.is_free
                         else f"€{p.price_cents / 100:.2f}"
                     )
-                    log(f"  {status_icon} {p.title} ({price})")
+                    log(f"  {status_icon} {p.title} ({price}){banner_tag}")
 
             # ========================================
             # STEP 4: Create bookings
             # ========================================
             log("Creating bookings...")
 
+            # All real users across all roles -- used for banner bookings.
+            # Deduped by user.id (same person may appear in multiple role lists).
+            real_users_all: list[User] = list(
+                {u.id: u for u in all_users + all_masters + all_admins}.values()
+            )
+
             total_bookings = 0
             for i, tmpl in enumerate(PRACTICE_TEMPLATES):
                 if i >= len(practices):
                     break
                 practice = practices[i]
+                if practice is None:
+                    continue
+
+                # Banner template: book every real user regardless of num_bookings.
+                if tmpl.get("seed_for_real_users"):
+                    candidates = [
+                        u for u in real_users_all
+                        if u.id != practice.master_id
+                        and u.telegram_id is not None
+                        and u.telegram_id < DUMMY_TID_MIN
+                    ]
+                    booked = 0
+                    for user in candidates:
+                        b = await create_seed_booking(session, user, practice)
+                        if b is not None:
+                            booked += 1
+                            total_bookings += 1
+                    if booked > 0:
+                        await recalculate_participants(practice.id, session)
+                    log(f"  Banner '{practice.title}': {booked} real-user bookings")
+                    continue
+
                 num = tmpl["num_bookings"]
                 if num == 0:
                     continue
 
-                # Build list of eligible users (not the practice master).
-                # Real users first, then dummies.
+                # Standard template: real users first, then dummies.
                 real_eligible = [
                     u for u in all_users
                     if u.id != practice.master_id
