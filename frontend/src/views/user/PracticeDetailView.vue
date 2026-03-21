@@ -1,28 +1,23 @@
 <!--
-  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, F5, F9.1)
+  VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, F5, F9.1, DS-sprint)
 
-  Full practice detail screen. Matches mockup practice-detail layout:
+  Full practice detail screen. Matches design Dashboard 2 / booked-practice layout:
     - Hero header: emoji + title + meta (date, duration, spots)
-    - Sections: description, master info
-    - Sticky footer: price + action button
+    - Accordions: "О практике" (description), "Что подготовить" (what_to_prepare)
+    - Master card: avatar + name + ✓ + methods tags (VTag) + arrow
+    - Contraindications banner (if practice.contraindications)
+    - Sticky footer: price + action button + cancel booking
 
   F4.1: BookingPopup (purchase flow with promo).
   F5 review fix:
     W-21: booked state derived from bookingsStore instead of local ref.
-          Survives navigation (back/forward).
   F9.1: Sticky footer action is now context-aware:
     - Not booked + available  → "Забронировать" / "Записаться бесплатно"
     - Booked + in check-in window  → "✅ Check-in перед практикой"
     - Booked + in feedback window  → "💬 Оставить feedback"
     - Booked + outside any window  → "✓ Вы записаны" (disabled)
-
-  Check-in window:  scheduled_at - 3h  ..  scheduled_at
-  Feedback window:  scheduled_at + duration_minutes  ..  + 72h
-
-  Layout note: .detail__actions is NOT position:fixed. Instead .detail is a
-  flex column filling the parent scroll container, with .detail__scrollable
-  taking flex:1 and overflow-y:auto. This ensures the tab bar (position:sticky)
-  sits below the footer naturally without z-index conflicts.
+    - Booked (cancellable)         → "Отменить бронирование"
+  DS-sprint: accordions, master methods tags, contraindications banner.
 
   Route: /user/practices/:id
   Param: id (practice UUID)
@@ -68,24 +63,56 @@
 
       <!-- Body -->
       <div class="detail__body">
-        <!-- Description -->
-        <section v-if="practice.description" class="detail__section">
-          <h3 class="detail__section-title">О практике</h3>
-          <p class="detail__section-content">{{ practice.description }}</p>
-        </section>
 
-        <!-- Master -->
+        <!-- О практике accordion -->
+        <VAccordion v-if="practice.description" title="О практике">
+          <p class="detail__accordion-text">{{ practice.description }}</p>
+        </VAccordion>
+
+        <!-- Что подготовить accordion -->
+        <VAccordion v-if="practice.what_to_prepare" title="Что подготовить">
+          <p class="detail__accordion-text">{{ practice.what_to_prepare }}</p>
+        </VAccordion>
+
+        <!-- Master card -->
         <section class="detail__section">
           <h3 class="detail__section-title">Мастер</h3>
           <div class="detail__master-card">
-            <div class="detail__master-avatar">🧘‍♂️</div>
+            <div class="detail__master-avatar">
+              <span class="detail__master-avatar-emoji">🧘</span>
+            </div>
             <div class="detail__master-info">
               <div class="detail__master-name">
                 {{ practice.master_name ?? 'Мастер' }}
+                <span class="detail__master-verified">✓</span>
+              </div>
+              <div v-if="practice.master_methods?.length" class="detail__master-tags">
+                <VTag
+                  v-for="method in practice.master_methods"
+                  :key="method"
+                  :label="method"
+                />
               </div>
             </div>
+            <button
+              class="detail__master-arrow"
+              aria-label="Профиль мастера"
+              @click="onMasterProfile"
+            >
+              →
+            </button>
           </div>
         </section>
+
+        <!-- Contraindications banner -->
+        <div v-if="practice.contraindications" class="detail__contraindications">
+          <span class="detail__contraindications-icon">⚠️</span>
+          <div class="detail__contraindications-text">
+            <div class="detail__contraindications-title">ПРОТИВОПОКАЗАНИЯ</div>
+            <div class="detail__contraindications-body">{{ practice.contraindications }}</div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -145,6 +172,18 @@
       >
         {{ bookButtonText }}
       </VButton>
+      <!-- Cancel booking button (visible when booked and cancellable) -->
+      <VButton
+        v-if="booked && canCancel"
+        variant="ghost"
+        size="lg"
+        block
+        :loading="cancelling"
+        class="detail__cancel-btn"
+        @click="onCancelBooking"
+      >
+        Отменить бронирование
+      </VButton>
     </div>
 
     <!-- Booking popup -->
@@ -162,7 +201,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
-import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBadge, VAccordion, VTag } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
@@ -299,6 +338,17 @@ const bookButtonText = computed(() => {
 // Actions
 // =========================================================================
 
+const cancelling = ref(false)
+
+/**
+ * Booking is cancellable when status is confirmed or pending.
+ * attended/no_show/cancelled are not cancellable.
+ */
+const canCancel = computed((): boolean => {
+  if (!myBooking.value) return false
+  return myBooking.value.status === 'confirmed' || myBooking.value.status === 'pending'
+})
+
 function onBook(): void {
   showBookingPopup.value = true
 }
@@ -319,6 +369,23 @@ function onCheckin(): void {
 function onFeedback(): void {
   if (!practice.value) return
   router.push({ name: 'user-feedback', params: { practiceId: practice.value.id } })
+}
+
+async function onCancelBooking(): Promise<void> {
+  if (!myBooking.value || cancelling.value) return
+  cancelling.value = true
+  const result = await bookingsStore.cancelBooking(myBooking.value.id)
+  cancelling.value = false
+  if (!result.ok) {
+    // Toast is shown by the store on error; no local handling needed.
+    return
+  }
+  justPurchased.value = false
+}
+
+function onMasterProfile(): void {
+  // Master public profile route is not yet implemented (future sprint).
+  // Silently no-op for now.
 }
 
 // =========================================================================
@@ -379,7 +446,7 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Hero */
+/* ===== Hero ===== */
 .detail__hero {
   padding: var(--space-6) var(--space-4) var(--space-4);
   text-align: center;
@@ -412,16 +479,26 @@ onUnmounted(() => {
   margin-bottom: var(--space-3);
 }
 
-/* Body */
+/* ===== Body ===== */
 .detail__body {
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
+/* Accordion text body */
+.detail__accordion-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--velo-text-secondary);
+  line-height: 1.6;
+}
+
+/* ===== Section (master) ===== */
 .detail__section {
-  padding-bottom: var(--space-4);
+  padding: var(--space-3) 0;
   border-bottom: 1px solid var(--velo-border-light);
 }
 
@@ -431,32 +508,28 @@ onUnmounted(() => {
 
 .detail__section-title {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-2);
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
 }
 
-.detail__section-content {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  line-height: 1.6;
-}
-
+/* ===== Master card ===== */
 .detail__master-card {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  position: relative;
 }
 
 .detail__master-avatar {
-  font-size: 36px;
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -465,13 +538,100 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-.detail__master-name {
-  font-weight: 400;
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
+.detail__master-avatar-emoji {
+  font-size: 28px;
 }
 
-/* Footer: static, sits below scrollable area */
+.detail__master-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail__master-name {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.detail__master-verified {
+  color: var(--velo-teal-600);
+  margin-left: 4px;
+}
+
+.detail__master-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.detail__master-arrow {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.detail__master-arrow:hover {
+  opacity: 0.8;
+}
+
+/* ===== Contraindications banner ===== */
+.detail__contraindications {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--velo-glass-peach-40);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  margin-top: var(--space-2);
+}
+
+.detail__contraindications-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.detail__contraindications-text {
+  flex: 1;
+}
+
+.detail__contraindications-title {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-peach-700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.detail__contraindications-body {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-peach-500);
+  line-height: 1.4;
+}
+
+/* ===== Footer ===== */
 .detail__actions {
   flex-shrink: 0;
   padding: var(--space-4);
@@ -505,6 +665,11 @@ onUnmounted(() => {
 }
 
 .detail__price-value--free {
-  color: var(--velo-success);
+  color: var(--velo-success-text);
+}
+
+/* Cancel button: ghost with red tint */
+.detail__cancel-btn {
+  color: var(--velo-error-text) !important;
 }
 </style>
