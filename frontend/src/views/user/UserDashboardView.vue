@@ -1,29 +1,31 @@
 <!--
-  VELO Frontend -- UserDashboardView (Phase F3.1, updated F9.1)
+  VELO Frontend -- UserDashboardView (Phase F3.1, updated DS-dashboard)
 
   Main user screen. Shows:
     - Greeting with user's first name
-    - F9.1: Check-in alert banner (amber) -- confirmed booking in check-in window
-    - F9.1: Feedback alert banner (blue) -- attended booking in feedback window
-    - "Upcoming practices" section (first 5 from catalog)
-    - "All practices" link → /user/calendar
+    - Check-in alert banner (amber) -- confirmed booking in check-in window
+    - Feedback alert banner (teal)  -- attended booking in feedback window
+    - "Ближайшая практика" -- nearest confirmed booking card with Zoom + Check-in
+    - "Ваш прогресс"       -- attended count + hours, derived from bookingsStore
+    - "AI-саммари"         -- placeholder card with week/month toggle
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
 
-  Both windows are validated server-side too -- the banners are just UX hints.
-  If the user taps a banner outside the window the backend returns 400.
+  Progress stats are derived from the already-loaded bookingsStore (limit 20).
+  For users with >20 attended practices the numbers will be partial -- acceptable for MVP.
 -->
 
 <template>
   <div class="dashboard">
+
     <!-- Greeting -->
     <div class="dashboard__greeting">
       <p class="dashboard__greeting-text">{{ greetingText }}</p>
       <h2 class="dashboard__greeting-name">{{ userName }} 👋</h2>
     </div>
 
-    <!-- F9.1: Check-in alert banner -->
+    <!-- Check-in alert banner -->
     <div
       v-if="checkinAlert"
       class="dashboard__alert dashboard__alert--checkin"
@@ -33,12 +35,12 @@
         <span class="dashboard__alert-icon">⏰</span>
         <div class="dashboard__alert-text">
           <h4>Пора на check-in!</h4>
-          <p>{{ checkinAlert.practice.title }} {{ checkinAlertTime }}</p>
+          <p>{{ checkinAlert.practice.title }}{{ checkinAlertTime }}</p>
         </div>
       </div>
     </div>
 
-    <!-- F9.1: Feedback alert banner -->
+    <!-- Feedback alert banner -->
     <div
       v-if="feedbackAlert"
       class="dashboard__alert dashboard__alert--feedback"
@@ -48,57 +50,150 @@
         <span class="dashboard__alert-icon">💬</span>
         <div class="dashboard__alert-text">
           <h4>Оставьте feedback!</h4>
-          <p>{{ feedbackAlert.practice.title }}</p>
+          <p>{{ feedbackAlert.practice.title }} · Вчера</p>
         </div>
       </div>
     </div>
 
-    <!-- Upcoming practices -->
+    <!-- ================================================================
+         NEAREST PRACTICE
+         ================================================================ -->
     <section class="dashboard__section">
-      <div class="dashboard__section-header">
-        <h3 class="dashboard__section-title">Ближайшие практики</h3>
-        <button
-          v-if="upcomingPractices.length > 0"
-          class="dashboard__link"
-          @click="router.push({ name: 'user-calendar' })"
-        >
-          Все →
-        </button>
-      </div>
+      <h3 class="dashboard__section-title">Ближайшая практика</h3>
 
       <!-- Loading -->
-      <div v-if="store.loading && upcomingPractices.length === 0" class="dashboard__loader">
+      <div v-if="bookingsStore.loading && !nearestBooking" class="dashboard__loader">
         <VLoader />
       </div>
 
-      <!-- Error -->
-      <VEmptyState
-        v-else-if="store.error"
-        icon="⚠️"
-        title="Не удалось загрузить"
-        :description="store.error"
-      >
-        <VButton size="sm" @click="store.refreshPractices()">Повторить</VButton>
-      </VEmptyState>
-
       <!-- Empty -->
-      <VEmptyState
-        v-else-if="!store.loading && upcomingPractices.length === 0"
-        icon="📅"
-        title="Пока нет практик"
-        description="Практики появятся здесь, когда мастера их опубликуют"
-      />
+      <div
+        v-else-if="!bookingsStore.loading && !nearestBooking"
+        class="dashboard__empty"
+      >
+        <p class="dashboard__empty-text">Нет предстоящих практик</p>
+        <VButton
+          size="sm"
+          variant="outline"
+          @click="router.push({ name: 'user-calendar' })"
+        >
+          Найти практику
+        </VButton>
+      </div>
 
-      <!-- Practice cards -->
-      <div v-else class="dashboard__practices">
-        <PracticeCard
-          v-for="practice in upcomingPractices"
-          :key="practice.id"
-          :practice="practice"
-          @click="goToDetail"
-        />
+      <!-- Practice card -->
+      <div
+        v-else-if="nearestBooking"
+        class="dashboard__practice-card"
+        @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
+      >
+        <!-- Header: emoji + title + master -->
+        <div class="dashboard__practice-header">
+          <span class="dashboard__practice-icon">{{ nearestPracticeEmoji }}</span>
+          <div class="dashboard__practice-info">
+            <h4 class="dashboard__practice-title">{{ nearestBooking.practice.title }}</h4>
+            <p class="dashboard__practice-master">
+              {{ nearestBooking.practice.master_name ?? 'Мастер' }}
+              <span class="dashboard__practice-verified">✓</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Meta row: date, duration, paid badge -->
+        <div class="dashboard__practice-meta">
+          <span class="dashboard__practice-meta-item">📅 {{ nearestPracticeDate }}</span>
+          <span class="dashboard__practice-meta-item">⏱ {{ nearestPracticeDuration }}</span>
+          <VBadge v-if="nearestBooking.purchase_id" variant="success">
+            ✓ Оплачено
+          </VBadge>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="dashboard__practice-actions" @click.stop>
+          <VButton
+            variant="outline"
+            size="sm"
+            class="dashboard__practice-btn"
+            @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
+          >
+            Zoom
+          </VButton>
+          <VButton
+            variant="primary"
+            size="sm"
+            class="dashboard__practice-btn"
+            @click="goToCheckin(nearestBooking.practice_id)"
+          >
+            Check-in
+          </VButton>
+        </div>
       </div>
     </section>
+
+    <!-- ================================================================
+         PROGRESS
+         ================================================================ -->
+    <section class="dashboard__section">
+      <h3 class="dashboard__section-title">Ваш прогресс</h3>
+      <div class="dashboard__stats-grid">
+        <div class="dashboard__stat-card">
+          <div class="dashboard__stat-value">{{ attendedCount }}</div>
+          <div class="dashboard__stat-label">Практик пройдено</div>
+        </div>
+        <div class="dashboard__stat-card">
+          <div class="dashboard__stat-value">{{ practiceHours }}</div>
+          <div class="dashboard__stat-label">Часов в практике</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         AI SUMMARY (placeholder)
+         ================================================================ -->
+    <section class="dashboard__section">
+      <div class="dashboard__ai-header">
+        <h3 class="dashboard__section-title">AI-саммари</h3>
+        <div class="dashboard__period-toggle">
+          <button
+            class="dashboard__period-btn"
+            :class="{ 'dashboard__period-btn--active': aiPeriod === 'week' }"
+            @click="aiPeriod = 'week'"
+          >
+            Неделя
+          </button>
+          <button
+            class="dashboard__period-btn"
+            :class="{ 'dashboard__period-btn--active': aiPeriod === 'month' }"
+            @click="aiPeriod = 'month'"
+          >
+            Месяц
+          </button>
+        </div>
+      </div>
+
+      <div class="dashboard__ai-card">
+        <p class="dashboard__ai-text">
+          <template v-if="aiPeriod === 'week'">
+            На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик
+            и провели в практике <strong>{{ practiceHours }}</strong> часов.
+          </template>
+          <template v-else>
+            В этом месяце вы посетили <strong>{{ attendedCount }}</strong> практик
+            и провели в практике <strong>{{ practiceHours }}</strong> часов.
+          </template>
+        </p>
+        <p v-if="attendedCount > 0" class="dashboard__ai-text dashboard__ai-text--secondary">
+          Ваш уровень энергии вырос 🙂
+        </p>
+        <button
+          class="dashboard__ai-arrow"
+          @click.stop="router.push({ name: 'user-ai-summary' })"
+        >
+          →
+        </button>
+      </div>
+    </section>
+
   </div>
 </template>
 
@@ -106,31 +201,36 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import PracticeCard from '@/components/shared/PracticeCard.vue'
+import { VLoader, VButton, VBadge } from '@/components/ui'
+import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
+import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
+import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
+
+// CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
+// Keeping import to document the dependency (mirrors usePracticeWindows).
+void CHECKIN_WINDOW_H
 
 const router = useRouter()
 const authStore = useAuthStore()
-const store = usePracticesStore()
 const bookingsStore = useBookingsStore()
 
-const DASHBOARD_LIMIT = 5
-
-// -- Time windows (must match backend settings) --
-// NEW-1: imported from utils/constants -- single source of truth.
-import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
-
-// Reactive clock -- updated every 60s so alert computeds re-evaluate
-// without requiring a page reload (W-1 fix).
+// -- Reactive clock: updated every 60s so alert computeds re-evaluate --
 const now = ref(Date.now())
 let clockInterval: ReturnType<typeof setInterval> | null = null
 
+// -- Period toggle for AI summary (visual only, no API) --
+const aiPeriod = ref<'week' | 'month'>('week')
+
+// =========================================================================
+// Greeting
+// =========================================================================
+
 const userName = computed(() => authStore.user?.first_name ?? 'Друг')
 
-const greetingText = computed(() => {
+const greetingText = computed((): string => {
   const hour = new Date().getHours()
   if (hour < 6)  return 'Доброй ночи,'
   if (hour < 12) return 'Доброе утро,'
@@ -138,18 +238,11 @@ const greetingText = computed(() => {
   return 'Добрый вечер,'
 })
 
-const upcomingPractices = computed(() =>
-  store.practices.slice(0, DASHBOARD_LIMIT),
-)
-
 // =========================================================================
-// F9.1: Alert banners logic
+// Alert banners
 // =========================================================================
 
-/**
- * Find the first confirmed booking that is currently in the check-in window.
- * Window: scheduled_at - CHECKIN_WINDOW_H  ..  scheduled_at
- */
+/** First confirmed booking currently in the check-in window. */
 const checkinAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
@@ -160,24 +253,18 @@ const checkinAlert = computed((): BookingWithPracticeResponse | null => {
   )
 })
 
-/**
- * Human-readable time hint for the check-in alert subtitle.
- * "через 30 минут" / "через 2 часа" / "" depending on how close.
- */
+/** Human-readable time hint for check-in banner subtitle. */
 const checkinAlertTime = computed((): string => {
   if (!checkinAlert.value) return ''
-  const diffMs      = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
+  const diffMs = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
   const diffMinutes = Math.round(diffMs / 60_000)
-  if (diffMinutes <= 0)   return '· Сейчас'
-  if (diffMinutes < 60)   return `· через ${diffMinutes} мин`
+  if (diffMinutes <= 0)  return ' · Сейчас'
+  if (diffMinutes < 60)  return ` · через ${diffMinutes} мин`
   const hours = Math.floor(diffMinutes / 60)
-  return `· через ${hours} ч`
+  return ` · через ${hours} ч`
 })
 
-/**
- * Find the first attended booking currently in the feedback window.
- * Window: scheduled_at + duration_minutes  ..  + FEEDBACK_WINDOW_H
- */
+/** First attended booking currently in the feedback window. */
 const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
@@ -189,12 +276,68 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
 })
 
 // =========================================================================
-// Actions
+// Nearest practice
 // =========================================================================
 
-function goToDetail(id: string): void {
-  router.push({ name: 'practice-detail', params: { id } })
-}
+/** Nearest confirmed booking sorted ascending by scheduled_at. */
+const nearestBooking = computed((): BookingWithPracticeResponse | null => {
+  const confirmed = bookingsStore.bookings
+    .filter((b) => b.status === 'confirmed')
+    .sort(
+      (a, b) =>
+        new Date(a.practice.scheduled_at).getTime() -
+        new Date(b.practice.scheduled_at).getTime(),
+    )
+  return confirmed[0] ?? null
+})
+
+const nearestPracticeEmoji = computed((): string => {
+  if (!nearestBooking.value) return '🧘'
+  return PRACTICE_TYPE_EMOJI[nearestBooking.value.practice.practice_type] ?? '🧘'
+})
+
+/**
+ * "Завтра, 07:00" / "5 янв, 10:00"
+ * PracticeSummary has no timezone field -- fall back to Europe/Berlin (app default).
+ */
+const nearestPracticeDate = computed((): string => {
+  if (!nearestBooking.value) return ''
+  const iso = nearestBooking.value.practice.scheduled_at
+  const tz = 'Europe/Berlin'
+  return `${formatDateShort(iso, tz)}, ${formatTime(iso, tz)}`
+})
+
+const nearestPracticeDuration = computed((): string => {
+  if (!nearestBooking.value) return ''
+  return formatDuration(nearestBooking.value.practice.duration_minutes)
+})
+
+// =========================================================================
+// Progress stats
+// =========================================================================
+
+const attendedBookings = computed(() =>
+  bookingsStore.bookings.filter((b) => b.status === 'attended'),
+)
+
+const attendedCount = computed(() => attendedBookings.value.length)
+
+/**
+ * Total hours in practice.
+ * Formatted as integer when whole (12), one decimal otherwise (9,5).
+ */
+const practiceHours = computed((): string => {
+  const totalMinutes = attendedBookings.value.reduce(
+    (sum, b) => sum + b.practice.duration_minutes,
+    0,
+  )
+  const hours = totalMinutes / 60
+  return hours % 1 === 0 ? String(hours) : hours.toFixed(1).replace('.', ',')
+})
+
+// =========================================================================
+// Actions
+// =========================================================================
 
 function goToCheckin(practiceId: string): void {
   router.push({ name: 'user-checkin', params: { practiceId } })
@@ -204,12 +347,12 @@ function goToFeedback(practiceId: string): void {
   router.push({ name: 'user-feedback', params: { practiceId } })
 }
 
-// -- Lifecycle --
+// =========================================================================
+// Lifecycle
+// =========================================================================
+
 onMounted(() => {
-  store.fetchPractices()
-  // Ensure bookings are loaded so alert computeds have data.
   bookingsStore.fetchMyBookings()
-  // Tick every 60s so alert banners appear/disappear without reload.
   clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
 })
 
@@ -219,6 +362,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* ===== Greeting ===== */
 .dashboard__greeting {
   margin-bottom: var(--space-6);
 }
@@ -232,7 +376,7 @@ onUnmounted(() => {
 }
 
 .dashboard__greeting-name {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
@@ -287,16 +431,9 @@ onUnmounted(() => {
   color: var(--velo-text-secondary);
 }
 
-/* ===== Upcoming practices ===== */
+/* ===== Sections ===== */
 .dashboard__section {
   margin-bottom: var(--space-6);
-}
-
-.dashboard__section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
 }
 
 .dashboard__section-title {
@@ -305,34 +442,227 @@ onUnmounted(() => {
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: 0;
+  margin: 0 0 var(--space-4);
 }
 
-.dashboard__link {
-  background: none;
-  border: none;
-  padding: 0;
+/* ===== Nearest practice card ===== */
+.dashboard__practice-card {
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.dashboard__practice-card:active {
+  opacity: 0.8;
+}
+
+.dashboard__practice-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.dashboard__practice-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.dashboard__practice-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard__practice-title {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
+  color: var(--velo-text-primary);
+  margin: 0 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.dashboard__link:hover {
-  opacity: 0.7;
+.dashboard__practice-master {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  margin: 0;
 }
 
+.dashboard__practice-verified {
+  color: var(--velo-teal-600);
+  margin-left: 2px;
+}
+
+.dashboard__practice-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.dashboard__practice-meta-item {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+}
+
+.dashboard__practice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.dashboard__practice-btn {
+  width: 100%;
+}
+
+/* ===== Loader / empty ===== */
 .dashboard__loader {
   display: flex;
   justify-content: center;
   padding: var(--space-8) 0;
 }
 
-.dashboard__practices {
+.dashboard__empty {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+  text-align: center;
+}
+
+.dashboard__empty-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  margin: 0;
+}
+
+/* ===== Progress stats ===== */
+.dashboard__stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.dashboard__stat-card {
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: center;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.dashboard__stat-value {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  line-height: 1.1;
+}
+
+.dashboard__stat-label {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* ===== AI summary ===== */
+.dashboard__ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.dashboard__ai-header .dashboard__section-title {
+  margin-bottom: 0;
+}
+
+.dashboard__period-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-xl);
+  padding: 2px;
+}
+
+.dashboard__period-btn {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-text-secondary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xl);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dashboard__period-btn--active {
+  background: var(--velo-glass-blue-60);
+  color: var(--velo-text-primary);
+}
+
+.dashboard__ai-card {
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  padding-bottom: var(--space-8);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  position: relative;
+}
+
+.dashboard__ai-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--velo-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--space-2);
+}
+
+.dashboard__ai-text--secondary {
+  color: var(--velo-text-muted);
+}
+
+.dashboard__ai-arrow {
+  position: absolute;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.dashboard__ai-arrow:hover {
+  opacity: 0.8;
 }
 </style>
