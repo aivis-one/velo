@@ -2,7 +2,7 @@
   VELO Frontend -- PracticeDetailView (Phase F3.2, updated F4.1, F5, F9.1, DS-sprint)
 
   Full practice detail screen. Matches design Dashboard 2 / booked-practice layout:
-    - Hero header: emoji + title + meta (date, duration, spots)
+    - Hero: white card with IconMeditation SVG + title + meta + "Оплачено" badge
     - Accordions: "О практике" (description), "Что подготовить" (what_to_prepare)
     - Master card: avatar + name + ✓ + methods tags (VTag) + arrow
     - Contraindications banner (if practice.contraindications)
@@ -43,18 +43,22 @@
   <div v-else-if="practice" class="detail">
 
     <!-- Back button header -->
-    <VHeader show-back @back="router.back()" />
+    <VHeader title="Моя практика" show-back @back="router.back()" />
 
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">
-      <!-- Hero header -->
-      <div class="detail__hero">
-        <div class="detail__emoji">{{ typeEmoji }}</div>
+      <!-- Hero card (white rounded card matching design) -->
+      <div class="detail__hero-card">
+        <div class="detail__hero-icon">
+          <IconMeditation :size="48" />
+        </div>
         <h1 class="detail__title">{{ practice.title }}</h1>
         <div class="detail__meta">
           <span>📅 {{ formattedDate }}</span>
           <span>⏱️ {{ formattedDuration }}</span>
-          <span>👥 {{ formattedParticipants }}</span>
+          <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
+            ✓ Оплачено
+          </VBadge>
         </div>
         <VBadge v-if="practice.status === 'live'" variant="success">
           LIVE
@@ -213,7 +217,7 @@ import {
   formatParticipants,
   isFull,
 } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import IconMeditation from '@/components/icons/IconMeditation.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -294,10 +298,6 @@ const inFeedbackWindow = computed((): boolean => {
 // =========================================================================
 // Formatted fields
 // =========================================================================
-
-const typeEmoji = computed(() =>
-  practice.value ? PRACTICE_TYPE_EMOJI[practice.value.practice_type] ?? '🧘' : '🧘',
-)
 
 const formattedDate = computed(() => {
   if (!practice.value) return ''
@@ -448,37 +448,43 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== Hero ===== */
-.detail__hero {
-  padding: var(--space-6) var(--space-4) var(--space-4);
+/* ===== Hero card ===== */
+.detail__hero-card {
+  margin: var(--space-4) var(--space-4) 0;
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  border-bottom: 1px solid var(--velo-border-light);
+  gap: var(--space-2);
 }
 
-.detail__emoji {
-  font-size: 64px;
-  margin-bottom: var(--space-3);
+.detail__hero-icon {
+  color: var(--velo-primary);
+  margin-bottom: var(--space-1);
 }
 
 .detail__title {
   font-family: var(--font-body);
-  font-size: var(--text-2xl);
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin-bottom: var(--space-3);
+  margin: 0;
 }
 
 .detail__meta {
   display: flex;
+  align-items: center;
   justify-content: center;
   flex-wrap: wrap;
   gap: var(--space-3);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
-  margin-bottom: var(--space-3);
 }
 
 /* ===== Body ===== */
@@ -513,8 +519,7 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
 
