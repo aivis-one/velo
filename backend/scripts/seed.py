@@ -779,12 +779,12 @@ async def get_or_create_user(
             # Upgrade: USER → MASTER, USER → ADMIN, MASTER → ADMIN.
             existing.role = role
             await session.flush()
-            log(f"  User {telegram_id} upgraded: {existing.role.value} → {role.value}")
+            log(f"  User {telegram_id} upgraded: {existing.role} → {role.value}")
         elif existing_rank > requested_rank:
             # Downgrade: warn and keep existing role.
             warn(
                 f"User {telegram_id} is already a "
-                f"{existing.role.value.upper()} — cannot downgrade to "
+                f"{str(existing.role).upper()} — cannot downgrade to "
                 f"{role.value.upper()}. Keeping existing role."
             )
         return existing, False
