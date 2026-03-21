@@ -298,12 +298,12 @@ const nearestPracticeEmoji = computed((): string => {
 
 /**
  * "Завтра, 07:00" / "5 янв, 10:00"
- * PracticeSummary has no timezone field -- fall back to Europe/Berlin (app default).
+ * Uses practice.timezone from PracticeSummary (added in DS-sprint).
  */
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
-  const tz = 'Europe/Berlin'
+  const tz = nearestBooking.value.practice.timezone ?? 'Europe/Berlin'
   return `${formatDateShort(iso, tz)}, ${formatTime(iso, tz)}`
 })
 

@@ -204,6 +204,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VEmptyState, VButton, VBadge, VAccordion, VTag } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import {
   formatDate,
@@ -224,6 +225,7 @@ const practice = computed(() => store.selected)
 // -- Booking state --
 const showBookingPopup = ref(false)
 const authStore = useAuthStore()
+const toast = useToast()
 
 // Prevent master from booking their own practice (backend also enforces this,
 // but we hide the button entirely to avoid a pointless UX dead-end).
@@ -385,7 +387,7 @@ async function onCancelBooking(): Promise<void> {
 
 function onMasterProfile(): void {
   // Master public profile route is not yet implemented (future sprint).
-  // Silently no-op for now.
+  toast.info('Профиль мастера — скоро')
 }
 
 // =========================================================================
@@ -669,7 +671,7 @@ onUnmounted(() => {
 }
 
 /* Cancel button: ghost with red tint */
-.detail__cancel-btn {
-  color: var(--velo-error-text) !important;
+.detail__actions .detail__cancel-btn {
+  color: var(--velo-error-text);
 }
 </style>
