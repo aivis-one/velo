@@ -1256,7 +1256,7 @@ async def seed(reset: bool = False) -> None:
                         u for u in real_users_all
                         if u.id != practice.master_id
                         and u.telegram_id is not None
-                        and u.telegram_id < DUMMY_TID_MIN
+                        and u.telegram_id > DUMMY_TID_MAX
                     ]
                     booked = 0
                     for user in candidates:
