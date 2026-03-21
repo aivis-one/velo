@@ -9,7 +9,7 @@
     📅 РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
     👥 УЧАСТНИКИ   -- max_participants (null = unlimited)
     💰 ЦЕНА        -- is_free toggle; if paid: price_cents
-    📝 ОПИСАНИЕ    -- description (optional)
+    📝 ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
     🔗 ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
 
   Submit: POST /api/v1/practices (status defaults to 'draft' in backend).
@@ -178,6 +178,20 @@
           placeholder="Мягкая утренняя практика для начала дня с ясностью..."
           :rows="4"
         />
+
+        <VTextarea
+          v-model="form.what_to_prepare"
+          label="Что подготовить"
+          placeholder="Коврик, удобная одежда, вода..."
+          :rows="2"
+        />
+
+        <VTextarea
+          v-model="form.contraindications"
+          label="Противопоказания"
+          placeholder="Беременность, заболевания позвоночника..."
+          :rows="2"
+        />
       </div>
 
       <!-- ================================================================
@@ -259,6 +273,8 @@ const form = reactive({
   is_free: false,
   price_eur_raw: '',          // string input, converted to cents on submit
   description: '',
+  what_to_prepare: '',
+  contraindications: '',
   zoom_link: '',
 })
 
@@ -356,6 +372,8 @@ async function submit(): Promise<void> {
       practice_type: form.practice_type as PracticeType,
       title: form.title.trim(),
       description: form.description.trim() || null,
+      what_to_prepare: form.what_to_prepare.trim() || null,
+      contraindications: form.contraindications.trim() || null,
       scheduled_at: scheduledAt,
       duration_minutes: parseInt(form.duration_minutes, 10),
       timezone: form.timezone,
@@ -365,7 +383,7 @@ async function submit(): Promise<void> {
       zoom_link: form.zoom_link.trim() || null,
       is_free: form.is_free,
       price_cents: form.is_free ? 0 : priceCents.value,
-      currency: 'EUR',
+      currency: 'eur',
     })
 
     toast.success('Практика создана!')
