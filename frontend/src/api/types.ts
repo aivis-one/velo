@@ -63,9 +63,12 @@ export interface PracticeResponse {
   id: string
   master_id: string
   master_name: string | null
+  master_methods: string[]
   practice_type: PracticeType
   title: string
   description: string | null
+  what_to_prepare: string | null
+  contraindications: string | null
   scheduled_at: string
   duration_minutes: number
   timezone: string
@@ -105,6 +108,8 @@ export interface CreatePracticeRequest {
   practice_type: PracticeType
   title: string
   description?: string | null
+  what_to_prepare?: string | null
+  contraindications?: string | null
   scheduled_at: string
   duration_minutes: number
   timezone: string
@@ -121,6 +126,8 @@ export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'del
 export interface UpdatePracticeRequest {
   title?: string | null
   description?: string | null
+  what_to_prepare?: string | null
+  contraindications?: string | null
   scheduled_at?: string | null
   duration_minutes?: number | null
   timezone?: string | null
