@@ -5,11 +5,12 @@
 #
 # Business logic for practice CRUD (master-facing) and public listing.
 #
-# MASTER_NAME (Frontend F3 prep):
-#   practice_to_response() helper builds PracticeResponse with master_name
-#   populated from User.first_name via JOIN. All list/get functions now
-#   JOIN with users table. Mutating functions (create/update/delete/cancel)
-#   return Practice; the router uses the already-available User object.
+# MASTER_NAME / MASTER_METHODS (Frontend F3 prep, DS-sprint):
+#   practice_to_response() builds PracticeResponse with master_name and
+#   master_methods populated from User.first_name and MasterProfile.data
+#   via JOIN. get_practice() JOINs MasterProfile to return methods.
+#   List functions omit methods JOIN (methods not shown in list cards);
+#   they pass master_methods=[] to practice_to_response.
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete, cancel) verify master_id == user.id.
@@ -67,6 +68,7 @@ from app.modules.practices.schemas import (
     PracticeResponse,
     UpdatePracticeRequest,
 )
+from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -173,15 +175,17 @@ async def _has_active_bookings(
 def practice_to_response(
     practice: Practice,
     master_name: str | None = None,
+    master_methods: list[str] | None = None,
 ) -> PracticeResponse:
-    """Build PracticeResponse from ORM object with master_name.
+    """Build PracticeResponse from ORM object with master_name and master_methods.
 
-    Frontend F3 prep: master_name is populated from User.first_name
-    via JOIN in list/get functions, or from the User object in
-    create/update/delete/cancel endpoints.
+    master_name:    User.first_name from JOIN (or User object on mutations).
+    master_methods: MasterProfile.data.profile.methods from JOIN in get_practice().
+                    List endpoints pass [] (methods not shown on list cards).
     """
     resp = PracticeResponse.model_validate(practice)
     resp.master_name = master_name
+    resp.master_methods = master_methods or []
     return resp
 
 
@@ -203,6 +207,8 @@ async def create_practice(
         practice_type=body.practice_type,
         title=body.title,
         description=body.description,
+        what_to_prepare=body.what_to_prepare,
+        contraindications=body.contraindications,
         scheduled_at=body.scheduled_at,
         duration_minutes=body.duration_minutes,
         timezone=body.timezone,
@@ -231,17 +237,19 @@ async def get_practice(
     practice_id: UUID,
     user: User,
     session: AsyncSession,
-) -> tuple[Practice, str | None]:
+) -> tuple[Practice, str | None, list[str]]:
     """Get a practice by id with visibility rules.
 
-    Returns (Practice, master_name) tuple.
+    Returns (Practice, master_name, master_methods) tuple.
+    master_methods extracted from MasterProfile.data.profile.methods.
 
     Draft/deleted practices are visible only to the owner master.
     All other statuses are visible to any authenticated user.
     """
     stmt = (
-        select(Practice, User.first_name)
+        select(Practice, User.first_name, MasterProfile.data)
         .join(User, Practice.master_id == User.id)
+        .join(MasterProfile, Practice.master_id == MasterProfile.user_id)
         .where(Practice.id == practice_id)
     )
     result = await session.execute(stmt)
@@ -250,7 +258,7 @@ async def get_practice(
     if not row:
         raise NotFoundError("Practice not found")
 
-    practice, master_name = row
+    practice, master_name, profile_data = row
 
     # Draft/deleted visible only to owner (P-08: 404 not 403).
     if (
@@ -259,7 +267,13 @@ async def get_practice(
     ):
         raise NotFoundError("Practice not found")
 
-    return practice, master_name
+    master_methods: list[str] = (
+        profile_data.get("profile", {}).get("methods", [])
+        if profile_data
+        else []
+    )
+
+    return practice, master_name, master_methods
 
 
 async def update_practice(

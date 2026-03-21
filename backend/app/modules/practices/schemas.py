@@ -62,6 +62,12 @@ class CreatePracticeRequest(BaseModel):
     description: str | None = Field(
         default=None, max_length=settings.practice_description_max_length,
     )
+    what_to_prepare: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
+    contraindications: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
     scheduled_at: datetime
     duration_minutes: int
     timezone: str = Field(max_length=settings.practice_timezone_max_length)
@@ -154,6 +160,12 @@ class UpdatePracticeRequest(BaseModel):
         max_length=settings.practice_title_max_length,
     )
     description: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
+    what_to_prepare: str | None = Field(
+        default=None, max_length=settings.practice_description_max_length,
+    )
+    contraindications: str | None = Field(
         default=None, max_length=settings.practice_description_max_length,
     )
     scheduled_at: datetime | None = None
@@ -279,10 +291,13 @@ class PracticeResponse(BaseModel):
     id: UUID
     master_id: UUID
     master_name: str | None = None
+    master_methods: list[str] = []
     practice_type: str
     status: str
     title: str
     description: str | None
+    what_to_prepare: str | None = None
+    contraindications: str | None = None
     scheduled_at: datetime
     duration_minutes: int
     timezone: str
