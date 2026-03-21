@@ -149,69 +149,66 @@ async def _stage_resolve() -> int:
     Returns count of notifications resolved.
     """
     factory = get_session_factory()
-    session = factory()
     resolved_count = 0
 
     try:
-        now = datetime.now(UTC)
+        async with factory() as session:
+            now = datetime.now(UTC)
 
-        # Fetch pending notifications ready to send.
-        stmt = (
-            select(Notification)
-            .where(
-                Notification.status == NotificationStatus.PENDING.value,
-                Notification.scheduled_at <= now,
-            )
-            .order_by(
-                Notification.priority.asc(),
-                Notification.scheduled_at.asc(),
-            )
-            .limit(_BATCH_SIZE)
-            .with_for_update(skip_locked=True)
-        )
-        result = await session.execute(stmt)
-        notifications = list(result.scalars().all())
-
-        if not notifications:
-            return 0
-
-        for notification in notifications:
-            # Check expiry.
-            if notification.expiry_at and now > notification.expiry_at:
-                notification.status = NotificationStatus.EXPIRED.value
-                logger.info(
-                    "notification_expired",
-                    notification_id=str(notification.id),
-                    type=notification.type,
-                    expiry_at=notification.expiry_at.isoformat(),
+            # Fetch pending notifications ready to send.
+            stmt = (
+                select(Notification)
+                .where(
+                    Notification.status == NotificationStatus.PENDING.value,
+                    Notification.scheduled_at <= now,
                 )
-                continue
-
-            # Set processing.
-            notification.status = NotificationStatus.PROCESSING.value
-
-            # Resolve target into deliveries.
-            deliveries = await resolve_notification(
-                notification, session,
-            )
-
-            if not deliveries:
-                # No recipients -- mark as sent (nothing to do).
-                notification.status = NotificationStatus.SENT.value
-                logger.info(
-                    "notification_sent_no_recipients",
-                    notification_id=str(notification.id),
+                .order_by(
+                    Notification.priority.asc(),
+                    Notification.scheduled_at.asc(),
                 )
-            else:
-                resolved_count += 1
+                .limit(_BATCH_SIZE)
+                .with_for_update(skip_locked=True)
+            )
+            result = await session.execute(stmt)
+            notifications = list(result.scalars().all())
 
-        await session.commit()
+            if not notifications:
+                return 0
+
+            for notification in notifications:
+                # Check expiry.
+                if notification.expiry_at and now > notification.expiry_at:
+                    notification.status = NotificationStatus.EXPIRED.value
+                    logger.info(
+                        "notification_expired",
+                        notification_id=str(notification.id),
+                        type=notification.type,
+                        expiry_at=notification.expiry_at.isoformat(),
+                    )
+                    continue
+
+                # Set processing.
+                notification.status = NotificationStatus.PROCESSING.value
+
+                # Resolve target into deliveries.
+                deliveries = await resolve_notification(
+                    notification, session,
+                )
+
+                if not deliveries:
+                    # No recipients -- mark as sent (nothing to do).
+                    notification.status = NotificationStatus.SENT.value
+                    logger.info(
+                        "notification_sent_no_recipients",
+                        notification_id=str(notification.id),
+                    )
+                else:
+                    resolved_count += 1
+
+            await session.commit()
 
     except Exception:
-        await session.rollback()
         logger.exception("notification_resolve_error")
-    finally:
-        await session.close()
 
     if resolved_count > 0:
         logger.info(
@@ -235,135 +232,132 @@ async def _stage_deliver() -> int:
     Returns count of deliveries attempted.
     """
     factory = get_session_factory()
-    session = factory()
     delivered_count = 0
     max_attempts = settings.notification_max_delivery_attempts
 
     try:
-        # Fetch pending deliveries with room for retry.
-        stmt = (
-            select(NotificationDelivery, Notification, User)
-            .join(
-                Notification,
-                NotificationDelivery.notification_id == Notification.id,
-            )
-            .join(
-                User,
-                NotificationDelivery.user_id == User.id,
-            )
-            .where(
-                NotificationDelivery.status == DeliveryStatus.PENDING.value,
-                NotificationDelivery.attempts < max_attempts,
-            )
-            .order_by(NotificationDelivery.created_at.asc())
-            .limit(_BATCH_SIZE)
-            .with_for_update(
-                skip_locked=True,
-                of=NotificationDelivery,
-            )
-        )
-        result = await session.execute(stmt)
-        rows = list(result.all())
-
-        if not rows:
-            return 0
-
-        for delivery, notification, user in rows:
-            delivered_count += 1
-
-            formatter = get_formatter(delivery.channel)
-            deep_link = formatter.format_deep_link(
-                notification.action_data,
-            )
-
-            # Phase 7.3: Render template for user's language.
-            # Falls back to notification.title / notification.body
-            # if no template found.
-            title = notification.title
-            body = notification.body
-
-            rendered = render_template(
-                notification_type=notification.type,
-                lang=user.language,
-                variables=notification.action_data or {},
-            )
-            if rendered is not None:
-                title, body = rendered
-
-            try:
-                send_result = await formatter.send(
-                    title=title,
-                    body=body,
-                    user_telegram_id=user.telegram_id,
-                    deep_link=deep_link,
-                    channel_options=delivery.channel_options,
+        async with factory() as session:
+            # Fetch pending deliveries with room for retry.
+            stmt = (
+                select(NotificationDelivery, Notification, User)
+                .join(
+                    Notification,
+                    NotificationDelivery.notification_id == Notification.id,
                 )
-            except Exception as exc:
-                # Formatter raised -- treat as failure.
-                send_result = None
-                delivery.attempts += 1
-                delivery.error_message = str(exc)[:500]
-
-                if delivery.attempts >= max_attempts:
-                    delivery.status = DeliveryStatus.FAILED.value
-
-                logger.warning(
-                    "notification_delivery_exception",
-                    delivery_id=str(delivery.id),
-                    channel=delivery.channel,
-                    attempts=delivery.attempts,
-                    error=str(exc)[:200],
+                .join(
+                    User,
+                    NotificationDelivery.user_id == User.id,
                 )
-                continue
-
-            delivery.attempts += 1
-
-            if send_result.success:
-                delivery.status = DeliveryStatus.SENT.value
-                delivery.sent_at = datetime.now(UTC)
-                logger.debug(
-                    "notification_delivery_sent",
-                    delivery_id=str(delivery.id),
-                    user_id=str(delivery.user_id),
-                    channel=delivery.channel,
+                .where(
+                    NotificationDelivery.status == DeliveryStatus.PENDING.value,
+                    NotificationDelivery.attempts < max_attempts,
                 )
-            else:
-                delivery.error_message = (
-                    send_result.error_message or "Unknown error"
-                )[:500]
+                .order_by(NotificationDelivery.created_at.asc())
+                .limit(_BATCH_SIZE)
+                .with_for_update(
+                    skip_locked=True,
+                    of=NotificationDelivery,
+                )
+            )
+            result = await session.execute(stmt)
+            rows = list(result.all())
 
-                # Phase 7.3: Permanent failure -- skip retries.
-                if getattr(send_result, "permanent", False):
-                    delivery.status = DeliveryStatus.FAILED.value
-                    logger.warning(
-                        "notification_delivery_permanent_failure",
-                        delivery_id=str(delivery.id),
-                        error=delivery.error_message,
+            if not rows:
+                return 0
+
+            for delivery, notification, user in rows:
+                delivered_count += 1
+
+                formatter = get_formatter(delivery.channel)
+                deep_link = formatter.format_deep_link(
+                    notification.action_data,
+                )
+
+                # Phase 7.3: Render template for user's language.
+                # Falls back to notification.title / notification.body
+                # if no template found.
+                title = notification.title
+                body = notification.body
+
+                rendered = render_template(
+                    notification_type=notification.type,
+                    lang=user.language,
+                    variables=notification.action_data or {},
+                )
+                if rendered is not None:
+                    title, body = rendered
+
+                try:
+                    send_result = await formatter.send(
+                        title=title,
+                        body=body,
+                        user_telegram_id=user.telegram_id,
+                        deep_link=deep_link,
+                        channel_options=delivery.channel_options,
                     )
-                elif delivery.attempts >= max_attempts:
-                    delivery.status = DeliveryStatus.FAILED.value
+                except Exception as exc:
+                    # Formatter raised -- treat as failure.
+                    send_result = None
+                    delivery.attempts += 1
+                    delivery.error_message = str(exc)[:500]
+
+                    if delivery.attempts >= max_attempts:
+                        delivery.status = DeliveryStatus.FAILED.value
+
                     logger.warning(
-                        "notification_delivery_failed_final",
+                        "notification_delivery_exception",
                         delivery_id=str(delivery.id),
+                        channel=delivery.channel,
                         attempts=delivery.attempts,
-                        error=delivery.error_message,
+                        error=str(exc)[:200],
+                    )
+                    continue
+
+                delivery.attempts += 1
+
+                if send_result.success:
+                    delivery.status = DeliveryStatus.SENT.value
+                    delivery.sent_at = datetime.now(UTC)
+                    logger.debug(
+                        "notification_delivery_sent",
+                        delivery_id=str(delivery.id),
+                        user_id=str(delivery.user_id),
+                        channel=delivery.channel,
                     )
                 else:
-                    logger.info(
-                        "notification_delivery_retry",
-                        delivery_id=str(delivery.id),
-                        attempts=delivery.attempts,
-                        max_attempts=max_attempts,
-                        error=delivery.error_message,
-                    )
+                    delivery.error_message = (
+                        send_result.error_message or "Unknown error"
+                    )[:500]
 
-        await session.commit()
+                    # Phase 7.3: Permanent failure -- skip retries.
+                    if getattr(send_result, "permanent", False):
+                        delivery.status = DeliveryStatus.FAILED.value
+                        logger.warning(
+                            "notification_delivery_permanent_failure",
+                            delivery_id=str(delivery.id),
+                            error=delivery.error_message,
+                        )
+                    elif delivery.attempts >= max_attempts:
+                        delivery.status = DeliveryStatus.FAILED.value
+                        logger.warning(
+                            "notification_delivery_failed_final",
+                            delivery_id=str(delivery.id),
+                            attempts=delivery.attempts,
+                            error=delivery.error_message,
+                        )
+                    else:
+                        logger.info(
+                            "notification_delivery_retry",
+                            delivery_id=str(delivery.id),
+                            attempts=delivery.attempts,
+                            max_attempts=max_attempts,
+                            error=delivery.error_message,
+                        )
+
+            await session.commit()
 
     except Exception:
-        await session.rollback()
         logger.exception("notification_deliver_error")
-    finally:
-        await session.close()
 
     if delivered_count > 0:
         logger.info(
@@ -388,72 +382,69 @@ async def _stage_rollup() -> None:
         - All failed -> notification=failed
     """
     factory = get_session_factory()
-    session = factory()
 
     try:
-        # Find processing notifications with no pending deliveries left.
-        pending_count_subq = (
-            select(func.count(NotificationDelivery.id))
-            .where(
-                NotificationDelivery.notification_id == Notification.id,
-                NotificationDelivery.status == DeliveryStatus.PENDING.value,
-            )
-            .correlate(Notification)
-            .scalar_subquery()
-        )
-
-        stmt = (
-            select(Notification)
-            .where(
-                Notification.status == NotificationStatus.PROCESSING.value,
-                pending_count_subq == 0,
-            )
-            .with_for_update(skip_locked=True)
-        )
-        result = await session.execute(stmt)
-        notifications = list(result.scalars().all())
-
-        if not notifications:
-            # Nothing to roll up -- skip commit overhead.
-            return
-
-        # FIX 5.1: Single GROUP BY query replaces N individual COUNTs.
-        # Before: one SELECT COUNT per notification (N+1 pattern).
-        # After:  one grouped query for all notification IDs.
-        notification_ids = [n.id for n in notifications]
-        sent_counts_stmt = (
-            select(
-                NotificationDelivery.notification_id,
-                func.count(NotificationDelivery.id),
-            )
-            .where(
-                NotificationDelivery.notification_id.in_(notification_ids),
-                NotificationDelivery.status == DeliveryStatus.SENT.value,
-            )
-            .group_by(NotificationDelivery.notification_id)
-        )
-        sent_counts_result = await session.execute(sent_counts_stmt)
-        sent_map: dict = dict(sent_counts_result.all())
-
-        for notification in notifications:
-            sent_count = sent_map.get(notification.id, 0)
-
-            if sent_count > 0:
-                notification.status = NotificationStatus.SENT.value
-            else:
-                notification.status = NotificationStatus.FAILED.value
-
-            logger.info(
-                "notification_rollup",
-                notification_id=str(notification.id),
-                new_status=notification.status,
-                sent_deliveries=sent_count,
+        async with factory() as session:
+            # Find processing notifications with no pending deliveries left.
+            pending_count_subq = (
+                select(func.count(NotificationDelivery.id))
+                .where(
+                    NotificationDelivery.notification_id == Notification.id,
+                    NotificationDelivery.status == DeliveryStatus.PENDING.value,
+                )
+                .correlate(Notification)
+                .scalar_subquery()
             )
 
-        await session.commit()
+            stmt = (
+                select(Notification)
+                .where(
+                    Notification.status == NotificationStatus.PROCESSING.value,
+                    pending_count_subq == 0,
+                )
+                .with_for_update(skip_locked=True)
+            )
+            result = await session.execute(stmt)
+            notifications = list(result.scalars().all())
+
+            if not notifications:
+                # Nothing to roll up -- skip commit overhead.
+                return
+
+            # FIX 5.1: Single GROUP BY query replaces N individual COUNTs.
+            # Before: one SELECT COUNT per notification (N+1 pattern).
+            # After:  one grouped query for all notification IDs.
+            notification_ids = [n.id for n in notifications]
+            sent_counts_stmt = (
+                select(
+                    NotificationDelivery.notification_id,
+                    func.count(NotificationDelivery.id),
+                )
+                .where(
+                    NotificationDelivery.notification_id.in_(notification_ids),
+                    NotificationDelivery.status == DeliveryStatus.SENT.value,
+                )
+                .group_by(NotificationDelivery.notification_id)
+            )
+            sent_counts_result = await session.execute(sent_counts_stmt)
+            sent_map: dict = dict(sent_counts_result.all())
+
+            for notification in notifications:
+                sent_count = sent_map.get(notification.id, 0)
+
+                if sent_count > 0:
+                    notification.status = NotificationStatus.SENT.value
+                else:
+                    notification.status = NotificationStatus.FAILED.value
+
+                logger.info(
+                    "notification_rollup",
+                    notification_id=str(notification.id),
+                    new_status=notification.status,
+                    sent_deliveries=sent_count,
+                )
+
+            await session.commit()
 
     except Exception:
-        await session.rollback()
         logger.exception("notification_rollup_error")
-    finally:
-        await session.close()
