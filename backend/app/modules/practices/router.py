@@ -147,10 +147,10 @@ async def get_practice_endpoint(
 
     Draft/deleted practices are visible only to the owner master.
     """
-    practice, master_name = await get_practice(
+    practice, master_name, master_methods = await get_practice(
         practice_id, user, session,
     )
-    return practice_to_response(practice, master_name)
+    return practice_to_response(practice, master_name, master_methods)
 
 
 # ------------------------------------------------------------------

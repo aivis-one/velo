@@ -90,6 +90,12 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(
         Text, default=None,
     )
+    what_to_prepare: Mapped[str | None] = mapped_column(
+        Text, default=None,
+    )
+    contraindications: Mapped[str | None] = mapped_column(
+        Text, default=None,
+    )
 
     # -- Scheduling --
     scheduled_at: Mapped[datetime] = mapped_column(
