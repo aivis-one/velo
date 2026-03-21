@@ -9,7 +9,8 @@
     2. Fallback: GET /api/v1/practices/:id
 
   Editable fields (draft / scheduled only -- completed/cancelled are readonly):
-    title, description, scheduled_at (date+time), duration_minutes,
+    title, description, what_to_prepare, contraindications,
+    scheduled_at (date+time), duration_minutes,
     timezone, max_participants, is_free, price_cents, zoom_link
 
   State machine action buttons (below form):
@@ -187,6 +188,18 @@
               v-model="form.description"
               label="Описание"
               :rows="4"
+            />
+            <VTextarea
+              v-model="form.what_to_prepare"
+              label="Что подготовить"
+              placeholder="Коврик, удобная одежда, вода..."
+              :rows="2"
+            />
+            <VTextarea
+              v-model="form.contraindications"
+              label="Противопоказания"
+              placeholder="Беременность, заболевания позвоночника..."
+              :rows="2"
             />
           </div>
 
@@ -413,6 +426,8 @@ const form = reactive({
   is_free: false,
   price_eur_raw: '',
   description: '',
+  what_to_prepare: '',
+  contraindications: '',
   zoom_link: '',
 })
 
@@ -483,6 +498,8 @@ function populateForm(p: PracticeResponse): void {
   // W-6: centsToEurString uses integer division + toFixed(2), no float multiplication.
   form.price_eur_raw = p.is_free ? '' : centsToEurString(p.price_cents)
   form.description = p.description ?? ''
+  form.what_to_prepare = p.what_to_prepare ?? ''
+  form.contraindications = p.contraindications ?? ''
   form.zoom_link = p.zoom_link ?? ''
 }
 
@@ -549,6 +566,8 @@ async function save(): Promise<void> {
     const updated = await updatePractice(practiceId, {
       title: form.title.trim(),
       description: form.description.trim() || null,
+      what_to_prepare: form.what_to_prepare.trim() || null,
+      contraindications: form.contraindications.trim() || null,
       scheduled_at: scheduledAt ?? null,
       duration_minutes: parseInt(form.duration_minutes, 10),
       timezone: form.timezone,

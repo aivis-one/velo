@@ -118,7 +118,7 @@ export interface CreatePracticeRequest {
   parent_practice_id?: string | null
   is_free?: boolean
   price_cents?: number
-  currency?: 'EUR'
+  currency?: 'eur'
 }
 
 export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
@@ -136,7 +136,7 @@ export interface UpdatePracticeRequest {
   status?: PracticeStatusTransition | null
   is_free?: boolean | null
   price_cents?: number | null
-  currency?: 'EUR' | null
+  currency?: 'eur' | null
 }
 
 // =============================================================================
@@ -151,6 +151,7 @@ export interface PracticeSummary {
   practice_type: PracticeType
   scheduled_at: string
   duration_minutes: number
+  timezone: string
   master_id: string
   master_name: string | null
 }
