@@ -8,9 +8,9 @@
 # MASTER_NAME / MASTER_METHODS (Frontend F3 prep, DS-sprint):
 #   practice_to_response() builds PracticeResponse with master_name and
 #   master_methods populated from User.first_name and MasterProfile.data
-#   via JOIN. get_practice() JOINs MasterProfile to return methods.
-#   List functions omit methods JOIN (methods not shown in list cards);
-#   they pass master_methods=[] to practice_to_response.
+#   via OUTER JOIN. get_practice() outer-joins MasterProfile to return methods.
+#   If MasterProfile is missing, master_methods defaults to [].
+#   List functions pass master_methods=[] (methods not shown in list cards).
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete, cancel) verify master_id == user.id.
@@ -180,8 +180,8 @@ def practice_to_response(
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
     master_name:    User.first_name from JOIN (or User object on mutations).
-    master_methods: MasterProfile.data.profile.methods from JOIN in get_practice().
-                    List endpoints pass [] (methods not shown on list cards).
+    master_methods: MasterProfile.data.profile.methods from outer join in
+                    get_practice(). List endpoints pass [] (not shown on cards).
     """
     resp = PracticeResponse.model_validate(practice)
     resp.master_name = master_name
@@ -241,7 +241,11 @@ async def get_practice(
     """Get a practice by id with visibility rules.
 
     Returns (Practice, master_name, master_methods) tuple.
-    master_methods extracted from MasterProfile.data.profile.methods.
+
+    Uses OUTER JOIN to MasterProfile so that a practice is never hidden
+    just because its master profile was deleted (review #3 finding).
+    master_methods extracted from MasterProfile.data.profile.methods;
+    defaults to [] when profile row is missing.
 
     Draft/deleted practices are visible only to the owner master.
     All other statuses are visible to any authenticated user.
@@ -249,7 +253,7 @@ async def get_practice(
     stmt = (
         select(Practice, User.first_name, MasterProfile.data)
         .join(User, Practice.master_id == User.id)
-        .join(MasterProfile, Practice.master_id == MasterProfile.user_id)
+        .outerjoin(MasterProfile, Practice.master_id == MasterProfile.user_id)
         .where(Practice.id == practice_id)
     )
     result = await session.execute(stmt)
