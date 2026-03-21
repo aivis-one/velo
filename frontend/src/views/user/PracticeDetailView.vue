@@ -56,6 +56,7 @@
         <div class="detail__meta">
           <span>📅 {{ formattedDate }}</span>
           <span>⏱️ {{ formattedDuration }}</span>
+          <span v-if="!booked">👥 {{ formattedParticipants }}</span>
           <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
             ✓ Оплачено
           </VBadge>
@@ -309,11 +310,6 @@ const formattedDuration = computed(() => {
   return formatDuration(practice.value.duration_minutes)
 })
 
-const formattedPrice = computed(() => {
-  if (!practice.value) return ''
-  return formatMoney(practice.value.price_cents, practice.value.currency)
-})
-
 const formattedParticipants = computed(() => {
   if (!practice.value) return ''
   return formatParticipants(
@@ -321,6 +317,12 @@ const formattedParticipants = computed(() => {
     practice.value.max_participants,
   )
 })
+
+const formattedPrice = computed(() => {
+  if (!practice.value) return ''
+  return formatMoney(practice.value.price_cents, practice.value.currency)
+})
+
 
 const full = computed(() => {
   if (!practice.value) return false
