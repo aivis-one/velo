@@ -506,6 +506,31 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* Override VAccordion: white card style matching design */
+:deep(.v-accordion) {
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  border-bottom: none;
+  overflow: hidden;
+}
+
+:deep(.v-accordion__header) {
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+}
+
+:deep(.v-accordion__body) {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+:deep(.v-accordion__arrow) {
+  font-size: 20px;
+  color: var(--velo-text-primary);
+}
+
 /* ===== Section (master) ===== */
 .detail__section {
   padding: var(--space-3) 0;
