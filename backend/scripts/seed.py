@@ -185,6 +185,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Начните день с ясности ума. Практика включает body scan, "
             "наблюдение за дыханием и работу с намерением на день."
         ),
+        "what_to_prepare": "Удобная одежда, коврик или подушка для медитации.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 30,
@@ -200,6 +202,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Мягкая виньяса для тех, кто только начинает путь в йоге. "
             "Акцент на правильном дыхании и базовых асанах."
         ),
+        "what_to_prepare": "Коврик для йоги, удобная одежда, вода.",
+        "contraindications": "Травмы позвоночника, острые боли в суставах.",
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 60,
@@ -215,6 +219,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Индивидуальная сессия связного дыхания. "
             "Глубокая работа с телом и эмоциями."
         ),
+        "what_to_prepare": "Удобная одежда, плед, коврик. Не есть за 2 часа до сессии.",
+        "contraindications": "Беременность, эпилепсия, сердечно-сосудистые заболевания.",
         "practice_type": PracticeType.ONE_ON_ONE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 45,
@@ -230,6 +236,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Погрузитесь в вибрации тибетских поющих чаш. "
             "Бесплатная практика для всех желающих."
         ),
+        "what_to_prepare": "Коврик, плед, маска для глаз (по желанию).",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 90,
@@ -245,6 +253,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Техника осознанного расслабления, восстанавливающая "
             "нервную систему лучше нескольких часов обычного сна."
         ),
+        "what_to_prepare": "Коврик, плед, подушка, маска для сна.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 45,
@@ -260,6 +270,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Активная медитация с элементами движения и звука. "
             "Отпустите напряжение и войдите в состояние потока."
         ),
+        "what_to_prepare": "Удобная одежда, в которой можно двигаться. Босиком или в носках.",
+        "contraindications": "Острые травмы опорно-двигательного аппарата.",
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.LIVE.value,
         "duration_minutes": 60,
@@ -276,6 +288,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Классическая хатха-йога: разминка, основные асаны, "
             "пранаяма и шавасана."
         ),
+        "what_to_prepare": "Коврик для йоги, удобная одежда, вода.",
+        "contraindications": "Беременность 2–3 триместр, острые боли в спине.",
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.COMPLETED.value,
         "duration_minutes": 60,
@@ -291,6 +305,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Метта-медитация: культивирование сострадания к себе "
             "и окружающим. Бесплатная групповая практика."
         ),
+        "what_to_prepare": "Удобная одежда, коврик или стул.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.COMPLETED.value,
         "duration_minutes": 30,
@@ -306,6 +322,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Индивидуальная сессия: нади-шодхана, капалабхати, "
             "бхастрика. Подбор техник под ваши цели."
         ),
+        "what_to_prepare": "Удобная одежда. Не есть за 1 час до занятия.",
+        "contraindications": "Гипертония, эпилепсия, острые респираторные заболевания.",
         "practice_type": PracticeType.ONE_ON_ONE.value,
         "target_status": PracticeStatus.COMPLETED.value,
         "duration_minutes": 45,
@@ -321,6 +339,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Крия для пупочного центра: укрепление core, работа "
             "с огненным дыханием, медитация Сат Нам."
         ),
+        "what_to_prepare": "Белая одежда (традиция), коврик, покрывало.",
+        "contraindications": "Беременность, высокое давление, эпилепсия.",
         "practice_type": PracticeType.SERIES.value,
         "target_status": PracticeStatus.COMPLETED.value,
         "duration_minutes": 75,
@@ -337,6 +357,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Практика отменена мастером. "
             "Следите за обновлениями в расписании."
         ),
+        "what_to_prepare": None,
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.CANCELLED.value,
         "duration_minutes": 60,
@@ -353,6 +375,8 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Особенная практика под открытым небом. Медитация, "
             "мантры и чайная церемония. Мест мало."
         ),
+        "what_to_prepare": "Тёплая одежда, коврик, термос с чаем.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 120,
@@ -372,11 +396,13 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Мягкая медитация для начала дня. "
             "Дыхание, тело, намерение."
         ),
+        "what_to_prepare": "Удобная одежда, коврик или подушка.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.SCHEDULED.value,
         "duration_minutes": 45,
         "max_participants": 100,
-        "is_free": False,
+        "is_free": True,
         "price_cents": 0,
         "offset": timedelta(minutes=90),
         "num_bookings": 0,
@@ -393,11 +419,13 @@ PRACTICE_TEMPLATES: list[dict] = [
             "Практика завершения дня. "
             "Снятие напряжения и подготовка ко сну."
         ),
+        "what_to_prepare": "Удобная одежда, плед, можно лечь на коврик.",
+        "contraindications": None,
         "practice_type": PracticeType.LIVE.value,
         "target_status": PracticeStatus.COMPLETED.value,
         "duration_minutes": 45,
         "max_participants": 100,
-        "is_free": False,
+        "is_free": True,
         "price_cents": 0,
         "offset": timedelta(hours=-2),
         "num_bookings": 0,
@@ -835,13 +863,15 @@ async def create_seed_practice(
         status=template["target_status"],
         title=title,
         description=marker_desc,
+        what_to_prepare=template.get("what_to_prepare"),
+        contraindications=template.get("contraindications"),
         scheduled_at=scheduled_at,
         duration_minutes=template["duration_minutes"],
         timezone=PRACTICE_TZ,
         max_participants=template["max_participants"],
         is_free=template["is_free"],
         price_cents=template["price_cents"],
-        currency="EUR",
+        currency="eur",
     )
     session.add(practice)
     await session.flush()
