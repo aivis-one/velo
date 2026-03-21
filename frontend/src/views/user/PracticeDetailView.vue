@@ -419,6 +419,7 @@ watch(
     if (newId && newId !== oldId) {
       store.clearSelected()
       store.fetchPractice(newId)
+      justPurchased.value = false
     }
   },
 )
