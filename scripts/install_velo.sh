@@ -28,7 +28,7 @@
 INSTALL_BASE="/opt/velo"
 DOMAIN="api.talentir.info"
 REPO_URL=""  # Set after SSH key setup
-GITHUB_REPO="inzoddwetrust/velo"
+GITHUB_REPO="aivis-one/velo"
 DEPLOY_USER="velo"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
