@@ -182,7 +182,7 @@ onMounted(() => {
 .calendar__chip {
   padding: var(--space-2) var(--space-4);
   border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: 100px;
   font-family: var(--font-body);
   font-size: var(--text-xs);

@@ -68,7 +68,7 @@ function onRetry(): void {
   align-items: center;
   gap: var(--space-5);
   padding: var(--space-8);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);

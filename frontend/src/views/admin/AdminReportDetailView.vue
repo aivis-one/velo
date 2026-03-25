@@ -272,7 +272,7 @@ onMounted(loadReport)
 }
 
 .report-detail__reason {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -284,7 +284,7 @@ onMounted(loadReport)
 }
 
 .report-detail__meta-list {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -346,7 +346,7 @@ onMounted(loadReport)
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: var(--radius-md);
 }
 

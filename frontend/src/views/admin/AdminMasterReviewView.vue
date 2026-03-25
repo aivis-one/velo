@@ -254,7 +254,7 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -279,7 +279,7 @@ onMounted(loadMaster)
 }
 
 .review__meta-list {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -313,7 +313,7 @@ onMounted(loadMaster)
 .review__note {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);
@@ -324,7 +324,7 @@ onMounted(loadMaster)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -342,7 +342,7 @@ onMounted(loadMaster)
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: var(--radius-md);
 }
 </style>

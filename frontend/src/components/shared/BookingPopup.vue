@@ -326,7 +326,7 @@ async function onPurchase(): Promise<void> {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-fast);

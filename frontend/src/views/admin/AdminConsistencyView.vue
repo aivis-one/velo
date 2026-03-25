@@ -266,7 +266,7 @@ onMounted(loadData)
 }
 
 .consistency__item--ok {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-color: #ffffff;
 }
 

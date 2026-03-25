@@ -307,7 +307,7 @@ function truncate(text: string, max: number): string {
   padding: var(--space-2) var(--space-4);
   border-radius: 100px;
   border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   font-family: var(--font-body);
@@ -350,7 +350,7 @@ function truncate(text: string, max: number): string {
 
 /* Card */
 .diary-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);

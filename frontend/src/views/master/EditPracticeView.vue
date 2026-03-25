@@ -839,7 +839,7 @@ async function remove(): Promise<void> {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   transition: all var(--transition-fast);
@@ -867,7 +867,7 @@ async function remove(): Promise<void> {
 
 /* -- Price calc -- */
 .edit-practice__price-calc {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);

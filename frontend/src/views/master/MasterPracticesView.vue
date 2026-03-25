@@ -201,7 +201,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   border-radius: 100px;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   transition: opacity var(--transition-fast);
 }
 
@@ -224,7 +224,7 @@ onMounted(async () => {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: 100px;
   backdrop-filter: blur(2px);

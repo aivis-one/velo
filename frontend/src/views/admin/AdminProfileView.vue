@@ -92,7 +92,7 @@ async function onLogout(): Promise<void> {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
@@ -118,7 +118,7 @@ async function onLogout(): Promise<void> {
 
 /* Sections */
 .admin-profile__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);

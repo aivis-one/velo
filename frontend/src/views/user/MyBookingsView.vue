@@ -179,7 +179,7 @@ onMounted(() => {
   padding: var(--space-2) var(--space-4);
   border: 1px solid #ffffff;
   border-radius: 100px;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   font-family: var(--font-body);

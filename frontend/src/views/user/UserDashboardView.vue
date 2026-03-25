@@ -447,7 +447,7 @@ onUnmounted(() => {
 
 /* ===== Nearest practice card ===== */
 .dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -557,7 +557,7 @@ onUnmounted(() => {
 }
 
 .dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -597,7 +597,7 @@ onUnmounted(() => {
 .dashboard__period-toggle {
   display: flex;
   gap: 2px;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: var(--radius-xl);
   padding: 2px;
 }
@@ -621,7 +621,7 @@ onUnmounted(() => {
 }
 
 .dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -648,7 +648,7 @@ onUnmounted(() => {
   position: absolute;
   bottom: var(--space-4);
   right: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
   width: 36px;

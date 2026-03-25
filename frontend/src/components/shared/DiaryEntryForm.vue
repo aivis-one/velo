@@ -137,7 +137,7 @@ function onSubmit(): void {
   height: 36px;
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   font-size: var(--text-lg);
@@ -236,7 +236,7 @@ function onSubmit(): void {
   font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
@@ -257,7 +257,7 @@ function onSubmit(): void {
   color: var(--velo-text-primary);
   line-height: 1.6;
   resize: vertical;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }

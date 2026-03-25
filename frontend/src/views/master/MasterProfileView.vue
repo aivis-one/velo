@@ -487,7 +487,7 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
@@ -511,7 +511,7 @@ onMounted(async () => {
 
 /* -- Generic section -- */
 .master-profile__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -549,7 +549,7 @@ onMounted(async () => {
 
 .master-profile__chip {
   padding: var(--space-1) var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: 100px;
   font-size: var(--text-xs);
@@ -616,7 +616,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   cursor: pointer;

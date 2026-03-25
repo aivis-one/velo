@@ -77,7 +77,7 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 
 <style scoped>
 .pli {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);

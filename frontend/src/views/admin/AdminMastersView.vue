@@ -191,7 +191,7 @@ onMounted(loadInitial)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);

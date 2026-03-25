@@ -369,7 +369,7 @@ onMounted(async () => {
   color: var(--velo-primary);
   padding: var(--space-1) var(--space-2);
   border-radius: 100px;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   transition: opacity var(--transition-fast);
 }
 
@@ -385,7 +385,7 @@ onMounted(async () => {
 }
 
 .master-dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-3);
@@ -417,7 +417,7 @@ onMounted(async () => {
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -450,7 +450,7 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -521,7 +521,7 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   transition: opacity var(--transition-fast);

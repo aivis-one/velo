@@ -386,7 +386,7 @@ async function submit(): Promise<void> {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-bottom: 1px solid var(--velo-border-light);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -507,7 +507,7 @@ async function submit(): Promise<void> {
   padding: var(--space-5);
   border: 2px dashed var(--velo-border-light);
   border-radius: var(--radius-md);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   gap: var(--space-2);
   cursor: pointer;
   transition: border-color var(--transition-fast);
@@ -534,7 +534,7 @@ async function submit(): Promise<void> {
 /* -- Terms -- */
 .apply-view__terms {
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   display: flex;

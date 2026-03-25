@@ -568,7 +568,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -606,7 +606,7 @@ onUnmounted(() => {
   position: absolute;
   bottom: var(--space-3);
   right: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
   width: 36px;

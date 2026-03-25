@@ -56,7 +56,7 @@ function formatFullDate(iso: string): string {
   height: 36px;
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   font-size: var(--text-lg);

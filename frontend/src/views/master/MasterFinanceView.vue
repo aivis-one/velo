@@ -445,7 +445,7 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
@@ -472,7 +472,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border-radius: var(--radius-md);
 }
 

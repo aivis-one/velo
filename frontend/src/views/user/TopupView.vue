@@ -214,7 +214,7 @@ onMounted(() => {
 .topup__balance {
   text-align: center;
   padding: var(--space-6);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
@@ -256,7 +256,7 @@ onMounted(() => {
 
 .topup__preset {
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   font-family: var(--font-body);
@@ -300,7 +300,7 @@ onMounted(() => {
 
 .topup__custom-toggle--active {
   border-color: var(--velo-primary);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
 }
 
 .topup__custom-input-wrap {
@@ -309,7 +309,7 @@ onMounted(() => {
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card);
   border: 2px solid var(--velo-border-input-focus);
   border-radius: 5px;
 }
