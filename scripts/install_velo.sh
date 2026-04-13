@@ -21,12 +21,15 @@
 # REQUIREMENTS:
 #   - Ubuntu 22.04+ (fresh VPS)
 #   - Root access
-#   - Domain pointing to this server (api.talentir.info)
+#   - DNS A-records pointing to this server:
+#       vel-app.com     → <VPS IP>
+#       api.vel-app.com → <VPS IP>
 # ==============================================================================
 
 # === Configuration ===
 INSTALL_BASE="/opt/velo"
-DOMAIN="api.talentir.info"
+DOMAIN_FRONTEND="vel-app.com"
+DOMAIN_API="api.vel-app.com"
 REPO_URL=""  # Set after SSH key setup
 GITHUB_REPO="aivis-one/velo"
 DEPLOY_USER="velo"
@@ -95,17 +98,19 @@ preflight_checks() {
         success "Disk: ${FREE_DISK}GB free ✓"
     fi
 
-    # Check DNS
-    local RESOLVED_IP=$(dig +short "$DOMAIN" 2>/dev/null | tail -1)
+    # Check DNS for both domains
     local SERVER_IP=$(curl -s ifconfig.me 2>/dev/null)
 
-    if [ -z "$RESOLVED_IP" ]; then
-        warn "$DOMAIN does not resolve. SSL setup may fail."
-    elif [ "$RESOLVED_IP" != "$SERVER_IP" ]; then
-        warn "$DOMAIN → $RESOLVED_IP (this server is $SERVER_IP). SSL setup may fail."
-    else
-        success "DNS: $DOMAIN → $RESOLVED_IP ✓"
-    fi
+    for CHECK_DOMAIN in "$DOMAIN_FRONTEND" "$DOMAIN_API"; do
+        local RESOLVED_IP=$(dig +short "$CHECK_DOMAIN" 2>/dev/null | tail -1)
+        if [ -z "$RESOLVED_IP" ]; then
+            warn "$CHECK_DOMAIN does not resolve. SSL setup may fail."
+        elif [ "$RESOLVED_IP" != "$SERVER_IP" ]; then
+            warn "$CHECK_DOMAIN → $RESOLVED_IP (this server is $SERVER_IP). SSL setup may fail."
+        else
+            success "DNS: $CHECK_DOMAIN → $RESOLVED_IP ✓"
+        fi
+    done
 
     success "Pre-flight checks passed"
 }
@@ -117,6 +122,21 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 
 preflight_checks
+echo ""
+
+# Print DNS requirements
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  Required DNS records (add BEFORE continuing) ${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+echo ""
+echo -e "  Type  Name                Value"
+echo -e "  ────  ──────────────────  ─────────────────"
+echo -e "  A     vel-app.com         <VPS IP>"
+echo -e "  A     api.vel-app.com     <VPS IP>"
+echo ""
+echo -e "${YELLOW}Both records must resolve to this server before SSL setup.${NC}"
+echo ""
+read -p "Press ENTER when DNS records are configured..."
 echo ""
 
 # Check for previous installation
@@ -430,7 +450,7 @@ REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # --- CORS ---
-CORS_ORIGINS=https://api.talentir.info
+CORS_ORIGINS=https://vel-app.com
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -461,39 +481,38 @@ setup_nginx() {
 
     cat > /etc/nginx/sites-available/velo << 'NGINX_EOF'
 # VELO — Nginx reverse proxy
-# HTTP → backend (API) + frontend (SPA)
+# vel-app.com     → frontend (:3000)
+# api.vel-app.com → backend  (:8000)
 
+# Frontend
 server {
     listen 80;
-    server_name api.talentir.info;
+    server_name vel-app.com;
 
-    # Certbot challenge
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
-    # API routes → backend
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+    location / {
+        proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+}
 
-    location /health {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
+# API
+server {
+    listen 80;
+    server_name api.vel-app.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
     }
 
-    location /ready {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-    }
-
-    # Everything else → frontend
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -523,26 +542,29 @@ NGINX_EOF
 setup_ssl() {
     log "Setting up SSL certificate..."
 
-    # Try to get certificate
+    # Get certificate for both domains in one cert
     if certbot certonly \
         --webroot \
         --webroot-path=/var/www/certbot \
-        -d "$DOMAIN" \
+        -d "$DOMAIN_FRONTEND" \
+        -d "$DOMAIN_API" \
         --non-interactive \
         --agree-tos \
-        --email "admin@$DOMAIN" \
+        --email "admin@$DOMAIN_FRONTEND" \
         --no-eff-email; then
 
         success "SSL certificate obtained"
 
-        # Update nginx config with SSL
+        # Update nginx config with SSL — two separate server blocks
         cat > /etc/nginx/sites-available/velo << 'SSL_NGINX_EOF'
 # VELO — Nginx reverse proxy with SSL
+# vel-app.com     → frontend (:3000)
+# api.vel-app.com → backend  (:8000)
 
-# HTTP → redirect to HTTPS
+# ── vel-app.com: HTTP → HTTPS ──────────────────────────────────────────────
 server {
     listen 80;
-    server_name api.talentir.info;
+    server_name vel-app.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -553,44 +575,59 @@ server {
     }
 }
 
-# HTTPS
+# ── vel-app.com: HTTPS → frontend ─────────────────────────────────────────
 server {
     listen 443 ssl http2;
-    server_name api.talentir.info;
+    server_name vel-app.com;
 
-    ssl_certificate /etc/letsencrypt/live/api.talentir.info/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.talentir.info/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
 
-    # Modern SSL config
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
     ssl_prefer_server_ciphers off;
 
-    # HSTS (optional — uncomment after testing)
     # add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # API routes → backend
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
+    location / {
+        proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+}
 
-    location /health {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
+# ── api.vel-app.com: HTTP → HTTPS ─────────────────────────────────────────
+server {
+    listen 80;
+    server_name api.vel-app.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
     }
 
-    location /ready {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-    }
-
-    # Everything else → frontend
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ── api.vel-app.com: HTTPS → backend ──────────────────────────────────────
+server {
+    listen 443 ssl http2;
+    server_name api.vel-app.com;
+
+    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # add_header Strict-Transport-Security "max-age=63072000" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -609,7 +646,7 @@ SSL_NGINX_EOF
         fi
     else
         error "SSL certificate failed. You can retry later with:"
-        error "  certbot certonly --webroot --webroot-path=/var/www/certbot -d $DOMAIN"
+        error "  certbot certonly --webroot --webroot-path=/var/www/certbot -d $DOMAIN_FRONTEND -d $DOMAIN_API"
         warn "Keeping HTTP-only config for now"
     fi
 }
@@ -694,7 +731,8 @@ create_management_script() {
 INSTALL_BASE="/opt/velo"
 COMPOSE_DIR="$INSTALL_BASE/repo"
 COMPOSE_CMD="docker compose"
-DOMAIN="api.talentir.info"
+DOMAIN_FRONTEND="vel-app.com"
+DOMAIN_API="api.vel-app.com"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -780,11 +818,11 @@ case "${1:-}" in
 
         # External check
         echo "=== External Access ==="
-        EXT_HEALTH=$(curl -s "https://$DOMAIN/health" 2>/dev/null)
+        EXT_HEALTH=$(curl -s "https://$DOMAIN_API/health" 2>/dev/null)
         if [ -n "$EXT_HEALTH" ]; then
-            echo -e "${GREEN}✓ https://$DOMAIN/health is accessible${NC}"
+            echo -e "${GREEN}✓ https://$DOMAIN_API/health is accessible${NC}"
         else
-            echo -e "${YELLOW}⚠ https://$DOMAIN/health not accessible${NC}"
+            echo -e "${YELLOW}⚠ https://$DOMAIN_API/health not accessible${NC}"
         fi
         echo ""
 
@@ -1192,8 +1230,9 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 
 info "Server: $SERVER_IP"
-info "Domain: https://$DOMAIN"
-info "Health: https://$DOMAIN/health"
+info "Frontend: https://$DOMAIN_FRONTEND"
+info "API:      https://$DOMAIN_API"
+info "Health:   https://$DOMAIN_API/health"
 echo ""
 
 info "Directory structure:"
@@ -1218,5 +1257,6 @@ echo ""
 
 warn "Next steps:"
 echo "  1. Verify: velo status"
-echo "  2. Check: curl https://$DOMAIN/health"
+echo "  2. Check:  curl https://$DOMAIN_API/health"
+echo "  3. Open:   https://$DOMAIN_FRONTEND"
 echo ""
