@@ -411,16 +411,18 @@ generate_env() {
     local REDIS_PASSWORD=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
 
-    # Ask for Telegram bot token
+    # Ask for Telegram bot credentials
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  Telegram Bot Token${NC}"
+    echo -e "${CYAN}  Telegram Bot${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${YELLOW}Get it from @BotFather in Telegram.${NC}"
-    echo -e "${YELLOW}Leave empty to skip (you can add it later in .env).${NC}"
+    echo -e "${YELLOW}Get token from @BotFather in Telegram.${NC}"
+    echo -e "${YELLOW}Leave empty to skip (you can add later in backend/.env).${NC}"
     echo ""
     read -p "TELEGRAM_BOT_TOKEN: " TELEGRAM_BOT_TOKEN
+    read -p "TELEGRAM_BOT_USERNAME (e.g. velo_testbot): " TELEGRAM_BOT_USERNAME
+    TELEGRAM_BOT_USERNAME="${TELEGRAM_BOT_USERNAME#@}"
     echo ""
 
     cat > "$ENV_FILE" << EOF
@@ -450,7 +452,7 @@ REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
 REDIS_PASSWORD=${REDIS_PASSWORD}
 
 # --- CORS ---
-CORS_ORIGINS=https://vel-app.com
+CORS_ORIGINS=https://${DOMAIN_FRONTEND}
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
@@ -467,10 +469,49 @@ STRIPE_CANCEL_URL=TEST
 EOF
 
     chmod 600 "$ENV_FILE"
-    success ".env generated with secure passwords"
+    success ".env generated"
+
+    # Save VITE build args -- used by start_stack() and velo update.
+    cat > "$INSTALL_BASE/vite.env" << EOF
+VITE_API_BASE_URL=https://${DOMAIN_API}
+VITE_TELEGRAM_BOT_URL=https://t.me/${TELEGRAM_BOT_USERNAME}
+EOF
+    success "vite.env saved"
+}
+
+# ==============================================================================
+# PATCH REPO: inject ARG into frontend Dockerfile + docker-compose.yml
+# ==============================================================================
+
+patch_repo() {
+    log "Patching frontend Dockerfile and docker-compose.yml for VITE build args..."
+
+    local DOCKERFILE="$INSTALL_BASE/repo/frontend/Dockerfile"
+    local COMPOSEFILE="$INSTALL_BASE/repo/docker-compose.yml"
+
+    # Inject ARG declarations before RUN npm run build.
+    sed -i 's|RUN npm run build|ARG VITE_API_BASE_URL\nARG VITE_TELEGRAM_BOT_URL\nRUN npm run build|' "$DOCKERFILE"
+    success "Dockerfile patched"
+
+    # Replace single-line build with multi-line block including args.
+    python3 - "$COMPOSEFILE" << 'PYINNER'
+import sys, re
+path = sys.argv[1]
+with open(path) as f:
+    txt = f.read()
+txt = re.sub(
+    r'    build: \.\/frontend',
+    '    build:\n      context: ./frontend\n      args:\n        - VITE_API_BASE_URL\n        - VITE_TELEGRAM_BOT_URL',
+    txt
+)
+with open(path, 'w') as f:
+    f.write(txt)
+PYINNER
+    success "docker-compose.yml patched"
 }
 
 generate_env
+patch_repo
 
 # ==============================================================================
 # NGINX CONFIG
@@ -663,7 +704,8 @@ start_stack() {
 
     cd "$INSTALL_BASE/repo"
 
-    # Build and start
+    # Build and start (pass VITE vars as build args)
+    set -a; source "$INSTALL_BASE/vite.env"; set +a
     docker compose build --no-cache app frontend
     docker compose up -d
 
@@ -961,6 +1003,7 @@ case "${1:-}" in
         # If tests fail, the build fails, and update stops here.
         echo "Rebuilding Docker images (frontend tests run during build)..."
         cd "$COMPOSE_DIR"
+        set -a; source "$INSTALL_BASE/vite.env"; set +a
         $COMPOSE_CMD build app frontend
 
         echo "Restarting services..."
