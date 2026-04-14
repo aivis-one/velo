@@ -26,3 +26,5 @@
 - 3-tier gate logic with p95/p99/error rate thresholds
 - Dry-run mode for script review before execution
 - Bottleneck analysis with root cause hypotheses
+
+Toolchain: skill-architect v3.0.0

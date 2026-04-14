@@ -12,7 +12,7 @@ Also audits existing test suites for quality, coverage gaps, and anti-patterns.
 ## Configuration
 
 test_output_dir: tests/e2e
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -147,3 +147,8 @@ Full details with code examples: `references/e2e-antipatterns.md`
 ## Quick Reference
 
 See `references/user-guide.md` for installation and usage examples.
+
+## Anchor
+
+[*] e2e-bdd-test v1.0.0 * ready
+[>] | NEXT: user command

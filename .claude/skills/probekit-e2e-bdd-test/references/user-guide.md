@@ -123,7 +123,7 @@ tests/e2e/
   conftest.py
 ```
 
-Reports saved to `report_dir` (default: docs/02_milestones/ADR/review/).
+Reports saved to `report_dir` (default: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/).
 
 ---
 

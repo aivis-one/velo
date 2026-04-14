@@ -27,3 +27,5 @@
 - Iterative fix mode (max 3 per test, 15 total)
 - Coverage estimation: HIGH/MEDIUM/LOW/NONE
 - Source bug detection during test execution
+
+Toolchain: skill-architect v3.0.0

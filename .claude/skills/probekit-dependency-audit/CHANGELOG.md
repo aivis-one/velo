@@ -9,3 +9,5 @@
 - Import/manifest mismatch detection (Python + Node)
 - Abandonment signals from local files
 - Pinning score formula
+
+Toolchain: skill-architect v3.0.0

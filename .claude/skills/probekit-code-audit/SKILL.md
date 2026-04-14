@@ -3,14 +3,14 @@ name: probekit-code-audit
 description: "Senior engineer code review with severity markers, diff examples, and scored report. Use when reviewing code files, directories, or pull requests for bugs, security vulnerabilities, performance issues, code quality, and test quality. Triggers on: 'review this code', 'audit', 'find bugs', 'check my code', 'code review', '/probekit-code-audit', or when the user pastes code without explicit instructions. Always use this skill when any file path, directory, or code snippet is provided for review — even if the user just says 'look at this' or shares code without a clear request, 'пробкит аудит', 'пробкит код'."
 ---
 
-# code-audit v2.2.0
+# code-audit v2.3.0
 
 Senior engineer code review skill. Finds bugs, security issues, bad practices, and test quality problems.
 Produces a scored report with actionable fixes. Optionally auto-fixes findings.
 
 ## Configuration
 
-review_dir: docs/02_milestones/ADR/review
+review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -27,29 +27,29 @@ Determine what to review: single file, directory, or inline code.
 - Inline code in chat → use directly
 - No input yet → ask: "What would you like me to review? Provide a file path, directory, or paste the code."
 
-Check for ENVIRONMENT.md in the project (common locations: root, docs/01_reference/).
+Check for ENVIRONMENT.md in the project (common locations: root, docs/01_refer/).
 If found — read it for shell/tool pitfalls before executing any commands.
 Do not hardcode shell syntax — adapt to the detected environment.
 
 **Step 2 — Run full analysis**
-Read `references/analysis-sections.md`.
+Read `references/analysis-sections-core.md`.
 Execute all 9 sections in order. No skipping.
 Apply severity markers from `references/severity-format.md` to every finding.
 
 **Step 3 — Run AI-specific scan**
-Read `references/ai-patterns.md`.
+Read `references/ai-patterns-catalog.md` and `references/ai-patterns-checklist.md`.
 Add Section 10: AI-Generated Code Patterns.
 Run even if origin is unknown — AI patterns appear in human-written code too.
 
 **Step 3.5 — Cross-module analysis (multi-file only)**
 If reviewing 2+ files:
-Read `references/analysis-sections.md` Section 11.
+Read `references/analysis-sections-core.md` Section 11.
 Run cross-module consistency check across all reviewed files.
 Add findings to report as Section 11: Cross-Module Consistency.
 Skip this step if reviewing a single file or inline code.
 
 **Step 3.6 — Test audit (always run if test files present)**
-Read `references/analysis-sections.md` Section 12.
+Read `references/analysis-sections-test-audit.md`.
 Detect test files automatically:
 - Python: files matching test_*.py or *_test.py
 - JS/TS: *.test.*, *.spec.*
@@ -59,6 +59,29 @@ Detect test files automatically:
 If test files found → run Section 12: Test Quality Audit.
 If no test files found → write: "No test files detected." and close section.
 If test_audit_mode = true → give Section 12 expanded treatment (check all subsections thoroughly).
+
+**Step 3.7 — Orphan source file detection (directory reviews only)**
+
+**Scope:** Source code files only (.ts, .vue, .py, .go, .gd, .js, .rs, .java).
+Non-source orphans (config, docs, data, assets) are owned by `probekit-project-hygiene` (PH-DEAD-FILES probe).
+
+If reviewing a directory:
+1. List all **source** files in the target directory (recursively)
+2. For each non-test, non-config source file:
+   - Grep the rest of the codebase for imports/references to this file's module/class/function
+   - Check if the file is referenced in any manifest, config, or entry point
+3. A file is "orphan" if:
+   - Zero imports from any other source file
+   - Not an entry point (main.py, app.py, __init__.py, index.*)
+   - Not a config file (.toml, .yaml, .json, .env)
+   - Not a migration, test, or documentation file
+4. Flag findings (LOC-based severity):
+   - Orphan file < 50 LOC: 🟢 SUGGESTION — likely dead code, verify and delete
+   - Orphan file 50-200 LOC: 🟡 WARNING — significant unreferenced code
+   - Orphan file > 200 LOC: 🔴 CRITICAL — major dead module, wasting maintenance attention
+
+Add findings as Section 13: Orphan Source Files.
+Skip if reviewing a single file or inline code — write: "Skipped (single file review)."
 
 **Step 4 — Produce report**
 Read `references/output-template.md`.
@@ -75,13 +98,19 @@ See `references/output-template.md` for tracker format.
 
 **Step 5 — Fix mode (optional)**
 If fix_mode is true:
-1. Apply all CRITICAL fixes from the report to actual source files using Edit tool
-2. Apply all WARNING fixes from the report to actual source files using Edit tool
-3. Skip SUGGESTION fixes (too subjective for auto-fix)
+Read `probekit-core/references/auto-fix-safety.md` — follow Safety Checklist and Fix-Verify-Revert Protocol.
+1. For each CRITICAL finding: check 5-point safety checklist → apply fix → verify → confirm or revert
+2. For each WARNING finding: same checklist → apply → verify → confirm or revert
+3. Skip SUGGESTION fixes (per core standard: never auto-fix)
 4. After applying all fixes, re-run a quick verification scan (Sections 2 + 4 only) on the modified files
-5. Report: "Applied N fixes. Verification: X issues remain."
+5. Report using standard auto-fix table format (see core reference)
 If fix_mode is false — skip this step entirely.
 
 ## Quick Reference
 
 See `references/user-guide.md` for installation, invocation, and usage examples.
+
+## Anchor
+
+[*] code-audit v2.3.0 * ready
+[>] | NEXT: user command

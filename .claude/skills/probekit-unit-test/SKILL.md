@@ -3,7 +3,7 @@ name: probekit-unit-test
 description: "Generate, run, and verify unit tests for any module, class, or function. Finds untested paths, generates tests with mocks and fixtures, runs them, fixes failures, and produces a coverage report. Use when: writing tests for new code, adding tests to untested legacy code, or auditing quality of existing tests. Triggers on: 'write tests', 'generate tests', 'покрой тестами', 'напиши тесты', '/probekit-unit-test', or when code is provided with no explicit instruction but testing context is implied, 'пробкит юнит', 'пробкит тесты'."
 ---
 
-# unit-test v1.1.0
+# unit-test v1.3.0
 
 Generate, run, and verify unit tests. Produces working tests — not templates.
 Iterates until tests pass. Delivers a coverage report and test quality summary.
@@ -12,7 +12,7 @@ Iterates until tests pass. Delivers a coverage report and test quality summary.
 
 test_output_dir: tests
 source_dir: src
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -22,6 +22,8 @@ Determine what to test:
 - File/directory path → read with bash, detect language and framework
 - Path with focus hint (e.g. `/unit-test src/services/ -- focus on edge cases`) →
   path is everything before `--` or `—`; text after is a focus hint
+- `--analyze` flag (or words "analyze tests", "анализ тестов") →
+  set analyze_mode = true; runs coverage + quality analysis without generating new tests
 - `--audit` flag (or words "audit tests", "проверь тесты", "оцени тесты",
   "проверь качество тестов", "оцени мои тесты") →
   set audit_mode = true
@@ -30,6 +32,7 @@ Determine what to test:
 - No input → ask: "What would you like me to test? Provide a file path, class, or paste the code."
 
 **Mode routing — decide here, before any further steps:**
+- analyze_mode = true → proceed to Step 2, then Step 2.5, then Step 5. Skip Steps 3, 4.
 - audit_mode = true → proceed to Step 2-AUDIT, then Step 5.5. Skip Steps 3, 4, 5.
 - coverage_only = true → proceed to Step 2-COVERAGE, then Step 5. Skip Steps 3, 4.
 - default → proceed through all steps in order.
@@ -64,6 +67,19 @@ For each public function/method identify:
 
 Skip: private methods (test via public API), trivial getters/setters with no logic,
 auto-generated boilerplate.
+
+**Step 2.5 — Coverage + Quality Analysis** *(default and analyze_mode)*
+
+Read `references/test-quality-probes.md`.
+Run 5 test quality probes (TQ-1 through TQ-5) against existing test files:
+- TQ-1: Assertion Density — tests with zero or single assertions
+- TQ-2: Mock Fidelity — mocks that diverge from real interface signatures
+- TQ-3: Test Independence — tests that depend on execution order or shared mutable state
+- TQ-4: Boundary Coverage — edge cases (null, empty, overflow, negative) tested
+- TQ-5: Error Path Coverage — exception/error branches exercised
+
+For each probe: scan test files, count violations, assign severity, score 0-10.
+Produce quality sub-score alongside coverage metrics in the final report.
 
 **Step 2-AUDIT — Analyze existing test files** *(audit_mode only)*
 
@@ -145,3 +161,8 @@ Save to `report_dir` for large outputs (>50 tests or multi-file audit).
 ## Quick Reference
 
 See `references/user-guide.md` for installation, invocation, and usage examples.
+
+## Anchor
+
+[*] unit-test v1.3.0 * ready
+[>] | NEXT: user command

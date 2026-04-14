@@ -41,3 +41,5 @@ Initial release.
 - SUGGESTION-level items never auto-fixed
 - Re-verifies with Sections 11, 12, 13 after applying fixes
 - Reports delta table: before/after counts per severity
+
+Toolchain: skill-architect v3.0.0

@@ -31,7 +31,7 @@ Append one row per skill run:
 | Field | Format | Examples |
 |-------|--------|---------|
 | Date | YYYY-MM-DD | 2026-03-19 |
-| Skill | skill short name | arch-review, code-audit, unit-test, integration-test, e2e-bdd-test, perf-test, godot-unit-test, arch-review-bogame, test-suite |
+| Skill | skill short name | arch-review, code-audit, type-audit, a11y-audit, unit-test, integration-test, e2e-bdd-test, perf-test, test-suite |
 | Target | file/dir name | login.py, src/api/, framework/ |
 | Score | X/10 or X.X/10 | 7/10, 6.8/10 |
 | 🔴 🟡 🟢 💎 | integer counts | 2, 5, 3, 1 |
@@ -43,13 +43,15 @@ Append one row per skill run:
 | Skill | Key Metric format |
 |-------|------------------|
 | arch-review | weighted avg |
-| arch-review-bogame | gen:X/10 proj:X/10 |
+
 | code-audit | score |
 | unit-test | N tests, X% coverage |
 | integration-test | N pass / N total |
 | e2e-bdd-test | N scenarios pass/total |
 | perf-test | p95=Xms RPS=Y err=Z% |
 | godot-unit-test | N pass / N total, X% cov |
+| type-audit | N errors, M patterns |
+| a11y-audit | WCAG AA: N/11 criteria |
 | test-suite | mode: X stages |
 
 ### Delta rules

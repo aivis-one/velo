@@ -3,7 +3,7 @@ name: probekit-arch-review
 description: "Architecture review skill — project-independent. Evaluates module boundaries, dependency direction, coupling/cohesion, layer separation, pattern consistency, error architecture, data flow, scalability, testability, evolution readiness. Produces scored report with severity markers. Triggers on: 'architecture review', 'arch review', 'review architecture', 'проверь архитектуру', 'архитектурный ревью', '/probekit-arch-review', or when structural/design issues are the focus, 'пробкит архитектура', 'пробкит арх'."
 ---
 
-# arch-review v1.1.0
+# arch-review v1.4.0
 
 Project-independent architecture review skill for Claude Code.
 Evaluates structural quality of any codebase against universal architecture principles.
@@ -11,7 +11,7 @@ Produces a scored report with actionable findings and severity markers.
 
 ## Configuration
 
-review_dir: docs/02_milestones/ADR/review
+review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -42,19 +42,19 @@ Output: brief "Architecture Snapshot" paragraph (included in report header).
 
 **Step 3 — Run architecture analysis**
 
-Read `references/analysis-sections.md`.
+Read `references/analysis-sections-structure.md` and `references/analysis-sections-behavior.md`.
 Execute all 12 sections in order. No skipping.
 Apply severity markers from `references/severity-format.md` to every finding.
 
 **Step 4 — Pattern quality scan**
 
-Read `references/patterns-catalog.md`.
-Check codebase against known good and bad architecture patterns.
+Read `references/good-patterns.md`, `references/bad-patterns.md`, and `references/diamond-patterns.md`.
+Check codebase against known good, bad, and diamond architecture patterns.
 Add findings as Section 13: Pattern Quality Assessment.
 
 **Step 5 — Architecture balance scorecard**
 
-Score 12 dimensions (0–10 each):
+Score 13 dimensions (0–10 each):
 
 | Dimension | What it measures |
 |-----------|-----------------|
@@ -70,11 +70,12 @@ Score 12 dimensions (0–10 each):
 | Evolvability | Can grow without rewriting core |
 | Concurrency | Thread safety, async correctness, connection pooling |
 | Observability | Structured logging, metrics, health checks, correlation IDs |
+| Operational Health | Data growth policies, log rotation, cleanup mechanisms, runtime hygiene |
 
 Calculate weighted average:
 - Modularity, Coupling, Cohesion: weight 1.5x (structural foundation)
 - Layering, Consistency: weight 1.2x (maintainability)
-- Error Design, Data Flow, Scalability, Testability, Evolvability, Concurrency, Observability: weight 1.0x
+- Error Design, Data Flow, Scalability, Testability, Evolvability, Concurrency, Observability, Operational Health: weight 1.0x
 
 Final score = weighted average, rounded to 1 decimal.
 
@@ -95,11 +96,12 @@ If previous entries exist for the same scope — show delta.
 **Step 8 — Fix mode (optional)**
 
 If fix_mode is true:
-1. For each CRITICAL finding: propose concrete refactoring, apply if safe (file moves, interface extractions, dependency inversions)
-2. For each WARNING finding: propose fix, apply if non-breaking
-3. Skip SUGGESTION fixes
+Read `probekit-core/references/auto-fix-safety.md` — follow Safety Checklist and Fix-Verify-Revert Protocol.
+1. For each CRITICAL finding: check 5-point safety checklist → propose concrete refactoring, apply if safe (file moves, interface extractions, dependency inversions)
+2. For each WARNING finding: same checklist → propose fix, apply if non-breaking
+3. Skip SUGGESTION fixes (per core standard: never auto-fix)
 4. After fixes: re-run Step 3 on modified areas, verify score improvement
-5. Report: "Applied N architectural fixes. Score: X → Y."
+5. Report using standard auto-fix table format (see core reference)
 
 If fix_mode is false — skip this step.
 
@@ -120,3 +122,12 @@ The architecture review **PASSES** when:
 ## Quick Reference
 
 Invoke: `/arch-review <path>` or `/arch-review src/ -- focus on coupling`
+
+## Changelog
+
+- **v1.4.0** — Moved comprehension debt dimensions (Contract Explicitness, Risk Governance, AI Fitness) to probekit-comprehension-debt where they belong. Removed Step 3.5 comprehension debt architecture scan. Scorecard reduced from 16 to 13 dimensions.
+
+## Anchor
+
+[*] arch-review v1.4.0 * ready
+[>] | NEXT: user command

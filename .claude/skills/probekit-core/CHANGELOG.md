@@ -13,3 +13,5 @@ Initial release of shared core references.
 - All 8 skill `severity-format.md` files slimmed to escalation-rules-only + core reference
 - All 8 skill `output-template.md` audit tracker sections replaced with core reference
 - No SKILL.md files changed — backward compatible
+
+Toolchain: skill-architect v3.0.0

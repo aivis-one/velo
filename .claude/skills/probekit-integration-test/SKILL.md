@@ -11,7 +11,7 @@ and service boundaries. Produces passing test files and a scored coverage report
 ## Configuration
 
 test_output_dir: tests/integration
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -60,7 +60,7 @@ Otherwise proceed automatically.
 
 **Step 4 — Generate test files** *(skip if run_only = true)*
 
-Read `references/test-patterns.md`.
+Read `references/test-patterns-db.md` and `references/test-patterns-api-service.md`.
 Generate test files following detected project conventions.
 
 File placement rules:
@@ -114,3 +114,8 @@ Append entry: date, files tested, tests generated, pass/fail counts, coverage es
 ## Quick Reference
 
 See `references/user-guide.md` for installation and usage examples.
+
+## Anchor
+
+[*] integration-test v1.1.0 * ready
+[>] | NEXT: user command

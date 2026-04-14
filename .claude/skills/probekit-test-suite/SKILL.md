@@ -1,75 +1,97 @@
 ---
 name: probekit-test-suite
-description: "Orchestrate the full testing pipeline: probekit-arch-review → probekit-arch-review-bogame → probekit-code-audit → probekit-security-audit → probekit-dependency-audit → probekit-unit-test → probekit-integration-test → probekit-e2e-bdd-test → probekit-perf-test. Runs skills in sequence, passes findings forward, produces a unified SUITE-REPORT. Use when: 'run full test suite', 'test everything', 'quality check', '/probekit-test-suite', 'проведи тесты', 'запусти тесты', 'тестируй всё', 'комплексное тестирование', 'полная проверка', or when comprehensive testing is needed, 'пробкит всё', 'пробкит полный', 'пробкит запусти'. Modes: full (all 9 stages), quick (code-audit + unit), quality (code-audit + unit + integration), arch (arch-review + arch-review-bogame only), deep (arch + code-audit + security + unit + integration), secure (code-audit + security-audit + dependency-audit)."
+description: "Testing pipeline orchestrator. Runs probekit skills in sequence, gates on quality, auto-fixes safe CRITICALs, produces single consolidated AUDIT-REPORT. Modes: full (13 stages), quick (code-audit + unit), quality (code + unit + integration), arch (arch-review only), deep (arch + type + code + security + health + comprehension + tests), secure (code + security + dependency), health (runtime health), types (type-audit only), comprehension (comprehension-debt only), hygiene (project-hygiene only). Use when: 'run full test suite', 'test everything', 'quality check', '/probekit-test-suite', 'пробкит всё', 'пробкит полный', 'пробкит запусти'."
 ---
 
-# test-suite v2.3.0
+# test-suite v4.0.0
 
 Testing pipeline orchestrator for Claude Code.
-Runs testing skills in logical sequence, gates on quality, aggregates results into a single report.
+Runs testing skills in logical sequence, gates on quality, auto-fixes safe CRITICALs, aggregates results into a single consolidated report.
 
 ## Configuration
 
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_reference/KNOWLEDGE/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Pipeline
 
-```
-arch-review → arch-review-bogame → code-audit → security-audit → dependency-audit → unit-test → integration-test → e2e-bdd-test → perf-test
-    ↓              ↓                  ↓              ↓                ↓               ↓             ↓                ↓              ↓
- Score/10       Score/10          Score/10        OWASP/CWE      Pinning/10       Tests + %      Tests + %       Scenarios      Metrics
-    ↓              ↓                  ↓              ↓                ↓               ↓             ↓                ↓              ↓
-    └──────────────┴──────────────────┴──────────────┴────────────────┴───────────────┴─────────────┴────────────────┴──────────────┘
-                                                                      ↓
-                                                         SUITE-REPORT-<target>-<date>.md
-```
+relevance-gate → arch-review → type-audit → code-audit → auto-fix → security-audit → dependency-audit → health-audit → comprehension-debt → unit-test → integration-test → e2e-bdd-test → perf-test → project-hygiene → consolidated-report
 
 ## Modes
 
 | Mode | Stages | When to use |
 |------|--------|-------------|
-| `full` | All 9 | Pre-release, milestone close, comprehensive check |
-| `quick` | code-audit + unit-test | Fast feedback during development |
-| `quality` | code-audit + unit-test + integration-test | Thorough without E2E/perf overhead |
-| `arch` | arch-review + arch-review-bogame | Architecture-only analysis |
-| `deep` | arch + code-audit + security + unit + integration | Architecture + code + security + tests |
+| `full` | All 13 | Pre-release, milestone close, comprehensive check |
+| `quick` | type-audit + code-audit + unit-test | Fast feedback during development |
+| `quality` | type-audit + code-audit + unit-test + integration-test | Thorough without E2E/perf overhead |
+| `arch` | arch-review | Architecture-only analysis |
+| `deep` | arch + type + code + security + health + comprehension + unit + integration | Architecture + code + security + health + tests |
 | `secure` | code-audit + security-audit + dependency-audit | Security-focused review |
+| `health` | health-audit | Runtime health only |
+| `types` | type-audit | Type system analysis only |
+| `comprehension` | comprehension-debt | Comprehension debt analysis only |
+| `hygiene` | project-hygiene | Project hygiene scan only |
 
 Default: `quality` (if user doesn't specify mode)
+
+## Stage Relevance Gate
+
+**Before executing each stage**, check if it is relevant for the current project state. Skip irrelevant stages with reason logged.
+
+**Relevance rules:**
+
+| Stage | Skip when | Detection method |
+|-------|-----------|-----------------|
+| `type-audit` | No `.ts`, `.vue`, or typed files | Check if project has no TypeScript/typed source files. |
+| `perf-test` | No production HTTP endpoints under load | Check if project has no HTTP API consumers. |
+| `e2e-bdd-test` | No user-facing web UI | Check if there is no browser-based UI, no web routes serving HTML. |
+| `dependency-audit` | < 15 direct dependencies | Count entries in requirements.txt / package.json. Below threshold = low risk. |
+| `integration-test` (generation) | Existing integration test coverage > 80% | Run existing integration tests first. If all pass and count is substantial (>50), skip test generation. |
+| `comprehension-debt` | < 50 git-tracked source files | Count source files. Below threshold = low complexity, skip. |
+| `project-hygiene` | < 20 git-tracked source files | Count source files. Below threshold = low risk of hygiene issues. |
+
+**When a stage is skipped:**
+- Log: `SKIPPED: {stage} — {reason}` (e.g., "SKIPPED: perf-test — no production HTTP endpoints")
+- Record in report as `SKIP` gate with reason
+- Do NOT count skipped stages in scoring
+
+**Override:** User can force any stage with `--force-{stage}` flag (e.g., `--force-perf`).
+
+## Auto-Fix Protocol
+
+After code-audit (Step 3), if CRITICAL findings meet ALL conditions:
+1. **Localized** — fix is within a single file, < 20 LOC change
+2. **Clear logic** — the correct fix is unambiguous (wrong table name, missing await, missing cleanup)
+3. **No architectural conflict** — fix doesn't change public API, service boundaries, or data model
+4. **No cross-module side effects** — fix doesn't require changes in other modules
+5. **Testable** — existing tests cover the affected code path
+
+**Auto-fix workflow:**
+1. Apply the fix
+2. Run the full test suite (`python -m pytest tests/ -x --tb=short -q`)
+3. If tests pass → mark as `AUTO-FIXED` in report, continue pipeline
+4. If tests fail → **revert the fix immediately**, mark as `NEEDS-MANUAL` in report
+5. If test patch needed (mock target changed, etc.) → fix test too, re-run
+
+**What is NOT auto-fixable:**
+- Anything requiring new files, new services, or new abstractions
+- Refactoring (even if "obvious") — e.g., extracting a service, renaming across modules
+- Security credential rotation (ops task, not code)
+- Anything touching > 3 files
+
+**Report format for auto-fixes:** Table with columns: #, File, Problem, Fix (under heading "Fixed During Audit")
 
 ## Language Routing
 
 | Target files | Unit test skill | Other skills |
 |-------------|----------------|--------------|
 | `.py` files | probekit-unit-test (pytest) | All standard |
-| `.gd` files | probekit-godot-unit-test (GUT) | Skip probekit-integration-test, probekit-e2e-bdd-test, probekit-perf-test |
 | `.js/.ts` files | probekit-unit-test (Jest/Vitest) | All standard |
-| Mixed | probekit-unit-test for .py/.js, probekit-godot-unit-test for .gd | Run applicable stages |
+| Mixed | probekit-unit-test per language | Run applicable stages |
 
-## Unified Quality Gate Contract
+## Quality Gates
 
-Every stage produces a gate result:
-```
-Gate: PASS / WARN / FAIL
-Score: X.X/10
-Blocking: true/false
-```
-
-| Stage | PASS | WARN | FAIL | Blocking? |
-|-------|------|------|------|-----------|
-| arch-review | ≥ 5.0/10, 0 🔴 | 3.0–4.9 | < 3.0 or systemic 🔴 | No |
-| arch-review-bogame | ≥ 5.0/10, 0 🔴 in L0/L1/L2 | 3.0–4.9 | < 3.0 or layer/security 🔴 | No |
-| code-audit | ≥ 7/10, 0 🔴 | 4–6 | < 4 | **Yes** |
-| unit-test | all pass, cov ≥ 60% | all pass, cov < 60% | any failure | No |
-| integration-test | all pass | all pass, error path gaps | any 🔴 failure | No |
-| e2e-bdd-test | all pass | all pass, minor issues | any 🔴 failure | No |
-| perf-test | thresholds met | p99 warn range | p95/p99 exceeded or err > 1% | No |
-| security-audit | 0 🔴, score ≥ 7 | 1-2 🔴, score 4-6 | 3+ 🔴 or secrets found | No |
-| dependency-audit | pinning ≥ 8/10, 0 suspicious | pinning 5-7, warnings | unpinned deps or typosquat | No |
-| godot-unit-test | all pass, cov ≥ 60% | all pass, cov < 60% | any failure | No |
-
-**Pipeline stops** only when a **Blocking** stage FAILs (code-audit < 4/10).
-Non-blocking FAIL: continue, flag in SUITE-REPORT.
+Read `references/quality-gate-contract.md` for per-stage thresholds.
+Read `references/scoring-formula.md` for overall scoring algorithm and gate rules.
 
 ## Execution Steps
 
@@ -89,201 +111,113 @@ Input formats:
 3. `.probekit.yml` in git root
 4. Defaults in this SKILL.md (lowest priority)
 
-If `.probekit.yml` found, read these sections:
-- `paths.review_dir` → override `report_dir`
-- `thresholds` → override quality gate thresholds per skill
-- `exclude.paths` → skip these paths from analysis
-- `features.skills` → enable/disable specific pipeline stages
-- `scoring.weights` → override scoring formula weights
-
-If `.probekit.yml` not found → use defaults. Do NOT require it.
+If `.probekit.yml` found, read sections: `paths.review_dir`, `thresholds`, `exclude.paths`, `features.skills`, `scoring.weights`.
+If not found — use defaults. Do NOT require it.
 
 Detect target language from file extensions. Select unit test skill accordingly.
 
-**Step 2 — Stage 1: Architecture Review (general)**
+**Step 1.5 — Stage relevance check**
 
-_Skip if mode is `quick` or `quality`._
+Apply Stage Relevance Gate rules. Log skipped stages. Proceed with relevant stages only.
 
-Invoke `probekit-arch-review` on the target path.
-Record: {Gate, Score, Blocking, findings_summary}.
-Build structured context for next stage (see Inter-Skill Context below).
+**Step 2 — Stage 1: Architecture Review**
 
-**Step 3 — Stage 2: Architecture Review (BOGame-specific)**
+_Skip if mode is `quick`, `quality`, `types`, `comprehension`, or `hygiene`._
+Invoke `probekit-arch-review` on target. Record: {Gate, Score, Blocking, findings_summary}.
+Build structured context (see `references/inter-skill-context.md`).
+If mode is `arch` — skip to Step 8.
 
-_Skip if mode is `quick` or `quality`._
+**Step 2.5 — Stage 1.5: Type Audit**
 
-Invoke `probekit-arch-review-bogame` on the target path.
-Pass structured context from Step 2:
-- Hotspot files (files with 🔴/🟡 findings)
-- Specific findings with file:line for cross-reference
-- Recommendations: "Check these specific patterns in project context"
-Record: {Gate, Score, Blocking, findings_summary}.
+_Skip if mode is `arch`, `health`, `secure`, `comprehension`, or `hygiene`._
+_Check relevance gate: skip if no `.ts`/`.vue`/typed files._
+Invoke `probekit-type-audit`. Run type checker (vue-tsc / tsc / mypy) + pattern scan.
+**Blocking gate:** If compiler errors > 0 — **STOP pipeline** before code-audit.
+If mode is `types` — skip to Step 8.
 
-If mode is `arch` → skip to Step 9 (report).
+**Step 3 — Stage 2: Code Audit**
 
-**Step 4 — Stage 3: Code Audit**
+Invoke `probekit-code-audit`. Pass hotspot files from arch stage.
 
-Invoke `probekit-code-audit` on the target path.
-Pass structured context from arch stages (if ran):
-- Hotspot files to prioritize review
-- Architecture violations to check at code level (e.g., "AR-DEP-03 found circular dep in src/api/ — check for coupling antipatterns")
-- Recommendations for code-level verification
-Record: {Gate, Score, Blocking, findings_summary}.
+**Step 3.1 — Auto-Fix CRITICALs**
 
-**Blocking gate check:**
-- If code-audit Gate = FAIL → **STOP pipeline**. Report: "Code quality too low (score X/10). Fix 🔴 CRITICAL findings first." Do NOT proceed to test generation.
+If code-audit found CRITICALs, apply Auto-Fix Protocol (see above).
+- For each CRITICAL: evaluate auto-fix eligibility → fix → test → confirm or revert.
+- Recalculate code-audit score after fixes.
+- **Blocking gate:** If Gate = FAIL after auto-fixes — **STOP pipeline**. Report and do NOT proceed.
 
-**Step 4.5 — Stage 3.5: Security Audit**
+**Step 3.5 — Stage 3: Security Audit**
 
 _Skip if mode is `quick`, `quality`, or `arch`._
+Invoke `probekit-security-audit`. Pass security findings from code-audit.
+If mode is `secure` — also run Step 3.7, then skip to Step 8.
 
-Invoke `probekit-security-audit` on the target path.
-Pass structured context from code-audit:
-- Security findings (Section 4) to validate deeper
-- Files with auth-related code for auth/authz matrix
-Record: {Gate, Score, Blocking, findings_summary}.
-
-If mode is `secure` → also run Step 4.7, then skip to Step 9.
-
-**Step 4.7 — Stage 3.7: Dependency Audit**
+**Step 3.7 — Stage 4: Dependency Audit**
 
 _Skip if mode is `quick`, `quality`, or `arch`._
+_Check relevance gate: skip if < 15 direct dependencies._
+Invoke `probekit-dependency-audit`. No upstream context needed.
 
-Invoke `probekit-dependency-audit` on the target path.
-No context needed from previous stages — reads manifest files independently.
-Record: {Gate, Score, Blocking, findings_summary}.
+**Step 3.8 — Stage 5: Health Audit**
 
-**Step 5 — Stage 4: Unit Tests**
+_Skip if mode is `quick`, `quality`, `arch`, `secure`, `types`, `comprehension`, or `hygiene`._
+Invoke `probekit-health-audit`. Scans runtime artifacts: disk bloat, log rotation, DB growth, dead files, config drift, orphan data.
+If mode is `health` — skip to Step 8.
 
-Invoke `probekit-unit-test` (or `probekit-godot-unit-test` for .gd files) on the target.
-Pass structured context from code-audit:
-- Findings with file:line:function — generate tests for these functions first
-- Specific test scenarios: e.g., "CA-SEC-04 at users.py:42 → test with SQL injection input"
-- Complexity hotspots to prioritize for coverage
-Record: {Gate, Score, Blocking, findings_summary}.
+**Step 3.9 — Stage 5.5: Comprehension Debt**
 
-If mode is `quick` → skip to Step 9 (report).
+_Skip if mode is `quick`, `quality`, `arch`, `secure`, `health`, `types`, or `hygiene`._
+_Check relevance gate: skip if < 50 git-tracked source files._
+Invoke `probekit-comprehension-debt`. Analyzes naming clarity, abstraction depth, coupling complexity, documentation gaps.
+If mode is `comprehension` — skip to Step 8.
 
-**Step 6 — Stage 5: Integration Tests**
+**Step 4 — Stage 6: Unit Tests**
 
-Invoke `probekit-integration-test` on the target.
-Pass structured context from code-audit + unit-test:
-- Uncovered findings from code-audit that unit-test couldn't reach (need real DB/API)
-- Integration boundaries from arch-review (service ↔ DB, service ↔ external API)
-- Functions with low unit coverage at service boundaries
-Record: {Gate, Score, Blocking, findings_summary}.
+Invoke `probekit-unit-test`.
+Pass findings with file:line:function for targeted test generation.
+If mode is `quick` — skip to Step 8.
 
-If mode is `quality` or `deep` → skip to Step 9 (report).
+**Step 5 — Stage 7: Integration Tests**
 
-**Step 7 — Stage 6: E2E/BDD Tests**
+_Check relevance gate: skip generation if existing coverage > 80%._
+Invoke `probekit-integration-test`. Pass uncovered findings + boundary functions.
+If mode is `quality` or `deep` — skip to Step 8.
 
-Invoke `probekit-e2e-bdd-test` on the target.
-Skip if target is a single utility function or has no user-facing endpoints.
-Pass structured context:
-- User-facing flows with failures in integration tests
-- Security findings that need end-to-end validation
-Record: {Gate, Score, Blocking, findings_summary}.
+**Step 6 — Stage 8: E2E/BDD Tests**
 
-**Step 8 — Stage 7: Performance Tests**
+_Check relevance gate: skip if no user-facing web UI._
+Invoke `probekit-e2e-bdd-test`. Skip if no user-facing endpoints.
 
-Invoke `probekit-perf-test` on the target.
-Skip if no HTTP endpoints detected.
-Use `smoke` profile for first run; user can request `load`/`stress`/`spike`/`soak`.
-Pass structured context:
-- Endpoints flagged with N+1 or performance findings from code-audit
-- Complexity hotspots from earlier stages
-Record: {Gate, Score, Blocking, findings_summary}.
+**Step 7 — Stage 9: Performance Tests**
 
-**Step 9 — Produce SUITE-REPORT**
+_Check relevance gate: skip if no HTTP endpoints._
+Invoke `probekit-perf-test`. Use `smoke` profile.
 
-Aggregate all stage results:
+**Step 7.5 — Stage 10: Project Hygiene**
 
-```markdown
-# SUITE-REPORT — <target> — <date>
+_Skip if mode is `quick`, `quality`, `arch`, `secure`, `health`, `types`, or `comprehension`._
+_Check relevance gate: skip if < 20 git-tracked source files._
+Invoke `probekit-project-hygiene`. Scans: dead files, duplicate code, stale dependencies, git bloat, orphan configs.
+If mode is `hygiene` — skip to Step 8.
 
-## Pipeline Summary
+**Step 8 — Produce AUDIT-REPORT**
 
-| Stage | Gate | Score | Key Metric | 🔴 | 🟡 | 🟢 | 💎 |
-|-------|------|-------|------------|-----|-----|-----|-----|
-| Arch Review | PASS/WARN/FAIL/SKIP | X.X/10 | weighted avg | N | N | N | N |
-| Arch Review (BOGame) | PASS/WARN/FAIL/SKIP | X.X/10 | proj score | N | N | N | N |
-| Code Audit | PASS/WARN/FAIL | X/10 | score | N | N | N | N |
-| Security Audit | PASS/WARN/FAIL/SKIP | X/10 | OWASP/secrets | N | N | N | N |
-| Dependency Audit | PASS/WARN/FAIL/SKIP | X/10 | pinning/typo | N | N | N | N |
-| Unit Tests | PASS/WARN/FAIL | X/10 | N tests, X% cov | N | N | N | N |
-| Integration Tests | PASS/WARN/FAIL/SKIP | X/10 | N pass/total | N | N | N | N |
-| E2E Tests | PASS/WARN/FAIL/SKIP | X/10 | N scenarios | N | N | N | N |
-| Performance | PASS/WARN/FAIL/SKIP | gate | p95/RPS/err | N | N | N | N |
+Read `references/output-template.md`. Aggregate all stage results.
+Calculate overall score per `references/scoring-formula.md`.
+**Produce ONE consolidated report:** `{{report_dir}}/AUDIT-REPORT-{YYYYMMDD}.md`
+- Section 1: Fixed during audit (auto-fixes with diffs)
+- Section 2: Remaining P1 (important)
+- Section 3: Remaining P2 (medium)
+- Section 4: Remaining P3 (recommended)
+- Section 5: Architecture strengths (DIAMOND patterns)
+- Section 6: Test health
+- Section 7: Runtime health
 
-## Overall Quality Gate: PASS / WARN / FAIL
+**Do NOT produce intermediate per-stage reports.** One report, no duplication.
 
-## Architecture Health (if arch stages ran)
-[Combined arch findings: top 3 structural issues + top 3 project deviations]
+**Step 9 — Update audit tracker**
 
-## Code Quality Summary
-[Top findings from code-audit]
-
-## Test Coverage Summary
-[Pass/fail counts, coverage %, gaps identified]
-
-## 💎 Diamond Patterns Found
-[Exceptional patterns discovered across all stages]
-
-## Top Recommendations
-[Top 5 actions prioritized by impact across all stages]
-```
-
-Save to `{{report_dir}}/SUITE-REPORT-<target>-<YYYYMMDD>.md`
-After saving, output brief summary in chat.
-
-**Step 10 — Update audit tracker**
-
-Update `{{report_dir}}/AUDIT-TRACKER.md` with unified format:
-| YYYY-MM-DD | test-suite | <target> | combined | N | N | N | N | mode: X stages | new/delta |
-
-## Overall Quality Score
-
-Algorithmic score replaces subjective assessment. Show the calculation in the report.
-
-**Formula:**
-```
-total_critical = sum of 🔴 across all stages
-total_warning  = sum of 🟡 across all stages
-total_suggestion = sum of 🟢 across all stages
-total_diamond  = sum of 💎 across all stages
-
-deductions = (total_critical × 1.5) + (total_warning × 0.5) + (total_suggestion × 0.1)
-diamond_bonus = min(total_diamond × 0.1, 0.5)
-
-raw_score = 10.0 - deductions + diamond_bonus
-final_score = max(1, min(10, round(raw_score × 2) / 2))   # round to 0.5, floor 1, ceiling 10
-```
-
-Default weights (overridable via `.probekit.yml` → `scoring.weights`):
-- `critical`: 1.5 | `warning`: 0.5 | `suggestion`: 0.1 | `diamond`: 0.1 (max 0.5)
-
-**Show in report:**
-```
-## Overall Quality Score: X.X/10
-
-Calculation: 10.0 - (N×1.5) - (N×0.5) - (N×0.1) + diamond(N×0.1) = X.X → X.X/10
-```
-
-## Overall Quality Gate
-
-The suite **PASSES** when:
-- All blocking stages pass (code-audit ≥ 4/10)
-- No unaddressed 🔴 CRITICAL findings across all stages
-- Architecture scores ≥ 3.0/10 (if arch stages ran)
-
-The suite **WARNS** when:
-- Architecture score 3.0–4.9/10
-- Code audit score 4–6/10
-- Non-blocking stages have FAIL gate
-
-The suite **FAILS** when:
-- Code audit score < 4/10 (pipeline stopped)
-- Any blocking stage has FAIL gate
+Update `{{report_dir}}/AUDIT-TRACKER.md`.
 
 ## Skills NOT in Pipeline
 
@@ -292,49 +226,49 @@ The suite **FAILS** when:
 | livemockup-studio | UI prototyping, not testing |
 | simplify | Code quality improvement, not testing |
 
-## Inter-Skill Context Protocol
+## Context Passing
 
-After each stage, build a structured context object to pass to the next stage.
-This replaces generic text strings with actionable data.
-
-**Context structure** (mental model — not JSON, just organized passing):
-```
-source_skill: <skill that just ran>
-result: { score: X/10, gate: PASS/WARN/FAIL }
-severity_counts: { critical: N, warning: N, suggestion: N, diamond: N }
-hotspots: [ { file, reason, finding_count, priority: HIGH/MEDIUM } ]
-findings_for_next: [
-  { severity, file, line, function, title, test_hint }
-]
-recommendations: [ "free-text guidance for next skill" ]
-```
-
-**What each stage passes forward:**
-
-| From → To | Key context passed |
-|-----------|-------------------|
-| arch-review → arch-review-bogame | Hotspot modules, structural violations, dependency issues |
-| arch-review(s) → code-audit | Files with arch violations to check at code level |
-| code-audit → unit-test | Findings with file:line:function + specific test scenarios to generate |
-| code-audit → integration-test | Uncovered findings needing real DB/API, boundary functions |
-| unit-test → integration-test | Functions with low coverage at service boundaries |
-| integration-test → e2e-bdd-test | User flows with failures, unhappy paths not covered |
-| code-audit → security-audit | Security findings (Section 4) for deeper validation, auth-related files |
-| security-audit → unit-test | Vulnerability findings needing regression tests (SQL injection inputs, etc.) |
-| dependency-audit → (independent) | Reads manifests independently, no upstream context needed |
-| e2e-bdd-test → perf-test | Critical user journeys, endpoints with N+1 findings |
-
-**Rules:**
-- Only pass 🔴 + 🟡 findings forward (not 🟢 SUGGESTION)
-- Each recommendation must be actionable: include file path, function name, what to check/test
-- Downstream skill reports coverage: "Covered N of M findings from code-audit context"
+Read `references/inter-skill-context.md` for the full protocol on passing structured context between stages.
 
 ## Quick Reference
 
 Invoke:
-- `/test-suite <path>` — quality mode (default)
-- `/test-suite --full <path>` — all 9 stages
-- `/test-suite --quick <path>` — code-audit + unit-test
-- `/test-suite --arch <path>` — architecture only
-- `/test-suite --deep <path>` — arch + code + security + unit + integration
-- `/test-suite --secure <path>` — code-audit + security-audit + dependency-audit
+- `/test-suite {path}` — quality mode (default)
+- `/test-suite --full {path}` — all 13 stages
+- `/test-suite --quick {path}` — type-audit + code-audit + unit-test
+- `/test-suite --arch {path}` — architecture only
+- `/test-suite --deep {path}` — arch + type + code + security + health + comprehension + unit + integration
+- `/test-suite --secure {path}` — code-audit + security-audit + dependency-audit
+- `/test-suite --health {path}` — runtime health audit
+- `/test-suite --types {path}` — type system analysis only
+- `/test-suite --comprehension {path}` — comprehension debt analysis
+- `/test-suite --hygiene {path}` — project hygiene scan
+
+## Changelog
+
+### v4.0.0 (2026-04-14)
+- **NEW:** type-audit stage (Step 2.5) — type system analysis with blocking gate on compiler errors
+- **NEW:** comprehension-debt stage (Step 3.9) — naming, abstraction, coupling, documentation analysis
+- **NEW:** project-hygiene stage (Step 7.5) — dead files, duplicates, stale deps, git bloat
+- **NEW:** 3 new modes: `types`, `comprehension`, `hygiene`
+- **CHANGED:** Universal pipeline: 13 stages instead of 10
+- **CHANGED:** `quick` mode now includes type-audit
+- **CHANGED:** `deep` mode now includes type-audit + comprehension-debt
+
+### v3.1.0 (2026-04-05)
+- **CHANGED:** Removed project-specific stages (arch-review-bogame, code-audit-bogame, health-audit-bogame, godot-unit-test)
+- **CHANGED:** Universal pipeline: 10 stages instead of 12
+- **CHANGED:** Language routing simplified — no Godot-specific routing
+
+### v3.0.0 (2026-04-05)
+- **NEW:** Auto-Fix Protocol — automatically fixes safe CRITICALs (localized, < 20 LOC, testable), reverts on test failure
+- **NEW:** Stage Relevance Gate — skips irrelevant stages based on project state
+- **NEW:** Consolidated report format — single AUDIT-REPORT with Fixed/P1/P2/P3 sections, no intermediate reports
+
+### v2.5.0
+- Initial release with 12-stage pipeline, 7 modes, quality gates
+
+## Anchor
+
+[*] test-suite v4.0.0 * ready
+[>] | NEXT: user command
