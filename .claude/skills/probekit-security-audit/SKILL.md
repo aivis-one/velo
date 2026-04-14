@@ -3,7 +3,7 @@ name: probekit-security-audit
 description: "Security-focused code review. Scans for OWASP Top 10 vulnerabilities, hardcoded secrets, insecure defaults, auth/authz gaps, and API security issues — all by reading source code. Deeper than code-audit Section 4. Triggers on: 'security audit', 'security review', 'find vulnerabilities', 'check for secrets', '/probekit-security-audit', 'пробкит безопасность', 'пробкит секьюрити'."
 ---
 
-# security-audit v1.0.0
+# security-audit v1.1.0
 
 Security-focused code review for Claude Code.
 Scans source code for OWASP Top 10 vulnerabilities, hardcoded secrets,
@@ -16,7 +16,7 @@ by reading source files.
 
 ## Configuration
 
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -49,6 +49,23 @@ For each applicable OWASP category, scan target files for detection patterns:
 - A10: SSRF — unvalidated URL fetching from user input
 
 For each finding: record severity (🔴/🟡), file:line, OWASP category, CWE, fix suggestion.
+
+**Step 3.5 — Data Flow Tracing**
+
+Read `references/data-flow-tracing.md`.
+
+Trace sensitive data from entry to storage/exit:
+1. Identify sensitive data entry points (user input, API payloads, file uploads, webhook bodies)
+2. For each entry point, trace the data through the code:
+   - Where is it validated/sanitized?
+   - Where is it stored (DB, file, cache, log)?
+   - Where is it sent externally (API calls, emails, webhooks)?
+   - Is it ever logged with PII intact?
+3. Build a data flow map: Entry -> [Transform] -> [Store/Exit]
+4. Flag paths where sensitive data flows without sanitization or encryption
+5. Flag paths where sensitive data reaches logs or error messages
+
+For each unprotected flow: record severity, source file:line, data type, flow path, fix suggestion.
 
 **Step 4 — Secret detection**
 Read `references/secret-patterns.md`.
@@ -95,12 +112,13 @@ Build final report grouped by OWASP category.
 Save to `{{report_dir}}/SECURITY-AUDIT-<target>-<YYYYMMDD>.md`
 
 **Step 7.5 — Fix mode (if --fix)**
-For each 🔴 finding with a safe auto-fix:
+Read `probekit-core/references/auto-fix-safety.md` — follow Safety Checklist and Fix-Verify-Revert Protocol.
+For each 🔴 finding with a safe auto-fix (per core checklist):
 - `verify=False` → `verify=True`
 - `DEBUG = True` → `DEBUG = os.environ.get('DEBUG', 'False') == 'True'`
 - `import random` for tokens → `import secrets`
-Apply fix, show diff, note in report.
-Do NOT auto-fix: auth logic, SQL queries, complex patterns.
+Apply fix, verify with tests, show diff, note in report using standard auto-fix table format.
+Do NOT auto-fix: auth logic, SQL queries, complex patterns (per core NEVER-fixable list).
 
 **Step 8 — Update audit tracker**
 Read or create `{{report_dir}}/AUDIT-TRACKER.md`.
@@ -117,3 +135,8 @@ They do NOT conflict: code-audit flags obvious security issues; security-audit p
 ## Quick Reference
 
 See `references/user-guide.md` for invocation examples.
+
+## Anchor
+
+[*] security-audit v1.1.0 * ready
+[>] | NEXT: user command

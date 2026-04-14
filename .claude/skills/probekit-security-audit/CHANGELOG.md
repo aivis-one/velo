@@ -9,3 +9,5 @@
 - Fix mode (--fix) for safe auto-fixes
 - CWE mapping for all findings
 - Scoring: 10 - (CRITICAL×1.5) - (WARNING×0.5) - (SUGGESTION×0.1)
+
+Toolchain: skill-architect v3.0.0

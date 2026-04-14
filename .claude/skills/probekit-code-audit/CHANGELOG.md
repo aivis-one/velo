@@ -88,3 +88,5 @@ Initial release.
 - Auto-saves report to file for large inputs
 - Slash command: /code-audit
 - Auto-trigger on review/audit/find bugs keywords
+
+Toolchain: skill-architect v3.0.0

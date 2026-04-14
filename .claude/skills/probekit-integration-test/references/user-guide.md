@@ -119,7 +119,7 @@ Note: fixes the test code, not the source code.
 
 Each run produces:
 1. Generated test files in `tests/integration/` (or detected test dir)
-2. Integration test report in `docs/02_milestones/ADR/review/`
+2. Integration test report in `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/`
 3. Updated `INTEGRATION-TEST-TRACKER.md`
 
 ---

@@ -36,7 +36,7 @@ data flow, scalability, testability, and evolvability.
 
 ## Report Location
 
-Reports saved to: `docs/02_milestones/ADR/review/ARCH-REVIEW-<target>-<date>.md`
+Reports saved to: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/ARCH-REVIEW-<target>-<date>.md`
 
 ## Works With
 

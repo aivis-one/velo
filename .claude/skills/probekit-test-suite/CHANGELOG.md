@@ -39,3 +39,5 @@
 - 3 modes: full, quick, quality
 - Language routing for .py, .gd, .js/.ts
 - Quality gate: code-audit score ≥ 4/10
+
+Toolchain: skill-architect v3.0.0

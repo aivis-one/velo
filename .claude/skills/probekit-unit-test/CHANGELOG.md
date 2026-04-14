@@ -75,3 +75,5 @@ Initial release.
 - Auto-saves report to file for large inputs
 - Slash command: /unit-test
 - Auto-trigger on "write tests", "покрой тестами", "напиши тесты" keywords
+
+Toolchain: skill-architect v3.0.0

@@ -26,3 +26,5 @@
 - Quality gate: PASS/WARN/FAIL
 - --fix mode for auto-refactoring
 - Unified AUDIT-TRACKER.md format
+
+Toolchain: skill-architect v3.0.0

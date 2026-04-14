@@ -203,7 +203,7 @@ Example:
 ## Environment Detection
 
 The skill automatically checks for ENVIRONMENT.md in your project
-(typically at root or docs/01_reference/).
+(typically at root or docs/01_refer/).
 
 If found, it reads shell/tool pitfalls and adapts command syntax accordingly.
 This means the skill works correctly on Windows/PowerShell, macOS/zsh,
@@ -248,7 +248,7 @@ Final report ends with:
 ## Configuration
 
 The `review_dir` variable in SKILL.md controls where reports are saved.
-Default: `docs/02_milestones/ADR/review`
+Default: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW`
 
 To change for your project, edit the Configuration section in SKILL.md.
 

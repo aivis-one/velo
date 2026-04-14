@@ -3,7 +3,7 @@ name: probekit-dependency-audit
 description: "Dependency analysis skill. Audits manifest files for version pinning, typosquatting, abandonment signals, suspicious install scripts, and import/manifest mismatches. Triggers on: 'dependency audit', 'check dependencies', 'audit packages', 'typosquatting check', '/probekit-dependency-audit', 'пробкит зависимости', 'пробкит пакеты'."
 ---
 
-# dependency-audit v1.0.0
+# dependency-audit v1.1.0
 
 Dependency analysis skill for Claude Code.
 Reads manifest and lock files to audit version pinning, detect suspicious
@@ -15,7 +15,7 @@ Cannot check CVE databases or download packages at runtime.
 
 ## Configuration
 
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Execution Steps
 
@@ -63,6 +63,26 @@ For each dependency name, check:
    - Node: `require('X')` / `import X from 'X'` where X not in package.json
    - Flag: 🟡 WARNING (may be stdlib or dev dependency)
 
+**Step 3.5 — Phantom dependency detection (reverse-check)**
+
+Scan source code for actual import usage, then compare against manifest:
+
+1. Collect all unique third-party imports from source code:
+   - Python: `import X`, `from X import ...` (exclude stdlib modules)
+   - Node: `require('X')`, `import ... from 'X'` (exclude relative paths)
+   - Go: `import "X"` (exclude stdlib)
+2. Collect all dependency names from manifest files
+3. Cross-reference:
+   - **Phantom dependency**: in manifest but never imported by source code
+     - 🟡 WARNING: package in requirements.txt/package.json but zero imports in src/
+     - Exclude: plugins, CLI tools, type stubs, runtime-only deps (e.g., uvicorn, gunicorn)
+     - If manifest has comment explaining why → downgrade to 🟢 SUGGESTION
+   - **Shadow import**: imported in code but not in manifest (already covered in Step 3.3)
+4. Report phantom dependencies with:
+   - Package name and version from manifest
+   - Grep result showing zero matches in source code
+   - Recommendation: verify if runtime-only or truly unused, then remove
+
 **Step 4 — Abandonment signals**
 For each dependency, check what's observable from manifest/lock:
 - Version date (if in lock file): last update > 2 years → 🟡 WARNING
@@ -98,8 +118,14 @@ Claude Code **can**:
 - ✅ Detect typosquatting by name similarity to popular packages
 - ✅ Check install scripts in package.json
 - ✅ Verify all imports have manifest entries
+- ✅ Detect phantom dependencies (in manifest, not in code)
 - ✅ Detect abandoned packages from visible signals
 
 ## Quick Reference
 
 See `references/user-guide.md` for invocation examples.
+
+## Anchor
+
+[*] dependency-audit v1.1.0 * ready
+[>] | NEXT: user command

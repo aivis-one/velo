@@ -12,7 +12,7 @@ pytest-benchmark, and stdlib fallback — auto-detected from project environment
 
 ## Configuration
 
-report_dir: docs/02_milestones/ADR/review
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 default_thresholds:
   p95_ms: 500
   p99_ms: 1500
@@ -184,3 +184,8 @@ Delta vs previous run: show latency regression/improvement.
 ## Quick Reference
 
 See `references/user-guide.md` for invocation examples.
+
+## Anchor
+
+[*] perf-test v1.2.0 * ready
+[>] | NEXT: user command
