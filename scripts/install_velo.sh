@@ -22,8 +22,8 @@
 #   - Ubuntu 22.04+ (fresh VPS)
 #   - Root access
 #   - DNS A-records pointing to this server:
-#       vel-app.com     → <VPS IP>
-#       api.vel-app.com → <VPS IP>
+#       vel-app.com     → 37.1.204.171
+#       api.vel-app.com → 37.1.204.171
 # ==============================================================================
 
 # === Configuration ===
@@ -131,8 +131,8 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 echo -e "  Type  Name                Value"
 echo -e "  ────  ──────────────────  ─────────────────"
-echo -e "  A     vel-app.com         <VPS IP>"
-echo -e "  A     api.vel-app.com     <VPS IP>"
+echo -e "  A     vel-app.com         37.1.204.171"
+echo -e "  A     api.vel-app.com     37.1.204.171"
 echo ""
 echo -e "${YELLOW}Both records must resolve to this server before SSL setup.${NC}"
 echo ""
