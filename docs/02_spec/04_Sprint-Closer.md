@@ -284,8 +284,8 @@ If no new decisions: `No new decisions recorded for this sprint.`
 
 ## Code Audit Result
 
-| Severity | Found | Resolved | Logged to Project Backlog |
-|----------|-------|----------|---------------------------|
+| Severity | Found | Resolved | Logged to BACKLOG |
+|----------|-------|----------|-------------------|
 | CRITICAL | [N] | [N] | [N] |
 | HIGH | [N] | [N] | [N] |
 | MEDIUM | [N] | [N] | [N] |
