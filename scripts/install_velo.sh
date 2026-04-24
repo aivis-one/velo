@@ -704,35 +704,56 @@ start_stack() {
 
     cd "$INSTALL_BASE/repo"
 
-    # Build and start (pass VITE vars as build args)
     set -a; source "$INSTALL_BASE/vite.env"; set +a
-    docker compose build --no-cache app frontend
-    docker compose up -d
 
-    # Wait for health
-    log "Waiting for services to become healthy..."
+    # -- 1. Build and start backend + infrastructure --
+    log "Building backend..."
+    docker compose build --no-cache app
+    docker compose up -d app postgres redis
+
+    # Wait for backend health before generating types.
+    log "Waiting for backend to become healthy..."
     sleep 10
 
-    # Check health
     local HEALTH_URL="http://127.0.0.1:8000/health"
     local RETRIES=12  # 12 x 5s = 60s max
 
     for i in $(seq 1 $RETRIES); do
         if curl -s "$HEALTH_URL" | grep -q '"status"'; then
-            success "VELO API is running!"
-            echo ""
-            info "Health check response:"
-            curl -s "$HEALTH_URL" | python3 -m json.tool 2>/dev/null || curl -s "$HEALTH_URL"
-            echo ""
-            return 0
+            success "Backend is running"
+            break
         fi
         echo -n "."
         sleep 5
+        if [ "$i" -eq "$RETRIES" ]; then
+            error "Backend did not respond within 60s"
+            warn "Check logs: docker compose logs app"
+            return 1
+        fi
     done
 
-    error "API did not respond within 60s"
-    warn "Check logs: docker compose -f $INSTALL_BASE/repo/docker-compose.yml logs"
-    return 1
+    # -- 2. Generate frontend types from live backend OpenAPI --
+    log "Generating frontend API types from backend OpenAPI..."
+    curl -s http://127.0.0.1:8000/openapi.json > /tmp/openapi.json
+    python3 "$INSTALL_BASE/repo/backend/scripts/generate_ts_types.py" \
+        /tmp/openapi.json \
+        "$INSTALL_BASE/repo/frontend/src/api/generated.ts"
+    rm -f /tmp/openapi.json
+    success "Frontend types generated"
+
+    # -- 3. Build and start frontend (picks up fresh generated.ts) --
+    log "Building frontend..."
+    docker compose build --no-cache frontend
+    docker compose up -d frontend
+
+    log "Waiting for frontend..."
+    sleep 5
+
+    info "Health check response:"
+    curl -s "$HEALTH_URL" | python3 -m json.tool 2>/dev/null || curl -s "$HEALTH_URL"
+    echo ""
+
+    success "VELO stack is running!"
 }
 
 start_stack
@@ -766,7 +787,7 @@ create_management_script() {
 #!/bin/bash
 
 # ==============================================================================
-# VELO Management Script v1.3
+# VELO Management Script v1.4
 # Usage: velo {command} [options]
 # ==============================================================================
 
@@ -997,22 +1018,22 @@ case "${1:-}" in
         echo "Updated: $CURRENT_COMMIT → $NEW_COMMIT"
         echo ""
 
-        # Rebuild and restart
-        # NOTE: frontend tests run during `docker compose build frontend`
-        # because Dockerfile has `RUN npm run test` before `RUN npm run build`.
-        # If tests fail, the build fails, and update stops here.
-        echo "Rebuilding Docker images (frontend tests run during build)..."
+        # -- 1. Build backend --
+        echo "Building backend..."
         cd "$COMPOSE_DIR"
         set -a; source "$INSTALL_BASE/vite.env"; set +a
-        $COMPOSE_CMD build app frontend
+        $COMPOSE_CMD build app
 
+        # -- 2. Stop everything, start backend + infra --
+        echo ""
         echo "Restarting services..."
         $COMPOSE_CMD down
-        $COMPOSE_CMD up -d
+        $COMPOSE_CMD up -d app postgres redis
 
         # Run migrations
         echo ""
         echo "Running database migrations..."
+        sleep 5
         $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
             echo -e "${RED}✗ Migration failed!${NC}"
             echo "Check logs: velo logs app"
@@ -1023,13 +1044,28 @@ case "${1:-}" in
         # Run backend tests
         echo ""
         echo "Running backend tests..."
-        if $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-            echo -e "${GREEN}✓ All backend tests passed${NC}"
-        else
-            echo -e "${RED}✗ BACKEND TESTS FAILED — app is running but code may be broken${NC}"
+        if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
+            echo -e "${RED}✗ BACKEND TESTS FAILED${NC}"
             echo "Fix the code and run: velo update"
             exit 1
         fi
+        echo -e "${GREEN}✓ All backend tests passed${NC}"
+
+        # -- 3. Generate frontend types from live backend --
+        echo ""
+        echo "Generating frontend API types from backend OpenAPI..."
+        curl -s http://127.0.0.1:8000/openapi.json > /tmp/openapi.json
+        python3 "$COMPOSE_DIR/backend/scripts/generate_ts_types.py" \
+            /tmp/openapi.json \
+            "$COMPOSE_DIR/frontend/src/api/generated.ts"
+        rm -f /tmp/openapi.json
+        echo -e "${GREEN}✓ Frontend types generated${NC}"
+
+        # -- 4. Build and start frontend (with fresh types) --
+        echo ""
+        echo "Building frontend (tests run during build)..."
+        $COMPOSE_CMD build frontend
+        $COMPOSE_CMD up -d frontend
 
         # Health check
         echo ""
@@ -1145,7 +1181,7 @@ case "${1:-}" in
     # === Version ===
 
     version)
-        echo "VELO Management Script v1.3"
+        echo "VELO Management Script v1.4"
         echo ""
         cd "$INSTALL_BASE/repo" 2>/dev/null && {
             echo -n "Commit: "
@@ -1193,6 +1229,22 @@ case "${1:-}" in
         esac
         ;;
 
+    # === Generate Types ===
+
+    gen-types)
+        echo "Generating frontend types from backend OpenAPI..."
+        cd_compose
+        curl -s http://127.0.0.1:8000/openapi.json > /tmp/openapi.json || {
+            echo -e "${RED}✗ Cannot reach backend API. Is it running?${NC}"
+            exit 1
+        }
+        python3 "$COMPOSE_DIR/backend/scripts/generate_ts_types.py" \
+            /tmp/openapi.json \
+            "$COMPOSE_DIR/frontend/src/api/generated.ts"
+        rm -f /tmp/openapi.json
+        echo -e "${GREEN}✓ generated.ts updated${NC}"
+        ;;
+
     # === Help ===
 
     *)
@@ -1216,6 +1268,7 @@ case "${1:-}" in
         echo ""
         echo "Deployment:"
         echo "  update              — Pull, rebuild, migrate, test, restart"
+        echo "  gen-types           — Regenerate frontend types from backend"
         echo ""
         echo "Database:"
         echo "  db connect          — Open psql session"
