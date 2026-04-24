@@ -1,3 +1,5 @@
+> **SUPERSEDED** by decision #009 (2026-04-24). Bundle nomenclature replaces velo-namespace. Historical reference only; do not follow instructions herein.
+
 # VELΘ Design Migration Plan v4
 # Старт от main. Никаких ссылок на старые ветки.
 

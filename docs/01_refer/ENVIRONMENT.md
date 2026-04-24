@@ -143,7 +143,8 @@ Files under `docs/` and what they own:
 ### Claude Design
 - Access: claude.ai/design (Pro/Max/Team required).
 - Brand lock language is mandatory (see `ARCHITECTURE.md` §Tools).
-- One cycle = one screen. Do not batch multiple screens into one Claude Design project.
+- One cycle = one screen generation (one request = one screen, not batch-gen multiple screens in one prompt).
+- One Claude Design project per product — VELO = one project with all screens + shared design system. See decisions.md #006.
 
 ### ProbeKit
 - All skills invoked by name `/probekit-<skill>`. Lite profile runs automatically in Sprint-Closer Step 2.

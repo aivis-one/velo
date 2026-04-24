@@ -8,14 +8,14 @@
 
 ## Project Overview
 
-Velo is a mobile Vue 3 PWA for wellness/meditation practices. Three user roles: `user`, `master`, `admin`. Modular monolith backend (FastAPI), separate code ownership.
+Velo is a Telegram Mini App with PWA fallback for non-Telegram browsers. Vue 3 mobile-first. Three user roles: `user`, `master`, `admin`. Modular monolith backend (FastAPI), separate code ownership. See decisions.md #013. Platform abstraction lives in `frontend/src/platform/`.
 
 Full functional and technical background: see root-level documents
 - `VELO-Technical-Specification.md` — master technical spec
 - `VELO-Frontend.md` — frontend architecture
 - `VELO-Frontend-Specification.md` — UI/UX detailed spec
 - `VELO-Design-Document.md` — design system principles
-- `VELO-Anti-Patterns.md` — 6 frontend anti-patterns (FP-01..FP-06) to check
+- `VELO-Anti-Patterns.md` — 8 frontend anti-patterns (FP-01..FP-08) to check
 
 These are authoritative and read-only for this framework — do not edit from SPEC protocols, only reference.
 
@@ -34,13 +34,15 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `styles/` — variables.css (semantic tokens), global.css
 - `platform/`, `utils/`
 
+**Bundle-sourced shared components** (ported during S1 infra + S2 bundle-port): Accordion, AppHeader, Avatar, BackHeader, Backdrop, Button, Callout, Cards, Chip, Chips, Input, MandalaBackdrop, MasterCard, MoodPicker, TabBar, WeekdayStrip — 16 components from `docs/02_spec_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/components/`.
+
 ---
 
 ## Out of Scope for This Framework
 
 - `backend/` — written by collaborating engineer; we consume, we do not edit
 - Root-level `VELO-*.md` files — reference only, maintained in `main`
-- `Design_prototype/` — Figma-exported KB; referenced from Claude Design pipeline, not edited here
+- `Design_prototype_legacy_2026-03-11/` — Figma snapshot before bundle arrival (2026-04-23). Read-only reference only. Bundle at `docs/02_spec_assets/velo-design-system-2026-04-23/` is SSOT for design tokens, components, screens. See decisions.md #006.
 - `velo-mockups/` — static HTML mocks; kept as legacy reference
 - `diagrams/` — 9 mermaid diagrams; reference only
 
@@ -55,7 +57,8 @@ API contract SSOT for the frontend: `frontend/src/api/types.ts`. We do not maint
 - Files: PascalCase for Vue components (`UserDashboardView.vue`), camelCase for composables (`useAuth.ts`), kebab-case for CSS (`variables.css`)
 - Routes: kebab-case (`/user/topup-success`)
 - Pinia stores: singular, camelCase (`auth`, `balance`, `practices`)
-- CSS variables: `--velo-<domain>-<token>` (e.g., `--velo-bg-card`, `--velo-primary`). Do not rename existing variables — only change values. Add new variables at file end. See `DESIGN_MIGRATION.md` v4 in repo root.
+- CSS variables: follow bundle naming convention (e.g., `--text-primary`, `--surface-default`, `--shadow-glow-white`) as defined in bundle's `colors_and_type.css`. Bundle is SSOT; token names change when bundle updates. See `decisions.md #009`.
+- Prior constraint «do not rename existing variables» — SUPERSEDED (decision #009, 2026-04-24). DESIGN_MIGRATION.md v4 archived (decisions.md #009).
 
 ### TypeScript
 
@@ -79,6 +82,10 @@ API contract SSOT for the frontend: `frontend/src/api/types.ts`. We do not maint
 - Alias `@/` for `frontend/src/`.
 - Order: Vue/framework, third-party, `@/` local, relative.
 
+### Theme support
+
+Light (default) + dark via `[data-theme="dark"]` attribute on root. Tokens for both themes defined in `frontend/src/styles/variables.css` (bundle-sourced). All port-to-Vue cycles must verify both themes; screenshots for both in manual test. UI toggle infrastructure lands in C19 (S2). See decisions.md #008.
+
 ---
 
 ## Tools & Pipelines
@@ -99,14 +106,18 @@ API contract SSOT for the frontend: `frontend/src/api/types.ts`. We do not maint
 
 See `docs/02_spec/03_Phase-Builder.md` § Design-Gen Cycle Type for the canonical procedure. Operational notes and lessons learned: `GUIDES/claude-design-pipeline.md`.
 
+Claude Design project structure: ONE project per product (VELO = one project, all screens together, shared design system + attached context). Generation is one screen per request (not batch-gen multiple screens in one prompt). Consolidated per decision #006.
+
 Brand lock (mandatory in every Claude Design prompt):
 
 ```
 NEVER use: cream/beige backgrounds, serif display fonts, italic word accents,
-terracotta/amber accents.
-USE: Marmelad font only, blue-slate base #4c6589, teal/peach/pink accents
-per Design_prototype/tokens.md, glassmorphism with backdrop-blur(2px),
-radii 15/200/5/100 strictly.
+terracotta/amber accents, backdrop-filter blur, glassmorphism effects.
+USE: Marmelad Regular only (single weight), bundle tokens from
+docs/02_spec_assets/velo-design-system-2026-04-23/project/colors_and_type.css,
+teal/peach/pink accents, radii md:8 / lg:15 / xl:24 / full:200,
+FLAT semi-transparent surfaces.
+See decisions.md #006, #007.
 ```
 
 ### ProbeKit lite profile
