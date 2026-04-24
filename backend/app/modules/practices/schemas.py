@@ -29,7 +29,7 @@
 # PRACTICE SUMMARY (Frontend Backlog A-03):
 #   Lightweight practice representation for embedding in booking /
 #   waitlist / purchase responses. Contains only the fields needed
-#   for list-view cards (title, type, time, duration, master).
+#   for list-view cards (title, type, time, duration, timezone, master).
 #
 # MASTER_NAME (Frontend F3 prep):
 #   master_name added to PracticeResponse and PracticeSummary.
@@ -335,6 +335,11 @@ class PracticeSummary(BaseModel):
     Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse,
     and PurchaseWithPracticeResponse to give the frontend enough data
     for list-view cards without a separate GET /practices/{id} call.
+
+    CR-01: timezone added -- Practice ORM has timezone as NOT NULL,
+    model_validate() picks it up automatically via from_attributes.
+    Without this field, frontend fell back to Europe/Berlin for all
+    practices regardless of actual timezone.
     """
 
     id: UUID
@@ -342,6 +347,7 @@ class PracticeSummary(BaseModel):
     practice_type: str
     scheduled_at: datetime
     duration_minutes: int
+    timezone: str
     master_id: UUID
     master_name: str | None = None
 

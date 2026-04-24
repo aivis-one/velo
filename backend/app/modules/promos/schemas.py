@@ -5,12 +5,16 @@
 # CreateMasterPromoRequest: master creates a promo code.
 # PromoResponse:            full promo record.
 # PaginatedPromosResponse:  paginated list for master/admin views.
+#
+# CR-01: valid_from changed from required to optional. When omitted,
+#   validator defaults to utcnow() so downstream code always sees
+#   a concrete datetime (service layer unchanged).
 # =============================================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CreateMasterPromoRequest(BaseModel):
@@ -36,8 +40,12 @@ class CreateMasterPromoRequest(BaseModel):
         default=None, ge=1,
         description="Max number of uses (null = unlimited).",
     )
-    valid_from: datetime = Field(
-        description="Start of validity window (UTC).",
+    valid_from: datetime | None = Field(
+        default=None,
+        description=(
+            "Start of validity window (UTC). "
+            "Defaults to current time when omitted."
+        ),
     )
     valid_until: datetime | None = Field(
         default=None,
@@ -47,6 +55,19 @@ class CreateMasterPromoRequest(BaseModel):
         default=False,
         description="If true, only works for user's first purchase.",
     )
+
+    @field_validator("valid_from", mode="before")
+    @classmethod
+    def default_valid_from_to_now(cls, v: datetime | None) -> datetime:
+        """Default valid_from to current UTC time when not provided.
+
+        Guarantees downstream code always receives a concrete datetime,
+        so service-layer comparisons (valid_until <= valid_from) work
+        without None checks.
+        """
+        if v is None:
+            return datetime.now(timezone.utc)
+        return v
 
 
 class PromoResponse(BaseModel):
