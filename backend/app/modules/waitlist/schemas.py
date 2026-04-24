@@ -6,6 +6,10 @@
 # WaitlistConfirmResponse:          Entry + new booking id after confirm.
 # WaitlistWithPracticeResponse:     Entry + PracticeSummary (for list views).
 # PaginatedWaitlistResponse:        Paginated list of WaitlistWithPractice.
+#
+# CR-01: Response schemas use WaitlistStatus StrEnum instead of str
+#   so OpenAPI emits enum values and generated TypeScript types
+#   produce union literals instead of plain string.
 # =============================================================================
 
 from datetime import datetime
@@ -14,6 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.modules.practices.schemas import PracticeSummary
+from app.modules.waitlist.models import WaitlistStatus
 
 
 class WaitlistEntryResponse(BaseModel):
@@ -23,7 +28,7 @@ class WaitlistEntryResponse(BaseModel):
     practice_id: UUID
     user_id: UUID
     position: int
-    status: str
+    status: WaitlistStatus
     joined_at: datetime
     notified_at: datetime | None
     expires_at: datetime | None
@@ -57,7 +62,7 @@ class WaitlistWithPracticeResponse(BaseModel):
     practice_id: UUID
     user_id: UUID
     position: int
-    status: str
+    status: WaitlistStatus
     joined_at: datetime
     notified_at: datetime | None
     expires_at: datetime | None

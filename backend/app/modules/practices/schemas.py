@@ -50,6 +50,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+from app.modules.practices.models import (
+    PracticeStatus,
+    PracticeType,
+)
 
 
 class CreatePracticeRequest(BaseModel):
@@ -292,8 +296,8 @@ class PracticeResponse(BaseModel):
     master_id: UUID
     master_name: str | None = None
     master_methods: list[str] = []
-    practice_type: str
-    status: str
+    practice_type: PracticeType
+    status: PracticeStatus
     title: str
     description: str | None
     what_to_prepare: str | None = None
@@ -344,7 +348,7 @@ class PracticeSummary(BaseModel):
 
     id: UUID
     title: str
-    practice_type: str
+    practice_type: PracticeType
     scheduled_at: datetime
     duration_minutes: int
     timezone: str
