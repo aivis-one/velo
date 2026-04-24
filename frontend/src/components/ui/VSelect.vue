@@ -67,7 +67,7 @@ defineEmits<{
   display: block;
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-2);
 }
 
@@ -77,8 +77,8 @@ defineEmits<{
   padding: 0 40px 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-primary);
+  background: var(--surface-steel-alpha-15);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-base);
@@ -90,23 +90,23 @@ defineEmits<{
 
 .v-select__field:focus {
   outline: none;
-  border-color: var(--velo-border-input-focus);
+  border-color: var(--steel-muted);
 }
 
 .v-select__field:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background-color: var(--velo-bg-subtle);
+  background-color: var(--surface-subtle);
 }
 
 .v-select--error .v-select__field {
-  border-color: var(--velo-error);
+  border-color: var(--pink-primary);
 }
 
 .v-select__error {
   display: block;
   font-size: var(--text-xs);
-  color: var(--velo-error);
+  color: var(--pink-primary);
   margin-top: var(--space-1);
 }
 </style>

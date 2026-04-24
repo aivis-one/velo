@@ -178,7 +178,7 @@ onMounted(loadInitial)
 
 .admin-masters__count {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .admin-masters__list {
@@ -191,14 +191,12 @@ onMounted(loadInitial)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-masters__card:active {
@@ -213,7 +211,7 @@ onMounted(loadInitial)
 .admin-masters__card-name {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -224,7 +222,7 @@ onMounted(loadInitial)
 }
 
 .admin-masters__card-arrow {
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 

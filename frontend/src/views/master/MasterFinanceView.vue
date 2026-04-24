@@ -399,9 +399,9 @@ onMounted(async () => {
 
 /* -- Balance card -- */
 .finance-view__balance-card {
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
@@ -445,18 +445,16 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .finance-view__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   margin-bottom: var(--space-4);
@@ -472,13 +470,13 @@ onMounted(async () => {
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-md);
+  background: var(--surface-steel-alpha-15);
+  border-radius: var(--radius-lg);
 }
 
 .finance-view__warning-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -490,7 +488,7 @@ onMounted(async () => {
   display: block;
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-2);
 }
 
@@ -504,8 +502,8 @@ onMounted(async () => {
   padding: 12px var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-primary);
+  background: var(--surface-steel-alpha-15);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-base);
@@ -513,7 +511,7 @@ onMounted(async () => {
 
 .finance-view__amount-input:focus {
   outline: none;
-  border-color: var(--velo-border-input-focus);
+  border-color: var(--steel-muted);
 }
 
 .finance-view__amount-input::-webkit-inner-spin-button,
@@ -523,12 +521,12 @@ onMounted(async () => {
 
 .finance-view__all-btn {
   padding: 0 var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: 100px;
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
   cursor: pointer;
   white-space: nowrap;
   transition: opacity var(--transition-fast);
@@ -541,14 +539,14 @@ onMounted(async () => {
 .finance-view__hint {
   margin-top: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 
 .finance-view__error {
   margin-top: var(--space-1);
   font-size: var(--text-xs);
-  color: var(--velo-error);
+  color: var(--pink-primary);
 }
 
 /* -- History -- */
@@ -565,7 +563,7 @@ onMounted(async () => {
 
 .finance-view__empty-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .finance-view__history-list {
@@ -580,7 +578,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .finance-view__history-item:last-child {
@@ -597,17 +595,17 @@ onMounted(async () => {
 .finance-view__history-amount {
   font-weight: 400;
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .finance-view__history-meta {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .finance-view__history-fee {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .finance-view__load-more {

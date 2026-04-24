@@ -48,8 +48,8 @@ const initials = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-bg-subtle);
-  color: var(--velo-primary);
+  background: var(--surface-subtle);
+  color: var(--steel-button);
   font-weight: 400;
   flex-shrink: 0;
   overflow: hidden;

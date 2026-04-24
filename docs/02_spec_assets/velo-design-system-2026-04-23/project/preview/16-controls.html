@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:22px 24px; box-sizing:border-box; display:flex; gap:22px; align-items:center; flex-wrap:wrap;}
+  .pair{display:flex; flex-direction:column; gap:8px; align-items:center;}
+  .cap{font-size:11px; color:var(--text-secondary);}
+  /* Toggle */
+  .toggle{width:48px; height:28px; background:#D6E1EF; border-radius:200px; position:relative; cursor:pointer; transition:background 200ms;}
+  .toggle .knob{position:absolute; top:2px; left:2px; width:24px; height:24px; border-radius:999px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.15); transition:left 200ms;}
+  .toggle.on{background:#2F9EA8;}
+  .toggle.on .knob{left:22px;}
+  /* Checkbox */
+  .check{width:22px; height:22px; border-radius:6px; border:1.5px solid #B0BCCD; display:inline-flex; align-items:center; justify-content:center;}
+  .check.on{background:#2F9EA8; border-color:#2F9EA8; color:#fff;}
+  /* Radio */
+  .radio{width:22px; height:22px; border-radius:999px; border:1.5px solid #B0BCCD;}
+  .radio.on{border-color:#2F9EA8; background: radial-gradient(circle, #2F9EA8 0 6px, #fff 7px 99px);}
+  /* Progress */
+  .bar{width:140px; height:6px; background:#E2F0FD; border-radius:999px; overflow:hidden;}
+  .bar > span{display:block; height:100%; width:60%; background:#2F9EA8; border-radius:inherit;}
+  /* Slider */
+  .slider{width:140px; height:4px; background:#E2F0FD; border-radius:999px; position:relative;}
+  .slider > span{position:absolute; left:50%; top:50%; width:18px; height:18px; margin:-9px 0 0 -9px; border-radius:999px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.2), inset 0 0 0 2px #2F9EA8;}
+  .slider > i{display:block; height:100%; width:50%; background:#2F9EA8; border-radius:inherit;}
+</style></head><body>
+<div class="wrap">
+  <div class="pair"><div class="toggle on"><div class="knob"></div></div><div class="cap">Toggle · on</div></div>
+  <div class="pair"><div class="toggle"><div class="knob"></div></div><div class="cap">Toggle · off</div></div>
+  <div class="pair"><div class="check on"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6.5 L5 9 L10 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="cap">Check · on</div></div>
+  <div class="pair"><div class="check"></div><div class="cap">Check · off</div></div>
+  <div class="pair"><div class="radio on"></div><div class="cap">Radio · on</div></div>
+  <div class="pair"><div class="radio"></div><div class="cap">Radio · off</div></div>
+  <div class="pair"><div class="bar"><span></span></div><div class="cap">Progress 60%</div></div>
+  <div class="pair"><div class="slider"><i></i><span></span></div><div class="cap">Slider</div></div>
+</div>
+</body></html>

@@ -39,17 +39,17 @@ withDefaults(
 }
 
 .v-tag--blue {
-  background: var(--velo-blue-100);
-  color: var(--velo-primary);
+  background: var(--neutral-100);
+  color: var(--steel-button);
 }
 
 .v-tag--pink {
-  background: var(--velo-pink-100);
-  color: var(--velo-pink-300);
+  background: var(--pink-50);
+  color: var(--pink-primary);
 }
 
 .v-tag--sand {
-  background: var(--velo-sand-100);
-  color: var(--velo-peach-700);
+  background: var(--warm-100);
+  color: var(--warm-deep);
 }
 </style>

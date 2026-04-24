@@ -68,11 +68,9 @@ function onRetry(): void {
   align-items: center;
   gap: var(--space-5);
   padding: var(--space-8);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
   text-align: center;
 }
 
@@ -84,7 +82,7 @@ function onRetry(): void {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -92,7 +90,7 @@ function onRetry(): void {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
 }

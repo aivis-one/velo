@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:20px 24px; box-sizing:border-box; display:flex; gap:14px; align-items:center;}
+  .a{display:inline-flex; align-items:center; justify-content:center; border-radius:999px; background:#E2F0FD; color:#4C6589; font:400 16px/1 var(--font-display); position:relative;}
+  .a.sm{width:28px; height:28px; font-size:11px;}
+  .a.md{width:40px; height:40px; font-size:14px;}
+  .a.lg{width:56px; height:56px; font-size:20px;}
+  .a.xl{width:80px; height:80px; font-size:28px;}
+  .dot{position:absolute; bottom:0; right:0; width:10px; height:10px; border-radius:999px; background:#2F9EA8; border:2px solid #fff;}
+  .a.teal{background:#76DDE6; color:#1E5A60;}
+  .a.pink{background:#FDDFE3; color:#AD3444;}
+  .a.warm{background:#FDF3E2; color:#A16124;}
+  .stack{display:flex;}
+  .stack .a{margin-left:-10px; border:2px solid #fff;}
+  .stack .a:first-child{margin-left:0;}
+  .cap{flex:1; font-size:11px; color:var(--text-secondary);}
+</style></head><body>
+<div class="wrap">
+  <div class="a sm">АН</div>
+  <div class="a md">АН<div class="dot"></div></div>
+  <div class="a lg teal">МИ</div>
+  <div class="a xl pink">АЛ</div>
+  <div class="stack">
+    <div class="a md">АН</div>
+    <div class="a md teal">МИ</div>
+    <div class="a md warm">КТ</div>
+    <div class="a md pink" style="background:#E2F0FD; color:#4C6589;">+3</div>
+  </div>
+  <div class="cap">Avatar · 28 · 40 · 56 · 80 · status dot · stacked</div>
+</div>
+</body></html>

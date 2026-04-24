@@ -1,85 +1,196 @@
-/* =============================================================================
- * VELO Frontend -- Design Tokens
- * =============================================================================
- * Source: velo-mockups/css/variables.css (1:1 transfer)
- * Single source of truth for all visual values.
- *
- * F8-fix (W-4): Added semantic tint variables (bg, border, text) for
- * warning / error / success / alert states. Admin views use these instead
- * of hardcoded hex values.
- * =========================================================================== */
+/* ==================================================================
+ * Velo Design Tokens
+ * Source of truth: bundle velo-design-system-2026-04-23
+ * See: docs/02_spec_assets/velo-design-system-2026-04-23/project/colors_and_type.css
+ * Decisions: #006 (bundle SSOT), #007 (flat; shadows OK, no backdrop-filter),
+ *            #008 (dark mode tokens in S1, UI toggle in C19), #009 (token rename in C03)
+ * ================================================================== */
+
+@font-face {
+  font-family: 'Marmelad';
+  src: url('/fonts/Marmelad-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  /* === Colors: Primary === */
-  --velo-primary: #627a9c;
-  --velo-primary-light: #627a9c;
-  --velo-primary-dark: #4c6589;
+  /* ==================================================================
+   * BUNDLE TOKENS — canonical set (light mode)
+   * Ported verbatim from bundle colors_and_type.css.
+   * ================================================================== */
 
-  /* === Colors: Background === */
-  --velo-bg-start: #ffffff;
-  --velo-bg-end: #ffffff;
-  --velo-bg-subtle: rgba(98,122,156,0.06);
-  --velo-bg-card: rgba(171, 191, 218, 0.60);
+  /* ───────────── Primitive colors ───────────── */
 
-  /* === Colors: Text === */
-  --velo-text-primary: #4c6589;
-  --velo-text-secondary: rgba(76,101,137,0.70);
-  --velo-text-muted: rgba(76,101,137,0.50);
+  /* Neutrals — 13 steps, warm grey-blue */
+  --neutral-white: #ffffff;
+  --neutral-50:  #f5f7fa;
+  --neutral-100: #e2f0fd;   /* hairline / border subtle */
+  --neutral-200: #d6e1ef;
+  --neutral-300: #b0bccd;
+  --neutral-400: #98a3b4;
+  --neutral-500: #7f8b9b;
+  --neutral-600: #677282;   /* text/secondary (light) */
+  --neutral-700: #4f5969;
+  --neutral-800: #364150;   /* border strong (dark) */
+  --neutral-900: #1e2837;   /* surface inverse (light), surface subtle (dark) */
+  --neutral-950: #141c2a;   /* surface default (dark) */
+  --neutral-black: #0b111c;
 
-  /* === Colors: Borders === */
-  --velo-border: #abbfda;
-  --velo-border-light: rgba(171,191,218,0.30);
+  /* Steel — the primary brand colour family */
+  --steel-muted: #abbfda;
+  --steel-light: #7f8b9b;
+  --steel-primary: #4c6589; /* text/primary, on-surface-default */
+  --steel-button:  #627a9c; /* filled button bg */
+  --steel-dark: #364150;
 
-  /* === Colors: Semantic base === */
-  --velo-success: #76dde6;
-  --velo-warning: #fbc088;
-  --velo-error: #f795a2;
-  --velo-info: #76dde6;
+  /* Project extension: navigation inactive tab background (alpha of --steel-button) */
+  --nav-inactive-bg: rgba(98, 122, 156, 0.15);
 
-  /* === Colors: Semantic tints (W-4) ===
-   * Used in admin banners, semaphore cards, status indicators.
-   * Replaces hardcoded hex values across admin views.
-   */
+  /* === Project extensions: alpha-surface tokens (C04, decision #021 pattern) ===
+     Replace former --velo-glass-* usages; FP-01 compliant (no inline rgba).
+     Values match prior glass token values exactly — visual parity preserved after glassmorphism removal. */
+  --surface-steel-alpha-15: rgba(98, 122, 156, 0.15);
+  --surface-steel-alpha-60: rgba(171, 191, 218, 0.60);
+  --surface-teal-alpha-30: rgba(118, 221, 230, 0.30);
+  --surface-teal-alpha-40: rgba(118, 221, 230, 0.40);
+  --surface-warm-alpha-40: rgba(251, 192, 136, 0.40);
 
-  /* Warning (amber) */
-  --velo-warning-bg: rgba(251,192,136,0.40);
-  --velo-warning-bg-hover: #FDE68A;
-  --velo-warning-border: #fbc088;
-  --velo-warning-text: #a16124;
-  --velo-warning-text-light: #B45309;
+  /* Teal — accent / CTA */
+  --teal-100: #d6f5f8;
+  --teal-500: #2f9ea8;      /* light-mode accent */
+  --teal-primary: #76dde6;  /* dark-mode accent + light-mode on-dark */
+  --teal-700: #26767d;      /* text/accent on light surface (AA) */
+  --teal-800: #1e5a60;
 
-  /* Error / Alert (red) */
-  --velo-error-bg: rgba(253,226,226,0.40);
-  --velo-error-bg-subtle: #FFF5F5;
-  --velo-error-border: #f795a2;
-  --velo-error-text: #a16124;
+  /* Warm — sand / peach, emotional moments (check-ins, warnings) */
+  --warm-50:  #feecdb;
+  --warm-100: #fdf3e2;      /* subtle warm surface */
+  --warm-primary: #fbc088;  /* warm accent border */
+  --warm-700: #d4863c;      /* warm accent text */
+  --warm-deep: #a16124;     /* warm accent text strong */
 
-  /* Success (green) */
-  --velo-success-bg: rgba(118,221,230,0.40);
-  --velo-success-text: #26767d;
+  /* Pink — soft emotional accent */
+  --pink-50: #fde2e2;
+  --pink-100: #fddfe3;
+  --pink-primary: #f795a2;
+  --pink-700: #ad3444;      /* feedback error */
 
-  /* Info (blue) */
-  --velo-info-bg: rgba(118,221,230,0.40);
-  --velo-info-text: #2f9ea8;
+  /* Feedback */
+  --feedback-info:    #619cd2;
+  --feedback-success: #2f9ea8;
+  --feedback-warning: #fbc088;
+  --feedback-error:   #ad3444;
 
-  /* === Colors: Mood (Phase F9) === */
-  --velo-mood-low: #f795a2;
-  --velo-mood-mid: #fbc088;
-  --velo-mood-high: #76dde6;
+  /* ───────────── Semantic tokens — Light (default) ───────────── */
 
-  /* === Typography === */
-  --font-body: 'Marmelad', 'Noto Sans', sans-serif;
-  --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
+  /* Surface */
+  --surface-default:  #ffffff;
+  --surface-subtle:   #f5f7fa;
+  --surface-muted:    #e2f0fd;
+  --surface-elevated: #ffffff;
+  --surface-overlay:  #ffffff;
+  --surface-inverse:  #1e2837;
 
-  --text-xs: 14px;
-  --text-sm: 15px;
-  --text-base: 18px;
-  --text-lg: 20px;
-  --text-xl: 32px;
-  --text-2xl: 50px;
-  --text-3xl: 32px;
+  /* Text */
+  --text-primary:   #4c6589;
+  --text-secondary: #677282;
+  --text-muted:     #98a3b4;
+  --text-accent:    #26767d;
+  --text-success:   #2f9ea8;
+  --text-warning:   #d4863c;
+  --text-error:     #ad3444;
+  --text-on-accent: #ffffff;
+  --text-on-inverse: #ffffff;
 
-  /* === Spacing === */
+  /* Border */
+  --border-default: #e2f0fd;
+  --border-subtle:  #e2f0fd;
+  --border-strong:  #b0bccd;
+  --border-accent:  #2f9ea8;
+
+  /* Icon */
+  --icon-default: #4c6589;
+  --icon-muted:   #98a3b4;
+  --icon-accent:  #2f9ea8;
+  --icon-inverse: #ffffff;
+
+  /* Accent */
+  --accent-teal: #2f9ea8;
+  --accent-pink: #f795a2;
+  --accent-warm: #fbc088;
+
+  /* Elevation / shadow — in light, hierarchy is carried by shadow */
+  --shadow-sm:  0 1px 2px rgba(30, 40, 55, 0.04), 0 1px 1px rgba(30, 40, 55, 0.04);
+  --shadow-md:  0 4px 12px rgba(30, 40, 55, 0.06), 0 2px 4px rgba(30, 40, 55, 0.04);
+  --shadow-lg:  0 12px 28px rgba(30, 40, 55, 0.08), 0 4px 8px rgba(30, 40, 55, 0.05);
+  --shadow-xl:  0 24px 48px rgba(30, 40, 55, 0.10), 0 8px 16px rgba(30, 40, 55, 0.06);
+  --shadow-2xl: 0 40px 80px rgba(30, 40, 55, 0.14), 0 12px 24px rgba(30, 40, 55, 0.08);
+  --shadow-glow-white: 0 0 20px 7px rgba(255, 255, 255, 1);
+  --shadow-glow-teal:  0 0 24px 6px rgba(118, 221, 230, 0.45);
+
+  /* Gradients */
+  --gradient-pink-peach: linear-gradient(135deg, #fddfe3 0%, #feecdb 100%);
+  --gradient-blue-teal:  linear-gradient(135deg, #e2f0fd 0%, #d6f5f8 100%);
+  --gradient-mandala-fade: radial-gradient(
+    circle at 50% 45%,
+    rgba(247, 149, 162, 0.22) 0%,
+    rgba(226, 240, 253, 0.0) 60%
+  );
+
+  /* Spacing — 8-step primitive scale */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+
+  /* Radius — 5 steps */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   15px;   /* the canonical "card" radius */
+  --radius-xl:   24px;
+  --radius-full: 200px;
+
+  /* Motion */
+  --motion-fast:   150ms;
+  --motion-normal: 250ms;
+  --motion-slow:   400ms;
+  --ease-out:   cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ───────────── Typography primitives ───────────── */
+  --font-display: "Marmelad", "Open Sans", ui-rounded, system-ui, sans-serif;
+
+  /* Text style scale — 10 steps, all Marmelad Regular (400) */
+  --type-display-lg-size: 32px;   --type-display-lg-lh: 40px;
+  --type-display-sm-size: 24px;   --type-display-sm-lh: 32px;
+  --type-h1-size: 20px;           --type-h1-lh: 28px;
+  --type-h2-size: 18px;           --type-h2-lh: 24px;
+  --type-h3-size: 16px;           --type-h3-lh: 22px;
+  --type-body-lg-size: 16px;      --type-body-lg-lh: 24px;
+  --type-body-size: 14px;         --type-body-lh: 20px;
+  --type-body-sm-size: 12px;      --type-body-sm-lh: 18px;
+  --type-label-size: 15px;        --type-label-lh: 20px;
+  --type-caption-size: 9px;       --type-caption-lh: 14px;
+
+  color-scheme: light;
+
+  /* ==================================================================
+   * LEGACY VELO TOKENS — residual (C04 will remove glass tokens;
+   * admin-deferred block renames at S4+)
+   * DO NOT USE IN NEW CODE.
+   * ================================================================== */
+
+  /* --- Legacy size tokens (candidates for inline during future view work) --- */
+  --size-success-icon: 80px;   /* success screen emoji */
+  --size-practice-emoji: 56px; /* practice type emoji in form screens */
+  --size-option-btn-min: 90px; /* mood/rating button minimum width */
+
+  /* --- Legacy spacing scale (bundle uses --space-xs..4xl) --- */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 14px;
@@ -89,73 +200,92 @@
   --space-8: 33px;
   --space-10: 48px;
 
-  /* === Borders === */
-  --radius-sm: 15px;
-  --radius-md: 15px;
-  --radius-lg: 15px;
-  --radius-xl: 100px;
-  --radius-full: 9999px;
+  /* --- Legacy typography scale (bundle uses --type-* system) --- */
+  --text-xs: 14px;
+  --text-sm: 15px;
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 32px;
+  --text-2xl: 50px;
+  --text-3xl: 32px;
 
-  /* === Shadows === */
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --shadow-xl: none;
-
-  /* === Transitions === */
+  /* --- Legacy transitions (bundle uses --motion-* + --ease-*) --- */
   --transition-fast: 0.15s ease;
   --transition-base: 0.2s ease;
   --transition-slow: 0.3s ease;
 
-  /* === Z-index === */
+  /* --- Legacy font aliases (bundle uses --font-display only) --- */
+  --font-body: 'Marmelad', 'Noto Sans', sans-serif;
+  --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
+
+  /* --- Legacy z-index layers (no bundle equivalent; preserved as-is) --- */
+  --z-background: -1;
+  --z-content: 1;
   --z-dropdown: 100;
   --z-sticky: 200;
   --z-modal: 300;
   --z-popup: 400;
   --z-toast: 500;
 
-  /* === VELΘ: Glass colors === */
-  --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
-  --velo-glass-blue-60: rgba(171, 191, 218, 0.60);
-  --velo-glass-teal-30: rgba(118, 221, 230, 0.30);
-  --velo-glass-teal-40: rgba(118, 221, 230, 0.40);
-  --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
-  --velo-glass-white-01: rgba(255, 255, 255, 0.01);
+  /* admin-deferred: rename at S4+ when admin views are reactivated (decision #020)
+     Used only in:
+     - frontend/src/views/admin/AdminConsistencyView.vue
+     - frontend/src/views/admin/AdminDashboardView.vue */
+  --velo-success-bg: rgba(118,221,230,0.40);
+  --velo-warning-bg: rgba(251,192,136,0.40);
+  --velo-warning-bg-hover: #FDE68A;
+  --velo-warning-border: #fbc088;
+  --velo-warning-text-light: #B45309;
+  --velo-error-bg: rgba(253,226,226,0.40);
+  --velo-error-bg-subtle: #FFF5F5;
+  --velo-error-border: #f795a2;
 
-  /* === VELΘ: Primitive palette === */
-  --velo-teal-400: #76dde6;
-  --velo-teal-600: #2f9ea8;
-  --velo-teal-700: #26767d;
-  --velo-peach-300: #fbc088;
-  --velo-peach-500: #d4863c;
-  --velo-peach-700: #a16124;
-  --velo-pink-300: #f795a2;
-  --velo-pink-100: #fde2e2;
-  --velo-blue-100: #e2f0fd;
-  --velo-blue-200: #abbfda;
-  --velo-sand-100: #fdf3e2;
+}
 
-  /* === VELΘ: Glow shadow === */
-  --velo-shadow-glow: 0px 0px 20.9px 7px #ffffff;
+/* ==================================================================
+ * BUNDLE DARK MODE OVERRIDES (32 tokens)
+ * UI toggle lands in C19 (S2); tokens land now for runtime readiness.
+ * Ported verbatim from bundle colors_and_type.css.
+ * ================================================================== */
+[data-theme="dark"] {
+  --surface-default:  #141c2a;
+  --surface-subtle:   #1e2837;
+  --surface-muted:    #364150;
+  --surface-elevated: #1e2837;
+  --surface-overlay:  #4f5969;
+  --surface-inverse:  #ffffff;
 
-  /* === VELΘ: Layout === */
-  --velo-content-width: 336px;
-  --velo-screen-width: 402px;
-  --velo-screen-padding: 33px;
+  --text-primary:   #ffffff;
+  --text-secondary: #98a3b4;
+  --text-muted:     #7f8b9b;
+  --text-accent:    #76dde6;
+  --text-success:   #76dde6;
+  --text-warning:   #fbc088;
+  --text-error:     #f795a2;
+  --text-on-accent: #141c2a;
+  --text-on-inverse: #1e2837;
 
-  /* === VELΘ: Navigation === */
-  --velo-nav-active-bg: #627a9c;
-  --velo-nav-inactive-bg: rgba(98, 122, 156, 0.15);
+  --border-default: #364150;
+  --border-subtle:  #364150;
+  --border-strong:  #4f5969;
+  --border-accent:  #76dde6;
 
-  /* === VELΘ: Border === */
-  --velo-border-input-focus: #abbfda;
+  --icon-default: #ffffff;
+  --icon-muted:   #98a3b4;
+  --icon-accent:  #76dde6;
+  --icon-inverse: #141c2a;
 
-  /* === VELΘ: Z-index === */
-  --z-background: -1;
-  --z-content: 1;
+  --accent-teal: #76dde6;
+  --accent-pink: #f795a2;
+  --accent-warm: #fbc088;
 
-  /* === VELΘ: Component sizes === */
-  --size-success-icon: 80px;   /* success screen emoji */
-  --size-practice-emoji: 56px; /* practice type emoji in form screens */
-  --size-option-btn-min: 90px; /* mood/rating button minimum width */
+  /* Dark shadows are barely-there; hierarchy is carried by colour */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.30);
+  --shadow-lg:  0 12px 28px rgba(0, 0, 0, 0.40);
+  --shadow-xl:  0 24px 48px rgba(0, 0, 0, 0.45);
+  --shadow-2xl: 0 40px 80px rgba(0, 0, 0, 0.55);
+  --shadow-glow-white: 0 0 24px 6px rgba(118, 221, 230, 0.30);
+
+  color-scheme: dark;
 }

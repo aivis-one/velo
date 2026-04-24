@@ -50,13 +50,13 @@ withDefaults(
 .v-empty__title {
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-1);
 }
 
 .v-empty__desc {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   line-height: 1.5;
 }
 

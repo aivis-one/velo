@@ -41,9 +41,9 @@ defineEmits<{
 
 <style scoped>
 .v-card {
-  background: var(--velo-bg-card, white);
-  border: 1px solid var(--velo-border);
-  border-radius: var(--radius-md);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   transition: all var(--transition-base);
 }

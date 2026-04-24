@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:22px 24px; box-sizing:border-box; display:flex; flex-direction:column; gap:10px;}
+  .row{display:flex; gap:10px;}
+  .tag{display:inline-flex; align-items:center; gap:4px; font-size:11px; padding:3px 10px; border-radius:200px;}
+  .t-info{background:rgba(97,156,210,0.15); color:#3E6A97;}
+  .t-success{background:rgba(47,158,168,0.15); color:#1E5A60;}
+  .t-warn{background:rgba(251,192,136,0.5); color:#A16124;}
+  .t-err{background:rgba(173,52,68,0.12); color:#AD3444;}
+  .dot{width:6px; height:6px; border-radius:999px; background:currentColor;}
+  .badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; border-radius:200px; padding:0 6px; background:#AD3444; color:#fff; font-size:10px;}
+  .lbl{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; width:64px;}
+  .itm{display:flex; align-items:center; gap:10px;}
+</style></head><body>
+<div class="wrap">
+  <div class="row"><span class="lbl">Tags</span>
+    <span class="tag t-info"><span class="dot"></span>Info</span>
+    <span class="tag t-success"><span class="dot"></span>Оплачено</span>
+    <span class="tag t-warn"><span class="dot"></span>Скоро</span>
+    <span class="tag t-err"><span class="dot"></span>Ошибка</span>
+  </div>
+  <div class="row"><span class="lbl">Badges</span>
+    <div class="itm"><span style="font-size:13px;">Уведомления</span><span class="badge">3</span></div>
+    <div class="itm"><span style="font-size:13px;">Сообщения</span><span class="badge">12</span></div>
+    <div class="itm"><span style="font-size:13px;">Новое</span><span class="badge" style="background:#2F9EA8; min-width:8px; width:8px; height:8px; padding:0;"></span></div>
+  </div>
+</div>
+</body></html>

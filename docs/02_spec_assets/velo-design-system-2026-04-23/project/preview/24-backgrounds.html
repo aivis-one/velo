@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;}
+  .wrap{width:900px; padding:22px 24px; box-sizing:border-box; display:flex; gap:14px; font-family:var(--font-display); color:var(--text-primary);}
+  .panel{flex:1; border-radius:15px; padding:18px; aspect-ratio:2/1; display:flex; flex-direction:column; justify-content:flex-end;}
+  .panel h4{font-size:15px; font-weight:400; margin:0;}
+  .panel p{font-size:11px; margin-top:4px; opacity:0.8;}
+  .p1{background: linear-gradient(135deg, #fddfe3 0%, #feecdb 100%); color:#AD3444;}
+  .p2{background: linear-gradient(135deg, #e2f0fd 0%, #d6f5f8 100%); color:#26767D;}
+  .p3{background:#E2F0FD; position:relative; overflow:hidden; color:#4C6589;}
+  .p3 img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.9; mix-blend-mode:multiply;}
+  .p3 .content{position:relative; z-index:1;}
+  .p4{background:#E2F0FD; position:relative; overflow:hidden; color:#4C6589;}
+  .p4 img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .p4 .content{position:relative; z-index:1; text-shadow:0 0 12px rgba(255,255,255,0.9);}
+</style></head><body>
+<div class="wrap">
+  <div class="panel p1"><h4>Gradient · pink-peach</h4><p>Emotional hero surfaces</p></div>
+  <div class="panel p2"><h4>Gradient · blue-teal</h4><p>Calm hero surfaces</p></div>
+  <div class="panel p3"><img src="../assets/brand/mandala.png" alt=""><div class="content"><h4>Mandala motif</h4><p>Signature backdrop · 20–35% opacity</p></div></div>
+  <div class="panel p4"><img src="../assets/brand/mandala-backdrop.png" alt=""><div class="content"><h4>Mandala · mobile backdrop</h4><p>Default fullscreen for Welcome, Auth, Onboarding, OAuth, Success</p></div></div>
+</div>
+</body></html>

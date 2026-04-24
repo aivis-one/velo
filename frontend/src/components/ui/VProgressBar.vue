@@ -5,7 +5,7 @@
 
   Usage:
     <VProgressBar :value="75" :max="100" />
-    <VProgressBar :value="42" :max="100" color="var(--velo-warning)" />
+    <VProgressBar :value="42" :max="100" color="var(--feedback-warning)" />
 -->
 
 <template>
@@ -32,7 +32,7 @@ const props = withDefaults(
   }>(),
   {
     max: 100,
-    color: 'var(--velo-primary)',
+    color: 'var(--steel-button)',
     showLabel: false,
   },
 )
@@ -53,7 +53,7 @@ const pct = computed(() => {
 .v-progress__track {
   flex: 1;
   height: 8px;
-  background: var(--velo-bg-subtle);
+  background: var(--surface-subtle);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -67,7 +67,7 @@ const pct = computed(() => {
 .v-progress__label {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   min-width: 36px;
   text-align: right;
 }

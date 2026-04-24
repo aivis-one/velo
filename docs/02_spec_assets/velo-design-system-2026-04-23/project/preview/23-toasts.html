@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#F5F7FA;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:20px 24px; box-sizing:border-box; display:flex; gap:14px;}
+  .toast{flex:1; background:#fff; border-radius:15px; padding:14px 16px; display:flex; gap:12px; align-items:flex-start; box-shadow:0 12px 28px rgba(30,40,55,0.08);}
+  .toast .ic{width:36px; height:36px; border-radius:999px; flex:0 0 36px; display:flex; align-items:center; justify-content:center; color:#fff;}
+  .toast h4{font-size:14px; font-weight:400; margin:0 0 2px;}
+  .toast p{font-size:12px; color:var(--text-secondary);}
+  .t-success .ic{background:#2F9EA8;}
+  .t-warn .ic{background:#FBC088; color:#A16124;}
+  .t-error .ic{background:#AD3444;}
+</style></head><body>
+<div class="wrap">
+  <div class="toast t-success">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 10 18 20 6"/></svg></div>
+    <div><h4>Практика сохранена</h4><p>Вернёмся к ней в дневнике.</p></div>
+  </div>
+  <div class="toast t-warn">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+    <div><h4>Check-in скоро</h4><p>Утренняя медитация через 30 минут.</p></div>
+  </div>
+  <div class="toast t-error">
+    <div class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></div>
+    <div><h4>Что-то пошло не так</h4><p>Проверьте соединение.</p></div>
+  </div>
+</div>
+</body></html>

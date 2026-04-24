@@ -68,7 +68,7 @@ defineEmits<{
 .v-checkbox__box {
   width: 22px;
   height: 22px;
-  border: 2px solid var(--velo-border);
+  border: 2px solid var(--border-strong);
   border-radius: 5px;
   display: flex;
   align-items: center;
@@ -78,8 +78,8 @@ defineEmits<{
 }
 
 .v-checkbox__box--checked {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
+  background: var(--steel-button);
+  border-color: var(--steel-button);
   color: white;
 }
 
@@ -90,7 +90,7 @@ defineEmits<{
 
 .v-checkbox__label {
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.4;
 }
 </style>

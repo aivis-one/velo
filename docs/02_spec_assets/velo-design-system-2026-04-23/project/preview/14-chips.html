@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:22px 24px; box-sizing:border-box; display:flex; flex-direction:column; gap:12px;}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+  .chip{display:inline-flex; align-items:center; gap:6px;
+    font:400 13px/1 var(--font-display); padding:8px 14px; border-radius:200px;
+    background:#F5F7FA; color:#4C6589; cursor:pointer; border:1px solid transparent;}
+  .chip.active{background:#4C6589; color:#fff;}
+  .chip.accent{background:rgba(118,221,230,0.3); color:#1E5A60;}
+  .chip.warm{background:rgba(251,192,136,0.4); color:#A16124;}
+  .chip.outline{background:transparent; border-color:#B0BCCD;}
+  .chip .dot{width:6px; height:6px; border-radius:999px; background:currentColor;}
+  .lbl{font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;}
+</style></head><body>
+<div class="wrap">
+  <div class="lbl">Chip · 5 states</div>
+  <div class="row">
+    <span class="chip">Все</span>
+    <span class="chip active">Медитация</span>
+    <span class="chip">Дыхание</span>
+    <span class="chip">Сон</span>
+    <span class="chip outline">+ Добавить</span>
+  </div>
+  <div class="row">
+    <span class="chip accent"><span class="dot"></span>Оплачено</span>
+    <span class="chip warm">Check-in скоро</span>
+    <span class="chip" style="background:#FDE2E2; color:#AD3444;">Ошибка</span>
+  </div>
+</div>
+</body></html>

@@ -30,7 +30,7 @@ withDefaults(
 <style scoped>
 .v-divider {
   border: none;
-  border-top: 1px solid var(--velo-border);
+  border-top: 1px solid var(--border-strong);
   margin: var(--space-4) 0;
 }
 
@@ -38,7 +38,7 @@ withDefaults(
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   font-size: var(--text-sm);
   margin: var(--space-6) 0;
   border: none;
@@ -49,7 +49,7 @@ withDefaults(
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--velo-border);
+  background: var(--border-strong);
 }
 
 .v-divider__text {

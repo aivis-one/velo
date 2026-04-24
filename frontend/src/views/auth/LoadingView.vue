@@ -40,7 +40,7 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -48,8 +48,8 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
 .loading__spinner {
   width: 24px;
   height: 24px;
-  border: 2px solid var(--velo-border-light);
-  border-top-color: var(--velo-primary);
+  border: 2px solid var(--border-subtle);
+  border-top-color: var(--steel-button);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-top: var(--space-4);

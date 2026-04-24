@@ -164,9 +164,7 @@ const typeEmoji = computed(() =>
   min-height: 100%;
   padding: var(--space-6);
   text-align: center;
-  background: var(--velo-glass-teal-30);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-teal-alpha-30);
 }
 
 .form-shell-success__icon {
@@ -178,7 +176,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-success-text);
+  color: var(--teal-700);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
@@ -187,7 +185,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-success-text);
+  color: var(--teal-700);
   margin-bottom: var(--space-8);
   max-width: 280px;
 }
@@ -229,7 +227,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
@@ -238,7 +236,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .form-shell__loader {
@@ -256,7 +254,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-1);
 }
@@ -265,7 +263,7 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* Selection slot wrapper */
@@ -283,20 +281,20 @@ const typeEmoji = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   resize: none;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
 .form-shell__textarea::placeholder {
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .form-shell__textarea:focus {
   outline: none;
-  border-color: var(--velo-border-input-focus);
+  border-color: var(--steel-muted);
 }
 
 /* Actions */

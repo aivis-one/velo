@@ -292,7 +292,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
@@ -300,14 +300,12 @@ onMounted(async () => {
 /* -- Balance card -- */
 .master-dashboard__balance-card {
   position: relative;
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__balance-card:active {
@@ -357,7 +355,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -366,10 +364,10 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
   padding: var(--space-1) var(--space-2);
   border-radius: 100px;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   transition: opacity var(--transition-fast);
 }
 
@@ -385,51 +383,47 @@ onMounted(async () => {
 }
 
 .master-dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__stat-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .master-dashboard__stat-label {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 /* -- Divider -- */
 .master-dashboard__divider {
   height: 1px;
-  background: var(--velo-border-light);
+  background: var(--border-subtle);
 }
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__ai-header {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-2);
 }
 
@@ -437,7 +431,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   line-height: 1.6;
 }
 
@@ -450,14 +444,12 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__practice-card:active {
@@ -485,7 +477,7 @@ onMounted(async () => {
 .master-dashboard__practice-title {
   font-family: var(--font-body);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   font-size: var(--text-base);
   white-space: nowrap;
   overflow: hidden;
@@ -496,7 +488,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -504,7 +496,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* -- Quick actions grid -- */
@@ -521,13 +513,11 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: opacity var(--transition-fast);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__action-btn:hover {
@@ -547,7 +537,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
 }
 </style>

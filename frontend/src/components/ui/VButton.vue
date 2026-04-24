@@ -81,9 +81,7 @@ const normalizedSize = computed(() =>
   position: relative;
   white-space: nowrap;
   border-radius: var(--radius-full);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  box-shadow: var(--velo-shadow-glow);
+  box-shadow: var(--shadow-glow-white);
 }
 
 /* -- Sizes -- */
@@ -101,39 +99,39 @@ const normalizedSize = computed(() =>
 
 /* -- Variants -- */
 .v-btn--primary {
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
 }
 
 .v-btn--primary:hover:not(:disabled) {
-  background: var(--velo-primary-dark);
+  background: var(--steel-primary);
 }
 
 .v-btn--secondary {
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-primary);
+  background: var(--surface-steel-alpha-60);
+  color: var(--text-primary);
 }
 
 .v-btn--secondary:hover:not(:disabled) {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
 }
 
 .v-btn--danger {
-  background: var(--velo-pink-300);
+  background: var(--pink-primary);
   color: white;
 }
 
 .v-btn--danger:hover:not(:disabled) {
-  background: var(--velo-error);
+  background: var(--pink-primary);
 }
 
 .v-btn--ghost {
-  background: var(--velo-glass-white-01);
-  color: var(--velo-text-primary);
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .v-btn--ghost:hover:not(:disabled) {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
 }
 
 /* -- Modifiers -- */

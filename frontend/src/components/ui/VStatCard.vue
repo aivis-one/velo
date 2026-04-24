@@ -45,8 +45,8 @@ defineEmits<{
 
 <style scoped>
 .v-stat {
-  background: var(--velo-bg-card, white);
-  border: 1px solid var(--velo-border);
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   text-align: center;
@@ -72,13 +72,13 @@ defineEmits<{
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.2;
 }
 
 .v-stat__label {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: var(--space-1);
 }
 </style>

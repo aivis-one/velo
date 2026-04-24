@@ -487,11 +487,9 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
 }
 
 .master-profile__header-info {
@@ -504,25 +502,23 @@ onMounted(async () => {
 .master-profile__name {
   font-family: var(--font-body);
   font-size: var(--text-xl);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.2;
   word-break: break-word;
 }
 
 /* -- Generic section -- */
 .master-profile__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   margin-bottom: var(--space-3);
@@ -530,13 +526,13 @@ onMounted(async () => {
 
 .master-profile__bio {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 .master-profile__experience {
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   font-weight: 400;
 }
 
@@ -549,12 +545,12 @@ onMounted(async () => {
 
 .master-profile__chip {
   padding: var(--space-1) var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: 100px;
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 
 /* -- Payout section -- */
@@ -570,7 +566,7 @@ onMounted(async () => {
 
 .master-profile__payout-empty-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -589,12 +585,12 @@ onMounted(async () => {
 .master-profile__payout-method {
   font-weight: 400;
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .master-profile__payout-details-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   font-family: monospace;
   letter-spacing: 0.03em;
 }
@@ -616,14 +612,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   gap: var(--space-3);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__finance-link:active {
@@ -644,18 +638,18 @@ onMounted(async () => {
 .master-profile__finance-link-title {
   font-weight: 400;
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .master-profile__finance-link-sub {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 .master-profile__finance-link-arrow {
   font-size: var(--text-lg);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -668,7 +662,7 @@ onMounted(async () => {
 
 .master-profile__switch-desc {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 </style>

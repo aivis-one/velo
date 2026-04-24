@@ -56,9 +56,7 @@ function formatFullDate(iso: string): string {
   height: 36px;
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-15);
   font-size: var(--text-lg);
   cursor: pointer;
   display: flex;
@@ -76,7 +74,7 @@ function formatFullDate(iso: string): string {
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -91,7 +89,7 @@ function formatFullDate(iso: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: opacity var(--transition-fast);
 }
 
@@ -107,7 +105,7 @@ function formatFullDate(iso: string): string {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-bottom: var(--space-2);
 }
 
@@ -115,7 +113,7 @@ function formatFullDate(iso: string): string {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-4);
   line-height: 1.3;
@@ -125,7 +123,7 @@ function formatFullDate(iso: string): string {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.7;
   white-space: pre-wrap;
 }

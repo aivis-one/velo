@@ -365,9 +365,9 @@ interface RatingBar {
 // RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
 // Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
 const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: string; label: string; color: string }> = [
-  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--velo-error-text)' },
-  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--velo-success)' },
-  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--velo-warning)' },
+  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--warm-deep)' },
+  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--teal-primary)' },
+  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--feedback-warning)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
@@ -472,13 +472,13 @@ onMounted(async () => {
 /* ===== Header ===== */
 .analytics__header {
   padding: var(--space-4);
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .analytics__header-title {
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -496,12 +496,10 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-muted);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: 100px;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   transition: all var(--transition-fast);
   display: flex;
   align-items: center;
@@ -510,8 +508,8 @@ onMounted(async () => {
 
 .analytics__tab--active {
   color: white;
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
+  background: var(--steel-button);
+  border-color: var(--steel-button);
 }
 
 /* ===== Body ===== */
@@ -531,31 +529,29 @@ onMounted(async () => {
 }
 
 .analytics__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-3);
   text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .analytics__stat-value {
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
   margin-bottom: var(--space-1);
 }
 
 .analytics__stat-label {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ===== Divider ===== */
 .analytics__divider {
   height: 1px;
-  background: var(--velo-border-light);
+  background: var(--border-subtle);
 }
 
 /* ===== Section ===== */
@@ -568,20 +564,18 @@ onMounted(async () => {
 .analytics__section-title {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 /* ===== Rating bars ===== */
 .analytics__rating-bars {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .analytics__rating-row {
@@ -596,7 +590,7 @@ onMounted(async () => {
 
 .analytics__rating-label {
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   min-width: 100px;
   flex-shrink: 0;
 }
@@ -608,7 +602,7 @@ onMounted(async () => {
 .analytics__rating-track {
   flex: 1;
   height: 8px;
-  background: var(--velo-border-light);
+  background: var(--border-subtle);
   border-radius: var(--radius-full);
   overflow: hidden;
 }
@@ -621,7 +615,7 @@ onMounted(async () => {
 
 .analytics__rating-meta {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   min-width: 60px;
   text-align: right;
   flex-shrink: 0;
@@ -641,12 +635,10 @@ onMounted(async () => {
 }
 
 .analytics__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .analytics__practice-row {
@@ -682,7 +674,7 @@ onMounted(async () => {
 .analytics__practice-title {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -690,20 +682,20 @@ onMounted(async () => {
 
 .analytics__practice-meta {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .analytics__practice-badges {
   display: flex;
   gap: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .analytics__practice-chevron {
   font-size: 20px;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   transition: transform var(--transition-fast);
   flex-shrink: 0;
 }
@@ -714,9 +706,9 @@ onMounted(async () => {
 
 /* ===== Insights panel ===== */
 .analytics__insights {
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
 }
 
 .analytics__insights-loader {
@@ -727,7 +719,7 @@ onMounted(async () => {
 
 .analytics__insights-error {
   font-size: var(--text-sm);
-  color: var(--velo-error, #DC2626);
+  color: var(--pink-primary);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -736,7 +728,7 @@ onMounted(async () => {
 .analytics__retry-btn {
   background: transparent;
   border: 1px solid currentColor;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-xs);
   padding: 2px var(--space-2);
   cursor: pointer;
@@ -759,12 +751,12 @@ onMounted(async () => {
 .analytics__insights-stat-val {
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 
 .analytics__insights-stat-lbl {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .analytics__insights-bars {
@@ -776,14 +768,14 @@ onMounted(async () => {
 
 .analytics__insights-empty {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   padding: var(--space-2) 0;
 }
 
 .analytics__insights-comments {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  border-top: 1px solid var(--velo-border-light);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
   padding-top: var(--space-3);
   margin-top: var(--space-1);
 }
@@ -796,7 +788,7 @@ onMounted(async () => {
 /* ===== Payments tab ===== */
 .analytics__payments-hint {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 

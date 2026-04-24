@@ -61,7 +61,7 @@ const router = useRouter()
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-2);
 }
@@ -70,7 +70,7 @@ const router = useRouter()
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin: 0 0 var(--space-8);
   line-height: 1.5;
 }

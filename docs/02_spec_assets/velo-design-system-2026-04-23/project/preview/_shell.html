@@ -1,0 +1,28 @@
+<!-- Preview card shell — provides the canvas + loads tokens.
+     Each specific card is its own HTML file that extends this pattern. -->
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:var(--surface-default);}
+  .card{
+    width:700px; min-height:120px;
+    padding:20px 24px;
+    box-sizing:border-box;
+    background:var(--surface-default);
+    color:var(--text-primary);
+    font-family:var(--font-display);
+  }
+  .row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .swatch{
+    width:92px; height:72px; border-radius:8px;
+    display:flex; flex-direction:column; justify-content:flex-end;
+    padding:8px; box-sizing:border-box;
+    font-size:10px; line-height:1.2;
+    box-shadow: inset 0 0 0 1px rgba(30,40,55,0.06);
+  }
+  .swatch .hex{opacity:0.85;}
+  .meta{color:var(--text-muted); font-size:11px; letter-spacing:0.02em;}
+  .label{color:var(--text-secondary); font-size:12px;}
+</style></head><body>
+<div class="card">placeholder — do not register this file</div>
+</body></html>

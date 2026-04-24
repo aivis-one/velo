@@ -74,9 +74,9 @@ export const RATING_LABEL: Record<string, string> = {
  * Values reference tokens from variables.css -- no hardcoded hex.
  */
 export const RATING_COLOR: Record<string, string> = {
-  fire:     'var(--velo-error-text)',  // #DC2626
-  good:     'var(--velo-success)',     // #22C55E
-  confused: 'var(--velo-warning)',     // #F59E0B
+  fire:     'var(--warm-deep)',  // #DC2626
+  good:     'var(--teal-primary)',     // #22C55E
+  confused: 'var(--feedback-warning)',     // #F59E0B
 }
 
 // ---------------------------------------------------------------------------

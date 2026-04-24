@@ -108,13 +108,11 @@ const canCancel = computed(() =>
 
 <style scoped>
 .booking-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .booking-card--clickable {
@@ -137,7 +135,7 @@ const canCancel = computed(() =>
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.3;
 }
 
@@ -145,7 +143,7 @@ const canCancel = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .booking-card__cancel {
@@ -157,7 +155,7 @@ const canCancel = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-error);
+  color: var(--pink-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }

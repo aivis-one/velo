@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#fff;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:20px 24px; box-sizing:border-box; display:flex; gap:16px; align-items:center;}
+  .box{background:#E2F0FD; color:#4C6589; display:flex; align-items:center; justify-content:center; font-size:12px; flex-direction:column; gap:2px;}
+  .box small{color:#677282; font-size:10px;}
+  .r-md{width:84px; height:84px; border-radius:8px;}
+  .r-lg{width:84px; height:84px; border-radius:15px;}
+  .r-xl{width:84px; height:84px; border-radius:24px;}
+  .r-full{width:84px; height:48px; border-radius:200px;}
+</style></head><body>
+<div class="wrap">
+  <div class="box r-md"><span>md</span><small>8px</small></div>
+  <div class="box r-lg" style="background:#FDDFE3; color:#AD3444;"><span>lg · card</span><small>15px</small></div>
+  <div class="box r-xl" style="background:#FDF3E2; color:#A16124;"><span>xl · modal</span><small>24px</small></div>
+  <div class="box r-full" style="background:#627A9C; color:#fff;"><span>full · pill</span><small>200px</small></div>
+  <div style="flex:1; font-size:12px; color:var(--text-secondary); line-height:1.5;">Radii are intentionally coarse. Card is <strong style="color:#4C6589; font-weight:400;">15</strong> (not 16). Pills everywhere for CTAs and the tab bar.</div>
+</div>
+</body></html>

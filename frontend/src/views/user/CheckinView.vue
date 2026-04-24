@@ -157,15 +157,13 @@ onMounted(() => {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all var(--transition-fast);
   min-width: var(--size-option-btn-min);
   font-family: var(--font-body);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .checkin__mood-btn:hover {
@@ -173,24 +171,24 @@ onMounted(() => {
 }
 
 .checkin__mood-btn--selected {
-  border-color: var(--velo-primary);
-  background: var(--velo-glass-blue-60);
-  box-shadow: var(--velo-shadow-glow);
+  border-color: var(--steel-button);
+  background: var(--surface-steel-alpha-60);
+  box-shadow: var(--shadow-glow-white);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--low {
-  border-color: var(--velo-pink-300);
-  background: var(--velo-glass-peach-40);
+  border-color: var(--pink-primary);
+  background: var(--surface-warm-alpha-40);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--mid {
-  border-color: var(--velo-peach-300);
-  background: var(--velo-glass-peach-40);
+  border-color: var(--warm-primary);
+  background: var(--surface-warm-alpha-40);
 }
 
 .checkin__mood-btn--selected.checkin__mood-btn--high {
-  border-color: var(--velo-teal-400);
-  background: var(--velo-glass-teal-30);
+  border-color: var(--teal-primary);
+  background: var(--surface-teal-alpha-30);
 }
 
 .checkin__mood-emoji {
@@ -200,6 +198,6 @@ onMounted(() => {
 .checkin__mood-label {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 </style>

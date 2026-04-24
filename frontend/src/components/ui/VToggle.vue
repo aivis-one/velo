@@ -35,7 +35,7 @@ defineEmits<{
 <style scoped>
 .v-toggle {
   display: inline-flex;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border-radius: var(--radius-full);
   padding: 2px;
 }
@@ -44,13 +44,13 @@ defineEmits<{
   padding: 6px 16px;
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   border-radius: var(--radius-full);
   transition: all var(--transition-fast);
 }
 
 .v-toggle__item--active {
-  background: var(--velo-nav-active-bg);
+  background: var(--steel-button);
   color: white;
 }
 </style>

@@ -9,7 +9,7 @@
 - [ ] Figma reference open and approved
 - [ ] Target route/view file identified in `FILE-TREE.md`
 - [ ] Sponsor scope confirms screen is in scope
-- [ ] Existing tokens in `Design_prototype/tokens.md` reviewed
+- [ ] Existing tokens in `Design_prototype_legacy_2026-03-11/tokens.md` reviewed
 - [ ] claude.ai/design project named `VELO / <screen> / <YYYY-MM-DD>`
 
 ## Claude Design prompt template (6 slots)
@@ -28,7 +28,7 @@ BRAND LOCK (mandatory):
 NEVER use: cream/beige backgrounds, serif display fonts (Georgia, Fraunces,
 Playfair), italic word accents, terracotta/amber accent colors.
 USE: Marmelad font only, blue-slate base #4c6589, teal/peach/pink accents
-per Design_prototype/tokens.md, glassmorphism with backdrop-blur(2px),
+per Design_prototype_legacy_2026-03-11/tokens.md, glassmorphism with backdrop-blur(2px),
 radii 15/200/5/100 strictly, shadow 0 0 20.9px 7px white on buttons.
 
 References attached: codebase link, Figma link, tokens file,
@@ -39,7 +39,7 @@ screenshot of Figma target.
 
 1. Codebase (GitHub repo or `frontend/` folder)
 2. Figma file link
-3. `Design_prototype/tokens.md` as a separate file (if tool doesn't parse md subfolders)
+3. `Design_prototype_legacy_2026-03-11/tokens.md` as a separate file (if tool doesn't parse md subfolders)
 4. Screenshot of the Figma target screen
 
 ## Iteration rules

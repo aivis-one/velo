@@ -204,7 +204,7 @@ onMounted(loadData)
 
 .consistency__summary--ok {
   background: var(--velo-success-bg);
-  border-color: var(--velo-success);
+  border-color: var(--teal-primary);
 }
 
 .consistency__summary--alert {
@@ -226,19 +226,19 @@ onMounted(loadData)
 .consistency__summary-title {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .consistency__summary-sub {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
 /* -- Run at -- */
 .consistency__run-at {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-align: right;
 }
 
@@ -246,7 +246,7 @@ onMounted(loadData)
 .consistency__group-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: var(--space-2);
@@ -260,13 +260,13 @@ onMounted(loadData)
 
 /* -- Item -- */
 .consistency__item {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   border: 1px solid;
 }
 
 .consistency__item--ok {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border-color: #ffffff;
 }
 
@@ -290,7 +290,7 @@ onMounted(loadData)
   flex: 1;
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .consistency__item-crit {
@@ -308,12 +308,12 @@ onMounted(loadData)
 
 .consistency__item-expected {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .consistency__item-actual {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-error-text);
+  color: var(--warm-deep);
 }
 </style>

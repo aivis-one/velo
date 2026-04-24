@@ -254,37 +254,33 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__profile-name {
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
 .review__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: var(--space-2);
 }
 
 .review__meta-list {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__meta-row {
@@ -292,7 +288,7 @@ onMounted(loadMaster)
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .review__meta-row:last-child {
@@ -301,21 +297,21 @@ onMounted(loadMaster)
 
 .review__meta-key {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .review__meta-val {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .review__note {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-muted);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   line-height: 1.5;
 }
@@ -324,12 +320,10 @@ onMounted(loadMaster)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__reject-actions {
@@ -340,9 +334,9 @@ onMounted(loadMaster)
 .review__processed {
   text-align: center;
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-md);
+  background: var(--surface-steel-alpha-15);
+  border-radius: var(--radius-lg);
 }
 </style>

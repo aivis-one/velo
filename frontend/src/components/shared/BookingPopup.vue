@@ -275,7 +275,7 @@ async function onPurchase(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-5);
 }
@@ -293,21 +293,21 @@ async function onPurchase(): Promise<void> {
 }
 
 .popup__row + .popup__row {
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .popup__label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .popup__value {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: right;
   max-width: 60%;
 }
@@ -325,8 +325,8 @@ async function onPurchase(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-primary);
+  background: var(--surface-steel-alpha-15);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-fast);
@@ -334,11 +334,11 @@ async function onPurchase(): Promise<void> {
 
 .popup__promo-input:focus {
   outline: none;
-  border-color: var(--velo-border-input-focus);
+  border-color: var(--steel-muted);
 }
 
 .popup__promo-input::placeholder {
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* Discount line */
@@ -348,22 +348,22 @@ async function onPurchase(): Promise<void> {
   align-items: center;
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-4);
-  background: var(--velo-glass-teal-30);
-  border-radius: var(--radius-sm);
+  background: var(--surface-teal-alpha-30);
+  border-radius: var(--radius-md);
 }
 
 .popup__discount-label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-success);
+  color: var(--teal-primary);
 }
 
 .popup__discount-value {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-success);
+  color: var(--teal-primary);
 }
 
 /* Total */
@@ -373,34 +373,34 @@ async function onPurchase(): Promise<void> {
   align-items: center;
   padding: var(--space-4) 0;
   margin-bottom: var(--space-4);
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .popup__total-label {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .popup__total-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 
 /* Warning */
 .popup__warning {
   padding: var(--space-3);
   margin-bottom: var(--space-4);
-  background: var(--velo-glass-peach-40);
-  border: 1px solid var(--velo-warning);
-  border-radius: var(--radius-sm);
+  background: var(--surface-warm-alpha-40);
+  border: 1px solid var(--feedback-warning);
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-warning-text);
+  color: var(--warm-deep);
 }
 
 /* Actions */

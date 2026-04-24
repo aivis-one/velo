@@ -30,16 +30,16 @@ withDefaults(
 .v-notification {
   padding: var(--space-3) var(--space-4);
   font-size: var(--text-sm);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 
 .v-notification--warning {
-  background: var(--velo-glass-peach-40);
-  color: var(--velo-peach-700);
+  background: var(--surface-warm-alpha-40);
+  color: var(--warm-deep);
 }
 
 .v-notification--success {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-700);
+  background: var(--surface-teal-alpha-30);
+  color: var(--teal-700);
 }
 </style>

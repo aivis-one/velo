@@ -58,7 +58,7 @@ function icon(variant: ToastVariant): string {
   align-items: center;
   gap: var(--space-2);
   padding: 12px 24px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   font-size: var(--text-sm);
   font-weight: 400;
   max-width: 90%;
@@ -69,17 +69,17 @@ function icon(variant: ToastVariant): string {
 }
 
 .v-toast--success {
-  background: var(--velo-success);
+  background: var(--teal-primary);
   color: white;
 }
 
 .v-toast--error {
-  background: var(--velo-error);
+  background: var(--pink-primary);
   color: white;
 }
 
 .v-toast--info {
-  background: var(--velo-text-primary);
+  background: var(--text-primary);
   color: white;
 }
 

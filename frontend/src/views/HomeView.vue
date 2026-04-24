@@ -66,7 +66,7 @@ async function handleLogout(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: 0 0 var(--space-6) 0;
   letter-spacing: 0.02em;
 }
@@ -79,7 +79,7 @@ async function handleLogout(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: 0 0 var(--space-2) 0;
 }
 
@@ -93,36 +93,32 @@ async function handleLogout(): Promise<void> {
 .home__role {
   display: inline-block;
   padding: var(--space-1) var(--space-3);
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-primary);
+  background: var(--surface-steel-alpha-60);
+  color: var(--text-primary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
   text-transform: uppercase;
   border-radius: var(--radius-full);
   letter-spacing: 0.02em;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .home__version {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin: 0 0 var(--space-6) 0;
 }
 
 .home__logout {
   padding: var(--space-2) var(--space-5);
-  background: var(--velo-glass-white-01);
-  color: var(--velo-text-secondary);
+  background: transparent;
+  color: var(--text-secondary);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   transition: opacity var(--transition-fast);
 }
 

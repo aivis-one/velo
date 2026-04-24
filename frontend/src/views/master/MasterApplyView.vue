@@ -386,26 +386,24 @@ async function submit(): Promise<void> {
   display: flex;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border-bottom: 1px solid var(--velo-border-light);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-15);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .apply-view__progress-step {
   flex: 1;
   height: 4px;
   border-radius: var(--radius-full);
-  background: var(--velo-border-light);
+  background: var(--border-subtle);
   transition: background var(--transition-base);
 }
 
 .apply-view__progress-step--active {
-  background: var(--velo-primary);
+  background: var(--steel-button);
 }
 
 .apply-view__progress-step--completed {
-  background: var(--velo-success);
+  background: var(--teal-primary);
 }
 
 /* -- Content area -- */
@@ -420,7 +418,7 @@ async function submit(): Promise<void> {
 .apply-view__step-title {
   font-family: var(--font-body);
   font-size: var(--text-lg);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin-bottom: var(--space-2);
 }
 
@@ -434,7 +432,7 @@ async function submit(): Promise<void> {
 .apply-view__label {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .apply-view__checkbox-list {
@@ -442,11 +440,9 @@ async function submit(): Promise<void> {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
 }
 
 .apply-view__checkbox-item {
@@ -471,31 +467,31 @@ async function submit(): Promise<void> {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border: 2px solid var(--velo-border-light);
+  border: 2px solid var(--border-subtle);
   border-radius: 5px;
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-primary);
-  background: var(--velo-glass-blue-15);
+  color: var(--steel-button);
+  background: var(--surface-steel-alpha-15);
   flex-shrink: 0;
   transition: border-color var(--transition-fast);
 }
 
 .apply-view__checkbox-mark--checked,
 .apply-view__checkbox-item input:checked + .apply-view__checkbox-mark {
-  border-color: var(--velo-primary);
-  background: var(--velo-primary);
+  border-color: var(--steel-button);
+  background: var(--steel-button);
   color: white;
 }
 
 .apply-view__checkbox-label {
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .apply-view__field-error {
   font-size: var(--text-sm);
-  color: var(--velo-error);
+  color: var(--pink-primary);
 }
 
 /* -- Upload placeholder -- */
@@ -505,16 +501,16 @@ async function submit(): Promise<void> {
   align-items: center;
   justify-content: center;
   padding: var(--space-5);
-  border: 2px dashed var(--velo-border-light);
-  border-radius: var(--radius-md);
-  background: var(--velo-glass-blue-15);
+  border: 2px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-steel-alpha-15);
   gap: var(--space-2);
   cursor: pointer;
   transition: border-color var(--transition-fast);
 }
 
 .apply-view__upload-area:hover {
-  border-color: var(--velo-primary);
+  border-color: var(--steel-button);
 }
 
 .apply-view__upload-icon {
@@ -523,25 +519,23 @@ async function submit(): Promise<void> {
 
 .apply-view__upload-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .apply-view__hint {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* -- Terms -- */
 .apply-view__terms {
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__next {

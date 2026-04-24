@@ -40,22 +40,22 @@ withDefaults(
 }
 
 .v-badge--success {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  background: var(--surface-teal-alpha-30);
+  color: var(--teal-500);
 }
 
 .v-badge--warning {
-  background: var(--velo-glass-peach-40);
-  color: var(--velo-peach-700);
+  background: var(--surface-warm-alpha-40);
+  color: var(--warm-deep);
 }
 
 .v-badge--error {
-  background: var(--velo-pink-100);
-  color: var(--velo-pink-300);
+  background: var(--pink-50);
+  color: var(--pink-primary);
 }
 
 .v-badge--info {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  background: var(--surface-teal-alpha-30);
+  color: var(--teal-500);
 }
 </style>

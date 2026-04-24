@@ -26,8 +26,8 @@ withDefaults(
 <style scoped>
 .v-loader {
   border-style: solid;
-  border-color: var(--velo-border);
-  border-top-color: var(--velo-primary);
+  border-color: var(--border-strong);
+  border-top-color: var(--steel-button);
   border-radius: 50%;
   animation: v-loader-spin 0.7s linear infinite;
 }

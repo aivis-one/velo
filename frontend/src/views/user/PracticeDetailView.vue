@@ -455,7 +455,7 @@ onUnmounted(() => {
 .detail__hero-card {
   margin: var(--space-4) var(--space-4) 0;
   background: #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;
@@ -465,7 +465,7 @@ onUnmounted(() => {
 }
 
 .detail__hero-icon {
-  color: var(--velo-primary);
+  color: var(--steel-button);
   margin-bottom: var(--space-1);
 }
 
@@ -473,7 +473,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -487,7 +487,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ===== Body ===== */
@@ -503,14 +503,14 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.6;
 }
 
 /* Override VAccordion: white card style matching design */
 :deep(.v-accordion) {
   background: #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   border-bottom: none;
   overflow: hidden;
 }
@@ -520,7 +520,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 :deep(.v-accordion__body) {
@@ -529,13 +529,13 @@ onUnmounted(() => {
 
 :deep(.v-accordion__arrow) {
   font-size: 20px;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 /* ===== Section (master) ===== */
 .detail__section {
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .detail__section:last-child {
@@ -546,7 +546,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
@@ -554,7 +554,7 @@ onUnmounted(() => {
 /* ===== Master card ===== */
 .detail__master-card {
   background: #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   display: flex;
   align-items: center;
@@ -568,7 +568,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border-radius: var(--radius-full);
   flex-shrink: 0;
 }
@@ -586,12 +586,12 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
 .detail__master-verified {
-  color: var(--velo-teal-600);
+  color: var(--teal-500);
   margin-left: 4px;
 }
 
@@ -606,7 +606,7 @@ onUnmounted(() => {
   position: absolute;
   bottom: var(--space-3);
   right: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
   width: 36px;
@@ -615,7 +615,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -629,12 +629,10 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  background: var(--velo-glass-peach-40);
+  background: var(--surface-warm-alpha-40);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   margin-top: var(--space-2);
 }
 
@@ -652,7 +650,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-peach-700);
+  color: var(--warm-deep);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 2px;
@@ -662,7 +660,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-peach-500);
+  color: var(--warm-700);
   line-height: 1.4;
 }
 
@@ -670,9 +668,7 @@ onUnmounted(() => {
 .detail__actions {
   flex-shrink: 0;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-60);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-60);
   border-top: 1px solid #ffffff;
   display: flex;
   flex-direction: column;
@@ -689,22 +685,22 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .detail__price-value {
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .detail__price-value--free {
-  color: var(--velo-success-text);
+  color: var(--teal-700);
 }
 
 /* Cancel button: ghost with red tint */
 .detail__actions .detail__cancel-btn {
-  color: var(--velo-error-text);
+  color: var(--warm-deep);
 }
 </style>

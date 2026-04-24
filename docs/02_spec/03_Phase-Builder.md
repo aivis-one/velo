@@ -146,7 +146,7 @@ Code change, refactor, test, doc. Follow Scout → Validate → Execute pattern 
 Used for redesigning or creating a screen via Claude Design. Required precondition: Figma reference exists and is approved; screen is in sponsor-confirmed scope.
 
 Steps:
-1. **Ground:** open Figma reference, read its spec. Capture target screen name, route, role (user/master/admin), target file path (`frontend/src/views/<role>/<File>.vue`), and relevant tokens from `Design_prototype/tokens.md`.
+1. **Ground:** open Figma reference, read its spec. Capture target screen name, route, role (user/master/admin), target file path (`frontend/src/views/<role>/<File>.vue`), and relevant tokens from `Design_prototype_legacy_2026-03-11/tokens.md`.
 2. **Sponsor-spec cross-check:** verify the screen exists in the sponsor-approved functional scope. If missing or ambiguous → STOP, escalate to Human.
 3. **Compose Claude Design prompt** (6 slots): artifact type, product, stage, structure (screens/states), tone, audience. Brand lock required — explicitly forbid cream/beige/serif/italic/terracotta/amber; require Marmelad + blue-slate + glass + radii 15/200/5/100.
 4. **Attach context** before first generation: codebase link, Figma link, tokens file, reference screenshot.

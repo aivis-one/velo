@@ -237,7 +237,7 @@ onMounted(loadInitial)
 /* -- Count -- */
 .admin-reports__count {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* -- List -- */
@@ -248,17 +248,15 @@ onMounted(loadInitial)
 }
 
 .admin-reports__card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-reports__card:active {
@@ -274,12 +272,12 @@ onMounted(loadInitial)
 
 .admin-reports__card-type {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .admin-reports__card-reason {
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -289,7 +287,7 @@ onMounted(loadInitial)
 
 .admin-reports__card-date {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* -- Load more -- */

@@ -371,7 +371,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin: 0 0 var(--space-1);
 }
 
@@ -379,19 +379,17 @@ onUnmounted(() => {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
 
 /* ===== Alert banners ===== */
 .dashboard__alert {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   margin-bottom: var(--space-4);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   border: 1px solid #ffffff;
   transition: opacity var(--transition-fast);
 }
@@ -401,11 +399,11 @@ onUnmounted(() => {
 }
 
 .dashboard__alert--checkin {
-  background: var(--velo-glass-peach-40);
+  background: var(--surface-warm-alpha-40);
 }
 
 .dashboard__alert--feedback {
-  background: var(--velo-glass-teal-40);
+  background: var(--surface-teal-alpha-40);
 }
 
 .dashboard__alert-content {
@@ -423,12 +421,12 @@ onUnmounted(() => {
   font-weight: 400;
   font-size: var(--text-sm);
   margin-bottom: 2px;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .dashboard__alert-text p {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* ===== Sections ===== */
@@ -440,21 +438,19 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-4);
 }
 
 /* ===== Nearest practice card ===== */
 .dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .dashboard__practice-card:active {
@@ -483,7 +479,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: 0 0 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -493,12 +489,12 @@ onUnmounted(() => {
 .dashboard__practice-master {
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .dashboard__practice-verified {
-  color: var(--velo-teal-600);
+  color: var(--teal-500);
   margin-left: 2px;
 }
 
@@ -513,7 +509,7 @@ onUnmounted(() => {
 .dashboard__practice-meta-item {
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .dashboard__practice-actions {
@@ -545,7 +541,7 @@ onUnmounted(() => {
 .dashboard__empty-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -557,20 +553,18 @@ onUnmounted(() => {
 }
 
 .dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .dashboard__stat-value {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.1;
 }
 
@@ -578,7 +572,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin-top: var(--space-1);
 }
 
@@ -597,7 +591,7 @@ onUnmounted(() => {
 .dashboard__period-toggle {
   display: flex;
   gap: 2px;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border-radius: var(--radius-xl);
   padding: 2px;
 }
@@ -606,7 +600,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-xl);
   background: transparent;
@@ -616,18 +610,16 @@ onUnmounted(() => {
 }
 
 .dashboard__period-btn--active {
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-primary);
+  background: var(--surface-steel-alpha-60);
+  color: var(--text-primary);
 }
 
 .dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   padding-bottom: var(--space-8);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   position: relative;
 }
 
@@ -635,20 +627,20 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.6;
   margin: 0 0 var(--space-2);
 }
 
 .dashboard__ai-text--secondary {
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .dashboard__ai-arrow {
   position: absolute;
   bottom: var(--space-4);
   right: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
   width: 36px;
@@ -657,7 +649,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }

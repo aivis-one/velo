@@ -55,8 +55,6 @@ defineEmits<{
   align-items: center;
   gap: var(--space-2);
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   padding: var(--space-2) var(--space-3);
   padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
   z-index: var(--z-sticky, 200);
@@ -69,15 +67,15 @@ defineEmits<{
   align-items: center;
   gap: 2px;
   padding: var(--space-1) 0;
-  color: var(--velo-text-muted);
-  background: var(--velo-nav-inactive-bg);
-  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  background: var(--nav-inactive-bg);
+  border-radius: var(--radius-lg);
   transition: all var(--transition-fast);
   position: relative;
 }
 
 .v-tabbar__item--active {
-  background: var(--velo-nav-active-bg);
+  background: var(--steel-button);
   color: white;
 }
 
@@ -102,7 +100,7 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-pink-300);
+  background: var(--pink-primary);
   color: white;
   font-size: 9px;
   font-weight: 400;

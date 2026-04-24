@@ -51,7 +51,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-4) 0;
 }
@@ -60,7 +60,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   margin: 0 0 var(--space-8) 0;
   max-width: 280px;
   line-height: 1.5;
@@ -71,7 +71,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   align-items: center;
   justify-content: center;
   width: 100%;
-  max-width: var(--velo-content-width);
+  max-width: 336px;
   height: 50px;
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -79,9 +79,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   text-decoration: none;
   border-radius: var(--radius-full);
   border: 1px solid #ffffff;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  box-shadow: var(--velo-shadow-glow);
+  box-shadow: var(--shadow-glow-white);
   transition: opacity var(--transition-fast);
 }
 
@@ -90,7 +88,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
 }
 
 .stub__button--primary {
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
 }
 
@@ -98,7 +96,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin: var(--space-4) 0 0 0;
   max-width: 240px;
   line-height: 1.4;

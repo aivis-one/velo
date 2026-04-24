@@ -1,0 +1,271 @@
+/* ──────────────────────────────────────────────────────────────────
+   VELO Design System · Colors & Type
+   Source of truth: extracted from VELΘ App.fig (Foundations frame)
+   Light/Dark are wired via [data-theme="dark"] — semantic tokens only.
+   ────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: "Marmelad";
+  src: url("fonts/Marmelad-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ───────────── Primitive colors ───────────── */
+
+  /* Neutrals — 13 steps, warm grey-blue */
+  --neutral-white: #ffffff;
+  --neutral-50:  #f5f7fa;
+  --neutral-100: #e2f0fd;   /* hairline / border subtle */
+  --neutral-200: #d6e1ef;
+  --neutral-300: #b0bccd;
+  --neutral-400: #98a3b4;
+  --neutral-500: #7f8b9b;
+  --neutral-600: #677282;   /* text/secondary (light) */
+  --neutral-700: #4f5969;
+  --neutral-800: #364150;   /* border strong (dark) */
+  --neutral-900: #1e2837;   /* surface inverse (light), surface subtle (dark) */
+  --neutral-950: #141c2a;   /* surface default (dark) */
+  --neutral-black: #0b111c;
+
+  /* Steel — the primary brand colour family */
+  --steel-muted: #abbfda;
+  --steel-light: #7f8b9b;
+  --steel-primary: #4c6589; /* text/primary, on-surface-default */
+  --steel-button:  #627a9c; /* filled button bg */
+  --steel-dark: #364150;
+
+  /* Teal — accent / CTA */
+  --teal-100: #d6f5f8;
+  --teal-500: #2f9ea8;      /* light-mode accent */
+  --teal-primary: #76dde6;  /* dark-mode accent + light-mode on-dark */
+  --teal-700: #26767d;      /* text/accent on light surface (AA) */
+  --teal-800: #1e5a60;
+
+  /* Warm — sand / peach, emotional moments (check-ins, warnings) */
+  --warm-50:  #feecdb;
+  --warm-100: #fdf3e2;      /* subtle warm surface */
+  --warm-primary: #fbc088;  /* warm accent border */
+  --warm-700: #d4863c;      /* warm accent text */
+  --warm-deep: #a16124;     /* warm accent text strong */
+
+  /* Pink — soft emotional accent */
+  --pink-50: #fde2e2;
+  --pink-100: #fddfe3;
+  --pink-primary: #f795a2;
+  --pink-700: #ad3444;      /* feedback error */
+
+  /* Feedback */
+  --feedback-info:    #619cd2;
+  --feedback-success: #2f9ea8;
+  --feedback-warning: #fbc088;
+  --feedback-error:   #ad3444;
+
+  /* ───────────── Semantic tokens — Light (default) ───────────── */
+
+  /* Surface */
+  --surface-default:  #ffffff;
+  --surface-subtle:   #f5f7fa;
+  --surface-muted:    #e2f0fd;
+  --surface-elevated: #ffffff;
+  --surface-overlay:  #ffffff;
+  --surface-inverse:  #1e2837;
+
+  /* Text */
+  --text-primary:   #4c6589;
+  --text-secondary: #677282;
+  --text-muted:     #98a3b4;
+  --text-accent:    #26767d;
+  --text-success:   #2f9ea8;
+  --text-warning:   #d4863c;
+  --text-error:     #ad3444;
+  --text-on-accent: #ffffff;
+  --text-on-inverse: #ffffff;
+
+  /* Border */
+  --border-default: #e2f0fd;
+  --border-subtle:  #e2f0fd;
+  --border-strong:  #b0bccd;
+  --border-accent:  #2f9ea8;
+
+  /* Icon */
+  --icon-default: #4c6589;
+  --icon-muted:   #98a3b4;
+  --icon-accent:  #2f9ea8;
+  --icon-inverse: #ffffff;
+
+  /* Accent */
+  --accent-teal: #2f9ea8;
+  --accent-pink: #f795a2;
+  --accent-warm: #fbc088;
+
+  /* Elevation / shadow — in light, hierarchy is carried by shadow */
+  --shadow-sm:  0 1px 2px rgba(30, 40, 55, 0.04), 0 1px 1px rgba(30, 40, 55, 0.04);
+  --shadow-md:  0 4px 12px rgba(30, 40, 55, 0.06), 0 2px 4px rgba(30, 40, 55, 0.04);
+  --shadow-lg:  0 12px 28px rgba(30, 40, 55, 0.08), 0 4px 8px rgba(30, 40, 55, 0.05);
+  --shadow-xl:  0 24px 48px rgba(30, 40, 55, 0.10), 0 8px 16px rgba(30, 40, 55, 0.06);
+  --shadow-2xl: 0 40px 80px rgba(30, 40, 55, 0.14), 0 12px 24px rgba(30, 40, 55, 0.08);
+  --shadow-glow-white: 0 0 20px 7px rgba(255, 255, 255, 1);
+  --shadow-glow-teal:  0 0 24px 6px rgba(118, 221, 230, 0.45);
+
+  /* Gradients */
+  --gradient-pink-peach: linear-gradient(135deg, #fddfe3 0%, #feecdb 100%);
+  --gradient-blue-teal:  linear-gradient(135deg, #e2f0fd 0%, #d6f5f8 100%);
+  --gradient-mandala-fade: radial-gradient(
+    circle at 50% 45%,
+    rgba(247, 149, 162, 0.22) 0%,
+    rgba(226, 240, 253, 0.0) 60%
+  );
+
+  /* Spacing — 8-step primitive scale */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+
+  /* Radius — 5 steps */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   15px;   /* the canonical "card" radius */
+  --radius-xl:   24px;
+  --radius-full: 200px;
+
+  /* Motion */
+  --motion-fast:   150ms;
+  --motion-normal: 250ms;
+  --motion-slow:   400ms;
+  --ease-out:   cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ───────────── Typography primitives ───────────── */
+  --font-display: "Marmelad", "Open Sans", ui-rounded, system-ui, sans-serif;
+
+  /* Text style scale — 10 steps, all Marmelad Regular (400) */
+  --type-display-lg-size: 32px;   --type-display-lg-lh: 40px;
+  --type-display-sm-size: 24px;   --type-display-sm-lh: 32px;
+  --type-h1-size: 20px;           --type-h1-lh: 28px;
+  --type-h2-size: 18px;           --type-h2-lh: 24px;
+  --type-h3-size: 16px;           --type-h3-lh: 22px;
+  --type-body-lg-size: 16px;      --type-body-lg-lh: 24px;
+  --type-body-size: 14px;         --type-body-lh: 20px;
+  --type-body-sm-size: 12px;      --type-body-sm-lh: 18px;
+  --type-label-size: 15px;        --type-label-lh: 20px;
+  --type-caption-size: 9px;       --type-caption-lh: 14px;
+
+  color-scheme: light;
+}
+
+/* ───────────── Dark mode override ───────────── */
+[data-theme="dark"] {
+  --surface-default:  #141c2a;
+  --surface-subtle:   #1e2837;
+  --surface-muted:    #364150;
+  --surface-elevated: #1e2837;
+  --surface-overlay:  #4f5969;
+  --surface-inverse:  #ffffff;
+
+  --text-primary:   #ffffff;
+  --text-secondary: #98a3b4;
+  --text-muted:     #7f8b9b;
+  --text-accent:    #76dde6;
+  --text-success:   #76dde6;
+  --text-warning:   #fbc088;
+  --text-error:     #f795a2;
+  --text-on-accent: #141c2a;
+  --text-on-inverse: #1e2837;
+
+  --border-default: #364150;
+  --border-subtle:  #364150;
+  --border-strong:  #4f5969;
+  --border-accent:  #76dde6;
+
+  --icon-default: #ffffff;
+  --icon-muted:   #98a3b4;
+  --icon-accent:  #76dde6;
+  --icon-inverse: #141c2a;
+
+  --accent-teal: #76dde6;
+  --accent-pink: #f795a2;
+  --accent-warm: #fbc088;
+
+  /* Dark shadows are barely-there; hierarchy is carried by colour */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.30);
+  --shadow-lg:  0 12px 28px rgba(0, 0, 0, 0.40);
+  --shadow-xl:  0 24px 48px rgba(0, 0, 0, 0.45);
+  --shadow-2xl: 0 40px 80px rgba(0, 0, 0, 0.55);
+  --shadow-glow-white: 0 0 24px 6px rgba(118, 221, 230, 0.30);
+
+  color-scheme: dark;
+}
+
+/* ───────────── Base element defaults ───────────── */
+html, body {
+  background: var(--surface-default);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Semantic type classes — shortcut to the scale */
+.t-display-lg { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-display-lg-size); line-height: var(--type-display-lg-lh); letter-spacing: -0.01em; }
+.t-display-sm { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-display-sm-size); line-height: var(--type-display-sm-lh); letter-spacing: -0.005em; }
+.t-h1 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h1-size); line-height: var(--type-h1-lh); }
+.t-h2 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h2-size); line-height: var(--type-h2-lh); }
+.t-h3 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h3-size); line-height: var(--type-h3-lh); }
+.t-body-lg { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-body-lg-size); line-height: var(--type-body-lg-lh); }
+.t-body { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+.t-body-sm { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-body-sm-size); line-height: var(--type-body-sm-lh); }
+.t-label { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-label-size); line-height: var(--type-label-lh); }
+.t-caption { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-caption-size); line-height: var(--type-caption-lh); letter-spacing: 0.02em; }
+
+/* Heading defaults — map HTML tags to scale */
+h1 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h1-size); line-height: var(--type-h1-lh); color: var(--text-primary); margin: 0; }
+h2 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h2-size); line-height: var(--type-h2-lh); color: var(--text-primary); margin: 0; }
+h3 { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-h3-size); line-height: var(--type-h3-lh); color: var(--text-primary); margin: 0; }
+p  { font-family: var(--font-display); font-weight: 400;
+  font-size: var(--type-body-size); line-height: var(--type-body-lh); color: var(--text-secondary); margin: 0; }
+
+/* Utility */
+.velo-card {
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 20px;
+}
+.velo-button-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font: 400 18px/1 var(--font-display);
+  color: var(--text-on-accent);
+  background: var(--steel-button);
+  border: 0;
+  border-radius: var(--radius-full);
+  padding: 14px 32px;
+  min-height: 44px;
+  box-shadow: var(--shadow-glow-white);
+  cursor: pointer;
+  transition: filter var(--motion-fast) var(--ease-out),
+              transform var(--motion-fast) var(--ease-out);
+}
+.velo-button-primary:hover  { filter: brightness(1.06); }
+.velo-button-primary:active { transform: scale(0.98); }

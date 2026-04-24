@@ -73,15 +73,13 @@ defineEmits<{
   gap: var(--space-2);
   height: 36px;
   padding: 0 var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   flex-shrink: 0;
@@ -96,14 +94,14 @@ defineEmits<{
   font-family: var(--font-body);
   font-size: 18px;
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .v-header__badge {
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
   font-size: var(--text-xs);
   font-weight: 400;

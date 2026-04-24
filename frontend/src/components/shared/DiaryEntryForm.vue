@@ -137,9 +137,7 @@ function onSubmit(): void {
   height: 36px;
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-15);
   font-size: var(--text-lg);
   cursor: pointer;
   display: flex;
@@ -155,7 +153,7 @@ function onSubmit(): void {
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -172,7 +170,7 @@ function onSubmit(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   transition: opacity var(--transition-fast);
 }
 
@@ -185,17 +183,15 @@ function onSubmit(): void {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-peach-40);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border-bottom: 1px solid var(--velo-pink-300);
+  background: var(--surface-warm-alpha-40);
+  border-bottom: 1px solid var(--pink-primary);
 }
 
 .entry-form__confirm-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-error-text);
+  color: var(--warm-deep);
 }
 
 .entry-form__confirm-actions {
@@ -224,7 +220,7 @@ function onSubmit(): void {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .entry-form__input {
@@ -235,14 +231,14 @@ function onSubmit(): void {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  color: var(--text-primary);
+  background: var(--surface-steel-alpha-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
-.entry-form__input::placeholder { color: var(--velo-text-muted); }
-.entry-form__input:focus { outline: none; border-color: var(--velo-border-input-focus); }
+.entry-form__input::placeholder { color: var(--text-muted); }
+.entry-form__input:focus { outline: none; border-color: var(--steel-muted); }
 
 .entry-form__textarea {
   flex: 1;
@@ -254,16 +250,16 @@ function onSubmit(): void {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.6;
   resize: vertical;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
-.entry-form__textarea::placeholder { color: var(--velo-text-muted); }
-.entry-form__textarea:focus { outline: none; border-color: var(--velo-border-input-focus); }
+.entry-form__textarea::placeholder { color: var(--text-muted); }
+.entry-form__textarea:focus { outline: none; border-color: var(--steel-muted); }
 
 .entry-form__actions {
   padding: var(--space-4);

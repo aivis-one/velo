@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;background:#F5F7FA;font-family:var(--font-display);color:var(--text-primary);}
+  .wrap{width:700px; padding:24px; box-sizing:border-box; display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .card{background:#fff; border-radius:15px; padding:16px; box-shadow:0 4px 12px rgba(30,40,55,0.06);}
+  .card h3{font-size:16px; margin-bottom:6px;}
+  .card p{font-size:13px; color:var(--text-secondary);}
+  .warm{background:rgba(251,192,136,0.4); border:2px solid #FBC088; box-shadow:none;}
+  .warm h3{color:#A16124;}
+  .warm p{color:#A16124; opacity:0.9;}
+  .stat{text-align:center; padding:14px;}
+  .stat .n{font:400 32px/1 var(--font-display); color:#4C6589;}
+  .stat .l{font-size:11px; color:var(--text-secondary); margin-top:6px; text-transform:uppercase; letter-spacing:0.04em;}
+</style></head><body>
+<div class="wrap">
+  <div class="card">
+    <h3>Ближайшая практика</h3>
+    <p>Утренняя медитация · Alex Mindful · 45 мин</p>
+  </div>
+  <div class="card warm">
+    <h3>Пора на check-in!</h3>
+    <p>Утренняя медитация через 30 минут</p>
+  </div>
+  <div class="card stat">
+    <div class="n">12</div>
+    <div class="l">практик в этом месяце</div>
+  </div>
+  <div class="card stat">
+    <div class="n">45<span style="font-size:16px; color:var(--text-secondary); margin-left:4px;">мин</span></div>
+    <div class="l">сегодня</div>
+  </div>
+</div>
+</body></html>

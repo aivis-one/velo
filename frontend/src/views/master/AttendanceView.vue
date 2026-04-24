@@ -351,7 +351,7 @@ async function finalize(): Promise<void> {
 /* -- Subtitle -- */
 .attendance__subtitle {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 /* -- Aggregate stats (matches mockup .attendance-stats) -- */
@@ -374,43 +374,43 @@ async function finalize(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-3xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .attendance__stat--present .attendance__stat-value {
-  color: var(--velo-success);
+  color: var(--teal-primary);
 }
 
 .attendance__stat--absent .attendance__stat-value {
-  color: var(--velo-error);
+  color: var(--pink-primary);
 }
 
 .attendance__stat-label {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-align: center;
 }
 
 /* -- Divider -- */
 .attendance__divider {
   height: 1px;
-  background: var(--velo-border-light);
+  background: var(--border-subtle);
 }
 
 /* -- Section titles -- */
 .attendance__section-title {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   padding: var(--space-2) 0 var(--space-1);
 }
 
 .attendance__section-title--present {
-  color: var(--velo-success);
+  color: var(--teal-primary);
 }
 
 .attendance__section-title--absent {
-  color: var(--velo-error);
+  color: var(--pink-primary);
 }
 
 /* -- Row (matches mockup .attendee-item / .detail-list-item) -- */
@@ -419,7 +419,7 @@ async function finalize(): Promise<void> {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .attendance__row:last-child {
@@ -431,7 +431,7 @@ async function finalize(): Promise<void> {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
   font-size: var(--text-sm);
   font-weight: 400;
@@ -442,12 +442,12 @@ async function finalize(): Promise<void> {
 }
 
 .attendance__avatar--absent {
-  background: var(--velo-error);
+  background: var(--pink-primary);
   opacity: 0.7;
 }
 
 .attendance__avatar--pending {
-  background: var(--velo-text-muted);
+  background: var(--text-muted);
 }
 
 /* -- Row info -- */
@@ -459,13 +459,13 @@ async function finalize(): Promise<void> {
 .attendance__row-name {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   font-family: var(--font-mono, monospace);
 }
 
 .attendance__row-meta {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -482,14 +482,14 @@ async function finalize(): Promise<void> {
 }
 
 .attendance__row-badge--present {
-  background: var(--velo-success);
+  background: var(--teal-primary);
   color: white;
   font-size: var(--text-xs);
   font-weight: 400;
 }
 
 .attendance__row-badge--absent {
-  background: var(--velo-error);
+  background: var(--pink-primary);
   color: white;
   font-size: var(--text-xs);
   font-weight: 400;
@@ -512,20 +512,18 @@ async function finalize(): Promise<void> {
 
 .attendance__dialog {
   width: 100%;
-  background: var(--velo-glass-blue-60);
+  background: var(--surface-steel-alpha-60);
   border: 1px solid #ffffff;
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .attendance__dialog-text {
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: center;
   line-height: 1.5;
 }

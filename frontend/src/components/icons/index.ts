@@ -1,7 +1,7 @@
 /**
  * VELO Frontend -- Icon Components barrel export (DS-5)
  *
- * SVG icons from Design_prototype/assets/icons/ as Vue components.
+ * SVG icons from Design_prototype_legacy_2026-03-11/assets/icons/ as Vue components.
  * All use currentColor fill and accept a `size` prop (default 24).
  *
  * Usage:

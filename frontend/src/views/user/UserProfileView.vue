@@ -206,7 +206,7 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-4);
 }
@@ -226,14 +226,14 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 
 .profile__stat-label {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* Balance card */
@@ -243,12 +243,10 @@ onMounted(async () => {
   justify-content: space-between;
   margin: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   transition: opacity var(--transition-fast);
 }
 
@@ -266,14 +264,14 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .profile__balance-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 
 /* Menu sections */
@@ -289,18 +287,16 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: var(--space-2);
 }
 
 .profile__menu-list {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -331,19 +327,19 @@ onMounted(async () => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
 }
 
 .profile__menu-arrow {
   font-size: var(--text-base);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 .profile__menu-item--danger .profile__menu-text {
-  color: var(--velo-error-text);
+  color: var(--warm-deep);
 }
 
 .profile__menu-item--switch .profile__menu-text {
-  color: var(--velo-primary);
+  color: var(--steel-button);
 }
 </style>

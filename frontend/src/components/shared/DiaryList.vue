@@ -285,7 +285,7 @@ function truncate(text: string, max: number): string {
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin: 0;
 }
@@ -307,13 +307,11 @@ function truncate(text: string, max: number): string {
   padding: var(--space-2) var(--space-4);
   border-radius: 100px;
   border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-15);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   transition: all var(--transition-fast);
@@ -324,8 +322,8 @@ function truncate(text: string, max: number): string {
 }
 
 .diary-list__tab--active {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
+  background: var(--steel-button);
+  border-color: var(--steel-button);
   color: white;
 }
 
@@ -350,14 +348,12 @@ function truncate(text: string, max: number): string {
 
 /* Card */
 .diary-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .diary-card:hover {
@@ -375,7 +371,7 @@ function truncate(text: string, max: number): string {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .diary-card__emoji {
@@ -386,7 +382,7 @@ function truncate(text: string, max: number): string {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin-bottom: var(--space-1);
 }
 
@@ -394,7 +390,7 @@ function truncate(text: string, max: number): string {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -402,7 +398,7 @@ function truncate(text: string, max: number): string {
 }
 
 .diary-card--entry {
-  border-left: 3px solid var(--velo-primary);
+  border-left: 3px solid var(--steel-button);
 }
 
 /* FAB */
@@ -413,13 +409,13 @@ function truncate(text: string, max: number): string {
   width: 56px;
   height: 56px;
   border-radius: var(--radius-full);
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
   font-size: 28px;
   font-weight: 400;
   border: 1px solid #ffffff;
   cursor: pointer;
-  box-shadow: var(--velo-shadow-glow);
+  box-shadow: var(--shadow-glow-white);
   display: flex;
   align-items: center;
   justify-content: center;

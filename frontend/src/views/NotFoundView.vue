@@ -35,7 +35,7 @@ const router = useRouter()
   font-family: var(--font-body);
   font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-2);
 }
@@ -43,21 +43,19 @@ const router = useRouter()
   font-family: var(--font-body);
   font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-bottom: var(--space-6);
 }
 .not-found__btn {
   padding: var(--space-3) var(--space-6);
-  background: var(--velo-primary);
+  background: var(--steel-button);
   color: white;
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-sm);
   border: 1px solid #ffffff;
   border-radius: var(--radius-full);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  box-shadow: var(--velo-shadow-glow);
+  box-shadow: var(--shadow-glow-white);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }

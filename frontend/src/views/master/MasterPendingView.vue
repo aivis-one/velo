@@ -188,7 +188,7 @@ async function refreshStatus(): Promise<void> {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--velo-success);
+  background: var(--teal-primary);
   color: white;
   font-size: 36px;
   font-weight: 400;
@@ -201,13 +201,13 @@ async function refreshStatus(): Promise<void> {
 .pending-view__title {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: center;
 }
 
 .pending-view__subtitle {
   font-size: var(--text-base);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -221,7 +221,7 @@ async function refreshStatus(): Promise<void> {
 
 .pending-view__rejection {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
   max-width: 300px;
   line-height: 1.5;
@@ -235,16 +235,14 @@ async function refreshStatus(): Promise<void> {
 .pending-view__info-card {
   width: 100%;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
 }
 
 .pending-view__info-text {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
   line-height: 1.6;
 }

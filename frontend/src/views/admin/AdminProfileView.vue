@@ -92,11 +92,9 @@ async function onLogout(): Promise<void> {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius-lg);
 }
 
 .admin-profile__header-info {
@@ -110,7 +108,7 @@ async function onLogout(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.2;
   word-break: break-word;
   letter-spacing: 0.02em;
@@ -118,12 +116,10 @@ async function onLogout(): Promise<void> {
 
 /* Sections */
 .admin-profile__section {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -132,14 +128,14 @@ async function onLogout(): Promise<void> {
 .admin-profile__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .admin-profile__section-desc {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 </style>

@@ -194,7 +194,7 @@ onMounted(loadStats)
 .admin-dashboard__alert-title {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-warning-text);
+  color: var(--warm-deep);
 }
 
 .admin-dashboard__alert-sub {
@@ -204,7 +204,7 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__alert-arrow {
-  color: var(--velo-warning-text);
+  color: var(--warm-deep);
   font-weight: 400;
   flex-shrink: 0;
 }
@@ -220,7 +220,7 @@ onMounted(loadStats)
 .admin-dashboard__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -232,9 +232,9 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__action-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-2);
   display: flex;
   flex-direction: column;
@@ -242,8 +242,6 @@ onMounted(loadStats)
   gap: var(--space-2);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-dashboard__action-card:active {
@@ -257,7 +255,7 @@ onMounted(loadStats)
 .admin-dashboard__action-label {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   text-align: center;
 }
 

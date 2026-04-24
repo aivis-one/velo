@@ -33,7 +33,7 @@ const open = ref(false)
 
 <style scoped>
 .v-accordion {
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .v-accordion__header {
@@ -43,13 +43,13 @@ const open = ref(false)
   width: 100%;
   padding: var(--space-3) 0;
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: left;
 }
 
 .v-accordion__arrow {
   font-size: var(--text-lg);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   transition: transform var(--transition-fast);
 }
 
@@ -60,6 +60,6 @@ const open = ref(false)
 .v-accordion__body {
   padding: 0 0 var(--space-3);
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 </style>

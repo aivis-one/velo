@@ -77,16 +77,14 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
 
 <style scoped>
 .pli {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .pli:active {
@@ -114,7 +112,7 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-base);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -124,7 +122,7 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -134,13 +132,13 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .pli__actions {
   display: flex;
   gap: var(--space-2);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
 }
 </style>

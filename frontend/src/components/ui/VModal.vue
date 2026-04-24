@@ -108,9 +108,7 @@ onUnmounted(() => {
   max-width: 420px;
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--velo-bg-card, var(--velo-glass-blue-60));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface-elevated);
   border: 1px solid #ffffff;
   border-radius: 20px 20px 0 0;
   padding: var(--space-6);
@@ -127,17 +125,17 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border: none;
-  background: var(--velo-bg-subtle);
+  background: var(--surface-subtle);
   border-radius: var(--radius-full);
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .v-modal__close:hover {
-  background: var(--velo-border);
-  color: var(--velo-text-primary);
+  background: var(--border-strong);
+  color: var(--text-primary);
 }
 
 /* -- Transitions -- */

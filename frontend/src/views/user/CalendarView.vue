@@ -182,18 +182,16 @@ onMounted(() => {
 .calendar__chip {
   padding: var(--space-2) var(--space-4);
   border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border-radius: 100px;
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .calendar__chip:hover {
@@ -201,8 +199,8 @@ onMounted(() => {
 }
 
 .calendar__chip--active {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
+  background: var(--steel-button);
+  border-color: var(--steel-button);
   color: white;
 }
 
@@ -210,7 +208,7 @@ onMounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   margin: var(--space-4) 0 var(--space-3);
   text-transform: uppercase;
   letter-spacing: 0.02em;

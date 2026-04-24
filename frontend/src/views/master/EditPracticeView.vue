@@ -722,16 +722,14 @@ async function remove(): Promise<void> {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-15);
 }
 
 .edit-practice__readonly-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
 }
 
 /* -- Content -- */
@@ -769,11 +767,11 @@ async function remove(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 /* -- Readonly value (practice_type) -- */
@@ -787,16 +785,16 @@ async function remove(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .edit-practice__readonly-value {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   padding: 10px var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 2px solid transparent;
   border-radius: 5px;
 }
@@ -805,19 +803,19 @@ async function remove(): Promise<void> {
 .edit-practice__date-input {
   width: 100%;
   padding: 12px var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 2px solid transparent;
   border-radius: 5px;
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   outline: none;
   transition: border-color var(--transition-fast);
 }
 
 .edit-practice__date-input:focus {
-  border-color: var(--velo-border-input-focus);
+  border-color: var(--steel-muted);
 }
 
 /* -- Payment toggle -- */
@@ -833,49 +831,45 @@ async function remove(): Promise<void> {
   gap: var(--space-2);
   padding: var(--space-3);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  color: var(--text-secondary);
+  background: var(--surface-steel-alpha-15);
   transition: all var(--transition-fast);
 }
 
 .edit-practice__payment-option--active {
-  border-color: var(--velo-primary);
+  border-color: var(--steel-button);
   color: white;
-  background: var(--velo-primary);
+  background: var(--steel-button);
 }
 
 .edit-practice__radio {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid var(--velo-border-light);
+  border: 2px solid var(--border-subtle);
   flex-shrink: 0;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .edit-practice__radio--active {
   border-color: white;
-  background: var(--velo-glass-blue-60);
+  background: var(--surface-steel-alpha-60);
 }
 
 /* -- Price calc -- */
 .edit-practice__price-calc {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .edit-practice__price-row {
@@ -884,14 +878,14 @@ async function remove(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
 }
 
 .edit-practice__price-row--total {
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* -- Actions section -- */
@@ -900,7 +894,7 @@ async function remove(): Promise<void> {
   flex-direction: column;
   gap: var(--space-3);
   padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* -- Confirm overlay + dialog -- */
@@ -916,9 +910,7 @@ async function remove(): Promise<void> {
 
 .edit-practice__dialog {
   width: 100%;
-  background: var(--velo-glass-blue-60);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-steel-alpha-60);
   border: 1px solid #ffffff;
   border-radius: var(--radius-lg);
   padding: var(--space-5);
@@ -931,7 +923,7 @@ async function remove(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: center;
   line-height: 1.5;
 }

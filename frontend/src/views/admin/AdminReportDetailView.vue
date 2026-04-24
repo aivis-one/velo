@@ -258,38 +258,34 @@ onMounted(loadReport)
 
 .report-detail__type {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   margin-left: auto;
 }
 
 .report-detail__section-title {
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: var(--space-2);
 }
 
 .report-detail__reason {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   line-height: 1.6;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .report-detail__meta-list {
-  background: var(--velo-glass-blue-15);
+  background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .report-detail__meta-row {
@@ -297,7 +293,7 @@ onMounted(loadReport)
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: 1px solid var(--border-subtle);
   gap: var(--space-2);
 }
 
@@ -312,14 +308,14 @@ onMounted(loadReport)
 
 .report-detail__meta-key {
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
 .report-detail__meta-val {
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-primary);
+  color: var(--text-primary);
   text-align: right;
 }
 
@@ -330,7 +326,7 @@ onMounted(loadReport)
 
 .report-detail__meta-note {
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--text-secondary);
   line-height: 1.5;
   margin-top: var(--space-1);
 }
@@ -344,10 +340,10 @@ onMounted(loadReport)
 .report-detail__processed {
   text-align: center;
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--text-muted);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-md);
+  background: var(--surface-steel-alpha-15);
+  border-radius: var(--radius-lg);
 }
 
 .report-detail__not-found {
