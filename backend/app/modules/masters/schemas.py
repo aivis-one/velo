@@ -12,6 +12,10 @@
 # F7: MasterProfileResponse now includes payout field (PayoutDetailsResponse
 #   or None). Extracted from data.get("payout") in _make_profile_response().
 #
+# CR-01: MasterProfileResponse gains min_withdrawal_cents and
+#   withdrawal_fee_cents (from settings). Frontend no longer needs to
+#   hardcode these values in utils/constants.ts.
+#
 # DOCUMENTS: list[dict] for now (JSONB sandbox). Each dict is freeform --
 #   could be {"type": "certificate", "number": "123"} or
 #   {"type": "link", "url": "https://..."}.
@@ -108,13 +112,16 @@ class PayoutDetailsResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Master profile response (updated Phase F7: added payout field)
+# Master profile response (updated Phase F7 + CR-01)
 # ---------------------------------------------------------------------------
 class MasterProfileResponse(BaseModel):
     """Public master profile representation.
 
     F7: payout field added -- extracted from data.get("payout").
     None when master has not configured payout details yet.
+
+    CR-01: min_withdrawal_cents and withdrawal_fee_cents added from
+    settings so frontend does not hardcode financial constants.
     """
 
     user_id: UUID
@@ -125,6 +132,9 @@ class MasterProfileResponse(BaseModel):
     experience_years: int | None = None
     frozen_cents: int
     available_cents: int
+    # CR-01: withdrawal limits from settings -- single source of truth.
+    min_withdrawal_cents: int
+    withdrawal_fee_cents: int
     # F7: payout details (None until master sets them via PATCH /me/payout)
     payout: PayoutDetailsResponse | None = None
     created_at: datetime
