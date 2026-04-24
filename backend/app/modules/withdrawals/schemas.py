@@ -7,12 +7,19 @@
 # CreateWithdrawalRequest: amount_cents from master.
 # WithdrawalResponse:      full withdrawal record.
 # PaginatedWithdrawalsResponse: paginated list (master + admin views).
+#
+# CR-01: WithdrawalResponse.status uses WithdrawalStatus StrEnum instead
+#   of str so OpenAPI emits enum values and generated TypeScript types
+#   produce union literals instead of plain string.
 # =============================================================================
 
 from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.modules.masters.schemas import PayoutDetails
+from app.modules.withdrawals.models import WithdrawalStatus
 
 
 class CreateWithdrawalRequest(BaseModel):
@@ -35,8 +42,8 @@ class WithdrawalResponse(BaseModel):
     amount_cents: int
     fee_cents: int
     currency: str
-    status: str
-    payout_details: dict
+    status: WithdrawalStatus
+    payout_details: PayoutDetails
     admin_id: UUID | None
     admin_note: str | None
     approved_at: datetime | None
