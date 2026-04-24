@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Master Router (updated Phase F7)
+# VELO Backend -- Master Router (updated Phase F7 + CR-01)
 # =============================================================================
 #
 # Endpoints:
@@ -10,6 +10,10 @@
 #
 # F7: _make_profile_response() now includes payout field extracted from
 #   MasterProfile.data.get("payout"). Returns None when not configured.
+#
+# CR-01: _make_profile_response() now includes min_withdrawal_cents and
+#   withdrawal_fee_cents from settings so frontend has a single source
+#   of truth for financial limits.
 # =============================================================================
 
 import copy
@@ -18,6 +22,7 @@ import structlog
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import BadRequestError
 from app.modules.auth.dependencies import get_current_master, get_current_user
@@ -51,6 +56,9 @@ def _make_profile_response(
 
     F7: payout field is extracted from data.get("payout").
     Returns None when master has not configured payout details yet.
+
+    CR-01: min_withdrawal_cents and withdrawal_fee_cents are sourced
+    from settings so the frontend does not need to hardcode them.
     """
     _user, profile = master_tuple
     data = profile.data
@@ -70,6 +78,8 @@ def _make_profile_response(
         experience_years=prof.get("experience_years"),
         frozen_cents=profile.frozen_cents,
         available_cents=profile.available_cents,
+        min_withdrawal_cents=settings.min_withdrawal_cents,
+        withdrawal_fee_cents=settings.withdrawal_fee_cents,
         payout=payout,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
@@ -129,6 +139,7 @@ async def get_my_master_profile(
     verification status (pending / verified / rejected).
 
     F7: Response now includes payout field (None until configured).
+    CR-01: Response now includes withdrawal limits from settings.
     """
     return _make_profile_response(master_tuple)
 
