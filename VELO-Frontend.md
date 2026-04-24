@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.1
-**Дата:** 17 марта 2026
+**Версия:** 1.2
+**Дата:** 25 апреля 2026
 **Статус:** Active
 
 ---
@@ -56,7 +56,8 @@ frontend/
 ├── src/
 │   ├── api/
 │   │   ├── client.ts          -- Base fetch обёртка, 401 handler
-│   │   ├── types.ts           -- TypeScript-интерфейсы (все типы API)
+│   │   ├── generated.ts       -- Auto-generated from backend OpenAPI (DO NOT EDIT)
+│   │   ├── types.ts           -- Re-export from generated.ts + frontend-only types
 │   │   ├── utils.ts           -- buildQuery() и прочие shared helpers
 │   │   ├── auth.ts            -- POST /auth/telegram, logout
 │   │   ├── users.ts           -- GET/PATCH /users/me
@@ -383,9 +384,20 @@ try {
 Telegram WebApp закрывает вкладку — `sessionStorage` очищается автоматически.
 `localStorage` оставлял бы протухший токен навсегда.
 
-### FP-09: Ручная типизация API, не OpenAPI codegen
+### FP-09: API-типы генерируются из OpenAPI, не пишутся вручную
 
-Контроль, идиоматичность, проще поддерживать при изменении бэкенда.
+```typescript
+// ЗАПРЕЩЕНО — ручной интерфейс для бэкенд-схемы:
+export interface PracticeResponse { ... }  // в types.ts
+
+// ПРАВИЛЬНО — автогенерация + реэкспорт:
+// generated.ts — создаётся скриптом, НЕ ТРОГАТЬ
+// types.ts — реэкспорт из generated + frontend-only типы
+export type { PracticeResponse } from './generated'
+```
+
+Скрипт: `backend/scripts/generate_ts_types.py`. Запускается при `velo update` автоматически.
+Frontend-only типы (PracticeFilters, ApiError и т.д.) остаются в `types.ts`.
 
 ---
 
@@ -532,7 +544,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 |----|-------|------|----------|---------|
 | TD-SDK | 🧪 | `public/js/telegram-web-app.js` | SDK — локальная копия (3331 строка). Ручное обновление при новых версиях | Миграция на `@telegram-apps/sdk` (npm) |
 | TD-FE-W4 | 🧪 | `MasterProfileView.vue` | `v-show` на payout-форме — весь DOM всегда присутствует | Заменить на `v-if` если форма не нужна при анимированном переходе |
-| TD-FE-W6 | 🧪 | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены — рассинхрон с `config.py` при изменении | `GET /api/v1/config` эндпоинт или явный комментарий с источником |
+| TD-FE-W6 | ✅ | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены — рассинхрон с `config.py` при изменении | CR-01: бэкенд отдаёт `min_withdrawal_cents` и `withdrawal_fee_cents` в `MasterProfileResponse` |
 | TD-FE-A11Y | 🧪 | Admin views (5 файлов) | Clickable `<div>` без `role="button"`, `tabindex="0"`, `@keydown` handlers. Нарушает WCAG 2.1 AA 2.1.1. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop`, `@keydown.space.prevent` |
 | TD-FE-LOGO-SVGO | 🧪 | `public/icons/logo.svg`, `public/icons/logo-white.svg` | SVG-логотипы загружены через `<img>` как есть из Figma-экспорта: `logo.svg` — 228KB, `logo-white.svg` — 434KB. Избыточный размер из-за неоптимизированных path-данных | Прогнать через `svgo` с дефолтными настройками — ожидаемое уменьшение в 5–10× без видимых изменений |
 
@@ -540,7 +552,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 
 | Решение | Обоснование |
 |---------|-------------|
-| Ручная типизация API вместо OpenAPI codegen | Контроль, идиоматичность, проще при изменении бэкенда |
+| API-типы генерируются из OpenAPI (CR-01) | Единый источник правды — Pydantic-схемы бэкенда. `generated.ts` создаётся автоматически при `velo update`. Drift невозможен конструктивно |
 | `sessionStorage` для token (не `localStorage`) | Telegram WebApp закрывает вкладку — sessionStorage очищается автоматически |
 | Свой CSS вместо Tailwind | Дизайн-система VELΘ готова в мокапах, перенос 1:1 проще |
 | Внутренний Nginx в Docker фронтенда | SPA fallback + кеширование без усложнения хост-конфига |
