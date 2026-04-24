@@ -6,6 +6,11 @@
 #
 # SemaphoreResult: individual check outcome (OK or ALERT).
 # ConsistencyResponse: aggregated response with all semaphore results.
+#
+# CR-01: criticality changed from optional (default="critical") to required.
+#   The service always provides criticality explicitly. Making it required
+#   ensures OpenAPI marks it as such, and the TS generator emits a
+#   non-optional field.
 # =============================================================================
 
 from datetime import datetime
@@ -32,7 +37,7 @@ class SemaphoreResult(BaseModel):
     expected: str
     actual: str
     details: dict | None = None
-    criticality: Literal["critical", "warning", "info"] = "critical"
+    criticality: Literal["critical", "warning", "info"]
 
 
 class ConsistencyResponse(BaseModel):

@@ -4,6 +4,8 @@
 #
 # NO-LITERALS: note field limits sourced from
 #   settings.admin_action_note_max_length -- change once, applies everywhere.
+#
+# CR-01: AdminWithdrawalResponse.status uses WithdrawalStatus StrEnum.
 # =============================================================================
 
 from datetime import datetime
@@ -12,6 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.modules.masters.schemas import PayoutDetails
+from app.modules.withdrawals.models import WithdrawalStatus
 
 
 class ApproveWithdrawalRequest(BaseModel):
@@ -38,8 +42,8 @@ class AdminWithdrawalResponse(BaseModel):
     amount_cents: int
     fee_cents: int
     currency: str
-    status: str
-    payout_details: dict
+    status: WithdrawalStatus
+    payout_details: PayoutDetails
     admin_id: UUID | None = None
     admin_note: str | None = None
     approved_at: datetime | None = None
