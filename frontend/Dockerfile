@@ -31,6 +31,8 @@ COPY . .
 RUN npm run test
 
 # Type-check + bundle (npm run build = vue-tsc --noEmit && vite build).
+ARG VITE_API_BASE_URL
+ARG VITE_TELEGRAM_BOT_URL
 RUN npm run build
 
 # ---------------------------------------------------------------------------
