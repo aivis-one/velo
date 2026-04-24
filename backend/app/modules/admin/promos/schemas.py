@@ -8,11 +8,14 @@
 #
 # Response schemas are reused from promos/schemas.py:
 #   PromoResponse, PaginatedPromosResponse.
+#
+# CR-01: valid_from changed from required to optional (same as
+#   CreateMasterPromoRequest). Defaults to utcnow() via validator.
 # =============================================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CreateCompanyPromoRequest(BaseModel):
@@ -35,8 +38,12 @@ class CreateCompanyPromoRequest(BaseModel):
         default=None, ge=1,
         description="Max number of uses (null = unlimited).",
     )
-    valid_from: datetime = Field(
-        description="Start of validity window (UTC).",
+    valid_from: datetime | None = Field(
+        default=None,
+        description=(
+            "Start of validity window (UTC). "
+            "Defaults to current time when omitted."
+        ),
     )
     valid_until: datetime | None = Field(
         default=None,
@@ -46,3 +53,16 @@ class CreateCompanyPromoRequest(BaseModel):
         default=False,
         description="If true, only works for user's first purchase.",
     )
+
+    @field_validator("valid_from", mode="before")
+    @classmethod
+    def default_valid_from_to_now(cls, v: datetime | None) -> datetime:
+        """Default valid_from to current UTC time when not provided.
+
+        Guarantees downstream code always receives a concrete datetime,
+        so service-layer comparisons (valid_until <= valid_from) work
+        without None checks.
+        """
+        if v is None:
+            return datetime.now(timezone.utc)
+        return v
