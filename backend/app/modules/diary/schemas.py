@@ -22,6 +22,12 @@
 #   settings.diary_comment_max_length  -- comment field limit
 #   settings.diary_entry_content_max_length
 #   settings.diary_entry_title_max_length
+#
+# CR-01: MoodDistribution / RatingDistribution fields changed from
+#   optional (default=0) to required. These are response-only schemas --
+#   the service always provides concrete values. Removing defaults makes
+#   OpenAPI mark them as required, so the TS generator emits non-optional
+#   fields and frontend code doesn't need `?.` guards.
 # =============================================================================
 
 from datetime import datetime
@@ -224,19 +230,29 @@ class PaginatedDiaryEntriesResponse(BaseModel):
 
 
 class MoodDistribution(BaseModel):
-    """Check-in mood counts for a practice."""
+    """Check-in mood counts for a practice.
 
-    high: int = 0
-    mid: int = 0
-    low: int = 0
+    CR-01: fields are required (no default=0). This is a response-only
+    schema -- the service always provides concrete values. Making them
+    required ensures OpenAPI marks them as such, and the TS generator
+    emits non-optional fields.
+    """
+
+    high: int
+    mid: int
+    low: int
 
 
 class RatingDistribution(BaseModel):
-    """Feedback rating counts for a practice."""
+    """Feedback rating counts for a practice.
 
-    fire: int = 0
-    good: int = 0
-    confused: int = 0
+    CR-01: fields are required (no default=0). Same rationale as
+    MoodDistribution above.
+    """
+
+    fire: int
+    good: int
+    confused: int
 
 
 class PracticeInsightsResponse(BaseModel):

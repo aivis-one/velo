@@ -10,6 +10,10 @@
 # AttendanceResponse:             Full attendance summary (Phase 5.4).
 #
 # Phase 6.7 Batch 4: CreateBookingRequest gains optional promo_code.
+#
+# CR-01: Response schemas use BookingStatus StrEnum instead of str
+#   so OpenAPI emits enum values and generated TypeScript types
+#   produce union literals instead of plain string.
 # =============================================================================
 
 from datetime import datetime
@@ -17,6 +21,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.modules.bookings.models import BookingStatus
 from app.modules.practices.schemas import PracticeSummary, PracticeResponse
 
 
@@ -49,7 +54,7 @@ class BookingResponse(BaseModel):
     id: UUID
     practice_id: UUID
     user_id: UUID
-    status: str
+    status: BookingStatus
     purchase_id: UUID | None
     cancelled_at: datetime | None
     cancellation_reason: str | None
@@ -74,7 +79,7 @@ class BookingWithPracticeResponse(BaseModel):
     id: UUID
     practice_id: UUID
     user_id: UUID
-    status: str
+    status: BookingStatus
     purchase_id: UUID | None
     cancelled_at: datetime | None
     cancellation_reason: str | None
@@ -98,7 +103,7 @@ class BookingDetailResponse(BaseModel):
     id: UUID
     practice_id: UUID
     user_id: UUID
-    status: str
+    status: BookingStatus
     purchase_id: UUID | None
     cancelled_at: datetime | None
     cancellation_reason: str | None
@@ -128,7 +133,7 @@ class AttendanceItemResponse(BaseModel):
 
     booking_id: UUID
     user_id: UUID
-    status: str
+    status: BookingStatus
     joined_at: datetime | None
     left_at: datetime | None
 

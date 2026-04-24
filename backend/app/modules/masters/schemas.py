@@ -9,7 +9,7 @@
 #   validation. Stored in MasterProfile.data.payout, snapshotted into
 #   each Withdrawal record at creation time.
 #
-# F7: MasterProfileResponse now includes payout field (PayoutDetailsResponse
+# F7: MasterProfileResponse now includes payout field (PayoutDetails
 #   or None). Extracted from data.get("payout") in _make_profile_response().
 #
 # CR-01: MasterProfileResponse gains min_withdrawal_cents and
@@ -104,8 +104,12 @@ class PayoutDetailsUpdate(BaseModel):
     details: dict = Field(min_length=1)  # At least one key required
 
 
-class PayoutDetailsResponse(BaseModel):
-    """Payout details stored in MasterProfile.data.payout."""
+class PayoutDetails(BaseModel):
+    """Payout details stored in MasterProfile.data.payout.
+
+    CR-01: renamed from PayoutDetailsResponse -- this is an embedded
+    object, not a top-level response. Name now matches frontend usage.
+    """
 
     method: str
     details: dict = Field(default_factory=dict)
@@ -136,6 +140,6 @@ class MasterProfileResponse(BaseModel):
     min_withdrawal_cents: int
     withdrawal_fee_cents: int
     # F7: payout details (None until master sets them via PATCH /me/payout)
-    payout: PayoutDetailsResponse | None = None
+    payout: PayoutDetails | None = None
     created_at: datetime
     updated_at: datetime | None = None

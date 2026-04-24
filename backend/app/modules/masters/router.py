@@ -31,7 +31,7 @@ from app.modules.masters.schemas import (
     MasterApplyRequest,
     MasterApplyResponse,
     MasterProfileResponse,
-    PayoutDetailsResponse,
+    PayoutDetails,
     PayoutDetailsUpdate,
 )
 from app.modules.masters.service import apply_for_master
@@ -67,7 +67,7 @@ def _make_profile_response(
 
     # F7: extract payout details if configured.
     payout_raw = data.get("payout")
-    payout = PayoutDetailsResponse(**payout_raw) if payout_raw else None
+    payout = PayoutDetails(**payout_raw) if payout_raw else None
 
     return MasterProfileResponse(
         user_id=profile.user_id,
@@ -151,7 +151,7 @@ async def get_my_master_profile(
 
 @router.patch(
     "/me/payout",
-    response_model=PayoutDetailsResponse,
+    response_model=PayoutDetails,
 )
 async def update_payout_details(
     body: PayoutDetailsUpdate,
@@ -159,7 +159,7 @@ async def update_payout_details(
         get_current_master,
     ),
     session: AsyncSession = Depends(get_db_session),
-) -> PayoutDetailsResponse:
+) -> PayoutDetails:
     """Update master's payout details (bank, PayPal, etc.).
 
     Stored in MasterProfile.data.payout. Snapshotted into each
@@ -194,7 +194,7 @@ async def update_payout_details(
         method=body.method,
     )
 
-    return PayoutDetailsResponse(**payout_data)
+    return PayoutDetails(**payout_data)
 
 
 # ===================================================================

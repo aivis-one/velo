@@ -770,10 +770,21 @@ async def get_practice_insights(
     )
     comments_count = (await session.execute(comments_stmt)).scalar_one()
 
+    # CR-01: explicitly provide all keys -- GROUP BY only returns
+    # moods/ratings that exist in the data. MoodDistribution and
+    # RatingDistribution fields are required (no default=0).
     return {
         "practice_id": practice_id,
         "participants": participants,
-        "checkins": checkins_dist,
-        "feedbacks": feedbacks_dist,
+        "checkins": {
+            "high": checkins_dist.get("high", 0),
+            "mid": checkins_dist.get("mid", 0),
+            "low": checkins_dist.get("low", 0),
+        },
+        "feedbacks": {
+            "fire": feedbacks_dist.get("fire", 0),
+            "good": feedbacks_dist.get("good", 0),
+            "confused": feedbacks_dist.get("confused", 0),
+        },
         "comments_count": comments_count,
     }

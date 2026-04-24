@@ -479,39 +479,7 @@ EOF
     success "vite.env saved"
 }
 
-# ==============================================================================
-# PATCH REPO: inject ARG into frontend Dockerfile + docker-compose.yml
-# ==============================================================================
-
-patch_repo() {
-    log "Patching frontend Dockerfile and docker-compose.yml for VITE build args..."
-
-    local DOCKERFILE="$INSTALL_BASE/repo/frontend/Dockerfile"
-    local COMPOSEFILE="$INSTALL_BASE/repo/docker-compose.yml"
-
-    # Inject ARG declarations before RUN npm run build.
-    sed -i 's|RUN npm run build|ARG VITE_API_BASE_URL\nARG VITE_TELEGRAM_BOT_URL\nRUN npm run build|' "$DOCKERFILE"
-    success "Dockerfile patched"
-
-    # Replace single-line build with multi-line block including args.
-    python3 - "$COMPOSEFILE" << 'PYINNER'
-import sys, re
-path = sys.argv[1]
-with open(path) as f:
-    txt = f.read()
-txt = re.sub(
-    r'    build: \.\/frontend',
-    '    build:\n      context: ./frontend\n      args:\n        - VITE_API_BASE_URL\n        - VITE_TELEGRAM_BOT_URL',
-    txt
-)
-with open(path, 'w') as f:
-    f.write(txt)
-PYINNER
-    success "docker-compose.yml patched"
-}
-
 generate_env
-patch_repo
 
 # ==============================================================================
 # NGINX CONFIG
