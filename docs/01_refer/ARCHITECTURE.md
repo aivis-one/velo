@@ -155,7 +155,7 @@ Six skills auto-run on Sprint close (`04_Sprint-Closer.md`): type-audit, code-au
 
 ## Key Decisions
 
-Flat log: `decisions.md`. Active decisions #001-#023 as of Phase 01 close (2026-04-26).
+Flat log: `decisions.md`. Active decisions #001-#024 as of Phase 02 close (2026-04-26).
 
 ---
 

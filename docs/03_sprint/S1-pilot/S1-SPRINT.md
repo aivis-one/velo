@@ -86,9 +86,9 @@
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C07 | scout | AUDIT-S1.md — gap map (база scout §2) + финальные verdict'ы | TODO | | |
-| C08 | standard | Backend-coord report: 7 missing endpoints + формат для партнёра | TODO | | |
-| C09 | standard | Icons audit per D3: Vue-SVG baseline + bundle PNG дополнение | TODO | | |
+| C07 | scout | AUDIT-S1.md — gap map (база scout §2) + финальные verdict'ы | DONE | 2026-04-26 | docs/01_refer/AUDIT-S1.md created (278 lines, 10 sections, 47-row mapping table, 18 MH-card rows, theme + auth state). Consumes by S2 P05/P06 + S3 P09/P10/P11. |
+| C08 | standard | Backend-coord report: 7 missing endpoints + формат для партнёра | DONE | 2026-04-26 | docs/03_sprint/S1-pilot/backend-coord-report.md (143 lines): 7 partner-owed feature groups + 2 frontend-wrapper-only + 2 new partner schema asks + 2 regen-trigger asks. |
+| C09 | standard | Icons audit per D3: Vue-SVG baseline + bundle PNG дополнение | DONE | 2026-04-26 | D3 ratified as decision #024. AUDIT-S1.md §9 + 4 BACKLOG entries (#29-#32). BACKLOG #19 (D3 BLOCKING) RESOLVED. |
 
 ### Phase 03: Pilot Port (3 cycles)
 **Goal:** 2 pilot экрана работают на staging, dark tokens применены.
@@ -150,10 +150,10 @@
 
 | Item | Value |
 |------|-------|
-| Phase | 01: Bundle Migration — DONE |
-| Cycle | C06b: post-regen consumer migration — DONE |
-| Status | Ready for Phase 02 (Audit + Backend Coordination) |
-| Tests | typecheck 0 errors · lint 758 warnings (delta 0) · build ✓ 1.36s, PWA 96 entries |
+| Phase | 02: Audit + Backend Coordination — DONE |
+| Cycle | C09: icons strategy — DONE |
+| Status | Ready for Phase 03 (Pilot Port: C10 Dashboard merge HIGH + C11 Welcome greenfield + C12 verify) |
+| Tests | N/A (Phase 02 doc-only deliverables) |
 
 ---
 
@@ -171,33 +171,39 @@
 | S1-P01-C06 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P01-C06b | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P01-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P02-C07 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P02-C08 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P02-C09 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P02-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
 
 ---
 
 ## Last Session
 
-Phase 01 closed 2026-04-26. Bundle migration complete: 6 cycle commits effectively (C01-C04 bundled in C05 deploy-prelude `364893d`; C06+C06b uncommitted at HEAD `83d287a` then folded into Phase commit). ~750 substitution points across ~70 files in C01-C04. C06 reduced from 4 to 2 fixes after Pre-Exec discovered `types.ts` is re-export hub from auto-generated `generated.ts` (partner pipeline introduced at `81304a6`); B.1 was already resolved by prior regen, A.2 blocked on stale-openapi regen artifact. C06b followed up: 38 typecheck errors at HEAD `83d287a` (all pre-existing, partner-introduced) → 0 via Option 3 broaden (`Record<string, X>` standard) + tactical patches across 11 files. Final gates: typecheck 0, lint 758 (delta 0 vs baseline), vite build ✓ 1.36s.
+Phase 02 closed 2026-04-26 at HEAD post-CLOSE-commit (this CLOSE bumps from `47a6cd8` to next commit). Audit + Backend Coordination delivered as 4 artifacts in single batched WORK execution: (1) `docs/01_refer/AUDIT-S1.md` — 278 lines, 10 sections, 47-row Master Mapping Table covering 36 existing views + 11 NEW + 18 MH-card rows (17 MH numbers, MH-09 split into user/master per S3 P09 cycle planning), 9 categorization buckets, theme-state row (32 dark tokens, no UI toggle, stores/ui.ts no theme field), AuthScreen row (3 Vue stubs, WelcomeView absent, NOT-1:1 per #012); (2) `docs/03_sprint/S1-pilot/backend-coord-report.md` — 143 lines, 7 partner-owed feature groups (Waitlist, Profile editing, Logout-all, Purchase history, User-side reports, Promo management, Live-session join/leave) + 2 frontend-wrapper-only (AISummary, BookingDetail backends ready) + 2 new partner schema asks (MasterProfilePublic, MH-17) + 2 regen-trigger asks (CR-01 + Zodd CRITICAL #1); (3) decision #024 ratifying D3 icons strategy (Vue-SVG baseline + bundle PNG decorative supplement; 2 collisions resolved as Vue-SVG); (4) 4 new BACKLOG rows (#29 IconRuble removal candidate, #30 future SVG migration, #31 ENVIRONMENT.md path drift `D:\03_Projects` → `D:\02_Projects`, #32 TopupRequest/TopupResponse type duplication per Zodd §7).
 
-8 new decisions (#015-#022) + 1 architectural follow-up decision (#023 types.ts SSOT reinterpretation post-regen). 19 new BACKLOG items (10-28); 2 gated on backend regen coordination (#26 A.2 financial constants; #27 Zodd CRITICAL #1 PracticeSummary.timezone).
+BACKLOG resolutions at CLOSE: #19 (D3 BLOCKING) → RESOLVED via #024; #25 (user-ai-summary feature gap) → RESOLVED via S2 C24 plan + AUDIT §10 #6.
 
-Documentary deviations noted at CLOSE: (1) Phase 01 diff range includes 13 ancillary upstream/partner commits — phase cycle work scope is `364893d` + uncommitted C06/C06b at this commit; (2) C01 file count amended from brief's "92" to verifiable scope description (~250 files contributed via bundle snapshot + assets + renames + font).
+Process notes: Combined Scout used at OPEN with explicit Code-review pre-flight (consult-Code-on-scout pattern per Human request) — caught 5 substantive scope adjustments before WORK. Self-validation pass on combined execute prompt fixed 9 BREAK/GAP findings before submission to Code (count math, MH-08 contradiction, missing shells in Section 4, Validation criterion drift, missing Anchor block, BACKLOG #25 closure path). Code WORK execution clean: 10/10 acceptance + 3/3 LOGIC/CASCADE/NEGATIVE.
+
+ARCHITECTURE.md §Key Decisions counter advanced from "#001-#023 as of Phase 01" to "#001-#024 as of Phase 02 close".
 
 ---
 
 ## Next Action
 
-Phase 02: Audit + Backend Coordination (C07-C09). Run `03_Phase-Builder` OPEN in new chat. Phase 02 OPEN must resolve BLOCKING BACKLOG #19 (D3 icons decision) before C09 runs.
+Phase 03: Pilot Port (C10-C12). Run `03_Phase-Builder` OPEN in new chat. Phase 03 OPEN gate per protocol §3 design-gen precondition: Human must confirm Claude Design handoff for WelcomeView (C11) is ready before C11 enters WORK. C10 (Dashboard merge HIGH) does NOT depend on Claude Design handoff and can start immediately. C12 verifies dark+light tokens + typecheck + lint + test.
 
 ---
 
 ## For Human
 
-**Session Code:** S1-P02-C07
+**Session Code:** S1-P03-C10
 **Load:**
 1. Framework: `01_Declaration.md` + `03_Phase-Builder.md`
 2. Project: `ENVIRONMENT.md` + `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md`
-3. Sprint: `S1-SPRINT.md`
-**Run:** `03_Phase-Builder` OPEN — Phase 02 (Audit + Backend Coordination, 3 cycles: C07 AUDIT-S1.md scout, C08 backend-coord 7 missing endpoints, C09 icons audit per D3 decision — see BACKLOG #19, must resolve before C09)
+3. Sprint: `S1-SPRINT.md` + `AUDIT-S1.md` (consume Section 4 mapping table for cycle scope locks) + `backend-coord-report.md` (context for any endpoint-blocked cycle)
+**Run:** `03_Phase-Builder` OPEN — Phase 03 (Pilot Port, 3 cycles: C10 Dashboard merge HIGH affects-global-state, C11 Welcome greenfield from Claude Design handoff per #012 NOT bundle AuthScreen, C12 pilot verify dark/light + typecheck/lint/test). Phase 03 OPEN §3 design-gen precondition gate: confirm Claude Design WelcomeView handoff is ready before C11 enters WORK.
 
 ---
 
