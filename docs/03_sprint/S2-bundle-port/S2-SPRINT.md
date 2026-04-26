@@ -31,6 +31,7 @@
 | S1-RETRO | docs/03_sprint/S1-pilot/S1-RETRO.md |
 | S1-SNAPSHOT | docs/03_sprint/S1-pilot/S1-SNAPSHOT.md |
 | RETRO-S2 | docs/03_sprint/S2-bundle-port/S2-RETRO.md (created at close) |
+| Process discipline | docs/01_refer/BACKLOG.md → #10, #17, #33, #34 (apply at prompt-design time) |
 
 ---
 
@@ -118,7 +119,10 @@ Port всех оставшихся 11 экранов из bundle в Vue + TMA Au
 ---
 
 ## Carry-Forward from S1
-> Filled at S1 Sprint-Closer.
+
+- **Pre-S2 Human action (out-of-chat):** coordinate with backend partner to (a) document the regen workflow trigger (CI vs pre-commit vs manual) — resolves BACKLOG #24, (b) run a fresh regen against current backend `openapi.json` — unblocks BACKLOG #26 (financial constants migration) and BACKLOG #27 (`PracticeSummary.timezone` schema add → frontend Berlin-fallback removal). Until this completes, the gated entries remain in BACKLOG and S2 cycles work around them with tactical patches.
+- **Process discipline lessons** captured at S1 close — apply during S2 scout / execute prompt design: BACKLOG #10 (fallback-syntax-aware grep), #17 (explicit substitution group ordering), #33 (NEGATIVE-grep comment-collision), #34 (FP-01 hex regex over-fire on decision-#NNN refs). See References table for pinned entry.
+- **S1-Clean-Sync batch** (between S1-Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 (IconRuble dead-import check), #31 (ENVIRONMENT.md path drift), #35 (ENVIRONMENT.md commit convention cleanup), AUDIT-S1.md §10 #5 (FILE-TREE.md views count). These do NOT block S2 start; cleanup runs in parallel.
 
 ## Key Decisions
 - (inherited from S1 decisions #006–#014)

@@ -77,3 +77,69 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 P03 CLOSE Step 2 Verification Scout output (NIT row).
 **Severity**: process-improvement (not blocking).
 **Sprint**: S2 or S1-Clean-Sync.
+
+---
+
+### #35 — ENVIRONMENT.md commit convention cleanup
+
+**Context**: S1 used phase-bundled commits exclusively per Phase-Builder CLOSE Step 4f (one commit per phase, no cycle-tagged commits during WORK). ENVIRONMENT.md §Git Workflow still describes `cycle: C{NN} <short>` (cycle work) and `cycle: C{NN} <name> — DONE` (cycle close) formats that were never used during S1 and have no path to be used given current Phase-Builder rules.
+
+**Action**: Remove both `cycle:`-prefix rows from ENVIRONMENT.md §Git Workflow Commit convention table. Keep `phase:`, `sprint:`, `docs:`, `decision:`, `refactor:`, `fix:`, `clean-sync:`, `audit:`, `deploy-prelude:`. Crash-recovery commits use ad-hoc message without dedicated format prefix.
+
+**Source**: S1-RETRO.md §What Didn't (Commit convention divergence with ENVIRONMENT.md).
+**Severity**: doc-cleanup (not blocking).
+**Sprint**: S1-Clean-Sync.
+
+---
+
+### #36 — Staging deploy flow doc clarification
+
+**Context**: `ENVIRONMENT.md` §Known Limitations row 1 + `ARCHITECTURE.md` §Server & Deploy describe staging deploy as `push to new_desing → staging auto-pulls`. S1 Phase 04 close revealed the practical workflow includes a backend-partner code-audit gate before staging exposure (Velo push → partner audits → partner promotes/deploys → staging visible). The «auto-pulls» wording risks misleading future planning into expecting in-sprint visual verification on push (which is what the original C13 plan assumed and which led to the triaged-deferral close).
+
+**Action**: Reconcile description. Options: (a) clarify that auto-pull is the technical mechanism but workflow includes partner-audit gate before staging exposure, OR (b) remove «auto-pulls» phrasing if staging is fully partner-gated, OR (c) add an explicit deploy-flow sequence to ENVIRONMENT.md / ARCHITECTURE.md §Server & Deploy. Coordinate with Human at Clean-Sync time to confirm the actual workflow before edit.
+
+**Source**: S1 Phase 04 CLOSE — Human-stated deploy flow correction.
+**Severity**: doc-clarification (not blocking; prevents mis-planning of future visual-test cycles).
+**Sprint**: S1-Clean-Sync.
+
+---
+
+### #37 — Post-deploy visual verification of S1 pilot screens
+
+**Context**: S1 Phase 04 C13 was a manual-test cycle (Human visual on staging) deferred at phase close per Phase-Builder §CLOSE §1 triaged-deferral. Reason: visual verification gates on external pipeline (Velo push → backend partner code audit → partner deploy → staging exposure) which cannot complete in-sprint. Velo-side code work for both pilot screens is complete with all gates green at Phase 03 close (typecheck 0 errors / test 32 passed / lint 756 / build green / PWA precache 99). Visual confirmation is the final acceptance step.
+
+**Action**: Once staging reflects commit `823bdec` (Phase 03 close) or successor with same pilot-screen content (after partner-audit + deploy), perform visual test:
+
+- **WelcomeView** at `/welcome` — light + dark themes via DevTools `[data-theme="dark"]` on root.
+  - Mandala backdrop (centered, behind content); VELΘ wordmark in Marmelad font with correct Θ glyph; tagline below wordmark; single primary CTA «Открыть в Telegram» linking to `import.meta.env.VITE_TELEGRAM_BOT_URL` (inspect anchor `href`; not `#` / empty / placeholder).
+  - No backdrop-filter / glassmorphism (per #007). No third-party login UI — no Google / Apple buttons (per #012).
+  - Mobile-first layout stable at ~380px and ~1024px viewport widths.
+  - 0 console errors. Mandala remains visible against dark background in dark theme; no tokens fall back to light values.
+
+- **UserDashboardView** at `/user/dashboard` — login as `user` role to bypass the global `beforeEach` guard at `to.name === 'user-dashboard'` (master / admin sessions redirect via `uiStore.uiMode`). Light + dark themes.
+  - WeekdayStrip at top (7 day cells, current day highlighted) + Stats row from real `bookingsStore` data (not placeholders, not zero-state if user has bookings).
+  - AI summary card visible (existing Velo behavior preserved per C10 scope).
+  - Check-in alert + feedback alert when applicable.
+  - Nearest practice card with practice time formatted in correct timezone (Berlin fallback known per BACKLOG #27 — non-Berlin practices may show wrong time; flag in defects with `decision-impact: BACKLOG #27`).
+  - NO Contraindications callout (skipped per C10 scope-lock — bundle's element not ported because no backend flag).
+  - NO Recommendations list (deferred to S2 P05).
+  - Bundle dark `--surface-*` tokens applied in dark mode (no rgba leftovers from pre-#009 velo namespace).
+
+- **Console / Network**:
+  - 0 errors across all 4 theme×screen combinations (warnings noted but not blocking).
+  - No 404s on assets (fonts, illustrations, mandala, brand-icons).
+  - `Marmelad-Regular.ttf` loaded 200 OK (Network → fonts).
+  - PWA precache: 99 entries served (DevTools → Application → Cache Storage).
+
+**Defects format** for each finding:
+- `severity`: BREAK / GAP / NIT
+- `screen`: welcome / dashboard
+- `theme`: light / dark
+- `what`: one-line description
+- `expected`: what bundle / decision says it should be (cite #NNN if applicable)
+- `evidence`: screenshot filename or DOM snippet or console error text
+- `decision-impact`: cite contradicted decision or BACKLOG entry if applicable
+
+**Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
+**Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
+**Sprint**: post-S1 (run when partner deploy to staging completes).

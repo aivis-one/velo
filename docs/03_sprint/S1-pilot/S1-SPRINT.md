@@ -114,8 +114,8 @@
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C13 | manual-test | Human тестирует Welcome + Dashboard на staging, скриншоты light+dark | TODO | | |
-| C14 | standard | Retrospective: real cycle speed, правки S2/S3 в отдельных файлах если нужно | TODO | | |
+| C13 | manual-test | Human тестирует Welcome + Dashboard на staging, скриншоты light+dark | DEFERRED | 2026-04-26 | Visual verification gated on external pipeline (Velo push → partner code audit → partner deploy → staging). Verification spec preserved at BACKLOG #37 (stand-alone). Will execute post-deploy as out-of-sprint follow-up. Triaged-deferral close per Phase-Builder §CLOSE §1. |
+| C14 | standard | Retrospective: real cycle speed, правки S2/S3 в отдельных файлах если нужно | DONE | 2026-04-26 | S1-RETRO.md created (full retrospective: Summary + Goal vs Outcome + Plan vs Reality + What Worked + What Didn't + Carry Forward + Decisions Density + Process Lessons + Conditional + Anchor). S2-SPRINT.md updated (1 References row + 3 Carry-Forward items per H1 minimal). BACKLOG #35 appended (ENVIRONMENT.md commit-convention cleanup → S1-Clean-Sync). All AC pass. |
 
 ---
 
@@ -150,10 +150,10 @@
 
 | Item | Value |
 |------|-------|
-| Phase | 03: Pilot Port — DONE |
-| Cycle | C12: pilot verify — DONE |
-| Status | Phase 03 complete; ready for Phase 04 (Manual Test + Retrospective) |
-| Tests | 32 passed / 0 failed / 0 skipped |
+| Phase | 04: Manual Test + Retrospective — DONE (triaged-deferral §CLOSE §1) |
+| Cycle | C14: retrospective — DONE; C13: visual verification deferred (external pipeline gate) |
+| Status | Phase 04 closed; S1 Velo-side code-complete; ready for S1-Sprint-Closer |
+| Tests | 32 passed / 0 failed / 0 skipped (Phase 03 baseline preserved through P04 — doc-only phase, no code changes) |
 
 ---
 
@@ -179,33 +179,46 @@
 | S1-P03-C11 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P03-C12 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P03-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P04-C14 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P04-C13 | 03_Phase-Builder | 2026-04-26 | DEFERRED |
+| S1-P04-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
 
 ---
 
 ## Last Session
 
-Phase 03 closed 2026-04-26. Pilot Port delivered as combined execute (Batch Prompt Delivery per Rule 16) covering all 3 cycles in one Claude Code session: (1) C10 — UserDashboardView merged with bundle DashboardScreen visual structure, real-data WeekdayStrip + Stats row from `bookingsStore`, scope-locked NEGATIVE on Contraindications + Recommendations, all existing Velo behavior preserved including timezone tactical cast at `nearestPracticeDate` per BACKLOG #27 (LOC 637 → 741, 12/12 acceptance); (2) C11 — WelcomeView greenfield 123 LOC at `/welcome` route, TMA splash landing per #012/#013, fast-tracked without Claude Design pipeline (decision #025 records explicit deviation от #002 for this single screen — Welcome is simple-by-nature splash; Claude Design pipeline learns on C10 Dashboard merge which is more representative; 10/10 acceptance); (3) C12 — verify gates clean: typecheck 0 errors, test 32 passed, lint 756 warnings (-2 net vs 758 baseline), build green PWA 99 precache entries, dark-block 1, toggle-code 0 per #008, 177 tokens (7/7 acceptance).
+Phase 04 closed 2026-04-26 via triaged-deferral per Phase-Builder §CLOSE §1. Two cycles planned (C13 manual-test + C14 retrospective); C14 delivered in full, C13 deferred to post-deploy as out-of-sprint follow-up.
 
-Process notes: (a) C10 tier re-classified HIGH→MEDIUM at OPEN §3 Design Review per Rule 15 strict reading (single view-level change, no router/guards/main.ts/global state mutation; sprint-plan tag `affects-global-state` over-classified). (b) C11 fast-track decision recorded explicitly because pipeline learning value of single-CTA splash < cost of Claude Design round-trip; protocol §3 design-gen precondition gate handled correctly. (c) Verification Scout caught 0 BREAK / 0 GAP / 1 NIT (regex over-fire on `#012`/`#013` decision-number references — non-actionable, tracked at BACKLOG #34). (d) Live lesson during C11 execute: NEGATIVE keyword-block AC `grep -ic 'oauth|google|apple' → 0` triggered on Claude Code's own explanatory comment; Claude Code rephrased comment, AC passed — tracked at BACKLOG #33 as future AC-design improvement.
+C14 (DONE): produced `S1-RETRO.md` (Summary + Goal vs Outcome + Plan vs Reality + What Worked + What Didn't + Carry Forward + Decisions Density + Process Lessons + Conditional + Anchor). Updated `S2-SPRINT.md` with one References row pointing to BACKLOG #10/#17/#33/#34 (process-discipline lessons applied at S2 prompt-design time) and three Carry-Forward items: pre-S2 Human-partner action on regen workflow doc + first fresh regen (resolves BACKLOG #24, unblocks #26 + #27), process-discipline lessons summary, S1-Clean-Sync batch identifier (#29/#31/#35/#36 + AUDIT-S1.md §10 #5). Appended BACKLOG #35 (ENVIRONMENT.md commit-convention cleanup → S1-Clean-Sync; cite: S1 used phase-bundled commits exclusively per Phase-Builder CLOSE Step 4f, ENVIRONMENT.md `cycle: C{NN}` formats unused).
 
-ARCHITECTURE.md §Key Decisions counter advanced #024 → #025; auth views count 3 → 4; new Phase 03 additions block documents WelcomeView.vue + UserDashboardView merge + router /welcome entry.
+C13 (DEFERRED): manual visual verification of WelcomeView (`/welcome`) + UserDashboardView (`/user/dashboard`) in light + dark themes on staging. Did not execute because the staging visibility chain includes a backend-partner code-audit gate before deploy — the gate was open at S1 close. Verification spec preserved at BACKLOG #37 (stand-alone; does not depend on chat artifact). Triaged-deferral conditions: (a) goal scope clarified (visual-on-staging requires external pipeline; not Velo-side blocker), (b) BACKLOG #37 persists deferred task, (c) S1-RETRO.md §Conditional documents the deferral, (d) commit cites §CLOSE §1 deviation.
+
+Sprint goal Velo-side ACHIEVED: bundle → Vue process debugged (P01 token migration + glass cleanup), 2 pilot screens implemented (Dashboard merged with bundle visual structure per #002, Welcome fast-tracked per #025), handoffs captured (`AUDIT-S1.md` 47-row gap map, `backend-coord-report.md` 7 missing endpoints). 7 of 8 Success Criteria fully met; #7 («работают на staging») code-side ready, post-deploy visual confirmation pending.
+
+Phase 04 also surfaced two doc-drift findings persisted as BACKLOG entries: #36 staging deploy flow doc clarification (ENVIRONMENT.md / ARCHITECTURE.md «auto-pulls» wording underspecifies the partner-audit gate), #37 post-deploy visual verification spec for the deferred C13 work. Both flagged S1-Clean-Sync / post-S1.
+
+Process notes for retro context (already captured in S1-RETRO.md §What Worked / §What Didn't): Combined Scout consistently caught scope-discovery issues before damage; phase-bundled commits worked cleanly; partner regen pipeline absorbed without disruption (#022 + #023); wall-clock ≈12-14 hrs across 3 sessions vs 3-4 weeks planned (≈10× faster than plan).
 
 ---
 
 ## Next Action
 
-Phase 04: Manual Test + Retrospective (C13 + C14). C13 = Human manual test on staging (Welcome + Dashboard light + dark via DevTools); C14 = retrospective with real cycle speed + S2/S3 adjustments if needed. Run `03_Phase-Builder` OPEN in new chat. C13 is `manual-test` cycle type — primarily Human action with Claude Code only assisting screenshot collection and report drafting if requested.
+Phase 04 closed. S1 Velo-side code-complete. Run `04_Sprint-Closer` in new chat (Session Code: `S1-Sprint-Closer`). Sprint-Closer handles: ProbeKit lite profile (type-audit, code-audit, a11y-audit, responsive-audit, security-audit, design-audit) + SNAPSHOT (cloc LOC count, cycle metrics from Protocol Log, decisions/BACKLOG counts) + sprint close. After Sprint-Closer: `S1-Clean-Sync` (FILE-TREE refresh + BACKLOG #29/#31/#35/#36 + AUDIT-S1.md §10 #5 cleanups), then `S2-Sprint-Builder` (S2 plan already drafted in `S2-SPRINT.md`, may need refinement based on Sprint-Closer findings + post-deploy C13 outcome if available by then).
+
+Out-of-chat parallel: backend partner code audit on Phase 03 push (`origin/new_desing` HEAD `823bdec`) → partner deploy → C13 visual verification per BACKLOG #37 spec.
 
 ---
 
 ## For Human
 
-**Session Code:** S1-P04-C13
+**Session Code:** S1-Sprint-Closer
 **Load:**
-1. Framework: `01_Declaration.md` + `03_Phase-Builder.md`
+1. Framework: `01_Declaration.md` + `04_Sprint-Closer.md`
 2. Project: `ENVIRONMENT.md` + `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md`
-3. Sprint: `S1-SPRINT.md` (Phase 04 cycle table for C13 + C14)
-**Run:** `03_Phase-Builder` OPEN — Phase 04 (Manual Test + Retrospective, 2 cycles: C13 manual-test on staging cleartext deploy verify Welcome + Dashboard в обеих темах; C14 retrospective с real cycle speed metrics + правки S2/S3 если delta существенный). Phase 04 is the last phase of S1 — sprint-readiness check at CLOSE will route to S1-Sprint-Closer.
+3. Sprint: `S1-SPRINT.md` + `S1-RETRO.md`
+**Run:** `04_Sprint-Closer` — Part 1 (ProbeKit lite profile code audit) + Part 2 (SNAPSHOT — cloc LOC count, cycle metrics, decisions/BACKLOG counts, sprint close prose).
+
+**Out-of-chat parallel action:** backend partner code audit on `origin/new_desing` HEAD `823bdec` → partner deploy → C13 post-deploy visual verification per BACKLOG #37 stand-alone spec. Visual outcome can fold into S2 Carry-Forward at S2-Sprint-Builder time, or open new BACKLOG entry if defects.
 
 ---
 
@@ -213,18 +226,26 @@ Phase 04: Manual Test + Retrospective (C13 + C14). C13 = Human manual test on st
 
 | Aspect | Planned | Actual | Delta |
 |--------|---------|--------|-------|
-| Phases | 4 | — | — |
-| Cycles | 14 | — | — |
-| Duration | 3–4 weeks | — | — |
+| Phases | 4 | 4 (P01–P04 all closed) | 0 |
+| Cycles | 14 | 14 net (13 DONE — C01..C12, C06b — + 1 DEFERRED — C13 visual; C03 split absorbed in count) | 0 |
+| Duration (commit-window) | 3–4 weeks | 2 days (2026-04-24 → 2026-04-26) | massive overestimate |
+| Duration (calendar work-days) | — | 2–3 days | — |
+| Duration (sessions) | — | ≈3 intensive Claude Code sessions | — |
+| Duration (wall-clock hours) | — | ≈12–14 hours total (≈4–5 hrs avg per session) | ≈10× faster than plan |
+| Decisions added | not estimated | 20 (#006–#025) | bundle migration once-per-project |
+| BACKLOG entries added | not estimated | 37 (34 sprint scout/audit + 1 RETRO #35 + 2 CLOSE #36/#37) | mostly emerged during scout/audit, not deferred-defects |
 
 ### What Worked
-(filled at close)
+
+See `docs/03_sprint/S1-pilot/S1-RETRO.md` §What Worked. Headline items: Combined Scout as calibration point (caught all P01 reclassifications + C10 tier mistake before damage); phase-bundled commits; bundle SSOT decision early (#006); partner regen pipeline absorption (#022, #023); process improvements found and BACKLOG'd in real time.
 
 ### What Didn't
-(filled at close)
+
+See `S1-RETRO.md` §What Didn't. Headline items: P01 plan vs reality scope gap (Sprint-Builder estimates for first-phase-in-new-domain are fiction); commit convention divergence with `ENVIRONMENT.md`; partner-coordination blockers stalled 4 BACKLOG items; wall-clock estimation off by ≈10×; staging deploy flow doc drift surfaced at P04 close (BACKLOG #36).
 
 ### Carry Forward
-(filled at close)
+
+See `S1-RETRO.md` §Carry Forward. To S2 plan (already applied in `S2-SPRINT.md` by C14): References row + Carry-Forward items including pre-S2 Human-partner action. To S1-Clean-Sync (between Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 + #31 + #35 + #36 + AUDIT-S1.md §10 #5. Plain BACKLOG carry-forward: #18 + #25 + #21 + #30. Out-of-sprint: #37 post-deploy visual verification.
 
 ---
 *S1-SPRINT.md*
