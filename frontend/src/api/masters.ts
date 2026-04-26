@@ -20,7 +20,8 @@ import type {
   MasterApplyResponse,
   MasterProfileResponse,
   PaginatedPracticesResponse,
-  PayoutDetails,
+  PayoutDetailsUpdate,
+  PayoutDetailsResponse,
   PaginatedWithdrawalsResponse,
   WithdrawalResponse,
 } from '@/api/types'
@@ -67,8 +68,8 @@ export function getMyPractices(
  *   paypal        -> { email }
  *   revolut       -> { tag? } or { phone? }
  */
-export function updatePayoutDetails(body: PayoutDetails): Promise<PayoutDetails> {
-  return api.patch<PayoutDetails>('/api/v1/masters/me/payout', body)
+export function updatePayoutDetails(body: PayoutDetailsUpdate): Promise<PayoutDetailsResponse> {
+  return api.patch<PayoutDetailsResponse>('/api/v1/masters/me/payout', body)
 }
 
 /**

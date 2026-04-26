@@ -48,7 +48,7 @@ import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatDate } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
+import type { BookingWithPracticeResponse } from '@/api/types'
 
 const props = withDefaults(
   defineProps<{
@@ -71,7 +71,7 @@ const typeEmoji = computed(() =>
 )
 
 // -- Status mapping --
-const STATUS_LABEL: Record<BookingStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
   pending: 'Ожидает',
   confirmed: 'Подтверждено',
   attended: 'Завершена',
@@ -79,7 +79,7 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
   cancelled: 'Отменена',
 }
 
-const STATUS_VARIANT: Record<BookingStatus, 'success' | 'warning' | 'error' | 'info'> = {
+const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'error' | 'info'> = {
   pending: 'warning',
   confirmed: 'success',
   attended: 'info',

@@ -19,6 +19,14 @@
 import type { ApiError } from './types'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
+
+if (!BASE_URL && import.meta.env.DEV) {
+  console.warn(
+    '[api/client] VITE_API_BASE_URL is not set; requests will use relative paths. ' +
+    'Set VITE_API_BASE_URL in .env for production-like dev (e.g. https://api.talentir.info).'
+  )
+}
+
 const REQUEST_TIMEOUT_MS = 15_000
 
 // -- Error classes --

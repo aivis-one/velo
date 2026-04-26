@@ -262,7 +262,6 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -316,7 +315,7 @@ function togglePractice(practiceId: string): void {
 const aggregateTotalFeedbacks = computed((): number => {
   let total = 0
   insightsCache.forEach((ins) => {
-    total += ins.feedbacks.fire + ins.feedbacks.good + ins.feedbacks.confused
+    total += (ins.feedbacks.fire ?? 0) + (ins.feedbacks.good ?? 0) + (ins.feedbacks.confused ?? 0)
   })
   return total
 })
@@ -324,7 +323,7 @@ const aggregateTotalFeedbacks = computed((): number => {
 const aggregateTotalCheckins = computed((): number => {
   let total = 0
   insightsCache.forEach((ins) => {
-    total += ins.checkins.high + ins.checkins.mid + ins.checkins.low
+    total += (ins.checkins.high ?? 0) + (ins.checkins.mid ?? 0) + (ins.checkins.low ?? 0)
   })
   return total
 })
@@ -373,9 +372,9 @@ const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: stri
 const ratingBars = computed((): RatingBar[] => {
   const totals = { fire: 0, good: 0, confused: 0 }
   insightsCache.forEach((ins) => {
-    totals.fire     += ins.feedbacks.fire
-    totals.good     += ins.feedbacks.good
-    totals.confused += ins.feedbacks.confused
+    totals.fire     += ins.feedbacks.fire ?? 0
+    totals.good     += ins.feedbacks.good ?? 0
+    totals.confused += ins.feedbacks.confused ?? 0
   })
   const total = totals.fire + totals.good + totals.confused
 
@@ -393,13 +392,13 @@ const ratingBars = computed((): RatingBar[] => {
 function totalCheckins(practiceId: string): number {
   const ins = insightsCache.get(practiceId)
   if (!ins) return 0
-  return ins.checkins.high + ins.checkins.mid + ins.checkins.low
+  return (ins.checkins.high ?? 0) + (ins.checkins.mid ?? 0) + (ins.checkins.low ?? 0)
 }
 
 function totalFeedbacks(practiceId: string): number {
   const ins = insightsCache.get(practiceId)
   if (!ins) return 0
-  return ins.feedbacks.fire + ins.feedbacks.good + ins.feedbacks.confused
+  return (ins.feedbacks.fire ?? 0) + (ins.feedbacks.good ?? 0) + (ins.feedbacks.confused ?? 0)
 }
 
 /** Percentage of a specific rating for a practice. */
@@ -407,7 +406,7 @@ function ratingPct(practiceId: string, rating: 'fire' | 'good' | 'confused'): nu
   const total = totalFeedbacks(practiceId)
   if (total === 0) return 0
   const ins = insightsCache.get(practiceId)!
-  return Math.round((ins.feedbacks[rating] / total) * 100)
+  return Math.round(((ins.feedbacks[rating] ?? 0) / total) * 100)
 }
 
 function insightRatingBars(practiceId: string): RatingBar[] {
@@ -426,7 +425,7 @@ function insightRatingBars(practiceId: string): RatingBar[] {
 // Type emoji -- imported from displayHelpers
 // =========================================================================
 
-function typeEmoji(t: PracticeType): string {
+function typeEmoji(t: string): string {
   return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
 }
 

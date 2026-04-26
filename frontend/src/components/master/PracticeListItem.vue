@@ -42,7 +42,7 @@ import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeResponse, PracticeStatus } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
   practice: PracticeResponse
@@ -52,7 +52,7 @@ const props = defineProps<{
 const typeEmoji = computed((): string => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
 
 // -- Status label --
-const STATUS_LABEL: Record<PracticeStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
   draft: 'Черновик',
   scheduled: 'Запланирована',
   live: 'В эфире',

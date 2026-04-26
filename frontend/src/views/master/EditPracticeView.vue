@@ -373,7 +373,7 @@ import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -449,17 +449,17 @@ const isTerminal = computed((): boolean =>
 const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
 // -- Label helpers --
-const PRACTICE_TYPE_LABELS: Record<PracticeType, string> = {
+const PRACTICE_TYPE_LABELS: Record<string, string> = {
   live: 'Живая группа',
   series: 'Серия занятий',
   one_on_one: 'Индивидуально',
   replay: 'Запись',
 }
-function practiceTypeLabel(t: PracticeType): string {
+function practiceTypeLabel(t: string): string {
   return PRACTICE_TYPE_LABELS[t] ?? t
 }
 
-const STATUS_LABELS: Record<PracticeStatus, string> = {
+const STATUS_LABELS: Record<string, string> = {
   draft: 'Черновик',
   scheduled: 'Запланирована',
   live: 'В эфире',
@@ -467,11 +467,11 @@ const STATUS_LABELS: Record<PracticeStatus, string> = {
   cancelled: 'Отменена',
   deleted: 'Удалена',
 }
-function statusLabel(s: PracticeStatus): string {
+function statusLabel(s: string): string {
   return STATUS_LABELS[s] ?? s
 }
 
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
+function statusVariant(s: string): 'success' | 'warning' | 'error' | 'info' {
   switch (s) {
     case 'live':      return 'success'
     case 'scheduled': return 'info'

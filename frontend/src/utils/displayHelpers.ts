@@ -8,13 +8,13 @@
 // Previously duplicated across 8+ files (W-2, S-3 fixes).
 // =============================================================================
 
-import type { PracticeType, Mood, FeedbackRating } from '@/api/types'
+import type { Mood, FeedbackRating } from '@/api/types'
 
 // ---------------------------------------------------------------------------
 // Practice type
 // ---------------------------------------------------------------------------
 
-export const PRACTICE_TYPE_EMOJI: Record<PracticeType, string> = {
+export const PRACTICE_TYPE_EMOJI: Record<string, string> = {
   live:       '🧘',
   series:     '🔄',
   one_on_one: '👤',

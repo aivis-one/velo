@@ -2,7 +2,7 @@
 
 > Frontend-only scope. Backend lives in `backend/` and is maintained separately.
 > Loaded in every working chat alongside `01_Declaration.md`.
-> Last updated: install (2026-04-23).
+> Last updated: 2026-04-26 (Phase 01 close).
 
 ---
 
@@ -35,6 +35,25 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `platform/`, `utils/`
 
 **Bundle-sourced shared components** (ported during S1 infra + S2 bundle-port): Accordion, AppHeader, Avatar, BackHeader, Backdrop, Button, Callout, Cards, Chip, Chips, Input, MandalaBackdrop, MasterCard, MoodPicker, TabBar, WeekdayStrip — 16 components from `docs/02_spec_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/components/`.
+
+**Phase 01 additions (2026-04-26 close):**
+
+- `frontend/public/fonts/` — bundled fonts for app: `Marmelad-Regular.ttf` (used via `@font-face` in `variables.css`).
+- `frontend/src/assets/` — extracted bundle assets organized by category:
+  - `brand/` (3 files: mandala backdrop/runes/png)
+  - `brand-icons/` (12 PNG icons)
+  - `illustrations/` (3 SVG: ai-analytics, live-practices, self-map)
+  - `masters/` (2 placeholder SVGs: alex-mindful, maria-flow)
+  - `mood/` (3 SVGs: mood-calm, mood-neutral, mood-sad)
+  - `patterns/` (1 SVG: master-card)
+- `frontend/src/styles/variables.css` — restructured to bundle-SSOT: `@font-face` (Marmelad), `:root` (101 bundle canonical light tokens), `[data-theme="dark"]` (32 dark overrides), Legacy section (86 preserved tokens including 8 admin-deferred per #020), 6 project-extension tokens per #021 (`--nav-inactive-bg`, `--surface-{steel,teal,warm}-alpha-{15,30,40,60}`).
+- `frontend/src/api/generated.ts` — partner-introduced auto-generated TypeScript types from backend OpenAPI schema (commit `81304a6`); do NOT edit manually. Regen pipeline at `backend/scripts/generate_ts_types.py`. See decisions.md #023.
+- `frontend/src/api/types.ts` — re-export hub from `./generated` for backend-derived types + local declarations for frontend-only union types (`PracticeType`, `PracticeStatus`, `BookingStatus`, `WithdrawalStatus`, etc.). See decisions.md #023.
+
+**Reference (read-only legacy):**
+
+- `Design_prototype_legacy_2026-03-11/` — pre-bundle Figma snapshot (renamed from `Design_prototype/` during C01). Read-only reference.
+- `docs/02_spec_assets/velo-design-system-2026-04-23/` — bundle SSOT snapshot (~140 files: tokens, components, screens, illustrations, fonts). Source of truth per decision #006.
 
 ---
 
@@ -86,6 +105,14 @@ API contract SSOT for the frontend: `frontend/src/api/types.ts`. We do not maint
 
 Light (default) + dark via `[data-theme="dark"]` attribute on root. Tokens for both themes defined in `frontend/src/styles/variables.css` (bundle-sourced). All port-to-Vue cycles must verify both themes; screenshots for both in manual test. UI toggle infrastructure lands in C19 (S2). See decisions.md #008.
 
+### CSS architecture
+
+Token and global CSS files are imported via JavaScript module graph in `frontend/src/main.ts` (`import './styles/variables.css'` line 16; `import './styles/global.css'` line 17), NOT via CSS `@import` directives. This follows Vite/Vue convention for bundler optimization. Any protocol, prompt, or audit assuming `@import`-based cascade is incorrect for this project. See `decisions.md` #019.
+
+### Build & dependency tooling
+
+Any cycle whose Acceptance Criteria includes `npm run typecheck`, `npm run lint`, `npm run test`, or `npm run build` implicitly includes `frontend/package-lock.json` in scope. npm install may normalize the lockfile (peer markers, metadata) without changing versions or dependencies; such diffs commit as part of the cycle's phase. Explicit listing in Scope field is not required. See `decisions.md` #018.
+
 ---
 
 ## Tools & Pipelines
@@ -128,7 +155,7 @@ Six skills auto-run on Sprint close (`04_Sprint-Closer.md`): type-audit, code-au
 
 ## Key Decisions
 
-Flat log: `decisions.md`.
+Flat log: `decisions.md`. Active decisions #001-#023 as of Phase 01 close (2026-04-26).
 
 ---
 

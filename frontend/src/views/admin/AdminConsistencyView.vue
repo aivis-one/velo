@@ -73,7 +73,7 @@
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
                 <VBadge
-                  :variant="criticalityVariant(item.criticality)"
+                  :variant="criticalityVariant(item.criticality ?? 'info')"
                   class="consistency__item-crit"
                 >
                   {{ item.criticality }}

@@ -68,12 +68,14 @@
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C01 | standard | Bundle snapshot + extract assets + chat1.md delete + Design_prototype refs grep | TODO | | |
-| C02 | standard | Add bundle tokens (light + dark) to variables.css | TODO | | |
-| C03 | standard | Grep/replace 577 usages `--velo-*` → bundle namespace (affects-global-state) | TODO | | |
-| C04 | standard | Glass-tokens cleanup: grep `--velo-glass-*` usages + tokens removal | TODO | | |
-| C05 | standard+manual | Shadows audit: все `<VCard>`, `FormShell`, `MobileLayout` визуально на staging | TODO | | |
-| C06 | standard | ARCHITECTURE.md + decisions.md #006-#014 + BACKLOG init 9 карточек + DESIGN_MIGRATION.md archive | TODO | | |
+| C01 | standard | Bundle snapshot + assets extract + legacy rename + 5 doc refs | DONE | 2026-04-24 | Bundle snapshot (~140 files) + 24 frontend assets + Marmelad font + 85 renames + 5 doc refs. 15/15 acceptance. |
+| C02 | standard | variables.css bundle SSOT port (light + dark) | DONE | 2026-04-24 | @font-face + 101 bundle + 32 dark + 86 legacy. Total 177 custom properties. 11/11 acceptance. |
+| C03 | standard | Grep/replace velo-* → bundle namespace (HIGH affects-global-state) | DONE | 2026-04-24 | 29 active tokens, 444 sites + radius opportunistic + displayHelpers + Legacy cleanup. 67 files; 513 substitutions. 17/17 acceptance. |
+| C04 | standard | Glass-tokens cleanup + backdrop-filter removal (HIGH affects-global-state) | DONE | 2026-04-24 | 117 renames + 2 drops + 138 backdrop-filter lines + 5 alpha tokens. 15/15 acceptance. |
+| ~~C06~~ original | — | (Pre-empted) | REMOVED | — | Removed per decision #015 — Sprint-Builder commit `9cf88fa` pre-empted decision/BACKLOG/archive work. |
+| C05 | standard+manual | Shadows audit + deploy-prelude + staging push | DONE | 2026-04-24 | Deploy-prelude commit `364893d` push; staging visual verify suspended pending partner audit feedback. |
+| C06 | standard | API contract patch (B.3 + B.11; B.1 no-op; A.2 deferred) | DONE | 2026-04-26 | 2 files. B.3 dead trigger removed (strict scope); B.11 dev warning at client.ts. B.1 verified-already-fixed by partner regen. A.2 deferred (regen blocker — BACKLOG #26). |
+| C06b | standard | Post-regen consumer migration (38 typecheck errors → 0) | DONE | 2026-04-26 | 11 files. Option 3 broaden + tactical patches. Class A+B 17, C 16, D 2, E 1, F 1 (tactical-include for Zodd CRITICAL #1 timezone — BACKLOG #27), G 1. Final gates green. |
 
 ### Phase 02: Audit + Backend Coordination (3 cycles)
 **Goal:** План S2/S3 основан на данных; backend-coord список готов; icons collision разрешена.
@@ -148,10 +150,10 @@
 
 | Item | Value |
 |------|-------|
-| Phase | 01: Bundle Migration — NOT STARTED |
-| Cycle | C01: not started |
-| Status | Planning complete, ready for first cycle |
-| Tests | N/A |
+| Phase | 01: Bundle Migration — DONE |
+| Cycle | C06b: post-regen consumer migration — DONE |
+| Status | Ready for Phase 02 (Audit + Backend Coordination) |
+| Tests | typecheck 0 errors · lint 758 warnings (delta 0) · build ✓ 1.36s, PWA 96 entries |
 
 ---
 
@@ -160,29 +162,42 @@
 | Cycle      | Protocol              | Date         | Status |
 |------------|-----------------------|--------------|--------|
 | S1-Sprint-Builder | 02_Sprint-Builder | 2026-04-24 | DONE |
+| S1-P01-C01 | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C02 | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C03-Assess | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C03-Apply | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C04 | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C05 | 03_Phase-Builder | 2026-04-24 | DONE |
+| S1-P01-C06 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P01-C06b | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P01-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
 
 ---
 
 ## Last Session
 
-Sprint-Builder session 2026-04-24. Planned S1 + S2 + S3 in one chat (decision #011). Scout через Claude Code выявил 5 критических gap'ов (TMA auth, 577 token usages, shadows=none в velo, 7 greenfield экранов вместо port, DESIGN_MIGRATION.md конфликт). План пересчитан с учётом scout: S1 = 14 cycles (+2 от scout findings), S2 = 17, S3 = 19. Phase plans зафиксированы в S1/S2/S3 sprint files. Для полной картины — все три sprint files созданы в этой же сессии.
+Phase 01 closed 2026-04-26. Bundle migration complete: 6 cycle commits effectively (C01-C04 bundled in C05 deploy-prelude `364893d`; C06+C06b uncommitted at HEAD `83d287a` then folded into Phase commit). ~750 substitution points across ~70 files in C01-C04. C06 reduced from 4 to 2 fixes after Pre-Exec discovered `types.ts` is re-export hub from auto-generated `generated.ts` (partner pipeline introduced at `81304a6`); B.1 was already resolved by prior regen, A.2 blocked on stale-openapi regen artifact. C06b followed up: 38 typecheck errors at HEAD `83d287a` (all pre-existing, partner-introduced) → 0 via Option 3 broaden (`Record<string, X>` standard) + tactical patches across 11 files. Final gates: typecheck 0, lint 758 (delta 0 vs baseline), vite build ✓ 1.36s.
+
+8 new decisions (#015-#022) + 1 architectural follow-up decision (#023 types.ts SSOT reinterpretation post-regen). 19 new BACKLOG items (10-28); 2 gated on backend regen coordination (#26 A.2 financial constants; #27 Zodd CRITICAL #1 PracticeSummary.timezone).
+
+Documentary deviations noted at CLOSE: (1) Phase 01 diff range includes 13 ancillary upstream/partner commits — phase cycle work scope is `364893d` + uncommitted C06/C06b at this commit; (2) C01 file count amended from brief's "92" to verifiable scope description (~250 files contributed via bundle snapshot + assets + renames + font).
 
 ---
 
 ## Next Action
 
-C01 — run 03_Phase-Builder OPEN in new chat.
+Phase 02: Audit + Backend Coordination (C07-C09). Run `03_Phase-Builder` OPEN in new chat. Phase 02 OPEN must resolve BLOCKING BACKLOG #19 (D3 icons decision) before C09 runs.
 
 ---
 
 ## For Human
 
-**Session Code:** S1-P01-C01
+**Session Code:** S1-P02-C07
 **Load:**
-1. Framework: 01_Declaration.md + 03_Phase-Builder.md
-2. Project: ENVIRONMENT.md + ARCHITECTURE.md
-3. Sprint: S1-SPRINT.md
-**Run:** 03_Phase-Builder OPEN — plan first cycle C01 (bundle snapshot + assets extract)
+1. Framework: `01_Declaration.md` + `03_Phase-Builder.md`
+2. Project: `ENVIRONMENT.md` + `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md`
+3. Sprint: `S1-SPRINT.md`
+**Run:** `03_Phase-Builder` OPEN — Phase 02 (Audit + Backend Coordination, 3 cycles: C07 AUDIT-S1.md scout, C08 backend-coord 7 missing endpoints, C09 icons audit per D3 decision — see BACKLOG #19, must resolve before C09)
 
 ---
 

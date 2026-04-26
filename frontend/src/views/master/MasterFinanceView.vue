@@ -157,7 +157,7 @@
               {{ formatMoney(w.amount_cents, 'EUR', 'ru', true) }}
             </div>
             <div class="finance-view__history-meta">
-              {{ methodLabel(w.payout_details.method) }} ·
+              {{ methodLabel(w.payout_details.method as string) }} ·
               {{ formatDateShort(w.created_at) }}
             </div>
             <div v-if="w.fee_cents > 0" class="finance-view__history-fee">
@@ -198,7 +198,7 @@ import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney, formatDateShort } from '@/utils/format'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { WithdrawalResponse, WithdrawalStatus } from '@/api/types'
+import type { WithdrawalResponse } from '@/api/types'
 
 // TD-FE-W6: imported from utils/constants -- mirrors backend config.py.
 // min_withdrawal_cents=5000, withdrawal_fee_cents=200.
@@ -350,21 +350,22 @@ async function loadMoreWithdrawals(): Promise<void> {
 // Status helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_LABEL: Record<WithdrawalStatus, string> = {
+const STATUS_LABEL: Record<string, string> = {
   pending: 'На рассмотрении',
   approved: 'Одобрен',
   rejected: 'Отклонён',
 }
 
-function statusLabel(s: WithdrawalStatus): string {
+function statusLabel(s: string): string {
   return STATUS_LABEL[s] ?? s
 }
 
-function statusVariant(s: WithdrawalStatus): 'warning' | 'success' | 'error' {
+function statusVariant(s: string): 'warning' | 'success' | 'error' {
   switch (s) {
     case 'pending': return 'warning'
     case 'approved': return 'success'
     case 'rejected': return 'error'
+    default: return 'warning'
   }
 }
 

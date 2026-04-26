@@ -185,12 +185,6 @@
         <p v-if="attendedCount > 0" class="dashboard__ai-text dashboard__ai-text--secondary">
           Ваш уровень энергии вырос 🙂
         </p>
-        <button
-          class="dashboard__ai-arrow"
-          @click.stop="router.push({ name: 'user-ai-summary' })"
-        >
-          →
-        </button>
       </div>
     </section>
 
@@ -207,7 +201,7 @@ import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
-import type { BookingWithPracticeResponse } from '@/api/types'
+import type { BookingWithPracticeResponse, PracticeSummary } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
 // Keeping import to document the dependency (mirrors usePracticeWindows).
@@ -303,7 +297,12 @@ const nearestPracticeEmoji = computed((): string => {
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
-  const tz = nearestBooking.value.practice.timezone ?? 'Europe/Berlin'
+  // Zodd CRITICAL #1 / BACKLOG TBD: PracticeSummary lacks timezone field
+  // (backend schema gap). Berlin fallback is the established pre-fix behavior
+  // and remains in effect until backend adds the field + frontend regen picks
+  // it up. The cast suppresses the typecheck error without changing runtime.
+  const tz = (nearestBooking.value.practice as PracticeSummary & { timezone?: string }).timezone
+    ?? 'Europe/Berlin'
   return `${formatDateShort(iso, tz)}, ${formatTime(iso, tz)}`
 })
 
@@ -634,27 +633,5 @@ onUnmounted(() => {
 
 .dashboard__ai-text--secondary {
   color: var(--text-muted);
-}
-
-.dashboard__ai-arrow {
-  position: absolute;
-  bottom: var(--space-4);
-  right: var(--space-4);
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.dashboard__ai-arrow:hover {
-  opacity: 0.8;
 }
 </style>

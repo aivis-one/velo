@@ -195,7 +195,6 @@ import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType, PracticeStatus } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -232,23 +231,23 @@ const nearestPractice = computed(() => {
 })
 
 // -- Practice type emoji -- imported from displayHelpers
-function typeEmoji(t: PracticeType): string {
+function typeEmoji(t: string): string {
   return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
 }
 
 // -- Practice status badge helpers --
-const STATUS_LABEL: Partial<Record<PracticeStatus, string>> = {
+const STATUS_LABEL: Partial<Record<string, string>> = {
   draft: 'Черновик',
   scheduled: 'Запланирована',
   live: 'В эфире',
   completed: 'Завершена',
   cancelled: 'Отменена',
 }
-function statusLabel(s: PracticeStatus): string {
+function statusLabel(s: string): string {
   return STATUS_LABEL[s] ?? s
 }
 
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
+function statusVariant(s: string): 'success' | 'warning' | 'error' | 'info' {
   switch (s) {
     case 'live':      return 'success'
     case 'scheduled': return 'info'

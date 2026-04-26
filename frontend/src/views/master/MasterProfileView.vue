@@ -230,7 +230,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { updatePayoutDetails } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
-import type { PayoutDetails } from '@/api/types'
+import type { PayoutDetailsUpdate, PayoutDetailsResponse } from '@/api/types'
 
 // ---------------------------------------------------------------------------
 // Router + stores
@@ -336,7 +336,7 @@ function clearFormErrors(): void {
 }
 
 /** Build PayoutDetails body for PATCH request from flat form fields. */
-function buildPayoutBody(): PayoutDetails | null {
+function buildPayoutBody(): PayoutDetailsUpdate | null {
   clearFormErrors()
   let valid = true
 
@@ -419,7 +419,7 @@ function methodLabel(method: string): string {
 }
 
 /** Returns a masked/summary string for configured payout details. */
-function maskedDetails(payout: PayoutDetails): string {
+function maskedDetails(payout: PayoutDetailsResponse): string {
   const d = payout.details as Record<string, string>
   switch (payout.method) {
     case 'bank_transfer': {
