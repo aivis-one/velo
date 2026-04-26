@@ -2,7 +2,7 @@
 
 > Frontend-only scope. Backend lives in `backend/` and is maintained separately.
 > Loaded in every working chat alongside `01_Declaration.md`.
-> Last updated: 2026-04-26 (Phase 01 close).
+> Last updated: 2026-04-26 (Phase 03 close).
 
 ---
 
@@ -25,7 +25,7 @@ These are authoritative and read-only for this framework — do not edit from SP
 
 See `FILE-TREE.md` for current inventory. Compact:
 
-- `views/` — 31 page components across `user/` (11) · `master/` (10) · `admin/` (7) · `auth/` (3), plus three shells
+- `views/` — 32 page components across `user/` (11) · `master/` (10) · `admin/` (7) · `auth/` (4), plus three shells
 - `components/` — icons, layout, shared, ui, master-specific
 - `stores/` — Pinia: auth, balance, bookings, diary, master, practices, ui
 - `composables/` — useAuth, useApiError, useToast, usePagination, usePracticeWindows
@@ -49,6 +49,12 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `frontend/src/styles/variables.css` — restructured to bundle-SSOT: `@font-face` (Marmelad), `:root` (101 bundle canonical light tokens), `[data-theme="dark"]` (32 dark overrides), Legacy section (86 preserved tokens including 8 admin-deferred per #020), 6 project-extension tokens per #021 (`--nav-inactive-bg`, `--surface-{steel,teal,warm}-alpha-{15,30,40,60}`).
 - `frontend/src/api/generated.ts` — partner-introduced auto-generated TypeScript types from backend OpenAPI schema (commit `81304a6`); do NOT edit manually. Regen pipeline at `backend/scripts/generate_ts_types.py`. See decisions.md #023.
 - `frontend/src/api/types.ts` — re-export hub from `./generated` for backend-derived types + local declarations for frontend-only union types (`PracticeType`, `PracticeStatus`, `BookingStatus`, `WithdrawalStatus`, etc.). See decisions.md #023.
+
+**Phase 03 additions (2026-04-26 close):**
+
+- `frontend/src/views/auth/WelcomeView.vue` — TMA splash landing for `/welcome` route. Mandala backdrop + VELΘ wordmark + tagline + single primary CTA "Открыть в Telegram" linking to `import.meta.env.VITE_TELEGRAM_BOT_URL`. Per decision #012 NOT 1:1 with bundle AuthScreen (no third-party login UI in Velo TMA-only flow); fast-track without Claude Design pipeline per decision #025.
+- `frontend/src/views/user/UserDashboardView.vue` — merged bundle DashboardScreen visual structure (WeekdayStrip + Stats row from real `bookingsStore` data) preserving all existing Velo behavior (check-in/feedback alerts, AI summary card, timezone tactical cast at `nearestPracticeDate` per BACKLOG #27). Bundle elements skipped per scope-lock: Contraindications callout (no backend flag), Recommendations list (deferred to S2 P05). LOC 637 → 741.
+- `frontend/src/router/index.ts` — added `/welcome` top-level route (name `welcome`, lazy-loaded WelcomeView), no meta, no guards. Total `path:` count 42 → 43.
 
 **Reference (read-only legacy):**
 
@@ -155,7 +161,7 @@ Six skills auto-run on Sprint close (`04_Sprint-Closer.md`): type-audit, code-au
 
 ## Key Decisions
 
-Flat log: `decisions.md`. Active decisions #001-#024 as of Phase 02 close (2026-04-26).
+Flat log: `decisions.md`. Active decisions #001-#025 as of Phase 03 close (2026-04-26).
 
 ---
 

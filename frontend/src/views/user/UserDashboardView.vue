@@ -1,18 +1,19 @@
 <!--
-  VELO Frontend -- UserDashboardView (Phase F3.1, updated DS-dashboard)
+  VELO Frontend -- UserDashboardView (Phase F3.1, updated DS-dashboard, S1-P03 C10 bundle merge)
 
   Main user screen. Shows:
     - Greeting with user's first name
     - Check-in alert banner (amber) -- confirmed booking in check-in window
     - Feedback alert banner (teal)  -- attended booking in feedback window
+    - Weekday strip (Mon-Sun) with active-day chip (C10 bundle merge)
+    - Stats row -- "эта неделя" count + "сегодня" minutes, derived from bookingsStore (C10 bundle merge)
     - "Ближайшая практика" -- nearest confirmed booking card with Zoom + Check-in
-    - "Ваш прогресс"       -- attended count + hours, derived from bookingsStore
-    - "AI-саммари"         -- placeholder card with week/month toggle
+    - "AI-саммари"         -- placeholder card with week/month toggle (uses lifetime attendedCount/practiceHours)
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
 
-  Progress stats are derived from the already-loaded bookingsStore (limit 20).
+  Stats are derived from the already-loaded bookingsStore (limit 20).
   For users with >20 attended practices the numbers will be partial -- acceptable for MVP.
 -->
 
@@ -54,6 +55,42 @@
         </div>
       </div>
     </div>
+
+    <!-- ================================================================
+         WEEKDAY STRIP (bundle DashboardScreen merge — C10)
+         ================================================================ -->
+    <section class="dashboard__section">
+      <div class="dashboard__weekday-strip">
+        <div
+          v-for="(day, idx) in weekDays"
+          :key="idx"
+          class="dashboard__weekday"
+          :class="{ 'dashboard__weekday--active': day.isToday }"
+        >
+          {{ day.label }}
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         STATS ROW (bundle DashboardScreen merge — C10)
+         ================================================================ -->
+    <section class="dashboard__section">
+      <div class="dashboard__stats-row">
+        <div class="dashboard__stats-card">
+          <div class="dashboard__stats-label">ЭТА НЕДЕЛЯ</div>
+          <div class="dashboard__stats-value">
+            {{ weekStats.count }}<span class="dashboard__stats-unit">практик</span>
+          </div>
+        </div>
+        <div class="dashboard__stats-card">
+          <div class="dashboard__stats-label">СЕГОДНЯ</div>
+          <div class="dashboard__stats-value">
+            {{ weekStats.todayMinutes }}<span class="dashboard__stats-unit">мин</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- ================================================================
          NEAREST PRACTICE
@@ -126,23 +163,6 @@
           >
             Check-in
           </VButton>
-        </div>
-      </div>
-    </section>
-
-    <!-- ================================================================
-         PROGRESS
-         ================================================================ -->
-    <section class="dashboard__section">
-      <h3 class="dashboard__section-title">Ваш прогресс</h3>
-      <div class="dashboard__stats-grid">
-        <div class="dashboard__stat-card">
-          <div class="dashboard__stat-value">{{ attendedCount }}</div>
-          <div class="dashboard__stat-label">Практик пройдено</div>
-        </div>
-        <div class="dashboard__stat-card">
-          <div class="dashboard__stat-value">{{ practiceHours }}</div>
-          <div class="dashboard__stat-label">Часов в практике</div>
         </div>
       </div>
     </section>
@@ -312,7 +332,59 @@ const nearestPracticeDuration = computed((): string => {
 })
 
 // =========================================================================
-// Progress stats
+// Weekday strip + stats row (bundle DashboardScreen merge — C10)
+// =========================================================================
+
+interface WeekDay {
+  label: string
+  date: Date
+  isToday: boolean
+}
+
+/** Mon-Sun for the current ISO week with active-day flag for today. */
+const weekDays = computed((): WeekDay[] => {
+  const today = new Date()
+  const dow = today.getDay() // 0=Sun .. 6=Sat
+  const mondayOffset = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(today)
+  monday.setDate(today.getDate() + mondayOffset)
+  monday.setHours(0, 0, 0, 0)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return {
+      label: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][i] ?? '',
+      date: d,
+      isToday: d.toDateString() === today.toDateString(),
+    }
+  })
+})
+
+/** Current-week count + today's total minutes, derived from bookingsStore.bookings. */
+const weekStats = computed((): { count: number; todayMinutes: number } => {
+  const monday = weekDays.value[0]?.date
+  if (!monday) return { count: 0, todayMinutes: 0 }
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 7)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today)
+  tomorrow.setDate(today.getDate() + 1)
+
+  let count = 0
+  let todayMinutes = 0
+  for (const b of bookingsStore.bookings) {
+    const ds = b.practice?.scheduled_at
+    if (!ds) continue
+    const d = new Date(ds)
+    if (d >= monday && d < sunday) count++
+    if (d >= today && d < tomorrow) todayMinutes += b.practice?.duration_minutes ?? 0
+  }
+  return { count, todayMinutes }
+})
+
+// =========================================================================
+// Progress stats (kept for AI summary card consumption)
 // =========================================================================
 
 const attendedBookings = computed(() =>
@@ -544,35 +616,67 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* ===== Progress stats ===== */
-.dashboard__stats-grid {
+/* ===== Weekday strip (bundle DashboardScreen merge — C10) ===== */
+.dashboard__weekday-strip {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.dashboard__weekday {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-2) 0;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text-secondary);
+  border-radius: var(--radius-full);
+}
+
+.dashboard__weekday--active {
+  background: var(--surface-steel-alpha-15);
+  color: var(--text-primary);
+}
+
+/* ===== Stats row (bundle DashboardScreen merge — C10) ===== */
+.dashboard__stats-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
 
-.dashboard__stat-card {
+.dashboard__stats-card {
   background: var(--surface-steel-alpha-15);
   border: 1px solid #ffffff;
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  text-align: center;
+  text-align: left;
 }
 
-.dashboard__stat-value {
+.dashboard__stats-label {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-2);
+}
+
+.dashboard__stats-value {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--text-primary);
   line-height: 1.1;
 }
 
-.dashboard__stat-label {
+.dashboard__stats-unit {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--text-secondary);
-  margin-top: var(--space-1);
+  margin-left: var(--space-2);
 }
 
 /* ===== AI summary ===== */

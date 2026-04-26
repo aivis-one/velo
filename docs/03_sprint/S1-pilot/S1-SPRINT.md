@@ -101,9 +101,9 @@
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C10 | standard | Port DashboardScreen → UserDashboardView.vue (668 lines merge, HIGH complexity) | TODO | | |
-| C11 | standard | Welcome greenfield → new WelcomeView.vue + route `/welcome` (from Claude Design handoff, NOT from bundle AuthScreen) | TODO | | |
-| C12 | standard | Pilot verify: dark/light tokens, typecheck + lint + test | TODO | | |
+| C10 | standard | Port DashboardScreen → UserDashboardView.vue (637 → 741 LOC merge) | DONE | 2026-04-26 | Bundle DashboardScreen merged: WeekdayStrip + Stats row from real bookingsStore data; Contraindications + Recommendations skipped per scope-lock; existing alerts/AI-card/timezone-cast preserved. 12/12 acceptance. Tier MEDIUM (re-classified from sprint-plan HIGH per Rule 15 strict reading). |
+| C11 | standard | Welcome greenfield → new WelcomeView.vue + route `/welcome` (fast-track, NOT design-gen) | DONE | 2026-04-26 | TMA splash 123 LOC; mandala + VELΘ wordmark + tagline + single CTA. Decision #025 records explicit deviation от #002 для одного экрана. 10/10 acceptance. |
+| C12 | standard | Pilot verify: typecheck + lint + test + build + theme NEGATIVE | DONE | 2026-04-26 | typecheck 0 errors; test 32 passed; lint -2 net (756 vs 758 baseline); build green PWA 99 precache; dark-block 1; toggle-code 0 (per #008 — UI toggle deferred to S2 C19); 177 tokens preserved. 7/7 acceptance. |
 
 ### Phase 04: Manual Test + Retrospective (2 cycles)
 **Goal:** Human протестировал на staging; retrospective показал реальную скорость; S2/S3 скорректированы если нужно.
@@ -150,10 +150,10 @@
 
 | Item | Value |
 |------|-------|
-| Phase | 02: Audit + Backend Coordination — DONE |
-| Cycle | C09: icons strategy — DONE |
-| Status | Ready for Phase 03 (Pilot Port: C10 Dashboard merge HIGH + C11 Welcome greenfield + C12 verify) |
-| Tests | N/A (Phase 02 doc-only deliverables) |
+| Phase | 03: Pilot Port — DONE |
+| Cycle | C12: pilot verify — DONE |
+| Status | Phase 03 complete; ready for Phase 04 (Manual Test + Retrospective) |
+| Tests | 32 passed / 0 failed / 0 skipped |
 
 ---
 
@@ -175,35 +175,37 @@
 | S1-P02-C08 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P02-C09 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P02-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P03-C10 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P03-C11 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P03-C12 | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-P03-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
 
 ---
 
 ## Last Session
 
-Phase 02 closed 2026-04-26 at HEAD post-CLOSE-commit (this CLOSE bumps from `47a6cd8` to next commit). Audit + Backend Coordination delivered as 4 artifacts in single batched WORK execution: (1) `docs/01_refer/AUDIT-S1.md` — 278 lines, 10 sections, 47-row Master Mapping Table covering 36 existing views + 11 NEW + 18 MH-card rows (17 MH numbers, MH-09 split into user/master per S3 P09 cycle planning), 9 categorization buckets, theme-state row (32 dark tokens, no UI toggle, stores/ui.ts no theme field), AuthScreen row (3 Vue stubs, WelcomeView absent, NOT-1:1 per #012); (2) `docs/03_sprint/S1-pilot/backend-coord-report.md` — 143 lines, 7 partner-owed feature groups (Waitlist, Profile editing, Logout-all, Purchase history, User-side reports, Promo management, Live-session join/leave) + 2 frontend-wrapper-only (AISummary, BookingDetail backends ready) + 2 new partner schema asks (MasterProfilePublic, MH-17) + 2 regen-trigger asks (CR-01 + Zodd CRITICAL #1); (3) decision #024 ratifying D3 icons strategy (Vue-SVG baseline + bundle PNG decorative supplement; 2 collisions resolved as Vue-SVG); (4) 4 new BACKLOG rows (#29 IconRuble removal candidate, #30 future SVG migration, #31 ENVIRONMENT.md path drift `D:\03_Projects` → `D:\02_Projects`, #32 TopupRequest/TopupResponse type duplication per Zodd §7).
+Phase 03 closed 2026-04-26. Pilot Port delivered as combined execute (Batch Prompt Delivery per Rule 16) covering all 3 cycles in one Claude Code session: (1) C10 — UserDashboardView merged with bundle DashboardScreen visual structure, real-data WeekdayStrip + Stats row from `bookingsStore`, scope-locked NEGATIVE on Contraindications + Recommendations, all existing Velo behavior preserved including timezone tactical cast at `nearestPracticeDate` per BACKLOG #27 (LOC 637 → 741, 12/12 acceptance); (2) C11 — WelcomeView greenfield 123 LOC at `/welcome` route, TMA splash landing per #012/#013, fast-tracked without Claude Design pipeline (decision #025 records explicit deviation от #002 for this single screen — Welcome is simple-by-nature splash; Claude Design pipeline learns on C10 Dashboard merge which is more representative; 10/10 acceptance); (3) C12 — verify gates clean: typecheck 0 errors, test 32 passed, lint 756 warnings (-2 net vs 758 baseline), build green PWA 99 precache entries, dark-block 1, toggle-code 0 per #008, 177 tokens (7/7 acceptance).
 
-BACKLOG resolutions at CLOSE: #19 (D3 BLOCKING) → RESOLVED via #024; #25 (user-ai-summary feature gap) → RESOLVED via S2 C24 plan + AUDIT §10 #6.
+Process notes: (a) C10 tier re-classified HIGH→MEDIUM at OPEN §3 Design Review per Rule 15 strict reading (single view-level change, no router/guards/main.ts/global state mutation; sprint-plan tag `affects-global-state` over-classified). (b) C11 fast-track decision recorded explicitly because pipeline learning value of single-CTA splash < cost of Claude Design round-trip; protocol §3 design-gen precondition gate handled correctly. (c) Verification Scout caught 0 BREAK / 0 GAP / 1 NIT (regex over-fire on `#012`/`#013` decision-number references — non-actionable, tracked at BACKLOG #34). (d) Live lesson during C11 execute: NEGATIVE keyword-block AC `grep -ic 'oauth|google|apple' → 0` triggered on Claude Code's own explanatory comment; Claude Code rephrased comment, AC passed — tracked at BACKLOG #33 as future AC-design improvement.
 
-Process notes: Combined Scout used at OPEN with explicit Code-review pre-flight (consult-Code-on-scout pattern per Human request) — caught 5 substantive scope adjustments before WORK. Self-validation pass on combined execute prompt fixed 9 BREAK/GAP findings before submission to Code (count math, MH-08 contradiction, missing shells in Section 4, Validation criterion drift, missing Anchor block, BACKLOG #25 closure path). Code WORK execution clean: 10/10 acceptance + 3/3 LOGIC/CASCADE/NEGATIVE.
-
-ARCHITECTURE.md §Key Decisions counter advanced from "#001-#023 as of Phase 01" to "#001-#024 as of Phase 02 close".
+ARCHITECTURE.md §Key Decisions counter advanced #024 → #025; auth views count 3 → 4; new Phase 03 additions block documents WelcomeView.vue + UserDashboardView merge + router /welcome entry.
 
 ---
 
 ## Next Action
 
-Phase 03: Pilot Port (C10-C12). Run `03_Phase-Builder` OPEN in new chat. Phase 03 OPEN gate per protocol §3 design-gen precondition: Human must confirm Claude Design handoff for WelcomeView (C11) is ready before C11 enters WORK. C10 (Dashboard merge HIGH) does NOT depend on Claude Design handoff and can start immediately. C12 verifies dark+light tokens + typecheck + lint + test.
+Phase 04: Manual Test + Retrospective (C13 + C14). C13 = Human manual test on staging (Welcome + Dashboard light + dark via DevTools); C14 = retrospective with real cycle speed + S2/S3 adjustments if needed. Run `03_Phase-Builder` OPEN in new chat. C13 is `manual-test` cycle type — primarily Human action with Claude Code only assisting screenshot collection and report drafting if requested.
 
 ---
 
 ## For Human
 
-**Session Code:** S1-P03-C10
+**Session Code:** S1-P04-C13
 **Load:**
 1. Framework: `01_Declaration.md` + `03_Phase-Builder.md`
 2. Project: `ENVIRONMENT.md` + `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md`
-3. Sprint: `S1-SPRINT.md` + `AUDIT-S1.md` (consume Section 4 mapping table for cycle scope locks) + `backend-coord-report.md` (context for any endpoint-blocked cycle)
-**Run:** `03_Phase-Builder` OPEN — Phase 03 (Pilot Port, 3 cycles: C10 Dashboard merge HIGH affects-global-state, C11 Welcome greenfield from Claude Design handoff per #012 NOT bundle AuthScreen, C12 pilot verify dark/light + typecheck/lint/test). Phase 03 OPEN §3 design-gen precondition gate: confirm Claude Design WelcomeView handoff is ready before C11 enters WORK.
+3. Sprint: `S1-SPRINT.md` (Phase 04 cycle table for C13 + C14)
+**Run:** `03_Phase-Builder` OPEN — Phase 04 (Manual Test + Retrospective, 2 cycles: C13 manual-test on staging cleartext deploy verify Welcome + Dashboard в обеих темах; C14 retrospective с real cycle speed metrics + правки S2/S3 если delta существенный). Phase 04 is the last phase of S1 — sprint-readiness check at CLOSE will route to S1-Sprint-Closer.
 
 ---
 

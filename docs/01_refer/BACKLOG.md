@@ -38,3 +38,42 @@
 | 30 | Bundle PNG → SVG migration (10 decorative icons) | C09 P02 / D3 future-cleanup | LOW | → S5+ | `bolt, circle-microphone, flame, heart, high-five, love, quill-pen, quill-pen-story, spa, wind` — convert from PNG to SVG when Vue-SVG asset volume justifies. Currently used decoratively per #024; raster sufficient for current scale. |
 | 31 | ENVIRONMENT.md path drift (D:\03_Projects → D:\02_Projects) | P02 Combined Scout pre-flight | LOW | Recurring | ENVIRONMENT.md line 14 + line 127 cite `D:\03_Projects\velo`; actual project path is `D:\02_Projects\velo` (verified via shell pwd). Pre-existing doc drift, not introduced by P02. Fix at next ENVIRONMENT.md touch. |
 | 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | → S2/S3 | `TopupRequest` + `TopupResponse` declared locally in `frontend/src/api/payments.ts:13-22` AND in `generated.ts`. Duplicate definition — should be re-export from generated.ts per #023 SSOT pattern. Fix at next payments.ts touch. |
+
+---
+
+### #33 — NEGATIVE-grep AC pattern: protect against keyword-collision in comments
+
+**Context**: During S1 P03 C11 execute (WelcomeView.vue), the AC `grep -ic 'oauth\|google\|apple' → 0` triggered on Claude Code's own explanatory header comment which contained the words "OAuth", "Google", "Apple" while explaining what was being EXCLUDED per #012. Claude Code rephrased the comment to satisfy the strict grep while preserving intent.
+
+**Lesson**: NEGATIVE keyword-blocklist greps cannot distinguish code from comments. AC patterns that rely on raw keyword presence/absence are vulnerable to comment-collision when the keyword is part of the cycle's explanatory rationale.
+
+**Action for future cycles**: When designing NEGATIVE greps for "must-not-contain" keywords, either:
+1. Constrain grep to non-comment lines (e.g., grep with `-v '^[[:space:]]*<!--\|^[[:space:]]*//' filter`), OR
+2. Scope grep to specific syntactic positions (e.g., `<button>` text content, attribute values), OR
+3. Accept comment-presence as valid and add explicit prose rule "may appear in comments explaining exclusion".
+
+Tracked for application to S2/S3 NEGATIVE-AC design.
+
+**Source**: S1 P03 C11 execute log; CLOSE Step 3 Session Review.
+**Severity**: process-improvement (not blocking).
+**Sprint**: S2 (apply when designing next NEGATIVE-AC).
+
+---
+
+### #34 — Verification grep regex: `#[0-9a-fA-F]{3,8}` over-fires on decision-number references
+
+**Context**: During S1 P03 CLOSE Verification Scout, the FP-01 hex/rgba violation grep over the new WelcomeView.vue matched header comment lines containing `#012`, `#013` (decision-number references in cycle context comment). The regex `#[0-9a-fA-F]{3,8}` accepts these as 3-digit hex codes since `012` and `013` are valid hex.
+
+**Lesson**: Project-wide convention of citing decisions as `#NNN` collides with hex-color regex. NIT only — false positives are easily disposed in scout output, but recurs every cycle that touches docs/comments mentioning decisions.
+
+**Action**: Refine FP-01 verification regex to exclude decision references. Candidates:
+1. `#[0-9a-fA-F]{3,8}\b` with negative lookahead — but `\b` already at word boundary; doesn't help since `#012` IS at word boundary.
+2. Filter pattern: exclude lines matching `decisions?\.md|#0[0-9]{2}` from results before counting.
+3. Stricter regex: `#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b` (only 3 or 6 hex digits, drop 4/5/7/8) — this excludes `#012` (3 digits but starts with 0 which is valid hex char `0` so still over-fires).
+4. Position-based: only match inside `style=`, `style scoped`, `:style`, or CSS context.
+
+Tracked for refinement during S1-Clean-Sync or as standing improvement to verification scout templates.
+
+**Source**: S1 P03 CLOSE Step 2 Verification Scout output (NIT row).
+**Severity**: process-improvement (not blocking).
+**Sprint**: S2 or S1-Clean-Sync.

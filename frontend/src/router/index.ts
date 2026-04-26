@@ -270,6 +270,15 @@ const router = createRouter({
     },
 
     // =========================================================================
+    // Welcome -- TMA splash route (S1-P03 C11; #012 NOT 1:1 with bundle AuthScreen).
+    // =========================================================================
+    {
+      path: '/welcome',
+      name: 'welcome',
+      component: () => import('@/views/auth/WelcomeView.vue'),
+    },
+
+    // =========================================================================
     // Auth error -- shown when waitUntilReady() times out with null role.
     // =========================================================================
     {
