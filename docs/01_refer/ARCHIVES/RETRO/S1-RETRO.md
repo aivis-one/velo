@@ -69,34 +69,6 @@ The wall-clock surprise is the headline. Initial sprint plan «3–4 weeks» anc
 
 **Wall-clock estimation off by ≈10×.** 3–4 weeks plan vs ≈12–14 hours actual. Useful for future sprint planning iff intensive-session mode is the intended steady state. If casual/distributed mode resumes, plan numbers re-anchor. Track session intensity for S2.
 
-## Carry Forward
-
-**To S2 plan (this cycle edits `S2-SPRINT.md`):**
-
-- References table: new row pointing to BACKLOG #10, #17, #33, #34 — process-discipline lessons applied at prompt-design time.
-- Carry-Forward section: pre-S2 Human action item — coordinate with backend partner on regen workflow doc + first fresh regen, before S2 P05 first chat. Without this, BACKLOG #24/#26/#27 remain gated.
-
-**To S1-Clean-Sync (between S1-Sprint-Closer and S2-Sprint-Builder):**
-
-Items recommended for S1-Clean-Sync batch. Current BACKLOG Status field on individual entries may not yet reflect this routing — Clean-Sync planning will reclassify Status as needed.
-
-- BACKLOG #35 (this RETRO) — `ENVIRONMENT.md` commit-convention cleanup: remove unused `cycle: C{NN}` rows; keep `phase:`, `sprint:`, `docs:`, `decision:`, `refactor:`, `fix:`, `clean-sync:`, `audit:`, `deploy-prelude:`. Crash-recovery commits use ad-hoc message without dedicated format.
-- BACKLOG #36 (added at S1 P04 CLOSE) — staging deploy flow doc clarification: ENVIRONMENT.md / ARCHITECTURE.md «auto-pulls» wording underspecifies the partner-audit gate before staging exposure (Velo push → partner code audit → partner deploy → staging visible). Surfaced at P04 close when C13 visual verification could not execute in-sprint.
-- BACKLOG #31 — `ENVIRONMENT.md` path drift `D:\03_Projects\velo` → `D:\02_Projects\velo`.
-- AUDIT-S1.md §10 #5 — `FILE-TREE.md` views count drift (31 → 37).
-- BACKLOG #29 — IconRuble dead-import check + remove if zero consumers.
-
-**Out-of-sprint follow-up (post-S1, gated on external pipeline):**
-
-- BACKLOG #37 (added at S1 P04 CLOSE) — post-deploy visual verification of S1 pilot screens. Stand-alone spec (does not depend on chat artifact). Runs once backend partner completes code audit + deploys to staging the Phase 04 commit (`origin/new_desing` HEAD post-CLOSE). Outcome folds into S2 Carry-Forward at S2-Sprint-Builder time, or opens a new BACKLOG entry if defects.
-
-**Plain BACKLOG carry-forward (no plan changes):**
-
-- #18 utility classes migration — already in S2 OPEN per existing plan.
-- #25 user-ai-summary — already S2 C24 per existing plan (resolved scope).
-- #21 waitlist endpoints — S2/S3 OPEN decision per partner-unblock state.
-- #30 PNG → SVG migration — S5+.
-
 ## Decisions Density Commentary
 
 20 decisions added in S1 (#006–#025), distribution:
@@ -140,7 +112,7 @@ This is consistent with the partner-gated deploy flow: Velo side delivers code; 
 ```
 [S1-RETRO.md | SPEC v3.2-velo]
 Sprint 1 retrospective — pilot
-Location: docs/03_sprint/S1-pilot/S1-RETRO.md
+Location: docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md
 Closes Phase 04, final phase of S1.
 Companion: S1-SPRINT.md (live state during sprint), AUDIT-S1.md (gap map deliverable).
 ```

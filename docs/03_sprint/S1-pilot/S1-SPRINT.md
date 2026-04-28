@@ -30,7 +30,7 @@
 | DECISIONS | docs/01_refer/decisions.md |
 | BUNDLE SNAPSHOT | docs/02_spec_assets/velo-design-system-2026-04-23/ (created in C01) |
 | AUDIT | docs/01_refer/AUDIT-S1.md (created in C07) |
-| RETRO-S1 | docs/03_sprint/S1-pilot/S1-RETRO.md (created in C14) |
+| RETRO-S1 | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md (created in C14; moved to ARCHIVES at sprint close) |
 
 ---
 
@@ -108,7 +108,7 @@
 ### Phase 04: Manual Test + Retrospective (2 cycles)
 **Goal:** Human протестировал на staging; retrospective показал реальную скорость; S2/S3 скорректированы если нужно.
 **Entry:** Phase 03 DONE.
-**Exit:** Manual test report от Human (скриншоты обе темы); docs/03_sprint/S1-pilot/S1-RETRO.md создан; S2-SPRINT.md + S3-SPRINT.md обновлены если скорость отличается.
+**Exit:** Manual test report от Human (скриншоты обе темы); docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md создан; S2-SPRINT.md + S3-SPRINT.md обновлены если скорость отличается.
 
 **Cycles:**
 
@@ -140,7 +140,7 @@
 | Sprint | Status |
 |--------|--------|
 | S0 install | DONE |
-| S1 pilot | IN PROGRESS |
+| S1 pilot | DONE |
 | S2 bundle-port | NOT STARTED |
 | S3 greenfield | NOT STARTED |
 
@@ -150,10 +150,10 @@
 
 | Item | Value |
 |------|-------|
-| Phase | 04: Manual Test + Retrospective — DONE (triaged-deferral §CLOSE §1) |
-| Cycle | C14: retrospective — DONE; C13: visual verification deferred (external pipeline gate) |
-| Status | Phase 04 closed; S1 Velo-side code-complete; ready for S1-Sprint-Closer |
-| Tests | 32 passed / 0 failed / 0 skipped (Phase 03 baseline preserved through P04 — doc-only phase, no code changes) |
+| Phase | All phases DONE |
+| Cycle | — |
+| Status | SPRINT CLOSED |
+| Tests | 32 passed / 0 failed / 0 skipped |
 
 ---
 
@@ -182,43 +182,32 @@
 | S1-P04-C14 | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-P04-C13 | 03_Phase-Builder | 2026-04-26 | DEFERRED |
 | S1-P04-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
+| S1-Sprint-Closer | 04_Sprint-Closer | 2026-04-28 | DONE — Sprint 1 CLOSED |
 
 ---
 
 ## Last Session
 
-Phase 04 closed 2026-04-26 via triaged-deferral per Phase-Builder §CLOSE §1. Two cycles planned (C13 manual-test + C14 retrospective); C14 delivered in full, C13 deferred to post-deploy as out-of-sprint follow-up.
-
-C14 (DONE): produced `S1-RETRO.md` (Summary + Goal vs Outcome + Plan vs Reality + What Worked + What Didn't + Carry Forward + Decisions Density + Process Lessons + Conditional + Anchor). Updated `S2-SPRINT.md` with one References row pointing to BACKLOG #10/#17/#33/#34 (process-discipline lessons applied at S2 prompt-design time) and three Carry-Forward items: pre-S2 Human-partner action on regen workflow doc + first fresh regen (resolves BACKLOG #24, unblocks #26 + #27), process-discipline lessons summary, S1-Clean-Sync batch identifier (#29/#31/#35/#36 + AUDIT-S1.md §10 #5). Appended BACKLOG #35 (ENVIRONMENT.md commit-convention cleanup → S1-Clean-Sync; cite: S1 used phase-bundled commits exclusively per Phase-Builder CLOSE Step 4f, ENVIRONMENT.md `cycle: C{NN}` formats unused).
-
-C13 (DEFERRED): manual visual verification of WelcomeView (`/welcome`) + UserDashboardView (`/user/dashboard`) in light + dark themes on staging. Did not execute because the staging visibility chain includes a backend-partner code-audit gate before deploy — the gate was open at S1 close. Verification spec preserved at BACKLOG #37 (stand-alone; does not depend on chat artifact). Triaged-deferral conditions: (a) goal scope clarified (visual-on-staging requires external pipeline; not Velo-side blocker), (b) BACKLOG #37 persists deferred task, (c) S1-RETRO.md §Conditional documents the deferral, (d) commit cites §CLOSE §1 deviation.
-
-Sprint goal Velo-side ACHIEVED: bundle → Vue process debugged (P01 token migration + glass cleanup), 2 pilot screens implemented (Dashboard merged with bundle visual structure per #002, Welcome fast-tracked per #025), handoffs captured (`AUDIT-S1.md` 47-row gap map, `backend-coord-report.md` 7 missing endpoints). 7 of 8 Success Criteria fully met; #7 («работают на staging») code-side ready, post-deploy visual confirmation pending.
-
-Phase 04 also surfaced two doc-drift findings persisted as BACKLOG entries: #36 staging deploy flow doc clarification (ENVIRONMENT.md / ARCHITECTURE.md «auto-pulls» wording underspecifies the partner-audit gate), #37 post-deploy visual verification spec for the deferred C13 work. Both flagged S1-Clean-Sync / post-S1.
-
-Process notes for retro context (already captured in S1-RETRO.md §What Worked / §What Didn't): Combined Scout consistently caught scope-discovery issues before damage; phase-bundled commits worked cleanly; partner regen pipeline absorbed without disruption (#022 + #023); wall-clock ≈12-14 hrs across 3 sessions vs 3-4 weeks planned (≈10× faster than plan).
+Sprint 1 closed. SNAPSHOT created. RETRO created and moved to ARCHIVES per protocol §Step 11.
 
 ---
 
 ## Next Action
 
-Phase 04 closed. S1 Velo-side code-complete. Run `04_Sprint-Closer` in new chat (Session Code: `S1-Sprint-Closer`). Sprint-Closer handles: ProbeKit lite profile (type-audit, code-audit, a11y-audit, responsive-audit, security-audit, design-audit) + SNAPSHOT (cloc LOC count, cycle metrics from Protocol Log, decisions/BACKLOG counts) + sprint close. After Sprint-Closer: `S1-Clean-Sync` (FILE-TREE refresh + BACKLOG #29/#31/#35/#36 + AUDIT-S1.md §10 #5 cleanups), then `S2-Sprint-Builder` (S2 plan already drafted in `S2-SPRINT.md`, may need refinement based on Sprint-Closer findings + post-deploy C13 outcome if available by then).
-
-Out-of-chat parallel: backend partner code audit on Phase 03 push (`origin/new_desing` HEAD `823bdec`) → partner deploy → C13 visual verification per BACKLOG #37 spec.
+SPRINT CLOSED.
+Next: Session Code S1-Clean-Sync — run 05_Clean-Sync
 
 ---
 
 ## For Human
+> Next chat instruction. Copy-paste.
 
-**Session Code:** S1-Sprint-Closer
+**Session Code:** S1-Clean-Sync
 **Load:**
-1. Framework: `01_Declaration.md` + `04_Sprint-Closer.md`
-2. Project: `ENVIRONMENT.md` + `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md`
-3. Sprint: `S1-SPRINT.md` + `S1-RETRO.md`
-**Run:** `04_Sprint-Closer` — Part 1 (ProbeKit lite profile code audit) + Part 2 (SNAPSHOT — cloc LOC count, cycle metrics, decisions/BACKLOG counts, sprint close prose).
-
-**Out-of-chat parallel action:** backend partner code audit on `origin/new_desing` HEAD `823bdec` → partner deploy → C13 post-deploy visual verification per BACKLOG #37 stand-alone spec. Visual outcome can fold into S2 Carry-Forward at S2-Sprint-Builder time, or open new BACKLOG entry if defects.
+1. Framework: 01_Declaration.md + 05_Clean-Sync.md
+2. Project: ENVIRONMENT.md + FILE-TREE.md + BACKLOG.md + ARCHITECTURE.md
+3. Sprint: S1-SPRINT.md + S1-SNAPSHOT.md
+**Run:** 05_Clean-Sync
 
 ---
 
@@ -237,7 +226,7 @@ Out-of-chat parallel: backend partner code audit on Phase 03 push (`origin/new_d
 
 ### What Worked
 
-See `docs/03_sprint/S1-pilot/S1-RETRO.md` §What Worked. Headline items: Combined Scout as calibration point (caught all P01 reclassifications + C10 tier mistake before damage); phase-bundled commits; bundle SSOT decision early (#006); partner regen pipeline absorption (#022, #023); process improvements found and BACKLOG'd in real time.
+See `docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md` §What Worked. Headline items: Combined Scout as calibration point (caught all P01 reclassifications + C10 tier mistake before damage); phase-bundled commits; bundle SSOT decision early (#006); partner regen pipeline absorption (#022, #023); process improvements found and BACKLOG'd in real time.
 
 ### What Didn't
 

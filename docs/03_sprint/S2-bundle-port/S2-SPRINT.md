@@ -28,8 +28,8 @@
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
 | AUDIT-S1 | docs/01_refer/AUDIT-S1.md |
-| S1-RETRO | docs/03_sprint/S1-pilot/S1-RETRO.md |
-| S1-SNAPSHOT | docs/03_sprint/S1-pilot/S1-SNAPSHOT.md |
+| S1-RETRO | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md |
+| S1-SNAPSHOT | docs/01_refer/ARCHIVES/SNAPSHOT/S1-SNAPSHOT.md |
 | RETRO-S2 | docs/03_sprint/S2-bundle-port/S2-RETRO.md (created at close) |
 | Process discipline | docs/01_refer/BACKLOG.md → #10, #17, #33, #34 (apply at prompt-design time) |
 
