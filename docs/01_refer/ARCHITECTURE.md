@@ -34,7 +34,7 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `styles/` — variables.css (semantic tokens), global.css
 - `platform/`, `utils/`
 
-**Bundle-sourced shared components** (ported during S1 infra + S2 bundle-port): Accordion, AppHeader, Avatar, BackHeader, Backdrop, Button, Callout, Cards, Chip, Chips, Input, MandalaBackdrop, MasterCard, MoodPicker, TabBar, WeekdayStrip — 16 components from `docs/02_spec_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/components/`.
+**Bundle-sourced shared components** (ported during S1 infra + S2 bundle-port): Accordion, AppHeader, Avatar, BackHeader, Backdrop, Button, Callout, Cards, Chip, Chips, Input, MandalaBackdrop, MasterCard, MoodPicker, TabBar, WeekdayStrip — 16 components from `docs/04_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/components/`.
 
 **Phase 01 additions (2026-04-26 close):**
 
@@ -58,8 +58,8 @@ See `FILE-TREE.md` for current inventory. Compact:
 
 **Reference (read-only legacy):**
 
-- `Design_prototype_legacy_2026-03-11/` — pre-bundle Figma snapshot (renamed from `Design_prototype/` during C01). Read-only reference.
-- `docs/02_spec_assets/velo-design-system-2026-04-23/` — bundle SSOT snapshot (~140 files: tokens, components, screens, illustrations, fonts). Source of truth per decision #006.
+- `docs/05_legacy/Design_prototype_legacy_2026-03-11/` — pre-bundle Figma snapshot (renamed from `Design_prototype/` during C01). Read-only reference.
+- `docs/04_assets/velo-design-system-2026-04-23/` — bundle SSOT snapshot (~140 files: tokens, components, screens, illustrations, fonts). Source of truth per decision #006.
 
 ---
 
@@ -67,7 +67,7 @@ See `FILE-TREE.md` for current inventory. Compact:
 
 - `backend/` — written by collaborating engineer; we consume, we do not edit
 - Root-level `VELO-*.md` files — reference only, maintained in `main`
-- `Design_prototype_legacy_2026-03-11/` — Figma snapshot before bundle arrival (2026-04-23). Read-only reference only. Bundle at `docs/02_spec_assets/velo-design-system-2026-04-23/` is SSOT for design tokens, components, screens. See decisions.md #006.
+- `docs/05_legacy/Design_prototype_legacy_2026-03-11/` — Figma snapshot before bundle arrival (2026-04-23). Read-only reference only. Bundle at `docs/04_assets/velo-design-system-2026-04-23/` is SSOT for design tokens, components, screens. See decisions.md #006.
 - `velo-mockups/` — static HTML mocks; kept as legacy reference
 - `diagrams/` — 9 mermaid diagrams; reference only
 
@@ -147,7 +147,7 @@ Brand lock (mandatory in every Claude Design prompt):
 NEVER use: cream/beige backgrounds, serif display fonts, italic word accents,
 terracotta/amber accents, backdrop-filter blur, glassmorphism effects.
 USE: Marmelad Regular only (single weight), bundle tokens from
-docs/02_spec_assets/velo-design-system-2026-04-23/project/colors_and_type.css,
+docs/04_assets/velo-design-system-2026-04-23/project/colors_and_type.css,
 teal/peach/pink accents, radii md:8 / lg:15 / xl:24 / full:200,
 FLAT semi-transparent surfaces.
 See decisions.md #006, #007.
@@ -181,4 +181,4 @@ This project runs a reduced profile of SPEC v3.2 — labelled **SPEC v3.2-velo**
 - Disabled concepts: Entry/Stream parallel work, Balance Review, SPEC versioning layer, KB L0/L1/L2 hierarchy, ADR lifecycle
 - Added: design-gen cycle type (see `03_Phase-Builder.md`), ProbeKit lite profile (see `04_Sprint-Closer.md`)
 
-Original SPEC v3.2.0 files: `../02_spec/_original_v3.2.0/`.
+Original SPEC v3.2.0 files: `../05_legacy/_original_v3.2.0/`.

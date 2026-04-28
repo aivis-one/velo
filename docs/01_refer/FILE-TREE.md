@@ -116,9 +116,13 @@ docs/
 │   ├── 03_Phase-Builder.md
 │   ├── 04_Sprint-Closer.md
 │   ├── 05_Clean-Sync.md
-│   ├── Resolution.md
-│   └── _original_v3.2.0/       # full v3.2.0 snapshot, reference-only
-│       └── (9 files + README.md)
-└── 03_sprint/
-    └── .gitkeep
+│   └── Resolution.md
+├── 03_sprint/
+├── 04_assets/                  # bundle SSOT (velo-design-system-2026-04-23)
+└── 05_legacy/                  # archives + reference-only snapshots
+    ├── Design_prototype_legacy_2026-03-11/
+    ├── _archive/
+    └── _original_v3.2.0/       # full v3.2.0 SPEC snapshot, reference-only
 ```
+
+> Tree above is a minimal post-S1 sketch. Full FILE-TREE refresh tracked in S1-Clean-Sync.

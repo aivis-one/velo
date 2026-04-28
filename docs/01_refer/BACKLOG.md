@@ -8,7 +8,7 @@
 |---|---|---|---|---|---|
 | 1 | Audit `VELO-Anti-Patterns.md` FP-01..FP-08 against bundle-flat approach — flag conflicts | S1 scout §4 | MEDIUM | → S1 P01 C06 | 8 patterns found (not 6 as ARCHITECTURE previously said) |
 | 2 | Install `velo-design` Claude Skill to `.claude/skills/velo-design/` | S1 Q#6 decision | LOW | → S4+ | Evaluate after S1 retrospective C14 |
-| 3 | Decide fate of `velo-mockups/` + `Design_prototype_legacy_2026-03-11/` | ARCH gap | LOW | → S4+ | After S3 complete |
+| 3 | Decide fate of `velo-mockups/` + `docs/05_legacy/Design_prototype_legacy_2026-03-11/` | ARCH gap | LOW | → S4+ | After S3 complete |
 | 4 | Migrate admin views (7 files in `views/admin/`) | decision #010 | LOW | → S4+ | Outside user/master scope of S1–S3 |
 | 5 | MH-08 Masters Account (main master dashboard) — design-gen + port | decision #010 | MEDIUM | → S4 | Moved from S3 |
 | 6 | MH-11 Feedback analytics (master-side) — design-gen + port | decision #010 | MEDIUM | → S4 | Moved from S3 |
@@ -166,7 +166,7 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 - `origin/new_desing` (HEAD `7c28a7b`) — Velo-side S1 work: bundle migration (#006, #009), brand assets port (#024), WelcomeView fast-track (#025), 17 phase-bundled commits across P01–P03.
 - `origin/main` — 4 commits from `inzoddwetrust` (`265793c`, `7fc2e93`, `8581506`, `19be8fa`), all titled "refactor(frontend): close tech debt blocks 1-2 (F-03, WARNING-1/9, ...)" — clearly amend/force-push iterations of one logical change.
 - `main` is based on a commit BEFORE S1 bundle migration (likely `83d287a` or earlier — last common ancestor pre-S1).
-- `main` does NOT contain: bundle namespace tokens (still `--velo-*`), bundle SSOT references (still `velo-mockups/css/variables.css`), `WelcomeView.vue`, brand assets (`frontend/src/assets/brand/`, `brand-icons/`, `illustrations/`, `masters/`, `mood/`, `patterns/`), `Marmelad-Regular.ttf`, `Design_prototype` → `Design_prototype_legacy_2026-03-11` rename.
+- `main` does NOT contain: bundle namespace tokens (still `--velo-*`), bundle SSOT references (still `velo-mockups/css/variables.css`), `WelcomeView.vue`, brand assets (`frontend/src/assets/brand/`, `brand-icons/`, `illustrations/`, `masters/`, `mood/`, `patterns/`), `Marmelad-Regular.ttf`, `Design_prototype` → `docs/05_legacy/Design_prototype_legacy_2026-03-11` rename.
 - Diff scale: ~100 files, −1417 / +1006 in main's direction = main lags new_desing by the entire S1.
 
 **Hypothesis**: Backend partner did the frontend tech-debt refactor (F-03, WARNING-1/9, NEW-3/6/7/10, F-06/09) on a fork/branch based on a pre-S1 commit, unaware of bundle migration on `new_desing`. Force-pushed to main.

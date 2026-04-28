@@ -1,7 +1,7 @@
 /* ==================================================================
  * Velo Design Tokens
  * Source of truth: bundle velo-design-system-2026-04-23
- * See: docs/02_spec_assets/velo-design-system-2026-04-23/project/colors_and_type.css
+ * See: docs/04_assets/velo-design-system-2026-04-23/project/colors_and_type.css
  * Decisions: #006 (bundle SSOT), #007 (flat; shadows OK, no backdrop-filter),
  *            #008 (dark mode tokens in S1, UI toggle in C19), #009 (token rename in C03)
  * ================================================================== */

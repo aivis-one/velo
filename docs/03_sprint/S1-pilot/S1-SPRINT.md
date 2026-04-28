@@ -28,7 +28,7 @@
 | FILE-TREE | docs/01_refer/FILE-TREE.md |
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
-| BUNDLE SNAPSHOT | docs/02_spec_assets/velo-design-system-2026-04-23/ (created in C01) |
+| BUNDLE SNAPSHOT | docs/04_assets/velo-design-system-2026-04-23/ (created in C01) |
 | AUDIT | docs/01_refer/AUDIT-S1.md (created in C07) |
 | RETRO-S1 | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md (created in C14; moved to ARCHIVES at sprint close) |
 
@@ -38,7 +38,7 @@
 Отладить процесс bundle → Vue (infra + 2 pilot экрана) и зафиксировать все рабочие handoff'ы.
 
 ## Success Criteria
-- Bundle snapshot в docs/02_spec_assets/velo-design-system-2026-04-23/ + chat1.md удалён
+- Bundle snapshot в docs/04_assets/velo-design-system-2026-04-23/ + chat1.md удалён
 - Fonts / icons / illustrations извлечены в frontend/public/ и frontend/src/assets/
 - frontend/src/styles/variables.css мигрирован под bundle nomenclature (light + dark)
 - ARCHITECTURE.md + decisions.md + BACKLOG.md + DESIGN_MIGRATION.md archive DONE
@@ -62,7 +62,7 @@
 ### Phase 01: Bundle Migration (6 cycles)
 **Goal:** Bundle tokens + assets в репо, Vue-код переименован под bundle namespace, shadows восстановлены, docs обновлены.
 **Entry:** Bundle снапшот в /tmp/velo-bundle/; scout выполнен.
-**Exit:** `npm run build` проходит; 577 usages `--velo-*` переименованы; glass-tokens удалены; ARCHITECTURE.md + decisions.md + BACKLOG.md обновлены; DESIGN_MIGRATION.md в docs/_archive/.
+**Exit:** `npm run build` проходит; 577 usages `--velo-*` переименованы; glass-tokens удалены; ARCHITECTURE.md + decisions.md + BACKLOG.md обновлены; DESIGN_MIGRATION.md в docs/05_legacy/_archive/.
 
 **Cycles:**
 

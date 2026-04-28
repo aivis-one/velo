@@ -81,7 +81,7 @@ L2 — Execution (cycles — actual work with Claude Code)
 | 05 | Clean-Sync | Project data hygiene — FILE-TREE sync, paths, backlog |
 | — | Resolution | Transform ambiguity into decisions — tool, not gate |
 
-Disabled in Velo profile: `06_Spec-Update`, `07_Brain-Next`, `Spec-Install`. Original copies in `_original_v3.2.0/`.
+Disabled in Velo profile: `06_Spec-Update`, `07_Brain-Next`, `Spec-Install`. Original copies in `docs/05_legacy/_original_v3.2.0/`.
 
 ### Lifecycle at a Glance
 

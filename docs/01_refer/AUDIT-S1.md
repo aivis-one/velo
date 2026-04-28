@@ -19,7 +19,7 @@ Reproducibility: all claims here are derived from filesystem state at HEAD `47a6
 ## Section 2: Executive Summary
 
 - Total view files in `frontend/src/views/`: **36** (3 shells + 11 user + 10 master + 7 admin + 3 auth + 2 root). Total view LOC: **~11,561**. `FILE-TREE.md` previously claimed 31; this audit reconciles to 36 (documentary drift; FILE-TREE.md sync deferred to CLOSE/Clean-Sync).
-- Bundle has **14 screens** at `docs/02_spec_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/screens/` (1,488 LOC total). All target user-side; bundle has **ZERO** master-side or admin-side screens.
+- Bundle has **14 screens** at `docs/04_assets/velo-design-system-2026-04-23/project/ui_kits/mobile/screens/` (1,488 LOC total). All target user-side; bundle has **ZERO** master-side or admin-side screens.
 - MH-card set: **17 cards** confirmed by sponsor (full text in Section 5). Decomposition: **10 mapped to views** (MH-01/02/03/09/10/13/14/15/16/17 — note MH-09 splits into user + master per cycle planning), **3 deferred to BACKLOG** (MH-08/11/12 per #010), **3 infrastructure-not-views** (MH-04/05/06 — Telegram/Stripe/Zoom integrations), **1 cross-cutting flow** (MH-07 quick-booking funnel). Total 10 + 3 + 3 + 1 = 17 ✓.
 - S1 Phase 03 (DashboardScreen merge C10 + WelcomeScreen greenfield C11) is **NOT YET RUN**. Treat as `S1-P03-pending` for sprint scope clarity.
 - D3 icons strategy ratified at C09 OPEN (decision #024): **Vue-SVG baseline + bundle PNG decorative supplement**. See Section 9.

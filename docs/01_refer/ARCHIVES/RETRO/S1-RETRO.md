@@ -17,7 +17,7 @@ Per `S1-SPRINT.md` Success Criteria (8 items):
 
 | # | Criterion | Status |
 |---|---|---|
-| 1 | Bundle snapshot in `docs/02_spec_assets/velo-design-system-2026-04-23/` + chat1.md removed | ✓ |
+| 1 | Bundle snapshot in `docs/04_assets/velo-design-system-2026-04-23/` + chat1.md removed | ✓ |
 | 2 | Fonts / icons / illustrations extracted into `frontend/public/` + `frontend/src/assets/` | ✓ |
 | 3 | `frontend/src/styles/variables.css` migrated to bundle nomenclature (light + dark) | ✓ |
 | 4 | `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md` + `DESIGN_MIGRATION.md` archive — DONE | ✓ |

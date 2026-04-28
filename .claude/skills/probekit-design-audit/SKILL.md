@@ -12,7 +12,7 @@ Verifies all components and views use design tokens from `variables.css` — no 
 
 source_dir: frontend/src
 token_file: frontend/src/styles/variables.css
-brand_ref: docs/02_spec_assets/velo-design-system-2026-04-23/project/README.md
+brand_ref: docs/04_assets/velo-design-system-2026-04-23/project/README.md
 
 ## Probes
 
