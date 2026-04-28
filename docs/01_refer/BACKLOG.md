@@ -187,3 +187,341 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Sprint**: pre-S2 Human action item — coordinate with partner before any branch-merge work begins.
 
 **Source**: S1-Sprint-Closer Step 2 Pre-Exec divergence discovery; pairs with BACKLOG #36 (staging-deploy doc clarification) and #37 (post-deploy visual verification) as the third partner-coordination item from S1 close.
+
+---
+
+### #40 — S2 a11y polish cluster
+
+**Source**: S1-Sprint-Closer ProbeKit lite a11y-audit + cross-skill confirmations (backender §6, security ext-link, design P5).
+
+**Bundled findings (14)**:
+- A11Y P1+P3 (HIGH): 7 `<div @click>` sites — UserProfileView 5 menu items incl. logout, MasterDashboardView balance card, PracticeCard primary nav. Keyboard-inaccessible. Convert to `<button>` (preferred) or pad with `tabindex="0"` + `@keydown.enter.space`.
+- A11Y P4 (HIGH): VModal lacks focus-trap, focus-return, focus-on-open. Tab leaves dialog. Recommend `focus-trap-vue` library (~2 KB gzipped).
+- A11Y P6 (HIGH): VInput / VTextarea / VSelect / VCheckbox labels not associated. Use Vue 3.5 `useId()` to add `for`/`id` linkage. Cascades across ~12 view files.
+- A11Y P2 (MEDIUM): VTabBar active item missing `aria-current="page"`; VToast container missing `role="status"` + `aria-live="polite"`.
+- A11Y P3 (MEDIUM): VToast keyboard-dismiss missing.
+- A11Y P7 (MEDIUM): No skip-to-content link in `index.html`; `<main id="main-content">` missing.
+- A11Y P8 (MEDIUM): ~16 inline SVG icons in `components/icons/Icon*.vue` missing `aria-hidden="true"`; loading states missing `aria-busy`.
+- A11Y P4 (LOW): No global `:focus-visible` styles in `styles/global.css`.
+- A11Y P4 (LOW): No focus-on-route-change handler in App.vue or router after-each.
+- A11Y P7 (LOW): Two `<nav>` regions (header + tabbar) need unique `aria-label`.
+- A11Y P5 (LOW): `--text-secondary` (3.4:1) / `--text-muted` (2.5:1) sub-AA if used as body text — audit usage scope (placeholder/hint/disabled use is exempt; body text is not).
+
+**Severity**: HIGH for the 3 first items (keyboard accessibility blockers); MEDIUM/LOW for the rest.
+
+**Sprint**: S2 — single coherent a11y polish cycle. Effort: M-L (4 components + ~12 forms verification + 1 new dep).
+
+**Source**: S1-CODE-AUDIT.md issues 2, 3, 4, 12, 13, 14, 15, 25, 26, 27, 28.
+
+---
+
+### #41 — S2 design-tokens bulk-tighten cluster
+
+**Source**: S1-Sprint-Closer ProbeKit design-audit.
+
+**Bundled findings (5)**:
+- Design P4 (MEDIUM): 21 hardcoded radius values — 12 × `border-radius: 5px` (→ `--radius-sm`), 8 × `border-radius: 100px` (→ `--radius-full` per #016), 1 × VModal `20px` (→ `--radius-xl`). Affected: VInput, VSelect, VTextarea, VCheckbox, FormShell, BookingPopup, DiaryEntryForm, TopupView, EditPracticeView (×2), CreatePracticeView, MasterApplyView, MasterFinanceView, DiaryList, AnalyticsView, MasterDashboardView, MasterPracticesView (×2), MasterProfileView, CalendarView, MyBookingsView, VModal.
+- Design P3 (MEDIUM): ~12 hardcoded spacing px sites where tokens exist. Consider adding `--space-2xs: 6px`, `--space-3xs: 12px` for non-token gaps.
+- Design P1 (MEDIUM): 30 `color: white` / `background: white` named-color sites across 21 files → `var(--neutral-white)` or `#ffffff`.
+- Design P1 (MEDIUM): 8 rgba overlay sites — UserProfile (×2), MasterPractices, VTabBar, VModal, AttendanceView, EditPracticeView, VToast. Need new tokens `--surface-overlay-50`, `--surface-white-alpha-*`.
+- Design P5 (LOW): VToast hardcoded `box-shadow: 0 4px 12px rgba(0,0,0,0.3)` → `var(--shadow-md)` (1:1 match per variables.css).
+
+**Severity**: MEDIUM (design-system discipline; visually identical output; system-consistency cost).
+
+**Sprint**: S2. Effort: M (mostly mechanical bulk substitution + 1-2 new token definitions).
+
+**Source**: S1-CODE-AUDIT.md issues 6, 7, 8, 21.
+
+---
+
+### #42 — S2 mobile-polish cluster
+
+**Source**: S1-Sprint-Closer ProbeKit responsive-audit.
+
+**Bundled findings (3)**:
+- Resp P1 (MEDIUM): `frontend/index.html` viewport meta missing `viewport-fit=cover` — iOS notch on iPhone X+ won't extend content edge-to-edge. Single-line fix.
+- Resp P2 (MEDIUM): VHeader missing `padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0px))`. Header content can be obscured by notch on TMA fullscreen.
+- Resp P3 (MEDIUM): VButton `size="sm"` min-height 36px (below WCAG 44×44); VTabBar item ≈42px; VInput height 40px. Either bump to 44 or expand clickable via `::before` pseudo-element.
+
+**Severity**: MEDIUM (real-device usability on notched iOS; WCAG 2.5.5 compliance).
+
+**Sprint**: S2 mobile-polish or hardening cycle. Effort: S (3 small fixes; can be one cycle).
+
+**Source**: S1-CODE-AUDIT.md issues 9, 10, 11.
+
+---
+
+### #43 — S2 view-layer extractApiError adoption
+
+**Source**: S1-Sprint-Closer code-audit §6 + backender review §6+§8.
+
+**Action**: ~25-30 try/catch sites across 9 large views (EditPracticeView 9 sites at 519-700, AnalyticsView, UserDashboardView, PracticeDetailView, MasterProfileView, MasterFinanceView, CreatePracticeView, MasterApplyView, MasterDashboardView) follow the pattern:
+
+```diff
+- } catch (e) {
+-   toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось <action>')
+- }
++ } catch (e) {
++   toast.error(extractApiError(e, 'Не удалось <action>'))
++ }
+```
+
+`composables/useApiError.ts:24` provides `extractApiError(e, fallback)`. Stores already migrated via WARNING-1; views were left out. Mechanical refactor.
+
+**Severity**: MEDIUM (DRY; observable code-volume cost).
+
+**Sprint**: S2. Effort: M (mechanical, one cycle).
+
+**Source**: S1-CODE-AUDIT.md issue 5.
+
+---
+
+### #44 — S2 test-coverage backfill
+
+**Source**: S1-Sprint-Closer code-audit §7+§12 + backender §7.
+
+**Current state**: 32 tests in 2 files (`composables/usePagination.test.ts` 9 tests; `utils/format.test.ts` 23 tests). All pass.
+
+**Untested critical paths**:
+- `api/client.ts` — timeout, GET dedup, error normalize, 401 callback
+- `stores/auth.ts` — login, restore, logout, fetchMe
+- `router/guards.ts` — roleRedirect, roleGuard, masterStatusGuard, applyGuard
+- 6 of 7 stores (bookings, diary, master, practices, balance, ui)
+- 5 of 6 composables (useAuth, useToast, useApiError, usePracticeWindows)
+
+**Architecture** is test-friendly: `resetClientState()` (api/client.ts:99-103), `resetAuthState()` (composables/useAuth.ts:66-70). Quantity gap, not testability.
+
+**Minimum target for S2**: ~30 tests covering api-client + auth-store + router-guards + 1-2 store-tests.
+
+**Severity**: MEDIUM at S1 close; will be HIGH for S2 sprint planning.
+
+**Sprint**: S2 test-backfill cycle. Effort: M-L (~30 tests).
+
+**Source**: S1-CODE-AUDIT.md issue 19.
+
+---
+
+### #45 — S5+ major-version dependency updates
+
+**Source**: S1-Sprint-Closer backender §10.
+
+**Action**: Major-version updates available with breaking changes:
+- pinia 2.3.1 → 3.0.4
+- vue-router 4.6.4 → 5.0.6
+- vite 6.4.1 → 8.0.10
+- vitest 3.2.4 → 4.1.5
+- typescript 5.7.3 → 6.0.3
+- eslint 9.39.3 → 10.2.1
+- @vitejs/plugin-vue 5.2.4 → 6.0.6
+- vite-plugin-pwa 0.21.2 → 1.2.0
+- (+ 4 minor updates)
+
+**Severity**: MEDIUM (technical debt; not blocking).
+
+**Sprint**: S5+ — separate sprint cycle for major bumps with breaking-change verification. Defer until S1-S4 deliverables stabilize. Pairs with #54 dep-update cycle (overlapping scope: vite-plugin-pwa + happy-dom upgrades resolve both #45 and #54 residual).
+
+**Source**: S1-CODE-AUDIT.md issue 20.
+
+---
+
+### #46 — Router timeout silent fallback
+
+**Source**: S1-Sprint-Closer code-audit §3 + backender §3.
+
+**Action**: `router/index.ts:329-331` — auth-init timeout produces only `console.warn`. App.vue gate (`isReady && !isAuthenticated → StandaloneStubView`) currently catches the situation, but silent fallback is fragile against future App.vue refactors.
+
+Two options:
+1. Hard fix: `if (timedOut) return { path: '/auth-error' }` (need to add `/auth-error` route + view)
+2. Soft fix: explicit invariant comment in router referencing App.vue gate dependency
+
+**Severity**: MEDIUM (defense-in-depth; not a current bug).
+
+**Sprint**: S2 — single-line fix, can fold with #47 in a single auth-flow cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 16.
+
+---
+
+### #47 — `roleGuard()` async-await defense-in-depth
+
+**Source**: S1-Sprint-Closer security-audit §A01 + backender §4.
+
+**Action**: `router/guards.ts:85-102` — `roleGuard()` is synchronous; reads `auth.role` without awaiting `waitUntilReady()`. If invoked before `initAuth()` completes, role could be null and users redirect to `/user/dashboard`. Currently safe because App.vue gate blocks RouterView, but future regression in App.vue gate would silently break authorization.
+
+```diff
+  export function roleGuard(required: ...): NavigationGuardWithThis<undefined> {
+-   return () => {
++   return async () => {
++     await waitUntilReady()
+      const auth = useAuthStore()
+      ...
+```
+
+**Severity**: MEDIUM (defense-in-depth; no current exploit).
+
+**Sprint**: S2. Effort: S — fold with #46 in one auth-flow cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 17.
+
+---
+
+### #48 — Confirm-modal unification
+
+**Source**: S1-Sprint-Closer backender §6+§8 + a11y P4 + design P1.
+
+**Action**: 3 confirm-dialog implementations exist:
+1. `components/ui/VModal.vue` — canonical
+2. `views/master/EditPracticeView.vue:900-915` — custom overlay (`fixed; rgba(0,0,0,0.5)`)
+3. `views/master/AttendanceView.vue:504-516` — custom overlay (same pattern)
+
+Replace 2 + 3 with VModal. Single fix resolves three reports' findings:
+- DRY violation (Backender §6)
+- Custom overlays' a11y gaps (no focus-trap, no focus-return; A11Y P4 — partially addresses #40)
+- 3 hardcoded `rgba(0,0,0,0.5)` overlay sites (Design P1 — partially addresses #41)
+
+**Severity**: MEDIUM.
+
+**Sprint**: S2. Effort: M (touches 2 view files + relies on #40's VModal focus-trap fix landing first).
+
+**Source**: S1-CODE-AUDIT.md issue 18.
+
+---
+
+### #49 — `VITE_TELEGRAM_BOT_URL` fail-fast in PROD
+
+**Source**: S1-Sprint-Closer code-audit §4 + backender §9.
+
+**Action**: `views/auth/WelcomeView.vue:43` and `views/auth/StandaloneStubView.vue:30`:
+```ts
+const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testbot'
+```
+
+If `VITE_TELEGRAM_BOT_URL` missing in a production build, users silently route to test bot. Add fail-fast to `main.ts` boot:
+```ts
+if (import.meta.env.PROD && !import.meta.env.VITE_TELEGRAM_BOT_URL) {
+  throw new Error('VITE_TELEGRAM_BOT_URL must be set in production builds')
+}
+```
+
+**Severity**: LOW (config discipline; not a vulnerability).
+
+**Sprint**: S2 — single cycle, can fold with #46/#47 auth-flow cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 23.
+
+---
+
+### #50 — `rel="noopener noreferrer"` for `_blank` links
+
+**Source**: S1-Sprint-Closer security-audit external-links + backender §9.
+
+**Action**: 2 sites have `rel="noopener"` only:
+- `views/auth/WelcomeView.vue:34`
+- `views/auth/StandaloneStubView.vue:18`
+
+Add `noreferrer`:
+```diff
+- <a :href="botUrl" target="_blank" rel="noopener">
++ <a :href="botUrl" target="_blank" rel="noopener noreferrer">
+```
+
+Telegram bot URL is project-owned; referrer leak is minor. Best-practice completeness.
+
+**Severity**: LOW.
+
+**Sprint**: S2 — trivial 2-line fix; can fold into any unrelated auth-view-touch cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 24.
+
+---
+
+### #51 — `stores/diary.ts` LRU vs FIFO comment
+
+**Source**: S1-Sprint-Closer code-audit §5 + backender §5.
+
+**Action**: `stores/diary.ts:284, 296-300` — comment says «LRU eviction», implementation is FIFO (`insightsCache.keys().next().value` evicts insertion-order). For immutable-after-fetch insights cache, distinction is academic. Either:
+1. Adjust comment to «FIFO eviction»
+2. Implement true LRU via Map re-insertion on access
+
+Recommend option 1 (comment-only fix).
+
+**Severity**: LOW.
+
+**Sprint**: Next file touch — opportunistic.
+
+**Source**: S1-CODE-AUDIT.md issue 22.
+
+---
+
+### #52 — Breakpoint convention doc
+
+**Source**: S1-Sprint-Closer responsive-audit P7.
+
+**Action**: Single `@media (min-width: 640px)` site at `components/ui/VModal.vue:166`. Mobile-first architecture is correct (#013), single breakpoint intentional. But:
+- Not formally documented in `decisions.md` or `ARCHITECTURE.md`
+- No `--bp-*` token in variables.css
+
+If S2/S3 introduce more responsive elements without doc, drift risk increases. Action: add convention to decisions.md OR introduce `--bp-mobile`, `--bp-tablet` tokens with usage examples.
+
+**Severity**: LOW.
+
+**Sprint**: S2 — doc-touch, 0.5 cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 29.
+
+---
+
+### #53 — File-header FIX-ID housekeeping
+
+**Source**: S1-Sprint-Closer code-audit §6 + backender §6.
+
+**Action**: View file headers carry FIX-ID provenance comments (10.1, F-03, F-09, NEW-6, NEW-8, WARNING-1, etc.) — currently exceptional discipline, but will rot as fixes consolidate or get superseded. Already partially observed: `views/master/MasterFinanceView.vue:25-26` financial-constants references documented in BACKLOG #26.
+
+Action: at each sprint close, audit file headers for stale FIX-ID references. Can be a Sprint-Closer Step 12 sub-step from S2 onward, OR a Clean-Sync routine task.
+
+**Severity**: LOW.
+
+**Sprint**: per-sprint-close ongoing — implement at S2-Clean-Sync as recurring routine.
+
+**Source**: S1-CODE-AUDIT.md issue 30.
+
+---
+
+### #54 — npm audit residual + partial-fix archive
+
+**Source**: S1-Sprint-Closer Step 6 partial CRITICAL fix.
+
+**Pre-fix state**: 11 vulnerabilities — 1 critical, 8 high, 2 moderate.
+
+**Fix applied**: `cd frontend && npm audit fix` (no `--force`).
+
+**Post-partial-fix state**: 5 vulnerabilities — 1 critical, 4 high. All dev/build-time; zero end-user attack surface.
+
+**Resolved (6/11)**, including the prod-relevant CVE:
+- vite GHSA-p9ff-h696-f583 — dev-server arbitrary file read via WebSocket (closed)
+- vite GHSA-4w7w-66w2-5vf9 — Path Traversal in optimized deps `.map` (closed)
+- flatted GHSA-25h7-pfq9-p65f — unbounded recursion DoS (closed)
+- flatted GHSA-rf6f-7fwh-wjgh — prototype pollution (closed)
+- brace-expansion GHSA-f886-m6hf-6m8v — DoS / memory exhaustion (closed)
+- + 1 transitive (closed)
+
+**Residual (5 CVEs, all dev/build-time only)**:
+- happy-dom 17.x → 20.x: GHSA-37j7-fg3j-429f (VM Context Escape RCE), GHSA-w4gp-fjgq-3q4g (fetch credentials misuse), GHSA-6q6h-j7hj-3r64 (ECMAScriptModuleCompiler unsanitized export names) — test-runner only
+- serialize-javascript: GHSA-5c6j-r48x-rmvq (RegExp.flags RCE), GHSA-qj8w-gfj5-8c6v (CPU exhaustion DoS) — transitive via workbox-build, build-time only
+- @rollup/plugin-terser — transitive via workbox-build, build-time only
+- workbox-build — transitive via vite-plugin-pwa, build-time only
+- vite-plugin-pwa 0.21.2 → 0.19.x downgrade or major bump — direct devDep, build-time only
+
+**Why partial accepted**:
+1. Zero end-user attack surface — none of these packages ship in `dist/`. The shipped service worker uses `workbox-window` (runtime), distinct from `workbox-build` (build-time).
+2. Resolution requires `--force` which triggers major-version bumps with breaking changes (happy-dom 17→20 needs test refactoring; vite-plugin-pwa version change needs PWA precache regeneration validation).
+3. Out of Sprint-Closer scope per Backender §10 recommendation: «если `--force` нужен — feature-branch + smoke-test».
+4. Build verification post-partial-fix: typecheck ✓, lint ✓ (756 warnings = baseline #14), test ✓ (32/32), build ✓, PWA precache 99 entries.
+
+**Action — when to close**: dependency-update cycle (S5+ recommended; can fold with #45 major-version updates which has overlapping scope — pinia 2→3, vue-router 4→5, vite 6→8, vitest 3→4, ts 5→6, eslint 9→10, +vite-plugin-pwa, +happy-dom). Pre-merge gate: full `npm test` + `npm run build` smoke-test in feature-branch; verify PWA precache list unchanged or intentional delta.
+
+**Severity**: MEDIUM (downgraded from CRITICAL because residual is contained to dev/build-time and end-user surface is zero).
+
+**Sprint**: S5+ — paired with #45 dep-update cycle.
+
+**Source**: S1-CODE-AUDIT.md issue 1; this Sprint-Closer Step 6 partial-fix outcome.
