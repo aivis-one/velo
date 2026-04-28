@@ -155,3 +155,35 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1-Sprint-Closer Step 1+ scout output §1B + §1C i18n applicability note; decision #026.
 **Severity**: deferred (skill is not in lite profile; not blocking S1 close).
 **Sprint**: post-i18n-introduction (likely S5+).
+
+---
+
+### #39 — main vs new_desing divergence: partner force-pushed pre-S1 tech-debt refactor to main
+
+**Discovered**: 2026-04-26, S1-Sprint-Closer Step 2 Pre-Exec context (during diff-range setup for backender review pass).
+
+**State**:
+- `origin/new_desing` (HEAD `7c28a7b`) — Velo-side S1 work: bundle migration (#006, #009), brand assets port (#024), WelcomeView fast-track (#025), 17 phase-bundled commits across P01–P03.
+- `origin/main` — 4 commits from `inzoddwetrust` (`265793c`, `7fc2e93`, `8581506`, `19be8fa`), all titled "refactor(frontend): close tech debt blocks 1-2 (F-03, WARNING-1/9, ...)" — clearly amend/force-push iterations of one logical change.
+- `main` is based on a commit BEFORE S1 bundle migration (likely `83d287a` or earlier — last common ancestor pre-S1).
+- `main` does NOT contain: bundle namespace tokens (still `--velo-*`), bundle SSOT references (still `velo-mockups/css/variables.css`), `WelcomeView.vue`, brand assets (`frontend/src/assets/brand/`, `brand-icons/`, `illustrations/`, `masters/`, `mood/`, `patterns/`), `Marmelad-Regular.ttf`, `Design_prototype` → `Design_prototype_legacy_2026-03-11` rename.
+- Diff scale: ~100 files, −1417 / +1006 in main's direction = main lags new_desing by the entire S1.
+
+**Hypothesis**: Backend partner did the frontend tech-debt refactor (F-03, WARNING-1/9, NEW-3/6/7/10, F-06/09) on a fork/branch based on a pre-S1 commit, unaware of bundle migration on `new_desing`. Force-pushed to main.
+
+**Risk**:
+- `git merge origin/main → new_desing` would destroy the entire S1: token rename (#009), bundle SSOT (#006), WelcomeView (#025), brand assets (#024), 17 phase-bundled commits.
+- `merge new_desing → main` is the correct direction: main catches up to S1, and partner's tech-debt refactor (F-03, WARNING-1/9, NEW-3/6/7/10, F-06/09) re-applies on top of the actual S1 base.
+
+**Action — partner coordination required (out-of-chat, post-S1-close)**:
+1. Notify partner of divergence + the loss-risk if main were merged into new_desing.
+2. Choose one resolution path with partner:
+   - (a) Partner rebases their tech-debt refactor onto `new_desing` (preferred — S1 not lost; their refactor lands cleanly on top).
+   - (b) After we merge `new_desing` → `main`, partner re-implements their refactor on the actual S1 base (use only if rebase too complex).
+3. Until resolved: do NOT merge main → new_desing under any circumstance.
+
+**Severity**: HIGH for branch-state hygiene; not blocking S1-close itself (S1 work lives on `new_desing` and can close independently). Becomes blocking for any future "merge S1 work to main" milestone.
+
+**Sprint**: pre-S2 Human action item — coordinate with partner before any branch-merge work begins.
+
+**Source**: S1-Sprint-Closer Step 2 Pre-Exec divergence discovery; pairs with BACKLOG #36 (staging-deploy doc clarification) and #37 (post-deploy visual verification) as the third partner-coordination item from S1 close.
