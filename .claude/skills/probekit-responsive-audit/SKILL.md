@@ -1,17 +1,17 @@
 ---
 name: probekit-responsive-audit
-description: "v1.0.0 | CBS HOME responsive layout audit. Checks phone/tablet/desktop breakpoints, safe-area, touch targets, viewport meta, RTL layout. Use when: 'responsive audit', 'check breakpoints', 'mobile check', 'layout audit', 'адаптивность'."
+description: "v1.0.0 | Velo responsive layout audit. Checks phone/tablet/desktop breakpoints, safe-area, touch targets, viewport meta, RTL layout. Use when: 'responsive audit', 'check breakpoints', 'mobile check', 'layout audit', 'адаптивность'."
 ---
 
 # responsive-audit v1.0.0
 
-CBS HOME responsive layout audit for Vue 3 frontend.
+Velo responsive layout audit for Vue 3 frontend.
 Verifies components work across phone (390px), tablet (820px), desktop (1280px).
 
 ## Configuration
 
-source_dir: mockups/frontend/src
-index_html: mockups/frontend/index.html
+source_dir: frontend/src
+index_html: frontend/index.html
 
 ## Probes
 

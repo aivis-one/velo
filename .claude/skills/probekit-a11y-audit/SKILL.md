@@ -1,17 +1,17 @@
 ---
 name: probekit-a11y-audit
-description: "v1.0.0 | CBS HOME accessibility audit. Checks ARIA roles, contrast, keyboard nav, focus management, screen reader, semantic HTML, form labels, skip links. Use when: 'a11y audit', 'accessibility check', 'WCAG check', 'screen reader audit', 'доступность'."
+description: "v1.0.0 | Velo accessibility audit. Checks ARIA roles, contrast, keyboard nav, focus management, screen reader, semantic HTML, form labels, skip links. Use when: 'a11y audit', 'accessibility check', 'WCAG check', 'screen reader audit', 'доступность'."
 ---
 
 # a11y-audit v1.0.0
 
-CBS HOME accessibility compliance audit for Vue 3 frontend.
+Velo accessibility compliance audit for Vue 3 frontend.
 Verifies WCAG 2.1 AA compliance across all components and views.
 
 ## Configuration
 
-source_dir: mockups/frontend/src
-index_html: mockups/frontend/index.html
+source_dir: frontend/src
+index_html: frontend/index.html
 
 ## Probes
 

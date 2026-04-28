@@ -1,18 +1,18 @@
 ---
 name: probekit-design-audit
-description: "v1.0.0 | CBS HOME design token compliance. Checks colors, fonts, spacing, radius, shadows, dark mode against variables.css + brand-cbs.md. Use when: 'design audit', 'check design tokens', 'brand compliance', 'color check', 'дизайн аудит'."
+description: "v1.0.0 | Velo (VELΘ) design token compliance. Checks colors, fonts, spacing, radius, shadows, dark mode against variables.css + brand-cbs.md. Use when: 'design audit', 'check design tokens', 'brand compliance', 'color check', 'дизайн аудит'."
 ---
 
 # design-audit v1.0.0
 
-CBS HOME design token compliance audit for Vue 3 frontend.
+Velo (VELΘ) design token compliance audit for Vue 3 frontend.
 Verifies all components and views use design tokens from `variables.css` — no hardcoded values.
 
 ## Configuration
 
-source_dir: mockups/frontend/src
-token_file: mockups/frontend/src/styles/variables.css
-brand_ref: .claude/skills/livemockup-studio/reference/brand-cbs.md
+source_dir: frontend/src
+token_file: frontend/src/styles/variables.css
+brand_ref: docs/02_spec_assets/velo-design-system-2026-04-23/project/README.md
 
 ## Probes
 
@@ -31,7 +31,7 @@ P7: Logo Icon Color (CRITICAL), P8: Token Sync (HIGH).
 ## Output Format
 
 ```markdown
-# Design Audit Report — CBS HOME Frontend
+# Design Audit Report — Velo (VELΘ)
 Date: {date}
 Target: {source_dir}
 

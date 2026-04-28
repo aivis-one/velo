@@ -143,3 +143,15 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
 **Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
 **Sprint**: post-S1 (run when partner deploy to staging completes).
+
+---
+
+### #38 — probekit-i18n-audit hardening when i18n lands in Velo
+
+**Context**: probekit-i18n-audit is currently CBS-HOME-hardcoded (`source_dir=mockups/frontend/src`, `locales_dir=mockups/frontend/src/i18n/locales`, `supported_locales=[en,ru,de,ar]`). Velo has no i18n infrastructure yet (`frontend/src/i18n/` does not exist; project is Russian-only per `velo-design-system-2026-04-23/project/README.md`). Skill was deliberately skipped during S1-Sprint-Closer Step 1+ ProbeKit hardening (decision #026) — repathing without arch knowledge would create a false illusion of i18n-readiness.
+
+**Action**: When i18n lands in Velo (separate sprint, design phase), as part of that work harden probekit-i18n-audit: repath `source_dir` → `frontend/src`, repath `locales_dir` → actual Velo locales folder, set `supported_locales` to Velo's actual locale set, scrub "CBS HOME" prose from description + body header.
+
+**Source**: S1-Sprint-Closer Step 1+ scout output §1B + §1C i18n applicability note; decision #026.
+**Severity**: deferred (skill is not in lite profile; not blocking S1 close).
+**Sprint**: post-i18n-introduction (likely S5+).

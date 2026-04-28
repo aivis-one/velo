@@ -10,7 +10,7 @@ Runs testing skills in logical sequence, gates on quality, auto-fixes safe CRITI
 
 ## Configuration
 
-report_dir: docs/01_reference/KNOWLEDGE/CODE-AUDIT/PROBKIT-REVIEW
+report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 
 ## Pipeline
 
@@ -223,7 +223,6 @@ Update `{{report_dir}}/AUDIT-TRACKER.md`.
 
 | Skill | Reason |
 |-------|--------|
-| livemockup-studio | UI prototyping, not testing |
 | simplify | Code quality improvement, not testing |
 
 ## Context Passing

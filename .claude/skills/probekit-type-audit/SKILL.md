@@ -5,14 +5,14 @@ description: "TypeScript type-safety audit for Vue 3 + TS projects. Runs vue-tsc
 
 # type-audit v1.0.0
 
-TypeScript type-safety audit for CBS HOME Vue 3 frontend.
+TypeScript type-safety audit for Velo Vue 3 frontend.
 Runs compiler checks, linter, and pattern analysis to find and fix type errors, unsafe casts, missing annotations, and generic constraint issues.
 
 ## Configuration
 
 review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
-source_dir: mockups/frontend/src
-tsconfig: mockups/frontend/tsconfig.json
+source_dir: frontend/src
+tsconfig: frontend/tsconfig.json
 
 ## Execution Steps
 
@@ -28,12 +28,12 @@ Check for ENVIRONMENT.md in the project (root or docs/01_refer/).
 If found — read it for shell/tool pitfalls before executing commands.
 
 Verify prerequisites:
-1. `node_modules/` exists in `mockups/frontend/` — if not, run `npm install`
+1. `node_modules/` exists in `frontend/` — if not, run `npm install`
 2. `tsconfig.json` exists — if not, STOP and report
 
 **Step 2 — Compiler check (vue-tsc)**
 
-Run `npx vue-tsc --noEmit` from `mockups/frontend/`.
+Run `npx vue-tsc --noEmit` from `frontend/`.
 Parse output into structured findings:
 - Extract: file, line, error code (TSxxxx), message
 - Group by file
@@ -43,7 +43,7 @@ If zero errors → record 💎 DIAMOND "Clean type check — zero compiler error
 
 **Step 3 — ESLint type-aware rules**
 
-Run `npx eslint --format json {{target}}` from `mockups/frontend/`.
+Run `npx eslint --format json {{target}}` from `frontend/`.
 Filter for type-related rules only:
 - `@typescript-eslint/*` rules
 - `no-unsafe-*`, `no-explicit-any`, `no-non-null-assertion`
