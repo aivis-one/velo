@@ -27,10 +27,10 @@
 | ENVIRONMENT | docs/01_refer/ENVIRONMENT.md |
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
-| AUDIT-S1 | docs/01_refer/AUDIT-S1.md |
-| S2-SNAPSHOT | docs/03_sprint/S2-bundle-port/S2-SNAPSHOT.md |
-| S2-RETRO | docs/03_sprint/S2-bundle-port/S2-RETRO.md |
-| RETRO-S3 | docs/03_sprint/S3-greenfield/S3-RETRO.md (created at close) |
+| AUDIT-S1 | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md |
+| S2-SNAPSHOT | docs/01_refer/ARCHIVES/SNAPSHOT/S2-SNAPSHOT.md |
+| S2-RETRO | docs/01_refer/ARCHIVES/RETRO/S2-RETRO.md |
+| RETRO-S3 | docs/01_refer/ARCHIVES/RETRO/S3-RETRO.md (created at close) |
 
 ---
 
@@ -171,7 +171,7 @@ Pre-planned during S1-Sprint-Builder session (decision #011). Full activation af
 **Load:**
 1. Framework: 01_Declaration.md + 03_Phase-Builder.md
 2. Project: ENVIRONMENT.md + ARCHITECTURE.md
-3. Sprint: S3-SPRINT.md + (AUDIT-S1.md, S2-RETRO.md для контекста)
+3. Sprint: S3-SPRINT.md + (S1-AUDIT.md, S2-RETRO.md для контекста)
 **Run:** 03_Phase-Builder OPEN — plan first cycle C32
 
 ---

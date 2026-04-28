@@ -2,7 +2,7 @@
 
 > Code issues, tech debt, features, tooling gaps.
 > Consumed by: `02_Sprint-Builder.md` during sprint planning.
-> Updated: 2026-04-23 (install — empty at start).
+> Updated: 2026-04-28 (S1-Clean-Sync).
 
 | # | Item | Source | Priority | Status | Notes |
 |---|---|---|---|---|---|
@@ -24,19 +24,15 @@
 | 16 | VELO FP-numbering conflict across docs | Governance scout | LOW | → S2 master/admin | FP-01 has two definitions: VELO-Anti-Patterns.md (8 patterns, FP-01="Хардкод API URL") vs VELO-Frontend.md / VELO-Frontend-Specification.md (9 patterns, FP-01="Only CSS-vars"). Unify at next touch. |
 | 17 | Prompt discipline: explicit substitution group ordering | C03 P01 | LOW | Recurring | C03 E1/E2 sequencing bug (E2 ran before E1; 3 warning sites transient `--radius-lg` before fix). HIGH-tier prompts with multiple substitution groups MUST specify explicit order in Steps. |
 | 18 | Bundle utility classes + html/body defaults migration plan | C02 P01 | MEDIUM | → S2 OPEN | Bundle `colors_and_type.css` contains utility classes (`.t-display-lg`, `.velo-card`, etc.) + html/body defaults. C02 scope-locked to tokens. Decide at S2 OPEN: (a) port to global.css, (b) extract to styles/bundle.css, (c) scope to components on-demand. |
-| 19 | D3 decision clarification | Governance scout C09 | MEDIUM | RESOLVED via #024 | D3 ratified at P02 OPEN as decision #024 (Vue-SVG baseline + bundle PNG decorative supplement). 2 collisions (brain, meditation) → Vue-SVG; 10 bundle-only PNGs adopted as decorative supplement; IconRuble flagged for removal review (BACKLOG #29). Detail in AUDIT-S1.md §9. |
 | 20 | B.2 cancelBooking — verified clean (false positive) | Zodd_review C06 | — | Documented | Audit flagged `cancelBooking` typed `Promise<void>`; actual code typed `Promise<BookingResponse>` correctly. False positive. Re-verify if backend contract changes. |
 | 21 | B.4 Waitlist endpoints (4) not implemented on frontend | Zodd_review C06 | LOW | → S2/S3 | Backend has 4 waitlist endpoints; frontend has zero waitlist code. Decide if greenfield (S3) or post-S3 backlog. |
 | 22 | B.5 Missing UI screens (9 features) | Zodd_review C06 | varies | → S3/S4+ | `purchases/me`, `reports/me`, `master-promos`, `admin/withdrawals`, `admin/users`, `logout-all`, `PATCH users/me`, `finalize`, `join/leave`. Overlap with S3 greenfield + S4+ admin per #010. Per-feature scope at S3 OPEN. |
 | 23 | B.12 getMastersList default limit=100 | Zodd_review C06 | LOW | Recurring | Inconsistent with 20-default on other list endpoints. Normalize when next touching `api/masters.ts`. |
 | 24 | Regen workflow integration (post-backend Pydantic changes) | C06b Scout | MEDIUM | → P02 | Pipeline EXISTS (`backend/scripts/generate_ts_types.py`). Real gap: no documented regen trigger (CI? pre-commit? manual?). Without disciplined trigger, audit-staleness pattern repeats every partner review (B.1 already-resolved discovery, A.2 blocked-on-stale-regen). Document procedure: backend restart → openapi dump → regen invocation. Coordinate with partner. Pre-S2 priority. |
-| 25 | user-ai-summary feature gap | C06 P01 | LOW | RESOLVED | Status now known: AISummary backend exists (`AISummaryResponse` in `generated.ts:18`); no frontend wrapper yet. Categorized as bundle-greenfield in AUDIT-S1.md §4 + closure note in §10 #6; S2 C24 implements wrapper. Superseded by S2 C24. |
 | 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | → P02 (gated on regen) | Backend shipped CR-01 (`masters/schemas.py` Pydantic + router population), but `generated.ts:MasterProfileResponse` missing `min_withdrawal_cents`/`withdrawal_fee_cents` (regen ran against stale openapi.json). Fresh regen unblocks. Cycle scope: remove `MIN_WITHDRAWAL_EUROS`/`WITHDRAWAL_FEE_EUROS` from `constants.ts`, migrate `MasterFinanceView.vue` consumers (lines 93/106-107/266-267/279) + head comment lines 25-26 + script comment lines 203-205. Functional drift today: zero (50/2 mirror backend 5000/200). |
 | 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | → P02 (gated on regen) | Backend `PracticeSummary` Pydantic schema lacks `timezone` field. Frontend silently falls back to `'Europe/Berlin'` — practice times render in Berlin TZ regardless of actual practice timezone. C06b applied tactical cast at `UserDashboardView.vue:300` to unblock typecheck; real fix: backend adds `timezone: str` to PracticeSummary → regen → frontend removes cast + Berlin fallback. Functional impact: user sees wrong time for non-Berlin practices. |
 | 28 | Audit-snapshot fingerprint convention | C06 / C06b | LOW | → P02 | Partner audits (Zodd_review.md authored against `364893d`, picked up after partner shipped CR-01 + regen → effective HEAD `83d287a`) require fingerprinted commit base. Without fingerprint, "is finding still applicable" requires manual diff. Convention: every external audit doc starts with `Audit base: <commit-sha>` line. Apply to future partner reviews. |
-| 29 | IconRuble candidate for removal — Velo backend operates in EUR; IconRuble.vue likely dead import | C09 P02 / D3 ratification | LOW | → S4+ | grep `IconRuble` across frontend/src/ to verify zero consumers; if confirmed dead → delete + remove from icons/index.ts barrel. If used in legacy admin/master views — keep until #010 admin reactivation. |
 | 30 | Bundle PNG → SVG migration (10 decorative icons) | C09 P02 / D3 future-cleanup | LOW | → S5+ | `bolt, circle-microphone, flame, heart, high-five, love, quill-pen, quill-pen-story, spa, wind` — convert from PNG to SVG when Vue-SVG asset volume justifies. Currently used decoratively per #024; raster sufficient for current scale. |
-| 31 | ENVIRONMENT.md path drift (D:\03_Projects → D:\02_Projects) | P02 Combined Scout pre-flight | LOW | Recurring | ENVIRONMENT.md line 14 + line 127 cite `D:\03_Projects\velo`; actual project path is `D:\02_Projects\velo` (verified via shell pwd). Pre-existing doc drift, not introduced by P02. Fix at next ENVIRONMENT.md touch. |
 | 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | → S2/S3 | `TopupRequest` + `TopupResponse` declared locally in `frontend/src/api/payments.ts:13-22` AND in `generated.ts`. Duplicate definition — should be re-export from generated.ts per #023 SSOT pattern. Fix at next payments.ts touch. |
 
 ---
@@ -77,30 +73,6 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 P03 CLOSE Step 2 Verification Scout output (NIT row).
 **Severity**: process-improvement (not blocking).
 **Sprint**: S2 or S1-Clean-Sync.
-
----
-
-### #35 — ENVIRONMENT.md commit convention cleanup
-
-**Context**: S1 used phase-bundled commits exclusively per Phase-Builder CLOSE Step 4f (one commit per phase, no cycle-tagged commits during WORK). ENVIRONMENT.md §Git Workflow still describes `cycle: C{NN} <short>` (cycle work) and `cycle: C{NN} <name> — DONE` (cycle close) formats that were never used during S1 and have no path to be used given current Phase-Builder rules.
-
-**Action**: Remove both `cycle:`-prefix rows from ENVIRONMENT.md §Git Workflow Commit convention table. Keep `phase:`, `sprint:`, `docs:`, `decision:`, `refactor:`, `fix:`, `clean-sync:`, `audit:`, `deploy-prelude:`. Crash-recovery commits use ad-hoc message without dedicated format prefix.
-
-**Source**: S1-RETRO.md §What Didn't (Commit convention divergence with ENVIRONMENT.md).
-**Severity**: doc-cleanup (not blocking).
-**Sprint**: S1-Clean-Sync.
-
----
-
-### #36 — Staging deploy flow doc clarification
-
-**Context**: `ENVIRONMENT.md` §Known Limitations row 1 + `ARCHITECTURE.md` §Server & Deploy describe staging deploy as `push to new_desing → staging auto-pulls`. S1 Phase 04 close revealed the practical workflow includes a backend-partner code-audit gate before staging exposure (Velo push → partner audits → partner promotes/deploys → staging visible). The «auto-pulls» wording risks misleading future planning into expecting in-sprint visual verification on push (which is what the original C13 plan assumed and which led to the triaged-deferral close).
-
-**Action**: Reconcile description. Options: (a) clarify that auto-pull is the technical mechanism but workflow includes partner-audit gate before staging exposure, OR (b) remove «auto-pulls» phrasing if staging is fully partner-gated, OR (c) add an explicit deploy-flow sequence to ENVIRONMENT.md / ARCHITECTURE.md §Server & Deploy. Coordinate with Human at Clean-Sync time to confirm the actual workflow before edit.
-
-**Source**: S1 Phase 04 CLOSE — Human-stated deploy flow correction.
-**Severity**: doc-clarification (not blocking; prevents mis-planning of future visual-test cycles).
-**Sprint**: S1-Clean-Sync.
 
 ---
 
@@ -525,3 +497,22 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 **Sprint**: S5+ — paired with #45 dep-update cycle.
 
 **Source**: S1-CODE-AUDIT.md issue 1; this Sprint-Closer Step 6 partial-fix outcome.
+
+---
+
+### #55 — SERVER-ACCESS.md population (pre-S2 Human action)
+
+**Context**: BACKLOG #36 (RESOLVED in S1-Clean-Sync Step 2 §A4 + §B1 per variant d framing) repointed deploy-flow documentation in ENVIRONMENT.md §Known Limitations and ARCHITECTURE.md §Server & Deploy to `SERVER-ACCESS.md` (gitignored) as the live source of truth. The S1 deploy is performed jointly with the backend partner who hands over the procedure during the deploy session (occurs at S1 close). From S2 onward Velo deploys independently per `SERVER-ACCESS.md`. Population of `SERVER-ACCESS.md` (commands, host endpoint, access credentials reference, audit/promote workflow notes if partner-gated portions persist) is a Human action gated on the partner deploy session.
+
+**Action**: Populate `docs/01_refer/SERVER-ACCESS.md` with partner-provided staging deploy procedure:
+- Host endpoint(s) for staging server.
+- Deploy commands (or pull-trigger mechanism).
+- SSH/credential access notes — env-var references, NEVER plaintext credentials (file is gitignored regardless, but discipline matters).
+- Audit/promote workflow if any partner-gated portions persist into S2.
+- Rollback / hotfix procedure if provided.
+
+**Severity**: pre-S2 blocker. The «we deploy independently per SERVER-ACCESS.md» claim now embedded in ENVIRONMENT.md + ARCHITECTURE.md depends on this file being populated before S2 begins any work that may require deploy.
+
+**Sprint**: pre-S2 Human action (out-of-sprint follow-up). Pairs with BACKLOG #39 (main vs new_desing divergence resolution) and BACKLOG #24 (regen workflow integration) as the three Human-action blockers between S1 close and S2 start.
+
+**Source**: S1-Clean-Sync Step 2 §C5 (RESOLVED note for BACKLOG #36); chat agreement on variant (d) framing (Human-confirmed: S1 partner-joint deploy → S2+ self-deploy transition); deploy-flow promise embedded in ENVIRONMENT.md §Known Limitations row 1 + ARCHITECTURE.md §Server & Deploy.

@@ -29,7 +29,7 @@
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
 | BUNDLE SNAPSHOT | docs/04_assets/velo-design-system-2026-04-23/ (created in C01) |
-| AUDIT | docs/01_refer/AUDIT-S1.md (created in C07) |
+| AUDIT | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md (created in C07; archived at sprint close) |
 | RETRO-S1 | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md (created in C14; moved to ARCHIVES at sprint close) |
 
 ---
@@ -42,7 +42,7 @@
 - Fonts / icons / illustrations извлечены в frontend/public/ и frontend/src/assets/
 - frontend/src/styles/variables.css мигрирован под bundle nomenclature (light + dark)
 - ARCHITECTURE.md + decisions.md + BACKLOG.md + DESIGN_MIGRATION.md archive DONE
-- AUDIT-S1.md построен — покажет реальное vs bundle vs MH
+- S1-AUDIT.md построен — покажет реальное vs bundle vs MH
 - Список 7 missing backend endpoints передан Human для партнёра
 - 2 pilot экрана (DashboardScreen merge + WelcomeScreen greenfield) реализованы в Vue, работают на staging
 - Retrospective зафиксировал реальную скорость port-cycle и baselines процесса
@@ -80,15 +80,15 @@
 ### Phase 02: Audit + Backend Coordination (3 cycles)
 **Goal:** План S2/S3 основан на данных; backend-coord список готов; icons collision разрешена.
 **Entry:** Phase 01 DONE.
-**Exit:** AUDIT-S1.md содержит финальные verdict'ы; 7 missing endpoints передано Human; 14 Vue-SVG + 12 PNG bundle collision разрешена per decision D3.
+**Exit:** S1-AUDIT.md содержит финальные verdict'ы; 7 missing endpoints передано Human; 14 Vue-SVG + 12 PNG bundle collision разрешена per decision D3.
 
 **Cycles:**
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C07 | scout | AUDIT-S1.md — gap map (база scout §2) + финальные verdict'ы | DONE | 2026-04-26 | docs/01_refer/AUDIT-S1.md created (278 lines, 10 sections, 47-row mapping table, 18 MH-card rows, theme + auth state). Consumes by S2 P05/P06 + S3 P09/P10/P11. |
+| C07 | scout | S1-AUDIT.md — gap map (база scout §2) + финальные verdict'ы | DONE | 2026-04-26 | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md created (278 lines, 10 sections, 47-row mapping table, 18 MH-card rows, theme + auth state). Consumes by S2 P05/P06 + S3 P09/P10/P11. |
 | C08 | standard | Backend-coord report: 7 missing endpoints + формат для партнёра | DONE | 2026-04-26 | docs/03_sprint/S1-pilot/backend-coord-report.md (143 lines): 7 partner-owed feature groups + 2 frontend-wrapper-only + 2 new partner schema asks + 2 regen-trigger asks. |
-| C09 | standard | Icons audit per D3: Vue-SVG baseline + bundle PNG дополнение | DONE | 2026-04-26 | D3 ratified as decision #024. AUDIT-S1.md §9 + 4 BACKLOG entries (#29-#32). BACKLOG #19 (D3 BLOCKING) RESOLVED. |
+| C09 | standard | Icons audit per D3: Vue-SVG baseline + bundle PNG дополнение | DONE | 2026-04-26 | D3 ratified as decision #024. S1-AUDIT.md §9 + 4 BACKLOG entries (#29-#32). BACKLOG #19 (D3 BLOCKING) RESOLVED. |
 
 ### Phase 03: Pilot Port (3 cycles)
 **Goal:** 2 pilot экрана работают на staging, dark tokens применены.
@@ -183,31 +183,41 @@
 | S1-P04-C13 | 03_Phase-Builder | 2026-04-26 | DEFERRED |
 | S1-P04-CLOSE | 03_Phase-Builder | 2026-04-26 | DONE |
 | S1-Sprint-Closer | 04_Sprint-Closer | 2026-04-28 | DONE — Sprint 1 CLOSED |
+| S1-Clean-Sync | 05_Clean-Sync | 2026-04-28 | DONE |
 
 ---
 
 ## Last Session
 
-Sprint 1 closed. SNAPSHOT created. RETRO created and moved to ARCHIVES per protocol §Step 11.
+S1-Clean-Sync run 2026-04-28: FILE-TREE.md regenerated full Path B (233 lines, post-S1 reality); AUDIT-S1.md relocated to docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md (24 cascade refs resolved across 9 files); 6 BACKLOG entries (#19, #25, #29, #31, #35, #36) transferred to docs/01_refer/ARCHIVES/CHANGELOG.md (created first time); IconRuble.vue removed (0 consumers; barrel export cleared); ENVIRONMENT.md path drift D:\03→D:\02 fixed; ENVIRONMENT.md commit-table cycle: rows dropped; deploy-flow doc rephrased per variant d (pointer to SERVER-ACCESS.md). Lint -4 (752 vs 756 baseline), test 32/32, typecheck 0 errors.
 
 ---
 
 ## Next Action
 
-SPRINT CLOSED.
-Next: Session Code S1-Clean-Sync — run 05_Clean-Sync
+S1-Clean-Sync DONE. Next: Session Code S2-P05-OPEN — run 03_Phase-Builder OPEN for S2 first phase per S2-SPRINT.md (Phase 05: Bundle-port Existing Screens, 5 cycles).
+
+Pre-S2 Human action items (3 partner-coord blockers; address before opening S2-P05):
+- BACKLOG #39 — main vs new_desing divergence resolution (partner rebase or post-merge re-implementation; do NOT merge main → new_desing until resolved).
+- BACKLOG #24 — backend partner regen workflow integration (document trigger; first fresh regen post-Pydantic-changes; unblocks #26 + #27).
+- BACKLOG #55 — SERVER-ACCESS.md population per partner-provided staging deploy procedure (gates the «self-deploy from S2» promise embedded in ENVIRONMENT.md + ARCHITECTURE.md).
 
 ---
 
 ## For Human
 > Next chat instruction. Copy-paste.
 
-**Session Code:** S1-Clean-Sync
+**Session Code:** S2-P05-OPEN
 **Load:**
-1. Framework: 01_Declaration.md + 05_Clean-Sync.md
-2. Project: ENVIRONMENT.md + FILE-TREE.md + BACKLOG.md + ARCHITECTURE.md
-3. Sprint: S1-SPRINT.md + S1-SNAPSHOT.md
-**Run:** 05_Clean-Sync
+1. Framework: 01_Declaration.md + 03_Phase-Builder.md
+2. Project: ENVIRONMENT.md + ARCHITECTURE.md + BACKLOG.md + decisions.md + FILE-TREE.md
+3. Sprint: S2-SPRINT.md + S1-SNAPSHOT.md (previous closed sprint context)
+**Run:** 03_Phase-Builder OPEN — first phase of S2 per S2-SPRINT.md (Phase 05: Bundle-port Existing Screens).
+
+**Pre-S2 prerequisites** (resolve before opening S2-P05):
+- BACKLOG #39 main-divergence (partner-coord required)
+- BACKLOG #24 regen workflow doc (partner-coord required)
+- BACKLOG #55 SERVER-ACCESS.md population (per partner-provided procedure at S1 close)
 
 ---
 
@@ -234,7 +244,7 @@ See `S1-RETRO.md` §What Didn't. Headline items: P01 plan vs reality scope gap (
 
 ### Carry Forward
 
-See `S1-RETRO.md` §Carry Forward. To S2 plan (already applied in `S2-SPRINT.md` by C14): References row + Carry-Forward items including pre-S2 Human-partner action. To S1-Clean-Sync (between Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 + #31 + #35 + #36 + AUDIT-S1.md §10 #5. Plain BACKLOG carry-forward: #18 + #25 + #21 + #30. Out-of-sprint: #37 post-deploy visual verification.
+See `S1-RETRO.md` §Carry Forward. To S2 plan (already applied in `S2-SPRINT.md` by C14): References row + Carry-Forward items including pre-S2 Human-partner action. To S1-Clean-Sync (between Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 + #31 + #35 + #36 + S1-AUDIT.md §10 #5. Plain BACKLOG carry-forward: #18 + #25 + #21 + #30. Out-of-sprint: #37 post-deploy visual verification.
 
 ---
 *S1-SPRINT.md*

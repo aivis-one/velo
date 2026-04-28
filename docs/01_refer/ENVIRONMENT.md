@@ -1,7 +1,7 @@
 # Velo — Environment
 
 > Loaded in every working chat. Bridge between framework rules and project reality.
-> Updated: 2026-04-23.
+> Updated: 2026-04-28 (S1-Clean-Sync).
 
 ---
 
@@ -11,7 +11,7 @@
 |---|---|
 | OS | Windows 11 |
 | Shell (Claude Code) | bash |
-| Project path | `D:\03_Projects\velo` |
+| Project path | `D:\02_Projects\velo` |
 | Prompt detail level | FULL |
 
 Developer works on a single Windows laptop; Claude Code runs with bash as its shell. Prompts target bash syntax. PowerShell is not used.
@@ -67,8 +67,6 @@ Not required for frontend work: Python, pytest, Godot, PostgreSQL (runs in Docke
 
 | Context | Format | Example |
 |---|---|---|
-| Cycle work | `cycle: C{NN} <short description>` | `cycle: C03 redesign UserDashboardView` |
-| Cycle close | `cycle: C{NN} <short name> — DONE` | `cycle: C03 user-dashboard — DONE` |
 | Phase close | `phase: P{NN} <name> — DONE` | `phase: P01 pilot — DONE` |
 | Sprint close | `sprint: S{N} <name> — CLOSED` | `sprint: S1 pilot — CLOSED` |
 | Doc update | `docs: <what changed>` | `docs: ARCHITECTURE.md — add coding standards` |
@@ -97,7 +95,7 @@ Single backlog: `BACKLOG.md` at `docs/01_refer/BACKLOG.md`. All code issues, tec
 
 | Limitation | Workaround |
 |---|---|
-| Cannot push directly to production server | Server deploys happen via `new_desing` push → staging auto-pulls. Production promotion requires manual Human action (see `SERVER-ACCESS.md` after it is populated). |
+| Cannot push directly to production server | Staging deploy procedure (commands, host access, partner-coordination notes) lives in `SERVER-ACCESS.md` (gitignored; populated end of S1). The S1 deploy was performed jointly with the backend partner who handed over the procedure; from S2 onward we deploy independently per `SERVER-ACCESS.md`. Production promotion remains a separate manual step. |
 | Cannot edit backend | `backend/` is out of scope; friend owns it. Consume via `frontend/src/api/types.ts`. |
 | Cannot browser-test frontend from Claude Code | Visual verification happens on staging after push (Sprint 1 trigger). Alternative: ask Human to screenshot local dev server. |
 | Cannot guess missing API endpoints | If `frontend/src/api/types.ts` lacks the needed type, STOP and ask Human to coordinate with backend owner. |
@@ -124,7 +122,7 @@ Files under `docs/` and what they own:
 ## Shell Notes (bash)
 
 - Forward slashes in paths everywhere.
-- For Windows drive roots, `/d/03_Projects/velo/` style or `D:/03_Projects/velo/` both work in Git Bash.
+- For Windows drive roots, `/d/02_Projects/velo/` style or `D:/02_Projects/velo/` both work in Git Bash.
 - `npm` commands run from `frontend/` directory. Use `(cd frontend && npm run ...)` pattern to avoid leaving working directory.
 - `docker compose` (v2 syntax, no hyphen).
 

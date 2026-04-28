@@ -2,7 +2,7 @@
 
 > Frontend-only scope. Backend lives in `backend/` and is maintained separately.
 > Loaded in every working chat alongside `01_Declaration.md`.
-> Last updated: 2026-04-26 (Phase 03 close).
+> Last updated: 2026-04-28 (S1-Clean-Sync).
 
 ---
 
@@ -161,15 +161,15 @@ Six skills auto-run on Sprint close (`04_Sprint-Closer.md`): type-audit, code-au
 
 ## Key Decisions
 
-Flat log: `decisions.md`. Active decisions #001-#025 as of Phase 03 close (2026-04-26).
+Flat log: `decisions.md`. Active decisions #001-#026 as of S1 close (2026-04-28).
 
 ---
 
 ## Server & Deploy
 
-Staging server is wired to branch `new_desing`. After commit + push, server updates and we verify the screen visually.
+Staging server is wired to branch `new_desing`. Deploy procedure and access details live in `SERVER-ACCESS.md` (gitignored). The S1 deploy was performed jointly with the backend partner who handed over the procedure; from S2 onward we deploy independently per `SERVER-ACCESS.md`.
 
-Server access details: `SERVER-ACCESS.md` (gitignored; filled in Sprint 1).
+Production promotion remains a separate manual step.
 
 ---
 

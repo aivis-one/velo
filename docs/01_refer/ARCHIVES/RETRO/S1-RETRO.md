@@ -3,13 +3,13 @@
 > Sprint 1: Pilot
 > Range: 2026-04-24 (S1 plan commit `9cf88fa`) → 2026-04-26 (P03 close `823bdec`)
 > Status: closing pending C13 manual-test results + Phase 04 CLOSE
-> Companion docs: `S1-SPRINT.md` (live state), `AUDIT-S1.md` (gap map deliverable), `backend-coord-report.md` (C08 partner handoff)
+> Companion docs: `S1-SPRINT.md` (live state), `S1-AUDIT.md` (gap map deliverable), `backend-coord-report.md` (C08 partner handoff)
 
 ---
 
 ## Summary
 
-S1 reframed Velo's design system around the bundle SSOT (decisions #006–#009), executed full token migration + glass-cleanup (29 active tokens, 444 substitution sites, 138 backdrop-filter lines removed), absorbed a partner-introduced regen pipeline (decision #023), audited the gap map between current codebase / bundle / sponsor MH cards (`AUDIT-S1.md`, 47-row mapping table), and ported the first 2 pilot screens via deliberately different paths (Dashboard merge per #002 with bundle visual structure; Welcome fast-track per #025 without Claude Design pipeline). Sprint goal — «отладить процесс bundle → Vue (infra + 2 pilot экрана) и зафиксировать handoff'ы» — achieved subject to C13 staging verification.
+S1 reframed Velo's design system around the bundle SSOT (decisions #006–#009), executed full token migration + glass-cleanup (29 active tokens, 444 substitution sites, 138 backdrop-filter lines removed), absorbed a partner-introduced regen pipeline (decision #023), audited the gap map between current codebase / bundle / sponsor MH cards (`S1-AUDIT.md`, 47-row mapping table), and ported the first 2 pilot screens via deliberately different paths (Dashboard merge per #002 with bundle visual structure; Welcome fast-track per #025 without Claude Design pipeline). Sprint goal — «отладить процесс bundle → Vue (infra + 2 pilot экрана) и зафиксировать handoff'ы» — achieved subject to C13 staging verification.
 
 ## Goal vs Outcome
 
@@ -21,7 +21,7 @@ Per `S1-SPRINT.md` Success Criteria (8 items):
 | 2 | Fonts / icons / illustrations extracted into `frontend/public/` + `frontend/src/assets/` | ✓ |
 | 3 | `frontend/src/styles/variables.css` migrated to bundle nomenclature (light + dark) | ✓ |
 | 4 | `ARCHITECTURE.md` + `decisions.md` + `BACKLOG.md` + `DESIGN_MIGRATION.md` archive — DONE | ✓ |
-| 5 | `AUDIT-S1.md` built — real vs bundle vs MH gap map | ✓ |
+| 5 | `S1-AUDIT.md` built — real vs bundle vs MH gap map | ✓ |
 | 6 | 7 missing backend endpoints handed off to Human | ✓ (C08 `backend-coord-report.md`, 143 lines) |
 | 7 | 2 pilot screens (Dashboard merge + Welcome greenfield) work on staging | conditional — verified at C13 |
 | 8 | Retrospective with real cycle speed and process baselines | ✓ (this document) |
@@ -114,5 +114,5 @@ This is consistent with the partner-gated deploy flow: Velo side delivers code; 
 Sprint 1 retrospective — pilot
 Location: docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md
 Closes Phase 04, final phase of S1.
-Companion: S1-SPRINT.md (live state during sprint), AUDIT-S1.md (gap map deliverable).
+Companion: S1-SPRINT.md (live state during sprint), S1-AUDIT.md (gap map deliverable).
 ```

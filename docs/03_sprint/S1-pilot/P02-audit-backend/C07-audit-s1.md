@@ -1,13 +1,13 @@
-# Cycle C07: AUDIT-S1.md authoring
+# Cycle C07: S1-AUDIT.md authoring
 > Phase 02: Audit + Backend Coordination | Sprint 1: Pilot
 > Type: scout (audit doc deliverable)
 > Status: DONE
 
 ## Goal
-Author `docs/01_refer/AUDIT-S1.md` — single-source-of-truth gap map covering current frontend code reality vs bundle SSOT vs MH-card functional spec — to lock cycle scopes for S2 P05/P06 + S3 P09/P10/P11.
+Author `docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md` — single-source-of-truth gap map covering current frontend code reality vs bundle SSOT vs MH-card functional spec — to lock cycle scopes for S2 P05/P06 + S3 P09/P10/P11.
 
 ## Result
-AUDIT-S1.md created at `docs/01_refer/AUDIT-S1.md` (278 lines, 21.9 KB, 10 sections + Anchor block).
+S1-AUDIT.md created at `docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md` (278 lines, 21.9 KB, 10 sections + Anchor block).
 
 Contents:
 - Section 1: Header (HEAD `47a6cd8`, source data, consumers).

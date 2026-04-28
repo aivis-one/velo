@@ -270,9 +270,9 @@ Composables, stores: confirmed icon-clean (no scan needed).
 ## Anchor
 
 ```
-[AUDIT-S1.md | SPEC v3.2-velo]
+[S1-AUDIT.md | SPEC v3.2-velo]
 Sprint-1 audit — code reality × bundle SSOT × MH-card spec
-Location: docs/01_refer/AUDIT-S1.md
+Location: docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md
 Referenced from: S1-SPRINT.md, S2-SPRINT.md, S3-SPRINT.md References blocks
 Update when: end of S2 or S3 if scope drifts; superseded at S4+ planning
 ```

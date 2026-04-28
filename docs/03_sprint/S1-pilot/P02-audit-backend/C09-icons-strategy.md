@@ -24,7 +24,7 @@ Strategy (binding for S2/S3):
 3. New nav/state icon → create new Velo-SVG, do NOT import bundle PNG.
 4. Conflict resolution: Velo-SVG wins for 2 collisions.
 
-Documented in AUDIT-S1.md §9. Decision row #024 in decisions.md. BACKLOG resolutions: #19 (D3 BLOCKING) → RESOLVED. BACKLOG additions: #29 IconRuble removal candidate, #30 future SVG migration for 10 decorative PNGs.
+Documented in S1-AUDIT.md §9. Decision row #024 in decisions.md. BACKLOG resolutions: #19 (D3 BLOCKING) → RESOLVED. BACKLOG additions: #29 IconRuble removal candidate, #30 future SVG migration for 10 decorative PNGs.
 
 Status: DONE
 Closed: 2026-04-26

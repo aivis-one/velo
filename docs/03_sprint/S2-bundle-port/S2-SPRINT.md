@@ -27,10 +27,10 @@
 | ENVIRONMENT | docs/01_refer/ENVIRONMENT.md |
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
-| AUDIT-S1 | docs/01_refer/AUDIT-S1.md |
+| AUDIT-S1 | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md |
 | S1-RETRO | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md |
 | S1-SNAPSHOT | docs/01_refer/ARCHIVES/SNAPSHOT/S1-SNAPSHOT.md |
-| RETRO-S2 | docs/03_sprint/S2-bundle-port/S2-RETRO.md (created at close) |
+| RETRO-S2 | docs/01_refer/ARCHIVES/RETRO/S2-RETRO.md (created at close) |
 | Process discipline | docs/01_refer/BACKLOG.md → #10, #17, #33, #34 (apply at prompt-design time) |
 
 ---
@@ -59,7 +59,7 @@ Port всех оставшихся 11 экранов из bundle в Vue + TMA Au
 
 ### Phase 05: Bundle-port Existing Screens (5 cycles)
 **Goal:** 5 экранов с аналогами в коде портированы.
-**Entry:** S1 closed (Sprint-Closer DONE); AUDIT-S1.md подтверждает что эти 5 — port (keep-visual-replace), не regenerate.
+**Entry:** S1 closed (Sprint-Closer DONE); S1-AUDIT.md подтверждает что эти 5 — port (keep-visual-replace), не regenerate.
 **Exit:** 5 cycles DONE; все экраны работают на staging в обеих темах.
 
 **Cycles:**
@@ -122,7 +122,7 @@ Port всех оставшихся 11 экранов из bundle в Vue + TMA Au
 
 - **Pre-S2 Human action (out-of-chat):** coordinate with backend partner to (a) document the regen workflow trigger (CI vs pre-commit vs manual) — resolves BACKLOG #24, (b) run a fresh regen against current backend `openapi.json` — unblocks BACKLOG #26 (financial constants migration) and BACKLOG #27 (`PracticeSummary.timezone` schema add → frontend Berlin-fallback removal). Until this completes, the gated entries remain in BACKLOG and S2 cycles work around them with tactical patches.
 - **Process discipline lessons** captured at S1 close — apply during S2 scout / execute prompt design: BACKLOG #10 (fallback-syntax-aware grep), #17 (explicit substitution group ordering), #33 (NEGATIVE-grep comment-collision), #34 (FP-01 hex regex over-fire on decision-#NNN refs). See References table for pinned entry.
-- **S1-Clean-Sync batch** (between S1-Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 (IconRuble dead-import check), #31 (ENVIRONMENT.md path drift), #35 (ENVIRONMENT.md commit convention cleanup), AUDIT-S1.md §10 #5 (FILE-TREE.md views count). These do NOT block S2 start; cleanup runs in parallel.
+- **S1-Clean-Sync batch** (between S1-Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 (IconRuble dead-import check), #31 (ENVIRONMENT.md path drift), #35 (ENVIRONMENT.md commit convention cleanup), S1-AUDIT.md §10 #5 (FILE-TREE.md views count). These do NOT block S2 start; cleanup runs in parallel.
 
 ## Key Decisions
 - (inherited from S1 decisions #006–#014)
@@ -176,7 +176,7 @@ Pre-planned during S1-Sprint-Builder session (decision #011). Full activation af
 **Load:**
 1. Framework: 01_Declaration.md + 03_Phase-Builder.md
 2. Project: ENVIRONMENT.md + ARCHITECTURE.md
-3. Sprint: S2-SPRINT.md + (AUDIT-S1.md, S1-RETRO.md для контекста)
+3. Sprint: S2-SPRINT.md + (S1-AUDIT.md, S1-RETRO.md для контекста)
 **Run:** 03_Phase-Builder OPEN — plan first cycle C15
 
 ---
