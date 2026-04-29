@@ -150,6 +150,40 @@ Files under `docs/` and what they own:
 
 ---
 
+## Test Infrastructure
+
+### Staging server
+
+Access details live in `docs/01_refer/SERVER-ACCESS.md` (gitignored). Deploy: push to `new_desing` → SSH to server → `velo update`. See SERVER-ACCESS.md for full procedure including password.
+
+### Telegram test bot
+
+| Item | Value |
+|------|-------|
+| Bot | `@velo_testbot` |
+| URL | https://t.me/velo_testbot |
+| Auth flow | TMA `initData` via this bot |
+
+### Test accounts
+
+Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/test_telegram_send.py` (partner-owned).
+
+| Telegram ID | Role | Purpose |
+|------|------|---------|
+| 526738615 | user (primary) | Primary visual testing — used by Human for per-cycle staging verification |
+| 5130305756 | TBD | Additional dev/QA account |
+| 5971989877 | TBD | Additional dev/QA account |
+| 5478046601 | TBD | Additional dev/QA account |
+| 7598677296 | TBD | Additional dev/QA account |
+
+### Role switching
+
+Backend partner can configure `role` (user / master / admin) per account on request. Used to test role-gated views without going through real master application flow.
+
+To request: send Telegram ID + target role to partner.
+
+---
+
 ## Anchor
 
 ```
