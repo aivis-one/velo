@@ -663,6 +663,49 @@ Before creating any execute prompt, Claude Chat verifies:
 Checklist is silent — Claude Chat runs it internally, does not output it.
 If any check fails → fix the prompt before presenting. Do not present and re-fix.
 
+### Rule 26: Human Operational Role — relay only, no direct execution
+
+Human никогда не выполняет команды напрямую. Все file edits, terminal commands, git operations, network operations, deploy actions проходят через Claude Code via execute prompts, написанные Claude Chat'ом.
+
+**Human's role:**
+- Получает execute prompt от Claude Chat
+- Передаёт промт Claude Code (paste в Claude Code chat)
+- Получает completion signal / report от Claude Code
+- Передаёт report обратно Claude Chat (paste в Claude Chat)
+- Принимает решения совместно с Claude Chat в чате
+
+**Human НЕ:**
+- Не открывает terminal/PowerShell для выполнения команд
+- Не редактирует файлы вручную в IDE
+- Не запускает SSH/git/npm/python напрямую
+- Не делает manual auth handshakes
+
+Единственное исключение — visual review (просмотр экранов на стейджинге, скриншоты dev server'а). Visual review требует человеческих глаз и не является execution task.
+
+**Implication для execute prompts:** если задача требует interactive input (например, password auth, prompt для подтверждения) — это блокер. Claude Chat должен либо предложить non-interactive путь (SSH keys, environment variables, config files), либо STOP и попросить координацию (например, попросить партнёра добавить SSH key).
+
+**Implication для дизайна prompt'ов:** «Run from your terminal» / «Manually do X» — запрещённые формулировки. Если задача не выполнима через Claude Code — это либо требует расширения автоматизации (SSH key, sshpass, etc.), либо координации с третьей стороной (партнёр), но не Human terminal action.
+
+См. decisions.md #043.
+
+### Rule 27: Claude Code as Execution Advisor — direct material access, STOPs on ambiguity
+
+Claude Code имеет direct access к файлам, процессам, сети, git'у. В отличие от Claude Chat (который видит только то, что есть в контексте chat'а), Claude Code оперирует с реальным состоянием repo / системы.
+
+Это даёт Claude Code роль execution advisor: при ambiguity, mismatch между планом и реальностью, или unexpected state — Claude Code STOPs, reports observed state, и ждёт clarification через Human relay → Claude Chat decision → Human relay back.
+
+**Decision-making authority:**
+- **План / архитектура / scope:** Human + Claude Chat (в чате)
+- **Execution / file state / runtime:** Claude Code (как реализатор, advisor про что реально в файлах)
+- **Final say при конфликте:** Human, информированно, с input'ом обоих агентов
+
+**Pattern для execute prompts:**
+- Pre-Execution Validation должен включать reality checks (file existence, branch, working tree state)
+- При несоответствии — STOP с report, не «proceed and hope»
+- Completion Signal включает observed state (line counts, file sizes, hashes), не только «DONE»
+
+См. decisions.md #043.
+
 ---
 
 ## Session Structure
