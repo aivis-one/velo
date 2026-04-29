@@ -154,7 +154,33 @@ Files under `docs/` and what they own:
 
 ### Staging server
 
-Access details live in `docs/01_refer/SERVER-ACCESS.md` (gitignored). Deploy: push to `new_desing` → SSH to server → `velo update`. See SERVER-ACCESS.md for full procedure including password.
+Access details live in `docs/01_refer/SERVER-ACCESS.md` (gitignored). Deploy: push to `new_desing` → SSH to server → `velo update`. See SERVER-ACCESS.md for full procedure.
+
+**Auth model (per decision #045):** SSH key (`~/.ssh/velo_staging_ed25519`, ed25519). Password retired to emergency-fallback. SSH config alias `velo-staging` available.
+
+**Claude Code SSH method (per decision #044):** use `paramiko` (Python). Direct `ssh.exe` is sandboxed on Windows — does not work in Claude Code environment. Standard snippet:
+
+```python
+import paramiko
+client = paramiko.SSHClient()
+client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+client.connect(
+    hostname="37.1.204.171",
+    username="root",
+    key_filename="~/.ssh/velo_staging_ed25519",
+)
+stdin, stdout, stderr = client.exec_command("velo update")
+out = stdout.read().decode()
+err = stderr.read().decode()
+exit_code = stdout.channel.recv_exit_status()
+client.close()
+print(f"exit={exit_code}\nstdout={out}\nstderr={err}")
+```
+
+Tested fallback chain (in order, use first that works in target env):
+1. `paramiko` (pure Python, pip install) — primary, works in Claude Code sandbox
+2. `plink -ssh -i key.ppk` — works but requires .ppk-format key (PuTTY conversion)
+3. `ssh velo-staging` (OpenSSH alias) — works only outside Claude Code sandbox
 
 ### Telegram test bot
 

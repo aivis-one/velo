@@ -706,6 +706,45 @@ Claude Code имеет direct access к файлам, процессам, сет
 
 См. decisions.md #043.
 
+### Rule 28: Server Action Plan — explicit plan-and-pause for server operations
+
+Любой execute prompt трогающий staging или production server обязан включать "Server Action Plan" секцию. ДО первого server-modifying действия Claude Code MUST:
+
+1. **Перечислить все команды** которые будут выполнены против сервера (read и write — отдельными группами)
+2. **Показать что будет изменено** (files / config / services / processes / data)
+3. **Показать что будет прочитано** (read-only operations — no modification)
+4. **Указать expected outcome** на каждом шаге
+5. **STOP** перед первой server-modifying операцией
+6. **Ждать "proceed"** через relay (Claude Code → Human → Claude Chat → Human → Claude Code)
+
+Read-only операции (cat / ls / status / health-check) могут выполняться без pause НО ВСЁ РАВНО должны быть в plan output.
+
+Modifying операции (write / restart / install / delete / `velo update` / migrations / config changes) MUST pause.
+
+Implication для Claude Chat при дизайне prompts: Server Action Plan — обязательная секция между Pre-Exec Validation и Tasks для любого prompt'а с server touch. Доменно-специфичная версия Rule 27 (Claude Code as Execution Advisor — STOPs on ambiguity) — для server side ambiguity не нужна, plan + pause обязательны независимо от ambiguity.
+
+Format в prompts:
+
+```markdown
+## Server Action Plan
+
+**Read-only operations (will execute without pause):**
+- ssh velo-staging "cat /var/log/velo.log | tail -50" — read recent app log
+
+**Modifying operations (require pause + Human "proceed"):**
+- ssh velo-staging "velo update" — pulls latest from new_desing, rebuilds, restarts service
+
+Expected outcomes:
+- log read: returns recent log lines, no state change
+- velo update: app at new commit, service responsive on port 80 within 30s
+
+PAUSE HERE — output Server Action Plan above, wait for "proceed" from Human relay before continuing.
+```
+
+Exception: prompts которые делают только read-only server operations могут пропустить explicit pause если это задокументировано в Server Action Plan. Modifying operations — нет исключений.
+
+См. decisions.md #044 (paramiko как primitive) + #045 (SSH key как standard).
+
 ---
 
 ## Session Structure
