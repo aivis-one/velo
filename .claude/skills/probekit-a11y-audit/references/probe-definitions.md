@@ -109,6 +109,37 @@ Verify all form inputs have associated labels.
 grep -rn '<input\|<select\|<textarea' src/ --include='*.vue' | grep -v 'aria-label\|:id'
 ```
 
+**Fix recipe — Vue 3.5+ `useId()` (preferred for Velo):**
+
+When a finding involves a `<label>` + `<input>` pair without `for`/`id` association, suggest the Vue 3.5 `useId()` API as the canonical fix. It generates SSR-safe unique IDs without manual prop wiring.
+
+```vue
+<script setup lang="ts">
+import { useId } from 'vue'
+const inputId = useId()
+const errorId = useId()
+</script>
+
+<template>
+  <label :for="inputId">Email</label>
+  <input :id="inputId" type="email" :aria-describedby="errorId" />
+  <span :id="errorId" role="alert">{{ errorMessage }}</span>
+</template>
+```
+
+**Why `useId()` over manual ID props:**
+- Avoids ID collisions when component renders multiple times on a page (carousel, list, modal stack)
+- SSR-safe (deterministic between server and client) — relevant once Velo adds SSR/SSG (BACKLOG)
+- Eliminates the parent-passes-id-prop workaround pattern
+- Available in Vue 3.5+ (Velo's pinned version per `ENVIRONMENT.md`)
+
+**When NOT to use `useId()`:**
+- Component receives explicit `id` prop from parent — respect it (still wire `:for`/`:id` though)
+- ID must be human-readable for tests targeting by ID — use a slugified prop instead
+- Targeting Vue < 3.5 — fall back to `crypto.randomUUID()` or template-ref-based pattern
+
+Velo-specific note: Velo UI library inputs (`VInput`, `VSelect`, `VTextarea`) should encapsulate `useId()` internally so consumer screens don't need to think about it. If you find a screen-level `<input>` outside the V-prefixed library, prefer migrating it INTO the library over patching IDs locally.
+
 ## P7: Skip Links & Landmarks (MEDIUM)
 
 Verify page structure allows efficient screen reader navigation.

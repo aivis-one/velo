@@ -754,3 +754,43 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 
 **Priority**: P3.
 **Notes**: Implied by skin language toggle in NotificationsView (74) / LanguageTimezoneView (75). Pairs with BACKLOG #38 (probekit-i18n-audit hardening).
+
+---
+
+### #87 — ProbeKit: bundle-drift skill
+
+**Priority**: P3 (defer).
+**Source**: ProbeKit enhancement triage 2026-04-29.
+**Notes**: Detect drift between `frontend/src/styles/variables.css` and bundle SSOT (`docs/04_assets/velo-design-system-2026-04-23/`) — extra/missing tokens, value mismatches, broken token namespacing per decision #009. **Defer until** S2/S3 close + new design batch landed (decision #029) — token ground-truth is mid-flux until the supersede settles. Re-evaluate at S3-Sprint-Closer.
+
+---
+
+### #88 — ProbeKit: decisions cross-reference skill
+
+**Priority**: P3 (defer).
+**Source**: ProbeKit enhancement triage 2026-04-29.
+**Notes**: Auto-cross-reference findings against `docs/01_refer/decisions.md` ACTIVE rows; annotate findings with "covered by decision #NNN; defer/skip" so human review skips known-OK patterns. **Defer until** decisions count > 60 — at 45 the manual list in `velo-presets.md` (Top decisions section) is sufficient.
+
+---
+
+### #89 — ProbeKit: CHANGELOG entry generator
+
+**Priority**: P3 (defer).
+**Source**: ProbeKit enhancement triage 2026-04-29.
+**Notes**: Skill that scans Sprint-Closer/Clean-Sync diffs and proposes `docs/01_refer/ARCHIVES/CHANGELOG.md` entries (file moves, renames, archive relocations). **Defer until** Clean-Sync scale demands — at S1 close the manual entry took ~5 min; not worth tooling yet.
+
+---
+
+### #90 — ProbeKit: Vue-3-specific architecture probe
+
+**Priority**: P4.
+**Source**: ProbeKit enhancement triage 2026-04-29.
+**Notes**: Vue 3 idioms beyond what `probekit-arch-review` covers — Composition API misuse (`ref` vs `reactive` choice, `computed` vs `watchEffect`), `<script setup>` adherence, props/emits typing, store boundary discipline (Pinia setup vs options stores). Would complement `probekit-type-audit` (which is type-safety) and `probekit-arch-review` (which is project-independent). Low priority — current Velo code is small and reviewed.
+
+---
+
+### #91 — ProbeKit: PWA manifest probe
+
+**Priority**: P4.
+**Source**: ProbeKit enhancement triage 2026-04-29.
+**Notes**: Validate `frontend/public/manifest.webmanifest` and `vite.config.ts` PWA plugin config — required icons present (192/512/maskable), `display: standalone`, `theme_color` matches `--bg-base` token, `start_url` correct, screenshots block present for richer install UI. Would surface PWA install-prompt issues before they hit staging. Low priority — manifest is currently stable.

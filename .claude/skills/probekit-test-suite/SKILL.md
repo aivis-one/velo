@@ -21,6 +21,7 @@ relevance-gate → arch-review → type-audit → code-audit → auto-fix → se
 | Mode | Stages | When to use |
 |------|--------|-------------|
 | `full` | All 13 | Pre-release, milestone close, comprehensive check |
+| `lite` | type-audit + code-audit + a11y-audit + responsive-audit + security-audit + design-audit | Sprint-Closer §Step 2 contract — 6-skill audit-only profile, no test stages, no auto-fix. Reports land in `{{report_dir}}` for Step 4 classification. |
 | `quick` | type-audit + code-audit + unit-test | Fast feedback during development |
 | `quality` | type-audit + code-audit + unit-test + integration-test | Thorough without E2E/perf overhead |
 | `arch` | arch-review | Architecture-only analysis |
