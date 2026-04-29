@@ -56,6 +56,13 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `frontend/src/views/user/UserDashboardView.vue` — merged bundle DashboardScreen visual structure (WeekdayStrip + Stats row from real `bookingsStore` data) preserving all existing Velo behavior (check-in/feedback alerts, AI summary card, timezone tactical cast at `nearestPracticeDate` per BACKLOG #27). Bundle elements skipped per scope-lock: Contraindications callout (no backend flag), Recommendations list (deferred to S2 P05). LOC 637 → 741.
 - `frontend/src/router/index.ts` — added `/welcome` top-level route (name `welcome`, lazy-loaded WelcomeView), no meta, no guards. Total `path:` count 42 → 43.
 
+**S2 re-plan additions (2026-04-30):**
+
+- New design batch from designer (~55 mockups, ~34 unique views) supersedes bundle visual layer. Bundle tokens (colors / typography / surfaces) ~80% retained per decision #029.
+- Hybrid auth model #028: TMA primary (initData) + PWA standalone (email/OAuth UI) — Welcome (`WelcomeView.vue`) splits into platform-aware branches.
+- Coord docs: `docs/03_sprint/S2-bundle-port/BACKEND-COORDINATION.md` + `DESIGN-DECISIONS-LOG.md` are continuously-updated SSOTs for cross-team coordination per decision #041.
+- New views planned for S2/S3: `LoginView`, `RegisterView`, `OAuthLoadingView`, `OnboardingCarouselView`, `OnboardingTimezoneView`, `BookingSuccessView`, `BookedPracticeView`, `BookingDetailView`, `CheckinSuccessView`, `PracticeLiveView`, `FeedbackSuccessView`, `EditProfileView`, `NotificationsView`, `LanguageTimezoneView`, `SupportFormView`, `MessagesListView`, `ThreadView`, `AISummaryView`, `MasterProfilePublicView`, `MyReservationsView`, `DiaryView` refresh, sub-Diary routes, `DiaryEntryView`, `RelationshipsView`. See S2-SPRINT.md + S3-SPRINT.md for cycle assignment.
+
 **Reference (read-only legacy):**
 
 - `docs/05_legacy/Design_prototype_legacy_2026-03-11/` — pre-bundle Figma snapshot (renamed from `Design_prototype/` during C01). Read-only reference.
@@ -66,6 +73,10 @@ See `FILE-TREE.md` for current inventory. Compact:
 ## Out of Scope for This Framework
 
 - `backend/` — written by collaborating engineer; we consume, we do not edit
+- Master role views in S2/S3 (decision #030) — current `views/master/` remains on bundle SSOT until S4
+- Group chats for Messages — backlog per #85
+- Real-time messaging / WebSocket — out of scope MVP
+- Embedded Zoom SDK — Practice Live always external link per #037
 - Root-level `VELO-*.md` files — reference only, maintained in `main`
 - `docs/05_legacy/Design_prototype_legacy_2026-03-11/` — Figma snapshot before bundle arrival (2026-04-23). Read-only reference only. Bundle at `docs/04_assets/velo-design-system-2026-04-23/` is SSOT for design tokens, components, screens. See decisions.md #006.
 - `velo-mockups/` — static HTML mocks; kept as legacy reference
@@ -109,7 +120,7 @@ API contract SSOT for the frontend: `frontend/src/api/types.ts`. We do not maint
 
 ### Theme support
 
-Light (default) + dark via `[data-theme="dark"]` attribute on root. Tokens for both themes defined in `frontend/src/styles/variables.css` (bundle-sourced). All port-to-Vue cycles must verify both themes; screenshots for both in manual test. UI toggle infrastructure lands in C19 (S2). See decisions.md #008.
+Light (default) + dark via `[data-theme="dark"]` attribute on root. Tokens for both themes defined in `frontend/src/styles/variables.css` (bundle-sourced). All port-to-Vue cycles must verify both themes; screenshots for both in manual test. UI toggle infrastructure lands in C25 (S2 P07). See decisions.md #008. Re-plan 2026-04-30 renumbered cycle from C19 → C25.
 
 ### CSS architecture
 

@@ -1,8 +1,9 @@
 # SPRINT
-> Velo | Sprint 2: Bundle-Port Complete
+> Velo | Sprint 2: User Foundation + Booking Flow
 > Load this file + docs/02_spec/01_Declaration.md + docs/01_refer/ENVIRONMENT.md
 > at the start of every working chat.
-> Status: NOT STARTED (pre-planned in S1-Sprint-Builder session, decision #011)
+> Status: NOT STARTED — re-planned 2026-04-30 after new design batch arrival
+> Supersedes previous S2-SPRINT.md (which was bundle-port complete)
 
 ---
 
@@ -27,115 +28,209 @@
 | ENVIRONMENT | docs/01_refer/ENVIRONMENT.md |
 | BACKLOG | docs/01_refer/BACKLOG.md |
 | DECISIONS | docs/01_refer/decisions.md |
-| AUDIT-S1 | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md |
-| S1-RETRO | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md |
+| FILE-TREE | docs/01_refer/FILE-TREE.md |
 | S1-SNAPSHOT | docs/01_refer/ARCHIVES/SNAPSHOT/S1-SNAPSHOT.md |
-| RETRO-S2 | docs/01_refer/ARCHIVES/RETRO/S2-RETRO.md (created at close) |
-| Process discipline | docs/01_refer/BACKLOG.md → #10, #17, #33, #34 (apply at prompt-design time) |
+| S1-RETRO | docs/01_refer/ARCHIVES/RETRO/S1-RETRO.md |
+| S1-AUDIT | docs/01_refer/ARCHIVES/AUDIT/S1-AUDIT.md |
+| BACKEND-COORDINATION | docs/03_sprint/S2-bundle-port/BACKEND-COORDINATION.md |
+| DESIGN-DECISIONS-LOG | docs/03_sprint/S2-bundle-port/DESIGN-DECISIONS-LOG.md |
+| S3-SPRINT (look-ahead) | docs/03_sprint/S3-greenfield/S3-SPRINT.md |
+| Process discipline | BACKLOG → #10, #17, #33, #34 (apply at prompt-design time) |
 
 ---
 
 ## Goal
-Port всех оставшихся 11 экранов из bundle в Vue + TMA Auth + user journey end-to-end на staging.
+Реализовать user role часть 1: auth (TMA + PWA fallback hybrid) + onboarding + dashboard + calendar + полный booking/practice/feedback flow + базовый profile. Качество > плотность; тестирование per-cycle на staging.
 
 ## Success Criteria
-- 5 port-existing экранов: Calendar, MyReservations, PracticeDetail, CheckIn, StateScreens shared component
-- 6 greenfield-port-from-bundle экранов: Onboarding (3 шага), PracticeLive, BookingDetail, BookingSuccess, AISummary, MasterProfilePublic
-- TMA Auth полирован (decision #012): Welcome/Launch TMA-only, без OAuth
-- KB-sync: screens.md + components.md обновлены под новые компоненты
-- Theme toggle infrastructure (stores/ui.ts + localStorage + prefers-color-scheme listener + UI toggle в headers)
-- Manual user-journey test: auth → onboarding → dashboard → calendar → practice → booking → check-in → AI summary — в light+dark
+
+- **Pre-flight (C15):** regen `generated.ts` против свежего openapi.json + миграция consumers; закрытие BACKLOG #26 #27 #32; tactical cast removal в `UserDashboardView.vue:300`.
+- **Auth (C16-C19):** WelcomeView расщеплён на TMA-splash + PWA-standalone branches; LoginView + RegisterView + OAuthLoadingView созданы как UI-mock (PWA only).
+- **Onboarding (C20-C21):** OnboardingCarouselView (1 view, 3 intro slides + timezone step) + city→IANA resolver работает локально + persistence в localStorage.
+- **Dashboard refresh (C22):** UserDashboardView переписан под новую DS; существующая логика (check-in/feedback alerts, AI summary teaser, nearest practice) сохранена.
+- **Calendar (C23-C24):** CalendarView + filter overlay; week strip navigation; день-сгруппированный список практик.
+- **Theme toggle (C25):** stores/ui.ts.theme + localStorage + prefers-color-scheme listener + UI toggle в headers; работает в обеих темах.
+- **Booking/Practice flow (C26-C32):** Practice Detail (paid + free) + Booking Success (с master-request mock) + Booked Practice Detail (15) + Booking Detail (18) + Check-in form + Check-in success + Practice Live + Feedback form + Feedback success.
+- **Profile basics (C33-C34):** Profile root + Edit Profile + Delete confirm modal (mock).
+- **Manual journey test (C35):** end-to-end auth → onboarding → dashboard → booking → check-in → practice live → feedback flow на staging, light + dark.
+- **Self-deploy:** каждый cycle's CLOSE завершается push'ем + `velo update` запуском; визуальная проверка test_account_id 526738615.
 
 ## Out of Scope
-- User-greenfield экраны без дизайна в bundle (MH-03, MH-09, MH-10, MH-13) — в S3
-- Master-side (все) — в S3
-- Admin views — BACKLOG
-- MH-08 Masters Account, MH-11 Feedback analytics, MH-12 Group report — BACKLOG (decision #010)
-- Merge new_desing → main — в S4+
+
+- Diary в полном объёме → S3 (Phase 10-11)
+- Messages → S3 (Phase 12)
+- Profile sub-screens (Notifications/Language/Support) → S3 (Phase 12)
+- AI summary view (16) → S3 (Phase 12)
+- Master profile public view (25) → S3 (Phase 12)
+- My Reservations (17) → S3 (Phase 13)
+- Master role целиком → S4 (после получения master design batch)
+- Admin role → S5+ (BACKLOG #4)
+- Group chats для Messages → BACKLOG
+- Promo codes UI → BACKLOG (DESIGN-DECISIONS-LOG § A.24)
+- Waitlist UI → BACKLOG (DESIGN-DECISIONS-LOG § A.25)
+- Real-time messaging / WebSocket → out of scope
+- Reports/complaint UI → BACKLOG (DESIGN-DECISIONS-LOG § A.26)
 
 ---
 
 ## Phases
 
-### Phase 05: Bundle-port Existing Screens (5 cycles)
-**Goal:** 5 экранов с аналогами в коде портированы.
-**Entry:** S1 closed (Sprint-Closer DONE); S1-AUDIT.md подтверждает что эти 5 — port (keep-visual-replace), не regenerate.
-**Exit:** 5 cycles DONE; все экраны работают на staging в обеих темах.
+### Phase 05: Pre-flight — Regen + consumer migration (1 cycle)
 
-**Cycles:**
+**Goal:** очистить tactical debt оставленный в S1 (Berlin fallback, financial constants); регенерировать types.ts против свежего openapi.json.
+**Entry:** S1 closed, openapi.json свежий получен от партнёра, deploy capability подтверждён.
+**Exit:** typecheck + lint + tests зелёные; UserDashboardView.vue без tactical cast; constants.ts без MIN_WITHDRAWAL_EUROS / WITHDRAWAL_FEE_EUROS; staging push + visual verify pre-existing screens.
 
-| Cycle | Type | Name | Status | Date | Result |
-|-------|------|------|--------|------|--------|
-| C15 | standard | Port CalendarScreen → CalendarView.vue | TODO | | |
-| C16 | standard | Port MyReservationsScreen → MyBookingsView.vue | TODO | | |
-| C17 | standard | Port PracticeDetailScreen → PracticeDetailView.vue | TODO | | |
-| C18 | standard | Port CheckInScreen → CheckinView.vue | TODO | | |
-| C19 | standard+infra | StateScreens shared component + theme toggle infrastructure (stores/ui.ts theme + localStorage + prefers-color-scheme + UI toggle) | TODO | | |
+| Cycle | Type | Risk | Name | Status |
+|-------|------|------|------|--------|
+| C15 | standard | MEDIUM | Regen generated.ts + миграция consumers (#26 #27 #32) + S1 deferred C13 visual verification | TODO |
 
-### Phase 06: Bundle Greenfield Screens (6 cycles)
-**Goal:** 6 экранов из bundle, которых нет в коде, — создать новые views с bundle как pattern reference.
+### Phase 06: Auth + Onboarding (6 cycles)
+
+**Goal:** hybrid auth UX (TMA + PWA standalone) + onboarding carousel + timezone capture.
 **Entry:** Phase 05 DONE.
-**Exit:** 6 new views + routes созданы; работают на staging.
+**Exit:** TMA-юзер видит Loading → Dashboard; PWA-юзер видит Welcome → Login/Register/OAuth (mock) → Onboarding → Timezone → Dashboard. Onboarding completion persisted в localStorage.
 
-**Cycles:**
+| Cycle | Type | Risk | Name | Status |
+|-------|------|------|------|--------|
+| C16 | design-port | MEDIUM | WelcomeView refresh: TMA-splash branch + PWA-standalone branch with auth choice CTAs | TODO |
+| C17 | design-port | LOW | LoginView (PWA only): email + password form + Google/Apple OAuth buttons; mock submit (no backend yet) | TODO |
+| C18 | design-port | LOW | RegisterView (PWA only): name + email + password + ToS + OAuth; mock submit | TODO |
+| C19 | design-port | LOW | OAuthLoadingView: post-OAuth callback state (mock) | TODO |
+| C20 | design-port | MEDIUM | OnboardingCarouselView: 1 view с 3 intro slides + carousel-state (index 0..2) + skip button | TODO |
+| C21 | design-port | MEDIUM | OnboardingTimezoneView: city input + autocomplete + IANA resolution + PATCH /users/me; complete onboarding flag в localStorage | TODO |
 
-| Cycle | Type | Name | Status | Date | Result |
-|-------|------|------|--------|------|--------|
-| C20 | standard | Onboarding greenfield: 3 steps → 3 new views + router routes | TODO | | |
-| C21 | standard | PracticeLive greenfield → new PracticeLiveView.vue + route | TODO | | |
-| C22 | standard | BookingDetail greenfield → new BookingDetailView.vue + route `/user/bookings/:id` | TODO | | |
-| C23 | standard | BookingSuccess greenfield → new BookingSuccessView.vue + route (separated from TopupSuccess) | TODO | | |
-| C24 | standard | AISummary greenfield → new AISummaryView.vue; endpoint placeholder if missing | TODO | | |
-| C25 | standard | MasterProfilePublic greenfield → new views/user/MasterProfilePublicView.vue + route `/user/masters/:id` | TODO | | |
+### Phase 07: Dashboard + Calendar + Theme infrastructure (4 cycles)
 
-### Phase 07: TMA Auth + KB Sync (2 cycles)
-**Goal:** TMA-only Welcome/Auth полностью реализован; KB отражает реальность после S2.
+**Goal:** dashboard refresh + calendar + theme toggle infra.
 **Entry:** Phase 06 DONE.
-**Exit:** AuthView.vue полирован (без OAuth, через platform/telegram.ts initData); screens.md + components.md обновлены.
+**Exit:** Dashboard под новой DS; Calendar week-strip + filter overlay работает; theme toggle в headers рабочий, persist через localStorage; reserved by prefers-color-scheme на first visit.
 
-**Dependency on Human:** handoff из Claude Design на TMA auth до C26.
+| Cycle | Type | Risk | Name | Status |
+|-------|------|------|------|--------|
+| C22 | design-port | HIGH | UserDashboardView refresh под новую DS — переписать поверх S1 P03 C10 work | TODO |
+| C23 | design-port | MEDIUM | CalendarView root: week strip + arrows + day-grouped practice list | TODO |
+| C24 | design-port | LOW | Calendar filter overlay (modal с chip-фильтрами) | TODO |
+| C25 | infra | MEDIUM | Theme toggle infrastructure: stores/ui.ts.theme + localStorage + prefers-color-scheme listener + UI toggle в VHeader/AppHeader; works на dashboard + calendar | TODO |
 
-**Cycles:**
+**Note C25:** если дизайнер пришлёт dark variants новой DS до начала фазы — реализуется на новых tokens; иначе — на bundle dark tokens (S1 P01).
 
-| Cycle | Type | Name | Status | Date | Result |
-|-------|------|------|--------|------|--------|
-| C26 | standard | TMA Auth polish: WelcomeView расширение, platform/telegram.ts integration, no OAuth UI (HIGH — touches auth boundary) | TODO | | |
-| C27 | standard | KB-sync: screens.md + components.md update, Design_prototype_legacy refs cleanup | TODO | | |
+### Phase 08: Booking + Practice flow (7 cycles)
 
-### Phase 08: Test + Buffer (4 cycles)
-**Goal:** End-to-end user journey test + fix buffer.
+**Goal:** полный flow от просмотра practice → booking → check-in → live → feedback.
 **Entry:** Phase 07 DONE.
-**Exit:** Manual test report от Human; все bugs fix'нуты или routed в BACKLOG.
+**Exit:** все 7 экранов рабочие; happy path юзер бронирует platnoye практику, делает check-in, заходит в Zoom, оставляет feedback; staging проверен test_account_id 526738615.
 
-**Cycles:**
+| Cycle | Type | Risk | Name | Status |
+|-------|------|------|------|--------|
+| C26 | design-port | MEDIUM | PracticeDetailView (24 + 28 data variant): pre-book paid + free; Master section + Контраиндикации + Забронировать button | TODO |
+| C27 | design-port | MEDIUM | BookingSuccessView (26): hands-clap icon + Запрос мастеру textarea (mock) + В календарь / На главную CTAs | TODO |
+| C28 | design-port | MEDIUM | BookedPracticeView (15) "Моя практика": expanded О практике / Что подготовить / Противопоказания / Check-in перед практикой / Отменить — для day-of-practice context | TODO |
+| C29 | design-port | LOW | BookingDetailView (18): status-confirmation view + ZOOM info + Отменить — для не-immediate booking | TODO |
+| C30 | design-port | MEDIUM | CheckinFormView (12) — 3-icon picker (slider убираем per A.13) + comment + Check-in submit; CheckinSuccessView (13) | TODO |
+| C31 | design-port | HIGH | PracticeLiveView (14): video placeholder + Войти (window.open zoom_link) + Check-in (re-open form 12) + Покинуть практику (POST /bookings/{id}/leave) — touches booking lifecycle | TODO |
+| C32 | design-port | MEDIUM | FeedbackFormView (29): Practice card "Завершена" + 3-button rating + comment + Отправить; FeedbackSuccessView (30) | TODO |
 
-| Cycle | Type | Name | Status | Date | Result |
-|-------|------|------|--------|------|--------|
-| C28 | manual-test | User journey end-to-end на staging, light+dark | TODO | | |
-| C29 | standard | Fix buffer cycle 1 | TODO | | |
-| C30 | standard | Fix buffer cycle 2 | TODO | | |
-| C31 | standard | Fix buffer cycle 3 | TODO | | |
+### Phase 09: Profile basics + S2 close (3 cycles)
+
+**Goal:** базовый Profile + Edit + delete confirm; manual journey test; sprint close.
+**Entry:** Phase 08 DONE.
+**Exit:** Profile root + Edit Profile + Delete confirm работают; manual journey test report зелёный; sprint closes via 04_Sprint-Closer (separate chat).
+
+| Cycle | Type | Risk | Name | Status |
+|-------|------|------|------|--------|
+| C33 | design-port | MEDIUM | UserProfileView (70/71): avatar (read-only) + name + email + stats + Аккаунт section + tab bar | TODO |
+| C34 | design-port | LOW | EditProfileView (72) + delete confirm modal (73, native style for mock); avatar tap → toast "Telegram-managed" | TODO |
+| C35 | manual-test + buffer | MEDIUM | End-to-end user journey test на staging (light + dark): auth → onboarding → dashboard → calendar → practice → booking → check-in → live → feedback → profile; bug fix buffer | TODO |
 
 ---
 
 ## Carry-Forward from S1
 
-- **Pre-S2 Human action (out-of-chat):** coordinate with backend partner to (a) document the regen workflow trigger (CI vs pre-commit vs manual) — resolves BACKLOG #24, (b) run a fresh regen against current backend `openapi.json` — unblocks BACKLOG #26 (financial constants migration) and BACKLOG #27 (`PracticeSummary.timezone` schema add → frontend Berlin-fallback removal). Until this completes, the gated entries remain in BACKLOG and S2 cycles work around them with tactical patches.
-- **Process discipline lessons** captured at S1 close — apply during S2 scout / execute prompt design: BACKLOG #10 (fallback-syntax-aware grep), #17 (explicit substitution group ordering), #33 (NEGATIVE-grep comment-collision), #34 (FP-01 hex regex over-fire on decision-#NNN refs). See References table for pinned entry.
-- **S1-Clean-Sync batch** (between S1-Sprint-Closer and S2-Sprint-Builder): BACKLOG #29 (IconRuble dead-import check), #31 (ENVIRONMENT.md path drift), #35 (ENVIRONMENT.md commit convention cleanup), S1-AUDIT.md §10 #5 (FILE-TREE.md views count). These do NOT block S2 start; cleanup runs in parallel.
+### Closed at this re-plan (2026-04-30)
 
-## Key Decisions
-- (inherited from S1 decisions #006–#014)
+- BACKLOG #24 (regen workflow) — workflow discipline documented в BACKEND-COORDINATION § D
+- BACKLOG #26 (financial constants) — closed by C15 regen + consumer migration
+- BACKLOG #27 (PracticeSummary.timezone Berlin fallback) — closed by C15 regen + cast removal
+- BACKLOG #32 (TopupRequest/Response duplicate) — closed by C15 regen
+- BACKLOG #55 (SERVER-ACCESS.md populate) — closed by S2 P05 OPEN: deploy capability + endpoint + procedure documented
+- BACKLOG #37 (S1 C13 manual visual verification) — folded into C15 staging push verification
+
+### Reduced priority
+
+- BACKLOG #39 (main vs new_desing divergence) — LOW priority. Сервер деплоит из new_desing напрямую (`velo update`), merge в main опциональный/будущий шаг.
+
+### Process discipline (apply at prompt-design time)
+
+- BACKLOG #10 (fallback-syntax-aware grep)
+- BACKLOG #17 (explicit substitution group ordering в HIGH-tier prompts)
+- BACKLOG #33 (NEGATIVE-grep comment-collision)
+- BACKLOG #34 (FP-01 hex regex over-fire on decision-#NNN refs)
+
+### S1 high-priority still open
+
+- BACKLOG #40 a11y polish cluster (3 HIGH from S1 audit)
+- BACKLOG #41 design-tokens bulk-tighten
+- BACKLOG #42 mobile polish
+- BACKLOG #43 view-layer extractApiError adoption
+- BACKLOG #44 test-coverage backfill
+
+These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g. extractApiError adoption in any view-touching cycle).
+
+### NPM audit residual
+
+- BACKLOG #54 (npm audit 5 residual CVEs, dev/build-time only) — paired with #45 major-version bumps; deferred to S5+.
+
+---
+
+## Key Decisions (newly added at re-plan)
+
+### Из этой сессии — добавляются в decisions.md через execute prompt
+
+- **#027** Self-deploy capability — staging deploy unblocked via `velo update` on `new_desing`
+- **#028** Hybrid auth model (γ) — TMA primary + email/OAuth для PWA standalone fallback
+- **#029** New design batch (2026-04-30) — supersedes bundle SSOT for visual layer; bundle SSOT остаётся для tokens
+- **#030** User role split S2+S3; Master role → S4 contingent on designer batch
+- **#031** Regen pipeline ad-hoc trigger (manual when partner signals openapi update)
+- **#032** Diary layout toggle = single view + state (Variant A)
+- **#033** Diary entry type — frontend-side filter chip + backend extension queued
+- **#034** Onboarding completion persistence — localStorage v1
+- **#035** Mid-practice check-in = upsert (re-open pre-practice form)
+- **#036** Welcome view — TMA splash branch + PWA standalone branch (different paths)
+- **#037** Practice Live join = external Zoom link via window.open
+- **#038** Avatar read-only — Telegram-managed
+- **#039** Topup flow as-is from S1 (designer batch missing balance/topup screens)
+- **#040** Booking endpoint defaults to /purchase для всех практик (бесплатные тоже через purchase, paid_cents=0) — pending partner clarification
+- **#041** Coordination doc format established
+- **#042** Sprint scope quality > density — S2/S3 split user role across 2 sprints
+
+### Inherited active
+
+- #006 Bundle SSOT (для tokens; visual layer теперь под новый design batch)
+- #007 Flat aesthetic, no glassmorphism
+- #008 Dark mode tokens in scope, UI toggle infra in C25
+- #009 Bundle namespace tokens
+- #010 Admin views deferred to S5+
+- #013 VELO = TMA + PWA
+- #017 Shadows permitted (clarification of #007)
+- #019 CSS via JS imports
+- #023 generated.ts SSOT post-regen; types.ts re-export hub
+
+### Inherited superseded by this session
+
+- #012 Bundle AuthScreen NOT 1:1 → SUPERSEDED partially; теперь hybrid model #028 — TMA остаётся initData, PWA standalone получает email/OAuth UI
 
 ---
 
 ## Sprint Context
 
-| Sprint | Status |
-|--------|--------|
-| S1 pilot | (see S1-SPRINT.md) |
-| S2 bundle-port | NOT STARTED |
-| S3 greenfield | NOT STARTED |
+| Sprint | Status | Scope summary |
+|--------|--------|---------------|
+| S1 pilot | CLOSED 2026-04-28 | Bundle migration + audit + 2 pilot screens |
+| S2 user foundation | NOT STARTED | Auth + onboarding + dashboard + calendar + booking flow + profile basics |
+| S3 user content | PRE-PLANNED | Diary + Messages + Profile sub + AI + bookings refinement |
+| S4 master role | PRE-PLANNED (contingent on designer batch) | Master role start |
+| S5+ admin + cleanup | BACKLOG | TBD |
 
 ---
 
@@ -145,8 +240,8 @@ Port всех оставшихся 11 экранов из bundle в Vue + TMA Au
 |------|-------|
 | Phase | 05: NOT STARTED |
 | Cycle | C15: not started |
-| Status | Planned ahead in S1-Sprint-Builder session; activates after S1 Sprint-Closer |
-| Tests | N/A |
+| Status | Re-planned 2026-04-30 — ready to start with 03_Phase-Builder OPEN for C15 |
+| Tests | N/A (will run after C15 close) |
 
 ---
 
@@ -154,30 +249,37 @@ Port всех оставшихся 11 экранов из bundle в Vue + TMA Au
 
 | Cycle      | Protocol              | Date         | Status |
 |------------|-----------------------|--------------|--------|
-| (S1-Sprint-Builder planned this sprint) | 02_Sprint-Builder | 2026-04-24 | DONE (planning only) |
+| (S1-Sprint-Builder originally planned this sprint as bundle-port) | 02_Sprint-Builder | 2026-04-24 | DONE then SUPERSEDED |
+| (S2-Sprint-Builder re-plan after design batch) | 02_Sprint-Builder | 2026-04-30 | DONE (planning only) |
 
 ---
 
 ## Last Session
 
-Pre-planned during S1-Sprint-Builder session (decision #011). Full activation after S1 is closed via 04_Sprint-Closer.
+S2 re-planned 2026-04-30 in single multi-turn chat session. Triggers:
+1. New design batch from designer (55 mockups, ~34 unique views) — supersedes bundle visual layer
+2. Backend partner unblocked everything: server access + `velo update` self-deploy + fresh openapi with timezone + financial constants fixes
+3. User signal: quality > density после S1 опыта
+
+Decisions recorded inline above (#027-#042). 2 new coordination docs created (BACKEND-COORDINATION + DESIGN-DECISIONS-LOG).
 
 ---
 
 ## Next Action
 
-После закрытия S1 (04_Sprint-Closer) — run 03_Phase-Builder OPEN для C15.
+Run **03_Phase-Builder OPEN** for **Phase 05** (single cycle C15: regen + consumer migration + S1 C13 visual verify).
 
 ---
 
 ## For Human
 
-**Session Code:** S2-P05-C15 (активируется после S1-Sprint-Closer)
+**Session Code:** S2-P05-OPEN
 **Load:**
 1. Framework: 01_Declaration.md + 03_Phase-Builder.md
-2. Project: ENVIRONMENT.md + ARCHITECTURE.md
-3. Sprint: S2-SPRINT.md + (S1-AUDIT.md, S1-RETRO.md для контекста)
-**Run:** 03_Phase-Builder OPEN — plan first cycle C15
+2. Project: ENVIRONMENT.md + ARCHITECTURE.md + decisions.md + BACKLOG.md + FILE-TREE.md
+3. Sprint: S2-SPRINT.md + S1-SNAPSHOT.md
+4. Coord docs: BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
+**Run:** 03_Phase-Builder OPEN — Phase 05 single-cycle pre-flight
 
 ---
 
@@ -185,9 +287,9 @@ Pre-planned during S1-Sprint-Builder session (decision #011). Full activation af
 
 | Aspect | Planned | Actual | Delta |
 |--------|---------|--------|-------|
-| Phases | 4 | — | — |
-| Cycles | 17 | — | — |
-| Duration | 4 weeks | — | — |
+| Phases | 5 | — | — |
+| Cycles | 21 (C15-C35) | — | — |
+| Duration | 4-5 weeks (per-cycle test rhythm) | — | — |
 
 ### What Worked
 (filled at close)
@@ -199,5 +301,7 @@ Pre-planned during S1-Sprint-Builder session (decision #011). Full activation af
 (filled at close)
 
 ---
+
 *S2-SPRINT.md*
-*Velo | Sprint 2: Bundle-Port Complete*
+*Velo | Sprint 2: User Foundation + Booking Flow*
+*Re-planned 2026-04-30 (decisions #027-#042)*

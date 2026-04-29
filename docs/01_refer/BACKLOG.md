@@ -28,12 +28,12 @@
 | 21 | B.4 Waitlist endpoints (4) not implemented on frontend | Zodd_review C06 | LOW | → S2/S3 | Backend has 4 waitlist endpoints; frontend has zero waitlist code. Decide if greenfield (S3) or post-S3 backlog. |
 | 22 | B.5 Missing UI screens (9 features) | Zodd_review C06 | varies | → S3/S4+ | `purchases/me`, `reports/me`, `master-promos`, `admin/withdrawals`, `admin/users`, `logout-all`, `PATCH users/me`, `finalize`, `join/leave`. Overlap with S3 greenfield + S4+ admin per #010. Per-feature scope at S3 OPEN. |
 | 23 | B.12 getMastersList default limit=100 | Zodd_review C06 | LOW | Recurring | Inconsistent with 20-default on other list endpoints. Normalize when next touching `api/masters.ts`. |
-| 24 | Regen workflow integration (post-backend Pydantic changes) | C06b Scout | MEDIUM | → P02 | Pipeline EXISTS (`backend/scripts/generate_ts_types.py`). Real gap: no documented regen trigger (CI? pre-commit? manual?). Without disciplined trigger, audit-staleness pattern repeats every partner review (B.1 already-resolved discovery, A.2 blocked-on-stale-regen). Document procedure: backend restart → openapi dump → regen invocation. Coordinate with partner. Pre-S2 priority. |
-| 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | → P02 (gated on regen) | Backend shipped CR-01 (`masters/schemas.py` Pydantic + router population), but `generated.ts:MasterProfileResponse` missing `min_withdrawal_cents`/`withdrawal_fee_cents` (regen ran against stale openapi.json). Fresh regen unblocks. Cycle scope: remove `MIN_WITHDRAWAL_EUROS`/`WITHDRAWAL_FEE_EUROS` from `constants.ts`, migrate `MasterFinanceView.vue` consumers (lines 93/106-107/266-267/279) + head comment lines 25-26 + script comment lines 203-205. Functional drift today: zero (50/2 mirror backend 5000/200). |
-| 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | → P02 (gated on regen) | Backend `PracticeSummary` Pydantic schema lacks `timezone` field. Frontend silently falls back to `'Europe/Berlin'` — practice times render in Berlin TZ regardless of actual practice timezone. C06b applied tactical cast at `UserDashboardView.vue:300` to unblock typecheck; real fix: backend adds `timezone: str` to PracticeSummary → regen → frontend removes cast + Berlin fallback. Functional impact: user sees wrong time for non-Berlin practices. |
+| 24 | Regen workflow integration (post-backend Pydantic changes) | C06b Scout | MEDIUM | CLOSED | CLOSED 2026-04-30 — workflow discipline documented in `docs/03_sprint/S2-bundle-port/BACKEND-COORDINATION.md § D` (manual on partner signal per decision #031). |
+| 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen + consumer migration (post-execute). |
+| 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen + tactical cast removal in `UserDashboardView.vue:300` (post-execute). |
 | 28 | Audit-snapshot fingerprint convention | C06 / C06b | LOW | → P02 | Partner audits (Zodd_review.md authored against `364893d`, picked up after partner shipped CR-01 + regen → effective HEAD `83d287a`) require fingerprinted commit base. Without fingerprint, "is finding still applicable" requires manual diff. Convention: every external audit doc starts with `Audit base: <commit-sha>` line. Apply to future partner reviews. |
 | 30 | Bundle PNG → SVG migration (10 decorative icons) | C09 P02 / D3 future-cleanup | LOW | → S5+ | `bolt, circle-microphone, flame, heart, high-five, love, quill-pen, quill-pen-story, spa, wind` — convert from PNG to SVG when Vue-SVG asset volume justifies. Currently used decoratively per #024; raster sufficient for current scale. |
-| 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | → S2/S3 | `TopupRequest` + `TopupResponse` declared locally in `frontend/src/api/payments.ts:13-22` AND in `generated.ts`. Duplicate definition — should be re-export from generated.ts per #023 SSOT pattern. Fix at next payments.ts touch. |
+| 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen (post-execute). |
 
 ---
 
@@ -115,6 +115,7 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
 **Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
 **Sprint**: post-S1 (run when partner deploy to staging completes).
+**Status**: CLOSED 2026-04-30 — folded into S2 C15 staging push verification.
 
 ---
 
@@ -154,9 +155,9 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
    - (b) After we merge `new_desing` → `main`, partner re-implements their refactor on the actual S1 base (use only if rebase too complex).
 3. Until resolved: do NOT merge main → new_desing under any circumstance.
 
-**Severity**: HIGH for branch-state hygiene; not blocking S1-close itself (S1 work lives on `new_desing` and can close independently). Becomes blocking for any future "merge S1 work to main" milestone.
+**Severity**: LOW (downgraded 2026-04-30) — Server deploys from new_desing via `velo update`; merge to main is optional/future. No urgency.
 
-**Sprint**: pre-S2 Human action item — coordinate with partner before any branch-merge work begins.
+**Sprint**: deferred — address only when merge-to-main milestone is planned.
 
 **Source**: S1-Sprint-Closer Step 2 Pre-Exec divergence discovery; pairs with BACKLOG #36 (staging-deploy doc clarification) and #37 (post-deploy visual verification) as the third partner-coordination item from S1 close.
 
@@ -516,3 +517,240 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 **Sprint**: pre-S2 Human action (out-of-sprint follow-up). Pairs with BACKLOG #39 (main vs new_desing divergence resolution) and BACKLOG #24 (regen workflow integration) as the three Human-action blockers between S1 close and S2 start.
 
 **Source**: S1-Clean-Sync Step 2 §C5 (RESOLVED note for BACKLOG #36); chat agreement on variant (d) framing (Human-confirmed: S1 partner-joint deploy → S2+ self-deploy transition); deploy-flow promise embedded in ENVIRONMENT.md §Known Limitations row 1 + ARCHITECTURE.md §Server & Deploy.
+**Status**: CLOSED 2026-04-30 — `SERVER-ACCESS.md` populated separately by Human; deploy procedure: `git push origin new_desing && ssh root@<staging-host> 'velo update'`; password storage per Human's choice (gitignored inline OK).
+
+---
+
+### #56 — Backend: email/password auth endpoints
+
+**Priority**: P1 (S3 blocker).
+**Source**: BACKEND-COORDINATION § A.1.
+**Notes**: UI is mock until ready (LoginView, RegisterView in S2 P06).
+
+---
+
+### #57 — Backend: Google + Apple OAuth endpoints
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.2.
+**Notes**: UI mock (OAuthLoadingView in S2 P06).
+
+---
+
+### #58 — Backend: Diary search endpoint
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.3.
+**Notes**: UI mock + localStorage history (DiaryView search overlay in S3 C38).
+
+---
+
+### #59 — Backend: Account deletion endpoint
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.4.
+**Notes**: UI mock toast (Delete confirm modal in S2 C34).
+
+---
+
+### #60 — Backend: Notification preferences endpoint group
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.5.
+**Notes**: UI localStorage mock (NotificationsView in S3 C46).
+
+---
+
+### #61 — Backend: Support tickets endpoint
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.6.
+**Notes**: UI mock submit (SupportFormView in S3 C48).
+
+---
+
+### #62 — Backend: Messages CRUD endpoint group
+
+**Priority**: P1 (S3 blocker).
+**Source**: BACKEND-COORDINATION § A.7.
+**Notes**: UI full mock on placeholder data (MessagesListView + ThreadView in S3 C49).
+
+---
+
+### #63 — Backend: Weekly AI summary endpoint
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § A.8.
+**Notes**: UI placeholder (AISummaryView in S3 C50).
+
+---
+
+### #64 — Backend: DiaryEntry.type schema extension (journal/dream/insight)
+
+**Priority**: P1.
+**Source**: BACKEND-COORDINATION § B.1.
+**Notes**: Frontend filter chip placeholder until ready (S3 C41 readme: «migrate when backend B.1 lands»). Decision #033.
+
+---
+
+### #65 — Backend: User.onboarding_completed schema extension (optional)
+
+**Priority**: P3.
+**Source**: BACKEND-COORDINATION § B.2.
+**Notes**: localStorage v1 in S2 C20-C21 per decision #034. Cross-device parity deferred.
+
+---
+
+### #66 — Backend: User.language enum verification
+
+**Priority**: P3.
+**Source**: BACKEND-COORDINATION § B.3.
+**Notes**: Verify enum supports values used by LanguageTimezoneView (S3 C47).
+
+---
+
+### #67 — Backend: Booking.notes field (master-request)
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § B.4.
+**Notes**: BookingSuccessView (S2 C27) Запрос мастеру textarea — mock until field lands.
+
+---
+
+### #68 — Backend: Clarify /bookings vs /purchase endpoint usage
+
+**Priority**: P0.
+**Source**: BACKEND-COORDINATION § C.1.
+**Notes**: Frontend default uses /purchase pending response per decision #040 (revisit if partner says free → /bookings).
+
+---
+
+### #69 — Backend: Stats source endpoint (if frontend computed insufficient)
+
+**Priority**: P3.
+**Source**: BACKEND-COORDINATION § C.2.
+
+---
+
+### #70 — Backend: ZOOM link delivery model
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § C.3.
+**Notes**: Practice Live external Zoom link via window.open per decision #037.
+
+---
+
+### #71 — Backend: Refund window policy
+
+**Priority**: P2.
+**Source**: BACKEND-COORDINATION § C.5.
+
+---
+
+### #72 — Designer: Master-side batch (10 views)
+
+**Priority**: High.
+**Source**: DESIGN-DECISIONS-LOG § D.
+**Notes**: Blocks S4 start per decision #030.
+
+---
+
+### #73 — Designer: Dark variants of new DS
+
+**Priority**: High.
+**Source**: DESIGN-DECISIONS-LOG § D.
+**Notes**: Optional for S2 C25 theme toggle; otherwise S3+ refresh.
+
+---
+
+### #74 — Designer: Topup / balance redesign
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § A.19 + § B.14.
+**Notes**: S1 topup views remain as-is in S2 per decision #039.
+
+---
+
+### #75 — Designer: Empty/loading/error states
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § A.22 + § B.11.
+**Notes**: Minimum viable patterns inherited from S2/S3 until designer ships full mockup parity.
+
+---
+
+### #76 — Designer: Waitlist screens
+
+**Priority**: Low.
+**Source**: DESIGN-DECISIONS-LOG § A.25 + § D.
+
+---
+
+### #77 — Designer: Promo code UI
+
+**Priority**: Low.
+**Source**: DESIGN-DECISIONS-LOG § A.24 + § D.
+
+---
+
+### #78 — Designer: Reports/complaint flow
+
+**Priority**: Low.
+**Source**: DESIGN-DECISIONS-LOG § A.26 + § D.
+
+---
+
+### #79 — Designer: Diary expanded composer mockup
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § B.5.
+**Notes**: Frontend builds by analogy if not provided (S3 C40).
+
+---
+
+### #80 — Designer: City picker UI on onboarding (08)
+
+**Priority**: Low.
+**Source**: DESIGN-DECISIONS-LOG § B.3.
+
+---
+
+### #81 — Designer: Practice Live "video" placeholder real intent
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § B.8.
+
+---
+
+### #82 — Designer: Booked vs Booking detail clarification (15 vs 18)
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § B.4.
+
+---
+
+### #83 — Designer: Cancel booking refund window UI
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § B.10.
+
+---
+
+### #84 — Designer: Onboarding flow ordering TMA vs PWA
+
+**Priority**: Medium.
+**Source**: DESIGN-DECISIONS-LOG § B.18.
+
+---
+
+### #85 — Future: Group chats for Messages
+
+**Priority**: Backlog.
+**Notes**: Out-of-scope MVP; future feature when Messages 1:1 stabilizes.
+
+---
+
+### #86 — i18n infrastructure when language switching reaches MVP
+
+**Priority**: P3.
+**Notes**: Implied by skin language toggle in NotificationsView (74) / LanguageTimezoneView (75). Pairs with BACKLOG #38 (probekit-i18n-audit hardening).
