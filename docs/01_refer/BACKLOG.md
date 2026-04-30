@@ -886,9 +886,21 @@ Path Y polish-deferred: existing 3 abstract SVGs used as placeholders during C20
 
 Two consecutive recurrences suggest systematic, not random. C16 deploy (cc4e2fd) did NOT exhibit this — possibly tied to commit size (b060ba3 = +805 LOC, de496f6 = +661 LOC, cc4e2fd = +131 LOC) — large commits trigger longer build → more chance of timing race.
 
-**Severity**: LOW (retry succeeds; not blocking).
+**Severity**: P2 (was LOW; promoted at S2-S3-Speedrun closure 2026-04-30 — hypothesis confirmed).
 **Sprint**: post-demo investigation cycle (S5+).
-**Status**: OPEN.
+**Status**: OPEN — hypothesis CONFIRMED.
+
+**Update 2026-04-30 (post-MEGA-2 deploy)**: hypothesis CONFIRMED. Cumulative deploy data:
+
+| Deploy | Commit | LOC delta | Transient |
+|---|---|---|---|
+| C16 | cc4e2fd | +131 | ✗ no |
+| C17–C19 | b060ba3 | +805 | ✓ yes |
+| C20–C21 | de496f6 | +661 | ✓ yes |
+| MEGA-1 | 6c5fd1f | +5218 | ✓ yes |
+| MEGA-2 | af39b41 | +6443 | ✓ yes |
+
+4/4 deploys ≥600 LOC fire transient; 1/1 small deploy (+131) clean. Mechanism: timing race in `velo update` script's pre-fetch `git status` check when build window from prior deploy hasn't fully released file locks / git index. Larger commit = longer rebuild = wider race window. Frontend-side workaround (paramiko retry on transient) confirmed working but masks root cause. **Server-side fix candidate**: add defensive `git diff --quiet HEAD || git stash` line OR retry-loop in `velo update` script.
 
 ---
 
@@ -950,4 +962,32 @@ Missing fields needed for full skin 25 fidelity:
 
 **Severity**: LOW (degraded view functions for demo; full-fidelity post-demo).
 **Sprint**: post-demo backend cycle.
+**Status**: OPEN.
+
+---
+
+### #100 — Post-demo S2/S3 audit cycle reactivation
+
+**Source**: Speedrun mode (decision #049) deferred audit ceremony for sponsor-demo target.
+
+**Context**: S2 + S3 closure commit (2026-04-30) was authored without running Sprint-Closer Step 1+ ProbeKit lite audit profile (6 skills: type-audit, code-audit, a11y-audit, responsive-audit, security-audit, design-audit). The deferral is explicit in decision #049 — a quality-vs-throughput trade for sponsor-demo target. Audit + retro rigor + pixel polish must be backfilled prior to production promotion.
+
+Speedrun delta requiring audit:
+- ~9,521 LOC delta (S1 16,061 → S3-end 25,582 — derived from cloc on git-archive trees of 4029343, 6c5fd1f, af39b41)
+- 73 new files (Vue + TS + JSON)
+- 28 new view files (S2 P07-P09 + S3 P10-P13)
+- ~25 new shared components
+- 25 new icon components (11 MEGA-1 + 14 MEGA-2)
+- 3 new stores (notifications, messages, bookings extension via getters)
+- 2 store extensions (ui theme, diary search/filter/history)
+- 13 new routes (path count 48 → 68)
+
+**Action**: Run Sprint-Closer Step 1+ ProbeKit lite profile (6 skills) against actual S2 + S3 code state. Author `docs/01_refer/ARCHIVES/CODE-AUDIT/S2-CODE-AUDIT.md` + `S3-CODE-AUDIT.md` per Sprint-Closer Step 4 format. Classify findings (CRITICAL / HIGH / MEDIUM / LOW); persist MEDIUM/LOW to BACKLOG; resolve CRITICAL/HIGH inline before promotion.
+
+**Severity**: MEDIUM (deferred quality gate; not blocking demo; required prior to production promotion).
+
+**Sprint**: post-demo polish cluster (S5+); reactivation gates production promotion of S2 + S3 work.
+
+**Cross-refs**: decision #049 (speedrun mode), CHANGELOG.md S2-S3 closure entry, S2-SNAPSHOT.md + S3-SNAPSHOT.md "Code Audit Result" rows (deferred).
+
 **Status**: OPEN.

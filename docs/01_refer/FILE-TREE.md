@@ -1,7 +1,7 @@
 # Velo — File Tree
 
 > Scope: `frontend/src/` + `docs/` only. Backend and other top-level directories are out of scope.
-> Updated: 2026-04-28 (S1-Clean-Sync full refresh — Path B regeneration after S1 close).
+> Updated: 2026-04-30 (S2-S3-Speedrun closure — partial regen frontend/src/views, components, stores, utils, router).
 > Validated by: `05_Clean-Sync.md` Step 1.
 
 ## frontend/src/
@@ -30,21 +30,47 @@ frontend/src/
 │   ├── mood/                   # 3 mood SVGs (calm, neutral, sad)
 │   └── patterns/               # 1 SVG (master-card)
 ├── components/
-│   ├── icons/                  # Vue-SVG baseline icons (#024)
+│   ├── icons/                  # Vue-SVG icon components (38; #024 baseline + speedrun additions #048)
+│   │   ├── IconArrowBack.vue   # MEGA-1
+│   │   ├── IconArrowForward.vue # MEGA-1
+│   │   ├── IconArrowUp.vue     # MEGA-1
+│   │   ├── IconBell.vue        # MEGA-2 (notifications row)
+│   │   ├── IconBookDream.vue   # MEGA-2 (Сонник entries)
+│   │   ├── IconBookFeather.vue # MEGA-2 (Дневник entries)
 │   │   ├── IconBrain.vue
 │   │   ├── IconBreathwork.vue
 │   │   ├── IconCalendar.vue
+│   │   ├── IconCheck.vue       # MEGA-2 (selection/done)
+│   │   ├── IconChevronDown.vue # MEGA-2 (accordion expand)
+│   │   ├── IconChevronRight.vue # MEGA-1
 │   │   ├── IconClock.vue
+│   │   ├── IconClose.vue       # MEGA-1
 │   │   ├── IconDiary.vue
+│   │   ├── IconDots.vue        # MEGA-1 (••• menu)
+│   │   ├── IconEdit.vue        # MEGA-1 (pencil edit)
 │   │   ├── IconFeedback.vue
+│   │   ├── IconFilter.vue      # MEGA-1
+│   │   ├── IconGlobe.vue       # MEGA-2 (language/timezone row)
 │   │   ├── IconGroup.vue
+│   │   ├── IconHandsClap.vue   # MEGA-1 (booking-success splash)
+│   │   ├── IconHeart.vue       # MEGA-1 (feedback success)
 │   │   ├── IconHome.vue
+│   │   ├── IconLink.vue        # MEGA-2 (relationships orbit)
+│   │   ├── IconLogout.vue      # MEGA-2 (Выйти row)
 │   │   ├── IconMeditation.vue
+│   │   ├── IconMic.vue         # MEGA-2 (composer mic)
 │   │   ├── IconProfile.vue
+│   │   ├── IconQuestion.vue    # MEGA-2 (support hero)
+│   │   ├── IconRuble.vue       # legacy — 0 consumers; deletion deferred (BACKLOG #29 closed S1 but file restored by build artifacts)
+│   │   ├── IconSearch.vue      # MEGA-2 (search overlay)
+│   │   ├── IconShare.vue       # MEGA-2 (Поделиться row)
+│   │   ├── IconShield.vue      # MEGA-2 (Support deco)
 │   │   ├── IconSuccess.vue
 │   │   ├── IconSupport.vue
+│   │   ├── IconTheme.vue       # MEGA-1 (light/dark toggle)
+│   │   ├── IconTrash.vue       # MEGA-2 (delete action)
 │   │   ├── IconWarning.vue
-│   │   └── index.ts            # barrel export (DS-5)
+│   │   └── index.ts            # barrel export (DS-5; updated MEGA-1+MEGA-2)
 │   ├── layout/                 # MobileLayout, AdminLayout, VTabBar, VHeader
 │   │   ├── AdminLayout.vue
 │   │   ├── MobileLayout.vue
@@ -53,17 +79,38 @@ frontend/src/
 │   │   └── index.ts
 │   ├── master/                 # master-role shared pieces
 │   │   └── PracticeListItem.vue
-│   ├── shared/                 # role-agnostic shared components
+│   ├── shared/                 # role-agnostic shared components (32; speedrun additions tagged)
+│   │   ├── AICommentaryCard.vue       # MEGA-2 (mint VELO AI tag + placeholder body)
 │   │   ├── BookingCard.vue
 │   │   ├── BookingPopup.vue
+│   │   ├── CalendarFilterOverlay.vue  # MEGA-1 (chip filter modal)
+│   │   ├── Callout.vue                # MEGA-1 (amber/mint variant warnings)
 │   │   ├── CancelBookingPopup.vue
+│   │   ├── ChatBubble.vue             # MEGA-2 (incoming/outgoing variants)
+│   │   ├── ConversationListItem.vue   # MEGA-2 (avatar + preview + unread badge)
 │   │   ├── DiaryCheckinDetail.vue
+│   │   ├── DiaryComposer.vue          # MEGA-2 (collapsed pill + mic + send)
+│   │   ├── DiaryComposerExpanded.vue  # MEGA-2 (full modal with mood + practice picker)
+│   │   ├── DiaryEntryBubble.vue       # MEGA-2 (timeline-mode bubble)
 │   │   ├── DiaryEntryDetail.vue
+│   │   ├── DiaryEntryFlat.vue         # MEGA-2 (list-mode card)
 │   │   ├── DiaryEntryForm.vue
 │   │   ├── DiaryFeedbackDetail.vue
-│   │   ├── DiaryList.vue
+│   │   ├── DiaryFilterOverlay.vue     # MEGA-2 (date picker + type chips)
+│   │   ├── DiaryList.vue              # legacy (delegated by old DiaryView; kept as compat shim)
+│   │   ├── DiarySearchOverlay.vue     # MEGA-2 (search input + history pills)
+│   │   ├── EntryActionMenu.vue        # MEGA-2 (••• → edit/trash floating stack)
 │   │   ├── FormShell.vue
-│   │   └── PracticeCard.vue
+│   │   ├── MasterCardSummary.vue      # MEGA-1 (master row with verified chip)
+│   │   ├── PracticeCard.vue
+│   │   ├── ProfileMenuItem.vue        # MEGA-1 (RouterLink/button row)
+│   │   ├── RelationshipChain.vue      # MEGA-2 (horizontal SVG chain)
+│   │   ├── ReservationCard.vue        # MEGA-2 (booking card with status chip)
+│   │   ├── SpineDivider.vue           # MEGA-2 (date divider with text-glyph ornament)
+│   │   ├── StatCard.vue               # MEGA-1 (compact metric tile)
+│   │   ├── ThreadComposer.vue         # MEGA-2 (input + send only — no mic)
+│   │   ├── UndoSnackbar.vue           # MEGA-2 (auto-dismiss timer + action button)
+│   │   └── WeekStrip.vue              # MEGA-1 (7-day strip with practice dots)
 │   └── ui/                     # atoms and primitives
 │       ├── VAccordion.vue
 │       ├── VAvatar.vue
@@ -102,51 +149,79 @@ frontend/src/
 │   ├── index.ts                # routes + global beforeEach (43 path entries post-Phase-03)
 │   ├── guards.ts               # roleRedirect, roleGuard, masterStatusGuard, applyGuard
 │   └── tabs.ts                 # mobile tab bar definitions per role
-├── stores/                     # Pinia (setup-style)
+├── stores/                     # Pinia (setup-style; 9 stores post-speedrun)
 │   ├── auth.ts                 # session token, user, loginViaTelegram, restoreSession, logout
 │   ├── balance.ts              # user balance state
-│   ├── bookings.ts
-│   ├── diary.ts                # entries + checkins + feedbacks + insights LRU cache
+│   ├── bookings.ts             # MEGA-1 extended: upcomingBookings + pastBookings + statusChipVariant
+│   ├── diary.ts                # MEGA-2 extended: typeFilter + searchQuery + searchHistory + filteredEntries
 │   ├── master.ts               # master profile + my practices
+│   ├── messages.ts             # MEGA-2 NEW (mock conversations + activeMessages + sendMessage toast)
+│   ├── notifications.ts        # MEGA-2 NEW (4 toggles + localStorage init/watch)
 │   ├── practices.ts            # practices catalog with filters
-│   └── ui.ts                   # uiMode (user-mode switch for master/admin), theme
+│   └── ui.ts                   # MEGA-1 extended: theme + initTheme + setTheme (localStorage + media listener)
 ├── styles/
 │   ├── variables.css           # bundle SSOT tokens (light + dark) — 130 tokens (#006, #009)
 │   └── global.css              # CSS reset + base typography + scrollbar + bg layer
 ├── utils/
-│   ├── adminHelpers.ts
+│   ├── adminHelpers.ts         # report target labels (emoji prefix removed in MEGA-2 per #048)
 │   ├── commission.ts
 │   ├── constants.ts
 │   ├── currency.ts             # eurStringToCents (FP-03 IEEE-754-aware)
-│   ├── displayHelpers.ts
+│   ├── displayHelpers.ts       # PRACTICE_TYPE_ICON map (refactored from EMOJI in MEGA-1; deprecated emoji shims kept for legacy callers)
 │   ├── format.test.ts          # vitest (23 tests)
 │   ├── format.ts               # date / money / time formatters
+│   ├── mockMessagesData.ts     # MEGA-2 NEW (3 conversations × 2 messages mock fixtures)
 │   └── practiceOptions.ts
 └── views/
     ├── HomeView.vue            # root index
     ├── NotFoundView.vue        # /404 + catch-all
-    ├── auth/                   # 4 views
+    ├── auth/                   # 8 views (was 4 at S1)
     │   ├── LoadingView.vue
     │   ├── LoadingErrorView.vue
-    │   ├── StandaloneStubView.vue
-    │   └── WelcomeView.vue     # TMA splash for /welcome (decisions.md #025; created in S1 P03 C11)
+    │   ├── LoginView.vue       # Phase 06 (S2-P06 C17) — PWA email/password mock
+    │   ├── OAuthLoadingView.vue # Phase 06 (S2-P06 C19) — mock OAuth callback splash
+    │   ├── OnboardingCarouselView.vue # Phase 06 (S2-P06 C20) — 3-slide carousel
+    │   ├── OnboardingTimezoneView.vue # Phase 06 (S2-P06 C21) — city → IANA + PATCH /users/me
+    │   ├── RegisterView.vue    # Phase 06 (S2-P06 C18) — PWA register mock
+    │   ├── StandaloneStubView.vue # legacy (gate moved to App.vue layer at C16; retained for auth-error reuse)
+    │   └── WelcomeView.vue     # Phase 06 (S2-P06 C16) — TMA + PWA dual-branch
     ├── shells/                 # 3 layout shells
     │   ├── UserShell.vue
     │   ├── MasterShell.vue
     │   └── AdminShell.vue
-    ├── user/                   # 11 views
-    │   ├── UserDashboardView.vue   # bundle DashboardScreen merged (S1 P03 C10; #024)
-    │   ├── CalendarView.vue
-    │   ├── DiaryView.vue
-    │   ├── UserProfileView.vue
-    │   ├── PracticeDetailView.vue
-    │   ├── MyBookingsView.vue
-    │   ├── CheckinView.vue
-    │   ├── FeedbackView.vue
-    │   ├── TopupView.vue
-    │   ├── TopupSuccessView.vue
-    │   └── TopupCancelView.vue
-    ├── master/                 # 10 views
+    ├── user/                   # 30 views (was 11 at S1)
+    │   ├── AISummaryView.vue           # MEGA-2 (S3-P12 C50) — placeholder weekly summary
+    │   ├── BookedPracticeView.vue      # MEGA-1 (S2-P08 C26) — day-of practice context
+    │   ├── BookingDetailView.vue       # MEGA-1 (S2-P08 C28) — read-only retrospect view
+    │   ├── BookingSuccessView.vue      # MEGA-1 (S2-P08 C26) — IconHandsClap + master-request mock
+    │   ├── CalendarView.vue            # MEGA-1 (S2-P07 C23) — refresh
+    │   ├── CheckinSuccessView.vue      # MEGA-1 (S2-P08 C30) — IconSuccess + Начать практику CTA
+    │   ├── CheckinView.vue             # MEGA-1 (S2-P08 C30) — refresh (3-icon mood picker)
+    │   ├── CheckinsCategoryView.vue    # MEGA-2 (S3-P10 C39) — only check-ins
+    │   ├── DiaryEntryView.vue          # MEGA-2 (S3-P11 C42-44) — read + edit + delete with undo
+    │   ├── DiaryView.vue               # MEGA-2 (S3-P10 C36) — full rewrite (timeline + list)
+    │   ├── EditProfileView.vue         # MEGA-1 (S2-P09 C34) — form + delete account mock
+    │   ├── EntriesCategoryView.vue     # MEGA-2 (S3-P10 C39) — Дневник + Сонник combined
+    │   ├── FeedbackSuccessView.vue     # MEGA-1 (S2-P08 C32) — IconHeart + В дневник
+    │   ├── FeedbackView.vue            # MEGA-1 (S2-P08 C32) — refresh (3-button rating)
+    │   ├── FeedbacksCategoryView.vue   # MEGA-2 (S3-P10 C39) — only feedbacks
+    │   ├── LanguageTimezoneView.vue    # MEGA-2 (S3-P12 C47) — radio + city autocomplete + PATCH
+    │   ├── MasterProfilePublicView.vue # MEGA-2 (S3-P12 C51) — DEGRADED v1 per BACKLOG #99
+    │   ├── MessagesListView.vue        # MEGA-2 (S3-P12 C49) — 3 mock conversations
+    │   ├── MyBookingsView.vue          # legacy (kept; superseded by MyReservationsView)
+    │   ├── MyReservationsView.vue      # MEGA-2 (S3-P13 C52) — Предстоящие + Прошедшие
+    │   ├── NotificationsView.vue       # MEGA-2 (S3-P12 C46) — 4 toggles
+    │   ├── PracticeDetailView.vue      # MEGA-1 (S2-P08 C24) — refresh
+    │   ├── PracticeLiveView.vue        # MEGA-1 (S2-P08 C31) — Zoom external + Check-in re-open
+    │   ├── RelationshipsView.vue       # MEGA-2 (S3-P11 C45) — chain + AI placeholder
+    │   ├── SupportFormView.vue         # MEGA-2 (S3-P12 C48) — subject + message mock
+    │   ├── ThreadView.vue              # MEGA-2 (S3-P12 C49) — chat bubbles + composer
+    │   ├── TopupCancelView.vue         # legacy (S1; emoji removed in MEGA-2 per #048)
+    │   ├── TopupSuccessView.vue        # legacy (S1; emoji removed in MEGA-2 per #048)
+    │   ├── TopupView.vue               # legacy (S1)
+    │   ├── UserDashboardView.vue       # MEGA-1 (S2-P07 C22) — refresh
+    │   └── UserProfileView.vue         # MEGA-1 (S2-P09 C33) — refresh (3 sections + Logout)
+    ├── master/                 # 10 views (legacy S1; emoji cleanup deferred to S4)
     │   ├── MasterDashboardView.vue
     │   ├── MasterPracticesView.vue
     │   ├── CreatePracticeView.vue
@@ -157,7 +232,7 @@ frontend/src/
     │   ├── MasterFinanceView.vue
     │   ├── MasterApplyView.vue
     │   └── MasterPendingView.vue
-    └── admin/                  # 7 views
+    └── admin/                  # 7 views (legacy S1; refresh deferred to S5+)
         ├── AdminDashboardView.vue
         ├── AdminMastersView.vue
         ├── AdminMasterReviewView.vue
@@ -167,10 +242,11 @@ frontend/src/
         └── AdminProfileView.vue
 ```
 
-Total views: 37 (32 page views + 3 shells + 2 root views)
-- page views: user/ 11 + master/ 10 + admin/ 7 + auth/ 4 = 32
+Total views: 60 (55 page views + 3 shells + 2 root views)
+- page views: user/ 30 + master/ 10 + admin/ 7 + auth/ 8 = 55
 - shells: 3 (UserShell, MasterShell, AdminShell)
 - root: 2 (HomeView, NotFoundView)
+- Router path count: 68 (S1 baseline 43 → Phase 06 close 48 → speedrun close 68)
 
 ## docs/
 
@@ -180,8 +256,8 @@ docs/
 │   ├── ARCHITECTURE.md             # project overview, components, coding standards, scope
 │   ├── ENVIRONMENT.md              # system, tools, git workflow, info map
 │   ├── FILE-TREE.md                # this file
-│   ├── BACKLOG.md                  # code issues, tech debt, features (54 entries at S1 close)
-│   ├── decisions.md                # 26 ACTIVE decisions (#001-#026 at S1 close)
+│   ├── BACKLOG.md                  # code issues, tech debt, features (~100 entries post-S2-S3-Speedrun)
+│   ├── decisions.md                # 49 ACTIVE decisions (#001-#049 post-S2-S3-Speedrun)
 │   ├── SERVER-ACCESS.md            # gitignored
 │   ├── ARCHIVES/
 │   │   ├── AUDIT/
@@ -192,9 +268,13 @@ docs/
 │   │   │   └── PROBKIT-REVIEW/
 │   │   │       └── AUDIT-TRACKER.md   # cross-skill metric history
 │   │   ├── RETRO/
-│   │   │   └── S1-RETRO.md         # moved from S1-pilot/ at Sprint-Closer Step 11
+│   │   │   ├── S1-RETRO.md         # moved from S1-pilot/ at Sprint-Closer Step 11
+│   │   │   ├── S2-RETRO.md         # S2-S3-Speedrun closure 2026-04-30
+│   │   │   └── S3-RETRO.md         # S2-S3-Speedrun closure 2026-04-30
 │   │   └── SNAPSHOT/
-│   │       └── S1-SNAPSHOT.md      # sprint-close snapshot (Sprint-Closer Step 7)
+│   │       ├── S1-SNAPSHOT.md      # sprint-close snapshot (Sprint-Closer Step 7)
+│   │       ├── S2-SNAPSHOT.md      # S2-S3-Speedrun closure 2026-04-30
+│   │       └── S3-SNAPSHOT.md      # S2-S3-Speedrun closure 2026-04-30
 │   └── GUIDES/
 │       └── claude-design-pipeline.md   # design-gen cycle playbook
 ├── 02_spec/                        # active framework protocols (SPEC v3.2-velo)
@@ -220,11 +300,14 @@ docs/
 │   │       ├── C08-backend-coord.md
 │   │       └── C09-icons-strategy.md
 │   ├── S2-bundle-port/
-│   │   └── S2-SPRINT.md
+│   │   ├── S2-SPRINT.md            # CLOSED 2026-04-30 (Phase 05-09)
+│   │   ├── BACKEND-COORDINATION.md # cross-team coordination SSOT (decision #041)
+│   │   └── DESIGN-DECISIONS-LOG.md # designer/PM/sponsor decisions log (decision #041)
 │   └── S3-greenfield/
-│       └── S3-SPRINT.md
+│       └── S3-SPRINT.md            # CLOSED 2026-04-30 (Phase 10-13)
 ├── 04_assets/                      # bundle SSOT (decisions.md #006)
-│   └── velo-design-system-2026-04-23/   # 126 files: tokens, components, screens, illustrations, fonts
+│   ├── velo-design-system-2026-04-23/   # original bundle SSOT (126 files: tokens, components, screens, illustrations, fonts)
+│   └── velo-design-system-2026-04-30/   # designer batch 2 (~55 mockups, ~34 unique views; per Phase 06 §S1 + BACKLOG #92)
 └── 05_legacy/                      # archives + reference-only snapshots (relocated 2026-04-28)
     ├── Design_prototype_legacy_2026-03-11/   # pre-bundle Figma snapshot (85 files; reference only)
     ├── _archive/

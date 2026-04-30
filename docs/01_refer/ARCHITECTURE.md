@@ -2,7 +2,7 @@
 
 > Frontend-only scope. Backend lives in `backend/` and is maintained separately.
 > Loaded in every working chat alongside `01_Declaration.md`.
-> Last updated: 2026-04-28 (S1-Clean-Sync).
+> Last updated: 2026-04-30 (S2-S3-Speedrun closure).
 
 ---
 
@@ -82,6 +82,87 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `frontend/src/views/auth/OnboardingTimezoneView.vue` (NEW, ~285 LOC) — city autocomplete input + timezone resolution via local JSON + PATCH `/api/v1/users/me { timezone }` + localStorage `velo:onboarding_completed=true` + redirect to `/user/dashboard`. PATCH failures (401 PWA-no-auth) swallowed silently per Path Y graceful degrade. Skin reference: 08_Onboarding 4.png. C21 commit `de496f6`.
 - `frontend/src/data/cities.json` (NEW) — hand-curated 118-entry city → IANA mapping prioritizing Russian-speaking world + major Western/Asian cities. Native `Intl.DateTimeFormat` fallback for unmatched cities. Full ~300 expansion deferred to BACKLOG polish cluster. C21 commit `de496f6`.
 - `frontend/src/router/index.ts` — 5 new public routes added across phase: `/login`, `/register`, `/oauth/callback`, `/onboarding/intro`, `/onboarding/timezone`. Path count 43 → 48. No meta, no guards (auth gate is at App.vue layer per Phase 06 architecture).
+
+**Phase 07 additions (2026-04-30 — S2-S3 speedrun MEGA-1, commit `6c5fd1f`):**
+
+- `frontend/src/views/user/UserDashboardView.vue` — refreshed under new design system (skin 10/11). Greeting block + check-in/feedback alert cards (window-based via `usePracticeWindows`) + nearest-booking BookingCard + Zoom/Check-in pill row + StatCards row (Прогресс) + AI-саммари teaser. PRACTICE_TYPE_ICON map adoption.
+- `frontend/src/views/user/CalendarView.vue` — refreshed under new DS (skin 21). NEW WeekStrip component, day-grouped practice list, "Выбрать практики" filter trigger.
+- `frontend/src/components/shared/CalendarFilterOverlay.vue` (NEW) — chip-based filter modal (skin 22): practice direction single-select.
+- `frontend/src/components/shared/WeekStrip.vue` (NEW) — 7-day strip with current-day highlight + practice dot indicators + arrow nav.
+- `frontend/src/stores/ui.ts` — extended with `theme: 'light' | 'dark'`, `setTheme(t)`, `initTheme()` + localStorage `velo:theme` + prefers-color-scheme media listener (C25). Boot wired in `main.ts` after Pinia mount, before router.
+- `frontend/src/components/layout/VHeader.vue` — added IconTheme toggle button + IconArrowBack pattern in back navigation (replacing legacy "← " text).
+
+**Phase 08 additions (S2-S3 speedrun MEGA-1, commit `6c5fd1f`):**
+
+- `frontend/src/views/user/PracticeDetailView.vue` — refreshed (skin 24 paid + 28 free, single component conditional pricing). MasterCardSummary + Callout (Контраиндикации) extracted.
+- `frontend/src/components/shared/MasterCardSummary.vue` (NEW) — reusable master section: avatar + name + verified chip + methods + "Подробнее →" link to `/user/master/:id`.
+- `frontend/src/components/shared/Callout.vue` (NEW) — variant `'amber' | 'mint'` for warnings + info hints.
+- `frontend/src/views/user/BookingSuccessView.vue` (NEW, skin 26) — IconHandsClap + master-request mock textarea (per BACKEND § B.4) + В календарь / На главную CTAs.
+- `frontend/src/views/user/BookedPracticeView.vue` (NEW, skin 15) — day-of-practice context with Check-in window CTA + cancel via native confirm.
+- `frontend/src/views/user/BookingDetailView.vue` (NEW, skin 18) — status confirmation + ZOOM info card + cancel.
+- `frontend/src/views/user/CheckinView.vue` (refresh) + `CheckinSuccessView.vue` (NEW, skin 12 + 13) — 3-icon mood picker (sad/neutral/calm SVGs from `assets/mood/` per slider deprecated A.13) + comment textarea + IconSuccess splash → "Начать практику".
+- `frontend/src/views/user/PracticeLiveView.vue` (NEW, skin 14) — video placeholder (Velo emblem on ink-soft bg per D4) + "Войти" `window.open` zoom_link (#037) + "Check-in" re-open form 12 upsert (#035) + "Покинуть практику" via `cancelBooking` (BACKLOG #97 leave endpoint queued).
+- `frontend/src/views/user/FeedbackView.vue` (refresh) + `FeedbackSuccessView.vue` (NEW, skin 29 + 30) — 3-button rating (IconWarning / IconHeart / IconBrain) + comment + heart success.
+
+**Phase 09 additions (S2-S3 speedrun MEGA-1, commit `6c5fd1f`):**
+
+- `frontend/src/views/user/UserProfileView.vue` — refreshed (skin 70/71). Avatar card + StatCards row (Практик / Часов / Дней подряд) + 3 sections (Аккаунт / Настройки / Помощь) + Выйти red row → `auth.logout()` → `/welcome`.
+- `frontend/src/components/shared/ProfileMenuItem.vue` (NEW) — reusable RouterLink/button row: icon + label + optional badge + IconChevronRight.
+- `frontend/src/components/shared/StatCard.vue` (NEW) — reusable stat tile (value + label).
+- `frontend/src/views/user/EditProfileView.vue` (NEW, skin 72 + 73) — form fields + Удалить аккаунт red link → native confirm → toast (mock per BACKEND § A.4) + Сохранить → `api.patch('/api/v1/users/me')` direct call (no `api/users.ts` file per Code anomaly).
+
+**Phase 10 additions (S2-S3 speedrun MEGA-2, commit `af39b41`):**
+
+- `frontend/src/views/user/DiaryView.vue` — full rewrite (skin 40 timeline + 41 list). Layout state `'timeline' | 'list'` persisted via localStorage `velo:diary-layout` per decision #032. ••• menu opens layout toggle / filter overlay / search overlay.
+- `frontend/src/components/shared/SpineDivider.vue` (NEW) — date divider with simple text-glyph ornament (▶ date ◀); ornate SVG glyphs deferred to BACKLOG NIT polish.
+- `frontend/src/components/shared/DiaryEntryBubble.vue` (NEW) — timeline-mode entry display (mood/kind circle + chat-bubble card).
+- `frontend/src/components/shared/DiaryEntryFlat.vue` (NEW) — list-mode flat card (icon + title + preview).
+- `frontend/src/components/shared/DiaryComposer.vue` (NEW) — collapsed pill bar with IconMic + IconArrowUp; tap → modal expand.
+- `frontend/src/components/shared/DiaryComposerExpanded.vue` (NEW) — full composer modal: title input + textarea + 3-mood picker + practice picker (linkable from `bookingsStore.upcomingBookings`) + Сохранить → `useDiaryStore.createEntry`.
+- `frontend/src/components/shared/DiaryFilterOverlay.vue` (NEW, skin 42 + 43) — slide-up panel: month-grid date picker (single + range select via two-tap) + type chips (Все / Дневник / Сонник / Insights) wired to `useDiaryStore.typeFilter`.
+- `frontend/src/components/shared/DiarySearchOverlay.vue` (NEW, skin 44) — slide-down panel: input + IconSearch + history pills (localStorage `velo:diary-search-history`) + mock results placeholder per BACKEND § A.3.
+- `frontend/src/views/user/CheckinsCategoryView.vue` (NEW, skin 45 + 46) — category-filtered: only check-ins.
+- `frontend/src/views/user/FeedbacksCategoryView.vue` (NEW, skin 47 + 48) — category-filtered: only feedbacks.
+- `frontend/src/views/user/EntriesCategoryView.vue` (NEW, skin 49 + 50 + 51) — combined Дневник + Сонник + type-filter chip group (Все / Дневник / Сонник) wired to `useDiaryStore.typeFilter`.
+- `frontend/src/stores/diary.ts` — extended with `typeFilter`, `searchQuery`, `searchHistory`, `filteredEntries` computed, `pushSearchHistory` / `clearSearchHistory` / `setSearchQuery` / `initSearchHistory` helpers. Type filter operates on placeholder `e.type` until BACKEND § B.1 lands per decision #033.
+
+**Phase 11 additions (S2-S3 speedrun MEGA-2, commit `af39b41`):**
+
+- `frontend/src/views/user/DiaryEntryView.vue` (NEW, skins 52 + 56 + 57 + 58 + 59) — single-entry view with read mode (optional practice card + check-in chip + entry text card + "Найдена взаимосвязь" CTA) + action menu (•••, edit pencil, trash) + delete with undo snackbar (3s grace) + edit mode in-place (textarea + Сохранить).
+- `frontend/src/components/shared/EntryActionMenu.vue` (NEW) — floating right-rail action stack: ••• reveals/hides Edit + Trash buttons.
+- `frontend/src/components/shared/UndoSnackbar.vue` (NEW) — auto-dismiss timer + action button; emits `action` on user click, `timeout` on natural expiry.
+- `frontend/src/views/user/RelationshipsView.vue` (NEW, skins 53 + 54 + 55) — chained icons + entry context cards + AI commentary placeholder per BACKEND § A.8.
+- `frontend/src/components/shared/RelationshipChain.vue` (NEW) — horizontal SVG chain with white pill connectors between mood/flame/feather/dream icons.
+- `frontend/src/components/shared/AICommentaryCard.vue` (NEW) — VELO AI mint tag + placeholder content; `isPlaceholder` prop default true at v1.
+
+**Phase 12 additions (S2-S3 speedrun MEGA-2, commit `af39b41`):**
+
+- `frontend/src/views/user/NotificationsView.vue` (NEW, skin 74) — 4 toggles (push / reminders / from masters / from support) via `useNotificationsStore`; localStorage `velo:notif-*`.
+- `frontend/src/stores/notifications.ts` (NEW) — 4 boolean refs + `init()` reader + watch persistence; `init()` wired in `main.ts`.
+- `frontend/src/views/user/LanguageTimezoneView.vue` (NEW, skin 75) — language radio (Русский / English) + timezone presets (Москва / Лондон) + city picker autocomplete (reuses cities.json from C21). PATCH `/api/v1/users/me { language | timezone }` direct.
+- `frontend/src/views/user/SupportFormView.vue` (NEW, skin 76) — IconQuestion hero card + subject + message form + mock submit per BACKEND § A.6.
+- `frontend/src/views/user/MessagesListView.vue` (NEW, skin 80) — 3 conversations from `useMessagesStore`; tap → setActiveConversation + push to thread.
+- `frontend/src/views/user/ThreadView.vue` (NEW, skins 81 + 82) — ChatBubble list + ThreadComposer; mock send per BACKEND § A.7.
+- `frontend/src/components/shared/ConversationListItem.vue` (NEW) — avatar / name / preview / timestamp / unread badge.
+- `frontend/src/components/shared/ChatBubble.vue` (NEW) — incoming white / outgoing ink-soft fill variants with timestamp.
+- `frontend/src/components/shared/ThreadComposer.vue` (NEW) — input + IconArrowUp send only (distinct from DiaryComposer per D2 — no mic, no expand modal).
+- `frontend/src/stores/messages.ts` (NEW) + `frontend/src/utils/mockMessagesData.ts` (NEW) — 3 conversations × 2 messages mock fixtures (Alex Mindful master / Поддержка VELΘ system / Maria Flow master).
+- `frontend/src/views/user/AISummaryView.vue` (NEW, skin 16) — placeholder weekly summary per BACKEND § A.8 (header chip + paragraphs + inline mood SVGs + recommendation cards).
+- `frontend/src/views/user/MasterProfilePublicView.vue` (NEW, skin 25) — DEGRADED v1 per BACKLOG #99 + decision D12; name/avatar derived from `getPractices({ master_id }).first().master_name + master_avatar_url`; bio/methods/experience placeholder; stats hidden.
+
+**Phase 13 additions (S2-S3 speedrun MEGA-2, commit `af39b41`):**
+
+- `frontend/src/views/user/MyReservationsView.vue` (NEW, skin 17) — Предстоящие + Прошедшие sections from `bookingsStore.upcomingBookings` + `pastBookings` (MEGA-1 getters); status chips via `statusChipVariant(b)` helper.
+- `frontend/src/components/shared/ReservationCard.vue` (NEW) — practice icon + title + master row + date + status chip.
+- `frontend/src/stores/bookings.ts` — extended with `upcomingBookings` + `pastBookings` computed getters + `statusChipVariant(b)` helper (Завтра amber / Завершена mint / Отменена pink / Пропущена pink / Сегодня amber / Подтверждена mint).
+
+**Cross-cutting additions (speedrun, commits `6c5fd1f` + `af39b41`):**
+
+- `frontend/src/components/icons/` — 25 new Vue-SVG icon components: 11 in MEGA-1 (IconArrowBack/Forward/Up, IconClose, IconFilter, IconDots, IconEdit, IconChevronRight, IconHandsClap, IconHeart, IconTheme) + 14 in MEGA-2 (IconMic, IconCheck, IconBookDream, IconBookFeather, IconLink, IconChevronDown, IconQuestion, IconBell, IconGlobe, IconShield, IconShare, IconLogout, IconSearch, IconTrash) + barrel `index.ts` updates. All follow currentColor + viewBox 24×24 + `:size` prop default 24 pattern.
+- `frontend/src/utils/displayHelpers.ts` — `PRACTICE_TYPE_EMOJI` map refactored to `PRACTICE_TYPE_ICON: Record<string, Component>` consumed via `<component :is="...">` pattern. PRACTICE_TYPE_EMOJI / MOOD_EMOJI / RATING_EMOJI retained as deprecated empty-string compat shims for master/admin callers (S4/S5+ cleanup).
+- `frontend/src/router/index.ts` — 20 new routes added across S2 (7) + S3 (13). Path count: 48 → 68. No `meta.requiresAuth` (auth gate at App.vue layer post-C16); no `roleGuard` wrapping per Phase 06 precedent.
+- 0 new dependencies added (Path Y discipline #047).
+- 0 new test files (BACKLOG #44 deferred per #042 inverted in speedrun #049).
 
 **Reference (read-only legacy):**
 

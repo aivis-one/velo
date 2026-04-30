@@ -1,7 +1,7 @@
 # Velo — Environment
 
 > Loaded in every working chat. Bridge between framework rules and project reality.
-> Updated: 2026-04-28 (S1-Clean-Sync).
+> Updated: 2026-04-30 (S2-S3-Speedrun closure).
 
 ---
 
@@ -209,6 +209,26 @@ Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/test_tele
 Backend partner can configure `role` (user / master / admin) per account on request. Used to test role-gated views without going through real master application flow.
 
 To request: send Telegram ID + target role to partner.
+
+### velo CLI commands (staging)
+
+Available on staging via paramiko `exec_command`. Modifying operations require Server Action Plan pause per Rule 28.
+
+| Group | Commands |
+|---|---|
+| Service | `velo start` / `velo stop` / `velo restart [app]` / `velo status` |
+| Logs | `velo logs [app\|db\|redis\|frontend\|all]` (default: app) |
+| Test | `velo test` / `velo test backend` / `velo test frontend` / `velo lint` |
+| Deploy | `velo update` (alias `velo deploy`) / `velo gen-types` |
+| DB | `velo db connect` (alias `psql`) / `velo db dump` / `velo db restore <file>` / `velo db migrate` |
+| Seed | `velo seed` (append fixtures) / `velo seed --reset` (destructive — wipe DB + re-seed; affects ALL test accounts including 526738615) |
+| Maintenance | `velo backup` (DB + .env, 7-day rotation) / `velo ssl renew` / `velo ssl status` / `velo nginx reload` / `velo nginx status` / `velo version` |
+
+**Cross-references:**
+- `velo gen-types`: regenerates `frontend/src/api/generated.ts` from backend OpenAPI; second path to regen alongside partner-signal flow (decision #031) + frontend self-host fallback (decision #046).
+- `velo db connect`: read-only inspection safe; modifying SQL requires Server Action Plan.
+- `velo update`: known transient ("Uncommitted changes detected") fires on commits ≥600 LOC per BACKLOG #96 (hypothesis CONFIRMED 4/4 deploys post-MEGA-1); retry pattern via fresh paramiko session resolves.
+- Demo data prep: `velo seed` appends fixtures DB-wide (not per-user); pre-demo readiness for account 526738615 may use this command.
 
 ---
 

@@ -25,3 +25,81 @@
 - **`frontend/src/components/icons/IconRuble.vue`** — deleted in S1-Clean-Sync Step 3 §B per BACKLOG #29 + decision #024 (D3 ratification): Velo backend operates in EUR; 0 consumers verified. Barrel export line removed from `frontend/src/components/icons/index.ts`.
 
 ---
+
+## S2-S3 Speedrun Closure — 2026-04-30
+
+> Speedrun mode (decision #049) — explicit inversion of decision #042 (quality > density) for sponsor-demo target.
+> Per-cycle Claude Design pipeline + per-cycle visual verify rhythm collapsed into 2 aggregate visual verify gates (post-MEGA-1, post-MEGA-2).
+> Audit ceremony (Sprint-Closer Step 1+ ProbeKit lite) deferred to BACKLOG #100 — gates production promotion.
+
+### Decisions added
+
+- **#047** — Path Y discipline (logic-first build mass; visual polish deferred to S5+ cluster). Originally added at S2-P06 close; scope note refreshed at speedrun closure to cover MEGA-1/2 inheritance across C22-C52.
+- **#048** — No-emoji rule + icon-component discipline. Bare emoji characters replaced with inline SVG icon components from `frontend/src/components/icons/`. First applied speedrun MEGA-1 (~74 in-scope hits cleaned across user views) + MEGA-2 (BACKLOG #98 carry-over resolved).
+- **#049** — Speedrun mode — explicit inversion of #042 for sponsor-demo target. 33 cycles (C22-C54) executed across 2 mega-execute prompts + 2 commits + 1 closure commit. Quality backfill scheduled S5+ polish cluster.
+
+### BACKLOG entries surfaced
+
+- **#97** — Backend `POST /bookings/{id}/leave` endpoint (mid-practice exit semantics). Logged at MEGA-1 close. Frontend C31 PracticeLiveView "Покинуть" currently uses `cancelBooking`; conflates pre-practice cancel vs leave-mid-session. Status: OPEN.
+- **#98** — Emoji cleanup MEGA-2 carry. Logged at MEGA-1 close (23 in-scope hits remain in 12 files). Status: **CLOSED 2026-04-30 at MEGA-2** — emoji audit grep returns 0 hits in `frontend/src/views/user/`, `frontend/src/components/shared/`, `frontend/src/utils/`. Cleanup landed across 12 files (DiaryList, BookingCard, PracticeCard, FormShell, CancelBookingPopup, DiaryCheckin/Feedback/EntryDetail, DiaryEntryForm, MyBookingsView, TopupCancel/SuccessView, adminHelpers).
+- **#99** — Backend public master endpoint + MasterPublicResponse fields. Logged at MEGA-2 close. C51 MasterProfilePublicView is degraded v1; lift list itemized. Status: OPEN.
+- **#100** — Post-demo S2/S3 audit cycle reactivation. Logged at closure commit. CRITICAL gate before production promotion. Status: OPEN.
+- **#96** — `velo update` script transient. **Promoted from LOW to P2** at closure commit. Hypothesis CONFIRMED: 4/4 deploys ≥600 LOC fire transient; 1/1 small deploy clean. Server-side fix candidate logged.
+
+### Files added (frontend/src/)
+
+~73 new files total (S1 baseline 140 → S3 close 213):
+
+- **28 new view files** (S2 P07-P09 + S3 P10-P13):
+  - S2: 7 (BookingSuccessView, BookedPracticeView, BookingDetailView, CheckinSuccessView, PracticeLiveView, FeedbackSuccessView, EditProfileView)
+  - S3: 13 (CheckinsCategoryView, FeedbacksCategoryView, EntriesCategoryView, DiaryEntryView, RelationshipsView, NotificationsView, LanguageTimezoneView, SupportFormView, MessagesListView, ThreadView, AISummaryView, MasterProfilePublicView, MyReservationsView)
+  - Phase 06 (pre-speedrun, also in S2): 5 (LoginView, RegisterView, OAuthLoadingView, OnboardingCarouselView, OnboardingTimezoneView)
+  - 8 view files refreshed (UserDashboardView, UserProfileView, DiaryView, CalendarView, PracticeDetailView, CheckinView, FeedbackView, WelcomeView)
+- **~25 new shared components** (StatCard, ProfileMenuItem, Callout, MasterCardSummary, WeekStrip, CalendarFilterOverlay, SpineDivider, DiaryEntryBubble, DiaryEntryFlat, DiaryComposer, DiaryComposerExpanded, DiaryFilterOverlay, DiarySearchOverlay, EntryActionMenu, UndoSnackbar, RelationshipChain, AICommentaryCard, ConversationListItem, ChatBubble, ThreadComposer, ReservationCard, ...)
+- **25 new icon components** (11 MEGA-1 + 14 MEGA-2)
+- **3 new stores** (notifications, messages, bookings extension via getters) + **2 store extensions** (ui theme, diary search/filter/history)
+- **1 utility data file** (`frontend/src/utils/mockMessagesData.ts`)
+- **0 new dependencies** (Path Y discipline #047)
+- **0 new test files** (BACKLOG #44 deferred per #042 inverted in #049)
+
+### Cross-sprint hygiene
+
+- `ARCHITECTURE.md` §Components — Phase 07-13 additions appended (5 new phase blocks + 1 cross-cutting block); header date stamp refreshed.
+- `FILE-TREE.md` — partial regen of `frontend/src/views/`, `components/icons/`, `components/shared/`, `stores/`, `utils/` subtrees per Clean-Sync §1 conditional gate (drift > 10 entries triggers Path B regen); header date stamp refreshed.
+- `ENVIRONMENT.md` — `velo CLI commands` subsection added under §Test Infrastructure (8-row reference + cross-references to decisions #031 #046 + BACKLOG #96); header date stamp refreshed.
+- `decisions.md` — #048 + #049 appended (count goes 47 → 49 ACTIVE); #047 scope note refreshed.
+- `BACKLOG.md` — #100 appended; #96 promoted to P2 + hypothesis CONFIRMED; #98 marked RESOLVED in MEGA-2 commit.
+- `S2-SPRINT.md` — all cycle status flips to DONE; Status header → CLOSED; Plan vs Reality + What Worked / What Didn't / Carry Forward sections filled; Sprint Metrics S2-close row added.
+- `S3-SPRINT.md` — same pattern: all cycle status flips, Status header CLOSED, Plan vs Reality + close-state sections filled.
+- `1f37a61` intermediate gitignore housekeeping commit (between MEGA-1 and MEGA-2; intentional, preserved in history; documented in S2-RETRO).
+
+### Audit / RETRO status
+
+- **ProbeKit lite profile** run **DEFERRED** per decision #049 + BACKLOG #100.
+- `S2-CODE-AUDIT.md` **NOT authored** (deferred to BACKLOG #100 reactivation cycle).
+- `S3-CODE-AUDIT.md` **NOT authored** (deferred to BACKLOG #100 reactivation cycle).
+- `S2-SNAPSHOT.md` **authored** at `docs/01_refer/ARCHIVES/SNAPSHOT/S2-SNAPSHOT.md`.
+- `S2-RETRO.md` **authored** at `docs/01_refer/ARCHIVES/RETRO/S2-RETRO.md`.
+- `S3-SNAPSHOT.md` **authored** at `docs/01_refer/ARCHIVES/SNAPSHOT/S3-SNAPSHOT.md`.
+- `S3-RETRO.md` **authored** at `docs/01_refer/ARCHIVES/RETRO/S3-RETRO.md`.
+
+### Sprint Metrics (cumulative)
+
+| Sprint | Tests | CRITICAL | HIGH | MEDIUM | LOW | LOC (src/) |
+|--------|-------|----------|------|--------|-----|------------|
+| S1 | 32 | 1 | 3 | 16 | 14 | 16,061 |
+| S2 | 32 | — | — | — | — | 20,157 |
+| S3 | 32 | — | — | — | — | 25,582 |
+
+S2 + S3 audit severity rows blank — deferred per BACKLOG #100. Authoritative source: `S2-SNAPSHOT.md` + `S3-SNAPSHOT.md`.
+
+### Production readiness assessment
+
+**Demo-grade.** Audit + polish required before production promotion. Gates:
+1. BACKLOG #100 — Audit cycle reactivation (CRITICAL).
+2. BACKLOG #97 — Backend `POST /bookings/{id}/leave` (P2; backend coord).
+3. BACKLOG #99 — Backend public master endpoint (P2; backend coord; lifts C51 from degraded v1 to full skin 25 fidelity).
+4. BACKLOG #96 — `velo update` script transient (P2; server-side fix candidate).
+5. 23 mock-pending items in BACKEND-COORDINATION.md § A/B/C (search, support, messaging, AI commentary, language enum, master public stats, leave endpoint).
+
+---
