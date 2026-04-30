@@ -28,14 +28,14 @@ export interface AdminMasterActionResponse {
   status: string
 }
 
-/** Single item in admin masters list -- user data + master status. */
+/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
 export interface AdminMasterListItem {
   id: string
   telegram_id?: number | null
   first_name?: string | null
   last_name?: string | null
   avatar_url?: string | null
-  role: string
+  role: UserRole
   is_active: boolean
   master_status: string
 }
@@ -186,7 +186,7 @@ export interface CreateCompanyPromoRequest {
   code: string
   discount_percent: number
   max_uses?: number | null
-  valid_from: string
+  valid_from?: string | null
   valid_until?: string | null
   first_purchase_only?: boolean
 }
@@ -205,7 +205,7 @@ export interface CreateMasterPromoRequest {
   discount_percent: number
   practice_id?: string | null
   max_uses?: number | null
-  valid_from: string
+  valid_from?: string | null
   valid_until?: string | null
   first_purchase_only?: boolean
 }
@@ -310,7 +310,7 @@ export interface MasterApplyResponse {
   created_at: string
 }
 
-/** Public master profile representation. F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. */
+/** Public master profile representation. F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. CR-01: min_withdrawal_cents and withdrawal_fee_cents added from settings so frontend does not hardcode financial constants. */
 export interface MasterProfileResponse {
   user_id: string
   status: string
@@ -320,6 +320,8 @@ export interface MasterProfileResponse {
   experience_years?: number | null
   frozen_cents: number
   available_cents: number
+  min_withdrawal_cents: number
+  withdrawal_fee_cents: number
   payout?: PayoutDetailsResponse | null
   created_at: string
   updated_at?: string | null
@@ -491,13 +493,14 @@ export interface PracticeResponse {
   updated_at: string | null
 }
 
-/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. */
+/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. */
 export interface PracticeSummary {
   id: string
   title: string
   practice_type: string
   scheduled_at: string
   duration_minutes: number
+  timezone: string
   master_id: string
   master_name?: string | null
 }
