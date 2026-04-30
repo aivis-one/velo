@@ -95,12 +95,12 @@
 
 | Cycle | Type | Risk | Name | Status |
 |-------|------|------|------|--------|
-| C16 | design-port | MEDIUM | WelcomeView refresh: TMA-splash branch + PWA-standalone branch with auth choice CTAs | TODO |
-| C17 | design-port | LOW | LoginView (PWA only): email + password form + Google/Apple OAuth buttons; mock submit (no backend yet) | TODO |
-| C18 | design-port | LOW | RegisterView (PWA only): name + email + password + ToS + OAuth; mock submit | TODO |
-| C19 | design-port | LOW | OAuthLoadingView: post-OAuth callback state (mock) | TODO |
-| C20 | design-port | MEDIUM | OnboardingCarouselView: 1 view с 3 intro slides + carousel-state (index 0..2) + skip button | TODO |
-| C21 | design-port | MEDIUM | OnboardingTimezoneView: city input + autocomplete + IANA resolution + PATCH /users/me; complete onboarding flag в localStorage | TODO |
+| C16 | design-port | HIGH (was MEDIUM — affects-global-state) | WelcomeView refresh: TMA-splash branch + PWA-standalone branch with auth choice CTAs | DONE (2026-04-30) |
+| C17 | design-port | LOW | LoginView (PWA only): email + password form + Google/Apple OAuth buttons; mock submit (no backend yet) | DONE (2026-04-30) |
+| C18 | design-port | LOW | RegisterView (PWA only): name + email + password + ToS + OAuth; mock submit | DONE (2026-04-30) |
+| C19 | design-port | LOW | OAuthLoadingView: post-OAuth callback state (mock) | DONE (2026-04-30) |
+| C20 | design-port | MEDIUM | OnboardingCarouselView: 1 view с 3 intro slides + carousel-state (index 0..2) + skip button | DONE (2026-04-30) |
+| C21 | design-port | MEDIUM | OnboardingTimezoneView: city input + autocomplete + IANA resolution + PATCH /users/me; complete onboarding flag в localStorage | DONE (2026-04-30) |
 
 ### Phase 07: Dashboard + Calendar + Theme infrastructure (4 cycles)
 
@@ -240,10 +240,10 @@ These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g.
 
 | Item | Value |
 |------|-------|
-| Phase | 05: DONE (2026-04-30) |
-| Cycle | C15: DONE (2026-04-30) |
-| Status | Phase 05 closed; ready for S2-P06-OPEN (auth + onboarding views, C16-C21) |
-| Tests | 32/32 pass (final gate before §C5 commits) |
+| Phase | 06: DONE (2026-04-30) — auth + onboarding |
+| Cycle | C21: DONE (2026-04-30) |
+| Status | Phase 06 closed; ready for S2-P07-OPEN OR speedrun closure of S2 P07/P08/P09 + entire S3 (per Human directive 2026-04-30: sponsor-demo target, ~3h, 2-prompt closure in next chat) |
+| Tests | 32/32 pass | Lint 748 (no new from Phase 06) | PWA precache 114 |
 
 ---
 
@@ -254,35 +254,34 @@ These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g.
 | (S1-Sprint-Builder originally planned this sprint as bundle-port) | 02_Sprint-Builder | 2026-04-24 | DONE then SUPERSEDED |
 | (S2-Sprint-Builder re-plan after design batch) | 02_Sprint-Builder | 2026-04-30 | DONE (planning only) |
 | C15 / Phase 05 | 03_Phase-Builder OPEN + WORK + CLOSE | 2026-04-30 | DONE — regen + consumer migration. Self-host regen pipeline first applied (decision #046). 5 files modified; 32/32 tests; lint baseline 756 → 752 (−4); generated.ts 762→765 LOC. BACKLOG #26 #27 #32 #37 closed. BACKEND-COORDINATION § E corrected (3 entries) + extended (E.1-E.3 partner-shipped surprises). decision #046 added. Visual verify outcome: GREEN — both pilot screens (WelcomeView, UserDashboardView), both themes (light + dark), no defects. |
+| C16 / Phase 06 | 03_Phase-Builder OPEN + WORK + CLOSE | 2026-04-30 | DONE — WelcomeView two-branch refactor + App.vue gate restructure + #47/#49/#50 fold (HIGH, affects-global-state). Path Y first application. Visual verify A clean. Commit cc4e2fd. |
+| C17/C18/C19 batch | 03_Phase-Builder WORK | 2026-04-30 | DONE — LoginView + RegisterView + OAuthLoadingView (PWA mock, batch per Rule 16). 3 cycles in 1 commit. Visual verify A clean. Commit b060ba3. |
+| C20/C21 batch | 03_Phase-Builder WORK | 2026-04-30 | DONE — OnboardingCarouselView + OnboardingTimezoneView (PWA mock, batch per Rule 16). 2 cycles in 1 commit. cities.json 118 entries. Visual verify A clean. Commit de496f6. |
+| Phase 06 CLOSE | 03_Phase-Builder CLOSE | 2026-04-30 | DONE — single docs commit: ARCHITECTURE Phase 06 additions + S2-SPRINT Phase 06 close + decisions #047 Path Y + 4 BACKLOG entries (#93-#96). |
 
 ---
 
 ## Last Session
 
-S2 re-planned 2026-04-30 in single multi-turn chat session. Triggers:
-1. New design batch from designer (55 mockups, ~34 unique views) — supersedes bundle visual layer
-2. Backend partner unblocked everything: server access + `velo update` self-deploy + fresh openapi with timezone + financial constants fixes
-3. User signal: quality > density после S1 опыта
-
-Decisions recorded inline above (#027-#042). 2 new coordination docs created (BACKEND-COORDINATION + DESIGN-DECISIONS-LOG).
+Phase 06 closed 2026-04-30. 6 cycles done in 3 batched cycle commits (cc4e2fd C16 + b060ba3 C17/C18/C19 + de496f6 C20/C21) + 1 docs close commit. Total wall-clock ~4h intensive. Path Y precedent (decision #047) established at C16, applied across all 6 cycles. Per-cycle staging deploy + Visual verify rhythm honored — all 3 deploys A clean. Phase 06 added 5 new auth views + 1 cities.json + 5 new routes + global App.vue gate restructure + 3 BACKLOG #47/#49/#50 folded. Visual NIT/GAPs (3 known) logged to BACKLOG for polish cluster. Sponsor demo prep continues in next chat via HANDOFF-S2-S3-SPEEDRUN.md (closes S2 P07-P09 + entire S3 in 2-prompt speedrun).
 
 ---
 
 ## Next Action
 
-Run **03_Phase-Builder OPEN** for **Phase 05** (single cycle C15: regen + consumer migration + S1 C13 visual verify).
+**Open new chat. Paste HANDOFF-S2-S3-SPEEDRUN.md as first message.** Speedrun closes S2 P07/08/09 + entire S3 with: 1 Combined Scout + 1 mega-execute + 1 Visual verify + 1 closure commit. Inherits Phase 06 Path Y discipline + adds no-emoji rule. Target: sponsor demo readiness within ~2.5h.
+
+Alternative (if speedrun rejected): standard S2-P07-OPEN session (Dashboard refresh + Calendar + Theme toggle infra, 4 cycles).
 
 ---
 
 ## For Human
 
-**Session Code:** S2-P05-OPEN
-**Load:**
-1. Framework: 01_Declaration.md + 03_Phase-Builder.md
-2. Project: ENVIRONMENT.md + ARCHITECTURE.md + decisions.md + BACKLOG.md + FILE-TREE.md
-3. Sprint: S2-SPRINT.md + S1-SNAPSHOT.md
-4. Coord docs: BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
-**Run:** 03_Phase-Builder OPEN — Phase 05 single-cycle pre-flight
+**Session Code:** S2-S3-SPEEDRUN
+**Load:** see HANDOFF-S2-S3-SPEEDRUN.md (artifact created at Phase 06 close 2026-04-30; lists all framework + project + sprint files needed)
+**Run:** Combined Scout (Step 1) — covers all S2 remaining + entire S3 cycle inventory.
+
+If you choose standard non-speedrun path: Session Code S2-P07-OPEN; load 01_Declaration.md + 03_Phase-Builder.md + ENVIRONMENT.md + ARCHITECTURE.md + decisions.md + BACKLOG.md + S2-SPRINT.md; run 03_Phase-Builder OPEN for Phase 07 (4 cycles C22-C25).
 
 ---
 
@@ -292,6 +291,7 @@ Run **03_Phase-Builder OPEN** for **Phase 05** (single cycle C15: regen + consum
 |--------------|-------|----------|------|--------|-----|------------------------|
 | S1 close (baseline, S1-SNAPSHOT) | 32 | 0 | 0 | 0 | 0 | (see S1-SNAPSHOT) |
 | S2 in-progress (after P05 C15) | 32 | 0 | 0 | 0 | 0 | 16045 |
+| S2 P06 close | 32 | 0 | 0 | 0 | 0 (3 NIT/GAP logged to BACKLOG) | 17326 |
 
 **Trend note (P05 close):** −24 net frontend/src code LOC vs pre-cycle baseline (regen +3 generated; consumer cleanup −27 across 4 manual files: constants.ts −11, MasterFinanceView.vue −3, UserDashboardView.vue −5, payments.ts −11). S2 progress is reducing tech-debt LOC alongside other work. CRITICAL/HIGH/MEDIUM/LOW remain 0 because no audit has run in S2 yet — first audit at S2 close per ProbeKit lite profile.
 
@@ -299,9 +299,9 @@ Run **03_Phase-Builder OPEN** for **Phase 05** (single cycle C15: regen + consum
 
 | Aspect | Planned | Actual | Delta |
 |--------|---------|--------|-------|
-| Phases | 5 | 1 done (P05) | 4 remaining |
-| Cycles | 21 (C15-C35) | 1 done (C15) | 20 remaining |
-| Duration | 4-5 weeks (per-cycle test rhythm) | P05 closed day 1 (2026-04-30) | — |
+| Phases | 5 | 2 done (P05+P06) | 3 remaining (P07/P08/P09) |
+| Cycles | 21 (C15-C35) | 7 done (C15-C21) | 14 remaining (C22-C35) |
+| Duration | 4-5 weeks (per-cycle test rhythm) | P05 + P06 closed day 1 (2026-04-30) | — |
 
 ### What Worked
 (filled at close)

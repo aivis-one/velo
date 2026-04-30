@@ -826,3 +826,66 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 **Status**: OPEN (convention is informal; promote to `decisions.md` when convention is tested at next batch arrival).
 
 **Related**: decision #029 (the trigger), Rule 29 (persist-or-lose; this entry is its first application — Rule 29 covers chat-internal lessons, this BACKLOG entry covers cross-session-reference artefacts).
+
+---
+
+### #93 — `--text-display-lg` token absent (WelcomeView wordmark hardcoded)
+
+**Source**: S2-P06-C16 Validate stage (2026-04-30).
+
+**Context**: `frontend/src/views/auth/WelcomeView.vue` styles VELΘ wordmark with `font-size: 56px` hardcoded. Token `--text-display-lg` absent both in `frontend/src/styles/variables.css` AND in new design batch's `docs/04_assets/velo-design-system-2026-04-30/project/colors_and_type.css`. Path Y polish-deferred at C16 close: TODO comment added in scoped style block, BACKLOG entry per Rule 29.
+
+**Action**: at next DS update (designer-driven), propose adding `--text-display-lg: 56px` (or similar) to `colors_and_type.css`; then swap WelcomeView hardcoded to token reference. Affects future wordmark uses (LoginView/RegisterView/Onboarding screens currently use `--text-2xl` for compact title — different scale).
+
+**Severity**: LOW (visual polish; no functional impact).
+**Sprint**: S5+ polish cluster.
+**Status**: OPEN.
+
+---
+
+### #94 — Onboarding illustrations don't match skins 05/06/07 designer assets
+
+**Source**: S2-P06-C20 Pre-Exec G5 + Visual verify NIT findings (2026-04-30).
+
+**Context**: `frontend/src/views/auth/OnboardingCarouselView.vue` uses 3 SVGs from `frontend/src/assets/illustrations/` (`live-practices.svg`, `ai-analytics.svg`, `self-map.svg`) as carousel slide illustrations. Designer's skins 05/06/07 in `docs/04_assets/velo-design-system-2026-04-30/project/uploads/` show DIFFERENT illustrations (people-cluster, feather-rising-from-book, figure-with-spiral-aura) — not present as separate SVG/PNG assets in the new batch (designer may have inlined them into the PNG mockups).
+
+Path Y polish-deferred: existing 3 abstract SVGs used as placeholders during C20 to ship working carousel logic. Visual mismatch acknowledged.
+
+**Action**: request designer to extract per-slide illustrations from skin PNGs as separate SVG/PNG assets in next batch. Then swap C20 imports.
+
+**Severity**: NIT (visual polish; carousel functionally works with placeholders).
+**Sprint**: S5+ polish cluster, contingent on designer asset delivery.
+**Status**: OPEN.
+
+---
+
+### #95 — `cities.json` expansion from 118 to ~300 entries
+
+**Source**: S2-P06-C21 implementation (2026-04-30).
+
+**Context**: `frontend/src/data/cities.json` ships with 118 hand-curated entries covering Russian-speaking world + major Western/Asian cities. `DESIGN-DECISIONS-LOG.md` § A.3 originally targeted ~300 entries. 118 covers happy-path for ~80% of users; tail of ~180 cities (smaller European, Latin American, African, Asian-tier-2) absent. Native `Intl.DateTimeFormat().resolvedOptions().timeZone` browser fallback handles unmatched cities — graceful, but city name not stored explicitly in user record.
+
+**Action**: at next polish cycle, expand JSON to ~300 entries; consider auto-generating from `Intl.supportedValuesOf('timeZone')` + IANA TZ DB if available.
+
+**Severity**: LOW (current 118-entry coverage handles ~80% of users; browser fallback for the rest).
+**Sprint**: S5+ polish cluster.
+**Status**: OPEN.
+
+---
+
+### #96 — `velo update` script transient "Uncommitted changes" first-attempt issue
+
+**Source**: S2-P06 deploy ops (recurred at C17/C18/C19 deploy + C20/C21 deploy, 2026-04-30).
+
+**Context**: `velo update` SSH script on staging server (37.1.204.171) reported "Uncommitted changes detected" on first attempt of two consecutive Phase 06 batch deploys (b060ba3 push + de496f6 push). Both times the dirty-file list was empty in captured output. Retry succeeded both times — server tree was clean by retry diagnostic. Likely script timing artifact: `git status` runs before fetch/cleanup completes, OR a parallel watcher writes-then-cleans a build artifact.
+
+**Action**: investigate `velo update` script implementation on staging server; determine root cause. Either:
+1. Add brief `sleep` before `git status` check
+2. Use `git status --porcelain --untracked-files=no` to ignore transient untracked files
+3. Document the retry pattern in `SERVER-ACCESS.md` as known transient
+
+Two consecutive recurrences suggest systematic, not random. C16 deploy (cc4e2fd) did NOT exhibit this — possibly tied to commit size (b060ba3 = +805 LOC, de496f6 = +661 LOC, cc4e2fd = +131 LOC) — large commits trigger longer build → more chance of timing race.
+
+**Severity**: LOW (retry succeeds; not blocking).
+**Sprint**: post-demo investigation cycle (S5+).
+**Status**: OPEN.
