@@ -85,7 +85,11 @@ export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
 export function roleGuard(
   required: Extract<UserRole, 'master' | 'admin'>,
 ): NavigationGuardWithThis<undefined> {
-  return () => {
+  return async () => {
+    // BACKLOG #47 (S2 P06 C16): await waitUntilReady() before reading auth.role.
+    // Defense-in-depth against future App.vue gate regressions; current happy
+    // path is unchanged because App.vue still gates on isReady.
+    await waitUntilReady()
     const auth = useAuthStore()
     const role = auth.role
 

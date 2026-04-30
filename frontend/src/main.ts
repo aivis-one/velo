@@ -16,6 +16,16 @@ import router from './router'
 import './styles/variables.css'
 import './styles/global.css'
 
+// BACKLOG #49 (S2 P06 C16): fail-fast in PROD if VITE_TELEGRAM_BOT_URL is unset.
+// Prevents silent fallback to test bot. Non-PROD tolerates undefined and surfaces
+// the issue visually (anchor href becomes string "undefined").
+if (import.meta.env.PROD && !import.meta.env.VITE_TELEGRAM_BOT_URL) {
+  throw new Error(
+    '[velo] VITE_TELEGRAM_BOT_URL must be set in production builds. ' +
+      'Refusing to boot to prevent silent fallback to test bot.',
+  )
+}
+
 const app = createApp(App)
 
 // Pinia = state manager (like a global dict of reactive objects).
