@@ -11,3 +11,6 @@ desc/
 # Velo — server access details kept out of git
 docs/01_refer/SERVER-ACCESS.md
 docs/01_refer/SERVER-ACCESS.*.md
+
+# Claude scratch (paramiko deploy scripts + reports)
+.claude_tmp/
