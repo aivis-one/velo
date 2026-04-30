@@ -298,6 +298,16 @@ const router = createRouter({
       name: 'oauth-callback',
       component: () => import('@/views/auth/OAuthLoadingView.vue'),
     },
+    {
+      path: '/onboarding/intro',
+      name: 'onboarding-intro',
+      component: () => import('@/views/auth/OnboardingCarouselView.vue'),
+    },
+    {
+      path: '/onboarding/timezone',
+      name: 'onboarding-timezone',
+      component: () => import('@/views/auth/OnboardingTimezoneView.vue'),
+    },
 
     // =========================================================================
     // Auth error -- shown when waitUntilReady() times out with null role.
