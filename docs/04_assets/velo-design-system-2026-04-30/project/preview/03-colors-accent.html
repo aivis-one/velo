@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Color — Accent & Surface</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:20px;background:var(--bg);font-family:var(--font-display)}
+  .row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .swatch{aspect-ratio:1.4;border-radius:12px;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;font-size:12px;line-height:1.3;box-shadow:inset 0 0 0 1px rgba(76,101,137,.10)}
+  .name{font-size:13px;margin-bottom:2px}
+  .hex{opacity:.85;letter-spacing:.04em}
+  .light{color:var(--velo-ink)}
+  .dark{color:#1a6770}  /* darker than mint-deep for contrast on mint bg */
+  .ghost{background:repeating-conic-gradient(#fff 0 25%,#eef2f7 0 50%) 50% / 16px 16px}
+</style></head><body>
+  <div class="row">
+    <div class="swatch dark" style="background:var(--velo-mint)"><div class="name">Mint</div><div class="hex">#76DDE6</div></div>
+    <div class="swatch dark" style="background:var(--velo-mint-soft)"><div class="name">Mint 30%</div><div class="hex">paid chip fill</div></div>
+    <div class="swatch" style="background:var(--velo-mint-deep);color:#fff"><div class="name">Mint Deep</div><div class="hex">#2F9EA8</div></div>
+    <div class="swatch light" style="background:var(--surface)"><div class="name">Surface</div><div class="hex">#FFFFFF</div></div>
+  </div>
+</body></html>

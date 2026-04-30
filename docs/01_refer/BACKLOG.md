@@ -794,3 +794,35 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 **Priority**: P4.
 **Source**: ProbeKit enhancement triage 2026-04-29.
 **Notes**: Validate `frontend/public/manifest.webmanifest` and `vite.config.ts` PWA plugin config — required icons present (192/512/maskable), `display: standalone`, `theme_color` matches `--bg-base` token, `start_url` correct, screenshots block present for richer install UI. Would surface PWA install-prompt issues before they hit staging. Low priority — manifest is currently stable.
+
+---
+
+### #92 — Designer batch commit-discipline: artefacts referenced in framework docs must be committed to repo at reference time
+
+**Source**: S2-P06-OPEN §2 Combined Scout §S1 prerequisite gap (2026-04-30).
+
+**Context**: The 2026-04-30 designer batch (decision #029, ~55 mockups, ~34 unique views per the decision narrative; actual fetch was 50 files including 8 phase-06 skin PNGs + DS reference layer) was referenced as a known artefact in:
+- `docs/01_refer/decisions.md` row #029 (narrative)
+- `docs/01_refer/ARCHITECTURE.md` §Components — Phase 03 additions / §S2 re-plan additions (narrative)
+- `docs/03_sprint/S2-bundle-port/S2-SPRINT.md` (narrative)
+- `docs/03_sprint/S2-bundle-port/DESIGN-DECISIONS-LOG.md` Context (narrative; cites `velo_screens_inventory.md` as "offline analysis artifact")
+
+…but was NOT committed to the repository at any point during the 2026-04-30 re-plan session. The first Phase 06 scout (S2-P06-OPEN §2) pre-flight §S1 search returned `NOT FOUND ANYWHERE`, blocking Phase 06 design-port cycles C16–C21 entirely (each cycle requires a per-skin visual source for Claude Design pipeline + post-deploy visual verify gate). Resolved by the S2-P06-PREREQ-FETCH-DESIGN-BATCH execute prompt which fetched the batch from a Claude Design handoff URL and committed it to `docs/04_assets/velo-design-system-2026-04-30/`.
+
+**Lesson / discipline rule** (proposed convention, not yet a decision): **whenever a framework or sprint doc references an external artefact (designer batch, partner schema, bundle update, ProbeKit version, etc.) by name, the same commit (or an immediately-following commit in the same chat session) MUST place the artefact in the repo at a stable path AND cite that path in the referencing doc.** Narrative-only references without a repo path create downstream gaps that surface only when consuming work begins (often weeks later, in fresh chats with no original-author context).
+
+**Application checklist**:
+1. Sprint-Builder / Phase-Builder OPEN: when a phase plan cites an external artefact, OPEN's first action is repo-commit of the artefact, NOT subsequent Combined Scout.
+2. `decisions.md`: every row that references an artefact (by name, version, or external URL) must include a `Where it lives` cell pointing to a committed repo path. If `Where it lives` is "external (not in repo)" — that itself is a flag requiring justification.
+3. Coord docs (BACKEND-COORDINATION, DESIGN-DECISIONS-LOG): rows referencing batches / schemas / mockups must cite repo paths or explicit "external — track in BACKLOG #NN" markers.
+
+**Severity**: process-improvement (not blocking once batch committed).
+
+**Sprint**: convention applies forward from S2-P06 onward. Apply at:
+- S4 master design batch arrival (next likely repeat)
+- Future bundle / DS updates
+- Any partner deliverable referenced before commit (OpenAPI snapshots, etc.)
+
+**Status**: OPEN (convention is informal; promote to `decisions.md` when convention is tested at next batch arrival).
+
+**Related**: decision #029 (the trigger), Rule 29 (persist-or-lose; this entry is its first application — Rule 29 covers chat-internal lessons, this BACKLOG entry covers cross-session-reference artefacts).

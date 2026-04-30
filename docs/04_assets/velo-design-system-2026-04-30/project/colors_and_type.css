@@ -1,0 +1,184 @@
+/* ============================================================
+   VELO Design System — Foundations
+   Colors & Type tokens. Import this into any HTML in the system.
+   ============================================================ */
+
+@font-face {
+  font-family: "Marmelad";
+  src: url("./fonts/Marmelad-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ---------- BRAND PALETTE ---------- */
+  /* The single, dominant brand color — used for headings, body text,
+     icons, primary buttons. Cool, calm, dusk-blue. */
+  --velo-ink:        rgb(76, 101, 137);   /* #4C6589 — primary brand */
+  --velo-ink-soft:   rgb(98, 122, 156);   /* #627A9C — primary buttons / softer accent */
+  --velo-ink-mute:   rgb(130, 147, 172);  /* #8293AC — secondary text, hints, captions */
+  --velo-ink-faint:  rgba(76, 101, 137, 0.7);  /* timestamps, meta */
+  --velo-ink-ghost:  rgba(76, 101, 137, 0.15); /* glassy chip fills */
+
+  /* Backgrounds — soft, sky-toned, never pure white */
+  --velo-bg:         rgb(232, 240, 255);  /* #E8F0FF — app canvas, sky */
+  --velo-bg-tint:    rgb(226, 240, 253);  /* #E2F0FD — secondary surface */
+  --velo-surface:    rgb(255, 255, 255);  /* cards, sheets */
+  --velo-surface-glass: rgba(255, 255, 255, 0.6);
+
+  /* Single accent — used SPARINGLY for "paid" / success / verified states */
+  --velo-mint:       rgb(118, 221, 230);  /* #76DDE6 — chip fills */
+  --velo-mint-deep:  rgb(47, 158, 168);   /* #2F9EA8 — chip text */
+  --velo-mint-soft:  rgba(118, 221, 230, 0.30);
+
+  /* Lines & dividers */
+  --velo-line:       rgba(76, 101, 137, 0.18);
+  --velo-line-soft:  rgba(76, 101, 137, 0.08);
+
+  /* ---------- SEMANTIC ALIASES ---------- */
+  --fg-1:  var(--velo-ink);        /* default text, headings */
+  --fg-2:  var(--velo-ink-mute);   /* secondary text */
+  --fg-3:  var(--velo-ink-faint);  /* tertiary, timestamps */
+  --bg:    var(--velo-bg);
+  --surface: var(--velo-surface);
+
+  /* ---------- TYPE ---------- */
+  --font-display: "Marmelad", "Quicksand", -apple-system, system-ui, sans-serif;
+  --font-body:    "Marmelad", "Quicksand", -apple-system, system-ui, sans-serif;
+
+  /* Type scale — observed in Figma */
+  --t-display: 48px;   /* welcome screens — VELΘ wordmark, hero */
+  --t-h1:      32px;   /* big numbers, primary screen titles */
+  --t-h2:      28px;   /* section headers — "AUTH", "Onboarding" */
+  --t-h3:      18px;   /* card titles, button labels */
+  --t-body:    16px;   /* body copy on a soft screen */
+  --t-meta:    14px;   /* captions, chips, hints, timestamps */
+
+  /* All Marmelad text uses 100% line-height + ~2% letter-spacing in the file */
+  --lh-tight: 100%;
+  --ls-display: 0;
+  --ls-meta: 0.02em;
+
+  /* ---------- RADIUS ---------- */
+  --r-card:   15px;   /* every card, every cell */
+  --r-pill:   200px;  /* buttons, inputs, avatar */
+  --r-chip:   5px;    /* status chip on booking cards */
+  --r-glass:  252px;  /* tab-bar glass circles */
+
+  /* ---------- SHADOW (used SPARINGLY) ---------- */
+  --shadow-card:  0 4px 18px rgba(76, 101, 137, 0.08);
+  --shadow-glass: 0 0 26px 8px rgba(255, 255, 255, 0.85); /* active glass tab "halo" */
+
+  /* Soft outer white glow that wraps primary CTAs and bottom-of-screen capsules.
+     Two-stop: a tight inner halo + a wider diffuse glow. */
+  --shadow-button-halo:
+    0 0 0 6px rgba(255, 255, 255, 0.45),
+    0 18px 40px rgba(255, 255, 255, 0.85),
+    0 4px 14px rgba(76, 101, 137, 0.10);
+
+  /* ---------- BUTTON SIZING ---------- */
+  --btn-height:        64px;
+  --btn-font-size:     20px;
+  --btn-ghost-bg:      rgba(255, 255, 255, 0.55);
+  --btn-ghost-border:  rgba(76, 101, 137, 0.22);
+
+  /* ---------- SPACING (4-pt grid) ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+
+  /* ---------- BLUR ---------- */
+  --blur-glass: blur(5px);
+}
+
+/* ============================================================
+   Element defaults
+   ============================================================ */
+html, body {
+  font-family: var(--font-body);
+  color: var(--fg-1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, .h1 { font-family: var(--font-display); font-size: var(--t-h1); line-height: var(--lh-tight); color: var(--fg-1); margin: 0; font-weight: 400; }
+h2, .h2 { font-family: var(--font-display); font-size: var(--t-h2); line-height: var(--lh-tight); color: var(--fg-1); margin: 0; font-weight: 400; }
+h3, .h3 { font-family: var(--font-display); font-size: var(--t-h3); line-height: var(--lh-tight); color: var(--fg-1); margin: 0; font-weight: 400; }
+p, .body { font-size: var(--t-body); line-height: 130%; color: var(--fg-1); margin: 0; }
+.meta, small { font-size: var(--t-meta); line-height: var(--lh-tight); letter-spacing: var(--ls-meta); color: var(--fg-2); }
+.display { font-family: var(--font-display); font-size: var(--t-display); line-height: var(--lh-tight); color: var(--fg-1); }
+
+/* ============================================================
+   Reusable atoms
+   ============================================================ */
+.velo-card {
+  background: var(--surface);
+  border-radius: var(--r-card);
+  padding: var(--s-6);
+}
+
+.velo-page-bg {
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+}
+/* The signature decorative mandala on every onboarding/auth page,
+   lightly washed at 12% opacity so it reads as atmosphere. */
+.velo-page-bg::before {
+  content: "";
+  position: absolute;
+  left: -44px;
+  top: 80px;
+  width: 491px;
+  height: 491px;
+  background-image: url("./assets/brand/mandala-mask.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.velo-pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 var(--s-6);
+  border-radius: var(--r-pill);
+  font-family: var(--font-display);
+  font-size: var(--t-h3);
+  background: var(--velo-ink-soft);
+  color: #fff;
+  border: 1px solid #fff;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+.velo-pill-button:hover { opacity: 0.9; }
+.velo-pill-button:active { transform: scale(0.98); }
+.velo-pill-button.ghost {
+  background: rgba(255,255,255,0.01);
+  color: var(--velo-ink);
+  border: 1px solid var(--velo-ink);
+}
+
+.velo-input {
+  height: 50px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--velo-line);
+  padding: 0 var(--s-5);
+  font-family: var(--font-body);
+  font-size: var(--t-meta);
+  color: var(--fg-1);
+  outline: none;
+}
+.velo-input::placeholder { color: var(--fg-2); }
+.velo-input:focus { border-color: var(--velo-ink); }

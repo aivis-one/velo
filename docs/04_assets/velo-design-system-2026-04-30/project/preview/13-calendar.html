@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Calendar Cells</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:var(--bg);display:flex;gap:8px;justify-content:center;font-family:var(--font-display);color:var(--velo-ink)}
+  .cell{width:44px;height:71px;background:#fff;border-radius:15px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:7px 0 9px;box-sizing:border-box}
+  .cell .dow{font-size:14px;opacity:.7;letter-spacing:.02em}
+  .cell .num{font-size:18px;letter-spacing:.02em}
+  .cell .dot{width:6px;height:6px;border-radius:50%;background:var(--velo-ink)}
+  .cell.empty .dot{visibility:hidden}
+  .cell.active{background:var(--velo-ink);color:#fff}
+  .cell.active .dot{background:#fff}
+</style></head><body>
+  <div class="cell empty"><div class="dow">ПН</div><div class="num">20</div><div class="dot"></div></div>
+  <div class="cell"><div class="dow">ВТ</div><div class="num">21</div><div class="dot"></div></div>
+  <div class="cell active"><div class="dow">СР</div><div class="num">22</div><div class="dot"></div></div>
+  <div class="cell"><div class="dow">ЧТ</div><div class="num">23</div><div class="dot"></div></div>
+  <div class="cell empty"><div class="dow">ПТ</div><div class="num">24</div><div class="dot"></div></div>
+  <div class="cell empty"><div class="dow">СБ</div><div class="num">25</div><div class="dot"></div></div>
+  <div class="cell"><div class="dow">ВС</div><div class="num">26</div><div class="dot"></div></div>
+</body></html>

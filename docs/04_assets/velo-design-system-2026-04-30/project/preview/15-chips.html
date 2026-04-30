@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Status Chips</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:30px;background:var(--bg);font-family:var(--font-display);color:var(--velo-ink);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:23px;padding:0 10px;border-radius:5px;font-size:14px;letter-spacing:.02em}
+  .paid{background:var(--velo-mint-soft);color:var(--velo-mint-deep)}
+  .tag{background:transparent;border:1px solid var(--velo-line);color:var(--velo-ink)}
+  .filter{background:#fff;border:1px solid var(--velo-line);color:var(--velo-ink);height:36px;border-radius:200px;padding:0 16px}
+  .filter.on{background:var(--velo-ink);color:#fff;border-color:var(--velo-ink)}
+</style></head><body>
+  <span class="chip paid">
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4 10-10"/></svg>
+    Оплачено
+  </span>
+  <span class="chip tag">Mindfulness</span>
+  <span class="chip tag">MBSR</span>
+  <span class="chip tag">Дыхание</span>
+  <span class="chip filter on">Все</span>
+  <span class="chip filter">Утро</span>
+  <span class="chip filter">Дыхание</span>
+  <span class="chip filter">Сон</span>
+</body></html>

@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:24px;background:var(--bg);display:flex;flex-direction:column;gap:16px;align-items:flex-start}
+  .row{display:flex;gap:14px;align-items:center}
+  .lbl{font-family:var(--font-display);font-size:12px;color:var(--velo-ink-mute);width:90px;letter-spacing:.04em}
+  /* mockup-spec halo glow under primary actions */
+  .glow{box-shadow:0 0 0 6px rgba(255,255,255,.45), 0 18px 40px rgba(255,255,255,.85), 0 4px 14px rgba(76,101,137,.10)}
+  /* round small icon button */
+  .icon-btn{
+    width:48px;height:48px;border-radius:50%;border:0;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:#fff;color:var(--velo-ink);
+    box-shadow:0 0 18px 2px rgba(255,255,255,.6), 0 2px 8px rgba(76,101,137,.08);
+  }
+  .icon-btn.ghost{background:rgba(255,255,255,.55);box-shadow:0 0 18px 2px rgba(255,255,255,.45)}
+</style></head><body>
+  <div class="row">
+    <div class="lbl">PRIMARY</div>
+    <button class="velo-pill-button glow" style="width:240px">Войти</button>
+  </div>
+  <div class="row">
+    <div class="lbl">GHOST</div>
+    <button class="velo-pill-button ghost glow" style="width:240px">Создать аккаунт</button>
+  </div>
+  <div class="row">
+    <div class="lbl">ICON</div>
+    <button class="icon-btn" aria-label="Назад">
+      <svg width="20" height="14" viewBox="0 0 22 14" fill="none">
+        <path d="M7.5 1L1 7l6.5 6M1 7h20" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button class="icon-btn ghost" aria-label="Google">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M21.6 12.2c0-.7-.06-1.36-.18-2H12v3.78h5.4a4.62 4.62 0 0 1-2 3.03v2.51h3.23c1.89-1.74 2.97-4.3 2.97-7.32z"/>
+        <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.44l-3.23-2.5c-.9.6-2.05.96-3.39.96-2.6 0-4.81-1.76-5.6-4.12H3.07v2.59A10 10 0 0 0 12 22z"/>
+        <path fill="#FBBC05" d="M6.4 13.9a6 6 0 0 1 0-3.8V7.51H3.07a10 10 0 0 0 0 8.98L6.4 13.9z"/>
+        <path fill="#EA4335" d="M12 5.88c1.47 0 2.79.5 3.83 1.5l2.86-2.86C16.95 2.94 14.7 2 12 2A10 10 0 0 0 3.07 7.51L6.4 10.1C7.19 7.74 9.4 5.88 12 5.88z"/>
+      </svg>
+    </button>
+    <button class="icon-btn ghost" aria-label="Apple">
+      <svg width="20" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M16.36 12.5c-.02-2.5 2.04-3.7 2.13-3.76-1.16-1.7-2.97-1.93-3.62-1.96-1.54-.16-3.01.91-3.79.91-.78 0-1.99-.89-3.27-.86-1.68.02-3.23.98-4.1 2.49-1.75 3.04-.45 7.54 1.26 10.01.83 1.21 1.82 2.57 3.12 2.52 1.25-.05 1.72-.81 3.23-.81 1.51 0 1.93.81 3.25.78 1.34-.02 2.19-1.23 3.01-2.45.95-1.4 1.34-2.76 1.36-2.83-.03-.01-2.6-1-2.62-3.99zM13.92 4.97c.69-.84 1.16-2 1.03-3.16-1 .04-2.21.66-2.92 1.5-.64.74-1.2 1.93-1.05 3.07 1.12.09 2.26-.57 2.94-1.41z"/>
+      </svg>
+    </button>
+  </div>
+</body></html>
