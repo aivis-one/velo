@@ -760,7 +760,7 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 ### #87 — ProbeKit: bundle-drift skill
 
 **Priority**: P3 (defer).
-**Source**: ProbeKit enhancement triage 2026-04-29.
+**Source**: ProbeKit enhancement triage 2026-04-29; reaffirmed by S2 P05 C15 user roadmap 2026-04-30 §🟡-4 (medium-effort follow-up for S2 close audit retrospective).
 **Notes**: Detect drift between `frontend/src/styles/variables.css` and bundle SSOT (`docs/04_assets/velo-design-system-2026-04-23/`) — extra/missing tokens, value mismatches, broken token namespacing per decision #009. **Defer until** S2/S3 close + new design batch landed (decision #029) — token ground-truth is mid-flux until the supersede settles. Re-evaluate at S3-Sprint-Closer.
 
 ---
@@ -768,16 +768,16 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 ### #88 — ProbeKit: decisions cross-reference skill
 
 **Priority**: P3 (defer).
-**Source**: ProbeKit enhancement triage 2026-04-29.
-**Notes**: Auto-cross-reference findings against `docs/01_refer/decisions.md` ACTIVE rows; annotate findings with "covered by decision #NNN; defer/skip" so human review skips known-OK patterns. **Defer until** decisions count > 60 — at 45 the manual list in `velo-presets.md` (Top decisions section) is sufficient.
+**Source**: ProbeKit enhancement triage 2026-04-29; reaffirmed by S2 P05 C15 user roadmap 2026-04-30 §🟡-5 (medium-effort follow-up for S2 close audit retrospective).
+**Notes**: Auto-cross-reference findings against `docs/01_refer/decisions.md` ACTIVE rows; annotate findings with "covered by decision #NNN; defer/skip" so human review skips known-OK patterns. Roadmap variant also calls for scanning all docs for `decisions.md #NNN` references and flagging references to SUPERSEDED/DEPRECATED entries, references to non-existent numbers, and ACTIVE decisions without back-references (Clean-Sync §3 automation). **Defer until** decisions count > 60 — at 46 (post-#046) the manual list in `velo-presets.md` (Top decisions section) is sufficient.
 
 ---
 
 ### #89 — ProbeKit: CHANGELOG entry generator
 
 **Priority**: P3 (defer).
-**Source**: ProbeKit enhancement triage 2026-04-29.
-**Notes**: Skill that scans Sprint-Closer/Clean-Sync diffs and proposes `docs/01_refer/ARCHIVES/CHANGELOG.md` entries (file moves, renames, archive relocations). **Defer until** Clean-Sync scale demands — at S1 close the manual entry took ~5 min; not worth tooling yet.
+**Source**: ProbeKit enhancement triage 2026-04-29; reaffirmed by S2 P05 C15 user roadmap 2026-04-30 §🟡-6 (medium-effort follow-up for S2 close audit retrospective).
+**Notes**: Skill that scans Sprint-Closer/Clean-Sync diffs and proposes `docs/01_refer/ARCHIVES/CHANGELOG.md` entries (file moves, renames, archive relocations). Roadmap variant extends scope to auto-generating CHANGELOG entries from RESOLVED-eligible BACKLOG items in Clean-Sync Step 3 (preserves quotations from BACKLOG body for traceability, removes manual transcription). **Defer until** Clean-Sync scale demands — at S1 close the manual entry took ~5 min; not worth tooling yet.
 
 ---
 

@@ -745,6 +745,37 @@ Exception: prompts которые делают только read-only server ope
 
 См. decisions.md #044 (paramiko как primitive) + #045 (SSH key как standard).
 
+### Rule 29: Persist-or-lose discipline — cycle/phase lessons must reach a versioned file
+
+Any operational lesson, best-practice pattern, infrastructure note, environmental quirk, or framework refinement that surfaces during a cycle or phase MUST be persisted to a versioned file before the chat that produced it closes. "Versioned file" means tracked by git — not chat memory, not `/tmp`, not assistant-internal notes.
+
+**Persistence routing** (where to write what):
+
+| Lesson type | Destination |
+|---|---|
+| Operational pattern affecting future cycle/phase prompt design | `docs/02_spec/03_Phase-Builder.md` (or relevant SPEC protocol file) |
+| System/tooling/environmental quirk affecting setup or daily ops | `docs/01_refer/ENVIRONMENT.md` |
+| Project-state shift, scope change, sprint-progress fact | `docs/03_sprint/{S}-SPRINT.md` or `S{N}-SNAPSHOT.md` |
+| Policy decision, doctrine shift, supersession of prior choice | `docs/01_refer/decisions.md` (new entry) |
+| Tech-debt item, follow-up task, observation with no immediate action | `docs/01_refer/BACKLOG.md` (new entry) |
+| Cross-team coordination fact | `docs/03_sprint/{S}-SPRINT/BACKEND-COORDINATION.md` (or relevant coord doc) |
+| Design-decision rationale | `docs/03_sprint/{S}-SPRINT/DESIGN-DECISIONS-LOG.md` |
+
+**CLOSE Step 5 enforcement**: before issuing the transition signal to next session code, Claude Chat MUST scan the current chat for un-persisted lessons. Common triggers:
+
+- Phrases like "carry-forward", "lessons learned", "best practice", "going forward", "we discovered", "Path K", "first time we did X", "for next time".
+- Operational findings from Claude Code that did not make it into a commit.
+- Environmental quirks surfaced during deploy / build / docker ops.
+- Pattern names invented mid-cycle (e.g. "three-commit pattern", "Hybrid verify policy") — these are framework refinements and must persist.
+
+If un-persisted lessons exist → CLOSE Step 5 cannot complete. Issue a small `docs:` patch commit (separate from phase commit chain — it is hygiene, not phase scope) routing each lesson to the file per the table above. Only after that commit lands does CLOSE Step 5 routing to next session proceed.
+
+**Rationale**: a chat is ephemeral. A pattern proven in one chat that does not survive into the next chat's loaded-context costs the project the same lesson learned twice (or three times, until persisted). This rule makes the cost explicit and the persistence step mandatory.
+
+**First applied**: S2 P05 C15 carry-forward persist commit — `03_Phase-Builder.md` "Carry-forward patterns" section + `ENVIRONMENT.md` Windows + WSL2 + Docker note + BACKLOG ProbeKit follow-ups. Rule 29 itself authored in the same commit retroactively as a result of catching the gap mid-CLOSE-Step-5.
+
+**Related rules**: Rule 12 (Pre-Exec validation), Rule 26 (Human operational role), Rule 27 (Claude Code as advisor), Rule 28 (Server Action Plan).
+
 ---
 
 ## Session Structure

@@ -498,6 +498,121 @@ Human may override per-cycle. Default is cleanliness.
 
 ---
 
+## Carry-forward patterns (S2 P05 C15 lessons)
+
+The following 5 patterns proved their value in S2 P05 C15 (regen pipeline self-host + consumer migration + first per-cycle staging deploy). They become standard for all subsequent phase prompt design.
+
+### 1. Pre-Exec validation pattern (Rule 12 visible block)
+
+Every execute prompt opens with a Pre-Exec validation block that runs BEFORE any modifying operation. Output format is a visible single-line summary:
+
+```
+Pre-Exec: ✓ [N checks passed]
+```
+
+or on failure:
+
+```
+Pre-Exec: ✗ [what failed] — STOPPING
+```
+
+Followed by a brief table or list naming each check.
+
+**What to validate** depends on cycle scope. Common items:
+- Working tree clean (`git status --porcelain` empty)
+- Correct branch (`new_desing`)
+- Required files exist at expected paths
+- Required tools available (`docker --version`, `python -c "import paramiko"`, etc.)
+- No leftover state from prior runs (containers, temp files)
+- No port collisions for ops about to bind
+
+**Why**: catches preconditions BEFORE they cause mid-execute failure that requires rollback. 5 seconds of validation prevents 30 minutes of "now I have to revert this commit and re-stage everything".
+
+**Concrete cycle outcome**: in C15, Pre-Exec caught the need to verify paramiko presence before `velo update` — without it, the SSH step would have crashed mid-deploy on `ImportError`.
+
+### 2. Server Action Plan structure (Rule 28)
+
+Any execute prompt with operations that modify a server (local docker daemon, staging via SSH, production) splits the action sequence into:
+
+- **Read-only operations** — execute immediately
+- **Modifying operations** — output as plan, PAUSE, wait for explicit Human "proceed", THEN execute
+
+Plan format includes for each modifying step: command, expected outcome, failure mode + diagnostic command.
+
+**Why**: server-modifying ops are expensive to undo. The pause gives Human a chance to spot a bad plan before it executes.
+
+**Critical sub-rule**: when a server-modifying op fails, Claude Code does NOT attempt destructive recovery operations (`git reset --hard`, `git checkout --`, `docker volume rm`, etc.) without a fresh "proceed" from Human. Diagnostic-only inspection is allowed; mutation is not.
+
+**Concrete cycle outcome**: in C15 when `velo update` failed on a dirty server tree, Claude Code stopped, ran read-only Step A diagnostic, surfaced the diff content, and waited for Human to authorize Step B (`git checkout -- generated.ts`). If Claude Code had run checkout autonomously and the dirty content had been partner's live edits, we would have destroyed someone's work.
+
+### 3. Hybrid visual verify policy
+
+Every cycle that closes with staging deploy and visual verification follows the Hybrid classification:
+
+- **BREAK** (layout broken, font missing, button non-functional, unreadable contrast, asset 404, wrong data): blocks cycle close. Inline-fix in same session via `fix:` commit → re-deploy → re-verify until clean.
+- **NIT/GAP** (color drift 1-2 shades, spacing 2-4px off, hover state minor, polish opportunity): does NOT block close. Logged as new BACKLOG entries (OPEN, severity NIT or GAP) and revisited in a dedicated polish cluster.
+
+The verify gate prompt to Human asks for reply A (clean) / B (BREAK with description) / C (NIT/GAP list).
+
+**Why**: without classification, two failure modes are possible:
+- Everything blocks close → cycles never finish because some NIT always exists
+- Nothing blocks close → real BREAKs accumulate in BACKLOG and reach production
+
+**Concrete cycle outcome**: C15 visual verify resulted in reply A (ALL CLEAN). If the Marmelad font had not loaded, that was BREAK (brand-locked critical) and would have blocked. If the mandala backdrop had been 5% over-saturated, that was NIT and would have logged + closed.
+
+### 4. Three-commit pattern for placeholder backfill
+
+When an execute prompt writes a placeholder value (e.g. `[VISUAL_VERIFY_OUTCOME]`) into a doc because the real value is not knowable until later in the same cycle (after deploy + verify), backfill the placeholder via a third commit, NOT via `git commit --amend --force-push`.
+
+Sequence:
+1. Commit #1: original commit with placeholder, push.
+2. (gap — Human action, deploy result, verify outcome, etc.)
+3. Commit #2: small `docs: ... backfill (...)` commit replacing placeholder, push (no force).
+
+**Why**: `git commit --amend` after push requires `--force-push`, which silently breaks the local history of anyone who pulled in the gap window. In a single-developer + single-collaborator project the risk is non-zero. The three-commit pattern adds one extra log entry but eliminates the force-push hazard.
+
+**Exception**: if the commit has NOT been pushed yet, `--amend` is purely local and safe.
+
+**Concrete cycle outcome**: C15 used the three-commit pattern (`68fa5cd` regen → `ad4ce7d` phase with placeholder → `64c94c8` backfill). The backend partner could have pulled at any point during the visual-verify window without history corruption.
+
+### 5. Pre-flight infrastructure scout with Claude Code advisor (Rule 27)
+
+When a phase touches operationally unfamiliar territory (first-time docker bring-up, first OAuth integration, first WebSocket cycle, etc.), the standard Combined Scout is supplemented by a focused **Pre-flight infrastructure scout** that explicitly requests Claude Code commentary, not just data:
+
+The §SX "Claude Code advisor" section asks for:
+- YES/NO/UNCERTAIN judgment on whether the planned op will succeed first-try
+- Realistic ETA range
+- Risks Claude Chat will not see from loaded docs alone (eager imports, env-var gaps, port collisions, base-image rot)
+- Concrete one-line recommendation for execute prompt's Server Action Plan
+
+**Why**: loaded docs describe intent. Claude Code sees actual filesystem + tool state. The gap between intent and reality is where time gets lost. Asking Claude Code for a judgment call (not just data) closes that gap.
+
+**When to use**:
+- ALWAYS when a phase requires bringing up a service stack new to the current dev environment
+- ALWAYS when a phase requires a deploy method not previously attempted
+- OPTIONAL for routine design-port cycles, code refactors, doc updates
+
+**When to skip**: if Combined Scout already covers the operational territory (e.g. all phase ops are `npm run X` + `git commit` — well-trodden, no advisor needed).
+
+**Concrete cycle outcome**: in C15, pre-flight scout §S4 told us "skip frontend container, do not gate on /ready, FastAPI dumps openapi from Pydantic introspection without DB". This recipe went into the execute prompt 1:1. Without it, execute would have specified `docker compose up` (full stack) and "wait for /ready" — both would have failed and added 30+ min of debug time.
+
+---
+
+## When patterns apply
+
+Patterns 1-2 apply to **every** execute prompt that modifies state (code, docs, server, anything).
+Pattern 3 applies to every cycle that closes with a deploy.
+Pattern 4 applies whenever a placeholder is committed before its value is known.
+Pattern 5 applies selectively per the criteria above.
+
+Phase-Builder OPEN Step 2 (Combined Scout design) implicitly references pattern 5: if the phase is operationally novel, OPEN includes a pre-flight scout in addition to or instead of Combined Scout.
+
+Phase-Builder WORK and CLOSE step templates implicitly include patterns 1, 2, 4. The visual verify gate (in CLOSE for cycles with staging deploy) implicitly applies pattern 3.
+
+**CLOSE Step 5 enforcement note**: per Declaration Rule 29 (persist-or-lose), CLOSE Step 5 routing to the next session cannot complete while un-persisted lessons remain in chat. Scan for carry-forward language ("lessons learned", "going forward", "first time", named patterns) and route each finding to the appropriate file before issuing the transition signal. Patterns 1-5 above were themselves persisted via Rule 29's first application during S2 P05 C15 close.
+
+---
+
 [*] 03_Phase-Builder SPEC v3.2-velo * ready
 One phase = one chat. All cycles execute within.
 OPEN: session plan + combined scout (once)

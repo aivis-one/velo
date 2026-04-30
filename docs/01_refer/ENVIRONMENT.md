@@ -16,6 +16,8 @@
 
 Developer works on a single Windows laptop; Claude Code runs with bash as its shell. Prompts target bash syntax. PowerShell is not used.
 
+**Windows + WSL2 setup note (added 2026-04-30 from S2 P05 C15)**: when setting up Velo on a fresh Windows 11 dev host, install the Ubuntu WSL distro **before** first Docker Desktop launch. Docker Desktop's default minimal `docker-desktop` distro does not mount `/mnt/c/...` and cannot clean up Linux-style Unix-socket files (`dockerInference`, `userAnalyticsOtlpHttp.sock`) when they end up on NTFS — they appear with corrupt `?????????` attributes from Win32 (cmd `del`, PowerShell `Remove-Item`, `chkdsk` all refuse to operate on them) and block engine boot indefinitely. **Mitigation**: with full Ubuntu WSL distro installed (`wsl --install -d Ubuntu --no-launch`), cleanup works through `/mnt/c/...` mount via `wsl -d Ubuntu -u root -e rm -f /mnt/c/Users/<user>/AppData/Local/Docker/run/<sock>`. Discovered during the first self-host docker bring-up (decision #046) when initial `docker compose up -d postgres redis app` hit cleanup issues across multiple recovery attempts. No-op on Mac/Linux dev hosts.
+
 ---
 
 ## Tools
