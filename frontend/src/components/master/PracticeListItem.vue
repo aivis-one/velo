@@ -16,13 +16,17 @@
     <div class="pli__header">
       <span class="pli__icon">{{ typeEmoji }}</span>
       <div class="pli__info">
-        <div class="pli__title">{{ practice.title }}</div>
+        <div class="pli__title">
+          {{ practice.title }}
+        </div>
         <div class="pli__meta">
           {{ formatDate(practice.scheduled_at, practice.timezone) }}
           · {{ formatDuration(practice.duration_minutes) }}
         </div>
       </div>
-      <VBadge :variant="statusVariant">{{ statusLabel }}</VBadge>
+      <VBadge :variant="statusVariant">
+        {{ statusLabel }}
+      </VBadge>
     </div>
 
     <div class="pli__details">
@@ -31,7 +35,11 @@
     </div>
 
     <!-- Optional action slot (e.g. attendance button) -->
-    <div v-if="$slots.action" class="pli__actions" @click.stop>
+    <div
+      v-if="$slots.action"
+      class="pli__actions"
+      @click.stop
+    >
       <slot name="action" />
     </div>
   </div>

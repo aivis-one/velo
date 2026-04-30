@@ -28,9 +28,13 @@
 
     <div class="pending-view__content">
       <!-- Submitted icon -->
-      <div class="pending-view__icon">✓</div>
+      <div class="pending-view__icon">
+        ✓
+      </div>
 
-      <h2 class="pending-view__title">Заявка отправлена!</h2>
+      <h2 class="pending-view__title">
+        Заявка отправлена!
+      </h2>
 
       <p class="pending-view__subtitle">
         Рассмотрим в течение 24-48 часов
@@ -42,8 +46,13 @@
           <VLoader size="sm" />
         </template>
         <template v-else-if="profileStatus === 'rejected'">
-          <VBadge variant="error">Заявка отклонена</VBadge>
-          <p v-if="rejectionReason" class="pending-view__rejection">
+          <VBadge variant="error">
+            Заявка отклонена
+          </VBadge>
+          <p
+            v-if="rejectionReason"
+            class="pending-view__rejection"
+          >
             Причина: {{ rejectionReason }}
           </p>
           <VButton
@@ -56,7 +65,9 @@
           </VButton>
         </template>
         <template v-else>
-          <VBadge variant="warning">На проверке</VBadge>
+          <VBadge variant="warning">
+            На проверке
+          </VBadge>
         </template>
       </div>
 

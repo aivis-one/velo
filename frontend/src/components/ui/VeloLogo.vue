@@ -17,7 +17,7 @@
     :height="size"
     alt="VELΘ"
     class="velo-logo"
-  />
+  >
 </template>
 
 <script setup lang="ts">

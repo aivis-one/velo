@@ -10,7 +10,11 @@
 
 <template>
   <Teleport to="body">
-    <TransitionGroup name="v-toast" tag="div" class="v-toast-container">
+    <TransitionGroup
+      name="v-toast"
+      tag="div"
+      class="v-toast-container"
+    >
       <div
         v-for="toast in toasts"
         :key="toast.id"

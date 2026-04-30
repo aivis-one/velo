@@ -11,7 +11,9 @@
     <div class="loading__logo">
       <VeloLogo :size="120" />
     </div>
-    <h1 class="loading__title">VELΘ</h1>
+    <h1 class="loading__title">
+      VELΘ
+    </h1>
     <div class="loading__spinner" />
   </div>
 </template>

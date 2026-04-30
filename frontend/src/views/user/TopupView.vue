@@ -23,7 +23,9 @@
     </div>
 
     <!-- Preset amounts -->
-    <div class="topup__section-title">Выберите сумму</div>
+    <div class="topup__section-title">
+      Выберите сумму
+    </div>
     <div class="topup__presets">
       <button
         v-for="preset in PRESETS"
@@ -45,7 +47,10 @@
       >
         Другая сумма
       </div>
-      <div v-if="customMode" class="topup__custom-input-wrap">
+      <div
+        v-if="customMode"
+        class="topup__custom-input-wrap"
+      >
         <span class="topup__custom-currency">€</span>
         <input
           ref="customInput"
@@ -58,12 +63,15 @@
           step="1"
           inputmode="numeric"
           @input="onCustomInput"
-        />
+        >
       </div>
     </div>
 
     <!-- Error -->
-    <div v-if="validationError" class="topup__error">
+    <div
+      v-if="validationError"
+      class="topup__error"
+    >
       {{ validationError }}
     </div>
 

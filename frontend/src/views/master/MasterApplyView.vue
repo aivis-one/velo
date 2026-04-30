@@ -46,7 +46,9 @@
            STEP 1: Profile
            ================================================================ -->
       <template v-if="step === 1">
-        <h3 class="apply-view__step-title">Шаг 1: Профиль</h3>
+        <h3 class="apply-view__step-title">
+          Шаг 1: Профиль
+        </h3>
 
         <VInput
           v-model="form.display_name"
@@ -69,7 +71,13 @@
           placeholder="+7 (999) 123-45-67"
         />
 
-        <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
+        <VButton
+          variant="primary"
+          block
+          size="lg"
+          class="apply-view__next"
+          @click="goToStep2"
+        >
           Далее →
         </VButton>
       </template>
@@ -78,7 +86,9 @@
            STEP 2: Experience
            ================================================================ -->
       <template v-else-if="step === 2">
-        <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
+        <h3 class="apply-view__step-title">
+          Шаг 2: Опыт
+        </h3>
 
         <!-- Methods checkboxes (custom native markup -- not VCheckbox) -->
         <div class="apply-view__field">
@@ -94,7 +104,7 @@
                 :value="method"
                 :checked="form.methods.includes(method)"
                 @change="toggleMethod(method)"
-              />
+              >
               <span class="apply-view__checkbox-mark">
                 {{ form.methods.includes(method) ? '✓' : '' }}
               </span>
@@ -106,7 +116,7 @@
                 type="checkbox"
                 :checked="otherMethodEnabled"
                 @change="toggleOtherMethod"
-              />
+              >
               <span class="apply-view__checkbox-mark">
                 {{ otherMethodEnabled ? '✓' : '' }}
               </span>
@@ -118,7 +128,12 @@
               placeholder="Укажите направление..."
             />
           </div>
-          <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
+          <p
+            v-if="errors.methods"
+            class="apply-view__field-error"
+          >
+            {{ errors.methods }}
+          </p>
         </div>
 
         <!-- Experience years -->
@@ -137,7 +152,13 @@
           :rows="4"
         />
 
-        <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
+        <VButton
+          variant="primary"
+          block
+          size="lg"
+          class="apply-view__next"
+          @click="goToStep3"
+        >
           Далее →
         </VButton>
       </template>
@@ -146,16 +167,22 @@
            STEP 3: Documents (placeholder -- no real upload in MVP)
            ================================================================ -->
       <template v-else>
-        <h3 class="apply-view__step-title">Шаг 3: Документы</h3>
+        <h3 class="apply-view__step-title">
+          Шаг 3: Документы
+        </h3>
 
         <!-- Passport upload placeholder -->
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <div class="apply-view__upload-area">
             <span class="apply-view__upload-icon">📄</span>
-            <p class="apply-view__upload-text">+ Загрузить документ</p>
+            <p class="apply-view__upload-text">
+              + Загрузить документ
+            </p>
           </div>
-          <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
+          <p class="apply-view__hint">
+            Для верификации личности. Не публикуется.
+          </p>
         </div>
 
         <!-- Certificates upload placeholder -->
@@ -163,14 +190,21 @@
           <label class="apply-view__label">Сертификаты</label>
           <div class="apply-view__upload-area">
             <span class="apply-view__upload-icon">📄</span>
-            <p class="apply-view__upload-text">+ Добавить сертификат</p>
+            <p class="apply-view__upload-text">
+              + Добавить сертификат
+            </p>
           </div>
-          <p class="apply-view__hint">Можно загрузить несколько файлов.</p>
+          <p class="apply-view__hint">
+            Можно загрузить несколько файлов.
+          </p>
         </div>
 
         <!-- Terms checkbox (custom native markup) -->
         <div class="apply-view__terms">
-          <label class="apply-view__checkbox-item" @click="form.termsAccepted = !form.termsAccepted">
+          <label
+            class="apply-view__checkbox-item"
+            @click="form.termsAccepted = !form.termsAccepted"
+          >
             <span
               class="apply-view__checkbox-mark"
               :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
@@ -181,7 +215,12 @@
               Я соглашаюсь с условиями использования
             </span>
           </label>
-          <p v-if="errors.terms" class="apply-view__field-error">{{ errors.terms }}</p>
+          <p
+            v-if="errors.terms"
+            class="apply-view__field-error"
+          >
+            {{ errors.terms }}
+          </p>
         </div>
 
         <VButton

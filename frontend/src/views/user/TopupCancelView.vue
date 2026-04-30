@@ -9,8 +9,12 @@
 
 <template>
   <div class="topup-result">
-    <div class="topup-result__icon">😕</div>
-    <h1 class="topup-result__title">Оплата отменена</h1>
+    <div class="topup-result__icon">
+      😕
+    </div>
+    <h1 class="topup-result__title">
+      Оплата отменена
+    </h1>
     <p class="topup-result__text">
       Ваш баланс не изменился. Вы можете попробовать снова.
     </p>

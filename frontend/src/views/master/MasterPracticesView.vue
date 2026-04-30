@@ -24,9 +24,16 @@
 <template>
   <div class="master-practices">
     <!-- Header -->
-    <VHeader title="📅 Практики" :badge="masterStore.practicesTotal || undefined">
+    <VHeader
+      title="📅 Практики"
+      :badge="masterStore.practicesTotal || undefined"
+    >
       <template #action>
-        <button class="master-practices__add-btn" aria-label="Создать практику" @click="router.push({ name: 'master-practice-new' })">
+        <button
+          class="master-practices__add-btn"
+          aria-label="Создать практику"
+          @click="router.push({ name: 'master-practice-new' })"
+        >
           +
         </button>
       </template>
@@ -40,7 +47,10 @@
         @click="activeTab = 'upcoming'"
       >
         Предстоящие
-        <span v-if="upcomingPractices.length" class="master-practices__tab-count">
+        <span
+          v-if="upcomingPractices.length"
+          class="master-practices__tab-count"
+        >
           {{ upcomingPractices.length }}
         </span>
       </button>
@@ -50,32 +60,48 @@
         @click="activeTab = 'past'"
       >
         Прошедшие
-        <span v-if="pastPractices.length" class="master-practices__tab-count">
+        <span
+          v-if="pastPractices.length"
+          class="master-practices__tab-count"
+        >
           {{ pastPractices.length }}
         </span>
       </button>
     </div>
 
     <!-- Loading -->
-    <div v-if="masterStore.practicesLoading && masterStore.practices.length === 0" class="master-practices__loader">
+    <div
+      v-if="masterStore.practicesLoading && masterStore.practices.length === 0"
+      class="master-practices__loader"
+    >
       <VLoader size="lg" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="masterStore.practicesError" class="master-practices__content">
+    <div
+      v-else-if="masterStore.practicesError"
+      class="master-practices__content"
+    >
       <VEmptyState
         icon="⚠️"
         title="Не удалось загрузить практики"
         :description="masterStore.practicesError"
       >
-        <VButton size="sm" variant="outline" @click="masterStore.refreshMyPractices()">
+        <VButton
+          size="sm"
+          variant="outline"
+          @click="masterStore.refreshMyPractices()"
+        >
           Повторить
         </VButton>
       </VEmptyState>
     </div>
 
     <!-- List -->
-    <div v-else class="master-practices__content">
+    <div
+      v-else
+      class="master-practices__content"
+    >
       <!-- Upcoming tab -->
       <template v-if="activeTab === 'upcoming'">
         <template v-if="upcomingPractices.length > 0">
@@ -115,7 +141,10 @@
           >
             <PracticeListItem :practice="practice">
               <!-- Attendance button for completed practices -->
-              <template v-if="practice.status === 'completed'" #action>
+              <template
+                v-if="practice.status === 'completed'"
+                #action
+              >
                 <VButton
                   size="sm"
                   variant="outline"
@@ -136,7 +165,10 @@
       </template>
 
       <!-- Load more -->
-      <div v-if="masterStore.practicesHasMore" class="master-practices__load-more">
+      <div
+        v-if="masterStore.practicesHasMore"
+        class="master-practices__load-more"
+      >
         <VButton
           variant="ghost"
           block

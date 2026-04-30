@@ -14,7 +14,10 @@
 
 <template>
   <!-- Loading (initial) -->
-  <div v-if="store.loading && store.bookings.length === 0" class="bookings__loader">
+  <div
+    v-if="store.loading && store.bookings.length === 0"
+    class="bookings__loader"
+  >
     <VLoader size="lg" />
   </div>
 
@@ -25,11 +28,19 @@
     title="Ошибка загрузки"
     :description="store.error"
   >
-    <VButton size="sm" @click="store.refreshBookings()">Попробовать снова</VButton>
+    <VButton
+      size="sm"
+      @click="store.refreshBookings()"
+    >
+      Попробовать снова
+    </VButton>
   </VEmptyState>
 
   <!-- Content -->
-  <div v-else class="bookings">
+  <div
+    v-else
+    class="bookings"
+  >
     <!-- Status filter -->
     <div class="bookings__filters">
       <button
@@ -52,7 +63,10 @@
     />
 
     <!-- Bookings list -->
-    <div v-else class="bookings__list">
+    <div
+      v-else
+      class="bookings__list"
+    >
       <BookingCard
         v-for="booking in store.bookings"
         :key="booking.id"

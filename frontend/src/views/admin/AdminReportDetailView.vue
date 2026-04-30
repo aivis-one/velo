@@ -10,11 +10,18 @@
 
 <template>
   <div class="report-detail">
-    <VHeader title="Жалоба" :show-back="true" @back="router.back()" />
+    <VHeader
+      title="Жалоба"
+      :show-back="true"
+      @back="router.back()"
+    />
 
     <div class="report-detail__content">
       <!-- Loading -->
-      <div v-if="loading" class="report-detail__loader">
+      <div
+        v-if="loading"
+        class="report-detail__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -31,13 +38,19 @@
 
         <!-- Report content -->
         <div class="report-detail__section">
-          <div class="report-detail__section-title">Текст жалобы</div>
-          <div class="report-detail__reason">{{ report.reason }}</div>
+          <div class="report-detail__section-title">
+            Текст жалобы
+          </div>
+          <div class="report-detail__reason">
+            {{ report.reason }}
+          </div>
         </div>
 
         <!-- Meta -->
         <div class="report-detail__section">
-          <div class="report-detail__section-title">Детали</div>
+          <div class="report-detail__section-title">
+            Детали
+          </div>
           <div class="report-detail__meta-list">
             <div class="report-detail__meta-row">
               <span class="report-detail__meta-key">Тип цели</span>
@@ -75,7 +88,9 @@
         <!-- Actions: only for pending -->
         <template v-if="currentStatus === 'pending'">
           <div class="report-detail__section">
-            <div class="report-detail__section-title">Решить жалобу</div>
+            <div class="report-detail__section-title">
+              Решить жалобу
+            </div>
             <div class="report-detail__action-form">
               <VTextarea
                 v-model="resolveNote"
@@ -97,7 +112,9 @@
           </div>
 
           <div class="report-detail__section">
-            <div class="report-detail__section-title">Отклонить жалобу</div>
+            <div class="report-detail__section-title">
+              Отклонить жалобу
+            </div>
             <div class="report-detail__action-form">
               <VTextarea
                 v-model="dismissNote"
@@ -119,20 +136,32 @@
         </template>
 
         <!-- Already processed -->
-        <div v-else class="report-detail__processed">
+        <div
+          v-else
+          class="report-detail__processed"
+        >
           Жалоба уже обработана — статус:
           <strong>{{ reportStatusLabel(currentStatus) }}</strong>
         </div>
       </template>
 
       <!-- Not found -->
-      <div v-else class="report-detail__not-found">
+      <div
+        v-else
+        class="report-detail__not-found"
+      >
         <VEmptyState
           icon="❓"
           title="Жалоба не найдена"
           description="Вернитесь к списку жалоб"
         />
-        <VButton variant="outline" block @click="router.back()">Назад</VButton>
+        <VButton
+          variant="outline"
+          block
+          @click="router.back()"
+        >
+          Назад
+        </VButton>
       </div>
     </div>
   </div>

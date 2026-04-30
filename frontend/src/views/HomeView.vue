@@ -10,15 +10,28 @@
     <div class="home__logo">
       <VeloLogo :size="120" />
     </div>
-    <h1 class="home__title">VELΘ</h1>
-    <div v-if="user" class="home__user">
-      <p class="home__greeting">{{ greeting }}, {{ user.first_name }}!</p>
+    <h1 class="home__title">
+      VELΘ
+    </h1>
+    <div
+      v-if="user"
+      class="home__user"
+    >
+      <p class="home__greeting">
+        {{ greeting }}, {{ user.first_name }}!
+      </p>
       <div class="home__details">
         <span class="home__role">{{ user.role }}</span>
       </div>
     </div>
-    <p class="home__version">v0.1.0</p>
-    <button v-if="user" class="home__logout" @click="handleLogout">
+    <p class="home__version">
+      v0.1.0
+    </p>
+    <button
+      v-if="user"
+      class="home__logout"
+      @click="handleLogout"
+    >
       Выйти
     </button>
   </div>

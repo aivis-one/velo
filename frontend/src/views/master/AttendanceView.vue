@@ -31,22 +31,40 @@
     />
 
     <!-- Loading -->
-    <div v-if="loading" class="attendance__loader">
+    <div
+      v-if="loading"
+      class="attendance__loader"
+    >
       <VLoader size="lg" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="attendance__content">
-      <VEmptyState icon="⚠️" title="Не удалось загрузить посещаемость" :description="error">
-        <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+    <div
+      v-else-if="error"
+      class="attendance__content"
+    >
+      <VEmptyState
+        icon="⚠️"
+        title="Не удалось загрузить посещаемость"
+        :description="error"
+      >
+        <VButton
+          size="sm"
+          variant="outline"
+          @click="load"
+        >
+          Повторить
+        </VButton>
       </VEmptyState>
     </div>
 
     <template v-else-if="attendance">
       <div class="attendance__content">
-
         <!-- Practice subtitle -->
-        <p v-if="practiceSubtitle" class="attendance__subtitle">
+        <p
+          v-if="practiceSubtitle"
+          class="attendance__subtitle"
+        >
           {{ practiceSubtitle }}
         </p>
 
@@ -55,16 +73,28 @@
              ================================================================ -->
         <div class="attendance__stats">
           <div class="attendance__stat attendance__stat--present">
-            <div class="attendance__stat-value">{{ attendance.attended }}</div>
-            <div class="attendance__stat-label">присутствовало</div>
+            <div class="attendance__stat-value">
+              {{ attendance.attended }}
+            </div>
+            <div class="attendance__stat-label">
+              присутствовало
+            </div>
           </div>
           <div class="attendance__stat attendance__stat--absent">
-            <div class="attendance__stat-value">{{ attendance.no_show }}</div>
-            <div class="attendance__stat-label">не пришли</div>
+            <div class="attendance__stat-value">
+              {{ attendance.no_show }}
+            </div>
+            <div class="attendance__stat-label">
+              не пришли
+            </div>
           </div>
           <div class="attendance__stat">
-            <div class="attendance__stat-value">{{ attendance.pending }}</div>
-            <div class="attendance__stat-label">ожидают</div>
+            <div class="attendance__stat-value">
+              {{ attendance.pending }}
+            </div>
+            <div class="attendance__stat-label">
+              ожидают
+            </div>
           </div>
         </div>
 
@@ -95,10 +125,17 @@
             :key="item.booking_id"
             class="attendance__row"
           >
-            <div class="attendance__avatar">{{ initials(item.user_id) }}</div>
+            <div class="attendance__avatar">
+              {{ initials(item.user_id) }}
+            </div>
             <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div v-if="item.joined_at" class="attendance__row-meta">
+              <div class="attendance__row-name">
+                {{ shortId(item.user_id) }}
+              </div>
+              <div
+                v-if="item.joined_at"
+                class="attendance__row-meta"
+              >
                 Зашёл: {{ formatTime(item.joined_at) }}
               </div>
             </div>
@@ -118,10 +155,16 @@
             :key="item.booking_id"
             class="attendance__row"
           >
-            <div class="attendance__avatar attendance__avatar--absent">{{ initials(item.user_id) }}</div>
+            <div class="attendance__avatar attendance__avatar--absent">
+              {{ initials(item.user_id) }}
+            </div>
             <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div class="attendance__row-meta">Не отметился</div>
+              <div class="attendance__row-name">
+                {{ shortId(item.user_id) }}
+              </div>
+              <div class="attendance__row-meta">
+                Не отметился
+              </div>
             </div>
             <span class="attendance__row-badge attendance__row-badge--absent">✗</span>
           </div>
@@ -139,10 +182,16 @@
             :key="item.booking_id"
             class="attendance__row"
           >
-            <div class="attendance__avatar attendance__avatar--pending">{{ initials(item.user_id) }}</div>
+            <div class="attendance__avatar attendance__avatar--pending">
+              {{ initials(item.user_id) }}
+            </div>
             <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div class="attendance__row-meta">Ожидает отметки</div>
+              <div class="attendance__row-name">
+                {{ shortId(item.user_id) }}
+              </div>
+              <div class="attendance__row-meta">
+                Ожидает отметки
+              </div>
             </div>
             <span class="attendance__row-badge attendance__row-badge--pending">⏳</span>
           </div>
@@ -182,7 +231,11 @@
               >
                 Отмена
               </VButton>
-              <VButton variant="primary" :loading="finalizing" @click="finalize">
+              <VButton
+                variant="primary"
+                :loading="finalizing"
+                @click="finalize"
+              >
                 Финализировать
               </VButton>
             </div>

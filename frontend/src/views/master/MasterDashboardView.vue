@@ -42,18 +42,33 @@
           <h2 class="master-dashboard__greeting-name">
             Привет, {{ displayName }}! 👋
           </h2>
-          <VBadge variant="success">✓ Верифицирован</VBadge>
+          <VBadge variant="success">
+            ✓ Верифицирован
+          </VBadge>
         </div>
-        <VAvatar :name="displayName" size="md" />
+        <VAvatar
+          :name="displayName"
+          size="md"
+        />
       </div>
 
       <!-- ================================================================
            BALANCE CARD
            ================================================================ -->
-      <div class="master-dashboard__balance-card" @click="router.push({ name: 'master-finance' })">
-        <div class="master-dashboard__balance-label">Доступно к выводу</div>
-        <div class="master-dashboard__balance-value">{{ formattedAvailable }}</div>
-        <div v-if="frozenCents > 0" class="master-dashboard__balance-frozen">
+      <div
+        class="master-dashboard__balance-card"
+        @click="router.push({ name: 'master-finance' })"
+      >
+        <div class="master-dashboard__balance-label">
+          Доступно к выводу
+        </div>
+        <div class="master-dashboard__balance-value">
+          {{ formattedAvailable }}
+        </div>
+        <div
+          v-if="frozenCents > 0"
+          class="master-dashboard__balance-frozen"
+        >
           Заморожено: {{ formattedFrozen }}
         </div>
         <span class="master-dashboard__balance-arrow">→</span>
@@ -65,23 +80,39 @@
            ================================================================ -->
       <div class="master-dashboard__section-header">
         <span class="master-dashboard__section-title">📊 Моя статистика</span>
-        <button class="master-dashboard__period-toggle" aria-label="Переключить период" @click="togglePeriod">
+        <button
+          class="master-dashboard__period-toggle"
+          aria-label="Переключить период"
+          @click="togglePeriod"
+        >
           {{ period === 'week' ? 'Неделя ▼' : 'Месяц ▼' }}
         </button>
       </div>
 
       <div class="master-dashboard__stats-grid">
         <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">практик</div>
+          <div class="master-dashboard__stat-value">
+            —
+          </div>
+          <div class="master-dashboard__stat-label">
+            практик
+          </div>
         </div>
         <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">участников</div>
+          <div class="master-dashboard__stat-value">
+            —
+          </div>
+          <div class="master-dashboard__stat-label">
+            участников
+          </div>
         </div>
         <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">доход</div>
+          <div class="master-dashboard__stat-value">
+            —
+          </div>
+          <div class="master-dashboard__stat-label">
+            доход
+          </div>
         </div>
       </div>
 
@@ -91,7 +122,9 @@
            AI SUMMARY (placeholder — F9)
            ================================================================ -->
       <div class="master-dashboard__ai-card">
-        <div class="master-dashboard__ai-header">🧠 Саммари недели</div>
+        <div class="master-dashboard__ai-header">
+          🧠 Саммари недели
+        </div>
         <div class="master-dashboard__ai-content">
           Аналитика по итогам практик появится здесь после проведения
           первых занятий.
@@ -103,7 +136,9 @@
       <!-- ================================================================
            NEAREST PRACTICE
            ================================================================ -->
-      <div class="master-dashboard__section-title">📅 Ближайшая практика</div>
+      <div class="master-dashboard__section-title">
+        📅 Ближайшая практика
+      </div>
 
       <template v-if="masterStore.practicesLoading">
         <div class="master-dashboard__loading-row">
@@ -119,7 +154,9 @@
           <div class="master-dashboard__practice-header">
             <span class="master-dashboard__practice-icon">{{ typeEmoji(nearestPractice.practice_type) }}</span>
             <div class="master-dashboard__practice-info">
-              <div class="master-dashboard__practice-title">{{ nearestPractice.title }}</div>
+              <div class="master-dashboard__practice-title">
+                {{ nearestPractice.title }}
+              </div>
               <div class="master-dashboard__practice-meta">
                 {{ formatDate(nearestPractice.scheduled_at, nearestPractice.timezone) }}
                 · {{ formatDuration(nearestPractice.duration_minutes) }}
@@ -142,7 +179,11 @@
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
-          <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practice-new' })">
+          <VButton
+            size="sm"
+            variant="outline"
+            @click="router.push({ name: 'master-practice-new' })"
+          >
             Создать
           </VButton>
         </VEmptyState>
@@ -153,7 +194,9 @@
       <!-- ================================================================
            QUICK ACTIONS
            ================================================================ -->
-      <div class="master-dashboard__section-title">⚡ Быстрые действия</div>
+      <div class="master-dashboard__section-title">
+        ⚡ Быстрые действия
+      </div>
       <div class="master-dashboard__actions-grid">
         <button
           class="master-dashboard__action-btn"

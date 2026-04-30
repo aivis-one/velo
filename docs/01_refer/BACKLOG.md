@@ -889,3 +889,43 @@ Two consecutive recurrences suggest systematic, not random. C16 deploy (cc4e2fd)
 **Severity**: LOW (retry succeeds; not blocking).
 **Sprint**: post-demo investigation cycle (S5+).
 **Status**: OPEN.
+
+---
+
+### #97 — Backend endpoint `POST /bookings/{id}/leave` not implemented
+
+**Source**: S2-S3 SPEEDRUN MEGA-1 cycles C29/C32 (PracticeLiveView + BookedPracticeView leave/cancel flows), 2026-04-30.
+
+**Context**: Demo flow allows a user to "Покинуть" a live practice (PracticeLiveView) and to cancel a booked-but-not-yet-attended slot (BookedPracticeView). MEGA-1 wired both buttons to `useBookingsStore.cancelBooking(bookingId)` (existing endpoint `DELETE /bookings/{id}` → `cancelled` status). This is functionally correct for the demo but semantically conflates two states:
+1. Cancel-before-start (user changes mind, slot opens for waitlist)
+2. Leave-mid-session (user joined Zoom, then left early)
+
+For attendance/analytics fidelity, `leave` should mark the booking with status `attended_partial` or similar, not `cancelled` (which inflates cancellation rate).
+
+**Action**: Backend partner — add `POST /bookings/{id}/leave` mapping to `attended_partial` status. Frontend call site already isolated in `PracticeLiveView.vue` (currently calls `cancelBooking`). Swap to dedicated method when endpoint lands. Also surfaces in B.5 (#22) — currently lacks dedicated leave/join semantics.
+
+**Severity**: LOW (cancel-as-leave functions for demo; analytics impact post-demo).
+**Sprint**: post-demo backend cycle.
+**Status**: OPEN.
+
+---
+
+### #98 — Emoji cleanup MEGA-2 carry — 23 in-scope emoji remain (decision #048)
+
+**Source**: S2-S3 SPEEDRUN MEGA-1 close, 2026-04-30.
+
+**Context**: Decision #048 (no-emoji policy in user-visible UI) requires removal of 71 in-scope emoji surfaced by Phase 06 inventory. MEGA-1 cleared **48 sites** (rewritten user-flow views: Dashboard/Calendar/PracticeDetail/Checkin/Feedback/Profile/Booking* + supporting compat shims in `displayHelpers.ts` left as `@deprecated` empty-string maps for legacy consumers). **23 sites remain** in:
+- `frontend/src/components/shared/DiaryList.vue` (mood/rating chips render via deprecated maps)
+- `frontend/src/components/shared/PracticeCard.vue` (practice-type accent chip)
+- `frontend/src/components/shared/BookingCard.vue` (status accent chip)
+- `frontend/src/components/shared/FormShell.vue` (validation feedback chips)
+- `frontend/src/views/master/*.vue` (master-side practice/booking lists — 4 views)
+- Diary detail components (DiaryCheckinDetail, DiaryFeedbackDetail, DiaryEntryDetail)
+
+These are scheduled to be cleared by MEGA-2 (S3 P10/P11/P12/P13) in cycle C36 (Diary refresh) and the master-suite refresh (C40-C44). Once all 23 callsites are converted to `PRACTICE_TYPE_ICON` / icon-component patterns, the deprecated `PRACTICE_TYPE_EMOJI`/`MOOD_EMOJI`/`RATING_EMOJI` maps can be deleted from `displayHelpers.ts`.
+
+**Action**: Track to MEGA-2 close. Verification grep at MEGA-2 close: `grep -rIE "(😀|😢|😴|😌|🧘|🌬|💆|🎬|✨|🔥|❤|⚠|💔|🧠)" frontend/src/` should return 0 in-scope hits.
+
+**Severity**: LOW (compat shims keep build green; cosmetic carry).
+**Sprint**: S3 MEGA-2.
+**Status**: OPEN.

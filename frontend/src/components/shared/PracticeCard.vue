@@ -12,17 +12,25 @@
 -->
 
 <template>
-  <div class="practice-card" @click="$emit('click', practice.id)">
+  <div
+    class="practice-card"
+    @click="$emit('click', practice.id)"
+  >
     <!-- Header: emoji + title + master -->
     <div class="practice-card__header">
       <span class="practice-card__emoji">{{ typeEmoji }}</span>
       <div class="practice-card__info">
-        <h4 class="practice-card__title">{{ practice.title }}</h4>
+        <h4 class="practice-card__title">
+          {{ practice.title }}
+        </h4>
         <p class="practice-card__master">
           {{ practice.master_name ?? 'Мастер' }}
         </p>
       </div>
-      <VBadge v-if="practice.status === 'live'" variant="success">
+      <VBadge
+        v-if="practice.status === 'live'"
+        variant="success"
+      >
         LIVE
       </VBadge>
     </div>
@@ -39,10 +47,16 @@
 
     <!-- Footer: price + participants -->
     <div class="practice-card__footer">
-      <span class="practice-card__price" :class="{ 'practice-card__price--free': practice.is_free }">
+      <span
+        class="practice-card__price"
+        :class="{ 'practice-card__price--free': practice.is_free }"
+      >
         {{ price }}
       </span>
-      <span class="practice-card__spots" :class="{ 'practice-card__spots--full': full }">
+      <span
+        class="practice-card__spots"
+        :class="{ 'practice-card__spots--full': full }"
+      >
         {{ participants }}
       </span>
     </div>

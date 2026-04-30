@@ -14,7 +14,10 @@
 
     <div class="admin-masters__content">
       <!-- Loading: initial -->
-      <div v-if="loading" class="admin-masters__loader">
+      <div
+        v-if="loading"
+        class="admin-masters__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -26,7 +29,12 @@
         description="Проверьте соединение и попробуйте ещё раз"
       >
         <template #action>
-          <VButton variant="primary" @click="loadInitial">Повторить</VButton>
+          <VButton
+            variant="primary"
+            @click="loadInitial"
+          >
+            Повторить
+          </VButton>
         </template>
       </VEmptyState>
 
@@ -61,7 +69,9 @@
               size="md"
             />
             <div class="admin-masters__card-body">
-              <div class="admin-masters__card-name">{{ masterDisplayName(item) }}</div>
+              <div class="admin-masters__card-name">
+                {{ masterDisplayName(item) }}
+              </div>
               <div class="admin-masters__card-meta">
                 <VBadge :variant="masterStatusVariant(item.master_status)">
                   {{ masterStatusLabel(item.master_status) }}
@@ -73,7 +83,10 @@
         </div>
 
         <!-- Load more -->
-        <div v-if="hasMore" class="admin-masters__load-more">
+        <div
+          v-if="hasMore"
+          class="admin-masters__load-more"
+        >
           <VButton
             variant="outline"
             block

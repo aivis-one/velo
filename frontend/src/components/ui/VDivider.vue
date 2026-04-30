@@ -10,10 +10,16 @@
 -->
 
 <template>
-  <div v-if="label" class="v-divider v-divider--labeled">
+  <div
+    v-if="label"
+    class="v-divider v-divider--labeled"
+  >
     <span class="v-divider__text">{{ label }}</span>
   </div>
-  <hr v-else class="v-divider" />
+  <hr
+    v-else
+    class="v-divider"
+  >
 </template>
 
 <script setup lang="ts">

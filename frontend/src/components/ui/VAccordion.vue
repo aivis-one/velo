@@ -10,12 +10,23 @@
 -->
 
 <template>
-  <div class="v-accordion" :class="{ 'v-accordion--open': open }">
-    <button class="v-accordion__header" :aria-label="open ? 'Свернуть' : 'Развернуть'" :aria-expanded="open" @click="open = !open">
+  <div
+    class="v-accordion"
+    :class="{ 'v-accordion--open': open }"
+  >
+    <button
+      class="v-accordion__header"
+      :aria-label="open ? 'Свернуть' : 'Развернуть'"
+      :aria-expanded="open"
+      @click="open = !open"
+    >
       <span class="v-accordion__title">{{ title }}</span>
       <span class="v-accordion__arrow">›</span>
     </button>
-    <div v-if="open" class="v-accordion__body">
+    <div
+      v-if="open"
+      class="v-accordion__body"
+    >
       <slot />
     </div>
   </div>

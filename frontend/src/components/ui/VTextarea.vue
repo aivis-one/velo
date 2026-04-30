@@ -8,8 +8,14 @@
 -->
 
 <template>
-  <div class="v-textarea" :class="{ 'v-textarea--error': !!error }">
-    <label v-if="label" class="v-textarea__label">{{ label }}</label>
+  <div
+    class="v-textarea"
+    :class="{ 'v-textarea--error': !!error }"
+  >
+    <label
+      v-if="label"
+      class="v-textarea__label"
+    >{{ label }}</label>
     <textarea
       class="v-textarea__field"
       :value="modelValue"
@@ -18,7 +24,10 @@
       :disabled="disabled"
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
-    <span v-if="error" class="v-textarea__error">{{ error }}</span>
+    <span
+      v-if="error"
+      class="v-textarea__error"
+    >{{ error }}</span>
   </div>
 </template>
 

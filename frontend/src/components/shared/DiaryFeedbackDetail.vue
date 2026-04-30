@@ -10,17 +10,30 @@
 <template>
   <div class="diary-detail">
     <header class="diary-detail__header">
-      <button class="diary-detail__back" aria-label="Назад" @click="emit('back')">←</button>
-      <h1 class="diary-detail__title">Feedback</h1>
+      <button
+        class="diary-detail__back"
+        aria-label="Назад"
+        @click="emit('back')"
+      >
+        ←
+      </button>
+      <h1 class="diary-detail__title">
+        Feedback
+      </h1>
       <span class="diary-detail__spacer" />
     </header>
 
     <div class="diary-detail__body">
-      <div class="diary-detail__date">{{ formatFullDate(item.created_at) }}</div>
+      <div class="diary-detail__date">
+        {{ formatFullDate(item.created_at) }}
+      </div>
       <h2 class="diary-detail__heading">
         {{ RATING_EMOJI[item.rating] }} Feedback: {{ RATING_LABEL[item.rating] }}
       </h2>
-      <div v-if="item.comment" class="diary-detail__content">
+      <div
+        v-if="item.comment"
+        class="diary-detail__content"
+      >
         {{ item.comment }}
       </div>
       <div class="diary-detail__context">

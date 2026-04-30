@@ -13,9 +13,19 @@
 <template>
   <div class="v-empty">
     <span class="v-empty__icon">{{ icon }}</span>
-    <p class="v-empty__title">{{ title }}</p>
-    <p v-if="description" class="v-empty__desc">{{ description }}</p>
-    <div v-if="$slots.default" class="v-empty__action">
+    <p class="v-empty__title">
+      {{ title }}
+    </p>
+    <p
+      v-if="description"
+      class="v-empty__desc"
+    >
+      {{ description }}
+    </p>
+    <div
+      v-if="$slots.default"
+      class="v-empty__action"
+    >
       <slot />
     </div>
   </div>

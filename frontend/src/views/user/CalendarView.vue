@@ -1,236 +1,305 @@
 <!--
-  VELO Frontend -- CalendarView (Phase F3.1)
+  VELO Frontend -- CalendarView (S2 P07 C23 — refresh per skin 21)
 
-  Full practice catalog with:
-    - Filter chips: practice type (all, live, series, one_on_one, replay)
-    - Practices grouped by date sections ("Сегодня", "Завтра", "28 февраля")
-    - "Load more" button (usePagination via store)
+  Week strip + day-grouped practice list. Filter overlay (C24) opens via
+  "Выбрать практики" pill button.
 
-  Data shared with Dashboard via usePracticesStore.
-  Changing filter chips calls store.applyFilters() which triggers
-  auto-refresh (watcher on filters reactive object).
+  Path Y MEDIUM. No emojis (#048).
 -->
 
 <template>
-  <div class="calendar">
-    <!-- Filter chips -->
-    <div class="calendar__filters">
-      <button
-        v-for="chip in typeChips"
-        :key="chip.value"
-        class="calendar__chip"
-        :class="{ 'calendar__chip--active': activeType === chip.value }"
-        @click="onTypeFilter(chip.value)"
-      >
-        {{ chip.label }}
-      </button>
-    </div>
+  <div class="cal">
+    <header class="cal__header">
+      <h1 class="cal__title">
+        Календарь
+      </h1>
+    </header>
 
-    <!-- Loading (initial) -->
-    <div v-if="store.loading && store.practices.length === 0" class="calendar__loader">
-      <VLoader />
-    </div>
-
-    <!-- Error -->
-    <VEmptyState
-      v-else-if="store.error && store.practices.length === 0"
-      icon="⚠️"
-      title="Не удалось загрузить"
-      :description="store.error"
-    >
-      <VButton size="sm" @click="store.refreshPractices()">Повторить</VButton>
-    </VEmptyState>
-
-    <!-- Empty -->
-    <VEmptyState
-      v-else-if="!store.loading && store.practices.length === 0"
-      icon="📅"
-      title="Нет практик"
-      description="Попробуйте другие фильтры или загляните позже"
+    <WeekStrip
+      v-model:selected-iso="selectedIso"
+      :practice-days="practiceDays"
     />
 
-    <!-- Grouped practices -->
-    <div v-else class="calendar__list">
-      <template v-for="(group, idx) in groupedPractices" :key="idx">
-        <h3 class="calendar__date-header">{{ group.label }}</h3>
-        <PracticeCard
-          v-for="practice in group.items"
-          :key="practice.id"
-          :practice="practice"
-          @click="goToDetail"
-        />
-      </template>
+    <button
+      type="button"
+      class="cal__filter-cta"
+      @click="filterOpen = true"
+    >
+      <span>Выбрать практики</span>
+      <IconFilter :size="20" />
+    </button>
 
-      <!-- Load more -->
-      <div v-if="store.hasMore" class="calendar__load-more">
-        <VButton
-          variant="secondary"
-          :loading="store.loading"
-          block
-          @click="store.loadMore()"
-        >
-          Показать ещё
-        </VButton>
-      </div>
-
-      <!-- Inline loading indicator when fetching next page -->
-      <div v-if="store.loading && store.practices.length > 0" class="calendar__loader">
-        <VLoader size="sm" />
-      </div>
+    <div
+      v-if="loading"
+      class="cal__loader"
+    >
+      Загрузка…
     </div>
+    <div
+      v-else-if="grouped.length === 0"
+      class="cal__empty"
+    >
+      На выбранную дату практик нет
+    </div>
+    <div
+      v-else
+      class="cal__list"
+    >
+      <section
+        v-for="g in grouped"
+        :key="g.iso"
+        class="cal__group"
+      >
+        <h3 class="cal__group-head">
+          {{ g.label }}
+        </h3>
+        <div class="cal__group-cards">
+          <RouterLink
+            v-for="p in g.practices"
+            :key="p.id"
+            :to="`/user/practices/${p.id}`"
+            class="cal__card"
+          >
+            <component
+              :is="iconFor(p.practice_type)"
+              class="cal__card-icon"
+              :size="28"
+            />
+            <div class="cal__card-body">
+              <h4>{{ p.title }}</h4>
+              <p>с {{ p.master_name ?? 'Мастером' }}</p>
+              <p>{{ formatTime(p.scheduled_at, p.timezone) }} · {{ formatDuration(p.duration_minutes) }}</p>
+            </div>
+          </RouterLink>
+        </div>
+      </section>
+    </div>
+
+    <CalendarFilterOverlay
+      v-if="filterOpen"
+      :initial="filters"
+      @close="filterOpen = false"
+      @apply="applyFilters"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { usePracticesStore } from '@/stores/practices'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import PracticeCard from '@/components/shared/PracticeCard.vue'
-import { formatDateShort } from '@/utils/format'
-import type { PracticeResponse, PracticeType } from '@/api/types'
+import { computed, ref, onMounted, watch } from 'vue'
+import { IconFilter } from '@/components/icons'
+import WeekStrip from '@/components/shared/WeekStrip.vue'
+import CalendarFilterOverlay from '@/components/shared/CalendarFilterOverlay.vue'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
+import { formatTime, formatDuration } from '@/utils/format'
+import { getPractices } from '@/api/practices'
+import type { PracticeFilters, PracticeResponse } from '@/api/types'
 
-const router = useRouter()
-const store = usePracticesStore()
-
-// -- Filter chip config --
-interface TypeChip {
-  value: PracticeType | 'all'
+interface Group {
+  iso: string
   label: string
+  practices: PracticeResponse[]
 }
 
-const typeChips: TypeChip[] = [
-  { value: 'all', label: 'Все' },
-  { value: 'live', label: '🧘 Live' },
-  { value: 'series', label: '🔄 Серии' },
-  { value: 'one_on_one', label: '👤 Личные' },
-  { value: 'replay', label: '📹 Записи' },
-]
-
-const activeType = computed<PracticeType | 'all'>(
-  () => store.filters.practice_type ?? 'all',
-)
-
-function onTypeFilter(value: PracticeType | 'all'): void {
-  store.applyFilters({
-    practice_type: value === 'all' ? undefined : value,
-  })
+function todayIso(): string {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-// -- Group practices by date --
-interface DateGroup {
-  label: string
-  dateKey: string
-  items: PracticeResponse[]
-}
+const selectedIso = ref(todayIso())
+const filterOpen = ref(false)
+const filters = ref<PracticeFilters>({})
+const loading = ref(false)
+const practices = ref<PracticeResponse[]>([])
 
-/**
- * Extract YYYY-MM-DD string in the practice's timezone for grouping.
- */
-function dateKey(practice: PracticeResponse): string {
-  const date = new Date(practice.scheduled_at)
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: practice.timezone,
-  }).format(date)
-}
-
-const groupedPractices = computed<DateGroup[]>(() => {
-  const map = new Map<string, DateGroup>()
-
-  for (const p of store.practices) {
-    const key = dateKey(p)
-    if (!map.has(key)) {
-      map.set(key, {
-        label: formatDateShort(p.scheduled_at, p.timezone),
-        dateKey: key,
-        items: [],
-      })
-    }
-    map.get(key)!.items.push(p)
+const practiceDays = computed<Set<string>>(() => {
+  const s = new Set<string>()
+  for (const p of practices.value) {
+    s.add(p.scheduled_at.slice(0, 10))
   }
-
-  return Array.from(map.values())
+  return s
 })
 
-function goToDetail(id: string): void {
-  router.push({ name: 'practice-detail', params: { id } })
+const grouped = computed<Group[]>(() => {
+  const today = todayIso()
+  const tomorrow = (() => {
+    const d = new Date(today)
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().slice(0, 10)
+  })()
+  const map = new Map<string, PracticeResponse[]>()
+  for (const p of practices.value) {
+    const iso = p.scheduled_at.slice(0, 10)
+    if (!map.has(iso)) map.set(iso, [])
+    map.get(iso)!.push(p)
+  }
+  const out: Group[] = []
+  for (const iso of Array.from(map.keys()).sort()) {
+    const list = map.get(iso)!.slice().sort(
+      (a, b) =>
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
+    )
+    let label = iso
+    if (iso === today) label = 'Сегодня'
+    else if (iso === tomorrow) label = 'Завтра'
+    else
+      label = new Date(iso).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+      })
+    out.push({ iso, label, practices: list })
+  }
+  return out
+})
+
+function iconFor(type: string) {
+  return PRACTICE_TYPE_ICON[type] ?? PRACTICE_TYPE_ICON.live
+}
+
+function startOfWeek(iso: string): string {
+  const d = new Date(iso)
+  const dow = d.getDay()
+  const diff = (dow + 6) % 7
+  d.setDate(d.getDate() - diff)
+  return d.toISOString().slice(0, 10)
+}
+
+function endOfWeek(iso: string): string {
+  const d = new Date(startOfWeek(iso))
+  d.setDate(d.getDate() + 6)
+  return d.toISOString().slice(0, 10)
+}
+
+async function reload(): Promise<void> {
+  loading.value = true
+  try {
+    const start = startOfWeek(selectedIso.value)
+    const end = endOfWeek(selectedIso.value)
+    const data = await getPractices(
+      {
+        ...filters.value,
+        date_from: `${start}T00:00:00Z`,
+        date_to: `${end}T23:59:59Z`,
+      },
+      50,
+      0,
+    )
+    practices.value = data.items
+  } catch {
+    practices.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+function applyFilters(next: PracticeFilters): void {
+  filters.value = next
+  filterOpen.value = false
+  reload()
 }
 
 onMounted(() => {
-  store.fetchPractices()
+  reload()
+})
+
+watch(selectedIso, () => {
+  reload()
 })
 </script>
 
 <style scoped>
-.calendar__filters {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-4);
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.calendar__filters::-webkit-scrollbar {
-  display: none;
-}
-
-.calendar__chip {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid #ffffff;
-  background: var(--surface-steel-alpha-15);
-  border-radius: 100px;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.calendar__chip:hover {
-  opacity: 0.8;
-}
-
-.calendar__chip--active {
-  background: var(--steel-button);
-  border-color: var(--steel-button);
-  color: white;
-}
-
-.calendar__date-header {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--text-primary);
-  margin: var(--space-4) 0 var(--space-3);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.calendar__date-header:first-child {
-  margin-top: 0;
-}
-
-.calendar__list {
+.cal {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-4);
 }
 
-.calendar__load-more {
-  margin-top: var(--space-4);
+.cal__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  margin: 0;
+  font-weight: 400;
+  color: var(--text-primary);
 }
 
-.calendar__loader {
+.cal__filter-cta {
   display: flex;
-  justify-content: center;
-  padding: var(--space-8) 0;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--steel-button);
+  color: white;
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+
+.cal__loader,
+.cal__empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+}
+
+.cal__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cal__group-head {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  margin: 0 0 var(--space-2);
+  font-weight: 400;
+  color: var(--text-primary);
+}
+
+.cal__group-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cal__card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-steel-alpha-15);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.cal__card:hover {
+  background: var(--surface-default);
+}
+
+.cal__card-icon {
+  flex-shrink: 0;
+  color: var(--text-primary);
+}
+
+.cal__card-body h4 {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  margin: 0 0 2px;
+  font-weight: 400;
+}
+
+.cal__card-body p {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
 }
 </style>

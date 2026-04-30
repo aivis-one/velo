@@ -43,7 +43,9 @@
            📝 ОСНОВНОЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОСНОВНОЕ</div>
+        <div class="create-practice__section-title">
+          📝 ОСНОВНОЕ
+        </div>
 
         <VInput
           v-model="form.title"
@@ -64,7 +66,9 @@
            📅 РАСПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📅 РАСПИСАНИЕ</div>
+        <div class="create-practice__section-title">
+          📅 РАСПИСАНИЕ
+        </div>
 
         <div class="create-practice__field">
           <label class="create-practice__label">Дата *</label>
@@ -74,8 +78,13 @@
             type="date"
             class="create-practice__date-input"
             :min="todayDate"
-          />
-          <p v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</p>
+          >
+          <p
+            v-if="errors.date"
+            class="create-practice__field-error"
+          >
+            {{ errors.date }}
+          </p>
         </div>
 
         <div class="create-practice__field">
@@ -84,8 +93,13 @@
             v-model="form.time"
             type="time"
             class="create-practice__date-input"
-          />
-          <p v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</p>
+          >
+          <p
+            v-if="errors.time"
+            class="create-practice__field-error"
+          >
+            {{ errors.time }}
+          </p>
         </div>
 
         <VSelect
@@ -106,7 +120,9 @@
            👥 УЧАСТНИКИ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">👥 УЧАСТНИКИ</div>
+        <div class="create-practice__section-title">
+          👥 УЧАСТНИКИ
+        </div>
 
         <VInput
           v-model="form.max_participants_raw"
@@ -121,7 +137,9 @@
            💰 ЦЕНА
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">💰 ЦЕНА</div>
+        <div class="create-practice__section-title">
+          💰 ЦЕНА
+        </div>
 
         <!-- Free / Paid radio toggle -->
         <div class="create-practice__payment-options">
@@ -130,7 +148,10 @@
             :class="{ 'create-practice__payment-option--active': form.is_free }"
             @click="form.is_free = true"
           >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': form.is_free }" />
+            <span
+              class="create-practice__radio"
+              :class="{ 'create-practice__radio--active': form.is_free }"
+            />
             <span>Бесплатно</span>
           </label>
           <label
@@ -138,7 +159,10 @@
             :class="{ 'create-practice__payment-option--active': !form.is_free }"
             @click="form.is_free = false"
           >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': !form.is_free }" />
+            <span
+              class="create-practice__radio"
+              :class="{ 'create-practice__radio--active': !form.is_free }"
+            />
             <span>Платно</span>
           </label>
         </div>
@@ -153,7 +177,10 @@
             :error="errors.price_cents"
           />
           <!-- W-9: commission calc via COMMISSION_RATE constant -->
-          <div v-if="priceCents > 0" class="create-practice__price-calc">
+          <div
+            v-if="priceCents > 0"
+            class="create-practice__price-calc"
+          >
             <div class="create-practice__price-row">
               <span>Комиссия {{ commissionPct }}%</span>
               <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
@@ -170,7 +197,9 @@
            📝 ОПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОПИСАНИЕ</div>
+        <div class="create-practice__section-title">
+          📝 ОПИСАНИЕ
+        </div>
 
         <VTextarea
           v-model="form.description"
@@ -198,7 +227,9 @@
            🔗 ПОДКЛЮЧЕНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+        <div class="create-practice__section-title">
+          🔗 ПОДКЛЮЧЕНИЕ
+        </div>
 
         <VInput
           v-model="form.zoom_link"
@@ -207,7 +238,9 @@
           placeholder="https://zoom.us/j/..."
           :error="errors.zoom_link"
         />
-        <p class="create-practice__hint">Участники получат ссылку за 10 минут до начала</p>
+        <p class="create-practice__hint">
+          Участники получат ссылку за 10 минут до начала
+        </p>
       </div>
 
       <!-- Submit -->

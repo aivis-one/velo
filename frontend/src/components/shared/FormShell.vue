@@ -44,32 +44,58 @@
 
 <template>
   <!-- ===== SUCCESS SCREEN ===== -->
-  <div v-if="submitted" class="form-shell-success">
-    <div class="form-shell-success__icon">{{ successIcon }}</div>
-    <h1 class="form-shell-success__title">{{ successTitle }}</h1>
-    <p class="form-shell-success__text">{{ successText }}</p>
+  <div
+    v-if="submitted"
+    class="form-shell-success"
+  >
+    <div class="form-shell-success__icon">
+      {{ successIcon }}
+    </div>
+    <h1 class="form-shell-success__title">
+      {{ successTitle }}
+    </h1>
+    <p class="form-shell-success__text">
+      {{ successText }}
+    </p>
     <div class="form-shell-success__actions">
       <slot name="success-actions" />
     </div>
   </div>
 
   <!-- ===== FORM SCREEN ===== -->
-  <div v-else class="form-shell">
+  <div
+    v-else
+    class="form-shell"
+  >
     <!-- Header -->
-    <VHeader show-back :back-label="backLabel" @back="emit('back')" />
+    <VHeader
+      show-back
+      :back-label="backLabel"
+      @back="emit('back')"
+    />
 
     <div class="form-shell__body">
       <!-- Practice info -->
-      <div v-if="practice" class="form-shell__practice">
-        <div class="form-shell__practice-emoji">{{ typeEmoji }}</div>
-        <h2 class="form-shell__practice-name">{{ practice.title }}</h2>
+      <div
+        v-if="practice"
+        class="form-shell__practice"
+      >
+        <div class="form-shell__practice-emoji">
+          {{ typeEmoji }}
+        </div>
+        <h2 class="form-shell__practice-name">
+          {{ practice.title }}
+        </h2>
         <p class="form-shell__practice-meta">
           <slot name="practice-meta">
             с {{ practice.master_name ?? 'Мастером' }}
           </slot>
         </p>
       </div>
-      <div v-else-if="practiceLoading" class="form-shell__loader">
+      <div
+        v-else-if="practiceLoading"
+        class="form-shell__loader"
+      >
         <VLoader />
       </div>
 
@@ -108,7 +134,12 @@
         >
           {{ submitLabel }}
         </VButton>
-        <VButton v-if="showSkip" variant="ghost" block @click="emit('skip')">
+        <VButton
+          v-if="showSkip"
+          variant="ghost"
+          block
+          @click="emit('skip')"
+        >
           Пропустить
         </VButton>
       </div>

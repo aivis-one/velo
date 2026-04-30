@@ -14,27 +14,43 @@
   <div class="admin-profile">
     <!-- Header -->
     <div class="admin-profile__header">
-      <VAvatar :name="displayName" size="xl" />
+      <VAvatar
+        :name="displayName"
+        size="xl"
+      />
       <div class="admin-profile__header-info">
-        <h1 class="admin-profile__name">{{ displayName }}</h1>
-        <VBadge variant="info">Администратор</VBadge>
+        <h1 class="admin-profile__name">
+          {{ displayName }}
+        </h1>
+        <VBadge variant="info">
+          Администратор
+        </VBadge>
       </div>
     </div>
 
     <!-- Switch to user mode -->
     <div class="admin-profile__section">
-      <div class="admin-profile__section-title">РЕЖИМ ПРОСМОТРА</div>
+      <div class="admin-profile__section-title">
+        РЕЖИМ ПРОСМОТРА
+      </div>
       <p class="admin-profile__section-desc">
         Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
       </p>
-      <VButton variant="secondary" @click="switchToUserMode">
+      <VButton
+        variant="secondary"
+        @click="switchToUserMode"
+      >
         Перейти в интерфейс пользователя →
       </VButton>
     </div>
 
     <!-- Logout -->
     <div class="admin-profile__section">
-      <VButton variant="ghost" :loading="loggingOut" @click="onLogout">
+      <VButton
+        variant="ghost"
+        :loading="loggingOut"
+        @click="onLogout"
+      >
         🚪 Выйти
       </VButton>
     </div>

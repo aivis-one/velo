@@ -18,11 +18,18 @@
       @click="$emit('navigate', item.to)"
     >
       <span class="v-tabbar__icon">
-        <component v-if="typeof item.icon !== 'string'" :is="item.icon" :size="20" />
+        <component
+          :is="item.icon"
+          v-if="typeof item.icon !== 'string'"
+          :size="20"
+        />
         <template v-else>{{ item.icon }}</template>
       </span>
       <span class="v-tabbar__label">{{ item.label }}</span>
-      <span v-if="item.badge" class="v-tabbar__badge">{{ item.badge }}</span>
+      <span
+        v-if="item.badge"
+        class="v-tabbar__badge"
+      >{{ item.badge }}</span>
     </button>
   </nav>
 </template>

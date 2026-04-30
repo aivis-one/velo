@@ -10,7 +10,10 @@
 
 <template>
   <div class="v-input">
-    <label v-if="label" class="v-input__label">{{ label }}</label>
+    <label
+      v-if="label"
+      class="v-input__label"
+    >{{ label }}</label>
     <input
       class="v-input__field"
       :type="type"
@@ -18,7 +21,7 @@
       :placeholder="placeholder"
       :disabled="disabled"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-    />
+    >
   </div>
 </template>
 

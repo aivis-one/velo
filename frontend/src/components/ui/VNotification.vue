@@ -10,7 +10,10 @@
 -->
 
 <template>
-  <div class="v-notification" :class="`v-notification--${variant}`">
+  <div
+    class="v-notification"
+    :class="`v-notification--${variant}`"
+  >
     <slot />
   </div>
 </template>

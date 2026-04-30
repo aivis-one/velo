@@ -46,24 +46,51 @@
            SECTION 1: PROFILE HEADER
            ================================================================== -->
       <div class="master-profile__header">
-        <VAvatar :name="displayName" size="xl" />
+        <VAvatar
+          :name="displayName"
+          size="xl"
+        />
 
         <div class="master-profile__header-info">
-          <h1 class="master-profile__name">{{ displayName }}</h1>
-          <VBadge v-if="isVerified" variant="success">✓ Верифицирован</VBadge>
-          <VBadge v-else variant="warning">На рассмотрении</VBadge>
+          <h1 class="master-profile__name">
+            {{ displayName }}
+          </h1>
+          <VBadge
+            v-if="isVerified"
+            variant="success"
+          >
+            ✓ Верифицирован
+          </VBadge>
+          <VBadge
+            v-else
+            variant="warning"
+          >
+            На рассмотрении
+          </VBadge>
         </div>
       </div>
 
       <!-- Bio -->
-      <div v-if="bio" class="master-profile__section">
-        <div class="master-profile__section-title">О СЕБЕ</div>
-        <p class="master-profile__bio">{{ bio }}</p>
+      <div
+        v-if="bio"
+        class="master-profile__section"
+      >
+        <div class="master-profile__section-title">
+          О СЕБЕ
+        </div>
+        <p class="master-profile__bio">
+          {{ bio }}
+        </p>
       </div>
 
       <!-- Methods chips -->
-      <div v-if="methods.length > 0" class="master-profile__section">
-        <div class="master-profile__section-title">НАПРАВЛЕНИЯ</div>
+      <div
+        v-if="methods.length > 0"
+        class="master-profile__section"
+      >
+        <div class="master-profile__section-title">
+          НАПРАВЛЕНИЯ
+        </div>
         <div class="master-profile__chips">
           <span
             v-for="method in methods"
@@ -76,8 +103,13 @@
       </div>
 
       <!-- Experience -->
-      <div v-if="experienceYears != null" class="master-profile__section">
-        <div class="master-profile__section-title">ОПЫТ</div>
+      <div
+        v-if="experienceYears != null"
+        class="master-profile__section"
+      >
+        <div class="master-profile__section-title">
+          ОПЫТ
+        </div>
         <p class="master-profile__experience">
           {{ experienceYears }} {{ pluralYears(experienceYears) }}
         </p>
@@ -87,39 +119,60 @@
            SECTION 2: PAYOUT SETTINGS
            ================================================================== -->
       <div class="master-profile__section master-profile__payout-section">
-        <div class="master-profile__section-title">💳 РЕКВИЗИТЫ ВЫПЛАТ</div>
+        <div class="master-profile__section-title">
+          💳 РЕКВИЗИТЫ ВЫПЛАТ
+        </div>
 
         <!-- Current state (not editing) -->
         <template v-if="!showPayoutForm">
           <!-- Not configured -->
-          <div v-if="!hasPayout" class="master-profile__payout-empty">
+          <div
+            v-if="!hasPayout"
+            class="master-profile__payout-empty"
+          >
             <p class="master-profile__payout-empty-text">
               Реквизиты не настроены. Укажите их, чтобы запрашивать выводы.
             </p>
-            <VButton variant="secondary" size="sm" @click="openPayoutForm(false)">
+            <VButton
+              variant="secondary"
+              size="sm"
+              @click="openPayoutForm(false)"
+            >
               + Добавить реквизиты
             </VButton>
           </div>
 
           <!-- Configured -->
-          <div v-else class="master-profile__payout-configured">
+          <div
+            v-else
+            class="master-profile__payout-configured"
+          >
             <div class="master-profile__payout-row">
               <span class="master-profile__payout-method">
                 {{ methodLabel(masterStore.profile!.payout!.method) }}
               </span>
-              <VBadge variant="success">Настроено</VBadge>
+              <VBadge variant="success">
+                Настроено
+              </VBadge>
             </div>
             <p class="master-profile__payout-details-text">
               {{ maskedDetails(masterStore.profile!.payout!) }}
             </p>
-            <VButton variant="outline" size="sm" @click="openPayoutForm(true)">
+            <VButton
+              variant="outline"
+              size="sm"
+              @click="openPayoutForm(true)"
+            >
               Изменить
             </VButton>
           </div>
         </template>
 
         <!-- Inline payout form -->
-        <div v-show="showPayoutForm" class="master-profile__payout-form">
+        <div
+          v-show="showPayoutForm"
+          class="master-profile__payout-form"
+        >
           <VSelect
             v-model="payoutForm.method"
             label="Способ выплаты"
@@ -178,7 +231,11 @@
             >
               Сохранить
             </VButton>
-            <VButton variant="ghost" :disabled="savingPayout" @click="closePayoutForm">
+            <VButton
+              variant="ghost"
+              :disabled="savingPayout"
+              @click="closePayoutForm"
+            >
               Отмена
             </VButton>
           </div>
@@ -195,7 +252,9 @@
         <div class="master-profile__finance-link-left">
           <span class="master-profile__finance-link-icon">💰</span>
           <div>
-            <div class="master-profile__finance-link-title">Финансы и выводы</div>
+            <div class="master-profile__finance-link-title">
+              Финансы и выводы
+            </div>
             <div class="master-profile__finance-link-sub">
               Баланс · История выводов
             </div>
@@ -208,11 +267,16 @@
            SECTION 4: SWITCH TO USER MODE (TD-FE-ROLE-SWITCH)
            ================================================================== -->
       <div class="master-profile__section master-profile__switch-section">
-        <div class="master-profile__section-title">РЕЖИМ ПРОСМОТРА</div>
+        <div class="master-profile__section-title">
+          РЕЖИМ ПРОСМОТРА
+        </div>
         <p class="master-profile__switch-desc">
           Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
         </p>
-        <VButton variant="secondary" @click="switchToUserMode">
+        <VButton
+          variant="secondary"
+          @click="switchToUserMode"
+        >
           Перейти в интерфейс пользователя →
         </VButton>
       </div>

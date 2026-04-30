@@ -18,9 +18,16 @@
     @click="clickable ? $emit('click') : undefined"
     @keydown.enter.space.prevent="clickable ? $emit('click') : undefined"
   >
-    <span v-if="icon" class="v-stat__icon">{{ icon }}</span>
-    <div class="v-stat__value">{{ value }}</div>
-    <div class="v-stat__label">{{ label }}</div>
+    <span
+      v-if="icon"
+      class="v-stat__icon"
+    >{{ icon }}</span>
+    <div class="v-stat__value">
+      {{ value }}
+    </div>
+    <div class="v-stat__label">
+      {{ label }}
+    </div>
   </div>
 </template>
 

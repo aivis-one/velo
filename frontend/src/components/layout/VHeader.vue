@@ -13,31 +13,60 @@
 <template>
   <header class="v-header">
     <div class="v-header__left">
-      <button v-if="showBack" class="v-header__back" @click="$emit('back')">
-        ← {{ backLabel }}
+      <button
+        v-if="showBack"
+        class="v-header__back"
+        @click="$emit('back')"
+      >
+        <IconArrowBack :size="16" />
+        <span>{{ backLabel }}</span>
       </button>
-      <h1 v-if="title" class="v-header__title">{{ title }}</h1>
-      <span v-if="badge" class="v-header__badge">{{ badge }}</span>
+      <h1
+        v-if="title"
+        class="v-header__title"
+      >
+        {{ title }}
+      </h1>
+      <span
+        v-if="badge"
+        class="v-header__badge"
+      >{{ badge }}</span>
     </div>
-    <div v-if="$slots.action" class="v-header__right">
+    <div class="v-header__right">
       <slot name="action" />
+      <button
+        v-if="!hideThemeToggle"
+        type="button"
+        class="v-header__theme"
+        :aria-label="ui.theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'"
+        @click="ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark')"
+      >
+        <IconTheme :size="20" />
+      </button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
+import { useUiStore } from '@/stores/ui'
+import { IconArrowBack, IconTheme } from '@/components/icons'
+
+const ui = useUiStore()
+
 withDefaults(
   defineProps<{
     title?: string
     showBack?: boolean
     backLabel?: string
     badge?: string | number
+    hideThemeToggle?: boolean
   }>(),
   {
     title: '',
     showBack: false,
     backLabel: 'Назад',
     badge: undefined,
+    hideThemeToggle: false,
   },
 )
 
@@ -115,5 +144,23 @@ defineEmits<{
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+
+.v-header__theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: opacity var(--transition-fast);
+}
+
+.v-header__theme:hover {
+  opacity: 0.75;
 }
 </style>

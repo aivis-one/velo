@@ -10,9 +10,20 @@
 -->
 
 <template>
-  <div class="v-avatar" :class="`v-avatar--${size}`">
-    <img v-if="url" :src="url" :alt="name" class="v-avatar__img" />
-    <span v-else class="v-avatar__initials">{{ initials }}</span>
+  <div
+    class="v-avatar"
+    :class="`v-avatar--${size}`"
+  >
+    <img
+      v-if="url"
+      :src="url"
+      :alt="name"
+      class="v-avatar__img"
+    >
+    <span
+      v-else
+      class="v-avatar__initials"
+    >{{ initials }}</span>
   </div>
 </template>
 

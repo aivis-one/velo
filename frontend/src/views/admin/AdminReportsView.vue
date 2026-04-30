@@ -30,7 +30,10 @@
       </div>
 
       <!-- Loading: initial -->
-      <div v-if="loading && items.length === 0" class="admin-reports__loader">
+      <div
+        v-if="loading && items.length === 0"
+        class="admin-reports__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -67,7 +70,9 @@
                 {{ reportTargetLabel(item.target_type) }}
               </span>
             </div>
-            <div class="admin-reports__card-reason">{{ item.reason }}</div>
+            <div class="admin-reports__card-reason">
+              {{ item.reason }}
+            </div>
             <div class="admin-reports__card-date">
               {{ formatShortDate(item.created_at) }}
             </div>
@@ -75,7 +80,10 @@
         </div>
 
         <!-- Load more -->
-        <div v-if="hasMore" class="admin-reports__load-more">
+        <div
+          v-if="hasMore"
+          class="admin-reports__load-more"
+        >
           <VButton
             variant="outline"
             block

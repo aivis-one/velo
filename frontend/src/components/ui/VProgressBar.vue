@@ -16,7 +16,10 @@
         :style="{ width: pct + '%', background: color }"
       />
     </div>
-    <span v-if="showLabel" class="v-progress__label">{{ pct }}%</span>
+    <span
+      v-if="showLabel"
+      class="v-progress__label"
+    >{{ pct }}%</span>
   </div>
 </template>
 

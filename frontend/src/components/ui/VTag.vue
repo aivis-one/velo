@@ -11,7 +11,10 @@
 -->
 
 <template>
-  <span class="v-tag" :class="`v-tag--${variant}`">
+  <span
+    class="v-tag"
+    :class="`v-tag--${variant}`"
+  >
     <slot />
   </span>
 </template>

@@ -31,6 +31,13 @@ const app = createApp(App)
 // Pinia = state manager (like a global dict of reactive objects).
 app.use(createPinia())
 
+// S2 P07 C25: theme initialization — read localStorage 'velo:theme' OR
+// prefers-color-scheme; sets document.documentElement.dataset.theme.
+// Must run after Pinia mount but before router (so first navigation already
+// has correct data-theme attribute).
+import { useUiStore } from '@/stores/ui'
+useUiStore().initTheme()
+
 // Router = URL -> component mapping (like FastAPI include_router).
 app.use(router)
 

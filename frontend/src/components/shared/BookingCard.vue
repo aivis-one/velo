@@ -26,7 +26,9 @@
       <span class="booking-card__title">
         {{ typeEmoji }} {{ booking.practice.title }}
       </span>
-      <VBadge :variant="statusVariant">{{ statusLabel }}</VBadge>
+      <VBadge :variant="statusVariant">
+        {{ statusLabel }}
+      </VBadge>
     </div>
 
     <div class="booking-card__meta">

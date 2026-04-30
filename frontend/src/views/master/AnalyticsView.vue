@@ -24,7 +24,9 @@
   <div class="analytics">
     <!-- Header -->
     <header class="analytics__header">
-      <h1 class="analytics__header-title">📈 Аналитика</h1>
+      <h1 class="analytics__header-title">
+        📈 Аналитика
+      </h1>
     </header>
 
     <!-- Tabs -->
@@ -48,21 +50,35 @@
     <!-- ================================================================
          TAB: ОТЗЫВЫ
          ================================================================ -->
-    <div v-show="activeTab === 'reviews'" class="analytics__body">
-
+    <div
+      v-show="activeTab === 'reviews'"
+      class="analytics__body"
+    >
       <!-- Stats grid (aggregate from all cached insights) -->
       <div class="analytics__stats-grid">
         <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateCheckinPct }}</div>
-          <div class="analytics__stat-label">Check-in</div>
+          <div class="analytics__stat-value">
+            {{ aggregateCheckinPct }}
+          </div>
+          <div class="analytics__stat-label">
+            Check-in
+          </div>
         </div>
         <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateFeedbackPct }}</div>
-          <div class="analytics__stat-label">Feedback</div>
+          <div class="analytics__stat-value">
+            {{ aggregateFeedbackPct }}
+          </div>
+          <div class="analytics__stat-label">
+            Feedback
+          </div>
         </div>
         <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateTotalFeedbacks }}</div>
-          <div class="analytics__stat-label">отзывов</div>
+          <div class="analytics__stat-value">
+            {{ aggregateTotalFeedbacks }}
+          </div>
+          <div class="analytics__stat-label">
+            отзывов
+          </div>
         </div>
       </div>
 
@@ -73,7 +89,9 @@
         v-if="aggregateTotalFeedbacks > 0"
         class="analytics__section"
       >
-        <div class="analytics__section-title">💬 Общая статистика</div>
+        <div class="analytics__section-title">
+          💬 Общая статистика
+        </div>
         <div class="analytics__rating-bars">
           <div
             v-for="bar in ratingBars"
@@ -96,10 +114,15 @@
 
       <!-- Past practices list -->
       <div class="analytics__section">
-        <div class="analytics__section-title">📅 Прошедшие практики</div>
+        <div class="analytics__section-title">
+          📅 Прошедшие практики
+        </div>
 
         <!-- Practices loading -->
-        <div v-if="masterStore.practicesLoading && pastPractices.length === 0" class="analytics__loader">
+        <div
+          v-if="masterStore.practicesLoading && pastPractices.length === 0"
+          class="analytics__loader"
+        >
           <VLoader />
         </div>
 
@@ -112,7 +135,10 @@
         />
 
         <!-- Practice rows -->
-        <div v-else class="analytics__practice-list">
+        <div
+          v-else
+          class="analytics__practice-list"
+        >
           <div
             v-for="practice in pastPractices"
             :key="practice.id"
@@ -126,7 +152,9 @@
               <div class="analytics__practice-left">
                 <span class="analytics__practice-emoji">{{ typeEmoji(practice.practice_type) }}</span>
                 <div class="analytics__practice-info">
-                  <div class="analytics__practice-title">{{ practice.title }}</div>
+                  <div class="analytics__practice-title">
+                    {{ practice.title }}
+                  </div>
                   <div class="analytics__practice-meta">
                     {{ formatShortDate(practice.scheduled_at) }}
                     · {{ practice.current_participants }} участников
@@ -135,7 +163,10 @@
               </div>
 
               <!-- Mini rating badges (shown if cached) -->
-              <div v-if="insightsCache.has(practice.id)" class="analytics__practice-badges">
+              <div
+                v-if="insightsCache.has(practice.id)"
+                class="analytics__practice-badges"
+              >
                 <span>🔥 {{ ratingPct(practice.id, 'fire') }}%</span>
                 <span>👍 {{ ratingPct(practice.id, 'good') }}%</span>
                 <span>❓ {{ ratingPct(practice.id, 'confused') }}%</span>
@@ -155,14 +186,23 @@
                 class="analytics__insights"
               >
                 <!-- Loading insights -->
-                <div v-if="loadingInsights.has(practice.id)" class="analytics__insights-loader">
+                <div
+                  v-if="loadingInsights.has(practice.id)"
+                  class="analytics__insights-loader"
+                >
                   <VLoader size="sm" />
                 </div>
 
                 <!-- Error -->
-                <div v-else-if="insightsError.has(practice.id)" class="analytics__insights-error">
+                <div
+                  v-else-if="insightsError.has(practice.id)"
+                  class="analytics__insights-error"
+                >
                   ⚠️ {{ insightsError.get(practice.id) }}
-                  <button class="analytics__retry-btn" @click="diaryStore.loadInsights(practice.id)">
+                  <button
+                    class="analytics__retry-btn"
+                    @click="diaryStore.loadInsights(practice.id)"
+                  >
                     Повторить
                   </button>
                 </div>
@@ -205,11 +245,17 @@
                     </div>
                   </div>
 
-                  <div v-else class="analytics__insights-empty">
+                  <div
+                    v-else
+                    class="analytics__insights-empty"
+                  >
                     Отзывов пока нет
                   </div>
 
-                  <div v-if="insightsCache.get(practice.id)!.comments_count > 0" class="analytics__insights-comments">
+                  <div
+                    v-if="insightsCache.get(practice.id)!.comments_count > 0"
+                    class="analytics__insights-comments"
+                  >
                     💬 {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
                   </div>
                 </template>
@@ -218,7 +264,10 @@
           </div>
 
           <!-- Load more past practices -->
-          <div v-if="masterStore.practicesHasMore" class="analytics__load-more">
+          <div
+            v-if="masterStore.practicesHasMore"
+            class="analytics__load-more"
+          >
             <VButton
               variant="ghost"
               block
@@ -235,9 +284,14 @@
     <!-- ================================================================
          TAB: ПЛАТЕЖИ
          ================================================================ -->
-    <div v-show="activeTab === 'payments'" class="analytics__body">
+    <div
+      v-show="activeTab === 'payments'"
+      class="analytics__body"
+    >
       <div class="analytics__section">
-        <div class="analytics__section-title">💰 Финансы и выплаты</div>
+        <div class="analytics__section-title">
+          💰 Финансы и выплаты
+        </div>
         <p class="analytics__payments-hint">
           История транзакций, заработок и запрос на вывод средств доступны
           в разделе Финансы.

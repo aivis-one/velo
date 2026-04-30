@@ -24,8 +24,13 @@
 -->
 
 <template>
-  <VModal :open="open" @close="onClose">
-    <h2 class="popup__title">Бронирование</h2>
+  <VModal
+    :open="open"
+    @close="onClose"
+  >
+    <h2 class="popup__title">
+      Бронирование
+    </h2>
 
     <!-- Summary -->
     <div class="popup__summary">
@@ -52,7 +57,7 @@
         placeholder="Промокод"
         :disabled="purchasing"
         @keydown.enter="onApplyPromo"
-      />
+      >
       <VButton
         size="sm"
         variant="secondary"
@@ -65,7 +70,10 @@
     </div>
 
     <!-- Promo result -->
-    <div v-if="promoApplied" class="popup__discount">
+    <div
+      v-if="promoApplied"
+      class="popup__discount"
+    >
       <span class="popup__discount-label">Скидка {{ discountPercent }}%</span>
       <span class="popup__discount-value">
         −{{ formattedDiscount }}
@@ -79,7 +87,10 @@
     </div>
 
     <!-- Insufficient balance warning -->
-    <div v-if="insufficientBalance" class="popup__warning">
+    <div
+      v-if="insufficientBalance"
+      class="popup__warning"
+    >
       Недостаточно средств. Ваш баланс: {{ balanceStore.formattedBalance }}
     </div>
 

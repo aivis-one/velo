@@ -15,9 +15,13 @@
 <template>
   <div class="auth-error">
     <div class="auth-error__card">
-      <div class="auth-error__icon">⏱️</div>
+      <div class="auth-error__icon">
+        ⏱️
+      </div>
 
-      <h1 class="auth-error__title">Не удалось загрузить</h1>
+      <h1 class="auth-error__title">
+        Не удалось загрузить
+      </h1>
 
       <p class="auth-error__body">
         Соединение заняло слишком много времени.

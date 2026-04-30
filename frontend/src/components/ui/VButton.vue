@@ -27,7 +27,10 @@
     :disabled="disabled || loading"
     @click="$emit('click', $event)"
   >
-    <span v-if="loading" class="v-btn__spinner" />
+    <span
+      v-if="loading"
+      class="v-btn__spinner"
+    />
     <span :class="{ 'v-btn__content--hidden': loading }">
       <slot />
     </span>

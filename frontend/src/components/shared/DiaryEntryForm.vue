@@ -23,8 +23,16 @@
   <div class="entry-form">
     <!-- Header -->
     <header class="entry-form__header">
-      <button class="entry-form__back" aria-label="Назад" @click="emit('back')">←</button>
-      <h1 class="entry-form__title">{{ mode === 'new' ? 'Новая запись' : 'Редактировать' }}</h1>
+      <button
+        class="entry-form__back"
+        aria-label="Назад"
+        @click="emit('back')"
+      >
+        ←
+      </button>
+      <h1 class="entry-form__title">
+        {{ mode === 'new' ? 'Новая запись' : 'Редактировать' }}
+      </h1>
       <button
         v-if="mode === 'edit'"
         class="entry-form__delete"
@@ -34,17 +42,32 @@
       >
         🗑️
       </button>
-      <span v-else class="entry-form__spacer" />
+      <span
+        v-else
+        class="entry-form__spacer"
+      />
     </header>
 
     <!-- Delete confirmation bar (edit mode) -->
-    <div v-if="confirmVisible" class="entry-form__confirm-bar">
+    <div
+      v-if="confirmVisible"
+      class="entry-form__confirm-bar"
+    >
       <span class="entry-form__confirm-text">Удалить запись навсегда?</span>
       <div class="entry-form__confirm-actions">
-        <VButton size="sm" variant="danger" :loading="submitting" @click="emit('delete-confirm')">
+        <VButton
+          size="sm"
+          variant="danger"
+          :loading="submitting"
+          @click="emit('delete-confirm')"
+        >
           Удалить
         </VButton>
-        <VButton size="sm" variant="ghost" @click="emit('delete-cancel')">
+        <VButton
+          size="sm"
+          variant="ghost"
+          @click="emit('delete-cancel')"
+        >
           Отмена
         </VButton>
       </div>
@@ -60,7 +83,7 @@
           type="text"
           placeholder="О чём хотите написать?"
           maxlength="200"
-        />
+        >
       </div>
       <div class="entry-form__group entry-form__group--grow">
         <label class="entry-form__label">Текст</label>

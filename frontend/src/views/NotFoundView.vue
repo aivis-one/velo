@@ -5,9 +5,16 @@
 <template>
   <div class="not-found">
     <span class="not-found__icon">🔍</span>
-    <h1 class="not-found__title">404</h1>
-    <p class="not-found__text">Страница не найдена</p>
-    <button class="not-found__btn" @click="router.push('/')">
+    <h1 class="not-found__title">
+      404
+    </h1>
+    <p class="not-found__text">
+      Страница не найдена
+    </p>
+    <button
+      class="not-found__btn"
+      @click="router.push('/')"
+    >
       На главную
     </button>
   </div>

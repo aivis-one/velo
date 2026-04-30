@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { getMyBookings, cancelBooking as apiCancelBooking } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
@@ -20,6 +20,13 @@ import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
 export interface CancelResult {
   ok: boolean
   error: string
+}
+
+export type StatusChipVariant = 'amber' | 'mint' | 'pink' | 'gray'
+
+export interface StatusChip {
+  label: string
+  variant: StatusChipVariant
 }
 
 export const useBookingsStore = defineStore('bookings', () => {
@@ -70,6 +77,44 @@ export const useBookingsStore = defineStore('bookings', () => {
     }
   }
 
+  // ----------------------------------------------------------------------
+  // S2 P09 C33 + Phase 13 C52: status getters + chip helper.
+  // PracticeSummary uses scheduled_at (post-C15 regen).
+  // ----------------------------------------------------------------------
+
+  const upcomingBookings = computed<BookingWithPracticeResponse[]>(() => {
+    const now = Date.now()
+    return pagination.items.value.filter((b) => {
+      if (b.status !== 'confirmed') return false
+      const start = new Date(b.practice.scheduled_at).getTime()
+      return start >= now
+    })
+  })
+
+  const pastBookings = computed<BookingWithPracticeResponse[]>(() => {
+    const now = Date.now()
+    return pagination.items.value.filter((b) => {
+      if (b.status === 'attended' || b.status === 'no_show' || b.status === 'cancelled') return true
+      if (b.status === 'confirmed') {
+        const start = new Date(b.practice.scheduled_at).getTime()
+        return start < now
+      }
+      return false
+    })
+  })
+
+  function statusChipVariant(b: BookingWithPracticeResponse): StatusChip {
+    if (b.status === 'cancelled') return { label: 'Отменена', variant: 'pink' }
+    if (b.status === 'no_show') return { label: 'Пропущена', variant: 'pink' }
+    if (b.status === 'attended') return { label: 'Завершена', variant: 'mint' }
+    const startMs = new Date(b.practice.scheduled_at).getTime()
+    const dayMs = 24 * 60 * 60 * 1000
+    const dayDiff = Math.floor((startMs - Date.now()) / dayMs)
+    if (dayDiff === 0) return { label: 'Сегодня', variant: 'amber' }
+    if (dayDiff === 1) return { label: 'Завтра', variant: 'amber' }
+    return { label: 'Подтверждена', variant: 'mint' }
+  }
+
   return {
     // List
     bookings: pagination.items,
@@ -87,5 +132,10 @@ export const useBookingsStore = defineStore('bookings', () => {
 
     // Actions
     cancelBooking,
+
+    // Status getters (S2 P09 + Phase 13)
+    upcomingBookings,
+    pastBookings,
+    statusChipVariant,
   }
 })

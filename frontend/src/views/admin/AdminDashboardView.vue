@@ -13,7 +13,10 @@
 
     <div class="admin-dashboard__content">
       <!-- Loading -->
-      <div v-if="loading" class="admin-dashboard__loader">
+      <div
+        v-if="loading"
+        class="admin-dashboard__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -32,7 +35,9 @@
             <div class="admin-dashboard__alert-title">
               {{ stats.pending_verifications }} заявк{{ pendingSuffix }} на верификацию
             </div>
-            <div class="admin-dashboard__alert-sub">Нажмите, чтобы перейти</div>
+            <div class="admin-dashboard__alert-sub">
+              Нажмите, чтобы перейти
+            </div>
           </div>
           <span class="admin-dashboard__alert-arrow">→</span>
         </div>
@@ -64,7 +69,9 @@
         </div>
 
         <!-- Quick actions -->
-        <div class="admin-dashboard__section-title">Быстрые действия</div>
+        <div class="admin-dashboard__section-title">
+          Быстрые действия
+        </div>
         <div class="admin-dashboard__actions">
           <div
             class="admin-dashboard__action-card"
@@ -74,7 +81,9 @@
             @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
           >
             <span class="admin-dashboard__action-icon">👥</span>
-            <div class="admin-dashboard__action-label">Мастера</div>
+            <div class="admin-dashboard__action-label">
+              Мастера
+            </div>
           </div>
           <div
             class="admin-dashboard__action-card"
@@ -84,7 +93,9 @@
             @keydown.enter.space.prevent="router.push({ name: 'admin-reports' })"
           >
             <span class="admin-dashboard__action-icon">⚠️</span>
-            <div class="admin-dashboard__action-label">Жалобы</div>
+            <div class="admin-dashboard__action-label">
+              Жалобы
+            </div>
           </div>
           <div
             class="admin-dashboard__action-card"
@@ -94,7 +105,9 @@
             @keydown.enter.space.prevent="router.push({ name: 'admin-consistency' })"
           >
             <span class="admin-dashboard__action-icon">🔍</span>
-            <div class="admin-dashboard__action-label">Семафоры</div>
+            <div class="admin-dashboard__action-label">
+              Семафоры
+            </div>
           </div>
         </div>
       </template>
@@ -107,7 +120,12 @@
         description="Проверьте соединение и попробуйте ещё раз"
       >
         <template #action>
-          <VButton variant="primary" @click="loadStats">Повторить</VButton>
+          <VButton
+            variant="primary"
+            @click="loadStats"
+          >
+            Повторить
+          </VButton>
         </template>
       </VEmptyState>
     </div>

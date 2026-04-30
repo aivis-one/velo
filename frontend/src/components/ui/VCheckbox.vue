@@ -8,20 +8,40 @@
 -->
 
 <template>
-  <label class="v-checkbox" :class="{ 'v-checkbox--disabled': disabled }">
-    <span class="v-checkbox__box" :class="{ 'v-checkbox__box--checked': modelValue }">
-      <svg v-if="modelValue" viewBox="0 0 12 12" class="v-checkbox__icon">
-        <path d="M10 3L4.5 8.5L2 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+  <label
+    class="v-checkbox"
+    :class="{ 'v-checkbox--disabled': disabled }"
+  >
+    <span
+      class="v-checkbox__box"
+      :class="{ 'v-checkbox__box--checked': modelValue }"
+    >
+      <svg
+        v-if="modelValue"
+        viewBox="0 0 12 12"
+        class="v-checkbox__icon"
+      >
+        <path
+          d="M10 3L4.5 8.5L2 6"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
     </span>
-    <span v-if="label" class="v-checkbox__label">{{ label }}</span>
+    <span
+      v-if="label"
+      class="v-checkbox__label"
+    >{{ label }}</span>
     <input
       type="checkbox"
       :checked="modelValue"
       :disabled="disabled"
       class="v-checkbox__input"
       @change="$emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
-    />
+    >
   </label>
 </template>
 

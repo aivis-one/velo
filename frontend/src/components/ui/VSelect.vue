@@ -8,15 +8,27 @@
 -->
 
 <template>
-  <div class="v-select" :class="{ 'v-select--error': !!error }">
-    <label v-if="label" class="v-select__label">{{ label }}</label>
+  <div
+    class="v-select"
+    :class="{ 'v-select--error': !!error }"
+  >
+    <label
+      v-if="label"
+      class="v-select__label"
+    >{{ label }}</label>
     <select
       class="v-select__field"
       :value="modelValue"
       :disabled="disabled"
       @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
     >
-      <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
+      <option
+        v-if="placeholder"
+        value=""
+        disabled
+      >
+        {{ placeholder }}
+      </option>
       <option
         v-for="opt in options"
         :key="opt.value"
@@ -25,7 +37,10 @@
         {{ opt.label }}
       </option>
     </select>
-    <span v-if="error" class="v-select__error">{{ error }}</span>
+    <span
+      v-if="error"
+      class="v-select__error"
+    >{{ error }}</span>
   </div>
 </template>
 

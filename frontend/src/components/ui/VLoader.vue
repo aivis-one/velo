@@ -9,7 +9,10 @@
 -->
 
 <template>
-  <div class="v-loader" :class="`v-loader--${size}`" />
+  <div
+    class="v-loader"
+    :class="`v-loader--${size}`"
+  />
 </template>
 
 <script setup lang="ts">

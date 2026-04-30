@@ -13,7 +13,10 @@
 
     <div class="consistency__content">
       <!-- Initial loading -->
-      <div v-if="loading" class="consistency__loader">
+      <div
+        v-if="loading"
+        class="consistency__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -41,7 +44,12 @@
             </div>
           </div>
           <!-- S-3: rerunning ref -- only button spins, results stay visible. -->
-          <VButton variant="outline" size="sm" :loading="rerunning" @click="rerun">
+          <VButton
+            variant="outline"
+            size="sm"
+            :loading="rerunning"
+            @click="rerun"
+          >
             ↺
           </VButton>
         </div>
@@ -57,7 +65,9 @@
           :key="category"
           class="consistency__group"
         >
-          <div class="consistency__group-title">{{ category }}</div>
+          <div class="consistency__group-title">
+            {{ category }}
+          </div>
           <div class="consistency__group-list">
             <div
               v-for="item in group"
@@ -79,7 +89,10 @@
                   {{ item.criticality }}
                 </VBadge>
               </div>
-              <div v-if="item.status === 'ALERT'" class="consistency__item-detail">
+              <div
+                v-if="item.status === 'ALERT'"
+                class="consistency__item-detail"
+              >
                 <span class="consistency__item-expected">
                   ожидалось: {{ item.expected }}
                 </span>
@@ -100,7 +113,12 @@
         description="Проверьте соединение и попробуйте ещё раз"
       >
         <template #action>
-          <VButton variant="primary" @click="loadData">Повторить</VButton>
+          <VButton
+            variant="primary"
+            @click="loadData"
+          >
+            Повторить
+          </VButton>
         </template>
       </VEmptyState>
     </div>

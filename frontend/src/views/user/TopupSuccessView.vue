@@ -9,13 +9,20 @@
 
 <template>
   <div class="topup-result">
-    <div class="topup-result__icon">✅</div>
-    <h1 class="topup-result__title">Баланс пополнен!</h1>
+    <div class="topup-result__icon">
+      ✅
+    </div>
+    <h1 class="topup-result__title">
+      Баланс пополнен!
+    </h1>
     <p class="topup-result__text">
       Ваш текущий баланс:
     </p>
     <div class="topup-result__balance">
-      <VLoader v-if="loading" size="sm" />
+      <VLoader
+        v-if="loading"
+        size="sm"
+      />
       <span v-else>{{ balanceStore.formattedBalance }}</span>
     </div>
     <div class="topup-result__actions">

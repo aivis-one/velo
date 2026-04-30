@@ -21,8 +21,13 @@
 -->
 
 <template>
-  <VModal :open="open" @close="onClose">
-    <h2 class="cancel__title">Отменить бронирование?</h2>
+  <VModal
+    :open="open"
+    @close="onClose"
+  >
+    <h2 class="cancel__title">
+      Отменить бронирование?
+    </h2>
 
     <p class="cancel__text">
       Вы уверены, что хотите отменить бронирование на

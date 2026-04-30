@@ -125,6 +125,42 @@ const router = createRouter({
           name: 'user-topup-cancel',
           component: () => import('@/views/user/TopupCancelView.vue'),
         },
+        // S2 P08 booking flow + S2 P09 profile sub-routes (speedrun MEGA-1)
+        {
+          path: 'practices/:id/booking-success',
+          name: 'user-booking-success',
+          component: () => import('@/views/user/BookingSuccessView.vue'),
+        },
+        {
+          path: 'practices/:id/booked',
+          name: 'user-booked-practice',
+          component: () => import('@/views/user/BookedPracticeView.vue'),
+        },
+        {
+          path: 'booking/:id',
+          name: 'user-booking-detail',
+          component: () => import('@/views/user/BookingDetailView.vue'),
+        },
+        {
+          path: 'practices/:practiceId/checkin/success',
+          name: 'user-checkin-success',
+          component: () => import('@/views/user/CheckinSuccessView.vue'),
+        },
+        {
+          path: 'practices/:practiceId/live',
+          name: 'user-practice-live',
+          component: () => import('@/views/user/PracticeLiveView.vue'),
+        },
+        {
+          path: 'practices/:practiceId/feedback/success',
+          name: 'user-feedback-success',
+          component: () => import('@/views/user/FeedbackSuccessView.vue'),
+        },
+        {
+          path: 'profile/edit',
+          name: 'user-profile-edit',
+          component: () => import('@/views/user/EditProfileView.vue'),
+        },
         // Default: /user -> /user/dashboard
         {
           path: '',

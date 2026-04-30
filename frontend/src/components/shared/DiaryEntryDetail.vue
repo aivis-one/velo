@@ -11,15 +11,35 @@
 <template>
   <div class="diary-detail">
     <header class="diary-detail__header">
-      <button class="diary-detail__back" aria-label="Назад" @click="emit('back')">←</button>
-      <h1 class="diary-detail__title">Запись</h1>
-      <button class="diary-detail__action" aria-label="Редактировать" @click="emit('edit')">✏️</button>
+      <button
+        class="diary-detail__back"
+        aria-label="Назад"
+        @click="emit('back')"
+      >
+        ←
+      </button>
+      <h1 class="diary-detail__title">
+        Запись
+      </h1>
+      <button
+        class="diary-detail__action"
+        aria-label="Редактировать"
+        @click="emit('edit')"
+      >
+        ✏️
+      </button>
     </header>
 
     <div class="diary-detail__body">
-      <div class="diary-detail__date">{{ formatFullDate(item.created_at) }}</div>
-      <h2 class="diary-detail__heading">{{ item.title || 'Без названия' }}</h2>
-      <div class="diary-detail__content">{{ item.content }}</div>
+      <div class="diary-detail__date">
+        {{ formatFullDate(item.created_at) }}
+      </div>
+      <h2 class="diary-detail__heading">
+        {{ item.title || 'Без названия' }}
+      </h2>
+      <div class="diary-detail__content">
+        {{ item.content }}
+      </div>
     </div>
   </div>
 </template>

@@ -24,7 +24,11 @@
         class="v-modal__overlay"
         @click.self="onOverlayClick"
       >
-        <div class="v-modal__container" role="dialog" aria-modal="true">
+        <div
+          class="v-modal__container"
+          role="dialog"
+          aria-modal="true"
+        >
           <button
             v-if="showClose"
             class="v-modal__close"

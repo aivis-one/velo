@@ -17,7 +17,9 @@
   <div class="diary-list">
     <!-- Header -->
     <header class="diary-list__header">
-      <h1 class="diary-list__header-title">Дневник</h1>
+      <h1 class="diary-list__header-title">
+        Дневник
+      </h1>
     </header>
 
     <!-- Tabs -->
@@ -34,7 +36,10 @@
     </div>
 
     <!-- Loading (initial) -->
-    <div v-if="listLoading && visibleItems.length === 0" class="diary-list__loader">
+    <div
+      v-if="listLoading && visibleItems.length === 0"
+      class="diary-list__loader"
+    >
       <VLoader size="lg" />
     </div>
 
@@ -45,7 +50,12 @@
       title="Ошибка загрузки"
       :description="listError"
     >
-      <VButton size="sm" @click="emit('retry')">Попробовать снова</VButton>
+      <VButton
+        size="sm"
+        @click="emit('retry')"
+      >
+        Попробовать снова
+      </VButton>
     </VEmptyState>
 
     <!-- Empty state -->
@@ -66,8 +76,14 @@
     </VEmptyState>
 
     <!-- Card list -->
-    <div v-else class="diary-list__cards">
-      <template v-for="item in visibleItems" :key="item.id">
+    <div
+      v-else
+      class="diary-list__cards"
+    >
+      <template
+        v-for="item in visibleItems"
+        :key="item.id"
+      >
         <!-- Checkin card -->
         <div
           v-if="item._type === 'checkin'"
@@ -78,8 +94,12 @@
             <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
             <span class="diary-card__emoji">{{ MOOD_EMOJI[item.mood] }}</span>
           </div>
-          <div class="diary-card__title">Check-in: {{ MOOD_LABEL[item.mood] }}</div>
-          <div class="diary-card__preview">{{ item.comment || '—' }}</div>
+          <div class="diary-card__title">
+            Check-in: {{ MOOD_LABEL[item.mood] }}
+          </div>
+          <div class="diary-card__preview">
+            {{ item.comment || '—' }}
+          </div>
         </div>
 
         <!-- Feedback card -->
@@ -92,8 +112,12 @@
             <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
             <span class="diary-card__emoji">{{ RATING_EMOJI[item.rating] }}</span>
           </div>
-          <div class="diary-card__title">Feedback: {{ RATING_LABEL[item.rating] }}</div>
-          <div class="diary-card__preview">{{ item.comment || '—' }}</div>
+          <div class="diary-card__title">
+            Feedback: {{ RATING_LABEL[item.rating] }}
+          </div>
+          <div class="diary-card__preview">
+            {{ item.comment || '—' }}
+          </div>
         </div>
 
         <!-- Entry card -->
@@ -104,15 +128,25 @@
         >
           <div class="diary-card__header">
             <span class="diary-card__date">{{ formatLongDate(item.created_at) }}</span>
-            <span v-if="item.mood" class="diary-card__emoji">{{ MOOD_EMOJI[item.mood] }}</span>
+            <span
+              v-if="item.mood"
+              class="diary-card__emoji"
+            >{{ MOOD_EMOJI[item.mood] }}</span>
           </div>
-          <div class="diary-card__title">{{ item.title || 'Без названия' }}</div>
-          <div class="diary-card__preview">{{ truncate(item.content, 80) }}</div>
+          <div class="diary-card__title">
+            {{ item.title || 'Без названия' }}
+          </div>
+          <div class="diary-card__preview">
+            {{ truncate(item.content, 80) }}
+          </div>
         </div>
       </template>
 
       <!-- Load more -->
-      <div v-if="listHasMore" class="diary-list__load-more">
+      <div
+        v-if="listHasMore"
+        class="diary-list__load-more"
+      >
         <VButton
           variant="ghost"
           block
@@ -125,7 +159,13 @@
     </div>
 
     <!-- FAB -->
-    <button class="diary-list__fab" aria-label="Новая запись" @click="emit('open-new')">+</button>
+    <button
+      class="diary-list__fab"
+      aria-label="Новая запись"
+      @click="emit('open-new')"
+    >
+      +
+    </button>
   </div>
 </template>
 

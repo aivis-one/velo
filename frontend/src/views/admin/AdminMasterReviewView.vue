@@ -10,11 +10,18 @@
 
 <template>
   <div class="review">
-    <VHeader title="Заявка мастера" :show-back="true" @back="router.back()" />
+    <VHeader
+      title="Заявка мастера"
+      :show-back="true"
+      @back="router.back()"
+    />
 
     <div class="review__content">
       <!-- Loading fallback -->
-      <div v-if="loading" class="review__loader">
+      <div
+        v-if="loading"
+        class="review__loader"
+      >
         <VLoader size="lg" />
       </div>
 
@@ -27,7 +34,9 @@
             size="xl"
           />
           <div class="review__profile-info">
-            <div class="review__profile-name">{{ masterDisplayName(master) }}</div>
+            <div class="review__profile-name">
+              {{ masterDisplayName(master) }}
+            </div>
             <VBadge :variant="masterStatusVariant(master.master_status)">
               {{ masterStatusLabel(master.master_status) }}
             </VBadge>
@@ -36,7 +45,9 @@
 
         <!-- Meta info -->
         <div class="review__section">
-          <div class="review__section-title">Информация</div>
+          <div class="review__section-title">
+            Информация
+          </div>
           <div class="review__meta-list">
             <div class="review__meta-row">
               <span class="review__meta-key">Telegram ID</span>
@@ -79,7 +90,10 @@
             ✅ Верифицировать
           </VButton>
 
-          <div v-if="!showRejectForm" class="review__reject-toggle">
+          <div
+            v-if="!showRejectForm"
+            class="review__reject-toggle"
+          >
             <VButton
               variant="danger"
               block
@@ -90,7 +104,10 @@
             </VButton>
           </div>
 
-          <div v-else class="review__reject-form">
+          <div
+            v-else
+            class="review__reject-form"
+          >
             <VTextarea
               v-model="rejectReason"
               label="Причина отказа *"
@@ -119,7 +136,10 @@
         </template>
 
         <!-- Already processed -->
-        <div v-else class="review__processed">
+        <div
+          v-else
+          class="review__processed"
+        >
           Заявка уже обработана — статус:
           <strong>{{ masterStatusLabel(master.master_status) }}</strong>
         </div>

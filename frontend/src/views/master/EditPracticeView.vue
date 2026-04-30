@@ -47,14 +47,27 @@
     />
 
     <!-- Loading -->
-    <div v-if="loading" class="edit-practice__loader">
+    <div
+      v-if="loading"
+      class="edit-practice__loader"
+    >
       <VLoader size="lg" />
     </div>
 
     <!-- Error / not found -->
-    <div v-else-if="!practice" class="edit-practice__content">
-      <VEmptyState icon="⚠️" title="Практика не найдена">
-        <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practices' })">
+    <div
+      v-else-if="!practice"
+      class="edit-practice__content"
+    >
+      <VEmptyState
+        icon="⚠️"
+        title="Практика не найдена"
+      >
+        <VButton
+          size="sm"
+          variant="outline"
+          @click="router.push({ name: 'master-practices' })"
+        >
           Назад
         </VButton>
       </VEmptyState>
@@ -64,7 +77,10 @@
       <!-- ================================================================
            READONLY BANNER for terminal statuses
            ================================================================ -->
-      <div v-if="isTerminal" class="edit-practice__readonly-banner">
+      <div
+        v-if="isTerminal"
+        class="edit-practice__readonly-banner"
+      >
         <VBadge :variant="statusVariant(practice.status)">
           {{ statusLabel(practice.status) }}
         </VBadge>
@@ -75,10 +91,14 @@
         <!-- ================================================================
              FORM (editable for draft / scheduled only)
              ================================================================ -->
-        <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
-
+        <fieldset
+          :disabled="isTerminal || saving"
+          class="edit-practice__fieldset"
+        >
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОСНОВНОЕ</div>
+            <div class="edit-practice__section-title">
+              📝 ОСНОВНОЕ
+            </div>
             <VInput
               v-model="form.title"
               label="Название *"
@@ -94,7 +114,9 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
+            <div class="edit-practice__section-title">
+              📅 РАСПИСАНИЕ
+            </div>
 
             <!-- W-8: min attribute prevents setting past dates -->
             <div class="edit-practice__field">
@@ -105,7 +127,7 @@
                 class="edit-practice__date-input"
                 :min="todayDate"
                 :disabled="isTerminal"
-              />
+              >
             </div>
 
             <div class="edit-practice__field">
@@ -115,7 +137,7 @@
                 type="time"
                 class="edit-practice__date-input"
                 :disabled="isTerminal"
-              />
+              >
             </div>
 
             <VSelect
@@ -132,7 +154,9 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">👥 УЧАСТНИКИ</div>
+            <div class="edit-practice__section-title">
+              👥 УЧАСТНИКИ
+            </div>
             <VInput
               v-model="form.max_participants_raw"
               label="Максимум (пусто = без ограничений)"
@@ -142,14 +166,19 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">💰 ЦЕНА</div>
+            <div class="edit-practice__section-title">
+              💰 ЦЕНА
+            </div>
             <div class="edit-practice__payment-options">
               <label
                 class="edit-practice__payment-option"
                 :class="{ 'edit-practice__payment-option--active': form.is_free }"
                 @click="!isTerminal && (form.is_free = true)"
               >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': form.is_free }" />
+                <span
+                  class="edit-practice__radio"
+                  :class="{ 'edit-practice__radio--active': form.is_free }"
+                />
                 <span>Бесплатно</span>
               </label>
               <label
@@ -157,7 +186,10 @@
                 :class="{ 'edit-practice__payment-option--active': !form.is_free }"
                 @click="!isTerminal && (form.is_free = false)"
               >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': !form.is_free }" />
+                <span
+                  class="edit-practice__radio"
+                  :class="{ 'edit-practice__radio--active': !form.is_free }"
+                />
                 <span>Платно</span>
               </label>
             </div>
@@ -169,7 +201,10 @@
                 :error="errors.price_cents"
               />
               <!-- W-9: commission calc via COMMISSION_RATE constant -->
-              <div v-if="priceCents > 0" class="edit-practice__price-calc">
+              <div
+                v-if="priceCents > 0"
+                class="edit-practice__price-calc"
+              >
                 <div class="edit-practice__price-row">
                   <span>Комиссия {{ commissionPct }}%</span>
                   <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
@@ -183,7 +218,9 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОПИСАНИЕ</div>
+            <div class="edit-practice__section-title">
+              📝 ОПИСАНИЕ
+            </div>
             <VTextarea
               v-model="form.description"
               label="Описание"
@@ -204,7 +241,9 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+            <div class="edit-practice__section-title">
+              🔗 ПОДКЛЮЧЕНИЕ
+            </div>
             <VInput
               v-model="form.zoom_link"
               label="Zoom ссылка"
@@ -232,8 +271,13 @@
              W-3: all buttons :disabled="anyLoading" -- prevents concurrent
              save + publish / save + cancel / save + delete etc.
              ================================================================ -->
-        <div v-if="!isTerminal" class="edit-practice__actions">
-          <div class="edit-practice__section-title">⚡ ДЕЙСТВИЯ</div>
+        <div
+          v-if="!isTerminal"
+          class="edit-practice__actions"
+        >
+          <div class="edit-practice__section-title">
+            ⚡ ДЕЙСТВИЯ
+          </div>
 
           <!-- draft -> scheduled -->
           <VButton
@@ -308,7 +352,10 @@
         </div>
 
         <!-- Attendance link for completed -->
-        <div v-if="practice.status === 'completed'" class="edit-practice__actions">
+        <div
+          v-if="practice.status === 'completed'"
+          class="edit-practice__actions"
+        >
           <VButton
             variant="outline"
             block
@@ -330,7 +377,9 @@
           @click.self="!confirmDialog.loading && (confirmDialog.visible = false)"
         >
           <div class="edit-practice__dialog">
-            <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
+            <p class="edit-practice__dialog-text">
+              {{ confirmDialog.message }}
+            </p>
             <div class="edit-practice__dialog-actions">
               <VButton
                 variant="ghost"

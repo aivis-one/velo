@@ -38,13 +38,20 @@
     <div class="finance-view__balance-card">
       <div class="finance-view__balance-row">
         <div>
-          <div class="finance-view__balance-label">Доступно к выводу</div>
-          <div class="finance-view__balance-value">{{ formattedAvailable }}</div>
+          <div class="finance-view__balance-label">
+            Доступно к выводу
+          </div>
+          <div class="finance-view__balance-value">
+            {{ formattedAvailable }}
+          </div>
         </div>
         <span class="finance-view__balance-icon">💰</span>
       </div>
 
-      <div v-if="frozenCents > 0" class="finance-view__frozen-row">
+      <div
+        v-if="frozenCents > 0"
+        class="finance-view__frozen-row"
+      >
         <span class="finance-view__frozen-label">На рассмотрении:</span>
         <span class="finance-view__frozen-value">{{ formattedFrozen }}</span>
       </div>
@@ -63,11 +70,19 @@
     <!-- ====================================================================
          WITHDRAW FORM
          ==================================================================== -->
-    <div v-show="showWithdrawForm" class="finance-view__section finance-view__withdraw-section">
-      <div class="finance-view__section-title">💸 ЗАПРОС ВЫВОДА</div>
+    <div
+      v-show="showWithdrawForm"
+      class="finance-view__section finance-view__withdraw-section"
+    >
+      <div class="finance-view__section-title">
+        💸 ЗАПРОС ВЫВОДА
+      </div>
 
       <!-- No payout configured warning -->
-      <div v-if="!hasPayout" class="finance-view__warning">
+      <div
+        v-if="!hasPayout"
+        class="finance-view__warning"
+      >
         <p class="finance-view__warning-text">
           Сначала укажите реквизиты для выплат в настройках профиля.
         </p>
@@ -92,7 +107,7 @@
               :min="(masterStore.profile?.min_withdrawal_cents ?? 0) / 100"
               step="0.01"
               placeholder="0.00"
-            />
+            >
             <button
               class="finance-view__all-btn"
               type="button"
@@ -109,7 +124,12 @@
               · Вы получите {{ formattedNetAmount }}
             </template>
           </p>
-          <p v-if="amountError" class="finance-view__error">{{ amountError }}</p>
+          <p
+            v-if="amountError"
+            class="finance-view__error"
+          >
+            {{ amountError }}
+          </p>
         </div>
 
         <VButton
@@ -128,10 +148,15 @@
          WITHDRAWALS HISTORY
          ==================================================================== -->
     <div class="finance-view__section">
-      <div class="finance-view__section-title">📋 ИСТОРИЯ ВЫВОДОВ</div>
+      <div class="finance-view__section-title">
+        📋 ИСТОРИЯ ВЫВОДОВ
+      </div>
 
       <!-- Loading state -->
-      <div v-if="historyLoading && withdrawals.length === 0" class="finance-view__loader">
+      <div
+        v-if="historyLoading && withdrawals.length === 0"
+        class="finance-view__loader"
+      >
         <VLoader size="md" />
       </div>
 
@@ -140,11 +165,16 @@
         v-else-if="!historyLoading && withdrawals.length === 0"
         class="finance-view__empty"
       >
-        <p class="finance-view__empty-text">Выводов ещё не было</p>
+        <p class="finance-view__empty-text">
+          Выводов ещё не было
+        </p>
       </div>
 
       <!-- List -->
-      <div v-else class="finance-view__history-list">
+      <div
+        v-else
+        class="finance-view__history-list"
+      >
         <div
           v-for="w in withdrawals"
           :key="w.id"
@@ -159,7 +189,10 @@
               {{ methodLabel(w.payout_details.method as string) }} ·
               {{ formatDateShort(w.created_at) }}
             </div>
-            <div v-if="w.fee_cents > 0" class="finance-view__history-fee">
+            <div
+              v-if="w.fee_cents > 0"
+              class="finance-view__history-fee"
+            >
               Комиссия {{ formatMoney(w.fee_cents, 'EUR', 'ru', true) }} ·
               Вы получите {{ formatMoney(w.amount_cents - w.fee_cents, 'EUR', 'ru', true) }}
             </div>
