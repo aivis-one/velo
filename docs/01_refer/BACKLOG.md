@@ -928,4 +928,26 @@ These are scheduled to be cleared by MEGA-2 (S3 P10/P11/P12/P13) in cycle C36 (D
 
 **Severity**: LOW (compat shims keep build green; cosmetic carry).
 **Sprint**: S3 MEGA-2.
+**Status**: CLOSED — 2026-04-30 MEGA-2 close: emoji audit grep returns 0 hits in `frontend/src/views/user/`, `frontend/src/components/shared/`, `frontend/src/utils/`. Cleanup landed across 12 files (DiaryList, BookingCard, PracticeCard, FormShell, CancelBookingPopup, DiaryCheckinDetail/FeedbackDetail/EntryDetail/EntryForm, MyBookingsView, TopupCancel/SuccessView, adminHelpers).
+
+---
+
+### #99 — Backend public master endpoint `GET /api/v1/masters/{id}` + `MasterPublicResponse`
+
+**Source**: S2-S3 SPEEDRUN MEGA-2 §C51 MasterProfilePublicView (2026-04-30).
+
+**Context**: Frontend now renders a public master profile at `/user/master/:id`. There is no `GET /api/v1/masters/{id}` endpoint (Code anomaly #2 from MEGA-2 scout). Current implementation derives master metadata (name + avatar) from `PracticeSummary` via `getPractices({ master_id })` — degraded v1.
+
+Missing fields needed for full skin 25 fidelity:
+- `bio: string` — multi-paragraph description (currently placeholder text)
+- `methods: string[]` — chip group (currently hidden)
+- `experience_years: number` — "10 лет опыта" mint chip (currently hidden)
+- `practice_count: number` — "156 / Практик" stat card (currently hidden)
+- `review_count: number` — "89 / Отзывов" stat card (currently hidden)
+- `is_verified: boolean` — currently always shown as true (placeholder)
+
+**Action**: Backend partner — add public-read endpoint `GET /api/v1/masters/{id}` returning `MasterPublicResponse`. Service-layer source: aggregate `PracticeStats` (count of completed) + `Feedback` count (review count) + `MasterProfile` (bio/methods/experience/is_verified). Frontend swap: replace `getPractices({ master_id, limit:3 })` derive in `MasterProfilePublicView.vue` onMounted with single fetch, then re-enable stat cards + bio + methods + experience chip blocks.
+
+**Severity**: LOW (degraded view functions for demo; full-fidelity post-demo).
+**Sprint**: post-demo backend cycle.
 **Status**: OPEN.

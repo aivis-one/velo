@@ -40,7 +40,7 @@
         :disabled="submitting"
         @click="emit('delete')"
       >
-        🗑️
+        <IconTrash :size="20" />
       </button>
       <span
         v-else
@@ -115,6 +115,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { VButton } from '@/components/ui'
+import { IconTrash } from '@/components/icons'
 
 const props = defineProps<{
   mode: 'new' | 'edit'

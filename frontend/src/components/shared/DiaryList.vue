@@ -46,7 +46,6 @@
     <!-- Error -->
     <VEmptyState
       v-else-if="listError && visibleItems.length === 0"
-      icon="⚠️"
       title="Ошибка загрузки"
       :description="listError"
     >
@@ -61,7 +60,6 @@
     <!-- Empty state -->
     <VEmptyState
       v-else-if="!listLoading && visibleItems.length === 0"
-      :icon="emptyIcon"
       :title="emptyTitle"
       :description="emptyDescription"
     >
@@ -269,15 +267,6 @@ const listError = computed((): string | null =>
 )
 
 // -- Empty state copy --
-const emptyIcon = computed((): string => {
-  switch (activeTab.value) {
-    case 'checkins':  return '✅'
-    case 'feedbacks': return '💬'
-    case 'entries':   return '📝'
-    default:          return '📔'
-  }
-})
-
 const emptyTitle = computed((): string => {
   switch (activeTab.value) {
     case 'checkins':  return 'Нет check-ins'

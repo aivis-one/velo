@@ -38,6 +38,14 @@ app.use(createPinia())
 import { useUiStore } from '@/stores/ui'
 useUiStore().initTheme()
 
+// S3 SPEEDRUN MEGA-2: notifications + diary search history bootstrap.
+// Read from localStorage so toggles + last-search history are restored
+// before any view that consumes them mounts.
+import { useNotificationsStore } from '@/stores/notifications'
+import { useDiaryStore } from '@/stores/diary'
+useNotificationsStore().init()
+useDiaryStore().initSearchHistory()
+
 // Router = URL -> component mapping (like FastAPI include_router).
 app.use(router)
 

@@ -16,9 +16,14 @@
     class="practice-card"
     @click="$emit('click', practice.id)"
   >
-    <!-- Header: emoji + title + master -->
+    <!-- Header: type icon + title + master -->
     <div class="practice-card__header">
-      <span class="practice-card__emoji">{{ typeEmoji }}</span>
+      <span class="practice-card__emoji">
+        <component
+          :is="typeIconComp"
+          :size="20"
+        />
+      </span>
       <div class="practice-card__info">
         <h4 class="practice-card__title">
           {{ practice.title }}
@@ -38,10 +43,10 @@
     <!-- Meta: date, time, duration -->
     <div class="practice-card__meta">
       <span class="practice-card__meta-item">
-        🕐 {{ time }}
+        {{ time }}
       </span>
       <span class="practice-card__meta-item">
-        ⏱️ {{ duration }}
+        · {{ duration }}
       </span>
     </div>
 
@@ -67,7 +72,8 @@
 import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatMoney, formatTime, formatDuration, formatParticipants, isFull } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
+import { IconMeditation } from '@/components/icons'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
@@ -78,8 +84,11 @@ defineEmits<{
   click: [id: string]
 }>()
 
-// -- Type emoji -- imported from displayHelpers
-const typeEmoji = computed(() => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
+// -- Type icon (S3 #048): emoji map deprecated; SVG component map per
+// MEGA-1 #042. Fallback to IconMeditation for unknown practice types.
+const typeIconComp = computed(
+  () => PRACTICE_TYPE_ICON[props.practice.practice_type] ?? IconMeditation,
+)
 
 const time = computed(() =>
   formatTime(props.practice.scheduled_at, props.practice.timezone),

@@ -76,12 +76,12 @@ export function reportStatusLabel(status: string): string {
 }
 
 /**
- * Map report target_type to emoji + Russian label.
+ * Map report target_type to Russian label (S3 #048: emoji prefix removed).
  */
 export function reportTargetLabel(type: string): string {
-  if (type === 'user') return '👤 Юзер'
-  if (type === 'master') return '🧘 Мастер'
-  if (type === 'practice') return '📅 Практика'
+  if (type === 'user') return 'Юзер'
+  if (type === 'master') return 'Мастер'
+  if (type === 'practice') return 'Практика'
   return type
 }
 

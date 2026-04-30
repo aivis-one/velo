@@ -37,7 +37,7 @@
         {{ item.comment }}
       </div>
       <div class="diary-detail__context">
-        📌 После практики
+        После практики
       </div>
     </div>
   </div>

@@ -26,7 +26,7 @@
         aria-label="Редактировать"
         @click="emit('edit')"
       >
-        ✏️
+        <IconEdit :size="20" />
       </button>
     </header>
 
@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import { IconEdit } from '@/components/icons'
 import type { DiaryEntryResponse } from '@/api/types'
 
 defineProps<{ item: DiaryEntryResponse }>()

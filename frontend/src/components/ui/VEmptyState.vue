@@ -4,15 +4,22 @@
   Empty state placeholder. Matches mockup .empty-state styles.
 
   Usage:
-    <VEmptyState icon="📅" title="Нет практик" description="Создайте первую практику" />
-    <VEmptyState icon="📭" title="Пусто">
+    <VEmptyState title="Нет практик" description="Создайте первую практику" />
+    <VEmptyState title="Пусто">
       <VButton size="sm" @click="reload">Обновить</VButton>
     </VEmptyState>
+
+  Note (S3 #048): icon prop accepts text/emoji input but default is empty —
+  master/admin views may still pass legacy emoji glyphs; user-scope views
+  omit icon entirely.
 -->
 
 <template>
   <div class="v-empty">
-    <span class="v-empty__icon">{{ icon }}</span>
+    <span
+      v-if="icon"
+      class="v-empty__icon"
+    >{{ icon }}</span>
     <p class="v-empty__title">
       {{ title }}
     </p>
@@ -39,7 +46,7 @@ withDefaults(
     description?: string
   }>(),
   {
-    icon: '📭',
+    icon: '',
     description: '',
   },
 )

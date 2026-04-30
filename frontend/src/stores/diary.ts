@@ -26,7 +26,7 @@
 // =============================================================================
 
 import { defineStore } from 'pinia'
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { extractApiError } from '@/composables/useApiError'
 import { usePagination } from '@/composables/usePagination'
 import {
@@ -310,6 +310,80 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   // ===========================================================================
+  // C36/C37/C38 — Type filter + search query + search history (MEGA-2)
+  //
+  // typeFilter operates on placeholder atribut (e.type defaulted to 'journal'
+  // if absent) until backend extension lands per BACKEND-COORDINATION § B.1
+  // + decision #033. When backend ships DiaryEntry.type enum: remove fallback
+  // in filteredEntries computed and add type to CreateDiaryEntryRequest shape.
+  // ===========================================================================
+
+  const typeFilter = ref<'all' | 'journal' | 'dream' | 'insight'>('all')
+  const searchQuery = ref('')
+  const searchHistory = ref<string[]>([])
+  const SEARCH_HISTORY_KEY = 'velo:diary-search-history'
+  const SEARCH_HISTORY_MAX = 10
+
+  function initSearchHistory(): void {
+    try {
+      const raw = localStorage.getItem(SEARCH_HISTORY_KEY)
+      if (raw) searchHistory.value = JSON.parse(raw)
+    } catch {
+      // corrupt JSON — ignore
+    }
+  }
+
+  function pushSearchHistory(q: string): void {
+    const trimmed = q.trim()
+    if (!trimmed) return
+    searchHistory.value = [
+      trimmed,
+      ...searchHistory.value.filter((x) => x !== trimmed),
+    ].slice(0, SEARCH_HISTORY_MAX)
+    try {
+      localStorage.setItem(
+        SEARCH_HISTORY_KEY,
+        JSON.stringify(searchHistory.value),
+      )
+    } catch {
+      // localStorage quota or disabled — keep in-memory only
+    }
+  }
+
+  function clearSearchHistory(): void {
+    searchHistory.value = []
+    try {
+      localStorage.removeItem(SEARCH_HISTORY_KEY)
+    } catch {
+      // ignore
+    }
+  }
+
+  function setSearchQuery(q: string): void {
+    searchQuery.value = q
+  }
+
+  const filteredEntries = computed<DiaryEntryResponse[]>(() => {
+    const q = searchQuery.value.trim().toLowerCase()
+    const t = typeFilter.value
+    return entriesPagination.items.value.filter((e) => {
+      // Placeholder atribut — entries arriving without type field default to 'journal'
+      const eType = (e as DiaryEntryResponse & { type?: string }).type ?? 'journal'
+      if (t !== 'all' && eType !== t) return false
+      if (
+        q &&
+        !(
+          (e.title ?? '').toLowerCase().includes(q) ||
+          (e.content ?? '').toLowerCase().includes(q)
+        )
+      ) {
+        return false
+      }
+      return true
+    })
+  })
+
+  // ===========================================================================
   // Reset (on logout)
   // ===========================================================================
 
@@ -327,6 +401,9 @@ export const useDiaryStore = defineStore('diary', () => {
     insightsCache.clear()
     insightsLoadingSet.clear()
     insightsErrorMap.clear()
+    typeFilter.value = 'all'
+    searchQuery.value = ''
+    // searchHistory is preserved across logout (lives in localStorage)
   }
 
   return {
@@ -383,6 +460,16 @@ export const useDiaryStore = defineStore('diary', () => {
     insightsLoadingSet,
     insightsErrorMap,
     loadInsights,
+
+    // C36/C37/C38 — type filter + search (MEGA-2)
+    typeFilter,
+    searchQuery,
+    searchHistory,
+    filteredEntries,
+    initSearchHistory,
+    pushSearchHistory,
+    clearSearchHistory,
+    setSearchQuery,
 
     // Reset
     $reset,

@@ -81,7 +81,10 @@
         class="form-shell__practice"
       >
         <div class="form-shell__practice-emoji">
-          {{ typeEmoji }}
+          <component
+            :is="typeIconComp"
+            :size="32"
+          />
         </div>
         <h2 class="form-shell__practice-name">
           {{ practice.title }}
@@ -151,7 +154,8 @@
 import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
+import { IconMeditation } from '@/components/icons'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
@@ -178,10 +182,12 @@ const emit = defineEmits<{
   'update:comment': [value: string]
 }>()
 
-const typeEmoji = computed(() =>
-  props.practice
-    ? (PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
-    : '🧘',
+// S3 #048: emoji map deprecated; SVG component map per MEGA-1.
+const typeIconComp = computed(
+  () =>
+    (props.practice
+      ? PRACTICE_TYPE_ICON[props.practice.practice_type]
+      : null) ?? IconMeditation,
 )
 </script>
 

@@ -10,7 +10,7 @@
 <template>
   <div class="topup-result">
     <div class="topup-result__icon">
-      😕
+      <IconClose :size="40" />
     </div>
     <h1 class="topup-result__title">
       Оплата отменена
@@ -41,6 +41,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { VButton } from '@/components/ui'
+import { IconClose } from '@/components/icons'
 
 const router = useRouter()
 </script>

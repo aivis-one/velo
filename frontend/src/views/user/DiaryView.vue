@@ -1,222 +1,305 @@
 <!--
-  VELO Frontend -- DiaryView (Phase F9.2, NEW-3 refactor)
+  VELO Frontend — DiaryView (S2-S3 SPEEDRUN MEGA-2 §C36 — refresh)
 
-  Thin orchestrator. Manages navigation state and lifecycle only.
-  All UI is delegated to extracted components:
+  Root diary tab. Mixed entries (check-ins / feedbacks / journal / dream)
+  rendered in chronological order with two layout modes:
+    - timeline: SpineDivider date headers + DiaryEntryBubble cards
+    - list:     date sub-headers + DiaryEntryFlat cards
 
-    DiaryList           — tabs + card list + FAB
-    DiaryCheckinDetail  — read-only checkin
-    DiaryFeedbackDetail — read-only feedback
-    DiaryEntryDetail    — entry with edit button
-    DiaryEntryForm      — new + edit form
+  Layout state persisted in localStorage 'velo:diary-layout'.
 
-  Route: /user/diary (name: user-diary)
+  ••• menu opens layout toggle, filter overlay (C37), search overlay (C38).
+  Composer pill at bottom — tap → expand modal (C40).
+
+  Path Y MEDIUM. No emojis (#048).
 -->
 
 <template>
   <div class="diary">
-    <DiaryList
-      v-if="currentView === 'list'"
-      :checkins="diaryStore.checkins"
-      :feedbacks="diaryStore.feedbacks"
-      :entries="diaryStore.entries"
-      :checkins-loading="diaryStore.checkinsLoading"
-      :feedbacks-loading="diaryStore.feedbacksLoading"
-      :entries-loading="diaryStore.entriesLoading"
-      :checkins-has-more="diaryStore.checkinsHasMore"
-      :feedbacks-has-more="diaryStore.feedbacksHasMore"
-      :entries-has-more="diaryStore.entriesHasMore"
-      :checkins-error="diaryStore.checkinsError"
-      :feedbacks-error="diaryStore.feedbacksError"
-      :entries-error="diaryStore.entriesError"
-      @open-checkin="openCheckinDetail"
-      @open-feedback="openFeedbackDetail"
-      @open-entry="openEntryDetail"
-      @open-new="openNew"
-      @load-more="onLoadMore"
-      @retry="onRetry"
+    <header class="diary__header">
+      <h1 class="diary__title">
+        Дневник
+      </h1>
+      <button
+        type="button"
+        class="diary__menu-btn"
+        aria-label="Меню"
+        @click="menuOpen = !menuOpen"
+      >
+        <IconDots :size="22" />
+      </button>
+      <div
+        v-if="menuOpen"
+        class="diary__menu"
+        @click.self="menuOpen = false"
+      >
+        <button
+          type="button"
+          class="diary__menu-item"
+          @click="openFilter"
+        >
+          <IconFilter :size="18" />
+          <span>Фильтр</span>
+        </button>
+        <button
+          type="button"
+          class="diary__menu-item"
+          @click="openSearch"
+        >
+          <IconSearch :size="18" />
+          <span>Поиск</span>
+        </button>
+        <button
+          type="button"
+          class="diary__menu-item"
+          @click="toggleLayout"
+        >
+          <IconDots :size="18" />
+          <span>Вид: {{ layout === 'timeline' ? 'timeline' : 'list' }}</span>
+        </button>
+      </div>
+    </header>
+
+    <div
+      v-if="loading"
+      class="diary__loader"
+    >
+      Загрузка…
+    </div>
+    <div
+      v-else-if="grouped.length === 0"
+      class="diary__empty"
+    >
+      Пока нет записей
+    </div>
+    <div
+      v-else
+      class="diary__body"
+    >
+      <section
+        v-for="g in grouped"
+        :key="g.iso"
+        class="diary__group"
+      >
+        <SpineDivider
+          v-if="layout === 'timeline'"
+          :date="g.label"
+        />
+        <h3
+          v-else
+          class="diary__date-head"
+        >
+          {{ g.label }}
+        </h3>
+        <div class="diary__items">
+          <component
+            :is="layout === 'timeline' ? DiaryEntryBubble : DiaryEntryFlat"
+            v-for="row in g.items"
+            :key="row.key"
+            :kind="row.kind"
+            :title="row.title"
+            :preview="row.preview"
+            @click="openItem(row)"
+          />
+        </div>
+      </section>
+    </div>
+
+    <DiaryComposer @expand="composerOpen = true" />
+
+    <DiaryFilterOverlay
+      v-if="filterOpen"
+      @close="filterOpen = false"
     />
 
-    <DiaryCheckinDetail
-      v-else-if="currentView === 'detail-checkin' && selectedCheckin"
-      :item="selectedCheckin"
-      @back="backToList"
+    <DiarySearchOverlay
+      v-if="searchOpen"
+      @close="searchOpen = false"
     />
 
-    <DiaryFeedbackDetail
-      v-else-if="currentView === 'detail-feedback' && selectedFeedback"
-      :item="selectedFeedback"
-      @back="backToList"
-    />
-
-    <DiaryEntryDetail
-      v-else-if="currentView === 'detail-entry' && selectedEntry"
-      :item="selectedEntry"
-      @back="backToList"
-      @edit="openEdit"
-    />
-
-    <DiaryEntryForm
-      v-else-if="currentView === 'new'"
-      mode="new"
-      :submitting="formSubmitting"
-      @back="backToList"
-      @submit="onCreateEntry"
-    />
-
-    <DiaryEntryForm
-      v-else-if="currentView === 'edit' && selectedEntry"
-      mode="edit"
-      :initial-title="selectedEntry.title ?? ''"
-      :initial-content="selectedEntry.content"
-      :submitting="formSubmitting"
-      :confirm-visible="confirmDeleteVisible"
-      @back="cancelEdit"
-      @submit="onUpdateEntry"
-      @delete="confirmDeleteVisible = true"
-      @delete-confirm="onConfirmDelete"
-      @delete-cancel="confirmDeleteVisible = false"
+    <DiaryComposerExpanded
+      v-if="composerOpen"
+      @close="composerOpen = false"
+      @saved="onSaved"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
-import { platform } from '@/platform'
-import DiaryList from '@/components/shared/DiaryList.vue'
-import DiaryCheckinDetail from '@/components/shared/DiaryCheckinDetail.vue'
-import DiaryFeedbackDetail from '@/components/shared/DiaryFeedbackDetail.vue'
-import DiaryEntryDetail from '@/components/shared/DiaryEntryDetail.vue'
-import DiaryEntryForm from '@/components/shared/DiaryEntryForm.vue'
-import type { CheckinResponse, FeedbackResponse, DiaryEntryResponse } from '@/api/types'
+import { IconDots, IconFilter, IconSearch } from '@/components/icons'
+import SpineDivider from '@/components/shared/SpineDivider.vue'
+import DiaryEntryBubble from '@/components/shared/DiaryEntryBubble.vue'
+import DiaryEntryFlat from '@/components/shared/DiaryEntryFlat.vue'
+import DiaryComposer from '@/components/shared/DiaryComposer.vue'
+import DiaryFilterOverlay from '@/components/shared/DiaryFilterOverlay.vue'
+import DiarySearchOverlay from '@/components/shared/DiarySearchOverlay.vue'
+import DiaryComposerExpanded from '@/components/shared/DiaryComposerExpanded.vue'
+import type {
+  CheckinResponse,
+  FeedbackResponse,
+  DiaryEntryResponse,
+} from '@/api/types'
+
+type Kind = 'checkin' | 'feedback' | 'journal' | 'dream' | 'insight'
+
+interface Row {
+  key: string
+  kind: Kind
+  title: string
+  preview: string
+  created_at: string
+  ref:
+    | { type: 'checkin'; data: CheckinResponse }
+    | { type: 'feedback'; data: FeedbackResponse }
+    | { type: 'entry'; data: DiaryEntryResponse }
+}
+
+interface Group {
+  iso: string
+  label: string
+  items: Row[]
+}
 
 const diaryStore = useDiaryStore()
 const toast = useToast()
+const router = useRouter()
 
-// -- Navigation --
+const LAYOUT_KEY = 'velo:diary-layout'
+const layout = ref<'timeline' | 'list'>('timeline')
+const menuOpen = ref(false)
+const filterOpen = ref(false)
+const searchOpen = ref(false)
+const composerOpen = ref(false)
+const loading = ref(false)
 
-type DiaryViewState = 'list' | 'detail-checkin' | 'detail-feedback' | 'detail-entry' | 'new' | 'edit'
-
-const currentView      = ref<DiaryViewState>('list')
-const selectedCheckin  = ref<CheckinResponse  | null>(null)
-const selectedFeedback = ref<FeedbackResponse | null>(null)
-const selectedEntry    = computed(() => diaryStore.selectedEntry)
-
-function openCheckinDetail(item: CheckinResponse): void {
-  selectedCheckin.value = item
-  currentView.value = 'detail-checkin'
-}
-
-function openFeedbackDetail(item: FeedbackResponse): void {
-  selectedFeedback.value = item
-  currentView.value = 'detail-feedback'
-}
-
-async function openEntryDetail(item: DiaryEntryResponse): Promise<void> {
-  await diaryStore.fetchEntry(item.id)
-  currentView.value = 'detail-entry'
-}
-
-function openEdit(): void {
-  confirmDeleteVisible.value = false
-  currentView.value = 'edit'
-}
-
-function cancelEdit(): void {
-  confirmDeleteVisible.value = false
-  currentView.value = 'detail-entry'
-}
-
-function openNew(): void {
-  currentView.value = 'new'
-}
-
-function backToList(): void {
-  currentView.value = 'list'
-  selectedCheckin.value = null
-  selectedFeedback.value = null
-  confirmDeleteVisible.value = false
-}
-
-// -- Form state --
-
-const formSubmitting       = ref(false)
-const confirmDeleteVisible = ref(false)
-
-async function onCreateEntry(payload: { title: string; content: string }): Promise<void> {
-  if (formSubmitting.value) return
-  formSubmitting.value = true
-  const result = await diaryStore.createEntry({
-    content: payload.content.trim(),
-    title:   payload.title.trim() || null,
-  })
-  formSubmitting.value = false
-  if (result.ok) {
-    try { platform.hapticFeedback('medium') } catch { /* silent */ }
-    toast.success('Запись сохранена')
-    backToList()
-  } else {
-    toast.error(result.error)
-  }
-}
-
-async function onUpdateEntry(payload: { title: string; content: string }): Promise<void> {
-  if (!selectedEntry.value || formSubmitting.value) return
-  formSubmitting.value = true
-  const trimmedTitle = payload.title.trim()
-  const result = await diaryStore.updateEntry(selectedEntry.value.id, {
-    content:     payload.content.trim(),
-    title:       trimmedTitle || null,
-    clear_title: !trimmedTitle && !!selectedEntry.value.title,
-  })
-  formSubmitting.value = false
-  if (result.ok) {
-    try { platform.hapticFeedback('medium') } catch { /* silent */ }
-    toast.success('Запись обновлена')
-    await diaryStore.fetchEntry(selectedEntry.value.id)
-    currentView.value = 'detail-entry'
-  } else {
-    toast.error(result.error)
-  }
-}
-
-async function onConfirmDelete(): Promise<void> {
-  if (!selectedEntry.value || formSubmitting.value) return
-  formSubmitting.value = true
-  const result = await diaryStore.deleteEntry(selectedEntry.value.id)
-  formSubmitting.value = false
-  if (result.ok) {
-    try { platform.hapticFeedback('medium') } catch { /* silent */ }
-    toast.success('Запись удалена')
-    backToList()
-  } else {
-    toast.error(result.error)
-  }
-}
-
-// -- Load more + retry --
-
-async function onLoadMore(): Promise<void> {
+watch(layout, (v) => {
   try {
-    await Promise.all([
-      diaryStore.entriesHasMore   ? diaryStore.loadMoreEntries()   : Promise.resolve(),
-      diaryStore.checkinsHasMore  ? diaryStore.loadMoreCheckins()  : Promise.resolve(),
-      diaryStore.feedbacksHasMore ? diaryStore.loadMoreFeedbacks() : Promise.resolve(),
-    ])
+    localStorage.setItem(LAYOUT_KEY, v)
   } catch {
-    toast.error('Не удалось загрузить записи')
+    /* ignore */
+  }
+})
+
+function toggleLayout(): void {
+  layout.value = layout.value === 'timeline' ? 'list' : 'timeline'
+  menuOpen.value = false
+}
+
+function openFilter(): void {
+  menuOpen.value = false
+  filterOpen.value = true
+}
+
+function openSearch(): void {
+  menuOpen.value = false
+  searchOpen.value = true
+}
+
+function entryKind(e: DiaryEntryResponse): Kind {
+  const t = (e as DiaryEntryResponse & { type?: string }).type
+  if (t === 'dream') return 'dream'
+  if (t === 'insight') return 'insight'
+  return 'journal'
+}
+
+const grouped = computed<Group[]>(() => {
+  const rows: Row[] = []
+
+  for (const c of diaryStore.checkins as CheckinResponse[]) {
+    rows.push({
+      key: `c-${c.id}`,
+      kind: 'checkin',
+      title: 'Check-in',
+      preview: c.comment ?? `Настроение: ${c.mood}`,
+      created_at: c.created_at,
+      ref: { type: 'checkin', data: c },
+    })
+  }
+  for (const f of diaryStore.feedbacks as FeedbackResponse[]) {
+    rows.push({
+      key: `f-${f.id}`,
+      kind: 'feedback',
+      title: 'Feedback',
+      preview: f.comment ?? `Оценка: ${f.rating}`,
+      created_at: f.created_at,
+      ref: { type: 'feedback', data: f },
+    })
+  }
+  for (const e of diaryStore.filteredEntries as DiaryEntryResponse[]) {
+    rows.push({
+      key: `e-${e.id}`,
+      kind: entryKind(e),
+      title: e.title ?? 'Запись',
+      preview: e.content ?? '',
+      created_at: e.created_at,
+      ref: { type: 'entry', data: e },
+    })
+  }
+
+  rows.sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+
+  const map = new Map<string, Row[]>()
+  for (const r of rows) {
+    const iso = r.created_at.slice(0, 10)
+    if (!map.has(iso)) map.set(iso, [])
+    map.get(iso)!.push(r)
+  }
+
+  const out: Group[] = []
+  for (const iso of Array.from(map.keys()).sort().reverse()) {
+    out.push({
+      iso,
+      label: humanDate(iso),
+      items: map.get(iso)!,
+    })
+  }
+  return out
+})
+
+function humanDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'long',
+    })
+  } catch {
+    return iso
   }
 }
 
-async function onRetry(): Promise<void> {
-  await diaryStore.refreshEntries()
+function openItem(row: Row): void {
+  if (row.ref.type === 'entry') {
+    router.push(`/user/diary/entry/${row.ref.data.id}`)
+  } else {
+    // Checkins + feedbacks reuse entry detail layout via id-prefixed routing.
+    // For v1 we keep them in-page (no detail nav); a stub toast is gentler than
+    // a 404. Detail views for check-ins / feedbacks are out of MEGA-2 scope.
+    toast.info('Откройте практику, чтобы увидеть подробности')
+  }
 }
 
-// -- Lifecycle --
+function onSaved(): void {
+  composerOpen.value = false
+  toast.success('Запись сохранена')
+}
 
 onMounted(async () => {
+  try {
+    const stored = localStorage.getItem(LAYOUT_KEY)
+    if (stored === 'list' || stored === 'timeline') {
+      layout.value = stored
+    }
+  } catch {
+    /* ignore */
+  }
+  loading.value = true
   try {
     await Promise.all([
       diaryStore.fetchEntries(),
@@ -225,6 +308,8 @@ onMounted(async () => {
     ])
   } catch {
     toast.error('Не удалось загрузить дневник')
+  } finally {
+    loading.value = false
   }
 })
 </script>
@@ -233,6 +318,99 @@ onMounted(async () => {
 .diary {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-4) 0;
   min-height: 100%;
+  position: relative;
+}
+
+.diary__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.diary__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.diary__menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-default);
+  border: 1px solid var(--text-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diary__menu {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  background: var(--surface-default);
+  border: 1px solid var(--text-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 200px;
+  z-index: 20;
+}
+
+.diary__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.diary__menu-item:hover {
+  background: var(--surface-steel-alpha-15);
+}
+
+.diary__loader,
+.diary__empty {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--text-secondary);
+}
+
+.diary__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1 1 auto;
+}
+
+.diary__date-head {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  margin: var(--space-2) 0;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+.diary__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 </style>

@@ -10,7 +10,7 @@
 <template>
   <div class="topup-result">
     <div class="topup-result__icon">
-      ✅
+      <IconSuccess :size="40" />
     </div>
     <h1 class="topup-result__title">
       Баланс пополнен!
@@ -49,6 +49,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VLoader } from '@/components/ui'
+import { IconSuccess } from '@/components/icons'
 import { useBalanceStore } from '@/stores/balance'
 
 const router = useRouter()

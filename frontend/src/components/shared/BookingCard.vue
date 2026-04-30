@@ -24,7 +24,7 @@
   >
     <div class="booking-card__header">
       <span class="booking-card__title">
-        {{ typeEmoji }} {{ booking.practice.title }}
+        {{ booking.practice.title }}
       </span>
       <VBadge :variant="statusVariant">
         {{ statusLabel }}
@@ -49,7 +49,6 @@
 import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatDate } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 const props = withDefaults(
@@ -66,11 +65,6 @@ defineEmits<{
   click: []
   cancel: []
 }>()
-
-// -- Type emoji -- imported from displayHelpers
-const typeEmoji = computed(() =>
-  PRACTICE_TYPE_EMOJI[props.booking.practice.practice_type] ?? '🧘',
-)
 
 // -- Status mapping --
 const STATUS_LABEL: Record<string, string> = {

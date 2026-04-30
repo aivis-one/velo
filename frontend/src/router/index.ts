@@ -161,6 +161,72 @@ const router = createRouter({
           name: 'user-profile-edit',
           component: () => import('@/views/user/EditProfileView.vue'),
         },
+        // S2-S3 SPEEDRUN MEGA-2 routes (C39, C42, C45, C46-C52)
+        {
+          path: 'diary/checkins',
+          name: 'user-diary-checkins',
+          component: () => import('@/views/user/CheckinsCategoryView.vue'),
+        },
+        {
+          path: 'diary/feedbacks',
+          name: 'user-diary-feedbacks',
+          component: () => import('@/views/user/FeedbacksCategoryView.vue'),
+        },
+        {
+          path: 'diary/entries',
+          name: 'user-diary-entries',
+          component: () => import('@/views/user/EntriesCategoryView.vue'),
+        },
+        {
+          path: 'diary/entry/:id',
+          name: 'user-diary-entry',
+          component: () => import('@/views/user/DiaryEntryView.vue'),
+        },
+        {
+          path: 'diary/entry/:id/relationships',
+          name: 'user-diary-relationships',
+          component: () => import('@/views/user/RelationshipsView.vue'),
+        },
+        {
+          path: 'profile/notifications',
+          name: 'user-profile-notifications',
+          component: () => import('@/views/user/NotificationsView.vue'),
+        },
+        {
+          path: 'profile/language',
+          name: 'user-profile-language',
+          component: () => import('@/views/user/LanguageTimezoneView.vue'),
+        },
+        {
+          path: 'profile/support',
+          name: 'user-profile-support',
+          component: () => import('@/views/user/SupportFormView.vue'),
+        },
+        {
+          path: 'messages',
+          name: 'user-messages',
+          component: () => import('@/views/user/MessagesListView.vue'),
+        },
+        {
+          path: 'messages/:conversationId',
+          name: 'user-messages-thread',
+          component: () => import('@/views/user/ThreadView.vue'),
+        },
+        {
+          path: 'ai-summary',
+          name: 'user-ai-summary',
+          component: () => import('@/views/user/AISummaryView.vue'),
+        },
+        {
+          path: 'master/:id',
+          name: 'user-master-public',
+          component: () => import('@/views/user/MasterProfilePublicView.vue'),
+        },
+        {
+          path: 'reservations',
+          name: 'user-reservations',
+          component: () => import('@/views/user/MyReservationsView.vue'),
+        },
         // Default: /user -> /user/dashboard
         {
           path: '',

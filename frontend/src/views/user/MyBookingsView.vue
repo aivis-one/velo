@@ -24,7 +24,6 @@
   <!-- Error -->
   <VEmptyState
     v-else-if="store.error && store.bookings.length === 0"
-    icon="⚠️"
     title="Ошибка загрузки"
     :description="store.error"
   >
@@ -57,7 +56,6 @@
     <!-- Empty state -->
     <VEmptyState
       v-if="store.bookings.length === 0 && !store.loading"
-      icon="📋"
       title="Бронирований нет"
       description="Здесь появятся ваши бронирования после записи на практику"
     />
