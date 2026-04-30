@@ -9,17 +9,7 @@
 // =============================================================================
 
 import { api } from '@/api/client'
-
-export interface TopupRequest {
-  amount_cents: number
-}
-
-export interface TopupResponse {
-  payment_id: string
-  checkout_url: string
-  amount_cents: number
-  currency: string
-}
+import type { TopupResponse } from '@/api/types'
 
 /**
  * Create a balance topup.

@@ -13,7 +13,7 @@ frontend/src/
 ├── env.d.ts                    # ambient types (Vite env, Vue SFC, Telegram WebApp SDK)
 ├── api/                        # backend integration layer
 │   ├── client.ts               # fetch base client (15s AbortController, 401 callback, in-flight GET dedup F-09)
-│   ├── generated.ts            # auto-generated TypeScript types from backend OpenAPI; do NOT edit (decisions.md #023)
+│   ├── generated.ts            # auto-generated TypeScript types from backend OpenAPI; do NOT edit (decisions.md #023); regen via self-host pipeline when partner stalls (decisions.md #046)
 │   ├── types.ts                # re-export hub from generated + frontend-only union types (decisions.md #023)
 │   ├── utils.ts                # buildQuery + shared API helpers
 │   ├── admin.ts                # admin-side API

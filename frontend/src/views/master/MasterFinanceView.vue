@@ -22,8 +22,7 @@
     - masterStore.fetchMyProfile(true) after withdrawal to refresh balances.
     - ApiResponseError.detail for user-facing error messages.
     - formatMoney(cents, 'EUR', 'ru', true) for all monetary values.
-    - MIN_WITHDRAWAL_EUROS = 50 (mirrors backend min_withdrawal_cents=5000).
-    - WITHDRAWAL_FEE_EUROS = 2 (mirrors backend withdrawal_fee_cents=200).
+    - Withdrawal limits read from masterStore.profile (backend SSOT, BACKLOG #26).
 
   Fixes (W-1/W-2/W-3 from F7 review):
     W-1: amountCents uses eurStringToCents() -- no parseFloat * 100 float trap.
@@ -90,7 +89,7 @@
               v-model="amountInput"
               type="number"
               class="finance-view__amount-input"
-              :min="MIN_WITHDRAWAL_EUROS"
+              :min="(masterStore.profile?.min_withdrawal_cents ?? 0) / 100"
               step="0.01"
               placeholder="0.00"
             />
@@ -103,8 +102,8 @@
             </button>
           </div>
           <p class="finance-view__hint">
-            Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
-            Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }}
+            Минимум {{ formatMoney(masterStore.profile?.min_withdrawal_cents ?? 0, 'EUR', 'ru', true) }} ·
+            Комиссия {{ formatMoney(masterStore.profile?.withdrawal_fee_cents ?? 0, 'EUR', 'ru', true) }}
             <!-- W-3: show net amount only when input is valid (amountCents > 0) -->
             <template v-if="amountCents > 0">
               · Вы получите {{ formattedNetAmount }}
@@ -200,10 +199,6 @@ import { formatMoney, formatDateShort } from '@/utils/format'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { WithdrawalResponse } from '@/api/types'
 
-// TD-FE-W6: imported from utils/constants -- mirrors backend config.py.
-// min_withdrawal_cents=5000, withdrawal_fee_cents=200.
-import { MIN_WITHDRAWAL_EUROS, WITHDRAWAL_FEE_EUROS } from '@/utils/constants'
-
 /** Items per history page. */
 const LIMIT = 20
 
@@ -263,8 +258,9 @@ const amountError = computed((): string => {
   if (!amountInput.value) return ''
   const cents = amountCents.value
   if (cents <= 0) return 'Введите корректную сумму'
-  if (cents < MIN_WITHDRAWAL_EUROS * 100) {
-    return `Минимальная сумма вывода ${formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true)}`
+  const minCents = masterStore.profile?.min_withdrawal_cents ?? 0
+  if (cents < minCents) {
+    return `Минимальная сумма вывода ${formatMoney(minCents, 'EUR', 'ru', true)}`
   }
   if (cents > availableCents.value) {
     return 'Недостаточно средств'
@@ -276,7 +272,8 @@ const amountError = computed((): string => {
 const formattedNetAmount = computed((): string => {
   const cents = amountCents.value
   if (cents <= 0) return formatMoney(0, 'EUR', 'ru', true)
-  const net = Math.max(0, cents - WITHDRAWAL_FEE_EUROS * 100)
+  const feeCents = masterStore.profile?.withdrawal_fee_cents ?? 0
+  const net = Math.max(0, cents - feeCents)
   return formatMoney(net, 'EUR', 'ru', true)
 })
 

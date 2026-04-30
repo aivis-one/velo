@@ -284,9 +284,14 @@
 
 | Date | Item | Resolution | Commit |
 |------|------|------------|--------|
-| 2026-04-26 | A.2 (S1) — MasterProfileResponse без min_withdrawal_cents/withdrawal_fee_cents | Partner CR-01 patch + regen | 81304a6 |
-| 2026-04-30 | B.1 (S1) — UserResponse stale | Partner regen against fresh openapi | (current openapi reflects shape) |
-| 2026-04-30 | C.1 (S1) — Zodd CRITICAL #1 PracticeSummary.timezone | Partner added field; current openapi confirms | (current openapi reflects shape) |
+| 2026-04-30 | A.2 (S1) — MasterProfileResponse без min_withdrawal_cents/withdrawal_fee_cents | Partner Pydantic CR-01 was shipped pre-`81304a6`, but that regen ran against stale openapi (per decision #022); fields actually surfaced in generated.ts via S2 P05 C15 self-host regen (decision #046) | `68fa5cd` |
+| 2026-04-30 | B.1 (S1) — UserResponse stale | Partner regen against fresh openapi at `81304a6` (genuinely landed); verified by S2 P05 C15 pre-flight — `language` + `timezone` present in generated.ts@81304a6 | 81304a6 |
+| 2026-04-30 | C.1 (S1) — Zodd CRITICAL #1 PracticeSummary.timezone | Partner Pydantic patch shipped pre-`81304a6` but field absent from generated.ts until S2 P05 C15 self-host regen (decision #046) | `68fa5cd` |
+| 2026-04-30 | E.1 — `AdminMasterListItem.role: string → UserRole` (type narrowed) | Partner shipped to Pydantic (date unknown); surfaced in generated.ts by S2 P05 C15 self-host regen | `68fa5cd` |
+| 2026-04-30 | E.2 — `CreateCompanyPromoRequest.valid_from: string → string \| null` (nullable optional) | Partner shipped to Pydantic (date unknown); surfaced in generated.ts by S2 P05 C15 self-host regen | `68fa5cd` |
+| 2026-04-30 | E.3 — `CreateMasterPromoRequest.valid_from: string → string \| null` (nullable optional) | Partner shipped to Pydantic (date unknown); surfaced in generated.ts by S2 P05 C15 self-host regen | `68fa5cd` |
+
+**Notes on § E reliability (post-S2 P05 C15):** rows are added when partner signals a fix is shipped. Pre-S2 P05, signals were taken at face value — A.2 and C.1 were recorded resolved against `81304a6`, but the regen pipeline at that commit ran against stale openapi and the fixes did not propagate to `frontend/src/api/generated.ts`. Going forward, § E rows are dated to the regen-commit timestamp (when the fix is observable in `generated.ts`), not to the partner-message timestamp. See decision #046 for the self-host fallback recipe.
 
 ---
 

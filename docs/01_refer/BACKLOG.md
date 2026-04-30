@@ -29,11 +29,11 @@
 | 22 | B.5 Missing UI screens (9 features) | Zodd_review C06 | varies | → S3/S4+ | `purchases/me`, `reports/me`, `master-promos`, `admin/withdrawals`, `admin/users`, `logout-all`, `PATCH users/me`, `finalize`, `join/leave`. Overlap with S3 greenfield + S4+ admin per #010. Per-feature scope at S3 OPEN. |
 | 23 | B.12 getMastersList default limit=100 | Zodd_review C06 | LOW | Recurring | Inconsistent with 20-default on other list endpoints. Normalize when next touching `api/masters.ts`. |
 | 24 | Regen workflow integration (post-backend Pydantic changes) | C06b Scout | MEDIUM | CLOSED | CLOSED 2026-04-30 — workflow discipline documented in `docs/03_sprint/S2-bundle-port/BACKEND-COORDINATION.md § D` (manual on partner signal per decision #031). |
-| 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen + consumer migration (post-execute). |
-| 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen + tactical cast removal in `UserDashboardView.vue:300` (post-execute). |
+| 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: regen surfaced `MasterProfileResponse.{min_withdrawal_cents, withdrawal_fee_cents}`; `MIN_WITHDRAWAL_EUROS` + `WITHDRAWAL_FEE_EUROS` removed from `utils/constants.ts`; `MasterFinanceView.vue` reads cents directly from `masterStore.profile`. |
+| 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: regen surfaced `PracticeSummary.timezone: string`; tactical cast `(... as PracticeSummary & { timezone?: string }).timezone ?? 'Europe/Berlin'` in `UserDashboardView.vue` removed; direct `practice.timezone` read. |
 | 28 | Audit-snapshot fingerprint convention | C06 / C06b | LOW | → P02 | Partner audits (Zodd_review.md authored against `364893d`, picked up after partner shipped CR-01 + regen → effective HEAD `83d287a`) require fingerprinted commit base. Without fingerprint, "is finding still applicable" requires manual diff. Convention: every external audit doc starts with `Audit base: <commit-sha>` line. Apply to future partner reviews. |
 | 30 | Bundle PNG → SVG migration (10 decorative icons) | C09 P02 / D3 future-cleanup | LOW | → S5+ | `bolt, circle-microphone, flame, heart, high-five, love, quill-pen, quill-pen-story, spa, wind` — convert from PNG to SVG when Vue-SVG asset volume justifies. Currently used decoratively per #024; raster sufficient for current scale. |
-| 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | CLOSED | CLOSED 2026-04-30 — closed by S2 C15 regen (post-execute). |
+| 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: local interface declarations removed from `api/payments.ts`; consume `TopupResponse` via `@/api/types` re-export hub (decision #023). |
 
 ---
 
@@ -115,7 +115,7 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
 **Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
 **Sprint**: post-S1 (run when partner deploy to staging completes).
-**Status**: CLOSED 2026-04-30 — folded into S2 C15 staging push verification.
+**Status**: CLOSED 2026-04-30 — S2 P05 C15 staging push verification gate. Visual verify outcome filled by Step 4f.iv: [VISUAL_VERIFY_OUTCOME].
 
 ---
 

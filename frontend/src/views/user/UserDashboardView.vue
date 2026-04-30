@@ -221,7 +221,7 @@ import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
-import type { BookingWithPracticeResponse, PracticeSummary } from '@/api/types'
+import type { BookingWithPracticeResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
 // Keeping import to document the dependency (mirrors usePracticeWindows).
@@ -312,17 +312,12 @@ const nearestPracticeEmoji = computed((): string => {
 
 /**
  * "Завтра, 07:00" / "5 янв, 10:00"
- * Uses practice.timezone from PracticeSummary (added in DS-sprint).
+ * Uses practice.timezone from PracticeSummary (regenerated in S2 P05 C15).
  */
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
-  // Zodd CRITICAL #1 / BACKLOG TBD: PracticeSummary lacks timezone field
-  // (backend schema gap). Berlin fallback is the established pre-fix behavior
-  // and remains in effect until backend adds the field + frontend regen picks
-  // it up. The cast suppresses the typecheck error without changing runtime.
-  const tz = (nearestBooking.value.practice as PracticeSummary & { timezone?: string }).timezone
-    ?? 'Europe/Berlin'
+  const tz = nearestBooking.value.practice.timezone
   return `${formatDateShort(iso, tz)}, ${formatTime(iso, tz)}`
 })
 

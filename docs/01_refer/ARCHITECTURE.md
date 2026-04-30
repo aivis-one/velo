@@ -56,6 +56,12 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `frontend/src/views/user/UserDashboardView.vue` — merged bundle DashboardScreen visual structure (WeekdayStrip + Stats row from real `bookingsStore` data) preserving all existing Velo behavior (check-in/feedback alerts, AI summary card, timezone tactical cast at `nearestPracticeDate` per BACKLOG #27). Bundle elements skipped per scope-lock: Contraindications callout (no backend flag), Recommendations list (deferred to S2 P05). LOC 637 → 741.
 - `frontend/src/router/index.ts` — added `/welcome` top-level route (name `welcome`, lazy-loaded WelcomeView), no meta, no guards. Total `path:` count 42 → 43.
 
+**Phase 05 additions (2026-04-30 close):**
+
+- `frontend/src/api/generated.ts` — regenerated against fresh openapi via self-host pipeline (decision #046, first application). Adds `MasterProfileResponse.{min_withdrawal_cents,withdrawal_fee_cents}`, `PracticeSummary.timezone`, narrows `AdminMasterListItem.role: string → UserRole`, makes `valid_from` nullable on both promo-create requests. 762 → 765 LOC.
+- Consumer migrations: `MasterFinanceView.vue` reads withdrawal limits from `masterStore.profile?.{min_withdrawal_cents,withdrawal_fee_cents}` (BACKLOG #26 closed); `UserDashboardView.vue` `nearestPracticeDate` drops tactical `as PracticeSummary` cast + Berlin fallback in favor of direct `practice.timezone` read (BACKLOG #27 closed); `api/payments.ts` drops local `TopupRequest`/`TopupResponse` declarations and consumes via `@/api/types` re-export hub per decision #023 (BACKLOG #32 closed).
+- `utils/constants.ts` — `MIN_WITHDRAWAL_EUROS` + `WITHDRAWAL_FEE_EUROS` removed; only time-window constants (`CHECKIN_WINDOW_H`, `FEEDBACK_WINDOW_H`) remain.
+
 **S2 re-plan additions (2026-04-30):**
 
 - New design batch from designer (~55 mockups, ~34 unique views) supersedes bundle visual layer. Bundle tokens (colors / typography / surfaces) ~80% retained per decision #029.

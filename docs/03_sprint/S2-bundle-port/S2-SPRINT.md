@@ -83,7 +83,9 @@
 
 | Cycle | Type | Risk | Name | Status |
 |-------|------|------|------|--------|
-| C15 | standard | MEDIUM | Regen generated.ts + миграция consumers (#26 #27 #32) + S1 deferred C13 visual verification | TODO |
+| C15 | standard | MEDIUM | Regen generated.ts + миграция consumers (#26 #27 #32) + S1 deferred C13 visual verification | DONE (2026-04-30) |
+
+**Phase 06 unblock note (2026-04-30):** regen pipeline self-host policy proven (decision #046); auth views can consume any further regen-required types without partner-signal gate.
 
 ### Phase 06: Auth + Onboarding (6 cycles)
 
@@ -147,14 +149,14 @@
 
 ## Carry-Forward from S1
 
-### Closed at this re-plan (2026-04-30)
+### Closed at this re-plan (2026-04-30) and confirmed at C15 close (2026-04-30)
 
-- BACKLOG #24 (regen workflow) — workflow discipline documented в BACKEND-COORDINATION § D
-- BACKLOG #26 (financial constants) — closed by C15 regen + consumer migration
-- BACKLOG #27 (PracticeSummary.timezone Berlin fallback) — closed by C15 regen + cast removal
-- BACKLOG #32 (TopupRequest/Response duplicate) — closed by C15 regen
+- BACKLOG #24 (regen workflow) — workflow discipline documented в BACKEND-COORDINATION § D + extended at C15 close with self-host fallback (decision #046)
+- BACKLOG #26 (financial constants) — CLOSED at C15: `MIN_WITHDRAWAL_EUROS` + `WITHDRAWAL_FEE_EUROS` removed; MasterFinanceView.vue reads cents from `masterStore.profile`
+- BACKLOG #27 (PracticeSummary.timezone Berlin fallback) — CLOSED at C15: cast + `?? 'Europe/Berlin'` fallback removed from UserDashboardView.vue; direct `practice.timezone` read
+- BACKLOG #32 (TopupRequest/Response duplicate) — CLOSED at C15: local interfaces removed from `api/payments.ts`; consume via `@/api/types` (decision #023)
 - BACKLOG #55 (SERVER-ACCESS.md populate) — closed by S2 P05 OPEN: deploy capability + endpoint + procedure documented
-- BACKLOG #37 (S1 C13 manual visual verification) — folded into C15 staging push verification
+- BACKLOG #37 (S1 C13 manual visual verification) — CLOSED at C15: visual verify gate executed against staging deploy (light + dark, both pilot screens, TG account 526738615); outcome in BACKLOG #37 closure note
 
 ### Reduced priority
 
@@ -238,10 +240,10 @@ These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g.
 
 | Item | Value |
 |------|-------|
-| Phase | 05: NOT STARTED |
-| Cycle | C15: not started |
-| Status | Re-planned 2026-04-30 — ready to start with 03_Phase-Builder OPEN for C15 |
-| Tests | N/A (will run after C15 close) |
+| Phase | 05: DONE (2026-04-30) |
+| Cycle | C15: DONE (2026-04-30) |
+| Status | Phase 05 closed; ready for S2-P06-OPEN (auth + onboarding views, C16-C21) |
+| Tests | 32/32 pass (final gate before §C5 commits) |
 
 ---
 
@@ -251,6 +253,7 @@ These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g.
 |------------|-----------------------|--------------|--------|
 | (S1-Sprint-Builder originally planned this sprint as bundle-port) | 02_Sprint-Builder | 2026-04-24 | DONE then SUPERSEDED |
 | (S2-Sprint-Builder re-plan after design batch) | 02_Sprint-Builder | 2026-04-30 | DONE (planning only) |
+| C15 / Phase 05 | 03_Phase-Builder OPEN + WORK + CLOSE | 2026-04-30 | DONE — regen + consumer migration. Self-host regen pipeline first applied (decision #046). 5 files modified; 32/32 tests; lint baseline 756 → 752 (−4); generated.ts 762→765 LOC. BACKLOG #26 #27 #32 #37 closed. BACKEND-COORDINATION § E corrected (3 entries) + extended (E.1-E.3 partner-shipped surprises). decision #046 added. Visual verify outcome: [VISUAL_VERIFY_OUTCOME]. |
 
 ---
 
@@ -283,13 +286,22 @@ Run **03_Phase-Builder OPEN** for **Phase 05** (single cycle C15: regen + consum
 
 ---
 
+## Sprint Metrics
+
+| Sprint stage | Tests | CRITICAL | HIGH | MEDIUM | LOW | LOC (src/, code-only) |
+|--------------|-------|----------|------|--------|-----|------------------------|
+| S1 close (baseline, S1-SNAPSHOT) | 32 | 0 | 0 | 0 | 0 | (see S1-SNAPSHOT) |
+| S2 in-progress (after P05 C15) | 32 | 0 | 0 | 0 | 0 | 16045 |
+
+**Trend note (P05 close):** −24 net frontend/src code LOC vs pre-cycle baseline (regen +3 generated; consumer cleanup −27 across 4 manual files: constants.ts −11, MasterFinanceView.vue −3, UserDashboardView.vue −5, payments.ts −11). S2 progress is reducing tech-debt LOC alongside other work. CRITICAL/HIGH/MEDIUM/LOW remain 0 because no audit has run in S2 yet — first audit at S2 close per ProbeKit lite profile.
+
 ## Plan vs Reality
 
 | Aspect | Planned | Actual | Delta |
 |--------|---------|--------|-------|
-| Phases | 5 | — | — |
-| Cycles | 21 (C15-C35) | — | — |
-| Duration | 4-5 weeks (per-cycle test rhythm) | — | — |
+| Phases | 5 | 1 done (P05) | 4 remaining |
+| Cycles | 21 (C15-C35) | 1 done (C15) | 20 remaining |
+| Duration | 4-5 weeks (per-cycle test rhythm) | P05 closed day 1 (2026-04-30) | — |
 
 ### What Worked
 (filled at close)
