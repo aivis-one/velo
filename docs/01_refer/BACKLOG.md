@@ -115,7 +115,7 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
 **Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
 **Sprint**: post-S1 (run when partner deploy to staging completes).
-**Status**: CLOSED 2026-04-30 — S2 P05 C15 staging push verification gate. Visual verify outcome filled by Step 4f.iv: [VISUAL_VERIFY_OUTCOME].
+**Status**: CLOSED 2026-04-30 — S2 P05 C15 staging push verification gate. Visual verify result: ALL CLEAN — both screens, both themes, executed against staging deploy `ad4ce7d`, TG account 526738615 (2026-04-30).
 
 ---
 

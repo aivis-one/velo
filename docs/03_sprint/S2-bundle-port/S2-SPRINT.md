@@ -253,7 +253,7 @@ These are NOT S2 phases — folded into S2 cycles where naturally relevant (e.g.
 |------------|-----------------------|--------------|--------|
 | (S1-Sprint-Builder originally planned this sprint as bundle-port) | 02_Sprint-Builder | 2026-04-24 | DONE then SUPERSEDED |
 | (S2-Sprint-Builder re-plan after design batch) | 02_Sprint-Builder | 2026-04-30 | DONE (planning only) |
-| C15 / Phase 05 | 03_Phase-Builder OPEN + WORK + CLOSE | 2026-04-30 | DONE — regen + consumer migration. Self-host regen pipeline first applied (decision #046). 5 files modified; 32/32 tests; lint baseline 756 → 752 (−4); generated.ts 762→765 LOC. BACKLOG #26 #27 #32 #37 closed. BACKEND-COORDINATION § E corrected (3 entries) + extended (E.1-E.3 partner-shipped surprises). decision #046 added. Visual verify outcome: [VISUAL_VERIFY_OUTCOME]. |
+| C15 / Phase 05 | 03_Phase-Builder OPEN + WORK + CLOSE | 2026-04-30 | DONE — regen + consumer migration. Self-host regen pipeline first applied (decision #046). 5 files modified; 32/32 tests; lint baseline 756 → 752 (−4); generated.ts 762→765 LOC. BACKLOG #26 #27 #32 #37 closed. BACKEND-COORDINATION § E corrected (3 entries) + extended (E.1-E.3 partner-shipped surprises). decision #046 added. Visual verify outcome: GREEN — both pilot screens (WelcomeView, UserDashboardView), both themes (light + dark), no defects. |
 
 ---
 
