@@ -87,15 +87,11 @@ const isTelegram = computed(() => platform.name === 'telegram')
 const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL
 
 function goLogin(): void {
-  // C16 stub: /login route lands at C17. Path Y logic-first acceptable.
-  console.warn('[C16] /login route not yet implemented — lands at C17')
-  router.push('/login')
+  router.push({ name: 'login' })
 }
 
 function goRegister(): void {
-  // C16 stub: /register route lands at C18.
-  console.warn('[C16] /register route not yet implemented — lands at C18')
-  router.push('/register')
+  router.push({ name: 'register' })
 }
 </script>
 

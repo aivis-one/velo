@@ -270,12 +270,33 @@ const router = createRouter({
     },
 
     // =========================================================================
-    // Welcome -- TMA splash route (S1-P03 C11; #012 NOT 1:1 with bundle AuthScreen).
+    // Welcome -- hybrid auth splash (S2-P06 C16; TMA-splash + PWA-standalone
+    // branches per decision #036).
     // =========================================================================
     {
       path: '/welcome',
       name: 'welcome',
       component: () => import('@/views/auth/WelcomeView.vue'),
+    },
+
+    // =========================================================================
+    // PWA-standalone auth surface (S2-P06 C17/C18/C19) -- mock until
+    // BACKEND-COORDINATION § A.1 + § A.2 land.
+    // =========================================================================
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/auth/LoginView.vue'),
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/auth/RegisterView.vue'),
+    },
+    {
+      path: '/oauth/callback',
+      name: 'oauth-callback',
+      component: () => import('@/views/auth/OAuthLoadingView.vue'),
     },
 
     // =========================================================================
