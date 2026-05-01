@@ -9,10 +9,10 @@
 | 1 | Audit `VELO-Anti-Patterns.md` FP-01..FP-08 against bundle-flat approach — flag conflicts | S1 scout §4 | MEDIUM | → S1 P01 C06 | 8 patterns found (not 6 as ARCHITECTURE previously said) |
 | 2 | Install `velo-design` Claude Skill to `.claude/skills/velo-design/` | S1 Q#6 decision | LOW | → S4+ | Evaluate after S1 retrospective C14 |
 | 3 | Decide fate of `velo-mockups/` + `docs/05_legacy/Design_prototype_legacy_2026-03-11/` | ARCH gap | LOW | → S4+ | After S3 complete |
-| 4 | Migrate admin views (7 files in `views/admin/`) | decision #010 | LOW | → S4+ | Outside user/master scope of S1–S3 |
-| 5 | MH-08 Masters Account (main master dashboard) — design-gen + port | decision #010 | MEDIUM | → S4 | Moved from S3 |
-| 6 | MH-11 Feedback analytics (master-side) — design-gen + port | decision #010 | MEDIUM | → S4 | Moved from S3 |
-| 7 | MH-12 Group report (master-side) — design-gen + port | decision #010 | MEDIUM | → S4 | Moved from S3 |
+| 4 | Migrate admin views (7 files in `views/admin/`) | decision #010 | LOW | → S4 P15 | Reactivated via decision #051 (admin unfreeze); covered by P15-admin-refresh cycles C66-C73 |
+| 5 | MH-08 Masters Account (main master dashboard) — design-gen + port | decision #010 | MEDIUM | → S4 P14 | Covered by P14-master-refresh C57 (MasterDashboardView); designer-independent per #050 |
+| 6 | MH-11 Feedback analytics (master-side) — design-gen + port | decision #010 | MEDIUM | → S4 P14 | Covered by P14-master-refresh C63 (AnalyticsView); designer-independent per #050 |
+| 7 | MH-12 Group report (master-side) — design-gen + port | decision #010 | MEDIUM | → S4 P14 | Covered by P14-master-refresh C62 (AttendanceView, group report context); designer-independent per #050 |
 | 8 | Post-handoff checklist: verify flat (no backdrop-blur) in all screens before accepting bundle export | S1 Q#2 process | LOW | Recurring | Per each Claude Design export |
 | 9 | Verify `frontend/src/api/types.ts` updates after each backend-partner delivery | S1 Q#5 decision | MEDIUM | Recurring | Per release |
 | 10 | Scout convention: fallback-syntax-aware grep | C03/C04 P01 | LOW | Recurring | Scout/grep boundary should match `var(--x[,)]` pattern or open-paren form. C03 found 3 fallback sites (`var(--X, literal)`); C04 found nested fallback at VModal.vue:111 (`var(--X, var(--Y))`). Closing-paren grep `var(--X)` misses these. Apply to all token-audit operations from S2 onward. |
@@ -651,7 +651,8 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 
 **Priority**: High.
 **Source**: DESIGN-DECISIONS-LOG § D.
-**Notes**: Blocks S4 start per decision #030.
+**Notes**: ~~Blocks S4 start per decision #030.~~
+**Status**: SUPERSEDED 2026-05-01 — decision #050 (S4 proceeds without designer batch). Re-evaluate at S5+ polish cluster if/when designer delivers.
 
 ---
 
@@ -990,4 +991,18 @@ Speedrun delta requiring audit:
 
 **Cross-refs**: decision #049 (speedrun mode), CHANGELOG.md S2-S3 closure entry, S2-SNAPSHOT.md + S3-SNAPSHOT.md "Code Audit Result" rows (deferred).
 
+**Status**: OPEN.
+
+---
+
+### #101 — ARCHITECTURE.md §Key Decisions count drift (post-S2-S3-Speedrun)
+
+**Source**: S4-Sprint-Builder Step 1 Architecture Review (2026-05-01).
+
+**Context**: ARCHITECTURE.md §Key Decisions still reads `Active decisions #001-#026 as of S1 close (2026-04-28)` but actual count is 49 ACTIVE (#001-#049 post-S2-S3-Speedrun closure 2026-04-30). Same drift previously closed via BACKLOG #15 (S1-Clean-Sync) — reappeared because speedrun #049 closure deferred Clean-Sync; counter line not refreshed alongside #027-#049 additions.
+
+**Action**: at next S4-Clean-Sync run (post-Sprint-Closer), refresh §Key Decisions counter line to reflect actual count + most recent close date.
+
+**Severity**: NIT (cosmetic doc-drift; does not affect functional code or sprint planning).
+**Sprint**: S4-Clean-Sync.
 **Status**: OPEN.
