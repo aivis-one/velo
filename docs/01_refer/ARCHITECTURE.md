@@ -156,6 +156,33 @@ See `FILE-TREE.md` for current inventory. Compact:
 - `frontend/src/components/shared/ReservationCard.vue` (NEW) — practice icon + title + master row + date + status chip.
 - `frontend/src/stores/bookings.ts` — extended with `upcomingBookings` + `pastBookings` computed getters + `statusChipVariant(b)` helper (Завтра amber / Завершена mint / Отменена pink / Пропущена pink / Сегодня amber / Подтверждена mint).
 
+**Phase 14 additions (S4 master-refresh, MEGA-3, commit pending push):**
+
+- `frontend/src/views/master/MasterPendingView.vue` — refreshed under Velo DS (status splash with IconSuccess/IconWarning + Callout amber for rejection reason). Standalone view (no MasterShell, no tab bar). 260 → ~300 LOC.
+- `frontend/src/views/master/MasterApplyView.vue` — refreshed (3-step form preserved; native checkboxes preserved per design comment lines 18-19; IconCheck checkbox marks + IconShield upload icons). 583 → 599 LOC.
+- `frontend/src/views/master/MasterDashboardView.vue` — refreshed (greeting + StatCards row + AICommentaryCard teaser + nearest-practice card; PRACTICE_TYPE_ICON migration). `nearestPractice` computed kept in-component per Path Y simpler default. 585 → 574 LOC.
+- `frontend/src/views/master/MasterPracticesView.vue` — refreshed (header emoji stripped; client-side status filtering at lines 202/209 preserved; api/practices.ts unchanged). 306 LOC unchanged.
+- `frontend/src/views/master/CreatePracticeView.vue` — refreshed (6 section headers stripped of emoji prefixes; W-2/W-6/W-7/W-9 audit markers preserved per S1 lineage). 583 → 586 LOC.
+- `frontend/src/views/master/EditPracticeView.vue` — refreshed (section headers + action button labels stripped; ConfirmModal integration replacing inline Teleport modal at lines 369-401; 40+ LOC orphan CSS removed). 988 → 931 LOC (-57 net).
+- `frontend/src/views/master/AttendanceView.vue` — refreshed (3-section status display; section emoji stripped; status badges → IconCheck/IconClose/IconClock; ConfirmModal integration replacing inline overlay at line 219). 592 → 539 LOC (-53 net).
+- `frontend/src/views/master/AnalyticsView.vue` — refreshed (RATING_BARS_CONFIG `emoji: string` → `icon: Component` IconHeart/IconCheck/IconQuestion; `typeEmoji` function fully removed; PRACTICE_TYPE_ICON migration; per BEC §A.8 mock-until-ready AI insights teaser via AICommentaryCard placeholder). 866 → 898 LOC.
+- `frontend/src/views/master/MasterFinanceView.vue` — refreshed (IconBookFeather replaces 💰; section headers stripped; **withdrawal `min_withdrawal_cents` / `withdrawal_fee_cents` reads from `masterStore.profile` preserved** per #022 + BACKLOG #26 closure). 645 → 648 LOC.
+- `frontend/src/views/master/MasterProfileView.vue` — refreshed (IconCheck verified badge + IconBookFeather finance link; mirror UserProfileView 70/71 layout). **TD-FE-ROLE-SWITCH preserved** — 4 markers (lines 2 / 24 / 270 / 517) + `switchToUserMode()` function at line 520 + `useUiStore` + `setUiMode('user')` invariant intact. 732 → 736 LOC.
+- `frontend/src/components/master/PracticeListItem.vue` — cascade-refreshed (PRACTICE_TYPE_EMOJI → PRACTICE_TYPE_ICON migration; IconGroup replaces 👥 in details row). Required cascade for §C58 invariant compliance per Rule 27. 153 → 159 LOC.
+
+**New shared component**:
+
+- `frontend/src/components/shared/ConfirmModal.vue` — NEW (168 LOC). Teleport-inline confirm-dialog with `role="dialog"` + `aria-modal="true"` + Escape-key handler (Path Y minimum a11y). Prop API: `visible / loading / title / message / danger / confirmLabel / cancelLabel`. Emits: `confirm / cancel / update:visible`. Replaces inline overlay+dialog markup in EditPracticeView + AttendanceView. BACKLOG #48 closure path (shared ConfirmModal extraction; supersedes original "VModal adoption" framing — VModal has 0 user-side adopters; entire codebase uses Teleport-inline idiom per established pattern).
+
+**Cross-cutting Phase 14**:
+
+- 0 emoji in `frontend/src/views/master/` (was 85 hits per OPEN scout); #048 cleanup complete in master scope.
+- PRACTICE_TYPE_ICON migration complete in 4 master consumers (MasterDashboardView, MasterPracticesView via PracticeListItem delegation, AnalyticsView, PracticeListItem direct). Deprecated PRACTICE_TYPE_EMOJI shim retained in `displayHelpers.ts` for admin-scope cleanup deferred to S5+.
+- Lint baseline shifted: 756 warnings (S1 baseline carried through MEGA-1 + MEGA-2) → 0 warnings (repo-wide post-MEGA-3). Likely cause: master views were the dominant warning source; refresh under current Coding Standards (TS strict, no any, proper imports, scoped styles) cleared them naturally.
+- 0 new dependencies (Path Y discipline #047).
+- 0 new test files (BACKLOG #44 deferred per #042 inverted in #049/#052).
+- Anti-scope diffs verified empty: `router/index.ts`, `router/guards.ts`, `api/masters.ts`, `api/practices.ts`, `stores/ui.ts`, `stores/master.ts` (no extension landed; `nearestPractice` kept in-component), `package.json`.
+
 **Cross-cutting additions (speedrun, commits `6c5fd1f` + `af39b41`):**
 
 - `frontend/src/components/icons/` — 25 new Vue-SVG icon components: 11 in MEGA-1 (IconArrowBack/Forward/Up, IconClose, IconFilter, IconDots, IconEdit, IconChevronRight, IconHandsClap, IconHeart, IconTheme) + 14 in MEGA-2 (IconMic, IconCheck, IconBookDream, IconBookFeather, IconLink, IconChevronDown, IconQuestion, IconBell, IconGlobe, IconShield, IconShare, IconLogout, IconSearch, IconTrash) + barrel `index.ts` updates. All follow currentColor + viewBox 24×24 + `:size` prop default 24 pattern.

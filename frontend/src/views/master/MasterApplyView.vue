@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterApplyView (Phase F6.1)
+  VELO Frontend -- MasterApplyView (Phase F6.1; refreshed S4 P14 C56)
 
   3-step master application form. Standalone route (no MasterShell,
   no tab bar) -- accessible to role='user'.
@@ -17,6 +17,8 @@
 
   Note on checkboxes: uses custom native-checkbox markup (.apply-view__checkbox-item),
   NOT the VCheckbox component -- VCheckbox is intentionally NOT imported here.
+  Path Y MEDIUM (#047). No emojis (#048): checkmark glyphs replaced with
+  IconCheck; document-upload icons replaced with IconShield wrapper.
 -->
 
 <template>
@@ -106,7 +108,10 @@
                 @change="toggleMethod(method)"
               >
               <span class="apply-view__checkbox-mark">
-                {{ form.methods.includes(method) ? '✓' : '' }}
+                <IconCheck
+                  v-if="form.methods.includes(method)"
+                  :size="14"
+                />
               </span>
               <span class="apply-view__checkbox-label">{{ method }}</span>
             </label>
@@ -118,7 +123,10 @@
                 @change="toggleOtherMethod"
               >
               <span class="apply-view__checkbox-mark">
-                {{ otherMethodEnabled ? '✓' : '' }}
+                <IconCheck
+                  v-if="otherMethodEnabled"
+                  :size="14"
+                />
               </span>
               <span class="apply-view__checkbox-label">Другое</span>
             </label>
@@ -175,9 +183,11 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <span class="apply-view__upload-icon">
+              <IconShield :size="28" />
+            </span>
             <p class="apply-view__upload-text">
-              + Загрузить документ
+              Загрузить документ
             </p>
           </div>
           <p class="apply-view__hint">
@@ -189,9 +199,11 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Сертификаты</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <span class="apply-view__upload-icon">
+              <IconShield :size="28" />
+            </span>
             <p class="apply-view__upload-text">
-              + Добавить сертификат
+              Добавить сертификат
             </p>
           </div>
           <p class="apply-view__hint">
@@ -209,7 +221,10 @@
               class="apply-view__checkbox-mark"
               :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
             >
-              {{ form.termsAccepted ? '✓' : '' }}
+              <IconCheck
+                v-if="form.termsAccepted"
+                :size="14"
+              />
             </span>
             <span class="apply-view__checkbox-label">
               Я соглашаюсь с условиями использования
@@ -243,6 +258,7 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { IconCheck, IconShield } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'

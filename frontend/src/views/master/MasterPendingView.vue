@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterPendingView (Phase F6.1)
+  VELO Frontend -- MasterPendingView (Phase F6.1; refreshed S4 P14 C55)
 
   Standalone route (no MasterShell, no tab bar).
   Shown after master application is submitted or when masterStatusGuard
@@ -14,11 +14,13 @@
                         If status becomes 'verified', redirect to dashboard.
 
   Both cases show:
-    - Success icon + title
+    - Success icon + title (IconSuccess for pending, IconWarning for rejected per #048)
     - "Рассмотрим в течение 24-48 часов" message
     - Status badge (pending / rejected)
-    - Rejection reason if status=rejected (with "Re-apply" link)
+    - Rejection reason via Callout(amber) if status=rejected (with "Re-apply" link)
     - "Обновить статус" button
+
+  Path Y MEDIUM (#047). No emojis (#048).
 -->
 
 <template>
@@ -27,17 +29,27 @@
     <VHeader title="Заявка" />
 
     <div class="pending-view__content">
-      <!-- Submitted icon -->
-      <div class="pending-view__icon">
-        ✓
+      <!-- Status icon (Velo DS) -->
+      <div
+        class="pending-view__icon"
+        :class="{ 'pending-view__icon--rejected': profileStatus === 'rejected' }"
+      >
+        <IconWarning
+          v-if="profileStatus === 'rejected'"
+          :size="40"
+        />
+        <IconSuccess
+          v-else
+          :size="40"
+        />
       </div>
 
       <h2 class="pending-view__title">
-        Заявка отправлена!
+        {{ profileStatus === 'rejected' ? 'Заявка отклонена' : 'Заявка отправлена!' }}
       </h2>
 
       <p class="pending-view__subtitle">
-        Рассмотрим в течение 24-48 часов
+        {{ profileStatus === 'rejected' ? 'См. причину ниже' : 'Рассмотрим в течение 24-48 часов' }}
       </p>
 
       <!-- Status badge (real data for role='master', static for role='user') -->
@@ -49,12 +61,14 @@
           <VBadge variant="error">
             Заявка отклонена
           </VBadge>
-          <p
+          <Callout
             v-if="rejectionReason"
-            class="pending-view__rejection"
+            variant="amber"
+            :icon="IconWarning"
+            title="Причина отклонения"
           >
-            Причина: {{ rejectionReason }}
-          </p>
+            {{ rejectionReason }}
+          </Callout>
           <VButton
             variant="outline"
             size="sm"
@@ -106,6 +120,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VBadge, VLoader } from '@/components/ui'
+import { IconSuccess, IconWarning } from '@/components/icons'
+import Callout from '@/components/shared/Callout.vue'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -194,51 +210,51 @@ async function refreshStatus(): Promise<void> {
   gap: var(--space-4);
 }
 
-/* -- Success icon (circle with checkmark, matches mockup screen-submitted) -- */
+/* -- Status icon (circle with IconSuccess or IconWarning) -- */
 .pending-view__icon {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: var(--teal-primary);
+  background: var(--teal-primary, var(--mint-primary, var(--steel-button)));
   color: white;
-  font-size: 36px;
-  font-weight: 400;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
+.pending-view__icon--rejected {
+  background: var(--pink-primary);
+}
+
 .pending-view__title {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-2xl);
   color: var(--text-primary);
   text-align: center;
+  font-weight: 400;
+  margin: 0;
 }
 
 .pending-view__subtitle {
   font-size: var(--text-base);
   color: var(--text-secondary);
   text-align: center;
+  font-family: var(--font-body);
+  margin: 0;
 }
 
 /* -- Status area -- */
 .pending-view__status {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  width: 100%;
   gap: var(--space-3);
 }
 
-.pending-view__rejection {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  text-align: center;
-  max-width: 300px;
-  line-height: 1.5;
-}
-
 .pending-view__reapply {
+  align-self: center;
   margin-top: var(--space-1);
 }
 
@@ -256,5 +272,7 @@ async function refreshStatus(): Promise<void> {
   color: var(--text-secondary);
   text-align: center;
   line-height: 1.6;
+  font-family: var(--font-body);
+  margin: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterDashboardView (Phase F6.2)
+  VELO Frontend -- MasterDashboardView (Phase F6.2; refreshed S4 P14 C57)
 
   Master dashboard. Rendered inside MasterShell (with tab bar).
 
@@ -22,6 +22,9 @@
     - "Мои практики"    -> /master/practices
     - "Аналитика"       -> /master/analytics
     - "Финансы"         -> /master/finance
+
+  Path Y MEDIUM (#047). No emojis (#048): icons + Velo DS components.
+  PRACTICE_TYPE_ICON migration: replaced legacy emoji map per #048.
 -->
 
 <template>
@@ -34,28 +37,29 @@
     </template>
 
     <template v-else>
-      <!-- ================================================================
-           GREETING + STATUS
-           ================================================================ -->
-      <div class="master-dashboard__greeting">
+      <!-- Greeting + status -->
+      <header class="master-dashboard__greeting">
         <div>
-          <h2 class="master-dashboard__greeting-name">
-            Привет, {{ displayName }}! 👋
-          </h2>
+          <p class="master-dashboard__greeting-time">
+            {{ greetingPrefix }}
+          </p>
+          <h1 class="master-dashboard__greeting-name">
+            {{ displayName }}
+          </h1>
           <VBadge variant="success">
-            ✓ Верифицирован
+            <IconCheck :size="14" />
+            <span>Верифицирован</span>
           </VBadge>
         </div>
         <VAvatar
           :name="displayName"
           size="md"
         />
-      </div>
+      </header>
 
-      <!-- ================================================================
-           BALANCE CARD
-           ================================================================ -->
-      <div
+      <!-- Balance card -->
+      <button
+        type="button"
         class="master-dashboard__balance-card"
         @click="router.push({ name: 'master-finance' })"
       >
@@ -71,74 +75,53 @@
         >
           Заморожено: {{ formattedFrozen }}
         </div>
-        <span class="master-dashboard__balance-arrow">→</span>
-      </div>
+        <span class="master-dashboard__balance-arrow">
+          <IconArrowForward :size="20" />
+        </span>
+      </button>
 
-      <!-- ================================================================
-           STATS GRID (with period toggle)
-           F7/F9: real data. For now shows "—" placeholders.
-           ================================================================ -->
+      <!-- Stats grid (with period toggle); F7/F9 — real data; placeholders for now -->
       <div class="master-dashboard__section-header">
-        <span class="master-dashboard__section-title">📊 Моя статистика</span>
+        <h3 class="master-dashboard__section-title">
+          Моя статистика
+        </h3>
         <button
+          type="button"
           class="master-dashboard__period-toggle"
           aria-label="Переключить период"
           @click="togglePeriod"
         >
-          {{ period === 'week' ? 'Неделя ▼' : 'Месяц ▼' }}
+          {{ period === 'week' ? 'Неделя' : 'Месяц' }}
+          <IconChevronDown :size="14" />
         </button>
       </div>
 
       <div class="master-dashboard__stats-grid">
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">
-            —
-          </div>
-          <div class="master-dashboard__stat-label">
-            практик
-          </div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">
-            —
-          </div>
-          <div class="master-dashboard__stat-label">
-            участников
-          </div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">
-            —
-          </div>
-          <div class="master-dashboard__stat-label">
-            доход
-          </div>
-        </div>
+        <StatCard
+          value="—"
+          label="практик"
+        />
+        <StatCard
+          value="—"
+          label="участников"
+        />
+        <StatCard
+          value="—"
+          label="доход"
+        />
       </div>
 
-      <div class="master-dashboard__divider" />
+      <!-- AI summary placeholder (BEC § A.8 mock-until-ready) -->
+      <AICommentaryCard
+        title="Саммари недели"
+        body="Аналитика по итогам практик появится здесь после проведения первых занятий."
+        :is-placeholder="true"
+      />
 
-      <!-- ================================================================
-           AI SUMMARY (placeholder — F9)
-           ================================================================ -->
-      <div class="master-dashboard__ai-card">
-        <div class="master-dashboard__ai-header">
-          🧠 Саммари недели
-        </div>
-        <div class="master-dashboard__ai-content">
-          Аналитика по итогам практик появится здесь после проведения
-          первых занятий.
-        </div>
-      </div>
-
-      <div class="master-dashboard__divider" />
-
-      <!-- ================================================================
-           NEAREST PRACTICE
-           ================================================================ -->
-      <div class="master-dashboard__section-title">
-        📅 Ближайшая практика
-      </div>
+      <!-- Nearest practice -->
+      <h3 class="master-dashboard__section-title">
+        Ближайшая практика
+      </h3>
 
       <template v-if="masterStore.practicesLoading">
         <div class="master-dashboard__loading-row">
@@ -147,12 +130,18 @@
       </template>
 
       <template v-else-if="nearestPractice">
-        <div
+        <button
+          type="button"
           class="master-dashboard__practice-card"
           @click="router.push({ name: 'master-practice-edit', params: { id: nearestPractice.id } })"
         >
           <div class="master-dashboard__practice-header">
-            <span class="master-dashboard__practice-icon">{{ typeEmoji(nearestPractice.practice_type) }}</span>
+            <span class="master-dashboard__practice-icon">
+              <component
+                :is="practiceIconFor(nearestPractice.practice_type)"
+                :size="28"
+              />
+            </span>
             <div class="master-dashboard__practice-info">
               <div class="master-dashboard__practice-title">
                 {{ nearestPractice.title }}
@@ -170,12 +159,11 @@
             {{ formatParticipants(nearestPractice.current_participants, nearestPractice.max_participants) }}
             · {{ formatMoney(nearestPractice.price_cents, nearestPractice.currency) }}
           </div>
-        </div>
+        </button>
       </template>
 
       <template v-else>
         <VEmptyState
-          icon="📅"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
@@ -189,41 +177,49 @@
         </VEmptyState>
       </template>
 
-      <div class="master-dashboard__divider" />
-
-      <!-- ================================================================
-           QUICK ACTIONS
-           ================================================================ -->
-      <div class="master-dashboard__section-title">
-        ⚡ Быстрые действия
-      </div>
+      <!-- Quick actions -->
+      <h3 class="master-dashboard__section-title">
+        Быстрые действия
+      </h3>
       <div class="master-dashboard__actions-grid">
         <button
+          type="button"
           class="master-dashboard__action-btn"
           @click="router.push({ name: 'master-practice-new' })"
         >
-          <span class="master-dashboard__action-icon">➕</span>
+          <span class="master-dashboard__action-icon">
+            <IconEdit :size="22" />
+          </span>
           <span class="master-dashboard__action-label">Создать практику</span>
         </button>
         <button
+          type="button"
           class="master-dashboard__action-btn"
           @click="router.push({ name: 'master-practices' })"
         >
-          <span class="master-dashboard__action-icon">📋</span>
+          <span class="master-dashboard__action-icon">
+            <IconCalendar :size="22" />
+          </span>
           <span class="master-dashboard__action-label">Мои практики</span>
         </button>
         <button
+          type="button"
           class="master-dashboard__action-btn"
           @click="router.push({ name: 'master-analytics' })"
         >
-          <span class="master-dashboard__action-icon">📈</span>
+          <span class="master-dashboard__action-icon">
+            <IconBrain :size="22" />
+          </span>
           <span class="master-dashboard__action-label">Аналитика</span>
         </button>
         <button
+          type="button"
           class="master-dashboard__action-btn"
           @click="router.push({ name: 'master-finance' })"
         >
-          <span class="master-dashboard__action-icon">💰</span>
+          <span class="master-dashboard__action-icon">
+            <IconBookFeather :size="22" />
+          </span>
           <span class="master-dashboard__action-label">Финансы</span>
         </button>
       </div>
@@ -232,12 +228,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
+import {
+  IconCheck,
+  IconArrowForward,
+  IconChevronDown,
+  IconCalendar,
+  IconEdit,
+  IconBrain,
+  IconBookFeather,
+  IconMeditation,
+} from '@/components/icons'
+import StatCard from '@/components/shared/StatCard.vue'
+import AICommentaryCard from '@/components/shared/AICommentaryCard.vue'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -252,6 +260,14 @@ function togglePeriod(): void {
 const displayName = computed((): string =>
   masterStore.profile?.display_name ?? 'Мастер',
 )
+
+const greetingPrefix = computed((): string => {
+  const h = new Date().getHours()
+  if (h < 5) return 'Доброй ночи,'
+  if (h < 12) return 'Доброе утро,'
+  if (h < 18) return 'Добрый день,'
+  return 'Добрый вечер,'
+})
 
 // -- Balance values --
 const frozenCents = computed(() => masterStore.profile?.frozen_cents ?? 0)
@@ -273,9 +289,9 @@ const nearestPractice = computed(() => {
   return upcoming[0] ?? null
 })
 
-// -- Practice type emoji -- imported from displayHelpers
-function typeEmoji(t: string): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
+// -- Practice type icon (PRACTICE_TYPE_ICON Component-map; #048 migration) --
+function practiceIconFor(t: string): Component {
+  return PRACTICE_TYPE_ICON[t] ?? IconMeditation
 }
 
 // -- Practice status badge helpers --
@@ -330,13 +346,20 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-.master-dashboard__greeting-name {
+.master-dashboard__greeting-time {
   font-family: var(--font-body);
-  font-size: var(--text-xl);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.master-dashboard__greeting-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--text-primary);
   letter-spacing: 0.02em;
-  margin-bottom: var(--space-2);
+  margin: 0 0 var(--space-2);
 }
 
 /* -- Balance card -- */
@@ -344,10 +367,13 @@ onMounted(async () => {
   position: relative;
   background: var(--steel-button);
   color: white;
+  border: 1px solid #ffffff;
   border-radius: var(--radius-lg);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
+  text-align: left;
   transition: opacity var(--transition-fast);
+  font-family: var(--font-body);
 }
 
 .master-dashboard__balance-card:active {
@@ -355,25 +381,21 @@ onMounted(async () => {
 }
 
 .master-dashboard__balance-label {
-  font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
-  opacity: 0.8;
+  opacity: 0.85;
   margin-bottom: var(--space-1);
 }
 
 .master-dashboard__balance-value {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-3xl);
   font-weight: 400;
   letter-spacing: 0.02em;
 }
 
 .master-dashboard__balance-frozen {
-  font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 400;
-  opacity: 0.7;
+  opacity: 0.75;
   margin-top: var(--space-1);
 }
 
@@ -382,8 +404,10 @@ onMounted(async () => {
   top: 50%;
   right: var(--space-5);
   transform: translateY(-50%);
-  font-size: var(--text-xl);
-  opacity: 0.8;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* -- Section header with period toggle -- */
@@ -394,22 +418,25 @@ onMounted(async () => {
 }
 
 .master-dashboard__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  margin: 0;
 }
 
 .master-dashboard__period-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--steel-button);
-  padding: var(--space-1) var(--space-2);
-  border-radius: 100px;
+  color: var(--text-primary);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-full);
   background: var(--surface-steel-alpha-15);
+  cursor: pointer;
   transition: opacity var(--transition-fast);
 }
 
@@ -422,59 +449,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
-}
-
-.master-dashboard__stat-card {
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  text-align: center;
-}
-
-.master-dashboard__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--text-primary);
-}
-
-.master-dashboard__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-/* -- Divider -- */
-.master-dashboard__divider {
-  height: 1px;
-  background: var(--border-subtle);
-}
-
-/* -- AI summary card -- */
-.master-dashboard__ai-card {
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-}
-
-.master-dashboard__ai-header {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-2);
-}
-
-.master-dashboard__ai-content {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--text-muted);
-  line-height: 1.6;
 }
 
 /* -- Loading row -- */
@@ -491,11 +465,14 @@ onMounted(async () => {
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-body);
   transition: opacity var(--transition-fast);
 }
 
 .master-dashboard__practice-card:active {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .master-dashboard__practice-header {
@@ -506,9 +483,16 @@ onMounted(async () => {
 }
 
 .master-dashboard__practice-icon {
-  font-size: 24px;
   flex-shrink: 0;
-  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-default);
+  border: 1px solid var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
 }
 
 .master-dashboard__practice-info {
@@ -529,15 +513,13 @@ onMounted(async () => {
 .master-dashboard__practice-meta {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .master-dashboard__practice-participants {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--text-secondary);
 }
 
@@ -560,6 +542,7 @@ onMounted(async () => {
   border-radius: var(--radius-lg);
   transition: opacity var(--transition-fast);
   cursor: pointer;
+  font-family: var(--font-body);
 }
 
 .master-dashboard__action-btn:hover {
@@ -571,14 +554,20 @@ onMounted(async () => {
 }
 
 .master-dashboard__action-icon {
-  font-size: 28px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-default);
+  border: 1px solid var(--text-primary);
+  color: var(--text-primary);
 }
 
 .master-dashboard__action-label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--text-secondary);
   text-align: center;
 }

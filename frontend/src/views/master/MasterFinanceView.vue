@@ -45,7 +45,9 @@
             {{ formattedAvailable }}
           </div>
         </div>
-        <span class="finance-view__balance-icon">💰</span>
+        <span class="finance-view__balance-icon">
+          <IconBookFeather :size="28" />
+        </span>
       </div>
 
       <div
@@ -75,7 +77,7 @@
       class="finance-view__section finance-view__withdraw-section"
     >
       <div class="finance-view__section-title">
-        💸 ЗАПРОС ВЫВОДА
+        Запрос вывода
       </div>
 
       <!-- No payout configured warning -->
@@ -149,7 +151,7 @@
          ==================================================================== -->
     <div class="finance-view__section">
       <div class="finance-view__section-title">
-        📋 ИСТОРИЯ ВЫВОДОВ
+        История выводов
       </div>
 
       <!-- Loading state -->
@@ -224,6 +226,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VLoader } from '@/components/ui'
+import { IconBookFeather } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'

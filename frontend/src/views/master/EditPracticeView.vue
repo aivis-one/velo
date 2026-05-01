@@ -60,7 +60,6 @@
       class="edit-practice__content"
     >
       <VEmptyState
-        icon="⚠️"
         title="Практика не найдена"
       >
         <VButton
@@ -97,7 +96,7 @@
         >
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              📝 ОСНОВНОЕ
+              Основное
             </div>
             <VInput
               v-model="form.title"
@@ -115,7 +114,7 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              📅 РАСПИСАНИЕ
+              Расписание
             </div>
 
             <!-- W-8: min attribute prevents setting past dates -->
@@ -155,7 +154,7 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              👥 УЧАСТНИКИ
+              Участники
             </div>
             <VInput
               v-model="form.max_participants_raw"
@@ -167,7 +166,7 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              💰 ЦЕНА
+              Цена
             </div>
             <div class="edit-practice__payment-options">
               <label
@@ -219,7 +218,7 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              📝 ОПИСАНИЕ
+              Описание
             </div>
             <VTextarea
               v-model="form.description"
@@ -242,7 +241,7 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">
-              🔗 ПОДКЛЮЧЕНИЕ
+              Подключение
             </div>
             <VInput
               v-model="form.zoom_link"
@@ -276,7 +275,7 @@
           class="edit-practice__actions"
         >
           <div class="edit-practice__section-title">
-            ⚡ ДЕЙСТВИЯ
+            Действия
           </div>
 
           <!-- draft -> scheduled -->
@@ -288,7 +287,7 @@
             :disabled="anyLoading"
             @click="publish"
           >
-            ▶️ Опубликовать практику
+            Опубликовать практику
           </VButton>
 
           <!-- scheduled -> live -->
@@ -300,7 +299,7 @@
             :disabled="anyLoading"
             @click="startLive"
           >
-            🎬 Начать эфир
+            Начать эфир
           </VButton>
 
           <!-- live -> completed (finalize) -->
@@ -312,7 +311,7 @@
             :disabled="anyLoading"
             @click="confirmFinalize"
           >
-            ✅ Завершить практику
+            Завершить практику
           </VButton>
 
           <!-- scheduled / live -> attendance -->
@@ -323,7 +322,7 @@
             :disabled="anyLoading"
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
 
           <!-- draft -> deleted -->
@@ -335,7 +334,7 @@
             :disabled="anyLoading"
             @click="confirmDelete"
           >
-            🗑 Удалить черновик
+            Удалить черновик
           </VButton>
 
           <!-- scheduled / live -> cancelled -->
@@ -347,7 +346,7 @@
             :disabled="anyLoading"
             @click="confirmCancel"
           >
-            ❌ Отменить практику
+            Отменить практику
           </VButton>
         </div>
 
@@ -361,44 +360,25 @@
             block
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
         </div>
       </div>
 
       <!-- ================================================================
-           CONFIRM DIALOG
+           CONFIRM DIALOG (extracted to shared/ConfirmModal.vue at S4 P14 C60)
            W-5: overlay click blocked while confirmDialog.loading is true
+                preserved by ConfirmModal's onOverlayClick guard.
            ================================================================ -->
-      <Teleport to="body">
-        <div
-          v-if="confirmDialog.visible"
-          class="edit-practice__overlay"
-          @click.self="!confirmDialog.loading && (confirmDialog.visible = false)"
-        >
-          <div class="edit-practice__dialog">
-            <p class="edit-practice__dialog-text">
-              {{ confirmDialog.message }}
-            </p>
-            <div class="edit-practice__dialog-actions">
-              <VButton
-                variant="ghost"
-                :disabled="confirmDialog.loading"
-                @click="confirmDialog.visible = false"
-              >
-                Отмена
-              </VButton>
-              <VButton
-                :variant="confirmDialog.danger ? 'danger' : 'primary'"
-                :loading="confirmDialog.loading"
-                @click="confirmDialog.onConfirm"
-              >
-                {{ confirmDialog.confirmLabel }}
-              </VButton>
-            </div>
-          </div>
-        </div>
-      </Teleport>
+      <ConfirmModal
+        v-model:visible="confirmDialog.visible"
+        :loading="confirmDialog.loading"
+        :message="confirmDialog.message"
+        :danger="confirmDialog.danger"
+        :confirm-label="confirmDialog.confirmLabel"
+        @confirm="confirmDialog.onConfirm()"
+        @cancel="confirmDialog.visible = false"
+      />
     </template>
   </div>
 </template>
@@ -408,6 +388,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -946,43 +927,5 @@ async function remove(): Promise<void> {
   border-top: 1px solid var(--border-subtle);
 }
 
-/* -- Confirm overlay + dialog -- */
-.edit-practice__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: var(--z-modal, 400);
-  padding: var(--space-4);
-}
-
-.edit-practice__dialog {
-  width: 100%;
-  background: var(--surface-steel-alpha-60);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.edit-practice__dialog-text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--text-primary);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.edit-practice__dialog-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.edit-practice__dialog-actions > * {
-  flex: 1;
-}
+/* Confirm overlay + dialog CSS extracted to shared/ConfirmModal.vue at S4 P14 C60. */
 </style>

@@ -1,7 +1,7 @@
 <!--
   VELO Frontend -- MasterProfileView (Phase F7, updated TD-FE-ROLE-SWITCH)
 
-  Master profile screen. Route: /master/profile (tab "👤 Я").
+  Master profile screen. Route: /master/profile (tab "Я").
   No masterStatusGuard -- accessible even while pending (so master sees their info).
 
   Sections:
@@ -59,7 +59,8 @@
             v-if="isVerified"
             variant="success"
           >
-            ✓ Верифицирован
+            <IconCheck :size="14" />
+            <span>Верифицирован</span>
           </VBadge>
           <VBadge
             v-else
@@ -120,7 +121,7 @@
            ================================================================== -->
       <div class="master-profile__section master-profile__payout-section">
         <div class="master-profile__section-title">
-          💳 РЕКВИЗИТЫ ВЫПЛАТ
+          Реквизиты выплат
         </div>
 
         <!-- Current state (not editing) -->
@@ -250,7 +251,9 @@
         @click="router.push({ name: 'master-finance' })"
       >
         <div class="master-profile__finance-link-left">
-          <span class="master-profile__finance-link-icon">💰</span>
+          <span class="master-profile__finance-link-icon">
+            <IconBookFeather :size="22" />
+          </span>
           <div>
             <div class="master-profile__finance-link-title">
               Финансы и выводы
@@ -288,6 +291,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader } from '@/components/ui'
+import { IconCheck, IconBookFeather } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'

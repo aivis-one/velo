@@ -1,7 +1,7 @@
 # Velo — File Tree
 
 > Scope: `frontend/src/` + `docs/` only. Backend and other top-level directories are out of scope.
-> Updated: 2026-04-30 (S2-S3-Speedrun closure — partial regen frontend/src/views, components, stores, utils, router).
+> Updated: 2026-05-01 (S4-P14 MEGA-3 closure — partial regen frontend/src/views/master, components/shared, components/master).
 > Validated by: `05_Clean-Sync.md` Step 1.
 
 ## frontend/src/
@@ -78,8 +78,8 @@ frontend/src/
 │   │   ├── VTabBar.vue
 │   │   └── index.ts
 │   ├── master/                 # master-role shared pieces
-│   │   └── PracticeListItem.vue
-│   ├── shared/                 # role-agnostic shared components (32; speedrun additions tagged)
+│   │   └── PracticeListItem.vue   # S4-P14 cascade-refreshed (PRACTICE_TYPE_ICON migration)
+│   ├── shared/                 # role-agnostic shared components (33; speedrun + S4-P14 additions tagged)
 │   │   ├── AICommentaryCard.vue       # MEGA-2 (mint VELO AI tag + placeholder body)
 │   │   ├── BookingCard.vue
 │   │   ├── BookingPopup.vue
@@ -87,6 +87,7 @@ frontend/src/
 │   │   ├── Callout.vue                # MEGA-1 (amber/mint variant warnings)
 │   │   ├── CancelBookingPopup.vue
 │   │   ├── ChatBubble.vue             # MEGA-2 (incoming/outgoing variants)
+│   │   ├── ConfirmModal.vue           # S4-P14 (BACKLOG #48 closure; Teleport-inline confirm dialog)
 │   │   ├── ConversationListItem.vue   # MEGA-2 (avatar + preview + unread badge)
 │   │   ├── DiaryCheckinDetail.vue
 │   │   ├── DiaryComposer.vue          # MEGA-2 (collapsed pill + mic + send)
@@ -221,17 +222,17 @@ frontend/src/
     │   ├── TopupView.vue               # legacy (S1)
     │   ├── UserDashboardView.vue       # MEGA-1 (S2-P07 C22) — refresh
     │   └── UserProfileView.vue         # MEGA-1 (S2-P09 C33) — refresh (3 sections + Logout)
-    ├── master/                 # 10 views (legacy S1; emoji cleanup deferred to S4)
-    │   ├── MasterDashboardView.vue
-    │   ├── MasterPracticesView.vue
-    │   ├── CreatePracticeView.vue
-    │   ├── EditPracticeView.vue
-    │   ├── AttendanceView.vue
-    │   ├── AnalyticsView.vue
-    │   ├── MasterProfileView.vue
-    │   ├── MasterFinanceView.vue
-    │   ├── MasterApplyView.vue
-    │   └── MasterPendingView.vue
+    ├── master/                 # 10 views (refreshed S4-P14 MEGA-3; emoji 85 → 0; Path Y MEDIUM)
+    │   ├── MasterDashboardView.vue        # S4-P14 (greeting + StatCards + PRACTICE_TYPE_ICON migration)
+    │   ├── MasterPracticesView.vue        # S4-P14 (list + status chips; PracticeListItem cascade)
+    │   ├── CreatePracticeView.vue         # S4-P14 (6-section form refresh; W-markers preserved)
+    │   ├── EditPracticeView.vue           # S4-P14 (refresh + ConfirmModal integration; -57 LOC)
+    │   ├── AttendanceView.vue             # S4-P14 (refresh + ConfirmModal integration; -53 LOC)
+    │   ├── AnalyticsView.vue              # S4-P14 (refresh + RATING_BARS_CONFIG icon migration)
+    │   ├── MasterProfileView.vue          # S4-P14 (refresh; TD-FE-ROLE-SWITCH preserved)
+    │   ├── MasterFinanceView.vue          # S4-P14 (refresh; min/fee cents reads preserved per #022)
+    │   ├── MasterApplyView.vue            # S4-P14 (3-step form refresh; native checkboxes preserved)
+    │   └── MasterPendingView.vue          # S4-P14 (status splash refresh)
     └── admin/                  # 7 views (legacy S1; refresh deferred to S5+)
         ├── AdminDashboardView.vue
         ├── AdminMastersView.vue

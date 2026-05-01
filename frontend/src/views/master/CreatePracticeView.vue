@@ -1,21 +1,21 @@
 <!--
-  VELO Frontend -- CreatePracticeView (Phase F6.2, fixed W-2, W-6, W-7, W-9)
+  VELO Frontend -- CreatePracticeView (Phase F6.2 fixed W-2/W-6/W-7/W-9; refreshed S4 P14 C59)
 
   Create a new practice. Protected by masterStatusGuard.
   Standalone within MasterShell (back button -> master-practices).
 
   Sections (matching mockup screen-practice-create):
-    📝 ОСНОВНОЕ    -- title (required), practice_type (required)
-    📅 РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
-    👥 УЧАСТНИКИ   -- max_participants (null = unlimited)
-    💰 ЦЕНА        -- is_free toggle; if paid: price_cents
-    📝 ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
-    🔗 ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
+    Основное      -- title (required), practice_type (required)
+    Расписание    -- date, time (combined -> scheduled_at UTC), duration, timezone
+    Участники     -- max_participants (null = unlimited)
+    Цена          -- is_free toggle; if paid: price_cents
+    Описание      -- description, what_to_prepare, contraindications (optional)
+    Подключение   -- zoom_link (optional)
 
   Submit: POST /api/v1/practices (status defaults to 'draft' in backend).
   On success -> show toast + navigate to master-practices + refreshMyPractices().
 
-  Fixes:
+  Fixes (preserved from prior cycles per #047 Path Y discipline):
     W-2: DURATION_OPTIONS / TIMEZONE_OPTIONS imported from @/utils/practiceOptions
     W-6: priceCents uses eurStringToCents() -- no parseFloat * 100 float trap
     W-7: todayDate is a computed ref -- not stale after midnight
@@ -27,6 +27,8 @@
     set from the master's profile timezone (editable in-form for MVP).
     This is a known simplification: if browser TZ differs from profile TZ,
     the displayed time may differ. Full fix: use a TZ-aware date library (F10).
+
+  Path Y MEDIUM (#047). No emojis (#048): section headers stripped to plain titles.
 -->
 
 <template>
@@ -40,11 +42,11 @@
 
     <div class="create-practice__content">
       <!-- ================================================================
-           📝 ОСНОВНОЕ
+           Основное
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          📝 ОСНОВНОЕ
+          Основное
         </div>
 
         <VInput
@@ -63,11 +65,11 @@
       </div>
 
       <!-- ================================================================
-           📅 РАСПИСАНИЕ
+           Расписание
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          📅 РАСПИСАНИЕ
+          Расписание
         </div>
 
         <div class="create-practice__field">
@@ -117,11 +119,11 @@
       </div>
 
       <!-- ================================================================
-           👥 УЧАСТНИКИ
+           Участники
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          👥 УЧАСТНИКИ
+          Участники
         </div>
 
         <VInput
@@ -134,11 +136,11 @@
       </div>
 
       <!-- ================================================================
-           💰 ЦЕНА
+           Цена
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          💰 ЦЕНА
+          Цена
         </div>
 
         <!-- Free / Paid radio toggle -->
@@ -194,11 +196,11 @@
       </div>
 
       <!-- ================================================================
-           📝 ОПИСАНИЕ
+           Описание
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          📝 ОПИСАНИЕ
+          Описание
         </div>
 
         <VTextarea
@@ -224,11 +226,11 @@
       </div>
 
       <!-- ================================================================
-           🔗 ПОДКЛЮЧЕНИЕ
+           Подключение
            ================================================================ -->
       <div class="create-practice__section">
         <div class="create-practice__section-title">
-          🔗 ПОДКЛЮЧЕНИЕ
+          Подключение
         </div>
 
         <VInput

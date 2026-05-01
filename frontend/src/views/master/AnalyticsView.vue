@@ -25,7 +25,7 @@
     <!-- Header -->
     <header class="analytics__header">
       <h1 class="analytics__header-title">
-        📈 Аналитика
+        Аналитика
       </h1>
     </header>
 
@@ -90,7 +90,7 @@
         class="analytics__section"
       >
         <div class="analytics__section-title">
-          💬 Общая статистика
+          Общая статистика
         </div>
         <div class="analytics__rating-bars">
           <div
@@ -98,7 +98,13 @@
             :key="bar.key"
             class="analytics__rating-row"
           >
-            <span class="analytics__rating-label">{{ bar.emoji }} {{ bar.label }}</span>
+            <span class="analytics__rating-label">
+              <component
+                :is="bar.icon"
+                :size="16"
+              />
+              {{ bar.label }}
+            </span>
             <div class="analytics__rating-track">
               <div
                 class="analytics__rating-fill"
@@ -115,7 +121,7 @@
       <!-- Past practices list -->
       <div class="analytics__section">
         <div class="analytics__section-title">
-          📅 Прошедшие практики
+          Прошедшие практики
         </div>
 
         <!-- Practices loading -->
@@ -129,7 +135,6 @@
         <!-- Empty -->
         <VEmptyState
           v-else-if="!masterStore.practicesLoading && pastPractices.length === 0"
-          icon="📋"
           title="Нет завершённых практик"
           description="Здесь появятся данные после первой практики"
         />
@@ -150,7 +155,12 @@
               @click="togglePractice(practice.id)"
             >
               <div class="analytics__practice-left">
-                <span class="analytics__practice-emoji">{{ typeEmoji(practice.practice_type) }}</span>
+                <span class="analytics__practice-emoji">
+                  <component
+                    :is="practiceIconFor(practice.practice_type)"
+                    :size="22"
+                  />
+                </span>
                 <div class="analytics__practice-info">
                   <div class="analytics__practice-title">
                     {{ practice.title }}
@@ -167,9 +177,18 @@
                 v-if="insightsCache.has(practice.id)"
                 class="analytics__practice-badges"
               >
-                <span>🔥 {{ ratingPct(practice.id, 'fire') }}%</span>
-                <span>👍 {{ ratingPct(practice.id, 'good') }}%</span>
-                <span>❓ {{ ratingPct(practice.id, 'confused') }}%</span>
+                <span class="analytics__rating-mini">
+                  <IconHeart :size="14" />
+                  {{ ratingPct(practice.id, 'fire') }}%
+                </span>
+                <span class="analytics__rating-mini">
+                  <IconCheck :size="14" />
+                  {{ ratingPct(practice.id, 'good') }}%
+                </span>
+                <span class="analytics__rating-mini">
+                  <IconQuestion :size="14" />
+                  {{ ratingPct(practice.id, 'confused') }}%
+                </span>
               </div>
 
               <!-- Expand chevron -->
@@ -198,7 +217,8 @@
                   v-else-if="insightsError.has(practice.id)"
                   class="analytics__insights-error"
                 >
-                  ⚠️ {{ insightsError.get(practice.id) }}
+                  <IconWarning :size="16" />
+                  {{ insightsError.get(practice.id) }}
                   <button
                     class="analytics__retry-btn"
                     @click="diaryStore.loadInsights(practice.id)"
@@ -234,7 +254,12 @@
                       :key="bar.key"
                       class="analytics__rating-row analytics__rating-row--compact"
                     >
-                      <span class="analytics__rating-label">{{ bar.emoji }}</span>
+                      <span class="analytics__rating-label">
+                        <component
+                          :is="bar.icon"
+                          :size="14"
+                        />
+                      </span>
                       <div class="analytics__rating-track">
                         <div
                           class="analytics__rating-fill"
@@ -256,7 +281,7 @@
                     v-if="insightsCache.get(practice.id)!.comments_count > 0"
                     class="analytics__insights-comments"
                   >
-                    💬 {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
+                    {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
                   </div>
                 </template>
               </div>
@@ -290,7 +315,7 @@
     >
       <div class="analytics__section">
         <div class="analytics__section-title">
-          💰 Финансы и выплаты
+          Финансы и выплаты
         </div>
         <p class="analytics__payments-hint">
           История транзакций, заработок и запрос на вывод средств доступны
@@ -310,12 +335,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import {
+  IconHeart,
+  IconCheck,
+  IconQuestion,
+  IconWarning,
+  IconMeditation,
+} from '@/components/icons'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -408,7 +440,7 @@ const aggregateFeedbackPct = computed((): string => {
 
 interface RatingBar {
   key: string
-  emoji: string
+  icon: Component
   label: string
   count: number
   pct: number
@@ -417,10 +449,10 @@ interface RatingBar {
 
 // RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
 // Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: string; label: string; color: string }> = [
-  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--warm-deep)' },
-  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--teal-primary)' },
-  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--feedback-warning)' },
+const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string; color: string }> = [
+  { key: 'fire',     icon: IconHeart,    label: 'Огонь!',       color: 'var(--warm-deep)' },
+  { key: 'good',     icon: IconCheck,    label: 'Хорошо',       color: 'var(--teal-primary)' },
+  { key: 'confused', icon: IconQuestion, label: 'Есть вопросы', color: 'var(--feedback-warning)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
@@ -476,11 +508,11 @@ function insightRatingBars(practiceId: string): RatingBar[] {
 }
 
 // =========================================================================
-// Type emoji -- imported from displayHelpers
+// Type icon -- migrated to PRACTICE_TYPE_ICON Component-map per #048 (S4 P14 C63)
 // =========================================================================
 
-function typeEmoji(t: string): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
+function practiceIconFor(t: string): Component {
+  return PRACTICE_TYPE_ICON[t] ?? IconMeditation
 }
 
 // =========================================================================

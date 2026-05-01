@@ -358,6 +358,14 @@ Replace 2 + 3 with VModal. Single fix resolves three reports' findings:
 
 **Source**: S1-CODE-AUDIT.md issue 18.
 
+**Status**: CLOSED 2026-05-01 — S4 P14 MEGA-3 via shared ConfirmModal.vue extraction.
+
+**Closure path adjustment**: Original framing assumed VModal adoption. Scout (S4-P14 OPEN §V3) revealed VModal has 0 user-side adopters; entire codebase uses Teleport-inline modal idiom (DiaryFilterOverlay / DiarySearchOverlay / EntryActionMenu / UndoSnackbar precedent from MEGA-2). Closure path adjusted: extracted `frontend/src/components/shared/ConfirmModal.vue` (168 LOC; Teleport-based; prop API derived from EditPracticeView's `confirmDialog` reactive shape; `role="dialog"` + `aria-modal="true"` + Escape-key handler — Path Y minimum a11y per #047). Consumed by:
+- `EditPracticeView.vue` line 373 (replaces inline modal at lines 369-401)
+- `AttendanceView.vue` line 218 (replaces inline overlay at line 219 + lines 215-249 dialog markup)
+
+Orphan CSS removed: `.edit-practice__overlay/dialog` (40+ LOC) + `.attendance__overlay`. Future master/admin/user views requiring confirm UX should consume `<ConfirmModal>` directly, not re-implement inline. VModal remains unused in production codebase; deletion candidate for S5+ cleanup if no future adopter emerges.
+
 ---
 
 ### #49 — `VITE_TELEGRAM_BOT_URL` fail-fast in PROD

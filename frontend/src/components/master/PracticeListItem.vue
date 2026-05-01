@@ -1,20 +1,27 @@
 <!--
-  VELO Frontend -- PracticeListItem Component (Phase F6)
+  VELO Frontend -- PracticeListItem Component (Phase F6; refreshed S4 P14 C58)
 
   Reusable practice card for master-facing lists (MasterPracticesView,
   dashboard nearest practice). Matches mockup .practice-card layout.
 
-  Shows: type emoji, title, date/time + duration, participants, price,
+  Shows: type icon, title, date/time + duration, participants, price,
   status badge.
 
   Optional #action slot for extra buttons (e.g. "Явка" in past tab).
   Not clickable itself -- parent wraps it in a click handler.
+
+  Path Y MEDIUM (#047). No emojis (#048): PRACTICE_TYPE_ICON Component-map.
 -->
 
 <template>
   <div class="pli">
     <div class="pli__header">
-      <span class="pli__icon">{{ typeEmoji }}</span>
+      <span class="pli__icon">
+        <component
+          :is="typeIconComp"
+          :size="22"
+        />
+      </span>
       <div class="pli__info">
         <div class="pli__title">
           {{ practice.title }}
@@ -30,7 +37,10 @@
     </div>
 
     <div class="pli__details">
-      <span>👥 {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+      <span class="pli__detail">
+        <IconGroup :size="16" />
+        {{ formatParticipants(practice.current_participants, practice.max_participants) }}
+      </span>
       <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
     </div>
 
@@ -46,18 +56,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { VBadge } from '@/components/ui'
+import { IconGroup, IconMeditation } from '@/components/icons'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { PRACTICE_TYPE_ICON } from '@/utils/displayHelpers'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
   practice: PracticeResponse
 }>()
 
-// -- Type emoji -- imported from displayHelpers
-const typeEmoji = computed((): string => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
+// -- Type icon (#048 migration: PRACTICE_TYPE_ICON Component-map) --
+const typeIconComp = computed<Component>(
+  () => PRACTICE_TYPE_ICON[props.practice.practice_type] ?? IconMeditation,
+)
 
 // -- Status label --
 const STATUS_LABEL: Record<string, string> = {
@@ -141,6 +154,12 @@ const statusVariant = computed((): 'success' | 'warning' | 'error' | 'info' => {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--text-secondary);
+}
+
+.pli__detail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .pli__actions {

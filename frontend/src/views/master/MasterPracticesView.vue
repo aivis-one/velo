@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterPracticesView (Phase F6.2)
+  VELO Frontend -- MasterPracticesView (Phase F6.2; refreshed S4 P14 C58)
 
   Master's own practice list. Protected by masterStatusGuard.
   Rendered inside MasterShell (with tab bar).
@@ -11,21 +11,24 @@
   Data source: masterStore.practices (populated by fetchMyPractices).
   Lazy-load on mount; force-refresh after returning from create/edit.
 
-  Each card:
-    - Type emoji, title, date/time, duration
+  Each card (PracticeListItem):
+    - Type icon (PRACTICE_TYPE_ICON map per #048)
+    - Title, date/time, duration
     - Participants count + price
     - Status badge
     - "Явка" button (completed only) -> master-attendance
 
   "+" header button -> master-practice-new
   Tap card -> master-practice-edit
+
+  Path Y MEDIUM (#047). No emojis (#048).
 -->
 
 <template>
   <div class="master-practices">
     <!-- Header -->
     <VHeader
-      title="📅 Практики"
+      title="Практики"
       :badge="masterStore.practicesTotal || undefined"
     >
       <template #action>
@@ -83,7 +86,6 @@
       class="master-practices__content"
     >
       <VEmptyState
-        icon="⚠️"
         title="Не удалось загрузить практики"
         :description="masterStore.practicesError"
       >
@@ -116,7 +118,6 @@
         </template>
         <VEmptyState
           v-else
-          icon="📅"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
@@ -158,7 +159,6 @@
         </template>
         <VEmptyState
           v-else
-          icon="📋"
           title="Нет прошедших практик"
           description="Здесь появятся завершённые и отменённые практики"
         />
