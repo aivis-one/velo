@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- MasterProfileView (Phase F7, updated TD-FE-ROLE-SWITCH)
+  VELO Frontend -- MasterProfileView (Phase F7)
 
   Master profile screen. Route: /master/profile (tab "Я").
   No masterStatusGuard -- accessible even while pending (so master sees their info).
@@ -7,29 +7,15 @@
   Sections:
     1. Profile header -- VAvatar + display_name + VBadge + bio + methods chips + стаж.
        Data from masterStore.profile (lazy fetch on mount).
-
     2. Payout settings -- inline form (v-show).
-       - payout === null  → "Не настроено" banner + кнопка "Добавить реквизиты"
-       - payout !== null  → method label + masked details + кнопка "Изменить"
-       - Form: VSelect method + dynamic fields by method:
-           bank_transfer → iban (required), account_holder (optional), swift (optional)
-           paypal        → email (required)
-           revolut       → tag (required)
-       - PATCH /me/payout → masterStore.profile.payout updated in-place + toast.success
-       - Client-side validation before submit (iban not empty, email has @, tag not empty)
-       - Double-submit guard
-
     3. Finance link -- card tapping to /master/finance.
-
-    4. Switch to user mode (TD-FE-ROLE-SWITCH) -- sets uiMode='user', navigates to
-       /user/profile. Visible to all masters (and admins in master mode).
+    4. RoleSwitcher (See RoleSwitcher.vue — TD-FE-ROLE-SWITCH centralized at S4-P15+ post-verify fix).
 
   Key patterns:
     - masterStore.profile already loaded by masterStatusGuard for verified masters.
       For pending masters: fetchMyProfile() will fail (they're not role='master' yet)
       -- we guard with authStore.role check before fetching.
-    - After PATCH success: update masterStore.profile.payout directly from response
-      (no full profile re-fetch needed -- balances haven't changed).
+    - After PATCH success: update masterStore.profile.payout directly from response.
 -->
 
 <template>
@@ -266,23 +252,7 @@
         <span class="master-profile__finance-link-arrow">→</span>
       </div>
 
-      <!-- ==================================================================
-           SECTION 4: SWITCH TO USER MODE (TD-FE-ROLE-SWITCH)
-           ================================================================== -->
-      <div class="master-profile__section master-profile__switch-section">
-        <div class="master-profile__section-title">
-          РЕЖИМ ПРОСМОТРА
-        </div>
-        <p class="master-profile__switch-desc">
-          Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
-        </p>
-        <VButton
-          variant="secondary"
-          @click="switchToUserMode"
-        >
-          Перейти в интерфейс пользователя →
-        </VButton>
-      </div>
+      <RoleSwitcher />
     </template>
   </div>
 </template>
@@ -292,10 +262,10 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader } from '@/components/ui'
 import { IconCheck, IconBookFeather } from '@/components/icons'
+import RoleSwitcher from '@/components/shared/RoleSwitcher.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
-import { useUiStore } from '@/stores/ui'
 import { updatePayoutDetails } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import type { PayoutDetailsUpdate, PayoutDetailsResponse } from '@/api/types'
@@ -308,7 +278,6 @@ const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
-const uiStore = useUiStore()
 
 // ---------------------------------------------------------------------------
 // Profile computed values
@@ -511,15 +480,6 @@ function maskedDetails(payout: PayoutDetailsResponse): string {
     default:
       return 'Настроено'
   }
-}
-
-// ---------------------------------------------------------------------------
-// Switch to user mode (TD-FE-ROLE-SWITCH)
-// ---------------------------------------------------------------------------
-
-function switchToUserMode(): void {
-  uiStore.setUiMode('user')
-  router.push({ name: 'user-profile' })
 }
 
 // ---------------------------------------------------------------------------

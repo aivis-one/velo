@@ -2,7 +2,11 @@
   VELO Frontend -- UserProfileView (S2 P09 C33 — refresh per skin 70/71)
 
   Avatar card -> stats -> Аккаунт menu (Edit / Reservations / Messages) ->
-  Settings menu -> Help menu -> Logout. Stats client-side from bookingsStore.
+  Settings menu -> Help menu -> RoleSwitcher -> Logout. Stats client-side
+  from bookingsStore.
+
+  See RoleSwitcher.vue (TD-FE-ROLE-SWITCH centralized at S4-P15+ post-verify
+  fix; first time arriving in user view).
 
   Path Y MEDIUM. No emojis (#048). Some menu targets land in MEGA-2.
 -->
@@ -78,6 +82,8 @@
       />
     </section>
 
+    <RoleSwitcher />
+
     <ProfileMenuItem
       :icon="IconArrowBack"
       label="Выйти"
@@ -102,6 +108,7 @@ import {
 } from '@/components/icons'
 import StatCard from '@/components/shared/StatCard.vue'
 import ProfileMenuItem from '@/components/shared/ProfileMenuItem.vue'
+import RoleSwitcher from '@/components/shared/RoleSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'

@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- AdminProfileView (TD-FE-ROLE-SWITCH)
+  VELO Frontend -- AdminProfileView
 
   Minimal admin profile screen. Route: /admin/profile (tab "Я").
   Refreshed S4 P15 C67 under Velo DS (Path Y MEDIUM #047, no-emoji #048).
@@ -7,8 +7,7 @@
   Sections:
     1. Profile header — avatar, display name, admin badge.
     2. Administration — quick links to admin routes via ProfileMenuItem.
-    3. Mode — switch to user-mode (calls uiStore.setUiMode('user') then
-       routes to /user/profile). 1-marker baseline preserved per scout.
+    3. Mode — RoleSwitcher (See RoleSwitcher.vue — TD-FE-ROLE-SWITCH centralized at S4-P15+ post-verify fix).
     4. Account — Logout red row (IconLogout replaces legacy door glyph).
 -->
 
@@ -58,20 +57,7 @@
     </section>
 
     <!-- Section 3 — Режим -->
-    <section class="admin-profile__menu">
-      <h3 class="admin-profile__menu-title">
-        Режим
-      </h3>
-      <p class="admin-profile__section-desc">
-        Перейдите в интерфейс пользователя, чтобы просматривать каталог и
-        бронировать практики.
-      </p>
-      <ProfileMenuItem
-        :icon="IconShare"
-        label="Перейти в режим пользователя"
-        @click="switchToUserMode"
-      />
-    </section>
+    <RoleSwitcher />
 
     <!-- Section 4 — Аккаунт -->
     <section class="admin-profile__menu">
@@ -97,16 +83,14 @@ import {
   IconGroup,
   IconWarning,
   IconCheck,
-  IconShare,
   IconLogout,
 } from '@/components/icons'
 import ProfileMenuItem from '@/components/shared/ProfileMenuItem.vue'
+import RoleSwitcher from '@/components/shared/RoleSwitcher.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const uiStore = useUiStore()
 
 const loggingOut = ref(false)
 
@@ -115,12 +99,6 @@ const displayName = computed(() => {
   const parts = [authStore.user.first_name, authStore.user.last_name].filter(Boolean)
   return parts.length > 0 ? parts.join(' ') : 'Администратор'
 })
-
-// -- Switch to user mode --
-function switchToUserMode(): void {
-  uiStore.setUiMode('user')
-  router.push({ name: 'user-profile' })
-}
 
 // -- Logout --
 async function onLogout(): Promise<void> {
