@@ -149,6 +149,8 @@ S4 inherits (must respect):
 
 S4 P14 master-refresh executed via single MEGA-3 combined execute prompt covering all 11 cycles (C55-C65) per #052 speedrun. 10 master views refreshed under Velo DS + 1 cascade refresh of components/master/PracticeListItem.vue + 1 NEW components/shared/ConfirmModal.vue (168 LOC; BACKLOG #48 closure). 0 emoji in master scope (was 85). Lint baseline shifted 756 → 0 (repo-wide; master views were dominant warning source — refresh cleared them naturally). 0 typecheck errors / 32/32 tests pass / build green / PWA precache 188 entries. Anti-scope file diffs verified empty (router, guards, api/masters, api/practices, stores/ui, stores/master, package.json). TD-FE-ROLE-SWITCH actual count = 4 markers (initial scout said 3; verification confirmed 4 — preservation invariant intact). master.ts not extended; `nearestPractice` kept in-component per Path Y simpler default. Verification scout returned 0 BREAK / 0 GAP / 3 NIT (all pre-existing patterns covered by existing BACKLOG #41 + #43; out of P14 scope).
 
+**P14 deploy operational notes** (post-close 2026-05-01): paramiko deploy of 27a604f succeeded on attempt 1 — BACKLOG #96 transient did not fire (refinement data point logged in #96). Server-side velo-frontend container exhibited a pre-existing healthcheck flap (Up but `unhealthy` per `wget --spider` on port 3000) reproduced post-P14; not a P14 regression — observed since MEGA-2 deploy 2026-04-30. External access via reverse proxy (`https://api.vel-app.com/health`) functional throughout. New BACKLOG entry #103 logs the healthcheck flap. Visual verify deferred per Branch 2 (BACKLOG #102) — master-role staging account coordination pending; recommended fold-in with P15 admin verify after P15 close.
+
 ---
 
 ## Next Action

@@ -911,6 +911,8 @@ Two consecutive recurrences suggest systematic, not random. C16 deploy (cc4e2fd)
 
 4/4 deploys ≥600 LOC fire transient; 1/1 small deploy (+131) clean. Mechanism: timing race in `velo update` script's pre-fetch `git status` check when build window from prior deploy hasn't fully released file locks / git index. Larger commit = longer rebuild = wider race window. Frontend-side workaround (paramiko retry on transient) confirmed working but masks root cause. **Server-side fix candidate**: add defensive `git diff --quiet HEAD || git stash` line OR retry-loop in `velo update` script.
 
+**Data point added 2026-05-01 (P14 deploy)**: P14 commit 27a604f (+691 total LOC: 12 code files + 5 docs) deployed via `velo update` — **transient did NOT fire** on attempt 1. Hypothesis previously stated "4/4 ≥600 LOC". New tally: 4/5. Refinement candidate: trigger may correlate with **pure code LOC** rather than total LOC, OR with rebuild characteristics (e.g., vue-tsc + vite build cost). The 5 doc files in 27a604f added LOC without affecting frontend rebuild — possibly the relevant factor. Insufficient sample to refine the hypothesis with confidence; continue logging per-deploy fire/no-fire + code-vs-docs LOC split until the trigger is isolated. Retry-on-signature pattern remains effective regardless.
+
 ---
 
 ### #97 — Backend endpoint `POST /bookings/{id}/leave` not implemented
@@ -1014,3 +1016,55 @@ Speedrun delta requiring audit:
 **Severity**: NIT (cosmetic doc-drift; does not affect functional code or sprint planning).
 **Sprint**: S4-Clean-Sync.
 **Status**: OPEN.
+
+---
+
+### #102 — P14 master views visual verify deferred
+
+**Status**: OPEN. Deferred at S4-P14 close 2026-05-01.
+
+**Context**: P14 closed with code+deploy clean (commit 27a604f deployed to staging via paramiko `velo update`; all 4 containers running, API endpoint serving, server SHA confirmed 27a604f). Visual verify of the 10 refreshed master views was deferred per Hybrid-policy Branch 2 because no master-role staging test account was configured at close time. Per ENVIRONMENT.md §Test accounts: only account 526738615 has confirmed role (user). Per ENVIRONMENT.md §Role switching: backend partner can configure role per Telegram ID on request.
+
+**Scope to verify** (10 master views, light + dark themes via VHeader IconTheme toggle):
+1. MasterPendingView — status splash (test by master account in `pending` status)
+2. MasterApplyView — 3-step application form (test by user-role account on `/master/apply`; applyGuard route)
+3. MasterDashboardView — greeting + StatCards + nearest practice
+4. MasterPracticesView — list with status chips (Предстоящие / Прошедшие)
+5. CreatePracticeView — 6-section creation form
+6. EditPracticeView — edit + ConfirmModal integration (test save / publish / cancel / delete confirmation flows)
+7. AttendanceView — 3-section attendance display + ConfirmModal (test finalize practice flow)
+8. AnalyticsView — StatCards + AICommentaryCard placeholder + per-practice cards
+9. MasterFinanceView — withdrawal form + limits Callout (preserve `min_withdrawal_cents` / `withdrawal_fee_cents` reads)
+10. MasterProfileView — TD-FE-ROLE-SWITCH preserved (4 markers) + setUiMode invariant
+
+**Acceptance**: Hybrid policy A (clean) or A-with-NIT-logged closure. Defects routed to BACKLOG; BREAK defects route to inline-fix cycle.
+
+**Recommended consolidation**: Fold this verify with P15 admin views visual verify after P15 close — single partner-relay role-switch coordination covers both roles in one staging session (master + admin views, light + dark, total 17 views).
+
+**Effort**: S (single staging session ~30-45 min once role-switch coordination is in place).
+
+**Sprint tag**: S4 (or S5 if not addressed before sprint close).
+
+---
+
+### #103 — velo-frontend container healthcheck flap
+
+**Status**: OPEN. Observed across multiple deploys (MEGA-2 2026-04-30 → P14 deploy 2026-05-01).
+
+**Symptom**: `docker compose ps` reports velo-frontend container as `Up Nh (unhealthy)` despite the container functionally serving traffic via the reverse proxy. The Docker healthcheck is `wget -q --spider http://localhost:3000/` (per docker-compose.yml). On the velo-frontend container, port 3000 may be the host-mapped port rather than the internal port nginx is listening on — meaning the in-container healthcheck is hitting a port that has no listener inside the container namespace, yielding `unhealthy` even though external traffic flows fine.
+
+**Hypothesis**: nginx in velo-frontend listens on port 80 internally; port 3000 is the host-mapping target. Healthcheck should target `http://localhost:80/` (or the actual internal port) instead of `http://localhost:3000/`.
+
+**Reproduction**: every deploy since at least 2026-04-30; appears immediately after `docker compose up` and persists indefinitely. External `curl https://api.vel-app.com/health` succeeds (200 OK with `{"status":"ok",...}`) the entire time the container is "unhealthy".
+
+**Secondary observation (single occurrence, P14 deploy 2026-05-01)**: between paramiko deploy script completion (which captured `velo-frontend Up 6s health:starting`) and a follow-up verification probe ~1-2 minutes later, the velo-frontend container had been removed from `docker compose ps` (only 3 services running). Manual `docker compose up -d frontend` recreated it as `unhealthy`. Cause unclear — possibly compose orphan-pruning, possibly external cleanup cron. Single observation; not yet a pattern. May or may not be related to the healthcheck flap.
+
+**Impact**: cosmetic for now; users not affected (reverse proxy + frontend nginx + API all serving). However: an unhealthy container will be killed by some orchestrators if scaled out (kubernetes `livenessProbe`, swarm restart-on-unhealthy), so this is a latent ops issue that should be fixed before any production scale-out.
+
+**Fix candidate**: edit the velo-frontend healthcheck in docker-compose.yml to target the actual nginx listening port. Verify by `docker exec velo-frontend wget --spider <correct-url>` returning 200.
+
+**Effort**: S (small docker-compose.yml edit + verify on staging).
+
+**Owner**: this is partially backend-partner-owned (docker-compose.yml is shared); coordination required before edit. Frontend-only edit if compose ownership transfers OR if separate frontend-compose layer exists.
+
+**Sprint tag**: S5 (not gating P15; not gating production promotion in current state, but should land before any production scale-out).
