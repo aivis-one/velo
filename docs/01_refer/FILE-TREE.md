@@ -1,7 +1,7 @@
 # Velo — File Tree
 
 > Scope: `frontend/src/` + `docs/` only. Backend and other top-level directories are out of scope.
-> Updated: 2026-05-04 (S4-P15 MEGA-4 closure — partial regen frontend/src/views/admin).
+> Updated: 2026-05-04 (S4-P15 close + role-switch fix — partial regen frontend/src/views/admin + frontend/src/components/shared/RoleSwitcher.vue NEW).
 > Validated by: `05_Clean-Sync.md` Step 1.
 
 ## frontend/src/
@@ -79,7 +79,7 @@ frontend/src/
 │   │   └── index.ts
 │   ├── master/                 # master-role shared pieces
 │   │   └── PracticeListItem.vue   # S4-P14 cascade-refreshed (PRACTICE_TYPE_ICON migration)
-│   ├── shared/                 # role-agnostic shared components (33; speedrun + S4-P14 additions tagged)
+│   ├── shared/                 # role-agnostic shared components (34; speedrun + S4-P14 + S4-P15 post-verify additions tagged)
 │   │   ├── AICommentaryCard.vue       # MEGA-2 (mint VELO AI tag + placeholder body)
 │   │   ├── BookingCard.vue
 │   │   ├── BookingPopup.vue
@@ -107,6 +107,7 @@ frontend/src/
 │   │   ├── ProfileMenuItem.vue        # MEGA-1 (RouterLink/button row)
 │   │   ├── RelationshipChain.vue      # MEGA-2 (horizontal SVG chain)
 │   │   ├── ReservationCard.vue        # MEGA-2 (booking card with status chip)
+│   │   ├── RoleSwitcher.vue           # S4-P15 post-verify fix (centralizes TD-FE-ROLE-SWITCH; consumed by Master/Admin/User profile views)
 │   │   ├── SpineDivider.vue           # MEGA-2 (date divider with text-glyph ornament)
 │   │   ├── StatCard.vue               # MEGA-1 (compact metric tile)
 │   │   ├── ThreadComposer.vue         # MEGA-2 (input + send only — no mic)

@@ -119,7 +119,7 @@ Refresh 7 admin role views под Velo DS using UI-mockups on user-role patterns
 | C71 | standard | AdminReportsView refresh | DONE | 2026-05-04 | Refreshed (skin 17); status chips via reportStatusVariant; VEmptyState branch |
 | C72 | standard | AdminReportDetailView refresh | DONE | 2026-05-04 | Refreshed; compose VButton + ConfirmModal (resolve/dismiss); EntryActionMenu intentionally absent per Context #4 |
 | C73 | standard | AdminConsistencyView refresh | DONE | 2026-05-04 | Refreshed; typed ConsistencyResponse + SemaphoreResult; VAccordion expandable details; P15 risk #3 closed |
-| C74 | standard | S4 closure: visual verify + closure commit | IN PROGRESS | 2026-05-04 | Phase commit + push complete; visual verify gate pending paramiko deploy |
+| C74 | standard | S4 closure: visual verify + closure commit | DONE | 2026-05-04 | Combined verify A clean (with S5 polish deferral); 1 mid-flow BREAK fix (role-switch centralization, commit 8eede07); BACKLOG #102 closed; #106 appended for S5 polish; hygiene commit lands (this commit) |
 
 ## Tests Summary
 

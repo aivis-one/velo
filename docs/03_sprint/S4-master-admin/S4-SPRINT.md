@@ -129,9 +129,9 @@ S4 inherits (must respect):
 
 | Item | Value |
 |------|-------|
-| Phase | 15: Admin Role Refresh — DONE (verify gate pending) |
-| Cycle | C73: AdminConsistencyView refresh — DONE (chat S4-P15-C66 covered all 8 cycles via MEGA-4 + closure C74 in progress) |
-| Status | Phase 15 closed at code level; paramiko deploy + combined verify gate (P14 #102 backfill + P15 admin) pending |
+| Phase | 15: Admin Role Refresh — DONE |
+| Cycle | C74: closure (chat S4-P15-C66) — DONE; combined verify gate clean (A with S5 polish deferral); 1 BREAK fix mid-flow (role-switch centralization, 8eede07) |
+| Status | S4 closed at code + verify level; ready for S4-Sprint-Closer protocol |
 | Tests | 32 pass / 0 fail / 0 skip |
 
 ---
@@ -142,7 +142,7 @@ S4 inherits (must respect):
 |-------|----------|------|--------|
 | S4-Sprint-Builder | 02_Sprint-Builder | 2026-05-01 | DONE |
 | S4-P14-C55 | 03_Phase-Builder | 2026-05-01 | DONE |
-| S4-P15-C66 | 03_Phase-Builder | 2026-05-04 | DONE (verify gate pending) |
+| S4-P15-C66 | 03_Phase-Builder | 2026-05-04 | DONE |
 
 ---
 
@@ -154,26 +154,29 @@ S4 P15 admin-refresh executed via single MEGA-4 combined execute prompt covering
 
 **P14 deploy operational notes** (preserved for context, post-close 2026-05-01): paramiko deploy of 27a604f succeeded on attempt 1 — BACKLOG #96 transient did not fire (refinement data point logged in #96). Server-side velo-frontend container exhibited a pre-existing healthcheck flap (Up but `unhealthy` per `wget --spider` on port 3000) reproduced post-P14; not a P14 regression — observed since MEGA-2 deploy 2026-04-30. External access via reverse proxy (`https://api.vel-app.com/health`) functional throughout. BACKLOG entry #103 logs the healthcheck flap. Visual verify deferred per Branch 2 (BACKLOG #102) — master-role staging account coordination pending; folded into P15 close combined verify above.
 
+**P15 verify gate + role-switch fix** (2026-05-04 post-deploy): operator visual verify combined gate (P14 #102 backfill 10 master views + P15 7 admin views × {light, dark}) surfaced 1 BREAK on M10/A1 flow — UserProfileView had no role-switch UI (legacy 2-value uiStore design assumed unidirectional admin/master → user only; never extended to user → elevated). Mid-flow fix executed: NEW `frontend/src/components/shared/RoleSwitcher.vue` (~130 LOC) centralizes TD-FE-ROLE-SWITCH across all 3 profile views; Variant Z UX (all available roles shown, current marked active via route-prefix, user-only accounts hide block entirely). Hierarchy ADMIN > MASTER > USER hardcoded per `seed.py` source-of-truth (UserResponse.role is single-value). Anti-scope preserved (uiStore binary `'default' | 'user'` unchanged). Single `fix:` commit `8eede07` deployed via paramiko (#96 not fired — delta ~75 LOC, well under threshold). Operator re-tested role-switch flow (focused 3-min checklist) → confirmed working. Resumed main verify checklist; final reply A clean with explicit S5-polish deferral (BACKLOG #106 — operator has updated DS; scope characterization deferred to S5 OPEN). 17 views functional + theme-correct; cosmetic refinement under new DS deferred. #103 healthcheck flap confirmed at 3 deploys (cosmetic, deferred S5+). #96 hypothesis refined to 4/6 with counter-examples (docs-only commits + small code-deltas don't fire).
+
 ---
 
 ## Next Action
 
-Within current chat (S4-P15-C66), run paramiko deploy of MEGA-4 commit → operator runs `velo seed` interactively → operator visual-verifies combined gate (10 master views from P14 #102 backfill + 7 admin views from P15 × {light theme, dark theme}) per checklist issued by Claude Chat. Hybrid policy: A clean → post-verify hygiene commit (close BACKLOG #102, S4-SPRINT.md verify-result narrative, optional NIT entries) → CLOSE Step 5 routing to S4-Sprint-Closer (last phase of S4 → next protocol = 04_Sprint-Closer). B BREAK → inline-fix loop with new commits → re-deploy → re-verify. C NIT → BACKLOG entries during hygiene commit, then close.
+Open new chat with Session Code S4-Sprint-Closer. Run 04_Sprint-Closer protocol — Step 1 sprint readiness check + Step 1+ ProbeKit lite profile (deferred per #100 — log defer, do NOT run audit) + Step 2-N sprint snapshot/retro/closure. S4 phases both DONE; verify gate clean (A with S5 polish deferral via #106); 3 commits at HEAD (P14 hygiene 599b8ac, P15 phase 3e61af6, role-switch fix 8eede07) + this hygiene commit at HEAD+1.
 
 ---
 
 ## For Human
-
 > Next chat instruction. Copy-paste.
 
 **Session Code:** S4-Sprint-Closer
 **Load:**
 1. Framework: 01_Declaration.md + 04_Sprint-Closer.md
 2. Project: ENVIRONMENT.md + ARCHITECTURE.md + FILE-TREE.md + BACKLOG.md + decisions.md
-3. Sprint: S4-SPRINT.md + P14-master-refresh.md + P15-admin-refresh.md + BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
-**Run:** 04_Sprint-Closer — Step 1 sprint readiness check + Step 1+ ProbeKit lite profile (deferred per #049/#052 to S5+ per BACKLOG #100; Sprint-Closer should explicitly defer + log status, not run audit) + Step 2-N sprint snapshot/retro/closure
+3. Sprint: S4-SPRINT.md + P14-master-refresh/P14-master-refresh.md + P15-admin-refresh/P15-admin-refresh.md + BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
+**Run:** 04_Sprint-Closer — sprint snapshot + retro + closure commit + S5 trigger preparation
 
-**Note:** Pending visual verify outcome in current chat (S4-P15-C66) before this transition signal triggers. If verify reply is A clean → proceed to Sprint-Closer. If B BREAK → fix-loop in current chat first. If C NIT → BACKLOG hygiene commit, then proceed.
+**Note:** S4 closed at code+verify level on staging (commit at HEAD). Sprint-Closer formalizes closure: SNAPSHOT (LOC counts, decision count, phase artifacts), RETRO (worked / didn't work / carry forward), commit `sprint: S4 master-admin — CLOSED`. ProbeKit lite profile DEFERRED per #100 (audit reactivation = production promotion gate, not sprint-close gate).
+
+**S5 charter pre-signal**: Per BACKLOG #106 — S5 is MAJOR DS stack replacement (Velo bundle → new stack TBD; operator delivers materials at S5 planning) + workflow gap fill (missing/new screens). NOT Path Y #047 polish cluster. Project-wide breaking change. Sprint-Closer S5-prep section should reflect this scope ceiling shift, not assume polish cycle. S6 = separate animation/motion pass after S5 lands.
 
 ---
 
@@ -183,19 +186,34 @@ Within current chat (S4-P15-C66), run paramiko deploy of MEGA-4 commit → opera
 
 | Aspect | Planned | Actual | Delta |
 |--------|---------|--------|-------|
-| Phases | 2 | — | — |
-| Cycles | 19 (C55-C73) + closure C74 | — | — |
-| MEGA prompts | 2 | — | — |
-| Duration | speedrun (per #052) | — | — |
+| Phases | 2 | 2 | 0 |
+| Cycles | 19 (C55-C73) + closure C74 | 20 (C55-C74) + 1 mid-flow fix cycle (role-switch BREAK) | +1 fix cycle |
+| MEGA prompts | 2 | 2 | 0 |
+| Duration | speedrun (per #052) | speedrun completed; verify gate added 1 fix-loop iteration | minor extension |
 
 ### What Worked
-(filled at close)
+
+- Speedrun mode (#052) extended through both phases without quality regression (lint preserved at 0 across 2 MEGA prompts + 1 fix commit)
+- Combined Scout pattern + 8-section MEGA-4 structure scaled cleanly for 8 cycles in single execute prompt
+- Anti-scope discipline (router/api/stores untouched through P15) — verified empty diffs at every gate
+- ConfirmModal precedent (P14 §C60) translated cleanly to P15 §C70 + §C72 + post-verify RoleSwitcher (shared-component reuse pattern proven 3× in S4)
+- Path Y MEDIUM fidelity decision (#047) held — no premature pixel-polish, post-S4 polish coherent with operator's updated DS
 
 ### What Didn't
-(filled at close)
+
+- Bootstrap prompt assumption that uiMode is 3-value was wrong (binary 'default' | 'user') — surfaced only at scout stage; cost: minor design adjustment in role-switch fix, no rework
+- AdminMasterReviewView shipped degraded v1 due to backend type GAP — known going in; BACKLOG #104 tracks; not a process issue
+- Verify gate exposed UserProfileView role-switch absence as BREAK — was technically scope-correct (P15 was admin views; user views were P11 era) but visible as user-facing bug; reveals weakness in cross-role test coverage during phase planning
 
 ### Carry Forward
-(filled at close)
+
+- BACKLOG #104 — backend extension for AdminMasterListItem (S5+ backend cycle)
+- BACKLOG #105 — getMastersList dead code cleanup (micro-task; fold into any S5 cycle touching api/admin.ts)
+- **BACKLOG #106 — S5 MAJOR: full DS stack replacement (Velo bundle → new stack TBD; operator delivers materials at S5 planning) + workflow gap fill (missing/new screens). NOT a polish cluster — project-wide breaking change. Path Y #047 fidelity ceiling explicitly raised for S5.**
+- **BACKLOG #106 → S6 split: animation + motion pass deferred to S6 (entry condition: S5 closed, new DS landed). Per operator: "когда накатим основной дизайн".**
+- BACKLOG #100 — production audit reactivation (independent S5 entry condition; not DS-related; production promotion gate)
+- #96 hypothesis refinement (4/6 ≥600 code-LOC) — continue tracking sample count per future deploy
+- #103 frontend healthcheck flap (3 reproductions) — cosmetic deferral; partial backend-partner-owned (docker-compose.yml)
 
 ---
 *S4-SPRINT.md*

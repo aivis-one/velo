@@ -913,6 +913,8 @@ Two consecutive recurrences suggest systematic, not random. C16 deploy (cc4e2fd)
 
 **Data point added 2026-05-01 (P14 deploy)**: P14 commit 27a604f (+691 total LOC: 12 code files + 5 docs) deployed via `velo update` — **transient did NOT fire** on attempt 1. Hypothesis previously stated "4/4 ≥600 LOC". New tally: 4/5. Refinement candidate: trigger may correlate with **pure code LOC** rather than total LOC, OR with rebuild characteristics (e.g., vue-tsc + vite build cost). The 5 doc files in 27a604f added LOC without affecting frontend rebuild — possibly the relevant factor. Insufficient sample to refine the hypothesis with confidence; continue logging per-deploy fire/no-fire + code-vs-docs LOC split until the trigger is isolated. Retry-on-signature pattern remains effective regardless.
 
+**Hypothesis refined 2026-05-04 (post-S4-P15 + role-switch fix)**: 4/6 deploys ≥600 code-LOC fired. Counter-examples: P14 hygiene 599b8ac docs-only ≈700 total LOC did NOT fire (docs-only changes don't trigger frontend rebuild signature); role-switch fix 8eede07 ≈75 code-LOC did NOT fire (well under threshold). Hypothesis stands: trigger correlates with frontend code-LOC delta crossing rebuild-time threshold, not raw LOC counted across all files.
+
 ---
 
 ### #97 — Backend endpoint `POST /bookings/{id}/leave` not implemented
@@ -1021,7 +1023,9 @@ Speedrun delta requiring audit:
 
 ### #102 — P14 master views visual verify deferred
 
-**Status**: OPEN. Deferred at S4-P14 close 2026-05-01.
+**Status**: CLOSED 2026-05-04 (S4-P15 combined verify gate).
+
+**Closure note**: 10 master views verified on staging via operator visual walk-through during S4-P15 close. Result: cosmetically acceptable; DS-polish deferred to S5+ (operator received updated design system; structural delta TBD; see #106). Functional flows (EditPractice cancel/delete, Attendance finalize, MasterFinance withdraw, MasterProfile role-switch) all confirmed working.
 
 **Context**: P14 closed with code+deploy clean (commit 27a604f deployed to staging via paramiko `velo update`; all 4 containers running, API endpoint serving, server SHA confirmed 27a604f). Visual verify of the 10 refreshed master views was deferred per Hybrid-policy Branch 2 because no master-role staging test account was configured at close time. Per ENVIRONMENT.md §Test accounts: only account 526738615 has confirmed role (user). Per ENVIRONMENT.md §Role switching: backend partner can configure role per Telegram ID on request.
 
@@ -1048,6 +1052,8 @@ Speedrun delta requiring audit:
 ---
 
 ### #103 — velo-frontend container healthcheck flap
+
+**Reproductions confirmed**: 3 deploys (P14 close 2026-05-01 27a604f, P15 close 2026-05-04 3e61af6, role-switch fix 2026-05-04 8eede07). Pattern stable: container shows `unhealthy` post-restart while reverse-proxied traffic remains functional via api.vel-app.com. Cosmetic; not a deploy blocker.
 
 **Status**: OPEN. Observed across multiple deploys (MEGA-2 2026-04-30 → P14 deploy 2026-05-01).
 
@@ -1101,3 +1107,43 @@ Either (option a) extend `AdminMasterListItem` to include `bio?, methods?, exper
 **Severity**: NIT (dead code; functionality not affected; ships extra ~5 LOC in bundle).
 **Sprint**: S5+ cleanup cluster.
 **Status**: OPEN.
+
+---
+
+### #106 — S5: full DS stack replacement + missing workflow screens; S6: animation pass
+
+**Source**: S4-P15 visual verify gate close (2026-05-04). Operator confirmed functional acceptance with explicit S5+ scope: "полная замена DS (новый стек — например Tailwind вместо Velo bundle) — это major-spec событие, влияет на всё + новые и недостающие по воркфлоу экраны — я предоставлю все материалы при планировании спринта — будем полировать и накатывать + возможно добавим анимации и всяких таких штук но уже в 6м спринте когда накатим основной дизайн".
+
+**Severity**: MAJOR (DS stack swap is project-wide breaking change; not a NIT polish cluster)
+**Status**: OPEN.
+
+**Scope split**:
+
+**S5 — DS stack replacement + workflow gap fill** (entry condition: operator delivers DS materials at sprint planning):
+
+1. **DS stack swap** — replace Velo bundle (current `:root` CSS variables + scoped `<style>` blocks) with operator-provided new stack (candidate: Tailwind, but final stack TBD per operator materials). Project-wide: every `.vue` file with `<style scoped>` is in scope. Estimated touch surface: 100% of views/* + 100% of components/shared/* + components/ui/*.
+2. **Workflow gap fill** — operator-provided list of missing/new screens that current navigation doesn't cover. Specific screens TBD at S5 OPEN.
+3. **S5 OPEN scout responsibilities**:
+   - Inventory new DS: token system / utility classes / component primitives / theming model / dark-mode mechanism
+   - Map old DS → new DS: per-token translation table, per-component migration path
+   - Inventory missing-screens list with operator: route additions / shell-tab updates / store extensions / api extensions
+   - Decide phase decomposition: per-shell phases (user / master / admin / shared) OR per-feature phases (booking-flow / diary / messages / etc.); recommend per-shell to bound risk
+   - Decision row candidate (#053): "S5 DS stack — Velo bundle → <new stack>" (supersedes #048's icon-component discipline if relevant)
+4. **S5 risks**:
+   - Cross-cutting CSS rewrite breaks existing visual regressions never characterized in S1-S4 (no visual regression test suite — see #44 deferral)
+   - Theme switch mechanism may shift from `[data-theme="dark"]` to whatever new stack uses — affects every theme-aware component
+   - Build pipeline impact: Vite plugin chain, PWA manifest, CSP headers may need updates
+   - Path Y discipline (#047) does NOT apply to S5 — this is the fidelity sprint operator deferred polish for; explicit non-Path-Y planning needed
+
+**S6 — animation + motion pass** (entry condition: S5 closed; new DS landed):
+
+1. **Animation cluster** — micro-interactions, transition states, page transitions, gestural feedback. Operator framing: "возможно добавим анимации и всяких таких штук но уже в 6м спринте когда накатим основной дизайн".
+2. Specific scope TBD at S6 OPEN; depends on what new DS prescribes (some DS systems have built-in motion tokens; others delegate to consumer).
+3. Out of scope for S5 — operator explicit gate: "когда накатим основной дизайн" = S5 must close first.
+
+**Carry-from-S4 items NOT covered by #106**:
+- BACKLOG #100 — audit reactivation (separate S5 entry condition; production promotion gate, not DS-related)
+- BACKLOG #104 — backend extension for AdminMasterListItem (S5+ backend cycle; coordination with partner)
+- BACKLOG #105 — getMastersList dead code (micro-task; can fold into any S5 cycle that touches api/admin.ts)
+
+**Cross-refs**: #047 (Path Y MEDIUM rationale, S4 fidelity ceiling — explicitly raised in S5); #048 (no-emoji + icon-component discipline — verify preservation under new DS; new stack may have its own icon convention); #050/#051 (designer-batch-independent decisions — superseded if new DS includes Figma source-of-truth re-coupling); BACKLOG #100 (production gate; #106 closes S4-era polish debt but does NOT supersede audit gate).

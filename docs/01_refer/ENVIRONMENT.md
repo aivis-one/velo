@@ -20,6 +20,77 @@ Developer works on a single Windows laptop; Claude Code runs with bash as its sh
 
 ---
 
+## Operator Role + Workflow Model
+
+> Codifies who does what. Read at the start of every working chat.
+
+### Three-actor model
+
+| Actor | Role | Touch surface |
+|---|---|---|
+| **Claude Chat** (this assistant in claude.ai) | Plans, writes prompts, validates outputs, makes decisions | Markdown artifacts in `/mnt/user-data/outputs/` (later: chat clipboard) |
+| **Claude Code** (CLI agent on operator's laptop) | Executes prompts: file edits, builds, tests, paramiko SSH, `velo *` commands, DB probes | Local repo + staging server via paramiko |
+| **Operator** (human) | Relays prompts Chat→Code, types `proceed` at Server Action Plan pauses, performs visual verify in Telegram WebApp, answers business decisions | Telegram WebApp + chat reply box |
+
+**Operator does NOT**: open terminals, type SSH commands, run `velo seed` / `velo update` / `psql` interactively, edit files, execute git commands. All of that is Claude Code's job, driven by Chat-issued prompts.
+
+**Operator DOES**: copy-paste Chat's prompt artifacts into Claude Code, paste Code's output back into Chat, type `proceed` when Chat requests it, walk visual verify checklists in Telegram, answer "A/B/C" or yes/no questions Chat poses.
+
+### Why this model
+
+Operator is busy and prefers minimal context-switching. Terminal access is available but not preferred. Every workflow Chat issues should respect this:
+
+1. **No "open terminal and run X" instructions** unless the operation is impossible via paramiko (genuinely interactive UIs that resist PTY-emulation, etc. — escalate to Chat decision before asking operator).
+2. **No "type Y at the prompt" instructions** — Chat prompts Code to handle PTY interaction autonomously (`paramiko.invoke_shell()` + heuristic prompt detection or scripted input).
+3. **No "ssh manually" instructions** — paramiko is the default; key path + alias in §Test Infrastructure → Staging server.
+4. **No "edit this file in your editor" instructions** — Code uses Edit/str_replace/Write tools.
+5. **No tool-installation instructions** — assume the toolchain in §Tools is already installed; if a new tool is needed, Chat issues an explicit Server Action Plan for installation first.
+
+### Server Action Plan PAUSE protocol
+
+Per Rule 28: any modifying server-side operation requires a Server Action Plan + PAUSE awaiting `proceed`. The operator's role at the PAUSE point:
+
+1. Read Chat's plan output (what will be modified, expected outcome, failure modes, recovery)
+2. If plan looks correct → reply `proceed` in Code's chat
+3. If plan looks wrong → reply with concern, Chat reissues
+
+The operator does NOT need to understand every line of code in the plan — just the high-level intent, expected outcome, and the specific failure modes the plan flags.
+
+### Visual verify gates
+
+Visual verify is the only point at which the operator interacts directly with the product. Format:
+- Plain Markdown (`.md`) checklist artifact, **always in Russian** (operator's working language for product copy + UX),
+- Per-view instructions: where to tap, what to look at, what's expected vs blocked,
+- Empty checkboxes for operator to mark `✓ / ✗ / ~ / - / !`,
+- Reply format: `A` / `B + items` / `C + items` short-hand triggers Hybrid policy routing.
+
+Chat NEVER asks operator to "run velo seed manually" or "ssh and check X" inside a verify checklist — those operations are Code's job, performed before the checklist is delivered.
+
+### Anti-patterns (Chat must avoid)
+
+- "Open terminal → run `ssh velo-staging` → type `velo seed` → answer 526738615 three times" — Code does this via paramiko PTY; operator never sees terminal.
+- "Run `git log` to confirm commit SHA" — Code reports SHA in completion signal; operator gets the SHA from Chat's summary.
+- "Connect to the database and run `SELECT ...`" — Code does this via paramiko + psql one-shot; operator gets the result in plain text.
+- "Install paramiko if not installed" — assumed installed per §Tools; if missing, Chat issues separate install Server Action Plan first.
+- "Edit `frontend/src/views/admin/AdminFooView.vue` and change line 42 ..." — Code does the edit; operator never opens an editor.
+
+### When operator is genuinely needed
+
+Only these reasons should require operator action:
+
+| Reason | Example |
+|---|---|
+| `proceed` relay at Server Action Plan PAUSE | "Plan looks correct, proceed" |
+| Visual verify reply | `A clean` / `B: M6 — кнопка удаления не работает` |
+| Business decision | "Do we ship MasterReview as degraded v1 or block on backend?" |
+| Ambiguous spec clarification | "Should pending-verifications card show '0' or hide entirely?" |
+| New protocol input | Loading framework / project / sprint files at chat boot |
+| Manual partner coordination | When backend partner needs to be contacted out-of-band |
+
+Anything else → Chat → Code, operator unaware.
+
+---
+
 ## Tools
 
 | Tool | Version | Notes |
@@ -198,7 +269,7 @@ Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/test_tele
 
 | Telegram ID | Role | Purpose |
 |------|------|---------|
-| 526738615 | user (primary) | Primary visual testing — used by Human for per-cycle staging verification |
+| 526738615 | user (primary) → admin/master/user (post `velo seed` provisioning) | Primary visual testing — used by Human for per-cycle staging verification; `velo seed` provisions all 3 roles via paramiko PTY (highest-wins → ADMIN; admin always also master) |
 | 5130305756 | TBD | Additional dev/QA account |
 | 5971989877 | TBD | Additional dev/QA account |
 | 5478046601 | TBD | Additional dev/QA account |
@@ -206,9 +277,11 @@ Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/test_tele
 
 ### Role switching
 
-Backend partner can configure `role` (user / master / admin) per account on request. Used to test role-gated views without going through real master application flow.
+**Primary path**: Claude Code runs `velo seed` via paramiko PTY (interactive command answered programmatically) — provisions admin/master/user roles on operator's chosen Telegram IDs without requiring operator terminal access. See §velo CLI commands → Seed row + Operator Role + Workflow Model section above.
 
-To request: send Telegram ID + target role to partner.
+**Fallback path**: If seed provisioning fails OR a specific role transition is needed that seed doesn't support, backend partner can configure `role` per account on request. To request: send Telegram ID + target role to partner via out-of-band channel.
+
+**Per-session role switching within app**: TD-FE-ROLE-SWITCH frontend feature lets operator toggle between user/master/admin modes via profile screens (provided account has the role assigned). This is product-level navigation, not backend role mutation.
 
 ### velo CLI commands (staging)
 
@@ -228,7 +301,7 @@ Available on staging via paramiko `exec_command`. Modifying operations require S
 - `velo gen-types`: regenerates `frontend/src/api/generated.ts` from backend OpenAPI; second path to regen alongside partner-signal flow (decision #031) + frontend self-host fallback (decision #046).
 - `velo db connect`: read-only inspection safe; modifying SQL requires Server Action Plan.
 - `velo update`: known transient ("Uncommitted changes detected") fires on commits ≥600 LOC per BACKLOG #96 (hypothesis CONFIRMED 4/4 deploys post-MEGA-1); retry pattern via fresh paramiko session resolves.
-- Demo data prep: `velo seed` appends fixtures DB-wide (not per-user); pre-demo readiness for account 526738615 may use this command.
+- Demo data prep + role provisioning: `velo seed` appends fixtures DB-wide and provisions admin/master/user roles per interactive prompts. **Actual prompt structure** (verified 2026-05-04): 5 slots per role × 3 roles in order **Master → User → Admin** (15 slots total; empty newline at slot N terminates that role's loop early). Claude Code drives this via paramiko PTY (`invoke_shell()` + slot-aware heuristic regex `(Master|Admin|User)\s+(\d+)\s+Telegram\s*ID` + scripted input) — operator does NOT run interactively. Idempotent on repeat (existing accounts skipped per highest-wins rule). See §Operator Role + Workflow Model.
 
 ---
 
