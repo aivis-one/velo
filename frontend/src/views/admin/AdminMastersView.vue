@@ -1,11 +1,13 @@
 <!--
-  VELO Frontend -- AdminMastersView (Phase F8.2, updated F8-fix S-4)
+  VELO Frontend -- AdminMastersView (Phase F8.2 fixed S-4; refreshed S4 P15 C69)
 
   List of pending master applications.
   Click on a card -> AdminMasterReviewView with master data in router state.
 
   S-4: added separate `error` ref; on fetch failure shows VEmptyState with
   retry button instead of silently showing empty "Все заявки обработаны".
+
+  Path Y MEDIUM (#047). No emojis (#048).
 -->
 
 <template>
@@ -24,7 +26,6 @@
       <!-- Fetch error -->
       <VEmptyState
         v-else-if="error"
-        icon="⚠️"
         title="Не удалось загрузить заявки"
         description="Проверьте соединение и попробуйте ещё раз"
       >
@@ -41,7 +42,6 @@
       <!-- Empty state (genuine) -->
       <VEmptyState
         v-else-if="items.length === 0"
-        icon="✅"
         title="Новых заявок нет"
         description="Все заявки обработаны"
       />

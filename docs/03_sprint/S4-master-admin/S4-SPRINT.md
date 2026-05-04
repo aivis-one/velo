@@ -129,9 +129,9 @@ S4 inherits (must respect):
 
 | Item | Value |
 |------|-------|
-| Phase | 14: Master Role Refresh — DONE |
-| Cycle | C65: MasterProfileView refresh — DONE (chat S4-P14-C55 covered all 11 cycles via MEGA-3) |
-| Status | Phase 14 closed; ready for P15 admin-refresh |
+| Phase | 15: Admin Role Refresh — DONE (verify gate pending) |
+| Cycle | C73: AdminConsistencyView refresh — DONE (chat S4-P15-C66 covered all 8 cycles via MEGA-4 + closure C74 in progress) |
+| Status | Phase 15 closed at code level; paramiko deploy + combined verify gate (P14 #102 backfill + P15 admin) pending |
 | Tests | 32 pass / 0 fail / 0 skip |
 
 ---
@@ -142,20 +142,23 @@ S4 inherits (must respect):
 |-------|----------|------|--------|
 | S4-Sprint-Builder | 02_Sprint-Builder | 2026-05-01 | DONE |
 | S4-P14-C55 | 03_Phase-Builder | 2026-05-01 | DONE |
+| S4-P15-C66 | 03_Phase-Builder | 2026-05-04 | DONE (verify gate pending) |
 
 ---
 
 ## Last Session
 
-S4 P14 master-refresh executed via single MEGA-3 combined execute prompt covering all 11 cycles (C55-C65) per #052 speedrun. 10 master views refreshed under Velo DS + 1 cascade refresh of components/master/PracticeListItem.vue + 1 NEW components/shared/ConfirmModal.vue (168 LOC; BACKLOG #48 closure). 0 emoji in master scope (was 85). Lint baseline shifted 756 → 0 (repo-wide; master views were dominant warning source — refresh cleared them naturally). 0 typecheck errors / 32/32 tests pass / build green / PWA precache 188 entries. Anti-scope file diffs verified empty (router, guards, api/masters, api/practices, stores/ui, stores/master, package.json). TD-FE-ROLE-SWITCH actual count = 4 markers (initial scout said 3; verification confirmed 4 — preservation invariant intact). master.ts not extended; `nearestPractice` kept in-component per Path Y simpler default. Verification scout returned 0 BREAK / 0 GAP / 3 NIT (all pre-existing patterns covered by existing BACKLOG #41 + #43; out of P14 scope).
+S4 P15 admin-refresh executed via single MEGA-4 combined execute prompt covering all 8 cycles (C66-C73) per #052 speedrun. 7 admin views refreshed under Velo DS + admin store decision spike (C66 verdict: continue direct-api; no stores/admin.ts created — rationale: zero shared methods across api/admin.ts, zero cross-view state candidates; Path Y discipline #047). 0 emoji in admin scope (was 25). Lint baseline preserved at 0 warnings (P14 → P15). 0 typecheck errors / 32/32 tests pass / build green / PWA precache 188 → 190 entries (+2 = IconQuestion + ConfirmModal chunk-split; benign). Anti-scope file diffs verified empty (router x3, api x3, stores, components/shared, components/ui, utils x2, package.json). TD-FE-ROLE-SWITCH preserved at 1-marker baseline in AdminProfileView (different from MasterProfileView 4-marker; preserved as-is per Path Y — do NOT normalize across roles). AdminMasterReviewView shipped as degraded v1 — full-fidelity v2 gated on backend extension (BACKLOG #104) exposing master application content (bio/methods/experience/certifications). 1 dead-code method (`getMastersList` in api/admin.ts) deferred to S5+ cleanup per BACKLOG #105. Verification Scout returned 0 BREAK / 0 GAP / 2 NIT (both pre-existing — extractApiError adoption gap covered by BACKLOG #41/#43; #ffffff border pattern from S1 bundle convention).
 
-**P14 deploy operational notes** (post-close 2026-05-01): paramiko deploy of 27a604f succeeded on attempt 1 — BACKLOG #96 transient did not fire (refinement data point logged in #96). Server-side velo-frontend container exhibited a pre-existing healthcheck flap (Up but `unhealthy` per `wget --spider` on port 3000) reproduced post-P14; not a P14 regression — observed since MEGA-2 deploy 2026-04-30. External access via reverse proxy (`https://api.vel-app.com/health`) functional throughout. New BACKLOG entry #103 logs the healthcheck flap. Visual verify deferred per Branch 2 (BACKLOG #102) — master-role staging account coordination pending; recommended fold-in with P15 admin verify after P15 close.
+**P15 deploy operational notes** (post-close 2026-05-04): paramiko deploy of MEGA-4 commit + combined visual verify gate (P14 #102 backfill: 10 master views + P15: 7 admin views; both light/dark themes) pending. Operator runs `velo seed` self-service (per ENVIRONMENT.md §velo CLI commands) to provision admin/master/user roles on operator's chosen Telegram IDs without partner-relay. GAP-noted seed limitations from OPEN scout §S7: AdminMasterReviewView verify/reject flow + AdminReportsView/AdminReportDetailView populated states limited to empty-state cosmetic verify (no pending masters / no Reports in default seed data); functional-flow verify deferred until backend partner extends seed OR S5+ test data injection. Hybrid policy reply A/B/C captured in subsequent hygiene commit.
+
+**P14 deploy operational notes** (preserved for context, post-close 2026-05-01): paramiko deploy of 27a604f succeeded on attempt 1 — BACKLOG #96 transient did not fire (refinement data point logged in #96). Server-side velo-frontend container exhibited a pre-existing healthcheck flap (Up but `unhealthy` per `wget --spider` on port 3000) reproduced post-P14; not a P14 regression — observed since MEGA-2 deploy 2026-04-30. External access via reverse proxy (`https://api.vel-app.com/health`) functional throughout. BACKLOG entry #103 logs the healthcheck flap. Visual verify deferred per Branch 2 (BACKLOG #102) — master-role staging account coordination pending; folded into P15 close combined verify above.
 
 ---
 
 ## Next Action
 
-Open new chat with Session Code S4-P15-C66. Run 03_Phase-Builder OPEN — plan first cycle of P15 admin-refresh. Note: between this chat closing and S4-P15-C66 opening, paramiko deploy + visual verify gate runs in this same chat (Phase-Builder one-chat-per-phase rule covers verify gate as final exit step).
+Within current chat (S4-P15-C66), run paramiko deploy of MEGA-4 commit → operator runs `velo seed` interactively → operator visual-verifies combined gate (10 master views from P14 #102 backfill + 7 admin views from P15 × {light theme, dark theme}) per checklist issued by Claude Chat. Hybrid policy: A clean → post-verify hygiene commit (close BACKLOG #102, S4-SPRINT.md verify-result narrative, optional NIT entries) → CLOSE Step 5 routing to S4-Sprint-Closer (last phase of S4 → next protocol = 04_Sprint-Closer). B BREAK → inline-fix loop with new commits → re-deploy → re-verify. C NIT → BACKLOG entries during hygiene commit, then close.
 
 ---
 
@@ -163,12 +166,14 @@ Open new chat with Session Code S4-P15-C66. Run 03_Phase-Builder OPEN — plan f
 
 > Next chat instruction. Copy-paste.
 
-**Session Code:** S4-P15-C66
+**Session Code:** S4-Sprint-Closer
 **Load:**
-1. Framework: 01_Declaration.md + 03_Phase-Builder.md
+1. Framework: 01_Declaration.md + 04_Sprint-Closer.md
 2. Project: ENVIRONMENT.md + ARCHITECTURE.md + FILE-TREE.md + BACKLOG.md + decisions.md
-3. Sprint: S4-SPRINT.md + P15-admin-refresh.md + BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
-**Run:** 03_Phase-Builder OPEN — plan first cycle (C66 first admin view; check P15-admin-refresh.md for ordering)
+3. Sprint: S4-SPRINT.md + P14-master-refresh.md + P15-admin-refresh.md + BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
+**Run:** 04_Sprint-Closer — Step 1 sprint readiness check + Step 1+ ProbeKit lite profile (deferred per #049/#052 to S5+ per BACKLOG #100; Sprint-Closer should explicitly defer + log status, not run audit) + Step 2-N sprint snapshot/retro/closure
+
+**Note:** Pending visual verify outcome in current chat (S4-P15-C66) before this transition signal triggers. If verify reply is A clean → proceed to Sprint-Closer. If B BREAK → fix-loop in current chat first. If C NIT → BACKLOG hygiene commit, then proceed.
 
 ---
 

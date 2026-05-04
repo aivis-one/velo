@@ -1,7 +1,8 @@
 # Phase 15: Admin Role Refresh
 > Sprint 4: Master + Admin Roles Refresh
-> Status: NOT STARTED
-> Mode: speedrun (decision #052 continuation of #049) — single MEGA-4 execute prompt covers all 8 cycles
+> Status: DONE
+> Closed: 2026-05-04
+> Mode: speedrun (decision #052 continuation of #049) — single MEGA-4 execute prompt covered all 8 cycles
 
 ## Goal
 
@@ -110,15 +111,15 @@ Refresh 7 admin role views под Velo DS using UI-mockups on user-role patterns
 
 | Cycle | Type | Name | Status | Date | Result |
 |-------|------|------|--------|------|--------|
-| C66 | standard | Admin store decision spike | TODO | | |
-| C67 | standard | AdminProfileView refresh | TODO | | |
-| C68 | standard | AdminDashboardView refresh | TODO | | |
-| C69 | standard | AdminMastersView refresh | TODO | | |
-| C70 | standard | AdminMasterReviewView refresh | TODO | | |
-| C71 | standard | AdminReportsView refresh | TODO | | |
-| C72 | standard | AdminReportDetailView refresh | TODO | | |
-| C73 | standard | AdminConsistencyView refresh | TODO | | |
-| C74 | standard | S4 closure: visual verify + closure commit | TODO | | |
+| C66 | standard | Admin store decision spike | DONE | 2026-05-04 | Verdict: continue direct-api (zero shared methods, zero cross-view state); no stores/admin.ts created |
+| C67 | standard | AdminProfileView refresh | DONE | 2026-05-04 | Refreshed (skin 70/71); TD-FE-ROLE-SWITCH 1-marker baseline preserved; setUiMode logic intact |
+| C68 | standard | AdminDashboardView refresh | DONE | 2026-05-04 | Refreshed; 4-card StatCards row consuming AdminStatsResponse; Callout amber when pending_verifications > 0 |
+| C69 | standard | AdminMastersView refresh | DONE | 2026-05-04 | Refreshed (skin 17); status chips via masterStatusVariant; VEmptyState branch; usePagination preserved |
+| C70 | standard | AdminMasterReviewView refresh | DONE | 2026-05-04 | Refreshed degraded v1 per Context #2; ConfirmModal verify/reject; BACKLOG #104 anchor in placeholder Callout |
+| C71 | standard | AdminReportsView refresh | DONE | 2026-05-04 | Refreshed (skin 17); status chips via reportStatusVariant; VEmptyState branch |
+| C72 | standard | AdminReportDetailView refresh | DONE | 2026-05-04 | Refreshed; compose VButton + ConfirmModal (resolve/dismiss); EntryActionMenu intentionally absent per Context #4 |
+| C73 | standard | AdminConsistencyView refresh | DONE | 2026-05-04 | Refreshed; typed ConsistencyResponse + SemaphoreResult; VAccordion expandable details; P15 risk #3 closed |
+| C74 | standard | S4 closure: visual verify + closure commit | IN PROGRESS | 2026-05-04 | Phase commit + push complete; visual verify gate pending paramiko deploy |
 
 ## Tests Summary
 

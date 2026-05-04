@@ -1,11 +1,19 @@
 <!--
-  VELO Frontend -- AdminMasterReviewView (Phase F8.2, updated F8-fix S-1/S-2)
+  VELO Frontend -- AdminMasterReviewView (Phase F8.2 fixed S-1/S-2; refreshed S4 P15 C70)
 
   Review a master application: show available data + verify / reject actions.
 
   S-1/S-2: after verify/reject use router.push({ name: 'admin-masters' })
   instead of router.back(). This guarantees a fresh mount of AdminMastersView
   and a fresh loadInitial() call -- no stale pending count shown.
+
+  Path Y MEDIUM (#047). No emojis (#048): IconCheck/IconClose icons; Callout
+  amber for missing application-data placeholder.
+
+  DEGRADED v1: AdminMasterListItem type only exposes id/telegram_id/role/
+  is_active/master_status/name/avatar — no bio/methods/experience/certifications.
+  Backend extension queued (BACKLOG #104 candidate). Renders available fields
+  with Callout note for missing application content.
 -->
 
 <template>
@@ -72,11 +80,15 @@
           </div>
         </div>
 
-        <!-- Note: limited data -->
-        <div class="review__note">
-          ℹ️ Детали профиля (методы, опыт, биография) доступны только после
-          открытия полного профиля мастера.
-        </div>
+        <!-- Note: limited data placeholder (BACKLOG #104) -->
+        <Callout
+          variant="amber"
+          :icon="IconQuestion"
+          title="Расширенные данные заявки"
+        >
+          Биография, методы, опыт и сертификаты пока недоступны в admin-API.
+          Расширение бэкенда поставлено в очередь.
+        </Callout>
 
         <!-- Actions: only for pending applications -->
         <template v-if="master.master_status === 'pending'">
@@ -85,9 +97,9 @@
             block
             :loading="verifying"
             :disabled="anyLoading"
-            @click="onVerify"
+            @click="confirmVerify = true"
           >
-            ✅ Верифицировать
+            Верифицировать
           </VButton>
 
           <div
@@ -100,7 +112,7 @@
               :disabled="anyLoading"
               @click="showRejectForm = true"
             >
-              ❌ Отклонить
+              Отклонить
             </VButton>
           </div>
 
@@ -127,7 +139,7 @@
               <VButton
                 variant="ghost"
                 :disabled="anyLoading"
-                @click="showRejectForm = false; rejectReason = ''; rejectError = ''"
+                @click="cancelReject"
               >
                 Отмена
               </VButton>
@@ -148,11 +160,21 @@
       <!-- Not found -->
       <VEmptyState
         v-else
-        icon="❓"
         title="Заявка не найдена"
         description="Возможно, она была удалена или уже обработана"
       />
     </div>
+
+    <!-- Verify confirm modal -->
+    <ConfirmModal
+      v-model:visible="confirmVerify"
+      :loading="verifying"
+      title="Подтвердить мастера"
+      message="Действие необратимо. Мастер получит роль MASTER и сможет публиковать практики."
+      confirm-label="Верифицировать"
+      @confirm="onVerify"
+      @cancel="confirmVerify = false"
+    />
   </div>
 </template>
 
@@ -168,6 +190,9 @@ import {
   VLoader,
   VEmptyState,
 } from '@/components/ui'
+import { IconQuestion } from '@/components/icons'
+import Callout from '@/components/shared/Callout.vue'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useToast } from '@/composables/useToast'
 import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
@@ -191,6 +216,7 @@ const rejecting = ref(false)
 const showRejectForm = ref(false)
 const rejectReason = ref('')
 const rejectError = ref('')
+const confirmVerify = ref(false)
 
 const anyLoading = computed(() => verifying.value || rejecting.value)
 
@@ -217,6 +243,7 @@ async function onVerify(): Promise<void> {
   try {
     await verifyMaster(masterId)
     toast.success('Мастер верифицирован')
+    confirmVerify.value = false
     // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
     router.push({ name: 'admin-masters' })
   } catch (e) {
@@ -247,6 +274,12 @@ async function onReject(): Promise<void> {
   } finally {
     rejecting.value = false
   }
+}
+
+function cancelReject(): void {
+  showRejectForm.value = false
+  rejectReason.value = ''
+  rejectError.value = ''
 }
 
 onMounted(loadMaster)
@@ -281,6 +314,7 @@ onMounted(loadMaster)
 }
 
 .review__profile-name {
+  font-family: var(--font-heading);
   font-size: var(--text-lg);
   font-weight: 400;
   color: var(--text-primary);
@@ -288,11 +322,12 @@ onMounted(loadMaster)
 }
 
 .review__section-title {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.05em;
   margin-bottom: var(--space-2);
 }
 
@@ -324,16 +359,6 @@ onMounted(loadMaster)
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--text-primary);
-}
-
-.review__note {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  line-height: 1.5;
 }
 
 .review__reject-form {

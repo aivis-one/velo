@@ -104,9 +104,9 @@
                 block
                 :loading="resolving"
                 :disabled="anyLoading"
-                @click="onResolve"
+                @click="askResolveConfirm"
               >
-                ✅ Решить
+                Решить
               </VButton>
             </div>
           </div>
@@ -127,9 +127,9 @@
                 block
                 :loading="dismissing"
                 :disabled="anyLoading"
-                @click="onDismiss"
+                @click="askDismissConfirm"
               >
-                ❌ Отклонить
+                Отклонить
               </VButton>
             </div>
           </div>
@@ -151,7 +151,6 @@
         class="report-detail__not-found"
       >
         <VEmptyState
-          icon="❓"
           title="Жалоба не найдена"
           description="Вернитесь к списку жалоб"
         />
@@ -164,6 +163,29 @@
         </VButton>
       </div>
     </div>
+
+    <!-- Resolve confirm modal -->
+    <ConfirmModal
+      v-model:visible="confirmResolve"
+      :loading="resolving"
+      title="Закрыть жалобу"
+      message="Подтвердите решение. Жалоба будет помечена resolved."
+      confirm-label="Решить"
+      @confirm="onResolve"
+      @cancel="confirmResolve = false"
+    />
+
+    <!-- Dismiss confirm modal -->
+    <ConfirmModal
+      v-model:visible="confirmDismiss"
+      :loading="dismissing"
+      :danger="true"
+      title="Отклонить жалобу"
+      message="Жалоба будет помечена dismissed. Действие фиксируется в audit log."
+      confirm-label="Отклонить"
+      @confirm="onDismiss"
+      @cancel="confirmDismiss = false"
+    />
   </div>
 </template>
 
@@ -172,6 +194,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VBadge, VButton, VTextarea, VEmptyState, VLoader } from '@/components/ui'
+import ConfirmModal from '@/components/shared/ConfirmModal.vue'
 import { useToast } from '@/composables/useToast'
 import { getReportById, resolveReport, dismissReport } from '@/api/admin'
 import type { ReportResponse } from '@/api/admin'
@@ -201,6 +224,22 @@ const resolving = ref(false)
 const dismissing = ref(false)
 const anyLoading = computed(() => resolving.value || dismissing.value)
 
+const confirmResolve = ref(false)
+const confirmDismiss = ref(false)
+
+function askResolveConfirm(): void {
+  resolveError.value = ''
+  if (!resolveNote.value.trim()) {
+    resolveError.value = 'Введите примечание к решению'
+    return
+  }
+  confirmResolve.value = true
+}
+
+function askDismissConfirm(): void {
+  confirmDismiss.value = true
+}
+
 async function loadReport(): Promise<void> {
   const stateData = (history.state as { report?: ReportResponse }).report
   if (stateData && stateData.id === reportId) {
@@ -222,16 +261,12 @@ async function loadReport(): Promise<void> {
 }
 
 async function onResolve(): Promise<void> {
-  resolveError.value = ''
-  if (!resolveNote.value.trim()) {
-    resolveError.value = 'Введите примечание к решению'
-    return
-  }
   if (resolving.value) return
   resolving.value = true
   try {
     await resolveReport(reportId, resolveNote.value.trim())
     toast.success('Жалоба решена')
+    confirmResolve.value = false
     // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
     router.push({ name: 'admin-reports' })
   } catch (e) {
@@ -248,6 +283,7 @@ async function onDismiss(): Promise<void> {
   try {
     await dismissReport(reportId, dismissNote.value.trim() || undefined)
     toast.success('Жалоба отклонена')
+    confirmDismiss.value = false
     // S-1/S-2: push to list instead of back() -- guarantees fresh loadInitial().
     router.push({ name: 'admin-reports' })
   } catch (e) {

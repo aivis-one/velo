@@ -183,6 +183,29 @@ See `FILE-TREE.md` for current inventory. Compact:
 - 0 new test files (BACKLOG #44 deferred per #042 inverted in #049/#052).
 - Anti-scope diffs verified empty: `router/index.ts`, `router/guards.ts`, `api/masters.ts`, `api/practices.ts`, `stores/ui.ts`, `stores/master.ts` (no extension landed; `nearestPractice` kept in-component), `package.json`.
 
+**Phase 15 additions (S4 admin-refresh, MEGA-4, commit pending push):**
+
+- `frontend/src/views/admin/AdminProfileView.vue` — refreshed under Velo DS using UserProfileView (skin 70/71) layout pattern. Avatar block + ProfileMenuItem-driven sections (Администрирование / Режим / Аккаунт). **TD-FE-ROLE-SWITCH preserved at 1-marker baseline** (admin-side baseline differs from master 4-marker pattern; existing `useUiStore.setUiMode('user')` logic intact; do NOT escalate to 4-marker convention per Path Y discipline). 157 LOC → ~289 LOC.
+- `frontend/src/views/admin/AdminDashboardView.vue` — refreshed (skin 10/11 pattern adapted to admin metrics). Greeting block + 4-card StatCards row (Пользователи / Мастера / Практики / На проверке) consuming `AdminStatsResponse` + Callout amber when `pending_verifications > 0` linking to `/admin/masters`. 286 LOC → ~368 LOC.
+- `frontend/src/views/admin/AdminMastersView.vue` — refreshed (skin 17 list pattern). Inline list-item template with status chips (verified mint / pending amber / rejected pink via `masterStatusVariant` from `adminHelpers.ts`) + VEmptyState branch + usePagination. Consumes `getPendingMasters` (paginated). 245 LOC → ~251 LOC.
+- `frontend/src/views/admin/AdminMasterReviewView.vue` — refreshed (FormShell-pattern adapted) **degraded v1**: renders only fields available in `AdminMasterListItem` / `MasterApplyResponse` (master_status, role, is_active, names, avatar). Application content (bio/methods/experience/certifications/email/phone) NOT exposed by current backend types — placeholder Callout amber «Расширенные данные заявки пока недоступны — backend-расширение в очереди» anchors BACKLOG #104. Verify/reject CTAs via ConfirmModal (1 instance, danger variant for reject + reason textarea preserved from previous shape). 362 LOC → ~431 LOC.
+- `frontend/src/views/admin/AdminReportsView.vue` — refreshed (skin 17 list pattern). Inline list-item template with severity/status chips (open amber / resolved mint / dismissed gray via `reportStatusVariant`) + VEmptyState. Consumes `getReports` (paginated). 305 LOC → ~312 LOC.
+- `frontend/src/views/admin/AdminReportDetailView.vue` — refreshed. Content card + reporter row + severity Callout + 2 ConfirmModal instances for resolve/dismiss flows (compose pattern: raw VButton + ConfirmModal directly; **EntryActionMenu intentionally NOT consumed** due to emit vocabulary mismatch — edit/delete vs resolve/dismiss). Resolved/dismissed read-only display when status !== 'open'. 383 LOC → ~439 LOC.
+- `frontend/src/views/admin/AdminConsistencyView.vue` — refreshed (AISummaryView 16 sectioned-pattern adapted). 3-card StatCards row (Всего / OK / Alert) + per-item rows grouped by category with status indicator (IconCheck mint OK / IconWarning amber ALERT) + criticality chip + VAccordion expandable details rendering `details: Record<string, unknown> | null` as preformatted JSON. Renders typed `ConsistencyResponse { items: SemaphoreResult[], total, ok_count, alert_count, run_at }` (P15 plan risk #3 closed — type was already fully-shaped in generated.ts; no backend gap). 337 LOC → ~368 LOC.
+
+**Cross-cutting Phase 15**:
+
+- 0 emoji in `frontend/src/views/admin/` (was 25 hits per OPEN scout §S6); #048 cleanup complete in admin scope.
+- **admin.ts store decision: continue direct-api** (no `frontend/src/stores/admin.ts` created). Verdict rationale: zero shared methods across api/admin.ts (every method has exactly 1 caller view); zero cross-view state candidates. Path Y MEDIUM discipline (#047) — no speculative abstraction. Documented inline in C66 cycle result; not promoted to `decisions.md` (sprint-specific evidence, not project doctrine).
+- 1 dead-code method (`getMastersList` in api/admin.ts) noted; cleanup deferred to S5+ per BACKLOG #105.
+- AdminMasterReviewView is **degraded v1**: full-fidelity v2 gated on backend extension (BACKLOG #104) exposing application content fields.
+- Lint baseline preserved: 0 warnings (P14 baseline maintained through P15).
+- 0 typecheck errors / 32/32 tests pass / build green / PWA precache 188 → 190 entries (+2 = IconQuestion + ConfirmModal chunk-split for AdminReportDetailView consumer; benign per Verification Scout §V6d).
+- 0 new dependencies (Path Y discipline #047).
+- 0 new test files (BACKLOG #44 deferred per #042 inverted in #049/#052).
+- Anti-scope diffs verified empty: `router/index.ts`, `router/guards.ts`, `router/tabs.ts`, `api/admin.ts`, `api/generated.ts`, `api/types.ts`, `stores/*` (no new admin.ts; no extension), `components/shared/*` (consumed only), `components/ui/*` (consumed only), `utils/displayHelpers.ts`, `utils/adminHelpers.ts`, `package.json`.
+- TD-FE-ROLE-SWITCH preserved at 1-marker baseline in AdminProfileView (different from MasterProfileView's 4-marker pattern — preserved as-is per Path Y; do NOT normalize across roles).
+
 **Cross-cutting additions (speedrun, commits `6c5fd1f` + `af39b41`):**
 
 - `frontend/src/components/icons/` — 25 new Vue-SVG icon components: 11 in MEGA-1 (IconArrowBack/Forward/Up, IconClose, IconFilter, IconDots, IconEdit, IconChevronRight, IconHandsClap, IconHeart, IconTheme) + 14 in MEGA-2 (IconMic, IconCheck, IconBookDream, IconBookFeather, IconLink, IconChevronDown, IconQuestion, IconBell, IconGlobe, IconShield, IconShare, IconLogout, IconSearch, IconTrash) + barrel `index.ts` updates. All follow currentColor + viewBox 24×24 + `:size` prop default 24 pattern.

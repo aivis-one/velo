@@ -40,7 +40,6 @@
       <!-- Empty state -->
       <VEmptyState
         v-else-if="!loading && items.length === 0"
-        icon="✅"
         title="Жалоб нет"
         description="По выбранным фильтрам ничего не найдено"
       />
@@ -142,9 +141,9 @@ const statusOptions = [
 
 const targetTypeOptions = [
   { value: '', label: 'Все типы' },
-  { value: 'user', label: '👤 Юзер' },
-  { value: 'master', label: '🧘 Мастер' },
-  { value: 'practice', label: '📅 Практика' },
+  { value: 'user', label: 'Юзер' },
+  { value: 'master', label: 'Мастер' },
+  { value: 'practice', label: 'Практика' },
 ]
 
 async function loadInitial(): Promise<void> {

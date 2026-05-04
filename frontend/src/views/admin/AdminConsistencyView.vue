@@ -30,7 +30,14 @@
         >
           <div class="consistency__summary-left">
             <span class="consistency__summary-icon">
-              {{ data.alert_count > 0 ? '🔴' : '✅' }}
+              <IconWarning
+                v-if="data.alert_count > 0"
+                :size="22"
+              />
+              <IconCheck
+                v-else
+                :size="22"
+              />
             </span>
             <div>
               <div class="consistency__summary-title">
@@ -50,7 +57,7 @@
             :loading="rerunning"
             @click="rerun"
           >
-            ↺
+            Обновить
           </VButton>
         </div>
 
@@ -79,7 +86,14 @@
             >
               <div class="consistency__item-header">
                 <span class="consistency__item-icon">
-                  {{ item.status === 'ALERT' ? '🔴' : '✅' }}
+                  <IconWarning
+                    v-if="item.status === 'ALERT'"
+                    :size="18"
+                  />
+                  <IconCheck
+                    v-else
+                    :size="18"
+                  />
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
                 <VBadge
@@ -100,6 +114,13 @@
                   фактически: {{ item.actual }}
                 </span>
               </div>
+              <VAccordion
+                v-if="item.details"
+                title="Подробности"
+                class="consistency__item-accordion"
+              >
+                <pre class="consistency__item-details-json">{{ JSON.stringify(item.details, null, 2) }}</pre>
+              </VAccordion>
             </div>
           </div>
         </div>
@@ -108,7 +129,6 @@
       <!-- Error -->
       <VEmptyState
         v-else
-        icon="⚠️"
         title="Не удалось загрузить данные"
         description="Проверьте соединение и попробуйте ещё раз"
       >
@@ -128,7 +148,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VBadge, VButton, VLoader, VEmptyState, VAccordion } from '@/components/ui'
+import { IconCheck, IconWarning } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getConsistency } from '@/api/admin'
 import type { ConsistencyResponse, SemaphoreResult } from '@/api/admin'

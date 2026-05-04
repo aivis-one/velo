@@ -2,18 +2,20 @@
   VELO Frontend -- AdminProfileView (TD-FE-ROLE-SWITCH)
 
   Minimal admin profile screen. Route: /admin/profile (tab "Я").
+  Refreshed S4 P15 C67 under Velo DS (Path Y MEDIUM #047, no-emoji #048).
 
   Sections:
-    1. Profile header -- avatar, display name, admin badge.
-    2. Switch to user mode -- button visible to all admins.
-       Sets uiMode = 'user' and navigates to /user/profile.
-    3. Logout.
+    1. Profile header — avatar, display name, admin badge.
+    2. Administration — quick links to admin routes via ProfileMenuItem.
+    3. Mode — switch to user-mode (calls uiStore.setUiMode('user') then
+       routes to /user/profile). 1-marker baseline preserved per scout.
+    4. Account — Logout red row (IconLogout replaces legacy door glyph).
 -->
 
 <template>
   <div class="admin-profile">
-    <!-- Header -->
-    <div class="admin-profile__header">
+    <!-- Section 1 — Profile header -->
+    <section class="admin-profile__header">
       <VAvatar
         :name="displayName"
         size="xl"
@@ -26,41 +28,79 @@
           Администратор
         </VBadge>
       </div>
-    </div>
+    </section>
 
-    <!-- Switch to user mode -->
-    <div class="admin-profile__section">
-      <div class="admin-profile__section-title">
-        РЕЖИМ ПРОСМОТРА
-      </div>
+    <!-- Section 2 — Администрирование -->
+    <section class="admin-profile__menu">
+      <h3 class="admin-profile__menu-title">
+        Администрирование
+      </h3>
+      <ProfileMenuItem
+        :icon="IconHome"
+        label="Дашборд"
+        to="/admin/dashboard"
+      />
+      <ProfileMenuItem
+        :icon="IconGroup"
+        label="Мастера"
+        to="/admin/masters"
+      />
+      <ProfileMenuItem
+        :icon="IconWarning"
+        label="Жалобы"
+        to="/admin/reports"
+      />
+      <ProfileMenuItem
+        :icon="IconCheck"
+        label="Сверка"
+        to="/admin/consistency"
+      />
+    </section>
+
+    <!-- Section 3 — Режим -->
+    <section class="admin-profile__menu">
+      <h3 class="admin-profile__menu-title">
+        Режим
+      </h3>
       <p class="admin-profile__section-desc">
-        Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
+        Перейдите в интерфейс пользователя, чтобы просматривать каталог и
+        бронировать практики.
       </p>
-      <VButton
-        variant="secondary"
+      <ProfileMenuItem
+        :icon="IconShare"
+        label="Перейти в режим пользователя"
         @click="switchToUserMode"
-      >
-        Перейти в интерфейс пользователя →
-      </VButton>
-    </div>
+      />
+    </section>
 
-    <!-- Logout -->
-    <div class="admin-profile__section">
-      <VButton
-        variant="ghost"
-        :loading="loggingOut"
+    <!-- Section 4 — Аккаунт -->
+    <section class="admin-profile__menu">
+      <h3 class="admin-profile__menu-title">
+        Аккаунт
+      </h3>
+      <ProfileMenuItem
+        :icon="IconLogout"
+        label="Выйти"
+        danger
         @click="onLogout"
-      >
-        🚪 Выйти
-      </VButton>
-    </div>
+      />
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { VAvatar, VBadge, VButton } from '@/components/ui'
+import { VAvatar, VBadge } from '@/components/ui'
+import {
+  IconHome,
+  IconGroup,
+  IconWarning,
+  IconCheck,
+  IconShare,
+  IconLogout,
+} from '@/components/icons'
+import ProfileMenuItem from '@/components/shared/ProfileMenuItem.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
@@ -84,10 +124,11 @@ function switchToUserMode(): void {
 
 // -- Logout --
 async function onLogout(): Promise<void> {
+  if (loggingOut.value) return
   loggingOut.value = true
   try {
     await authStore.logout()
-    router.replace({ path: '/' })
+    router.replace({ path: '/welcome' })
   } finally {
     loggingOut.value = false
   }
@@ -102,7 +143,7 @@ async function onLogout(): Promise<void> {
   gap: var(--space-4);
 }
 
-/* Header */
+/* Section 1 — Header */
 .admin-profile__header {
   display: flex;
   align-items: center;
@@ -121,37 +162,38 @@ async function onLogout(): Promise<void> {
 }
 
 .admin-profile__name {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--text-primary);
+  margin: 0;
   line-height: 1.2;
   word-break: break-word;
   letter-spacing: 0.02em;
 }
 
-/* Sections */
-.admin-profile__section {
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+/* Sections 2/3/4 — Menu blocks */
+.admin-profile__menu {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-1);
 }
 
-.admin-profile__section-title {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-muted);
-  letter-spacing: 0.05em;
+.admin-profile__menu-title {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-1);
+  font-weight: 400;
 }
 
 .admin-profile__section-desc {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.5;
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-4);
 }
 </style>

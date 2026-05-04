@@ -1,10 +1,14 @@
 <!--
-  VELO Frontend -- AdminDashboardView (Phase F8.1, updated F8-fix W-4)
+  VELO Frontend -- AdminDashboardView (Phase F8.1; refreshed S4 P15 C68)
 
-  Admin dashboard: 4 stat cards + alert banner when pending_verifications > 0.
-  W-4: replaced hardcoded hex colors with CSS semantic tint variables.
+  Admin dashboard: 4 StatCards row + Callout(amber) when pending_verifications > 0
+  + Quick actions row.
 
-  Data: GET /api/v1/admin/stats
+  Data: GET /api/v1/admin/stats → AdminStatsResponse {users_count,
+        masters_count, practices_count, pending_verifications}
+
+  Path Y MEDIUM (#047). No emojis (#048): icon-component pattern via Callout
+  + ProfileMenuItem-style quick actions.
 -->
 
 <template>
@@ -21,101 +25,78 @@
       </div>
 
       <template v-else-if="stats">
-        <!-- Alert banner: pending verifications -->
-        <div
-          v-if="stats.pending_verifications > 0"
-          class="admin-dashboard__alert"
-          role="button"
-          tabindex="0"
-          @click="router.push({ name: 'admin-masters' })"
-          @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
-        >
-          <span class="admin-dashboard__alert-icon">⚠️</span>
-          <div class="admin-dashboard__alert-body">
-            <div class="admin-dashboard__alert-title">
-              {{ stats.pending_verifications }} заявк{{ pendingSuffix }} на верификацию
-            </div>
-            <div class="admin-dashboard__alert-sub">
-              Нажмите, чтобы перейти
-            </div>
-          </div>
-          <span class="admin-dashboard__alert-arrow">→</span>
-        </div>
+        <!-- Greeting -->
+        <header class="admin-dashboard__greet">
+          <p class="admin-dashboard__greet-time">
+            {{ greetingPrefix }}
+          </p>
+          <h1 class="admin-dashboard__greet-name">
+            {{ adminName }}
+          </h1>
+        </header>
 
-        <!-- Stats grid -->
+        <!-- Alert: pending verifications -->
+        <Callout
+          v-if="stats.pending_verifications > 0"
+          variant="amber"
+          :icon="IconWarning"
+          title="Заявки на верификацию"
+        >
+          <button
+            type="button"
+            class="admin-dashboard__alert-link"
+            @click="router.push({ name: 'admin-masters' })"
+          >
+            {{ stats.pending_verifications }} заявк{{ pendingSuffix }} ждут проверки. Перейти →
+          </button>
+        </Callout>
+
+        <!-- StatCards row -->
         <div class="admin-dashboard__grid">
-          <VStatCard
+          <StatCard
             :value="stats.users_count"
-            label="пользователей"
-            icon="👥"
+            label="Пользователи"
           />
-          <VStatCard
+          <StatCard
             :value="stats.masters_count"
-            label="мастеров"
-            icon="🧘"
+            label="Мастера"
           />
-          <VStatCard
+          <StatCard
             :value="stats.practices_count"
-            label="практик"
-            icon="📅"
+            label="Практики"
           />
-          <VStatCard
+          <StatCard
             :value="stats.pending_verifications"
-            label="ожидают верификации"
-            icon="🕐"
-            :clickable="stats.pending_verifications > 0"
-            @click="stats.pending_verifications > 0 && router.push({ name: 'admin-masters' })"
+            label="На проверке"
           />
         </div>
 
         <!-- Quick actions -->
-        <div class="admin-dashboard__section-title">
+        <h3 class="admin-dashboard__section-title">
           Быстрые действия
-        </div>
+        </h3>
         <div class="admin-dashboard__actions">
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
-            @click="router.push({ name: 'admin-masters' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
-          >
-            <span class="admin-dashboard__action-icon">👥</span>
-            <div class="admin-dashboard__action-label">
-              Мастера
-            </div>
-          </div>
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
-            @click="router.push({ name: 'admin-reports' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-reports' })"
-          >
-            <span class="admin-dashboard__action-icon">⚠️</span>
-            <div class="admin-dashboard__action-label">
-              Жалобы
-            </div>
-          </div>
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
-            @click="router.push({ name: 'admin-consistency' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-consistency' })"
-          >
-            <span class="admin-dashboard__action-icon">🔍</span>
-            <div class="admin-dashboard__action-label">
-              Семафоры
-            </div>
-          </div>
+          <ProfileMenuItem
+            :icon="IconGroup"
+            label="Мастера"
+            to="/admin/masters"
+          />
+          <ProfileMenuItem
+            :icon="IconWarning"
+            label="Жалобы"
+            to="/admin/reports"
+          />
+          <ProfileMenuItem
+            :icon="IconCheck"
+            label="Сверка"
+            to="/admin/consistency"
+          />
         </div>
       </template>
 
       <!-- Error state -->
       <VEmptyState
         v-else
-        icon="⚠️"
         title="Не удалось загрузить статистику"
         description="Проверьте соединение и попробуйте ещё раз"
       >
@@ -136,17 +117,42 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VStatCard, VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import {
+  IconWarning,
+  IconGroup,
+  IconCheck,
+} from '@/components/icons'
+import StatCard from '@/components/shared/StatCard.vue'
+import Callout from '@/components/shared/Callout.vue'
+import ProfileMenuItem from '@/components/shared/ProfileMenuItem.vue'
 import { useToast } from '@/composables/useToast'
+import { useAuthStore } from '@/stores/auth'
 import { getAdminStats } from '@/api/admin'
 import type { AdminStatsResponse } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 
 const router = useRouter()
 const toast = useToast()
+const authStore = useAuthStore()
 
 const stats = ref<AdminStatsResponse | null>(null)
 const loading = ref(false)
+
+const adminName = computed(() => {
+  const u = authStore.user
+  if (!u) return 'Администратор'
+  const parts = [u.first_name, u.last_name].filter(Boolean)
+  return parts.length > 0 ? parts.join(' ') : 'Администратор'
+})
+
+const greetingPrefix = computed((): string => {
+  const h = new Date().getHours()
+  if (h < 5) return 'Доброй ночи,'
+  if (h < 12) return 'Доброе утро,'
+  if (h < 18) return 'Добрый день,'
+  return 'Добрый вечер,'
+})
 
 // Russian suffix for "заявк(а/и/...)" based on count
 const pendingSuffix = computed(() => {
@@ -183,101 +189,61 @@ onMounted(loadStats)
   gap: var(--space-4);
 }
 
-/* -- Alert banner -- */
-.admin-dashboard__alert {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  background: var(--velo-warning-bg);
-  border: 1px solid var(--velo-warning-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-  cursor: pointer;
-  transition: background var(--transition-fast);
+.admin-dashboard__greet {
+  margin-bottom: var(--space-1);
 }
 
-.admin-dashboard__alert:hover {
-  background: var(--velo-warning-bg-hover);
-}
-
-.admin-dashboard__alert-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.admin-dashboard__alert-body {
-  flex: 1;
-}
-
-.admin-dashboard__alert-title {
+.admin-dashboard__greet-time {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.admin-dashboard__greet-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
   font-weight: 400;
-  color: var(--warm-deep);
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
-.admin-dashboard__alert-sub {
-  font-size: var(--text-xs);
-  color: var(--velo-warning-text-light);
-  margin-top: 2px;
+/* Alert link inside Callout slot */
+.admin-dashboard__alert-link {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
 }
 
-.admin-dashboard__alert-arrow {
-  color: var(--warm-deep);
-  font-weight: 400;
-  flex-shrink: 0;
-}
-
-/* -- Stats grid -- */
+/* Stats grid */
 .admin-dashboard__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
 }
 
-/* -- Quick actions -- */
+/* Quick actions */
 .admin-dashboard__section-title {
-  font-size: var(--text-xs);
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  margin: 0;
   font-weight: 400;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .admin-dashboard__actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-}
-
-.admin-dashboard__action-card {
-  background: var(--surface-steel-alpha-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-2);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
+  gap: var(--space-1);
 }
 
-.admin-dashboard__action-card:active {
-  opacity: 0.8;
-}
-
-.admin-dashboard__action-icon {
-  font-size: 24px;
-}
-
-.admin-dashboard__action-label {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--text-secondary);
-  text-align: center;
-}
-
-/* -- Loader -- */
+/* Loader */
 .admin-dashboard__loader {
   display: flex;
   justify-content: center;

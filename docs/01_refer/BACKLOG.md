@@ -1068,3 +1068,36 @@ Speedrun delta requiring audit:
 **Owner**: this is partially backend-partner-owned (docker-compose.yml is shared); coordination required before edit. Frontend-only edit if compose ownership transfers OR if separate frontend-compose layer exists.
 
 **Sprint tag**: S5 (not gating P15; not gating production promotion in current state, but should land before any production scale-out).
+
+---
+
+### #104 — Backend extension for AdminMasterListItem / MasterApplyResponse (application content)
+
+**Source**: S4-P15-C70 AdminMasterReviewView refresh; OPEN Combined Scout §S4 + Context #2; verified at MEGA-4 close 2026-05-04.
+
+**Context**: AdminMasterReviewView (admin verification flow) needs to display master's application content for verify/reject decision: bio, methods, experience, certifications, email, phone. Current `AdminMasterListItem` (generated.ts:32) exposes only `id, telegram_id?, first_name?, last_name?, avatar_url?, role: UserRole, is_active: boolean, master_status: string`. Current `MasterApplyResponse` (generated.ts:307) exposes only `user_id, status, created_at` — minimal. Neither type contains the application content the reviewer needs to see. Result: AdminMasterReviewView shipped as **degraded v1** — renders summary block (avatar/name/master_status chip/role/is_active) + verify/reject CTAs + placeholder Callout «Расширенные данные заявки пока недоступны — backend-расширение в очереди».
+
+**Required (backend partner)**:
+Either (option a) extend `AdminMasterListItem` to include `bio?, methods?, experience_years?, certifications?, email?, phone?` (admin-only fields), OR (option b) add a new endpoint `GET /api/v1/admin/masters/{id}/application` returning a richer `AdminMasterApplicationResponse` with the application content.
+
+**Frontend until ready**: AdminMasterReviewView v1 ships with placeholder Callout. When backend extends + regen lands → C70-style follow-up cycle to wire fields into the view (FormShell rendering of bio/methods/experience), promote v1 → v2.
+
+**Severity**: MEDIUM (degraded UI functions for demo; full-fidelity post-demo).
+**Sprint**: post-demo backend cycle (S5+).
+**Status**: OPEN.
+
+**Cross-refs**: BACKEND-COORDINATION.md candidate row (add when backend-coord update lands); decision #050/#051 (admin/master designer-independent — does not gate on this).
+
+---
+
+### #105 — `getMastersList` dead code in api/admin.ts
+
+**Source**: S4-P15 OPEN Combined Scout §S2b (2026-05-04).
+
+**Context**: `frontend/src/api/admin.ts` exports `getMastersList(...)` method. Repo-wide grep for callers returns 0 hits. Dead code — likely legacy from a planned-but-cancelled feature OR superseded by `getPendingMasters` for the moderation queue use case. Inspect to confirm; remove if confirmed dead.
+
+**Action**: in S5+ cleanup cycle, `git grep -n getMastersList frontend/src/` → confirm 0 callers; remove method export from `frontend/src/api/admin.ts`; verify typecheck + lint clean. Single-cycle micro-task; can fold into any unrelated api/admin.ts touch cycle.
+
+**Severity**: NIT (dead code; functionality not affected; ships extra ~5 LOC in bundle).
+**Sprint**: S5+ cleanup cluster.
+**Status**: OPEN.

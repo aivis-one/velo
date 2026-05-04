@@ -1,7 +1,7 @@
 # Velo — File Tree
 
 > Scope: `frontend/src/` + `docs/` only. Backend and other top-level directories are out of scope.
-> Updated: 2026-05-01 (S4-P14 MEGA-3 closure — partial regen frontend/src/views/master, components/shared, components/master).
+> Updated: 2026-05-04 (S4-P15 MEGA-4 closure — partial regen frontend/src/views/admin).
 > Validated by: `05_Clean-Sync.md` Step 1.
 
 ## frontend/src/
@@ -233,14 +233,14 @@ frontend/src/
     │   ├── MasterFinanceView.vue          # S4-P14 (refresh; min/fee cents reads preserved per #022)
     │   ├── MasterApplyView.vue            # S4-P14 (3-step form refresh; native checkboxes preserved)
     │   └── MasterPendingView.vue          # S4-P14 (status splash refresh)
-    └── admin/                  # 7 views (legacy S1; refresh deferred to S5+)
-        ├── AdminDashboardView.vue
-        ├── AdminMastersView.vue
-        ├── AdminMasterReviewView.vue
-        ├── AdminReportsView.vue
-        ├── AdminReportDetailView.vue
-        ├── AdminConsistencyView.vue
-        └── AdminProfileView.vue
+    └── admin/                  # 7 views (refreshed S4-P15 MEGA-4; emoji 25 → 0; Path Y MEDIUM)
+        ├── AdminDashboardView.vue        # S4-P15 (StatCards row + AdminStatsResponse consumer)
+        ├── AdminMastersView.vue          # S4-P15 (paginated list + status chips via masterStatusVariant)
+        ├── AdminMasterReviewView.vue     # S4-P15 (degraded v1; ConfirmModal verify/reject; BACKLOG #104 anchor)
+        ├── AdminReportsView.vue          # S4-P15 (paginated list + status chips via reportStatusVariant)
+        ├── AdminReportDetailView.vue     # S4-P15 (compose VButton + ConfirmModal; EntryActionMenu NOT consumed)
+        ├── AdminConsistencyView.vue      # S4-P15 (typed ConsistencyResponse + VAccordion details)
+        └── AdminProfileView.vue          # S4-P15 (TD-FE-ROLE-SWITCH 1-marker baseline preserved)
 ```
 
 Total views: 60 (55 page views + 3 shells + 2 root views)
