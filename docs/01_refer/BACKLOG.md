@@ -2,7 +2,7 @@
 
 > Code issues, tech debt, features, tooling gaps.
 > Consumed by: `02_Sprint-Builder.md` during sprint planning.
-> Updated: 2026-04-28 (S1-Clean-Sync).
+> Updated: 2026-05-05 (S4-Clean-Sync — pruned 12 entries to CHANGELOG; 2 status-flipped + transferred).
 
 | # | Item | Source | Priority | Status | Notes |
 |---|---|---|---|---|---|
@@ -28,12 +28,8 @@
 | 21 | B.4 Waitlist endpoints (4) not implemented on frontend | Zodd_review C06 | LOW | → S2/S3 | Backend has 4 waitlist endpoints; frontend has zero waitlist code. Decide if greenfield (S3) or post-S3 backlog. |
 | 22 | B.5 Missing UI screens (9 features) | Zodd_review C06 | varies | → S3/S4+ | `purchases/me`, `reports/me`, `master-promos`, `admin/withdrawals`, `admin/users`, `logout-all`, `PATCH users/me`, `finalize`, `join/leave`. Overlap with S3 greenfield + S4+ admin per #010. Per-feature scope at S3 OPEN. |
 | 23 | B.12 getMastersList default limit=100 | Zodd_review C06 | LOW | Recurring | Inconsistent with 20-default on other list endpoints. Normalize when next touching `api/masters.ts`. |
-| 24 | Regen workflow integration (post-backend Pydantic changes) | C06b Scout | MEDIUM | CLOSED | CLOSED 2026-04-30 — workflow discipline documented in `docs/03_sprint/S2-bundle-port/BACKEND-COORDINATION.md § D` (manual on partner signal per decision #031). |
-| 26 | A.2 follow-up cycle: financial constants migration | C06b P01 | P2 | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: regen surfaced `MasterProfileResponse.{min_withdrawal_cents, withdrawal_fee_cents}`; `MIN_WITHDRAWAL_EUROS` + `WITHDRAWAL_FEE_EUROS` removed from `utils/constants.ts`; `MasterFinanceView.vue` reads cents directly from `masterStore.profile`. |
-| 27 | Zodd CRITICAL #1: PracticeSummary.timezone fix | Zodd_review / C06b | P1 | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: regen surfaced `PracticeSummary.timezone: string`; tactical cast `(... as PracticeSummary & { timezone?: string }).timezone ?? 'Europe/Berlin'` in `UserDashboardView.vue` removed; direct `practice.timezone` read. |
 | 28 | Audit-snapshot fingerprint convention | C06 / C06b | LOW | → P02 | Partner audits (Zodd_review.md authored against `364893d`, picked up after partner shipped CR-01 + regen → effective HEAD `83d287a`) require fingerprinted commit base. Without fingerprint, "is finding still applicable" requires manual diff. Convention: every external audit doc starts with `Audit base: <commit-sha>` line. Apply to future partner reviews. |
 | 30 | Bundle PNG → SVG migration (10 decorative icons) | C09 P02 / D3 future-cleanup | LOW | → S5+ | `bolt, circle-microphone, flame, heart, high-five, love, quill-pen, quill-pen-story, spa, wind` — convert from PNG to SVG when Vue-SVG asset volume justifies. Currently used decoratively per #024; raster sufficient for current scale. |
-| 32 | TopupRequest / TopupResponse type duplication | P02 Combined Scout / Zodd_review §7 | LOW | CLOSED | CLOSED 2026-04-30 — S2 P05 C15: local interface declarations removed from `api/payments.ts`; consume `TopupResponse` via `@/api/types` re-export hub (decision #023). |
 
 ---
 
@@ -73,49 +69,6 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 **Source**: S1 P03 CLOSE Step 2 Verification Scout output (NIT row).
 **Severity**: process-improvement (not blocking).
 **Sprint**: S2 or S1-Clean-Sync.
-
----
-
-### #37 — Post-deploy visual verification of S1 pilot screens
-
-**Context**: S1 Phase 04 C13 was a manual-test cycle (Human visual on staging) deferred at phase close per Phase-Builder §CLOSE §1 triaged-deferral. Reason: visual verification gates on external pipeline (Velo push → backend partner code audit → partner deploy → staging exposure) which cannot complete in-sprint. Velo-side code work for both pilot screens is complete with all gates green at Phase 03 close (typecheck 0 errors / test 32 passed / lint 756 / build green / PWA precache 99). Visual confirmation is the final acceptance step.
-
-**Action**: Once staging reflects commit `823bdec` (Phase 03 close) or successor with same pilot-screen content (after partner-audit + deploy), perform visual test:
-
-- **WelcomeView** at `/welcome` — light + dark themes via DevTools `[data-theme="dark"]` on root.
-  - Mandala backdrop (centered, behind content); VELΘ wordmark in Marmelad font with correct Θ glyph; tagline below wordmark; single primary CTA «Открыть в Telegram» linking to `import.meta.env.VITE_TELEGRAM_BOT_URL` (inspect anchor `href`; not `#` / empty / placeholder).
-  - No backdrop-filter / glassmorphism (per #007). No third-party login UI — no Google / Apple buttons (per #012).
-  - Mobile-first layout stable at ~380px and ~1024px viewport widths.
-  - 0 console errors. Mandala remains visible against dark background in dark theme; no tokens fall back to light values.
-
-- **UserDashboardView** at `/user/dashboard` — login as `user` role to bypass the global `beforeEach` guard at `to.name === 'user-dashboard'` (master / admin sessions redirect via `uiStore.uiMode`). Light + dark themes.
-  - WeekdayStrip at top (7 day cells, current day highlighted) + Stats row from real `bookingsStore` data (not placeholders, not zero-state if user has bookings).
-  - AI summary card visible (existing Velo behavior preserved per C10 scope).
-  - Check-in alert + feedback alert when applicable.
-  - Nearest practice card with practice time formatted in correct timezone (Berlin fallback known per BACKLOG #27 — non-Berlin practices may show wrong time; flag in defects with `decision-impact: BACKLOG #27`).
-  - NO Contraindications callout (skipped per C10 scope-lock — bundle's element not ported because no backend flag).
-  - NO Recommendations list (deferred to S2 P05).
-  - Bundle dark `--surface-*` tokens applied in dark mode (no rgba leftovers from pre-#009 velo namespace).
-
-- **Console / Network**:
-  - 0 errors across all 4 theme×screen combinations (warnings noted but not blocking).
-  - No 404s on assets (fonts, illustrations, mandala, brand-icons).
-  - `Marmelad-Regular.ttf` loaded 200 OK (Network → fonts).
-  - PWA precache: 99 entries served (DevTools → Application → Cache Storage).
-
-**Defects format** for each finding:
-- `severity`: BREAK / GAP / NIT
-- `screen`: welcome / dashboard
-- `theme`: light / dark
-- `what`: one-line description
-- `expected`: what bundle / decision says it should be (cite #NNN if applicable)
-- `evidence`: screenshot filename or DOM snippet or console error text
-- `decision-impact`: cite contradicted decision or BACKLOG entry if applicable
-
-**Source**: S1 Phase 04 C13 deferred per `S1-RETRO.md` §Conditional + Phase-Builder §CLOSE §1 triaged-deferral.
-**Severity**: post-S1 follow-up (not blocking S1 close; gates the «работают на staging» Success Criterion #7 final acceptance).
-**Sprint**: post-S1 (run when partner deploy to staging completes).
-**Status**: CLOSED 2026-04-30 — S2 P05 C15 staging push verification gate. Visual verify result: ALL CLEAN — both screens, both themes, executed against staging deploy `ad4ce7d`, TG account 526738615 (2026-04-30).
 
 ---
 
@@ -159,7 +112,7 @@ Tracked for refinement during S1-Clean-Sync or as standing improvement to verifi
 
 **Sprint**: deferred — address only when merge-to-main milestone is planned.
 
-**Source**: S1-Sprint-Closer Step 2 Pre-Exec divergence discovery; pairs with BACKLOG #36 (staging-deploy doc clarification) and #37 (post-deploy visual verification) as the third partner-coordination item from S1 close.
+**Source**: S1-Sprint-Closer Step 2 Pre-Exec divergence discovery; pairs with BACKLOG #36 (staging-deploy doc clarification) and #37 (transferred to CHANGELOG S4 Cleanup 2026-05-05; post-deploy visual verification) as the third partner-coordination item from S1 close.
 
 ---
 
@@ -338,36 +291,6 @@ Two options:
 
 ---
 
-### #48 — Confirm-modal unification
-
-**Source**: S1-Sprint-Closer backender §6+§8 + a11y P4 + design P1.
-
-**Action**: 3 confirm-dialog implementations exist:
-1. `components/ui/VModal.vue` — canonical
-2. `views/master/EditPracticeView.vue:900-915` — custom overlay (`fixed; rgba(0,0,0,0.5)`)
-3. `views/master/AttendanceView.vue:504-516` — custom overlay (same pattern)
-
-Replace 2 + 3 with VModal. Single fix resolves three reports' findings:
-- DRY violation (Backender §6)
-- Custom overlays' a11y gaps (no focus-trap, no focus-return; A11Y P4 — partially addresses #40)
-- 3 hardcoded `rgba(0,0,0,0.5)` overlay sites (Design P1 — partially addresses #41)
-
-**Severity**: MEDIUM.
-
-**Sprint**: S2. Effort: M (touches 2 view files + relies on #40's VModal focus-trap fix landing first).
-
-**Source**: S1-CODE-AUDIT.md issue 18.
-
-**Status**: CLOSED 2026-05-01 — S4 P14 MEGA-3 via shared ConfirmModal.vue extraction.
-
-**Closure path adjustment**: Original framing assumed VModal adoption. Scout (S4-P14 OPEN §V3) revealed VModal has 0 user-side adopters; entire codebase uses Teleport-inline modal idiom (DiaryFilterOverlay / DiarySearchOverlay / EntryActionMenu / UndoSnackbar precedent from MEGA-2). Closure path adjusted: extracted `frontend/src/components/shared/ConfirmModal.vue` (168 LOC; Teleport-based; prop API derived from EditPracticeView's `confirmDialog` reactive shape; `role="dialog"` + `aria-modal="true"` + Escape-key handler — Path Y minimum a11y per #047). Consumed by:
-- `EditPracticeView.vue` line 373 (replaces inline modal at lines 369-401)
-- `AttendanceView.vue` line 218 (replaces inline overlay at line 219 + lines 215-249 dialog markup)
-
-Orphan CSS removed: `.edit-practice__overlay/dialog` (40+ LOC) + `.attendance__overlay`. Future master/admin/user views requiring confirm UX should consume `<ConfirmModal>` directly, not re-implement inline. VModal remains unused in production codebase; deletion candidate for S5+ cleanup if no future adopter emerges.
-
----
-
 ### #49 — `VITE_TELEGRAM_BOT_URL` fail-fast in PROD
 
 **Source**: S1-Sprint-Closer code-audit §4 + backender §9.
@@ -509,26 +432,6 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 
 ---
 
-### #55 — SERVER-ACCESS.md population (pre-S2 Human action)
-
-**Context**: BACKLOG #36 (RESOLVED in S1-Clean-Sync Step 2 §A4 + §B1 per variant d framing) repointed deploy-flow documentation in ENVIRONMENT.md §Known Limitations and ARCHITECTURE.md §Server & Deploy to `SERVER-ACCESS.md` (gitignored) as the live source of truth. The S1 deploy is performed jointly with the backend partner who hands over the procedure during the deploy session (occurs at S1 close). From S2 onward Velo deploys independently per `SERVER-ACCESS.md`. Population of `SERVER-ACCESS.md` (commands, host endpoint, access credentials reference, audit/promote workflow notes if partner-gated portions persist) is a Human action gated on the partner deploy session.
-
-**Action**: Populate `docs/01_refer/SERVER-ACCESS.md` with partner-provided staging deploy procedure:
-- Host endpoint(s) for staging server.
-- Deploy commands (or pull-trigger mechanism).
-- SSH/credential access notes — env-var references, NEVER plaintext credentials (file is gitignored regardless, but discipline matters).
-- Audit/promote workflow if any partner-gated portions persist into S2.
-- Rollback / hotfix procedure if provided.
-
-**Severity**: pre-S2 blocker. The «we deploy independently per SERVER-ACCESS.md» claim now embedded in ENVIRONMENT.md + ARCHITECTURE.md depends on this file being populated before S2 begins any work that may require deploy.
-
-**Sprint**: pre-S2 Human action (out-of-sprint follow-up). Pairs with BACKLOG #39 (main vs new_desing divergence resolution) and BACKLOG #24 (regen workflow integration) as the three Human-action blockers between S1 close and S2 start.
-
-**Source**: S1-Clean-Sync Step 2 §C5 (RESOLVED note for BACKLOG #36); chat agreement on variant (d) framing (Human-confirmed: S1 partner-joint deploy → S2+ self-deploy transition); deploy-flow promise embedded in ENVIRONMENT.md §Known Limitations row 1 + ARCHITECTURE.md §Server & Deploy.
-**Status**: CLOSED 2026-04-30 — `SERVER-ACCESS.md` populated separately by Human; deploy procedure: `git push origin new_desing && ssh root@<staging-host> 'velo update'`; password storage per Human's choice (gitignored inline OK).
-
----
-
 ### #56 — Backend: email/password auth endpoints
 
 **Priority**: P1 (S3 blocker).
@@ -652,15 +555,6 @@ Action: at each sprint close, audit file headers for stale FIX-ID references. Ca
 
 **Priority**: P2.
 **Source**: BACKEND-COORDINATION § C.5.
-
----
-
-### #72 — Designer: Master-side batch (10 views)
-
-**Priority**: High.
-**Source**: DESIGN-DECISIONS-LOG § D.
-**Notes**: ~~Blocks S4 start per decision #030.~~
-**Status**: SUPERSEDED 2026-05-01 — decision #050 (S4 proceeds without designer batch). Re-evaluate at S5+ polish cluster if/when designer delivers.
 
 ---
 
@@ -877,7 +771,7 @@ Path Y polish-deferred: existing 3 abstract SVGs used as placeholders during C20
 **Action**: at next polish cycle, expand JSON to ~300 entries; consider auto-generating from `Intl.supportedValuesOf('timeZone')` + IANA TZ DB if available.
 
 **Severity**: LOW (current 118-entry coverage handles ~80% of users; browser fallback for the rest).
-**Sprint**: S5+ polish cluster.
+**Sprint**: S5+ (standalone polish-cluster framing obsolete; consider folding into #106 carry-forward if DS swap touches city autocomplete).
 **Status**: OPEN.
 
 ---
@@ -935,28 +829,6 @@ For attendance/analytics fidelity, `leave` should mark the booking with status `
 
 ---
 
-### #98 — Emoji cleanup MEGA-2 carry — 23 in-scope emoji remain (decision #048)
-
-**Source**: S2-S3 SPEEDRUN MEGA-1 close, 2026-04-30.
-
-**Context**: Decision #048 (no-emoji policy in user-visible UI) requires removal of 71 in-scope emoji surfaced by Phase 06 inventory. MEGA-1 cleared **48 sites** (rewritten user-flow views: Dashboard/Calendar/PracticeDetail/Checkin/Feedback/Profile/Booking* + supporting compat shims in `displayHelpers.ts` left as `@deprecated` empty-string maps for legacy consumers). **23 sites remain** in:
-- `frontend/src/components/shared/DiaryList.vue` (mood/rating chips render via deprecated maps)
-- `frontend/src/components/shared/PracticeCard.vue` (practice-type accent chip)
-- `frontend/src/components/shared/BookingCard.vue` (status accent chip)
-- `frontend/src/components/shared/FormShell.vue` (validation feedback chips)
-- `frontend/src/views/master/*.vue` (master-side practice/booking lists — 4 views)
-- Diary detail components (DiaryCheckinDetail, DiaryFeedbackDetail, DiaryEntryDetail)
-
-These are scheduled to be cleared by MEGA-2 (S3 P10/P11/P12/P13) in cycle C36 (Diary refresh) and the master-suite refresh (C40-C44). Once all 23 callsites are converted to `PRACTICE_TYPE_ICON` / icon-component patterns, the deprecated `PRACTICE_TYPE_EMOJI`/`MOOD_EMOJI`/`RATING_EMOJI` maps can be deleted from `displayHelpers.ts`.
-
-**Action**: Track to MEGA-2 close. Verification grep at MEGA-2 close: `grep -rIE "(😀|😢|😴|😌|🧘|🌬|💆|🎬|✨|🔥|❤|⚠|💔|🧠)" frontend/src/` should return 0 in-scope hits.
-
-**Severity**: LOW (compat shims keep build green; cosmetic carry).
-**Sprint**: S3 MEGA-2.
-**Status**: CLOSED — 2026-04-30 MEGA-2 close: emoji audit grep returns 0 hits in `frontend/src/views/user/`, `frontend/src/components/shared/`, `frontend/src/utils/`. Cleanup landed across 12 files (DiaryList, BookingCard, PracticeCard, FormShell, CancelBookingPopup, DiaryCheckinDetail/FeedbackDetail/EntryDetail/EntryForm, MyBookingsView, TopupCancel/SuccessView, adminHelpers).
-
----
-
 ### #99 — Backend public master endpoint `GET /api/v1/masters/{id}` + `MasterPublicResponse`
 
 **Source**: S2-S3 SPEEDRUN MEGA-2 §C51 MasterProfilePublicView (2026-04-30).
@@ -1004,50 +876,6 @@ Speedrun delta requiring audit:
 **Cross-refs**: decision #049 (speedrun mode), CHANGELOG.md S2-S3 closure entry, S2-SNAPSHOT.md + S3-SNAPSHOT.md "Code Audit Result" rows (deferred).
 
 **Status**: OPEN.
-
----
-
-### #101 — ARCHITECTURE.md §Key Decisions count drift (post-S2-S3-Speedrun)
-
-**Source**: S4-Sprint-Builder Step 1 Architecture Review (2026-05-01).
-
-**Context**: ARCHITECTURE.md §Key Decisions still reads `Active decisions #001-#026 as of S1 close (2026-04-28)` but actual count is 49 ACTIVE (#001-#049 post-S2-S3-Speedrun closure 2026-04-30). Same drift previously closed via BACKLOG #15 (S1-Clean-Sync) — reappeared because speedrun #049 closure deferred Clean-Sync; counter line not refreshed alongside #027-#049 additions.
-
-**Action**: at next S4-Clean-Sync run (post-Sprint-Closer), refresh §Key Decisions counter line to reflect actual count + most recent close date.
-
-**Severity**: NIT (cosmetic doc-drift; does not affect functional code or sprint planning).
-**Sprint**: S4-Clean-Sync.
-**Status**: OPEN.
-
----
-
-### #102 — P14 master views visual verify deferred
-
-**Status**: CLOSED 2026-05-04 (S4-P15 combined verify gate).
-
-**Closure note**: 10 master views verified on staging via operator visual walk-through during S4-P15 close. Result: cosmetically acceptable; DS-polish deferred to S5+ (operator received updated design system; structural delta TBD; see #106). Functional flows (EditPractice cancel/delete, Attendance finalize, MasterFinance withdraw, MasterProfile role-switch) all confirmed working.
-
-**Context**: P14 closed with code+deploy clean (commit 27a604f deployed to staging via paramiko `velo update`; all 4 containers running, API endpoint serving, server SHA confirmed 27a604f). Visual verify of the 10 refreshed master views was deferred per Hybrid-policy Branch 2 because no master-role staging test account was configured at close time. Per ENVIRONMENT.md §Test accounts: only account 526738615 has confirmed role (user). Per ENVIRONMENT.md §Role switching: backend partner can configure role per Telegram ID on request.
-
-**Scope to verify** (10 master views, light + dark themes via VHeader IconTheme toggle):
-1. MasterPendingView — status splash (test by master account in `pending` status)
-2. MasterApplyView — 3-step application form (test by user-role account on `/master/apply`; applyGuard route)
-3. MasterDashboardView — greeting + StatCards + nearest practice
-4. MasterPracticesView — list with status chips (Предстоящие / Прошедшие)
-5. CreatePracticeView — 6-section creation form
-6. EditPracticeView — edit + ConfirmModal integration (test save / publish / cancel / delete confirmation flows)
-7. AttendanceView — 3-section attendance display + ConfirmModal (test finalize practice flow)
-8. AnalyticsView — StatCards + AICommentaryCard placeholder + per-practice cards
-9. MasterFinanceView — withdrawal form + limits Callout (preserve `min_withdrawal_cents` / `withdrawal_fee_cents` reads)
-10. MasterProfileView — TD-FE-ROLE-SWITCH preserved (4 markers) + setUiMode invariant
-
-**Acceptance**: Hybrid policy A (clean) or A-with-NIT-logged closure. Defects routed to BACKLOG; BREAK defects route to inline-fix cycle.
-
-**Recommended consolidation**: Fold this verify with P15 admin views visual verify after P15 close — single partner-relay role-switch coordination covers both roles in one staging session (master + admin views, light + dark, total 17 views).
-
-**Effort**: S (single staging session ~30-45 min once role-switch coordination is in place).
-
-**Sprint tag**: S4 (or S5 if not addressed before sprint close).
 
 ---
 
@@ -1150,20 +978,3 @@ Either (option a) extend `AdminMasterListItem` to include `bio?, methods?, exper
 
 ---
 
-### #107 — S4-Clean-Sync doc-trail hygiene cluster
-
-**Source**: S4-Sprint-Closer Combined Scout (2026-05-04) — 2 doc-trail nits surfaced, both routing to S4-Clean-Sync per Information Map (file-tree sync + decisions cross-check are 05_Clean-Sync's domain, not Sprint-Closer's).
-
-**Items**:
-
-1. **`decisions.md` Status column drift on superseded rows**: #050 supersedes #030, and #051 supersedes #010 (per their respective rationale text). Both supersession claims are present in the rationale of #050/#051, but the Status column on #010 and #030 still reads `ACTIVE`. Should read `SUPERSEDED (by #051)` and `SUPERSEDED (by #050)` respectively. Drift introduced when #050/#051 were ratified at S4 planning without cascade-update on the superseded rows. Discovered via Rule 22 CASCADE class during S4-Sprint-Closer scout S13.
-
-2. **`FILE-TREE.md` off-by-one in `components/shared/` count**: header line currently reads `(34; speedrun + S4-P14 + S4-P15 post-verify additions tagged)`, bumped from 33→34 in commit `8513424` (S4 P15 close hygiene). Disk count via `find frontend/src/components/shared -name "*.vue" | wc -l` returns 33 .vue files (incl. RoleSwitcher.vue). Off-by-one introduced in `8513424`. Verify the correct count at Clean-Sync time and update header accordingly.
-
-**Severity**: NIT (cosmetic; no functional impact).
-
-**Sprint**: S4-Clean-Sync (next protocol; covers exactly this kind of doc-drift per Information Map).
-
-**Status**: OPEN.
-
-**Cross-refs**: BACKLOG #101 (similar count drift on `ARCHITECTURE.md` §Key Decisions — also S4-Clean-Sync candidate); Rule 22 CASCADE class.

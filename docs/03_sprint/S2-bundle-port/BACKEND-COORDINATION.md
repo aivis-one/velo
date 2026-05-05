@@ -181,6 +181,20 @@
 
 **Frontend until ready:** Textarea в UI, при отправке текст разрешается локально, на backend booking создаётся без notes. Toast "Запрос мастеру скоро будет доступен".
 
+### B.5 `AdminMasterListItem` schema extension — application content — P2
+
+**Why:** S4-P15 AdminMasterReviewView (admin verify/reject flow) needs to display master's application content for moderation decision. Current `AdminMasterListItem` (generated.ts:32) exposes only `id, telegram_id?, first_name?, last_name?, avatar_url?, role: UserRole, is_active: boolean, master_status: string`. Current `MasterApplyResponse` (generated.ts:307) exposes only `user_id, status, created_at`. Neither type carries the application content the reviewer needs to see (bio, methods, experience, certifications, contact email/phone). View shipped as **degraded v1** with placeholder Callout «Расширенные данные заявки пока недоступны» pending this extension.
+
+**Required (option a — schema extension, preferred):**
+- Extend `AdminMasterListItem` with admin-only fields: `bio?: str`, `methods?: str[]`, `experience_years?: int`, `certifications?: str[]`, `email?: str`, `phone?: str`.
+
+**Required (option b — new endpoint, alternative):**
+- `GET /api/v1/admin/masters/{id}/application` → richer `AdminMasterApplicationResponse` with the application content above.
+
+**Frontend until ready:** AdminMasterReviewView v1 ships with placeholder Callout amber «Расширенные данные заявки пока недоступны — backend-расширение в очереди» + verify/reject CTAs via ConfirmModal. When backend extends + regen lands → C70-style follow-up cycle wires fields into FormShell rendering, promoting v1 → v2.
+
+**Sprint tag:** S5+ backend cycle (mirror of BACKLOG #104).
+
 ---
 
 ## C. Behaviour clarifications — уточнения текущих endpoints

@@ -1,7 +1,7 @@
 # Velo — File Tree
 
 > Scope: `frontend/src/` + `docs/` only. Backend and other top-level directories are out of scope.
-> Updated: 2026-05-04 (S4-P15 close + role-switch fix — partial regen frontend/src/views/admin + frontend/src/components/shared/RoleSwitcher.vue NEW).
+> Updated: 2026-05-05 (S4-Clean-Sync Step 1 — drift fix: removed 2 PHANTOM entries (env ambient + legacy ruble icon); added frontend/src/data/ block, S4-master-admin sprint subtree, S4 SNAPSHOT + RETRO archives).
 > Validated by: `05_Clean-Sync.md` Step 1.
 
 ## frontend/src/
@@ -10,7 +10,6 @@
 frontend/src/
 ├── App.vue                     # root component
 ├── main.ts                     # entry; mounts App, wires router + Pinia + global styles
-├── env.d.ts                    # ambient types (Vite env, Vue SFC, Telegram WebApp SDK)
 ├── api/                        # backend integration layer
 │   ├── client.ts               # fetch base client (15s AbortController, 401 callback, in-flight GET dedup F-09)
 │   ├── generated.ts            # auto-generated TypeScript types from backend OpenAPI; do NOT edit (decisions.md #023); regen via self-host pipeline when partner stalls (decisions.md #046)
@@ -61,7 +60,6 @@ frontend/src/
 │   │   ├── IconMic.vue         # MEGA-2 (composer mic)
 │   │   ├── IconProfile.vue
 │   │   ├── IconQuestion.vue    # MEGA-2 (support hero)
-│   │   ├── IconRuble.vue       # legacy — 0 consumers; deletion deferred (BACKLOG #29 closed S1 but file restored by build artifacts)
 │   │   ├── IconSearch.vue      # MEGA-2 (search overlay)
 │   │   ├── IconShare.vue       # MEGA-2 (Поделиться row)
 │   │   ├── IconShield.vue      # MEGA-2 (Support deco)
@@ -79,7 +77,7 @@ frontend/src/
 │   │   └── index.ts
 │   ├── master/                 # master-role shared pieces
 │   │   └── PracticeListItem.vue   # S4-P14 cascade-refreshed (PRACTICE_TYPE_ICON migration)
-│   ├── shared/                 # role-agnostic shared components (34; speedrun + S4-P14 + S4-P15 post-verify additions tagged)
+│   ├── shared/                 # role-agnostic shared components (33; speedrun + S4-P14 + S4-P15 post-verify additions tagged)
 │   │   ├── AICommentaryCard.vue       # MEGA-2 (mint VELO AI tag + placeholder body)
 │   │   ├── BookingCard.vue
 │   │   ├── BookingPopup.vue
@@ -142,6 +140,8 @@ frontend/src/
 │   ├── usePagination.test.ts   # vitest
 │   ├── usePracticeWindows.ts   # check-in / live / feedback time-window helpers
 │   └── useToast.ts             # transient toast surface
+├── data/                       # static JSON data tables consumed by views
+│   └── cities.json             # MEGA-2 (S2-P06 C21 + S3-P12 C47) — 118-entry city → IANA mapping for OnboardingTimezoneView + LanguageTimezoneView (per BACKLOG #95 expansion deferred)
 ├── platform/                   # platform-specific adapters (TMA + standalone PWA)
 │   ├── index.ts                # platform factory selection (Telegram vs standalone)
 │   ├── standalone.ts           # PWA fallback (no Telegram SDK)
@@ -272,11 +272,13 @@ docs/
 │   │   ├── RETRO/
 │   │   │   ├── S1-RETRO.md         # moved from S1-pilot/ at Sprint-Closer Step 11
 │   │   │   ├── S2-RETRO.md         # S2-S3-Speedrun closure 2026-04-30
-│   │   │   └── S3-RETRO.md         # S2-S3-Speedrun closure 2026-04-30
+│   │   │   ├── S3-RETRO.md         # S2-S3-Speedrun closure 2026-04-30
+│   │   │   └── S4-RETRO.md         # S4-Sprint-Closer 2026-05-04
 │   │   └── SNAPSHOT/
 │   │       ├── S1-SNAPSHOT.md      # sprint-close snapshot (Sprint-Closer Step 7)
 │   │       ├── S2-SNAPSHOT.md      # S2-S3-Speedrun closure 2026-04-30
-│   │       └── S3-SNAPSHOT.md      # S2-S3-Speedrun closure 2026-04-30
+│   │       ├── S3-SNAPSHOT.md      # S2-S3-Speedrun closure 2026-04-30
+│   │       └── S4-SNAPSHOT.md      # S4-Sprint-Closer 2026-05-04 (master + admin refresh; speedrun #052)
 │   └── GUIDES/
 │       └── claude-design-pipeline.md   # design-gen cycle playbook
 ├── 02_spec/                        # active framework protocols (SPEC v3.2-velo)
@@ -305,8 +307,14 @@ docs/
 │   │   ├── S2-SPRINT.md            # CLOSED 2026-04-30 (Phase 05-09)
 │   │   ├── BACKEND-COORDINATION.md # cross-team coordination SSOT (decision #041)
 │   │   └── DESIGN-DECISIONS-LOG.md # designer/PM/sponsor decisions log (decision #041)
-│   └── S3-greenfield/
-│       └── S3-SPRINT.md            # CLOSED 2026-04-30 (Phase 10-13)
+│   ├── S3-greenfield/
+│   │   └── S3-SPRINT.md            # CLOSED 2026-04-30 (Phase 10-13)
+│   └── S4-master-admin/
+│       ├── S4-SPRINT.md            # CLOSED 2026-05-04 (Phase 14 master-refresh + Phase 15 admin-refresh; speedrun #052)
+│       ├── P14-master-refresh/
+│       │   └── P14-master-refresh.md   # MEGA-3 (10 master views refresh; #050 designer-independent)
+│       └── P15-admin-refresh/
+│           └── P15-admin-refresh.md   # MEGA-4 (7 admin views refresh; #051 admin unfreeze)
 ├── 04_assets/                      # bundle SSOT (decisions.md #006)
 │   ├── velo-design-system-2026-04-23/   # original bundle SSOT (126 files: tokens, components, screens, illustrations, fonts)
 │   └── velo-design-system-2026-04-30/   # designer batch 2 (~55 mockups, ~34 unique views; per Phase 06 §S1 + BACKLOG #92)

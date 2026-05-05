@@ -2,7 +2,7 @@
 
 > Frontend-only scope. Backend lives in `backend/` and is maintained separately.
 > Loaded in every working chat alongside `01_Declaration.md`.
-> Last updated: 2026-04-30 (S2-S3-Speedrun closure).
+> Last updated: 2026-05-05 (S4-Clean-Sync — counter refreshes; VModal claim corrected; Phase 14 + 15 narratives accurate as of S4 close 2026-05-04).
 
 ---
 
@@ -25,9 +25,9 @@ These are authoritative and read-only for this framework — do not edit from SP
 
 See `FILE-TREE.md` for current inventory. Compact:
 
-- `views/` — 32 page components across `user/` (11) · `master/` (10) · `admin/` (7) · `auth/` (4), plus three shells
+- `views/` — 57 page components across `user/` (31) · `master/` (10) · `admin/` (7) · `auth/` (9), plus 3 shells + 2 root views (HomeView, NotFoundView)
 - `components/` — icons, layout, shared, ui, master-specific
-- `stores/` — Pinia: auth, balance, bookings, diary, master, practices, ui
+- `stores/` — Pinia: auth, balance, bookings, diary, master, messages, notifications, practices, ui
 - `composables/` — useAuth, useApiError, useToast, usePagination, usePracticeWindows
 - `api/` — 9 files including client base, per-module modules, types, utils
 - `router/` — index, guards, tabs (shell-layout with role guards)
@@ -172,7 +172,7 @@ See `FILE-TREE.md` for current inventory. Compact:
 
 **New shared component**:
 
-- `frontend/src/components/shared/ConfirmModal.vue` — NEW (168 LOC). Teleport-inline confirm-dialog with `role="dialog"` + `aria-modal="true"` + Escape-key handler (Path Y minimum a11y). Prop API: `visible / loading / title / message / danger / confirmLabel / cancelLabel`. Emits: `confirm / cancel / update:visible`. Replaces inline overlay+dialog markup in EditPracticeView + AttendanceView. BACKLOG #48 closure path (shared ConfirmModal extraction; supersedes original "VModal adoption" framing — VModal has 0 user-side adopters; entire codebase uses Teleport-inline idiom per established pattern).
+- `frontend/src/components/shared/ConfirmModal.vue` — NEW (168 LOC). Teleport-inline confirm-dialog with `role="dialog"` + `aria-modal="true"` + Escape-key handler (Path Y minimum a11y). Prop API: `visible / loading / title / message / danger / confirmLabel / cancelLabel`. Emits: `confirm / cancel / update:visible`. Replaces inline overlay+dialog markup in EditPracticeView + AttendanceView. BACKLOG #48 closure path (shared ConfirmModal extraction; supersedes original "VModal adoption" framing — VModal direct view-side adoption is 0; legacy indirect chain remains via BookingPopup + CancelBookingPopup → MyBookingsView (legacy view kept; superseded by MyReservationsView)).
 
 **Cross-cutting Phase 14**:
 
@@ -324,7 +324,7 @@ Six skills auto-run on Sprint close (`04_Sprint-Closer.md`): type-audit, code-au
 
 ## Key Decisions
 
-Flat log: `decisions.md`. Active decisions #001-#026 as of S1 close (2026-04-28).
+Flat log: `decisions.md`. Decisions #001-#052 as of S4 close (2026-05-04). Status mix: see `decisions.md` (ACTIVE / SUPERSEDED / DEPRECATED columns).
 
 ---
 

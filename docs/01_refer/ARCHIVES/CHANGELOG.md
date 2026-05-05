@@ -103,3 +103,45 @@ S2 + S3 audit severity rows blank — deferred per BACKLOG #100. Authoritative s
 5. 23 mock-pending items in BACKEND-COORDINATION.md § A/B/C (search, support, messaging, AI commentary, language enum, master public stats, leave endpoint).
 
 ---
+
+## S4 Cleanup — 2026-05-05
+
+### From BACKLOG.md (main body — CLOSED/SUPERSEDED transferred)
+
+- **#37** — Post-deploy visual verification of S1 pilot screens — CLOSED 2026-04-30 (S2 P05 C15 staging push verification gate; deploy `ad4ce7d`).
+- **#48** — Confirm-modal unification — CLOSED 2026-05-01 (S4 P14 MEGA-3 via shared `ConfirmModal.vue` extraction; VModal direct view-side adoption remains 0; indirect chain via BookingPopup + CancelBookingPopup → MyBookingsView preserved pending legacy view migration).
+- **#55** — SERVER-ACCESS.md population (pre-S2 Human action) — CLOSED 2026-04-30 (populated by Human; deploy procedure documented).
+- **#72** — Designer: Master-side batch (10 views) — SUPERSEDED 2026-05-01 by decision #050 (S4 proceeded without designer batch; UI-mockups + user-role pattern reuse). Re-evaluate at S5+ if designer delivers.
+- **#98** — Emoji cleanup MEGA-2 carry (23 in-scope hits remaining) — CLOSED 2026-04-30 MEGA-2 close (emoji audit grep returns 0 hits across 12 files in scope).
+- **#102** — P14 master views visual verify deferred — CLOSED 2026-05-04 (S4-P15 combined verify gate; folded with P15 admin verify per speedrun #052).
+
+### From BACKLOG.md (status-flipped during S4-Clean-Sync, then transferred)
+
+- **#101** — ARCHITECTURE.md §Key Decisions counter drift (#001-#026 → #001-#052) — CLOSED 2026-05-05 by S4-Clean-Sync Step 2 edit B3 (counter line refreshed: `Decisions #001-#052 as of S4 close (2026-05-04)`).
+- **#107** — S4-Clean-Sync doc-trail hygiene cluster (two sub-items) — CLOSED 2026-05-05 by S4-Clean-Sync Step 2:
+  - sub-item .1 — decisions.md status column drift on #010 + #030 — flipped to `SUPERSEDED (by #051)` and `SUPERSEDED (by #050)` respectively (Step 2 edits A1 + A2).
+  - sub-item .2 — FILE-TREE.md `components/shared/` annotation off-by-one (34 → 33) — corrected (Step 2 edit D1).
+
+### From BACKLOG.md (legacy table — CLOSED rows transferred)
+
+- **Row 24** — Regen workflow integration (post-backend Pydantic changes) — CLOSED 2026-04-30 (workflow documented in BACKEND-COORDINATION § D).
+- **Row 26** — A.2 follow-up: financial constants migration — CLOSED 2026-04-30 (S2 P05 C15 regen surfaced limit fields).
+- **Row 27** — Zodd CRITICAL #1: PracticeSummary.timezone fix — CLOSED 2026-04-30 (S2 P05 C15 self-host regen).
+- **Row 32** — TopupRequest / TopupResponse type duplication — CLOSED 2026-04-30 (S2 P05 C15 consume via `@/api/types` re-export).
+
+### From ENVIRONMENT.md
+
+- Quality Tools table — Pre-commit row dropped 2026-05-05 (no consumer, no candidate BACKLOG entry; ghost row from S1 era; can be re-added if pre-commit setup becomes a real priority).
+
+### Stale Files Archived
+
+- None (no archive threshold reached: current=S4, archive trigger at S(-6)).
+
+### Counts
+
+- Entries transferred: 12 (6 main-body CLOSED/SUPERSEDED + 2 status-flip + 4 legacy-table)
+- Entries retained as ambiguous-but-kept: 1 (legacy table row 20 — B.2 cancelBooking false-positive ledger; audit reference)
+- Doc rows dropped: 1 (ENVIRONMENT.md pre-commit Quality Tools row)
+- Sprint folders archived: 0
+
+---

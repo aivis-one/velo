@@ -1,7 +1,7 @@
 # Velo — Environment
 
 > Loaded in every working chat. Bridge between framework rules and project reality.
-> Updated: 2026-04-30 (S2-S3-Speedrun closure).
+> Updated: 2026-05-05 (S4-Clean-Sync — Operator Role section + velo seed prompt-structure note added during S4; test-account provenance refreshed).
 
 ---
 
@@ -123,7 +123,6 @@ Not required for frontend work: Python, pytest, Godot, PostgreSQL (runs in Docke
 | Formatter | `cd frontend && npm run format` | Prettier |
 | Type checker | `cd frontend && npm run typecheck` | vue-tsc |
 | Test runner | `cd frontend && npm run test` | Vitest |
-| Pre-commit | (not configured) | Candidate for `BACKLOG.md` |
 
 ---
 
@@ -265,7 +264,7 @@ Tested fallback chain (in order, use first that works in target env):
 
 ### Test accounts
 
-Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/test_telegram_send.py` (partner-owned).
+Telegram IDs registered with `@velo_testbot`. Source: `backend/scripts/seed.py` (partner-owned; provisions roles per interactive prompts — see §velo CLI commands → Seed row).
 
 | Telegram ID | Role | Purpose |
 |------|------|---------|
@@ -300,7 +299,7 @@ Available on staging via paramiko `exec_command`. Modifying operations require S
 **Cross-references:**
 - `velo gen-types`: regenerates `frontend/src/api/generated.ts` from backend OpenAPI; second path to regen alongside partner-signal flow (decision #031) + frontend self-host fallback (decision #046).
 - `velo db connect`: read-only inspection safe; modifying SQL requires Server Action Plan.
-- `velo update`: known transient ("Uncommitted changes detected") fires on commits ≥600 LOC per BACKLOG #96 (hypothesis CONFIRMED 4/4 deploys post-MEGA-1); retry pattern via fresh paramiko session resolves.
+- `velo update`: known transient ("Uncommitted changes detected") fires on large frontend-code commits per BACKLOG #96 (hypothesis refined 2026-05-04: 4/6 deploys ≥600 code-LOC trigger; docs-only commits do not); retry pattern via fresh paramiko session resolves.
 - Demo data prep + role provisioning: `velo seed` appends fixtures DB-wide and provisions admin/master/user roles per interactive prompts. **Actual prompt structure** (verified 2026-05-04): 5 slots per role × 3 roles in order **Master → User → Admin** (15 slots total; empty newline at slot N terminates that role's loop early). Claude Code drives this via paramiko PTY (`invoke_shell()` + slot-aware heuristic regex `(Master|Admin|User)\s+(\d+)\s+Telegram\s*ID` + scripted input) — operator does NOT run interactively. Idempotent on repeat (existing accounts skipped per highest-wins rule). See §Operator Role + Workflow Model.
 
 ---

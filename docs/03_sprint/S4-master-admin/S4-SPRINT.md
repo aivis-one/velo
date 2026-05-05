@@ -144,33 +144,41 @@ S4 inherits (must respect):
 | S4-P14-C55 | 03_Phase-Builder | 2026-05-01 | DONE |
 | S4-P15-C66 | 03_Phase-Builder | 2026-05-04 | DONE |
 | S4-Sprint-Closer | 04_Sprint-Closer | 2026-05-04 | DONE — Sprint 4 CLOSED |
+| S4-Clean-Sync | 05_Clean-Sync | 2026-05-05 | DONE — 12 BACKLOG entries → CHANGELOG; FILE-TREE drift=0; cross-doc consistent |
 
 ---
 
 ## Last Session
 
-Sprint 4 closed. SNAPSHOT created at `docs/01_refer/ARCHIVES/SNAPSHOT/S4-SNAPSHOT.md`. RETRO created at `docs/01_refer/ARCHIVES/RETRO/S4-RETRO.md`. ProbeKit lite audit DEFERRED per BACKLOG #100 + decision #049/#052 (audit reactivation = production promotion gate, not sprint-close gate). 6 S4 commits (c2b5a90 → 8513424) on `new_desing`; LOC 25,839 (Δ +257 vs S3); 0 typecheck errors / 0 lint warnings / 32/32 tests / build green. BACKLOG #107 appended (S4-Clean-Sync doc-trail hygiene cluster: decisions.md status column drift on #010/#030 + FILE-TREE.md off-by-one in commit 8513424). Plan vs Reality already populated at P15 close — Sprint-Closer Step 10 scope narrowed to Current State / Protocol Log / Last Session / Next Action / For Human only.
+S4-Clean-Sync executed (3 scout + 3 execute prompts). FILE-TREE.md drift fix (12 items: 2 PHANTOM removed + 10 MISSING added — S4 sprint subtree, frontend/src/data/, S4 SNAPSHOT/RETRO). Cross-doc fixes across 6 files (decisions.md #010 + #030 → SUPERSEDED; ARCHITECTURE counter + counts + VModal claim; ENVIRONMENT seed.py + #96 cross-ref + pre-commit row drop; FILE-TREE shared/ annotation; BACKLOG #48 + #95 narratives; BACKEND-COORDINATION §B.5 #104 mirror). Backlog prune: 12 entries transferred to ARCHIVES/CHANGELOG.md S4 Cleanup section (6 main-body CLOSED/SUPERSEDED + 2 status-flip #101/#107 + 4 legacy-table rows). Closed BACKLOG #101 / #107 / #107.1 / #107.2 logically (transferred via Step 3). Sprint folder archive threshold not triggered. Zero verbal commitments to capture.
 
 ---
 
 ## Next Action
 
-SPRINT CLOSED.
-Next: Session Code S4-Clean-Sync — run 05_Clean-Sync.
+SPRINT CLOSED. S4-Clean-Sync DONE.
+Next: Session Code S5-Sprint-Builder — run 02_Sprint-Builder.
 
 ---
 
 ## For Human
 > Next chat instruction. Copy-paste.
 
-**Session Code:** S4-Clean-Sync
+**Session Code:** S5-Sprint-Builder
 **Load:**
-1. Framework: 01_Declaration.md + 05_Clean-Sync.md
-2. Project: ENVIRONMENT.md + FILE-TREE.md + BACKLOG.md + ARCHITECTURE.md + decisions.md
-3. Sprint: S4-SPRINT.md + S4-SNAPSHOT.md
-**Run:** 05_Clean-Sync — FILE-TREE refresh + path validation + BACKLOG #107 hygiene cluster (decisions.md #010/#030 status column + FILE-TREE.md components/shared off-by-one) + #101 ARCHITECTURE.md §Key Decisions count refresh + general doc-drift sweep.
+1. Framework: 01_Declaration.md + 02_Sprint-Builder.md
+2. Project: ENVIRONMENT.md + ARCHITECTURE.md + BACKLOG.md + decisions.md
+3. Sprint: S4-SNAPSHOT.md (previous closed sprint)
+**Run:** 02_Sprint-Builder — plan S5.
 
-**Note:** S4 closed at code + verify level on staging; sprint-close commits land on `new_desing` (HEAD post-Sprint-Closer). ProbeKit lite audit deferred per BACKLOG #100 (production promotion gate, not sprint-close gate).
+**S5 charter (per BACKLOG #106):** full DS stack replacement (Velo bundle → new stack TBD; operator delivers materials at S5 planning) + workflow gap fill (missing/new screens). NOT a polish cluster — project-wide breaking change. S6 = animation + motion pass after S5 lands.
+
+**S5 entry conditions to verify at planning:**
+- BACKLOG #100 (production audit reactivation) — independent gate
+- BACKLOG #104 (backend AdminMasterListItem extension) — backend cycle dependency for AdminMasterReviewView v2
+- BACKLOG #106 — operator-delivered DS materials present
+
+**Note:** S4 closed at code + verify level on staging; S4-Clean-Sync commits on `new_desing` (HEAD post-Clean-Sync). ProbeKit lite audit deferred per BACKLOG #100 (production promotion gate, not sprint-close gate).
 
 ---
 
