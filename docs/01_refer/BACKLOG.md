@@ -1147,3 +1147,23 @@ Either (option a) extend `AdminMasterListItem` to include `bio?, methods?, exper
 - BACKLOG #105 — getMastersList dead code (micro-task; can fold into any S5 cycle that touches api/admin.ts)
 
 **Cross-refs**: #047 (Path Y MEDIUM rationale, S4 fidelity ceiling — explicitly raised in S5); #048 (no-emoji + icon-component discipline — verify preservation under new DS; new stack may have its own icon convention); #050/#051 (designer-batch-independent decisions — superseded if new DS includes Figma source-of-truth re-coupling); BACKLOG #100 (production gate; #106 closes S4-era polish debt but does NOT supersede audit gate).
+
+---
+
+### #107 — S4-Clean-Sync doc-trail hygiene cluster
+
+**Source**: S4-Sprint-Closer Combined Scout (2026-05-04) — 2 doc-trail nits surfaced, both routing to S4-Clean-Sync per Information Map (file-tree sync + decisions cross-check are 05_Clean-Sync's domain, not Sprint-Closer's).
+
+**Items**:
+
+1. **`decisions.md` Status column drift on superseded rows**: #050 supersedes #030, and #051 supersedes #010 (per their respective rationale text). Both supersession claims are present in the rationale of #050/#051, but the Status column on #010 and #030 still reads `ACTIVE`. Should read `SUPERSEDED (by #051)` and `SUPERSEDED (by #050)` respectively. Drift introduced when #050/#051 were ratified at S4 planning without cascade-update on the superseded rows. Discovered via Rule 22 CASCADE class during S4-Sprint-Closer scout S13.
+
+2. **`FILE-TREE.md` off-by-one in `components/shared/` count**: header line currently reads `(34; speedrun + S4-P14 + S4-P15 post-verify additions tagged)`, bumped from 33→34 in commit `8513424` (S4 P15 close hygiene). Disk count via `find frontend/src/components/shared -name "*.vue" | wc -l` returns 33 .vue files (incl. RoleSwitcher.vue). Off-by-one introduced in `8513424`. Verify the correct count at Clean-Sync time and update header accordingly.
+
+**Severity**: NIT (cosmetic; no functional impact).
+
+**Sprint**: S4-Clean-Sync (next protocol; covers exactly this kind of doc-drift per Information Map).
+
+**Status**: OPEN.
+
+**Cross-refs**: BACKLOG #101 (similar count drift on `ARCHITECTURE.md` §Key Decisions — also S4-Clean-Sync candidate); Rule 22 CASCADE class.

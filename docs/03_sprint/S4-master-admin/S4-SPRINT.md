@@ -129,9 +129,9 @@ S4 inherits (must respect):
 
 | Item | Value |
 |------|-------|
-| Phase | 15: Admin Role Refresh — DONE |
-| Cycle | C74: closure (chat S4-P15-C66) — DONE; combined verify gate clean (A with S5 polish deferral); 1 BREAK fix mid-flow (role-switch centralization, 8eede07) |
-| Status | S4 closed at code + verify level; ready for S4-Sprint-Closer protocol |
+| Phase | All phases DONE |
+| Cycle | — |
+| Status | SPRINT CLOSED |
 | Tests | 32 pass / 0 fail / 0 skip |
 
 ---
@@ -143,40 +143,34 @@ S4 inherits (must respect):
 | S4-Sprint-Builder | 02_Sprint-Builder | 2026-05-01 | DONE |
 | S4-P14-C55 | 03_Phase-Builder | 2026-05-01 | DONE |
 | S4-P15-C66 | 03_Phase-Builder | 2026-05-04 | DONE |
+| S4-Sprint-Closer | 04_Sprint-Closer | 2026-05-04 | DONE — Sprint 4 CLOSED |
 
 ---
 
 ## Last Session
 
-S4 P15 admin-refresh executed via single MEGA-4 combined execute prompt covering all 8 cycles (C66-C73) per #052 speedrun. 7 admin views refreshed under Velo DS + admin store decision spike (C66 verdict: continue direct-api; no stores/admin.ts created — rationale: zero shared methods across api/admin.ts, zero cross-view state candidates; Path Y discipline #047). 0 emoji in admin scope (was 25). Lint baseline preserved at 0 warnings (P14 → P15). 0 typecheck errors / 32/32 tests pass / build green / PWA precache 188 → 190 entries (+2 = IconQuestion + ConfirmModal chunk-split; benign). Anti-scope file diffs verified empty (router x3, api x3, stores, components/shared, components/ui, utils x2, package.json). TD-FE-ROLE-SWITCH preserved at 1-marker baseline in AdminProfileView (different from MasterProfileView 4-marker; preserved as-is per Path Y — do NOT normalize across roles). AdminMasterReviewView shipped as degraded v1 — full-fidelity v2 gated on backend extension (BACKLOG #104) exposing master application content (bio/methods/experience/certifications). 1 dead-code method (`getMastersList` in api/admin.ts) deferred to S5+ cleanup per BACKLOG #105. Verification Scout returned 0 BREAK / 0 GAP / 2 NIT (both pre-existing — extractApiError adoption gap covered by BACKLOG #41/#43; #ffffff border pattern from S1 bundle convention).
-
-**P15 deploy operational notes** (post-close 2026-05-04): paramiko deploy of MEGA-4 commit + combined visual verify gate (P14 #102 backfill: 10 master views + P15: 7 admin views; both light/dark themes) pending. Operator runs `velo seed` self-service (per ENVIRONMENT.md §velo CLI commands) to provision admin/master/user roles on operator's chosen Telegram IDs without partner-relay. GAP-noted seed limitations from OPEN scout §S7: AdminMasterReviewView verify/reject flow + AdminReportsView/AdminReportDetailView populated states limited to empty-state cosmetic verify (no pending masters / no Reports in default seed data); functional-flow verify deferred until backend partner extends seed OR S5+ test data injection. Hybrid policy reply A/B/C captured in subsequent hygiene commit.
-
-**P14 deploy operational notes** (preserved for context, post-close 2026-05-01): paramiko deploy of 27a604f succeeded on attempt 1 — BACKLOG #96 transient did not fire (refinement data point logged in #96). Server-side velo-frontend container exhibited a pre-existing healthcheck flap (Up but `unhealthy` per `wget --spider` on port 3000) reproduced post-P14; not a P14 regression — observed since MEGA-2 deploy 2026-04-30. External access via reverse proxy (`https://api.vel-app.com/health`) functional throughout. BACKLOG entry #103 logs the healthcheck flap. Visual verify deferred per Branch 2 (BACKLOG #102) — master-role staging account coordination pending; folded into P15 close combined verify above.
-
-**P15 verify gate + role-switch fix** (2026-05-04 post-deploy): operator visual verify combined gate (P14 #102 backfill 10 master views + P15 7 admin views × {light, dark}) surfaced 1 BREAK on M10/A1 flow — UserProfileView had no role-switch UI (legacy 2-value uiStore design assumed unidirectional admin/master → user only; never extended to user → elevated). Mid-flow fix executed: NEW `frontend/src/components/shared/RoleSwitcher.vue` (~130 LOC) centralizes TD-FE-ROLE-SWITCH across all 3 profile views; Variant Z UX (all available roles shown, current marked active via route-prefix, user-only accounts hide block entirely). Hierarchy ADMIN > MASTER > USER hardcoded per `seed.py` source-of-truth (UserResponse.role is single-value). Anti-scope preserved (uiStore binary `'default' | 'user'` unchanged). Single `fix:` commit `8eede07` deployed via paramiko (#96 not fired — delta ~75 LOC, well under threshold). Operator re-tested role-switch flow (focused 3-min checklist) → confirmed working. Resumed main verify checklist; final reply A clean with explicit S5-polish deferral (BACKLOG #106 — operator has updated DS; scope characterization deferred to S5 OPEN). 17 views functional + theme-correct; cosmetic refinement under new DS deferred. #103 healthcheck flap confirmed at 3 deploys (cosmetic, deferred S5+). #96 hypothesis refined to 4/6 with counter-examples (docs-only commits + small code-deltas don't fire).
+Sprint 4 closed. SNAPSHOT created at `docs/01_refer/ARCHIVES/SNAPSHOT/S4-SNAPSHOT.md`. RETRO created at `docs/01_refer/ARCHIVES/RETRO/S4-RETRO.md`. ProbeKit lite audit DEFERRED per BACKLOG #100 + decision #049/#052 (audit reactivation = production promotion gate, not sprint-close gate). 6 S4 commits (c2b5a90 → 8513424) on `new_desing`; LOC 25,839 (Δ +257 vs S3); 0 typecheck errors / 0 lint warnings / 32/32 tests / build green. BACKLOG #107 appended (S4-Clean-Sync doc-trail hygiene cluster: decisions.md status column drift on #010/#030 + FILE-TREE.md off-by-one in commit 8513424). Plan vs Reality already populated at P15 close — Sprint-Closer Step 10 scope narrowed to Current State / Protocol Log / Last Session / Next Action / For Human only.
 
 ---
 
 ## Next Action
 
-Open new chat with Session Code S4-Sprint-Closer. Run 04_Sprint-Closer protocol — Step 1 sprint readiness check + Step 1+ ProbeKit lite profile (deferred per #100 — log defer, do NOT run audit) + Step 2-N sprint snapshot/retro/closure. S4 phases both DONE; verify gate clean (A with S5 polish deferral via #106); 3 commits at HEAD (P14 hygiene 599b8ac, P15 phase 3e61af6, role-switch fix 8eede07) + this hygiene commit at HEAD+1.
+SPRINT CLOSED.
+Next: Session Code S4-Clean-Sync — run 05_Clean-Sync.
 
 ---
 
 ## For Human
 > Next chat instruction. Copy-paste.
 
-**Session Code:** S4-Sprint-Closer
+**Session Code:** S4-Clean-Sync
 **Load:**
-1. Framework: 01_Declaration.md + 04_Sprint-Closer.md
-2. Project: ENVIRONMENT.md + ARCHITECTURE.md + FILE-TREE.md + BACKLOG.md + decisions.md
-3. Sprint: S4-SPRINT.md + P14-master-refresh/P14-master-refresh.md + P15-admin-refresh/P15-admin-refresh.md + BACKEND-COORDINATION.md + DESIGN-DECISIONS-LOG.md
-**Run:** 04_Sprint-Closer — sprint snapshot + retro + closure commit + S5 trigger preparation
+1. Framework: 01_Declaration.md + 05_Clean-Sync.md
+2. Project: ENVIRONMENT.md + FILE-TREE.md + BACKLOG.md + ARCHITECTURE.md + decisions.md
+3. Sprint: S4-SPRINT.md + S4-SNAPSHOT.md
+**Run:** 05_Clean-Sync — FILE-TREE refresh + path validation + BACKLOG #107 hygiene cluster (decisions.md #010/#030 status column + FILE-TREE.md components/shared off-by-one) + #101 ARCHITECTURE.md §Key Decisions count refresh + general doc-drift sweep.
 
-**Note:** S4 closed at code+verify level on staging (commit at HEAD). Sprint-Closer formalizes closure: SNAPSHOT (LOC counts, decision count, phase artifacts), RETRO (worked / didn't work / carry forward), commit `sprint: S4 master-admin — CLOSED`. ProbeKit lite profile DEFERRED per #100 (audit reactivation = production promotion gate, not sprint-close gate).
-
-**S5 charter pre-signal**: Per BACKLOG #106 — S5 is MAJOR DS stack replacement (Velo bundle → new stack TBD; operator delivers materials at S5 planning) + workflow gap fill (missing/new screens). NOT Path Y #047 polish cluster. Project-wide breaking change. Sprint-Closer S5-prep section should reflect this scope ceiling shift, not assume polish cycle. S6 = separate animation/motion pass after S5 lands.
+**Note:** S4 closed at code + verify level on staging; sprint-close commits land on `new_desing` (HEAD post-Sprint-Closer). ProbeKit lite audit deferred per BACKLOG #100 (production promotion gate, not sprint-close gate).
 
 ---
 
