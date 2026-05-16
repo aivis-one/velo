@@ -79,8 +79,8 @@ frontend/src/
 │   └── ui.ts              -- viewMode (role switching)
 │
 ├── styles/
-│   ├── variables.css      -- Design tokens (generated from Figma)
-│   └── global.css         -- Reset, typography, Google Fonts
+│   ├── variables.css      -- ONLY tokens: primitives + semantic aliases (no fonts, no reset, no utilities)
+│   └── global.css         -- @import Google Fonts + reset + .velo-typo-* utility classes
 │
 ├── utils/
 │   ├── format.ts          -- formatMoney, formatDate, formatDateShort
@@ -102,9 +102,98 @@ frontend/src/
 CC generates in this order. **Do not skip stages** — each stage depends on the previous.
 
 ### Stage 0 — Design Tokens (must be done first, before any component)
-- Extract all CSS variables from Figma Design System frame
-- Write to `src/styles/variables.css`
-- This file is the **only source of colors, spacing, radius, typography**
+
+**Source.** The only valid source is the **Design System frame in Figma** (not individual screens).
+Locate it via the page named "Design System" (or equivalent). If there is no dedicated frame
+and tokens are scattered across screens — stop and ask, do not improvise.
+
+**File.** `src/styles/variables.css`. This file is the **only** source of colors,
+spacing, radius, and typography sizes for the whole app.
+
+**What this file MUST contain** and **only** contain:
+
+```css
+:root {
+  /* ===== Layer 1 -- PRIMITIVES (raw values, internal) ===== */
+  --velo-color-steel-primary: #4c6589;
+  --velo-color-alpha-steel-50: rgba(76, 101, 137, 0.5);
+  --velo-space-4: 16px;
+  --velo-radius-md: 8px;
+  /* ... */
+
+  /* ===== Layer 2 -- SEMANTIC TOKENS (aliases, used by components) ===== */
+  --velo-text-primary: var(--velo-color-steel-primary);
+  --velo-bg-screen: var(--velo-color-neutral-white);
+  /* ... */
+}
+```
+
+**Two-layer rule:**
+- **Layer 1 (primitives)** — raw values named after their origin (`--velo-color-steel-primary`, `--velo-space-4`). **Internal.** Components MUST NOT reference primitives directly.
+- **Layer 2 (semantic aliases)** — what components actually use (`--velo-text-primary`, `--velo-bg-screen`). Spacing and radius primitives may also serve as semantic — they don't need a separate alias layer.
+
+**Required semantic groups** (extract from Design System frame; if a group has no
+values in Figma — **leave it out and note it**, do not invent values):
+
+| Group | Tokens (examples) |
+|-------|-------------------|
+| Text | `--velo-text-primary`, `--velo-text-secondary`, `--velo-text-muted`, `--velo-text-inverse`, `--velo-text-footnote` |
+| Backgrounds | `--velo-bg-screen`, `--velo-bg-input`, `--velo-bg-button-primary`, `--velo-bg-card` |
+| Borders | `--velo-border-default`, `--velo-border-input`, `--velo-border-button` |
+| States | `--velo-state-success`, `--velo-state-error`, `--velo-state-warning`, `--velo-state-info`, `--velo-state-destructive` |
+| Interactive | `--velo-focus-ring`, `--velo-disabled-bg`, `--velo-disabled-text`, `--velo-hover-overlay`, `--velo-active-overlay` |
+| Spacing | `--velo-space-0` through `--velo-space-25` (4-base scale) |
+| Radius | `--velo-radius-sm/md/lg/pill/full` |
+| Shadows | `--velo-shadow-card`, `--velo-shadow-modal`, plus any Figma-specific effects |
+
+**Naming convention.** Every token starts with `--velo-` without exception.
+No `--space-*`, no `--color-*` — always `--velo-space-*`, `--velo-color-*`.
+
+**What this file MUST NOT contain:**
+
+- `@import url(...)` for fonts — goes in `global.css`
+- Global reset (`* { box-sizing }`, `body { margin: 0 }`) — goes in `global.css`
+- Typography utility classes (`.velo-typo-*`) — go in `global.css`
+- **Component-specific dimensions** — back-pill width, dot size, screen canvas width and similar. Rule of thumb: a token must be reusable across ≥3 unrelated components; otherwise it's a local constant in the component's `<style scoped>`.
+- `line-height: normal` anywhere — always a concrete numeric value from Figma.
+- `calc()` traps like `var(--velo-space-12) + 2px` (without `calc()` this is invalid CSS). If the value is constant, write it as a primitive; if it's computed, wrap in `calc()`.
+
+### Stage 0.25 — Global Stylesheet (`src/styles/global.css`)
+
+After tokens exist, create `global.css`. This is the home for everything that
+isn't a token but must apply globally.
+
+**Contents:**
+
+```css
+/* 1. Google Fonts import (must come before tokens resolve in components) */
+@import url('https://fonts.googleapis.com/css2?family=...&display=swap');
+
+/* 2. Global reset */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--velo-font-family-primary);
+  color: var(--velo-text-primary);
+  background: var(--velo-bg-screen);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 3. Typography utility classes (use existing tokens, never hardcode) */
+.velo-typo-heading-h1 {
+  font-family: var(--velo-font-family-primary);
+  font-size: var(--velo-size-32);
+  line-height: 1.2;   /* concrete number, never `normal` */
+  letter-spacing: 0.64px;
+}
+/* ... other .velo-typo-* classes ... */
+```
+
+Rules:
+- Every value comes from `variables.css` via `var(--velo-*)`. No hardcoded hex/px.
+- Concrete `line-height` everywhere — never `normal`.
+- Import order in `main.ts`: `variables.css` first, then `global.css`.
 
 ### Stage 0.5 — i18n Setup (before any component or view)
 - Create `src/i18n/index.ts` with `createI18n({ legacy: false, locale: 'ru', fallbackLocale: 'en' })`
@@ -117,7 +206,7 @@ CC generates in this order. **Do not skip stages** — each stage depends on the
 ### Stage 1 — UI Kit (`src/components/ui/`)
 - Generate each primitive from its Figma component frame
 - After each component: add its export to `src/components/ui/index.ts`
-- Components must use only `var(--velo-*)` tokens — no hardcoded values
+- Components must use only `var(--velo-*)` semantic tokens — no hardcoded values, no Layer 1 primitives
 - Every component gets a `size` prop where applicable
 
 ### Stage 2 — Layout Components (`src/components/layout/`)
@@ -246,9 +335,9 @@ const props = defineProps<{
 
 ### 6.2 Styles
 
-```css
-/* -- Always use design tokens, never hardcode values -- */
+**Rule 1 — Always use design tokens, never hardcode values.**
 
+```css
 /* FORBIDDEN */
 color: #4c6589;
 padding: 16px;
@@ -256,11 +345,71 @@ border-radius: 15px;
 
 /* CORRECT */
 color: var(--velo-text-primary);
-padding: var(--space-4);
-border-radius: var(--radius-md);
+padding: var(--velo-space-4);
+border-radius: var(--velo-radius-md);
 ```
 
-CSS class naming: BEM — `.practice-card__title`, `.practice-card--active`.
+**Rule 2 — Use SEMANTIC tokens (Layer 2). Primitives (Layer 1) are internal.**
+
+Primitives are named after their origin (`--velo-color-steel-primary`) and may
+change when the design system updates. Components must reference **semantic
+aliases** so a colour reskin doesn't require touching every component.
+
+```css
+/* FORBIDDEN -- reaching into Layer 1 primitives */
+color: var(--velo-color-steel-primary);
+background: var(--velo-color-neutral-white);
+
+/* CORRECT -- Layer 2 semantic aliases */
+color: var(--velo-text-primary);
+background: var(--velo-bg-screen);
+```
+
+Exception: spacing and radius primitives (`--velo-space-4`, `--velo-radius-md`)
+are both primitive and semantic — they have no separate alias layer.
+
+**Rule 3 — Every token name starts with `--velo-`. No exceptions.**
+
+```css
+/* FORBIDDEN */
+padding: var(--space-4);
+border-radius: var(--radius-md);
+
+/* CORRECT */
+padding: var(--velo-space-4);
+border-radius: var(--velo-radius-md);
+```
+
+**Rule 4 — Never `line-height: normal`. Always a concrete value.**
+
+`normal` resolves differently per browser/font. Use the value from Figma
+(Figma's "auto" ≈ 1.2 for most fonts — but check each text style).
+
+```css
+/* FORBIDDEN */
+line-height: normal;
+
+/* CORRECT */
+line-height: 1.2;
+line-height: 1.4;
+```
+
+**Rule 5 — Component-specific dimensions stay in the component.**
+
+A back-pill width of 64px or a pagination-dot size of 13px is not a global
+token — it's a constant of that one component. Put it in the component's
+`<style scoped>`. Global tokens are for values reused by ≥3 unrelated components.
+
+```css
+/* FORBIDDEN -- in variables.css */
+--velo-back-pill-width: 64px;
+--velo-dot-active-size: 13px;
+
+/* CORRECT -- inside VBackPill.vue <style scoped> */
+.back-pill { width: 64px; }
+```
+
+**Class naming:** BEM — `.practice-card__title`, `.practice-card--active`.
 All styles in `<style scoped>` inside the `.vue` file.
 
 ### 6.3 API Calls
@@ -581,6 +730,11 @@ async function loadData(): Promise<void> {
 - Hardcode user-facing strings in `.vue` or `.ts` — always `t('key')` via vue-i18n
 - Store the auth token in Pinia — it lives as a module-level var in `client.ts`
 - Skip the `useAuthStore().init()` call in `main.ts` — without it 401 won't clear session
+- Reference primitive tokens (`--velo-color-*`) directly from components — always use semantic aliases (`--velo-text-*`, `--velo-bg-*`)
+- Put component-specific dimensions (back-pill width, dot size, screen canvas) in `variables.css` — those live in the component's `<style scoped>`
+- Use `line-height: normal` anywhere — always a concrete numeric value from Figma
+- Mix font `@import`, global reset, or `.velo-typo-*` utilities into `variables.css` — those belong in `global.css`
+- Invent rules and attribute them to ARCHITECTURE.md sections that don't exist — if a needed rule isn't in this document, ask before generating; do not fabricate citations
 
 ---
 
