@@ -1,8 +1,13 @@
-# VELO — Дизайн-документ (Конституция)
+# VELO -- Дизайн-документ (Конституция)
 
-**Версия:** 2.0
-**Дата:** 8 марта 2026
+**Версия:** 3.0
+**Дата:** 16 мая 2026
 **Статус:** Active
+
+> **Изменение в v3.0:** Frontend откачен на Phase 0 foundation. Все компоненты,
+> views, stores и composables удалены. Новые views генерируются через Claude Code
+> из Figma по гайду `frontend/ARCHITECTURE.md` и бэклогу `VELO-Frontend-TZ-Final.md`.
+> Backend не затронут.
 
 ---
 
@@ -12,7 +17,7 @@
 
 > **Мастера хотят творить, а не быть бухгалтерами и секретарями. VELO снимает рутину.**
 
-VELO — платформа для мастеров практик (медитация, йога, breathwork и смежные направления).
+VELO -- платформа для мастеров практик (медитация, йога, breathwork и смежные направления).
 Автоматизирует всё, что мешает мастеру заниматься своим делом:
 
 | Рутина | До VELO | После VELO |
@@ -78,8 +83,9 @@ VELO — платформа для мастеров практик (медита
 | Роутинг | Vue Router | 4.x |
 | Стейт | Pinia | latest |
 | HTTP | Fetch (обёртка `client.ts`) | native |
+| i18n | vue-i18n | latest |
 | PWA | vite-plugin-pwa | latest |
-| Стили | Свой CSS (дизайн-токены из мокапов) | -- |
+| Стили | Свой CSS (дизайн-токены из Figma) | -- |
 | Линтинг | ESLint + Prettier | latest |
 
 ### 2.4. Внешние сервисы
@@ -103,9 +109,9 @@ VELO — платформа для мастеров практик (медита
 
 ## 3. Архитектура
 
-### 3.1. Модульный монолит сейчас — микросервисы потом
+### 3.1. Модульный монолит сейчас -- микросервисы потом
 
-MVP — один сервис, разбитый на изолированные модули. Каждый модуль
+MVP -- один сервис, разбитый на изолированные модули. Каждый модуль
 самодостаточен и спроектирован так, чтобы в будущем стать отдельным
 микросервисом без переписывания бизнес-логики.
 
@@ -161,12 +167,17 @@ Admin Service:      reports, audit_log
 | master | MasterShell | Дашборд / Практики / Аналитика / Профиль |
 | admin | AdminShell | Дашборд / Мастера / Модерация |
 
-Мастер имеет доступ к обоим интерфейсам (user + master).
-Переключение через профиль (TD-FE-ROLE-SWITCH).
+Мастер и Админ имеют доступ к интерфейсу нижестоящих ролей через viewMode
+(переключение режима без смены роли в БД). `viewMode` хранится в Pinia +
+sessionStorage, сбрасывается при logout. Admin-only API-действия игнорируют
+viewMode и проверяют реальную `user.role`.
+
+**Детали:** `frontend/ARCHITECTURE.md` (конституция фронта для Claude Code) +
+`VELO-Frontend-TZ-Final.md` (бэклог экранов и спринт-план).
 
 ### 3.5. Платёжная архитектура (Double-Entry)
 
-**Принцип:** каждая операция — две записи в журналах. Сумма всех записей = 0.
+**Принцип:** каждая операция -- две записи в журналах. Сумма всех записей = 0.
 
 Три журнала:
 
@@ -213,29 +224,52 @@ import logging                  # только structlog
 
 ### 4.3. Запреты (фронтенд)
 
-```css
-/* ЗАПРЕЩЕНО -- хардкод hex: */
-color: #334D6E;
-background: #FEF2F2;
+Принципиальные запреты. Полный список и примеры -- в `frontend/ARCHITECTURE.md §8`.
 
-/* ПРАВИЛЬНО -- CSS-переменные: */
-color: var(--velo-primary);
-background: var(--velo-error-bg-subtle);
+```css
+/* ЗАПРЕЩЕНО -- хардкод цветов/отступов/радиусов: */
+color: #4c6589;
+padding: 16px;
+border-radius: 15px;
+
+/* ПРАВИЛЬНО -- только дизайн-токены из variables.css: */
+color: var(--velo-text-primary);
+padding: var(--space-4);
+border-radius: var(--radius-md);
 ```
 
 ```typescript
-// ЗАПРЕЩЕНО -- локальные дубли маппингов:
-const TYPE_EMOJI = { live: '🧘', ... }
-const MOOD_EMOJI = { low: '😔', ... }
+// ЗАПРЕЩЕНО -- raw fetch и хардкод URL:
+const res = await fetch('https://api.vel-app.com/api/v1/users/me')
 
-// ПРАВИЛЬНО -- единый источник:
-import { PRACTICE_TYPE_EMOJI, MOOD_EMOJI, RATING_EMOJI } from '@/utils/displayHelpers'
+// ПРАВИЛЬНО -- типизированные обёртки из src/api/:
+import { getMe } from '@/api/users'
+const user = await getMe()
+```
 
-// ЗАПРЕЩЕНО -- русские литералы в .vue/.ts:
-title="Новая практика"
+```typescript
+// ЗАПРЕЩЕНО -- any и ручная типизация бэкенд-схем:
+function handle(data: any) { ... }
 
-// ПРАВИЛЬНО -- ключи i18n (пост-MVP):
-:title="t('practice.create.title')"
+// ПРАВИЛЬНО -- типы из api/types.ts (re-export из generated.ts):
+import type { PracticeResponse } from '@/api/types'
+```
+
+```typescript
+// ЗАПРЕЩЕНО -- прямое обращение к Telegram SDK:
+window.Telegram.WebApp.HapticFeedback.impactOccurred('medium')
+
+// ПРАВИЛЬНО -- через platform-абстракцию:
+import { platform } from '@/platform'
+platform.hapticFeedback('medium')
+```
+
+```vue
+<!-- ЗАПРЕЩЕНО -- русские литералы в шаблонах: -->
+<button>Записаться на практику</button>
+
+<!-- ПРАВИЛЬНО -- ключи i18n сразу, с первого экрана: -->
+<button>{{ t('practice.book') }}</button>
 ```
 
 ### 4.4. Соглашения по коду
@@ -264,33 +298,37 @@ velo/                              -- GitHub repo root
 │   │   ├── core/                  -- DB, Redis, config, exceptions, mixins
 │   │   └── modules/               -- Бизнес-модули (см. раздел 3.1)
 │   ├── migrations/                -- Alembic migrations
-│   ├── tests/                     -- pytest (402 passed, 3 skipped)
-│   ├── scripts/                   -- seed.py и прочие утилиты
+│   ├── tests/                     -- pytest
+│   ├── scripts/                   -- seed.py, generate_ts_types.py
 │   ├── Dockerfile
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/
-│   │   ├── api/                   -- HTTP-клиент + методы по модулям
-│   │   ├── components/            -- ui/, layout/, shared/
-│   │   ├── composables/           -- useAuth, usePagination и др.
-│   │   ├── platform/              -- Telegram / Standalone абстракция
+│   │   ├── api/                   -- HTTP-клиент + generated types + API-методы
+│   │   ├── components/            -- ui/, layout/, shared/ (генерируется CC)
+│   │   ├── composables/           -- useAuth, useToast, usePagination (генерируется CC)
+│   │   ├── platform/              -- Telegram / Standalone абстракция (стабильно, не трогать)
 │   │   ├── router/                -- Vue Router + guards
-│   │   ├── stores/                -- Pinia stores
-│   │   ├── styles/                -- variables.css (дизайн-токены), global.css
-│   │   ├── utils/                 -- format.ts, displayHelpers.ts, adminHelpers.ts
-│   │   └── views/                 -- user/, master/, admin/, auth/, shells/
+│   │   ├── stores/                -- Pinia stores (генерируется CC)
+│   │   ├── styles/                -- variables.css (Figma tokens), global.css
+│   │   ├── utils/                 -- format, currency, constants
+│   │   └── views/                 -- shells/, auth/, user/, master/, admin/ (генерируется CC)
 │   ├── public/                    -- manifest.json, иконки, telegram-web-app.js
+│   ├── ARCHITECTURE.md            -- Фронт-конституция для Claude Code
 │   ├── Dockerfile
 │   └── package.json
 ├── docker-compose.yml             -- Весь стек: app + frontend + postgres + redis
 ├── scripts/
 │   └── install_velo.sh            -- Первоначальная установка на VPS
-├── diagrams/                      -- Mermaid-схемы (УСТАРЕЛИ, не источник правды)
-├── velo-mockups/                  -- HTML-прототипы (UI-reference, не источник кода)
-└── VELO-Design-Document.md        -- Этот файл
+├── VELO-Design-Document.md        -- Этот файл (конституция)
+├── VELO-Backend.md                -- Бэковый Кодекс (детали бэка)
+└── VELO-Frontend-TZ-Final.md      -- Фронт-бэклог: экраны, спринты, endpoint-mapping
 ```
 
-**Источник правды по схеме БД:** `backend/app/modules/*/models.py`
+**Источники правды:**
+- Схема БД: `backend/app/modules/*/models.py`
+- API-контракт: автогенерируется в `frontend/src/api/generated.ts` из OpenAPI бэкенда
+- Дизайн UI: Figma (единственный источник для визуала и токенов)
 
 ---
 
@@ -309,11 +347,13 @@ velo/                              -- GitHub repo root
 
 ### 6.2. Мультиязычность (i18n)
 
-Сейчас фронтенд содержит ~486 русских литералов в 54 файлах.
-Бэкенд чист (коды ошибок), notification templates уже в `ru.yaml`.
+`vue-i18n` подключается с первого экрана генерации фронта. Все строки в
+`.vue` и `.ts` -- через `t('key')`, никаких русских литералов в шаблонах.
 
-План: `vue-i18n v10`, локали `ru` (основной) + `en`.
-Оценка: 9-14 дней работы. Подробный план: `VELO-i18n-Plan.md`.
+Локали: `ru` (основной) + `en`. Файлы локалей: `frontend/src/locales/`.
+
+Отдельный план миграции не требуется: старого фронта с накопленными
+литералами больше нет, новые views создаются сразу i18n-ready.
 
 ### 6.3. Микросервисы
 
@@ -382,9 +422,9 @@ class Subscription:
 
 ### 7.5. Standalone-авторизация
 
-`src/platform/standalone.ts` -- safe no-op заглушки.
-`src/views/auth/StandaloneStubView.vue` -- экран "Откройте через Telegram".
-Полноценная реализация -- в F10.
+`src/platform/standalone.ts` -- safe no-op заглушки (живые, в фундаменте).
+UI-экраны для standalone-режима (LoginView через email/OAuth, StandaloneStubView)
+будут созданы в Phase F10. MVP работает только через Telegram WebApp.
 
 ---
 
@@ -392,12 +432,13 @@ class Subscription:
 
 | Артефакт | Путь | Статус |
 |----------|------|--------|
+| Дизайн-документ (конституция) | `VELO-Design-Document.md` | Актуален (этот файл) |
 | Бэковый Кодекс | `VELO-Backend.md` | Актуален |
-| Фронтовый Кодекс | `VELO-Frontend.md` | Актуален |
-| План i18n | `VELO-i18n-Plan.md` | Рабочий документ |
-| UI-прототипы | `velo-mockups/` | Reference, не источник кода |
-| Mermaid-схемы | `diagrams/` | Устарели, не источник правды |
-| Схема БД (правда) | `backend/app/modules/*/models.py` | Актуальна |
+| Фронт-конституция (для Claude Code) | `frontend/ARCHITECTURE.md` | Актуален, CC стартует отсюда |
+| Фронт-бэклог (экраны и спринты) | `VELO-Frontend-TZ-Final.md` | Живой документ, обновляется после каждого спринта |
+| Схема БД (источник правды) | `backend/app/modules/*/models.py` | Актуальна |
+| API-типы для фронта | `frontend/src/api/generated.ts` | Автогенерация из OpenAPI при `velo update` |
+| Дизайн UI (источник правды) | Figma | Единственный источник для визуала и токенов |
 
 ---
 

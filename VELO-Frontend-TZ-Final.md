@@ -1,6 +1,6 @@
 # VELO Frontend — Финальное ТЗ (Снапшот)
 
-**Версия:** 1.1  
+**Версия:** 1.2  
 **Дата:** 16 мая 2026  
 **Статус:** Рабочий документ — обновляется после каждого спринта
 
@@ -17,6 +17,7 @@
 | Стейт | Pinia |
 | HTTP | Fetch-обёртка (`src/api/client.ts`) |
 | Стили | Custom CSS + Design Tokens (`src/styles/variables.css`) |
+| i18n | vue-i18n (ru основной, en) |
 | Платформа | Telegram WebApp (основной), PWA (fallback) |
 
 **Принципы:**
@@ -25,6 +26,9 @@
 - Стили только через `var(--velo-*)` из design tokens
 - Никаких хардкодов URL — через `import.meta.env.VITE_API_BASE_URL`
 - Cents → display всегда через `formatMoney()`
+- **Никаких русских литералов в `.vue`/`.ts` — все строки через `t('key')` с первого экрана**
+
+> Полная конституция фронта (генерационные стадии, code rules, auth wiring) — в `frontend/ARCHITECTURE.md`. Этот документ — бэклог экранов и спринтов.
 
 ---
 
@@ -414,16 +418,16 @@
 
 ## §5 Что в mock — нет endpoint'ов
 
-Эти фичи есть в UI, но бэкенд ещё не готов. Фронт строит на mock-данных, финальные точки → toast-заглушки.
+Эти фичи есть в UI, но бэкенд ещё не готов. Фронт строит на mock-данных, финальные точки → toast-заглушки. Все строки toast'ов идут через `t('key')` (см. `frontend/ARCHITECTURE.md §6.11`).
 
 | Фича | Что делаем |
 |------|-----------|
-| Email/OAuth логин | Кнопка → toast "В разработке" |
-| Восстановление пароля | Экраны нужно нарисовать, кнопка → toast |
-| Messaging / Chat | 3 fake conversations, "Отправить" → toast "Сообщения скоро" |
+| Email/OAuth логин | Кнопка → `toast.info(t('common.inDevelopment'))` |
+| Восстановление пароля | Экраны нужно нарисовать, кнопка → `toast.info(t('common.inDevelopment'))` |
+| Messaging / Chat | 3 fake conversations, "Отправить" → `toast.info(t('common.comingSoon'))` |
 | Notification preferences | localStorage до endpoint'а |
 | Admin 2FA / auth | Mock до endpoint'а |
-| Admin user/master actions (suspend, ban) | Кнопки → toast |
+| Admin user/master actions (suspend, ban) | Кнопки → `toast.info(t('common.comingSoon'))` |
 | Promo codes UI | Не делаем в первой версии |
 | Waitlist UI | Не делаем в первой версии |
 
@@ -564,3 +568,4 @@
 | 13.05.26 | viewMode (переключение ролей) — sessionStorage, не localStorage | Telegram WebApp закрывает вкладку → sessionStorage очищается, viewMode сбрасывается автоматически |
 | 13.05.26 | Admin-only API actions игнорируют viewMode | Защита от случайного вызова admin endpoint в тестовом режиме |
 | 16.05.26 | Фронт откачен на Phase 0 foundation | Смена дизайна. Все компоненты, вьюхи, stores, composables удалены. Генерация заново из Figma через CC |
+| 16.05.26 | vue-i18n с первого экрана, ru + en | Старого фронта с накопленными литералами больше нет — мигрировать нечего. Все новые views сразу через `t('key')`. Отдельный VELO-i18n-Plan.md больше не нужен |
