@@ -1,7 +1,7 @@
 # VELO Frontend — Финальное ТЗ (Снапшот)
 
-**Версия:** 1.0  
-**Дата:** 13 мая 2026  
+**Версия:** 1.1  
+**Дата:** 16 мая 2026  
 **Статус:** Рабочий документ — обновляется после каждого спринта
 
 ---
@@ -30,37 +30,38 @@
 
 ## §1 Shared Layer (общее для всех Shell'ов)
 
-### Дизайн-система (уже реализована ✅)
+### Дизайн-система
 
 | Компонент | Путь | Статус |
 |-----------|------|--------|
-| VButton | `components/ui/VButton.vue` | ✅ |
-| VInput | `components/ui/VInput.vue` | ✅ |
-| VTextarea | `components/ui/VTextarea.vue` | ✅ |
-| VSelect | `components/ui/VSelect.vue` | ✅ |
-| VCard | `components/ui/VCard.vue` | ✅ |
-| VBadge | `components/ui/VBadge.vue` | ✅ |
-| VAvatar | `components/ui/VAvatar.vue` | ✅ |
-| VLoader | `components/ui/VLoader.vue` | ✅ |
-| VModal | `components/ui/VModal.vue` | ✅ |
-| VToast | `components/ui/VToast.vue` | ✅ |
-| VEmptyState | `components/ui/VEmptyState.vue` | ✅ |
-| VStatCard | `components/ui/VStatCard.vue` | ✅ |
-| VHeader | `components/layout/VHeader.vue` | ✅ |
-| VTabBar | `components/layout/VTabBar.vue` | ✅ |
-| MobileLayout | `components/layout/MobileLayout.vue` | ✅ |
-| PracticeCard | `components/shared/PracticeCard.vue` | ✅ |
-| BookingCard | `components/shared/BookingCard.vue` | ✅ |
-| AdminLayout | `components/layout/AdminLayout.vue` | ✅ |
-| VCheckbox | `components/ui/VCheckbox.vue` | ✅ |
-| VDivider | `components/ui/VDivider.vue` | ✅ |
-| VProgressBar | `components/ui/VProgressBar.vue` | ✅ |
+| VButton | `components/ui/VButton.vue` | ❌ |
+| VInput | `components/ui/VInput.vue` | ❌ |
+| VTextarea | `components/ui/VTextarea.vue` | ❌ |
+| VSelect | `components/ui/VSelect.vue` | ❌ |
+| VCard | `components/ui/VCard.vue` | ❌ |
+| VBadge | `components/ui/VBadge.vue` | ❌ |
+| VAvatar | `components/ui/VAvatar.vue` | ❌ |
+| VLoader | `components/ui/VLoader.vue` | ❌ |
+| VModal | `components/ui/VModal.vue` | ❌ |
+| VToast | `components/ui/VToast.vue` | ❌ |
+| VEmptyState | `components/ui/VEmptyState.vue` | ❌ |
+| VStatCard | `components/ui/VStatCard.vue` | ❌ |
+| VHeader | `components/layout/VHeader.vue` | ❌ |
+| VTabBar | `components/layout/VTabBar.vue` | ❌ |
+| MobileLayout | `components/layout/MobileLayout.vue` | ❌ |
+| PracticeCard | `components/shared/PracticeCard.vue` | ❌ |
+| BookingCard | `components/shared/BookingCard.vue` | ❌ |
+| AdminLayout | `components/layout/AdminLayout.vue` | ❌ |
+| VCheckbox | `components/ui/VCheckbox.vue` | ❌ |
+| VDivider | `components/ui/VDivider.vue` | ❌ |
+| VProgressBar | `components/ui/VProgressBar.vue` | ❌ |
 
-### Роутинг и Auth (уже реализованы ✅)
+### Роутинг и Auth
 
-- TMA-авторизация через `POST /api/v1/auth/telegram` ✅
-- Ролевые guards (user / master / admin) ✅
-- 3 Tab Bar конфигурации по ролям ✅
+- TMA-авторизация через `POST /api/v1/auth/telegram` ❌
+- Ролевые guards (user / master / admin) ❌
+- 3 Tab Bar конфигурации по ролям ❌
+- Скелет роутера (`router/index.ts`) ✅
 
 ---
 
@@ -86,25 +87,25 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-auth-welcome` | 🎨 | — | TMA: сразу в dashboard. PWA: показывает экран |
-| TMA-авторизация (flow) | ✅ | `POST /api/v1/auth/telegram` 🔌 | Уже работает |
-| `user-onboarding-timezone` | 🎨 | `PATCH /api/v1/users/me` 🔌 | Сохранить timezone после онбординга |
+| `user-auth-welcome` | ❌ | — | TMA: сразу в dashboard. PWA: показывает экран |
+| TMA-авторизация (flow) | ❌ | `POST /api/v1/auth/telegram` 🔌 | |
+| `user-onboarding-timezone` | ❌ | `PATCH /api/v1/users/me` 🔌 | Сохранить timezone после онбординга |
 
 #### Dashboard
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-dashboard` | 🎨 | `GET /api/v1/practices` 🔌<br>`GET /api/v1/users/me` 🔌 | Список ближайших практик + баланс |
+| `user-dashboard` | ❌ | `GET /api/v1/practices` 🔌<br>`GET /api/v1/users/me` 🔌 | Список ближайших практик + баланс |
 
 #### Calendar & Practice
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-calendar` | 🎨 | `GET /api/v1/practices` 🔌 | Фильтры: тип, дата. Сортировка по `scheduled_at` |
-| `user-calendar-filter` | 🎨 | — | Клиентская фильтрация |
-| `user-practice-detail-prebook-paid` | 🎨 | `GET /api/v1/practices/:id` 🔌<br>`POST /api/v1/practices/:id/preview-purchase` 🔌 | Платная практика до бронирования |
-| `user-practice-detail-prebook-free` | 🎨 | `GET /api/v1/practices/:id` 🔌 | Бесплатная практика до бронирования |
-| `user-master-profile` | 🎨 | `GET /api/v1/practices?master_id=X` 🔌 | Профиль строится из embedded-полей PracticeResponse: `master_name`, `master_methods[]`. Bio, avatar, experience — нет публичного endpoint'а (§7). Минимальный вариант работает |
+| `user-calendar` | ❌ | `GET /api/v1/practices` 🔌 | Фильтры: тип, дата. Сортировка по `scheduled_at` |
+| `user-calendar-filter` | ❌ | — | Клиентская фильтрация |
+| `user-practice-detail-prebook-paid` | ❌ | `GET /api/v1/practices/:id` 🔌<br>`POST /api/v1/practices/:id/preview-purchase` 🔌 | Платная практика до бронирования |
+| `user-practice-detail-prebook-free` | ❌ | `GET /api/v1/practices/:id` 🔌 | Бесплатная практика до бронирования |
+| `user-master-profile` | ❌ | `GET /api/v1/practices?master_id=X` 🔌 | Профиль строится из embedded-полей PracticeResponse: `master_name`, `master_methods[]`. Bio, avatar, experience — нет публичного endpoint'а (§7). Минимальный вариант работает |
 
 #### Booking Flow
 
@@ -113,49 +114,49 @@
 | `user-payment-checkout` | ❌ | `POST /api/v1/practices/:id/purchase` 🔌 | **P0 Critical** — экран подтверждения покупки перед оплатой |
 | `user-payment-success` | ❌ | `GET /api/v1/bookings/:id` 🔌 | Успешная оплата, показать booking detail |
 | `user-payment-error` | ❌ | — | Ошибка оплаты, кнопка "Попробовать снова" |
-| `user-booking-success` | 🎨 | `GET /api/v1/bookings/:id` 🔌 | После бронирования бесплатной практики |
-| `user-bookings-list` | 🎨 | `GET /api/v1/bookings/me` 🔌 | Мои записи: upcoming / past |
-| `user-booking-detail` | 🎨 | `GET /api/v1/bookings/:id` 🔌 | Детали бронирования |
+| `user-booking-success` | ❌ | `GET /api/v1/bookings/:id` 🔌 | После бронирования бесплатной практики |
+| `user-bookings-list` | ❌ | `GET /api/v1/bookings/me` 🔌 | Мои записи: upcoming / past |
+| `user-booking-detail` | ❌ | `GET /api/v1/bookings/:id` 🔌 | Детали бронирования |
 
 #### Practice Day
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-practice-day-operational` | 🎨 | `GET /api/v1/bookings/:id` 🔌<br>`POST /api/v1/bookings/:id/join` 🔌 | День практики: Zoom deep-link + check-in |
-| `user-practice-live` | 🎨 | `POST /api/v1/bookings/:id/leave` 🔌 | Во время практики |
-| `user-practice-checkin-form` | 🎨 | `POST /api/v1/practices/:id/checkin` 🔌 | Форма: mood picker + slider + textarea |
-| `user-practice-checkin-success` | 🎨 | — | Успех после check-in |
-| `user-practice-feedback-form` | 🎨 | `POST /api/v1/practices/:id/feedback` 🔌 | После практики: rating (fire/good/confused) + комментарий |
-| `user-practice-feedback-success` | 🎨 | — | Успех после feedback |
+| `user-practice-day-operational` | ❌ | `GET /api/v1/bookings/:id` 🔌<br>`POST /api/v1/bookings/:id/join` 🔌 | День практики: Zoom deep-link + check-in |
+| `user-practice-live` | ❌ | `POST /api/v1/bookings/:id/leave` 🔌 | Во время практики |
+| `user-practice-checkin-form` | ❌ | `POST /api/v1/practices/:id/checkin` 🔌 | Форма: mood picker + slider + textarea |
+| `user-practice-checkin-success` | ❌ | — | Успех после check-in |
+| `user-practice-feedback-form` | ❌ | `POST /api/v1/practices/:id/feedback` 🔌 | После практики: rating (fire/good/confused) + комментарий |
+| `user-practice-feedback-success` | ❌ | — | Успех после feedback |
 
 #### Top-up (Stripe)
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-topup` | ✅ | `POST /api/v1/payments/topup` 🔌 | Уже работает |
-| `user-topup-success` | ✅ | `GET /api/v1/users/me` 🔌 | Уже работает |
-| `user-topup-cancel` | ✅ | — | Уже работает |
+| `user-topup` | ❌ | `POST /api/v1/payments/topup` 🔌 | |
+| `user-topup-success` | ❌ | `GET /api/v1/users/me` 🔌 | |
+| `user-topup-cancel` | ❌ | — | |
 
 #### Profile
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-profile-stats` | 🎨 | `GET /api/v1/users/me` 🔌<br>`GET /api/v1/bookings/me` 🔌 | Имя, аватар, статкарточки (практики, часы) |
-| `user-profile-actions` | 🎨 | `POST /api/v1/auth/logout` 🔌 | Logout, edit, delete account |
-| `user-profile-edit` | 🎨 | `PATCH /api/v1/users/me` 🔌 | first_name, last_name, timezone, language |
-| `user-account-delete-confirm` | 🎨 | — | Custom modal с глагольными лейблами, destructive pink |
+| `user-profile-stats` | ❌ | `GET /api/v1/users/me` 🔌<br>`GET /api/v1/bookings/me` 🔌 | Имя, аватар, статкарточки (практики, часы) |
+| `user-profile-actions` | ❌ | `POST /api/v1/auth/logout` 🔌 | Logout, edit, delete account |
+| `user-profile-edit` | ❌ | `PATCH /api/v1/users/me` 🔌 | first_name, last_name, timezone, language |
+| `user-account-delete-confirm` | ❌ | — | Custom modal с глагольными лейблами, destructive pink |
 
 #### Settings
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-settings-notifications` | 🎨 | — 📭 | 4 toggle. Хранить в localStorage до endpoint'а |
+| `user-settings-notifications` | ❌ | — 📭 | 4 toggle. Хранить в localStorage до endpoint'а |
 
 #### Support
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-support-form` | 🎨 | `POST /api/v1/reports` 🔌 | Форма обращения |
+| `user-support-form` | ❌ | `POST /api/v1/reports` 🔌 | Форма обращения |
 | `user-support-success` | ❌ | — | **P0** — success после отправки |
 
 ---
@@ -166,9 +167,9 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-auth-login` | 🎨 | — 📭 | Mock: "Email-вход в разработке" |
-| `user-auth-register` | 🎨 | — 📭 | Mock: OAuth заглушка |
-| `user-auth-oauth-loading` | 🎨 | — 📭 | Mock |
+| `user-auth-login` | ❌ | — 📭 | Mock: "Email-вход в разработке" |
+| `user-auth-register` | ❌ | — 📭 | Mock: OAuth заглушка |
+| `user-auth-oauth-loading` | ❌ | — 📭 | Mock |
 | `user-auth-password-reset-request` | ❌ | — 📭 | Нужен endpoint |
 | `user-auth-password-reset-confirm` | ❌ | — 📭 | Нужен endpoint |
 
@@ -176,59 +177,59 @@
 
 | Экран | Статус | Примечание |
 |-------|--------|-----------|
-| `user-onboarding-intro-1` | 🎨 | Карусель слайд 1 |
-| `user-onboarding-intro-2` | 🎨 | Карусель слайд 2 |
-| `user-onboarding-intro-3` | 🎨 | Карусель слайд 3 |
+| `user-onboarding-intro-1` | ❌ | Карусель слайд 1 |
+| `user-onboarding-intro-2` | ❌ | Карусель слайд 2 |
+| `user-onboarding-intro-3` | ❌ | Карусель слайд 3 |
 
 #### Diary (частично с API)
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-diary-list-timeline` | 🎨 | `GET /api/v1/diary` 🔌 | — |
-| `user-diary-list-flat` | 🎨 | `GET /api/v1/diary` 🔌 | — |
-| `user-diary-filter-collapsed` | 🎨 | — | Client-side |
-| `user-diary-filter-expanded` | 🎨 | — | Client-side |
-| `user-diary-search` | 🎨 | — | Client-side |
-| `user-diary-entry-view` | 🎨 | `GET /api/v1/diary/:id` 🔌 | — |
-| `user-diary-entry-actions` | 🎨 | — | Actions overlay |
-| `user-diary-entry-edit` | 🎨 | `PATCH /api/v1/diary/:id` 🔌 | — |
-| `user-diary-entry-delete-undo` | 🎨 | `DELETE /api/v1/diary/:id` 🔌 | Undo-banner 5 сек |
+| `user-diary-list-timeline` | ❌ | `GET /api/v1/diary` 🔌 | — |
+| `user-diary-list-flat` | ❌ | `GET /api/v1/diary` 🔌 | — |
+| `user-diary-filter-collapsed` | ❌ | — | Client-side |
+| `user-diary-filter-expanded` | ❌ | — | Client-side |
+| `user-diary-search` | ❌ | — | Client-side |
+| `user-diary-entry-view` | ❌ | `GET /api/v1/diary/:id` 🔌 | — |
+| `user-diary-entry-actions` | ❌ | — | Actions overlay |
+| `user-diary-entry-edit` | ❌ | `PATCH /api/v1/diary/:id` 🔌 | — |
+| `user-diary-entry-delete-undo` | ❌ | `DELETE /api/v1/diary/:id` 🔌 | Undo-banner 5 сек |
 | `user-diary-entry-create-expanded` | ❌ | `POST /api/v1/diary` 🔌 | Полный модал |
-| `user-diary-dreams-merged-list` | 🎨 | `GET /api/v1/diary` 🔌 | Client-side фильтр по type=dream (параметр `mood` — для настроения, не типа). Тип в текущем API отсутствует — ждём backend-расширения `DiaryEntry.type` |
-| `user-dreams-list-timeline` | 🎨 | `GET /api/v1/diary` 🔌 | — |
+| `user-diary-dreams-merged-list` | ❌ | `GET /api/v1/diary` 🔌 | Client-side фильтр по type=dream. Тип в текущем API отсутствует — ждём backend-расширения `DiaryEntry.type` |
+| `user-dreams-list-timeline` | ❌ | `GET /api/v1/diary` 🔌 | — |
 
 #### Check-ins History
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-checkins-list-timeline` | 🎨 | `GET /api/v1/users/me/checkins` 🔌 | — |
-| `user-checkins-list-flat` | 🎨 | `GET /api/v1/users/me/checkins` 🔌 | — |
-| `user-checkin-detail` | 🎨 | `GET /api/v1/users/me/checkins?practice_id=X` 🔌 | Endpoint возвращает список (PaginatedCheckinsResponse). Берём первый элемент после фильтра по practice_id — отдельного GET/:id нет |
-| `user-feedbacks-list-timeline` | 🎨 | `GET /api/v1/users/me/feedbacks` 🔌 | — |
-| `user-feedbacks-list-flat` | 🎨 | `GET /api/v1/users/me/feedbacks` 🔌 | — |
+| `user-checkins-list-timeline` | ❌ | `GET /api/v1/users/me/checkins` 🔌 | — |
+| `user-checkins-list-flat` | ❌ | `GET /api/v1/users/me/checkins` 🔌 | — |
+| `user-checkin-detail` | ❌ | `GET /api/v1/users/me/checkins?practice_id=X` 🔌 | Endpoint возвращает список. Берём первый элемент после фильтра по practice_id |
+| `user-feedbacks-list-timeline` | ❌ | `GET /api/v1/users/me/feedbacks` 🔌 | — |
+| `user-feedbacks-list-flat` | ❌ | `GET /api/v1/users/me/feedbacks` 🔌 | — |
 
 #### Correlations (нет endpoint'ов → mock)
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-correlations-2-icons` | 🎨 | — 📭 | Mock data |
-| `user-correlations-3-icons` | 🎨 | — 📭 | Mock data |
-| `user-correlations-graph` | 🎨 | — 📭 | Mock AI-выводы |
-| `user-summary-week` | 🎨 | `GET /api/v1/practices/:id/ai-summary` 🔌 | Placeholder `is_mock=true` |
+| `user-correlations-2-icons` | ❌ | — 📭 | Mock data |
+| `user-correlations-3-icons` | ❌ | — 📭 | Mock data |
+| `user-correlations-graph` | ❌ | — 📭 | Mock AI-выводы |
+| `user-summary-week` | ❌ | `GET /api/v1/practices/:id/ai-summary` 🔌 | Placeholder `is_mock=true` |
 
 #### Messages (нет endpoint'а → mock)
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-messages-list` | 🎨 | — 📭 | 3 fake conversations, кнопка → toast |
-| `user-chat-master` | 🎨 | — 📭 | 5-10 mock-сообщений, "Отправить" → toast |
-| `user-chat-support` | 🎨 | `POST /api/v1/reports` 🔌 | Через reports endpoint |
+| `user-messages-list` | ❌ | — 📭 | 3 fake conversations, кнопка → toast |
+| `user-chat-master` | ❌ | — 📭 | 5-10 mock-сообщений, "Отправить" → toast |
+| `user-chat-support` | ❌ | `POST /api/v1/reports` 🔌 | Через reports endpoint |
 
 #### Booking Cancel (P0 — endpoint существует)
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `user-practice-cancel-confirm` | ❌ | `DELETE /api/v1/bookings/:id` 🔌 | **P0** — Custom modal: сумма возврата, условия. Без этого юзер не может отменить запись |
+| `user-practice-cancel-confirm` | ❌ | `DELETE /api/v1/bookings/:id` 🔌 | **P0** — Custom modal: сумма возврата, условия |
 
 ---
 
@@ -240,48 +241,48 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-application-step1-profile` | 🎨 | — | display_name, email, phone |
-| `master-application-step2-experience` | 🎨 | — | methods, experience_years, bio, certifications |
-| `master-application-step3-documents` | 🎨 | `POST /api/v1/masters/apply` 🔌 | Submit на шаге 3 |
-| `master-application-submitted` | 🎨 | — | После submit |
-| `master-application-approved` | 🎨 | `GET /api/v1/masters/me` 🔌 | status=verified |
-| `master-application-rejected` | 🎨 | `GET /api/v1/masters/me` 🔌 | status=rejected + кнопка "Подать повторно" |
+| `master-application-step1-profile` | ❌ | — | display_name, email, phone |
+| `master-application-step2-experience` | ❌ | — | methods, experience_years, bio, certifications |
+| `master-application-step3-documents` | ❌ | `POST /api/v1/masters/apply` 🔌 | Submit на шаге 3 |
+| `master-application-submitted` | ❌ | — | После submit |
+| `master-application-approved` | ❌ | `GET /api/v1/masters/me` 🔌 | status=verified |
+| `master-application-rejected` | ❌ | `GET /api/v1/masters/me` 🔌 | status=rejected + кнопка "Подать повторно" |
 
 #### Dashboard
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-dashboard-week` | 🎨 | `GET /api/v1/masters/me` 🔌<br>`GET /api/v1/masters/me/practices` 🔌 | Метрики недели + ближайшая практика |
-| `master-dashboard-month` | 🎨 | `GET /api/v1/masters/me` 🔌<br>`GET /api/v1/masters/me/practices` 🔌 | Метрики месяца |
+| `master-dashboard-week` | ❌ | `GET /api/v1/masters/me` 🔌<br>`GET /api/v1/masters/me/practices` 🔌 | Метрики недели + ближайшая практика |
+| `master-dashboard-month` | ❌ | `GET /api/v1/masters/me` 🔌<br>`GET /api/v1/masters/me/practices` 🔌 | Метрики месяца |
 
 #### Practices Management
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-practices-upcoming` | 🎨 | `GET /api/v1/masters/me/practices` 🔌 | Предстоящие практики |
-| `master-practices-past` | 🎨 | `GET /api/v1/masters/me/practices` 🔌 | Прошедшие |
-| `master-practice-create` | 🎨 | `POST /api/v1/practices` 🔌 | Один scroll: title, type, datetime, duration, timezone, participants, price, zoom_link |
-| `master-practice-edit` | 🎨 | `GET /api/v1/practices/:id` 🔌<br>`PATCH /api/v1/practices/:id` 🔌 | Только редактируемые поля |
-| `master-practice-upcoming` | 🎨 | `GET /api/v1/practices/:id` 🔌 | Детали предстоящей |
-| `master-practice-upcoming-actions` | 🎨 | `POST /api/v1/practices/:id/finalize` 🔌 | Завершить + Zoom deep-link |
-| `master-practice-cancel-confirm` | 🎨 | `POST /api/v1/practices/:id/cancel` 🔌 | Custom modal + 100% refund warning |
-| `master-practice-finished` | 🎨 | `GET /api/v1/practices/:id` 🔌<br>`GET /api/v1/practices/:id/insights` 🔌 | Прошедшая: финансы + аналитика |
-| `master-practice-attendance` | 🎨 | `GET /api/v1/practices/:id/attendance` 🔌 | Список: attended / no_show / pending |
+| `master-practices-upcoming` | ❌ | `GET /api/v1/masters/me/practices` 🔌 | Предстоящие практики |
+| `master-practices-past` | ❌ | `GET /api/v1/masters/me/practices` 🔌 | Прошедшие |
+| `master-practice-create` | ❌ | `POST /api/v1/practices` 🔌 | Один scroll: title, type, datetime, duration, timezone, participants, price, zoom_link |
+| `master-practice-edit` | ❌ | `GET /api/v1/practices/:id` 🔌<br>`PATCH /api/v1/practices/:id` 🔌 | Только редактируемые поля |
+| `master-practice-upcoming` | ❌ | `GET /api/v1/practices/:id` 🔌 | Детали предстоящей |
+| `master-practice-upcoming-actions` | ❌ | `POST /api/v1/practices/:id/finalize` 🔌 | Завершить + Zoom deep-link |
+| `master-practice-cancel-confirm` | ❌ | `POST /api/v1/practices/:id/cancel` 🔌 | Custom modal + 100% refund warning |
+| `master-practice-finished` | ❌ | `GET /api/v1/practices/:id` 🔌<br>`GET /api/v1/practices/:id/insights` 🔌 | Прошедшая: финансы + аналитика |
+| `master-practice-attendance` | ❌ | `GET /api/v1/practices/:id/attendance` 🔌 | Список: attended / no_show / pending |
 
 #### Analytics & Finance
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-analytics-feedback` | 🎨 | `GET /api/v1/practices/:id/insights` 🔌 | Распределение fire/good/confused |
-| `master-analytics-finance` | 🎨 | `GET /api/v1/masters/me` 🔌 | frozen_cents, available_cents + блок к выводу |
-| `master-summary-week` | 🎨 | `GET /api/v1/masters/me/practices` 🔌<br>`GET /api/v1/practices/:id/ai-summary` 🔌 | AI summary placeholder |
+| `master-analytics-feedback` | ❌ | `GET /api/v1/practices/:id/insights` 🔌 | Распределение fire/good/confused |
+| `master-analytics-finance` | ❌ | `GET /api/v1/masters/me` 🔌 | frozen_cents, available_cents + блок к выводу |
+| `master-summary-week` | ❌ | `GET /api/v1/masters/me/practices` 🔌<br>`GET /api/v1/practices/:id/ai-summary` 🔌 | AI summary placeholder |
 
 #### Students
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-students-list` | 🎨 | `GET /api/v1/practices/:id/attendance` 🔌 | Endpoint per-practice. Агрегат по всем практикам = N вызовов или нужен aggregate endpoint (§7) |
-| `master-students-checkins-list` | 🎨 | `GET /api/v1/practices/:id/insights` 🔌 | Check-in stats учеников |
+| `master-students-list` | ❌ | `GET /api/v1/practices/:id/attendance` 🔌 | Агрегат по всем практикам = N вызовов или нужен aggregate endpoint (§7) |
+| `master-students-checkins-list` | ❌ | `GET /api/v1/practices/:id/insights` 🔌 | Check-in stats учеников |
 
 #### Payout (P0 — endpoint готов)
 
@@ -294,7 +295,7 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-support-form` | ❌ | `POST /api/v1/reports` 🔌 | **P0 Critical** — без этого admin moderation не работает |
+| `master-support-form` | ❌ | `POST /api/v1/reports` 🔌 | **P0 Critical** |
 | `master-support-success` | ❌ | — | **P0** |
 
 ---
@@ -303,7 +304,7 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `master-onboarding-intro-1/2/3` | 🎨 | — | Карусель после одобрения |
+| `master-onboarding-intro-1/2/3` | ❌ | — | Карусель после одобрения |
 | `master-application-pending-tracker` | ❌ | `GET /api/v1/masters/me` 🔌 | Этапы верификации |
 | `master-dashboard-empty` | ❌ | — | Empty-state нового мастера |
 | `master-chat-student` | ❌ | — 📭 | Нужен endpoint чата |
@@ -314,7 +315,7 @@
 | `master-settings-timezone` | ❌ | `PATCH /api/v1/users/me` 🔌 | timezone field |
 | `master-settings-notifications` | ❌ | — 📭 | localStorage до endpoint'а |
 | `master-notifications-center` | ❌ | — 📭 | Нужен endpoint |
-| `master-practice-kick-confirm` | 🎨 | — 📭 | Endpoint для kick студента мастером отсутствует в API (§7). Перенесён из P0 |
+| `master-practice-kick-confirm` | ❌ | — 📭 | Endpoint для kick студента отсутствует в API (§7) |
 | `master-practice-delete-confirm` | ❌ | `DELETE /api/v1/practices/:id` 🔌 | Только draft без записавшихся |
 | `master-practice-preview` | ❌ | `GET /api/v1/practices/:id` 🔌 | Превью "как видит ученик" |
 | `master-students-empty` | ❌ | — | Empty-state |
@@ -333,15 +334,15 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-dashboard` | 🎨 | `GET /api/v1/admin/stats` 🔌 | users_count, masters_count, practices_count, pending_verifications |
+| `admin-dashboard` | ❌ | `GET /api/v1/admin/stats` 🔌 | users_count, masters_count, practices_count, pending_verifications |
 
 #### Users & Masters
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-users-list` | 🎨 | `GET /api/v1/admin/users` 🔌 | Фильтр role + is_active, пагинация |
-| `admin-masters-list` | 🎨 | `GET /api/v1/admin/masters/list` 🔌 | 3 таба: Все / На проверке / Верифицированы |
-| `admin-master-application-review` | 🎨 | `GET /api/v1/admin/masters/:id` 🔌<br>`POST /api/v1/admin/masters/:id/verify` 🔌 | Просмотр заявки + кнопка Approve |
+| `admin-users-list` | ❌ | `GET /api/v1/admin/users` 🔌 | Фильтр role + is_active, пагинация |
+| `admin-masters-list` | ❌ | `GET /api/v1/admin/masters/list` 🔌 | 3 таба: Все / На проверке / Верифицированы |
+| `admin-master-application-review` | ❌ | `GET /api/v1/admin/masters/:id` 🔌<br>`POST /api/v1/admin/masters/:id/verify` 🔌 | Просмотр заявки + кнопка Approve |
 | `admin-master-reject-modal` | ❌ | `POST /api/v1/admin/masters/:id/reject` 🔌 | **P0 Critical** — модал с причиной отказа |
 | `admin-document-viewer` | ❌ | — | **P0** — просмотр документов мастера |
 
@@ -349,37 +350,37 @@
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-moderation-list` | 🎨 | `GET /api/v1/admin/reports` 🔌 | Фильтр status + target_type |
+| `admin-moderation-list` | ❌ | `GET /api/v1/admin/reports` 🔌 | Фильтр status + target_type |
 | `admin-moderation-ticket-detail` | ❌ | `GET /api/v1/admin/reports/:id` 🔌<br>`POST /api/v1/admin/reports/:id/resolve` 🔌<br>`POST /api/v1/admin/reports/:id/dismiss` 🔌 | **P0 Critical** |
 
 #### Finance & Payouts
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-revenue-detail` | 🎨 | `GET /api/v1/admin/withdrawals` 🔌 | Список запросов вывода |
+| `admin-revenue-detail` | ❌ | `GET /api/v1/admin/withdrawals` 🔌 | Список запросов вывода |
 | `admin-payout-request-detail` | ❌ | `POST /api/v1/admin/withdrawals/:id/approve` 🔌<br>`POST /api/v1/admin/withdrawals/:id/reject` 🔌 | **P0 Critical** — approve с confirm-step |
 
 #### Practices
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-practices-list` | 🎨 | `GET /api/v1/practices` 🔌 | Список всех практик |
-| `admin-practice-upcoming` | 🎨 | `GET /api/v1/practices/:id` 🔌 | Детали предстоящей |
-| `admin-practice-past` | 🎨 | `GET /api/v1/practices/:id` 🔌<br>`GET /api/v1/practices/:id/attendance` 🔌 | Прошедшая |
+| `admin-practices-list` | ❌ | `GET /api/v1/practices` 🔌 | Список всех практик |
+| `admin-practice-upcoming` | ❌ | `GET /api/v1/practices/:id` 🔌 | Детали предстоящей |
+| `admin-practice-past` | ❌ | `GET /api/v1/practices/:id` 🔌<br>`GET /api/v1/practices/:id/attendance` 🔌 | Прошедшая |
 
 #### Analytics
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-analytics-checkin-rate` | 🎨 | — 📭 | Детальная аналитика check-in. `GET /api/v1/admin/stats` возвращает только 4 агрегата — недостаточно. Нужен новый endpoint (§7) |
-| `admin-analytics-feedback-rate` | 🎨 | — 📭 | Аналогично — нужен новый endpoint (§7) |
-| `admin-analytics-return-rate` | 🎨 | — 📭 | Аналогично — нужен новый endpoint (§7) |
+| `admin-analytics-checkin-rate` | ❌ | — 📭 | Детальная аналитика check-in. Нужен новый endpoint (§7) |
+| `admin-analytics-feedback-rate` | ❌ | — 📭 | Нужен новый endpoint (§7) |
+| `admin-analytics-return-rate` | ❌ | — 📭 | Нужен новый endpoint (§7) |
 
 #### Sandbox
 
 | Экран | Статус | Endpoint(s) | Примечание |
 |-------|--------|-------------|-----------|
-| `admin-sandbox-user` | 🎨 | `GET /api/v1/users/me` 🔌<br>`GET /api/v1/bookings/me` 🔌 | Read-only режим юзера |
+| `admin-sandbox-user` | ❌ | `GET /api/v1/users/me` 🔌<br>`GET /api/v1/bookings/me` 🔌 | Read-only режим юзера |
 
 ---
 
@@ -387,7 +388,7 @@
 
 | Экран | Статус | Нужен endpoint | Примечание |
 |-------|--------|---------------|-----------|
-| `admin-auth-login` | 🎨 | — 📭 | Только для standalone web-панели (десктоп). В TMA не нужен — admin входит через TMA auth |
+| `admin-auth-login` | ❌ | — 📭 | Только для standalone web-панели (десктоп). В TMA не нужен |
 | `admin-auth-2fa-setup` | ❌ | — 📭 | TOTP setup — только для web-панели |
 | `admin-auth-2fa-confirm` | ❌ | — 📭 | Ввод TOTP — только для web-панели |
 | `admin-auth-password-reset-request` | ❌ | — 📭 | Нужен endpoint — только для web-панели |
@@ -490,7 +491,7 @@
 | P1 | Kick студента мастером | `POST /api/v1/practices/:id/kick` или `DELETE /api/v1/bookings/:id` с master-scope — нет в API |
 | P1 | Публичный профиль мастера | `GET /api/v1/masters/:id` — нет в API, `user-master-profile` строится из PracticeResponse embedded fields |
 | P1 | Aggregate students list | `GET /api/v1/masters/me/students` — нет в API, `master-students-list` требует N вызовов |
-| P1 | Admin detailed analytics | `GET /api/v1/admin/analytics/checkin-rate`, `/feedback-rate`, `/return-rate` — нет в API, 3 экрана не могут быть построены на `GET /api/v1/admin/stats` |
+| P1 | Admin detailed analytics | `GET /api/v1/admin/analytics/checkin-rate`, `/feedback-rate`, `/return-rate` — нет в API |
 | P2 | Promo codes UI | Endpoint уже есть — нужен только UI |
 | P2 | Waitlist UI | Endpoint уже есть — нужен только UI |
 
@@ -532,28 +533,13 @@
 
 ### Где отображаются кнопки
 
-- `user-profile-actions` (User Shell) — если `user.role === 'master'` или `user.role === 'admin'`, показать кнопку «Перейти в интерфейс мастера» / «Вернуться как мастер»
+- `user-profile-actions` (User Shell) — если `user.role === 'master'` или `user.role === 'admin'`, показать кнопку переключения
 - `master-profile-overview` (Master Shell) — кнопки переключения для master и admin
-- `user-settings-notifications` или отдельная секция настроек — баннер «Режим тестирования: вы смотрите как [роль]» когда viewMode ≠ реальная роль
-
-### Изменения в существующих экранах
-
-| Экран | Что добавить |
-|-------|-------------|
-| `user-profile-actions` | Кнопка «Перейти в интерфейс мастера» (если `user.role ∈ {master, admin}`) |
-| `master-profile-overview` | Кнопка «Смотреть как пользователь» (master и admin) + «Смотреть как админ» (только admin) |
-| Все shell'ы | Sticky баннер «🔍 Режим просмотра: [роль]» когда viewMode ≠ user.role + кнопка «Выйти из режима» |
+- Все shell'ы — sticky баннер «🔍 Режим просмотра: [роль]» когда viewMode ≠ user.role + кнопка «Выйти из режима»
 
 ### Нет нового endpoint'а
 
-Это чисто клиентская фича. API-вызовы не меняются — меняется только какие экраны показываются и как работает роутинг. Реальные действия (verify, payout) всегда идут от имени `user.role`, не `viewMode`.
-
-### Обновление Лог решений
-
-| Дата | Решение | Причина |
-|------|---------|---------|
-| 13.05.26 | viewMode хранится в sessionStorage (не localStorage) | Telegram WebApp закрывает вкладку — sessionStorage очищается автоматически, viewMode сбрасывается |
-| 13.05.26 | Admin-only API actions игнорируют viewMode | Защита: нельзя случайно вызвать admin endpoint находясь в user-режиме |
+Это чисто клиентская фича. API-вызовы не меняются. Реальные действия (verify, payout) всегда идут от имени `user.role`, не `viewMode`.
 
 ---
 
@@ -561,11 +547,10 @@
 
 После каждого завершённого спринта:
 
-1. Экраны со статусом 🎨 → отмечать ✅ если подключены к API
-2. Экраны со статусом ❌ → ✅ если созданы и подключены
-3. Добавить новые экраны если появились в процессе
-4. Обновить `§7` если бэкенд выкатил новые endpoint'ы
-5. Зафиксировать принятые архитектурные решения в конце файла
+1. Экраны со статусом ❌ → отмечать ✅ если созданы и подключены к API
+2. Добавить новые экраны если появились в процессе
+3. Обновить `§7` если бэкенд выкатил новые endpoint'ы
+4. Зафиксировать принятые архитектурные решения в конце файла
 
 ### Лог решений
 
@@ -578,3 +563,4 @@
 | 13.05.26 | admin-auth-login/2FA перенесены в Очередь 2 | В TMA admin авторизуется через POST /auth/telegram (role=admin). Отдельный admin-auth нужен только для будущей standalone web-панели |
 | 13.05.26 | viewMode (переключение ролей) — sessionStorage, не localStorage | Telegram WebApp закрывает вкладку → sessionStorage очищается, viewMode сбрасывается автоматически |
 | 13.05.26 | Admin-only API actions игнорируют viewMode | Защита от случайного вызова admin endpoint в тестовом режиме |
+| 16.05.26 | Фронт откачен на Phase 0 foundation | Смена дизайна. Все компоненты, вьюхи, stores, composables удалены. Генерация заново из Figma через CC |

@@ -91,7 +91,7 @@ frontend/src/
 
 CC generates in this order. **Do not skip stages** — each stage depends on the previous.
 
-### Stage 0 — Design Tokens ✅ (done first, before any component)
+### Stage 0 — Design Tokens (must be done first, before any component)
 - Extract all CSS variables from Figma Design System frame
 - Write to `src/styles/variables.css`
 - This file is the **only source of colors, spacing, radius, typography**
