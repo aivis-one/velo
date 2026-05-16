@@ -12,8 +12,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
-// Global styles (order matters: variables first, then reset/base).
-import './styles/variables.css'
+// Global styles (variables.css is generated from Figma design tokens).
 import './styles/global.css'
 
 const app = createApp(App)
