@@ -12,7 +12,7 @@
 > Claude Code (frontend code generation), the backend developer (consumer
 > of the handoff package).
 >
-> **Anchor:** `[VELO-METHODOLOGY.md | v1.1 | 2026-05-17]`
+> **Anchor:** `[VELO-METHODOLOGY.md | v1.2 | 2026-05-17]`
 
 ---
 
@@ -675,13 +675,22 @@ semantic vocabulary the design system must offer.
 ### 6.4 MISSING Token Protocol
 
 A token in §6.3 is required even if Figma does not yet provide a value.
-In that case:
+In that case follow the **promote-not-invent** sequence (per v1.2):
 
-1. Add the token with a sensible neutral placeholder value.
-2. Add an inline comment: `/* MISSING: not found in Figma — placeholder */`
-3. Log in `02_design-system/INDEX.md → Open TODOs`.
-4. Continue work. Do not stop.
-5. At INVENTORY GATE, report all MISSING tokens in the summary.
+1. **Mockup-mine first.** Before declaring MISSING, scan SACRED frames
+   on Mockups page (Layer 1) for the value. Often a primitive exists in
+   the visual but is not declared in `figma.variables`. Capture it with
+   provenance: which SACRED frame, which node, what fill / radius / px.
+2. **If found** in Layer 1 mining: add as a Layer 1 primitive with
+   provenance comment in `variables.css`, e.g.
+   `--velo-state-error: #ef4444; /* found in SACRED 541:1180 (Welcome screen error toast frame 541:1188) */`
+3. **If genuinely not found** in any SACRED frame: only then add the
+   token with a sensible neutral placeholder value and an inline comment
+   `/* MISSING: not found in Figma DS canon nor in any SACRED frame — neutral placeholder */`.
+4. Log in `02_design-system/INDEX.md → Open TODOs`.
+5. Continue work. Do not stop.
+6. At INVENTORY GATE, report all MISSING tokens (with placeholder reason)
+   in the summary, plus any newly-mined primitives with their provenance.
 
 Acceptable neutral placeholders:
 - `--velo-focus-ring: rgba(76, 101, 137, 0.4)` (derived from primary)
@@ -2010,10 +2019,16 @@ Criteria:
 - Every Tier 2 component visible with sample data.
 - Navigation Map (📍) shows all sections.
 - Test protocol (livemockup-studio) result: 0 BLOCKER, ≤ 2 MAJOR.
+- **Adjacent re-probe (v1.2):** if the styleguide change touches a
+  component group, the operator also spot-checks **at least 2 unrelated
+  component groups** for accidental regressions. Single-file styleguide
+  means side-effects propagate via shared `<style>` rules and shared
+  data fixtures.
 
 Operator action: open in browser at 402px width. Walk through each tab.
 Verify components match what's in Figma's "Design System" page (if any)
-and how they appear in mockups. Approve or request revision.
+and how they appear in mockups. Adjacent re-probe (v1.2). Approve or
+request revision.
 
 ### 10.4 MOCKUP GATE (per screen, after Phase 4)
 
@@ -2028,10 +2043,17 @@ Criteria for one screen:
 - Navigation Map shows expected screens/endpoints/destructive counts.
 - All text in Russian, no Lorem ipsum, no placeholder names.
 - 0 BLOCKER per livemockup-studio test protocol.
+- **Adjacent re-probe (v1.2):** the operator additionally re-opens
+  **the previously-approved adjacent mockup** in the same role-block
+  (e.g., when reviewing `user-bookings`, also re-open `user-dashboard`)
+  to confirm shared-token / shared-component changes did not cause
+  regression. This catches Sprint-N-edit-breaks-Sprint-N-1 issues that
+  per-mockup review misses.
 
 Operator action: open mockup at 402px side-by-side with Figma PNG.
-Toggle through states. Click every interactive element. Approve or
-request revision. Update `03_mockups/INDEX.md` status to ✅.
+Toggle through states. Click every interactive element. Adjacent
+re-probe (v1.2). Approve or request revision. Update
+`03_mockups/INDEX.md` status to ✅.
 
 ### 10.5 SPEC GATE (per screen, after Phase 5)
 
@@ -2544,6 +2566,27 @@ records material changes for human readers.
 ```markdown
 ## Methodology Changelog
 
+- 2026-05-17 — **v1.2** — Cross-pollination from operator's v3 Figma-native methodology
+  (`06_project-inputs/VELO_METHODOLOGY.md`). Three targeted amendments, all
+  applicable to our HTML-only pipeline (after Sprint 1 Figma extraction completes,
+  Figma is read-only reference forever — methodology stays HTML/CSS-centric):
+  - §6.4 — **Promote-not-invent** sequence added to MISSING Token Protocol.
+    Before declaring a token MISSING with a neutral placeholder, mockup-mine
+    SACRED frames for the value first. Placeholder is last resort, with
+    explicit "not found in any SACRED frame" provenance comment. Source:
+    v3 §10 Three-Layer Pipeline → "Promote-not-invent" principle adapted to
+    our extraction model.
+  - §10.3 — **Adjacent re-probe** added to STYLEGUIDE GATE. Single-file
+    styleguide means component changes can regress unrelated groups via
+    shared `<style>` / data fixtures. Operator spot-checks ≥2 unrelated
+    groups after each change. Source: v3 R5 (re-probe ALL touched plus
+    adjacent state).
+  - §10.4 — **Adjacent re-probe** added to MOCKUP GATE. Re-open
+    previously-approved adjacent mockup in same role-block during gate.
+    Catches shared-token regressions across sprints. Source: same as above.
+  - Companion: `02_design-system/FIGMA-OPERATIONS-GUIDE.md` extended with
+    L-32 (no-throw return), L-37 (chunked manifest reads), AP-6 (font
+    loading per call) — these apply during Sprint 1 Figma extraction only.
 - 2026-05-17 — **v1.1** — Validation pass against `api-openapi.json`,
   `ARCHITECTURE.md` (frontend root), and `CC-REPORT-2.txt`. Findings
   recorded in `06_project-inputs/VALIDATION-REPORT-2026-05-17.md`.
@@ -2628,11 +2671,13 @@ makes a decision and either:
 ## Anchor
 
 ```
-[VELO-METHODOLOGY.md | v1.1 | 2026-05-17]
+[VELO-METHODOLOGY.md | v1.2 | 2026-05-17]
 Single source of truth for VELO design and handoff work.
 Replaces three universal methodologies with one project-specific document.
-v1.1 changes: validation pass against api-openapi.json + ARCHITECTURE.md
-+ CC-REPORT-2.txt (see Methodology Changelog).
+v1.1: validation pass against api-openapi.json + ARCHITECTURE.md + CC-REPORT-2.
+v1.2: cross-pollination from operator's v3 Figma methodology — promote-not-invent
+in §6.4, adjacent re-probe in §10.3/§10.4. Companion FIGMA-OPERATIONS-GUIDE.md
+extended with L-32/L-37/AP-6 for Sprint 1 Figma extraction.
 Audience: operator, Cowork, Claude Code, frontend developer.
 Location: D:\02_Projects\velo\docs\04_methodology\VELO-METHODOLOGY.md
 ```

@@ -1,0 +1,108 @@
+/* ============================================================
+   VELO Design System — Global Stylesheet (Sprint 1 Phase 2 draft)
+   ----------------------------------------------------------
+   Per VELO-METHODOLOGY.md §6.2:
+     This file contains ONLY: font @import, universal reset,
+     typography utility classes (.velo-typo-*).
+     NO :root variable definitions (those live in variables.css).
+     NO component-specific styles.
+
+   line-height: every typography class uses a CONCRETE pixel value
+   from figma.textStyles (never `normal`, never `auto`).
+   ============================================================ */
+
+/* === 1. Self-hosted Marmelad Regular ===
+   Source: Google Fonts (downloaded ZIP 2026-05-17, OFL license).
+   Hosted locally to guarantee deterministic rendering without
+   external network dependency. License: assets/fonts/OFL.txt
+   ============================================================ */
+@font-face {
+  font-family: 'Marmelad';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../assets/fonts/Marmelad-Regular.ttf') format('truetype');
+}
+
+
+/* === 2. Universal reset === */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--velo-font-family-primary);
+  color: var(--velo-text-primary);
+  background: var(--velo-bg-screen);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+/* ============================================================
+   3. Typography utility classes (.velo-typo-*)
+   ----------------------------------------------------------
+   All 6 classes derived 1:1 from figma.textStyles. font-family,
+   weight, and concrete pixel line-height all come directly from
+   Figma — no invented values, no `normal`, no `auto`.
+
+   Style ID provenance is in inventory A.2 of VELO-DS-INVENTORY.md.
+   ============================================================ */
+
+.velo-typo-display-large {
+  /* Figma textStyle Display/Large — used in: Login/Register/Dashboard headings */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-32);
+  line-height: 32px;
+}
+
+.velo-typo-heading-h1 {
+  /* Figma textStyle Heading/H1 — used in: Welcome buttons, primary buttons */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-20);
+  line-height: 28px;
+}
+
+.velo-typo-heading-h2 {
+  /* Figma textStyle Heading/H2 — used in: secondary headings, OAuth labels (most common heading style) */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-18);
+  line-height: 22px;
+}
+
+.velo-typo-body-large {
+  /* Figma textStyle Body/Large — included for completeness (size 16px not directly observed in 17-screen mining; reserved for future content) */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-16);
+  line-height: 24px;
+}
+
+.velo-typo-body-default {
+  /* Figma textStyle Body/Default — used in: form fields, secondary text (most common body size) */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-14);
+  line-height: 20px;
+}
+
+.velo-typo-body-small {
+  /* Figma textStyle Body/Small — used in: GDPR/legal small text */
+  font-family: var(--velo-font-family-primary);
+  font-weight: var(--velo-font-weight-regular);
+  font-size: var(--velo-size-12);
+  line-height: 18px;
+}
+
+/* ============================================================
+   NOTE — text styles NOT yet codified as utility classes
+   ----------------------------------------------------------
+   Observed in mining but missing from figma.textStyles:
+
+   .velo-typo-body-15  — font-size 15px, ~7 occurrences in Dashboard cards.
+     Awaits operator/designer decision: codify as standard style or
+     replace with body-default (14) / body-

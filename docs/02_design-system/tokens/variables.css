@@ -1,0 +1,297 @@
+/* ============================================================
+   VELO Design System — Design Tokens (Sprint 1 Phase 2 + FULL MINING)
+   ----------------------------------------------------------
+   Source:  Live Figma probe via use_figma Plugin API
+            (figma.variables + figma.textStyles + mockup-mining
+             over ALL 97 SACRED screens: Onboarding 8 + Dashboard 9 +
+             Calendar 11 + Profile 7 + Diary 20 + Messages 3 +
+             Analytics 3 + Practices 15 + Master Dashboard 8 +
+             Master Onboarding 13)
+   File:    F7PD5isLfLdyc0q1Bd5n5c
+   Date:    2026-05-17 (Figma extraction officially CLOSED — no further
+            Figma access required for downstream sprints)
+
+   Architecture: two-layer per VELO-METHODOLOGY.md §6.1
+     LAYER 1 — PRIMITIVES   — raw values, named after Figma origin
+     LAYER 2 — SEMANTIC     — aliases that components consume
+
+   Rule (per §6.1): components MUST use only Layer 2 semantic
+   tokens. Layer 1 is internal. Components never reference Layer 1
+   directly.
+
+   §6.2 contents discipline: this file contains ONLY :root {...}
+   blocks. NO @import / NO reset / NO .velo-typo-* / NO
+   component-specific dimensions / NO viewport constants.
+   All those live in global.css or in component <style scoped>.
+
+   Provenance comments cite SACRED frame IDs (`541:NNN` / `648:NNN`)
+   per VELO-METHODOLOGY v1.2 §6.4 promote-not-invent.
+
+   MISSING tokens are marked explicitly with placeholder rationale.
+   ============================================================ */
+
+:root {
+
+  /* =============================================================
+     LAYER 1 — PRIMITIVES
+     ============================================================= */
+
+  /* --- Brand colors (steel family) --- */
+  /* All three from figma.variables + 17-screen mining */
+  --velo-color-steel-primary: #4c6589;  /* figma.var steel/primary 12:1097 */
+  --velo-color-steel-muted:   #5c7292;  /* figma.var steel/muted 12:1100 */
+  --velo-color-steel-light:   #627a9c;  /* promoted: SACRED 541:1180 (Welcome) + 12 occurrences across Onboarding+Dashboard */
+
+  /* --- Neutral palette (Light + Dark from figma.variables) --- */
+  --velo-color-neutral-white: #ffffff;  /* figma.var neutral/white 12:1114 */
+  --velo-color-neutral-200:   #abbfda;  /* figma.var neutral/200 12:1118 */
+  --velo-color-neutral-300:   #b0bccd;  /* figma.var neutral/300 12:1119 */
+  --velo-color-neutral-700:   #4f5969;  /* figma.var neutral/700 163:6 */
+  --velo-color-neutral-900:   #1e2837;  /* figma.var neutral/900 12:1120 — Dark mode primitive */
+  --velo-color-neutral-950:   #141c2a;  /* figma.var neutral/950 12:1121 — Dark mode primitive */
+
+  /* --- Steel pale (new disabled/muted variant) --- */
+  --velo-color-steel-pale:           #91a2ba;  /* promoted: 19 occurrences across Profile + Practices + Master Dashboard — disabled/secondary text variant */
+
+  /* --- Steel alpha variants --- */
+  --velo-color-alpha-steel-70:       rgba(76, 101, 137, 0.70);  /* promoted: 130+ occurrences across all sections — most common text-on-light variant */
+  --velo-color-alpha-steel-60:       rgba(76, 101, 137, 0.60);  /* promoted: Onb 1-4 pagination dots passive */
+  --velo-color-alpha-steel-50:       rgba(76, 101, 137, 0.50);  /* promoted: Login/Register muted text */
+  --velo-color-alpha-steel-35:       rgba(98, 122, 156, 0.35);  /* promoted: Profile (1 occurrence) — subtle overlay */
+  --velo-color-alpha-steel-light-15: rgba(98, 122, 156, 0.15);  /* promoted: Dashboard card subtle bg + 50+ across sections */
+
+  /* --- White alpha variants --- */
+  --velo-color-alpha-white-70: rgba(255, 255, 255, 0.70);  /* promoted: Calendar + Profile/Messages — glass-button variant brighter than 66 */
+  --velo-color-alpha-white-66: rgba(255, 255, 255, 0.66);  /* promoted: Welcome OAuth glass buttons (23) + Practice-Live (22) */
+  --velo-color-alpha-white-50: rgba(255, 255, 255, 0.50);  /* promoted: Diary (1 occurrence) — overlay variant */
+  --velo-color-alpha-white-25: rgba(255, 255, 255, 0.25);  /* promoted: Calendar (1) — light tint */
+  /* MISSING-VESTIGIAL: rgba(255, 255, 255, 0.01) — single-occurrence vestigial; not promoted */
+
+  /* --- Neutral grey palette (new — disabled states / map markers) --- */
+  --velo-color-grey-medium:     #a4a4a4;                    /* promoted: Diary map markers (3 occurrences) — disabled state base */
+  --velo-color-grey-dark:       #919191;                    /* promoted: Diary (1 occurrence) — disabled state text */
+  --velo-color-alpha-grey-30:   rgba(209, 209, 209, 0.30);  /* promoted: Diary maps — soft grey overlay */
+
+  /* --- State colors — Success / Info (teal-cyan family) --- */
+  --velo-color-teal-dark:        #26767d;                       /* promoted: Dashboard 1-2 (5+5), Practice-Live, AI-summary */
+  --velo-color-teal-medium:      #2f9ea8;                       /* promoted: Dashboard, Check-in-Success, Practice-Live */
+  --velo-color-teal-light:       #76dde6;                       /* promoted: reservations, Booking-Detail */
+  --velo-color-teal-50:          #d6f5f8;                       /* promoted: Practice-Live, reservations — soft bg */
+  --velo-color-alpha-teal-30:    rgba(118, 221, 230, 0.30);     /* promoted: Dashboard + several screens */
+  --velo-color-alpha-teal-40:    rgba(118, 221, 230, 0.40);     /* promoted: Dashboard 1-2, AI-summary */
+
+  /* --- State colors — Warning (orange family) --- */
+  --velo-color-orange-dark:      #a16124;                       /* promoted: Dashboard 1-2 (3+3), booked-practice (2) */
+  --velo-color-orange-medium:    #d4863c;                       /* promoted: Dashboard, booked-practice, reservations */
+  --velo-color-orange-light:     #fbc088;                       /* promoted: reservations */
+  --velo-color-orange-50:        #feecdb;                       /* promoted: reservations, Booking-Detail — soft bg */
+  --velo-color-alpha-orange-40:  rgba(251, 192, 136, 0.40);     /* promoted: Dashboard 1-2, booked-practice */
+
+  /* --- State colors — Error / Destructive (coral family) --- */
+  --velo-color-coral-darker:  #ad3444;                          /* promoted: Profile + Practices + Diary (10 occurrences) — stronger destructive variant for critical errors */
+  --velo-color-coral-dark:    #d66674;                          /* promoted: reservations */
+  --velo-color-coral-medium:  #f795a2;                          /* promoted: Practice-Live, booked-practice, reservations, Booking-Detail + 50+ across mining */
+  --velo-color-coral-50:      #fddfe3;                          /* promoted: reservations, Booking-Detail — soft bg */
+  --velo-color-alpha-coral-40: rgba(247, 149, 162, 0.40);       /* promoted: Diary (1 occurrence) — soft coral overlay */
+
+  /* --- State colors — Info (blue family) — FULLY RESOLVED via full mining --- */
+  --velo-color-blue-medium:   #619cd2;                          /* promoted: Calendar + Profile/Messages/Analytics + Practices (10+ occurrences) — Info state medium. Previously MISSING in v0.1, resolved during full mining. */
+  --velo-color-blue-50:       #e2f0fd;                          /* promoted: booked-practice, Booking-Detail — soft bg */
+
+  /* --- Spacing primitives (4-base scale, PROVISIONAL from DSYS-era reference; SACRED uses absolute positioning, no autolayout values to verify against) --- */
+  --velo-space-0:  0px;
+  --velo-space-1:  4px;
+  --velo-space-2:  8px;
+  --velo-space-3:  12px;
+  --velo-space-4:  16px;
+  --velo-space-5:  20px;
+  --velo-space-6:  24px;
+  --velo-space-8:  32px;
+  --velo-space-10: 40px;
+  --velo-space-12: 48px;
+  --velo-space-13: 52px;
+  --velo-space-16: 64px;
+  --velo-space-20: 80px;
+  --velo-space-25: 100px;
+
+  /* --- Radius primitives (FULL — 97 screens mined) --- */
+  --velo-radius-xs:   2px;    /* promoted: 32+ occurrences across Diary maps — map markers / micro pills */
+  --velo-radius-sm:   5px;    /* promoted: 80+ occurrences — input fields, small buttons */
+  --velo-radius-9:    9px;    /* promoted: Master Onboarding (8 occurrences) — odd small radius */
+  --velo-radius-md:   10px;   /* promoted: Calendar + Practices + Master Dashboard (5 occurrences) — RESOLVED previously MISSING md radius */
+  --velo-radius-lg:   15px;   /* promoted: 250+ occurrences — most common; content cards, modals */
+  --velo-radius-xl:   100px;  /* promoted: 80+ occurrences — large buttons, hero buttons */
+  --velo-radius-pill: 200px;  /* promoted: 120+ occurrences — pill buttons (most common pill size) */
+  /* MISSING (final): --velo-radius-full (9999px circular — not observed in 97 screens; can use --velo-radius-pill or radius:50% if circular needed). */
+  /* Decorative-only radii (13, 20, 71, 76, 124.10, 127.67, 252, 350.65, 86.20, 100.74, 100.93, 116.82, 120.55, 14.33, 17.97, 151.14, etc.) — single-section or single-component use; kept as inline literals in components, NOT promoted to tokens. */
+
+  /* --- Effect primitives --- */
+  --velo-shadow-glow-white:         0 0 20.9px 0 rgba(255, 255, 255, 1);
+  --velo-shadow-glow-white-strong:  0 0 26.34px 0 rgba(255, 255, 255, 1);
+  --velo-shadow-card:               0 2px 8px 0 rgba(76, 101, 137, 0.08);
+  --velo-shadow-modal:              0 8px 32px 0 rgba(76, 101, 137, 0.16);
+  --velo-blur-glass:                blur(4px);
+  --velo-blur-glass-medium:         blur(5.04px);
+  --velo-blur-glass-stronger:       blur(30px);
+
+  /* --- Font family --- */
+  --velo-font-family-primary: 'Marmelad', 'Noto Sans', sans-serif;  /* Marmelad Regular — only weight observed */
+  --velo-font-weight-regular: 400;
+
+  /* --- Font sizes (FULL — 97 screens mined) --- */
+  --velo-size-12: 12px;  /* promoted: 40+ occurrences — matches text style Body/Small */
+  --velo-size-14: 14px;  /* promoted: 250+ occurrences — most common body, matches text style Body/Default */
+  --velo-size-15: 15px;  /* promoted: 35+ occurrences — NOT in figma textStyles, used inline; verify if codify as new style */
+  --velo-size-16: 16px;  /* promoted: 35+ occurrences across Diary + Profile + Practices — matches text style Body/Large */
+  --velo-size-18: 18px;  /* promoted: 400+ occurrences — most common heading, matches text style Heading/H2 */
+  --velo-size-20: 20px;  /* promoted: 80+ occurrences — matches text style Heading/H1 */
+  --velo-size-24: 24px;  /* promoted: 3 occurrences in Master Dashboard — NOT in figma textStyles; intermediate heading variant */
+  --velo-size-28: 28px;  /* promoted: 2 occurrences in Master Onboarding — NOT in figma textStyles; sub-hero variant */
+  --velo-size-32: 32px;  /* promoted: 50+ occurrences — matches text style Display/Large */
+  /* Decorative single-use sizes (46.32, 50.24, 27.37, 28.29, 25.6, 20.12, 17.89, 18.55, 16.04, 13.91, 12.37, 12.03, 11.84, 10.68, 9, 8.93, 7.05, 7.06, 5.83, 5.05, 3.77 etc.) — map markers, brand logos, micro-labels; kept as component-local literals, NOT promoted. */
+
+
+  /* =============================================================
+     LAYER 2 — SEMANTIC TOKENS (use these in components)
+     ============================================================= */
+
+  /* --- Text --- */
+  /* Sprint 2 Phase 4 operator-confirmed: ВСЕ тексты на light backgrounds —
+     steel-light (#627a9c). Pixel-measured из welcome/login/register этолонов.
+     Старые алиасы (steel-primary, steel-muted) давали слишком тёмный navy-look.
+     Footnote/muted остаются на alpha-steel-* для иерархии. */
+  --velo-text-primary:   var(--velo-color-steel-light);
+  --velo-text-secondary: var(--velo-color-steel-light);
+  --velo-text-muted:     var(--velo-color-alpha-steel-50);
+  --velo-text-footnote:  var(--velo-color-alpha-steel-70);
+  --velo-text-link:      var(--velo-color-steel-light);
+  --velo-text-inverse:   var(--velo-color-neutral-white);
+
+  /* --- Background --- */
+  --velo-bg-screen:      var(--velo-color-neutral-white);
+  --velo-bg-input:       var(--velo-color-neutral-white);
+  --velo-bg-card:        var(--velo-color-neutral-white);
+  --velo-bg-card-subtle: var(--velo-color-alpha-steel-light-15);
+
+  /* --- Button backgrounds --- */
+  --velo-bg-button-primary: var(--velo-color-steel-light);
+  --velo-bg-button-glass:   var(--velo-color-alpha-white-66);
+
+  /* --- Borders --- */
+  --velo-border-default: var(--velo-color-neutral-300);
+  --velo-border-input:   var(--velo-color-neutral-300);
+  --velo-border-button:  var(--velo-color-neutral-white);
+
+  /* --- Icons --- */
+  --velo-icon-default: var(--velo-color-steel-primary);
+
+  /* --- Dots (pagination) --- */
+  --velo-dot-active:  var(--velo-color-steel-primary);
+  --velo-dot-passive: var(--velo-color-alpha-steel-60);
+
+  /* --- State — Success --- */
+  --velo-state-success:    var(--velo-color-teal-medium);
+  --velo-text-success:     var(--velo-color-teal-dark);
+  --velo-bg-success-soft:  var(--velo-color-teal-50);
+  --velo-bg-success-tint:  var(--velo-color-alpha-teal-30);
+
+  /* --- State — Warning --- */
+  --velo-state-warning:    var(--velo-color-orange-medium);
+  --velo-text-warning:     var(--velo-color-orange-dark);
+  --velo-bg-warning-soft:  var(--velo-color-orange-50);
+  --velo-bg-warning-tint:  var(--velo-color-alpha-orange-40);
+
+  /* --- State — Error / Destructive --- */
+  --velo-state-error:       var(--velo-color-coral-medium);
+  --velo-state-destructive: var(--velo-color-coral-dark);
+  --velo-text-error:        var(--velo-color-coral-dark);
+  --velo-bg-error-soft:     var(--velo-color-coral-50);
+
+  /* --- State — Info (RESOLVED via full mining) --- */
+  --velo-state-info:   var(--velo-color-blue-medium);
+  --velo-bg-info-soft: var(--velo-color-blue-50);
+
+  /* --- Interactive (placeholders + 2 RESOLVED from grey family) --- */
+  --velo-focus-ring:     rgba(76, 101, 137, 0.4);             /* MISSING: not observed in 97 static frames — neutral placeholder derived from steel/primary */
+  --velo-disabled-bg:    var(--velo-color-grey-medium);       /* RESOLVED: #a4a4a4 from Diary map mining (was placeholder) */
+  --velo-disabled-text:  var(--velo-color-grey-dark);         /* RESOLVED: #919191 from Diary mining (was placeholder) */
+  --velo-hover-overlay:  rgba(0, 0, 0, 0.04);                 /* MISSING: not observed — industry-standard placeholder */
+  --velo-active-overlay: rgba(0, 0, 0, 0.08);                 /* MISSING: not observed — industry-standard placeholder */
+
+  /* =============================================================
+     LAYER 2 — COMPONENT SIZING (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Heights — buttons + inputs.
+     Operator: input должен быть на 20% тоньше кнопки (52 × 0.8 = 42). */
+  --velo-button-height: 52px;
+  --velo-input-height:  42px;
+
+  /* --- Stack gaps — отдельные для кнопок и форм.
+     Operator: формы плотнее (10px), кнопки шире (16px). Halo budget ≤ button gap. */
+  --velo-stack-gap-buttons: 16px;
+  --velo-stack-gap-forms:   10px;
+
+  /* =============================================================
+     LAYER 2 — TYPOGRAPHY CANON (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Section title (h1) — letter-spaced "разрядка".
+     Applies to: "С возвращением!", "Создать аккаунт",
+     "Найдите свою практику", "Ведите дневник", "Общайтесь с мастерами",
+     "Часовой пояс" — все onboarding section titles. */
+  --velo-typo-h1-size:    30px;
+  --velo-typo-h1-line:    36px;
+  --velo-typo-h1-spacing: 1.2px;
+  --velo-typo-h1-color:   var(--velo-text-primary);
+
+  /* --- Body / description — subtitle text.
+     Applies to: "Войдите, чтобы продолжить практику",
+     "Начните свой путь к осознанности", все onboarding desc, oauth-label. */
+  --velo-typo-body-size:  18px;
+  --velo-typo-body-line:  24px;
+  --velo-typo-body-color: var(--velo-text-secondary);
+
+  /* =============================================================
+     LAYER 2 — GLASS-COMPONENT CANON (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Glass plashka fill (на кнопках/back-arrow/inputs glass-варианта).
+     Operator iteration: 5 → 7 → 10%. */
+  --velo-glass-fill:       rgba(76, 101, 137, 0.10);
+  --velo-glass-fill-hover: rgba(76, 101, 137, 0.15);
+
+  /* --- Halo box-shadow для кнопок (единый на primary + glass).
+     Operator iteration: spread 11 + blur 7 + alpha 0.57, layer-order drop-on-top.
+     Constraint: total extent (blur+spread) ≤ --velo-stack-gap-buttons (16). */
+  --velo-shadow-button:
+    0 6px 14px   rgba(76, 101, 137, 0.20),
+    0 0 7px 11px rgba(255, 255, 255, 0.57);
+}
+
+
+/* ============================================================
+   MISSING token inventory (post-FULL-MINING, 97 screens)
+   ============================================================
+   ✅ RESOLVED during full mining (previously MISSING in v0.1):
+   - --velo-state-info        → #619cd2 (Info blue medium)
+   - --velo-radius-md         → 10px
+   - --velo-disabled-bg       → #a4a4a4 (grey-medium)
+   - --velo-disabled-text     → #919191 (grey-dark)
+
+   ❌ CONFIRMED MISSING after full 97-screen mining (truly absent):
+   - --velo-radius-full       (9999px circular — not observed; use radius:50% or radius-pill for circular)
+   - --velo-shadow-card       (no DROP_SHADOW with offset observed — VELO uses bg tint instead)
+   - --velo-shadow-modal      (same as above)
+   - --velo-focus-ring        (interactive — never observed in static frames; placeholder used)
+   - --velo-hover-overlay     (interactive — never observed; placeholder used)
+   - --velo-active-overlay    (interactive — never observed; placeholder used)
+
+   Vestigial / single-use (not promoted to tokens, kept as component-local literals):
+   - rgba(255, 255, 255, 0.01)                                  vestigial alpha
+   - cornerRadius 13, 20, 71, 76, 86.20, 100.74/93, 116.82,
+     120.55, 124.10, 127.67, 151.14, 179.76, 252, 350.65, etc.  decorative-only
+   - font-size 3.77, 5.05, 5.83, 7.05, 7.06, 8.93, 9, 10.68,
+     11.84, 12.03, 12.37, 13.91, 16.04, 17.89, 18.55, 20.12,
+     25.6, 27.37, 28.29, 46.32, 50.24                            decorative / map labels / brand logos
+   ============================================================ */

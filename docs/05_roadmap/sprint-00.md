@@ -1,9 +1,9 @@
 # Sprint 0 — Foundation Cleanup
 
 ```
-Dates:    TBD → TBD (planned 1–2 days)
-Status:   planned
-Owner:    Operator + Claude Code (frontend) + Cowork (docs)
+Dates:    2026-05-17 (single-day docs adoption pass)
+Status:   ✅ CLOSED (docs side) — frontend-side T0.0/T0.3/T0.7/T0.8 deferred to programmer
+Owner:    Operator + Claude Code (frontend, deferred) + Cowork (docs, done)
 Goal ref: ROADMAP.md §3
 Phase:    — (pre-pipeline foundation)
 ```
@@ -284,10 +284,34 @@ Criteria:
 
 ## Closure
 
-- Gates passed: ☐
-- Deferred to Sprint 1: ☐
-- Methodology amendments proposed: ☐
-- Operator signoff (date): ☐
+**Closed on:** 2026-05-17 (docs side).
+
+**What was done in `docs/` (our scope):**
+- ✅ T0.1 — canonical folder structure created per methodology §3
+- ✅ T0.2 — methodology v1.1, roadmap v1.1, ARCHITECTURE.md, api-openapi.json all in their canonical locations
+- ✅ T0.4 — all INDEX.md files initialized (top-level + 4 local stubs + ASSETS-INDEX)
+- ✅ Bonus: v1.1 validation pass executed (originally planned for after Sprint 0). VALIDATION-REPORT-2026-05-17.md captures findings; methodology/roadmap bumped from v1.0 to v1.1; new files BACKEND-REQUESTS-2026-05-17.md and CC-RECON-PROMPT-2.md added to `06_project-inputs/`; CC-REPORT.txt and CC-REPORT-2.txt now in `06_project-inputs/` as inputs.
+
+**Deferred (NOT our scope — these belong to programmer/Claude Code, to be executed in parallel with our Sprint 1):**
+- ⏳ T0.0 — fix `frontend/src/api/types.ts:65` (`PayoutDetails` → `PayoutDetailsResponse`)
+- ⏳ T0.3 — frontend F0 cleanup (shells, router, HomeView tokens)
+- ⏳ T0.7 — wire `gen:api` script + (optional) pre-commit hook in `frontend/package.json`
+- ⏳ T0.8 — audit `frontend/src/styles/global.css` token names
+
+These are documented here as a reference deliverable for the programmer; we do not execute them ourselves. The operator forwards `sprint-00.md` (or the relevant sections) to Claude Code when the programmer-side work starts.
+
+**Risks accepted (none escalated):** 0.A, 0.B, 0.C all addressed during v1.1 amendments.
+
+**Methodology amendments applied:** yes, full v1.0 → v1.1 pass. See methodology Changelog (§13.4).
+
+**Gates passed:**
+- Folder structure (§3): ✅
+- INDEX.md initialization (§12): ✅
+- Methodology / roadmap / inputs in place: ✅
+
+**Operator signoff:** verbally approved 2026-05-17 in chat (no formal gate document per ROADMAP §3.2).
+
+→ **Proceed to Sprint 1: Figma Extraction + Token Synthesis.**
 
 ---
 
