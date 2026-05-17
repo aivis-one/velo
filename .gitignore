@@ -8,3 +8,7 @@ desc/
 .env
 .env.*
 /TMP/
+
+# Design-system reference screenshots — kept locally for design verification,
+# not committed (heavy PNGs, 80+ MB; regenerated from Figma when needed).
+docs/02_design-system/assets/screenshots/
