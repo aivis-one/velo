@@ -1,6 +1,12 @@
 // =============================================================================
 // VELO Frontend -- Vite Configuration (Phase F0.4: PWA)
 // =============================================================================
+//
+// PWA is currently DISABLED -- F0 has empty views and no static assets in
+// public/, so workbox-build can't find anything matching globPatterns and
+// errors out. Re-enable (disable: false) once Sprint 2 produces real assets
+// (icons, fonts, build output > 16 modules).
+// =============================================================================
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -11,10 +17,10 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
+      disable: true, // F0: nothing to precache yet
       registerType: 'autoUpdate',
       manifest: false, // Using public/manifest.json directly
       workbox: {
-        // Precache all static assets including self-hosted woff2 fonts.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
