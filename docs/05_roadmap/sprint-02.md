@@ -1,11 +1,12 @@
 # Sprint 2 — Styleguide + First Mockups (P0)
 
 ```
-Dates:    2026-05-17 → in progress
-Status:   in progress (Phase 3 ✅ closed, Phase 4 🔄 — Onboarding 8 ✅, Dashboard 9 ⬜ next)
+Dates:    2026-05-17 → 2026-05-18
+Status:   ✅ **closed 2026-05-18** — Phase 3 ✅ + Phase 4 partial (Onboarding 8 ✅, Dashboard 9 🗑 superseded → continued in standalone Sprint 2.5)
 Owner:    Cowork (executor), Operator (validator)
 Goal ref: ROADMAP.md §5
-Phase:    Phase 3 (Styleguide HTML) ✅ + Phase 4 (P0 mockups) 🔄
+Phase:    Phase 3 (Styleguide HTML) ✅ + Phase 4 (P0 mockups) partial — see closure note in Daily log
+Successor: Sprint 2.5 (standalone, file `sprint-02.5.md`) — see ROADMAP §5.5
 ```
 
 ---
@@ -98,7 +99,23 @@ Build order:
 Implementation: один комбайн-файл `03_mockups/user/_onboarding-flow.html` с 8 колонками (PNG-эталон сверху, HTML-сборка снизу). Парная сверка Figma ↔ HTML. После завершения Onboarding-блока — отдельный per-screen split для разработчика (опционально).
 
 ### T2.4 — Phase 4: P0 Mockups
-Status: 🔄 **in progress** — Onboarding-блок (8) ✅ ЗАКРЫТ оператором 2026-05-18 ("приняты экраны и дизайн"). Dashboard-блок (9) — следующий focus.
+Status: 🔄 **partially closed / pivoted to Sprint 2.5.** Onboarding-блок (8) ✅ closed by operator 2026-05-18 («приняты экраны и дизайн»). Dashboard-блок (9) **🗑 superseded** — текущий `_dashboard-flow.html` skeleton выкидывается, пересобирается в Sprint 2.5 (T2.5.2) после Dashboard 9 DS-complete state (T2.5.1).
+
+**Why pivoted:** Sprint 2 Phase 4 attempt at Dashboard 9 показал что per-element reverse-engineering из PNG-эталонов = 3× rework (alert pills + glass halo + bottom-nav каждый rebuild по 3 раза). Methodology bumped to v1.3 с обязательным §7.0 Block-Harvest-First rule + §6.8 DS Visualisation rule. Roadmap bumped to v1.2 с insert Sprint 2.5. Все pending blocks (Dashboard 9 + Calendar 11 + Profile 7 + Diary 20 + Messages 3 + Analytics 3 + Practices 15 + Master Dashboard 8 + Master Onboarding 13) уходят в Sprint 2.5.
+
+**Dashboard 9 per-column status:**
+
+| # | Screen | HTML status |
+|---|---|---|
+| 01 | dashboard-1 | 🔧 skeleton iteration 1 |
+| 02 | dashboard-2 | 🔧 skeleton iteration 1 |
+| 03 | check-in | 🔧 skeleton iteration 1 |
+| 04 | check-in-success | 🔧 skeleton iteration 1 |
+| 05 | practice-live | 🔧 skeleton iteration 1 |
+| 06 | booked-practice | 🔧 skeleton iteration 1 |
+| 07 | AI-summary | 🔧 skeleton iteration 1 |
+| 08 | my-reservations | 🔧 skeleton iteration 1 |
+| 09 | booking-detail | 🔧 skeleton iteration 1 |
 
 Ref: VELO-METHODOLOGY.md §7 + Prompt §9.5 (per screen).
 Owner: Cowork.
@@ -259,6 +276,86 @@ Ref: ROADMAP.md §5.2.
     - **Pagination dots canon**: inactive 8×8 круг steel-pale opacity 0.45, active 14×14 круг steel-light opacity 1.
 
   Onboarding 8 фронтальный поток ✅ закрыт. Переход на Dashboard 9.
+
+- **2026-05-18 (session 4) — Dashboard 9 START:**
+  - Прочитан `_HANDOFF.md` + `INDEX.md` + `sprint-02.md` + `03_mockups/INDEX.md` + `variables.css` master.
+  - DS canon подтверждён полностью промоутированным (typography h1+body, button/input heights, stack gaps, glass two-layer, halo composition) — re-use as-is, no re-invention.
+  - Подтверждены 9 PNG-эталонов в `02_design-system/assets/screenshots/user/user-dashboard-{01..09}-*.png`.
+  - Создан новый combined viewer **`03_mockups/user/_dashboard-flow.html`** (795 строк). Структура идентична `_onboarding-flow.html`: topbar shell + horizontal scroll workspace + 9 колонок 402×874 (PNG-эталон сверху / HTML снизу). Token bridge :root mirror'ит variables.css master (typography canon + glass canon + halo + heights + gaps).
+  - **Column 01 (dashboard-1) skeleton iteration 1** собран на DS-токенах: greeting ("Доброе утро," + "Алина"), 2 alert-pills (teal check-in + coral feedback), section-title "Ближайшая практика", practice-card (avatar+title+master+meta paid), action-row Zoom-glass + Check-in-primary (на DS canon glass two-layer), section-title "Ваш прогресс" + 2 stat-cards (12 практик / 9,5 часов), AI-саммари header с tabs (Неделя/Месяц), AI preview card с gradient bg, bottom-nav 4 иконки.
+  - Col 02-09 — пройдены за один проход по операторской команде «отстрой все экраны как можешь по DS — потом править все вместе». Все 9 колонок имеют живой HTML-skeleton, никаких TBD-overlay не осталось:
+    - **02 dashboard-2** — вариант col 01 с развёрнутым AI-card (текст + energy-pair emoji + Подробнее →)
+    - **03 check-in** — top-header back-arrow + practice-info + "Как вы себя чувствуете?" + mood-selector (3 emoji, central is-active) + slider + textarea + primary CTA + skip link
+    - **04 check-in success** — special: NO bg-mandala (pure white по эталону), teal check icon + h1 + sub + primary "Начать практику" + "На главную" link
+    - **05 practice live** — back-arrow + video-block placeholder + practice-info compact + status-badge "● В эфире" (blue dot) + 3-button stack: Войти primary + Check-in glass + Покинуть практику destructive
+    - **06 booked practice** — header "Моя практика" + practice-info с "Оплачено" badge + 2 list-rows collapsible (О практике/Что подготовить) + master-card (avatar+tags+Подробнее →) + warning-alert (Противопоказания) + Check-in primary + Отменить бронирование destructive
+    - **07 AI summary** — header "AI-саммари" + info-pill (Саммари недели 16-22 января) + ai-detail-text + energy-pair "с 😩 до 😊" + "Рекомендации" + 2 recommendation-cards
+    - **08 my reservations** — header "Мои бронирования" + Предстоящие group + reservation-row с warning badge "⚠ Завтра" + Прошедшие group + 2 rows (success badge "Завершена" + error badge "Отменена")
+    - **09 booking detail** — header "Бронирование" + practice-info + Статус group + success badge "Подтверждена" + Мастер group + master-card + ZOOM group + info-pill (Ссылка будет отправлена) + Отменить бронирование destructive
+  - **Новые shared chrome компоненты добавлены в CSS** _dashboard-flow.html (потенциальные DS-promotion candidates после операторского passa): `.top-header` (back-arrow glass two-layer + centered title), `.status-badge` 5 variants (success/warning/error/info/live), `.info-pill` (blue tint card), `.v-button--destructive` (coral filled с собственным halo), `.v-textarea`, `.practice-info`/`.practice-card`, `.master-card` (avatar+name+tags+chevron), `.list-row` (collapsible), `.warning-alert` (orange tint), `.mood-selector` + `.mood-slider`, `.video-block`, `.energy-pair`, `.reservation-row`, `.recommendation-card`, `.bottom-nav`, `.scr-success` (white-only screen variant).
+  - 03_mockups/INDEX.md обновлён.
+  - **Pending:** operator pass по всем 9 экранам сразу — отметит pixel-tight расхождения, добавит/уберёт элементы, потом второй прогон по списку правок. После approval — DS-promotion pass для новых tokens (badges, master-card, mood, warning-alert).
+  - **🐛 Font fix — оператор флагнул отсутствие Marmelad.** Я задекларировал `font-family: 'Marmelad'` в `:root` + `body`, но забыл `@font-face` declaration. Браузер падал на fallback `system-ui`. Причина: в `_onboarding-flow.html` шрифт base64-embedded (~140KB → файл 179K токенов, не редактируется через мои тулзы), и я сознательно ушёл от base64 чтобы новый viewer оставался читаемым/правимым — но не сделал альтернативу через relative URL. Фикс: добавлен `@font-face` через relative URL `../../02_design-system/assets/fonts/Marmelad-Regular.ttf` — это **canon из `02_design-system/tokens/global.css §1`** (один master TTF в DS, никакого дубля). Под `file://` в современных Chrome/Edge/Firefox работает.
+  - **Bottom-nav refactor + glass halo softer (-20%) — оператор iteration 2026-05-18.**
+    - **Сделано:** введён новый Layer 2 token `--velo-shadow-button-glass` = same composition что `--velo-shadow-button`, но white halo alpha 0.57 → 0.46 (-20%). Применён на `.v-button--glass`, `.top-header .header-back` (back-arrow) и через переиспользование на bottom-nav. Primary halo не тронут — primary остаётся ярким акцентом.
+    - **Bottom-nav refactor:** удалены дублирующие CSS правила `.bottom-nav .nav-item ::before / ::after / box-shadow / isolation` (это была копия `.v-button--glass` под чужим именем). HTML переписан на canonical class chain: `<button class="v-button v-button--glass v-button--round-icon active">`. Новый modifier `.v-button--round-icon` (52×52 круг, padding 0, не растягивается) — DS-promotion candidate. Контейнер `.bottom-nav` сократился до flex-row + active state override.
+    - **DS-gap surfaced:** оператор спросил про MD-описание DS компонентов. Найден catalog `02_design-system/INDEX.md` секция Component Status — там canonical имена Tier 1/2. Визуальный каталог — `styleguide/velo-design-system.html`. MD-описание каждого компонента (props/states/when-to-use) **отдельно не существует** — это методологический пробел.
+  - **🆕 COMPONENTS-CATALOG.md создан** (2026-05-18, T1 done). `02_design-system/COMPONENTS-CATALOG.md` — single MD master с full профилем per компонент: Class + Variants + States · When-to-use + Anti-patterns · Tokens consumed + Related · Provenance + Status. Группы: Tier 1 (atomic) · Tier 2 (domain) · Patterns · NEW candidates (Dashboard 9 mining). Введено **before-naming check правило** — обязательный шаг в каждой сессии перед изобретением нового CSS-класса. Зарегистрирован в `02_design-system/INDEX.md` секции Component Status (cross-link) и в `_HANDOFF.md` (новый шаг в правилах поведения + добавлен в таблицу Local INDEX-ов).
+  - **🆕 DS-naming-pass T1 done** — rename custom-классов в `_dashboard-flow.html` под canonical имена из каталога:
+    - `.status-badge` → `.v-badge` (5 variants: success/warning/error/info/live)
+    - `.reservation-row` → `.booking-card` (sub-classes .rr-* → .bc-*)
+    - `.mood-selector` → `.mood-widget` (sub-classes .mood-pick/face/label/slider → .mw-*)
+    - Остальные custom-классы остаются под текущими именами как ⬜ candidates в каталоге (.info-pill, .warning-alert, .master-card, .list-row, .video-block, .energy-pair, .stat-card, .ai-card, .recommendation-card, .alert-pill, .scr-success, .section-title/.group-title, --round-icon modifier) — promotion после operator MOCKUP GATE.
+  - **🆕 T2 Figma audit Dashboard 9 done** — `02_design-system/FIGMA-FINDINGS-DASHBOARD-9.md` создан. Probe через `use_figma` Plugin API на SACRED root `541:6648`, walk depth-first all 9 frames. Собраны deduplicated fills (~30 colors), strokes (~20), cornerRadii (~10), shadows (2 patterns), blurs (3), font sizes (9), Marmelad Regular как единственный font family. Confirmed matches: steel/teal/orange/coral families, radii 5/15/100/200, blur 4/5.04, font sizes 14/18/20/15/32. **3 критических находки:** (1) alert-pill в Figma имеет цветные 2-3px outlines (`#76dde6` teal info, `#fbc088` orange warning, `#f795a2` coral destructive) — у меня в skeleton серый alpha-steel-15 border (T3 blocker); (2) card border alpha-steel-30, не -15 (25 occurrences, T3 visible drift); (3) **мой compound `--velo-shadow-button` ≠ Figma canon** — в Figma single drop-shadow white (`0 0 20.9 7 white`) который уже был в DS как `--velo-shadow-glow-white` (но со spread bug = 0), я его не использовал и синтезировал compound.
+  - **🐛 Found + fixed:** spread bug в `--velo-shadow-glow-white` / `-glow-white-strong` (Sprint 1 Phase 2 promotion накосячил с spread 0 вместо Figma canon 7/8.82). Теперь корректно.
+  - **🐛 Found + fixed:** drift в `01_deliverable/styles/variables.css` (deliverable = 183 строки, master = 310 строк). Daily log говорил «MD5-identical 2026-05-18» но Phase 4 promotion (text aliases re-alias, button/input heights, stack gaps, typography canon, glass canon, shadow-button compound) **не доехала до deliverable** — это был sync bug в Sprint 2 Phase 4 closure pass. Сейчас полностью пересинхронизирован, MD5-mirror.
+  - **🆕 Glass halo simplified — operator iteration 2026-05-18 round 2.**
+    - **Promotion:** `--velo-shadow-button-glass: 0 0 20.9px 7px rgba(255, 255, 255, 0.8)` в variables.css master + deliverable. Это упрощённый single-white halo, 1:1 Figma canon с alpha 0.8 (-20% от Figma full white).
+    - Применяется на: `.v-button--glass / --ghost / --oauth`, `.velo-back-arrow`, `.top-header .header-back`, `.v-button--round-icon` (bottom-nav).
+    - `--velo-shadow-button` (compound steel drop + white halo) остаётся **только для primary** — он остаётся ярким акцентом.
+    - **`_onboarding-flow.html` обновлён:** base `.v-button { box-shadow }` упрощён до single white halo. `.v-button--primary` получил override с compound. Glass/ghost/oauth наследуют simplified из base.
+    - **`_dashboard-flow.html` обновлён:** token `--velo-shadow-button-glass` в bridge заменён на simplified. Все glass-кнопки + back-arrow + bottom-nav автоматически подхватили.
+  - **Pending operator review:** оба viewer'а готовы к парной сверке. Glass halo softer + Figma-consistent. Если оператор скажет «вернуть compound» — revert через token swap.
+  - **🆕 T3 col 01 alert-pills rebuild done + A.2 card border promotion done.**
+    - **DS-promotion:** `--velo-color-alpha-steel-30: rgba(76,101,137,0.30)` (Layer 1) + `--velo-border-card: var(--velo-color-alpha-steel-30)` (Layer 2 alias) в variables.css master + deliverable. Replaces visually-weak alpha-steel-15 в card borders.
+    - **Mass refactor:** 11 occurrences `border: 1px solid var(--velo-color-alpha-steel-15)` → `border: 1px solid var(--velo-border-card)` в `_dashboard-flow.html` (затронуты: practice-card, v-badge, booking-card, info-pill, warning-alert, master-card, stat-card, recommendation-card, list-row, top-header header-back, и др.). Backgrounds, использующие alpha-steel-15 (avatar circles, ai-tabs, pi-icon, mc-avatar bg) — оставлены as-is.
+    - **AlertPill rebuild:** добавлены canonical variants `--warning` (orange theme: orange-50 bg + 2px orange-light border + orange-dark icon), `--info` (teal theme: teal-50 bg + 2px teal-light border + teal-medium icon), `--error` (coral, reserved). Border weights и tints из Figma probe.
+    - **HTML swap col 01 + col 02:** «Пора на check-in!» переведён с `--teal` на `--warning` (orange — срочность действия); «Оставьте feedback!» с `--coral` на `--info` (teal — мягкое приглашение). Это **semantic correction** — на эталоне check-in оранжевый по urgency-семантике, а не teal.
+    - COMPONENTS-CATALOG.md обновлён — полная карточка AlertPill с variants, anti-patterns, tokens consumed, provenance.
+  - **🆕 AlertPill iteration 2 (operator side-by-side flag 2026-05-18).** Сравнение эталон ↔ мой рендер выявил 3 расхождения: (1) bg должен быть translucent чтобы bg-mandala проглядывала, (2) title text красится в **тёмный variant цвета outline** (orange-dark для warning, teal-dark для info), не steel-primary, (3) feedback icon должен быть message-bubble с edit/pen-mark внутри, не plain chat bubble. Первая итерация фикса (round 1 — synthesized values orange-50@75% / teal-50@75%) — оператор отверг как недостаточно точное.
+  - **🆕 AlertPill iteration 3 — Figma-first re-extract (operator rule 2026-05-18).** Оператор поднял **системную проблему**: я reverse-engineering из PNG вместо того чтобы извлекать оригинал из Figma. Это даёт повторные расхождения и двойную работу. Зафиксировано **новое правило в `_HANDOFF.md`**: «**Figma-first rule (mandatory for any SACRED-derived component)**» — перед сборкой компонента из SACRED frame: (1) find Figma node, (2) extract vector asset via exportAsync, (3) sample exact tokens per element, (4) compare DS vs Figma, (5) ТОЛЬКО ПОТОМ writing CSS/HTML. Не применять только для admin role (нет Figma SACRED) и для новых non-SACRED компонентов.
+    - **Применение rule на col 01 AlertPills:** per-frame drill `use_figma` Plugin API в node `541:6649`. Найдены AlertPill containers (Group 2316 warning + Group 2011 info), icon nodes (Group 1963 clock + Group 1967 feedback). Sampled exact tokens:
+      - Warning: bg `#fbc088 @ 0.4 alpha` (orange-light × 40%, **не orange-50 75%** как было в моей synthesis), border 2px `#fbc088` solid, cornerRadius 15, **BACKGROUND_BLUR radius 4**.
+      - Info: bg `#76dde6 @ 0.4 alpha` (teal-light × 40%), border 2px `#76dde6` solid, cornerRadius 15, **no backdrop blur** (Figma asymmetry preserved).
+    - **Real Figma SVG icons extracted via exportAsync:** `icon-alert-clock.svg` (21×21, fill `#A16124` baked in) + `icon-alert-feedback.svg` (21×21, fill `#26767D`, bubble + pen + 2 dialog dots) сохранены в `02_design-system/assets/icons/`.
+    - **DS tokens updated:** `--velo-bg-alert-warning` corrected to `rgba(251,192,136,0.4)`, `--velo-bg-alert-info` to `rgba(118,221,230,0.4)`, `--velo-bg-alert-error` to `rgba(247,149,162,0.4)`. Same-hue + alpha 0.4 (not different tint family with 75% alpha) — это elegant Figma approach.
+    - **CSS .alert-pill --warning** дополнен `backdrop-filter: blur(4px)` (Figma canon for this variant only).
+    - **HTML col 01 + col 02:** inline synthesized SVG заменены на `<img src="../../02_design-system/assets/icons/icon-alert-{clock,feedback}.svg">` refs.
+    - **CSS .pill-icon color overrides убраны** — color baked в SVG.
+    - **COMPONENTS-CATALOG AlertPill** обновлён: real Figma-sampled tokens, real SVG asset paths, backdrop-blur variant rule, single-hue-with-alpha approach зафиксирован как canon.
+    - **Lesson learned: synthesis из PNG = двойная работа.** Закодифицировано в правилах поведения.
+
+- **2026-05-18 (session 4 closure — pivot to Sprint 2.5):**
+  - Operator surfaced two systemic issues: (a) reverse-engineering из PNG вместо Figma extraction вызывает 3× rework на element; (b) добавление tokens в `variables.css` без визуализации в `velo-design-system.html` ломает единый источник правды в DS, следующие сессии плодят дубли.
+  - Operator также указал на `06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md` — готовая reference implementation (85 .vue + 57 .ts, identical stack), source of ~70% frontend foundation work. Sprint 0 + Sprint 1 + part of Sprint 11+ implementation phase уже решены there. Transfer-and-adapt ~10× быстрее re-invention.
+  - **Decision:** Sprint 2 не пересобирает Dashboard 9. Закрываем Sprint 2 на текущем state (Onboarding 8 ✅ + P0 P0 mockups baseline + Phase 3 styleguide ✅). Pivot to **Sprint 2.5** — DS Completion block-by-block + Foundation Transfer CBSHOME — параллельные tracks.
+  - **Documentation closure (this session):**
+    - `04_methodology/VELO-METHODOLOGY.md` v1.2 → **v1.3**: §6.8 DS Promotion Visualisation rule; §7.0 Block-Harvest-First (mandatory for SACRED blocks) с 3 phases; §11.5 AP-P-6 (PNG reverse-engineering anti-pattern); §11.5 AP-P-7 (variables.css without styleguide anti-pattern); Methodology Changelog v1.3 entry.
+    - `05_roadmap/ROADMAP.md` v1.1 → **v1.2**: TOC + Sprint Cadence + Sprint 2.5 full section (5.5.1 two tracks / 5.5.2 Track A per-block sequence / 5.5.3 Track B CBSHOME bundles / 5.5.4 Tasks / 5.5.5 Gates / 5.5.6 Risks / 5.5.7 Anchor). Closing anchor updated.
+    - `_HANDOFF.md` v1.1 → **v1.2**: Block-Harvest-First rule + DS Visualisation rule в правилах поведения; entry point switched на Sprint 2.5 Track A (Dashboard 9 first); reference на CBSHOME-PATTERNS для Track B; anchor updated.
+    - `02_design-system/INDEX.md` Iteration Log: новая строка про methodology v1.3 + roadmap v1.2 + Sprint 2.5 pivot.
+    - `03_mockups/INDEX.md`: `_dashboard-flow.html` помечен **🗑 superseded** (rebuild в Sprint 2.5 T2.5.2 после DS-complete).
+    - `docs/INDEX.md` Recent Changes line + version refs обновлены.
+  - **Net effect this session:** 0 mockup правок, 0 DS contentual правок, 7 unique файлов updated (methodology, roadmap, _HANDOFF, sprint-02, 02_design-system/INDEX, 03_mockups/INDEX, docs/INDEX). Текущее правдивое состояние project: Sprint 2 in progress — Phase 3 ✅, Phase 4 partial (Onboarding ✅, Dashboard 9 🗑 superseded), Phase 4.5 pivot active = Sprint 2.5 scope. Новый чат начнёт с Track A first block (Dashboard 9 harvest) — entry point в `_HANDOFF.md` секция «ЧТО ДЕЛАТЬ ДАЛЬШЕ».
+
+- **2026-05-18 (session 4 closure — final, Sprint 2 formally closed):**
+  - Operator clarified that Sprint 2.5 is a **standalone sprint** (not a Phase 4.5 pivot within Sprint 2). Earlier compromise text in this file and in `docs/INDEX.md` was inaccurate.
+  - **Sprint 2 formally closed** at current state: Phase 3 ✅ styleguide passed STYLEGUIDE GATE, Phase 4 partial — Onboarding 8 block ✅ approved 2026-05-18, Dashboard 9 skeleton 🗑 superseded (work continues in Sprint 2.5). Header `Status` updated to `closed`.
+  - **Sprint 2.5 file created** — `05_roadmap/sprint-02.5.md` per methodology §15.1 template. Three parallel tracks: A (DS completion block-by-block, Cowork), B (CBSHOME foundation transfer, Claude Code), C (Documentation English translation pass, Cowork).
+  - **Methodology bumped v1.3 → v1.4** — new §1.1 P6 (English-default principle) + §11.5 AP-P-8 (Russian narrative anti-pattern with exception table). Driven by Cyrillic audit: 2852 occurrences across 29 files, large majority concentrated in exempt categories (mockup UI strings + external inputs). Track C in Sprint 2.5 schedules conversion of non-exempt files.
+  - **Roadmap bumped v1.2 → v1.3** — Track C added as third parallel work stream in §5.5, sub-section numbering shifted to 5.5.5..5.5.8.
+  - **HANDOFF bumped v1.3 → v1.4** (next edit) — English rule added to rules of behavior, Шаг 4 reference updated to `sprint-02.5.md`, startup prompt one-line reminder.
+  - **Sprint 2 closure inventory:** Phase 3 ✅ styleguide HTML + 32 SVG icons + card/modal shadow tokens. Phase 4 ✅ Onboarding 8 block (all 8 columns approved 2026-05-18) + DS-promotion of glass canon + typography canon + button heights + stack gaps + halo composition + state token rebalance (alpha-steel-30 promoted, halo simplified to single white drop-shadow). 2 anti-patterns codified (AP-P-6 PNG reverse-engineering, AP-P-7 variables.css without styleguide). COMPONENTS-CATALOG.md created.
 
 ---
 

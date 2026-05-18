@@ -59,6 +59,7 @@
   --velo-color-alpha-steel-50:       rgba(76, 101, 137, 0.50);  /* promoted: Login/Register muted text */
   --velo-color-alpha-steel-35:       rgba(98, 122, 156, 0.35);  /* promoted: Profile (1 occurrence) — subtle overlay */
   --velo-color-alpha-steel-light-15: rgba(98, 122, 156, 0.15);  /* promoted: Dashboard card subtle bg + 50+ across sections */
+  --velo-color-alpha-steel-30:       rgba(76, 101, 137, 0.30);  /* promoted Dashboard 9 audit 2026-05-18: 25 occurrences as card border across all 9 frames — canonical card edge */
 
   /* --- White alpha variants --- */
   --velo-color-alpha-white-70: rgba(255, 255, 255, 0.70);  /* promoted: Calendar + Profile/Messages — glass-button variant brighter than 66 */
@@ -126,8 +127,11 @@
   /* Decorative-only radii (13, 20, 71, 76, 124.10, 127.67, 252, 350.65, 86.20, 100.74, 100.93, 116.82, 120.55, 14.33, 17.97, 151.14, etc.) — single-section or single-component use; kept as inline literals in components, NOT promoted to tokens. */
 
   /* --- Effect primitives --- */
-  --velo-shadow-glow-white:         0 0 20.9px 0 rgba(255, 255, 255, 1);
-  --velo-shadow-glow-white-strong:  0 0 26.34px 0 rgba(255, 255, 255, 1);
+  /* Figma canon — single drop-shadow white. Spread fixed 0 → 7 / 8.82
+     per Dashboard 9 Figma audit 2026-05-18 (was promotion bug Sprint 1
+     Phase 2 — spread accidentally dropped). */
+  --velo-shadow-glow-white:         0 0 20.9px 7px rgba(255, 255, 255, 1);
+  --velo-shadow-glow-white-strong:  0 0 26.34px 8.82px rgba(255, 255, 255, 1);
   --velo-shadow-card:               0 2px 8px 0 rgba(76, 101, 137, 0.08);
   --velo-shadow-modal:              0 8px 32px 0 rgba(76, 101, 137, 0.16);
   --velo-blur-glass:                blur(4px);
@@ -181,6 +185,10 @@
   --velo-border-default: var(--velo-color-neutral-300);
   --velo-border-input:   var(--velo-color-neutral-300);
   --velo-border-button:  var(--velo-color-neutral-white);
+  /* Card border: promoted Dashboard 9 audit 2026-05-18.
+     Figma uses rgba(76,101,137, 0.30) 1px across all card-like components.
+     Replaces previous alpha-steel-15 (0.15) which was visually weak. */
+  --velo-border-card:    var(--velo-color-alpha-steel-30);
 
   /* --- Icons --- */
   --velo-icon-default: var(--velo-color-steel-primary);
@@ -210,6 +218,14 @@
   /* --- State — Info (RESOLVED via full mining) --- */
   --velo-state-info:   var(--velo-color-blue-medium);
   --velo-bg-info-soft: var(--velo-color-blue-50);
+
+  /* --- Alert backgrounds — translucent (Dashboard 9 audit 2026-05-18 round 2).
+     Used by .alert-pill --warning / --info / --error.
+     Figma reality: SAME hue as outline, alpha 0.4 (not tint family with alpha).
+     Warning ALSO has BACKGROUND_BLUR radius 4 — see .alert-pill--warning CSS. */
+  --velo-bg-alert-warning: rgba(251, 192, 136, 0.4);   /* orange-light @ 40% */
+  --velo-bg-alert-info:    rgba(118, 221, 230, 0.4);   /* teal-light @ 40% */
+  --velo-bg-alert-error:   rgba(247, 149, 162, 0.4);   /* coral-medium @ 40% */
 
   /* --- Interactive (placeholders + 2 RESOLVED from grey family) --- */
   --velo-focus-ring:     rgba(76, 101, 137, 0.4);             /* MISSING: not observed in 97 static frames — neutral placeholder derived from steel/primary */
@@ -261,12 +277,21 @@
   --velo-glass-fill:       rgba(76, 101, 137, 0.10);
   --velo-glass-fill-hover: rgba(76, 101, 137, 0.15);
 
-  /* --- Halo box-shadow для кнопок (единый на primary + glass).
-     Operator iteration: spread 11 + blur 7 + alpha 0.57, layer-order drop-on-top.
-     Constraint: total extent (blur+spread) ≤ --velo-stack-gap-buttons (16). */
+  /* --- Halo box-shadow для PRIMARY кнопки (compound: steel drop + white halo).
+     Operator iteration Sprint 2 Phase 4: spread 11 + blur 7 + alpha 0.57, layer-order drop-on-top.
+     Constraint: total extent (blur+spread) ≤ --velo-stack-gap-buttons (16).
+     Primary остаётся ярким акцентом — compound даёт depth + brand glow. */
   --velo-shadow-button:
     0 6px 14px   rgba(76, 101, 137, 0.20),
     0 0 7px 11px rgba(255, 255, 255, 0.57);
+
+  /* --- Halo box-shadow для GLASS кнопки (упрощённый — single white halo,
+     Figma canon 1:1 с alpha 0.8 = -20% per operator request 2026-05-18).
+     Используется на .v-button--glass / --ghost / --oauth, .velo-back-arrow,
+     .v-button--round-icon (bottom-nav). НЕ применяется на primary.
+     Figma reality (Dashboard 9 audit): single DROP_SHADOW white, offset 0,0,
+     blur 20.9px, spread 7px — мы упрощаем до того же composition с -20% alpha. */
+  --velo-shadow-button-glass: 0 0 20.9px 7px rgba(255, 255, 255, 0.8);
 }
 
 

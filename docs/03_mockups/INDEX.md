@@ -20,6 +20,7 @@ Status legend:
 | File | Status | Approved on | Notes |
 |---|---|---|---|
 | `user/_onboarding-flow.html` | ✅ **MOCKUP GATE passed 2026-05-18** | 2026-05-18 | Combined viewer: 8 columns Onboarding flow (welcome / login / register / oauth / onb-1..4). Все колонки approved оператором. DS canon promoted (typography h1+body tokens, button/input heights, stack gaps, glass canon, halo composition). Real Figma SVG icons (`icon-onb-*.svg`) extracted via Plugin API. |
+| `user/_dashboard-flow.html` | 🗑 **superseded 2026-05-18** | — | Combined viewer: 9 columns Dashboard block. Built in Sprint 2 Phase 4 via PNG reverse-engineering — incurred 3× rework on alert pills + glass halo + bottom-nav. Per Sprint 2.5 plan, **the viewer is rebuilt ground-up after Dashboard 9 DS-complete state** (Track A T2.5.1 → T2.5.2). File kept until that pass completes for reference; do not use as canon. Custom-named classes (info-pill, warning-alert, master-card, list-row, video-block, energy-pair, recommendation-card) — будут validated против harvested Figma values во время T2.5.1. |
 
 Planning target (per ROADMAP §6.1, §7.1): ~20-25 screens.
 

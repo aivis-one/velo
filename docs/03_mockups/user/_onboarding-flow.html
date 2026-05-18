@@ -299,13 +299,11 @@ body {
   cursor: pointer;
   transition: all .15s ease;
   padding: 0 24px;
-  /* DS canon: единый halo + бренд-тень снизу.
-     Layers swapped (operator): steel drop shadow рисуется ПОВЕРХ halo,
-     halo уходит на нижний слой. На нижней кромке кнопки drop shadow
-     теперь более заметен (steel blue), а не перекрыт белым halo. */
-  box-shadow:
-    0 6px 14px   rgba(76, 101, 137, 0.20),
-    0 0 7px 11px rgba(255, 255, 255, 0.57);
+  /* DS canon split (2026-05-18 operator update):
+     Glass/ghost/oauth (most common) — упрощённый single white halo,
+     Figma canon: 0 0 20.9 7 white @ 0.8 alpha. Primary получает
+     compound override ниже (steel drop + white halo). */
+  box-shadow: 0 0 20.9px 7px rgba(255, 255, 255, 0.8);
 }
 .v-button--primary {
   /* Pixel-measured median bg of "Войти" в эталоне = #627a9c = steel-light,
@@ -318,6 +316,12 @@ body {
 }
 .v-button--primary:hover  { background: var(--velo-color-steel-primary); }
 .v-button--primary:active { transform: scale(.98); }
+/* Compound halo override — primary остаётся ярким акцентом (steel drop + white halo). */
+.v-button--primary {
+  box-shadow:
+    0 6px 14px   rgba(76, 101, 137, 0.20),
+    0 0 7px 11px rgba(255, 255, 255, 0.57);
+}
 
 /* Glass button — wrapper-pattern (DS canon, per operator decision).
    Сама кнопка — transparent shell (только обводка + halo + позиционирование).

@@ -59,6 +59,7 @@
   --velo-color-alpha-steel-50:       rgba(76, 101, 137, 0.50);  /* promoted: Login/Register muted text */
   --velo-color-alpha-steel-35:       rgba(98, 122, 156, 0.35);  /* promoted: Profile (1 occurrence) — subtle overlay */
   --velo-color-alpha-steel-light-15: rgba(98, 122, 156, 0.15);  /* promoted: Dashboard card subtle bg + 50+ across sections */
+  --velo-color-alpha-steel-30:       rgba(76, 101, 137, 0.30);  /* promoted Dashboard 9 audit 2026-05-18: 25 occurrences as card border across all 9 frames — canonical card edge */
 
   /* --- White alpha variants --- */
   --velo-color-alpha-white-70: rgba(255, 255, 255, 0.70);  /* promoted: Calendar + Profile/Messages — glass-button variant brighter than 66 */
@@ -126,8 +127,11 @@
   /* Decorative-only radii (13, 20, 71, 76, 124.10, 127.67, 252, 350.65, 86.20, 100.74, 100.93, 116.82, 120.55, 14.33, 17.97, 151.14, etc.) — single-section or single-component use; kept as inline literals in components, NOT promoted to tokens. */
 
   /* --- Effect primitives --- */
-  --velo-shadow-glow-white:         0 0 20.9px 0 rgba(255, 255, 255, 1);
-  --velo-shadow-glow-white-strong:  0 0 26.34px 0 rgba(255, 255, 255, 1);
+  /* Figma canon — single drop-shadow white. Spread fixed 0 → 7 / 8.82
+     per Dashboard 9 Figma audit 2026-05-18 (was promotion bug Sprint 1
+     Phase 2 — spread accidentally dropped). */
+  --velo-shadow-glow-white:         0 0 20.9px 7px rgba(255, 255, 255, 1);
+  --velo-shadow-glow-white-strong:  0 0 26.34px 8.82px rgba(255, 255, 255, 1);
   --velo-shadow-card:               0 2px 8px 0 rgba(76, 101, 137, 0.08);
   --velo-shadow-modal:              0 8px 32px 0 rgba(76, 101, 137, 0.16);
   --velo-blur-glass:                blur(4px);
@@ -177,4 +181,142 @@
   --velo-bg-button-primary: var(--velo-color-steel-light);
   --velo-bg-button-glass:   var(--velo-color-alpha-white-66);
 
-  /* --- Borders 
+  /* --- Borders --- */
+  --velo-border-default: var(--velo-color-neutral-300);
+  --velo-border-input:   var(--velo-color-neutral-300);
+  --velo-border-button:  var(--velo-color-neutral-white);
+  /* Card border: promoted Dashboard 9 audit 2026-05-18.
+     Figma uses rgba(76,101,137, 0.30) 1px across all card-like components.
+     Replaces previous alpha-steel-15 (0.15) which was visually weak. */
+  --velo-border-card:    var(--velo-color-alpha-steel-30);
+
+  /* --- Icons --- */
+  --velo-icon-default: var(--velo-color-steel-primary);
+
+  /* --- Dots (pagination) --- */
+  --velo-dot-active:  var(--velo-color-steel-primary);
+  --velo-dot-passive: var(--velo-color-alpha-steel-60);
+
+  /* --- State — Success --- */
+  --velo-state-success:    var(--velo-color-teal-medium);
+  --velo-text-success:     var(--velo-color-teal-dark);
+  --velo-bg-success-soft:  var(--velo-color-teal-50);
+  --velo-bg-success-tint:  var(--velo-color-alpha-teal-30);
+
+  /* --- State — Warning --- */
+  --velo-state-warning:    var(--velo-color-orange-medium);
+  --velo-text-warning:     var(--velo-color-orange-dark);
+  --velo-bg-warning-soft:  var(--velo-color-orange-50);
+  --velo-bg-warning-tint:  var(--velo-color-alpha-orange-40);
+
+  /* --- State — Error / Destructive --- */
+  --velo-state-error:       var(--velo-color-coral-medium);
+  --velo-state-destructive: var(--velo-color-coral-dark);
+  --velo-text-error:        var(--velo-color-coral-dark);
+  --velo-bg-error-soft:     var(--velo-color-coral-50);
+
+  /* --- State — Info (RESOLVED via full mining) --- */
+  --velo-state-info:   var(--velo-color-blue-medium);
+  --velo-bg-info-soft: var(--velo-color-blue-50);
+
+  /* --- Alert backgrounds — translucent (Dashboard 9 audit 2026-05-18 round 2).
+     Used by .alert-pill --warning / --info / --error.
+     Figma reality: SAME hue as outline, alpha 0.4 (not tint family with alpha).
+     Warning ALSO has BACKGROUND_BLUR radius 4 — see .alert-pill--warning CSS. */
+  --velo-bg-alert-warning: rgba(251, 192, 136, 0.4);   /* orange-light @ 40% */
+  --velo-bg-alert-info:    rgba(118, 221, 230, 0.4);   /* teal-light @ 40% */
+  --velo-bg-alert-error:   rgba(247, 149, 162, 0.4);   /* coral-medium @ 40% */
+
+  /* --- Interactive (placeholders + 2 RESOLVED from grey family) --- */
+  --velo-focus-ring:     rgba(76, 101, 137, 0.4);             /* MISSING: not observed in 97 static frames — neutral placeholder derived from steel/primary */
+  --velo-disabled-bg:    var(--velo-color-grey-medium);       /* RESOLVED: #a4a4a4 from Diary map mining (was placeholder) */
+  --velo-disabled-text:  var(--velo-color-grey-dark);         /* RESOLVED: #919191 from Diary mining (was placeholder) */
+  --velo-hover-overlay:  rgba(0, 0, 0, 0.04);                 /* MISSING: not observed — industry-standard placeholder */
+  --velo-active-overlay: rgba(0, 0, 0, 0.08);                 /* MISSING: not observed — industry-standard placeholder */
+
+  /* =============================================================
+     LAYER 2 — COMPONENT SIZING (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Heights — buttons + inputs.
+     Operator: input должен быть на 20% тоньше кнопки (52 × 0.8 = 42). */
+  --velo-button-height: 52px;
+  --velo-input-height:  42px;
+
+  /* --- Stack gaps — отдельные для кнопок и форм.
+     Operator: формы плотнее (10px), кнопки шире (16px). Halo budget ≤ button gap. */
+  --velo-stack-gap-buttons: 16px;
+  --velo-stack-gap-forms:   10px;
+
+  /* =============================================================
+     LAYER 2 — TYPOGRAPHY CANON (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Section title (h1) — letter-spaced "разрядка".
+     Applies to: "С возвращением!", "Создать аккаунт",
+     "Найдите свою практику", "Ведите дневник", "Общайтесь с мастерами",
+     "Часовой пояс" — все onboarding section titles. */
+  --velo-typo-h1-size:    30px;
+  --velo-typo-h1-line:    36px;
+  --velo-typo-h1-spacing: 1.2px;
+  --velo-typo-h1-color:   var(--velo-text-primary);
+
+  /* --- Body / description — subtitle text.
+     Applies to: "Войдите, чтобы продолжить практику",
+     "Начните свой путь к осознанности", все onboarding desc, oauth-label. */
+  --velo-typo-body-size:  18px;
+  --velo-typo-body-line:  24px;
+  --velo-typo-body-color: var(--velo-text-secondary);
+
+  /* =============================================================
+     LAYER 2 — GLASS-COMPONENT CANON (Sprint 2 Phase 4 promoted)
+     ============================================================= */
+
+  /* --- Glass plashka fill (на кнопках/back-arrow/inputs glass-варианта).
+     Operator iteration: 5 → 7 → 10%. */
+  --velo-glass-fill:       rgba(76, 101, 137, 0.10);
+  --velo-glass-fill-hover: rgba(76, 101, 137, 0.15);
+
+  /* --- Halo box-shadow для PRIMARY кнопки (compound: steel drop + white halo).
+     Operator iteration Sprint 2 Phase 4: spread 11 + blur 7 + alpha 0.57, layer-order drop-on-top.
+     Constraint: total extent (blur+spread) ≤ --velo-stack-gap-buttons (16).
+     Primary остаётся ярким акцентом — compound даёт depth + brand glow. */
+  --velo-shadow-button:
+    0 6px 14px   rgba(76, 101, 137, 0.20),
+    0 0 7px 11px rgba(255, 255, 255, 0.57);
+
+  /* --- Halo box-shadow для GLASS кнопки (упрощённый — single white halo,
+     Figma canon 1:1 с alpha 0.8 = -20% per operator request 2026-05-18).
+     Используется на .v-button--glass / --ghost / --oauth, .velo-back-arrow,
+     .v-button--round-icon (bottom-nav). НЕ применяется на primary.
+     Figma reality (Dashboard 9 audit): single DROP_SHADOW white, offset 0,0,
+     blur 20.9px, spread 7px — мы упрощаем до того же composition с -20% alpha. */
+  --velo-shadow-button-glass: 0 0 20.9px 7px rgba(255, 255, 255, 0.8);
+}
+
+
+/* ============================================================
+   MISSING token inventory (post-FULL-MINING, 97 screens)
+   ============================================================
+   ✅ RESOLVED during full mining (previously MISSING in v0.1):
+   - --velo-state-info        → #619cd2 (Info blue medium)
+   - --velo-radius-md         → 10px
+   - --velo-disabled-bg       → #a4a4a4 (grey-medium)
+   - --velo-disabled-text     → #919191 (grey-dark)
+
+   ❌ CONFIRMED MISSING after full 97-screen mining (truly absent):
+   - --velo-radius-full       (9999px circular — not observed; use radius:50% or radius-pill for circular)
+   - --velo-shadow-card       (no DROP_SHADOW with offset observed — VELO uses bg tint instead)
+   - --velo-shadow-modal      (same as above)
+   - --velo-focus-ring        (interactive — never observed in static frames; placeholder used)
+   - --velo-hover-overlay     (interactive — never observed; placeholder used)
+   - --velo-active-overlay    (interactive — never observed; placeholder used)
+
+   Vestigial / single-use (not promoted to tokens, kept as component-local literals):
+   - rgba(255, 255, 255, 0.01)                                  vestigial alpha
+   - cornerRadius 13, 20, 71, 76, 86.20, 100.74/93, 116.82,
+     120.55, 124.10, 127.67, 151.14, 179.76, 252, 350.65, etc.  decorative-only
+   - font-size 3.77, 5.05, 5.83, 7.05, 7.06, 8.93, 9, 10.68,
+     11.84, 12.03, 12.37, 13.91, 16.04, 17.89, 18.55, 20.12,
+     25.6, 27.37, 28.29, 46.32, 50.24                            decorative / map labels / brand logos
+   ============================================================ */

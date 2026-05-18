@@ -12,7 +12,7 @@
 > Claude Code (frontend code generation), the backend developer (consumer
 > of the handoff package).
 >
-> **Anchor:** `[VELO-METHODOLOGY.md | v1.2 | 2026-05-17]`
+> **Anchor:** `[VELO-METHODOLOGY.md | v1.4 | 2026-05-18]`
 
 ---
 
@@ -37,7 +37,7 @@
 
 ## 1. Principles and Scope
 
-### 1.1 Five Foundational Principles
+### 1.1 Six Foundational Principles
 
 **P1 — Single source of truth per artifact type.**
 Tokens have one master location. Components have one master location. Screen
@@ -65,6 +65,21 @@ Tokens can be verified via a styleguide HTML. Mockups can be verified
 visually against Figma screenshots. Screen specs can be reviewed by reading
 them. Each layer has its own verify gate. No layer is "done" until its gate
 passes.
+
+**P6 — Project documentation is English-default (v1.4).**
+All process documentation — methodology, roadmap, handoff, trackers, INDEX
+files, component catalog, DS technical comments, sprint daily logs — is
+written in English. Russian is allowed only in three explicit exceptions:
+(a) **Product UI sample data within mockups** per §7.6 (Russian by domain
+choice, no Lorem ipsum); (b) **Verbatim operator quotes in Daily logs**
+(kept in quotes for accuracy, e.g. `«приняты экраны и дизайн»`); (c)
+**External source materials in `06_project-inputs/`** (kept as-is, they
+are inputs to the project, not products of its methodology). Rationale:
+Russian narrative in process docs is anti-pattern — every read costs ~2×
+the tokens of equivalent English with no value gain. The methodology
+itself, the roadmap, the rule book that gets read on every session entry,
+must be in the cheapest accurate form. See §11.5 AP-P-8 for the
+anti-pattern with full exception table.
 
 ### 1.2 Scope of This Document
 
@@ -871,6 +886,13 @@ Rules:
 
 Verify-gate criterion: STYLEGUIDE GATE (see §10).
 
+**DS Promotion Visualisation rule (mandatory, v1.3).** Every promotion to `variables.css` (new token, new component, new pattern) MUST be visualised in `velo-design-system.html` within the **same edit pass**. A token, component, or pattern "exists in DS" only when **both** are true:
+
+1. Declared in `02_design-system/tokens/variables.css` master + deliverable (MD5-mirror)
+2. Visualised in the relevant tab of `02_design-system/styleguide/velo-design-system.html` (Tokens / Components / Patterns)
+
+Без (2) элемент "promoted to file" но **не в DS**. Это закрывает дыру, обнаруженную в Sprint 2 Phase 4: Onboarding и Dashboard promotion gains добавились в `variables.css` без визуализации в styleguide — последующие сессии не имели единого визуального источника правды.
+
 ---
 
 [END OF PART 1 — continues with Mockup Layer, Spec Template, Pipeline, Cowork Prompts, Quality Gates, Anti-Patterns]
@@ -879,6 +901,39 @@ Verify-gate criterion: STYLEGUIDE GATE (see §10).
 After the design system is stable (tokens + components in styleguide
 approved), the team builds one HTML mockup per screen. Mockups live in
 `03_mockups\{role}\` and are the operator's visual workspace.
+
+### 7.0 Block-Harvest-First (mandatory for SACRED blocks, v1.3)
+
+**Before building any mockup for a SACRED block** (Onboarding 8, Dashboard 9, Calendar 11, Profile 7, Diary 20, Messages 3, Analytics 3, Practices 15, Master Dashboard 8, Master Onboarding 13) — execute three phases **in order**:
+
+**Phase A — Full block harvest (single pass per block):**
+
+1. `use_figma` Plugin API walk: all frames of the block, depth-deep manifest of every distinct visual element (containers, icons, badges, cards, buttons).
+2. Export every icon node as SVG via `exportAsync({format:'SVG'})`. Chunk by 20KB transport cap.
+3. Sample exact fills (RGB + alpha), strokes (color + weight), `cornerRadius`, `effects` (DROP_SHADOW + BACKGROUND_BLUR), typography (font family/style/size/letterSpacing/lineHeight) per element.
+4. Compare against current DS state (`variables.css` + `COMPONENTS-CATALOG.md` + `ASSETS-INDEX.md`). Document gaps.
+
+**Phase B — DS promotion (five deliverables, all mandatory):**
+
+1. **Tokens** → `02_design-system/tokens/variables.css` master + deliverable (MD5-mirror)
+2. **Vector assets** → `02_design-system/assets/icons/` with canonical names `icon-{component}-{variant}.svg`
+3. **`ASSETS-INDEX.md` entries** with Figma node provenance (file key + node ID)
+4. **`COMPONENTS-CATALOG.md` entries** (Class + Variants + States, When-to-use + Anti-patterns, Tokens consumed + Related, Provenance + Status)
+5. **Styleguide visualisation** → `velo-design-system.html` tabs Tokens / Components / Patterns. See §6.8 DS Promotion Visualisation rule.
+
+A block is "**DS-complete**" only when all five deliverables are done. Until then mockup work for the block is blocked.
+
+**Phase C — Mockup rebuild on ready DS:**
+
+Only after the block is DS-complete. Mockup serves as **validation of DS coverage** — if mockup needs something missing from DS, that's a **DS gap**, not a mockup gap. Close the gap in DS first.
+
+**Why this rule (the lesson learned).**
+Component-by-component reverse-engineering from PNG screenshots when Figma SACRED is fully accessible leads to 3× rework: synthesis → operator catches drift → re-extract from Figma → operator catches again. Block-harvest-first compresses to one round per block. Surfaced in Sprint 2 Phase 4 Dashboard 9 (alert pills + glass halo + bottom-nav repeated 3 times each before being extracted from Figma).
+
+**When the rule does NOT apply:**
+- **Admin role** — no Figma SACRED exists (Sprint 7 architecture finding). Build from scratch on DS tokens + `admin-legacy-reference-v2.5.html` reference.
+- **Net-new components** — not present in any SACRED frame. Mockup is the first instance; DS-promote after operator MOCKUP GATE.
+- **Mockup polish iterations** after MOCKUP GATE already passed — no need to re-harvest if visual approved.
 
 ### 7.1 Purpose of a Mockup
 
@@ -2332,6 +2387,31 @@ Why bad: future sessions can't see the agreement.
 Fix: methodology changes go into the document with a Changelog entry
 at the end.
 
+**AP-P-6 — Per-element PNG reverse-engineering when Figma SACRED exists (v1.3).**
+Symptom: Cowork opens PNG screenshots from `02_design-system/assets/screenshots/{role}/` and pixel-samples colors, positions, icon shapes to build mockup CSS — while the Figma SACRED frame for that screen is fully accessible via `use_figma` Plugin API.
+Why bad: PNG is a render of the truth, not the truth. Reverse-engineering accumulates drift on colors (rgba alpha mismatch), pixel positions, icon shapes, stroke weights. Triggers 3× rework cycle: synthesis → operator catches drift → re-extract from Figma → operator catches again. Wasted time, multiplied per component.
+Fix: §7.0 Block-Harvest-First rule. PNG is for **side-by-side validation only**, not for extraction. Surfaced in Sprint 2 Phase 4 Dashboard 9 (alert pills + glass halo + bottom-nav each rebuilt 3 times before adopting Figma-first).
+
+**AP-P-7 — Promoting to variables.css without styleguide visualisation (v1.3).**
+Symptom: new token added to `02_design-system/tokens/variables.css` (e.g. `--velo-shadow-button`, `--velo-bg-alert-warning`), but `velo-design-system.html` is not updated — new token does not appear in any styleguide tab.
+Why bad: styleguide stops being the single visual source of truth for DS. Future sessions don't know what's in DS and start re-inventing under different names. This is the **primary** cause of 3× rework in Sprint 2 Phase 4.
+Fix: §6.8 DS Promotion Visualisation rule. Every promotion to variables.css = paired edit in velo-design-system.html same pass.
+
+**AP-P-8 — Russian narrative in process documentation (v1.4).**
+Symptom: methodology / roadmap / handoff / tracker / catalog body text written in Russian; daily log narratives written in Russian; CSS comments in `variables.css` written in Russian.
+Why bad: every session entry reads these docs. Russian text costs ~2× the tokens of equivalent English (Cyrillic UTF-8 + tokenizer pre-training distribution). Across the project lifetime this is a recurring tax with no informational gain. Russian narrative also limits future contributor pool.
+Fix: P6 (Six Foundational Principles). English-default for all process docs. Russian is allowed **only** in:
+
+| Where Russian is allowed | Why |
+|---|---|
+| UI sample data in mockups (`03_mockups/**/*.html`) | Product UI is Russian by domain choice — §7.6 no-Lorem-ipsum rule |
+| `velo-design-system.html` sample content | Same — visual catalog demonstrates real product text |
+| Verbatim operator quotes in Daily logs (`«…»`) | Accuracy of operator instruction record |
+| External source materials in `06_project-inputs/` | Inputs to the project, not outputs of its methodology — kept as received |
+| Specialized proper nouns / project names | No accurate English equivalent |
+
+Conversion of legacy Russian narrative to English is a finite, scheduled task — see ROADMAP §5.5 Track C (Documentation English translation pass).
+
 ### 11.6 Forbidden Constructs Quick Reference
 
 | Construct | Where | Reason |
@@ -2566,6 +2646,44 @@ records material changes for human readers.
 ```markdown
 ## Methodology Changelog
 
+- 2026-05-18 — **v1.4** — English-default documentation rule. Surfaced when
+  operator counted Cyrillic occurrences across docs (2852 across 29 files)
+  and noted that process docs in Russian cost ~2× the tokens of equivalent
+  English on every session read — a recurring tax with no informational
+  gain. Changes:
+  - §1.1 — heading renamed "Five → Six Foundational Principles". New **P6
+    Project documentation is English-default**: methodology, roadmap,
+    handoff, trackers, INDEX files, catalog, DS technical comments, sprint
+    daily logs in English. Russian allowed only in (a) UI sample data per
+    §7.6, (b) verbatim operator quotes in Daily logs, (c) external source
+    materials in `06_project-inputs/`.
+  - §11.5 — new **AP-P-8 Russian narrative in process documentation** with
+    full exception table.
+  - Companion: ROADMAP v1.2 → v1.3, Sprint 2.5 gains **Track C —
+    Documentation English translation pass** as parallel work stream
+    alongside Track A (DS completion) and Track B (CBSHOME transfer).
+- 2026-05-18 — **v1.3** — DS Completion Pipeline + Block-Harvest-First rule.
+  Surfaced during Sprint 2 Phase 4 Dashboard 9 attempt: per-element PNG
+  reverse-engineering caused 3× rework on alert pills + glass halo +
+  bottom-nav. Operator pivot to "harvest block, complete DS, then mockup"
+  approach. Companion: `05_roadmap/ROADMAP.md` bumped to v1.2 with Sprint
+  2.5 inserted (Block-by-block DS completion + CBSHOME pattern transfer
+  parallel track). Changes:
+  - §6.8 — **DS Promotion Visualisation rule** added. Every promotion to
+    `variables.css` must be visualised in `velo-design-system.html` in
+    same edit pass. Token "exists in DS" only when both (a) declared in
+    `variables.css` and (b) visualised in styleguide.html.
+  - §7 — new sub-section **§7.0 Block-Harvest-First (mandatory for
+    SACRED blocks)** with three phases: A harvest → B promote (5
+    deliverables) → C mockup rebuild. Block is "DS-complete" only when
+    all 5 deliverables are done. Mockup work for the block is blocked
+    until then. Exceptions: admin role (no SACRED), net-new components,
+    polish iterations after GATE.
+  - §11.5 — new **AP-P-6 Per-element PNG reverse-engineering when Figma
+    SACRED exists**. PNG is for side-by-side validation only, not for
+    extraction.
+  - §11.5 — new **AP-P-7 Promoting to variables.css without styleguide
+    visualisation**. Main root cause of 3× rework in Phase 4.
 - 2026-05-17 — **v1.2** — Cross-pollination from operator's v3 Figma-native methodology
   (`06_project-inputs/VELO_METHODOLOGY.md`). Three targeted amendments, all
   applicable to our HTML-only pipeline (after Sprint 1 Figma extraction completes,
@@ -2671,7 +2789,7 @@ makes a decision and either:
 ## Anchor
 
 ```
-[VELO-METHODOLOGY.md | v1.2 | 2026-05-17]
+[VELO-METHODOLOGY.md | v1.4 | 2026-05-18]
 Single source of truth for VELO design and handoff work.
 Replaces three universal methodologies with one project-specific document.
 v1.1: validation pass against api-openapi.json + ARCHITECTURE.md + CC-REPORT-2.
