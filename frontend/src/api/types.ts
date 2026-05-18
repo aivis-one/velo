@@ -62,7 +62,7 @@ export type {
   PaginatedUsersResponse,
   PaginatedWaitlistResponse,
   PaginatedWithdrawalsResponse,
-  PayoutDetailsResponse,
+  PayoutDetails,
   PayoutDetailsUpdate,
   PracticeInsightsResponse,
   PracticeResponse,
