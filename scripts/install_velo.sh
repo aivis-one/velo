@@ -112,21 +112,26 @@ if [ "$ID" != "ubuntu" ]; then
     warn "Tested on Ubuntu. Detected: $ID. Continuing anyway."
 fi
 
-# Disk -- we need at least 10G free for Docker images and DB volumes.
-DISK_FREE=$(df / --output=avail | tail -1)
-DISK_FREE_GB=$((DISK_FREE / 1024 / 1024))
+# Disk -- recommended 10GB free in /opt. Warn only; the operator decides.
+# (Old velo behaviour. Hard error would block legitimate test-server use.)
+DISK_FREE_GB=$(df -BG /opt 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'G')
+if [ -z "$DISK_FREE_GB" ]; then
+    # /opt may not exist yet on a truly fresh server; fall back to /.
+    DISK_FREE_GB=$(df -BG / | tail -1 | awk '{print $4}' | tr -d 'G')
+fi
 if [ "$DISK_FREE_GB" -lt 10 ]; then
-    error "Need at least 10GB free disk. Have: ${DISK_FREE_GB}GB"
+    warn "Low disk: ${DISK_FREE_GB}GB free (recommended >=10GB)"
+else
+    success "Disk: ${DISK_FREE_GB}GB free"
 fi
-success "Disk: ${DISK_FREE_GB}GB free"
 
-# RAM -- Docker + Postgres + Redis + app need at least 1.5G; warn if low.
-RAM_TOTAL_KB=$(awk '/MemTotal:/{print $2}' /proc/meminfo)
-RAM_TOTAL_MB=$((RAM_TOTAL_KB / 1024))
-if [ "$RAM_TOTAL_MB" -lt 1500 ]; then
-    warn "Low RAM: ${RAM_TOTAL_MB}MB (recommended >=1500MB)"
+# RAM -- recommended 2GB. Warn only.
+RAM_TOTAL_MB=$(free -m | awk '/Mem:/ {print $2}')
+if [ "$RAM_TOTAL_MB" -lt 2000 ]; then
+    warn "Low RAM: ${RAM_TOTAL_MB}MB (recommended >=2000MB)"
+else
+    success "RAM: ${RAM_TOTAL_MB}MB total"
 fi
-success "RAM: ${RAM_TOTAL_MB}MB total"
 
 # DNS -- both domains must resolve to this server. We don't fail on mismatch
 # (the user may be testing from a different IP, or DNS may be propagating),
