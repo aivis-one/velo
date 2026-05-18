@@ -80,6 +80,20 @@ natural and reference from elsewhere.
 
 ---
 
+## Shared CSS infrastructure
+
+All mockup HTML files link to three shared CSS layers in `_shared/`:
+
+| File | Contents |
+|---|---|
+| `_shared/tokens.css` | Full `:root {}` mirror of `02_design-system/tokens/variables.css` + `@font-face` (Marmelad) + shell-chrome tokens (`--shell-*`). **Sync rule**: update whenever `variables.css` changes. |
+| `_shared/shell.css` | Viewer chrome: `.frame`, `.topbar`, `.workspace`, `.column`, `.row-label`, `.tbd-overlay`, toast infrastructure. |
+| `_shared/components.css` | Reusable VELO component classes: `.v-button` + variants, `.v-input`, `.velo-header-compact`, `.mood-widget`, `.bottom-nav`, `.alert-pill`, etc. New classes added here as each component is first built in any mockup. |
+
+Each HTML mockup contains only screen-specific CSS in its `<style>` block (`.scr-NN`-prefixed rules and screen-data-display overrides). No inline token redeclarations. See VELO-METHODOLOGY.md §7.3.
+
+---
+
 ## Summary
 
 - Mockup files: 1 (combined viewer — superseded welcome.html cleaned up 2026-05-18)
@@ -92,6 +106,7 @@ natural and reference from elsewhere.
 ## References
 
 - Methodology: `../04_methodology/VELO-METHODOLOGY.md` §7 (Mockup Layer) + §10.4 (MOCKUP GATE)
+- Mockup CSS architecture: §7.3 (three-layer `_shared/` pattern)
 - Prompt template: §9.5
-- Anti-patterns: §11.2
-- Token bridge for mockups: §11.3
+- Anti-patterns: §11.2 (AP-M-6: no monolithic inline CSS)
+- Token bridge for livemockup-studio: §11.3 (not used in `_shared/tokens.css`)

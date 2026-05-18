@@ -1,8 +1,8 @@
 # VELO Design System — Components Catalog
 
 Last updated: 2026-05-18
-Version: 1.0
-Status: bootstrap (Sprint 2 Phase 4 mid-pass — populated from current DS canon + Onboarding 8 promotions + Dashboard 9 candidates)
+Version: 1.1
+Status: Sprint 2 Calendar 11 DS harvest — Calendar 11 candidates added (6 new), total components: 30+
 
 > **Single MD master for every component in VELO DS.** Each entry has Class+Variants+States, When-to-use+Anti-patterns, Tokens consumed+Related, Provenance+Status. Tokens themselves live in `tokens/variables.css` + `tokens/VELO-DS-INVENTORY.md` — this file is the **component layer** on top.
 
@@ -35,6 +35,7 @@ Status: bootstrap (Sprint 2 Phase 4 mid-pass — populated from current DS canon
 - [Tier 2 — domain components](#tier-2--domain-components)
 - [Patterns — multi-component compositions](#patterns--multi-component-compositions)
 - [NEW — promotion candidates (Dashboard 9 mining)](#new--promotion-candidates-dashboard-9-mining)
+- [NEW — promotion candidates (Calendar 11 mining)](#new--promotion-candidates-calendar-11-mining)
 - [Promotion history](#promotion-history)
 
 ---
@@ -227,18 +228,18 @@ Status: bootstrap (Sprint 2 Phase 4 mid-pass — populated from current DS canon
 **Tokens consumed:** same as PracticeCard + VBadge variant.
 **Related:** VBadge, VAvatar (not used here — icon instead).
 **Provenance:** Dashboard 9 col 08 (`.reservation-row` skeleton 2026-05-18) — rename to `.booking-card` scheduled in this DS-naming-pass.
-**Status:** 🔧 awaiting promotion + rename
+**Status:** ⬜ promotion candidate — rename to `.booking-card` pending.
 
 ---
 
 ### MoodWidget
 
-**Class:** `.mood-widget` (formerly `.mood-selector` — rename pending)
+**Class:** `.mood-widget` (formerly `.mood-selector` — renamed 2026-05-18)
 **Variants:** 3-option (Plохо / Нормально / Хорошо) · 5-option (planned)
 **Anatomy:**
-- 3 `.mood-pick` buttons (face emoji + label)
+- 3 `.mw-pick` buttons (face emoji + label)
 - Central is `.is-active` — face circle larger + raised + halo
-- `.mood-slider` horizontal strip below
+- `.mw-slider` horizontal strip below
 **States:** active mood pick = is-active; others muted.
 **When to use:** check-in flow before practice — user picks current state.
 **Anti-patterns:**
@@ -250,7 +251,7 @@ Status: bootstrap (Sprint 2 Phase 4 mid-pass — populated from current DS canon
 - `--velo-color-steel-light` (active label)
 **Related:** lives in check-in screen alongside `.v-textarea`.
 **Provenance:** Tier 2 in DS INDEX since Sprint 2 Phase 3. Live in Dashboard 9 col 03.
-**Status:** 🔧 awaiting promotion + rename
+**Status:** ✅ all 3 icons present (mood-bad / mood-neutral / mood-good). Rename complete 2026-05-18.
 
 ---
 
@@ -300,15 +301,6 @@ Status: bootstrap (Sprint 2 Phase 4 mid-pass — populated from current DS canon
 - `--velo-shadow-button-glass`, `--velo-glass-fill`, `--velo-radius-pill` (back button)
 - typography h2-style for title
 **Status:** ⬜ candidate (Dashboard 9, 2026-05-18)
-
-### bottom-nav
-
-**Class:** `.bottom-nav` container + N×`.v-button.v-button--glass.v-button--round-icon`
-**Anatomy:** 4 round-icon glass buttons in flex-row, no container background — buttons lie directly on screen bg. Active item = `.active` modifier (color = steel-primary, fill = glass-fill-hover).
-**When to use:** root dashboard screens (col 01/02). Hidden in detail views.
-**Tokens consumed:**
-- inherited from `.v-button--glass.v-button--round-icon`
-**Status:** ⬜ candidate (Dashboard 9, 2026-05-18) — DS-promotion priority HIGH (used across many user screens)
 
 ### velo-back-arrow
 
@@ -457,34 +449,214 @@ Already documented under **VButton** above. Belongs in DS-promotion-pass with bo
 
 ---
 
-## Promotion history
+### BottomNav
 
-| Date | Action | Source |
-|---|---|---|
-| 2026-05-17 | Sprint 1 — initial Tier 1/2 catalog populated in `INDEX.md` Component Status | Figma probe + DSYS-era reference |
-| 2026-05-17 | Sprint 2 Phase 3 — 15 components visualised in `velo-design-system.html`, STYLEGUIDE GATE passed | Operator visual review |
-| 2026-05-18 | Sprint 2 Phase 4 — Onboarding 8 closed. Promoted: glass-button canon (white outline + halo + 5% blue), back-arrow, v-link, v-divider, v-dots, oauth, header-compact, bg-mandala, skip-link. Typography h1+body, button heights, stack gaps, glass-fill tokens added to `variables.css` | Onboarding flow pixel-measured |
-| 2026-05-18 | Sprint 2 Phase 4 — Dashboard 9 skeleton pass. Surfaced ~14 candidates (above NEW section). `--velo-shadow-button-glass` token added (operator request −20% white alpha vs primary). `--round-icon` button modifier added | Dashboard skeleton iteration 1 |
-| 2026-05-18 | **COMPONENTS-CATALOG.md created** — single MD master, before-naming check rule active from this date | — |
+**Class:** `.bottom-nav`
+**Anatomy:**
+- Container: `.bottom-nav` flex-row, no background — buttons sit directly on screen bg
+- 4 items: `button.v-button.v-button--glass.v-button--round-icon` (52×52 glass circle)
+- Active item gets `.active` modifier → `color: steel-primary`, `::after fill: glass-fill-hover`
+- Tab icons rendered as `<img>` inside each button: `icon-nav-home.svg` (active, 40px render) · `icon-nav-diary.svg` (27×27) · `icon-nav-reservations.svg` (27×27) · `icon-nav-profile.svg` (21×27)
+**States:** one button has `.active` class at all times.
+**Layout:** fixed bottom bar, full-width, 4-equal-column grid. Home is always center-left (tab 2 of 4) per SACRED.
+**When to use:** every Dashboard-block screen — the persistent bottom navigation.
+**Anti-patterns:**
+- ❌ Don't add a 5th tab — SACRED is strictly 4. Overflow = sprint 7+ admin concern.
+- ❌ Don't apply `--velo-shadow-button-glass` to inactive tabs — only active home.
+**Tokens consumed:**
+- `.bn-tab--active` → `--velo-shadow-button-glass`, `--velo-glass-fill`, `--velo-blur-glass-medium` (5.04px on glass circle), `--velo-color-neutral-white` (border)
+- icons baked in SVG with `--velo-color-steel-primary` fill (#4C6589)
+- `--velo-text-muted` (inactive labels), `--velo-text-primary` (active label)
+**Icons (Figma exportAsync 2026-05-18):**
+- `02_design-system/assets/icons/icon-nav-home.svg` — Group 1984 `541:6756` (active, 134×134 with glass circle + glow filter)
+- `02_design-system/assets/icons/icon-nav-diary.svg` — Group 1961 `541:6761`
+- `02_design-system/assets/icons/icon-nav-reservations.svg` — Group 1962 `541:6772`
+- `02_design-system/assets/icons/icon-nav-profile.svg` — Group 1959 `541:6767`
+**Related:** VButton `--round-icon`
+**Provenance:** Dashboard 9 SACRED frames `541:6649` (col 01), `541:7182` (col 08), `648:1589` (col 09). All 9 frames share identical bottom nav.
+**Status:** ⬜ candidate — awaiting MOCKUP GATE approval in Dashboard 9 viewer.
 
 ---
 
-## References
+### PaidBadge
 
-- DS Index (canonical Component Status table source): `INDEX.md`
-- DS Tokens master: `tokens/variables.css`
-- DS Tokens inventory: `tokens/VELO-DS-INVENTORY.md`
-- Visual catalog (browseable): `styleguide/velo-design-system.html`
-- Methodology — Tier definitions §6.6, Mockup Layer §7, Mockup gate §10.4, Anti-patterns §11.2: `../04_methodology/VELO-METHODOLOGY.md`
-- Figma operations (when re-probing): `FIGMA-OPERATIONS-GUIDE.md`
+**Class:** `.paid-badge`
+**Anatomy:** small pill — leading teal check icon (`icon-check-sm.svg`) + text "Оплачено" (or "Paid").
+**Variants:** none — single semantic variant.
+**When to use:** inside PracticeCard / BookingCard meta row to indicate payment confirmed.
+**Anti-patterns:**
+- ❌ Don't use for unpaid state — use VBadge `--warning` for pending payment.
+- ❌ Don't show alongside other status badges — one status at a time.
+**Tokens consumed:**
+- `--velo-color-teal-50` (bg) + `--velo-color-teal-light` (border + icon color) + `--velo-text-success` (text)
+- `--velo-radius-pill`, font-size `--velo-size-12`
+**Icons:** `02_design-system/assets/icons/icon-check-sm.svg` — Group 1970 `541:6718` (15×12 teal tick)
+**Related:** VBadge (generic badge, no icon), BookingCard, PracticeCard
+**Provenance:** Dashboard 9 frames `541:7573` (booked-practice col 06), `541:7182` (reservations col 08). Group 1970 `541:6718`.
+**Status:** ⬜ candidate — awaiting MOCKUP GATE.
 
 ---
 
-## Anchor
+### MasterTagChip
 
-```
-[COMPONENTS-CATALOG.md | v1.0 | 2026-05-18]
-Single MD master for VELO DS components.
-Before-naming check is mandatory in every session.
-Location: D:\02_Projects\velo\docs\02_design-system\COMPONENTS-CATALOG.md
-```
+**Class:** `.master-tag-chip`
+**Anatomy:** small pill, text only — master specialisation label (e.g. "MBSR", "yoga", "yin").
+**Variants:** none.
+**When to use:** master profile area within BookingCard / booked-practice view to show master's practice tags.
+**Anti-patterns:**
+- ❌ Don't use for booking status — that's VBadge.
+- ❌ Don't truncate tag text — keep tags ≤ 12 chars or use abbreviated form.
+**Tokens consumed:**
+- `--velo-color-amber-50` (bg `#fdf3e2`) + `--velo-color-orange-dark` (text `#a16124`) + `--velo-border-default` (optional 1px border)
+- `--velo-radius-pill`, font-size `--velo-size-12`
+**Related:** shown in cluster inside master profile card area alongside `icon-verified-master.svg`
+**Provenance:** Dashboard 9 frame `541:7573` (booked-practice). New token `--velo-color-amber-50` promoted during this harvest 2026-05-18.
+**Status:** ⬜ candidate — awaiting MOCKUP GATE.
+
+---
+
+## NEW — promotion candidates (Calendar 11 mining)
+
+These surfaced during Calendar 11 DS harvest (2026-05-18, Phase B). All ⬜ candidate. Figma root `541:1553`. Awaiting operator MOCKUP GATE pass when Calendar 11 viewer is built in Sprint 3.
+
+---
+
+### CalendarGrid
+
+**Class:** `.calendar-grid`
+**Anatomy:**
+- `.cg-header` — month/week label row with prev/next navigation arrows
+- `.cg-weekdays` — short day-of-week row (Mon–Sun, 7 columns)
+- `.cg-days` — 7-column grid of `.cg-day` cells
+- Each `.cg-day` — day number + optional status indicator dot/chip (`.cg-day--booked`, `.cg-day--done`, `.cg-day--today`)
+**States:** default cell · today (bold/highlighted) · booked (`.cg-day--booked`) · attended-done (`.cg-day--done`) · empty/disabled (faded)
+**When to use:** primary calendar view screen (Calendar 1 / 22_Calendar screen `648:1673`). Full-month grid with booking status indicators.
+**Anti-patterns:**
+- ❌ Don't embed the grid inside a card — it fills the screen section directly.
+- ❌ Don't use for date-pickers in forms — that's a different pattern (TBD).
+**Tokens consumed:**
+- `--velo-color-steel-primary` (day numbers, header text)
+- `--velo-color-teal-medium` (`.cg-day--done` indicator)
+- `--velo-color-steel-primary` (`.cg-day--booked` indicator bg)
+- `--velo-radius-pill` (circle indicators)
+**Icons (Figma exportAsync 2026-05-18):**
+- `.cg-day--done` → `02_design-system/assets/icons/icon-cal-day-done.svg` — Group 1972 `648:1756` (16×16 teal circle + stroke check)
+- `.cg-day--booked` → `02_design-system/assets/icons/icon-cal-day-booked.svg` — Group 1973 `648:1759` (16×16 dark steel circle + white "pic" text)
+**Provenance:** Calendar 11 SACRED frames `648:1673` (22_Calendar 1), `541:1744` (23_Calendar 2 — deferred). Figma `541:1553` root.
+**Status:** ⬜ candidate — Sprint 3 Calendar viewer.
+
+---
+
+### CalendarDayCell
+
+**Class:** `.cg-day` (child of `.calendar-grid`)
+**Anatomy:** single grid cell — day number centered + optional status icon (16×16 overlay or underline dot).
+**Variants:** `--today` · `--booked` · `--done` · `--empty`
+**When to use:** only within `.calendar-grid` — never standalone.
+**Anti-patterns:**
+- ❌ Don't inline status with CSS `content:` trick — use the real SVG icon for pixel-precision.
+**Status:** ⬜ candidate — lives as sub-component of CalendarGrid.
+
+---
+
+### PracticeMetaRow
+
+**Class:** `.practice-meta-row`
+**Anatomy:**
+- `.pmr-icon` — SVG icon (15×15 for duration/datetime/capacity; 27×27 for practice-type)
+- `.pmr-label` — single-line text label (body-sm weight)
+- Rows stack vertically inside PracticeDetailCard / BookingCard
+**Variants:** `--practice-type` · `--duration` · `--datetime` · `--capacity`
+**When to use:** inside practice detail cards or booking cards wherever practice metadata rows (type / time / duration / capacity) are displayed.
+**Anti-patterns:**
+- ❌ Don't use for booking status — use VBadge instead.
+- ❌ Don't mix icon sizes in the same card — keep 15×15 for scalar metadata, 27×27 only for practice-type.
+**Tokens consumed:**
+- `--velo-color-steel-primary` (icon fill + label text)
+- `--velo-font-body-sm` (label)
+- spacing via `--velo-space-8` gap between icon and label
+**Icons (Figma exportAsync 2026-05-18):**
+- `--practice-type` → `assets/icons/icon-cal-practice.svg` — Group 1968 `648:1764` (27×27)
+- `--duration`      → `assets/icons/icon-cal-duration.svg` — Group 1976 `648:1768` (15×15)
+- `--datetime`      → `assets/icons/icon-cal-datetime.svg` — Group 1975 `648:1774` (15×15)
+- `--capacity`      → `assets/icons/icon-cal-capacity.svg` — Group 2238 `648:2030` (15×15)
+**Provenance:** Calendar 11 SACRED frames `648:1934` (24_Practice Detail), `541:2065` (25_Master Profile). Figma root `541:1553`.
+**Status:** ⬜ candidate — Sprint 3 Calendar viewer.
+
+---
+
+### FilterChip
+
+**Class:** `.filter-chip`
+**Anatomy:** pill button — label text only (no icon). Selected state fills the pill.
+**Variants:** default (inactive) · `--active` (selected)
+**States:** default · active · disabled (future)
+**When to use:** inside `.filter-sheet-group` rows to select/deselect filter options (practice type, master, time slot). Not for navigation.
+**Anti-patterns:**
+- ❌ Don't use FilterChip outside a FilterSheet — standalone pill filters should use VBadge instead.
+- ❌ Don't add icons inside the chip — text only per Figma spec.
+**Tokens consumed:**
+- `--velo-radius-pill` (cornerRadius 100)
+- `--velo-color-steel-light` (`#627A9C`) — stroke 1.5px in inactive state
+- `--velo-color-steel-primary` — fill + white text in active state
+- `--velo-font-body-sm`
+**Provenance:** Calendar 11 SACRED frame `648:1859` (23_Calendar Filter sheet). Figma root `541:1553`.
+**Status:** ⬜ candidate — Sprint 3 Calendar filter.
+
+---
+
+### FilterSheet
+
+**Class:** `.filter-sheet`
+**Anatomy:**
+- `.filter-sheet-overlay` — full-screen semi-transparent backdrop
+- `.filter-sheet-panel` — bottom-anchored panel (rounded top corners)
+  - `.filter-sheet-header` — title ("Фильтры") + `.filter-sheet-close` button (`icon-cal-close.svg`)
+  - `.filter-sheet-body` — scrollable list of `.filter-sheet-group` sections
+    - `.filter-sheet-group` — section label + horizontal-scroll row of `FilterChip`s
+  - `.filter-sheet-footer` — "Сбросить" (ghost) + "Применить" (primary) action buttons
+**Variants:** none (single pattern; group count varies by content).
+**When to use:** triggered by the filter button on the Calendar 1 screen. Bottom sheet slides up over content.
+**Anti-patterns:**
+- ❌ Don't use a full-screen modal for filters — this is always a bottom sheet.
+- ❌ Don't put FilterSheet groups in a vertical scroll without a sticky header+footer.
+**Tokens consumed:**
+- `--velo-color-white` (panel bg)
+- `--velo-radius-16` (panel top corners)
+- `--velo-shadow-card` or `--velo-shadow-modal` (panel elevation)
+- `--velo-color-steel-primary` (header title, group labels)
+- `--velo-color-steel-light` (close icon fill via `icon-cal-close.svg`)
+**Icons:** `.filter-sheet-close` → `assets/icons/icon-cal-close.svg` — BOOLEAN_OPERATION `648:1872` (24×24, #627A9C)
+**Provenance:** Calendar 11 SACRED frame `648:1859` (23_Calendar Filter). Figma root `541:1553`.
+**Status:** ⬜ candidate — Sprint 3 Calendar filter.
+
+---
+
+### FeedbackRating
+
+**Class:** `.feedback-rating`
+**Anatomy:**
+- `.feedback-rating-title` — prompt text (e.g. "Как прошла практика?")
+- `.feedback-rating-options` — horizontal row of 3 `.feedback-option` buttons
+  - `.feedback-option` — icon (52×52 or 48×52) + label text below
+    - `.feedback-option--questions` ("Есть вопросы") — `icon-feedback-questions.svg`
+    - `.feedback-option--good` ("Хорошо") — `icon-feedback-good.svg`
+    - `.feedback-option--fire` ("Огонь!") — `icon-feedback-fire.svg`
+- Selected option gets a highlight ring or scale transform (per Figma active state)
+**Variants:** `--questions` · `--good` · `--fire`
+**States:** unselected · selected (`--active`) · submitted
+**When to use:** post-practice feedback collection screen (Calendar 11: screen 29 `541:2286`). Shown after check-in success.
+**Anti-patterns:**
+- ❌ Don't use for mood tracking — that's MoodWidget (different icon set, different context).
+- ❌ Don't reduce to fewer than 3 options or change the order — Figma spec is fixed.
+**Tokens consumed:**
+- `--velo-color-steel-primary` (#4C6589) — "Есть вопросы" icon fill
+- `--velo-color-coral-dark` (#D66674) — "Хорошо" icon fill
+- Amber #D4863C — "Огонь!" icon fill (no named token yet; promote to `--velo-color-amber-fire` when component is built)
+- `--velo-font-body-sm` (option labels)
+**Icons (Figma exportAsync 2026-05-18 audit):**
+- `--questions` → `assets/icons/icon-feedback-questions.svg` — Group 2336 `541:2326` (52×52)
+- `--good`      → `assets/icons/icon-feedback-good.svg` — Group 2335 `541:2334` (52×52)
+- `--fire`      → `assets/icons/icon-feedback-fire.svg` — Vector `541:2341` (48×52)
+**Provenance:** Calendar 11 SACRED frame `541:2286` (29_Feedback screen). Figma root `541:1553`.
+**Status:** ⬜ candidate — Sprint 4 post-practice flow.

@@ -99,6 +99,9 @@
   --velo-color-blue-medium:   #619cd2;                          /* promoted: Calendar + Profile/Messages/Analytics + Practices (10+ occurrences) — Info state medium. Previously MISSING in v0.1, resolved during full mining. */
   --velo-color-blue-50:       #e2f0fd;                          /* promoted: booked-practice, Booking-Detail — soft bg */
 
+  /* --- State colors — Amber (tag/label family) --- */
+  --velo-color-amber-50:      #fdf3e2;                          /* promoted: Dashboard 9 booked-practice `541:7573` — master profile tags ("MBSR", "yoga", "yin" background). Soft warm amber. Single-block discovery 2026-05-18. */
+
   /* --- Spacing primitives (4-base scale, PROVISIONAL from DSYS-era reference; SACRED uses absolute positioning, no autolayout values to verify against) --- */
   --velo-space-0:  0px;
   --velo-space-1:  4px;
@@ -117,6 +120,7 @@
 
   /* --- Radius primitives (FULL — 97 screens mined) --- */
   --velo-radius-xs:   2px;    /* promoted: 32+ occurrences across Diary maps — map markers / micro pills */
+  --velo-radius-4:    4px;    /* promoted: Calendar 11 harvest 2026-05-18 — filter chips + small card elements (cornerRadius 4, frames 24–30) */
   --velo-radius-sm:   5px;    /* promoted: 80+ occurrences — input fields, small buttons */
   --velo-radius-9:    9px;    /* promoted: Master Onboarding (8 occurrences) — odd small radius */
   --velo-radius-md:   10px;   /* promoted: Calendar + Practices + Master Dashboard (5 occurrences) — RESOLVED previously MISSING md radius */
@@ -137,6 +141,7 @@
   --velo-blur-glass:                blur(4px);
   --velo-blur-glass-medium:         blur(5.04px);
   --velo-blur-glass-stronger:       blur(30px);
+  --velo-blur-layer:                blur(3px);   /* promoted: Dashboard 9 harvest 2026-05-18 — LAYER_BLUR 3 observed on card overlay layers (booked-practice, check-in-success) */
 
   /* --- Font family --- */
   --velo-font-family-primary: 'Marmelad', 'Noto Sans', sans-serif;  /* Marmelad Regular — only weight observed */
@@ -304,10 +309,13 @@
    - --velo-disabled-bg       → #a4a4a4 (grey-medium)
    - --velo-disabled-text     → #919191 (grey-dark)
 
+   ✅ RESOLVED post-mining promotions (Sprint 2 Phase 3+):
+   - --velo-shadow-card       → 0 2px 8px 0 rgba(76,101,137,0.08) (promoted Sprint 2 Phase 3)
+   - --velo-shadow-modal      → 0 8px 32px 0 rgba(76,101,137,0.16) (promoted Sprint 2 Phase 3)
+   - --velo-radius-4          → 4px (promoted Sprint 2 Calendar 11 harvest 2026-05-18)
+
    ❌ CONFIRMED MISSING after full 97-screen mining (truly absent):
    - --velo-radius-full       (9999px circular — not observed; use radius:50% or radius-pill for circular)
-   - --velo-shadow-card       (no DROP_SHADOW with offset observed — VELO uses bg tint instead)
-   - --velo-shadow-modal      (same as above)
    - --velo-focus-ring        (interactive — never observed in static frames; placeholder used)
    - --velo-hover-overlay     (interactive — never observed; placeholder used)
    - --velo-active-overlay    (interactive — never observed; placeholder used)

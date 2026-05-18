@@ -2,10 +2,10 @@
 
 ```
 Last updated: 2026-05-18
-Iteration:    1 (Sprint 1 Phase 1 — extraction COMPLETE)
+Iteration:    4 (Sprint 2 Audit — 4 missing FeedbackRating + check-in icons recovered)
 Figma file:   F7PD5isLfLdyc0q1Bd5n5c
 Status:       ✅ 94 of 97 SACRED screens saved (operator UI export) +
-              ✅ 2 DS canon icons saved (Plugin API) +
+              ✅ 33 DS canon icons saved (Plugin API) +
               📄 1 legacy admin HTML reference saved
               ⏳ 3 user/calendar screens deferred (re-export at operator's discretion)
 ```
@@ -41,8 +41,44 @@ Status:       ✅ 94 of 97 SACRED screens saved (operator UI export) +
 │   │                               Group `648:1217` from Figma. Vector, fill #4C6589.
 │   ├── icon-onb-diary.svg        (184×174 viewBox, ~6KB)  — onboarding step 2 icon
 │   │                               Group `648:1240` from Figma. Vector, fill #4C6589.
-│   └── icon-onb-chat.svg         (174×174 viewBox, ~7KB)  — onboarding step 3 icon
-│                                   Group `648:1253` from Figma. Vector, fill #4C6589.
+│   ├── icon-onb-chat.svg         (174×174 viewBox, ~7KB)  — onboarding step 3 icon
+│   │                               Group `648:1253` from Figma. Vector, fill #4C6589.
+│   ├── icon-alert-clock.svg      Sprint 2 Ph4 alert pill — clock variant (teal)
+│   ├── icon-alert-feedback.svg   Sprint 2 Ph4 alert pill — feedback variant (teal)
+│   ├── icon-practice.svg         (46×46) Dashboard — yoga figure in circle. Group 1969 `541:6699`
+│   ├── icon-verified.svg         (16×16) Dashboard — teal checkmark chip. Group 1972 `541:6693`
+│   ├── icon-calendar.svg         (15×15) Dashboard — calendar date. Group 1975 `541:6711`
+│   ├── icon-time.svg             (15×15) Dashboard — clock face. Group 1976 `541:6705`
+│   ├── icon-check-sm.svg         (15×12) Dashboard — small teal tick (paid badge). Group 1970 `541:6718`
+│   ├── icon-mood-neutral.svg         (40×40) Dashboard — neutral mood face (flat mouth, teal→coral). Group 2096 `541:6741`
+│   ├── icon-mood-bad.svg          (40×40) Dashboard — sad mood face (frown + brow marks, blue-gray→teal). Group 2099 `541:6968`. MoodWidget ("Не очень").
+│   ├── icon-mood-good.svg        (40×40) Dashboard — happy mood face (smile + cheeks, coral→amber). Group 2097 `541:6749`
+│   ├── icon-nav-home.svg         (134×134) Dashboard — home nav button (active, glass glow). Group 1984 `541:6756`
+│   ├── icon-nav-diary.svg        (27×27) Bottom nav — diary/calendar tab. Group 1961 `541:6761`
+│   ├── icon-nav-profile.svg      (21×27) Bottom nav — profile tab. Group 1959 `541:6767`
+│   ├── icon-nav-reservations.svg (27×27) Bottom nav — reservations tab. Group 1962 `541:6772`
+│   ├── icon-warning.svg          (23×21) Dashboard — amber warning triangle. Group 2069 `541:7650`
+│   ├── icon-verified-master.svg  (26×26) Dashboard — large teal checkmark badge (master). Group 1971 `541:7628`
+│   ├── icon-cal-practice.svg     (27×27) Calendar 11 — two-figure meeting/zoom icon. Group 1968 `648:1764`. Fill #4C6589.
+│   ├── icon-cal-duration.svg     (15×15) Calendar 11 — clock/duration icon. Group 1976 `648:1768`. Fill #4C6589.
+│   ├── icon-cal-datetime.svg     (15×15) Calendar 11 — calendar grid/date icon. Group 1975 `648:1774`. Fill #4C6589.
+│   ├── icon-cal-capacity.svg     (15×15) Calendar 11 — people/participants icon. Group 2238 `648:2030`. Fill #4C6589.
+│   ├── icon-cal-close.svg        (24×24) Calendar 11 — X/close dismiss button. BOOLEAN_OPERATION `648:1872`. Fill #627A9C.
+│   ├── icon-cal-day-done.svg     (16×16) Calendar 11 — calendar day "attended" indicator. Group 1972 `648:1756`. Teal circle + stroke.
+│   ├── icon-cal-day-booked.svg   (16×16) Calendar 11 — calendar day "booked" indicator. Group 1973 `648:1759`. Dark steel circle + white text.
+│   ├── icon-cal-success-check.svg (93×87) Calendar 11 — large teal blob success graphic. Vector `541:2354`. 30_Check-in Success screen.
+│   │
+│   │   ── Audit-recovered (Sprint 2 quality audit, 2026-05-18) ──
+│   ├── icon-feedback-questions.svg (52×52) Calendar 11 FeedbackRating — "Есть вопросы" option. Group 2336 `541:2326`. Circle + question mark. Fill #4C6589.
+│   ├── icon-feedback-good.svg   (52×52) Calendar 11 FeedbackRating — "Хорошо" option. Group 2335 `541:2334`. Rounded rect frame. Fill #D66674 (coral-dark).
+│   ├── icon-feedback-fire.svg   (48×52) Calendar 11 FeedbackRating — "Огонь!" option. Vector `541:2341`. Flame shape. Fill #D4863C (amber).
+│   ├── icon-checkin-success.svg (93×93) Dashboard — check-in success modal circle. Group 1970 `541:6988`. Teal 30%-fill circle + stroke checkmark (#76DDE6).
+│   │
+│   │   ── Master Onboarding illustrations (Sprint 2, 2026-05-18) ──
+│   ├── icon-master-onb-welcome.svg   (198×198) Master Onboarding step 1. Group 2518 `758:4694`. Welcome figure. Fill #76DDE6.
+│   ├── icon-master-onb-space.svg     (198×198) Master Onboarding step 2. Group 2519 `758:4700`. Studio silhouette. Fill #76DDE6.
+│   ├── icon-master-onb-analytics.svg (198×198) Master Onboarding step 3. Group 2520 `758:4707`. Bar chart graphic. Fill #76DDE6.
+│   └── icon-master-approved.svg      (198×198) Master Onboarding step 4. Group 2523 `758:4714`. Standing figure. Fill #76DDE6.
 │
 └── screenshots/              ← SACRED visual references, role-organized
     ├── user/    (55 PNG)         ← user-role screens
@@ -64,6 +100,58 @@ Status:       ✅ 94 of 97 SACRED screens saved (operator UI export) +
 | `icon-onb-practice.svg` | Group `648:1217` | 163×174 viewBox | SVG vector | 13499 | Onboarding step 1 icon (3 meditation figures). Vector from Figma `use_figma` Plugin API 2026-05-18. |
 | `icon-onb-diary.svg` | Group `648:1240` | 184×174 viewBox | SVG vector | 5974 | Onboarding step 2 icon (feather + book). Vector from Figma 2026-05-18. |
 | `icon-onb-chat.svg` | Group `648:1253` | 174×174 viewBox | SVG vector | 6825 | Onboarding step 3 icon (master + spiral). Vector from Figma 2026-05-18. |
+| `icon-alert-clock.svg` | Sprint 2 Ph4 extraction | — | SVG vector | — | Alert pill clock icon — teal. Used in Dashboard AlertPill `--info` variant. |
+| `icon-alert-feedback.svg` | Sprint 2 Ph4 extraction | — | SVG vector | — | Alert pill feedback icon — teal. Used in Dashboard AlertPill `--warning` variant. |
+
+**Dashboard 9 icons — added Sprint 2 Phase 4 (2026-05-18) via `use_figma` Plugin API `exportAsync`:**
+
+| File | Source node ID | Figma group | Native size | Notes |
+|---|---|---|---|---|
+| `icon-practice.svg` | `541:6699` | Group 1969 | 46×46 | Yoga/practice figure in circle. PracticeCard hero icon. Fill #4C6589. |
+| `icon-verified.svg` | `541:6693` | Group 1972 | 16×16 | Small teal checkmark in circle (30% fill). Master verified badge on PracticeCard. |
+| `icon-calendar.svg` | `541:6711` | Group 1975 | 15×15 | Calendar date icon. Used in PracticeCard date row. Fill #4C6589. |
+| `icon-time.svg` | `541:6705` | Group 1976 | 15×15 | Clock face icon. Used in PracticeCard time row. Fill #4C6589. |
+| `icon-check-sm.svg` | `541:6718` | Group 1970 | 15×12 | Small teal tick / paid badge. Used in `PaidBadge` component. |
+| `icon-mood-neutral.svg` | `541:6741` | Group 2096 | 40×40 | Neutral mood face — flat mouth, teal→coral gradient. MoodWidget ("Нормально"). |
+| `icon-mood-good.svg` | `541:6749` | Group 2097 | 40×40 | Happy mood face — upward smile + cheek arcs, coral→amber gradient. MoodWidget ("Хорошо"). |
+| `icon-mood-bad.svg` | `541:6968` | Group 2099 | 40×40 | Sad mood face — frown + brow marks, blue-gray→teal gradient. MoodWidget ("Не очень"). Added manually 2026-05-18. |
+| `icon-nav-home.svg` | `541:6756` | Group 1984 | 134×134 | Home nav button — active state with glass circle + white glow shadow. BottomNav. |
+| `icon-nav-diary.svg` | `541:6761` | Group 1961 | 27×27 | Calendar/diary tab icon. BottomNav inactive. Fill #4C6589. |
+| `icon-nav-profile.svg` | `541:6767` | Group 1959 | 21×27 | Profile/person tab icon. BottomNav inactive. Fill #4C6589. |
+| `icon-nav-reservations.svg` | `541:6772` | Group 1962 | 27×27 | Reservations/list tab icon. BottomNav inactive. Fill #4C6589. |
+| `icon-warning.svg` | `541:7650` | Group 2069 | 23×21 | Warning triangle. AlertPill `--warning` variant. Fill #A16124 (amber-warning). |
+| `icon-verified-master.svg` | `541:7628` | Group 1971 | 26×26 | Large teal checkmark in circle. Verified master badge on booked-practice / BookingCard. |
+
+**Calendar 11 icons — added Sprint 2 Calendar DS harvest (2026-05-18) via `use_figma` Plugin API `exportAsync`:**
+
+| File | Source node ID | Figma group | Native size | Notes |
+|---|---|---|---|---|
+| `icon-cal-practice.svg` | `648:1764` | Group 1968 | 27×27 | Two-figure meeting/zoom icon. Identifies practice type in PracticeMetaRow. Fill #4C6589. |
+| `icon-cal-duration.svg` | `648:1768` | Group 1976 | 15×15 | Clock/duration icon. Used next to "45 мин" duration text. Fill #4C6589. |
+| `icon-cal-datetime.svg` | `648:1774` | Group 1975 | 15×15 | Calendar grid/date icon. Used next to "Завтра, 07:00" datetime text. Fill #4C6589. |
+| `icon-cal-capacity.svg` | `648:2030` | Group 2238 | 15×15 | People/participants icon. Used next to capacity count. Fill #4C6589. |
+| `icon-cal-close.svg` | `648:1872` | BOOLEAN_OPERATION (Union) | 24×24 | X/close dismiss button — used in filter overlay header. Fill #627A9C (steel-light). |
+| `icon-cal-day-done.svg` | `648:1756` | Group 1972 | 16×16 | Calendar day "attended" indicator. Teal 30%-fill circle + teal checkmark stroke. |
+| `icon-cal-day-booked.svg` | `648:1759` | Group 1973 | 16×16 | Calendar day "booked" indicator. Dark steel (#4C6589) filled circle + white "pic" text overlay. |
+| `icon-cal-success-check.svg` | `541:2354` | Vector | 93×87 | Large teal blob (#76DDE6) success graphic. 30_Check-in Success screen decorative element. |
+
+**Audit-recovered icons — Sprint 2 quality audit (2026-05-18). Previously missing from all completed blocks:**
+
+| File | Source node ID | Figma group | Native size | Notes |
+|---|---|---|---|---|
+| `icon-feedback-questions.svg` | `541:2326` | Group 2336 | 52×52 | FeedbackRating "Есть вопросы" option icon. Circle with question mark. Fill #4C6589 (steel-primary). Calendar 11 FeedbackRating widget. |
+| `icon-feedback-good.svg` | `541:2334` | Group 2335 | 52×52 | FeedbackRating "Хорошо" option icon. Rounded-rect frame with inner paths. Fill #D66674 (coral-dark). Calendar 11 FeedbackRating widget. |
+| `icon-feedback-fire.svg` | `541:2341` | Vector | 48×52 | FeedbackRating "Огонь!" option icon. Flame shape. Fill #D4863C (amber-orange). Calendar 11 FeedbackRating widget. |
+| `icon-checkin-success.svg` | `541:6988` | Group 1970 | 93×93 | Dashboard check-in success modal graphic. Teal 30%-opacity circle fill (#76DDE6) + stroke-only checkmark path. Used in `user-dashboard-04-checkin-success` screen. |
+
+**Master Onboarding illustrations — Sprint 2 (2026-05-18) via `use_figma` Plugin API chunked extraction:**
+
+| File | Source node ID | Figma group | Native size | Notes |
+|---|---|---|---|---|
+| `icon-master-onb-welcome.svg` | `758:4694` | Group 2518 | 198×198 | Master Onboarding step 1 "Welcome" — figure with stars/sparkles. Teal 30%-fill circle background + teal fill illustration. Fill #76DDE6. |
+| `icon-master-onb-space.svg` | `758:4700` | Group 2519 | 198×198 | Master Onboarding step 2 "Your Space" — building/studio silhouette. Teal 30%-fill circle background + teal fill illustration. Fill #76DDE6. |
+| `icon-master-onb-analytics.svg` | `758:4707` | Group 2520 | 198×198 | Master Onboarding step 3 "Analytics" — bar chart / growth graphic. Teal 30%-fill circle background + teal fill illustration. Fill #76DDE6. |
+| `icon-master-approved.svg` | `758:4714` | Group 2523 | 198×198 | Master Onboarding step 4 "Approved" — standing figure with detail elements. Teal 30%-fill circle background + teal fill illustration. Fill #76DDE6. Chunked extraction (62KB source, 9 path elements). |
 
 > Other DS canon icons were destroyed in chain-69 catastrophe.
 > 8 COMPONENT_SETs + 3 standalone COMPONENTs lost. They must be
@@ -258,62 +346,11 @@ mockup below**.
 
 | File | Source | Purpose |
 |---|---|---|
-| `admin-legacy-reference-v2.5.html` | Legacy admin panel mockup (pre-DSYS era) | Reference for **admin UI logic + interface structure** for Sprint 7 admin block. Visual design is OLD (not aligned with current DS); only logic/IA carries forward. Sprint 7 will rebuild visually using our v1.2 DS tokens. |
+| `admin-legacy-reference-v2.5.html` | Legacy admin panel mockup (pre-DSYS era) | Reference for **admin UI logic + interface structure** for Sprint 7 admin block. Visual design is OLD (not aligned with current DS); only logic/IA carries forward. Sprint 7 will rebuild visually using our v1.3 DS tokens. |
 
 ### How to use the admin reference in Sprint 7
 
 1. **Read the HTML** to understand admin interface logic (what
    sections, what actions, what data displays, what workflows).
 2. **Map the operationIds** from `06_project-inputs/api-openapi.json`
-   to the admin actions visible in the HTML.
-3. **Build the admin mockups in HTML** (Sprint 7 Phase 4) using:
-   - Our DS tokens (`02_design-system/tokens/variables.css`)
-   - Layer 2 components from styleguide
-   - Admin shell (3-tab bottom bar per ROADMAP §10.1)
-   - Logic and IA from this legacy reference
-4. **Do not copy the legacy HTML's visual styling** — it predates our
-   DS. Only the logic and structure transfer.
-
-This is documented in ROADMAP §10 (Sprint 7 — Admin Block) and will be
-referenced explicitly in the admin SCR specs.
-
----
-
-## Summary
-
-| Category | Count | Status |
-|---|---|---|
-| **Icons** | 2 | ✅ saved |
-| **User screenshots** | 55 of 58 | ✅ saved (3 calendar optional deferred) |
-| **Master screenshots** | 39 of 39 | ✅ all saved |
-| **Admin** | 1 legacy HTML | ✅ saved as reference |
-| **TOTAL SCREENSHOT PNG** | **94 of 97** | ✅ INVENTORY GATE proceeds |
-| **Coverage** | ~97% | ✅ acceptable; deferred 3 = optional re-export |
-
-**Native resolution:** All PNGs at 2× retina (804×1748 / 804×1752 from 402×874/876 frames) — high quality for crisp side-by-side comparison with HTML mockups during MOCKUP GATE reviews in Sprint 3+.
-
----
-
-## References
-
-- Extraction sequence: `../../04_methodology/VELO-METHODOLOGY.md` §6.5
-- Asset placement rules: §6.5 step 1.3 (screenshots), 1.4 (icons)
-- Export procedure used: `./_FIGMA-EXPORT-INSTRUCTIONS.md` (operator UI multi-select export)
-- Parent index: `../INDEX.md`
-- Companion file: `../FIGMA-OPERATIONS-GUIDE.md` (use_figma rules)
-- Source v3 methodology page IDs: `../../06_project-inputs/VELO_METHODOLOGY.md` §1
-
----
-
-## Anchor
-
-```
-[ASSETS-INDEX.md | v1.0-final | 2026-05-17]
-Sprint 1 Phase 1 extraction complete:
-  • 2 DS canon icons saved (Plugin API)
-  • 94 SACRED PNG screenshots saved (operator UI export at 2× retina)
-  • 1 admin legacy HTML reference saved (Sprint 7 input)
-  • 3 user calendar PNGs deferred (optional re-export)
-Status: ✅ INVENTORY GATE clearable. Sprint 1 closes cleanly.
-Location: D:\02_Projects\velo\docs\02_design-system\assets\ASSETS-INDEX.md
-```
+   to the

@@ -12,7 +12,7 @@
 > Claude Code (frontend code generation), the backend developer (consumer
 > of the handoff package).
 >
-> **Anchor:** `[VELO-METHODOLOGY.md | v1.4 | 2026-05-18]`
+> **Anchor:** `[VELO-METHODOLOGY.md | v1.5 | 2026-05-18]`
 
 ---
 
@@ -964,9 +964,30 @@ Naming: `{role}-{screen-name}.html`, kebab-case, all lowercase. Examples:
 `user-dashboard.html`, `master-practice-create.html`,
 `admin-master-review.html`.
 
-### 7.3 Mockup File Structure
+### 7.3 Mockup CSS Architecture (v1.5)
 
-Each mockup HTML follows this skeleton:
+VELO mockups use a **three-layer shared CSS** pattern. CSS is **not**
+embedded inline in each HTML file — it lives in a single shared directory
+and is referenced via `<link>` tags. This is explicitly an internal
+convention: mockups are viewed locally with VS Code Live Server or Cowork
+desktop, both of which support `file://` multi-file loading.
+
+**Folder layout:**
+
+```
+03_mockups/
+  _shared/
+    tokens.css       ← Layer 1 — full VELO token set (mirrors variables.css)
+    shell.css        ← Layer 2 — device frame, toolbar, viewer chrome
+    components.css   ← Layer 3 — reusable VELO UI components (cards, buttons…)
+  user/
+    _onboarding-flow.html
+    _dashboard-flow.html
+  admin/
+    _admin-flow.html
+```
+
+**Each mockup HTML skeleton:**
 
 ```html
 <!DOCTYPE html>
@@ -975,46 +996,60 @@ Each mockup HTML follows this skeleton:
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VELO — {Screen Name}</title>
+
+  <!-- Shared CSS layers — do not inline here -->
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/shell.css">
+  <link rel="stylesheet" href="../_shared/components.css">
+
   <style>
-    /* 1. VELO tokens inlined from 02_design-system/tokens/variables.css */
-    :root { --velo-color-steel-primary: #4c6589; /* ... */ }
-
-    /* 2. VELO global styles inlined from 02_design-system/tokens/global.css */
-    @import url('...');
-    * { box-sizing: border-box; }
-    body { /* ... */ }
-    .velo-typo-heading-h1 { /* ... */ }
-
-    /* 3. Token bridge for livemockup-studio shell compatibility */
-    :root {
-      --primary: var(--velo-bg-button-primary);
-      --bg: var(--velo-bg-screen);
-      --text: var(--velo-text-primary);
-      /* see §11.3 for full bridge */
-    }
-
-    /* 4. Screen-specific styles (BEM, scoped to this mockup) */
-    .dashboard-stats { /* ... */ }
+    /* Screen-specific styles ONLY — no tokens, no shell, no components */
+    .screen-hero { /* … */ }
   </style>
 </head>
 <body>
-  <!-- Device shell wrapper (mobile 402px, livemockup-studio convention) -->
+  <!-- Device shell wrapper (mobile 402px — §7.4) -->
   <div class="device-frame phone">
     <div class="device-screen">
-      <!-- Screen content using VELO components -->
+      <!-- Screen content using VELO component classes -->
     </div>
   </div>
 
   <!-- Toolbar with device switcher, zoom, Navigation Map -->
-  <!-- ... livemockup-studio standard shell ... -->
 
   <script>
-    /* Realistic VELO sample data (see §7.6) */
-    /* Interaction handlers (see §7.5) */
+    /* Static VELO sample data (§7.6) */
+    /* Interaction toast handlers (§7.5) */
   </script>
 </body>
 </html>
 ```
+
+**Sync rule — mandatory.**
+`_shared/tokens.css` must mirror `02_design-system/tokens/variables.css`
+byte-for-byte on the `:root {}` block. Every DS token promote (Phase B.1)
+must simultaneously update `_shared/tokens.css`. Failing this sync is
+anti-pattern AP-M-6.
+
+**What each layer contains:**
+
+| Layer | File | Contents |
+|---|---|---|
+| 1 — Tokens | `tokens.css` | Full `:root {}` block copied from `variables.css`. `@font-face` for Marmelad. Shell-chrome tokens (`--shell-*`). Does **not** contain the livemockup-studio token bridge (§11.3). |
+| 2 — Shell | `shell.css` | `.frame` (device viewport), `.topbar`, `.workspace`, `.workspace-row`, `.column`, `.column-name`, `.row-label`, `.tbd-overlay`, toast infrastructure. No `@font-face` (lives in `tokens.css`). |
+| 3 — Components | `components.css` | Reusable VELO component classes: `.v-button` + variants, `.v-input`, `.v-link`, `.velo-header-compact`, `.mood-widget`, `.bottom-nav`, `.alert-pill`, etc. Classes added here as each component is first built in any mockup. |
+
+**Single-file export rule.**
+If a consolidated single-HTML file is ever needed for an external
+stakeholder, a separate build step inlines the three layers for that
+deliverable. The `_shared/` source is never modified for export purposes.
+
+**Background (why this changed from v1.4).**
+The previous monolithic approach (tokens + shell + components all inlined
+per file) produced files of 600–1000+ lines before any screen content.
+Files exceeded Claude's read window, preventing full-context token audits.
+The three-layer approach reduces per-mockup file size by ≈80% and makes
+token drift detectable in one file (`_shared/tokens.css`) instead of N.
 
 ### 7.4 Device Baseline
 
@@ -1826,7 +1861,7 @@ Build one HTML file:
 03_mockups/{role}/{screen-name}.html
 
 Requirements (VELO-METHODOLOGY §7.3):
-- HTML skeleton per §7.3 (tokens inlined, bridge present, device shell)
+- HTML skeleton per §7.3: 3 `<link>` tags pointing to `../_shared/tokens.css`, `../_shared/shell.css`, `../_shared/components.css`; `<style>` block for screen-specific rules only
 - Mobile 402×874 default viewport
 - All VELO components used as defined in styleguide (no inline rewrites)
 - Realistic VELO sample data per §7.6 (Russian, domain-correct)
@@ -2273,8 +2308,20 @@ Fix: §7.7 state triad toggle.
 Symptom: mockup `<style>` contains `background: #4c6589;` instead of
 `background: var(--velo-color-steel-primary);`.
 Why bad: when tokens change, mockup drifts.
-Fix: every visual value references a VELO token. Inline the token
-definitions at top of `<style>`.
+Fix: every visual value references a VELO token via `var(--velo-…)`.
+
+**AP-M-6 — Monolithic inline CSS in mockup files (v1.5).**
+Symptom: mockup HTML embeds hundreds of lines of tokens, shell CSS, and
+component CSS inside its own `<style>` block instead of linking shared
+layers.
+Why bad: (a) files grow to 600–1000+ lines before screen content begins,
+exceeding Claude's read window and preventing full-context token audits;
+(b) any token promote requires editing N separate mockup files; (c) a
+single copy-paste error can silently desync one mockup's tokens from the
+master.
+Fix: use the `_shared/` three-layer architecture (§7.3). Each mockup
+`<style>` block contains screen-specific rules only. `_shared/tokens.css`
+is the single place to update on every DS token promote.
 
 ### 11.3 Token Bridge for Mockups (Required)
 

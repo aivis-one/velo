@@ -1,4 +1,19 @@
 /* ============================================================
+   VELO Mockup — Shared Token Layer                    _shared/tokens.css
+   Source: 02_design-system/tokens/variables.css
+   Sync rule (§7.3 / AP-M-6): this file MUST mirror variables.css
+   :root{} on every DS token promote (Phase B.1). Edit both or
+   neither. Never copy these tokens into individual mockup <style>.
+   ============================================================ */
+
+@font-face {
+  font-family: 'Marmelad';
+  src: url('../../02_design-system/assets/fonts/Marmelad-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* ============================================================
    VELO Design System — Design Tokens (Sprint 1 Phase 2 + FULL MINING)
    ----------------------------------------------------------
    Source:  Live Figma probe via use_figma Plugin API
@@ -323,8 +338,16 @@
    Vestigial / single-use (not promoted to tokens, kept as component-local literals):
    - rgba(255, 255, 255, 0.01)                                  vestigial alpha
    - cornerRadius 13, 20, 71, 76, 86.20, 100.74/93, 116.82,
-     120.55, 124.10, 127.67, 151.14, 179.76, 252, 350.65, etc.  decorative-only
-   - font-size 3.77, 5.05, 5.83, 7.05, 7.06, 8.93, 9, 10.68,
-     11.84, 12.03, 12.37, 13.91, 16.04, 17.89, 18.55, 20.12,
-     25.6, 27.37, 28.29, 46.32, 50.24                            decorative / map labels / brand logos
+     120.55, 124.10, 127
+
+/* ============================================================
+   Viewer shell tokens — mockup chrome only, not VELO DS tokens
    ============================================================ */
+:root {
+  --shell-bg:       #1a2233;
+  --shell-surface:  #232d44;
+  --shell-border:   #344057;
+  --shell-text:     #ffffff;
+  --shell-text-dim: rgba(255,255,255,0.6);
+  --shell-accent:   #627a9c;
+}

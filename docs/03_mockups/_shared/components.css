@@ -1,0 +1,861 @@
+/* ============================================================
+   VELO Mockup — Shared Components                _shared/components.css
+   Reusable VELO UI classes for all mockup files.
+   Add a new class here when first building it in any mockup.
+   Before adding a class: Grep COMPONENTS-CATALOG.md (before-naming rule).
+   ============================================================ */
+
+/* ============================================================
+   Универсальный фон приложения — экспорт из Figma 01_Welcome
+   File: 02_design-system/assets/backgrounds/velo-bg-app.png (804×1748)
+   Используется как фон ВСЕХ экранов приложения (не только онбординг).
+   ============================================================ */
+.velo-bg-mandala {
+  position: absolute; inset: 0;
+  background-image: url('../../02_design-system/assets/backgrounds/velo-bg-app.png');
+  /* PNG 804×1748 и frame 402×874 совпадают по ratio (0.4600). `contain`
+     гарантирует: картинка полностью вписана по высоте в frame, aspect
+     сохранён, никакого растягивания. При матчащемся ratio покрывает
+     frame целиком без полей. */
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+}
+
+/* Compact VELO header — мандала (с VELO text внутри SVG) only.
+   Используется на login / register / oauth header. */
+.velo-header-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Operator: мандалу на 20px ниже → padding-top 17→37. */
+  padding: 37px 0 16px;
+  position: relative;
+  z-index: 1;
+}
+.velo-header-compact .mini-mandala {
+  /* Operator iteration: 220 → 147 (/1.5) → 154 (+5%). */
+  width: 154px; height: 154px;
+  display: block;
+  /* SVG asset: blue mandala (#4C6589) с VELO text path-drawn внутри. */
+}
+
+/* Back arrow — полный glass canon, идентичный glass-кнопке:
+   transparent base + halo + two-layer (border ::before, 10% fill ::after). */
+.velo-back-arrow {
+  position: absolute;
+  left: 16px; bottom: 18px;
+  width: 56px; height: 36px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--velo-radius-pill);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  isolation: isolate;
+  /* Halo + drop shadow — те же значения что у glass button. */
+  box-shadow: var(--velo-shadow-button);
+  z-index: 5;
+}
+.velo-back-arrow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid #ffffff;
+  z-index: -2;
+}
+.velo-back-arrow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--velo-glass-fill);
+  z-index: -1;
+}
+.velo-back-arrow svg { width: 18px; height: 18px; color: var(--velo-color-steel-light); }
+
+/* VELO buttons
+   Все кнопки в онбординге имеют белую тень (DS canon).
+   Glass-кнопка = белая обводка + белая тень + 5% blue overlay поверх.
+*/
+.v-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--velo-button-height);
+  /* Защита от flex-shrink в parent containers (.scr-form etc.). */
+  flex-shrink: 0;
+  border: 1px solid #ffffff;
+  border-radius: var(--velo-radius-pill);
+  font-family: 'Marmelad', sans-serif;
+  /* Pixel measurement из Figma PNG: cap-height "Войти" = 14px(1x) →
+     font-size ~20px. Old 16px было слишком мелко. */
+  font-size: 20px;
+  cursor: pointer;
+  transition: all .15s ease;
+  padding: 0 24px;
+  /* DS canon split (2026-05-18 operator update):
+     Glass/ghost/oauth (most common) — упрощённый single white halo,
+     Figma canon: 0 0 20.9 7 white @ 0.8 alpha. Primary получает
+     compound override ниже (steel drop + white halo). */
+  box-shadow: var(--velo-shadow-button-glass);
+}
+.v-button--primary {
+  /* Pixel-measured median bg of "Войти" в эталоне = #627a9c = steel-light,
+     не steel-primary. DS-токен --velo-bg-button-primary алиасится на
+     steel-primary (#4c6589, темнее) — это синтез Sprint 1, не из Figma.
+     DS-promotion candidate: пересмотреть алиас --velo-bg-button-primary
+     → --velo-color-steel-light в variables.css. */
+  background: var(--velo-color-steel-light);
+  color: var(--velo-text-inverse);
+}
+.v-button--primary:hover  { background: var(--velo-color-steel-primary); }
+.v-button--primary:active { transform: scale(.98); }
+/* Compound halo override — primary остаётся ярким акцентом (steel drop + white halo). */
+.v-button--primary {
+  box-shadow: var(--velo-shadow-button);
+}
+
+/* Glass button — wrapper-pattern (DS canon, per operator decision).
+   Сама кнопка — transparent shell (только обводка + halo + позиционирование).
+   Заливка 5% blue + backdrop-blur вынесены на ::before-слой, чтобы фон
+   100% просвечивал сквозь кнопку (раньше базовый bg визуально читался белым).
+   `isolation: isolate` создаёт локальный stacking-контекст, чтобы
+   ::before c z-index: -1 ушёл за текст, но не за родителя.
+*/
+.v-button--glass,
+.v-button--ghost,
+.v-button--oauth {
+  background: transparent;
+  /* Цвет текста кнопок измерен из Figma PNG (#627a9c = steel-light). */
+  color: var(--velo-color-steel-light);
+  /* Operator iteration: убираем border с самой кнопки — он переезжает
+     на ::before-плашку чтобы border и 5% blue fill были на ОДНОМ слое
+     одинакового размера. border-color: transparent сохраняет 1px
+     border-box geometry чтобы layout не сдвинулся. */
+  border-color: transparent;
+  isolation: isolate;
+}
+/* Двухслойная структура glass-кнопки (по операторскому canon):
+   Layer 1 (::before, z-index: -2): белая обводка. Нижний слой,
+     задаёт геометрический контур, на нём же halo от .v-button base.
+   Layer 2 (::after,  z-index: -1): 5% blue fill. Верхний слой, того же
+     размера (inset: -1), лежит ПОВЕРХ обводки, формирует "тело" кнопки.
+     Обводка визуально перекрывается этой плашкой ровно по периметру.
+   Оба псевдо-элемента inset: -1 чтобы внешняя кромка совпала с halo. */
+.v-button--glass::before,
+.v-button--ghost::before,
+.v-button--oauth::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  border: 1px solid #ffffff;
+  z-index: -2;
+}
+.v-button--glass::after,
+.v-button--ghost::after,
+.v-button--oauth::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  /* Plashka 10% blue (operator iteration: 5 → 7 → 10). */
+  background: var(--velo-glass-fill);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: -1;
+  transition: background .15s ease;
+}
+.v-button--glass:hover::after,
+.v-button--ghost:hover::after,
+.v-button--oauth:hover::after { background: var(--velo-glass-fill-hover); }
+.v-button--glass:active,
+.v-button--ghost:active,
+.v-button--oauth:active { transform: scale(.98); }
+
+/* OAuth-specific: иконка слева от подписи */
+.v-button--oauth { gap: 10px; }
+.v-button--oauth svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* Glass button halo — оператор требует идентичный с primary,
+   override .v-button base удалён, glass наследует halo с base. */
+
+/* VELO input */
+/* VELO input — SOLID white rectangular pill, отдельный DS-элемент.
+   Operator: формы почти квадратные со скруглением — НЕ pill (999).
+   - height = --velo-input-height (на 20% тоньше кнопки)
+   - background: #ffffff solid
+   - subtle steel-pale border
+   - radius = --velo-radius-md (10px) — almost square with rounding
+   - placeholder text muted
+   - gap через --velo-stack-gap-forms */
+.v-input {
+  display: block;
+  width: 100%;
+  height: var(--velo-input-height);
+  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid var(--velo-color-alpha-steel-15);
+  border-radius: var(--velo-radius-md);
+  padding: 0 18px;
+  font-family: 'Marmelad', sans-serif;
+  font-size: 15px;
+  color: var(--velo-text-primary);
+  outline: none;
+  transition: border-color .15s;
+}
+.v-input::placeholder { color: var(--velo-text-muted); }
+.v-input:focus {
+  border-color: var(--velo-color-steel-light);
+}
+
+/* Link button (inline text link styled) */
+.v-link {
+  background: none;
+  border: none;
+  color: var(--velo-text-link);
+  font-family: 'Marmelad', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+.v-link:hover { text-decoration: underline; }
+
+/* Divider with "или" */
+.v-divider {
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Marmelad', sans-serif;
+  font-size: 13px;
+  color: var(--velo-text-muted);
+}
+.v-divider::before, .v-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--velo-border-default);
+}
+
+/* Carousel dots — DS canon из этолона:
+   - inactive: маленькие серые круги
+   - active:   большой круг (не pill bar) брендового синего */
+.v-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+}
+.v-dots .dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--velo-color-steel-pale);
+  opacity: 0.45;
+  transition: all .2s;
+}
+.v-dots .dot.active {
+  width: 14px; height: 14px;
+  opacity: 1;
+  background: var(--velo-color-steel-light);
+  /* остаётся круг, не pill */
+  border-radius: 50%;
+}
+
+/* "Пропустить" link top-right */
+.velo-skip {
+  position: absolute;
+  /* Operator iteration: опустить на 50px (18 → 68). */
+  top: 68px; right: 20px;
+  z-index: 5;
+  font-family: 'Marmelad', sans-serif;
+  font-size: 14px;
+  color: var(--velo-text-secondary);
+  cursor: pointer;
+  background: none; border: none; padding: 4px 8px;
+}
+
+/* Illustration container — used for onboarding step icons. */
+.illustration {
+  width: 220px; height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  position: relative;
+}
+.illustration img {
+  max-width: 100%; max-height: 100%;
+  width: auto; height: auto;
+  display: block;
+}
+
+/* ============================================================
+   Additional button variants (Dashboard 9 harvest)
+   ============================================================ */
+/* Round-icon modifier — bottom-nav glass icon buttons */
+.v-button--round-icon {
+  width: var(--velo-button-height);
+  height: var(--velo-button-height);
+  padding: 0;
+  flex: 0 0 auto;
+}
+.v-button--round-icon svg { width: 22px; height: 22px; position: relative; z-index: 1; }
+
+
+.alert-pill {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--velo-radius-lg);
+  cursor: pointer;
+  transition: transform 0.08s ease;
+}
+.alert-pill:active { transform: scale(.99); }
+.alert-pill .pill-icon {
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.alert-pill .pill-body {
+  display: flex; flex-direction: column; gap: 2px;
+  flex: 1; min-width: 0;
+}
+.alert-pill .pill-title {
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--velo-color-steel-primary);
+}
+.alert-pill .pill-sub {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--velo-text-muted);
+}
+
+/* Icon — uses <img src> with real Figma SVG (color baked in per variant) */
+.alert-pill .pill-icon img { width: 22px; height: 22px; display: block; }
+
+/* Warning variant — orange theme (e.g. "Пора на check-in!").
+   Figma: bg orange-light @ 40% + 2px orange-light border + BACKGROUND_BLUR(4).
+   Title coloured orange-dark; icon SVG baked-in to orange-dark. */
+.alert-pill.alert-pill--warning {
+  background: var(--velo-bg-alert-warning);
+  border: 2px solid var(--velo-color-orange-light);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.alert-pill.alert-pill--warning .pill-title { color: var(--velo-text-warning); }
+
+/* Info variant — teal theme (e.g. "Оставьте feedback!").
+   Figma: bg teal-light @ 40% + 2px teal-light border (no backdrop-blur). */
+.alert-pill.alert-pill--info {
+  background: var(--velo-bg-alert-info);
+  border: 2px solid var(--velo-color-teal-light);
+}
+.alert-pill.alert-pill--info .pill-title { color: var(--velo-text-success); }
+
+/* Error variant — coral theme (reserved for destructive notices) */
+.alert-pill.alert-pill--error {
+  background: var(--velo-bg-alert-error);
+  border: 3px solid var(--velo-color-coral-medium);
+}
+.alert-pill.alert-pill--error .pill-title { color: var(--velo-text-error); }
+
+/* Section title (small subhead — "Ближайшая практика", "Ваш прогресс", "AI-саммари") */
+.section-title {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 20px;
+  letter-spacing: 0.3px;
+  color: var(--velo-color-steel-primary);
+}
+
+/* Next practice card */
+.practice-card {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.practice-card .pc-head {
+  display: flex; align-items: center; gap: 12px;
+}
+.practice-card .pc-avatar {
+  width: 38px; height: 38px;
+  border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-alpha-steel-15);
+  color: var(--velo-color-steel-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.practice-card .pc-id {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.practice-card .pc-title {
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--velo-color-steel-primary);
+}
+.practice-card .pc-master {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--velo-text-muted);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.practice-card .pc-master .verified {
+  color: var(--velo-color-teal-medium);
+  font-size: 12px;
+}
+.practice-card .pc-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 12px;
+  font-size: 12px;
+  color: var(--velo-text-muted);
+}
+.practice-card .pc-meta .meta-paid {
+  color: var(--velo-color-teal-dark);
+}
+
+/* Action row — Zoom (glass) + Check-in (primary) */
+/* ============================================================
+   Bottom navigation — переиспользует DS glass-button as-is.
+   HTML: <button class="v-button v-button--glass v-button--round-icon">
+   Никаких новых canon-правил — только flex-row контейнер и active state.
+   ============================================================ */
+.bottom-nav {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: space-around;
+  padding: 0 8px 22px;
+  margin-left: -20px;
+  margin-right: -20px;
+}
+.bottom-nav .v-button--round-icon.active {
+  color: var(--velo-color-steel-primary);
+}
+.bottom-nav .v-button--round-icon.active::after {
+  background: var(--velo-glass-fill-hover);
+}
+
+/* Bottom-nav icon images — fixed 24×24 square.
+   All 4 nav SVGs are normalised to width=27 height=27 with square viewBoxes:
+   home (53 51 27 27), diary (0 0 27 27), reservations (0 0 27 27), profile (-3 0 27 27).
+   Fixed both dimensions so no icon auto-stretches on aspect-ratio mismatch. */
+.bottom-nav .v-button--round-icon img {
+  width: 24px; height: 24px;
+  display: block; position: relative; z-index: 1;
+}
+
+/* ============================================================
+   PaidBadge — teal pill with check-sm icon + "Оплачено"
+   Dashboard 9 harvest 2026-05-18. CATALOG: .paid-badge
+   ============================================================ */
+.paid-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px;
+  background: var(--velo-color-teal-50);
+  border: 1px solid var(--velo-color-teal-light);
+  border-radius: var(--velo-radius-pill);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--velo-color-teal-dark);
+}
+.paid-badge img { width: 12px; height: 10px; display: block; }
+
+/* ============================================================
+   MasterTagChip — amber pill for master specialization labels
+   Dashboard 9 harvest 2026-05-18. CATALOG: .master-tag-chip
+   ============================================================ */
+.master-tag-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  background: var(--velo-color-amber-50);
+  border-radius: var(--velo-radius-pill);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--velo-color-orange-dark);
+}
+
+/* ============================================================
+   SHARED DETAIL-VIEW CHROME (consumed by col 03..09)
+   ============================================================ */
+
+/* Compact top header — back-arrow + centered title (no bg variant) */
+.top-header {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  height: 52px;
+  padding: 0 56px;
+  flex-shrink: 0;
+}
+.top-header .header-back {
+  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+  width: 36px; height: 36px;
+  border-radius: var(--velo-radius-pill);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--velo-color-steel-light);
+  isolation: isolate;
+  box-shadow: var(--velo-shadow-button-glass);
+}
+.top-header .header-back::before {
+  content: ''; position: absolute; inset: -1px;
+  border: 1px solid #ffffff;
+  border-radius: inherit;
+  z-index: -2;
+  pointer-events: none;
+}
+.top-header .header-back::after {
+  content: ''; position: absolute; inset: -1px;
+  background: var(--velo-glass-fill);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: inherit;
+  z-index: -1;
+}
+.top-header .header-back svg { width: 18px; height: 18px; }
+.top-header .header-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 22px;
+  letter-spacing: 0.4px;
+  color: var(--velo-color-steel-primary);
+}
+
+/* Status badges (pills) — success / warning / error / info */
+.v-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; line-height: 16px;
+  padding: 3px 10px;
+  border-radius: var(--velo-radius-pill);
+  white-space: nowrap;
+}
+.v-badge--success {
+  background: var(--velo-color-teal-50);
+  color: var(--velo-color-teal-dark);
+}
+.v-badge--warning {
+  background: var(--velo-color-orange-50);
+  color: var(--velo-color-orange-dark);
+}
+.v-badge--error {
+  background: var(--velo-color-coral-50);
+  color: var(--velo-color-coral-dark);
+}
+.v-badge--info {
+  background: var(--velo-color-blue-50);
+  color: var(--velo-color-blue-medium);
+}
+.v-badge--live {
+  background: rgba(97, 156, 210, 0.18);
+  color: var(--velo-color-blue-medium);
+}
+.v-badge--live::before {
+  content: '';
+  width: 6px; height: 6px; border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-blue-medium);
+  margin-right: 2px;
+}
+
+/* Info pill — blue tint card with leading 'i' icon */
+.info-pill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: rgba(97, 156, 210, 0.10);
+  border: 1px solid rgba(97, 156, 210, 0.20);
+  border-radius: var(--velo-radius-lg);
+  color: var(--velo-color-steel-primary);
+}
+.info-pill .ip-icon {
+  width: 24px; height: 24px;
+  border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-blue-medium);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+.info-pill .ip-body { display: flex; flex-direction: column; gap: 2px; }
+.info-pill .ip-title { font-size: 14px; line-height: 18px; }
+.info-pill .ip-sub   { font-size: 12px; line-height: 14px; color: var(--velo-text-muted); }
+
+/* Destructive button (coral filled) */
+.v-button--destructive {
+  background: var(--velo-color-coral-medium);
+  color: var(--velo-text-inverse);
+  box-shadow:
+    0 6px 14px   rgba(214, 102, 116, 0.20),
+    0 0 7px 11px rgba(255, 255, 255, 0.50);
+}
+.v-button--destructive:hover  { background: var(--velo-color-coral-dark); }
+.v-button--destructive:active { transform: scale(.98); }
+
+/* Ghost link button (centered text link) */
+.v-link-block {
+  border: 0; background: transparent;
+  cursor: pointer;
+  font: inherit;
+  width: 100%;
+  padding: 12px 0;
+  font-size: 16px;
+  color: var(--velo-color-steel-light);
+  text-align: center;
+}
+
+/* Multi-line input (textarea) */
+.v-textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: none;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--velo-border-input);
+  border-radius: var(--velo-radius-md);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--velo-color-steel-primary);
+  outline: none;
+}
+.v-textarea::placeholder { color: var(--velo-text-muted); }
+.v-textarea:focus { border-color: var(--velo-color-steel-light); }
+
+/* Practice info card — compact variant used in detail views */
+.practice-info {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-align: center;
+}
+.practice-info .pi-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--velo-radius-pill);
+  background: rgba(76, 101, 137, 0.10);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--velo-color-steel-primary);
+}
+.practice-info .pi-icon svg { width: 24px; height: 24px; }
+.practice-info .pi-title {
+  font-size: 18px;
+  line-height: 22px;
+  color: var(--velo-color-steel-primary);
+}
+.practice-info .pi-meta {
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--velo-text-muted);
+}
+
+/* Master card — large with avatar + name + tags + chevron */
+.master-card {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.master-card .mc-head {
+  display: flex; align-items: center; gap: 12px;
+}
+.master-card .mc-avatar {
+  width: 48px; height: 48px;
+  border-radius: var(--velo-radius-pill);
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #f0c0a0, #d68c70);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.master-card .mc-id {
+  display: flex; flex-direction: column; gap: 2px;
+  min-width: 0;
+}
+.master-card .mc-name {
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--velo-color-steel-primary);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.master-card .mc-name .verified {
+  color: var(--velo-color-teal-medium);
+  font-size: 13px;
+}
+.master-card .mc-tags {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.master-card .mc-tag {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: rgba(76, 101, 137, 0.10);
+  color: var(--velo-color-steel-primary);
+  border-radius: var(--velo-radius-pill);
+}
+.master-card .mc-foot {
+  display: flex; align-items: center; justify-content: flex-end;
+  font-size: 13px;
+  color: var(--velo-color-steel-light);
+  gap: 4px;
+}
+
+/* Collapsible row (О практике ⌄ / Что подготовить ⌄) */
+.list-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  cursor: pointer;
+  box-shadow: var(--velo-shadow-card);
+  color: var(--velo-color-steel-primary);
+  font-size: 15px;
+  line-height: 18px;
+}
+.list-row .lr-chevron {
+  color: var(--velo-text-muted);
+  font-size: 14px;
+}
+
+/* Warning alert (contraindications / disclaimers) */
+.warning-alert {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px;
+  background: rgba(212, 134, 60, 0.10);
+  border: 1px solid rgba(212, 134, 60, 0.30);
+  border-radius: var(--velo-radius-lg);
+  color: var(--velo-color-orange-dark);
+}
+.warning-alert .wa-icon {
+  width: 22px; height: 22px; flex-shrink: 0;
+  color: var(--velo-color-orange-medium);
+}
+.warning-alert .wa-body { display: flex; flex-direction: column; gap: 4px; }
+.warning-alert .wa-title {
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.warning-alert .wa-text {
+  font-size: 13px; line-height: 16px;
+  color: var(--velo-color-steel-primary);
+}
+
+/* Mood selector — 3 emoji-pair circles, central active */
+.mood-widget {
+  display: flex; align-items: flex-end; justify-content: center; gap: 16px;
+}
+.mw-pick {
+  border: 0; background: transparent;
+  cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 0;
+}
+.mw-pick .mw-face {
+  width: 56px; height: 56px;
+  border-radius: var(--velo-radius-pill);
+  background: rgba(255, 255, 255, 0.70);
+  border: 1px solid var(--velo-border-card);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.mw-pick.is-active .mw-face {
+  width: 70px; height: 70px;
+  background: #fff;
+  box-shadow: var(--velo-shadow-button);
+  transform: translateY(-4px);
+}
+.mw-pick .mw-label {
+  font-size: 11px;
+  color: var(--velo-text-muted);
+  letter-spacing: 0.2px;
+}
+.mw-pick.is-active .mw-label {
+  color: var(--velo-color-steel-primary);
+  font-size: 13px;
+}
+
+/* Slider mock (horizontal range strip) */
+.mw-slider {
+  width: 70%;
+  height: 4px;
+  margin: 6px auto 0;
+  background: var(--velo-color-alpha-steel-15);
+  border-radius: var(--velo-radius-pill);
+  position: relative;
+}
+.mw-slider::after {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-steel-light);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+.booking-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  box-shadow: var(--velo-shadow-card);
+  cursor: pointer;
+}
+.booking-card .bc-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--velo-radius-pill);
+  background: rgba(76, 101, 137, 0.10);
+  color: var(--velo-color-steel-primary);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.booking-card .bc-icon svg { width: 18px; height: 18px; }
+.booking-card .bc-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.booking-card .bc-title {
+  font-size: 15px; line-height: 18px;
+  color: var(--velo-color-steel-primary);
+}
+.booking-card .bc-master {
+  font-size: 12px; line-height: 14px;
+  color: var(--velo-text-muted);
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.booking-card .bc-master .verified { color: var(--velo-color-teal-medium); font-size: 10px; }
+.booking-card .bc-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+.booking-card .bc-date {
+  font-size: 12px; color: var(--velo-text-muted);
+}
+
+/* Group title (Предстоящие / Прошедшие / Рекомендации / Мастер / Статус / ZOOM) */
+.group-title {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 18px;
+  color: var(--velo-color-steel-primary);
+  letter-spacing: 0.3px;
+}
+
+/* Stretched detail screen shell — common to col 03..09 */

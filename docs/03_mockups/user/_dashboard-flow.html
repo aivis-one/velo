@@ -4,336 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VELO — Dashboard flow (9 экранов)</title>
-<style>
-/* ============================================================
-   VELO Design System — Self-hosted Marmelad Regular
-   Canon from 02_design-system/tokens/global.css §1.
-   Relative path к TTF в DS assets — один master, никакого
-   дубликата файла. Works из file:// в Chrome/Edge/Firefox.
-   ============================================================ */
-@font-face {
-  font-family: 'Marmelad';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../../02_design-system/assets/fonts/Marmelad-Regular.ttf') format('truetype');
-}
-
-/* ============================================================
-   VELO Design System — Token Bridge (mirrors variables.css master)
-   Sprint 2 Phase 4 — Dashboard block builds on the canon promoted
-   from Onboarding (typography h1/body, button/input heights, stack
-   gaps, glass two-layer canon, halo composition).
-   ============================================================ */
-:root {
-  /* Brand */
-  --velo-color-steel-primary:   #4c6589;
-  --velo-color-steel-muted:     #5c7292;
-  --velo-color-steel-light:     #627a9c;
-  --velo-color-steel-pale:      #91a2ba;
-  --velo-color-neutral-200:     #abbfda;
-  --velo-color-neutral-300:     #b0bccd;
-  --velo-color-alpha-white-70:  rgba(255, 255, 255, 0.70);
-  --velo-color-alpha-white-50:  rgba(255, 255, 255, 0.50);
-  --velo-color-alpha-steel-15:  rgba(76, 101, 137, 0.15);
-  --velo-color-alpha-steel-08:  rgba(76, 101, 137, 0.08);
-  --velo-color-alpha-steel-30:  rgba(76, 101, 137, 0.30);  /* Dashboard 9 audit: canonical card border */
-
-  /* State (resolved during full-mining) */
-  --velo-color-teal-dark:    #26767d;
-  --velo-color-teal-medium:  #2f9ea8;
-  --velo-color-teal-50:      #d6f5f8;
-  --velo-color-orange-dark:  #a16124;
-  --velo-color-orange-medium:#d4863c;
-  --velo-color-orange-50:    #feecdb;
-  --velo-color-coral-dark:   #d66674;
-  --velo-color-coral-medium: #f795a2;
-  --velo-color-coral-50:     #fddfe3;
-  --velo-color-blue-medium:  #619cd2;
-  --velo-color-blue-50:      #e2f0fd;
-
-  /* Semantic */
-  --velo-bg-screen:             #f5f6f9;
-  --velo-bg-card:               #ffffff;
-  --velo-bg-button-primary:     #4c6589;
-  --velo-bg-button-glass:       rgba(255, 255, 255, 0.55);
-  --velo-text-primary:          #627a9c;
-  --velo-text-secondary:        #627a9c;
-  --velo-text-footnote:         #6b7280;
-  --velo-text-muted:            #8895a5;
-  --velo-text-link:             #627a9c;
-  --velo-text-inverse:          #ffffff;
-  --velo-text-error:            #d6586d;
-  --velo-border-default:        #e7eaee;
-  --velo-border-button:         rgba(76, 101, 137, 0.20);
-  --velo-border-input:          rgba(76, 101, 137, 0.18);
-  --velo-border-card:           var(--velo-color-alpha-steel-30);  /* Dashboard 9 audit promoted */
-
-  /* Alert backgrounds — Figma-sampled (Dashboard 9 audit round 2, 2026-05-18).
-     Same hue as outline, alpha 0.4. Warning ALSO has backdrop-blur(4). */
-  --velo-bg-alert-warning:      rgba(251, 192, 136, 0.4);  /* orange-light @ 40% */
-  --velo-bg-alert-info:         rgba(118, 221, 230, 0.4);  /* teal-light @ 40% */
-  --velo-bg-alert-error:        rgba(247, 149, 162, 0.4);  /* coral-medium @ 40% */
-
-  /* State text aliases (use these for status-colored labels) */
-  --velo-text-warning:          #a16124;  /* = orange-dark */
-  --velo-text-success:          #26767d;  /* = teal-dark, used as info too */
-  --velo-text-error:            #d66674;  /* = coral-dark */
-  --velo-icon-default:          #4f5969;
-
-  /* Typography */
-  --velo-font-family-primary:   'Marmelad', system-ui, -apple-system, sans-serif;
-
-  /* Radii */
-  --velo-radius-pill: 999px;
-  --velo-radius-sm:   5px;
-  --velo-radius-md:   10px;
-  --velo-radius-lg:   16px;
-
-  /* Spacing — promoted Sprint 2 Phase 4 */
-  --velo-stack-gap-buttons: 16px;
-  --velo-stack-gap-forms:   10px;
-
-  /* Component heights — promoted Sprint 2 Phase 4 */
-  --velo-button-height: 52px;
-  --velo-input-height:  42px;
-
-  /* Typography canon — promoted Sprint 2 Phase 4 */
-  --velo-typo-h1-size:    30px;
-  --velo-typo-h1-line:    36px;
-  --velo-typo-h1-spacing: 1.2px;
-  --velo-typo-h1-color:   var(--velo-text-primary);
-
-  --velo-typo-body-size:  18px;
-  --velo-typo-body-line:  24px;
-  --velo-typo-body-color: var(--velo-text-secondary);
-
-  /* Glass canon — promoted Sprint 2 Phase 4 */
-  --velo-glass-fill:       rgba(76, 101, 137, 0.10);
-  --velo-glass-fill-hover: rgba(76, 101, 137, 0.15);
-
-  /* Halo — primary (intense, accent) — promoted Sprint 2 Phase 4 */
-  --velo-shadow-button:
-    0 6px 14px   rgba(76, 101, 137, 0.20),
-    0 0 7px 11px rgba(255, 255, 255, 0.57);
-
-  /* Halo — glass (simplified single white halo, Figma canon 1:1).
-     Operator iteration 2026-05-18 round 2: убрать compound steel drop —
-     это был мой синтез на прошлом проходе. Figma реально использует
-     ОДИН drop-shadow white (0 0 20.9 7 white). Мы упрощаем с alpha 0.8
-     (= -20% от Figma full white) для более деликатного эффекта.
-     Применяется на: .v-button--glass / --ghost / --oauth,
-     .velo-back-arrow, .top-header .header-back, .v-button--round-icon
-     (bottom-nav). Promoted в variables.css master + deliverable. */
-  --velo-shadow-button-glass: 0 0 20.9px 7px rgba(255, 255, 255, 0.8);
-
-  /* Effects */
-  --velo-shadow-card:  0 2px 8px 0 rgba(76, 101, 137, 0.08);
-
-  /* Viewer shell */
-  --shell-bg:       #1a2233;
-  --shell-surface:  #232d44;
-  --shell-border:   #344057;
-  --shell-text:     #ffffff;
-  --shell-text-dim: rgba(255,255,255,0.6);
-  --shell-accent:   #627a9c;
-}
-
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  font-family: 'Marmelad', system-ui, -apple-system, sans-serif;
-  color: var(--velo-text-primary);
-  background: var(--shell-bg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
-}
-
-/* ============================================================
-   Viewer shell — topbar + horizontal scroll workspace
-   ============================================================ */
-.topbar {
-  position: fixed; top: 0; left: 0; right: 0; height: 44px;
-  background: var(--shell-surface);
-  border-bottom: 1px solid var(--shell-border);
-  display: flex; align-items: center; justify-content: center;
-  padding: 0 24px; z-index: 1000;
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 13px; color: var(--shell-text-dim);
-  letter-spacing: 0.3px;
-}
-.topbar strong { color: var(--shell-text); font-weight: 600; margin-right: 8px; }
-
-.workspace {
-  position: fixed; top: 44px; left: 0; right: 0; bottom: 0;
-  background: var(--shell-bg);
-  overflow: auto;
-  padding: 24px;
-}
-.workspace-row {
-  display: flex;
-  gap: 32px;
-  align-items: flex-start;
-  min-width: min-content;
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: center;
-  flex-shrink: 0;
-  width: 402px;
-}
-.column-name {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 12px;
-  letter-spacing: 0.4px;
-  color: var(--shell-text-dim);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--shell-border);
-  padding: 6px 14px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-/* Frame — clean rectangle, no phone chrome */
-.frame {
-  width: 402px;
-  height: 874px;
-  border-radius: var(--velo-radius-lg);
-  overflow: hidden;
-  background: var(--velo-bg-screen);
-  box-shadow: 0 12px 32px rgba(0,0,0,0.35);
-  border: 1px solid var(--shell-border);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-}
-.frame.figma img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  background: var(--velo-bg-screen);
-}
-.frame.html {
-  background: var(--velo-bg-screen);
-}
-
-/* TBD overlay for columns still in skeleton state */
-.tbd-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 5;
-  color: var(--velo-color-steel-light);
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-.tbd-overlay .tbd-badge {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px dashed rgba(76, 101, 137, 0.4);
-  padding: 6px 14px;
-  border-radius: 999px;
-  backdrop-filter: blur(4px);
-}
-.tbd-overlay .tbd-note {
-  font-size: 10px;
-  color: rgba(76, 101, 137, 0.6);
-  text-transform: none;
-  letter-spacing: 0.2px;
-}
-
-/* ============================================================
-   Universal app background — Figma 01_Welcome export
-   ============================================================ */
-.velo-bg-mandala {
-  position: absolute; inset: 0;
-  background-image: url('../../02_design-system/assets/backgrounds/velo-bg-app.png');
-  background-size: contain;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 0;
-}
-
-/* ============================================================
-   Shared dashboard chrome (consumed by multiple columns)
-   ============================================================ */
-
-/* DS button — primary (steel-light filled).
-   Используется на check-in, booking detail и т.д. */
-.v-button {
-  border: 0;
-  margin: 0;
-  font: inherit;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: var(--velo-button-height);
-  border-radius: var(--velo-radius-pill);
-  font-size: 18px;
-  letter-spacing: 0.2px;
-  position: relative;
-  isolation: isolate;
-  transition: transform 0.08s ease, background 0.15s ease;
-  flex-shrink: 0;
-}
-.v-button--primary {
-  background: var(--velo-bg-button-primary);
-  color: var(--velo-text-inverse);
-  box-shadow: var(--velo-shadow-button);
-}
-.v-button--primary:hover  { background: var(--velo-color-steel-primary); }
-.v-button--primary:active { transform: scale(.98); }
-
-/* Glass button — two-layer (transparent base + ::before border + ::after fill).
-   Halo использует --velo-shadow-button-glass (-20% white alpha vs primary). */
-.v-button--glass {
-  background: transparent;
-  color: var(--velo-color-steel-light);
-  box-shadow: var(--velo-shadow-button-glass);
-}
-
-/* Round-icon modifier — для кнопок в виде круглой иконки (bottom-nav).
-   Использует базу .v-button (transparent + isolation) + glass modifier
-   (::before border + ::after fill + halo). Переопределяет width/padding
-   из stack-button версии. */
-.v-button--round-icon {
-  width: var(--velo-button-height);
-  height: var(--velo-button-height);
-  padding: 0;
-  flex: 0 0 auto;
-}
-.v-button--round-icon svg { width: 22px; height: 22px; position: relative; z-index: 1; }
-.v-button--glass::before {
-  content: ''; position: absolute; inset: -1px;
-  border: 1px solid #ffffff;
-  border-radius: inherit;
-  z-index: -2;
-  pointer-events: none;
-}
-.v-button--glass::after {
-  content: ''; position: absolute; inset: -1px;
-  background: var(--velo-glass-fill);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-radius: inherit;
-  z-index: -1;
-}
-.v-button--glass:hover::after  { background: var(--velo-glass-fill-hover); }
-.v-button--glass:active        { transform: scale(.98); }
-
+  <!-- VELO shared CSS layers (§7.3 three-layer architecture) -->
+  <link rel="stylesheet" href="../_shared/tokens.css">
+  <link rel="stylesheet" href="../_shared/shell.css">
+  <link rel="stylesheet" href="../_shared/components.css">
+  <style>
+    /* Screen-specific styles only — tokens/shell/components are in ../_shared/ */
 /* Top safe area — status bar mimic / time slot */
 .dash-safe-top { height: 32px; flex-shrink: 0; }
 
@@ -381,124 +57,7 @@ body {
    Used on Dashboard col 01/02 (Пора на check-in! / Оставьте feedback!).
    DS-promotion candidate: AlertPill component variants.
    ============================================================ */
-.alert-pill {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: var(--velo-radius-lg);
-  cursor: pointer;
-  transition: transform 0.08s ease;
-}
-.alert-pill:active { transform: scale(.99); }
-.alert-pill .pill-icon {
-  width: 22px; height: 22px;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.alert-pill .pill-body {
-  display: flex; flex-direction: column; gap: 2px;
-  flex: 1; min-width: 0;
-}
-.alert-pill .pill-title {
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--velo-color-steel-primary);
-}
-.alert-pill .pill-sub {
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--velo-text-muted);
-}
 
-/* Icon — uses <img src> with real Figma SVG (color baked in per variant) */
-.alert-pill .pill-icon img { width: 22px; height: 22px; display: block; }
-
-/* Warning variant — orange theme (e.g. "Пора на check-in!").
-   Figma: bg orange-light @ 40% + 2px orange-light border + BACKGROUND_BLUR(4).
-   Title coloured orange-dark; icon SVG baked-in to orange-dark. */
-.alert-pill.alert-pill--warning {
-  background: var(--velo-bg-alert-warning);
-  border: 2px solid var(--velo-color-orange-light);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-.alert-pill.alert-pill--warning .pill-title { color: var(--velo-text-warning); }
-
-/* Info variant — teal theme (e.g. "Оставьте feedback!").
-   Figma: bg teal-light @ 40% + 2px teal-light border (no backdrop-blur). */
-.alert-pill.alert-pill--info {
-  background: var(--velo-bg-alert-info);
-  border: 2px solid var(--velo-color-teal-light);
-}
-.alert-pill.alert-pill--info .pill-title { color: var(--velo-text-success); }
-
-/* Error variant — coral theme (reserved for destructive notices) */
-.alert-pill.alert-pill--error {
-  background: var(--velo-bg-alert-error);
-  border: 3px solid var(--velo-color-coral-medium);
-}
-.alert-pill.alert-pill--error .pill-title { color: var(--velo-text-error); }
-
-/* Section title (small subhead — "Ближайшая практика", "Ваш прогресс", "AI-саммари") */
-.section-title {
-  margin: 6px 0 0;
-  font-size: 16px;
-  line-height: 20px;
-  letter-spacing: 0.3px;
-  color: var(--velo-color-steel-primary);
-}
-
-/* Next practice card */
-.practice-card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--velo-radius-lg);
-  padding: 14px 16px;
-  box-shadow: var(--velo-shadow-card);
-  display: flex; flex-direction: column; gap: 10px;
-}
-.practice-card .pc-head {
-  display: flex; align-items: center; gap: 12px;
-}
-.practice-card .pc-avatar {
-  width: 38px; height: 38px;
-  border-radius: 999px;
-  background: var(--velo-color-alpha-steel-15);
-  color: var(--velo-color-steel-primary);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-.practice-card .pc-id {
-  display: flex; flex-direction: column; gap: 2px;
-  min-width: 0;
-}
-.practice-card .pc-title {
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--velo-color-steel-primary);
-}
-.practice-card .pc-master {
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--velo-text-muted);
-  display: inline-flex; align-items: center; gap: 4px;
-}
-.practice-card .pc-master .verified {
-  color: var(--velo-color-teal-medium);
-  font-size: 12px;
-}
-.practice-card .pc-meta {
-  display: flex; flex-wrap: wrap; gap: 6px 12px;
-  font-size: 12px;
-  color: var(--velo-text-muted);
-}
-.practice-card .pc-meta .meta-paid {
-  color: var(--velo-color-teal-dark);
-}
-
-/* Action row — Zoom (glass) + Check-in (primary) */
 .scr-d01 .action-row {
   display: flex;
   gap: var(--velo-stack-gap-buttons);
@@ -539,7 +98,7 @@ body {
 }
 .ai-tabs {
   display: inline-flex;
-  border-radius: 999px;
+  border-radius: var(--velo-radius-pill);
   background: var(--velo-color-alpha-steel-15);
   padding: 2px;
 }
@@ -551,7 +110,7 @@ body {
   color: var(--velo-text-muted);
   padding: 4px 12px;
   font-size: 12px;
-  border-radius: 999px;
+  border-radius: var(--velo-radius-pill);
   letter-spacing: 0.2px;
 }
 .ai-tabs button.active {
@@ -571,348 +130,6 @@ body {
   color: var(--velo-color-steel-primary);
 }
 
-/* ============================================================
-   Bottom navigation — переиспользует DS glass-button as-is.
-   HTML: <button class="v-button v-button--glass v-button--round-icon">
-   Никаких новых canon-правил — только flex-row контейнер и active state.
-   ============================================================ */
-.bottom-nav {
-  margin-top: auto;
-  display: flex; align-items: center; justify-content: space-around;
-  padding: 0 8px 22px;
-  margin-left: -20px;
-  margin-right: -20px;
-}
-.bottom-nav .v-button--round-icon.active {
-  color: var(--velo-color-steel-primary);
-}
-.bottom-nav .v-button--round-icon.active::after {
-  background: var(--velo-glass-fill-hover);
-}
-
-/* ============================================================
-   SHARED DETAIL-VIEW CHROME (consumed by col 03..09)
-   ============================================================ */
-
-/* Compact top header — back-arrow + centered title (no bg variant) */
-.top-header {
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-  height: 52px;
-  padding: 0 56px;
-  flex-shrink: 0;
-}
-.top-header .header-back {
-  position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
-  width: 36px; height: 36px;
-  border-radius: 999px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  color: var(--velo-color-steel-light);
-  isolation: isolate;
-  box-shadow: var(--velo-shadow-button-glass);
-}
-.top-header .header-back::before {
-  content: ''; position: absolute; inset: -1px;
-  border: 1px solid #ffffff;
-  border-radius: inherit;
-  z-index: -2;
-  pointer-events: none;
-}
-.top-header .header-back::after {
-  content: ''; position: absolute; inset: -1px;
-  background: var(--velo-glass-fill);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-radius: inherit;
-  z-index: -1;
-}
-.top-header .header-back svg { width: 18px; height: 18px; }
-.top-header .header-title {
-  margin: 0;
-  font-size: 18px;
-  line-height: 22px;
-  letter-spacing: 0.4px;
-  color: var(--velo-color-steel-primary);
-}
-
-/* Status badges (pills) — success / warning / error / info */
-.v-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; line-height: 16px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.v-badge--success {
-  background: var(--velo-color-teal-50);
-  color: var(--velo-color-teal-dark);
-}
-.v-badge--warning {
-  background: var(--velo-color-orange-50);
-  color: var(--velo-color-orange-dark);
-}
-.v-badge--error {
-  background: var(--velo-color-coral-50);
-  color: var(--velo-color-coral-dark);
-}
-.v-badge--info {
-  background: var(--velo-color-blue-50);
-  color: var(--velo-color-blue-medium);
-}
-.v-badge--live {
-  background: rgba(97, 156, 210, 0.18);
-  color: var(--velo-color-blue-medium);
-}
-.v-badge--live::before {
-  content: '';
-  width: 6px; height: 6px; border-radius: 999px;
-  background: var(--velo-color-blue-medium);
-  margin-right: 2px;
-}
-
-/* Info pill — blue tint card with leading 'i' icon */
-.info-pill {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  background: rgba(97, 156, 210, 0.10);
-  border: 1px solid rgba(97, 156, 210, 0.20);
-  border-radius: var(--velo-radius-lg);
-  color: var(--velo-color-steel-primary);
-}
-.info-pill .ip-icon {
-  width: 24px; height: 24px;
-  border-radius: 999px;
-  background: var(--velo-color-blue-medium);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  font-size: 14px;
-}
-.info-pill .ip-body { display: flex; flex-direction: column; gap: 2px; }
-.info-pill .ip-title { font-size: 14px; line-height: 18px; }
-.info-pill .ip-sub   { font-size: 12px; line-height: 14px; color: var(--velo-text-muted); }
-
-/* Destructive button (coral filled) */
-.v-button--destructive {
-  background: var(--velo-color-coral-medium);
-  color: var(--velo-text-inverse);
-  box-shadow:
-    0 6px 14px   rgba(214, 102, 116, 0.20),
-    0 0 7px 11px rgba(255, 255, 255, 0.50);
-}
-.v-button--destructive:hover  { background: var(--velo-color-coral-dark); }
-.v-button--destructive:active { transform: scale(.98); }
-
-/* Ghost link button (centered text link) */
-.v-link-block {
-  border: 0; background: transparent;
-  cursor: pointer;
-  font: inherit;
-  width: 100%;
-  padding: 12px 0;
-  font-size: 16px;
-  color: var(--velo-color-steel-light);
-  text-align: center;
-}
-
-/* Multi-line input (textarea) */
-.v-textarea {
-  width: 100%;
-  min-height: 84px;
-  resize: none;
-  background: rgba(255, 255, 255, 0.78);
-  border: 1px solid var(--velo-border-input);
-  border-radius: var(--velo-radius-md);
-  padding: 12px 14px;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--velo-color-steel-primary);
-  outline: none;
-}
-.v-textarea::placeholder { color: var(--velo-text-muted); }
-.v-textarea:focus { border-color: var(--velo-color-steel-light); }
-
-/* Practice info card — compact variant used in detail views */
-.practice-info {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--velo-radius-lg);
-  padding: 16px;
-  box-shadow: var(--velo-shadow-card);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  text-align: center;
-}
-.practice-info .pi-icon {
-  width: 44px; height: 44px;
-  border-radius: 999px;
-  background: rgba(76, 101, 137, 0.10);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--velo-color-steel-primary);
-}
-.practice-info .pi-icon svg { width: 24px; height: 24px; }
-.practice-info .pi-title {
-  font-size: 18px;
-  line-height: 22px;
-  color: var(--velo-color-steel-primary);
-}
-.practice-info .pi-meta {
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--velo-text-muted);
-}
-
-/* Master card — large with avatar + name + tags + chevron */
-.master-card {
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--velo-radius-lg);
-  padding: 14px 16px;
-  box-shadow: var(--velo-shadow-card);
-  display: flex; flex-direction: column; gap: 12px;
-}
-.master-card .mc-head {
-  display: flex; align-items: center; gap: 12px;
-}
-.master-card .mc-avatar {
-  width: 48px; height: 48px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #f0c0a0, #d68c70);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-}
-.master-card .mc-id {
-  display: flex; flex-direction: column; gap: 2px;
-  min-width: 0;
-}
-.master-card .mc-name {
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--velo-color-steel-primary);
-  display: inline-flex; align-items: center; gap: 4px;
-}
-.master-card .mc-name .verified {
-  color: var(--velo-color-teal-medium);
-  font-size: 13px;
-}
-.master-card .mc-tags {
-  display: flex; flex-wrap: wrap; gap: 6px;
-}
-.master-card .mc-tag {
-  font-size: 11px;
-  padding: 3px 9px;
-  background: rgba(76, 101, 137, 0.10);
-  color: var(--velo-color-steel-primary);
-  border-radius: 999px;
-}
-.master-card .mc-foot {
-  display: flex; align-items: center; justify-content: flex-end;
-  font-size: 13px;
-  color: var(--velo-color-steel-light);
-  gap: 4px;
-}
-
-/* Collapsible row (О практике ⌄ / Что подготовить ⌄) */
-.list-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--velo-radius-lg);
-  cursor: pointer;
-  box-shadow: var(--velo-shadow-card);
-  color: var(--velo-color-steel-primary);
-  font-size: 15px;
-  line-height: 18px;
-}
-.list-row .lr-chevron {
-  color: var(--velo-text-muted);
-  font-size: 14px;
-}
-
-/* Warning alert (contraindications / disclaimers) */
-.warning-alert {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 14px;
-  background: rgba(212, 134, 60, 0.10);
-  border: 1px solid rgba(212, 134, 60, 0.30);
-  border-radius: var(--velo-radius-lg);
-  color: var(--velo-color-orange-dark);
-}
-.warning-alert .wa-icon {
-  width: 22px; height: 22px; flex-shrink: 0;
-  color: var(--velo-color-orange-medium);
-}
-.warning-alert .wa-body { display: flex; flex-direction: column; gap: 4px; }
-.warning-alert .wa-title {
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-.warning-alert .wa-text {
-  font-size: 13px; line-height: 16px;
-  color: var(--velo-color-steel-primary);
-}
-
-/* Mood selector — 3 emoji-pair circles, central active */
-.mood-widget {
-  display: flex; align-items: flex-end; justify-content: center; gap: 16px;
-}
-.mw-pick {
-  border: 0; background: transparent;
-  cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  padding: 0;
-}
-.mw-pick .mw-face {
-  width: 56px; height: 56px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.70);
-  border: 1px solid var(--velo-border-card);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-.mw-pick.is-active .mw-face {
-  width: 70px; height: 70px;
-  background: #fff;
-  box-shadow: var(--velo-shadow-button);
-  transform: translateY(-4px);
-}
-.mw-pick .mw-label {
-  font-size: 11px;
-  color: var(--velo-text-muted);
-  letter-spacing: 0.2px;
-}
-.mw-pick.is-active .mw-label {
-  color: var(--velo-color-steel-primary);
-  font-size: 13px;
-}
-
-/* Slider mock (horizontal range strip) */
-.mw-slider {
-  width: 70%;
-  height: 4px;
-  margin: 6px auto 0;
-  background: var(--velo-color-alpha-steel-15);
-  border-radius: 999px;
-  position: relative;
-}
-.mw-slider::after {
-  content: '';
-  position: absolute;
-  width: 14px; height: 14px;
-  border-radius: 999px;
-  background: var(--velo-color-steel-light);
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-}
 
 /* Video placeholder — dark rounded block */
 .video-block {
@@ -935,7 +152,7 @@ body {
 }
 .energy-pair .e-face {
   width: 32px; height: 32px;
-  border-radius: 999px;
+  border-radius: var(--velo-radius-pill);
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid var(--velo-border-card);
   display: flex; align-items: center; justify-content: center;
@@ -944,56 +161,7 @@ body {
 
 /* Reservation row (Предстоящие / Прошедшие) */
 .booking-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px;
-  background: var(--velo-bg-card);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--velo-radius-lg);
-  box-shadow: var(--velo-shadow-card);
-  cursor: pointer;
-}
-.booking-card .bc-icon {
-  width: 36px; height: 36px;
-  border-radius: 999px;
-  background: rgba(76, 101, 137, 0.10);
-  color: var(--velo-color-steel-primary);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.booking-card .bc-icon svg { width: 18px; height: 18px; }
-.booking-card .bc-body {
-  flex: 1; min-width: 0;
-  display: flex; flex-direction: column; gap: 4px;
-}
-.booking-card .bc-title {
-  font-size: 15px; line-height: 18px;
-  color: var(--velo-color-steel-primary);
-}
-.booking-card .bc-master {
-  font-size: 12px; line-height: 14px;
-  color: var(--velo-text-muted);
-  display: inline-flex; align-items: center; gap: 3px;
-}
-.booking-card .bc-master .verified { color: var(--velo-color-teal-medium); font-size: 10px; }
-.booking-card .bc-meta {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%;
-  gap: 8px;
-}
-.booking-card .bc-date {
-  font-size: 12px; color: var(--velo-text-muted);
-}
 
-/* Group title (Предстоящие / Прошедшие / Рекомендации / Мастер / Статус / ZOOM) */
-.group-title {
-  margin: 6px 0 0;
-  font-size: 15px;
-  line-height: 18px;
-  color: var(--velo-color-steel-primary);
-  letter-spacing: 0.3px;
-}
-
-/* Stretched detail screen shell — common to col 03..09 */
 .scr-detail {
   position: relative; z-index: 1;
   display: flex; flex-direction: column;
@@ -1020,7 +188,7 @@ body {
 }
 .scr-success .success-icon {
   width: 132px; height: 132px;
-  border-radius: 999px;
+  border-radius: var(--velo-radius-pill);
   background: var(--velo-color-teal-50);
   display: flex; align-items: center; justify-content: center;
   color: var(--velo-color-teal-light);
@@ -1067,26 +235,8 @@ body {
 }
 
 /* ============================================================
-   Toast feedback (per VELO-METHODOLOGY §7.5)
-   ============================================================ */
-.toast-container {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column; gap: 8px;
-  z-index: 2000; pointer-events: none;
-}
-.toast {
-  background: rgba(35, 45, 68, 0.95);
-  color: var(--shell-text);
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-family: system-ui, sans-serif;
-  font-size: 13px;
-  border: 1px solid var(--shell-border);
-  animation: toast-in 0.18s ease-out;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-}
-@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-</style>
+
+  </style>
 </head>
 <body>
 
@@ -1139,16 +289,30 @@ body {
 
           <div class="practice-card" onclick="showToast('🟢 booking-detail')">
             <div class="pc-head">
-              <div class="pc-avatar">AM</div>
+              <div class="pc-avatar">
+                <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:38px;height:38px;">
+              </div>
               <div class="pc-id">
                 <div class="pc-title">Утренняя медитация</div>
-                <div class="pc-master">Alex Mindful <span class="verified">✓</span></div>
+                <div class="pc-master">
+                  Alex Mindful
+                  <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;">
+                </div>
               </div>
             </div>
             <div class="pc-meta">
-              <span>📅 Завтра, 07:00</span>
-              <span>⏱ 45 мин</span>
-              <span class="meta-paid">✓ Оплачено</span>
+              <span style="display:inline-flex;align-items:center;gap:3px;">
+                <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;">
+                Завтра, 07:00
+              </span>
+              <span style="display:inline-flex;align-items:center;gap:3px;">
+                <img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;">
+                45 мин
+              </span>
+              <span class="paid-badge">
+                <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
+                Оплачено
+              </span>
             </div>
           </div>
 
@@ -1182,16 +346,16 @@ body {
 
           <div class="bottom-nav">
             <button class="v-button v-button--glass v-button--round-icon active" onclick="showToast('🏠 dashboard')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-nav-home.svg" alt="home">
             </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📊 analytics')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="16"/></svg>
+            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📔 diary')">
+              <img src="../../02_design-system/assets/icons/icon-nav-diary.svg" alt="diary">
             </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('💬 messages')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📅 reservations')">
+              <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg" alt="reservations">
             </button>
             <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('👤 profile')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-nav-profile.svg" alt="profile">
             </button>
           </div>
         </div>
@@ -1230,16 +394,30 @@ body {
           <h2 class="section-title">Ближайшая практика</h2>
           <div class="practice-card" onclick="showToast('🟢 booking-detail')">
             <div class="pc-head">
-              <div class="pc-avatar">AM</div>
+              <div class="pc-avatar">
+                <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:38px;height:38px;">
+              </div>
               <div class="pc-id">
                 <div class="pc-title">Утренняя медитация</div>
-                <div class="pc-master">Alex Mindful <span class="verified">✓</span></div>
+                <div class="pc-master">
+                  Alex Mindful
+                  <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;">
+                </div>
               </div>
             </div>
             <div class="pc-meta">
-              <span>📅 Завтра, 07:00</span>
-              <span>⏱ 45 мин</span>
-              <span class="meta-paid">✓ Оплачено</span>
+              <span style="display:inline-flex;align-items:center;gap:3px;">
+                <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;">
+                Завтра, 07:00
+              </span>
+              <span style="display:inline-flex;align-items:center;gap:3px;">
+                <img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;">
+                45 мин
+              </span>
+              <span class="paid-badge">
+                <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
+                Оплачено
+              </span>
             </div>
           </div>
 
@@ -1280,16 +458,16 @@ body {
 
           <div class="bottom-nav">
             <button class="v-button v-button--glass v-button--round-icon active" onclick="showToast('🏠 dashboard')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5L12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5z"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-nav-home.svg" alt="home">
             </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📊 analytics')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="18" y1="20" x2="18" y2="16"/></svg>
+            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📔 diary')">
+              <img src="../../02_design-system/assets/icons/icon-nav-diary.svg" alt="diary">
             </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('💬 messages')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📅 reservations')">
+              <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg" alt="reservations">
             </button>
             <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('👤 profile')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-nav-profile.svg" alt="profile">
             </button>
           </div>
         </div>
@@ -1316,7 +494,7 @@ body {
 
           <div class="practice-info">
             <div class="pi-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2"/><path d="M12 8v6"/><path d="M8 12l4 2 4-2"/><path d="M7 20l3-6m4 0l3 6"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
             </div>
             <div class="pi-title">Утренняя медитация</div>
             <div class="pi-meta">с Alex Mindful · Завтра, 07:00</div>
@@ -1329,15 +507,15 @@ body {
 
           <div class="mood-widget">
             <button class="mw-pick" onclick="showToast('🟢 mood: плохо')">
-              <span class="mw-face">😩</span>
+              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-bad.svg" alt="не очень" style="width:40px;height:40px;display:block;"></span>
               <span class="mw-label">Не очень</span>
             </button>
             <button class="mw-pick is-active" onclick="showToast('🟢 mood: норма')">
-              <span class="mw-face">😐</span>
+              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-neutral.svg" alt="нормально" style="width:40px;height:40px;display:block;"></span>
               <span class="mw-label">Нормально</span>
             </button>
             <button class="mw-pick" onclick="showToast('🟢 mood: отлично')">
-              <span class="mw-face">😊</span>
+              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-good.svg" alt="высокий" style="width:40px;height:40px;display:block;"></span>
               <span class="mw-label">Хорошо</span>
             </button>
           </div>
@@ -1428,11 +606,12 @@ body {
 
           <div class="practice-info">
             <div class="pi-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2"/><path d="M12 8v6"/><path d="M8 12l4 2 4-2"/><path d="M7 20l3-6m4 0l3 6"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
             </div>
             <div class="pi-title">Утренняя медитация</div>
             <div class="pi-meta">
-              <span>📅 Завтра, 07:00 · ⏱ 45 мин</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;"> Завтра, 07:00</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;"> 45 мин</span>
               <span class="v-badge v-badge--success" style="margin-left:6px;">Оплачено</span>
             </div>
           </div>
@@ -1449,11 +628,14 @@ body {
             <div class="mc-head">
               <div class="mc-avatar">AM</div>
               <div class="mc-id">
-                <div class="mc-name">Alex Mindful <span class="verified">✓</span></div>
+                <div class="mc-name">
+                  Alex Mindful
+                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg" alt="verified" style="width:16px;height:16px;display:inline;vertical-align:middle;">
+                </div>
                 <div class="mc-tags">
-                  <span class="mc-tag">Медитация</span>
-                  <span class="mc-tag">Mindfulness</span>
-                  <span class="mc-tag">MBSR</span>
+                  <span class="master-tag-chip">Медитация</span>
+                  <span class="master-tag-chip">Mindfulness</span>
+                  <span class="master-tag-chip">MBSR</span>
                 </div>
               </div>
             </div>
@@ -1462,7 +644,7 @@ body {
 
           <div class="warning-alert">
             <span class="wa-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-warning.svg" alt="" style="width:22px;height:20px;display:block;">
             </span>
             <div class="wa-body">
               <span class="wa-title">Противопоказания</span>
@@ -1580,7 +762,10 @@ body {
             </div>
             <div class="bc-body">
               <div class="bc-title">Breathwork</div>
-              <div class="bc-master"><span class="verified">✓</span> Maria Flow</div>
+              <div class="bc-master">
+                <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;vertical-align:middle;">
+                Maria Flow
+              </div>
               <div class="bc-meta">
                 <span class="bc-date">20 янв, 10:00</span>
                 <span class="v-badge v-badge--error">✗ Отменена</span>
@@ -1611,10 +796,13 @@ body {
 
           <div class="practice-info">
             <div class="pi-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2"/><path d="M12 8v6"/><path d="M8 12l4 2 4-2"/><path d="M7 20l3-6m4 0l3 6"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
             </div>
             <div class="pi-title">Утренняя медитация</div>
-            <div class="pi-meta">📅 Завтра, 07:00 · ⏱ 45 мин</div>
+            <div class="pi-meta" style="display:flex;gap:10px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;"> Завтра, 07:00</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;"> 45 мин</span>
+            </div>
           </div>
 
           <div style="display:flex; align-items:center; justify-content:space-between;">
@@ -1627,47 +815,43 @@ body {
             <div class="mc-head">
               <div class="mc-avatar">AM</div>
               <div class="mc-id">
-                <div class="mc-name">Alex Mindful <span class="verified">✓</span></div>
+                <div class="mc-name">
+                  Alex Mindful
+                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg" alt="verified" style="width:16px;height:16px;display:inline;vertical-align:middle;">
+                </div>
                 <div class="mc-tags">
-                  <span class="mc-tag">Медитация</span>
-                  <span class="mc-tag">Mindfulness</span>
-                  <span class="mc-tag">MBSR</span>
+                  <span class="master-tag-chip">Медитация</span>
+                  <span class="master-tag-chip">Mindfulness</span>
+                  <span class="master-tag-chip">MBSR</span>
                 </div>
               </div>
             </div>
             <div class="mc-foot"><span>Подробнее</span><span>→</span></div>
           </div>
 
-          <h2 class="group-title">ZOOM</h2>
+          <h2 class="group-title">Zoom</h2>
           <div class="info-pill">
-            <span class="ip-icon" style="background:var(--velo-color-steel-light);">🔗</span>
-            <div class="ip-body">
-              <span class="ip-title">Ссылка будет отправлена</span>
-              <span class="ip-sub">за 10 минут до начала практики</span>
-            </div>
+            🔗 Ссылка на встречу будет отправлена за 30 минут до начала
           </div>
 
-          <button class="v-button v-button--destructive" style="margin-top:auto;" onclick="showToast('🟢 cancel booking')">Отменить бронирование</button>
+          <div style="display:flex;flex-direction:column;gap:var(--velo-stack-gap-buttons);margin-top:auto;">
+            <button class="v-button v-button--destructive" onclick="showToast('❌ бронирование отменено')">Отменить бронирование</button>
+          </div>
         </div>
       </div>
     </div>
 
-  </div>
-</div>
-
-<div class="toast-container" id="toastContainer"></div>
+  </div><!-- workspace-row -->
+</div><!-- workspace -->
 
 <script>
 function showToast(msg) {
-  const c = document.getElementById('toastContainer');
-  const t = document.createElement('div');
-  t.className = 'toast';
+  const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; }, 1800);
-  setTimeout(() => t.remove(), 2200);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
 }
 </script>
-
 </body>
 </html>

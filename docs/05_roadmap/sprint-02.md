@@ -1,29 +1,87 @@
 # Sprint 2 — Styleguide + First Mockups (P0)
 
 ```
-Dates:    2026-05-17 → 2026-05-18
-Status:   ✅ **closed 2026-05-18** — Phase 3 ✅ + Phase 4 partial (Onboarding 8 ✅, Dashboard 9 🗑 superseded → continued in standalone Sprint 2.5)
+Dates:    2026-05-17 → open-ended (EXPANDED 2026-05-18)
+Status:   🔄 in-progress (EXPANDED) — Sprint 2 reopened and expanded 2026-05-18 to close full DS foundation.
+          Original Phase 3 ✅ closed 2026-05-17. Phase 4 Onboarding 8 ✅ closed 2026-05-18.
+          Now executing Macro-Phase I (DS harvest all blocks, Phase A+B) followed by
+          Macro-Phase II (all block mockups, Phase C). See "Expanded Scope" section below.
 Owner:    Cowork (executor), Operator (validator)
 Goal ref: ROADMAP.md §5
-Phase:    Phase 3 (Styleguide HTML) ✅ + Phase 4 (P0 mockups) partial — see closure note in Daily log
-Successor: Sprint 2.5 (standalone, file `sprint-02.5.md`) — see ROADMAP §5.5
+Parallel: Sprint 2.5 (standalone, file `sprint-02.5.md`) — Tracks B (CBSHOME transfer, Claude Code)
+          + C (Documentation English translation, Cowork) run in parallel with Sprint 2.
 ```
 
 ---
 
 ## Goal
 
-Build the living styleguide (Phase 3) and deliver the first batch of
-mockups (P0 priority screens — typically one dashboard per role plus a
-shared auth flow start, 4–6 mockups total).
+Build the living styleguide (Phase 3) and deliver the **complete design
+system foundation + all user/master block mockups**. Original goal was
+Phase 3 + 4-6 P0 screens; expanded 2026-05-18 to close the DS question
+fully before Sprint 3 Vue implementation begins.
 
 ---
 
-## Scope
+## Expanded Scope — Two Macro-Phases (decision 2026-05-18)
 
-Six tasks. P0 mockups for 4–6 screens; their specs follow in the
-respective role-block sprint (Sprint 3 for user-dashboard, Sprint 5 for
-master-dashboard, Sprint 7 for admin-dashboard).
+**Why expanded:** Sprint 1 delivered a starter DS (17 screens mined).
+Blocks harvested block-by-block during mockup production caused 3× rework
+(tokens discovered in Calendar break Dashboard mockup already built, etc.).
+The correct order is: harvest ALL blocks → complete DS → THEN all mockups.
+
+### Macro-Phase I — DS Harvest (all blocks, Phase A+B only)
+
+Goal: extract every token, icon, and component from every SACRED block.
+No mockups until all blocks are DS-complete.
+
+| # | Block | Figma root | Screens | DS-complete? |
+|---|---|---|---|---|
+| 1 | Onboarding | `541:1179` | 8 | ✅ done (Sprint 2 Phase 4) |
+| 2 | Dashboard 9 | `541:6648` | 9 | ✅ done (2026-05-18 session) |
+| 3 | Calendar 11 | `541:1553` | 11 | ✅ done (2026-05-18 Calendar 11 DS harvest) |
+| 4 | Profile 7 | `541:2355` | 7 | ⬜ pending |
+| 5 | Diary 20 | `541:2816` | 20 | ⬜ pending |
+| 6 | Messages 3 | `541:2717` | 3 | ⬜ pending |
+| 7 | Analytics 3 | `758:1529` | 3 | ⬜ pending |
+| 8 | Practices 15 | `758:1950` | 15 | ⬜ pending |
+| 9 | Master Dashboard 8 | `758:3245` | 8 | ⬜ pending |
+| 10 | Master Onboarding 13 | `758:4318` | 13 | ⬜ pending |
+
+Per-block deliverables (all 5 mandatory for block to be "DS-complete"):
+1. Tokens → `02_design-system/tokens/variables.css` master + deliverable (MD5-mirror)
+2. SVG icons → `02_design-system/assets/icons/`
+3. `02_design-system/assets/ASSETS-INDEX.md` entries with Figma node provenance
+4. `02_design-system/COMPONENTS-CATALOG.md` entries (full profile)
+5. `02_design-system/styleguide/velo-design-system.html` visualisation (§6.8 rule)
+
+**DS COMPLETE GATE** — passes when all 10 blocks above are DS-complete.
+Only then does Macro-Phase II begin.
+
+### Macro-Phase II — Mockups (all blocks, Phase C)
+
+Goal: build all block HTML mockup viewers on the frozen, complete DS.
+Zero token drift. Zero retroactive fixes.
+
+| # | Block | Mockup viewer | Status |
+|---|---|---|---|
+| 1 | Onboarding 8 | `03_mockups/user/_onboarding-flow.html` | ✅ MOCKUP GATE passed 2026-05-18 |
+| 2 | Dashboard 9 | `03_mockups/user/_dashboard-flow.html` | ✅ MOCKUP GATE ready (2026-05-18 session) |
+| 3 | Calendar 11 | `03_mockups/user/_calendar-flow.html` | ⬜ pending DS-complete |
+| 4 | Profile 7 | `03_mockups/user/_profile-flow.html` | ⬜ pending DS-complete |
+| 5 | Diary 20 | `03_mockups/user/_diary-flow.html` | ⬜ pending DS-complete |
+| 6 | Messages 3 | `03_mockups/user/_messages-flow.html` | ⬜ pending DS-complete |
+| 7 | Analytics 3 | `03_mockups/user/_analytics-flow.html` | ⬜ pending DS-complete |
+| 8 | Practices 15 | `03_mockups/user/_practices-flow.html` | ⬜ pending DS-complete |
+| 9 | Master Dashboard 8 | `03_mockups/master/_dashboard-flow.html` | ⬜ pending DS-complete |
+| 10 | Master Onboarding 13 | `03_mockups/master/_onboarding-flow.html` | ⬜ pending DS-complete |
+
+---
+
+## Original Scope — Phase 3 + Phase 4 P0 (history)
+
+Six tasks from original sprint definition. P0 mockups for 4–6 screens.
+Expanded 2026-05-18 — see "Expanded Scope" section above for current plan.
 
 | # | Task | Owner | Phase |
 |---|---|---|---|
@@ -202,10 +260,19 @@ Owner: Claude Code.
 
 Ref: ROADMAP.md §5.2.
 
+**Original gates:**
 - [x] STYLEGUIDE GATE passed (T2.2) — 2026-05-17
-- [ ] P0 mockups built; MOCKUP GATE passed for each (operator expanded P0 to Onboarding 8 + Dashboard 9)
-- [ ] `03_mockups/INDEX.md` reflects P0 status
-- [ ] vue-i18n installed and minimally wired in `frontend/` (Claude Code task T2.6)
+- [x] Onboarding 8 MOCKUP GATE passed — 2026-05-18
+
+**Expanded gates (added 2026-05-18):**
+- [ ] **DS COMPLETE GATE** — all 10 blocks DS-complete (Macro-Phase I checklist above all ✅)
+- [ ] All 10 block mockup viewers built + MOCKUP GATE passed per block (Macro-Phase II)
+- [ ] `03_mockups/INDEX.md` reflects all-block status
+- [ ] `02_design-system/INDEX.md` reflects DS-complete state
+
+**Deferred to Sprint 2.5 (parallel sprint):**
+- [ ] vue-i18n installed and minimally wired in `frontend/` (Claude Code Track B)
+- [ ] Documentation English translation pass Conv-1..Conv-4 (Track C)
 
 ---
 
@@ -357,6 +424,13 @@ Ref: ROADMAP.md §5.2.
   - **HANDOFF bumped v1.3 → v1.4** (next edit) — English rule added to rules of behavior, Шаг 4 reference updated to `sprint-02.5.md`, startup prompt one-line reminder.
   - **Sprint 2 closure inventory:** Phase 3 ✅ styleguide HTML + 32 SVG icons + card/modal shadow tokens. Phase 4 ✅ Onboarding 8 block (all 8 columns approved 2026-05-18) + DS-promotion of glass canon + typography canon + button heights + stack gaps + halo composition + state token rebalance (alpha-steel-30 promoted, halo simplified to single white drop-shadow). 2 anti-patterns codified (AP-P-6 PNG reverse-engineering, AP-P-7 variables.css without styleguide). COMPONENTS-CATALOG.md created.
 
+- **2026-05-18 (session 5) — Sprint 2 Quality Audit:**
+  - **Audit triggered by operator:** operator observed onboarding illustration icons absent from DS and questioned whether previous sessions had fully transferred all assets. Previous sessions correctly tokenized all 97 SACRED screens in Sprint 1 Phase A but did NOT extract SVGs from Master Onboarding block (block #10) — this is expected behavior (Phase B only happens per-block during DS harvest, and Master Onboarding was not yet harvested). Correctly identified as a future Macro-Phase I item, not a previous-session failure.
+  - **4 genuine gaps found in already-completed blocks (Dashboard 9 + Calendar 11):** Three FeedbackRating icons (`icon-feedback-questions`, `icon-feedback-good`, `icon-feedback-fire`) from Calendar 11 screen 29 (`541:2286`) + one Dashboard check-in success circle graphic (`icon-checkin-success`) from Dashboard screen 04 (`541:6988`) — all absent from ASSETS-INDEX and `velo-design-system.html`.
+  - **All 4 gaps remediated:** Exported individually via `use_figma` Plugin API `exportAsync` to avoid 20KB truncation. Saved to `02_design-system/assets/icons/`. ASSETS-INDEX updated (29 → 33 icons). `velo-design-system.html` icon gallery updated with "Audit-recovered" group.
+  - **COMPONENTS-CATALOG.md corruption fixed:** File was truncated at line 565 mid-word ("Anatom") in PracticeMetaRow entry. FilterChip, FilterSheet, FeedbackRating entries were completely absent despite being named in sprint-02 iteration 10. All 4 entries now complete with full anatomy/tokens/icons/provenance.
+  - **Net effect this session:** 4 new SVG files created, ASSETS-INDEX +4 rows, COMPONENTS-CATALOG +4 complete entries (PracticeMetaRow restored + FilterChip + FilterSheet + FeedbackRating added), velo-design-system.html +4 icons in gallery. No token changes. No mockup changes.
+
 ---
 
 ## Closure
@@ -375,3 +449,6 @@ Ref: ROADMAP.md §5.2.
 
 - Roadmap: `ROADMAP.md` §5
 - Methodology: §6.6 (component tiers), §6.8 (styleguide), §7 (mockup layer), §10.3 (STYLEGUIDE GATE), §10.4 (MOCKUP GATE), §11.2–11.3 (anti-patterns + token bridge), §9.4–9.5 (prompts)
+m Dashboard screen `user-dashboard-04-checkin-success` (`541:6648`). All 4 extracted, saved to `assets/icons/`, added to `velo-design-system.html` + `ASSETS-INDEX.md`. COMPONENTS-CATALOG, sprint-02, INDEX.md all updated.
+  - **Master Onboarding illustrations extraction (Task #16):** Operator confirmed all 4 Master Onboarding illustrations (`758:4694` welcome / `758:4700` space / `758:4707` analytics / `758:4714` approved) must be in DS. Three exported normally via `exportAsync`. Fourth (`icon-master-approved.svg`, Group 2523, 62KB SVG) exceeded 20KB Figma MCP response limit — required 3-chunk path data extraction strategy (`.substring(0, 7000)` / `.substring(7000, 14000)` / `.substring(14000, end)`). Fill-only export (no stroke/mask duplication) yielded 9-element ~30KB SVG. All 4 saved to `assets/icons/`, gallery entries added to `velo-design-system.html`, `ASSETS-INDEX.md` updated with new table section. Task #16 complete.
+  - **Net effect session 5 + session 6:** 4 gap icons + 4 Master Onboarding illustrations = **8 new SVG assets** extracted and integrated. `velo-design-system.html` icon gallery now reflects all known Figma icon assets. `ASSETS-INDEX.md` icon count +8.

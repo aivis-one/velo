@@ -10,7 +10,7 @@
 >
 > **Status:** Draft for operator approval before execution.
 >
-> **Anchor:** `[VELO-ROADMAP.md | v1.3 | 2026-05-18]`
+> **Anchor:** `[VELO-ROADMAP.md | v1.4 | 2026-05-18]`
 
 ---
 
@@ -20,8 +20,8 @@
 2. Sprint Cadence and Sizing
 3. Sprint 0 — Foundation Cleanup
 4. Sprint 1 — Figma Extraction + Token Synthesis
-5. Sprint 2 — Styleguide + First Mockups (P0)
-5.5. Sprint 2.5 — DS Completion (block-by-block) + Foundation Transfer (CBSHOME)
+5. Sprint 2 — DS Foundation + All Block Mockups (EXPANDED)
+5.5. Sprint 2.5 — CBSHOME Foundation Transfer + Documentation Translation
 6. Sprint 3 — User Block Mockups + Specs (Wave 1)
 7. Sprint 4 — User Block Completion (Wave 2)
 8. Sprint 5 — Master Block Mockups + Specs (Wave 1)
@@ -86,8 +86,8 @@ only to discover Cowork doesn't know how to interpret §9.2 prompt.
 |---|---|---|---|
 | Sprint 0 | Foundation cleanup | — | 0 |
 | Sprint 1 | Figma extraction + tokens | Phase 1 + Phase 2 | 0 |
-| Sprint 2 | Styleguide + P0 mockups | Phase 3 + Phase 4 (initial) | 4-6 (P0) |
-| **Sprint 2.5** | **DS completion (block-by-block) + Foundation Transfer (CBSHOME)** | **§7.0 Block-Harvest-First + frontend foundation** | **0 (DS + code only)** |
+| **Sprint 2** | **DS Foundation + All Block Mockups (EXPANDED)** | **Phase 3 ✅ + Macro-Phase I (DS harvest all blocks) + Macro-Phase II (all mockups)** | **0 screen specs (DS + mockups only)** |
+| Sprint 2.5 | CBSHOME Foundation Transfer + Documentation English translation | Track B (frontend foundation) + Track C (docs i18n) | 0 (code + docs only) |
 | Sprint 3 | User block — wave 1 | Phase 4 + 5 | 10-12 |
 | Sprint 4 | User block — wave 2 | Phase 4 + 5 | 10-12 |
 | Sprint 5 | Master block — wave 1 | Phase 4 + 5 | 10-12 |
@@ -239,14 +239,25 @@ Action: copy `01_deliverable/styles/variables.css` →
 
 ---
 
-## 5. Sprint 2 — Styleguide + First Mockups (P0)
+## 5. Sprint 2 — DS Foundation + All Block Mockups (EXPANDED)
 
-**Goal:** build the living styleguide (Phase 3) and deliver the first
-batch of mockups (P0 priority screens).
+**Goal:** build the living styleguide (Phase 3), harvest ALL Figma SACRED
+blocks into a complete design system (Macro-Phase I), then build ALL block
+mockup viewers on the frozen, complete DS (Macro-Phase II). Sprint 2 is the
+single sprint that closes the DS question before Sprint 3 Vue implementation.
 
-**Duration:** 1 week.
+**Why expanded (2026-05-18 decision):** Sprint 1 delivered a starter DS
+(17 screens mined). Building mockups while the DS is still incomplete causes
+3× rework — tokens discovered in later blocks break mockups already built.
+Correct order: harvest ALL → complete DS → THEN all mockups.
+
+**Duration:** Open-ended (originally 1 week; expanded to close full DS).
 
 **Owner:** Cowork (executor), Operator (validator).
+
+**Parallel:** Sprint 2.5 (standalone) — Track B CBSHOME foundation transfer
+(Claude Code) + Track C documentation English translation (Cowork) run
+in parallel and do not block Sprint 2 DS work.
 
 ### 5.1 Tasks
 
@@ -312,53 +323,33 @@ This unblocks Sprint 3 specs that declare i18n keys.
 
 ---
 
-## 5.5. Sprint 2.5 — DS Completion + Foundation Transfer
+## 5.5. Sprint 2.5 — CBSHOME Foundation Transfer + Documentation Translation
 
-**Goal:** close the design-system gap left after Sprint 1 (only general statistics, not per-block detail) and pre-stage the frontend foundation by transferring battle-tested patterns from `D:\02_Projects\cbshome\frontend\src\` (identical stack — see `06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md`).
+**Goal:** pre-stage the frontend foundation by transferring battle-tested
+patterns from `D:\02_Projects\cbshome\frontend\src\` (identical stack),
+and complete the documentation English translation pass.
 
-This sprint **inserts** between Sprint 2 (P0 mockups) and Sprint 3 (User block wave 1). It exists because:
+**Note (2026-05-18 restructure):** Track A (DS completion block-by-block)
+was originally in Sprint 2.5 but has been moved back into Sprint 2
+(Macro-Phase I). Sprint 2.5 now contains only Track B + Track C.
 
-1. **Lesson learned from Sprint 2 Phase 4 (Dashboard 9):** mockups built before block-level DS harvest cause 3× rework. Methodology §7.0 (Block-Harvest-First) v1.3 amendment codified the fix. This sprint applies the fix to all remaining SACRED blocks before mass mockup production begins in Sprint 3.
-2. **CBSHOME reference implementation discovered:** identical Vue 3 + TS + Vite + Pinia + vue-i18n + Telegram WebApp stack, 85 .vue + 57 .ts files in production. ~70% of frontend foundation work (Sprint 0 + Sprint 1 + part of Sprint 11+ implementation phase) is already solved there. Transfer-and-adapt is ~10× faster than re-invention.
+**CBSHOME reference:** identical Vue 3 + TS + Vite + Pinia + vue-i18n +
+Telegram WebApp stack, 85 .vue + 57 .ts files in production. ~70% of
+frontend foundation work is already solved there. Transfer-and-adapt is
+~10× faster than re-invention.
 
-**Duration:** open-ended (~2 weeks at one block per 2-3 days). Both tracks run in parallel — neither blocks the other.
+**Duration:** open-ended (~1-2 weeks). Both tracks run in parallel.
 
-**Owners:** Cowork (Tracks A + C), Claude Code (Track B), Operator (validator all tracks).
+**Owners:** Claude Code (Track B), Cowork (Track C), Operator (validator).
 
-### 5.5.1 Three parallel tracks
+### 5.5.1 Two parallel tracks
 
 | Track | Owner | Scope | Deliverable per unit |
 |---|---|---|---|
-| **A — DS completion** | Cowork | Block-by-block harvest of SACRED frames into DS per methodology §7.0 | 5-deliverable bundle per block: tokens + assets + ASSETS-INDEX line + COMPONENTS-CATALOG entry + styleguide visualisation |
 | **B — Foundation transfer** | Claude Code | Apply 16 patterns from `CBSHOME-PATTERNS-FOR-VELO.md` to `frontend/src/` with `C*` → `V*` rename + `--bg-*` → `--velo-bg-*` token prefix swap | 1 PR per pattern group, build + typecheck green after each |
 | **C — Documentation English translation pass** | Cowork | Convert Russian narrative in process docs to English per methodology P6 + AP-P-8. Apply exception table — UI sample data + operator quotes + external inputs stay as-is. | 1 file per pass, audit count down to zero non-exempt Cyrillic occurrences |
 
-### 5.5.2 Track A — DS completion (block-by-block)
-
-Per-block sequence (each block one pass):
-
-1. **Dashboard 9** (root `541:6648`) — 9 frames. **First** block in Track A as it's already in-flight (Sprint 2 Phase 4 attempt). Pass writes off the in-progress `_dashboard-flow.html` skeleton — it is rebuilt at end of pass on DS-complete state.
-2. **Calendar 11** (root `541:1553`) — 11 frames
-3. **Profile 7** (root `541:2355`) — 7 frames
-4. **Diary 20** (root `541:2816`) — 20 frames (biggest block; may take 2 passes)
-5. **Messages 3** (root `541:2717`) — 3 frames
-6. **Analytics 3** (root `758:1529`) — 3 frames
-7. **Practices 15** (root `758:1950`) — 15 frames
-8. **Master Dashboard 8** (root `758:3245`) — 8 frames
-9. **Master Onboarding 13** (root `758:4318`) — 13 frames
-
-**Per-block protocol (per methodology §7.0 Phases A-B-C):**
-
-- **Phase A — Harvest:** `use_figma` Plugin API depth walk → manifest + token sampling + icon SVG export.
-- **Phase B — Promote (5 deliverables, all mandatory before block is "DS-complete"):**
-  1. New tokens → `02_design-system/tokens/variables.css` master + deliverable (MD5-identical)
-  2. Icon SVGs → `02_design-system/assets/icons/`
-  3. `02_design-system/assets/ASSETS-INDEX.md` entries with Figma node provenance
-  4. `02_design-system/COMPONENTS-CATALOG.md` entries (full profile per Tier 1/2 element)
-  5. **`02_design-system/styleguide/velo-design-system.html` visualisation** (Tokens / Components / Patterns tabs) — see §6.8 DS Promotion Visualisation rule
-- **Phase C — Mockup rebuild on DS-complete state:** one combined viewer per block (continuation of `_onboarding-flow.html` pattern from Sprint 2 Phase 4). Each viewer = parallel comparison Figma PNG ↔ HTML on canonical DS tokens. No reverse-engineering from PNG.
-
-### 5.5.3 Track B — CBSHOME foundation transfer
+### 5.5.2 Track B — CBSHOME foundation transfer
 
 Reference: `06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md`. 16 patterns ready for direct reuse (3.1–3.16), with rename `C*` → `V*` and token prefix swap.
 
@@ -379,7 +370,7 @@ Reference: `06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md`. 16 patterns ready f
 
 **Each pattern bundle** is one PR. Each PR keeps `npm run build` + `vue-tsc --noEmit` green. Operator reviews + merges. Claude Code records progress в `06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md` Section 8 (existing "next steps" checklist).
 
-### 5.5.4 Track C — Documentation English translation pass
+### 5.5.3 Track C — Documentation English translation pass
 
 Reference: methodology v1.4 P6 + §11.5 AP-P-8. Initial audit (2026-05-18): 2852 Cyrillic occurrences across 29 files; large majority concentrated in exempt files (mockup HTML UI strings + external inputs + legacy admin HTML). Non-exempt files for conversion:
 
@@ -414,7 +405,7 @@ Reference: methodology v1.4 P6 + §11.5 AP-P-8. Initial audit (2026-05-18): 2852
 
 **Track C total ETA:** ~75 min sequential. Parallelizable with Tracks A/B — different files, no merge conflicts.
 
-### 5.5.5 Sprint 2.5 Tasks
+### 5.5.4 Sprint 2.5 Tasks
 
 **T2.5.1 — DS completion: Dashboard 9 block (first pass)**
 Owner: Cowork.
@@ -444,7 +435,7 @@ Output: every non-exempt file converted; verification Grep `[А-Яа-я]` shows 
 Owner: Cowork + Claude Code (per scope).
 Per methodology §12.2 — local INDEXes update immediately. Top-level `docs/INDEX.md` Recent Changes updated at sprint end.
 
-### 5.5.6 Sprint 2.5 Gates
+### 5.5.5 Sprint 2.5 Gates
 
 Track A gate per block:
 - All 5 deliverables per §7.0 Phase B done.
@@ -461,7 +452,7 @@ Track C gate per converted file:
 
 **Sprint 2.5 closure criterion:** all 9 SACRED blocks DS-complete + all 10 CBSHOME pattern bundles merged + all Conv-1..Conv-4 non-exempt files translated (audit Grep returns only exempt Cyrillic).
 
-### 5.5.7 Sprint 2.5 Risks
+### 5.5.6 Sprint 2.5 Risks
 
 - **Risk 2.5.A — Block count overruns 2 weeks.** Mitigation: per-block velocity calibrates after Dashboard 9 + Calendar 11. If <1 block per 3 days — reschedule remaining blocks across Sprint 2.5 + Sprint 9 (reserve). Don't compress mockup quality.
 - **Risk 2.5.B — CBSHOME patterns surface unexpected adaptation cost.** Mitigation: Track B is independent of Track A — slippage on B does not block A. Operator may defer some patterns (UI Kit `V*` components especially — they overlap with Sprint 3 component needs).
@@ -469,7 +460,7 @@ Track C gate per converted file:
 - **Risk 2.5.D — Phase 4 Sprint 2 mockup skeletons (Onboarding 8 approved, Dashboard 9 in-progress) need to be re-aligned with new DS canon during Track A passes.** Mitigation: Onboarding 8 viewer — re-verify at first DS visualisation update. Dashboard 9 viewer — superseded, rebuilt at end of T2.5.2.
 - **Risk 2.5.E — Track C translation drops semantic nuance from operator's original Russian instructions in Daily logs.** Mitigation: AP-P-8 exception (b) — verbatim operator quotes stay in `«…»`. Translator works around quotes, not through them. Per-file post-pass review by operator catches semantic drift.
 
-### 5.5.8 Sprint 2.5 Anchor
+### 5.5.7 Sprint 2.5 Anchor
 
 This sprint **does not produce screen specs** (no SCR-NNN files). It is a foundation pass only. Spec authoring resumes in Sprint 3 on a fully-loaded DS and frontend skeleton.
 
@@ -1035,27 +1026,21 @@ out of scope:
 ## Anchor
 
 ```
-[VELO-ROADMAP.md | v1.3 | 2026-05-18]
+[VELO-ROADMAP.md | v1.4 | 2026-05-18]
 Operating plan for VELO design-to-handoff work.
 Built on top of VELO-METHODOLOGY.md v1.4.
+v1.4 changes: Sprint 2 EXPANDED (2026-05-18 operator decision) — DS harvest
+of all 10 SACRED blocks moved from Sprint 2.5 Track A into Sprint 2.
+Sprint 2 now has two Macro-Phases: I (DS harvest Phase A+B for all blocks,
+no mockups until complete) + II (all block mockups on frozen DS). Sprint 2.5
+simplified to Track B (CBSHOME foundation transfer) + Track C (documentation
+English translation) only. Sprint 2.5 Track A removed. Sprint cadence table
+updated. Sprint 2 section rewritten with block checklist + DS Complete Gate.
 v1.3 changes: Sprint 2.5 gains Track C — Documentation English translation
-pass (per methodology v1.4 P6 + AP-P-8). 4 sub-phases (Conv-1..Conv-4)
-covering core process docs, trackers, DS technical comments, reference
-docs. Exempt categories codified — UI sample data, operator quotes,
-external inputs stay Russian. Sub-section numbering shifted (5.5.5..5.5.8).
-v1.2 changes: Sprint 2.5 inserted (DS Completion block-by-block + CBSHOME
-foundation transfer parallel track). Driven by Sprint 2 Phase 4 lesson
-(3× rework via per-element PNG reverse-engineering) and discovery of
-CBSHOME reference implementation (identical stack, 85 .vue + 57 .ts in
-production, see 06_project-inputs/CBSHOME-PATTERNS-FOR-VELO.md).
-Methodology §7.0 Block-Harvest-First (mandatory) codified the workflow;
-this roadmap operationalises it block-by-block.
-v1.1 changes: validation pass — Sprint 3 user-practice-detail Action
-Contract includes create_report; Sprint 4 adds user-reports-list;
-Sprint 5 master-analytics flagged as client-side aggregation;
-Sprint 7 admin-withdrawal-review + admin-user-detail flagged as
-backend gaps; Risk Register expanded with R-11/R-12/R-13.
+pass (per methodology v1.4 P6 + AP-P-8). 4 sub-phases (Conv-1..Conv-4).
+v1.2 changes: Sprint 2.5 inserted (DS Completion block-by-block + CBSHOME).
+v1.1 changes: validation pass — Sprint 3/4/5/7 gaps + Risk Register R-11/12/13.
 See 06_project-inputs/VALIDATION-REPORT-2026-05-17.md for details.
 Location: D:\02_Projects\velo\docs\05_roadmap\ROADMAP.md
-Status: Draft for operator approval before execution.
+Status: Active — Sprint 2 in progress (expanded).
 ```
