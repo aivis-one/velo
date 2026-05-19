@@ -944,7 +944,40 @@ case "${1:-}" in
     # === Update & Deploy ===
 
     update|deploy)
+        # Parse optional flags (order-independent).
+        #   --skip-tests      Skip the backend test suite (keep everything else).
+        #   --frontend-only   Skip the entire backend cycle: backend build,
+        #                     full compose restart, migrations, backend tests
+        #                     and `app` container restart. Only frontend gets
+        #                     rebuilt. Refuses to run if backend/ changed in
+        #                     the pulled commits (fool-proof guard).
+        SKIP_TESTS=0
+        FRONTEND_ONLY=0
+        shift  # drop "update" / "deploy"
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --skip-tests)    SKIP_TESTS=1 ;;
+                --frontend-only) FRONTEND_ONLY=1 ;;
+                *)
+                    echo -e "${RED}Unknown option: $1${NC}"
+                    echo "Usage: velo update [--skip-tests] [--frontend-only]"
+                    exit 1
+                    ;;
+            esac
+            shift
+        done
+
+        # --frontend-only implies --skip-tests (no backend cycle = no tests).
+        if [ $FRONTEND_ONLY -eq 1 ]; then
+            SKIP_TESTS=1
+        fi
+
         echo "=== Updating VELO ==="
+        if [ $FRONTEND_ONLY -eq 1 ]; then
+            echo -e "${CYAN}Mode: frontend-only (backend cycle skipped)${NC}"
+        elif [ $SKIP_TESTS -eq 1 ]; then
+            echo -e "${CYAN}Mode: skip-tests (backend tests skipped)${NC}"
+        fi
         echo ""
 
         cd "$INSTALL_BASE/repo"
@@ -986,38 +1019,66 @@ case "${1:-}" in
         echo "Updated: $CURRENT_COMMIT → $NEW_COMMIT"
         echo ""
 
-        # -- 1. Build backend --
-        echo "Building backend..."
+        # Fool-proof guard for --frontend-only:
+        # if backend/ changed between CURRENT_COMMIT and NEW_COMMIT, refuse hard.
+        if [ $FRONTEND_ONLY -eq 1 ]; then
+            if ! git diff --quiet "$CURRENT_COMMIT" "$NEW_COMMIT" -- backend/; then
+                echo -e "${RED}✗ Detected changes in backend/ between $CURRENT_COMMIT and $NEW_COMMIT${NC}"
+                echo -e "${RED}  Refusing to run with --frontend-only.${NC}"
+                echo ""
+                echo "Changed backend files:"
+                git diff --name-only "$CURRENT_COMMIT" "$NEW_COMMIT" -- backend/ | sed 's/^/  /'
+                echo ""
+                echo "Run: velo update            (full cycle)"
+                echo "  or velo update --skip-tests  (full cycle without tests)"
+                exit 1
+            fi
+            echo -e "${GREEN}✓ No backend/ changes -- proceeding frontend-only${NC}"
+            echo ""
+        fi
+
         cd "$COMPOSE_DIR"
         set -a; source "$INSTALL_BASE/vite.env"; set +a
-        $COMPOSE_CMD build app
 
-        # -- 2. Stop everything, start backend + infra --
-        echo ""
-        echo "Restarting services..."
-        $COMPOSE_CMD down
-        $COMPOSE_CMD up -d app postgres redis
+        if [ $FRONTEND_ONLY -eq 0 ]; then
+            # -- 1. Build backend --
+            echo "Building backend..."
+            $COMPOSE_CMD build app
 
-        # Run migrations
-        echo ""
-        echo "Running database migrations..."
-        sleep 5
-        $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
-            echo -e "${RED}✗ Migration failed!${NC}"
-            echo "Check logs: velo logs app"
-            exit 1
-        }
-        echo -e "${GREEN}✓ Migrations applied${NC}"
+            # -- 2. Stop everything, start backend + infra --
+            echo ""
+            echo "Restarting services..."
+            $COMPOSE_CMD down
+            $COMPOSE_CMD up -d app postgres redis
 
-        # Run backend tests
-        echo ""
-        echo "Running backend tests..."
-        if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-            echo -e "${RED}✗ BACKEND TESTS FAILED${NC}"
-            echo "Fix the code and run: velo update"
-            exit 1
+            # Run migrations
+            echo ""
+            echo "Running database migrations..."
+            sleep 5
+            $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
+                echo -e "${RED}✗ Migration failed!${NC}"
+                echo "Check logs: velo logs app"
+                exit 1
+            }
+            echo -e "${GREEN}✓ Migrations applied${NC}"
+
+            # Run backend tests (unless --skip-tests)
+            if [ $SKIP_TESTS -eq 0 ]; then
+                echo ""
+                echo "Running backend tests..."
+                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
+                    echo -e "${RED}✗ BACKEND TESTS FAILED${NC}"
+                    echo "Fix the code and run: velo update"
+                    exit 1
+                fi
+                echo -e "${GREEN}✓ All backend tests passed${NC}"
+            else
+                echo ""
+                echo -e "${YELLOW}⊘ Backend tests skipped (--skip-tests)${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⊘ Backend build / restart / migrate / tests skipped (--frontend-only)${NC}"
         fi
-        echo -e "${GREEN}✓ All backend tests passed${NC}"
 
         # -- 3. Generate frontend types from live backend --
         echo ""
@@ -1236,6 +1297,8 @@ case "${1:-}" in
         echo ""
         echo "Deployment:"
         echo "  update              — Pull, rebuild, migrate, test, restart"
+        echo "    --skip-tests        Skip backend tests (everything else runs)"
+        echo "    --frontend-only     Skip whole backend cycle; refuses if backend/ changed"
         echo "  gen-types           — Regenerate frontend types from backend"
         echo ""
         echo "Database:"
