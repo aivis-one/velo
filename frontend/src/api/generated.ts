@@ -9,8 +9,23 @@
 
 // -- Enums --------------------------------------------------------------------
 
+/** Booking lifecycle statuses. */
+export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
+
+/** Practice lifecycle statuses. */
+export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
+
+/** Types of practices a master can create. */
+export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
+
 /** User roles in the platform. USER: default role, can browse and book practices. MASTER: verified facilitator, can create and host practices. ADMIN: platform operator, can manage users and content. */
 export type UserRole = 'user' | 'master' | 'admin'
+
+/** Waitlist entry lifecycle statuses. */
+export type WaitlistStatus = 'waiting' | 'notified' | 'converted' | 'left' | 'declined' | 'expired'
+
+/** Withdrawal request lifecycle statuses. */
+export type WithdrawalStatus = 'pending' | 'approved' | 'rejected'
 
 // -- Interfaces ---------------------------------------------------------------
 
@@ -28,14 +43,14 @@ export interface AdminMasterActionResponse {
   status: string
 }
 
-/** Single item in admin masters list -- user data + master status. */
+/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
 export interface AdminMasterListItem {
   id: string
   telegram_id?: number | null
   first_name?: string | null
   last_name?: string | null
   avatar_url?: string | null
-  role: string
+  role: UserRole
   is_active: boolean
   master_status: string
 }
@@ -55,8 +70,8 @@ export interface AdminWithdrawalResponse {
   amount_cents: number
   fee_cents: number
   currency: string
-  status: string
-  payout_details: Record<string, unknown>
+  status: WithdrawalStatus
+  payout_details: PayoutDetails
   admin_id?: string | null
   admin_note?: string | null
   approved_at?: string | null
@@ -74,7 +89,7 @@ export interface ApproveWithdrawalRequest {
 export interface AttendanceItemResponse {
   booking_id: string
   user_id: string
-  status: string
+  status: BookingStatus
   joined_at: string | null
   left_at: string | null
 }
@@ -100,7 +115,7 @@ export interface BookingDetailResponse {
   id: string
   practice_id: string
   user_id: string
-  status: string
+  status: BookingStatus
   purchase_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
@@ -116,7 +131,7 @@ export interface BookingResponse {
   id: string
   practice_id: string
   user_id: string
-  status: string
+  status: BookingStatus
   purchase_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
@@ -131,7 +146,7 @@ export interface BookingWithPracticeResponse {
   id: string
   practice_id: string
   user_id: string
-  status: string
+  status: BookingStatus
   purchase_id: string | null
   cancelled_at: string | null
   cancellation_reason: string | null
@@ -186,7 +201,7 @@ export interface CreateCompanyPromoRequest {
   code: string
   discount_percent: number
   max_uses?: number | null
-  valid_from: string
+  valid_from?: string | null
   valid_until?: string | null
   first_purchase_only?: boolean
 }
@@ -205,7 +220,7 @@ export interface CreateMasterPromoRequest {
   discount_percent: number
   practice_id?: string | null
   max_uses?: number | null
-  valid_from: string
+  valid_from?: string | null
   valid_until?: string | null
   first_purchase_only?: boolean
 }
@@ -310,7 +325,7 @@ export interface MasterApplyResponse {
   created_at: string
 }
 
-/** Public master profile representation. F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. */
+/** Public master profile representation. F7: payout field added -- extracted from data.get("payout"). None when master has not configured payout details yet. CR-01: min_withdrawal_cents and withdrawal_fee_cents added from settings so frontend does not hardcode financial constants. */
 export interface MasterProfileResponse {
   user_id: string
   status: string
@@ -320,16 +335,18 @@ export interface MasterProfileResponse {
   experience_years?: number | null
   frozen_cents: number
   available_cents: number
-  payout?: PayoutDetailsResponse | null
+  min_withdrawal_cents: number
+  withdrawal_fee_cents: number
+  payout?: PayoutDetails | null
   created_at: string
   updated_at?: string | null
 }
 
-/** Check-in mood counts for a practice. */
+/** Check-in mood counts for a practice. CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. Making them required ensures OpenAPI marks them as such, and the TS generator emits non-optional fields. */
 export interface MoodDistribution {
-  high?: number
-  mid?: number
-  low?: number
+  high: number
+  mid: number
+  low: number
 }
 
 /** Paginated list of withdrawals for admin. */
@@ -444,8 +461,8 @@ export interface PaginatedWithdrawalsResponse {
   offset: number
 }
 
-/** Payout details stored in MasterProfile.data.payout. */
-export interface PayoutDetailsResponse {
+/** Payout details stored in MasterProfile.data.payout. CR-01: renamed from PayoutDetailsResponse -- this is an embedded object, not a top-level response. Name now matches frontend usage. */
+export interface PayoutDetails {
   method: string
   details?: Record<string, unknown>
 }
@@ -471,8 +488,8 @@ export interface PracticeResponse {
   master_id: string
   master_name?: string | null
   master_methods?: string[]
-  practice_type: string
-  status: string
+  practice_type: PracticeType
+  status: PracticeStatus
   title: string
   description: string | null
   what_to_prepare?: string | null
@@ -491,13 +508,14 @@ export interface PracticeResponse {
   updated_at: string | null
 }
 
-/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. */
+/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. */
 export interface PracticeSummary {
   id: string
   title: string
-  practice_type: string
+  practice_type: PracticeType
   scheduled_at: string
   duration_minutes: number
+  timezone: string
   master_id: string
   master_name?: string | null
 }
@@ -579,11 +597,11 @@ export interface PurchaseWithPracticeResponse {
   practice: PracticeSummary
 }
 
-/** Feedback rating counts for a practice. */
+/** Feedback rating counts for a practice. CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
 export interface RatingDistribution {
-  fire?: number
-  good?: number
-  confused?: number
+  fire: number
+  good: number
+  confused: number
 }
 
 /** POST /admin/masters/{user_id}/reject -- request body. */
@@ -624,7 +642,7 @@ export interface SemaphoreResult {
   expected: string
   actual: string
   details?: Record<string, unknown> | null
-  criticality?: 'critical' | 'warning' | 'info'
+  criticality: 'critical' | 'warning' | 'info'
 }
 
 /** POST /api/v1/auth/telegram — request body. */
@@ -721,7 +739,7 @@ export interface WaitlistEntryResponse {
   practice_id: string
   user_id: string
   position: number
-  status: string
+  status: WaitlistStatus
   joined_at: string
   notified_at: string | null
   expires_at: string | null
@@ -735,7 +753,7 @@ export interface WaitlistWithPracticeResponse {
   practice_id: string
   user_id: string
   position: number
-  status: string
+  status: WaitlistStatus
   joined_at: string
   notified_at: string | null
   expires_at: string | null
@@ -751,8 +769,8 @@ export interface WithdrawalResponse {
   amount_cents: number
   fee_cents: number
   currency: string
-  status: string
-  payout_details: Record<string, unknown>
+  status: WithdrawalStatus
+  payout_details: PayoutDetails
   admin_id: string | null
   admin_note: string | null
   approved_at: string | null
