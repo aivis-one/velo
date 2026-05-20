@@ -49,7 +49,7 @@ _backend_dir = Path(__file__).resolve().parent.parent
 if str(_backend_dir) not in sys.path:
     sys.path.insert(0, str(_backend_dir))
 
-from sqlalchemy import case, delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog, record_audit
@@ -57,13 +57,14 @@ from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import recalculate_participants
-from app.modules.diary.models import Checkin, CheckType, Feedback
+from app.modules.diary.models import Checkin, CheckType, DiaryEntry, Feedback
 from app.modules.masters.models import MasterProfile
+from app.modules.notifications.models import Notification, NotificationDelivery
 from app.modules.payments.models import (
     CompanyLedger,
     CompanyLedgerType,
-    LedgerStatus,
     MasterLedger,
+    Payment,
     Purchase,
     PurchaseStatus,
     UserLedger,
@@ -74,7 +75,11 @@ from app.modules.payments.service import (
     record_user_ledger,
 )
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
+from app.modules.promos.models import Promo
+from app.modules.reports.models import Report
 from app.modules.users.models import User, UserRole
+from app.modules.waitlist.models import Waitlist
+from app.modules.withdrawals.models import Withdrawal
 
 
 # ===================================================================
@@ -683,232 +688,58 @@ def ask_telegram_ids() -> tuple[list[int], list[int], list[int]]:
 # Reset (cleanup)
 # ===================================================================
 
-async def reset_seed_data(session: AsyncSession) -> None:
-    """Delete all seed-created data in FK-safe order."""
-    log("Resetting seed data...")
+async def wipe_all_data(session: AsyncSession) -> None:
+    """Delete ALL rows from ALL domain tables (full database wipe).
 
-    # 1. Find seed practice IDs (by marker in description).
-    stmt = select(Practice.id).where(
-        Practice.description.like(f"%__SEED__%"),
-    )
-    seed_pids = [
-        row[0] for row in (await session.execute(stmt)).all()
-    ]
+    Test server only -- we do NOT preserve data. This drops every row so
+    the subsequent seed recreates everything from scratch, including real
+    users (so their role is set exactly per the interactive input, with no
+    "role can only go up" stickiness).
 
-    # 2. Find dummy user IDs.
-    stmt = select(User.id).where(
-        User.telegram_id.between(DUMMY_TID_MIN, DUMMY_TID_MAX),
-    )
-    dummy_uids = [
-        row[0] for row in (await session.execute(stmt)).all()
-    ]
+    Deletion order is FK-safe and mirrors tests/helpers.full_cleanup_range:
+    children before parents, financial RESTRICT tables (purchases, payments)
+    before bookings/users. ORM deletes only -- no raw SQL (project rule).
+    """
+    log("Wiping ALL data (full reset)...")
 
-    # 3. Find real user IDs that have seed ledger entries
-    #    (needed for balance recalculation after cleanup).
-    stmt = (
-        select(UserLedger.user_id.distinct())
-        .where(UserLedger.reason.like(f"{SEED_REASON}%"))
-    )
-    affected_uids = [
-        row[0] for row in (await session.execute(stmt)).all()
-    ]
+    # Order matters -- delete children before parents.
+    # 1. Notifications (deliveries -> notifications).
+    await session.execute(delete(NotificationDelivery))
+    await session.execute(delete(Notification))
 
-    # 4. Find real master IDs that have seed ledger entries.
-    stmt = (
-        select(MasterLedger.user_id.distinct())
-        .where(MasterLedger.reason.like(f"{SEED_REASON}%"))
-    )
-    affected_mids = [
-        row[0] for row in (await session.execute(stmt)).all()
-    ]
+    # 2. Diary: check-ins, feedbacks, personal entries.
+    await session.execute(delete(Checkin))
+    await session.execute(delete(Feedback))
+    await session.execute(delete(DiaryEntry))
 
-    # -- Delete in FK order (RESTRICT-safe) --
+    # 3. Audit logs (FK -> users.actor_id).
+    await session.execute(delete(AuditLog))
 
-    # 5. Company ledger.
-    r = await session.execute(
-        delete(CompanyLedger).where(
-            CompanyLedger.reason.like(f"{SEED_REASON}%"),
-        )
-    )
-    log(f"  CompanyLedger: {r.rowcount} deleted")
+    # 4. Ledgers (no hard FK to users, but conceptually downstream).
+    await session.execute(delete(CompanyLedger))
+    await session.execute(delete(MasterLedger))
+    await session.execute(delete(UserLedger))
 
-    # 6. Master ledger.
-    r = await session.execute(
-        delete(MasterLedger).where(
-            MasterLedger.reason.like(f"{SEED_REASON}%"),
-        )
-    )
-    log(f"  MasterLedger:  {r.rowcount} deleted")
+    # 5. Financial RESTRICT tables -- MUST precede bookings / users.
+    await session.execute(delete(Payment))
+    await session.execute(delete(Purchase))
 
-    # 7. User ledger.
-    r = await session.execute(
-        delete(UserLedger).where(
-            UserLedger.reason.like(f"{SEED_REASON}%"),
-        )
-    )
-    log(f"  UserLedger:    {r.rowcount} deleted")
+    # 6. Booking-adjacent domain tables.
+    await session.execute(delete(Waitlist))
+    await session.execute(delete(Booking))
+    await session.execute(delete(Withdrawal))
+    await session.execute(delete(Report))
+    await session.execute(delete(Promo))
 
-    # 8. Audit logs for seed purchases (must precede purchase deletion).
-    if seed_pids:
-        # Collect purchase IDs for seed practices before deleting them.
-        purchase_ids_stmt = select(Purchase.id).where(
-            Purchase.practice_id.in_(seed_pids)
-        )
-        seed_purchase_ids = [
-            row[0] for row in (await session.execute(purchase_ids_stmt)).all()
-        ]
-        if seed_purchase_ids:
-            r = await session.execute(
-                delete(AuditLog).where(
-                    AuditLog.target_id.in_(seed_purchase_ids),
-                    AuditLog.event.in_({
-                        "purchase_completed",
-                        "purchase_refunded",
-                    }),
-                )
-            )
-            log(f"  AuditLog:      {r.rowcount} deleted")
+    # 7. Practices and master profiles (FK -> users).
+    await session.execute(delete(Practice))
+    await session.execute(delete(MasterProfile))
 
-    # 8b. UserLedger entries for seed practices (any reason containing practice id).
-    # Covers both "seed:purchase:practice={pid}" and "purchase:practice={pid}"
-    # (the latter occurs when real users buy seed practices through normal flow).
-    if seed_pids:
-        for pid in seed_pids:
-            pid_str = str(pid)
-            r = await session.execute(
-                delete(UserLedger).where(
-                    UserLedger.reason.like(f"%practice={pid_str}%"),
-                )
-            )
-            if r.rowcount:
-                log(f"  UserLedger (practice {pid_str[:8]}..): {r.rowcount} deleted")
-
-    # 8c. MasterLedger entries for seed practices (by practice_id FK).
-    if seed_pids:
-        r = await session.execute(
-            delete(MasterLedger).where(
-                MasterLedger.practice_id.in_(seed_pids),
-            )
-        )
-        log(f"  MasterLedger (by practice): {r.rowcount} deleted")
-
-    # 9. Purchases for seed practices.
-    if seed_pids:
-        r = await session.execute(
-            delete(Purchase).where(Purchase.practice_id.in_(seed_pids))
-        )
-        log(f"  Purchases:     {r.rowcount} deleted")
-
-    # 9b. Diary (check-ins + feedbacks) for seed practices.
-    # FK is ON DELETE CASCADE from bookings, so this is belt-and-suspenders,
-    # but doing it explicitly keeps the log honest and order deterministic.
-    if seed_pids:
-        r = await session.execute(
-            delete(Feedback).where(Feedback.practice_id.in_(seed_pids))
-        )
-        log(f"  Feedbacks:     {r.rowcount} deleted")
-        r = await session.execute(
-            delete(Checkin).where(Checkin.practice_id.in_(seed_pids))
-        )
-        log(f"  Checkins:      {r.rowcount} deleted")
-
-    # 10. Bookings for seed practices.
-    if seed_pids:
-        r = await session.execute(
-            delete(Booking).where(Booking.practice_id.in_(seed_pids))
-        )
-        log(f"  Bookings:      {r.rowcount} deleted")
-
-    # 11. Seed practices.
-    if seed_pids:
-        r = await session.execute(
-            delete(Practice).where(Practice.id.in_(seed_pids))
-        )
-        log(f"  Practices:     {r.rowcount} deleted")
-
-    # 12. Dummy master profiles.
-    if dummy_uids:
-        r = await session.execute(
-            delete(MasterProfile).where(
-                MasterProfile.user_id.in_(dummy_uids),
-            )
-        )
-        log(f"  MasterProf:    {r.rowcount} deleted")
-
-    # 13. Dummy users.
-    r = await session.execute(
-        delete(User).where(
-            User.telegram_id.between(DUMMY_TID_MIN, DUMMY_TID_MAX),
-        )
-    )
-    log(f"  Dummy users:   {r.rowcount} deleted")
+    # 8. Users (parent of almost everything).
+    await session.execute(delete(User))
 
     await session.flush()
-
-    # 14. Recalculate balances for affected REAL users.
-    real_affected = [
-        uid for uid in affected_uids if uid not in dummy_uids
-    ]
-    for uid in real_affected:
-        user = await session.get(User, uid)
-        if user is None:
-            continue
-        balance = (await session.execute(
-            select(func.coalesce(func.sum(UserLedger.amount_cents), 0))
-            .where(
-                UserLedger.user_id == uid,
-                UserLedger.status == LedgerStatus.DONE.value,
-            )
-        )).scalar_one()
-        object.__setattr__(user, "_ledger_update", True)
-        user.balance_cents = balance
-        object.__setattr__(user, "_ledger_update", False)
-
-    # 15. Recalculate balances for affected REAL masters.
-    real_masters_affected = [
-        mid for mid in affected_mids if mid not in dummy_uids
-    ]
-    for mid in real_masters_affected:
-        profile = await session.get(MasterProfile, mid)
-        if profile is None:
-            continue
-        frozen, available = await _master_sums(mid, session)
-        object.__setattr__(profile, "_ledger_update", True)
-        profile.frozen_cents = frozen
-        profile.available_cents = available
-        object.__setattr__(profile, "_ledger_update", False)
-
-    await session.flush()
-    log("Reset complete ✓\n")
-
-
-async def _master_sums(
-    user_id: UUID, session: AsyncSession,
-) -> tuple[int, int]:
-    """Compute (frozen_cents, available_cents) from master_ledger."""
-    stmt = select(
-        func.coalesce(
-            func.sum(
-                case(
-                    (MasterLedger.is_frozen.is_(True), MasterLedger.amount_cents),
-                    else_=0,
-                )
-            ), 0,
-        ),
-        func.coalesce(
-            func.sum(
-                case(
-                    (MasterLedger.is_frozen.is_(False), MasterLedger.amount_cents),
-                    else_=0,
-                )
-            ), 0,
-        ),
-    ).where(
-        MasterLedger.user_id == user_id,
-        MasterLedger.status == LedgerStatus.DONE.value,
-    )
-    row = (await session.execute(stmt)).one()
-    return int(row[0]), int(row[1])
+    log("Wipe complete -- database is empty\n")
 
 
 # ===================================================================
@@ -1285,9 +1116,9 @@ async def seed(reset: bool = False) -> None:
                 err("  velo db migrate")
                 return
 
-            # -- Reset if requested --
+            # -- Reset if requested: FULL database wipe (test server) --
             if reset:
-                await reset_seed_data(session)
+                await wipe_all_data(session)
                 await session.commit()
 
             # -- Interactive input --
