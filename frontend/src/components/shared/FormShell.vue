@@ -17,6 +17,7 @@
   Slots:
     #selection          — mood or rating buttons
     #success-actions    — buttons shown on success screen
+    #success-icon       -- success screen icon (defaults to successIcon emoji)
     #practice-meta      — meta line below practice name (date / "Завершена")
 
   Props:
@@ -45,7 +46,9 @@
 <template>
   <!-- ===== SUCCESS SCREEN ===== -->
   <div v-if="submitted" class="form-shell-success">
-    <div class="form-shell-success__icon">{{ successIcon }}</div>
+    <div class="form-shell-success__icon">
+      <slot name="success-icon">{{ successIcon }}</slot>
+    </div>
     <h1 class="form-shell-success__title">{{ successTitle }}</h1>
     <p class="form-shell-success__text">{{ successText }}</p>
     <div class="form-shell-success__actions">
@@ -61,7 +64,9 @@
     <div class="form-shell__body">
       <!-- Practice info -->
       <div v-if="practice" class="form-shell__practice">
-        <div class="form-shell__practice-emoji">{{ typeEmoji }}</div>
+        <span class="form-shell__practice-icon">
+          <IconMeditation :size="26" />
+        </span>
         <h2 class="form-shell__practice-name">{{ practice.title }}</h2>
         <p class="form-shell__practice-meta">
           <slot name="practice-meta">
@@ -117,13 +122,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { IconMeditation } from '@/components/icons'
 import type { PracticeResponse } from '@/api/types'
 
-const props = defineProps<{
+defineProps<{
   backLabel: string
   practice: PracticeResponse | null
   practiceLoading: boolean
@@ -146,12 +150,6 @@ const emit = defineEmits<{
   skip: []
   'update:comment': [value: string]
 }>()
-
-const typeEmoji = computed(() =>
-  props.practice
-    ? (PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
-    : '🧘',
-)
 </script>
 
 <style scoped>
@@ -217,17 +215,31 @@ const typeEmoji = computed(() =>
 
 /* Practice info */
 .form-shell__practice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
-.form-shell__practice-emoji {
-  font-size: var(--size-practice-emoji);
-  margin-bottom: var(--space-3);
+.form-shell__practice-icon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
+  margin-bottom: var(--space-2);
 }
 
 .form-shell__practice-name {
   font-family: var(--font-body);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
@@ -235,8 +247,12 @@ const typeEmoji = computed(() =>
 }
 
 .form-shell__practice-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
 }
@@ -250,11 +266,15 @@ const typeEmoji = computed(() =>
 /* Question */
 .form-shell__question {
   text-align: center;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
 }
 
 .form-shell__question h3 {
   font-family: var(--font-body);
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
@@ -263,7 +283,7 @@ const typeEmoji = computed(() =>
 
 .form-shell__question p {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
 }
@@ -277,21 +297,23 @@ const typeEmoji = computed(() =>
 /* Comment */
 .form-shell__textarea {
   width: 100%;
-  padding: var(--space-3);
-  border: 2px solid transparent;
-  border-radius: 5px;
+  min-height: 129px;
+  padding: var(--space-4);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   resize: none;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   transition: border-color var(--transition-fast);
   box-sizing: border-box;
 }
 
 .form-shell__textarea::placeholder {
   color: var(--velo-text-muted);
+  font-size: var(--text-base);
 }
 
 .form-shell__textarea:focus {
