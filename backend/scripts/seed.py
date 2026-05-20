@@ -57,6 +57,7 @@ from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import recalculate_participants
+from app.modules.diary.models import Checkin, CheckType, Feedback
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
     CompanyLedger,
@@ -280,6 +281,10 @@ PRACTICE_TEMPLATES: list[dict] = [
         "price_cents": 1200,
         "offset": timedelta(minutes=-30),
         "num_bookings": 7,
+        # Real users must not be booked here: an in-progress LIVE practice
+        # would otherwise win "nearest practice" on the dashboard over the
+        # check-in banner (#12). Dummy users fill the seats instead.
+        "skip_real_users": True,
     },
     # -- 6..9: Completed (past) --
     {
@@ -408,6 +413,7 @@ PRACTICE_TEMPLATES: list[dict] = [
         "num_bookings": 0,
         "seed_for_real_users": True,
         "fixed_master_tid": 9900029,
+        "zoom_link": "https://us02web.zoom.us/j/0000000012",
     },
     # -- 13: BANNER -- feedback window (attended booking for all real users) --
     # scheduled_at = NOW - 2h, duration=45min → ended 1h 15min ago,
@@ -431,6 +437,152 @@ PRACTICE_TEMPLATES: list[dict] = [
         "num_bookings": 0,
         "seed_for_real_users": True,
         "fixed_master_tid": 9900030,
+    },
+    # -- 14: BANNER -- live now (confirmed booking for all real users) --
+    # scheduled_at = NOW - 10 min, duration 60 -> currently in progress.
+    # Gives the Practice-Live screen (14) real data: a joined booking + zoom.
+    # Owner is DUMMY_MASTER_DATA[0] (Елена Мирная, tid=9900029).
+    {
+        "title": "Дневная практика (эфир)",
+        "description": (
+            "Практика идёт прямо сейчас. "
+            "Подключайтесь к эфиру и присоединяйтесь к группе."
+        ),
+        "what_to_prepare": "Удобная одежда, коврик, вода.",
+        "contraindications": None,
+        "practice_type": PracticeType.LIVE.value,
+        "target_status": PracticeStatus.LIVE.value,
+        "duration_minutes": 60,
+        "max_participants": 100,
+        "is_free": False,
+        "price_cents": 800,
+        "offset": timedelta(minutes=-10),
+        "num_bookings": 0,
+        "seed_for_real_users": True,
+        "fixed_master_tid": 9900029,
+        "zoom_link": "https://us02web.zoom.us/j/0000000014",
+    },
+]
+
+
+# ===================================================================
+# Real-user journey practices (Phase: flow 10-18 enrichment)
+# ===================================================================
+#
+# These are COMPLETED practices in the past, owned by a dummy master,
+# booked as ATTENDED by every real user. Each one also seeds a check-in
+# (mood) and a feedback (rating), with comments on roughly half of them.
+#
+# Goal: a rich, varied history so the dashboard "progress" looks full and
+# the diary / insights / AI mood indicator have all states represented.
+# All 9 mood x rating combinations are covered across the list.
+#
+# owner: DUMMY_MASTER_DATA[0] (Елена Мирная, tid=9900029).
+# Durations are chosen so total practice hours land around 9-10h here, and
+# comfortably above the mockup's "12 / 9,5" once the standard completed
+# templates (#6-9) the user also attends are added on top.
+JOURNEY_MASTER_TID = 9900029
+
+JOURNEY_PRACTICES: list[dict] = [
+    {
+        "title": "Хатха-йога: утренний поток",
+        "description": "Мягкое пробуждение тела через классические асаны.",
+        "what_to_prepare": "Коврик, удобная одежда.",
+        "duration_minutes": 60,
+        "offset": timedelta(days=-2, hours=8),
+        "mood": "high", "rating": "fire",
+        "checkin_comment": "Проснулась с лёгкостью, настроена на практику.",
+        "feedback_comment": "Прекрасное начало дня, чувствую прилив сил!",
+    },
+    {
+        "title": "Медитация осознанности",
+        "description": "Наблюдение за дыханием и телесными ощущениями.",
+        "what_to_prepare": "Подушка для медитации.",
+        "duration_minutes": 45,
+        "offset": timedelta(days=-4, hours=19),
+        "mood": "mid", "rating": "good",
+        "checkin_comment": None,
+        "feedback_comment": None,
+    },
+    {
+        "title": "Дыхание нади-шодхана",
+        "description": "Попеременное дыхание для баланса нервной системы.",
+        "what_to_prepare": "Тихое место, прямая спина.",
+        "duration_minutes": 30,
+        "offset": timedelta(days=-6, hours=7),
+        "mood": "low", "rating": "confused",
+        "checkin_comment": "Чувствую тревогу, тяжело сосредоточиться.",
+        "feedback_comment": "Не до конца поняла технику, нужно повторить.",
+    },
+    {
+        "title": "Йога-нидра: глубокий отдых",
+        "description": "Осознанное расслабление лёжа.",
+        "what_to_prepare": "Плед, маска для сна.",
+        "duration_minutes": 45,
+        "offset": timedelta(days=-9, hours=21),
+        "mood": "high", "rating": "good",
+        "checkin_comment": None,
+        "feedback_comment": None,
+    },
+    {
+        "title": "Звуковая медитация с чашами",
+        "description": "Вибрации поющих чаш для глубокого покоя.",
+        "what_to_prepare": "Коврик, плед.",
+        "duration_minutes": 60,
+        "offset": timedelta(days=-12, hours=18),
+        "mood": "mid", "rating": "fire",
+        "checkin_comment": "День был насыщенный, хочу расслабиться.",
+        "feedback_comment": "Невероятно глубокое погружение, всё тело отдохнуло.",
+    },
+    {
+        "title": "Виньяса флоу",
+        "description": "Динамичная последовательность асан в ритме дыхания.",
+        "what_to_prepare": "Коврик, вода.",
+        "duration_minutes": 60,
+        "offset": timedelta(days=-16, hours=9),
+        "mood": "low", "rating": "fire",
+        "checkin_comment": None,
+        "feedback_comment": None,
+    },
+    {
+        "title": "Метта-медитация любящей доброты",
+        "description": "Культивирование сострадания к себе и другим.",
+        "what_to_prepare": "Удобное сидячее положение.",
+        "duration_minutes": 30,
+        "offset": timedelta(days=-20, hours=20),
+        "mood": "low", "rating": "good",
+        "checkin_comment": "Грустное настроение, нужна поддержка.",
+        "feedback_comment": "Стало теплее на душе, спасибо.",
+    },
+    {
+        "title": "Кундалини: набхи-крия",
+        "description": "Работа с энергией пупочного центра.",
+        "what_to_prepare": "Белая одежда, коврик.",
+        "duration_minutes": 75,
+        "offset": timedelta(days=-25, hours=10),
+        "mood": "mid", "rating": "confused",
+        "checkin_comment": None,
+        "feedback_comment": None,
+    },
+    {
+        "title": "Растяжка и релакс",
+        "description": "Мягкое вытяжение и снятие напряжения.",
+        "what_to_prepare": "Коврик, ремень для йоги.",
+        "duration_minutes": 45,
+        "offset": timedelta(days=-30, hours=18),
+        "mood": "high", "rating": "confused",
+        "checkin_comment": "Спина устала за неделю, нужна растяжка.",
+        "feedback_comment": "Хорошо потянулась, но местами было непонятно.",
+    },
+    {
+        "title": "Вечерняя практика покоя",
+        "description": "Подготовка ко сну: дыхание и расслабление.",
+        "what_to_prepare": "Плед, приглушённый свет.",
+        "duration_minutes": 30,
+        "offset": timedelta(days=-40, hours=22),
+        "mood": "mid", "rating": "good",
+        "checkin_comment": None,
+        "feedback_comment": None,
     },
 ]
 
@@ -646,6 +798,19 @@ async def reset_seed_data(session: AsyncSession) -> None:
             delete(Purchase).where(Purchase.practice_id.in_(seed_pids))
         )
         log(f"  Purchases:     {r.rowcount} deleted")
+
+    # 9b. Diary (check-ins + feedbacks) for seed practices.
+    # FK is ON DELETE CASCADE from bookings, so this is belt-and-suspenders,
+    # but doing it explicitly keeps the log honest and order deterministic.
+    if seed_pids:
+        r = await session.execute(
+            delete(Feedback).where(Feedback.practice_id.in_(seed_pids))
+        )
+        log(f"  Feedbacks:     {r.rowcount} deleted")
+        r = await session.execute(
+            delete(Checkin).where(Checkin.practice_id.in_(seed_pids))
+        )
+        log(f"  Checkins:      {r.rowcount} deleted")
 
     # 10. Bookings for seed practices.
     if seed_pids:
@@ -872,6 +1037,7 @@ async def create_seed_practice(
         is_free=template["is_free"],
         price_cents=template["price_cents"],
         currency="eur",
+        zoom_link=template.get("zoom_link"),
     )
     session.add(practice)
     await session.flush()
@@ -1029,6 +1195,72 @@ async def create_seed_booking(
         )
 
     return booking
+
+
+# ===================================================================
+# Diary creation (check-in + feedback) -- direct insert, bypassing
+# API time-window validation (mirrors tests/test_insights helper).
+# ===================================================================
+
+async def create_seed_diary(
+    session: AsyncSession,
+    booking: Booking,
+    practice: Practice,
+    *,
+    mood: str,
+    rating: str | None = None,
+    checkin_comment: str | None = None,
+    feedback_comment: str | None = None,
+) -> None:
+    """Seed a check-in (and optionally a feedback) for a booking.
+
+    - Check-in (PRE) is created for any booking with a mood.
+    - Feedback is created only when a rating is given AND the practice is
+      completed (matches the real feedback condition: attended + completed).
+    - Comments are written only when non-empty (model requires min_length=1).
+    - Idempotent: skips if a matching row already exists.
+    """
+    # -- Check-in (one PRE per booking) --
+    existing_checkin = (
+        await session.execute(
+            select(Checkin).where(
+                Checkin.booking_id == booking.id,
+                Checkin.check_type == CheckType.PRE.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_checkin is None:
+        checkin = Checkin(
+            practice_id=practice.id,
+            user_id=booking.user_id,
+            booking_id=booking.id,
+            mood=mood,
+            comment=checkin_comment or None,
+            check_type=CheckType.PRE.value,
+        )
+        session.add(checkin)
+        await session.flush()
+
+    # -- Feedback (one per practice+user, only for completed practices) --
+    if rating is not None and practice.status == PracticeStatus.COMPLETED.value:
+        existing_feedback = (
+            await session.execute(
+                select(Feedback).where(
+                    Feedback.practice_id == practice.id,
+                    Feedback.user_id == booking.user_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing_feedback is None:
+            feedback = Feedback(
+                practice_id=practice.id,
+                user_id=booking.user_id,
+                booking_id=booking.id,
+                rating=rating,
+                comment=feedback_comment or None,
+            )
+            session.add(feedback)
+            await session.flush()
 
 
 # ===================================================================
@@ -1303,13 +1535,18 @@ async def seed(reset: bool = False) -> None:
                 if num == 0:
                     continue
 
+                # skip_real_users: only dummy users may be booked here
+                # (e.g. an in-progress LIVE practice that must not become the
+                # dashboard "nearest practice" for a real user).
+                skip_real = tmpl.get("skip_real_users", False)
+
                 # Standard template: real users first, then dummies.
                 real_eligible = [
                     u for u in all_users
                     if u.id != practice.master_id
                     and u.telegram_id is not None
                     and u.telegram_id < DUMMY_TID_MIN
-                ]
+                ] if not skip_real else []
                 dummy_eligible = [
                     u for u in dummy_users
                     if u.id != practice.master_id
@@ -1321,7 +1558,7 @@ async def seed(reset: bool = False) -> None:
                     and m.telegram_id is not None
                     and m.telegram_id < DUMMY_TID_MIN
                     and m not in real_eligible
-                ]
+                ] if not skip_real else []
 
                 candidates = real_eligible + master_eligible + dummy_eligible
                 booked = 0
@@ -1338,6 +1575,180 @@ async def seed(reset: bool = False) -> None:
                     await recalculate_participants(practice.id, session)
 
             log(f"  Created {total_bookings} bookings with purchases + ledger")
+
+            # ========================================
+            # STEP 4.5: Real-user journey (flow 10-18 enrichment)
+            # ========================================
+            log("Seeding real-user journey (history + diary + statuses)...")
+
+            # Real users only (exclude dummies). These are the people who will
+            # actually open the app and need a rich, varied history.
+            journey_users = [
+                u for u in all_users
+                if u.telegram_id is not None
+                and u.telegram_id < DUMMY_TID_MIN
+            ]
+
+            journey_master = master_by_tid.get(JOURNEY_MASTER_TID)
+            if journey_master is None:
+                warn(
+                    f"  journey master tid={JOURNEY_MASTER_TID} not found "
+                    f"-- skipping journey enrichment"
+                )
+            elif not journey_users:
+                log("  No real users -- skipping journey enrichment")
+            else:
+                # -- Create journey practices once (owned by dummy master) --
+                journey_practices: list[tuple[Practice, dict]] = []
+                for jt in JOURNEY_PRACTICES:
+                    tmpl = {
+                        "title": jt["title"],
+                        "description": jt["description"],
+                        "what_to_prepare": jt.get("what_to_prepare"),
+                        "contraindications": jt.get("contraindications"),
+                        "practice_type": PracticeType.LIVE.value,
+                        "target_status": PracticeStatus.COMPLETED.value,
+                        "duration_minutes": jt["duration_minutes"],
+                        "max_participants": 50,
+                        "is_free": True,
+                        "price_cents": 0,
+                        "offset": jt["offset"],
+                    }
+                    p = await create_seed_practice(
+                        session, tmpl, journey_master.id,
+                    )
+                    if p is not None:
+                        journey_practices.append((p, jt))
+
+                # -- One extra future practice to CANCEL (badge "Отменена") --
+                cancel_tmpl = {
+                    "title": "Отменённое бронирование (демо)",
+                    "description": "Практика для демонстрации статуса отмены.",
+                    "what_to_prepare": None,
+                    "contraindications": None,
+                    "practice_type": PracticeType.LIVE.value,
+                    "target_status": PracticeStatus.SCHEDULED.value,
+                    "duration_minutes": 60,
+                    "max_participants": 50,
+                    "is_free": False,
+                    "price_cents": 1000,
+                    "offset": timedelta(days=6, hours=12),
+                    "zoom_link": "https://us02web.zoom.us/j/0000000099",
+                }
+                cancel_practice = await create_seed_practice(
+                    session, cancel_tmpl, journey_master.id,
+                )
+
+                # -- One extra past practice for NO_SHOW status --
+                noshow_tmpl = {
+                    "title": "Пропущенная практика (демо)",
+                    "description": "Практика для демонстрации статуса 'не пришёл'.",
+                    "what_to_prepare": None,
+                    "contraindications": None,
+                    "practice_type": PracticeType.LIVE.value,
+                    "target_status": PracticeStatus.COMPLETED.value,
+                    "duration_minutes": 45,
+                    "max_participants": 50,
+                    "is_free": True,
+                    "price_cents": 0,
+                    "offset": timedelta(days=-5, hours=18),
+                }
+                noshow_practice = await create_seed_practice(
+                    session, noshow_tmpl, journey_master.id,
+                )
+
+                journey_bookings = 0
+                journey_diary = 0
+
+                for user in journey_users:
+                    # 1. Journey practices: attended booking + checkin + feedback.
+                    for practice, jt in journey_practices:
+                        b = await create_seed_booking(session, user, practice)
+                        if b is not None:
+                            journey_bookings += 1
+                            await create_seed_diary(
+                                session, b, practice,
+                                mood=jt["mood"],
+                                rating=jt["rating"],
+                                checkin_comment=jt.get("checkin_comment"),
+                                feedback_comment=jt.get("feedback_comment"),
+                            )
+                            journey_diary += 1
+
+                    # 2. Cancelled booking (badge "Отменена" on screen 17).
+                    if cancel_practice is not None:
+                        cb = await create_seed_booking(
+                            session, user, cancel_practice,
+                        )
+                        if cb is not None:
+                            cb.status = BookingStatus.CANCELLED.value
+                            cb.cancelled_at = NOW - timedelta(days=1)
+                            cb.cancellation_reason = "Не смогу присутствовать"
+                            await session.flush()
+                            journey_bookings += 1
+
+                    # 3. No-show booking (attended-window missed).
+                    if noshow_practice is not None:
+                        nb = await create_seed_booking(
+                            session, user, noshow_practice,
+                        )
+                        if nb is not None:
+                            nb.status = BookingStatus.NO_SHOW.value
+                            nb.joined_at = None
+                            nb.left_at = None
+                            await session.flush()
+                            journey_bookings += 1
+
+                # 4. Diary on banner practices (#12 check-in, #13 + #14).
+                #    Find the seeded banner practices by their titles.
+                banner_titles_moods = {
+                    "Утренняя медитация": ("mid", None,
+                                           "Готовлюсь к утренней практике.", None),
+                    "Вечерняя медитация": ("high", "fire", None,
+                                           "Отличное завершение дня!"),
+                    "Дневная практика (эфир)": ("mid", None, None, None),
+                }
+                for practice, _tmpl in (
+                    (p, t) for p, t in zip(practices, PRACTICE_TEMPLATES)
+                    if p is not None
+                ):
+                    spec = banner_titles_moods.get(practice.title)
+                    if spec is None:
+                        continue
+                    mood, rating, ci_c, fb_c = spec
+                    for user in journey_users:
+                        bk = (
+                            await session.execute(
+                                select(Booking).where(
+                                    Booking.user_id == user.id,
+                                    Booking.practice_id == practice.id,
+                                    Booking.status != BookingStatus.CANCELLED.value,
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if bk is None:
+                            continue
+                        await create_seed_diary(
+                            session, bk, practice,
+                            mood=mood, rating=rating,
+                            checkin_comment=ci_c, feedback_comment=fb_c,
+                        )
+                        journey_diary += 1
+
+                # Recalculate participants for journey/cancel/noshow practices.
+                for practice, _jt in journey_practices:
+                    await recalculate_participants(practice.id, session)
+                if cancel_practice is not None:
+                    await recalculate_participants(cancel_practice.id, session)
+                if noshow_practice is not None:
+                    await recalculate_participants(noshow_practice.id, session)
+
+                total_bookings += journey_bookings
+                log(
+                    f"  Journey: {journey_bookings} bookings, "
+                    f"{journey_diary} diary records "
+                    f"for {len(journey_users)} real user(s)"
+                )
 
             # ========================================
             # STEP 5: Commit

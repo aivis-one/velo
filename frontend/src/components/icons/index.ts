@@ -2,7 +2,9 @@
  * VELO Frontend -- Icon Components barrel export (DS-5)
  *
  * SVG icons from Design_prototype/assets/icons/ as Vue components.
- * All use currentColor fill and accept a `size` prop (default 24).
+ * Most icons use currentColor fill and accept a `size` prop (default 24).
+ * Exception: the mood faces (IconMoodLow/Mid/High) are illustrative assets
+ * that keep their own pastel gradients (default size 40), like VeloLogo.
  *
  * Usage:
  *   import { IconHome, IconCalendar } from '@/components/icons'
@@ -22,3 +24,12 @@ export { default as IconFeedback } from './IconFeedback.vue'
 export { default as IconRuble } from './IconRuble.vue'
 export { default as IconSuccess } from './IconSuccess.vue'
 export { default as IconSupport } from './IconSupport.vue'
+
+// -- Dashboard flow (DS-dashboard): monochrome glyphs (currentColor) --
+export { default as IconCheck } from './IconCheck.vue'
+export { default as IconArrowRight } from './IconArrowRight.vue'
+
+// -- Mood faces: colored illustrative assets (own gradients, default size 40) --
+export { default as IconMoodLow } from './IconMoodLow.vue'
+export { default as IconMoodMid } from './IconMoodMid.vue'
+export { default as IconMoodHigh } from './IconMoodHigh.vue'

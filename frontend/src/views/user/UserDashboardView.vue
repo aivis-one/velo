@@ -7,13 +7,18 @@
     - Feedback alert banner (teal)  -- attended booking in feedback window
     - "Ближайшая практика" -- nearest confirmed booking card with Zoom + Check-in
     - "Ваш прогресс"       -- attended count + hours, derived from bookingsStore
-    - "AI-саммари"         -- placeholder card with week/month toggle
+    - "AI-саммари"         -- placeholder card with week/month toggle,
+                              mood trend indicator and a "Подробнее" link
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
 
   Progress stats are derived from the already-loaded bookingsStore (limit 20).
   For users with >20 attended practices the numbers will be partial -- acceptable for MVP.
+
+  TODO (screen 16, AI-summary): the "Подробнее" link and the mood indicator
+  are intentionally NON-clickable for now. Once the AI-summary screen and its
+  route ('user-ai-summary') exist, wire navigation there.
 -->
 
 <template>
@@ -22,7 +27,7 @@
     <!-- Greeting -->
     <div class="dashboard__greeting">
       <p class="dashboard__greeting-text">{{ greetingText }}</p>
-      <h2 class="dashboard__greeting-name">{{ userName }} 👋</h2>
+      <h2 class="dashboard__greeting-name">{{ userName }}</h2>
     </div>
 
     <!-- Check-in alert banner -->
@@ -32,7 +37,7 @@
       @click="goToCheckin(checkinAlert.practice_id)"
     >
       <div class="dashboard__alert-content">
-        <span class="dashboard__alert-icon">⏰</span>
+        <span class="dashboard__alert-icon"><IconClock :size="28" /></span>
         <div class="dashboard__alert-text">
           <h4>Пора на check-in!</h4>
           <p>{{ checkinAlert.practice.title }}{{ checkinAlertTime }}</p>
@@ -47,10 +52,10 @@
       @click="goToFeedback(feedbackAlert.practice_id)"
     >
       <div class="dashboard__alert-content">
-        <span class="dashboard__alert-icon">💬</span>
+        <span class="dashboard__alert-icon"><IconFeedback :size="28" /></span>
         <div class="dashboard__alert-text">
           <h4>Оставьте feedback!</h4>
-          <p>{{ feedbackAlert.practice.title }} · Вчера</p>
+          <p>{{ feedbackAlert.practice.title }} • Вчера</p>
         </div>
       </div>
     </div>
@@ -87,46 +92,56 @@
         class="dashboard__practice-card"
         @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
       >
-        <!-- Header: emoji + title + master -->
+        <!-- Header: meditation icon + title + master -->
         <div class="dashboard__practice-header">
-          <span class="dashboard__practice-icon">{{ nearestPracticeEmoji }}</span>
+          <span class="dashboard__practice-icon">
+            <IconMeditation :size="26" />
+          </span>
           <div class="dashboard__practice-info">
             <h4 class="dashboard__practice-title">{{ nearestBooking.practice.title }}</h4>
             <p class="dashboard__practice-master">
-              {{ nearestBooking.practice.master_name ?? 'Мастер' }}
-              <span class="dashboard__practice-verified">✓</span>
+              <span class="dashboard__practice-master-avatar">{{ masterInitial }}</span>
+              <span class="dashboard__practice-master-name">
+                {{ nearestBooking.practice.master_name ?? 'Мастер' }}
+              </span>
+              <span class="dashboard__practice-verified"><IconCheck :size="11" /></span>
             </p>
           </div>
         </div>
 
         <!-- Meta row: date, duration, paid badge -->
         <div class="dashboard__practice-meta">
-          <span class="dashboard__practice-meta-item">📅 {{ nearestPracticeDate }}</span>
-          <span class="dashboard__practice-meta-item">⏱ {{ nearestPracticeDuration }}</span>
+          <span class="dashboard__practice-meta-item">
+            <IconCalendar :size="14" /> {{ nearestPracticeDate }}
+          </span>
+          <span class="dashboard__practice-meta-item">
+            <IconClock :size="14" /> {{ nearestPracticeDuration }}
+          </span>
           <VBadge v-if="nearestBooking.purchase_id" variant="success">
-            ✓ Оплачено
+            <IconCheck :size="12" /> Оплачено
           </VBadge>
         </div>
+      </div>
 
-        <!-- Action buttons -->
-        <div class="dashboard__practice-actions" @click.stop>
-          <VButton
-            variant="outline"
-            size="sm"
-            class="dashboard__practice-btn"
-            @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
-          >
-            Zoom
-          </VButton>
-          <VButton
-            variant="primary"
-            size="sm"
-            class="dashboard__practice-btn"
-            @click="goToCheckin(nearestBooking.practice_id)"
-          >
-            Check-in
-          </VButton>
-        </div>
+      <!-- Action buttons (outside the card, per Figma) -->
+      <div
+        v-if="nearestBooking"
+        class="dashboard__practice-actions"
+      >
+        <VButton
+          variant="secondary"
+          block
+          @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
+        >
+          Zoom
+        </VButton>
+        <VButton
+          variant="primary"
+          block
+          @click="goToCheckin(nearestBooking.practice_id)"
+        >
+          Check-in
+        </VButton>
       </div>
     </section>
 
@@ -182,15 +197,21 @@
             и провели в практике <strong>{{ practiceHours }}</strong> часов.
           </template>
         </p>
-        <p v-if="attendedCount > 0" class="dashboard__ai-text dashboard__ai-text--secondary">
-          Ваш уровень энергии вырос 🙂
-        </p>
-        <button
-          class="dashboard__ai-arrow"
-          @click.stop="router.push({ name: 'user-ai-summary' })"
-        >
-          →
-        </button>
+
+        <!-- Mood trend indicator: from -> to. Non-clickable (static). -->
+        <div v-if="attendedCount > 0" class="dashboard__ai-mood">
+          <span class="dashboard__ai-mood-label">с</span>
+          <IconMoodMid :size="40" />
+          <IconArrowRight :size="16" class="dashboard__ai-mood-arrow" />
+          <IconMoodHigh :size="40" />
+          <span class="dashboard__ai-mood-label">до</span>
+        </div>
+      </div>
+
+      <!-- "Подробнее" link. TODO(screen 16): make clickable -> 'user-ai-summary'. -->
+      <div class="dashboard__ai-more">
+        <IconArrowRight :size="20" class="dashboard__ai-more-icon" />
+        <span class="dashboard__ai-more-label">Подробнее</span>
       </div>
     </section>
 
@@ -203,7 +224,16 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VButton, VBadge } from '@/components/ui'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import {
+  IconClock,
+  IconCalendar,
+  IconFeedback,
+  IconMeditation,
+  IconCheck,
+  IconArrowRight,
+  IconMoodMid,
+  IconMoodHigh,
+} from '@/components/icons'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
@@ -259,9 +289,9 @@ const checkinAlertTime = computed((): string => {
   const diffMs = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
   const diffMinutes = Math.round(diffMs / 60_000)
   if (diffMinutes <= 0)  return ' · Сейчас'
-  if (diffMinutes < 60)  return ` · через ${diffMinutes} мин`
+  if (diffMinutes < 60)  return ` через ${diffMinutes} мин`
   const hours = Math.floor(diffMinutes / 60)
-  return ` · через ${hours} ч`
+  return ` через ${hours} ч`
 })
 
 /** First attended booking currently in the feedback window. */
@@ -291,9 +321,10 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
   return confirmed[0] ?? null
 })
 
-const nearestPracticeEmoji = computed((): string => {
-  if (!nearestBooking.value) return '🧘'
-  return PRACTICE_TYPE_EMOJI[nearestBooking.value.practice.practice_type] ?? '🧘'
+/** First letter of the master's name for the avatar placeholder. */
+const masterInitial = computed((): string => {
+  const name = nearestBooking.value?.practice.master_name ?? 'М'
+  return (name.trim().charAt(0) || 'М').toUpperCase()
 })
 
 /**
@@ -392,7 +423,7 @@ onUnmounted(() => {
   cursor: pointer;
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  border: 1px solid #ffffff;
+  border: 2px solid transparent;
   transition: opacity var(--transition-fast);
 }
 
@@ -402,10 +433,12 @@ onUnmounted(() => {
 
 .dashboard__alert--checkin {
   background: var(--velo-glass-peach-40);
+  border-color: var(--velo-warning-border);
 }
 
 .dashboard__alert--feedback {
   background: var(--velo-glass-teal-40);
+  border-color: var(--velo-success);
 }
 
 .dashboard__alert-content {
@@ -415,20 +448,40 @@ onUnmounted(() => {
 }
 
 .dashboard__alert-icon {
-  font-size: 32px;
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
 .dashboard__alert-text h4 {
   font-weight: 400;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   margin-bottom: 2px;
-  color: var(--velo-text-primary);
 }
 
 .dashboard__alert-text p {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+}
+
+/* Themed colors: check-in (peach) / feedback (teal) */
+.dashboard__alert--checkin .dashboard__alert-icon {
+  color: var(--velo-peach-700);
+}
+.dashboard__alert--checkin .dashboard__alert-text h4 {
+  color: var(--velo-warning-text);
+}
+.dashboard__alert--checkin .dashboard__alert-text p {
+  color: var(--velo-peach-500);
+}
+
+.dashboard__alert--feedback .dashboard__alert-icon {
+  color: var(--velo-teal-700);
+}
+.dashboard__alert--feedback .dashboard__alert-text h4 {
+  color: var(--velo-teal-700);
+}
+.dashboard__alert--feedback .dashboard__alert-text p {
+  color: var(--velo-teal-600);
 }
 
 /* ===== Sections ===== */
@@ -447,14 +500,12 @@ onUnmounted(() => {
 
 /* ===== Nearest practice card ===== */
 .dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .dashboard__practice-card:active {
@@ -463,15 +514,21 @@ onUnmounted(() => {
 
 .dashboard__practice-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
 
 .dashboard__practice-icon {
-  font-size: 28px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
-  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
 }
 
 .dashboard__practice-info {
@@ -481,7 +538,7 @@ onUnmounted(() => {
 
 .dashboard__practice-title {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   margin: 0 0 2px;
@@ -491,15 +548,46 @@ onUnmounted(() => {
 }
 
 .dashboard__practice-master {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   margin: 0;
 }
 
+.dashboard__practice-master-avatar {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--velo-bg-subtle);
+  color: var(--velo-primary);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.dashboard__practice-master-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard__practice-verified {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
   color: var(--velo-teal-600);
-  margin-left: 2px;
 }
 
 .dashboard__practice-meta {
@@ -507,10 +595,12 @@ onUnmounted(() => {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
-  margin-bottom: var(--space-4);
 }
 
 .dashboard__practice-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
@@ -520,10 +610,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
-}
-
-.dashboard__practice-btn {
-  width: 100%;
+  margin-top: var(--space-4);
 }
 
 /* ===== Loader / empty ===== */
@@ -557,13 +644,11 @@ onUnmounted(() => {
 }
 
 .dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
   text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .dashboard__stat-value {
@@ -598,6 +683,7 @@ onUnmounted(() => {
   display: flex;
   gap: 2px;
   background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-xl);
   padding: 2px;
 }
@@ -606,7 +692,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-primary);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-xl);
   background: transparent;
@@ -616,53 +702,61 @@ onUnmounted(() => {
 }
 
 .dashboard__period-btn--active {
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-primary);
+  background: var(--velo-primary);
+  color: #ffffff;
 }
 
 .dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  padding-bottom: var(--space-8);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  position: relative;
 }
 
 .dashboard__ai-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-primary);
   line-height: 1.6;
-  margin: 0 0 var(--space-2);
+  margin: 0;
 }
 
-.dashboard__ai-text--secondary {
-  color: var(--velo-text-muted);
-}
-
-.dashboard__ai-arrow {
-  position: absolute;
-  bottom: var(--space-4);
-  right: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  width: 36px;
-  height: 36px;
+/* Mood trend indicator (static, non-clickable) */
+.dashboard__ai-mood {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
-.dashboard__ai-arrow:hover {
-  opacity: 0.8;
+.dashboard__ai-mood-label {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+.dashboard__ai-mood-arrow {
+  color: var(--velo-text-muted);
+}
+
+/* "Подробнее" link row (non-clickable until screen 16 exists) */
+.dashboard__ai-more {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  color: var(--velo-text-primary);
+}
+
+.dashboard__ai-more-icon {
+  color: var(--velo-text-primary);
+}
+
+.dashboard__ai-more-label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
 }
 </style>
