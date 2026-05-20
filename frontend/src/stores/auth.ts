@@ -5,12 +5,18 @@
 // FIX 10.2: registers onUnauthorized callback with API client.
 // QW-4: role returns null (not 'user') for unauthenticated users.
 // W-1: logout() resets masterStore to prevent data leak between sessions.
+//
+// Profile reads/writes go through api/users.ts wrappers (getMe / updateMe)
+// instead of inline api.get/patch calls, so the endpoint path lives in one
+// place. updateProfile() is used by the profile screen and by the welcome
+// onboarding flow to persist { timezone, onboarding_completed }.
 // =============================================================================
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthToken, setOnUnauthorized, ApiResponseError } from '@/api/client'
-import type { AuthResponse, UserResponse } from '@/api/types'
+import { getMe, updateMe } from '@/api/users'
+import type { AuthResponse, UserResponse, UserUpdate } from '@/api/types'
 
 const TOKEN_KEY = 'velo_token'
 
@@ -75,7 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
     _setToken(savedToken)
     loading.value = true
     try {
-      const me = await api.get<UserResponse>('/api/v1/users/me')
+      const me = await getMe()
       _setUser(me)
       return true
     } catch {
@@ -89,13 +95,26 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchMe(): Promise<void> {
     if (!token.value) return
     try {
-      const me = await api.get<UserResponse>('/api/v1/users/me')
+      const me = await getMe()
       _setUser(me)
     } catch (error) {
       if (error instanceof ApiResponseError && error.status === 401) {
         _clearSession()
       }
     }
+  }
+
+  /**
+   * Update the current user's profile and store the fresh result.
+   *
+   * Returns the updated user on success. Throws on failure so callers
+   * (e.g. the onboarding finish handler) can keep the user on the screen
+   * and show an error instead of advancing as if it saved.
+   */
+  async function updateProfile(body: UserUpdate): Promise<UserResponse> {
+    const updated = await updateMe(body)
+    _setUser(updated)
+    return updated
   }
 
   async function logout(): Promise<void> {
@@ -117,6 +136,6 @@ export const useAuthStore = defineStore('auth', () => {
   return {
     user, token, loading,
     isAuthenticated, role,
-    loginViaTelegram, restoreSession, fetchMe, logout,
+    loginViaTelegram, restoreSession, fetchMe, updateProfile, logout,
   }
 })

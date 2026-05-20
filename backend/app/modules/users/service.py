@@ -15,6 +15,12 @@
 #   requiring an explicit merge into the write session. Now the router
 #   uses get_current_user_write, which loads the user via the same
 #   get_db_session instance as the endpoint — merge is unnecessary.
+#
+# ONBOARDING:
+#   onboarding_completed is not a column -- it lives in the credentials
+#   JSONB sandbox. update_user routes it there via set_jsonb() (JSONBMixin),
+#   which flag_modified()s the column so SQLAlchemy emits the UPDATE.
+#   Plain setattr would target a non-existent column and silently no-op.
 # =============================================================================
 
 import structlog
@@ -24,6 +30,10 @@ from app.modules.users.models import User
 from app.modules.users.schemas import UserUpdate
 
 logger = structlog.get_logger()
+
+# Fields that are not real columns and must be written into the
+# credentials JSONB sandbox instead of via setattr.
+_JSONB_CREDENTIAL_FIELDS = frozenset({"onboarding_completed"})
 
 
 async def update_user(
@@ -36,6 +46,10 @@ async def update_user(
     Only fields explicitly provided in the request body are updated.
     Uses model_dump(exclude_unset=True) to distinguish between
     "field not sent" and "field sent as null".
+
+    Column fields (first_name, last_name, timezone, language) are applied
+    via setattr. JSONB-backed fields (onboarding_completed) are merged into
+    the credentials dict via set_jsonb() so the change is tracked.
 
     The user object must already be bound to the provided session
     (TD-029: ensured by get_current_user_write in the router).
@@ -53,8 +67,29 @@ async def update_user(
     if not updates:
         return user
 
-    for field, value in updates.items():
+    # Split JSONB-backed fields from plain column fields.
+    jsonb_updates = {
+        field: value
+        for field, value in updates.items()
+        if field in _JSONB_CREDENTIAL_FIELDS
+    }
+    column_updates = {
+        field: value
+        for field, value in updates.items()
+        if field not in _JSONB_CREDENTIAL_FIELDS
+    }
+
+    # Apply plain column fields.
+    for field, value in column_updates.items():
         setattr(user, field, value)
+
+    # Apply JSONB-backed fields into credentials. We build a NEW dict (copy)
+    # and hand it to set_jsonb, which reassigns + flag_modified()s the column.
+    # Mutating user.credentials in place would not be detected by SQLAlchemy.
+    if jsonb_updates:
+        new_credentials = dict(user.credentials or {})
+        new_credentials.update(jsonb_updates)
+        user.set_jsonb("credentials", new_credentials)
 
     await session.flush()
 

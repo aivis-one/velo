@@ -284,11 +284,20 @@ async def upsert_user_on_login(
             # via PATCH /users/me. Language is set on INSERT (new users)
             # but not overwritten on UPDATE (returning users).
             # first_name, last_name, avatar_url sync from Telegram.
+            #
+            # ONBOARDING: credentials is MERGED, not overwritten, on UPDATE.
+            # `users.credentials || fresh` (JSONB concat) overlays the fresh
+            # Telegram fields on top of the existing blob while preserving
+            # keys that are not part of `fresh` -- notably onboarding_completed,
+            # which the welcome flow writes via PATCH /users/me. A plain
+            # overwrite here would wipe that flag on every login.
+            # On INSERT (new users) credentials = fresh, with no flag -> the
+            # UserResponse schema reads a missing flag as False.
             set_={
                 "first_name": telegram_user.get("first_name"),
                 "last_name": telegram_user.get("last_name"),
                 "avatar_url": telegram_user.get("photo_url"),
-                "credentials": credentials,
+                "credentials": User.credentials.op("||")(credentials),
                 "last_login_at": now,
             },
         )
