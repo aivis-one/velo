@@ -109,7 +109,7 @@ frontend/
 │   │   └── practiceOptions.ts -- DURATION_OPTIONS, TIMEZONE_OPTIONS
 │   │
 │   └── views/
-│       ├── auth/              -- LoginView, LoadingView, StandaloneStubView
+│       ├── auth/              -- LoadingView, StandaloneStubView, WelcomeView, OnboardingView
 │       ├── shells/            -- UserShell, MasterShell, AdminShell
 │       ├── user/              -- Dashboard, Calendar, Diary, Profile...
 │       ├── master/            -- Dashboard, Practices, Analytics, Profile...
@@ -191,6 +191,37 @@ frontend/
 
 `waitUntilReady()` в `composables/useAuth.ts` — `Promise`, который резолвится когда `restoreSession()` завершён (или по таймауту 10s). Используется в `roleRedirect` и `beforeEach` чтобы не читать `auth.role` до готовности сессии.
 
+**Шлюз входа в `App.vue` (welcome + onboarding).** После успешной авторизации
+`App.vue` не сразу рендерит `RouterView`, а проходит через локальную машину
+состояний `stage: 'welcome' | 'onboarding' | 'app'` (обычный `ref`, вне роутера —
+консистентно с тем, как LoadingView/StandaloneStubView гейтят доступ):
+
+```
+!isReady                       -> LoadingView
+isStandalone || !isAuthenticated -> StandaloneStubView
+иначе по stage:
+  'welcome'    -> WelcomeView      (показывается всем, при каждом открытии)
+  'onboarding' -> OnboardingView   (только новым: onboarding_completed === false)
+  'app'        -> RouterView
+```
+
+Переходы:
+- WelcomeView `@enter` ("Войти"): `onboarding_completed === true` -> `stage='app'`;
+  иначе -> `stage='onboarding'`.
+- OnboardingView `@done` (завершил или пропустил; флаг уже сохранён в нём самом
+  через `authStore.updateProfile({ timezone, onboarding_completed: true })`) -> `stage='app'`.
+- WelcomeView `@create-account`: только standalone/браузерная сборка (F10); в Telegram
+  кнопка скрыта (`v-if="isStandalone"`).
+
+**Продуктовое решение:** Welcome показывается при каждом открытии приложения, для всех
+(перезагрузка = новый запуск = снова Welcome). `stage` живёт в памяти компонента, не в
+роутере и не персистится. Онбординг-карусель новый юзер видит один раз — после успешного
+финиша флаг `onboarding_completed` остаётся `true` (переживает релогин, см. Бэковый
+Кодекс 3.7), и при следующем "Войти" он идёт сразу в `app`.
+
+Файлы: `views/auth/WelcomeView.vue` (экран 01), `views/auth/OnboardingView.vue`
+(экраны 05-08: 3 интро + шаг таймзоны), `App.vue` (машина состояний).
+
 ---
 
 ## 3. Компоненты
@@ -227,7 +258,7 @@ frontend/
 | Компонент | Описание |
 |-----------|----------|
 | `VHeader` | Заголовок с кнопкой назад и action-слотом справа |
-| `VTabBar` | Нижняя навигация, конфигурируется через `items` пропс |
+| `VTabBar` | Нижняя навигация, конфигурируется через `items` пропс. Редизайн по Figma: круглые стеклянные "пузыри" 63x63, без подписей (aria-label сохранён). Активная вкладка — растворённый пузырь + `box-shadow: var(--velo-shadow-glow)` (мягкое свечение), различается ТОЛЬКО свечением, не размером. Иконки 27x27 (`fill="currentColor"`). Поле `badge` в интерфейсе оставлено, но не рендерится |
 | `MobileLayout` | Header-слот + `<slot>` + VTabBar (user и master) |
 | `AdminLayout` | Аналогично, отдельный для будущего desktop-варианта |
 
@@ -241,7 +272,7 @@ frontend/
 
 | Store | Ключевые поля |
 |-------|--------------|
-| `auth` | `user`, `token` (module-level var в client.ts), `role`, `isAuthenticated` |
+| `auth` | `user`, `token` (module-level var в client.ts), `role`, `isAuthenticated`; методы `restoreSession`/`fetchMe` (через `getMe`), `updateProfile(body)` (через `updateMe` + `_setUser`, бросает ошибку наверх — карусель не "проскакивает" при сбое сохранения) |
 | `practices` | `practices[]`, `total`, `filters`, `loading` |
 | `bookings` | `bookings[]`, `total`, `loading` |
 | `balance` | `balance_cents`, `operations[]` |
@@ -547,6 +578,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | TD-FE-W6 | ✅ | `MasterFinanceView.vue` | `MIN_WITHDRAWAL_EUROS=50` и `WITHDRAWAL_FEE_EUROS=2` захардкожены — рассинхрон с `config.py` при изменении | CR-01: бэкенд отдаёт `min_withdrawal_cents` и `withdrawal_fee_cents` в `MasterProfileResponse` |
 | TD-FE-A11Y | 🧪 | Admin views (5 файлов) | Clickable `<div>` без `role="button"`, `tabindex="0"`, `@keydown` handlers. Нарушает WCAG 2.1 AA 2.1.1. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop`, `@keydown.space.prevent` |
 | TD-FE-LOGO-SVGO | 🧪 | `public/icons/logo.svg`, `public/icons/logo-white.svg` | SVG-логотипы загружены через `<img>` как есть из Figma-экспорта: `logo.svg` — 228KB, `logo-white.svg` — 434KB. Избыточный размер из-за неоптимизированных path-данных | Прогнать через `svgo` с дефолтными настройками — ожидаемое уменьшение в 5–10× без видимых изменений |
+| AUDIT-0520-FE | 🧪 | `src/**` | Нет компонентных тестов фронтенда (отмечено аудитом 2026-05-20). Логика вью покрыта только ручной проверкой | Vitest + Vue Test Utils для ключевых вью (OnboardingView gate-машина, BookingPopup, формы) |
 
 ### Осознанные решения (не техдолг)
 

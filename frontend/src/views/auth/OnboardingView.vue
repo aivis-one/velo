@@ -210,13 +210,20 @@ async function onPrimaryAction(): Promise<void> {
   // Intro steps: block re-entrant advances; cap at the timezone index.
   if (advancing.value) return
   advancing.value = true
-  const next = Math.min(step.value + 1, TIMEZONE_STEP_INDEX)
-  if (next === TIMEZONE_STEP_INDEX) {
-    await enterTimezoneStep()
-  } else {
-    step.value = next
+  // try/finally so advancing is always released. Nothing here throws today
+  // (assignments + a microtask await), but the finally guards against a
+  // future change introducing a throw and leaving the button permanently
+  // locked (every click would hit the `if (advancing.value) return` above).
+  try {
+    const next = Math.min(step.value + 1, TIMEZONE_STEP_INDEX)
+    if (next === TIMEZONE_STEP_INDEX) {
+      await enterTimezoneStep()
+    } else {
+      step.value = next
+    }
+  } finally {
+    advancing.value = false
   }
-  advancing.value = false
 }
 
 // -- Finish: persist timezone + onboarding flag, then emit done. -------------

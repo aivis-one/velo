@@ -521,6 +521,7 @@ export const api = {
   - `!isReady` → LoadingView
   - `isStandalone || !isAuthenticated` → StandaloneStubView
   - иначе → `<RouterView />`
+  - **(расширено в F11.2):** между авторизацией и RouterView добавлена машина состояний `stage: welcome|onboarding|app` (WelcomeView / OnboardingView вне роутера). См. Phase F11.2
 
 **Решения, принятые при реализации:**
 - Auth guard на уровне App.vue, а не router `beforeEach`: App.vue выступает внешним шлюзом. Router guards добавляются в F2.2 для ролевого доступа
@@ -1164,6 +1165,59 @@ export const api = {
 
 ---
 
+## PHASE F11: TabBar redesign + Welcome + Onboarding ✅
+
+### F11.1: TabBar redesign (Figma) ✅
+
+**Цель:** Привести нижнюю навигацию к макету Figma (node 541:6649).
+
+**Задачи:**
+- [x] `components/layout/VTabBar.vue` — круглые стеклянные "пузыри" 63x63, gap 25, прозрачный контейнер. Inactive: `--velo-glass-blue-15` + белая рамка 1.26px + `backdrop-blur(2.52px)`. Active: пузырь растворяется (прозрачный фон/рамка, без blur) + `box-shadow: var(--velo-shadow-glow)`. Различие активной ТОЛЬКО свечением, не размером
+- [x] Подписи убраны (aria-label сохранён для a11y). Поле `badge` в `TabItem` оставлено, не рендерится
+- [x] 4 иконки 27x27 (`fill="currentColor"`): IconHome, IconCalendar (reservations), IconDiary, IconProfile
+- [x] Применён для всех 3 ролей (общий компонент). Master/admin сохраняют свои иконки в новых круглых контейнерах
+
+**Не тронуто:** router/tabs.ts, variables.css, MobileLayout/AdminLayout.
+
+**Критерий готовности:** Таб-бар 1:1 с Figma. ✅
+
+---
+
+### F11.2: Welcome + Onboarding flow ✅
+
+**Цель:** Экран приветствия + онбординг для новых юзеров (Figma node 541:1179).
+
+**Scope (Telegram MVP):** экраны 01 (Welcome) + 05-08 (карусель: 3 интро + таймзона).
+Экраны 02_Login / 03_Register / 04_OAuth ПРОПУЩЕНЫ (Telegram авто-авторизует через
+initData; они для standalone/F10).
+
+**Задачи:**
+- [x] `api/users.ts` (новый) — `getMe()`, `updateMe(body)` обёртки над `/api/v1/users/me`
+- [x] `stores/auth.ts` — refactor: `restoreSession`/`fetchMe` через `getMe()`; добавлен `updateProfile(body)` (через `updateMe` + `_setUser`, бросает ошибку наверх)
+- [x] `views/auth/WelcomeView.vue` (экран 01) — лого VELΘ + слоган + "Войти" (`@enter`). "Создать аккаунт" скрыта в Telegram (`v-if="isStandalone"`), видна только в браузере (F10)
+- [x] `views/auth/OnboardingView.vue` (экраны 05-08) — карусель: 3 интро-слайда + шаг таймзоны (VSelect из TIMEZONE_OPTIONS, дефолт — автодетект `Intl`, фоллбэк `Europe/Moscow`). "Пропустить" -> сразу к таймзоне. "Готово" -> `updateProfile({ timezone, onboarding_completed: true })` -> `@done`
+- [x] `App.vue` — машина состояний `stage: welcome|onboarding|app` (вне роутера, как Loading/Stub)
+- [x] Иллюстрации: `public/onboarding/onboarding-{practice,diary,masters}.svg` (фон+иконка; текст — живой HTML)
+
+**Бэкенд (онбординг-флаг):** `onboarding_completed` в `credentials` JSONB (schema-on-read,
+без миграции). UserResponse отдаёт computed bool, UserUpdate принимает, upsert мерджит
+credentials на релогине. См. Технический Кодекс Backend 3.7 + Tech-Spec Phase 1.2/1.4.
+
+**Решения:**
+- Welcome показывается ВСЕМ при каждом открытии (продуктовое решение). `stage` в памяти компонента, не в роутере
+- Новый юзер (`onboarding_completed === false`) после "Войти" -> карусель; вернувшийся -> сразу app
+- Один эмит `@done` (и "Готово", и "Пропустить" сохраняют флаг внутри OnboardingView)
+- Защита от двойного клика на "Далее" (флаги `advancing` + `finishArmed`): быстрый второй клик не пропускает шаг таймзоны. `advancing` освобождается в `try/finally`
+- Типы `onboarding_completed` приходят из регенерации `generated.ts` (не пишутся руками)
+
+**Code review:** 2 раунда. Исправлено: двойной клик (CRITICAL), null-сброс флага,
+COALESCE в merge, +5 бэкенд-тестов на инвариант релогина, try/finally на `advancing`.
+
+**Критерий готовности:** Новый юзер видит Welcome -> онбординг -> подтверждает таймзону ->
+попадает в приложение; флаг переживает релогин. ✅
+
+---
+
 ## 5. Сводка зависимостей
 
 | Frontend Phase | Backend Phase | Статус бэка | Блокирует? |
@@ -1179,6 +1233,7 @@ export const api = {
 | F8: Admin ✅ | 3+6.8 | ✅ | Нет |
 | F9: Diary | 8.4 | ✅ | **Нет (разблокировано)** |
 | F10: PWA | 7.3 + новый auth | **Частично** | **Частично** |
+| F11: TabBar + Onboarding ✅ | 1.2, 1.4 (+onboarding flag) | ✅ | Нет |
 
 ---
 

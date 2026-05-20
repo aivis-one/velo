@@ -54,11 +54,14 @@ POST /api/v1/auth/logout-all        -- Выход со всех устройст
 ### Users
 
 ```
-GET   /api/v1/users/me              -- Мой профиль
-PATCH /api/v1/users/me              -- Обновить профиль
+GET   /api/v1/users/me              -- Мой профиль (+ onboarding_completed)
+PATCH /api/v1/users/me              -- Обновить профиль (вкл. onboarding_completed)
 GET   /api/v1/users/me/checkins     -- Мои check-ins (пагинация)
 GET   /api/v1/users/me/feedbacks    -- Мои feedbacks (пагинация)
 ```
+
+`UserResponse.onboarding_completed: bool` — вычисляется из `credentials` JSONB (см. 3.7), не колонка.
+`UserUpdate.onboarding_completed: bool | None` — флаг завершения онбординга пишется в `credentials`.
 
 ### Masters
 
@@ -201,7 +204,7 @@ profile.set_jsonb("data", new_dict)
 | Модель | Колонка | JSONBMixin |
 |--------|---------|------------|
 | `MasterProfile` | `data` | ✅ |
-| `User` | `credentials` | ⬜ TD-024 — добавить при первой ORM-мутации |
+| `User` | `credentials` | ✅ (TD-024 закрыт — onboarding flow, set_jsonb в users/service.py) |
 
 ### 3.2. Session Commit Rule
 
@@ -279,31 +282,75 @@ logger.info("booking.created", booking_id=str(booking.id), user_id=str(user.id))
 
 **Скрипт:** `backend/scripts/generate_ts_types.py`
 **Вход:** `openapi.json` (снимается с живого бэкенда через `curl`)
-**Выход:** `frontend/src/api/generated.ts` (коммитится, но перегенерируется при каждом `velo update`)
+**Выход:** `frontend/src/api/generated.ts` (коммитится в git, перегенерируется при каждом `velo update`)
 
 **Как работает при `velo update`:**
 
 ```
-build app → down → up app → migrate → pytest →
-curl openapi.json → generate_ts_types.py → generated.ts →
-build frontend → up frontend → health check
+build app -> down -> up app -> migrate -> pytest ->
+curl openapi.json -> generate_ts_types.py -> generated.ts ->
+[drift? -> velo-bot commit + push origin $BRANCH] ->
+build frontend -> up frontend -> health check
 ```
+
+**Авто-коммит типов (важно):** после регенерации `velo update` проверяет дрейф
+(`git status --porcelain generated.ts`). Если файл изменился — коммитит от имени
+`velo-bot <bot@velo.local>` и пушит в `origin/$BRANCH`. Push идёт через SSH-config
+alias `github.com-velo` (deploy-key уже привязан, `GIT_SSH_COMMAND` не нужен).
+Провал push -> `exit 1` (фатально: рассинхрон типов делает сборку фронта
+бессмысленной). Это разрывает порочный круг "регенерил -> не закоммитил ->
+discard на следующем update". Перенесено из рабочей модели проекта CBS Home.
 
 **Как работает при `bash install_velo.sh`:**
 
 ```
-build app → up app → wait health →
-curl openapi.json → generate_ts_types.py → generated.ts →
-build frontend → up frontend
+build app -> up app -> wait health ->
+curl openapi.json -> generate_ts_types.py -> generated.ts ->
+build frontend -> up frontend
 ```
 
-**Ручной запуск:** `velo gen-types`
+**Ручной запуск:** `velo gen-types` — только регенерирует + предупреждает о дрейфе,
+НЕ коммитит и НЕ пушит (это работа `velo update`). Для итерации над схемой на VPS
+без полного деплоя.
 
 **Правила для response-схем:**
 
 - Статусные поля (`status`, `practice_type`) — использовать `StrEnum`, не `str`. OpenAPI отдаёт `enum: [...]`, генератор создаёт union-тип.
 - Поля с `default=X` в response-only схемах — убирать default, делать required. Иначе OpenAPI помечает как optional, генератор пишет `field?: type`, фронт вынужден использовать `?.`.
 - `dict` в response-полях — типизировать через Pydantic-модель (например, `payout_details: PayoutDetails` вместо `dict`). Иначе генератор пишет `Record<string, unknown>`.
+- Вычисляемые поля из JSONB — через `@computed_field` (см. 3.7). Если геттер возвращает не-Optional тип, OpenAPI помечает поле `required` -> генератор пишет без `?`.
+
+---
+
+### 3.7. Onboarding flag — schema-on-read в credentials
+
+`onboarding_completed` — НЕ колонка. Хранится внутри существующего `User.credentials`
+(JSONB) под ключом `"onboarding_completed"`. Паттерн schema-on-read: без миграции,
+в зоне роста credentials. Закрывает TD-024 (первая ORM-мутация credentials).
+
+**Чтение (`UserResponse`):**
+- Приватное входное поле `credentials_in: dict` (Field с `validation_alias="credentials"`,
+  `exclude=True`) — заполняется из ORM-объекта через `from_attributes`, наружу НЕ отдаётся.
+- `@computed_field onboarding_completed -> bool` читает `credentials_in.get("onboarding_completed", False)`.
+- Сырой `credentials` в API-ответ не попадает никогда — только булев флаг.
+
+**Запись (`update_user`, users/service.py):**
+- `UserUpdate.onboarding_completed: bool | None`. JSONB-поля развилкой отделяются
+  от колоночных: колоночные -> `setattr`, `onboarding_completed` -> копия credentials +
+  `user.set_jsonb("credentials", new)` (JSONBMixin -> flag_modified -> реальный UPDATE).
+- `None` фильтруется (`value is not None`): прислать `null` = no-op, не сбрасывает флаг.
+  Семантики "сбросить" нет — осмыслен только `true`.
+
+**Инвариант при логине (`upsert_user_on_login`, auth/service.py):**
+- На UPDATE credentials МЕРДЖИТСЯ, не перезаписывается:
+  `coalesce(User.credentials, '{}'::jsonb) || fresh`. Свежие Telegram-поля
+  накладываются поверх, `onboarding_completed` (которого нет в `fresh`) переживает
+  релогин. COALESCE защищает edge-case `NULL || x = NULL`.
+- На INSERT (новый юзер) credentials = fresh, флага нет -> читается как `false` ->
+  онбординг показывается автоматически.
+
+Тесты: `tests/test_users.py` — дефолт false, set true, **survives relogin** (ключевой),
+merge + refresh telegram-полей, null игнорируется.
 
 ---
 
@@ -453,11 +500,14 @@ velo lint          # ruff check
 | ID | Файл | Описание | Решение |
 |----|------|----------|---------|
 | **TD-RU-PROXY** | Инфра | Hetzner IP заблокирован ТСПУ. Недоступен из России без VPN | Российский reverse proxy (Timeweb/Selectel ~300-500₽/мес) или DDoS-Guard CDN |
+| **AUDIT-0520-01** 🔴 | `payments/stripe.py` | Stripe `amount_total=None` обходит проверку суммы: `if stripe_amount is not None and ...` -> при отсутствии суммы блок пропускается, баланс кредитуется без верификации | Инвертировать: `if stripe_amount is None or stripe_amount != payment.amount_cents:` -> mark FAILED. + тест на `amount_total=None` (AUDIT-0520-09) |
+| **AUDIT-0520-02** 🔴 | `practices/schemas.py` | `zoom_link` принимает любую строку (только max_length), вкл. `javascript:...` -> XSS если фронт рендерит как href. Нет валидатора ни в Create, ни в Update | `@field_validator("zoom_link")`: требовать `https://` schema (или пустоту/None) |
 | **CRITICAL-4** | `auth/router.py` | Нет rate limiting на `POST /auth/telegram`. Replay valid initData в 5-минутном окне → тысячи Redis-сессий | `slowapi` или Redis-based limiter |
 | **WARNING-4** | `auth/router.py` | Telegram initData replay в 5-минутном окне — нет защиты от повторного использования | Redis SET `used_init_data:{hash}` с TTL 5 минут |
 | **WARNING-5** | `payments/webhook.py` | Stripe webhook signature не проверяется при `STRIPE_STUB=true` | Запрет `STRIPE_STUB` в production через config validator |
-| TD-025 | Все роутеры | Нет rate limiting на masters endpoints | `slowapi` или Redis-based custom limiter |
+| TD-025 | Все роутеры | Нет rate limiting на masters endpoints. **(подтверждено аудитом 2026-05-20: распространить и на топап `POST /payments/topup` и покупку `POST /practices/{id}/purchase`)** | `slowapi` или Redis-based custom limiter |
 | TD-026 | `docker-compose.yml` | Redis без пароля | `requirepass` + `REDIS_PASSWORD` в .env |
+| **AUDIT-0520-03** 🟡🚀 | `core/middleware.py` | `_extract_client_ip` берёт первый элемент `X-Forwarded-For` без проверки trusted proxy -> клиент может подделать IP в audit log финансовых операций | Доверять XFF только от известного прокси (Nginx); или брать N-й справа hop; список trusted proxies в config |
 
 ### Открытые находки
 
@@ -471,10 +521,22 @@ velo lint          # ruff check
 | TD-015 | 🧪 | `config.py` | `postgres_password` дефолт `"velo"` без проверки в проде | Validator аналогично `SECRET_KEY` |
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в `sqlalchemy.url` | Убрать или заменить на комментарий |
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в `AuthResponse` — всегда 0 до платежей | Убрать или оставить осознанно |
-| TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` |
+| TD-024 | ✅ | `users/models.py` | `User` не наследовал `JSONBMixin` для `credentials` | ЗАКРЫТО (onboarding flow): `User` наследует `JSONBMixin`, мутация через `set_jsonb("credentials", ...)` в `update_user`. См. 3.7 |
 | TD-F7-W5 | ✅ | `masters/models.py` | `payout_details: dict` — содержимое не типизировано | CR-01: `WithdrawalResponse.payout_details` и `AdminWithdrawalResponse.payout_details` теперь типизированы как `PayoutDetails` |
 | TD-W01 | 🧪 | `bookings/service.py` | Нет cron для экспирации `NOTIFIED` waitlist-записей | Cron job или processor расширить |
 | PERF-04 | 🚀 | `notifications/service.py` | `_resolve_target_users` для ALL и ROLE загружает все user IDs в память | Batched processing при росте базы (10k+) |
+| **AUDIT-0520-04** | 🧪 | `core/database.py` | `get_db_reader` не делает `SET TRANSACTION READ ONLY` — случайная мутация в reader-сессии не блокируется на уровне БД, только откатывается в конце (TD-008, ранее жил только в докстринге) | `await session.execute(text("SET TRANSACTION READ ONLY"))` в начале reader-сессии |
+| **AUDIT-0520-05** | 🧪 | `payments/refund.py` | `_get_master_frozen_amount` и `_is_company_promo` оба делают `session.get(Promo, ...)` одного объекта — дублирование. Identity-map сессии смягчает реальный hit к БД, но логика дублирована | Загрузить Promo один раз, передавать в обе функции (или объединить) |
+| **AUDIT-0520-06** | 🧪 | `admin/withdrawals/service.py` | Устаревший count-паттерн (не subquery, как в B-05/B-09 для прочих модулей) | Унифицировать на subquery-паттерн |
+| **AUDIT-0520-07** | 🧪 | `payments/purchase_router.py` | `Practice` загружается дважды при покупке с промокодом (узкое окно). FOR UPDATE защищает от гонки -> перф-нюанс, не корректность | Переиспользовать загруженный объект |
+| **AUDIT-0520-08** | 🧪 | `payments/refund.py` | `update(Waitlist).values(status=...)` (bulk core UPDATE) не обновляет `Waitlist.updated_at` | Добавить `updated_at=func.now()` в `.values(...)` или onupdate-триггер для bulk |
+| **AUDIT-0520-09** | 🧪 | `tests/` | Нет теста на Stripe `amount_total=None` (кейс AUDIT-0520-01) | Тест: webhook без `amount_total` -> payment FAILED, баланс не кредитуется |
+| **AUDIT-0520-S** | 🧪 | разное (SUGGESTION) | Унификация count-паттерна в 3 модулях (см. B-05/B-09); вынос `recalculate_participants` (см. TD-034); обновление Stripe SDK до v9 | Низкий приоритет, по мере касания кода |
+
+> **Источник AUDIT-0520-*:** полный аудит ветки main от 2026-05-20.
+> Отчёт: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md` (оценка 7/10).
+> Циклические импорты через lazy import, отмеченные аудитом, — осознанное решение
+> проекта (см. ТЗ Phase 5.3 / 6.4), НЕ техдолг.
 
 ---
 

@@ -421,6 +421,7 @@ POST /api/v1/auth/logout-all    → 204 No Content (W-06: invalidate all session
 - `session.commit()` ПЕРЕД созданием Redis-сессии — если commit упадёт, orphan-сессии в Redis не будет
 - `telegram_bot_token` — пустой дефолт, заполняется в валидаторе (dev: fake token, prod: required)
 - initData expiry: 5 минут (защита от replay)
+- **credentials MERGE на UPDATE (onboarding flow, добавлено позже):** на ветке `on_conflict_do_update` credentials НЕ перезаписывается, а мерджится: `coalesce(User.credentials, '{}'::jsonb) || fresh`. Свежие Telegram-поля накладываются поверх, а ключи вне `fresh` (в т.ч. `onboarding_completed`) переживают релогин. COALESCE защищает edge-case `NULL || x = NULL`. На INSERT credentials = fresh (флага нет -> читается как false). См. Бэковый Кодекс 3.7
 
 **Критерий готовности:** WebApp может залогинить юзера. ✅
 
@@ -508,8 +509,9 @@ backend/tests/
 - Тестовые хелперы вынесены в tests/helpers.py (не conftest — это функции, не fixtures). Устранена дупликация между test_auth.py и test_users.py
 - telegram_id ranges: auth тесты 77xxx/99xxx, users тесты 88xxx — без конфликтов
 - Closes TD-021
+- **onboarding_completed (добавлено позже, onboarding flow):** `UserResponse` отдаёт `onboarding_completed: bool` (computed_field из `credentials` JSONB, сырой credentials скрыт через input-only поле `credentials_in` + exclude=True). `UserUpdate` принимает `onboarding_completed: bool | None`; `update_user` пишет его в credentials через `set_jsonb` (развилка JSONB-поля vs колоночные), `None` фильтруется (не сбрасывает флаг). Закрывает TD-024. См. Бэковый Кодекс 3.7. +5 тестов в test_users.py (дефолт false, set true, survives relogin, merge+telegram refresh, null ignored)
 
-**Критерий готовности:** Юзер может видеть и редактировать свой профиль. 31 тест, 0 warnings. ✅
+**Критерий готовности:** Юзер может видеть и редактировать свой профиль. 36 тестов (31 + 5 onboarding), 0 warnings. ✅
 
 ---
 
@@ -2643,7 +2645,7 @@ backend/tests/
 | TD-017 | 🧪 | `alembic.ini` | Placeholder URL в sqlalchemy.url | Убрать или заменить на комментарий (URL берётся из config) | ⬜ |
 | TD-022 | 🧪 | `auth/schemas.py` | `balance_cents` в AuthResponse — всегда 0 до реальных платежей, шум | Убрать из AuthResponse или оставить (фронт может показывать баланс) | ⬜ |
 | TD-023 | 🧪 | `migrations/` | Downgrade не удаляет тип userrole (неактуально после перехода на String) | Проверить downgrade при следующей миграции | ⬜ |
-| TD-024 | 🧪 | `users/models.py` | `User` не наследует `JSONBMixin` для `credentials` | Добавить при первой ORM-мутации `credentials` | ⬜ |
+| TD-024 | ✅ | `users/models.py` | `User` не наследовал `JSONBMixin` для `credentials` | ЗАКРЫТО (onboarding flow): `User` наследует `JSONBMixin`, мутация `set_jsonb("credentials")` в `update_user`. См. Бэковый Кодекс 3.7 |
 | PERF-04 | 🚀 | `notifications/service.py` | `_resolve_target_users` для ALL и ROLE загружает все user IDs в память | При росте базы (10k+): batched processing / server-side cursor / stream_scalars | ⬜ |
 
 ### Phase 2.2 аудит — backlog
@@ -2659,6 +2661,30 @@ backend/tests/
 | TD-032 | 🧪 | `tests/test_*.py` | Cleanup fixtures используют `text()` raw SQL вместо ORM | Переписать на ORM (select/delete/update через модели) | ⬜ |
 | TD-033 | 🚀 | `users/models.py`, `masters/models.py` | `balance_user`, `frozen_amount`, `available_amount` в `Numeric(18,2)` (доллары), а `price_cents` в int (центы) | Унифицировано: все суммы в центы (int), миграция `c2d3e4f5a6b7` | ✅ |
 | TD-034 | 🧪 | `practices/models.py` | `current_participants` колонка не используется -- capacity считается через COUNT bookings | `recalculate_participants()` в bookings/service.py обновляет кэш после каждого изменения статуса booking/waitlist/refund. Capacity checks по-прежнему через COUNT | ✅ |
+
+### Full Audit 2026-05-20 — backlog (AUDIT-0520-*)
+
+Полный аудит ветки main (оценка 7/10). Отчёт:
+`docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md`.
+Находки зарегистрированы, НЕ исправлены в спринте онбординга. Дубликаты с существующим
+техдолгом не заводились — вместо этого аннотированы существующие записи (см. ниже).
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| AUDIT-0520-01 🔴 | 🚀 | `payments/stripe.py` | `if stripe_amount is not None and ...` -> при `amount_total=None` проверка суммы пропускается, баланс кредитуется без верификации | `if stripe_amount is None or stripe_amount != payment.amount_cents:` -> mark FAILED | ⬜ |
+| AUDIT-0520-02 🔴 | 🚀 | `practices/schemas.py` | `zoom_link` принимает любую строку (только max_length), вкл. `javascript:` -> XSS | `@field_validator("zoom_link")`: требовать `https://` (Create + Update) | ⬜ |
+| AUDIT-0520-03 🟡 | 🚀 | `core/middleware.py` | `_extract_client_ip` доверяет первому `X-Forwarded-For` без trusted-proxy check -> подделка IP в audit log | Доверять XFF только от Nginx; trusted proxies в config | ⬜ |
+| AUDIT-0520-04 | 🧪 | `core/database.py` | `get_db_reader` без `SET TRANSACTION READ ONLY` (TD-008 жил только в докстринге) | `SET TRANSACTION READ ONLY` в начале reader-сессии | ⬜ |
+| AUDIT-0520-05 | 🧪 | `payments/refund.py` | `_get_master_frozen_amount` и `_is_company_promo` дважды грузят один Promo (identity-map смягчает, логика дублирована) | Загрузить Promo один раз, передавать в обе | ⬜ |
+| AUDIT-0520-06 | 🧪 | `admin/withdrawals/service.py` | Устаревший count-паттерн (не subquery как B-05/B-09) | Унифицировать на subquery | ⬜ |
+| AUDIT-0520-07 | 🧪 | `payments/purchase_router.py` | `Practice` загружается дважды при покупке с промо (FOR UPDATE защищает гонку -> перф-нюанс) | Переиспользовать объект | ⬜ |
+| AUDIT-0520-08 | 🧪 | `payments/refund.py` | bulk `update(Waitlist).values(status=...)` не трогает `updated_at` | Добавить `updated_at=func.now()` в bulk values | ⬜ |
+| AUDIT-0520-09 | 🧪 | `tests/` | Нет теста на Stripe `amount_total=None` (кейс -01) | Тест: webhook без amount_total -> FAILED, без кредита | ⬜ |
+| AUDIT-0520-S | 🧪 | разное | SUGGESTION: rate limiting на топап/покупку (см. TD-025); унификация count (B-05/B-09); вынос recalculate_participants (TD-034); Stripe SDK v9; компонентные тесты фронта (см. Фронтовый Кодекс AUDIT-0520-FE) | По мере касания кода | ⬜ |
+
+> **Не техдолг:** циклические импорты через lazy import, отмеченные аудитом, — осознанное
+> решение проекта (Phase 5.3 waitlist, Phase 6.4 purchase: "lazy import для circular prevention").
+> **Аннотации существующих записей:** TD-025 (rate limiting) расширяется на топап/покупку.
 
 ### Code Review Feb 2026 — исправлено
 
