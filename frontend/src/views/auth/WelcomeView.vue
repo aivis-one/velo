@@ -22,7 +22,7 @@
     <div class="welcome__logo">
       <!-- White mandala variant, large -- matches Figma 01_Welcome.
            The logo already contains the VELO wordmark, so no text heading. -->
-      <VeloLogo variant="white" :size="220" />
+      <VeloLogo variant="white" :size="440" />
     </div>
     <p class="welcome__message">
       Пространство для практики<br />и внутреннего развития
@@ -75,10 +75,16 @@ const { isStandalone } = useAuth()
   padding: var(--space-6);
   background: transparent;
   text-align: center;
+  /* Logo is intentionally larger than the viewport (matches Figma bleed).
+     Clip horizontal overflow so it bleeds past the edges symmetrically
+     instead of producing a horizontal scrollbar. */
+  overflow-x: hidden;
 }
 
 .welcome__logo {
   margin-bottom: var(--space-4);
+  /* Allow the logo to exceed content width without being squeezed by flex. */
+  flex-shrink: 0;
 }
 
 .welcome__message {
