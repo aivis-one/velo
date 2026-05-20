@@ -12,15 +12,18 @@
       exists) -- it is only relevant for the standalone/browser build (F10),
       so it is hidden unless isStandalone is true.
 
-  Style mirrors StandaloneStubView (glass pill buttons, VELΘ logo, slogan).
+  Style mirrors StandaloneStubView (glass pill buttons, slogan). Logo uses the
+  white mandala variant at a large size to match Figma 01_Welcome; the wordmark
+  is part of the logo, so there is no separate text heading.
 -->
 
 <template>
   <div class="welcome">
     <div class="welcome__logo">
-      <VeloLogo :size="120" />
+      <!-- White mandala variant, large -- matches Figma 01_Welcome.
+           The logo already contains the VELO wordmark, so no text heading. -->
+      <VeloLogo variant="white" :size="220" />
     </div>
-    <h1 class="welcome__title">VELΘ</h1>
     <p class="welcome__message">
       Пространство для практики<br />и внутреннего развития
     </p>
@@ -75,16 +78,7 @@ const { isStandalone } = useAuth()
 }
 
 .welcome__logo {
-  margin-bottom: var(--space-2);
-}
-
-.welcome__title {
-  font-family: var(--font-body);
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0 0 var(--space-4) 0;
+  margin-bottom: var(--space-4);
 }
 
 .welcome__message {
