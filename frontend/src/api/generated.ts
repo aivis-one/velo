@@ -698,7 +698,7 @@ export interface UpdateReportRequest {
   reason: string
 }
 
-/** User representation in API responses. */
+/** User representation in API responses. onboarding_completed is derived from the credentials JSONB sandbox rather than a dedicated column (schema-on-read pattern). The raw credentials blob is pulled in only to compute that single boolean and is never serialized -- see _credentials below. Mechanism (kept deliberately simple -- one carrier field + one computed_field): _credentials is filled from the ORM object's `credentials` attribute via validation_alias under from_attributes, but excluded from output; onboarding_completed reads from it. */
 export interface UserResponse {
   id: string
   telegram_id: number | null
@@ -712,14 +712,16 @@ export interface UserResponse {
   balance_cents: number
   created_at: string
   last_login_at: string | null
+  onboarding_completed: boolean
 }
 
-/** PATCH /api/v1/users/me — updatable profile fields. All fields are optional. Only provided fields are updated. avatar_url is excluded — managed by Telegram (future: Bot API). Empty strings are rejected (min_length=1). To clear a field, send null explicitly: {"last_name": null}. timezone and language are NOT NULL in DB — sending null for them is rejected by _reject_null_for_required_fields (mode="before"). */
+/** PATCH /api/v1/users/me — updatable profile fields. All fields are optional. Only provided fields are updated. avatar_url is excluded — managed by Telegram (future: Bot API). Empty strings are rejected (min_length=1). To clear a field, send null explicitly: {"last_name": null}. timezone and language are NOT NULL in DB — sending null for them is rejected by _reject_null_for_required_fields (mode="before"). onboarding_completed is written into the credentials JSONB by the service layer (not a column). null is meaningless here, so only true/false are accepted; "not sent" leaves it untouched. */
 export interface UserUpdate {
   first_name?: string | null
   last_name?: string | null
   timezone?: string | null
   language?: string | null
+  onboarding_completed?: boolean | null
 }
 
 /** POST /admin/masters/{user_id}/verify -- request body. */
