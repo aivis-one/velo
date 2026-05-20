@@ -428,6 +428,13 @@ body {
       <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-blue-50)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-blue-50</div><div class="swatch-token">#e2f0fd</div></div></div>
       <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-amber-50)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-amber-50</div><div class="swatch-token">#fdf3e2</div></div></div>
     </div>
+    <div class="subgroup">Mood gradient palette — Master Dashboard 8 ★ 2026-05-19</div>
+    <div class="grid grid-colors">
+      <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-steel-wash)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-steel-wash</div><div class="swatch-token">#dce6f3 — cool end</div></div></div>
+      <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-teal-wash)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-teal-wash</div><div class="swatch-token">#bdecf1 — teal mid</div></div></div>
+      <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-coral-wash)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-coral-wash</div><div class="swatch-token">#f9cbd1 — warm-mid</div></div></div>
+      <div class="swatch"><div class="swatch-fill"><div class="swatch-color" style="background:var(--velo-color-peach-wash)"></div></div><div class="swatch-meta"><div class="swatch-name">--velo-color-peach-wash</div><div class="swatch-token">#fddfc4 — warm end</div></div></div>
+    </div>
   </section>
 
   <section class="block">
@@ -525,7 +532,7 @@ body {
 
   <section class="block">
     <h2>Иконки</h2>
-    <p class="desc">30 канонических SVG-иконок. Все exported из Figma, хранятся в <code>assets/icons/</code>.</p>
+    <p class="desc">73 канонических SVG-иконок (после dedup-pass 2026-05-19: удалены 4 дубля, переименован 1 composite). Все exported из Figma, хранятся в <code>assets/icons/</code>.</p>
     <div class="icons-grid">
       <div class="icon-group-title">Бренд</div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/velo-logo-mandala-blue.svg" alt="" height="40"></div><div class="name">velo-logo-mandala-blue</div></div>
@@ -533,7 +540,7 @@ body {
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-back-arrow.svg" alt="" height="40"></div><div class="name">icon-back-arrow</div></div>
 
       <div class="icon-group-title">Навигация (Figma export)</div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-nav-home.svg" alt="" width="24" height="24"></div><div class="name">icon-nav-home</div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-nav-home-active-composite.svg" alt="" width="24" height="24"></div><div class="name">icon-nav-home-active-composite<br><small style="color:var(--velo-color-orange-dark)">⚠ composite (134×134) — active state BottomNav; CSS TODO</small></div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-nav-diary.svg" alt="" width="24" height="24"></div><div class="name">icon-nav-diary</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-nav-profile.svg" alt="" width="24" height="24"></div><div class="name">icon-nav-profile</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-nav-reservations.svg" alt="" width="24" height="24"></div><div class="name">icon-nav-reservations</div></div>
@@ -553,6 +560,9 @@ body {
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-warning.svg" alt="" height="21"></div><div class="name">icon-warning</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-alert-clock.svg" alt="" height="20"></div><div class="name">icon-alert-clock</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-alert-feedback.svg" alt="" height="20"></div><div class="name">icon-alert-feedback</div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-arrow-forward.svg" alt="" height="15"></div><div class="name">icon-arrow-forward<br><small style="color:var(--velo-color-teal-dark)">★ added session 16</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-steel-primary)"><div class="icon-art"><img src="../assets/icons/icon-ai-brain.svg" alt="" height="21"></div><div class="name" style="color:#fff">icon-ai-brain<br><small>★ added session 16</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-video-camera.svg" alt="" height="19"></div><div class="name">icon-video-camera<br><small style="color:var(--velo-color-teal-dark)">★ added session 16</small></div></div>
 
       <div class="icon-group-title">Mood — все 3 состояния MoodWidget</div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-mood-bad.svg" alt="" height="40"></div><div class="name">icon-mood-bad<br><small style="color:var(--velo-text-error)">Не очень</small></div></div>
@@ -561,8 +571,8 @@ body {
 
       <div class="icon-group-title" style="color:var(--velo-color-teal-dark)">Calendar 11 — Figma export ★ 2026-05-18</div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-practice.svg" alt="" height="27"></div><div class="name">icon-cal-practice</div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-duration.svg" alt="" height="15"></div><div class="name">icon-cal-duration</div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-datetime.svg" alt="" height="15"></div><div class="name">icon-cal-datetime</div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-time.svg" alt="" height="15"></div><div class="name">icon-time<br><small style="color:var(--velo-color-teal-dark)">★ canonical (was icon-cal-duration)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-calendar.svg" alt="" height="15"></div><div class="name">icon-calendar<br><small style="color:var(--velo-color-teal-dark)">★ canonical (was icon-cal-datetime)</small></div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-capacity.svg" alt="" height="15"></div><div class="name">icon-cal-capacity</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-close.svg" alt="" height="24"></div><div class="name">icon-cal-close</div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-cal-day-done.svg" alt="" height="16"></div><div class="name">icon-cal-day-done</div></div>
@@ -574,10 +584,72 @@ body {
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-feedback-good.svg" alt="" height="40"></div><div class="name">icon-feedback-good<br><small style="color:var(--velo-text-success)">Хорошо</small></div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-feedback-fire.svg" alt="" height="40"></div><div class="name">icon-feedback-fire<br><small style="color:var(--velo-color-orange-dark)">Огонь!</small></div></div>
       <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-checkin-success.svg" alt="" height="52"></div><div class="name">icon-checkin-success<br><small style="color:var(--velo-text-footnote)">Dashboard check-in</small></div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-welcome.svg" alt="" height="52"></div><div class="name">icon-master-onb-welcome<br><small style="color:var(--velo-text-footnote)">Master Onboarding 1</small></div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-space.svg" alt="" height="52"></div><div class="name">icon-master-onb-space<br><small style="color:var(--velo-text-footnote)">Master Onboarding 2</small></div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-analytics.svg" alt="" height="52"></div><div class="name">icon-master-onb-analytics<br><small style="color:var(--velo-text-footnote)">Master Onboarding 3</small></div></div>
-      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-approved.svg" alt="" height="52"></div><div class="name">icon-master-approved<br><small style="color:var(--velo-text-footnote)">Master Onboarding 4</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-approved.svg" alt="" height="52"></div><div class="name">icon-master-approved<br><small style="color:var(--velo-text-footnote)">Статус — заявка одобрена</small></div></div>
+
+      <div class="icon-group-title" style="color:var(--velo-color-steel-light)">Profile 7 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-edit.svg" alt="" height="20"></div><div class="name">icon-profile-edit<br><small style="color:var(--velo-text-footnote)">Редактировать</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-bookings.svg" alt="" height="20"></div><div class="name">icon-profile-bookings<br><small style="color:var(--velo-text-footnote)">Мои бронирования</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-messages.svg" alt="" height="20"></div><div class="name">icon-profile-messages<br><small style="color:var(--velo-text-footnote)">Сообщения</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-support.svg" alt="" height="20"></div><div class="name">icon-profile-support<br><small style="color:var(--velo-text-footnote)">Поддержка</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-notifications.svg" alt="" height="21"></div><div class="name">icon-profile-notifications<br><small style="color:var(--velo-text-footnote)">Уведомления</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-language.svg" alt="" height="20"></div><div class="name">icon-profile-language<br><small style="color:var(--velo-text-footnote)">Язык / Часовой пояс</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-steel-primary);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-profile-timezone.svg" alt="" height="20"></div><div class="name" style="color:#fff">icon-profile-timezone<br><small style="color:rgba(255,255,255,0.6)">Часовой пояс (white)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-logout.svg" alt="" height="20"></div><div class="name">icon-profile-logout<br><small style="color:var(--velo-text-error)">Выйти ⚠ деструктив</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-profile-delete.svg" alt="" height="24"></div><div class="name">icon-profile-delete<br><small style="color:var(--velo-text-error)">Удалить аккаунт ⚠ деструктив</small></div></div>
+      <!-- Diary 20 icons — added 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-steel-light)">Diary 20 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-tab-all.svg" alt="" height="40"></div><div class="name">icon-diary-tab-all<br><small style="color:var(--velo-text-footnote)">DiaryFilterBar "All" tab</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-steel-primary);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-diary-edit.svg" alt="" height="20"></div><div class="name" style="color:#fff">icon-diary-edit<br><small style="color:rgba(255,255,255,0.6)">Редактировать запись</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n5.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n5<br><small style="color:var(--velo-text-footnote)">Рейтинг 5</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n6.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n6<br><small style="color:var(--velo-text-footnote)">Рейтинг 6</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n7.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n7<br><small style="color:var(--velo-text-footnote)">Рейтинг 7</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n8.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n8<br><small style="color:var(--velo-text-footnote)">Рейтинг 8</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n9.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n9<br><small style="color:var(--velo-text-footnote)">Рейтинг 9</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n10.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n10<br><small style="color:var(--velo-text-footnote)">Рейтинг 10</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-filter-n11.svg" alt="" height="38"></div><div class="name">icon-diary-filter-n11<br><small style="color:var(--velo-text-footnote)">Рейтинг 11</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-pin.svg" alt="" height="34"></div><div class="name">icon-diary-pin<br><small style="color:var(--velo-text-footnote)">MapPin основной</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-diary-pin-alt.svg" alt="" height="34"></div><div class="name">icon-diary-pin-alt<br><small style="color:var(--velo-text-footnote)">MapPin вариант</small></div></div>
+
+      <!-- Messages 3 icons — added 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-steel-light)">Messages 3 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-messages-send.svg" alt="" height="40"></div><div class="name">icon-messages-send<br><small style="color:var(--velo-text-footnote)">Отправить сообщение</small></div></div>
+
+      <!-- Analytics 3 icons — added 2026-05-19, deduped 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-blue-medium)">Analytics 3 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-home.svg" alt="" height="27"></div><div class="name">icon-master-nav-home<br><small style="color:var(--velo-color-blue-medium)">MasterNav слот 1 — home (firstM=M17.1121)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-schedule.svg" alt="" height="27"></div><div class="name">icon-master-nav-schedule ✅ NEW<br><small style="color:var(--velo-color-blue-medium)">MasterNav слот 2 — расписание/календарь (firstM=M7.48828)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-students.svg" alt="" height="27"></div><div class="name">icon-master-nav-students ✅ FIXED<br><small style="color:var(--velo-color-blue-medium)">MasterNav слот 3 — ученики/персона (firstM=M9.28125, 21×27)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-profile.svg" alt="" height="27"></div><div class="name">icon-master-nav-profile ✅ NEW<br><small style="color:var(--velo-color-blue-medium)">MasterNav слот 4 — профиль мастера (firstM=M26.9945)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-analytics-tab-trophy.svg" alt="" height="27"></div><div class="name">icon-analytics-tab-trophy<br><small style="color:var(--velo-text-footnote)">Таб 3 — трофей</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-analytics-tab-chart.svg" alt="" height="27"></div><div class="name">icon-analytics-tab-chart<br><small style="color:var(--velo-text-footnote)">Таб 4 — график ★ ключевой</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-analytics-user-circle.svg" alt="" height="41"></div><div class="name">icon-analytics-user-circle<br><small style="color:var(--velo-text-footnote)">Аватар пользователя</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-analytics-help.svg" alt="" height="20"></div><div class="name">icon-analytics-help<br><small style="color:var(--velo-text-footnote)">Кнопка помощи</small></div></div>
+
+      <!-- Practices 15 icons — added 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-orange-dark)">Practices 15 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand" style="background:var(--velo-color-steel-primary);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-practices-add.svg" alt="" height="20"></div><div class="name" style="color:#fff">icon-practices-add<br><small style="color:rgba(255,255,255,0.6)">+ Новая практика (white)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-practices-attendees.svg" alt="" height="15"></div><div class="name">icon-practices-attendees<br><small style="color:var(--velo-text-footnote)">Участники практики</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-practices-repeat.svg" alt="" height="15"></div><div class="name">icon-practices-repeat<br><small style="color:var(--velo-text-footnote)">Повторение / день</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-practices-review-face.svg" alt="" height="15"></div><div class="name">icon-practices-review-face<br><small style="color:var(--velo-text-footnote)">Отзывы практики</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-orange-50);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-practices-warning.svg" alt="" height="26"></div><div class="name">icon-practices-warning<br><small style="color:var(--velo-color-orange-dark)">Предупреждение (модалы)</small></div></div>
+
+      <!-- Master Dashboard 8 icons — added 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-steel-primary)">Master Dashboard 8 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-home.svg" alt="" height="27"></div><div class="name">icon-master-nav-home<br><small style="color:var(--velo-text-footnote)">MasterNavBar слот 1 — home</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-schedule.svg" alt="" height="27"></div><div class="name">icon-master-nav-schedule<br><small style="color:var(--velo-color-teal-dark)">✅ NEW — слот 2 расписание</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-students.svg" alt="" height="27"></div><div class="name">icon-master-nav-students<br><small style="color:var(--velo-color-teal-dark)">✅ FIXED — слот 3 ученики (21×27)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-nav-profile.svg" alt="" height="27"></div><div class="name">icon-master-nav-profile<br><small style="color:var(--velo-color-teal-dark)">✅ NEW — слот 4 профиль</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-steel-primary);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-master-header-notif.svg" alt="" height="21"></div><div class="name" style="color:#fff">icon-master-header-notif<br><small style="color:rgba(255,255,255,0.6)">Колокол (белый)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-filter.svg" alt="" height="20"></div><div class="name">icon-master-filter<br><small style="color:var(--velo-text-footnote)">Фильтр студентов</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-checkin-alert.svg" alt="" height="40"></div><div class="name">icon-master-checkin-alert<br><small style="color:var(--velo-color-orange-dark)">Check-in alert (flame)</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-rating-star.svg" alt="" height="17"></div><div class="name">icon-master-rating-star<br><small style="color:var(--velo-text-error)">Рейтинг студента</small></div></div>
+
+      <!-- Master Onboarding 13 icons — added 2026-05-19 -->
+      <div class="icon-group-title" style="color:var(--velo-color-steel-primary)">Master Onboarding 13 — Figma export ★ 2026-05-19</div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-community.svg" alt="" height="44"></div><div class="name">icon-master-onb-community<br><small style="color:var(--velo-text-footnote)">Онбординг 1 — сообщество</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-workspace.svg" alt="" height="44"></div><div class="name">icon-master-onb-workspace<br><small style="color:var(--velo-text-footnote)">Онбординг 2 — пространство</small></div></div>
+      <div class="icon-cell brand"><div class="icon-art"><img src="../assets/icons/icon-master-onb-ai.svg" alt="" height="44"></div><div class="name">icon-master-onb-ai<br><small style="color:var(--velo-text-footnote)">Онбординг 3 — AI-аналитика</small></div></div>
+      <div class="icon-cell brand" style="background:var(--velo-color-orange-50);border-radius:8px"><div class="icon-art"><img src="../assets/icons/icon-master-application-rejected.svg" alt="" height="52"></div><div class="name">icon-master-application-rejected<br><small style="color:var(--velo-color-orange-dark)">Статус — заявка отклонена</small></div></div>
     </div>
   </section>
 
@@ -759,58 +831,52 @@ body {
 <div class="pane" id="pane-patterns">
 
   <section class="block">
-    <h2>Шапка + табБар</h2>
-    <p class="desc">Header + TabBar для трёх ролей: user (4 таба), master (4 таба), admin (3 таба).</p>
-    <div class="grid grid-patterns">
+    <h2>Patterns &#x2014; multi-component compositions</h2>
+    <p class="desc">Screen-level layout patterns. Named CSS classes that compose Tier 1/2 components into repeatable screen regions. Names match COMPONENTS-CATALOG.md.</p>
+    <div class="grid grid-comp">
 
-      <div class="demo">
-        <h3>User</h3>
-        <div class="device-frame">
-          <div class="pattern-header">
-            <div class="back-pill"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></div>
-            <h4 class="title">Главная</h4>
-            <span class="balance-chip">€67,50</span>
-          </div>
-          <div class="device-content"><p class="velo-typo-body-default" style="color:var(--velo-text-footnote)">Содержимое экрана…</p></div>
-          <div class="pattern-tabbar">
-            <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Главная</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg><span>Календарь</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h12a2 2 0 0 1 2 2v14l-4-3-4 3-4-3-4 3V6a2 2 0 0 1 2-2z"/></svg><span>Дневник</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Профиль</span></div>
-          </div>
+      <div class="demo demo-on-photo">
+        <h3>.velo-bg-mandala</h3>
+        <p class="desc">Universal app background &#x2014; absolutely-positioned <code>velo-bg-app.png</code>. Every user screen uses this except SuccessScreen (pure white).</p>
+        <div style="width:120px;height:80px;position:relative;overflow:hidden;border-radius:8px;border:1px solid var(--velo-border-default)">
+          <img src="../assets/backgrounds/velo-bg-app.png" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.7">
+          <span style="position:relative;font-size:11px;color:#fff;padding:4px 6px">bg-mandala</span>
         </div>
       </div>
 
       <div class="demo">
-        <h3>Master</h3>
-        <div class="device-frame">
-          <div class="pattern-header">
-            <h4 class="title">Мои практики</h4>
-            <span class="v-badge v-badge--success">Verified</span>
-          </div>
-          <div class="device-content"><p class="velo-typo-body-default" style="color:var(--velo-text-footnote)">Содержимое экрана мастера…</p></div>
-          <div class="pattern-tabbar">
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 9-8 9 8v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Главная</span></div>
-            <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg><span>Практики</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><line x1="3" y1="11" x2="21" y2="11"/></svg><span>Финансы</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Профиль</span></div>
-          </div>
+        <h3>.velo-header-compact</h3>
+        <p class="desc">Centered mini-mandala header (login / register / oauth). 154px mandala, 37px top padding.</p>
+        <div style="background:var(--velo-bg-screen);border:1px solid var(--velo-border-default);border-radius:8px;padding:12px;text-align:center">
+          <img src="../assets/icons/velo-logo-mandala-blue.svg" alt="" style="width:60px;height:60px">
+          <div style="font-size:11px;color:var(--velo-text-muted);margin-top:4px">header-compact</div>
         </div>
       </div>
 
       <div class="demo">
-        <h3>Admin (3 таба)</h3>
-        <div class="device-frame">
-          <div class="pattern-header">
-            <h4 class="title">Заявки мастеров</h4>
-            <span class="v-badge v-badge--info">12</span>
+        <h3>.top-header</h3>
+        <p class="desc">Detail view header &#x2014; glass back-arrow (absolute left) + centered title. Used on all nested screens.</p>
+        <div style="position:relative;background:var(--velo-bg-screen);border:1px solid var(--velo-border-default);border-radius:8px;padding:10px 48px;text-align:center;min-height:44px">
+          <div style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:var(--velo-glass-fill);box-shadow:var(--velo-shadow-button-glass);display:flex;align-items:center;justify-content:center">
+            <img src="../assets/icons/icon-back-arrow.svg" alt="" style="width:14px;height:14px">
           </div>
-          <div class="device-content"><p class="velo-typo-body-default" style="color:var(--velo-text-footnote)">Очередь модерации…</p></div>
-          <div class="pattern-tabbar">
-            <div class="tab active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><circle cx="17" cy="11" r="3"/></svg><span>Мастера</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg><span>Отчёты</span></div>
-            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Профиль</span></div>
-          </div>
+          <span style="font-size:14px;font-weight:600;color:var(--velo-text-primary)">Practika Detail</span>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>.velo-back-arrow</h3>
+        <p class="desc">Standalone glass 36x36 back button (Onboarding flows). Superseded by <code>.top-header .header-back</code> in detail views from Dashboard 9 onwards.</p>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--velo-glass-fill);box-shadow:var(--velo-shadow-button-glass);display:flex;align-items:center;justify-content:center">
+          <img src="../assets/icons/icon-back-arrow.svg" alt="" style="width:14px;height:14px">
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>.velo-skip</h3>
+        <p class="desc">Top-right skip link on Onboarding 1-3. Absolute-positioned <code>.v-link</code>.</p>
+        <div style="position:relative;height:44px;border:1px dashed var(--velo-border-default);border-radius:8px">
+          <button class="v-link" style="position:absolute;top:10px;right:12px">Propustit</button>
         </div>
       </div>
 
@@ -819,26 +885,324 @@ body {
 
 </div><!-- /pane-patterns -->
 
-</div><!-- /shell -->
-
 <script>
 (function () {
   var buttons = document.querySelectorAll('.tab-btn');
-  var panes   = document.querySelectorAll('.pane');
   buttons.forEach(function (btn) {
     btn.addEventListener('click', function () {
-      var target = btn.getAttribute('data-pane');
+      // deactivate all buttons + panes
       buttons.forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.pane').forEach(function (p) { p.classList.remove('active'); });
+      // activate clicked button + matching pane
       btn.classList.add('active');
-      panes.forEach(function (p) {
-        p.id === 'pane-' + target
-          ? p.classList.add('active')
-          : p.classList.remove('active');
-      });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      var pane = document.getElementById('pane-' + btn.dataset.pane);
+      if (pane) { pane.classList.add('active'); }
     });
   });
 }());
 </script>
+
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>FeedbackRating</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="fbk-card">
+            <div class="fbk-heading">Как прошла практика?</div>
+            <div class="fbk-sub">Оцените своё состояние</div>
+            <div class="feedback-rating">
+              <button class="fr-option">
+                <div class="fr-icon"><img src="../assets/icons/icon-feedback-questions.svg" width="36" height="36" alt=""></div>
+                <span class="fr-label">Есть вопросы</span>
+              </button>
+              <button class="fr-option">
+                <div class="fr-icon"><img src="../assets/icons/icon-feedback-good.svg" width="36" height="36" alt=""></div>
+                <span class="fr-label">Хорошо</span>
+              </button>
+              <button class="fr-option">
+                <div class="fr-icon"><img src="../assets/icons/icon-feedback-fire.svg" width="36" height="36" alt=""></div>
+                <span class="fr-label">Огонь!</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>MasterProfileHero</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="mpr-hero">
+            <div class="mpr-avatar"><img src="../assets/icons/icon-analytics-user-circle.svg" width="80" height="80" alt=""></div>
+            <div class="mpr-name">Alex Mindful</div>
+            <div class="mpr-badges">
+              <span class="mpr-badge mpr-badge--verified">✓ Верифицирован</span>
+              <span class="mpr-badge mpr-badge--exp">5 лет опыта</span>
+            </div>
+            <div class="mpr-bio">Мастер по медитации и mindfulness. Помогаю найти баланс в ежедневной практике.</div>
+          </div>
+          <div class="mpr-stats-row">
+            <div class="mpr-stat-card"><div class="mpr-stat-value">248</div><div class="mpr-stat-label">Практик</div></div>
+            <div class="mpr-stat-card"><div class="mpr-stat-value">4.9</div><div class="mpr-stat-label">Рейтинг</div></div>
+            <div class="mpr-stat-card"><div class="mpr-stat-value">1.2K</div><div class="mpr-stat-label">Учеников</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>AskMasterMiniCard</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="ask-master-mini-card">
+            <div class="ask-master-avatar"><img src="../assets/icons/icon-analytics-user-circle.svg" width="44" height="44" alt=""></div>
+            <div class="ask-master-info">
+              <div class="ask-master-name">Alex Mindful <img src="../assets/icons/icon-verified.svg" width="14" height="14" alt=""></div>
+              <div class="ask-master-sub">Мастер · Онлайн</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="demo">
+        <h3>MessageWidget</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="msg-widget">
+            <div class="msg-master-card">
+              <div class="msg-master-avatar"><img src="../assets/icons/icon-analytics-user-circle.svg" width="40" height="40" alt=""></div>
+              <div class="msg-master-info">
+                <div class="msg-master-name">Alex Mindful</div>
+                <div class="msg-master-sub">Мастер · Отвечает в течение 1 ч</div>
+              </div>
+            </div>
+            <div class="msg-body">
+              <textarea class="v-textarea" placeholder="Написать мастеру…" rows="3" style="width:100%;box-sizing:border-box;resize:none;"></textarea>
+            </div>
+            <div class="msg-actions">
+              <button class="v-button v-button--primary" style="font-size:13px;padding:8px 16px;">Отправить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════════
+       CALENDAR 11 COMPONENTS
+       DS-first §7.0 — promoted 2026-05-19
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="block">
+    <h2>Calendar 11 — компоненты</h2>
+    <p class="desc">Компоненты из Calendar 11 блока. Все промоутированы в <code>_shared/components.css</code>.</p>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:24px;">
+
+      <!-- CalendarWeekStrip -->
+      <div class="demo">
+        <h3>CalendarWeekStrip</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="cal-week-strip">
+            <div class="cal-week-cells">
+              <div class="cal-day-cell">
+                <span class="cdc-label">Пн</span>
+                <span class="cdc-num">12</span>
+                <span class="cdc-dot"></span>
+              </div>
+              <div class="cal-day-cell" style="background:var(--velo-color-alpha-steel-light-15);border-radius:var(--velo-radius-lg);">
+                <span class="cdc-label">Вт</span>
+                <span class="cdc-num" style="color:var(--velo-color-steel-primary);">13</span>
+                <span class="cdc-dot" style="background:var(--velo-color-steel-primary);"></span>
+              </div>
+              <div class="cal-day-cell">
+                <span class="cdc-label">Ср</span>
+                <span class="cdc-num">14</span>
+                <span class="cdc-dot-empty"></span>
+              </div>
+              <div class="cal-day-cell">
+                <span class="cdc-label">Чт</span>
+                <span class="cdc-num">15</span>
+                <span class="cdc-dot"></span>
+              </div>
+              <div class="cal-day-cell">
+                <span class="cdc-label">Пт</span>
+                <span class="cdc-num">16</span>
+                <span class="cdc-dot-empty"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CalFilterButton -->
+      <div class="demo">
+        <h3>CalFilterButton + FilterChips</h3>
+        <div class="demo-stack" style="padding:12px;gap:8px;">
+          <button class="cal-filter-btn">
+            <img class="cal-filter-btn-icon" src="../assets/icons/icon-cal-filter.svg" width="16" height="16" alt="">
+            <span class="cal-filter-btn-label">Фильтр</span>
+            <span class="cal-filter-caret">▾</span>
+          </button>
+          <div class="cal-filter-chips-row">
+            <div class="filter-chip filter-chip--select">Йога</div>
+            <div class="filter-chip">Медитация</div>
+            <div class="filter-chip">Пилатес</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PracticeDetailCard -->
+      <div class="demo">
+        <h3>PracticeDetailCard</h3>
+        <div class="demo-stack" style="padding:12px;">
+          <div class="practice-detail-card">
+            <img class="pdc-icon" src="../assets/icons/icon-practice.svg" width="40" height="40" alt="">
+            <div class="pdc-name">Хатха-йога для начинающих</div>
+            <div class="pdc-meta-row">
+              <div class="pdc-meta-item">
+                <img src="../assets/icons/icon-calendar.svg" width="14" height="14" alt="">
+                <span>Вт, 14 мая</span>
+              </div>
+              <div class="pdc-meta-item">
+                <img src="../assets/icons/icon-time.svg" width="14" height="14" alt="">
+                <span>10:00 — 11:30</span>
+              </div>
+            </div>
+            <div class="complexity-row">
+              <div class="cplx-dots">
+                <div class="cplx-dot filled"></div>
+                <div class="cplx-dot filled"></div>
+                <div class="cplx-dot"></div>
+                <div class="cplx-dot"></div>
+                <div class="cplx-dot"></div>
+              </div>
+              <span style="font-size:12px;color:var(--velo-text-secondary);">Начинающий</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CalSuccessBody -->
+      <div class="demo">
+        <h3>CalSuccessBody</h3>
+        <div class="demo-stack" style="padding:24px 12px;text-align:center;">
+          <div class="cal-success-body">
+            <img class="cal-success-icon" src="../assets/icons/icon-cal-success-check.svg" width="64" height="64" alt="">
+            <div class="cal-success-title">Запись подтверждена!</div>
+            <div class="cal-success-sub">Вы записаны на Хатха-йогу<br>14 мая в 10:00</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /grid -->
+  </section><!-- /Calendar 11 -->
+
+  <!-- ═══════════════════════════════════════════════════════════
+       BOTTOM NAVIGATION — user + master variants
+       DS-first §7.0 — promoted 2026-05-19
+  ═══════════════════════════════════════════════════════════ -->
+  <section class="block">
+    <h2>Bottom Navigation</h2>
+    <p class="desc">
+      Нижняя навигационная панель — 327×63px, 4 кнопки по 63×63px.<br>
+      Кнопки: <code>.v-button.v-button--glass.v-button--round-icon</code>.<br>
+      Активная кнопка: класс <code>.active</code> (solid fill vs 15% alpha).<br>
+      <strong>User nav</strong>: Home · Резервации · Дневник · Профиль.<br>
+      <strong>Master nav</strong>: Home · Расписание · Ученики · Профиль мастера.
+    </p>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:24px;">
+
+      <!-- USER NAV -->
+      <div class="demo">
+        <h3>User BottomNav — default state (home active)</h3>
+        <div class="demo-stack" style="background:var(--velo-bg-surface);padding:12px 8px;border-radius:12px;">
+          <nav class="bottom-nav bottom-nav--user" style="background:transparent;">
+            <button class="v-button v-button--glass v-button--round-icon active" title="Главная">
+              <img src="../assets/icons/icon-nav-home-active-composite.svg" width="24" height="24" alt="Главная">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Резервации">
+              <img src="../assets/icons/icon-nav-reservations.svg" width="24" height="24" alt="Резервации">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Дневник">
+              <img src="../assets/icons/icon-nav-diary.svg" width="24" height="24" alt="Дневник">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Профиль">
+              <img src="../assets/icons/icon-nav-profile.svg" width="24" height="24" alt="Профиль">
+            </button>
+          </nav>
+          <p style="font-size:11px;color:var(--velo-text-muted);text-align:center;margin-top:8px;">Слот 1 активен (composite icon)</p>
+        </div>
+      </div>
+
+      <!-- MASTER NAV -->
+      <div class="demo">
+        <h3>Master BottomNav — default state (home active)</h3>
+        <div class="demo-stack" style="background:var(--velo-bg-surface);padding:12px 8px;border-radius:12px;">
+          <nav class="bottom-nav bottom-nav--master" style="background:transparent;">
+            <button class="v-button v-button--glass v-button--round-icon active" title="Главная">
+              <img src="../assets/icons/icon-master-nav-home.svg" width="24" height="24" alt="Главная">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Расписание">
+              <img src="../assets/icons/icon-master-nav-schedule.svg" width="24" height="24" alt="Расписание">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Ученики">
+              <img src="../assets/icons/icon-master-nav-students.svg" width="24" height="24" alt="Ученики">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Профиль">
+              <img src="../assets/icons/icon-master-nav-profile.svg" width="24" height="24" alt="Профиль">
+            </button>
+          </nav>
+          <p style="font-size:11px;color:var(--velo-text-muted);text-align:center;margin-top:8px;">Слот 1 активен</p>
+        </div>
+      </div>
+
+      <!-- USER NAV — slot 3 active (diary/calendar) -->
+      <div class="demo">
+        <h3>User BottomNav — calendar active (slot 3)</h3>
+        <div class="demo-stack" style="background:var(--velo-bg-surface);padding:12px 8px;border-radius:12px;">
+          <nav class="bottom-nav bottom-nav--user" style="background:transparent;">
+            <button class="v-button v-button--glass v-button--round-icon" title="Главная">
+              <img src="../assets/icons/icon-nav-home-active-composite.svg" width="24" height="24" alt="Главная">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Резервации">
+              <img src="../assets/icons/icon-nav-reservations.svg" width="24" height="24" alt="Резервации">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon active" title="Дневник">
+              <img src="../assets/icons/icon-nav-diary.svg" width="24" height="24" alt="Дневник">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Профиль">
+              <img src="../assets/icons/icon-nav-profile.svg" width="24" height="24" alt="Профиль">
+            </button>
+          </nav>
+          <p style="font-size:11px;color:var(--velo-text-muted);text-align:center;margin-top:8px;">Слот 3 активен (Дневник)</p>
+        </div>
+      </div>
+
+      <!-- MASTER NAV — slot 3 active (students) -->
+      <div class="demo">
+        <h3>Master BottomNav — students active (slot 3)</h3>
+        <div class="demo-stack" style="background:var(--velo-bg-surface);padding:12px 8px;border-radius:12px;">
+          <nav class="bottom-nav bottom-nav--master" style="background:transparent;">
+            <button class="v-button v-button--glass v-button--round-icon" title="Главная">
+              <img src="../assets/icons/icon-master-nav-home.svg" width="24" height="24" alt="Главная">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Расписание">
+              <img src="../assets/icons/icon-master-nav-schedule.svg" width="24" height="24" alt="Расписание">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon active" title="Ученики">
+              <img src="../assets/icons/icon-master-nav-students.svg" width="24" height="24" alt="Ученики">
+            </button>
+            <button class="v-button v-button--glass v-button--round-icon" title="Профиль">
+              <img src="../assets/icons/icon-master-nav-profile.svg" width="24" height="24" alt="Профиль">
+            </button>
+          </nav>
+          <p style="font-size:11px;color:var(--velo-text-muted);text-align:center;margin-top:8px;">Слот 3 активен (Ученики)</p>
+        </div>
+      </div>
+
+    </div><!-- /grid -->
+  </section><!-- /Bottom Navigation -->
+
+</div><!-- /main -->
 </body>
 </html>

@@ -102,6 +102,14 @@
   /* --- State colors — Amber (tag/label family) --- */
   --velo-color-amber-50:      #fdf3e2;                          /* promoted: Dashboard 9 booked-practice `541:7573` — master profile tags ("MBSR", "yoga", "yin" background). Soft warm amber. Single-block discovery 2026-05-18. */
 
+  /* --- Mood gradient palette (Master Dashboard 8 — MoodProgressBar) --- */
+  /* 4 gradient stop colours, 27 total occurrences across Student Profile + Check-ins frames (758:3948, 758:4068).
+     Promoted as Layer 1 primitives 2026-05-19 (DS iteration 10). */
+  --velo-color-steel-wash:    #dce6f3;  /* mood gradient cool end   — 9+ uses, SACRED 758:3245 */
+  --velo-color-teal-wash:     #bdecf1;  /* mood gradient mid (teal) — 9+ uses, SACRED 758:3245 */
+  --velo-color-coral-wash:    #f9cbd1;  /* mood gradient warm-mid   — 9+ uses, SACRED 758:3245 */
+  --velo-color-peach-wash:    #fddfc4;  /* mood gradient warm end   — 9+ uses, SACRED 758:3245 */
+
   /* --- Spacing primitives (4-base scale, PROVISIONAL from DSYS-era reference; SACRED uses absolute positioning, no autolayout values to verify against) --- */
   --velo-space-0:  0px;
   --velo-space-1:  4px;
@@ -318,13 +326,4 @@
    - --velo-radius-full       (9999px circular — not observed; use radius:50% or radius-pill for circular)
    - --velo-focus-ring        (interactive — never observed in static frames; placeholder used)
    - --velo-hover-overlay     (interactive — never observed; placeholder used)
-   - --velo-active-overlay    (interactive — never observed; placeholder used)
-
-   Vestigial / single-use (not promoted to tokens, kept as component-local literals):
-   - rgba(255, 255, 255, 0.01)                                  vestigial alpha
-   - cornerRadius 13, 20, 71, 76, 86.20, 100.74/93, 116.82,
-     120.55, 124.10, 127.67, 151.14, 179.76, 252, 350.65, etc.  decorative-only
-   - font-size 3.77, 5.05, 5.83, 7.05, 7.06, 8.93, 9, 10.68,
-     11.84, 12.03, 12.37, 13.91, 16.04, 17.89, 18.55, 20.12,
-     25.6, 27.37, 28.29, 46.32, 50.24                            decorative / map labels / brand logos
-   ============================================================ */
+   - --velo-acti

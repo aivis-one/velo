@@ -4,854 +4,1082 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VELO — Dashboard flow (9 экранов)</title>
-  <!-- VELO shared CSS layers (§7.3 three-layer architecture) -->
-  <link rel="stylesheet" href="../_shared/tokens.css">
-  <link rel="stylesheet" href="../_shared/shell.css">
-  <link rel="stylesheet" href="../_shared/components.css">
-  <style>
-    /* Screen-specific styles only — tokens/shell/components are in ../_shared/ */
-/* Top safe area — status bar mimic / time slot */
-.dash-safe-top { height: 32px; flex-shrink: 0; }
-
+<!-- VELO shared CSS layers (§7.3 three-layer architecture) -->
+<link rel="stylesheet" href="../_shared/tokens.css">
+<link rel="stylesheet" href="../_shared/shell.css">
+<link rel="stylesheet" href="../_shared/components.css">
+<style>
 /* ============================================================
-   SCREEN 01 — dashboard-1 (main morning view)
-   Layout: greeting → 2 alert pills → next practice card →
-           2 action buttons → progress stats → AI-summary preview →
-           bottom navigation.
-   ============================================================ */
-.scr-d01 {
-  position: relative; z-index: 1;
-  padding: 16px 20px 0;
-  display: flex; flex-direction: column;
-  gap: 14px;
-  height: 100%;
-  overflow: hidden;
-}
-.scr-d01 > * { position: relative; z-index: 1; }
-
-/* Greeting */
-.scr-d01 .greeting {
-  margin: 0;
-}
-.scr-d01 .greeting-line1 {
-  margin: 0;
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--velo-text-secondary);
-  letter-spacing: 0.2px;
-}
-.scr-d01 .greeting-line2 {
-  margin: 2px 0 0;
-  font-size: 28px;
-  line-height: 34px;
-  letter-spacing: 0.8px;
-  color: var(--velo-color-steel-primary);
-}
-
-/* ============================================================
-   Alert pill — banner with colored outline + tinted bg + icon.
-   Variants per Figma Dashboard 9 audit 2026-05-18:
-     --warning  → orange-50 bg + 2px orange-light outline + orange-dark icon
-     --info     → teal-50    bg + 2px teal-light    outline + teal-medium icon
-     --error    → coral-50   bg + 3px coral-medium  outline + coral-dark icon
-   Used on Dashboard col 01/02 (Пора на check-in! / Оставьте feedback!).
-   DS-promotion candidate: AlertPill component variants.
+   Dashboard flow — screen-specific CSS (§7.3, AP-M-6)
+   Only screen-local rules. No shared component redeclarations.
+   No inline token overrides. Prefixes: .dash-*, .ci-*, .scr-0N-*
    ============================================================ */
 
-.scr-d01 .action-row {
+/* Dev-switcher pill buttons */
+.dev-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--shell-border);
+  color: var(--shell-text-dim);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.dev-btn.active { background: rgba(255,255,255,0.12); color: var(--shell-text); }
+
+/* ── Shared scrollable content wrapper (screens 01–02) */
+.dash-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px 84px;  /* bottom: 84px = bottom-nav height so last item scrolls clear */
   display: flex;
-  gap: var(--velo-stack-gap-buttons);
+  flex-direction: column;
+  gap: 14px;
 }
-.scr-d01 .action-row .v-button { flex: 1; }
+.dash-content::-webkit-scrollbar { display: none; }
 
-/* Stats row */
+/* ── Shared scrollable content area (detail screens 03–09) */
+.scr-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.scr-content::-webkit-scrollbar { display: none; }
+
+/* ── Bottom action strip (detail screens 03, 05, 06, 09) */
+.scr-bottom {
+  padding: 10px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Greeting block (screens 01–02)
+   Two-line pattern: muted label line + large bold name line */
+.greeting-label {
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--velo-text-muted);
+}
+.greeting-hello {
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 700;
+  color: var(--velo-color-steel-light);
+  margin-top: 2px;
+}
+.greeting-sub {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--velo-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Action row — two equal buttons side-by-side */
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+.action-row .v-button { flex: 1; }
+
+/* ── Stats row — two glass stat cards */
 .stats-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 .stat-card {
   flex: 1;
   background: var(--velo-bg-card);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--velo-radius-lg);
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 2px;
-  align-items: center;
+  padding: 14px 12px;
   box-shadow: var(--velo-shadow-card);
-}
-.stat-card .stat-value {
-  font-size: 28px;
-  line-height: 32px;
-  color: var(--velo-color-steel-primary);
-}
-.stat-card .stat-label {
-  font-size: 12px;
-  line-height: 14px;
-  color: var(--velo-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
+.sc-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+  line-height: 1;
+}
+.sc-label {
+  font-size: 12px;
+  color: var(--velo-text-muted);
+  margin-top: 6px;
+  line-height: 16px;
+}
 
-/* AI-summary header (title + tabs) */
+/* ── Bottom nav stacking — outside dash-content, fixed at frame bottom */
+.frame.html > .bottom-nav {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+/* ── AI header row — label + tabs inline (screen 02) */
 .ai-header {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ai-tabs--inline { flex-shrink: 0; }
+.ai-tabs--inline .ai-tab {
+  padding: 5px 14px;
+  font-size: 11px;
+}
+
+/* ── AI section (screens 01–02)
+   Label now uses canonical .section-title (16px 700) from components.css.
+   .ai-section-label kept as alias for legacy compatibility — same tokens. */
+.ai-section-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
 }
 .ai-tabs {
-  display: inline-flex;
-  border-radius: var(--velo-radius-pill);
-  background: var(--velo-color-alpha-steel-15);
-  padding: 2px;
+  display: flex;
+  gap: 8px;
 }
-.ai-tabs button {
-  border: 0;
-  font: inherit;
-  cursor: pointer;
+.ai-tab {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: var(--velo-radius-md);
+  border: 1px solid var(--velo-border-card);
   background: transparent;
-  color: var(--velo-text-muted);
-  padding: 4px 12px;
+  font-family: inherit;
   font-size: 12px;
-  border-radius: var(--velo-radius-pill);
-  letter-spacing: 0.2px;
+  color: var(--velo-text-secondary);
+  text-align: center;
+  cursor: pointer;
 }
-.ai-tabs button.active {
+.ai-tab.active {
   background: var(--velo-bg-card);
   color: var(--velo-color-steel-primary);
-  box-shadow: var(--velo-shadow-card);
+  border-color: var(--velo-color-steel-light);
 }
-
-/* AI preview card */
 .ai-card {
-  background: linear-gradient(135deg, rgba(118, 221, 230, 0.18), rgba(98, 122, 156, 0.10));
+  background: var(--velo-bg-card);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--velo-radius-lg);
   padding: 14px 16px;
   font-size: 13px;
-  line-height: 17px;
+  line-height: 19px;
   color: var(--velo-color-steel-primary);
-}
-
-
-/* Video placeholder — dark rounded block */
-.video-block {
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: var(--velo-radius-lg);
-  background: var(--velo-color-steel-primary);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--velo-color-alpha-white-70);
-  font-size: 28px;
-  letter-spacing: 1px;
   box-shadow: var(--velo-shadow-card);
 }
-
-/* Energy-pair visual ("c [emoji] до [emoji]") */
-.energy-pair {
-  display: inline-flex; align-items: center; gap: 12px;
+.ai-blurred { filter: blur(2.5px); pointer-events: none; }
+.ai-more {
   font-size: 13px;
-  color: var(--velo-color-steel-primary);
-}
-.energy-pair .e-face {
-  width: 32px; height: 32px;
-  border-radius: var(--velo-radius-pill);
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid var(--velo-border-card);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
+  color: var(--velo-color-steel-light);
+  display: inline-block;
+  margin-top: 8px;
+  cursor: pointer;
+  text-decoration: underline;
 }
 
-/* Reservation row (Предстоящие / Прошедшие) */
-.booking-card {
-
-.scr-detail {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column;
-  height: 100%;
-  padding: 0 20px 20px;
-  gap: 14px;
-  overflow: hidden;
-}
-.scr-detail > * { position: relative; z-index: 1; }
-.scr-detail .top-header {
-  margin: 0 -20px;
-  padding: 0 56px;
-}
-
-/* Success screen (col 04) — pure white, no bg-mandala */
-.scr-success {
-  position: relative;
-  display: flex; flex-direction: column;
-  height: 100%;
-  background: #ffffff;
-  padding: 40px 32px 32px;
+/* ── Energy row (screens 02, 07) */
+.energy-row {
+  display: flex;
   align-items: center;
-  text-align: center;
+  gap: 8px;
+  padding: 4px 0;
 }
-.scr-success .success-icon {
-  width: 132px; height: 132px;
-  border-radius: var(--velo-radius-pill);
-  background: var(--velo-color-teal-50);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--velo-color-teal-light);
-  margin: 80px 0 28px;
-}
-.scr-success .success-icon svg { width: 70px; height: 70px; }
-.scr-success .success-title {
-  margin: 0 0 12px;
-  font-size: 32px;
-  line-height: 38px;
-  letter-spacing: 0.5px;
-  color: var(--velo-color-steel-primary);
-}
-.scr-success .success-sub {
-  margin: 0 0 36px;
-  font-size: 16px;
-  line-height: 22px;
+.energy-lbl {
+  font-size: 13px;
   color: var(--velo-text-muted);
-  max-width: 280px;
+  flex: 1;
 }
-.scr-success .success-actions {
-  width: 100%;
-  display: flex; flex-direction: column;
-  gap: var(--velo-stack-gap-buttons);
-  margin-top: auto;
-}
+.energy-face { width: 36px; height: 36px; display: block; flex-shrink: 0; }
+.energy-arr  { width: 20px; height: 12px; display: block; flex-shrink: 0; opacity: 0.6; }
 
-/* AI-summary detail screen (col 07) */
-.ai-detail-text {
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--velo-color-steel-primary);
-}
-.ai-detail-text strong { font-weight: inherit; }
-.recommendation-card {
+/* ── Check-in screen (03) */
+/* Question card — glass card wrapping question + subtitle */
+.ci-card {
   background: var(--velo-bg-card);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--velo-radius-lg);
-  padding: 12px 14px;
+  padding: 18px 16px;
+  text-align: center;
   box-shadow: var(--velo-shadow-card);
-  font-size: 14px;
+}
+.ci-question {
+  font-size: 17px;
+  line-height: 23px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+  text-align: center;
+}
+.ci-sub {
+  font-size: 13px;
   line-height: 18px;
+  color: var(--velo-text-muted);
+  margin-top: 6px;
+  text-align: center;
+}
+/* Inactive moods — dimmed + slight blur (carousel visual) */
+.mood-widget .mw-pick:not(.is-active) {
+  opacity: 0.55;
+  filter: blur(0.8px);
+}
+
+/* ── Check-in success screen (04) — pure white */
+#scr-04.frame.html {
+  background: #ffffff !important;
+}
+.scr-04-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 24px;
+  text-align: center;
+}
+.scr-04-icon { width: 80px; height: 80px; }
+.scr-04-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  color: #1a2233;
+}
+.scr-04-sub {
+  font-size: 15px;
+  line-height: 21px;
+  color: #666;
+  margin: -4px 0;
+}
+.scr-04-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* ── Practice live screen (05) */
+/* Video placeholder card — steel-pale rounded rect inside content flow.
+   Figma: "video" text placeholder, no play button, rounded corners, margins
+   from scr-content padding. Height ≈ 30% of frame = 240px at 1×. */
+.video-block {
+  width: 100%;
+  height: 240px;
+  background: var(--velo-color-steel-pale);
+  border-radius: var(--velo-radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 15px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+/* ── Practice info badges row (05, 06) */
+.pi-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Status row (09) */
+.detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  box-shadow: var(--velo-shadow-card);
+}
+.detail-row-label {
+  font-size: 14px;
+  color: var(--velo-text-muted);
+}
+
+/* ── Zoom section (09) */
+.zoom-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  box-shadow: var(--velo-shadow-card);
+}
+.zoom-icon-box {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: #2D8CFF;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.zoom-icon-box img { width: 27px; height: 19px; display: block; filter: brightness(0) invert(1); }
+.zoom-label-text {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--velo-color-steel-primary);
 }
 
-/* ============================================================
+/* ── AI summary body (07) */
+.summary-body {
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--velo-color-steel-primary);
+}
 
-  </style>
+/* ── Booking section headers (08) */
+.booking-group-hd {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+  margin-top: 2px;
+}
+</style>
 </head>
 <body>
 
-<div class="topbar"><strong>VELO • Dashboard flow</strong> 9 экранов · парное сравнение Figma ↔ HTML на токенах DS</div>
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="topbar">
+  <strong>Dashboard</strong>
+  <span>&nbsp;— 9 экранов</span>
+  <div style="position:absolute;right:24px;display:flex;gap:6px;">
+    <button class="dev-btn active" data-w="402">402</button>
+    <button class="dev-btn" data-w="375">375</button>
+  </div>
+</div>
 
 <div class="workspace">
   <div class="workspace-row">
 
-    <!-- ============================================================
-         COLUMN 01 — dashboard-1 (main morning view)
-         Skeleton iteration 1 — DS-tokens only. Pixel positions
-         approximate; awaiting operator pass for pixel-tight fixes.
-         ============================================================ -->
+    <!-- ═══════════════════════════ COL 01 — Dashboard main ═════════════ -->
     <div class="column">
       <div class="column-name">01 — dashboard-1</div>
       <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-01-dashboard-1.png" alt="01 dashboard-1 — Figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-01-dashboard-1.png"
+             alt="Dashboard 1 etalon">
       </div>
-      <div class="frame html">
+      <div class="frame html" id="scr-01">
         <div class="velo-bg-mandala"></div>
-        <div class="scr-d01">
-          <div class="dash-safe-top"></div>
-
-          <div class="greeting">
-            <p class="greeting-line1">Доброе утро,</p>
-            <h1 class="greeting-line2">Алина</h1>
+        <div class="dash-content">
+          <!-- Greeting (two-line: muted label + bold name) -->
+          <div>
+            <div class="greeting-label">Доброе утро,</div>
+            <div class="greeting-hello">Алина</div>
           </div>
-
-          <div class="alert-pill alert-pill--warning" onclick="showToast('🟢 check-in flow')">
-            <span class="pill-icon">
+          <!-- Alert pills -->
+          <div class="alert-pill alert-pill--warning"
+               onclick="showToast('Пора на check-in!')">
+            <div class="pill-icon">
               <img src="../../02_design-system/assets/icons/icon-alert-clock.svg" alt="">
-            </span>
-            <span class="pill-body">
-              <span class="pill-title">Пора на check-in!</span>
-              <span class="pill-sub">Утренняя медитация через 30 минут</span>
-            </span>
+            </div>
+            <div class="pill-body">
+              <div class="pill-title">Пора на check-in!</div>
+              <div class="pill-sub">Утренняя медитация через 30 минут</div>
+            </div>
           </div>
-
-          <div class="alert-pill alert-pill--info" onclick="showToast('🟢 feedback flow')">
-            <span class="pill-icon">
+          <div class="alert-pill alert-pill--info"
+               onclick="showToast('Оставьте feedback!')">
+            <div class="pill-icon">
               <img src="../../02_design-system/assets/icons/icon-alert-feedback.svg" alt="">
-            </span>
-            <span class="pill-body">
-              <span class="pill-title">Оставьте feedback!</span>
-              <span class="pill-sub">Вечерняя медитация · Вчера</span>
-            </span>
+            </div>
+            <div class="pill-body">
+              <div class="pill-title">Оставьте feedback!</div>
+              <div class="pill-sub">Вечерняя медитация · Вчера</div>
+            </div>
           </div>
-
-          <h2 class="section-title">Ближайшая практика</h2>
-
-          <div class="practice-card" onclick="showToast('🟢 booking-detail')">
+          <!-- Practice card -->
+          <div class="section-title">Ближайшая практика</div>
+          <div class="practice-card" onclick="showToast('→ Детали практики')">
             <div class="pc-head">
               <div class="pc-avatar">
-                <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:38px;height:38px;">
+                <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                     width="20" height="20" alt="">
               </div>
               <div class="pc-id">
                 <div class="pc-title">Утренняя медитация</div>
                 <div class="pc-master">
                   Alex Mindful
-                  <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;">
+                  <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                       width="12" height="12" alt="✓" style="margin-left:3px;">
                 </div>
               </div>
             </div>
             <div class="pc-meta">
-              <span style="display:inline-flex;align-items:center;gap:3px;">
-                <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;">
-                Завтра, 07:00
-              </span>
-              <span style="display:inline-flex;align-items:center;gap:3px;">
-                <img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;">
-                45 мин
-              </span>
-              <span class="paid-badge">
-                <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
-                Оплачено
+              <span>Завтра, 07:00</span>
+              <span>45 мин</span>
+              <span class="paid-badge" style="font-size:11px;padding:2px 7px;">
+                <img src="../../02_design-system/assets/icons/icon-check-sm.svg"
+                     width="10" height="10" alt=""> Оплачено
               </span>
             </div>
           </div>
-
+          <!-- Action row -->
           <div class="action-row">
-            <button class="v-button v-button--glass" onclick="showToast('🟢 zoom')">Zoom</button>
-            <button class="v-button v-button--primary" onclick="showToast('📌 check-in')">Check-in</button>
+            <button class="v-button v-button--glass"
+                    onclick="showToast('Zoom ссылка скопирована')">Zoom</button>
+            <button class="v-button v-button--primary"
+                    onclick="showToast('✓ Check-in →')">Check-in</button>
           </div>
-
-          <h2 class="section-title">Ваш прогресс</h2>
+          <!-- Stats -->
+          <div class="section-title">Ваш прогресс</div>
           <div class="stats-row">
             <div class="stat-card">
-              <div class="stat-value">12</div>
-              <div class="stat-label">Практик пройдено</div>
+              <div class="sc-value">12</div>
+              <div class="sc-label">Практик пройдено</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value">9,5</div>
-              <div class="stat-label">Часов в практике</div>
+              <div class="sc-value">9,5</div>
+              <div class="sc-label">Часов в практике</div>
             </div>
           </div>
-
+          <!-- AI section — label + tabs inline (ai-header pattern, consistent with scr-02) -->
           <div class="ai-header">
-            <h2 class="section-title" style="margin:0;">AI-саммари</h2>
-            <div class="ai-tabs">
-              <button class="active" onclick="showToast('🟢 ai: week')">Неделя</button>
-              <button onclick="showToast('🟢 ai: month')">Месяц</button>
+            <div class="section-title" style="margin:0;">AI-саммари</div>
+            <div class="ai-tabs ai-tabs--inline">
+              <button class="ai-tab active">Неделя</button>
+              <button class="ai-tab">Месяц</button>
             </div>
           </div>
-          <div class="ai-card" onclick="showToast('🟢 ai-summary detail')">
-            На этой неделе вы посетили 3 практики и заметили улучшение концентрации после утренних медитаций.
+          <div class="ai-card ai-blurred">
+            На этой неделе вы посетили 3 практики и улучшили показатели
+            концентрации. Средний уровень энергии вырос.
           </div>
+        </div><!-- /dash-content -->
+        <!-- Bottom nav — OUTSIDE dash-content so it never scrolls away -->
+        <nav class="bottom-nav bottom-nav--user">
+          <button class="v-button v-button--glass v-button--round-icon active"
+                  onclick="showToast('Главная')">
+            <img src="../../02_design-system/assets/icons/icon-nav-home-active-composite.svg"
+                 width="24" height="24" alt="Главная">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Бронирования')">
+            <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg"
+                 width="24" height="24" alt="Бронирования">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Дневник')">
+            <img src="../../02_design-system/assets/icons/icon-nav-diary.svg"
+                 width="24" height="24" alt="Дневник">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Профиль')">
+            <img src="../../02_design-system/assets/icons/icon-nav-profile.svg"
+                 width="24" height="24" alt="Профиль">
+          </button>
+        </nav>
+      </div><!-- /frame html scr-01 -->
+    </div><!-- /column -->
 
-          <div class="bottom-nav">
-            <button class="v-button v-button--glass v-button--round-icon active" onclick="showToast('🏠 dashboard')">
-              <img src="../../02_design-system/assets/icons/icon-nav-home.svg" alt="home">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📔 diary')">
-              <img src="../../02_design-system/assets/icons/icon-nav-diary.svg" alt="diary">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📅 reservations')">
-              <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg" alt="reservations">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('👤 profile')">
-              <img src="../../02_design-system/assets/icons/icon-nav-profile.svg" alt="profile">
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- ============================================================
-         COLUMN 02 — dashboard-2 (variant: AI summary expanded)
-         Same chrome as col 01, AI-card расширен energy-pair + Подробнее.
-         ============================================================ -->
+    <!-- ═══════════════════════════ COL 02 — Dashboard 2 ════════════════ -->
     <div class="column">
       <div class="column-name">02 — dashboard-2</div>
       <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-02-dashboard-2.png" alt="02 dashboard-2 — Figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-02-dashboard-2.png"
+             alt="Dashboard 2 etalon">
       </div>
-      <div class="frame html">
+      <div class="frame html" id="scr-02">
         <div class="velo-bg-mandala"></div>
-        <div class="scr-d01">
-          <div class="dash-safe-top"></div>
-
-          <div class="greeting">
-            <p class="greeting-line1">Доброе утро,</p>
-            <h1 class="greeting-line2">Алина</h1>
-          </div>
-
-          <div class="alert-pill alert-pill--info" onclick="showToast('🟢 feedback flow')">
-            <span class="pill-icon">
+        <div class="dash-content">
+          <!-- No greeting on screen 02 per Figma — starts directly with pill -->
+          <!-- Alert pill -->
+          <div class="alert-pill alert-pill--info"
+               onclick="showToast('Оставьте feedback!')">
+            <div class="pill-icon">
               <img src="../../02_design-system/assets/icons/icon-alert-feedback.svg" alt="">
-            </span>
-            <span class="pill-body">
-              <span class="pill-title">Оставьте feedback!</span>
-              <span class="pill-sub">Вечерняя медитация · Вчера</span>
-            </span>
+            </div>
+            <div class="pill-body">
+              <div class="pill-title">Оставьте feedback!</div>
+              <div class="pill-sub">Вечерняя медитация · Вчера</div>
+            </div>
           </div>
-
-          <h2 class="section-title">Ближайшая практика</h2>
-          <div class="practice-card" onclick="showToast('🟢 booking-detail')">
+          <!-- Practice card -->
+          <div class="section-title">Ближайшая практика</div>
+          <div class="practice-card" onclick="showToast('→ Детали практики')">
             <div class="pc-head">
               <div class="pc-avatar">
-                <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:38px;height:38px;">
+                <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                     width="20" height="20" alt="">
               </div>
               <div class="pc-id">
                 <div class="pc-title">Утренняя медитация</div>
                 <div class="pc-master">
                   Alex Mindful
-                  <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;">
+                  <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                       width="12" height="12" alt="✓" style="margin-left:3px;">
                 </div>
               </div>
             </div>
             <div class="pc-meta">
-              <span style="display:inline-flex;align-items:center;gap:3px;">
-                <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;">
-                Завтра, 07:00
+              <span>Завтра, 07:00</span>
+              <span>45 мин</span>
+              <span class="paid-badge" style="font-size:11px;padding:2px 7px;">
+                <img src="../../02_design-system/assets/icons/icon-check-sm.svg"
+                     width="10" height="10" alt=""> Оплачено
               </span>
-              <span style="display:inline-flex;align-items:center;gap:3px;">
-                <img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;">
-                45 мин
-              </span>
+            </div>
+          </div>
+          <!-- Action row -->
+          <div class="action-row">
+            <button class="v-button v-button--glass"
+                    onclick="showToast('Zoom')">Zoom</button>
+            <button class="v-button v-button--primary"
+                    onclick="showToast('✓ Check-in →')">Check-in</button>
+          </div>
+          <!-- Stats -->
+          <div class="section-title">Ваш прогресс</div>
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="sc-value">12</div>
+              <div class="sc-label">Практик пройдено</div>
+            </div>
+            <div class="stat-card">
+              <div class="sc-value">9,5</div>
+              <div class="sc-label">Часов в практике</div>
+            </div>
+          </div>
+          <!-- AI section — label + tabs on same row (screen 02 Figma pattern) -->
+          <div class="ai-header">
+            <div class="section-title" style="margin:0;">AI-саммари</div>
+            <div class="ai-tabs ai-tabs--inline">
+              <button class="ai-tab active">Неделя</button>
+              <button class="ai-tab">Месяц</button>
+            </div>
+          </div>
+          <div class="ai-card">
+            На этой неделе вы посетили 3 практики и отметили улучшение
+            настроения после каждой медитации.
+            <div class="energy-row" style="justify-content:center;gap:10px;margin-top:10px;">
+              <span style="font-size:13px;color:var(--velo-text-muted);">с</span>
+              <img src="../../02_design-system/assets/icons/icon-mood-neutral.svg"
+                   width="36" height="36" class="energy-face" alt="">
+              <span style="font-size:13px;color:var(--velo-text-muted);">до</span>
+              <img src="../../02_design-system/assets/icons/icon-mood-good.svg"
+                   width="36" height="36" class="energy-face" alt="">
+            </div>
+          </div>
+          <!-- Подробнее → row — OUTSIDE ai-card per Figma -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;">
+            <span style="font-size:14px;color:var(--velo-color-steel-primary);"
+                  onclick="showToast('→ AI-саммари подробнее')">Подробнее</span>
+            <img src="../../02_design-system/assets/icons/icon-arrow-forward.svg"
+                 width="20" height="12" alt="→"
+                 style="opacity:0.7;cursor:pointer;"
+                 onclick="showToast('→ AI-саммари подробнее')">
+          </div>
+        </div><!-- /dash-content -->
+        <!-- Bottom nav — OUTSIDE dash-content so it never scrolls away -->
+        <nav class="bottom-nav bottom-nav--user">
+          <button class="v-button v-button--glass v-button--round-icon active"
+                  onclick="showToast('Главная')">
+            <img src="../../02_design-system/assets/icons/icon-nav-home-active-composite.svg"
+                 width="24" height="24" alt="Главная">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Бронирования')">
+            <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg"
+                 width="24" height="24" alt="Бронирования">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Дневник')">
+            <img src="../../02_design-system/assets/icons/icon-nav-diary.svg"
+                 width="24" height="24" alt="Дневник">
+          </button>
+          <button class="v-button v-button--glass v-button--round-icon"
+                  onclick="showToast('Профиль')">
+            <img src="../../02_design-system/assets/icons/icon-nav-profile.svg"
+                 width="24" height="24" alt="Профиль">
+          </button>
+        </nav>
+      </div><!-- /frame html scr-02 -->
+    </div><!-- /column -->
+
+
+    <!-- ═══════════════════════════ COL 03 — Check-in ════════════════════ -->
+    <div class="column">
+      <div class="column-name">03 — check-in</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-03-checkin.png"
+             alt="Check-in etalon">
+      </div>
+      <div class="frame html" id="scr-03">
+        <div class="velo-bg-mandala"></div>
+        <div class="top-header">
+          <button class="header-back" onclick="showToast('← назад')">
+            <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+                 width="18" height="18" alt="←">
+          </button>
+          <h2 class="header-title">Check-in</h2>
+        </div>
+        <div class="scr-content">
+          <!-- Practice info card -->
+          <div class="practice-info">
+            <div class="pi-icon">
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="24" height="24" alt="">
+            </div>
+            <div class="pi-title">Утренняя медитация</div>
+            <div class="pi-meta">с Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-calendar.svg"
+                   width="11" height="11" alt=""
+                   style="opacity:0.6;vertical-align:middle;margin:0 3px;">Завтра, 07:00</div>
+          </div>
+          <!-- Mood question card -->
+          <div class="ci-card">
+            <div class="ci-question">Как вы себя чувствуете?</div>
+            <div class="ci-sub">Оцените свое состояние перед практикой</div>
+          </div>
+          <!-- Mood widget (DS canonical: .mood-widget + .mw-pick.is-active) -->
+          <div class="mood-widget">
+            <button class="mw-pick" onclick="showToast('Не очень')">
+              <div class="mw-face">
+                <img src="../../02_design-system/assets/icons/icon-mood-bad.svg"
+                     width="26" height="26" alt="Не очень">
+              </div>
+              <div class="mw-label">Не очень</div>
+            </button>
+            <button class="mw-pick is-active" onclick="showToast('Нормально')">
+              <div class="mw-face">
+                <img src="../../02_design-system/assets/icons/icon-mood-neutral.svg"
+                     width="26" height="26" alt="Нормально">
+              </div>
+              <div class="mw-label">Нормально</div>
+            </button>
+            <button class="mw-pick" onclick="showToast('Хорошо')">
+              <div class="mw-face">
+                <img src="../../02_design-system/assets/icons/icon-mood-good.svg"
+                     width="26" height="26" alt="Хорошо">
+              </div>
+              <div class="mw-label">Хорошо</div>
+            </button>
+          </div>
+          <!-- Slider -->
+          <div class="mw-slider"></div>
+          <!-- Textarea -->
+          <textarea class="v-textarea"
+                    placeholder="Добавьте комментарий (необязательно)..."></textarea>
+        </div><!-- /scr-content -->
+        <div class="scr-bottom">
+          <button class="v-button v-button--primary"
+                  onclick="showToast('✓ Check-in отправлен!')">Check-in перед практикой</button>
+          <button class="v-link-block"
+                  onclick="showToast('Пропустить')">Пропустить</button>
+        </div>
+      </div><!-- /frame html scr-03 -->
+    </div><!-- /column -->
+
+
+    <!-- ═══════════════════════════ COL 04 — Check-in success ════════════ -->
+    <div class="column">
+      <div class="column-name">04 — checkin-success</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-04-checkin-success.png"
+             alt="Check-in success etalon">
+      </div>
+      <div class="frame html" id="scr-04">
+        <!-- No mandala bg — pure white screen per Figma etalon -->
+        <div class="scr-04-body">
+          <img src="../../02_design-system/assets/icons/icon-checkin-success.svg"
+               class="scr-04-icon" alt="✓">
+          <h2 class="scr-04-title">Check-in отправлен!</h2>
+          <p class="scr-04-sub">
+            Мастер получит информацию о вашем&nbsp;состоянии перед практикой
+          </p>
+          <div class="scr-04-actions">
+            <button class="v-button v-button--primary"
+                    onclick="showToast('▶ Начать практику')">Начать практику</button>
+            <button class="v-link-block"
+                    onclick="showToast('На главную')"
+                    style="color:var(--velo-color-steel-primary);">На главную</button>
+          </div>
+        </div>
+      </div><!-- /frame html scr-04 -->
+    </div><!-- /column -->
+
+
+    <!-- ═══════════════════════════ COL 05 — Practice live ═══════════════ -->
+    <div class="column">
+      <div class="column-name">05 — practice-live</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-05-practice-live.png"
+             alt="Practice live etalon">
+      </div>
+      <div class="frame html" id="scr-05">
+        <div class="velo-bg-mandala"></div>
+        <!-- No top-header on practice-live — video card is first element in content.
+             Figma: video placeholder (steel-pale rounded card), then practice-info,
+             then 3 buttons. No play button in Figma etalon — just "video" text. -->
+        <div class="scr-content">
+          <div class="video-block">video</div>
+          <div class="practice-info">
+            <!-- No pi-icon on screen 05 per Figma etalon -->
+            <div class="pi-title">Утренняя медитация</div>
+            <div class="pi-meta">с Alex Mindful</div>
+            <div class="pi-badges">
+              <span class="v-badge v-badge--live">В эфире</span>
+            </div>
+          </div>
+        </div>
+        <div class="scr-bottom">
+          <button class="v-button v-button--primary"
+                  onclick="showToast('▶ Войти в практику')">Войти</button>
+          <button class="v-button v-button--glass"
+                  onclick="showToast('✓ Check-in →')">Check-in</button>
+          <button class="v-button v-button--destructive"
+                  onclick="showToast('✕ Покинуть практику')">Покинуть практику</button>
+        </div>
+      </div><!-- /frame html scr-05 -->
+    </div><!-- /column -->
+
+
+    <!-- ═══════════════════════════ COL 06 — Booked practice ════════════ -->
+    <div class="column">
+      <div class="column-name">06 — booked-practice</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-06-booked-practice.png"
+             alt="Booked practice etalon">
+      </div>
+      <div class="frame html" id="scr-06">
+        <div class="velo-bg-mandala"></div>
+        <div class="top-header">
+          <button class="header-back" onclick="showToast('← назад')">
+            <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+                 width="18" height="18" alt="←">
+          </button>
+          <h2 class="header-title">Моя практика</h2>
+        </div>
+        <div class="scr-content">
+          <!-- Practice info with paid badge -->
+          <div class="practice-info">
+            <div class="pi-icon">
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="24" height="24" alt="">
+            </div>
+            <div class="pi-title">Утренняя медитация</div>
+            <div class="pi-meta">
+              <img src="../../02_design-system/assets/icons/icon-calendar.svg"
+                   width="11" height="11" alt=""
+                   style="opacity:0.6;vertical-align:middle;margin-right:3px;">Завтра, 07:00
+              <img src="../../02_design-system/assets/icons/icon-time.svg"
+                   width="11" height="11" alt=""
+                   style="opacity:0.6;vertical-align:middle;margin:0 3px;">45 мин
+            </div>
+            <div class="pi-badges">
               <span class="paid-badge">
                 <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
                 Оплачено
               </span>
             </div>
           </div>
-
-          <div class="action-row">
-            <button class="v-button v-button--glass" onclick="showToast('🟢 zoom')">Zoom</button>
-            <button class="v-button v-button--primary" onclick="showToast('📌 check-in')">Check-in</button>
+          <!-- Collapsible list rows -->
+          <div class="list-row" onclick="showToast('О практике ↓')">
+            <span>О практике</span>
+            <span class="lr-chevron"></span>
           </div>
-
-          <h2 class="section-title">Ваш прогресс</h2>
-          <div class="stats-row">
-            <div class="stat-card">
-              <div class="stat-value">12</div>
-              <div class="stat-label">Практик пройдено</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value">9,5</div>
-              <div class="stat-label">Часов в практике</div>
-            </div>
+          <div class="list-row" onclick="showToast('Что подготовить ↓')">
+            <span>Что подготовить</span>
+            <span class="lr-chevron"></span>
           </div>
-
-          <div class="ai-header">
-            <h2 class="section-title" style="margin:0;">AI-саммари</h2>
-            <div class="ai-tabs">
-              <button class="active" onclick="showToast('🟢 ai: week')">Неделя</button>
-              <button onclick="showToast('🟢 ai: month')">Месяц</button>
-            </div>
-          </div>
-          <div class="ai-card" onclick="showToast('🟢 ai-summary detail')" style="display:flex; flex-direction:column; gap:10px;">
-            <div>На этой неделе вы посетили 3 практики и отметили улучшение настроения после каждой медитации.</div>
-            <div style="font-size:13px; color:var(--velo-text-muted);">Ваш уровень энергии вырос:</div>
-            <div class="energy-pair" style="align-self:center;">
-              <span class="e-face">😩</span>
-              <span>до</span>
-              <span class="e-face">😊</span>
-            </div>
-            <button class="v-link-block" style="padding:4px 0; text-align:right; font-size:13px;" onclick="event.stopPropagation(); showToast('🟢 ai detail')">Подробнее →</button>
-          </div>
-
-          <div class="bottom-nav">
-            <button class="v-button v-button--glass v-button--round-icon active" onclick="showToast('🏠 dashboard')">
-              <img src="../../02_design-system/assets/icons/icon-nav-home.svg" alt="home">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📔 diary')">
-              <img src="../../02_design-system/assets/icons/icon-nav-diary.svg" alt="diary">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('📅 reservations')">
-              <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg" alt="reservations">
-            </button>
-            <button class="v-button v-button--glass v-button--round-icon" onclick="showToast('👤 profile')">
-              <img src="../../02_design-system/assets/icons/icon-nav-profile.svg" alt="profile">
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 03 — check-in (mood/state prompt before session)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">03 — check-in</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-03-checkin.png" alt="03 check-in — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="header-title">Check-in</h2>
-          </div>
-
-          <div class="practice-info">
-            <div class="pi-icon">
-              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
-            </div>
-            <div class="pi-title">Утренняя медитация</div>
-            <div class="pi-meta">с Alex Mindful · Завтра, 07:00</div>
-          </div>
-
-          <div style="text-align:center;">
-            <h2 class="section-title" style="margin:6px 0 4px;">Как вы себя чувствуете?</h2>
-            <div style="font-size:13px; color:var(--velo-text-muted);">Оцените свое состояние перед практикой</div>
-          </div>
-
-          <div class="mood-widget">
-            <button class="mw-pick" onclick="showToast('🟢 mood: плохо')">
-              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-bad.svg" alt="не очень" style="width:40px;height:40px;display:block;"></span>
-              <span class="mw-label">Не очень</span>
-            </button>
-            <button class="mw-pick is-active" onclick="showToast('🟢 mood: норма')">
-              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-neutral.svg" alt="нормально" style="width:40px;height:40px;display:block;"></span>
-              <span class="mw-label">Нормально</span>
-            </button>
-            <button class="mw-pick" onclick="showToast('🟢 mood: отлично')">
-              <span class="mw-face"><img src="../../02_design-system/assets/icons/icon-mood-good.svg" alt="высокий" style="width:40px;height:40px;display:block;"></span>
-              <span class="mw-label">Хорошо</span>
-            </button>
-          </div>
-          <div class="mw-slider"></div>
-
-          <textarea class="v-textarea" placeholder="Добавьте комментарий (необязательно)…"></textarea>
-
-          <button class="v-button v-button--primary" style="margin-top:auto;" onclick="showToast('📌 check-in submit')">Check-in перед практикой</button>
-          <button class="v-link-block" onclick="showToast('🟢 skip check-in')">Пропустить</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 04 — check-in success (pure white, no bg-mandala)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">04 — check-in success</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-04-checkin-success.png" alt="04 check-in success — Figma">
-      </div>
-      <div class="frame html">
-        <div class="scr-success">
-          <div class="success-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <h1 class="success-title">Check-in отправлен!</h1>
-          <p class="success-sub">Спасибо! Ваше состояние записано.<br>Хорошей практики!</p>
-          <div class="success-actions">
-            <button class="v-button v-button--primary" onclick="showToast('📌 start practice')">Начать практику</button>
-            <button class="v-link-block" onclick="showToast('🏠 dashboard')">На главную</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 05 — practice live (in-session view)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">05 — practice live</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-05-practice-live.png" alt="05 practice live — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-          </div>
-
-          <div class="video-block">video</div>
-
-          <div class="practice-info">
-            <div class="pi-title">Утренняя медитация</div>
-            <div class="pi-meta">с Alex Mindful</div>
-            <span class="v-badge v-badge--live">В эфире</span>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:var(--velo-stack-gap-buttons); margin-top:auto;">
-            <button class="v-button v-button--primary" onclick="showToast('🟢 join session')">Войти</button>
-            <button class="v-button v-button--glass" onclick="showToast('🟢 check-in')">Check-in</button>
-            <button class="v-button v-button--destructive" onclick="showToast('🟢 leave practice')">Покинуть практику</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 06 — booked practice (detail with expandables)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">06 — booked practice</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-06-booked-practice.png" alt="06 booked practice — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="header-title">Моя практика</h2>
-          </div>
-
-          <div class="practice-info">
-            <div class="pi-icon">
-              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
-            </div>
-            <div class="pi-title">Утренняя медитация</div>
-            <div class="pi-meta">
-              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;"> Завтра, 07:00</span>
-              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;"> 45 мин</span>
-              <span class="v-badge v-badge--success" style="margin-left:6px;">Оплачено</span>
-            </div>
-          </div>
-
-          <div class="list-row" onclick="showToast('🟢 expand: о практике')">
-            <span>О практике</span><span class="lr-chevron">⌄</span>
-          </div>
-          <div class="list-row" onclick="showToast('🟢 expand: подготовить')">
-            <span>Что подготовить</span><span class="lr-chevron">⌄</span>
-          </div>
-
-          <h2 class="group-title">Мастер</h2>
-          <div class="master-card" onclick="showToast('🟢 master detail')">
+          <!-- Master section -->
+          <div class="group-title">Мастер</div>
+          <div class="master-card" onclick="showToast('→ Профиль мастера')">
             <div class="mc-head">
-              <div class="mc-avatar">AM</div>
+              <div class="mc-avatar">А</div>
               <div class="mc-id">
                 <div class="mc-name">
-                  Alex Mindful
-                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg" alt="verified" style="width:16px;height:16px;display:inline;vertical-align:middle;">
+                  Алекс Майндфул
+                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg"
+                       width="14" height="14" alt="✓">
                 </div>
                 <div class="mc-tags">
+                  <span class="master-tag-chip">Йога</span>
                   <span class="master-tag-chip">Медитация</span>
-                  <span class="master-tag-chip">Mindfulness</span>
-                  <span class="master-tag-chip">MBSR</span>
+                  <span class="master-tag-chip">Дыхание</span>
                 </div>
               </div>
             </div>
-            <div class="mc-foot"><span>Подробнее</span><span>→</span></div>
+            <div class="mc-foot">Подробнее →</div>
           </div>
-
+          <!-- Warning alert -->
           <div class="warning-alert">
-            <span class="wa-icon">
-              <img src="../../02_design-system/assets/icons/icon-warning.svg" alt="" style="width:22px;height:20px;display:block;">
-            </span>
+            <div class="wa-icon">
+              <img src="../../02_design-system/assets/icons/icon-warning.svg"
+                   width="22" height="22" alt="⚠">
+            </div>
             <div class="wa-body">
-              <span class="wa-title">Противопоказания</span>
-              <span class="wa-text">Беременность, эпилепсия</span>
-            </div>
-          </div>
-
-          <div style="display:flex; flex-direction:column; gap:var(--velo-stack-gap-buttons); margin-top:auto;">
-            <button class="v-button v-button--primary" onclick="showToast('📌 check-in')">Check-in перед практикой</button>
-            <button class="v-button v-button--destructive" onclick="showToast('🟢 cancel booking')">Отменить бронирование</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 07 — AI summary (week detail)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">07 — AI summary</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-07-ai-summary.png" alt="07 AI summary — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="header-title">AI-саммари</h2>
-          </div>
-
-          <div class="info-pill">
-            <span class="ip-icon">i</span>
-            <div class="ip-body">
-              <span class="ip-title">Саммари недели</span>
-              <span class="ip-sub">16–22 января</span>
-            </div>
-          </div>
-
-          <p class="ai-detail-text">
-            На этой неделе вы посетили 3 практики и отметили улучшение настроения после каждой медитации.
-          </p>
-
-          <div style="font-size:13px; color:var(--velo-text-muted);">Ваш уровень энергии вырос:</div>
-          <div class="energy-pair" style="align-self:center;">
-            <span>с</span>
-            <span class="e-face">😩</span>
-            <span>до</span>
-            <span class="e-face">😊</span>
-          </div>
-
-          <h2 class="group-title">Рекомендации</h2>
-          <div class="recommendation-card">
-            Попробуйте добавить вечернюю медитацию для лучшего сна.
-          </div>
-          <div class="recommendation-card">
-            Вы хорошо реагируете на практики<br>с Alex Mindful.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 08 — my reservations (grouped list)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">08 — my reservations</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-08-my-reservations.png" alt="08 my reservations — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="header-title">Мои бронирования</h2>
-          </div>
-
-          <h2 class="group-title">Предстоящие</h2>
-          <div class="booking-card" onclick="showToast('🟢 booking detail')">
-            <div class="bc-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2"/><path d="M12 8v6"/><path d="M8 12l4 2 4-2"/><path d="M7 20l3-6m4 0l3 6"/></svg>
-            </div>
-            <div class="bc-body">
-              <div class="bc-title">Утренняя медитация</div>
-              <div class="bc-master"><span class="verified">✓</span> Alex Mindful</div>
-              <div class="bc-meta">
-                <span class="bc-date">24 янв, 07:00</span>
-                <span class="v-badge v-badge--warning">⚠ Завтра</span>
+              <div class="wa-title">Противопоказания</div>
+              <div class="wa-text">
+                Не рекомендуется при острых болях в спине и повышенном давлении
               </div>
             </div>
           </div>
+        </div><!-- /scr-content -->
+        <div class="scr-bottom">
+          <button class="v-button v-button--primary"
+                  onclick="showToast('✓ Check-in →')">Check-in перед практикой</button>
+          <button class="v-button v-button--destructive"
+                  onclick="showToast('✕ Отменить бронирование')">Отменить бронирование</button>
+        </div>
+      </div><!-- /frame html scr-06 -->
+    </div><!-- /column -->
 
-          <h2 class="group-title">Прошедшие</h2>
-          <div class="booking-card" onclick="showToast('🟢 booking detail')">
-            <div class="bc-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6" r="2"/><path d="M12 8v6"/><path d="M8 12l4 2 4-2"/><path d="M7 20l3-6m4 0l3 6"/></svg>
+
+    <!-- ═══════════════════════════ COL 07 — AI summary ═════════════════ -->
+    <div class="column">
+      <div class="column-name">07 — ai-summary</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-07-ai-summary.png"
+             alt="AI summary etalon">
+      </div>
+      <div class="frame html" id="scr-07">
+        <div class="velo-bg-mandala"></div>
+        <div class="top-header">
+          <button class="header-back" onclick="showToast('← назад')">
+            <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+                 width="18" height="18" alt="←">
+          </button>
+          <h2 class="header-title">AI-саммари</h2>
+        </div>
+        <div class="scr-content">
+          <!-- Info pill -->
+          <div class="alert-pill alert-pill--info">
+            <div class="pill-icon">
+              <img src="../../02_design-system/assets/icons/icon-ai-brain.svg"
+                   width="21" height="21" alt="">
             </div>
-            <div class="bc-body">
-              <div class="bc-title">Вечерняя медитация</div>
-              <div class="bc-master"><span class="verified">✓</span> Alex Mindful</div>
-              <div class="bc-meta">
-                <span class="bc-date">22 янв, 19:00</span>
-                <span class="v-badge v-badge--success">✓ Завершена</span>
-              </div>
+            <div class="pill-body">
+              <div class="pill-title" style="color:#26767d;">Саммари недели 16–22 января</div>
+              <div class="pill-sub" style="color:#2f9ea8;">На основе ваших практик и check-in</div>
             </div>
           </div>
-          <div class="booking-card" onclick="showToast('🟢 booking detail')">
+          <!-- Summary text -->
+          <div class="summary-body">
+            За эту неделю вы посетили 3 практики: утреннюю йогу, медитацию
+            осознанности и дыхательные упражнения. Средний уровень концентрации
+            вырос на 18%. Вы выполнили запланированные практики в полном объёме.
+          </div>
+          <!-- Energy row -->
+          <div class="group-title">Ваш уровень энергии вырос:</div>
+          <div class="energy-row" style="justify-content:center; gap:16px;">
+            <img src="../../02_design-system/assets/icons/icon-mood-neutral.svg"
+                 width="36" height="36" class="energy-face" alt="">
+            <img src="../../02_design-system/assets/icons/icon-arrow-forward.svg"
+                 width="20" height="12" class="energy-arr" alt="">
+            <img src="../../02_design-system/assets/icons/icon-mood-good.svg"
+                 width="36" height="36" class="energy-face" alt="">
+          </div>
+          <!-- Recommendations -->
+          <div class="group-title">Рекомендации</div>
+          <div class="recommendation-card">
+            Добавьте утреннюю дыхательную практику — 5 минут пранаямы улучшат
+            концентрацию на весь день.
+          </div>
+          <div class="recommendation-card">
+            Рассмотрите вечернюю медитацию перед сном для улучшения качества
+            отдыха и восстановления.
+          </div>
+        </div><!-- /scr-content -->
+      </div><!-- /frame html scr-07 -->
+    </div><!-- /column -->
+
+
+    <!-- ═══════════════════════════ COL 08 — My reservations ════════════ -->
+    <div class="column">
+      <div class="column-name">08 — my-reservations</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-08-my-reservations.png"
+             alt="My reservations etalon">
+      </div>
+      <div class="frame html" id="scr-08">
+        <div class="velo-bg-mandala"></div>
+        <div class="top-header">
+          <button class="header-back" onclick="showToast('← назад')">
+            <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+                 width="18" height="18" alt="←">
+          </button>
+          <h2 class="header-title">Мои бронирования</h2>
+        </div>
+        <div class="scr-content">
+          <!-- Upcoming -->
+          <div class="booking-group-hd">Предстоящие</div>
+          <div class="booking-card" onclick="showToast('→ Детали бронирования')">
             <div class="bc-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8 6 6 8 6 12c0 3 2 5 3 6"/><path d="M12 2c4 4 6 6 6 10 0 3-2 5-3 6"/><circle cx="12" cy="14" r="3"/></svg>
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="18" height="18" alt="">
             </div>
             <div class="bc-body">
-              <div class="bc-title">Breathwork</div>
+              <div class="bc-title">Утренняя йога</div>
               <div class="bc-master">
-                <img src="../../02_design-system/assets/icons/icon-verified.svg" alt="verified" style="width:13px;height:13px;display:inline;vertical-align:middle;">
-                Maria Flow
+                Алекс Майндфул
+                <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                     width="10" height="10" alt="✓" style="margin-left:2px;">
               </div>
               <div class="bc-meta">
-                <span class="bc-date">20 янв, 10:00</span>
-                <span class="v-badge v-badge--error">✗ Отменена</span>
+                <span class="bc-date">Завтра, 20 января · 09:00</span>
+                <span class="v-badge v-badge--warning">Завтра</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         COLUMN 09 — booking detail (status + master + zoom info)
-         ============================================================ -->
-    <div class="column">
-      <div class="column-name">09 — booking detail</div>
-      <div class="frame figma">
-        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-09-booking-detail.png" alt="09 booking detail — Figma">
-      </div>
-      <div class="frame html">
-        <div class="velo-bg-mandala"></div>
-        <div class="scr-detail">
-          <div class="top-header">
-            <button class="header-back" onclick="showToast('← back')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <h2 class="header-title">Бронирование</h2>
+          <!-- Past -->
+          <div class="booking-group-hd">Прошедшие</div>
+          <div class="booking-card" onclick="showToast('→ Детали')">
+            <div class="bc-icon">
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="18" height="18" alt="">
+            </div>
+            <div class="bc-body">
+              <div class="bc-title">Медитация осознанности</div>
+              <div class="bc-master">
+                Алекс Майндфул
+                <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                     width="10" height="10" alt="✓" style="margin-left:2px;">
+              </div>
+              <div class="bc-meta">
+                <span class="bc-date">17 января · 11:00</span>
+                <span class="v-badge v-badge--success">Завершена</span>
+              </div>
+            </div>
           </div>
+          <div class="booking-card" onclick="showToast('→ Детали')">
+            <div class="bc-icon">
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="18" height="18" alt="">
+            </div>
+            <div class="bc-body">
+              <div class="bc-title">Дыхательные практики</div>
+              <div class="bc-master">
+                Алекс Майндфул
+                <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                     width="10" height="10" alt="✓" style="margin-left:2px;">
+              </div>
+              <div class="bc-meta">
+                <span class="bc-date">14 января · 18:00</span>
+                <span class="v-badge v-badge--error">Отменена</span>
+              </div>
+            </div>
+          </div>
+        </div><!-- /scr-content -->
+      </div><!-- /frame html scr-08 -->
+    </div><!-- /column -->
 
+
+    <!-- ═══════════════════════════ COL 09 — Booking detail ═════════════ -->
+    <div class="column">
+      <div class="column-name">09 — booking-detail</div>
+      <div class="frame figma">
+        <img src="../../02_design-system/assets/screenshots/user/user-dashboard-09-booking-detail.png"
+             alt="Booking detail etalon">
+      </div>
+      <div class="frame html" id="scr-09">
+        <div class="velo-bg-mandala"></div>
+        <div class="top-header">
+          <button class="header-back" onclick="showToast('← назад')">
+            <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+                 width="18" height="18" alt="←">
+          </button>
+          <h2 class="header-title">Бронирование</h2>
+        </div>
+        <div class="scr-content">
+          <!-- Practice info -->
           <div class="practice-info">
             <div class="pi-icon">
-              <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="" style="width:44px;height:44px;display:block;">
+              <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                   width="24" height="24" alt="">
             </div>
-            <div class="pi-title">Утренняя медитация</div>
-            <div class="pi-meta" style="display:flex;gap:10px;">
-              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="" style="width:13px;height:13px;"> Завтра, 07:00</span>
-              <span style="display:inline-flex;align-items:center;gap:4px;"><img src="../../02_design-system/assets/icons/icon-time.svg" alt="" style="width:13px;height:13px;"> 45 мин</span>
-            </div>
+            <div class="pi-title">Утренняя йога</div>
+            <div class="pi-meta">Пятница, 20 января · 09:00 · 60 мин</div>
           </div>
-
-          <div style="display:flex; align-items:center; justify-content:space-between;">
-            <h2 class="group-title" style="margin:0;">Статус</h2>
-            <span class="v-badge v-badge--success">✓ Подтверждена</span>
+          <!-- Status row -->
+          <div class="detail-row">
+            <span class="detail-row-label">Статус</span>
+            <span class="v-badge v-badge--success">Подтверждена</span>
           </div>
-
-          <h2 class="group-title">Мастер</h2>
-          <div class="master-card" onclick="showToast('🟢 master detail')">
+          <!-- Master section -->
+          <div class="group-title">Мастер</div>
+          <div class="master-card" onclick="showToast('→ Профиль мастера')">
             <div class="mc-head">
-              <div class="mc-avatar">AM</div>
+              <div class="mc-avatar">А</div>
               <div class="mc-id">
                 <div class="mc-name">
-                  Alex Mindful
-                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg" alt="verified" style="width:16px;height:16px;display:inline;vertical-align:middle;">
+                  Алекс Майндфул
+                  <img src="../../02_design-system/assets/icons/icon-verified-master.svg"
+                       width="14" height="14" alt="✓">
                 </div>
                 <div class="mc-tags">
+                  <span class="master-tag-chip">Йога</span>
                   <span class="master-tag-chip">Медитация</span>
-                  <span class="master-tag-chip">Mindfulness</span>
-                  <span class="master-tag-chip">MBSR</span>
                 </div>
               </div>
             </div>
-            <div class="mc-foot"><span>Подробнее</span><span>→</span></div>
+            <div class="mc-foot">Подробнее →</div>
           </div>
-
-          <h2 class="group-title">Zoom</h2>
+          <!-- Zoom section -->
+          <div class="group-title">ZOOM</div>
+          <div class="zoom-section">
+            <div class="zoom-icon-box">
+              <img src="../../02_design-system/assets/icons/icon-video-camera.svg"
+                   width="27" height="19" alt="">
+            </div>
+            <div>
+              <div class="zoom-label-text">Ссылка на конференцию</div>
+              <div style="font-size:12px;color:var(--velo-text-muted);margin-top:2px;">
+                Будет доступна за 10 минут до начала
+              </div>
+            </div>
+          </div>
+          <!-- Info pill -->
           <div class="info-pill">
-            🔗 Ссылка на встречу будет отправлена за 30 минут до начала
+            <div class="ip-body">
+              <div class="ip-title">Ссылка появится за 10 минут до начала практики</div>
+            </div>
           </div>
-
-          <div style="display:flex;flex-direction:column;gap:var(--velo-stack-gap-buttons);margin-top:auto;">
-            <button class="v-button v-button--destructive" onclick="showToast('❌ бронирование отменено')">Отменить бронирование</button>
-          </div>
+        </div><!-- /scr-content -->
+        <div class="scr-bottom">
+          <button class="v-button v-button--destructive"
+                  onclick="showToast('✕ Отменить бронирование')">Отменить бронирование</button>
         </div>
-      </div>
-    </div>
+      </div><!-- /frame html scr-09 -->
+    </div><!-- /column -->
 
-  </div><!-- workspace-row -->
-</div><!-- workspace -->
+  </div><!-- /workspace-row -->
+</div><!-- /workspace -->
 
 <script>
+/* Toast system (VELO-METHODOLOGY §7.5) */
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  if (!t) return;
+  const container = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = 'toast';
   t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+  container.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
 }
+
+/* Device switcher — resize all frames + columns */
+document.querySelectorAll('.dev-btn').forEach(btn => {
+  btn.addEventListener('click', function () {
+    document.querySelectorAll('.dev-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    const w = parseInt(this.dataset.w);
+    document.querySelectorAll('.frame').forEach(f => { f.style.width = w + 'px'; });
+    document.querySelectorAll('.column').forEach(c => { c.style.width = w + 'px'; });
+  });
+});
 </script>
+
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Mockups — Index
 
-Last updated: 2026-05-18
+Last updated: 2026-05-19
 
 > Template per VELO-METHODOLOGY.md §12.6. Updated **immediately** after
 > any mockup file is added or its status changes (§12.2).
@@ -20,7 +20,8 @@ Status legend:
 | File | Status | Approved on | Notes |
 |---|---|---|---|
 | `user/_onboarding-flow.html` | ✅ **MOCKUP GATE passed 2026-05-18** | 2026-05-18 | Combined viewer: 8 columns Onboarding flow (welcome / login / register / oauth / onb-1..4). Все колонки approved оператором. DS canon promoted (typography h1+body tokens, button/input heights, stack gaps, glass canon, halo composition). Real Figma SVG icons (`icon-onb-*.svg`) extracted via Plugin API. |
-| `user/_dashboard-flow.html` | 🗑 **superseded 2026-05-18** | — | Combined viewer: 9 columns Dashboard block. Built in Sprint 2 Phase 4 via PNG reverse-engineering — incurred 3× rework on alert pills + glass halo + bottom-nav. Per Sprint 2.5 plan, **the viewer is rebuilt ground-up after Dashboard 9 DS-complete state** (Track A T2.5.1 → T2.5.2). File kept until that pass completes for reference; do not use as canon. Custom-named classes (info-pill, warning-alert, master-card, list-row, video-block, energy-pair, recommendation-card) — будут validated против harvested Figma values во время T2.5.1. |
+| `user/_dashboard-flow.html` | 🔧 **work in progress — DS-compliant 2026-05-19** | — | Combined viewer: 9 columns Dashboard block. **Full rebuild + DS compliance pass 2026-05-19.** `_shared/` CSS architecture (AP-M-6). z-index stacking bug fixed globally. All emoji removed (0). 3 new DS icons extracted from Figma. 19/19 icon refs resolved. 70/70 structural checks. Three new shared components in `_shared/components.css`. **Bottom Nav pass 2026-05-19:** `class="bottom-nav"` → `class="bottom-nav bottom-nav--user"` (2 instances, DS-first §7.0). Awaiting operator MOCKUP GATE. |
+| `user/_calendar-flow.html` | 🔧 **work in progress — built 2026-05-19** | — | Combined viewer: 11 columns Calendar 11 block (Macro-Phase II Priority 2). 8/11 screens with PNG etalons. 3 TBD overlays: col 03 `23_Calendar 2` (541:1744, no PNG deferred), col 07 `27_Ask Master` (541:2156, no PNG deferred), col 11 `31_Message` widget (541:6514, 350×293 non-standard). 0 emoji, 0 missing icons, div balance 231/231. New components: CalendarWeekStrip, FilterPanel, PracticeDetailCard, FeedbackRating, MasterProfileHero (all ⬜ candidate). **Bottom Nav pass 2026-05-19:** `class="bottom-nav"` → `class="bottom-nav bottom-nav--user"` (2 instances, DS-first §7.0). Awaiting operator MOCKUP GATE. |
 
 Planning target (per ROADMAP §6.1, §7.1): ~20-25 screens.
 
@@ -38,7 +39,18 @@ Planning target (per ROADMAP §6.1, §7.1): ~20-25 screens.
 7. ✅ `07 — onboarding-3 (chat with masters)` — operator approved
 8. ✅ `08 — onboarding-4 (timezone)` — operator approved
 
-✅ **Onboarding block CLOSED 2026-05-18.** Next: **Dashboard 9** (separate viewer).
+✅ **Onboarding block CLOSED 2026-05-18.** Dashboard 9 viewer rebuilt 2026-05-19 — awaiting MOCKUP GATE.
+
+**Dashboard combined viewer — per-column HTML status (all 🔧 built 2026-05-19, awaiting MOCKUP GATE):**
+1. 🔧 `01 — dashboard-1` — greeting + 2 alert-pills + practice-card + action-row + stats-row + AI tabs + blurred ai-card + bottom-nav (home active)
+2. 🔧 `02 — dashboard-2` — expanded ai-card + energy-row 😩→😊 + Подробнее link + bottom-nav (home active)
+3. 🔧 `03 — check-in` — top-header + practice-info (centered) + mood-widget (3 picks, center active) + mw-slider + v-textarea + primary CTA + skip link
+4. 🔧 `04 — checkin-success` — pure white bg + icon-checkin-success.svg (80px) + title + sub + buttons (no mandala bg)
+5. 🔧 `05 — practice-live` — video-block + practice-info + v-badge--live + Войти primary + Check-in glass + Покинуть destructive
+6. 🔧 `06 — booked-practice` — top-header + practice-info + paid-badge + 2 list-rows + master-card + warning-alert + Check-in primary + Отменить destructive
+7. 🔧 `07 — ai-summary` — top-header + info-pill (Саммари недели) + summary-body + energy-row + 2 recommendation-cards
+8. 🔧 `08 — my-reservations` — top-header + 3 booking-cards (warning/success/error v-badge variants)
+9. 🔧 `09 — booking-detail` — top-header + practice-info + detail-row (Статус + v-badge--success) + master-card + ZOOM section + info-pill + Отменить destructive
 
 **DS components promoted from Onboarding** (codified в variables.css 2026-05-18):
 - Layer 2 tokens: `--velo-button-height` (52), `--velo-input-height` (42), `--velo-stack-gap-buttons` (16), `--velo-stack-gap-forms` (10), `--velo-typo-h1-{size,line,spacing,color}` (30/36/1.2/steel-light), `--velo-typo-body-{size,line,color}` (18/24/steel-light), `--velo-glass-fill` (10% blue), `--velo-shadow-button` (drop-on-top composition).
@@ -87,26 +99,4 @@ All mockup HTML files link to three shared CSS layers in `_shared/`:
 | File | Contents |
 |---|---|
 | `_shared/tokens.css` | Full `:root {}` mirror of `02_design-system/tokens/variables.css` + `@font-face` (Marmelad) + shell-chrome tokens (`--shell-*`). **Sync rule**: update whenever `variables.css` changes. |
-| `_shared/shell.css` | Viewer chrome: `.frame`, `.topbar`, `.workspace`, `.column`, `.row-label`, `.tbd-overlay`, toast infrastructure. |
-| `_shared/components.css` | Reusable VELO component classes: `.v-button` + variants, `.v-input`, `.velo-header-compact`, `.mood-widget`, `.bottom-nav`, `.alert-pill`, etc. New classes added here as each component is first built in any mockup. |
-
-Each HTML mockup contains only screen-specific CSS in its `<style>` block (`.scr-NN`-prefixed rules and screen-data-display overrides). No inline token redeclarations. See VELO-METHODOLOGY.md §7.3.
-
----
-
-## Summary
-
-- Mockup files: 1 (combined viewer — superseded welcome.html cleaned up 2026-05-18)
-- **Approved (MOCKUP GATE passed): 8 columns** — full Onboarding flow ✅ 2026-05-18
-- Combined viewer columns pending: 0 (Onboarding complete)
-- Dashboard block (9 columns / separate viewer): **next focus** — Sprint 2 Phase 4 continuation. DS canon ready, можно сразу строить на готовых tokens.
-
----
-
-## References
-
-- Methodology: `../04_methodology/VELO-METHODOLOGY.md` §7 (Mockup Layer) + §10.4 (MOCKUP GATE)
-- Mockup CSS architecture: §7.3 (three-layer `_shared/` pattern)
-- Prompt template: §9.5
-- Anti-patterns: §11.2 (AP-M-6: no monolithic inline CSS)
-- Token bridge for livemockup-studio: §11.3 (not used in `_shared/tokens.css`)
+| `_shared/shell.css` | Viewer chrome: `.frame`, `.topbar`, `.workspace`, `.column`, `.row-label`, `.tbd-overlay`, t

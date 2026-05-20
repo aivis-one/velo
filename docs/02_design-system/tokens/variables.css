@@ -102,6 +102,14 @@
   /* --- State colors — Amber (tag/label family) --- */
   --velo-color-amber-50:      #fdf3e2;                          /* promoted: Dashboard 9 booked-practice `541:7573` — master profile tags ("MBSR", "yoga", "yin" background). Soft warm amber. Single-block discovery 2026-05-18. */
 
+  /* --- Mood gradient palette (Master Dashboard 8 — MoodProgressBar) --- */
+  /* 4 gradient stop colours, 27 total occurrences across Student Profile + Check-ins frames (758:3948, 758:4068).
+     Promoted as Layer 1 primitives 2026-05-19 (DS iteration 10). */
+  --velo-color-steel-wash:    #dce6f3;  /* mood gradient cool end   — 9+ uses, SACRED 758:3245 */
+  --velo-color-teal-wash:     #bdecf1;  /* mood gradient mid (teal) — 9+ uses, SACRED 758:3245 */
+  --velo-color-coral-wash:    #f9cbd1;  /* mood gradient warm-mid   — 9+ uses, SACRED 758:3245 */
+  --velo-color-peach-wash:    #fddfc4;  /* mood gradient warm end   — 9+ uses, SACRED 758:3245 */
+
   /* --- Spacing primitives (4-base scale, PROVISIONAL from DSYS-era reference; SACRED uses absolute positioning, no autolayout values to verify against) --- */
   --velo-space-0:  0px;
   --velo-space-1:  4px;

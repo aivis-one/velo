@@ -20,7 +20,7 @@
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: 0;
+  z-index: -1;
 }
 
 /* Compact VELO header — мандала (с VELO text внутри SVG) only.
@@ -367,11 +367,13 @@
 }
 .alert-pill.alert-pill--error .pill-title { color: var(--velo-text-error); }
 
-/* Section title (small subhead — "Ближайшая практика", "Ваш прогресс", "AI-саммари") */
+/* Section title (small subhead — "Ближайшая практика", "Ваш прогресс", "AI-саммари")
+   font-weight: 700 added 2026-05-20 — Figma measurement confirms bold weight across all sections */
 .section-title {
   margin: 6px 0 0;
   font-size: 16px;
   line-height: 20px;
+  font-weight: 700;
   letter-spacing: 0.3px;
   color: var(--velo-color-steel-primary);
 }
@@ -389,13 +391,18 @@
   display: flex; align-items: center; gap: 12px;
 }
 .practice-card .pc-avatar {
-  width: 38px; height: 38px;
+  width: 48px; height: 48px;
   border-radius: var(--velo-radius-pill);
   background: var(--velo-color-alpha-steel-15);
   color: var(--velo-color-steel-primary);
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
+  font-size: 16px;
   flex-shrink: 0;
+}
+/* Icon inside avatar — fixed 28×28 regardless of img attribute */
+.practice-card .pc-avatar img {
+  width: 28px; height: 28px;
+  display: block;
 }
 .practice-card .pc-id {
   display: flex; flex-direction: column; gap: 2px;
@@ -404,6 +411,7 @@
 .practice-card .pc-title {
   font-size: 16px;
   line-height: 20px;
+  font-weight: 700;
   color: var(--velo-color-steel-primary);
 }
 .practice-card .pc-master {
@@ -651,6 +659,7 @@
 .practice-info .pi-title {
   font-size: 18px;
   line-height: 22px;
+  font-weight: 700;
   color: var(--velo-color-steel-primary);
 }
 .practice-info .pi-meta {
@@ -725,8 +734,13 @@
   line-height: 18px;
 }
 .list-row .lr-chevron {
-  color: var(--velo-text-muted);
-  font-size: 14px;
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--velo-text-muted);
+  border-bottom: 2px solid var(--velo-text-muted);
+  transform: rotate(45deg) translateY(-3px);
+  flex-shrink: 0;
 }
 
 /* Warning alert (contraindications / disclaimers) */
@@ -858,4 +872,669 @@
   letter-spacing: 0.3px;
 }
 
-/* Stretched detail screen shell — common to col 03..09 */
+/* ============================================================
+   BOTTOM NAV VARIANTS — user vs master (DS-first §7.0, 2026-05-19)
+   Base .bottom-nav already defined above (lines ~434).
+   These semantic modifiers identify role context; HTML/CSS identical —
+   only icon src differs between user and master nav.
+   User nav  : home, reservations, diary, profile
+   Master nav: home, schedule, students, master-profile
+   ============================================================ */
+.bottom-nav--user  { /* semantic only — layout inherited from .bottom-nav */ }
+.bottom-nav--master { /* semantic only — layout inherited from .bottom-nav */ }
+
+/* ============================================================
+   CALENDAR 11 COMPONENTS — promoted 2026-05-19 (DS-first §7.0)
+   Before-naming check passed: no conflicts with v1.8 CATALOG.
+   Prefixes: .cal-*, .cdc-*, .pdc-*, .pmr-*, .mpr-*, .bks-*,
+             .fbk-*, .fr-*, .msg-*, .ask-master-*, .wa-*
+   ============================================================ */
+
+/* ── Screen content structure (Calendar + detail screens) */
+.scr-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.scr-scroll::-webkit-scrollbar { display: none; }
+
+.scr-bottom {
+  padding: 10px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Cost row (Стоимость label + price value) */
+.cost-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.cost-label {
+  font-size: 14px;
+  color: var(--velo-text-muted);
+}
+.cost-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.cost-free {
+  color: var(--velo-color-teal-dark);
+}
+
+/* ── Calendar screen title */
+.cal-title {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  color: var(--velo-color-steel-primary);
+  padding: 16px 20px 4px;
+  flex-shrink: 0;
+}
+
+/* ── Calendar section date label */
+.cal-section-date {
+  font-size: 13px;
+  color: var(--velo-text-muted);
+  padding: 0 20px 4px;
+  flex-shrink: 0;
+}
+
+/* ── Calendar week strip (7 day cells) */
+.cal-week-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+.cal-week-cells {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.cal-day-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border-radius: var(--velo-radius-md);
+  cursor: pointer;
+  flex: 1;
+  min-width: 36px;
+  transition: background 0.1s ease;
+}
+.cal-day-cell:hover { background: var(--velo-color-alpha-steel-15); }
+.cal-day-cell.active {
+  background: var(--velo-color-steel-primary);
+}
+.cdc-label {
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--velo-text-muted);
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+.cal-day-cell.active .cdc-label { color: rgba(255,255,255,0.7); }
+.cdc-num {
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.cal-day-cell.active .cdc-num { color: #fff; }
+.cdc-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--velo-color-teal-medium);
+}
+.cdc-dot-empty {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+.cal-day-cell.active .cdc-dot { background: rgba(255,255,255,0.8); }
+
+/* ── Week navigation row (prev/next arrows under cells) */
+.cal-week-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 0;
+}
+.cal-week-nav-btn {
+  background: var(--velo-color-alpha-steel-15);
+  border: none;
+  border-radius: var(--velo-radius-pill);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--velo-color-steel-primary);
+  flex-shrink: 0;
+}
+.cal-week-nav-btn:active { background: var(--velo-color-alpha-steel-30); }
+
+/* ── Calendar filter button (dark steel, white icon+text) */
+.cal-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--velo-color-steel-primary);
+  border: none;
+  border-radius: var(--velo-radius-pill);
+  padding: 6px 14px 6px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cal-filter-btn-icon {
+  width: 16px; height: 16px;
+  display: block;
+}
+.cal-filter-btn-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+}
+.cal-filter-caret {
+  font-size: 10px;
+  color: rgba(255,255,255,0.7);
+  margin-left: 2px;
+}
+
+/* ── Active filter chips row */
+.cal-filter-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 0 20px 4px;
+}
+.cal-filter-chips-row .filter-chip {
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--velo-color-alpha-steel-15);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-pill);
+  color: var(--velo-color-steel-primary);
+  cursor: pointer;
+}
+.cal-filter-chips-row .filter-chip.active,
+.cal-filter-chips-row .filter-chip--select {
+  background: var(--velo-color-steel-primary);
+  color: #fff;
+  border-color: var(--velo-color-steel-primary);
+}
+
+/* ── Filter panel (overlay) */
+.filter-panel {
+  background: var(--velo-bg-card);
+  border-radius: var(--velo-radius-lg) var(--velo-radius-lg) 0 0;
+  padding: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+}
+.filter-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+}
+.filter-panel-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.filter-panel-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: var(--velo-text-muted);
+  font-size: 18px;
+}
+.filter-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.filter-group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--velo-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filter-chip {
+  padding: 6px 14px;
+  background: var(--velo-color-alpha-steel-15);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-pill);
+  font-size: 13px;
+  color: var(--velo-color-steel-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.1s, border-color 0.1s;
+}
+.filter-chip--select,
+.filter-chip.active {
+  background: var(--velo-color-steel-primary);
+  color: #fff;
+  border-color: var(--velo-color-steel-primary);
+}
+.filter-chip-check {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+/* ── Practice detail card */
+.practice-detail-card {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pdc-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-alpha-steel-15);
+  display: flex; align-items: center; justify-content: center;
+}
+.pdc-icon img { width: 24px; height: 24px; }
+.pdc-name {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 22px;
+  color: var(--velo-color-steel-primary);
+}
+.pdc-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--velo-text-muted);
+}
+.pdc-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pdc-meta-item img { width: 14px; height: 14px; }
+
+/* ── Complexity indicator dots */
+.complexity-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--velo-text-muted);
+}
+.cplx-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.cplx-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--velo-color-alpha-steel-15);
+  border: 1px solid var(--velo-color-steel-primary);
+}
+.cplx-dot.filled {
+  background: var(--velo-color-steel-primary);
+}
+
+/* ── Practice info row (in detail cards) */
+.practice-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
+.pi-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.pi-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--velo-text-muted);
+}
+.pi-icon {
+  width: 16px; height: 16px;
+}
+
+/* ── Practice meta row items (calendar list rows) */
+.pmr-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--velo-border-card);
+  font-size: 14px;
+  color: var(--velo-color-steel-primary);
+  cursor: pointer;
+}
+.pmr-item:last-child { border-bottom: none; }
+
+/* ── Master profile hero section */
+.mpr-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 20px 10px;
+  text-align: center;
+}
+.mpr-avatar {
+  width: 80px; height: 80px;
+  border-radius: var(--velo-radius-pill);
+  overflow: hidden;
+  background: var(--velo-color-alpha-steel-15);
+}
+.mpr-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.mpr-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+}
+.mpr-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mpr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--velo-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+}
+.mpr-badge--verified {
+  background: var(--velo-color-teal-50);
+  color: var(--velo-color-teal-dark);
+  border: 1px solid var(--velo-color-teal-light);
+}
+.mpr-badge--exp {
+  background: var(--velo-color-alpha-steel-15);
+  color: var(--velo-color-steel-primary);
+  border: 1px solid var(--velo-border-card);
+}
+.mpr-bio {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--velo-text-muted);
+  text-align: center;
+  padding: 0 4px;
+}
+.mpr-stats-row {
+  display: flex;
+  gap: 10px;
+  padding: 8px 20px 4px;
+}
+.mpr-stat-card {
+  flex: 1;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  box-shadow: var(--velo-shadow-card);
+}
+.mpr-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+}
+.mpr-stat-label {
+  font-size: 11px;
+  color: var(--velo-text-muted);
+  text-align: center;
+}
+
+/* ── Booking success screen */
+.bks-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 20px 10px;
+  text-align: center;
+}
+.bks-illustration {
+  width: 120px; height: 110px;
+}
+.bks-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+}
+.bks-sub {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--velo-text-muted);
+}
+.bks-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--velo-text-muted);
+}
+.bks-ask-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 6px;
+}
+.bks-ask-label {
+  font-size: 13px;
+  color: var(--velo-text-muted);
+  text-align: left;
+}
+
+/* ── Feedback rating card */
+.fbk-card {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fbk-heading {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.fbk-sub {
+  font-size: 13px;
+  color: var(--velo-text-muted);
+}
+.feedback-rating {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+.fr-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 4px;
+  border-radius: var(--velo-radius-md);
+  transition: background 0.1s;
+}
+.fr-option:hover { background: var(--velo-color-alpha-steel-15); }
+.fr-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--velo-radius-pill);
+  background: var(--velo-color-alpha-steel-15);
+  display: flex; align-items: center; justify-content: center;
+}
+.fr-icon img { width: 36px; height: 36px; }
+.fr-label {
+  font-size: 11px;
+  color: var(--velo-text-muted);
+  text-align: center;
+  line-height: 14px;
+}
+
+/* ── Check-in success screen */
+.cal-success-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+}
+.cal-success-icon {
+  flex-shrink: 0;
+}
+.cal-success-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--velo-color-steel-primary);
+}
+.cal-success-sub {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--velo-text-muted);
+}
+
+/* ── Message widget (Ask Master / Message thread overlay) */
+.msg-widget {
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 14px 16px;
+  box-shadow: var(--velo-shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg-master-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.msg-master-avatar {
+  width: 40px; height: 40px;
+  border-radius: var(--velo-radius-pill);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.msg-master-avatar img { width: 100%; height: 100%; }
+.msg-master-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.msg-master-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+}
+.msg-master-sub {
+  font-size: 12px;
+  color: var(--velo-text-muted);
+}
+.msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ── Ask Master mini-card */
+.ask-master-mini-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--velo-bg-card);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--velo-radius-lg);
+  padding: 12px 14px;
+  box-shadow: var(--velo-shadow-card);
+}
+.ask-master-avatar {
+  width: 44px; height: 44px;
+  border-radius: var(--velo-radius-pill);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.ask-master-avatar img { width: 100%; height: 100%; }
+.ask-master-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1; min-width: 0;
+}
+.ask-master-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--velo-color-steel-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ask-master-sub {
+  font-size: 12px;
+  color: var(--velo-text-secondary);
+}

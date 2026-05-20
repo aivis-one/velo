@@ -1042,5 +1042,5 @@ v1.2 changes: Sprint 2.5 inserted (DS Completion block-by-block + CBSHOME).
 v1.1 changes: validation pass — Sprint 3/4/5/7 gaps + Risk Register R-11/12/13.
 See 06_project-inputs/VALIDATION-REPORT-2026-05-17.md for details.
 Location: D:\02_Projects\velo\docs\05_roadmap\ROADMAP.md
-Status: Active — Sprint 2 in progress (expanded).
+Status: Active — Sprint 2 in progress (expanded). Macro-Phase I: ✅ ALL 10 blocks DS-complete. Macro-Phase II: Dashboard 9 🔧 awaiting MOCKUP GATE · Calendar 11 🔧 awaiting MOCKUP GATE · BottomNav DS-first pass ✅ complete (user+master variants, components.css 1518 lines, velo-design-system.html 1032 lines, COMPONENTS-CATALOG.md MasterNavBar complete, ASSETS-INDEX iter 14 / 78 icons).
 ```

@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VELO — Calendar flow (11 экранов)</title>
+<!-- VELO shared CSS layers (§7.3 three-layer architecture) -->
+<link rel="stylesheet" href="../_shared/tokens.css">
+<link rel="stylesheet" href="../_shared/shell.css">
+<link rel="stylesheet" href="../_shared/components.css">
+<style>
+/* ============================================================
+   Calendar flow — screen-specific CSS (§7.3, AP-M-6)
+   All shared component CSS lives in _shared/components.css.
+   Only viewer chrome below.
+   ============================================================ */
+
+/* Dev-switcher pill buttons (shared viewer chrome) */
+.dev-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--shell-border);
+  color: var(--shell-text-dim);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.dev-btn.active { background: rgba(255,255,255,0.12); color: var(--shell-text); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <strong>VELO</strong> Calendar flow — 11 экранов · 21_Calendar 1 → 31_Message
+</div>
+
+<div class="workspace">
+<div class="workspace-row">
+
+
+<!-- ═══════════════════════════ COL 01 — Calendar 1 ═══════════════════════ -->
+<div class="column">
+  <div class="column-name">01 — calendar-1</div>
+  <!-- Figma etalon -->
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-01-calendar-1.png"
+         alt="Calendar 1 etalon">
+  </div>
+  <!-- HTML build -->
+  <div class="frame html" id="scr-01">
+    <div class="velo-bg-mandala"></div>
+    <!-- Screen title -->
+    <div class="cal-title">Календарь</div>
+    <!-- Week strip: cells only, nav row below -->
+    <div class="cal-week-strip">
+      <div class="cal-week-cells">
+        <div class="cal-day-cell" onclick="showToast('Пн 20')">
+          <span class="cdc-label">ПН</span>
+          <span class="cdc-num">20</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Вт 21')">
+          <span class="cdc-label">ВТ</span>
+          <span class="cdc-num">21</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Ср 22')">
+          <span class="cdc-label">СР</span>
+          <span class="cdc-num">22</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell active" onclick="showToast('Чт 23 — сегодня')">
+          <span class="cdc-label">ЧТ</span>
+          <span class="cdc-num">23</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Пт 24')">
+          <span class="cdc-label">ПТ</span>
+          <span class="cdc-num">24</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Сб 25')">
+          <span class="cdc-label">СБ</span>
+          <span class="cdc-num">25</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Вс 26')">
+          <span class="cdc-label">ВС</span>
+          <span class="cdc-num">26</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+      </div>
+      <!-- Navigation row BELOW cells (pill buttons) -->
+      <div class="cal-week-nav-row">
+        <button class="cal-week-nav-btn" onclick="showToast('← предыдущая неделя')">&#8592;</button>
+        <button class="cal-week-nav-btn" onclick="showToast('следующая неделя →')">&#8594;</button>
+      </div>
+    </div>
+    <!-- Filter button — dark primary with funnel icon -->
+    <div class="cal-filter-btn" onclick="showToast('→ Фильтр практик')">
+      <span class="cal-filter-btn-label">Выбрать практики</span>
+      <img src="../../02_design-system/assets/icons/icon-cal-filter.svg"
+           class="cal-filter-btn-icon" alt="">
+    </div>
+    <!-- Scrollable practice list + bottom nav -->
+    <div class="scr-scroll">
+      <!-- Today section -->
+      <div class="cal-section-date">Сегодня, 23 января</div>
+      <div class="practice-card" onclick="showToast('→ Вечерняя медитация')">
+        <div class="pc-head">
+          <div class="pc-avatar">
+            <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                 width="20" height="20" alt="">
+          </div>
+          <div class="pc-id">
+            <div class="pc-title">Вечерняя медитация</div>
+            <div class="pc-master">
+              Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                   width="12" height="12" alt="✓">
+            </div>
+          </div>
+        </div>
+        <div class="pc-meta-row">
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            19:00
+          </span>
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            45 мин
+          </span>
+          <span class="paid-badge">
+            <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
+            Оплачено
+          </span>
+        </div>
+      </div>
+      <!-- Tomorrow section -->
+      <div class="cal-section-date">Завтра, 24 января</div>
+      <div class="practice-card" onclick="showToast('→ Утренняя йога')">
+        <div class="pc-head">
+          <div class="pc-avatar">
+            <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                 width="20" height="20" alt="">
+          </div>
+          <div class="pc-id">
+            <div class="pc-title">Утренняя йога</div>
+            <div class="pc-master">
+              Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                   width="12" height="12" alt="✓">
+            </div>
+          </div>
+        </div>
+        <div class="pc-meta-row">
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            07:00
+          </span>
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            45 мин
+          </span>
+          <span class="paid-badge">
+            <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
+            Оплачено
+          </span>
+        </div>
+      </div>
+      <div class="practice-card" onclick="showToast('→ Breathwork: Энергия')">
+        <div class="pc-head">
+          <div class="pc-avatar">
+            <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                 width="20" height="20" alt="">
+          </div>
+          <div class="pc-id">
+            <div class="pc-title">Breathwork: Энергия</div>
+            <div class="pc-master">Maria Flow</div>
+          </div>
+        </div>
+        <div class="pc-meta-row">
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            10:00
+          </span>
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            60 мин
+          </span>
+          <span class="v-badge v-badge--info">Бесплатно</span>
+        </div>
+      </div>
+      <!-- Bottom nav — calendar tab active -->
+      <nav class="bottom-nav bottom-nav--user">
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Главная')">
+          <img src="../../02_design-system/assets/icons/icon-nav-home-active-composite.svg"
+               width="24" height="24" alt="Главная">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon active"
+                onclick="showToast('Календарь')">
+          <img src="../../02_design-system/assets/icons/icon-nav-diary.svg"
+               width="24" height="24" alt="Календарь">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Бронирования')">
+          <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg"
+               width="24" height="24" alt="Бронирования">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Профиль')">
+          <img src="../../02_design-system/assets/icons/icon-nav-profile.svg"
+               width="24" height="24" alt="Профиль">
+        </button>
+      </nav>
+    </div><!-- /scr-scroll -->
+  </div><!-- /frame html scr-01 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 02 — Calendar filter ════════════════ -->
+<div class="column">
+  <div class="column-name">02 — calendar-filter</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-02-calendar-filter.png"
+         alt="Calendar filter etalon">
+  </div>
+  <div class="frame html" id="scr-02">
+    <div class="velo-bg-mandala"></div>
+    <!-- Filter panel fills the frame — no bottom CTA strip -->
+    <div class="filter-panel">
+      <div class="filter-panel-header">
+        <div class="filter-panel-title">
+          <img src="../../02_design-system/assets/icons/icon-diary-tab-all.svg" alt="">
+          Фильтр
+        </div>
+        <button class="filter-panel-close" onclick="showToast('Закрыть фильтр')">
+          <img src="../../02_design-system/assets/icons/icon-cal-close.svg" alt="✕">
+        </button>
+      </div>
+      <div class="filter-body">
+        <!-- Group 1: Direction -->
+        <div class="filter-group">
+          <div class="filter-group-label">Направление практики</div>
+          <div class="filter-chips">
+            <button class="filter-chip active" onclick="showToast('Все')">
+              <span class="filter-chip-check">&#10003;</span> Все
+            </button>
+            <button class="filter-chip" onclick="showToast('Медитации')">Медитации</button>
+            <button class="filter-chip" onclick="showToast('Йога')">Йога</button>
+            <button class="filter-chip" onclick="showToast('Дыхательные')">Дыхательные практики</button>
+          </div>
+        </div>
+        <!-- Group 2: Practice type (dropdown) -->
+        <div class="filter-group">
+          <div class="filter-group-label">Вид практики</div>
+          <div class="filter-chips">
+            <button class="filter-chip filter-chip--select" onclick="showToast('Выбрать вид практики')">
+              Кундалини йога
+              <span class="select-caret">&#9660;</span>
+            </button>
+          </div>
+        </div>
+        <!-- Group 3: Difficulty -->
+        <div class="filter-group">
+          <div class="filter-group-label">Сложность</div>
+          <div class="filter-chips">
+            <button class="filter-chip active" onclick="showToast('Все')">
+              <span class="filter-chip-check">&#10003;</span> Все
+            </button>
+            <button class="filter-chip" onclick="showToast('Начальная')">Начальная</button>
+            <button class="filter-chip" onclick="showToast('Средняя')">Средняя</button>
+            <button class="filter-chip" onclick="showToast('Высокая')">Высокая</button>
+          </div>
+        </div>
+        <!-- Group 4: Duration -->
+        <div class="filter-group">
+          <div class="filter-group-label">Длительность</div>
+          <div class="filter-chips">
+            <button class="filter-chip active" onclick="showToast('Все')">
+              <span class="filter-chip-check">&#10003;</span> Все
+            </button>
+            <button class="filter-chip" onclick="showToast('30-45 мин')">30 – 45 мин</button>
+            <button class="filter-chip" onclick="showToast('1 час+')">1 час и более</button>
+          </div>
+        </div>
+        <!-- Group 5: Time of day -->
+        <div class="filter-group">
+          <div class="filter-group-label">Время</div>
+          <div class="filter-chips">
+            <button class="filter-chip active" onclick="showToast('Все')">
+              <span class="filter-chip-check">&#10003;</span> Все
+            </button>
+            <button class="filter-chip" onclick="showToast('Утро')">Утро</button>
+            <button class="filter-chip" onclick="showToast('День')">День</button>
+            <button class="filter-chip" onclick="showToast('Вечер')">Вечер</button>
+          </div>
+        </div>
+      </div><!-- /filter-body — no scr-bottom, panel closes via X -->
+    </div><!-- /filter-panel -->
+  </div><!-- /frame html scr-02 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 03 — Calendar 2 (filtered state) ════ -->
+<div class="column">
+  <div class="column-name">03 — calendar-2 (filtered)</div>
+  <!-- No etalon PNG — deferred at operator's discretion -->
+  <div class="frame figma" style="background:var(--shell-bg);border:1px dashed var(--shell-border);">
+    <div class="tbd-overlay">
+      <div class="tbd-badge">PNG deferred</div>
+      <div class="tbd-note">23_Calendar 2 · node 541:1744</div>
+    </div>
+  </div>
+  <div class="frame html" id="scr-03">
+    <div class="velo-bg-mandala"></div>
+    <!-- Same header as col 01 -->
+    <div class="cal-title">Календарь</div>
+    <!-- Week strip: cells + nav row (same week) -->
+    <div class="cal-week-strip">
+      <div class="cal-week-cells">
+        <div class="cal-day-cell" onclick="showToast('Пн 20')">
+          <span class="cdc-label">ПН</span>
+          <span class="cdc-num">20</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Вт 21')">
+          <span class="cdc-label">ВТ</span>
+          <span class="cdc-num">21</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Ср 22')">
+          <span class="cdc-label">СР</span>
+          <span class="cdc-num">22</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell active" onclick="showToast('Чт 23 — сегодня')">
+          <span class="cdc-label">ЧТ</span>
+          <span class="cdc-num">23</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Пт 24')">
+          <span class="cdc-label">ПТ</span>
+          <span class="cdc-num">24</span>
+          <span class="cdc-dot"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Сб 25')">
+          <span class="cdc-label">СБ</span>
+          <span class="cdc-num">25</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+        <div class="cal-day-cell" onclick="showToast('Вс 26')">
+          <span class="cdc-label">ВС</span>
+          <span class="cdc-num">26</span>
+          <span class="cdc-dot-empty"></span>
+        </div>
+      </div>
+      <div class="cal-week-nav-row">
+        <button class="cal-week-nav-btn" onclick="showToast('← предыдущая неделя')">&#8592;</button>
+        <button class="cal-week-nav-btn" onclick="showToast('следующая неделя →')">&#8594;</button>
+      </div>
+    </div>
+    <!-- Filter button with caret (expanded state indicator) -->
+    <div class="cal-filter-btn" onclick="showToast('→ Свернуть фильтр')">
+      <span class="cal-filter-btn-label">Выбрать практики</span>
+      <button class="cal-filter-caret" onclick="showToast('↑ свернуть')">&#8963;</button>
+    </div>
+    <!-- Active filter chips row -->
+    <div class="cal-filter-chips-row">
+      <button class="filter-chip active" onclick="showToast('Убрать Все')">
+        <span class="filter-chip-check">&#10003;</span> Все
+      </button>
+      <button class="filter-chip active" onclick="showToast('Убрать Медитация')">
+        <span class="filter-chip-check">&#10003;</span> Медитация
+      </button>
+      <button class="filter-chip active" onclick="showToast('Убрать MBSR')">
+        <span class="filter-chip-check">&#10003;</span> MBSR
+      </button>
+      <button class="filter-chip active" onclick="showToast('Убрать Breathwork')">
+        <span class="filter-chip-check">&#10003;</span> Breathwork
+      </button>
+      <button class="filter-chip active" onclick="showToast('Убрать')">
+        <span class="filter-chip-check">&#10003;</span> Практика с длинным названием
+      </button>
+    </div>
+    <!-- Filtered practice list -->
+    <div class="scr-scroll">
+      <div class="cal-section-date">Сегодня, 23 января</div>
+      <div class="practice-card" onclick="showToast('→ Вечерняя медитация')">
+        <div class="pc-head">
+          <div class="pc-avatar">
+            <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                 width="20" height="20" alt="">
+          </div>
+          <div class="pc-id">
+            <div class="pc-title">Вечерняя медитация</div>
+            <div class="pc-master">
+              Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                   width="12" height="12" alt="✓">
+            </div>
+          </div>
+        </div>
+        <div class="pc-meta-row">
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            19:00
+          </span>
+          <span class="pmr-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            45 мин
+          </span>
+          <span class="paid-badge">
+            <img src="../../02_design-system/assets/icons/icon-check-sm.svg" alt="">
+            Оплачено
+          </span>
+        </div>
+      </div>
+      <!-- Bottom nav -->
+      <nav class="bottom-nav bottom-nav--user">
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Главная')">
+          <img src="../../02_design-system/assets/icons/icon-nav-home-active-composite.svg"
+               width="24" height="24" alt="Главная">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon active"
+                onclick="showToast('Календарь')">
+          <img src="../../02_design-system/assets/icons/icon-nav-diary.svg"
+               width="24" height="24" alt="Календарь">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Бронирования')">
+          <img src="../../02_design-system/assets/icons/icon-nav-reservations.svg"
+               width="24" height="24" alt="Бронирования">
+        </button>
+        <button class="v-button v-button--glass v-button--round-icon"
+                onclick="showToast('Профиль')">
+          <img src="../../02_design-system/assets/icons/icon-nav-profile.svg"
+               width="24" height="24" alt="Профиль">
+        </button>
+      </nav>
+    </div><!-- /scr-scroll -->
+  </div><!-- /frame html scr-03 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 04 — Practice Detail ════════════════ -->
+<div class="column">
+  <div class="column-name">04 — practice-detail</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-03-practice-detail.png"
+         alt="Practice Detail etalon">
+  </div>
+  <div class="frame html" id="scr-04">
+    <div class="velo-bg-mandala"></div>
+    <div class="top-header">
+      <button class="header-back" onclick="showToast('← назад')">
+        <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+             width="18" height="18" alt="←">
+      </button>
+      <h2 class="header-title">Практика</h2>
+    </div>
+    <div class="scr-scroll">
+      <!-- Practice header card -->
+      <div class="practice-detail-card">
+        <div class="pdc-icon">
+          <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="">
+        </div>
+        <div class="pdc-name">Утренняя медитация</div>
+        <div class="pdc-meta-row">
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            Завтра, 07:00
+          </span>
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            45 мин
+          </span>
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-cal-capacity.svg" alt="">
+            8 из 20
+          </span>
+        </div>
+        <div class="complexity-row">
+          Сложность
+          <div class="cplx-dots">
+            <span class="cplx-dot filled"></span>
+            <span class="cplx-dot filled"></span>
+            <span class="cplx-dot"></span>
+          </div>
+        </div>
+      </div>
+      <!-- Collapsible sections -->
+      <div class="list-row" onclick="showToast('О практике...')">
+        О практике
+        <span class="lr-chevron">&#8964;</span>
+      </div>
+      <div class="list-row" onclick="showToast('Что подготовить...')">
+        Что подготовить
+        <span class="lr-chevron">&#8964;</span>
+      </div>
+      <!-- Master section -->
+      <div class="section-title">Мастер</div>
+      <div class="master-card">
+        <div class="mc-head">
+          <div class="mc-avatar">AM</div>
+          <div class="mc-id">
+            <div class="mc-name">
+              Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                   width="13" height="13" alt="✓">
+            </div>
+            <div class="mc-tags">
+              <span class="mc-tag">Медитации</span>
+              <span class="mc-tag">Mindfulness</span>
+              <span class="mc-tag">MBSR</span>
+            </div>
+          </div>
+        </div>
+        <div class="mc-foot">
+          Подробнее
+          <img src="../../02_design-system/assets/icons/icon-arrow-forward.svg"
+               width="16" height="10" alt="→">
+        </div>
+      </div>
+      <!-- Contraindications -->
+      <div class="warning-alert">
+        <div class="wa-icon">
+          <img src="../../02_design-system/assets/icons/icon-warning.svg"
+               width="22" height="20" alt="">
+        </div>
+        <div class="wa-body">
+          <div class="wa-title">Противопоказания</div>
+          <div class="wa-text">Беременность, эпилепсия</div>
+        </div>
+      </div>
+      <!-- Cost -->
+      <div class="cost-row">
+        <span class="cost-label">Стоимость</span>
+        <span class="cost-value">₽1 500</span>
+      </div>
+    </div><!-- /scr-scroll -->
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('→ Забронировать')">Забронировать</button>
+    </div>
+  </div><!-- /frame html scr-04 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 05 — Master Profile ════════════════ -->
+<div class="column">
+  <div class="column-name">05 — master-profile</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-04-master-profile.png"
+         alt="Master Profile etalon">
+  </div>
+  <div class="frame html" id="scr-05">
+    <div class="velo-bg-mandala"></div>
+    <div class="top-header">
+      <button class="header-back" onclick="showToast('← назад')">
+        <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+             width="18" height="18" alt="←">
+      </button>
+      <h2 class="header-title">Мастер</h2>
+    </div>
+    <div class="scr-scroll">
+      <!-- Hero block — avatar uses DS icon (no initials placeholder) -->
+      <div class="mpr-hero">
+        <div class="mpr-avatar">
+          <img src="../../02_design-system/assets/icons/icon-analytics-user-circle.svg"
+               width="80" height="80" alt="Master avatar">
+        </div>
+        <div class="mpr-name">Alex Mindful</div>
+        <div class="mpr-badges">
+          <span class="mpr-badge mpr-badge--verified">
+            <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                 width="12" height="12" alt="✓">
+            Верифицирован
+          </span>
+          <span class="mpr-badge mpr-badge--exp">10 лет опыта</span>
+        </div>
+        <div class="mpr-bio">
+          10 лет практики медитации. Сертифицированный инструктор MBSR.
+          Помогаю людям обрести внутренний покой и осознанность.
+        </div>
+      </div>
+      <!-- Stats -->
+      <div class="mpr-stats-row">
+        <div class="mpr-stat-card">
+          <div class="mpr-stat-value">156</div>
+          <div class="mpr-stat-label">Практик</div>
+        </div>
+        <div class="mpr-stat-card">
+          <div class="mpr-stat-value">89</div>
+          <div class="mpr-stat-label">Отзывов</div>
+        </div>
+      </div>
+      <!-- Methods collapsible -->
+      <div class="list-row" onclick="showToast('Методы...')">
+        Методы
+        <span class="lr-chevron">&#8964;</span>
+      </div>
+      <!-- Upcoming practices -->
+      <div class="section-title">Ближайшие практики</div>
+      <div class="practice-card" onclick="showToast('→ Утренняя медитация')">
+        <div class="pc-head">
+          <div class="pc-avatar">
+            <img src="../../02_design-system/assets/icons/icon-practice.svg"
+                 width="20" height="20" alt="">
+          </div>
+          <div class="pc-id">
+            <div class="pc-title">Утренняя медитация</div>
+            <div class="pc-master">Завтра, 07:00 · ₽1 500</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /scr-scroll -->
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('→ Задать вопрос')">Задать вопрос</button>
+    </div>
+  </div><!-- /frame html scr-05 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 06 — Booking Success 2 ══════════════ -->
+<div class="column">
+  <div class="column-name">06 — booking-success</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-05-booking-success-2.png"
+         alt="Booking Success etalon">
+  </div>
+  <div class="frame html" id="scr-06">
+    <div class="velo-bg-mandala"></div>
+    <!-- Success body -->
+    <div class="bks-body">
+      <!-- Teal circle illustration (matches Figma) -->
+      <div class="bks-illustration">
+        <svg viewBox="0 0 120 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="55" r="46" fill="#76DDE6" fill-opacity="0.18"/>
+          <circle cx="60" cy="55" r="34" fill="#76DDE6" fill-opacity="0.28"/>
+          <circle cx="60" cy="55" r="22" fill="#76DDE6"/>
+          <!-- Checkmark inside circle -->
+          <path d="M49 55 L57 63 L72 47"
+                stroke="#ffffff" stroke-width="3.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Sparkles -->
+          <circle cx="18" cy="22" r="3" fill="#76DDE6"/>
+          <circle cx="102" cy="22" r="3" fill="#76DDE6"/>
+          <circle cx="60" cy="8"  r="4" fill="#FBC088"/>
+          <line x1="60" y1="2"  x2="60" y2="6"  stroke="#FBC088" stroke-width="2"/>
+          <line x1="53" y1="4"  x2="56" y2="7"  stroke="#FBC088" stroke-width="2"/>
+          <line x1="67" y1="4"  x2="64" y2="7"  stroke="#FBC088" stroke-width="2"/>
+        </svg>
+      </div>
+      <div class="bks-title">Практика<br>забронирована!</div>
+      <div class="bks-sub">
+        Вы записаны на Утреннюю медитацию. Ссылка на Zoom придёт за 10 минут до начала.
+      </div>
+    </div>
+    <!-- Ask master section -->
+    <div class="bks-ask-section">
+      <div class="bks-ask-label">Ваш запрос мастеру (необязательно)</div>
+      <input class="v-input" type="text"
+             placeholder="Концентрация, настрой на работу">
+      <div class="bks-hint">
+        <!-- Heart SVG hint icon -->
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+             xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;margin-top:1px;">
+          <path d="M8 13.5C8 13.5 2 9.5 2 5.5C2 3.567 3.567 2 5.5 2C6.6 2 7.6 2.55 8 3.4C8.4 2.55 9.4 2 10.5 2C12.433 2 14 3.567 14 5.5C14 9.5 8 13.5 8 13.5Z"
+                fill="#76DDE6"/>
+        </svg>
+        Оставляя запрос, вы помогаете мастеру подготовить практику с учётом ваших пожеланий
+      </div>
+    </div>
+    <div class="scr-bottom">
+      <button class="v-button v-button--glass"
+              onclick="showToast('Отправить запрос мастеру')">Отправить запрос</button>
+      <button class="v-button v-button--primary"
+              onclick="showToast('→ В календарь')">В календарь</button>
+      <button class="v-link-block"
+              onclick="showToast('На главную')">На главную</button>
+    </div>
+  </div><!-- /frame html scr-06 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 07 — Ask Master ════════════════════ -->
+<div class="column">
+  <div class="column-name">07 — ask-master</div>
+  <div class="frame figma" style="background:var(--shell-bg);border:1px dashed var(--shell-border);">
+    <div class="tbd-overlay">
+      <div class="tbd-badge">PNG deferred</div>
+      <div class="tbd-note">27_Ask Master · node 541:2156</div>
+    </div>
+  </div>
+  <div class="frame html" id="scr-07">
+    <div class="velo-bg-mandala"></div>
+    <div class="top-header">
+      <button class="header-back" onclick="showToast('← назад')">
+        <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+             width="18" height="18" alt="←">
+      </button>
+      <h2 class="header-title">Задать вопрос</h2>
+    </div>
+    <div class="scr-scroll">
+      <!-- Mini master card -->
+      <div class="ask-master-mini-card">
+        <div class="ask-master-avatar">
+          <img src="../../02_design-system/assets/icons/icon-analytics-user-circle.svg"
+               width="44" height="44" alt="Master">
+        </div>
+        <div class="ask-master-info">
+          <div class="ask-master-name">
+            Alex Mindful
+            <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                 width="12" height="12" alt="✓">
+          </div>
+          <div class="ask-master-sub">Медитации · MBSR · Mindfulness</div>
+        </div>
+      </div>
+      <!-- Message textarea -->
+      <textarea class="v-textarea" style="min-height:200px;"
+                placeholder="Напишите свой вопрос мастеру..."></textarea>
+    </div><!-- /scr-scroll -->
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('✓ Вопрос отправлен!')">Отправить вопрос</button>
+    </div>
+  </div><!-- /frame html scr-07 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 08 — Practice booked ════════════════ -->
+<div class="column">
+  <div class="column-name">08 — practice-booked</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-06-practice-booked.png"
+         alt="Practice booked etalon">
+  </div>
+  <div class="frame html" id="scr-08">
+    <div class="velo-bg-mandala"></div>
+    <div class="top-header">
+      <button class="header-back" onclick="showToast('← назад')">
+        <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+             width="18" height="18" alt="←">
+      </button>
+      <h2 class="header-title">Практика</h2>
+    </div>
+    <div class="scr-scroll">
+      <!-- Practice header card -->
+      <div class="practice-detail-card">
+        <div class="pdc-icon">
+          <img src="../../02_design-system/assets/icons/icon-practice.svg" alt="">
+        </div>
+        <div class="pdc-name">Breathwork: Энергия</div>
+        <div class="pdc-meta-row">
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+            25 янв, 10:00
+          </span>
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-time.svg" alt="">
+            60 мин
+          </span>
+          <span class="pdc-meta-item">
+            <img src="../../02_design-system/assets/icons/icon-cal-capacity.svg" alt="">
+            5 мест
+          </span>
+        </div>
+        <div class="complexity-row">
+          Сложность
+          <div class="cplx-dots">
+            <span class="cplx-dot filled"></span>
+            <span class="cplx-dot"></span>
+            <span class="cplx-dot"></span>
+          </div>
+        </div>
+      </div>
+      <!-- Collapsible sections -->
+      <div class="list-row" onclick="showToast('О практике...')">
+        О практике
+        <span class="lr-chevron">&#8964;</span>
+      </div>
+      <div class="list-row" onclick="showToast('Что подготовить...')">
+        Что подготовить
+        <span class="lr-chevron">&#8964;</span>
+      </div>
+      <!-- Master -->
+      <div class="section-title">Мастер</div>
+      <div class="master-card">
+        <div class="mc-head">
+          <div class="mc-avatar">AM</div>
+          <div class="mc-id">
+            <div class="mc-name">
+              Alex Mindful
+              <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                   width="13" height="13" alt="✓">
+            </div>
+            <div class="mc-tags">
+              <span class="mc-tag">Медитации</span>
+              <span class="mc-tag">Mindfulness</span>
+              <span class="mc-tag">MBSR</span>
+            </div>
+          </div>
+        </div>
+        <div class="mc-foot">
+          Подробнее
+          <img src="../../02_design-system/assets/icons/icon-arrow-forward.svg"
+               width="16" height="10" alt="→">
+        </div>
+      </div>
+      <!-- Contraindications -->
+      <div class="warning-alert">
+        <div class="wa-icon">
+          <img src="../../02_design-system/assets/icons/icon-warning.svg"
+               width="22" height="20" alt="">
+        </div>
+        <div class="wa-body">
+          <div class="wa-title">Противопоказания</div>
+          <div class="wa-text">Беременность, сердечно-сосудистые заболевания</div>
+        </div>
+      </div>
+      <!-- Cost -->
+      <div class="cost-row">
+        <span class="cost-label">Стоимость</span>
+        <span class="cost-free">Бесплатно</span>
+      </div>
+    </div><!-- /scr-scroll -->
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('→ Забронировать')">Забронировать</button>
+    </div>
+  </div><!-- /frame html scr-08 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 09 — Feedback ═══════════════════════ -->
+<div class="column">
+  <div class="column-name">09 — feedback</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-07-feedback.png"
+         alt="Feedback etalon">
+  </div>
+  <div class="frame html" id="scr-09">
+    <div class="velo-bg-mandala"></div>
+    <div class="top-header">
+      <button class="header-back" onclick="showToast('← назад')">
+        <img src="../../02_design-system/assets/icons/icon-back-arrow.svg"
+             width="18" height="18" alt="←">
+      </button>
+      <h2 class="header-title">Практика</h2>
+    </div>
+    <div class="scr-scroll">
+      <!-- Practice info card — completed state -->
+      <div class="practice-info">
+        <div class="pi-icon">
+          <img src="../../02_design-system/assets/icons/icon-practice.svg"
+               width="24" height="24" alt="">
+        </div>
+        <div class="pi-title">Утренняя медитация</div>
+        <div class="pi-status-row">
+          с Alex Mindful
+          <img src="../../02_design-system/assets/icons/icon-calendar.svg" alt="">
+          <span class="v-badge v-badge--success">Завершена</span>
+        </div>
+      </div>
+      <!-- Feedback card — white card wrapping question + rating -->
+      <div class="fbk-card">
+        <div class="fbk-heading">Как прошла практика?</div>
+        <div class="fbk-sub">Оцените своё состояние после</div>
+        <!-- Rating row -->
+        <div class="feedback-rating">
+          <button class="fr-option" onclick="showToast('Есть вопросы')">
+            <div class="fr-icon">
+              <img src="../../02_design-system/assets/icons/icon-feedback-questions.svg" alt="">
+            </div>
+            <span class="fr-label">Есть вопросы</span>
+          </button>
+          <button class="fr-option active" onclick="showToast('Хорошо')">
+            <div class="fr-icon">
+              <img src="../../02_design-system/assets/icons/icon-feedback-good.svg" alt="">
+            </div>
+            <span class="fr-label">Хорошо</span>
+          </button>
+          <button class="fr-option" onclick="showToast('Огонь!')">
+            <div class="fr-icon">
+              <img src="../../02_design-system/assets/icons/icon-feedback-fire.svg" alt="">
+            </div>
+            <span class="fr-label">Огонь!</span>
+          </button>
+        </div>
+      </div><!-- /fbk-card -->
+      <!-- Comment textarea -->
+      <textarea class="v-textarea"
+                placeholder="Добавьте комментарий (необязательно)..."></textarea>
+    </div><!-- /scr-scroll -->
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('✓ Feedback отправлен!')">Отправить feedback</button>
+    </div>
+  </div><!-- /frame html scr-09 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 10 — Check-in Success ═══════════════ -->
+<div class="column">
+  <div class="column-name">10 — checkin-success</div>
+  <div class="frame figma">
+    <img src="../../02_design-system/assets/screenshots/user/user-calendar-08-checkin-success.png"
+         alt="Check-in Success etalon">
+  </div>
+  <div class="frame html" id="scr-10">
+    <!-- Pure white screen — no mandala bg per etalon -->
+    <div class="cal-success-body">
+      <!-- Inline SVG teal heart (matches Figma illustration) -->
+      <svg width="93" height="87" viewBox="0 0 93 87" fill="none"
+           xmlns="http://www.w3.org/2000/svg"
+           class="cal-success-icon">
+        <ellipse cx="46.5" cy="44" rx="42" ry="39"
+                 fill="#76DDE6" fill-opacity="0.15"/>
+        <path d="M46.5 70C46.5 70 18 52 18 33C18 24.163 25.163 17 34 17C39.4 17 44.2 19.8 46.5 24.1C48.8 19.8 53.6 17 59 17C67.837 17 75 24.163 75 33C75 52 46.5 70 46.5 70Z"
+              fill="#76DDE6"/>
+        <!-- Inner highlight -->
+        <path d="M34 22C29 22 24.5 26 23 31"
+              stroke="white" stroke-width="2.5"
+              stroke-linecap="round" opacity="0.5"/>
+      </svg>
+      <div class="cal-success-title">Спасибо за feedback!</div>
+      <div class="cal-success-sub">Ваш отзыв поможет нам улучшить практики</div>
+    </div>
+    <div class="scr-bottom">
+      <button class="v-button v-button--primary"
+              onclick="showToast('→ В дневник')">В дневник</button>
+      <button class="v-link-block"
+              onclick="showToast('На главную')">На главную</button>
+    </div>
+  </div><!-- /frame html scr-10 -->
+</div><!-- /column -->
+
+
+<!-- ═══════════════════════════ COL 11 — Message (widget 350×293) ═══════ -->
+<div class="column">
+  <div class="column-name">11 — message (widget, 350×293)</div>
+  <div class="frame figma" style="background:var(--shell-bg);border:1px dashed var(--shell-border);">
+    <div class="tbd-overlay">
+      <div class="tbd-badge">PNG deferred</div>
+      <div class="tbd-note">31_Message · node 541:6514 · 350×293</div>
+    </div>
+  </div>
+  <div class="frame html" id="scr-11">
+    <div class="velo-bg-mandala"></div>
+    <!-- Message widget — centered card (350×293 content) -->
+    <div class="msg-widget">
+      <!-- Master mini-card in widget header -->
+      <div class="msg-master-card">
+        <div class="msg-master-avatar">
+          <img src="../../02_design-system/assets/icons/icon-analytics-user-circle.svg"
+               width="40" height="40" alt="Master">
+        </div>
+        <div class="msg-master-info">
+          <div class="msg-master-name">
+            Alex Mindful
+            <img src="../../02_design-system/assets/icons/icon-verified.svg"
+                 width="12" height="12" alt="✓">
+          </div>
+          <div class="msg-master-sub">Мастер практики</div>
+        </div>
+      </div>
+      <!-- Message textarea -->
+      <div class="msg-body">
+        <textarea class="v-textarea"
+                  placeholder="Напишите сообщение мастеру..."></textarea>
+      </div>
+      <!-- Actions row -->
+      <div class="msg-actions">
+        <button class="v-button v-button--destructive"
+                onclick="showToast('Отмена')">Отмена</button>
+        <button class="v-button v-button--primary"
+                onclick="showToast('✓ Сообщение отправлено!')">Отправить</button>
+      </div>
+    </div><!-- /msg-widget -->
+  </div><!-- /frame html scr-11 -->
+</div><!-- /column -->
+
+
+</div><!-- /workspace-row -->
+</div><!-- /workspace -->
+
+<!-- Toast feedback (§7.5) -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+function showToast(msg) {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+</script>
+
+</body>
+</html>
