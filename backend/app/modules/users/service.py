@@ -68,10 +68,16 @@ async def update_user(
         return user
 
     # Split JSONB-backed fields from plain column fields.
+    #
+    # None is dropped for JSONB fields: these flags only have meaning when
+    # explicitly set (e.g. onboarding_completed=true). Writing null would
+    # store {"onboarding_completed": null}, and bool(None) reads back as
+    # False, silently re-triggering onboarding. "Field not sent" and
+    # "field sent as null" are both treated as "leave it untouched" here.
     jsonb_updates = {
         field: value
         for field, value in updates.items()
-        if field in _JSONB_CREDENTIAL_FIELDS
+        if field in _JSONB_CREDENTIAL_FIELDS and value is not None
     }
     column_updates = {
         field: value

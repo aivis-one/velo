@@ -29,11 +29,15 @@ from app.modules.users.models import UserRole
 class UserResponse(BaseModel):
     """User representation in API responses.
 
-    onboarding_completed is derived from credentials (JSONB) rather than a
-    dedicated column. The raw credentials blob is never exposed -- only this
-    single boolean is surfaced. Validated from a User ORM instance via
-    from_attributes; the computed_field reads self._credentials, populated
-    from the ORM object's credentials dict.
+    onboarding_completed is derived from the credentials JSONB sandbox
+    rather than a dedicated column (schema-on-read pattern). The raw
+    credentials blob is pulled in only to compute that single boolean and
+    is never serialized -- see _credentials below.
+
+    Mechanism (kept deliberately simple -- one carrier field + one
+    computed_field): _credentials is filled from the ORM object's
+    `credentials` attribute via validation_alias under from_attributes,
+    but excluded from output; onboarding_completed reads from it.
     """
 
     id: UUID
@@ -49,13 +53,12 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login_at: datetime | None
 
-    # Private carrier for the raw credentials dict. Populated from the ORM
-    # object's `credentials` attribute via from_attributes. Excluded from
-    # serialization (leading underscore + PrivateAttr-like alias handling).
-    # We keep it as a normal aliased field so from_attributes can fill it,
-    # then derive onboarding_completed from it. It is excluded from output
-    # by setting exclude=True.
-    credentials_raw: dict = Field(
+    # Input-only carrier for the raw credentials dict. Filled from the ORM
+    # object's `credentials` column (validation_alias) and excluded from the
+    # serialized output (exclude=True), so the blob never reaches API clients.
+    # onboarding_completed is computed from it below. Underscore-prefixed name
+    # signals "internal, do not read directly".
+    credentials_in: dict = Field(
         default_factory=dict,
         validation_alias="credentials",
         exclude=True,
@@ -66,9 +69,10 @@ class UserResponse(BaseModel):
     def onboarding_completed(self) -> bool:
         """Whether the user has finished the welcome onboarding flow.
 
-        Stored inside credentials JSONB. Missing key (new users) -> False.
+        Stored inside credentials JSONB under "onboarding_completed".
+        Missing key (new users) -> False.
         """
-        return bool(self.credentials_raw.get("onboarding_completed", False))
+        return bool(self.credentials_in.get("onboarding_completed", False))
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 

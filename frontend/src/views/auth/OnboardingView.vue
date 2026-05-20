@@ -112,6 +112,21 @@ const TIMEZONE_STEP_INDEX = TOTAL_STEPS - 1
 
 const step = ref(0)
 const submitting = ref(false)
+// Guards against a fast multi-click slipping past the timezone screen.
+//
+// The naive "step += 1" lets click 1 land on the timezone index (isTimezoneStep
+// turns true synchronously) and click 2 immediately hit finish() -- the user
+// never sees the timezone picker and it saves with the default zone.
+//
+// Two flags fix it deterministically:
+//   advancing   -- blocks re-entrant intro->intro/->timezone advances.
+//   finishArmed -- finish() only fires once the timezone step has been
+//                  ENTERED and settled (armed on the next microtask). A click
+//                  that races the transition into the timezone step finds
+//                  finishArmed=false and is ignored; a deliberate later tap
+//                  finds it true and proceeds.
+const advancing = ref(false)
+const finishArmed = ref(false)
 
 const isTimezoneStep = computed(() => step.value === TIMEZONE_STEP_INDEX)
 
@@ -134,6 +149,10 @@ const SLIDES = [
   },
 ] as const
 
+// Only read on intro steps (v-if="!isTimezoneStep" -> step in 0..2), and
+// step is capped at TIMEZONE_STEP_INDEX, so SLIDES[step] is always defined
+// here. The ?? SLIDES[0] is a defensive fallback for an impossible state,
+// not normal flow.
 const currentSlide = computed(() => SLIDES[step.value] ?? SLIDES[0])
 
 // -- Timezone default: auto-detect, fall back to Moscow if not in our list. --
@@ -164,17 +183,40 @@ const selectedTimezone = ref(detectDefaultTimezone())
 
 // -- Navigation --------------------------------------------------------------
 
-function goToTimezoneStep(): void {
+/**
+ * Enter the timezone step and arm finish() only after the change settles.
+ * Arming on the next microtask is what prevents a click that raced the
+ * transition from immediately triggering finish().
+ */
+async function enterTimezoneStep(): Promise<void> {
   step.value = TIMEZONE_STEP_INDEX
+  finishArmed.value = false
+  await Promise.resolve()
+  finishArmed.value = true
+}
+
+function goToTimezoneStep(): void {
+  // "Пропустить" -- same destination, also armed after settle.
+  void enterTimezoneStep()
 }
 
 async function onPrimaryAction(): Promise<void> {
-  if (!isTimezoneStep.value) {
-    // Advance through intro steps; the step after the last intro is timezone.
-    step.value += 1
+  if (isTimezoneStep.value) {
+    // Ignore clicks that raced the transition into the timezone step.
+    if (!finishArmed.value) return
+    await finish()
     return
   }
-  await finish()
+  // Intro steps: block re-entrant advances; cap at the timezone index.
+  if (advancing.value) return
+  advancing.value = true
+  const next = Math.min(step.value + 1, TIMEZONE_STEP_INDEX)
+  if (next === TIMEZONE_STEP_INDEX) {
+    await enterTimezoneStep()
+  } else {
+    step.value = next
+  }
+  advancing.value = false
 }
 
 // -- Finish: persist timezone + onboarding flag, then emit done. -------------

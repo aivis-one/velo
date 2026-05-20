@@ -48,6 +48,7 @@ from urllib.parse import parse_qs, unquote
 from uuid import UUID
 
 import structlog
+from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -286,18 +287,26 @@ async def upsert_user_on_login(
             # first_name, last_name, avatar_url sync from Telegram.
             #
             # ONBOARDING: credentials is MERGED, not overwritten, on UPDATE.
-            # `users.credentials || fresh` (JSONB concat) overlays the fresh
-            # Telegram fields on top of the existing blob while preserving
-            # keys that are not part of `fresh` -- notably onboarding_completed,
-            # which the welcome flow writes via PATCH /users/me. A plain
-            # overwrite here would wipe that flag on every login.
+            # `coalesce(users.credentials, '{}') || fresh` (JSONB concat)
+            # overlays the fresh Telegram fields on top of the existing blob
+            # while preserving keys that are not part of `fresh` -- notably
+            # onboarding_completed, which the welcome flow writes via
+            # PATCH /users/me. A plain overwrite here would wipe that flag on
+            # every login.
+            # COALESCE guards the NULL edge case: in PostgreSQL
+            # `NULL || x` evaluates to NULL, which would silently drop the
+            # whole blob. The column has server_default '{}', so NULL should
+            # never occur via the ORM, but a stray direct UPDATE could set it;
+            # coalesce(..., '{}') makes the merge resilient regardless.
             # On INSERT (new users) credentials = fresh, with no flag -> the
             # UserResponse schema reads a missing flag as False.
             set_={
                 "first_name": telegram_user.get("first_name"),
                 "last_name": telegram_user.get("last_name"),
                 "avatar_url": telegram_user.get("photo_url"),
-                "credentials": User.credentials.op("||")(credentials),
+                "credentials": func.coalesce(
+                    User.credentials, text("'{}'::jsonb")
+                ).op("||")(credentials),
                 "last_login_at": now,
             },
         )
