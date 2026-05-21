@@ -241,6 +241,9 @@ export interface CreatePracticeRequest {
   is_free?: boolean
   price_cents?: number
   currency?: string
+  direction: string
+  difficulty: string
+  style?: string | null
 }
 
 /** User submits a new report. */
@@ -482,7 +485,7 @@ export interface PracticeInsightsResponse {
   comments_count: number
 }
 
-/** Practice representation returned by all endpoints. */
+/** Practice representation returned by all endpoints. Calendar taxonomy (direction / style / difficulty) is surfaced here as top-level optional fields. The service extracts them from the data.taxonomy JSONB sandbox in practice_to_response(). They are optional because practices created before the Calendar iteration have an empty data sandbox (-> None), and model_validate() on a raw ORM object would not populate them otherwise. */
 export interface PracticeResponse {
   id: string
   master_id: string
@@ -504,6 +507,9 @@ export interface PracticeResponse {
   is_free: boolean
   price_cents: number
   currency: string
+  direction?: string | null
+  style?: string | null
+  difficulty?: string | null
   created_at: string
   updated_at: string | null
 }
@@ -675,7 +681,7 @@ export interface UpdateDiaryEntryRequest {
   clear_practice?: boolean
 }
 
-/** PATCH /api/v1/practices/{id} -- request body. All fields optional. Only provided fields are updated. P-02: NOT NULL fields typed as X | None so that "not sent" works with exclude_unset. Service layer guards against explicit null. */
+/** PATCH /api/v1/practices/{id} -- request body. All fields optional. Only provided fields are updated. P-02: NOT NULL fields typed as X | None so that "not sent" works with exclude_unset. Service layer guards against explicit null. Calendar taxonomy (direction / difficulty / style) is optional here: "not sent" leaves the stored value untouched; if sent, it is validated and written into data.taxonomy by the service layer. */
 export interface UpdatePracticeRequest {
   practice_type?: string | null
   title?: string | null
@@ -692,6 +698,9 @@ export interface UpdatePracticeRequest {
   is_free?: boolean | null
   price_cents?: number | null
   currency?: string | null
+  direction?: string | null
+  difficulty?: string | null
+  style?: string | null
 }
 
 /** User edits their own pending report (reason only). */
