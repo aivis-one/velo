@@ -15,7 +15,7 @@ export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | '
 /** Practice lifecycle statuses. */
 export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
 
-/** Types of practices a master can create. */
+/** Format of a practice session. NOTE: this is the *format*, not the content direction. The content direction (meditation / yoga / breathwork) lives in data.taxonomy. */
 export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
 
 /** User roles in the platform. USER: default role, can browse and book practices. MASTER: verified facilitator, can create and host practices. ADMIN: platform operator, can manage users and content. */
