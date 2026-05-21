@@ -12,11 +12,11 @@
   F5 review fix:
     W-21: booked state derived from bookingsStore instead of local ref.
   F9.1: Sticky footer action is now context-aware:
-    - Not booked + available  → "Забронировать" / "Записаться бесплатно"
-    - Booked + in check-in window  → "✅ Check-in перед практикой"
-    - Booked + in feedback window  → "💬 Оставить feedback"
-    - Booked + outside any window  → "✓ Вы записаны" (disabled)
-    - Booked (cancellable)         → "Отменить бронирование"
+    - Not booked + available  -> "Забронировать" / "Записаться бесплатно"
+    - Booked + in check-in window  -> "Check-in перед практикой"
+    - Booked + in feedback window  -> "Оставить feedback"
+    - Booked + outside any window  -> "Вы записаны" (disabled)
+    - Booked (cancellable)         -> "Отменить бронирование"
   DS-sprint: accordions, master methods tags, contraindications banner.
 
   Route: /user/practices/:id
@@ -50,15 +50,21 @@
       <!-- Hero card (white rounded card matching design) -->
       <div class="detail__hero-card">
         <div class="detail__hero-icon">
-          <IconMeditation :size="48" />
+          <IconMeditation :size="26" />
         </div>
         <h1 class="detail__title">{{ practice.title }}</h1>
         <div class="detail__meta">
-          <span>📅 {{ formattedDate }}</span>
-          <span>⏱️ {{ formattedDuration }}</span>
-          <span v-if="!booked">👥 {{ formattedParticipants }}</span>
+          <span class="detail__meta-item">
+            <IconCalendar :size="14" /> {{ formattedDate }}
+          </span>
+          <span class="detail__meta-item">
+            <IconClock :size="14" /> {{ formattedDuration }}
+          </span>
+          <span v-if="!booked" class="detail__meta-item">
+            <IconGroup :size="14" /> {{ formattedParticipants }}
+          </span>
           <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
-            ✓ Оплачено
+            <IconCheck :size="12" /> Оплачено
           </VBadge>
         </div>
         <VBadge v-if="practice.status === 'live'" variant="success">
@@ -84,19 +90,23 @@
           <h3 class="detail__section-title">Мастер</h3>
           <div class="detail__master-card">
             <div class="detail__master-avatar">
-              <span class="detail__master-avatar-emoji">🧘</span>
+              <IconMeditation :size="32" />
             </div>
             <div class="detail__master-info">
               <div class="detail__master-name">
                 {{ practice.master_name ?? 'Мастер' }}
-                <span class="detail__master-verified">✓</span>
+                <span class="detail__master-verified">
+                  <IconCheck :size="14" />
+                </span>
               </div>
               <div v-if="practice.master_methods?.length" class="detail__master-tags">
                 <VTag
-                  v-for="method in practice.master_methods"
+                  v-for="(method, i) in practice.master_methods"
                   :key="method"
-                  :label="method"
-                />
+                  :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
+                >
+                  {{ method }}
+                </VTag>
               </div>
             </div>
             <button
@@ -104,14 +114,16 @@
               aria-label="Профиль мастера"
               @click="onMasterProfile"
             >
-              →
+              <IconArrowRight :size="20" />
             </button>
           </div>
         </section>
 
         <!-- Contraindications banner -->
         <div v-if="practice.contraindications" class="detail__contraindications">
-          <span class="detail__contraindications-icon">⚠️</span>
+          <span class="detail__contraindications-icon">
+            <IconWarning :size="22" />
+          </span>
           <div class="detail__contraindications-text">
             <div class="detail__contraindications-title">ПРОТИВОПОКАЗАНИЯ</div>
             <div class="detail__contraindications-body">{{ practice.contraindications }}</div>
@@ -123,7 +135,10 @@
 
     <!-- Footer: price + action (static, not fixed) -->
     <div class="detail__actions">
-      <div class="detail__price-row">
+      <!-- Price row: only for the catalog (not-booked) view. In the booked
+           "Моя практика" view (Figma 15) the practice is already paid for,
+           so the price row is hidden. -->
+      <div v-if="!booked" class="detail__price-row">
         <span class="detail__price-label">Стоимость</span>
         <span
           class="detail__price-value"
@@ -141,7 +156,7 @@
         block
         @click="onCheckin"
       >
-        ✅ Check-in перед практикой
+        Check-in перед практикой
       </VButton>
 
       <!-- F9.1: Feedback button (attended booking in feedback window) -->
@@ -152,7 +167,7 @@
         block
         @click="onFeedback"
       >
-        💬 Оставить feedback
+        Оставить feedback
       </VButton>
 
       <!-- Already booked, no active window -->
@@ -163,7 +178,7 @@
         block
         disabled
       >
-        ✓ Вы записаны
+        Вы записаны
       </VButton>
 
       <!-- Not booked: book button (hidden for practice owner) -->
@@ -218,7 +233,18 @@ import {
   formatParticipants,
   isFull,
 } from '@/utils/format'
-import IconMeditation from '@/components/icons/IconMeditation.vue'
+import {
+  IconMeditation,
+  IconCalendar,
+  IconClock,
+  IconGroup,
+  IconCheck,
+  IconWarning,
+  IconArrowRight,
+} from '@/components/icons'
+
+// Master method tags cycle through three tints (Figma 15: blue / pink / sand).
+const TAG_VARIANTS = ['blue', 'pink', 'sand'] as const
 
 const route = useRoute()
 const router = useRouter()
@@ -454,7 +480,8 @@ onUnmounted(() => {
 /* ===== Hero card ===== */
 .detail__hero-card {
   margin: var(--space-4) var(--space-4) 0;
-  background: #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
@@ -465,7 +492,14 @@ onUnmounted(() => {
 }
 
 .detail__hero-icon {
-  color: var(--velo-primary);
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
   margin-bottom: var(--space-1);
 }
 
@@ -488,6 +522,12 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
+}
+
+.detail__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 /* ===== Body ===== */
@@ -568,13 +608,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
   border-radius: var(--radius-full);
   flex-shrink: 0;
-}
-
-.detail__master-avatar-emoji {
-  font-size: 28px;
 }
 
 .detail__master-info {
@@ -583,6 +620,9 @@ onUnmounted(() => {
 }
 
 .detail__master-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
@@ -591,8 +631,14 @@ onUnmounted(() => {
 }
 
 .detail__master-verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
   color: var(--velo-teal-600);
-  margin-left: 4px;
 }
 
 .detail__master-tags {
@@ -614,7 +660,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--text-sm);
   color: var(--velo-text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
@@ -630,7 +675,7 @@ onUnmounted(() => {
   align-items: flex-start;
   gap: var(--space-3);
   background: var(--velo-glass-peach-40);
-  border: 1px solid #ffffff;
+  border: 2px solid var(--velo-peach-300);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   backdrop-filter: blur(2px);
@@ -639,9 +684,10 @@ onUnmounted(() => {
 }
 
 .detail__contraindications-icon {
-  font-size: 20px;
+  display: inline-flex;
   flex-shrink: 0;
   margin-top: 2px;
+  color: var(--velo-peach-700);
 }
 
 .detail__contraindications-text {

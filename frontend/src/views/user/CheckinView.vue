@@ -160,7 +160,9 @@ function onSkip(): void {
 }
 
 function onBack(): void {
-  router.push({ name: 'practice-detail', params: { id: practiceId } })
+  // Return to wherever the user came from (practice detail, dashboard, etc.)
+  // instead of always pushing practice-detail, which created a 12<->15 loop.
+  router.back()
 }
 
 function goToDashboard(): void {
