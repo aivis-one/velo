@@ -1,6 +1,6 @@
 # =============================================================================
 # VELO Backend -- Practice Schemas (Phase 4.2 + 4.3/4.4 + Frontend Backlog,
-#                                   NO-LITERALS)
+#                                   NO-LITERALS, + Calendar taxonomy)
 # =============================================================================
 #
 # VALIDATION:
@@ -8,6 +8,7 @@
 #   - timezone must be a valid IANA timezone
 #   - duration_minutes must be within config bounds
 #   - practice_type validated via @field_validator against settings.practice_allowed_types
+#   - direction / difficulty validated against settings.practice_allowed_* lists
 #
 # PRICING VALIDATION (Phase 4.3/4.4):
 #   - is_free=True  -> price_cents forced to 0 in service
@@ -15,11 +16,26 @@
 #   - currency validated via @field_validator against settings.practice_allowed_currencies
 #   - NO-LITERALS: no Literal[...] anywhere -- all allowed values in config.py
 #
+# CALENDAR TAXONOMY (Calendar iteration):
+#   direction / style / difficulty are catalog facets stored in the
+#   Practice.data JSONB sandbox under data.taxonomy. They are NOT columns.
+#   - CreatePracticeRequest: direction + difficulty are REQUIRED, style optional.
+#   - UpdatePracticeRequest: all three optional (partial PATCH); validated if sent.
+#   - PracticeResponse: surfaced as top-level fields; the service extracts them
+#     from data.taxonomy in practice_to_response().
+#   Allowed values + the style length cap live in config.py:
+#     settings.practice_allowed_directions
+#     settings.practice_allowed_difficulties
+#     settings.practice_style_max_length
+#
 # NO-LITERALS policy:
 #   All magic strings and magic numbers are sourced from settings:
-#     settings.practice_allowed_types      -- practice_type values
-#     settings.practice_allowed_currencies -- currency values
-#     settings.practice_title_max_length   -- title Field limit
+#     settings.practice_allowed_types        -- practice_type values
+#     settings.practice_allowed_currencies   -- currency values
+#     settings.practice_allowed_directions    -- direction values
+#     settings.practice_allowed_difficulties  -- difficulty values
+#     settings.practice_style_max_length      -- style Field limit
+#     settings.practice_title_max_length      -- title Field limit
 #     settings.practice_description_max_length
 #     settings.practice_zoom_link_max_length
 #     settings.practice_timezone_max_length
@@ -90,6 +106,14 @@ class CreatePracticeRequest(BaseModel):
     # Validated via @field_validator against the full allowed list.
     currency: str = Field(default="eur")
 
+    # -- Calendar taxonomy (stored in data.taxonomy JSONB) --
+    # direction + difficulty are required on create; style is optional.
+    direction: str
+    difficulty: str
+    style: str | None = Field(
+        default=None, max_length=settings.practice_style_max_length,
+    )
+
     @field_validator("practice_type")
     @classmethod
     def practice_type_must_be_valid(cls, v: str) -> str:
@@ -98,6 +122,28 @@ class CreatePracticeRequest(BaseModel):
         if v not in allowed:
             raise ValueError(
                 f"practice_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("direction")
+    @classmethod
+    def direction_must_be_valid(cls, v: str) -> str:
+        """Validate direction against allowed values from config."""
+        allowed = settings.practice_allowed_directions
+        if v not in allowed:
+            raise ValueError(
+                f"direction must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("difficulty")
+    @classmethod
+    def difficulty_must_be_valid(cls, v: str) -> str:
+        """Validate difficulty against allowed values from config."""
+        allowed = settings.practice_allowed_difficulties
+        if v not in allowed:
+            raise ValueError(
+                f"difficulty must be one of {allowed}, got '{v}'"
             )
         return v
 
@@ -155,6 +201,10 @@ class UpdatePracticeRequest(BaseModel):
     All fields optional. Only provided fields are updated.
     P-02: NOT NULL fields typed as X | None so that "not sent" works
     with exclude_unset. Service layer guards against explicit null.
+
+    Calendar taxonomy (direction / difficulty / style) is optional here:
+    "not sent" leaves the stored value untouched; if sent, it is validated
+    and written into data.taxonomy by the service layer.
     """
 
     practice_type: str | None = None
@@ -191,6 +241,14 @@ class UpdatePracticeRequest(BaseModel):
     price_cents: int | None = Field(default=None, ge=0)
     currency: str | None = None
 
+    # -- Calendar taxonomy (stored in data.taxonomy JSONB) --
+    # Optional on update -- only provided fields are written by the service.
+    direction: str | None = None
+    difficulty: str | None = None
+    style: str | None = Field(
+        default=None, max_length=settings.practice_style_max_length,
+    )
+
     @field_validator("practice_type")
     @classmethod
     def practice_type_must_be_valid(
@@ -203,6 +261,36 @@ class UpdatePracticeRequest(BaseModel):
         if v not in allowed:
             raise ValueError(
                 f"practice_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("direction")
+    @classmethod
+    def direction_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate direction against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_directions
+        if v not in allowed:
+            raise ValueError(
+                f"direction must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("difficulty")
+    @classmethod
+    def difficulty_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate difficulty against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_difficulties
+        if v not in allowed:
+            raise ValueError(
+                f"difficulty must be one of {allowed}, got '{v}'"
             )
         return v
 
@@ -290,7 +378,15 @@ class UpdatePracticeRequest(BaseModel):
 
 
 class PracticeResponse(BaseModel):
-    """Practice representation returned by all endpoints."""
+    """Practice representation returned by all endpoints.
+
+    Calendar taxonomy (direction / style / difficulty) is surfaced here as
+    top-level optional fields. The service extracts them from the
+    data.taxonomy JSONB sandbox in practice_to_response(). They are optional
+    because practices created before the Calendar iteration have an empty
+    data sandbox (-> None), and model_validate() on a raw ORM object would
+    not populate them otherwise.
+    """
 
     id: UUID
     master_id: UUID
@@ -314,6 +410,11 @@ class PracticeResponse(BaseModel):
     is_free: bool
     price_cents: int
     currency: str
+
+    # -- Calendar taxonomy (extracted from data.taxonomy by the service) --
+    direction: str | None = None
+    style: str | None = None
+    difficulty: str | None = None
 
     created_at: datetime
     updated_at: datetime | None

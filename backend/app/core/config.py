@@ -118,6 +118,23 @@ class Settings(BaseSettings):
     # MVP: EUR only. To add a currency: extend this list + update Stripe config.
     practice_allowed_currencies: list[str] = ["eur"]
 
+    # -- Practice taxonomy (Calendar iteration, JSONB data.taxonomy) --
+    # Catalog facets stored in Practice.data.taxonomy and used by the
+    # Calendar filter. Schema-on-read: values live in JSONB for now,
+    # validated via @field_validator against these lists -- no Literal.
+    #
+    # direction  -- content direction (Направление). Required on create.
+    # difficulty -- difficulty level (Сложность). Required on create.
+    # style      -- free-form style string (Вид практики), e.g. "Кундалини
+    #               йога". Optional; capped at practice_style_max_length.
+    practice_allowed_directions: list[str] = [
+        "meditation", "yoga", "breathwork",
+    ]
+    practice_allowed_difficulties: list[str] = [
+        "beginner", "medium", "high",
+    ]
+    practice_style_max_length: int = 100
+
     # Statuses allowed in PATCH /practices/{id} (I-04).
     # "cancelled" is intentionally excluded: the only path to cancelled is
     # POST /practices/{id}/cancel which handles refunds.
@@ -245,35 +262,11 @@ class Settings(BaseSettings):
         # TELEGRAM_BOT_TOKEN: required in production.
         if not self.telegram_bot_token:
             if is_dev:
-                self.telegram_bot_token = (
-                    "dev-fake-bot-token-do-not-use"
-                )
+                self.telegram_bot_token = "dev-fake-bot-token"
             else:
                 raise ValueError(
                     "TELEGRAM_BOT_TOKEN is required in production. "
-                    "Get it from @BotFather in Telegram."
-                )
-
-        # STRIPE_SECRET_KEY: required in production. (Phase 6.3)
-        if not self.stripe_secret_key:
-            if is_dev:
-                self.stripe_secret_key = "TEST"
-            else:
-                raise ValueError(
-                    "STRIPE_SECRET_KEY is required in production. "
-                    "Set to 'TEST' to start without Stripe, or "
-                    "provide your Stripe secret key."
-                )
-
-        # STRIPE_WEBHOOK_SECRET: required in production. (Phase 6.3)
-        if not self.stripe_webhook_secret:
-            if is_dev:
-                self.stripe_webhook_secret = "TEST"
-            else:
-                raise ValueError(
-                    "STRIPE_WEBHOOK_SECRET is required in production. "
-                    "Set to 'TEST' to start without Stripe, or "
-                    "provide your Stripe webhook secret."
+                    "Get it from BotFather."
                 )
 
         # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)

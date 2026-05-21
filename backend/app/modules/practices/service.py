@@ -1,6 +1,6 @@
 # =============================================================================
 # VELO Backend -- Practice Service (Phase 4.2 + 4.3/4.4, updated Phase 6.5,
-#                                   updated Frontend F3 prep)
+#                                   updated Frontend F3 prep, + Calendar taxonomy)
 # =============================================================================
 #
 # Business logic for practice CRUD (master-facing) and public listing.
@@ -11,6 +11,20 @@
 #   via OUTER JOIN. get_practice() outer-joins MasterProfile to return methods.
 #   If MasterProfile is missing, master_methods defaults to [].
 #   List functions pass master_methods=[] (methods not shown in list cards).
+#
+# CALENDAR TAXONOMY (Calendar iteration):
+#   direction / style / difficulty are catalog facets stored in the
+#   Practice.data JSONB sandbox under data.taxonomy (schema-on-read). They
+#   are NOT columns:
+#     - create_practice() writes them into data.taxonomy via set_jsonb().
+#     - update_practice() handles them in a SEPARATE JSONB branch -- they are
+#       pulled out of update_data BEFORE the setattr() loop, otherwise
+#       setattr(practice, "direction", ...) would create a dead Python
+#       attribute that never reaches the DB (same trap as onboarding_completed
+#       in users/service.py).
+#     - practice_to_response() extracts them back out for the API response.
+#   JSONB SAFETY: always deepcopy + set_jsonb("data", ...). Never mutate
+#   practice.data in place (SQLAlchemy would miss the change).
 #
 # OWNERSHIP:
 #   All mutating operations (update, delete, cancel) verify master_id == user.id.
@@ -46,6 +60,7 @@
 #   No session.commit() here (P-01). Router handles flush + refresh.
 # =============================================================================
 
+import copy
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -128,6 +143,10 @@ _ACTIVE_BOOKING_STATUSES = {
     BookingStatus.CONFIRMED.value,
 }
 
+# Calendar taxonomy facets -- stored in Practice.data.taxonomy (JSONB),
+# NOT as columns. Handled separately from setattr-based column updates.
+_TAXONOMY_FIELDS = ("direction", "style", "difficulty")
+
 
 # ===================================================================
 # Helpers
@@ -150,6 +169,23 @@ def _enforce_pricing(
             "price_cents must be > 0 for paid practices"
         )
     return price_cents
+
+
+def _build_taxonomy(
+    direction: str,
+    difficulty: str,
+    style: str | None,
+) -> dict:
+    """Build the data.taxonomy dict for a practice.
+
+    Calendar facets: direction + difficulty are required on create;
+    style is optional (None when not provided).
+    """
+    return {
+        "direction": direction,
+        "difficulty": difficulty,
+        "style": style,
+    }
 
 
 async def _has_active_bookings(
@@ -182,10 +218,20 @@ def practice_to_response(
     master_name:    User.first_name from JOIN (or User object on mutations).
     master_methods: MasterProfile.data.profile.methods from outer join in
                     get_practice(). List endpoints pass [] (not shown on cards).
+
+    Calendar taxonomy (direction / style / difficulty) is extracted from
+    practice.data.taxonomy. Missing keys (e.g. practices created before the
+    Calendar iteration, whose data sandbox is empty) resolve to None.
     """
     resp = PracticeResponse.model_validate(practice)
     resp.master_name = master_name
     resp.master_methods = master_methods or []
+
+    taxonomy = (practice.data or {}).get("taxonomy", {})
+    resp.direction = taxonomy.get("direction")
+    resp.style = taxonomy.get("style")
+    resp.difficulty = taxonomy.get("difficulty")
+
     return resp
 
 
@@ -199,7 +245,12 @@ async def create_practice(
     body: CreatePracticeRequest,
     session: AsyncSession,
 ) -> Practice:
-    """Create a new practice in draft status."""
+    """Create a new practice in draft status.
+
+    Calendar taxonomy (direction / difficulty / style) is written into the
+    data.taxonomy JSONB sandbox via set_jsonb() -- direction and difficulty
+    are required by the schema, style is optional.
+    """
     price_cents = _enforce_pricing(body.is_free, body.price_cents)
 
     practice = Practice(
@@ -219,6 +270,19 @@ async def create_practice(
         price_cents=price_cents,
         currency=body.currency,
     )
+
+    # Calendar taxonomy -> data.taxonomy (JSONB sandbox).
+    # set_jsonb() flags the column modified so SQLAlchemy emits the write;
+    # a fresh dict is safe to assign on a not-yet-persisted object.
+    practice.set_jsonb(
+        "data",
+        {
+            "taxonomy": _build_taxonomy(
+                body.direction, body.difficulty, body.style,
+            ),
+        },
+    )
+
     session.add(practice)
 
     logger.info(
@@ -228,6 +292,8 @@ async def create_practice(
         title=body.title,
         is_free=body.is_free,
         price_cents=price_cents,
+        direction=body.direction,
+        difficulty=body.difficulty,
     )
 
     return practice
@@ -297,6 +363,11 @@ async def update_practice(
         if status transition is invalid,
         if pricing invariant is violated,
         or if price is changed with active bookings (CQ-05).
+
+    Calendar taxonomy (direction / difficulty / style) is handled in a
+    separate JSONB branch (data.taxonomy) -- see _TAXONOMY_FIELDS. These keys
+    are pulled out of update_data BEFORE the column setattr loop so that
+    setattr() never targets a non-existent column.
     """
     stmt = (
         select(Practice)
@@ -318,6 +389,16 @@ async def update_practice(
         raise BadRequestError("Cannot edit a deleted practice")
 
     update_data = body.model_dump(exclude_unset=True)
+
+    # Separate Calendar taxonomy (JSONB) from plain column fields.
+    # These are NOT columns: applying them via setattr would create dead
+    # Python attributes that never persist (same trap as onboarding_completed
+    # in users/service.py). They are merged into data.taxonomy below.
+    taxonomy_updates = {
+        field: update_data.pop(field)
+        for field in _TAXONOMY_FIELDS
+        if field in update_data
+    }
 
     # Guard NOT NULL fields against explicit null (P-02).
     for field in _NOT_NULL_FIELDS:
@@ -362,15 +443,26 @@ async def update_practice(
         final_price = _enforce_pricing(final_is_free, final_price)
         update_data["price_cents"] = final_price
 
-    # Apply only provided fields.
+    # Apply only provided column fields.
     for field, value in update_data.items():
         setattr(practice, field, value)
+
+    # Apply Calendar taxonomy updates into data.taxonomy (JSONB).
+    # deepcopy + set_jsonb so SQLAlchemy detects the change. Only the keys
+    # actually sent are overwritten; the rest of data.taxonomy is preserved.
+    if taxonomy_updates:
+        data = copy.deepcopy(practice.data) if practice.data else {}
+        taxonomy = data.get("taxonomy", {})
+        taxonomy.update(taxonomy_updates)
+        data["taxonomy"] = taxonomy
+        practice.set_jsonb("data", data)
 
     logger.info(
         "practice_updated",
         practice_id=str(practice_id),
         master_id=str(user.id),
         fields=list(update_data.keys()),
+        taxonomy_fields=list(taxonomy_updates.keys()),
     )
 
     return practice
