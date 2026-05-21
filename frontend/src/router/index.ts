@@ -117,6 +117,12 @@ const router = createRouter({
           name: 'practice-live',
           component: () => import('@/views/user/PracticeLiveView.vue'),
         },
+        // AI-summary (screen 16): placeholder until the user AI backend exists.
+        {
+          path: 'ai-summary',
+          name: 'user-ai-summary',
+          component: () => import('@/views/user/AiSummaryView.vue'),
+        },
         {
           path: 'topup',
           name: 'user-topup',

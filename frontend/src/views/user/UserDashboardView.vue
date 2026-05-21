@@ -16,9 +16,9 @@
   Progress stats are derived from the already-loaded bookingsStore (limit 20).
   For users with >20 attended practices the numbers will be partial -- acceptable for MVP.
 
-  TODO (screen 16, AI-summary): the "Подробнее" link and the mood indicator
-  are intentionally NON-clickable for now. Once the AI-summary screen and its
-  route ('user-ai-summary') exist, wire navigation there.
+  Screen 16 (AI-summary): the "Подробнее" link navigates to 'user-ai-summary'
+  (currently a placeholder screen -- the user AI backend does not exist yet).
+  The mood trend indicator stays static (illustration, not a control).
 -->
 
 <template>
@@ -208,8 +208,11 @@
         </div>
       </div>
 
-      <!-- "Подробнее" link. TODO(screen 16): make clickable -> 'user-ai-summary'. -->
-      <div class="dashboard__ai-more">
+      <!-- "Подробнее" link -> AI-summary screen (16). -->
+      <div
+        class="dashboard__ai-more"
+        @click="router.push({ name: 'user-ai-summary' })"
+      >
         <IconArrowRight :size="20" class="dashboard__ai-more-icon" />
         <span class="dashboard__ai-more-label">Подробнее</span>
       </div>
@@ -288,10 +291,10 @@ const checkinAlertTime = computed((): string => {
   if (!checkinAlert.value) return ''
   const diffMs = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
   const diffMinutes = Math.round(diffMs / 60_000)
-  if (diffMinutes <= 0)  return ' · Сейчас'
-  if (diffMinutes < 60)  return ` через ${diffMinutes} мин`
+  if (diffMinutes <= 0)  return ' • Сейчас'
+  if (diffMinutes < 60)  return ` • через ${diffMinutes} мин`
   const hours = Math.floor(diffMinutes / 60)
-  return ` через ${hours} ч`
+  return ` • через ${hours} ч`
 })
 
 /** First attended booking currently in the feedback window. */
@@ -741,7 +744,7 @@ onUnmounted(() => {
   color: var(--velo-text-muted);
 }
 
-/* "Подробнее" link row (non-clickable until screen 16 exists) */
+/* "Подробнее" link row -> AI-summary screen (16). */
 .dashboard__ai-more {
   display: flex;
   align-items: center;
@@ -749,6 +752,12 @@ onUnmounted(() => {
   gap: var(--space-2);
   margin-top: var(--space-4);
   color: var(--velo-text-primary);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.dashboard__ai-more:hover {
+  opacity: 0.8;
 }
 
 .dashboard__ai-more-icon {
