@@ -508,11 +508,12 @@ export interface PracticeResponse {
   updated_at: string | null
 }
 
-/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. */
+/** Compact practice representation for embedding in related responses. Used inside BookingWithPracticeResponse, WaitlistWithPracticeResponse, and PurchaseWithPracticeResponse to give the frontend enough data for list-view cards without a separate GET /practices/{id} call. CR-01: timezone added -- Practice ORM has timezone as NOT NULL, model_validate() picks it up automatically via from_attributes. Without this field, frontend fell back to Europe/Berlin for all practices regardless of actual timezone. status added -- lets list views (my bookings, dashboard nearest card) tell a live practice from a scheduled one without a separate GET /practices/{id} call. Picked up automatically via from_attributes (Practice ORM status is NOT NULL with a default). */
 export interface PracticeSummary {
   id: string
   title: string
   practice_type: PracticeType
+  status: PracticeStatus
   scheduled_at: string
   duration_minutes: number
   timezone: string
