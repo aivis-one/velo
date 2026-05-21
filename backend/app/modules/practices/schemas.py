@@ -344,11 +344,17 @@ class PracticeSummary(BaseModel):
     model_validate() picks it up automatically via from_attributes.
     Without this field, frontend fell back to Europe/Berlin for all
     practices regardless of actual timezone.
+
+    status added -- lets list views (my bookings, dashboard nearest card)
+    tell a live practice from a scheduled one without a separate
+    GET /practices/{id} call. Picked up automatically via from_attributes
+    (Practice ORM status is NOT NULL with a default).
     """
 
     id: UUID
     title: str
     practice_type: PracticeType
+    status: PracticeStatus
     scheduled_at: datetime
     duration_minutes: int
     timezone: str
