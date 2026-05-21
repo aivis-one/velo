@@ -161,6 +161,8 @@ async def _create_practice(
     body = {
         "title": "Test Practice",
         "practice_type": "live",
+        "direction": "meditation",
+        "difficulty": "beginner",
         "scheduled_at": scheduled_at.isoformat(),
         "duration_minutes": 60,
         "timezone": "UTC",

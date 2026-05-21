@@ -68,6 +68,8 @@ def _valid_practice_body(**overrides: object) -> dict:
     """Return a valid CreatePracticeRequest body."""
     base: dict = {
         "practice_type": "live",
+        "direction": "meditation",
+        "difficulty": "beginner",
         "title": "Stats Test Practice",
         "description": "Practice created in stats test",
         "scheduled_at": (

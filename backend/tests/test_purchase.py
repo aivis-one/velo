@@ -121,6 +121,8 @@ async def _create_practice(
     """Create a scheduled practice, return practice_id."""
     body = {
         "practice_type": "live",
+        "direction": "meditation",
+        "difficulty": "beginner",
         "title": "Test Practice",
         "scheduled_at": (
             datetime.now(timezone.utc) + timedelta(days=1)

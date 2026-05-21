@@ -170,6 +170,8 @@ async def _create_practice(
     """
     body: dict = {
         "practice_type": "live",
+        "direction": "meditation",
+        "difficulty": "beginner",
         "title": "Cancel Test Practice",
         "scheduled_at": (
             datetime.now(timezone.utc) + timedelta(hours=hours_ahead)
@@ -759,6 +761,8 @@ async def test_cancel_practice_wrong_status_400(
     # Create but don't publish (stays draft).
     body = {
         "practice_type": "live",
+        "direction": "meditation",
+        "difficulty": "beginner",
         "title": "Draft Practice",
         "scheduled_at": (
             datetime.now(timezone.utc) + timedelta(days=7)
