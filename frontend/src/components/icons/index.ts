@@ -28,6 +28,7 @@ export { default as IconSupport } from './IconSupport.vue'
 // -- Dashboard flow (DS-dashboard): monochrome glyphs (currentColor) --
 export { default as IconCheck } from './IconCheck.vue'
 export { default as IconArrowRight } from './IconArrowRight.vue'
+export { default as IconClose } from './IconClose.vue'
 
 // -- Mood faces: colored illustrative assets (own gradients, default size 40) --
 export { default as IconMoodLow } from './IconMoodLow.vue'

@@ -1,19 +1,18 @@
 <!--
-  VELO Frontend -- BookingCard Component (Phase F4.1)
+  VELO Frontend -- BookingCard Component (screen 17, My reservations)
 
-  Card for displaying a single booking in MyBookingsView list.
-  Matches mockup .booking-item layout:
-    - Title with type emoji
-    - Date/time + master name
-    - Status badge (right side)
-    - Cancel button for active (confirmed/pending) bookings
+  Dumb presentation card for a single booking. The parent (MyBookingsView)
+  owns the product logic of which section a booking belongs to and which
+  badge to show -- it passes a ready `badge` prop. The card just renders.
+
+  Layout (Figma 17):
+    - Practice-type icon in a circle (left)
+    - Title + master (mini avatar initial + verified check)
+    - Date row
+    - Status badge (right): "Завтра" / "Завершена" / "Отменена" / "Неявка"
 
   Usage:
-    <BookingCard
-      :booking="booking"
-      @cancel="onCancel(booking)"
-      @click="openDetail(booking)"
-    />
+    <BookingCard :booking="b" :badge="badgeFor(b)" @click="openDetail(b)" />
 -->
 
 <template>
@@ -22,99 +21,114 @@
     :class="{ 'booking-card--clickable': clickable }"
     @click="$emit('click')"
   >
-    <div class="booking-card__header">
-      <span class="booking-card__title">
-        {{ typeEmoji }} {{ booking.practice.title }}
+    <div class="booking-card__main">
+      <span class="booking-card__icon">
+        <component :is="typeIcon" :size="26" />
       </span>
-      <VBadge :variant="statusVariant">{{ statusLabel }}</VBadge>
+
+      <div class="booking-card__info">
+        <h4 class="booking-card__title">{{ booking.practice.title }}</h4>
+        <p class="booking-card__master">
+          <span class="booking-card__master-avatar">{{ masterInitial }}</span>
+          <span class="booking-card__master-name">
+            {{ booking.practice.master_name ?? 'Мастер' }}
+          </span>
+          <span class="booking-card__verified"><IconCheck :size="11" /></span>
+        </p>
+      </div>
     </div>
 
-    <div class="booking-card__meta">
-      {{ formattedDate }} · {{ booking.practice.master_name ?? 'Мастер' }}
-    </div>
+    <div class="booking-card__footer">
+      <span class="booking-card__date">{{ formattedDate }}</span>
 
-    <button
-      v-if="canCancel"
-      class="booking-card__cancel"
-      @click.stop="$emit('cancel')"
-    >
-      Отменить
-    </button>
+      <span
+        v-if="badge"
+        class="booking-card__badge"
+        :class="`booking-card__badge--${badge.variant}`"
+      >
+        <component :is="badgeIcon" :size="12" />
+        {{ badge.label }}
+      </span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { VBadge } from '@/components/ui'
 import { formatDate } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
+import {
+  IconMeditation,
+  IconBreathwork,
+  IconCheck,
+  IconClock,
+  IconClose,
+} from '@/components/icons'
+import type { BookingWithPracticeResponse } from '@/api/types'
+
+/** Badge descriptor passed by the parent (null = no badge). */
+export interface BookingBadge {
+  label: string
+  variant: 'tomorrow' | 'done' | 'cancelled' | 'no_show'
+}
 
 const props = withDefaults(
   defineProps<{
     booking: BookingWithPracticeResponse
+    badge?: BookingBadge | null
     clickable?: boolean
   }>(),
   {
+    badge: null,
     clickable: true,
   },
 )
 
 defineEmits<{
   click: []
-  cancel: []
 }>()
 
-// -- Type emoji -- imported from displayHelpers
-const typeEmoji = computed(() =>
-  PRACTICE_TYPE_EMOJI[props.booking.practice.practice_type] ?? '🧘',
+// -- Practice-type icon: breathwork has its own glyph, rest use meditation.
+//    PracticeSummary has no explicit category beyond practice_type, so we
+//    fall back to a title heuristic for breathwork. --
+const typeIcon = computed(() =>
+  props.booking.practice.title.toLowerCase().includes('breathwork')
+    ? IconBreathwork
+    : IconMeditation,
 )
 
-// -- Status mapping --
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  pending: 'Ожидает',
-  confirmed: 'Подтверждено',
-  attended: 'Завершена',
-  no_show: 'Неявка',
-  cancelled: 'Отменена',
-}
+// -- Master initial for the mini avatar --
+const masterInitial = computed(() => {
+  const name = props.booking.practice.master_name?.trim()
+  return name ? name.charAt(0).toUpperCase() : 'М'
+})
 
-const STATUS_VARIANT: Record<BookingStatus, 'success' | 'warning' | 'error' | 'info'> = {
-  pending: 'warning',
-  confirmed: 'success',
-  attended: 'info',
-  no_show: 'error',
-  cancelled: 'error',
-}
+// -- Badge icon by variant --
+const badgeIcon = computed(() => {
+  if (!props.badge) return null
+  switch (props.badge.variant) {
+    case 'tomorrow':  return IconClock
+    case 'done':      return IconCheck
+    case 'cancelled': return IconClose
+    case 'no_show':   return IconClose
+    default:          return null
+  }
+})
 
-const statusLabel = computed(() =>
-  STATUS_LABEL[props.booking.status] ?? props.booking.status,
-)
-
-const statusVariant = computed(() =>
-  STATUS_VARIANT[props.booking.status] ?? 'info',
-)
-
-// -- Formatted date --
 const formattedDate = computed(() =>
-  formatDate(props.booking.practice.scheduled_at),
-)
-
-// -- Can cancel: only pending or confirmed bookings --
-const canCancel = computed(() =>
-  props.booking.status === 'pending' || props.booking.status === 'confirmed',
+  formatDate(props.booking.practice.scheduled_at, props.booking.practice.timezone),
 )
 </script>
 
 <style scoped>
 .booking-card {
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .booking-card--clickable {
@@ -125,12 +139,28 @@ const canCancel = computed(() =>
   opacity: 0.9;
 }
 
-.booking-card__header {
+/* Top row: icon + title/master */
+.booking-card__main {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.booking-card__icon {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
+}
+
+.booking-card__info {
+  flex: 1;
+  min-width: 0;
 }
 
 .booking-card__title {
@@ -139,30 +169,85 @@ const canCancel = computed(() =>
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   line-height: 1.3;
+  margin: 0 0 var(--space-1);
 }
 
-.booking-card__meta {
+.booking-card__master {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  margin: 0;
 }
 
-.booking-card__cancel {
-  display: inline-block;
-  margin-top: var(--space-3);
-  padding: 0;
-  border: none;
-  background: none;
+.booking-card__master-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+  color: var(--velo-text-secondary);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.booking-card__verified {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-600);
+  flex-shrink: 0;
+}
+
+/* Bottom row: date + badge */
+.booking-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.booking-card__date {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-error);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
-.booking-card__cancel:hover {
-  opacity: 0.7;
+.booking-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* Tomorrow -- peach */
+.booking-card__badge--tomorrow {
+  background: var(--velo-glass-peach-40);
+  color: var(--velo-peach-700);
+}
+
+/* Done -- teal */
+.booking-card__badge--done {
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-700);
+}
+
+/* Cancelled / no-show -- pink */
+.booking-card__badge--cancelled,
+.booking-card__badge--no_show {
+  background: var(--velo-pink-100);
+  color: var(--velo-pink-300);
 }
 </style>

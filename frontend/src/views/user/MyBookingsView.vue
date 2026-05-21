@@ -1,152 +1,170 @@
 <!--
-  VELO Frontend -- MyBookingsView (Phase F4.1, fixed F5 review)
+  VELO Frontend -- MyBookingsView (screen 17, My reservations)
 
-  User's bookings list. Matches mockup screen-bookings layout:
-    - Status filter tabs (all, confirmed, cancelled, attended)
-    - BookingCard list with load-more
-    - Cancel flow via CancelBookingPopup
+  Two sections instead of status tabs (Figma 17):
+    - "Предстоящие": active bookings (confirmed/pending). Tomorrow's ones are
+      sorted to the top and get a "Завтра" badge; the rest have no badge.
+    - "Прошедшие": attended / no_show / cancelled, with a status badge.
 
-  F5 review fix:
-    W-22: Pass cancelling loading state to CancelBookingPopup
+  All bookings are loaded at once (no status filter) and grouped on the
+  client. For the MVP volume this is simpler than server-side pagination
+  per status. Cancellation now lives on the detail screens (15/18), so the
+  card is a plain link to the booking detail (screen 18).
 
   Route: /user/bookings (name: 'user-bookings')
 -->
 
 <template>
-  <!-- Loading (initial) -->
-  <div v-if="store.loading && store.bookings.length === 0" class="bookings__loader">
-    <VLoader size="lg" />
-  </div>
+  <div class="bookings">
+    <VHeader title="Мои бронирования" show-back @back="router.back()" />
 
-  <!-- Error -->
-  <VEmptyState
-    v-else-if="store.error && store.bookings.length === 0"
-    icon="⚠️"
-    title="Ошибка загрузки"
-    :description="store.error"
-  >
-    <VButton size="sm" @click="store.refreshBookings()">Попробовать снова</VButton>
-  </VEmptyState>
-
-  <!-- Content -->
-  <div v-else class="bookings">
-    <!-- Status filter -->
-    <div class="bookings__filters">
-      <button
-        v-for="tab in filterTabs"
-        :key="tab.value ?? 'all'"
-        class="bookings__filter"
-        :class="{ 'bookings__filter--active': store.statusFilter === tab.value }"
-        @click="store.setStatusFilter(tab.value)"
-      >
-        {{ tab.label }}
-      </button>
+    <!-- Loading (initial) -->
+    <div v-if="store.loading && store.bookings.length === 0" class="bookings__loader">
+      <VLoader size="lg" />
     </div>
 
-    <!-- Empty state -->
+    <!-- Error -->
     <VEmptyState
-      v-if="store.bookings.length === 0 && !store.loading"
+      v-else-if="store.error && store.bookings.length === 0"
+      icon="⚠️"
+      title="Ошибка загрузки"
+      :description="store.error"
+    >
+      <VButton size="sm" @click="store.refreshBookings()">Попробовать снова</VButton>
+    </VEmptyState>
+
+    <!-- Empty (no bookings at all) -->
+    <VEmptyState
+      v-else-if="upcoming.length === 0 && past.length === 0"
       icon="📋"
       title="Бронирований нет"
       description="Здесь появятся ваши бронирования после записи на практику"
     />
 
-    <!-- Bookings list -->
-    <div v-else class="bookings__list">
-      <BookingCard
-        v-for="booking in store.bookings"
-        :key="booking.id"
-        :booking="booking"
-        @cancel="openCancelPopup(booking)"
-      />
+    <!-- Content -->
+    <div v-else class="bookings__content">
+      <!-- Upcoming -->
+      <section v-if="upcoming.length" class="bookings__section">
+        <h3 class="bookings__section-title">Предстоящие</h3>
+        <div class="bookings__list">
+          <BookingCard
+            v-for="booking in upcoming"
+            :key="booking.id"
+            :booking="booking"
+            :badge="badgeFor(booking)"
+            @click="openDetail(booking)"
+          />
+        </div>
+      </section>
 
-      <!-- Load more -->
-      <VButton
-        v-if="store.hasMore"
-        variant="ghost"
-        block
-        :loading="store.loading"
-        @click="store.loadMore()"
-      >
-        Показать ещё
-      </VButton>
+      <!-- Past -->
+      <section v-if="past.length" class="bookings__section">
+        <h3 class="bookings__section-title">Прошедшие</h3>
+        <div class="bookings__list">
+          <BookingCard
+            v-for="booking in past"
+            :key="booking.id"
+            :booking="booking"
+            :badge="badgeFor(booking)"
+            @click="openDetail(booking)"
+          />
+        </div>
+      </section>
     </div>
-
-    <!-- Cancel popup -->
-    <CancelBookingPopup
-      v-if="cancelTarget"
-      :booking="cancelTarget"
-      :open="showCancelPopup"
-      :loading="cancelling"
-      @close="closeCancelPopup"
-      @confirm="onConfirmCancel"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
-import { useBalanceStore } from '@/stores/balance'
-import { useToast } from '@/composables/useToast'
-import BookingCard from '@/components/shared/BookingCard.vue'
-import CancelBookingPopup from '@/components/shared/CancelBookingPopup.vue'
-import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
+import BookingCard, { type BookingBadge } from '@/components/shared/BookingCard.vue'
+import type { BookingWithPracticeResponse } from '@/api/types'
 
+const router = useRouter()
 const store = useBookingsStore()
-const balanceStore = useBalanceStore()
-const toast = useToast()
 
-// -- Filter tabs --
-const filterTabs: Array<{ label: string; value: BookingStatus | undefined }> = [
-  { label: 'Все', value: undefined },
-  { label: 'Подтверждённые', value: 'confirmed' },
-  { label: 'Отменённые', value: 'cancelled' },
-  { label: 'Завершённые', value: 'attended' },
-]
+// -- Grouping --
 
-// -- Cancel popup --
-const showCancelPopup = ref(false)
-const cancelTarget = ref<BookingWithPracticeResponse | null>(null)
-const cancelling = ref(false)
+/** Active bookings the user is going to (or might still go to). */
+const UPCOMING_STATUSES = ['confirmed', 'pending'] as const
 
-function openCancelPopup(booking: BookingWithPracticeResponse): void {
-  cancelTarget.value = booking
-  showCancelPopup.value = true
+function isUpcoming(b: BookingWithPracticeResponse): boolean {
+  return (UPCOMING_STATUSES as readonly string[]).includes(b.status)
 }
 
-function closeCancelPopup(): void {
-  if (cancelling.value) return
-  showCancelPopup.value = false
-  cancelTarget.value = null
+/** True if the practice starts within the next calendar day (== "tomorrow"). */
+function isTomorrow(iso: string): boolean {
+  const d = new Date(iso)
+  const now = new Date()
+  const tomorrow = new Date(now)
+  tomorrow.setDate(now.getDate() + 1)
+  return (
+    d.getFullYear() === tomorrow.getFullYear() &&
+    d.getMonth() === tomorrow.getMonth() &&
+    d.getDate() === tomorrow.getDate()
+  )
 }
 
-async function onConfirmCancel(): Promise<void> {
-  if (!cancelTarget.value || cancelling.value) return
+/**
+ * Upcoming bookings: tomorrow's first, then the rest, each group sorted by
+ * scheduled time ascending.
+ */
+const upcoming = computed(() => {
+  const list = store.bookings.filter(isUpcoming)
+  return [...list].sort((a, b) => {
+    const aT = isTomorrow(a.practice.scheduled_at)
+    const bT = isTomorrow(b.practice.scheduled_at)
+    if (aT !== bT) return aT ? -1 : 1
+    return (
+      new Date(a.practice.scheduled_at).getTime() -
+      new Date(b.practice.scheduled_at).getTime()
+    )
+  })
+})
 
-  cancelling.value = true
-  const result = await store.cancelBooking(cancelTarget.value.id)
+/** Past bookings: attended / no_show / cancelled, most recent first. */
+const past = computed(() => {
+  const list = store.bookings.filter((b) => !isUpcoming(b))
+  return [...list].sort(
+    (a, b) =>
+      new Date(b.practice.scheduled_at).getTime() -
+      new Date(a.practice.scheduled_at).getTime(),
+  )
+})
 
-  if (result.ok) {
-    toast.success('Бронирование отменено')
-    // Refresh balance (refund may have been applied).
-    await balanceStore.refresh()
-  } else {
-    toast.error(result.error)
+// -- Badge logic (lives here -- it depends on the section / status) --
+function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
+  // Past statuses -> status badge.
+  if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
+  if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
+  if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
+  // Upcoming -> only tomorrow's bookings get a badge.
+  if (isTomorrow(b.practice.scheduled_at)) {
+    return { label: 'Завтра', variant: 'tomorrow' }
   }
-
-  cancelling.value = false
-  closeCancelPopup()
+  return null
 }
 
-// -- Lifecycle --
+// -- Navigation: open booking detail (screen 18). --
+function openDetail(b: BookingWithPracticeResponse): void {
+  router.push({ name: 'booking-detail', params: { id: b.id } })
+}
+
 onMounted(() => {
   store.fetchMyBookings()
 })
 </script>
 
 <style scoped>
+.bookings {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .bookings__loader {
   display: flex;
   justify-content: center;
@@ -154,54 +172,22 @@ onMounted(() => {
   min-height: 40vh;
 }
 
-.bookings {
+.bookings__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
+  padding: var(--space-4);
 }
 
-/* Filter tabs */
-.bookings__filters {
-  display: flex;
-  gap: var(--space-2);
-  overflow-x: auto;
-  padding-bottom: var(--space-1);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.bookings__filters::-webkit-scrollbar {
-  display: none;
-}
-
-.bookings__filter {
-  flex-shrink: 0;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+.bookings__section-title {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0 0 var(--space-3);
 }
 
-.bookings__filter:hover {
-  opacity: 0.8;
-}
-
-.bookings__filter--active {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-  color: white;
-}
-
-/* List */
 .bookings__list {
   display: flex;
   flex-direction: column;
