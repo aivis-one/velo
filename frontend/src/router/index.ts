@@ -110,6 +110,13 @@ const router = createRouter({
           name: 'user-feedback',
           component: () => import('@/views/user/FeedbackView.vue'),
         },
+        // Practice-Live (screen 14): full-screen in-progress practice view.
+        // Accessible to users AND masters (no roleGuard) -- same as checkin.
+        {
+          path: 'practice-live/:practiceId',
+          name: 'practice-live',
+          component: () => import('@/views/user/PracticeLiveView.vue'),
+        },
         {
           path: 'topup',
           name: 'user-topup',

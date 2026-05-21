@@ -12,12 +12,23 @@
 
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { getMyBookings, cancelBooking as apiCancelBooking } from '@/api/bookings'
+import {
+  getMyBookings,
+  cancelBooking as apiCancelBooking,
+  joinBooking as apiJoinBooking,
+  leaveBooking as apiLeaveBooking,
+} from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
 import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
 
 export interface CancelResult {
+  ok: boolean
+  error: string
+}
+
+/** Result of join/leave actions (same shape as CancelResult). */
+export interface ActionResult {
   ok: boolean
   error: string
 }
@@ -70,6 +81,38 @@ export const useBookingsStore = defineStore('bookings', () => {
     }
   }
 
+  /**
+   * Check in to a practice (sets joined_at on the backend).
+   * Refreshes the list so joined_at is reflected locally.
+   * Returns { ok, error } -- caller decides how to surface errors
+   * (e.g. 409 "Already joined" can be treated as a no-op success).
+   */
+  async function joinBooking(bookingId: string): Promise<ActionResult> {
+    try {
+      await apiJoinBooking(bookingId)
+      await pagination.refresh()
+      return { ok: true, error: '' }
+    } catch (e) {
+      const message = extractApiError(e, 'Не удалось войти в практику')
+      return { ok: false, error: message }
+    }
+  }
+
+  /**
+   * Check out from a practice (sets left_at on the backend).
+   * Refreshes the list afterwards.
+   */
+  async function leaveBooking(bookingId: string): Promise<ActionResult> {
+    try {
+      await apiLeaveBooking(bookingId)
+      await pagination.refresh()
+      return { ok: true, error: '' }
+    } catch (e) {
+      const message = extractApiError(e, 'Не удалось покинуть практику')
+      return { ok: false, error: message }
+    }
+  }
+
   return {
     // List
     bookings: pagination.items,
@@ -87,5 +130,7 @@ export const useBookingsStore = defineStore('bookings', () => {
 
     // Actions
     cancelBooking,
+    joinBooking,
+    leaveBooking,
   }
 })

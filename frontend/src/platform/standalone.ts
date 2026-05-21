@@ -43,6 +43,12 @@ export const standalonePlatform: Platform = {
     // Browser has no haptic API.
   },
 
+  openLink(url: string): void {
+    // Open in a new tab. noopener prevents the opened page from
+    // accessing window.opener.
+    window.open(url, '_blank', 'noopener')
+  },
+
   showBackButton(): void {
     // Browser has its own back button.
   },

@@ -56,6 +56,11 @@ export const telegramPlatform: Platform = {
     }
   },
 
+  openLink(url: string): void {
+    // Telegram opens external links in the system browser.
+    getWebApp().openLink(url)
+  },
+
   showBackButton(callback: () => void): void {
     const webApp = getWebApp()
     _backButtonCallback = callback

@@ -56,6 +56,8 @@ interface TelegramWebApp {
   setHeaderColor(color: string): void
   /** Set the background color. */
   setBackgroundColor(color: string): void
+  /** Open an external URL in the system browser. */
+  openLink(url: string): void
 
   /** Haptic feedback API. */
   HapticFeedback: {

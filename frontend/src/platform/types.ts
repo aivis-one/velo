@@ -53,6 +53,15 @@ export interface Platform {
   hapticFeedback(style: 'light' | 'medium' | 'heavy'): void
 
   /**
+   * Open an external URL (e.g. a Zoom meeting link).
+   * Telegram: WebApp.openLink(url) -- opens in the external browser.
+   * Standalone: window.open(url) in a new tab.
+   *
+   * Callers must validate the URL (https only) before calling.
+   */
+  openLink(url: string): void
+
+  /**
    * Show the native back button (top-left in Telegram).
    * Telegram: WebApp.BackButton.show() + onClick handler.
    * Standalone: no-op (browser has its own back).

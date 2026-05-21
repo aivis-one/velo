@@ -9,6 +9,8 @@
 //   POST /api/v1/practices/{id}/preview-purchase   -- pricing preview
 //   GET  /api/v1/bookings/me                       -- my bookings (paginated)
 //   DELETE /api/v1/bookings/{id}                   -- cancel booking
+//   POST /api/v1/bookings/{id}/join                -- check-in (Phase 5.4)
+//   POST /api/v1/bookings/{id}/leave               -- check-out (Phase 5.4)
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -16,6 +18,7 @@ import { buildQuery } from '@/api/utils'
 import type {
   PaginatedBookingsResponse,
   BookingStatus,
+  BookingResponse,
   PurchaseResponse,
   PreviewPurchaseResponse,
 } from '@/api/types'
@@ -82,4 +85,24 @@ export function getMyBookings(
  */
 export function cancelBooking(bookingId: string): Promise<void> {
   return api.delete(`/api/v1/bookings/${bookingId}`)
+}
+
+/**
+ * Check in to a practice (sets joined_at). Phase 5.4.
+ *
+ * Backend rules: booking must be confirmed and the practice scheduled/live.
+ * Returns 409 if already joined.
+ */
+export function joinBooking(bookingId: string): Promise<BookingResponse> {
+  return api.post<BookingResponse>(`/api/v1/bookings/${bookingId}/join`)
+}
+
+/**
+ * Check out from a practice (sets left_at). Phase 5.4.
+ *
+ * Backend rules: requires joined_at to be set (400 otherwise),
+ * returns 409 if already left.
+ */
+export function leaveBooking(bookingId: string): Promise<BookingResponse> {
+  return api.post<BookingResponse>(`/api/v1/bookings/${bookingId}/leave`)
 }
