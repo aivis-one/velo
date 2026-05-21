@@ -14,13 +14,18 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import {
   getMyBookings,
+  getBooking,
   cancelBooking as apiCancelBooking,
   joinBooking as apiJoinBooking,
   leaveBooking as apiLeaveBooking,
 } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
-import type { BookingWithPracticeResponse, BookingStatus } from '@/api/types'
+import type {
+  BookingWithPracticeResponse,
+  BookingDetailResponse,
+  BookingStatus,
+} from '@/api/types'
 
 export interface CancelResult {
   ok: boolean
@@ -41,6 +46,28 @@ export const useBookingsStore = defineStore('bookings', () => {
   const pagination = usePagination<BookingWithPracticeResponse>(
     (limit, offset) => getMyBookings(statusFilter.value, limit, offset),
   )
+
+  // -- Single booking detail (screen 18) --
+  const selectedBooking = ref<BookingDetailResponse | null>(null)
+  const selectedLoading = ref(false)
+  const selectedError = ref('')
+
+  /**
+   * Fetch a single booking with full practice details (screen 18).
+   * Always refetches -- detail data (status, zoom) may change.
+   */
+  async function fetchBooking(bookingId: string): Promise<void> {
+    selectedLoading.value = true
+    selectedError.value = ''
+    try {
+      selectedBooking.value = await getBooking(bookingId)
+    } catch (e) {
+      selectedBooking.value = null
+      selectedError.value = extractApiError(e, 'Не удалось загрузить бронирование')
+    } finally {
+      selectedLoading.value = false
+    }
+  }
 
   /**
    * Initial load. Called once from view onMounted.
@@ -123,6 +150,12 @@ export const useBookingsStore = defineStore('bookings', () => {
     fetchMyBookings,
     loadMore: pagination.loadMore,
     refreshBookings: pagination.refresh,
+
+    // Single booking detail (screen 18)
+    selectedBooking,
+    selectedLoading,
+    selectedError,
+    fetchBooking,
 
     // Filter
     statusFilter,

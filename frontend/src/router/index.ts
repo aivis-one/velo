@@ -99,6 +99,11 @@ const router = createRouter({
           name: 'user-bookings',
           component: () => import('@/views/user/MyBookingsView.vue'),
         },
+        {
+          path: 'bookings/:id',
+          name: 'booking-detail',
+          component: () => import('@/views/user/BookingDetailView.vue'),
+        },
         // F9: check-in and feedback -- full-screen flows
         {
           path: 'checkin/:practiceId',

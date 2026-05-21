@@ -19,6 +19,7 @@ import type {
   PaginatedBookingsResponse,
   BookingStatus,
   BookingResponse,
+  BookingDetailResponse,
   PurchaseResponse,
   PreviewPurchaseResponse,
 } from '@/api/types'
@@ -74,6 +75,16 @@ export function getMyBookings(
     offset,
   })
   return api.get<PaginatedBookingsResponse>(`/api/v1/bookings/me${query}`)
+}
+
+/**
+ * Fetch a single booking with full practice details (screen 18).
+ *
+ * Backend returns the complete PracticeResponse (zoom_link,
+ * contraindications, master_methods, status). Owner-only (404 otherwise).
+ */
+export function getBooking(bookingId: string): Promise<BookingDetailResponse> {
+  return api.get<BookingDetailResponse>(`/api/v1/bookings/${bookingId}`)
 }
 
 /**

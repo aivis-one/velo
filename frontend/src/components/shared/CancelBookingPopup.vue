@@ -11,7 +11,8 @@
     W-22: Added loading prop + disabled state on confirm button
 
   Props:
-    booking  -- BookingWithPracticeResponse (for title + scheduled_at)
+    booking  -- anything with practice.title + practice.scheduled_at
+                (BookingWithPracticeResponse or BookingDetailResponse)
     open     -- controls visibility
     loading  -- true while cancel request is in progress
 
@@ -36,10 +37,10 @@
     >
       <p class="cancel__warning-text">
         <template v-if="willRefund">
-          ✅ Средства вернутся на баланс
+          Средства вернутся на баланс
         </template>
         <template v-else>
-          ⚠️ Средства НЕ будут возвращены (до начала практики менее 24 часов)
+          Средства НЕ будут возвращены (до начала практики менее 24 часов)
         </template>
       </p>
     </div>
@@ -70,13 +71,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { VModal, VButton } from '@/components/ui'
-import type { BookingWithPracticeResponse } from '@/api/types'
 
 const REFUND_DEADLINE_HOURS = 24
 
+// Structural minimum: works with both BookingWithPracticeResponse (list)
+// and BookingDetailResponse (detail) -- the popup only needs the practice
+// title and scheduled_at.
+interface CancellableBooking {
+  practice: {
+    title: string
+    scheduled_at: string
+  }
+}
+
 const props = withDefaults(
   defineProps<{
-    booking: BookingWithPracticeResponse
+    booking: CancellableBooking
     open: boolean
     loading?: boolean
   }>(),
@@ -109,7 +119,7 @@ const willRefund = computed(() => {
 
 <style scoped>
 .cancel__title {
-  font-family: var(--font-body);
+  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);

@@ -47,29 +47,23 @@
 
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">
-      <!-- Hero card (white rounded card matching design) -->
-      <div class="detail__hero-card">
-        <div class="detail__hero-icon">
-          <IconMeditation :size="26" />
-        </div>
-        <h1 class="detail__title">{{ practice.title }}</h1>
-        <div class="detail__meta">
-          <span class="detail__meta-item">
-            <IconCalendar :size="14" /> {{ formattedDate }}
-          </span>
-          <span class="detail__meta-item">
-            <IconClock :size="14" /> {{ formattedDuration }}
-          </span>
-          <span v-if="!booked" class="detail__meta-item">
-            <IconGroup :size="14" /> {{ formattedParticipants }}
-          </span>
-          <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
-            <IconCheck :size="12" /> Оплачено
-          </VBadge>
-        </div>
-        <VBadge v-if="practice.status === 'live'" variant="success">
-          LIVE
-        </VBadge>
+      <!-- Hero card (shared component) -->
+      <div class="detail__hero">
+        <PracticeHeroCard
+          :title="practice.title"
+          :date="formattedDate"
+          :duration="formattedDuration"
+          :participants="!booked ? formattedParticipants : null"
+        >
+          <template #badge>
+            <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
+              <IconCheck :size="12" /> Оплачено
+            </VBadge>
+            <VBadge v-else-if="practice.status === 'live'" variant="success">
+              LIVE
+            </VBadge>
+          </template>
+        </PracticeHeroCard>
       </div>
 
       <!-- Body -->
@@ -85,38 +79,13 @@
           <p class="detail__accordion-text">{{ practice.what_to_prepare }}</p>
         </VAccordion>
 
-        <!-- Master card -->
+        <!-- Master card (shared component) -->
         <section class="detail__section">
           <h3 class="detail__section-title">Мастер</h3>
-          <div class="detail__master-card">
-            <div class="detail__master-avatar">
-              <IconMeditation :size="32" />
-            </div>
-            <div class="detail__master-info">
-              <div class="detail__master-name">
-                {{ practice.master_name ?? 'Мастер' }}
-                <span class="detail__master-verified">
-                  <IconCheck :size="14" />
-                </span>
-              </div>
-              <div v-if="practice.master_methods?.length" class="detail__master-tags">
-                <VTag
-                  v-for="(method, i) in practice.master_methods"
-                  :key="method"
-                  :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
-                >
-                  {{ method }}
-                </VTag>
-              </div>
-            </div>
-            <button
-              class="detail__master-arrow"
-              aria-label="Профиль мастера"
-              @click="onMasterProfile"
-            >
-              <IconArrowRight :size="20" />
-            </button>
-          </div>
+          <MasterCard
+            :master-name="practice.master_name"
+            :methods="practice.master_methods"
+          />
         </section>
 
         <!-- Contraindications banner -->
@@ -221,11 +190,12 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
-import { VLoader, VEmptyState, VButton, VBadge, VAccordion, VTag } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBadge, VAccordion } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
-import { useToast } from '@/composables/useToast'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
+import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
+import MasterCard from '@/components/shared/MasterCard.vue'
 import {
   formatDate,
   formatDuration,
@@ -233,18 +203,7 @@ import {
   formatParticipants,
   isFull,
 } from '@/utils/format'
-import {
-  IconMeditation,
-  IconCalendar,
-  IconClock,
-  IconGroup,
-  IconCheck,
-  IconWarning,
-  IconArrowRight,
-} from '@/components/icons'
-
-// Master method tags cycle through three tints (Figma 15: blue / pink / sand).
-const TAG_VARIANTS = ['blue', 'pink', 'sand'] as const
+import { IconCheck, IconWarning } from '@/components/icons'
 
 const route = useRoute()
 const router = useRouter()
@@ -256,7 +215,6 @@ const practice = computed(() => store.selected)
 // -- Booking state --
 const showBookingPopup = ref(false)
 const authStore = useAuthStore()
-const toast = useToast()
 
 // Prevent master from booking their own practice (backend also enforces this,
 // but we hide the button entirely to avoid a pointless UX dead-end).
@@ -413,11 +371,6 @@ async function onCancelBooking(): Promise<void> {
   justPurchased.value = false
 }
 
-function onMasterProfile(): void {
-  // Master public profile route is not yet implemented (future sprint).
-  toast.info('Профиль мастера — скоро')
-}
-
 // =========================================================================
 // Lifecycle
 // =========================================================================
@@ -477,57 +430,9 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== Hero card ===== */
-.detail__hero-card {
+/* ===== Hero (shared PracticeHeroCard wrapper) ===== */
+.detail__hero {
   margin: var(--space-4) var(--space-4) 0;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: var(--space-2);
-}
-
-.detail__hero-icon {
-  width: 46px;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-  margin-bottom: var(--space-1);
-}
-
-.detail__title {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.detail__meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-.detail__meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 
 /* ===== Body ===== */
@@ -589,84 +494,6 @@ onUnmounted(() => {
   color: var(--velo-text-secondary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
-}
-
-/* ===== Master card ===== */
-.detail__master-card {
-  background: #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  position: relative;
-}
-
-.detail__master-avatar {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-}
-
-.detail__master-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.detail__master-name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-1);
-}
-
-.detail__master-verified {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-}
-
-.detail__master-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-top: var(--space-1);
-}
-
-.detail__master-arrow {
-  position: absolute;
-  bottom: var(--space-3);
-  right: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.detail__master-arrow:hover {
-  opacity: 0.8;
 }
 
 /* ===== Contraindications banner ===== */
