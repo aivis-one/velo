@@ -1123,6 +1123,60 @@ case "${1:-}" in
         rm -f /tmp/openapi.json
         echo -e "${GREEN}✓ Frontend types generated${NC}"
 
+        # -- 3a. Commit & push regenerated generated.ts if it drifted --
+        #
+        # generated.ts is a committed build artifact: the backend OpenAPI is
+        # the single source of truth, and this file is regenerated on every
+        # update. If regeneration changed it, velo-bot commits and pushes so
+        # the next `velo update` on any environment pulls up-to-date types via
+        # plain git -- otherwise the file shows up as an uncommitted change on
+        # the next run and gets discarded by the "Discard local changes?" step.
+        #
+        # Push uses the SSH config alias (origin -> git@github.com-velo:...),
+        # which already binds the velo deploy key, so no GIT_SSH_COMMAND needed.
+        #
+        # Frontend developers MUST NOT edit generated.ts by hand -- it is
+        # overwritten here. Frontend-only types live in frontend/src/api/types.ts.
+        cd "$COMPOSE_DIR"
+        if [ -n "$(git status --porcelain frontend/src/api/generated.ts)" ]; then
+            echo ""
+            echo "Schema drift detected -- committing regenerated generated.ts"
+
+            git add frontend/src/api/generated.ts
+            git -c user.name="velo-bot" -c user.email="bot@velo.local" commit -m \
+"chore(types): regenerate generated.ts
+
+Triggered by velo update on commit $NEW_COMMIT" || {
+                echo -e "${RED}✗ Bot commit failed${NC}"
+                exit 1
+            }
+
+            # Push with one retry: if a parallel push grabbed the branch first,
+            # rebase on it once and retry. Beyond that warrants manual review.
+            PUSH_OK=0
+            for attempt in 1 2; do
+                if git push origin "$BRANCH"; then
+                    PUSH_OK=1
+                    break
+                fi
+                if [ "$attempt" = "1" ]; then
+                    echo "Push failed (likely a parallel push). Rebasing and retrying..."
+                    git pull --rebase origin "$BRANCH" || break
+                fi
+            done
+
+            if [ "$PUSH_OK" = "0" ]; then
+                echo -e "${RED}✗ Failed to push regenerated types to GitHub${NC}"
+                echo "  velo-bot commit exists locally in $COMPOSE_DIR but is not on origin."
+                echo "  Resolve manually:"
+                echo "    cd $COMPOSE_DIR && git push origin $BRANCH"
+                exit 1
+            fi
+            echo -e "${GREEN}✓ velo-bot pushed regenerated types${NC}"
+        else
+            echo -e "${GREEN}✓ Types are in sync, no commit needed${NC}"
+        fi
+
         # -- 4. Build and start frontend (with fresh types) --
         echo ""
         echo "Building frontend (tests run during build)..."
@@ -1144,10 +1198,10 @@ case "${1:-}" in
         fi
 
         # -- 5. Lightweight cleanup --
-        # Frequent updates (this is a test server) pile up Docker layers and
-        # dangling images. Reap only what's safe: dangling (<none>) images and
-        # build cache older than 24h. Recent cache is kept to keep builds fast.
-        # Volumes are never touched here.
+        # Frequent updates (this is a test server, often many per day) pile up
+        # Docker layers and dangling images. Reap only what's safe: dangling
+        # (<none>) images and build cache older than 24h. Recent cache is kept
+        # so same-day rebuilds stay fast. Volumes are never touched here.
         echo ""
         echo "Cleaning up Docker leftovers..."
         docker image prune -f > /dev/null 2>&1 || true
@@ -1316,6 +1370,17 @@ case "${1:-}" in
             "$COMPOSE_DIR/frontend/src/api/generated.ts"
         rm -f /tmp/openapi.json
         echo -e "${GREEN}✓ generated.ts updated${NC}"
+
+        # Manual regeneration does NOT commit or push -- that is `velo update`'s
+        # job (it commits as velo-bot and pushes). Here we only write the file
+        # and flag drift, so a developer iterating on a Pydantic schema on the
+        # VPS can refresh types without a full deploy.
+        if [ -n "$(git status --porcelain frontend/src/api/generated.ts)" ]; then
+            echo -e "${YELLOW}⚠ generated.ts changed -- not committed${NC}"
+            echo "  Run 'velo update' to commit & push, or commit by hand."
+        else
+            echo -e "${GREEN}✓ generated.ts is already in sync${NC}"
+        fi
         ;;
 
     # === Help ===
