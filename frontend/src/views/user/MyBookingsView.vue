@@ -95,49 +95,58 @@ function isUpcoming(b: BookingWithPracticeResponse): boolean {
   return (UPCOMING_STATUSES as readonly string[]).includes(b.status)
 }
 
-/** True if the practice is scheduled for today. */
-function isToday(iso: string): boolean {
-  const d = new Date(iso)
-  const now = new Date()
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  )
-}
-
-/** True if the practice starts within the next calendar day (== "tomorrow"). */
-function isTomorrow(iso: string): boolean {
-  const d = new Date(iso)
-  const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(now.getDate() + 1)
-  return (
-    d.getFullYear() === tomorrow.getFullYear() &&
-    d.getMonth() === tomorrow.getMonth() &&
-    d.getDate() === tomorrow.getDate()
-  )
+/** True if the practice is in progress (status live). */
+function isLive(b: BookingWithPracticeResponse): boolean {
+  return b.practice.status === 'live'
 }
 
 /**
- * Sort rank for upcoming bookings: today (0) first, then tomorrow (1),
- * then everything else (2). Ties are broken by scheduled time ascending.
+ * Calendar-date comparison helpers. S-1: dates are compared in the
+ * practice's own timezone (the same one formatDate renders), not the
+ * browser's local timezone -- otherwise "Завтра" could disagree with the
+ * shown date near midnight across timezones. Same en-CA + timeZone pattern
+ * as formatDateShort in utils/format.ts.
  */
-function upcomingRank(iso: string): number {
-  if (isToday(iso)) return 0
-  if (isTomorrow(iso)) return 1
-  return 2
+function calendarDate(d: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone,
+  }).format(d)
+}
+
+function isToday(iso: string, timezone: string): boolean {
+  return calendarDate(new Date(iso), timezone) === calendarDate(new Date(), timezone)
+}
+
+function isTomorrow(iso: string, timezone: string): boolean {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  return calendarDate(new Date(iso), timezone) === calendarDate(tomorrow, timezone)
 }
 
 /**
- * Upcoming bookings: today's first, then tomorrow's, then the rest, each
- * group sorted by scheduled time ascending.
+ * Sort rank for upcoming bookings: live (0) first, then today (1),
+ * tomorrow (2), then everything else (3). Ties broken by time ascending.
+ */
+function upcomingRank(b: BookingWithPracticeResponse): number {
+  const iso = b.practice.scheduled_at
+  const tz = b.practice.timezone
+  if (isLive(b)) return 0
+  if (isToday(iso, tz)) return 1
+  if (isTomorrow(iso, tz)) return 2
+  return 3
+}
+
+/**
+ * Upcoming bookings: live first, then today's, then tomorrow's, then the
+ * rest, each group sorted by scheduled time ascending.
  */
 const upcoming = computed(() => {
   const list = store.bookings.filter(isUpcoming)
   return [...list].sort((a, b) => {
-    const rankDiff =
-      upcomingRank(a.practice.scheduled_at) - upcomingRank(b.practice.scheduled_at)
+    const rankDiff = upcomingRank(a) - upcomingRank(b)
     if (rankDiff !== 0) return rankDiff
     return (
       new Date(a.practice.scheduled_at).getTime() -
@@ -162,11 +171,12 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
   if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
-  // Upcoming -> today / tomorrow get a time badge; later dates get none.
-  if (isToday(b.practice.scheduled_at)) {
+  // Upcoming -> live takes priority, then today / tomorrow; later dates none.
+  if (isLive(b)) return { label: 'В эфире', variant: 'live' }
+  if (isToday(b.practice.scheduled_at, b.practice.timezone)) {
     return { label: 'Сегодня', variant: 'today' }
   }
-  if (isTomorrow(b.practice.scheduled_at)) {
+  if (isTomorrow(b.practice.scheduled_at, b.practice.timezone)) {
     return { label: 'Завтра', variant: 'tomorrow' }
   }
   return null

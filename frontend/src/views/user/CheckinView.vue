@@ -169,8 +169,7 @@ function goToDashboard(): void {
   router.push({ name: 'user-dashboard' })
 }
 
-// TODO(screen 14): route 'practice-live' is created in the next step.
-// Until then this navigation will warn in console -- expected.
+// Navigate to the live practice screen (route exists, see router/index.ts).
 function goToPracticeLive(): void {
   router.push({ name: 'practice-live', params: { practiceId } })
 }

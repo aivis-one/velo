@@ -90,7 +90,7 @@
       <div
         v-else-if="nearestBooking"
         class="dashboard__practice-card"
-        @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
+        @click="openNearest"
       >
         <!-- Header: meditation icon + title + master -->
         <div class="dashboard__practice-header">
@@ -109,7 +109,7 @@
           </div>
         </div>
 
-        <!-- Meta row: date, duration, paid badge -->
+        <!-- Meta row: date, duration, paid / live badge -->
         <div class="dashboard__practice-meta">
           <span class="dashboard__practice-meta-item">
             <IconCalendar :size="14" /> {{ nearestPracticeDate }}
@@ -117,7 +117,10 @@
           <span class="dashboard__practice-meta-item">
             <IconClock :size="14" /> {{ nearestPracticeDuration }}
           </span>
-          <VBadge v-if="nearestBooking.purchase_id" variant="success">
+          <VBadge v-if="nearestIsLive" variant="success">
+            В эфире
+          </VBadge>
+          <VBadge v-else-if="nearestBooking.purchase_id" variant="success">
             <IconCheck :size="12" /> Оплачено
           </VBadge>
         </div>
@@ -131,7 +134,7 @@
         <VButton
           variant="secondary"
           block
-          @click="router.push({ name: 'practice-detail', params: { id: nearestBooking.practice_id } })"
+          @click="openNearest"
         >
           Zoom
         </VButton>
@@ -329,6 +332,31 @@ const masterInitial = computed((): string => {
   const name = nearestBooking.value?.practice.master_name ?? 'М'
   return (name.trim().charAt(0) || 'М').toUpperCase()
 })
+
+/** True when the nearest practice is currently live (status from PracticeSummary). */
+const nearestIsLive = computed((): boolean =>
+  nearestBooking.value?.practice.status === 'live',
+)
+
+/**
+ * Open the nearest practice. A live practice goes to the Practice-Live
+ * screen (Zoom entry); otherwise to the practice detail. status is now
+ * available on PracticeSummary (backend), so no extra fetch is needed.
+ */
+function openNearest(): void {
+  if (!nearestBooking.value) return
+  if (nearestIsLive.value) {
+    router.push({
+      name: 'practice-live',
+      params: { practiceId: nearestBooking.value.practice_id },
+    })
+  } else {
+    router.push({
+      name: 'practice-detail',
+      params: { id: nearestBooking.value.practice_id },
+    })
+  }
+}
 
 /**
  * "Завтра, 07:00" / "5 янв, 10:00"

@@ -46,7 +46,8 @@
         class="booking-card__badge"
         :class="`booking-card__badge--${badge.variant}`"
       >
-        <component :is="badgeIcon" :size="12" />
+        <span v-if="badge.variant === 'live'" class="booking-card__live-dot" />
+        <component :is="badgeIcon" v-else :size="12" />
         {{ badge.label }}
       </span>
     </div>
@@ -68,7 +69,7 @@ import type { BookingWithPracticeResponse } from '@/api/types'
 /** Badge descriptor passed by the parent (null = no badge). */
 export interface BookingBadge {
   label: string
-  variant: 'today' | 'tomorrow' | 'done' | 'cancelled' | 'no_show'
+  variant: 'live' | 'today' | 'tomorrow' | 'done' | 'cancelled' | 'no_show'
 }
 
 const props = withDefaults(
@@ -87,9 +88,10 @@ defineEmits<{
   click: []
 }>()
 
-// -- Practice-type icon: breathwork has its own glyph, rest use meditation.
-//    PracticeSummary has no explicit category beyond practice_type, so we
-//    fall back to a title heuristic for breathwork. --
+// -- Practice-type icon. NOTE: the backend practice_type enum is
+//    live / series / one_on_one / replay -- there is NO "breathwork" type.
+//    Breathwork is a content category not modelled in the schema, so we
+//    detect it via a title heuristic and fall back to the meditation glyph. --
 const typeIcon = computed(() =>
   props.booking.practice.title.toLowerCase().includes('breathwork')
     ? IconBreathwork
@@ -106,6 +108,7 @@ const masterInitial = computed(() => {
 const badgeIcon = computed(() => {
   if (!props.badge) return null
   switch (props.badge.variant) {
+    case 'live':      return null
     case 'today':     return IconClock
     case 'tomorrow':  return IconClock
     case 'done':      return IconCheck
@@ -231,6 +234,20 @@ const formattedDate = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-xs);
   white-space: nowrap;
+}
+
+/* Live -- teal, with a dot (practice in progress) */
+.booking-card__badge--live {
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-700);
+}
+
+.booking-card__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--velo-teal-600);
+  flex-shrink: 0;
 }
 
 /* Today -- teal (most urgent, happening today) */

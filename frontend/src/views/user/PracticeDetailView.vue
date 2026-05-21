@@ -193,6 +193,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { VLoader, VEmptyState, VButton, VBadge, VAccordion } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import MasterCard from '@/components/shared/MasterCard.vue'
@@ -215,6 +216,7 @@ const practice = computed(() => store.selected)
 // -- Booking state --
 const showBookingPopup = ref(false)
 const authStore = useAuthStore()
+const toast = useToast()
 
 // Prevent master from booking their own practice (backend also enforces this,
 // but we hide the button entirely to avoid a pointless UX dead-end).
@@ -365,9 +367,11 @@ async function onCancelBooking(): Promise<void> {
   const result = await bookingsStore.cancelBooking(myBooking.value.id)
   cancelling.value = false
   if (!result.ok) {
-    // Toast is shown by the store on error; no local handling needed.
+    // The store returns { ok, error } but does not raise a toast itself.
+    toast.error(result.error)
     return
   }
+  toast.success('Бронирование отменено')
   justPurchased.value = false
 }
 
