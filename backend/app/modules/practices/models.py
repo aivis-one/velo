@@ -1,28 +1,24 @@
 # =============================================================================
-# VELO Backend -- Practice Model (Phase 4.1 + 4.3/4.4 pricing, NEW-7)
+# VELO Backend -- Practice Model (Phase 4.1, updated DS-sprint + Calendar)
 # =============================================================================
 #
 # A wellness practice session created by a verified master.
-# One master can have many practices. Users book practices in Phase 5.
 #
-# STATE MACHINE (enforced in service.py):
-#   draft      -> scheduled, deleted       (via PATCH)
-#   scheduled  -> live                     (via PATCH)
-#   scheduled  -> cancelled                (via cancel_practice() ONLY)
-#   live       -> completed                (via PATCH)
-#   live       -> cancelled                (via cancel_practice() ONLY)
-#   completed  -> (terminal)
-#   cancelled  -> (terminal)
-#   deleted    -> (terminal)
+# JSONB DATA SANDBOX (Calendar iteration):
+#   `data` is a JSONB schema-on-read sandbox, mirroring User.credentials and
+#   MasterProfile.data. New, not-yet-stabilized fields live here first; once
+#   the DB design settles they migrate to typed columns / external tables.
 #
-# Phase 6.5: scheduled/live -> cancelled is NOT allowed via PATCH status.
-# The ONLY path to cancelled is cancel_practice() which handles refunds.
+#   data.taxonomy -- catalog facets used by the Calendar filter:
+#     {
+#       "direction":  "meditation" | "yoga" | "breathwork",  # PracticeDirection
+#       "style":      str | null,                            # free-form, e.g. "Кундалини йога"
+#       "difficulty": "beginner" | "medium" | "high"         # PracticeDifficulty
+#     }
 #
-# PRICING (Phase 4.3/4.4):
-#   is_free=True  -> price_cents MUST be 0 (enforced in service)
-#   is_free=False -> price_cents MUST be > 0 (enforced in service)
-#   currency defaults to "eur" (lowercase) consistent with all other
-#   payment models (Payment, Purchase, Withdrawal). NEW-7 fix.
+#   JSONB SAFETY: inherits JSONBMixin -- mutate ONLY via set_jsonb("data", ...)
+#   after a deepcopy. NEVER assign self.data = ... directly (SQLAlchemy will
+#   not detect in-place dict mutation -> silent lost update). See core/mixins.py.
 # =============================================================================
 
 import enum
@@ -37,14 +33,19 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
-from app.core.mixins import TimestampMixin, UUIDMixin
+from app.core.mixins import JSONBMixin, TimestampMixin, UUIDMixin
 
 
 class PracticeType(enum.StrEnum):
-    """Types of practices a master can create."""
+    """Format of a practice session.
+
+    NOTE: this is the *format*, not the content direction. The content
+    direction (meditation / yoga / breathwork) lives in data.taxonomy.
+    """
 
     LIVE = "live"
     SERIES = "series"
@@ -60,10 +61,34 @@ class PracticeStatus(enum.StrEnum):
     LIVE = "live"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
-    DELETED = "deleted"
+    DELETED = "deleted"  # Phase 4.2: soft delete for drafts
 
 
-class Practice(UUIDMixin, TimestampMixin, Base):
+class PracticeDirection(enum.StrEnum):
+    """Content direction of a practice -- the Calendar "Направление" facet.
+
+    Stored inside data.taxonomy.direction (JSONB schema-on-read sandbox).
+    Distinct from PracticeType, which is the session *format*.
+    """
+
+    MEDITATION = "meditation"
+    YOGA = "yoga"
+    BREATHWORK = "breathwork"
+
+
+class PracticeDifficulty(enum.StrEnum):
+    """Difficulty level of a practice -- the Calendar "Сложность" facet.
+
+    Stored inside data.taxonomy.difficulty (JSONB schema-on-read sandbox).
+    Rendered as filled dots in the UI: beginner ●○○ / medium ●●○ / high ●●●.
+    """
+
+    BEGINNER = "beginner"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
     """A wellness practice session created by a verified master.
 
     One master can have many practices. Users book practices in Phase 5.
@@ -144,6 +169,15 @@ class Practice(UUIDMixin, TimestampMixin, Base):
     parent_practice_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("practices.id", ondelete="SET NULL"),
         default=None,
+    )
+
+    # -- JSONB sandbox (Calendar iteration) --
+    # Schema-on-read facets (data.taxonomy: direction / style / difficulty).
+    # Mutate ONLY via set_jsonb("data", deepcopy(...)). See class docstring.
+    data: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        server_default="{}",
     )
 
     def __repr__(self) -> str:
