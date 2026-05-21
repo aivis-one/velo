@@ -68,7 +68,7 @@ import type { BookingWithPracticeResponse } from '@/api/types'
 /** Badge descriptor passed by the parent (null = no badge). */
 export interface BookingBadge {
   label: string
-  variant: 'tomorrow' | 'done' | 'cancelled' | 'no_show'
+  variant: 'today' | 'tomorrow' | 'done' | 'cancelled' | 'no_show'
 }
 
 const props = withDefaults(
@@ -106,6 +106,7 @@ const masterInitial = computed(() => {
 const badgeIcon = computed(() => {
   if (!props.badge) return null
   switch (props.badge.variant) {
+    case 'today':     return IconClock
     case 'tomorrow':  return IconClock
     case 'done':      return IconCheck
     case 'cancelled': return IconClose
@@ -230,6 +231,12 @@ const formattedDate = computed(() =>
   font-family: var(--font-body);
   font-size: var(--text-xs);
   white-space: nowrap;
+}
+
+/* Today -- teal (most urgent, happening today) */
+.booking-card__badge--today {
+  background: var(--velo-glass-teal-30);
+  color: var(--velo-teal-700);
 }
 
 /* Tomorrow -- peach */

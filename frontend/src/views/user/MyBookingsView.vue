@@ -95,6 +95,17 @@ function isUpcoming(b: BookingWithPracticeResponse): boolean {
   return (UPCOMING_STATUSES as readonly string[]).includes(b.status)
 }
 
+/** True if the practice is scheduled for today. */
+function isToday(iso: string): boolean {
+  const d = new Date(iso)
+  const now = new Date()
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  )
+}
+
 /** True if the practice starts within the next calendar day (== "tomorrow"). */
 function isTomorrow(iso: string): boolean {
   const d = new Date(iso)
@@ -109,15 +120,25 @@ function isTomorrow(iso: string): boolean {
 }
 
 /**
- * Upcoming bookings: tomorrow's first, then the rest, each group sorted by
- * scheduled time ascending.
+ * Sort rank for upcoming bookings: today (0) first, then tomorrow (1),
+ * then everything else (2). Ties are broken by scheduled time ascending.
+ */
+function upcomingRank(iso: string): number {
+  if (isToday(iso)) return 0
+  if (isTomorrow(iso)) return 1
+  return 2
+}
+
+/**
+ * Upcoming bookings: today's first, then tomorrow's, then the rest, each
+ * group sorted by scheduled time ascending.
  */
 const upcoming = computed(() => {
   const list = store.bookings.filter(isUpcoming)
   return [...list].sort((a, b) => {
-    const aT = isTomorrow(a.practice.scheduled_at)
-    const bT = isTomorrow(b.practice.scheduled_at)
-    if (aT !== bT) return aT ? -1 : 1
+    const rankDiff =
+      upcomingRank(a.practice.scheduled_at) - upcomingRank(b.practice.scheduled_at)
+    if (rankDiff !== 0) return rankDiff
     return (
       new Date(a.practice.scheduled_at).getTime() -
       new Date(b.practice.scheduled_at).getTime()
@@ -141,7 +162,10 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
   if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
-  // Upcoming -> only tomorrow's bookings get a badge.
+  // Upcoming -> today / tomorrow get a time badge; later dates get none.
+  if (isToday(b.practice.scheduled_at)) {
+    return { label: 'Сегодня', variant: 'today' }
+  }
   if (isTomorrow(b.practice.scheduled_at)) {
     return { label: 'Завтра', variant: 'tomorrow' }
   }
