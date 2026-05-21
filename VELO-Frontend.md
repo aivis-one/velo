@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.2
-**Дата:** 25 апреля 2026
+**Версия:** 1.3
+**Дата:** 21 мая 2026
 **Статус:** Active
 
 ---
@@ -43,11 +43,15 @@ interface Platform {
   hapticFeedback(type: string): void
   showBackButton(cb: () => void): void
   hideBackButton(): void
+  openLink(url: string): void   // external link: Telegram WebApp.openLink / window.open(noopener)
   close(): void
 }
 ```
 
 MVP работает только в Telegram. Standalone — Phase F10.
+
+`openLink` добавлен для экрана Practice-Live (кнопка "Войти" в Zoom). В Telegram —
+`WebApp.openLink(url)`, в standalone — `window.open(url, '_blank', 'noopener')`.
 
 ### 1.3. Структура проекта
 
@@ -140,7 +144,10 @@ frontend/
 /user/diary                 → DiaryView
 /user/profile               → UserProfileView
 /user/practices/:id         → PracticeDetailView
+/user/practice-live/:practiceId → PracticeLiveView      (name: practice-live -- экран 14, live-сессия + Zoom)
 /user/bookings              → MyBookingsView
+/user/bookings/:id          → BookingDetailView          (name: booking-detail -- экран 18)
+/user/ai-summary            → AiSummaryView              (name: user-ai-summary -- экран 16, заглушка, ждёт AI-бэк юзера)
 /user/checkin/:practiceId   → CheckinView
 /user/feedback/:practiceId  → FeedbackView
 /user/topup                 → TopupView
@@ -253,6 +260,25 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 
 **Иконки** (`src/components/ui/icons/`): SVG-компоненты из `Design_prototype/assets/icons/`. Все принимают проп `size?: number` (default 24). Используются в `VTabBar` через `TabItem.icon: string | Component`.
 
+**Доменные иконки** (`src/components/icons/`, barrel `index.ts`): отдельный набор Vue-компонентов
+для контентных экранов (НЕ путать с табовыми из `ui/icons/`). Все: `fill="currentColor"`,
+проп `:size` (default 24). Цветные mood-иконки используют `useId()` для уникальных id градиентов.
+
+| Иконка | Назначение |
+|--------|-----------|
+| `IconMeditation` / `IconBreathwork` | тип практики (meditation -- круг teal-аватар; breathwork -- эвристика по заголовку, см. ниже) |
+| `IconCalendar` / `IconClock` | мета практики (дата / длительность) |
+| `IconBrain` | AI-блок / экран AI-саммари |
+| `IconCheck` | success-галочка (экран 13), verified-бейдж мастера |
+| `IconArrowRight` | "Подробнее" в MasterCard |
+| `IconClose` | крестик закрытия (попапы) |
+| `IconMoodLow` / `IconMoodMid` / `IconMoodHigh` | цветные mood-лица для check-in (экран 12) |
+| `IconHome` / `IconGroup` / `IconWarning` / `IconRuble` / `IconSuccess` / `IconSupport` / `IconFeedback` | прочие контентные |
+
+> **Эвристика типа практики:** в `practice_type` НЕТ значения `breathwork`
+> (enum: `live | series | one_on_one | replay`). Иконка дыхания выбирается эвристикой
+> по заголовку практики -- это намеренно (см. `BookingCard.typeIcon`).
+
 ### 3.2. Layout-компоненты (src/components/layout/)
 
 | Компонент | Описание |
@@ -264,7 +290,33 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 
 ### 3.3. Shared-компоненты (src/components/shared/)
 
-`PracticeCard`, `BookingCard`, `BookingPopup`, `CancelBookingPopup` и прочие доменные компоненты.
+| Компонент | Описание |
+|-----------|----------|
+| `PracticeCard` | карточка практики в каталоге |
+| `PracticeHeroCard` | hero-шапка практики (иконка teal-круг 46px, title, мета date/duration, проп `participants?`, слот `#badge`). Используется на экранах 15 и 18 |
+| `MasterCard` | карточка мастера (аватар `IconMeditation`-плейсхолдер, имя + `IconCheck` verified, теги `VTag` чередованием `[blue,pink,sand][i%3]`, "Подробнее" → toast "скоро"). Пропы `masterName`, `methods`. Используется на 15 и 18 |
+| `BookingCard` | dumb-компонент брони. Пропы `{ booking, badge?, clickable? }` — бейдж считается во вью-родителе (`badgeFor`), сам компонент не содержит бизнес-логики. Экспортит `interface BookingBadge { label; variant }`, `variant: 'live' \| 'today' \| 'tomorrow' \| 'done' \| 'cancelled' \| 'no_show'` |
+| `FormShell` | общая оболочка форм (header + контент + actions + success-экран). Извлечена из CheckinView/FeedbackView — закрыла WARNING-9 (~200 строк дублей CSS) |
+| `BookingPopup` | попап бронирования |
+| `CancelBookingPopup` | попап отмены брони. Тип пропа структурный: `interface CancellableBooking { practice: { title; scheduled_at } }` — принимает и `BookingWithPracticeResponse`, и `BookingDetailResponse`. Refund deadline 24h. Используется только в BookingDetailView |
+
+### 3.4. Флоу ДАШБОРД (экраны 10–18)
+
+Реализован по Figma (node `541:6648`). Карта вью:
+
+| Экран | View | Примечания |
+|-------|------|-----------|
+| 10/11 Dashboard | `views/user/UserDashboardView.vue` | белые карточки `--velo-bg-card-solid`, алерты, карточка ближайшей практики, AI-блок (тоггл Неделя/Месяц + mood). `nearestIsLive` + `openNearest()`: live → practice-live, иначе practice-detail |
+| 12/13 Check-in + Success | `views/user/CheckinView.vue` (+ `shared/FormShell.vue`) | mood-лица `IconMood*`, success `IconCheck`. `onBack()` → `router.back()` (фикс петли 12↔15) |
+| 14 Practice-Live | `views/user/PracticeLiveView.vue` | видео-плейсхолдер, бейдж "● В эфире", "Войти" (`platform.openLink`, дизейбл без `https`-zoom), "Check-in", "Покинуть". Достижим из дашборда при live |
+| 15 Practice Detail | `views/user/PracticeDetailView.vue` | каталог + booked в одном вью. Hero/master вынесены в `PracticeHeroCard`/`MasterCard` (рефакторинг, God-component закрыт) |
+| 16 AI-summary | `views/user/AiSummaryView.vue` | честная заглушка "в разработке" (`IconBrain`). Персонального AI-саммари юзера на бэке НЕТ |
+| 17 My reservations | `views/user/MyBookingsView.vue` (+ `shared/BookingCard.vue`) | две секции Предстоящие/Прошедшие. Бейдж "В эфире" приоритетнее today/tomorrow; live-практики сортируются вверх (`upcomingRank`). Даты TZ-aware через `calendarDate(d, tz)` |
+| 18 Booking Detail | `views/user/BookingDetailView.vue` | hero, статус + `VBadge`, `MasterCard`, секция Zoom, "Отменить" + `CancelBookingPopup`. Грузит через `bookingsStore.fetchBooking(id)` |
+
+**Бэк-разблокировка:** `PracticeSummary` получил поле `status` (см. Бэковый Кодекс §2)
+→ дашборд и список броней показывают бейдж "В эфире" и ведут на `practice-live`
+без дополнительного запроса деталей.
 
 ---
 
@@ -274,7 +326,7 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 |-------|--------------|
 | `auth` | `user`, `token` (module-level var в client.ts), `role`, `isAuthenticated`; методы `restoreSession`/`fetchMe` (через `getMe`), `updateProfile(body)` (через `updateMe` + `_setUser`, бросает ошибку наверх — карусель не "проскакивает" при сбое сохранения) |
 | `practices` | `practices[]`, `total`, `filters`, `loading` |
-| `bookings` | `bookings[]`, `total`, `loading` |
+| `bookings` | `bookings[]`, `total`, `loading`; `selectedBooking`, `selectedLoading`, `selectedError`; методы `fetchBooking(id)` (через `getBooking` → `BookingDetailResponse`), `joinBooking`/`leaveBooking` (возвращают `{ ok, error }` через `extractApiError`) |
 | `balance` | `balance_cents`, `operations[]` |
 | `master` | `profile` (MasterProfile), `practices[]`, `withdrawals[]` |
 | `diary` | `checkins[]`, `feedbacks[]`, `entries[]`, `insightsCache` |
@@ -560,10 +612,10 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | **NEW-4** | 🧪 | `DiaryView.vue` | `onMounted` запускает `Promise.all` без `.catch()` — ошибки уходят в unhandled rejection | `onMounted(async () => { try { await Promise.all([...]) } catch(e) { toast.error(...) } })` |
 | **NEW-5** | ✅ | `CheckinView.vue`, `FeedbackView.vue`, `DiaryView.vue` | `background: white` хардкод | Закрыто в DS-7 — заменено на `transparent` / glass-токены |
 | **NEW-6** | 🧪 | `stores/diary.ts` | `insightsCache` (Map) растёт бесконечно — утечка памяти при большом числе практик | LRU-ограничение (50-100 записей) |
-| **WARNING-1** | 🧪 | `stores/*.ts` | Каждый store реализует свой паттерн try/catch — 7+ дублей одинаковой структуры | Единый composable `useApiError.ts` |
+| **WARNING-1** | ✅ | `stores/*.ts` | Каждый store реализует свой паттерн try/catch — 7+ дублей одинаковой структуры | ЗАКРЫТО: единый `composables/useApiError.ts` (`extractApiError`), применён в bookings-store (join/leave/fetchBooking) и далее по мере касания |
 | **WARNING-3** | 🧪 | `composables/useAuth.ts` | `waitUntilReady()` при таймауте резолвится без ошибки — код дальше думает что auth готов | Возвращать `{ ok: boolean, timedOut: boolean }` |
 | **WARNING-8** | 🧪 | `CheckinView.vue`, `FeedbackView.vue` | `fetchPractice()` вызывается всегда в `onMounted`, даже если practice уже в store | `if (store.selected?.id !== practiceId)` перед fetch |
-| **WARNING-9** | 🧪 | `CheckinView.vue`, `FeedbackView.vue` | ~200 строк идентичного CSS (header, textarea, actions, success screen) | Извлечь `FormShell.vue` с слотами |
+| **WARNING-9** | ✅ | `CheckinView.vue`, `FeedbackView.vue` | ~200 строк идентичного CSS (header, textarea, actions, success screen) | ЗАКРЫТО (флоу дашборд): извлечён `shared/FormShell.vue` со слотами, CheckinView переведён на него |
 | **WARNING-10** | 🧪 | Стили | Magic numbers: `font-size: 80px`, `56px`, `min-width: 90px` без CSS-токенов | Добавить токены в `variables.css` |
 | **WARNING-11** | 🧪 | Компоненты | `platform.hapticFeedback()` без fallback — silent crash если platform не инициализирован | try/catch вокруг вызовов haptic |
 | **WARNING-12** | 🧪 | `tests/` | 2 тест-файла при значительной бизнес-логике F9 (DiaryStore, time window, alert banners, guards) | Покрыть: DiaryStore CRUD, `inCheckinWindow`, `inFeedbackWindow`, `checkinAlert`, router guards |
@@ -579,6 +631,10 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | TD-FE-A11Y | 🧪 | Admin views (5 файлов) | Clickable `<div>` без `role="button"`, `tabindex="0"`, `@keydown` handlers. Нарушает WCAG 2.1 AA 2.1.1. Затронуто: алертовый баннер, stat cards, action cards, master cards, report cards | Добавить `role="button"`, `tabindex="0"`, `@keydown.enter.stop`, `@keydown.space.prevent` |
 | TD-FE-LOGO-SVGO | 🧪 | `public/icons/logo.svg`, `public/icons/logo-white.svg` | SVG-логотипы загружены через `<img>` как есть из Figma-экспорта: `logo.svg` — 228KB, `logo-white.svg` — 434KB. Избыточный размер из-за неоптимизированных path-данных | Прогнать через `svgo` с дефолтными настройками — ожидаемое уменьшение в 5–10× без видимых изменений |
 | AUDIT-0520-FE | 🧪 | `src/**` | Нет компонентных тестов фронтенда (отмечено аудитом 2026-05-20). Логика вью покрыта только ручной проверкой | Vitest + Vue Test Utils для ключевых вью (OnboardingView gate-машина, BookingPopup, формы) |
+| **TD-FE-AISUM** | 🧪 | `views/user/AiSummaryView.vue` | Экран 16 — честная заглушка "в разработке". Персонального AI-саммари юзера на бэке нет (есть только мастерский per-practice, розетка Phase 9) | Реализовать полноценный экран, когда появится бэк-эндпоинт юзерского AI-саммари |
+| **TD-FE-AVATAR** | 🧪 | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` (нет поля с URL аватара) | Подтянуть реальные аватары, когда бэк начнёт их отдавать |
+| **TD-FE-ICONSVG** | 🧪 | `src/components/icons/` | В каталоге доменных иконок остались сырые `.svg`-файлы рядом с `.vue`-компонентами (артефакт экспорта) | `git rm` сырых `.svg` (операция в рабочей копии) |
+| **S-4** | 🧪 | `shared/MasterCard.vue` | Кнопка "Подробнее" (профиль мастера) кликабельна и показывает toast "скоро", хотя экрана профиля мастера для юзера ещё нет | Осознанно отложено: либо disabled-state, либо реальный экран профиля. Аудит 2026-05-20 предлагал disabled — решено оставить toast-заглушку до появления экрана |
 
 ### Осознанные решения (не техдолг)
 
@@ -594,6 +650,8 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | Auth guard в `App.vue` (Phase F1), не в router | В F1 один маршрут; guards добавлены в F2.2 |
 | Фон через `body { background }` в `global.css`, не через `#app::before` | `#app::before` — статический CSS, Telegram WebApp кеширует и не обновляет. `global.css` импортируется в `main.ts` и попадает в JS-бандл, который обновляется при каждом деплое |
 | SVG-логотипы через `<img>` (не inline) | Файлы из Figma-экспорта весят 228KB и 434KB — inline SVG раздует HTML. `<img>` позволяет браузеру кешировать отдельно (TD-FE-LOGO-SVGO покроет оптимизацию) |
+| Один `PracticeDetailView` на каталог + booked (экран 15) | Состояния практики (доступна к брони / уже забронирована) различаются в одном вью. God-component-долг смягчён выносом hero/master в `PracticeHeroCard`/`MasterCard` |
+| `MasterCard` "Подробнее" → toast вместо disabled (S-4) | Экрана профиля мастера для юзера пока нет; toast честнее пустого disabled. Помечено как S-4 в техдолге до появления экрана |
 
 ---
 

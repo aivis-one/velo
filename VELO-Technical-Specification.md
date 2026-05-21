@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 3.1
-**Дата:** 8 марта 2026
+**Версия:** 3.2
+**Дата:** 21 мая 2026
 **Статус:** Active
 
 ---
@@ -2786,7 +2786,8 @@ backend/tests/
 - [x] recalculate_participants() — listener для current_participants (A-03/TD-034)
 
 **Новые схемы:**
-- `PracticeSummary` (id, title, practice_type, scheduled_at, duration_minutes, master_id)
+- `PracticeSummary` (id, title, practice_type, status, scheduled_at, duration_minutes, timezone, master_id, master_name)
+  <!-- timezone added in CR-01; status added 2026-05-21 to support live/scheduled badge in list-views without a detail GET. Both auto-resolved via model_validate(practice)+from_attributes in all 3 consumers. See Backend Codex 2. -->
 - `BookingWithPracticeResponse`, `BookingDetailResponse`, `PaginatedBookingsResponse`
 - `WaitlistWithPracticeResponse`, `PaginatedWaitlistResponse`
 - `PurchaseWithPracticeResponse`, `PaginatedPurchasesResponse`
@@ -2797,6 +2798,18 @@ backend/tests/
 - Ответы конструируются вручную (не model_validate) — Booking ORM не имеет `.practice` relationship
 - `recalculate_participants()` вызывается из create_booking, cancel_booking, finalize_practice, confirm_waitlist, refund_all_bookings_for_practice — единственный корректный способ обновления кэша
 - `_get_active_booking_count` и `_ACTIVE_BOOKING_STATUSES` определены только в bookings/service.py — waitlist/service.py импортирует оттуда (W-04 fix)
+
+**Дополнено 2026-05-21 (флоу ДАШБОРД, экраны 10–18):**
+- `PracticeSummary` получил поле `status: PracticeStatus`. Уточнение к решению выше: внешний
+  ответ (`BookingWithPracticeResponse` и т.п.) собирается вручную, но вложенный
+  `PracticeSummary` строится через `model_validate(practice)` из ORM `Practice` (у которого
+  есть и `status`, и `timezone`) — поэтому новое поле подхватилось во всех 3 потребителях
+  без правок роутеров и без миграции.
+- Фронт реализовал пользовательский флоу дашборда (новые вью PracticeLive/AiSummary/
+  MyBookings/BookingDetail, shared PracticeHeroCard/MasterCard/FormShell, метод платформы
+  `openLink`). Детали — в Frontend-Спецификации §6 и Фронтовом Кодексе §3.4.
+- Подтверждено: `POST /bookings/{id}/join|leave` — действие **владельца брони** (юзера),
+  как и зафиксировано в Phase 5.4 выше; Бэковый Кодекс §2 приведён в соответствие.
 
 ### Security Audit Feb 2026 — результаты
 

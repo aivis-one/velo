@@ -1,7 +1,7 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.5
-**Дата:** 8 марта 2026
+**Версия:** 1.6
+**Дата:** 21 мая 2026
 **Статус:** Active
 
 ---
@@ -1289,6 +1289,32 @@ COALESCE в merge, +5 бэкенд-тестов на инвариант рело
 | ID | Среда | Файл | Описание | Решение | Статус |
 |----|-------|------|----------|---------|--------|
 | TD-F01 | 🚀 | `platform/telegram.ts`, `composables/useAuth.ts` | `startapp` параметр не обрабатывается при открытии приложения — диплинки (например из Telegram-каналов мастеров) открывают дашборд вместо конкретной практики. Бэкенд уже генерирует правильные ссылки формата `https://t.me/velo_testbot?startapp=open_practice__{uuid}` через `TelegramFormatter.format_deep_link()`. Фронт их игнорирует. | В `initAuth()` после успешной авторизации читать `window.Telegram.WebApp.initDataUnsafe.start_param`, парсить формат `open_practice__{uuid}`, вызывать `router.push('/user/practices/{uuid}')`. Объём: ~10-15 строк в одном файле. Приоритет высокий — влияет на конверсию из каналов мастеров. | ⬜ |
+
+### Флоу ДАШБОРД (экраны 10–18) — реализация 2026-05-21
+
+Реализован пользовательский флоу по Figma (node `541:6648`) поверх фаз F3/F4/F9.
+Подробности и карта вью — в **Фронтовом Кодексе §3.4**. Кратко:
+
+**Сделано:** новые вью `PracticeLiveView` (14), `AiSummaryView` (16, заглушка),
+`MyBookingsView` (17), `BookingDetailView` (18); переделаны `UserDashboardView` (10/11),
+`CheckinView` (12/13), `PracticeDetailView` (15). Новые роуты `practice-live/:practiceId`,
+`ai-summary`, `bookings/:id`. Новые shared-компоненты `PracticeHeroCard`, `MasterCard`,
+`FormShell` + dumb-`BookingCard`. Платформа получила метод `openLink`. Store `bookings`
+расширен (`fetchBooking`, `joinBooking`/`leaveBooking`, `selectedBooking`). Бэк-разблокировка:
+`PracticeSummary.status` (бейдж "В эфире" без отдельного GET).
+
+**Закрыто рефакторингом:** дублирование форм (извлечён `FormShell`); единый
+`composables/useApiError.ts` для обработки ошибок store; God-component `PracticeDetailView`
+смягчён выносом hero/master.
+
+**Новый техдолг флоу:**
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-FE-AISUM | 🧪 | `views/user/AiSummaryView.vue` | Экран 16 — заглушка. Персонального AI-саммари юзера на бэке нет (есть только мастерский per-practice, розетка Phase 9) | Реализовать при появлении бэк-эндпоинта юзерского AI-саммари | ⬜ |
+| TD-FE-AVATAR | 🧪 | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` | Подтянуть реальные аватары при поддержке на бэке | ⬜ |
+| TD-FE-ICONSVG | 🧪 | `src/components/icons/` | Сырые `.svg` рядом с `.vue`-компонентами иконок (артефакт экспорта) | `git rm` сырых `.svg` | ⬜ |
+| S-4 | 🧪 | `shared/MasterCard.vue` | Кнопка "Подробнее" (профиль мастера) кликабельна с toast "скоро", экрана нет. Аудит 2026-05-20 предлагал disabled — оставлено toast-заглушкой | disabled-state либо реальный экран профиля мастера для юзера | ⬜ |
 
 ---
 
