@@ -405,6 +405,32 @@ async def get_practice(
     return practice, master_name, master_methods
 
 
+async def get_practice_detail(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> PracticeResponse:
+    """Get a single practice as a ready PracticeResponse for the detail screen.
+
+    Public service entry point for GET /practices/{id}. Encapsulates the
+    visibility rules (get_practice), the per-user is_booked/is_paid flags,
+    and response assembly so the router stays thin and does not reach into
+    private helpers (C-1: no cross-layer import of _user_flags_for_practices).
+    """
+    practice, master_name, master_methods = await get_practice(
+        practice_id, user, session,
+    )
+    flags = await _user_flags_for_practices(user.id, [practice.id], session)
+    is_booked, is_paid = flags.get(practice.id, (False, False))
+    return practice_to_response(
+        practice,
+        master_name,
+        master_methods,
+        is_booked=is_booked,
+        is_paid=is_paid,
+    )
+
+
 async def update_practice(
     practice_id: UUID,
     user: User,

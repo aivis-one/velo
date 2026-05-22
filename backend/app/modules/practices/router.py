@@ -52,11 +52,10 @@ from app.modules.practices.service import (
     cancel_practice,
     create_practice,
     delete_practice,
-    get_practice,
+    get_practice_detail,
     list_public_practices,
     practice_to_response,
     update_practice,
-    _user_flags_for_practices,
 )
 from app.modules.users.models import User
 
@@ -167,18 +166,7 @@ async def get_practice_endpoint(
 
     Draft/deleted practices are visible only to the owner master.
     """
-    practice, master_name, master_methods = await get_practice(
-        practice_id, user, session,
-    )
-    flags = await _user_flags_for_practices(user.id, [practice.id], session)
-    is_booked, is_paid = flags.get(practice.id, (False, False))
-    return practice_to_response(
-        practice,
-        master_name,
-        master_methods,
-        is_booked=is_booked,
-        is_paid=is_paid,
-    )
+    return await get_practice_detail(practice_id, user, session)
 
 
 # ------------------------------------------------------------------

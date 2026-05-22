@@ -138,10 +138,18 @@ export const useCalendarStore = defineStore('calendar', () => {
     error.value = null
 
     const week = days.value
+    // W-2: the week boundaries are local (browser TZ), but the server filters
+    // scheduled_at in UTC and practices carry their OWN timezone. Near midnight
+    // in extreme timezones a practice that belongs to this week locally can
+    // fall just outside the UTC window. Widen the requested range by one day
+    // on each side so no such practice is missed; the client still groups by
+    // calendarDateInTz, so the extra days never leak into the wrong week.
     const from = new Date(week[0]!)
     from.setHours(0, 0, 0, 0)
+    from.setDate(from.getDate() - 1)
     const to = new Date(week[6]!)
     to.setHours(23, 59, 59, 999)
+    to.setDate(to.getDate() + 1)
 
     const query: PracticeFilters = {
       ...filters,
@@ -152,7 +160,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     }
 
     try {
-      // A week's worth of practices is small; one generous page covers it.
+      // A week (+- 1 day buffer) of practices is small; one page covers it.
       const res = await getPractices(query, 100, 0)
       weekPractices.value = res.items
     } catch (e) {
