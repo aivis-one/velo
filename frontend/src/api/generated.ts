@@ -510,6 +510,8 @@ export interface PracticeResponse {
   direction?: string | null
   style?: string | null
   difficulty?: string | null
+  is_booked?: boolean
+  is_paid?: boolean
   created_at: string
   updated_at: string | null
 }
