@@ -260,8 +260,15 @@ async def _user_flags_for_practices(
     """Map practice_id -> (is_booked, is_paid) for the given user.
 
     One query over the user's bookings restricted to practice_ids on the
-    current page (uses ix_bookings_user_id). is_booked = the user has a
-    booking in _BOOKED_STATUSES; is_paid = that booking has a purchase_id.
+    current page (uses ix_bookings_user_id), joined to Practice for the price.
+
+    is_booked -- the user has a booking in _BOOKED_STATUSES for the practice.
+    is_paid   -- is_booked AND the practice is paid (price_cents > 0).
+                 Definition note: a Booking always carries a purchase_id (even
+                 free practices create a zero-amount Purchase), so purchase
+                 presence is NOT a paid signal. "Paid" here means the user
+                 holds a booking on a priced practice -- this drives the
+                 "Оплачено" vs "Бесплатно" badge in the Calendar.
 
     Practices with no booking for this user are simply absent from the
     map -> caller treats them as (False, False).
@@ -271,7 +278,9 @@ async def _user_flags_for_practices(
 
     stmt = select(
         Booking.practice_id,
-        Booking.purchase_id,
+        Practice.price_cents,
+    ).join(
+        Practice, Booking.practice_id == Practice.id,
     ).where(
         Booking.user_id == user_id,
         Booking.practice_id.in_(practice_ids),
@@ -280,8 +289,8 @@ async def _user_flags_for_practices(
     result = await session.execute(stmt)
 
     flags: dict[UUID, tuple[bool, bool]] = {}
-    for practice_id, purchase_id in result.all():
-        flags[practice_id] = (True, purchase_id is not None)
+    for practice_id, price_cents in result.all():
+        flags[practice_id] = (True, price_cents > 0)
     return flags
 
 
