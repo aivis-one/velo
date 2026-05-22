@@ -10,7 +10,7 @@
 
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
@@ -18,6 +18,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
+from app.modules.payments.service import record_user_ledger
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
@@ -889,3 +890,418 @@ async def test_list_practices_no_auth(
     """Public feed requires authentication: 401."""
     resp = await client.get(PRACTICES_URL)
     assert resp.status_code == 401
+
+# ===================================================================
+# CALENDAR ITERATION -- taxonomy storage, feed filters, user flags
+# ===================================================================
+#
+# Uses telegram_id range 60xxx (masters 600xx, viewers 601xx) like the
+# rest of this module. Feed tests scope to the test's own master via
+# master_id= to stay independent of seed data.
+
+_BOOKINGS_URL = "/api/v1/bookings"
+_PURCHASE_URL = "/api/v1/practices/{practice_id}/purchase"
+
+
+# ---------------------------------------------------------------------------
+# Taxonomy storage -- create persists data.taxonomy, surfaced in response
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_create_persists_taxonomy(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Create with direction/difficulty/style -> returned in response + GET."""
+    auth = await _make_verified_master(client, db_session)
+    resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            direction="yoga", difficulty="high", style="Кундалини йога",
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["direction"] == "yoga"
+    assert data["difficulty"] == "high"
+    assert data["style"] == "Кундалини йога"
+
+    # Re-fetch via GET to confirm it is persisted (not just echoed).
+    pid = data["id"]
+    get_resp = await client.get(
+        f"{PRACTICES_URL}/{pid}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert get_resp.status_code == 200
+    got = get_resp.json()
+    assert got["direction"] == "yoga"
+    assert got["difficulty"] == "high"
+    assert got["style"] == "Кундалини йога"
+
+
+@pytest.mark.asyncio
+async def test_create_without_style_returns_null(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """style is optional -> omitted -> null in response."""
+    auth = await _make_verified_master(client, db_session)
+    body = _valid_practice_body()
+    body.pop("style", None)  # ensure absent
+    resp = await client.post(
+        PRACTICES_URL,
+        json=body,
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 201
+    assert resp.json()["style"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_merges_taxonomy(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """PATCH difficulty only -> direction/style preserved (JSONB merge)."""
+    auth = await _make_verified_master(client, db_session)
+    create = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            direction="yoga", difficulty="beginner", style="Хатха",
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    pid = create.json()["id"]
+
+    patch = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"difficulty": "high"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch.status_code == 200
+    data = patch.json()
+    assert data["difficulty"] == "high"      # changed
+    assert data["direction"] == "yoga"       # preserved
+    assert data["style"] == "Хатха"          # preserved
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- direction (single + multi)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_direction_single(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """direction=yoga returns only yoga practices (scoped to master)."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(client, auth, direction="yoga", title="Y")
+    await _create_and_publish(
+        client, auth, direction="meditation", title="M",
+    )
+
+    viewer = await login_user(client, telegram_id=60110, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=yoga&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Y"
+
+
+@pytest.mark.asyncio
+async def test_filter_direction_multi(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Multi direction (yoga + breathwork) returns both, excludes meditation."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(client, auth, direction="yoga", title="Y")
+    await _create_and_publish(
+        client, auth, direction="breathwork", title="B",
+    )
+    await _create_and_publish(
+        client, auth, direction="meditation", title="M",
+    )
+
+    viewer = await login_user(client, telegram_id=60111, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=yoga&direction=breathwork"
+        f"&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    titles = {item["title"] for item in data["items"]}
+    assert titles == {"Y", "B"}
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- difficulty
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_difficulty(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """difficulty=high returns only high practices."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(client, auth, difficulty="high", title="H")
+    await _create_and_publish(
+        client, auth, difficulty="beginner", title="Beg",
+    )
+
+    viewer = await login_user(client, telegram_id=60112, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?difficulty=high&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "H"
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- style (free-form exact match)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_style(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """style filter matches the exact stored style string."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(
+        client, auth, style="Кундалини йога", title="K",
+    )
+    await _create_and_publish(client, auth, style="Хатха", title="X")
+
+    viewer = await login_user(client, telegram_id=60113, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?style=Хатха&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "X"
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- duration_bucket (short < 60 <= long)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_duration_bucket(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """short = duration < 60, long = duration >= 60."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(
+        client, auth, duration_minutes=45, title="Short",
+    )
+    await _create_and_publish(
+        client, auth, duration_minutes=90, title="Long",
+    )
+
+    viewer = await login_user(client, telegram_id=60114, first_name="V")
+
+    short_resp = await client.get(
+        f"{PRACTICES_URL}?duration_bucket=short&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert short_resp.status_code == 200
+    short_data = short_resp.json()
+    assert short_data["total"] == 1
+    assert short_data["items"][0]["title"] == "Short"
+
+    long_resp = await client.get(
+        f"{PRACTICES_URL}?duration_bucket=long&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert long_resp.json()["total"] == 1
+    assert long_resp.json()["items"][0]["title"] == "Long"
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- time_of_day (local-hour bucket in practice timezone)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_time_of_day(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """time_of_day buckets by the practice's local hour.
+
+    Practices are created in UTC timezone with explicit UTC hours, so the
+    local hour equals the UTC hour:
+      08:00 -> morning [5,12), 14:00 -> day [12,17), 20:00 -> evening [17,24).
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+
+    def _at_hour(hour: int) -> str:
+        # Next occurrence of `hour` UTC, safely in the future (+7 days).
+        base = datetime.now(timezone.utc) + timedelta(days=7)
+        return base.replace(
+            hour=hour, minute=0, second=0, microsecond=0,
+        ).isoformat()
+
+    await _create_and_publish(
+        client, auth, timezone="UTC",
+        scheduled_at=_at_hour(8), title="Morning",
+    )
+    await _create_and_publish(
+        client, auth, timezone="UTC",
+        scheduled_at=_at_hour(14), title="Day",
+    )
+    await _create_and_publish(
+        client, auth, timezone="UTC",
+        scheduled_at=_at_hour(20), title="Evening",
+    )
+
+    viewer = await login_user(client, telegram_id=60115, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?time_of_day=morning&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Morning"
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- combined facets are AND-ed (direction + practice_type)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_combined_facets_and(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Across facets conditions AND: yoga AND live matches only that one."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(
+        client, auth, direction="yoga", practice_type="live", title="YL",
+    )
+    await _create_and_publish(
+        client, auth, direction="yoga", practice_type="replay", title="YR",
+    )
+    await _create_and_publish(
+        client, auth,
+        direction="meditation", practice_type="live", title="ML",
+    )
+
+    viewer = await login_user(client, telegram_id=60116, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=yoga&practice_type=live"
+        f"&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "YL"
+
+
+# ---------------------------------------------------------------------------
+# User flags -- is_booked / is_paid
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_flags_not_booked(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A viewer who has not booked sees is_booked=False, is_paid=False."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(client, auth, title="P")
+
+    viewer = await login_user(client, telegram_id=60117, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["is_booked"] is False
+    assert item["is_paid"] is False
+
+
+@pytest.mark.asyncio
+async def test_flags_booked_free(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Booked a FREE practice -> is_booked=True, is_paid=False (variant 1)."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    pid = await _create_and_publish(client, auth, is_free=True, title="Free")
+
+    viewer = await login_user(client, telegram_id=60118, first_name="V")
+    book = await client.post(
+        _BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert book.status_code == 201
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    item = next(i for i in resp.json()["items"] if i["id"] == pid)
+    assert item["is_booked"] is True
+    assert item["is_paid"] is False
+
+
+@pytest.mark.asyncio
+async def test_flags_booked_paid(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Booked a PAID practice -> is_booked=True, is_paid=True (variant 1)."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    pid = await _create_and_publish(
+        client, auth, is_free=False, price_cents=5000, title="Paid",
+    )
+
+    viewer = await login_user(client, telegram_id=60119, first_name="V")
+    viewer_id = viewer["user"]["id"]
+
+    # Fund the viewer's balance, then purchase (creates a booking).
+    from app.core.database import get_session_factory
+    factory = get_session_factory()
+    async with factory() as topup_session:
+        await record_user_ledger(
+            user_id=UUID(viewer_id),
+            amount_cents=10000,
+            reason="test:topup",
+            session=topup_session,
+        )
+        await topup_session.commit()
+
+    purchase = await client.post(
+        _PURCHASE_URL.format(practice_id=pid),
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert purchase.status_code == 201
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    item = next(i for i in resp.json()["items"] if i["id"] == pid)
+    assert item["is_booked"] is True
+    assert item["is_paid"] is True
