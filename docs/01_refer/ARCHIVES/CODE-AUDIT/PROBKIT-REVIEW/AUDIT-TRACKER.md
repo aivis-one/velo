@@ -7,3 +7,4 @@
 | 2026-05-20 | frontend update ee35348–0023676 (icons, dashboard, styles) | — | 0 | 0 | 3 |
 | 2026-05-20 | frontend screens 14–18 (0023676..a43791b) | 8/10 | 0 | 1 | 4 |
 | 2026-05-20 | re-check screens 14–18 fixes (ce2d914) | — | 0 | 0 | 0 |
+| 2026-05-22 | calendar iteration ce2d914..cec4b5b (taxonomy, filters, CalendarView) | 7/10 | 1 | 3 | 5 |
