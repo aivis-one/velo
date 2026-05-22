@@ -121,6 +121,13 @@ export interface ApiError {
 export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
 export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
 export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
+
+// -- Calendar taxonomy facets (match backend data.taxonomy values) --
+export type PracticeDirection = 'meditation' | 'yoga' | 'breathwork'
+export type PracticeDifficulty = 'beginner' | 'medium' | 'high'
+// -- Calendar feed buckets (match backend filter literals) --
+export type DurationBucket = 'short' | 'long'
+export type TimeOfDay = 'night' | 'morning' | 'day' | 'evening'
 export type BookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show' | 'cancelled'
 export type PurchaseStatus = 'pending' | 'completed' | 'refunded' | 'failed'
 export type MasterStatus = 'pending' | 'verified' | 'rejected'
@@ -133,7 +140,14 @@ export type FeedbackRating = 'fire' | 'good' | 'confused'
 // -- Query / filter types (used by stores and API modules) -------------------
 
 export interface PracticeFilters {
-  practice_type?: PracticeType
+  // Multi-select: OR within the facet, sent as repeated query params.
+  practice_type?: PracticeType[]
+  // Calendar facets (all optional). Multi-select facets are arrays.
+  direction?: PracticeDirection[]
+  difficulty?: PracticeDifficulty[]
+  style?: string
+  duration_bucket?: DurationBucket
+  time_of_day?: TimeOfDay
   status?: 'scheduled' | 'live'
   master_id?: string
   date_from?: string

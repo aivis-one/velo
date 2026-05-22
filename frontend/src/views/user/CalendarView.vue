@@ -108,12 +108,12 @@ const typeChips: TypeChip[] = [
 ]
 
 const activeType = computed<PracticeType | 'all'>(
-  () => store.filters.practice_type ?? 'all',
+  () => store.filters.practice_type?.[0] ?? 'all',
 )
 
 function onTypeFilter(value: PracticeType | 'all'): void {
   store.applyFilters({
-    practice_type: value === 'all' ? undefined : value,
+    practice_type: value === 'all' ? undefined : [value],
   })
 }
 
