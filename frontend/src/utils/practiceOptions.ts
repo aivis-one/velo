@@ -21,3 +21,21 @@ export const TIMEZONE_OPTIONS: { label: string; value: string }[] = [
   { label: 'Asia/Dubai (UTC+4)',         value: 'Asia/Dubai' },
   { label: 'America/New_York (UTC-5/4)', value: 'America/New_York' },
 ]
+
+// -- Calendar taxonomy options --
+// direction / difficulty are required Practice fields (stored in
+// data.taxonomy on the backend). Values MUST match the backend allowed
+// lists in config.py (practice_allowed_directions / _difficulties).
+// Shared by the master create/edit forms and the Calendar filter UI.
+
+export const DIRECTION_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Медитация',           value: 'meditation' },
+  { label: 'Йога',                value: 'yoga' },
+  { label: 'Дыхательные практики', value: 'breathwork' },
+]
+
+export const DIFFICULTY_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Начальная', value: 'beginner' },
+  { label: 'Средняя',   value: 'medium' },
+  { label: 'Высокая',   value: 'high' },
+]

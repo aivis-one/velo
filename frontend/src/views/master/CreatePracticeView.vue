@@ -58,6 +58,26 @@
           :options="PRACTICE_TYPE_OPTIONS"
           :error="errors.practice_type"
         />
+
+        <VSelect
+          v-model="form.direction"
+          label="Направление *"
+          :options="DIRECTION_OPTIONS"
+          :error="errors.direction"
+        />
+
+        <VSelect
+          v-model="form.difficulty"
+          label="Сложность *"
+          :options="DIFFICULTY_OPTIONS"
+          :error="errors.difficulty"
+        />
+
+        <VInput
+          v-model="form.style"
+          label="Вид практики"
+          placeholder="Кундалини йога"
+        />
       </div>
 
       <!-- ================================================================
@@ -235,7 +255,12 @@ import { useMasterStore } from '@/stores/master'
 import { createPractice } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
-import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
+import {
+  DURATION_OPTIONS,
+  TIMEZONE_OPTIONS,
+  DIRECTION_OPTIONS,
+  DIFFICULTY_OPTIONS,
+} from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents } from '@/utils/currency'
 import type { PracticeType } from '@/api/types'
@@ -265,6 +290,9 @@ const commissionPct = Math.round(COMMISSION_RATE * 100)
 const form = reactive({
   title: '',
   practice_type: 'live',
+  direction: 'meditation',
+  difficulty: 'beginner',
+  style: '',
   date: '',
   time: '',
   duration_minutes: '60',
@@ -282,6 +310,8 @@ const form = reactive({
 const errors = reactive({
   title: '',
   practice_type: '',
+  direction: '',
+  difficulty: '',
   date: '',
   time: '',
   duration_minutes: '',
@@ -308,6 +338,14 @@ function validate(): boolean {
   }
   if (!form.practice_type) {
     errors.practice_type = 'Выберите тип практики'
+    ok = false
+  }
+  if (!form.direction) {
+    errors.direction = 'Выберите направление'
+    ok = false
+  }
+  if (!form.difficulty) {
+    errors.difficulty = 'Выберите сложность'
     ok = false
   }
   if (!form.date) {
@@ -370,6 +408,9 @@ async function submit(): Promise<void> {
 
     await createPractice({
       practice_type: form.practice_type as PracticeType,
+      direction: form.direction,
+      difficulty: form.difficulty,
+      style: form.style.trim() || null,
       title: form.title.trim(),
       description: form.description.trim() || null,
       what_to_prepare: form.what_to_prepare.trim() || null,

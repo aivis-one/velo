@@ -91,6 +91,24 @@
                 {{ practiceTypeLabel(practice.practice_type) }}
               </span>
             </div>
+
+            <VSelect
+              v-model="form.direction"
+              label="Направление *"
+              :options="DIRECTION_OPTIONS"
+            />
+
+            <VSelect
+              v-model="form.difficulty"
+              label="Сложность *"
+              :options="DIFFICULTY_OPTIONS"
+            />
+
+            <VInput
+              v-model="form.style"
+              label="Вид практики"
+              placeholder="Кундалини йога"
+            />
           </div>
 
           <div class="edit-practice__section">
@@ -370,7 +388,12 @@ import {
 } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
-import { DURATION_OPTIONS, TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
+import {
+  DURATION_OPTIONS,
+  TIMEZONE_OPTIONS,
+  DIRECTION_OPTIONS,
+  DIFFICULTY_OPTIONS,
+} from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
 import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
@@ -418,6 +441,9 @@ const todayDate = computed(() => new Date().toISOString().split('T')[0])
 // -- Form state (populated from practice on load) --
 const form = reactive({
   title: '',
+  direction: 'meditation',
+  difficulty: 'beginner',
+  style: '',
   date: '',
   time: '',
   duration_minutes: '60',
@@ -484,6 +510,12 @@ function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'in
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {
   form.title = p.title
+  // Taxonomy (data.taxonomy on the backend). Older practices created before
+  // the Calendar iteration may have null facets -> fall back to defaults so
+  // the selects always show a valid option.
+  form.direction = p.direction ?? 'meditation'
+  form.difficulty = p.difficulty ?? 'beginner'
+  form.style = p.style ?? ''
   const dt = new Date(p.scheduled_at)
   form.date = dt.toLocaleDateString('en-CA', { timeZone: p.timezone })
   form.time = dt.toLocaleTimeString('en-GB', {
@@ -565,6 +597,9 @@ async function save(): Promise<void> {
 
     const updated = await updatePractice(practiceId, {
       title: form.title.trim(),
+      direction: form.direction,
+      difficulty: form.difficulty,
+      style: form.style.trim() || null,
       description: form.description.trim() || null,
       what_to_prepare: form.what_to_prepare.trim() || null,
       contraindications: form.contraindications.trim() || null,
