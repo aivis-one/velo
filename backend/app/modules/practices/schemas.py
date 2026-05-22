@@ -416,6 +416,14 @@ class PracticeResponse(BaseModel):
     style: str | None = None
     difficulty: str | None = None
 
+    # -- Per-user state (computed by the service for the requesting user) --
+    # Ephemeral, NOT stored in data JSONB. Default False so model_validate()
+    # on a raw ORM object is safe; the service overrides them in feed/detail
+    # responses. On master-facing list endpoints they stay False (the master
+    # is not a booker of their own practices).
+    is_booked: bool = False
+    is_paid: bool = False
+
     created_at: datetime
     updated_at: datetime | None
 

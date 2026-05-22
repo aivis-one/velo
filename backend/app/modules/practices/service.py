@@ -66,10 +66,11 @@ from typing import Literal
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import and_, extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
+from app.core.config import settings
 from app.core.exceptions import (
     BadRequestError,
     NotFoundError,
@@ -143,6 +144,15 @@ _ACTIVE_BOOKING_STATUSES = {
     BookingStatus.CONFIRMED.value,
 }
 
+# Booking statuses that mark a practice as "booked" for the requesting user
+# in feed/detail responses (is_booked). Includes ATTENDED so a practice the
+# user already attended still shows as theirs. Cancelled/no_show excluded.
+_BOOKED_STATUSES = {
+    BookingStatus.PENDING.value,
+    BookingStatus.CONFIRMED.value,
+    BookingStatus.ATTENDED.value,
+}
+
 # Calendar taxonomy facets -- stored in Practice.data.taxonomy (JSONB),
 # NOT as columns. Handled separately from setattr-based column updates.
 _TAXONOMY_FIELDS = ("direction", "style", "difficulty")
@@ -212,6 +222,9 @@ def practice_to_response(
     practice: Practice,
     master_name: str | None = None,
     master_methods: list[str] | None = None,
+    *,
+    is_booked: bool = False,
+    is_paid: bool = False,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -232,7 +245,44 @@ def practice_to_response(
     resp.style = taxonomy.get("style")
     resp.difficulty = taxonomy.get("difficulty")
 
+    # Per-user state for the requesting user (default False -- see schema).
+    resp.is_booked = is_booked
+    resp.is_paid = is_paid
+
     return resp
+
+
+async def _user_flags_for_practices(
+    user_id: UUID,
+    practice_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, tuple[bool, bool]]:
+    """Map practice_id -> (is_booked, is_paid) for the given user.
+
+    One query over the user's bookings restricted to practice_ids on the
+    current page (uses ix_bookings_user_id). is_booked = the user has a
+    booking in _BOOKED_STATUSES; is_paid = that booking has a purchase_id.
+
+    Practices with no booking for this user are simply absent from the
+    map -> caller treats them as (False, False).
+    """
+    if not practice_ids:
+        return {}
+
+    stmt = select(
+        Booking.practice_id,
+        Booking.purchase_id,
+    ).where(
+        Booking.user_id == user_id,
+        Booking.practice_id.in_(practice_ids),
+        Booking.status.in_(_BOOKED_STATUSES),
+    )
+    result = await session.execute(stmt)
+
+    flags: dict[UUID, tuple[bool, bool]] = {}
+    for practice_id, purchase_id in result.all():
+        flags[practice_id] = (True, purchase_id is not None)
+    return flags
 
 
 # ===================================================================
@@ -646,13 +696,57 @@ async def list_master_practices(
     )
 
 
+def _local_hour(column_tz, column_ts):
+    """Local hour (0-23) of a timestamp in the row's own timezone.
+
+    Postgres: EXTRACT(HOUR FROM (ts AT TIME ZONE tz_name)). Expressed via
+    func.timezone(tz, ts) + extract() so it stays within the ORM (no raw
+    SQL). func.timezone(text, timestamptz) returns the local wall-clock
+    timestamp for that zone, from which we pull the hour.
+    """
+    return extract("hour", func.timezone(column_tz, column_ts))
+
+
+def _time_of_day_filter(time_of_day: str):
+    """Build a half-open local-hour range condition for a time_of_day bucket.
+
+    Buckets (config-driven boundaries):
+      night   [night_start,   morning_start)
+      morning [morning_start, day_start)
+      day     [day_start,     evening_start)
+      evening [evening_start, 24)
+    """
+    night = settings.practice_time_night_start_hour
+    morning = settings.practice_time_morning_start_hour
+    day = settings.practice_time_day_start_hour
+    evening = settings.practice_time_evening_start_hour
+
+    ranges = {
+        "night": (night, morning),
+        "morning": (morning, day),
+        "day": (day, evening),
+        "evening": (evening, 24),
+    }
+    low, high = ranges[time_of_day]
+    local_hour = _local_hour(Practice.timezone, Practice.scheduled_at)
+    return and_(local_hour >= low, local_hour < high)
+
+
 async def list_public_practices(
     session: AsyncSession,
     *,
+    user: User,
     limit: int = 20,
     offset: int = 0,
     master_id: UUID | None = None,
-    practice_type: str | None = None,
+    practice_type: list[str] | None = None,
+    direction: list[str] | None = None,
+    difficulty: list[str] | None = None,
+    style: str | None = None,
+    duration_bucket: Literal["short", "long"] | None = None,
+    time_of_day: Literal[
+        "night", "morning", "day", "evening",
+    ] | None = None,
     status: str | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
@@ -661,16 +755,21 @@ async def list_public_practices(
     ] = "scheduled_at",
     sort_order: Literal["asc", "desc"] = "asc",
 ) -> PaginatedPracticesResponse:
-    """List practices visible in the public feed.
+    """List practices visible in the public feed (Calendar feed).
 
-    Only scheduled and live practices are shown (unless
-    status filter explicitly requests one of them).
-    Supports filtering by master, type, date range, and status.
-    Supports sorting by scheduled_at or price_cents.
+    Only scheduled and live practices are shown (unless status filter
+    explicitly requests one of them). Supports filtering by master, type,
+    date range, status, and the Calendar facets (direction / difficulty /
+    style / duration_bucket / time_of_day).
+
+    Multi-value semantics (Calendar "Выбрать практики"):
+      - Within one facet, values are OR-ed (.in_()).
+      - Across facets, conditions are AND-ed (separate filter entries).
+
+    Per-user flags (is_booked / is_paid) are computed for `user` over the
+    practices on the returned page via a single bookings query.
     """
     # FIX 5.3: Build filter list once, apply to both queries (DRY).
-    # Before: each filter was applied separately to query and count_query.
-    # After:  single filters list applied via .where(*filters).
     filters: list = []
 
     if status is not None:
@@ -681,8 +780,37 @@ async def list_public_practices(
     if master_id is not None:
         filters.append(Practice.master_id == master_id)
 
-    if practice_type is not None:
-        filters.append(Practice.practice_type == practice_type)
+    # practice_type: multi-select (OR within facet).
+    if practice_type:
+        filters.append(Practice.practice_type.in_(practice_type))
+
+    # -- Calendar taxonomy facets (JSONB data.taxonomy, schema-on-read) --
+    # direction / difficulty: multi-select (OR within facet).
+    # style: single free-form match.
+    if direction:
+        filters.append(
+            Practice.data["taxonomy"]["direction"].as_string().in_(direction)
+        )
+    if difficulty:
+        filters.append(
+            Practice.data["taxonomy"]["difficulty"].as_string().in_(difficulty)
+        )
+    if style is not None:
+        filters.append(
+            Practice.data["taxonomy"]["style"].as_string() == style
+        )
+
+    # duration_bucket: short = < N minutes, long = >= N minutes.
+    if duration_bucket is not None:
+        threshold = settings.practice_duration_long_min_minutes
+        if duration_bucket == "short":
+            filters.append(Practice.duration_minutes < threshold)
+        else:  # "long"
+            filters.append(Practice.duration_minutes >= threshold)
+
+    # time_of_day: local-hour bucket in the practice's own timezone.
+    if time_of_day is not None:
+        filters.append(_time_of_day_filter(time_of_day))
 
     if date_from is not None:
         filters.append(Practice.scheduled_at >= date_from)
@@ -718,9 +846,18 @@ async def list_public_practices(
     result = await session.execute(query)
     rows = result.all()
 
+    # -- Per-user flags for the practices on this page (single query) --
+    practice_ids = [p.id for p, _ in rows]
+    flags = await _user_flags_for_practices(user.id, practice_ids, session)
+
     return PaginatedPracticesResponse(
         items=[
-            practice_to_response(p, master_name)
+            practice_to_response(
+                p,
+                master_name,
+                is_booked=flags.get(p.id, (False, False))[0],
+                is_paid=flags.get(p.id, (False, False))[1],
+            )
             for p, master_name in rows
         ],
         total=total,

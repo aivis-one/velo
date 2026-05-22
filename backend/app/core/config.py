@@ -135,6 +135,24 @@ class Settings(BaseSettings):
     ]
     practice_style_max_length: int = 100
 
+    # -- Calendar feed filters (Calendar iteration) --
+    # Thresholds for the duration_bucket and time_of_day feed filters.
+    # Kept here (NO-LITERALS) so the boundaries are tunable in one place;
+    # the allowed bucket *names* stay as Literal in the router signature.
+    #
+    # duration_bucket: "short" = duration_minutes < N, "long" = >= N.
+    practice_duration_long_min_minutes: int = 60
+    #
+    # time_of_day buckets by the practice's LOCAL hour (0-23), computed in
+    # the practice timezone. Half-open ranges [start, next_start):
+    #   night   [0, 5)    morning [5, 12)
+    #   day     [12, 17)  evening [17, 24)
+    # Boundaries are the inclusive start hour of each bucket.
+    practice_time_night_start_hour: int = 0
+    practice_time_morning_start_hour: int = 5
+    practice_time_day_start_hour: int = 12
+    practice_time_evening_start_hour: int = 17
+
     # Statuses allowed in PATCH /practices/{id} (I-04).
     # "cancelled" is intentionally excluded: the only path to cancelled is
     # POST /practices/{id}/cancel which handles refunds.

@@ -56,6 +56,7 @@ from app.modules.practices.service import (
     list_public_practices,
     practice_to_response,
     update_practice,
+    _user_flags_for_practices,
 )
 from app.modules.users.models import User
 
@@ -74,8 +75,19 @@ async def list_practices_endpoint(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     master_id: UUID | None = Query(default=None),
-    practice_type: Literal[
-        "live", "series", "one_on_one", "replay",
+    practice_type: list[
+        Literal["live", "series", "one_on_one", "replay"]
+    ] | None = Query(default=None),
+    direction: list[
+        Literal["meditation", "yoga", "breathwork"]
+    ] | None = Query(default=None),
+    difficulty: list[
+        Literal["beginner", "medium", "high"]
+    ] | None = Query(default=None),
+    style: str | None = Query(default=None),
+    duration_bucket: Literal["short", "long"] | None = Query(default=None),
+    time_of_day: Literal[
+        "night", "morning", "day", "evening",
     ] | None = Query(default=None),
     status_filter: Literal[
         "scheduled", "live",
@@ -92,14 +104,22 @@ async def list_practices_endpoint(
     """List practices in the public feed.
 
     Only scheduled and live practices are shown.
-    Supports filters, sorting, and pagination.
+    Supports Calendar filters (direction / difficulty / style /
+    duration_bucket / time_of_day), multi-select type/direction/difficulty,
+    sorting, and pagination. Per-user is_booked/is_paid flags are included.
     """
     return await list_public_practices(
         session,
+        user=user,
         limit=limit,
         offset=offset,
         master_id=master_id,
         practice_type=practice_type,
+        direction=direction,
+        difficulty=difficulty,
+        style=style,
+        duration_bucket=duration_bucket,
+        time_of_day=time_of_day,
         status=status_filter,
         date_from=date_from,
         date_to=date_to,
@@ -150,7 +170,15 @@ async def get_practice_endpoint(
     practice, master_name, master_methods = await get_practice(
         practice_id, user, session,
     )
-    return practice_to_response(practice, master_name, master_methods)
+    flags = await _user_flags_for_practices(user.id, [practice.id], session)
+    is_booked, is_paid = flags.get(practice.id, (False, False))
+    return practice_to_response(
+        practice,
+        master_name,
+        master_methods,
+        is_booked=is_booked,
+        is_paid=is_paid,
+    )
 
 
 # ------------------------------------------------------------------
