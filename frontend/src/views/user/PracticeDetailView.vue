@@ -69,6 +69,20 @@
       <!-- Body -->
       <div class="detail__body">
 
+        <!-- Сложность indicator (Calendar iteration) -->
+        <div v-if="difficultyDots" class="detail__difficulty">
+          <span class="detail__difficulty-label">Сложность</span>
+          <span class="detail__difficulty-dots" :aria-label="difficultyLabel">
+            <span
+              v-for="n in 3"
+              :key="n"
+              class="detail__difficulty-dot"
+              :class="{ 'detail__difficulty-dot--on': n <= difficultyDots }"
+            />
+          </span>
+          <span class="detail__difficulty-text">{{ difficultyLabel }}</span>
+        </div>
+
         <!-- О практике accordion -->
         <VAccordion v-if="practice.description" title="О практике">
           <p class="detail__accordion-text">{{ practice.description }}</p>
@@ -205,6 +219,8 @@ import {
   isFull,
 } from '@/utils/format'
 import { IconCheck, IconWarning } from '@/components/icons'
+import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
+import type { PracticeDifficulty } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -212,6 +228,17 @@ const store = usePracticesStore()
 const bookingsStore = useBookingsStore()
 
 const practice = computed(() => store.selected)
+
+// -- Difficulty indicator (Calendar iteration) --
+// Filled-dot count (0 hides the block) + human label, from data.taxonomy.
+const difficultyDots = computed<number>(() => {
+  const d = practice.value?.difficulty
+  return d ? DIFFICULTY_DOTS[d as PracticeDifficulty] : 0
+})
+const difficultyLabel = computed<string>(() => {
+  const d = practice.value?.difficulty
+  return d ? DIFFICULTY_LABEL[d as PracticeDifficulty] : ''
+})
 
 // -- Booking state --
 const showBookingPopup = ref(false)
@@ -445,6 +472,43 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Difficulty indicator (Calendar iteration) */
+.detail__difficulty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.detail__difficulty-label {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+}
+
+.detail__difficulty-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail__difficulty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+}
+
+.detail__difficulty-dot--on {
+  background: var(--velo-primary);
+}
+
+.detail__difficulty-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
 }
 
 /* Accordion text body */

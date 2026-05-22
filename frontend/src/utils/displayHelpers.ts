@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Display Helpers (Phase F9 review)
+// VELO Frontend -- Display Helpers (Phase F9 review, extended Calendar)
 // =============================================================================
 //
 // Single source of truth for all emoji / label / color mappings used in
@@ -8,7 +8,15 @@
 // Previously duplicated across 8+ files (W-2, S-3 fixes).
 // =============================================================================
 
-import type { PracticeType, Mood, FeedbackRating } from '@/api/types'
+import type {
+  PracticeType,
+  Mood,
+  FeedbackRating,
+  PracticeDirection,
+  PracticeDifficulty,
+  DurationBucket,
+  TimeOfDay,
+} from '@/api/types'
 
 // ---------------------------------------------------------------------------
 // Practice type
@@ -77,6 +85,48 @@ export const RATING_COLOR: Record<string, string> = {
   fire:     'var(--velo-error-text)',  // #DC2626
   good:     'var(--velo-success)',     // #22C55E
   confused: 'var(--velo-warning)',     // #F59E0B
+}
+
+// ---------------------------------------------------------------------------
+// Calendar taxonomy (direction / difficulty) + feed buckets
+// ---------------------------------------------------------------------------
+//
+// Labels for the Calendar filter UI and practice detail. Values MUST match
+// the backend allowed lists / filter literals. Single source of truth --
+// do not duplicate these strings in components.
+
+export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
+  meditation: 'Медитация',
+  yoga:       'Йога',
+  breathwork: 'Дыхательные практики',
+}
+
+export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
+  beginner: 'Начальная',
+  medium:   'Средняя',
+  high:     'Высокая',
+}
+
+/**
+ * Filled-dot count for the difficulty indicator (PracticeDetailView):
+ * beginner ●○○ / medium ●●○ / high ●●●.
+ */
+export const DIFFICULTY_DOTS: Record<PracticeDifficulty, number> = {
+  beginner: 1,
+  medium:   2,
+  high:     3,
+}
+
+export const DURATION_BUCKET_LABEL: Record<DurationBucket, string> = {
+  short: 'До 1 часа',
+  long:  '1 час и больше',
+}
+
+export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
+  night:   'Ночь',
+  morning: 'Утро',
+  day:     'День',
+  evening: 'Вечер',
 }
 
 // ---------------------------------------------------------------------------
