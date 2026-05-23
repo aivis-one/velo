@@ -1059,6 +1059,13 @@ class Practice(UUIDMixin, TimestampMixin, Base):
 
 **Критерий готовности:** Миграция применена, стабы заменены. 89 тестов, 0 warnings. ✅
 
+> **Calendar iteration (2026-05-22, пост-фазовая):** `Practice` получил JSONB-колонку
+> `data` (миграция `b2c3d4e5f6a8`, down_revision `a1b2c3d4e5f7`) + `JSONBMixin`, и enums
+> `PracticeDirection` (meditation|yoga|breathwork) / `PracticeDifficulty` (beginner|medium|high).
+> Таксономия (`data.taxonomy`: direction/difficulty/style) — schema-on-read, см. Бэковый
+> Кодекс §3.8. На create direction/difficulty обязательны, style опционален; на PATCH все
+> опциональны (merge). Не отдельная фаза — расширение поверх Phase 4.
+
 ---
 
 ### 4.2: CRUD для мастера ✅
@@ -1232,6 +1239,17 @@ backend/tests/
 **Аудит:** Раунд 16 — чистый проход. Все 12 паттернов (P-01..P-12) пройдены. Pricing edge cases проверены (6 сценариев).
 
 **Критерий готовности:** Юзер видит практики с фильтрами. Мастер устанавливает цену. 115 тестов, 0 warnings. ✅
+
+> **Calendar iteration (2026-05-22, пост-фазовая):** `list_public_practices` расширен
+> мульти-фасетными фильтрами `direction[]/difficulty[]/style` (из `data.taxonomy`),
+> `practice_type` стал мульти, добавлены `duration_bucket` (short<60/long>=60) и
+> `time_of_day` (night/morning/day/evening по локальному часу практики через
+> `func.timezone`+`extract`, без сырого SQL). OR внутри фасета, AND между фасетами.
+> `PracticeResponse` получил per-user флаги `is_booked`/`is_paid` (вариант 1: paid =
+> booked И price_cents>0). Детальный эндпоинт собирается публичной `get_practice_detail()`
+> (C-1 аудита). Пороги фильтров — в `config.py` (NO-LITERALS). +13 тестов
+> (test_practices.py, telegram_id 60xxx). Полностью: Бэковый Кодекс §2, §3.8, §7.
+> Тесты после итерации: 435 passed.
 
 ---
 
@@ -2685,6 +2703,20 @@ backend/tests/
 > **Не техдолг:** циклические импорты через lazy import, отмеченные аудитом, — осознанное
 > решение проекта (Phase 5.3 waitlist, Phase 6.4 purchase: "lazy import для circular prevention").
 > **Аннотации существующих записей:** TD-025 (rate limiting) расширяется на топап/покупку.
+
+### Calendar iteration audit 2026-05-22 — backlog
+
+Аудит итерации Календаря (оценка 7/10). Отчёт:
+`docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-22-calendar-iteration.md`.
+
+| ID | Среда | Файл | Проблема | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| CAL-C1 🔴 | — | `practices/router.py` | Роутер импортировал приватную `_user_flags_for_practices` сервиса — нарушение layer boundary | Публичная `get_practice_detail()` инкапсулирует флаги+сборку ответа; роутер тонкий | ✅ |
+| CAL-W2 🟡 | — | `frontend/stores/calendar.ts` | Граница недели в локальном TZ, сервер фильтрует UTC -> у экстремальных TZ практики у полуночи могли выпасть | Буфер ±1 день на запрос; клиент группирует по `calendarDateInTz` | ✅ |
+| CAL-W1 🔴 | 🚀 | `core/config.py` | Возможно затёрт startup-`model_validator` Stripe-ключей при правках config итерации | Сверить с дореитерационным, восстановить валидатор (= Бэковый Кодекс CAL-W1) | ⬜ |
+| CAL-W3 | — | `frontend/EditPracticeView.vue` | Edit-форма молча проставляет `meditation/beginner` старым практикам без таксономии | **Won't fix:** БД сносится после каждого обновления кода, таких практик не существует; ветка недостижима. Пересмотреть при импорте практик извне / миграции без сноса | ❎ |
+| CAL-TD-STYLE | 🧪 | `frontend/CalendarFilterModal.vue` | «Вид практики» (style) — свободный VInput вместо дропдауна (нет справочника стилей) | Дропдаун, когда появится каталог стилей | ⬜ |
+| CAL-S1..S5 | 🧪 | разное | 5 SUGGESTION (см. отчёт) | По мере касания кода | ⬜ |
 
 ### Code Review Feb 2026 — исправлено
 

@@ -1,8 +1,16 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.3
-**Дата:** 21 мая 2026
+**Версия:** 1.4
+**Дата:** 22 мая 2026
 **Статус:** Active
+
+> **v1.4 (Calendar iteration, 22 мая 2026):** реализован экран «Календарь» (кадры 1-3
+> Figma node `541:1553`): отдельный стор `stores/calendar.ts` (загрузка недели одним
+> запросом), компоненты `WeekStrip` / `CalendarPracticeCard` / `CalendarFilterModal`,
+> переработан `CalendarView`, добавлен индикатор сложности на `PracticeDetailView`.
+> Контракт `PracticeFilters` стал мульти-фасетным (массивы), `buildQuery` поддерживает
+> повторяемые ключи. Детали — §3.5, §4, §5.1. Аудит: C-1/W-2 ✅, открыт техдолг по
+> «Виду практики» (см. §10).
 
 ---
 
@@ -95,6 +103,7 @@ frontend/
 │   ├── stores/
 │   │   ├── auth.ts            -- user, token, role, isAuthenticated
 │   │   ├── practices.ts       -- list, filters, selected
+│   │   ├── calendar.ts        -- Calendar screen: week load, selected day, facet filters (Calendar iteration)
 │   │   ├── bookings.ts        -- my bookings
 │   │   ├── balance.ts         -- balance_cents, operations
 │   │   ├── master.ts          -- master profile, practices, finance
@@ -107,10 +116,10 @@ frontend/
 │   ├── utils/
 │   │   ├── format.ts          -- formatMoney, formatDate, formatDateShort
 │   │   ├── currency.ts        -- eurStringToCents, centsToEurString
-│   │   ├── displayHelpers.ts  -- MOOD_*/RATING_*/PRACTICE_TYPE_* маппинги
+│   │   ├── displayHelpers.ts  -- MOOD_*/RATING_*/PRACTICE_TYPE_* + DIRECTION/DIFFICULTY/DURATION_BUCKET/TIME_OF_DAY (Calendar)
 │   │   ├── adminHelpers.ts    -- Хелперы форматирования для admin-вью
 │   │   ├── commission.ts      -- COMMISSION_RATE константа
-│   │   └── practiceOptions.ts -- DURATION_OPTIONS, TIMEZONE_OPTIONS
+│   │   └── practiceOptions.ts -- DURATION_OPTIONS, TIMEZONE_OPTIONS, DIRECTION_OPTIONS, DIFFICULTY_OPTIONS
 │   │
 │   └── views/
 │       ├── auth/              -- LoadingView, StandaloneStubView, WelcomeView, OnboardingView
@@ -299,6 +308,9 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `FormShell` | общая оболочка форм (header + контент + actions + success-экран). Извлечена из CheckinView/FeedbackView — закрыла WARNING-9 (~200 строк дублей CSS) |
 | `BookingPopup` | попап бронирования |
 | `CancelBookingPopup` | попап отмены брони. Тип пропа структурный: `interface CancellableBooking { practice: { title; scheduled_at } }` — принимает и `BookingWithPracticeResponse`, и `BookingDetailResponse`. Refund deadline 24h. Используется только в BookingDetailView |
+| `WeekStrip` | (Calendar) недельная лента: 7 пилюль ПН-ВС (день+число+точка-маркер), активный день залит `--velo-primary`, стрелки ←→. Dumb: пропы `days/selectedDate/daysWithPractices/localDateKey`, эмиты `select-day/prev-week/next-week`. Пилюли rounded-15 (Figma 44×71), стрелки — inline SVG (в DS нет компонента-стрелки) |
+| `CalendarPracticeCard` | (Calendar) карточка практики фида на визуальном языке `BookingCard` (иконка-в-круге 46px, мастер+verified, мета 🗓️/🕐). Бейдж: `is_paid`→«Оплачено» (teal), иначе `is_free`→«Бесплатно» (blue). Проп `practice: PracticeResponse`, эмит `click` |
+| `CalendarFilterModal` | (Calendar) модалка фильтра на `VModal` (кадр 2). Группы: Направление/Сложность/Тип (мульти-чипы), Длительность/Время (одиночный выбор, 4 корзины времени), Вид практики (свободный `VInput` — см. техдолг). Работает на draft-копии, применяет по «Применить». Пропы `open/filters`, эмиты `apply/close` |
 
 ### 3.4. Флоу ДАШБОРД (экраны 10–18)
 
@@ -320,12 +332,38 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 
 ---
 
+### 3.5. Флоу КАЛЕНДАРЬ (кадры 1-3, Calendar iteration)
+
+Реализован по Figma (node `541:1553`, кадры 1/2/3). Карта вью:
+
+| Кадр | View / компонент | Примечания |
+|------|------------------|-----------|
+| 1 Лента «Календарь» | `views/user/CalendarView.vue` | заголовок, `WeekStrip`, контрол «Выбрать практики», секции по дням (`formatDateShort`), `CalendarPracticeCard`, состояния loading/error/empty. Данные из `useCalendarStore` |
+| 2 Модалка «Фильтр» | `shared/CalendarFilterModal.vue` | направление/сложность/тип (мульти), длительность/время (одиночный, 4 корзины), вид практики (VInput) |
+| 3 «Выбрать практики» раскрыто | часть `CalendarView` | свёрнуто — пилюля + воронка (→ модалка); развёрнуто — чипы активных фильтров (тап снимает фильтр) + кнопка свернуть. **Вариант 1:** модалка — единственный источник редактирования фильтров, inline-чипы лишь отображают/снимают активные |
+| — Индикатор сложности | `views/user/PracticeDetailView.vue` | точки ●●○ (`DIFFICULTY_DOTS`) + лейбл (`DIFFICULTY_LABEL`) в body детали; показывается только если `practice.difficulty` задан. `PracticeHeroCard` не тронут |
+
+**Стор `useCalendarStore`** (`stores/calendar.ts`) — намеренно ОТДЕЛЬНЫЙ от `usePracticesStore`,
+чтобы навигация по неделям и фасет-фильтры Календаря не задевали общий фид (Дашборд использует
+`usePracticesStore`/`useBookingsStore`). Грузит всю видимую неделю одним запросом
+(`date_from..date_to` = локальные Пн..Вс **с буфером ±1 день** — фикс W-2 для экстремальных TZ),
+маркеры дней и список выбранного дня выводятся клиентом по `calendarDateInTz` (TZ практики).
+
+**Контракт фильтров:** `PracticeFilters` стал мульти-фасетным — `practice_type` теперь
+массив, добавлены `direction[]/difficulty[]/style/duration_bucket/time_of_day`. `buildQuery`
+(`api/utils.ts`) сериализует массивы повторяемыми ключами, пустой массив/undefined/null —
+пропускает. Старый `CalendarView` (до итерации) был единственным потребителем одиночного
+`practice_type` и переработан полностью; Дашборд `practice_type` не использует — не затронут.
+
+---
+
 ## 4. Stores (Pinia)
 
 | Store | Ключевые поля |
 |-------|--------------|
 | `auth` | `user`, `token` (module-level var в client.ts), `role`, `isAuthenticated`; методы `restoreSession`/`fetchMe` (через `getMe`), `updateProfile(body)` (через `updateMe` + `_setUser`, бросает ошибку наверх — карусель не "проскакивает" при сбое сохранения) |
 | `practices` | `practices[]`, `total`, `filters`, `loading` |
+| `calendar` | `weekAnchor`, `selectedDate`, `weekPractices[]`, `filters` (facets); computed `days`, `daysWithPractices`, `selectedDayPractices`; actions `loadWeek`, `selectDay`, `prevWeek`, `nextWeek`, `applyFilters`, `init`. Экспортит `CalendarFacetFilters`, `localDateKey` |
 | `bookings` | `bookings[]`, `total`, `loading`; `selectedBooking`, `selectedLoading`, `selectedError`; методы `fetchBooking(id)` (через `getBooking` → `BookingDetailResponse`), `joinBooking`/`leaveBooking` (возвращают `{ ok, error }` через `extractApiError`) |
 | `balance` | `balance_cents`, `operations[]` |
 | `master` | `profile` (MasterProfile), `practices[]`, `withdrawals[]` |
@@ -358,6 +396,13 @@ RATING_COLOR: Record<string, string>  -- CSS-переменные
 // Practice type
 PRACTICE_TYPE_EMOJI: Record<string, string>
 PRACTICE_TYPE_LABEL: Record<string, string>
+
+// Calendar taxonomy + feed buckets (Calendar iteration)
+DIRECTION_LABEL: Record<PracticeDirection, string>      -- meditation→Медитация, yoga→Йога, breathwork→Дыхательные практики
+DIFFICULTY_LABEL: Record<PracticeDifficulty, string>    -- beginner→Начальная, medium→Средняя, high→Высокая
+DIFFICULTY_DOTS: Record<PracticeDifficulty, number>     -- beginner→1, medium→2, high→3 (индикатор ●●○ на детали)
+DURATION_BUCKET_LABEL: Record<DurationBucket, string>   -- short→«До 1 часа», long→«1 час и больше»
+TIME_OF_DAY_LABEL: Record<TimeOfDay, string>            -- night→Ночь, morning→Утро, day→День, evening→Вечер
 ```
 
 ### 5.2. currency.ts
@@ -635,6 +680,8 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | **TD-FE-AVATAR** | 🧪 | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` (нет поля с URL аватара) | Подтянуть реальные аватары, когда бэк начнёт их отдавать |
 | **TD-FE-ICONSVG** | 🧪 | `src/components/icons/` | В каталоге доменных иконок остались сырые `.svg`-файлы рядом с `.vue`-компонентами (артефакт экспорта) | `git rm` сырых `.svg` (операция в рабочей копии) |
 | **S-4** | 🧪 | `shared/MasterCard.vue` | Кнопка "Подробнее" (профиль мастера) кликабельна и показывает toast "скоро", хотя экрана профиля мастера для юзера ещё нет | Осознанно отложено: либо disabled-state, либо реальный экран профиля. Аудит 2026-05-20 предлагал disabled — решено оставить toast-заглушку до появления экрана |
+| **TD-CAL-STYLE** | 🧪 | `shared/CalendarFilterModal.vue` | «Вид практики» (style) — свободный `VInput`, в Figma (кадр 2) задуман дропдаун. Справочника стилей пока нет, бэк принимает свободную строку (точное совпадение) | Заменить на дропдаун, когда появится каталог стилей практик |
+| **TD-CAL-ARROW** | 🧪 | `shared/WeekStrip.vue`, `CalendarView.vue` | Стрелки недели и шеврон/воронка — inline SVG (в `components/icons` нет `IconChevron`/левой стрелки/воронки) | Завести `IconChevronLeft/Right`, `IconFilter` в DS и заменить inline SVG |
 
 ### Осознанные решения (не техдолг)
 
@@ -652,6 +699,9 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | SVG-логотипы через `<img>` (не inline) | Файлы из Figma-экспорта весят 228KB и 434KB — inline SVG раздует HTML. `<img>` позволяет браузеру кешировать отдельно (TD-FE-LOGO-SVGO покроет оптимизацию) |
 | Один `PracticeDetailView` на каталог + booked (экран 15) | Состояния практики (доступна к брони / уже забронирована) различаются в одном вью. God-component-долг смягчён выносом hero/master в `PracticeHeroCard`/`MasterCard` |
 | `MasterCard` "Подробнее" → toast вместо disabled (S-4) | Экрана профиля мастера для юзера пока нет; toast честнее пустого disabled. Помечено как S-4 в техдолге до появления экрана |
+| Отдельный `useCalendarStore` (не общий `usePracticesStore`) | Навигация по неделям и фасет-фильтры Календаря не должны задевать общий фид. Дашборд использует `usePracticesStore`/`useBookingsStore` — изолирован |
+| Календарь грузит неделю одним запросом + буфер ±1 день | Объём недели мал; маркеры/список дня выводятся клиентом по TZ практики. Буфер ±1д закрывает W-2 (практики экстремальных TZ у границы недели) |
+| «Выбрать практики»: модалка — единственный источник фильтров (Вариант 1) | Inline-чипы лишь отображают/снимают активные фильтры; редактирование — в `CalendarFilterModal`. Не дублируем UI выбора, нет рассинхрона |
 
 ---
 

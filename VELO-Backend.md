@@ -1,9 +1,15 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.3
-**Дата:** 21 мая 2026
+**Версия:** 1.4
+**Дата:** 22 мая 2026
 **Статус:** Active
-**Тесты:** 422 passed, 3 skipped
+**Тесты:** 435 passed, 3 skipped
+
+> **v1.4 (Calendar iteration, 22 мая 2026):** Practice получил JSONB-колонку `data`
+> с taxonomy-песочницей (direction / difficulty / style); публичный фид расширен
+> фильтрами по таксономии, длительности и времени суток + per-user флагами
+> `is_booked` / `is_paid`; 13 новых тестов. Детали — §2 (Practices), §3.1, §3.8.
+> Аудит итерации: C-1 ✅, W-2 ✅ устранены; W-1 (Stripe startup-валидатор) — в техдолге (§9).
 
 ---
 
@@ -80,7 +86,7 @@ GET   /api/v1/masters/me/withdrawals                -- История вывод
 ### Practices
 
 ```
-GET    /api/v1/practices                        -- Публичный фид (фильтры: type, status, date, master)
+GET    /api/v1/practices                        -- Публичный фид (фильтры ниже)
 POST   /api/v1/practices                        -- Создать практику (мастер)
 GET    /api/v1/practices/{id}                   -- Детали практики
 PATCH  /api/v1/practices/{id}                   -- Обновить практику (владелец)
@@ -93,6 +99,33 @@ POST   /api/v1/practices/{id}/feedback          -- Создать/обновит
 GET    /api/v1/practices/{id}/insights          -- Агрегированные insights (мастер)
 GET    /api/v1/practices/{id}/ai-summary        -- AI-саммари (розетка, Phase 9)
 ```
+
+**Фильтры `GET /practices` (Calendar iteration):** все опциональны.
+Мульти-фасеты передаются повторяемыми query-параметрами (`?direction=yoga&direction=breathwork`);
+внутри одного фасета значения OR-ятся, между фасетами — AND.
+
+| Параметр | Тип | Значения / семантика |
+|----------|-----|----------------------|
+| `practice_type` | мульти | `live\|series\|one_on_one\|replay` |
+| `direction` | мульти | `meditation\|yoga\|breathwork` (из `data.taxonomy`) |
+| `difficulty` | мульти | `beginner\|medium\|high` (из `data.taxonomy`) |
+| `style` | строка | свободное точное совпадение по `data.taxonomy.style` |
+| `duration_bucket` | один | `short` (< 60 мин) / `long` (>= 60 мин) |
+| `time_of_day` | один | `night\|morning\|day\|evening` — по ЛОКАЛЬНОМУ часу практики |
+| `status` | один | `scheduled\|live` (alias `status`) |
+| `master_id`, `date_from`, `date_to`, `sort_by`, `sort_order` | — | как раньше |
+
+`time_of_day` считается в таймзоне практики через `func.timezone(Practice.timezone, scheduled_at)`
++ `extract('hour', ...)` (ORM, без сырого SQL). Границы корзин — в `config.py` (см. §7).
+
+**Per-user флаги в `PracticeResponse`** (фид и детали, для текущего юзера):
+- `is_booked: bool` — у юзера есть бронь в статусах `pending|confirmed|attended`.
+- `is_paid: bool` — `is_booked` И практика платная (`price_cents > 0`). ВАРИАНТ 1:
+  определяется по цене практики, НЕ по наличию `purchase_id` (бесплатные брони тоже
+  создают Purchase, поэтому purchase_id для «оплачено» не годится).
+- На master-facing list-эндпоинтах флаги остаются `False` (мастер не бронирует свои практики).
+- Детальный эндпоинт собирает ответ через публичную `get_practice_detail()` в сервисе
+  (роутер не импортирует приватные хелперы — C-1 аудита Calendar, §9).
 
 > **`PracticeSummary.status`:** облегчённая схема `PracticeSummary` (отдаётся в list-views:
 > `GET /bookings/me`, waitlist, purchases) получила поле `status: PracticeStatus`.
@@ -217,6 +250,7 @@ profile.set_jsonb("data", new_dict)
 |--------|---------|------------|
 | `MasterProfile` | `data` | ✅ |
 | `User` | `credentials` | ✅ (TD-024 закрыт — onboarding flow, set_jsonb в users/service.py) |
+| `Practice` | `data` | ✅ (Calendar iteration — taxonomy sandbox, set_jsonb в practices/service.py, см. §3.8) |
 
 ### 3.2. Session Commit Rule
 
@@ -366,6 +400,34 @@ merge + refresh telegram-полей, null игнорируется.
 
 ---
 
+### 3.8. Practice taxonomy — schema-on-read в data (Calendar iteration)
+
+Practice получил JSONB-колонку `data` (миграция `b2c3d4e5f6a8`, down_revision
+`a1b2c3d4e5f7`). Таксономия Календаря живёт под ключом `data.taxonomy`:
+
+```json
+{ "taxonomy": { "direction": "meditation", "difficulty": "beginner", "style": "MBSR" } }
+```
+
+- `direction` ∈ `meditation|yoga|breathwork`, `difficulty` ∈ `beginner|medium|high`
+  (StrEnum `PracticeDirection` / `PracticeDifficulty` в `practices/models.py`).
+  `style` — свободная строка (≤ `practice_style_max_length`).
+- **Create:** `direction` и `difficulty` ОБЯЗАТЕЛЬНЫ, `style` опционален. Пишутся в
+  `data.taxonomy` через `set_jsonb("data", ...)` + deepcopy (JSONBMixin, §3.1).
+- **Update (PATCH):** все три опциональны. «Не прислано» — значение не трогается;
+  присланное — валидируется и мёржится в `data.taxonomy` (pop из `_TAXONOMY_FIELDS`
+  до общего setattr-цикла, затем deepcopy-merge).
+- **Response:** `practice_to_response()` читает из `data.taxonomy` и поднимает в
+  top-level optional поля `direction|style|difficulty` (None, если песочница пуста).
+  Поля опциональны, т.к. практики, созданные до итерации, имеют пустой `data`.
+- **Допустимые значения** (`practice_allowed_directions/difficulties`) и
+  `practice_style_max_length` — в `config.py` (NO-LITERALS), валидируются `@field_validator`.
+
+Тесты: `tests/test_practices.py` (раздел Calendar) — хранение таксономии (create/update-merge),
+фильтры фида (каждый + комбинированный AND), флаги is_booked/is_paid.
+
+---
+
 ## 4. Платёжная архитектура
 
 ### 4.1. Double-Entry принцип
@@ -470,11 +532,24 @@ CR-01: `MasterProfileResponse` возвращает `min_withdrawal_cents` и `w
 | `SESSION_TTL_DAYS` | `30` | Срок жизни сессии Redis |
 | `LOG_LEVEL` | `INFO` | Уровень логирования |
 
+**Пороги фильтров Календаря** (settings в `config.py`, НЕ env — внутренние константы, NO-LITERALS):
+
+| Параметр | Дефолт | Назначение |
+|----------|--------|-----------|
+| `practice_duration_long_min_minutes` | `60` | Граница `duration_bucket`: short < N, long >= N |
+| `practice_time_night_start_hour` | `0` | Начало корзины «ночь» (локальный час) |
+| `practice_time_morning_start_hour` | `5` | Начало «утро» |
+| `practice_time_day_start_hour` | `12` | Начало «день» |
+| `practice_time_evening_start_hour` | `17` | Начало «вечер» (до 24) |
+
+Корзины полусегментные `[start, next_start)`: night [0,5), morning [5,12), day [12,17), evening [17,24).
+En-значения query-параметров (`short|long`, `night|morning|day|evening`) остаются `Literal` в роутере.
+
 ---
 
 ## 8. Тесты
 
-422 passed, 3 skipped. Все запускаются внутри Docker:
+435 passed, 3 skipped. Все запускаются внутри Docker:
 
 ```bash
 velo test          # все тесты
@@ -497,6 +572,7 @@ velo lint          # ruff check
 | admin | 87xxx |
 | cancellation | 76xxx |
 | withdrawals | 75xxx |
+| practices (Calendar iteration) | 60xxx |
 
 ---
 
@@ -517,6 +593,7 @@ velo lint          # ruff check
 | **CRITICAL-4** | `auth/router.py` | Нет rate limiting на `POST /auth/telegram`. Replay valid initData в 5-минутном окне → тысячи Redis-сессий | `slowapi` или Redis-based limiter |
 | **WARNING-4** | `auth/router.py` | Telegram initData replay в 5-минутном окне — нет защиты от повторного использования | Redis SET `used_init_data:{hash}` с TTL 5 минут |
 | **WARNING-5** | `payments/webhook.py` | Stripe webhook signature не проверяется при `STRIPE_STUB=true` | Запрет `STRIPE_STUB` в production через config validator |
+| **CAL-W1** 🔴🚀 | `core/config.py` | **Проверить, не затёрт ли startup-`model_validator` Stripe-ключей при правках config в Calendar iteration.** Если валидатор пропал — production может стартовать с пустыми Stripe-ключами и упасть только при первой оплате | Сверить текущий `config.py` с дореитерационным; восстановить `model_validator`, проверяющий наличие ключей в `APP_ENV=production`. Найдено аудитом Calendar (W-1), принято в техдолг |
 | TD-025 | Все роутеры | Нет rate limiting на masters endpoints. **(подтверждено аудитом 2026-05-20: распространить и на топап `POST /payments/topup` и покупку `POST /practices/{id}/purchase`)** | `slowapi` или Redis-based custom limiter |
 | TD-026 | `docker-compose.yml` | Redis без пароля | `requirepass` + `REDIS_PASSWORD` в .env |
 | **AUDIT-0520-03** 🟡🚀 | `core/middleware.py` | `_extract_client_ip` берёт первый элемент `X-Forwarded-For` без проверки trusted proxy -> клиент может подделать IP в audit log финансовых операций | Доверять XFF только от известного прокси (Nginx); или брать N-й справа hop; список trusted proxies в config |
@@ -549,6 +626,20 @@ velo lint          # ruff check
 > Отчёт: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md` (оценка 7/10).
 > Циклические импорты через lazy import, отмеченные аудитом, — осознанное решение
 > проекта (см. ТЗ Phase 5.3 / 6.4), НЕ техдолг.
+
+> **Аудит Calendar iteration (2026-05-22, оценка 7/10):**
+> отчёт `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-22-calendar-iteration.md`.
+> - **C-1** (роутер импортировал приватную `_user_flags_for_practices`) — ✅ устранено
+>   через публичную `get_practice_detail()` в сервисе.
+> - **W-2** (граница недели в локальном TZ vs UTC-фильтр) — ✅ устранено буфером ±1 день
+>   в `frontend/src/stores/calendar.ts` (клиент группирует по `calendarDateInTz`,
+>   лишние дни не протекают в неделю).
+> - **W-1** (Stripe startup-валидатор) — ⬜ в техдолге (CAL-W1 выше).
+> - **W-3** (EditPracticeView молча проставляет `meditation/beginner` старым практикам
+>   без таксономии) — won't fix: БД сносится после каждого обновления кода, практик без
+>   таксономии не существует; ветка недостижима. Пересмотреть, если появится импорт
+>   практик извне или миграция без сноса БД.
+> - 5 SUGGESTION — открыты, низкий приоритет, см. отчёт.
 
 ---
 
