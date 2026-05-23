@@ -213,6 +213,12 @@ class Settings(BaseSettings):
     notification_max_backoff_seconds: int = 60
     # Max delivery attempts before marking as failed.
     notification_max_delivery_attempts: int = 3
+    # Background processor toggle. True in prod (the lifespan task polls and
+    # delivers). Disabled in tests so the manual _stage_resolve/_stage_deliver/
+    # _stage_rollup calls in test_notifications.py are the only code touching
+    # the queue -- otherwise the background loop races them via
+    # FOR UPDATE SKIP LOCKED and a delivery can be skipped (attempts stays 0).
+    notification_processor_enabled: bool = True
 
     # -- Diary (Phase 8) --
     # Hours before practice.scheduled_at when check-in window opens.

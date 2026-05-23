@@ -98,9 +98,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("notification_templates_loaded", count=template_count)
 
         # Start notification processor as background task (Phase 7.2).
-        processor_task = asyncio.create_task(
-            run_processor(), name="notification_processor",
-        )
+        # Gated by settings so tests can disable it -- the background loop
+        # otherwise races the manual _stage_* calls in test_notifications.py
+        # via FOR UPDATE SKIP LOCKED, causing flaky delivery skips.
+        if settings.notification_processor_enabled:
+            processor_task = asyncio.create_task(
+                run_processor(), name="notification_processor",
+            )
+        else:
+            logger.info("notification_processor_disabled")
 
         logger.info(
             "app_started",

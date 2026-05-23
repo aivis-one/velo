@@ -29,6 +29,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.core.redis import close_redis, get_redis, init_redis
 from app.main import app
@@ -41,6 +42,14 @@ async def setup_infrastructure():
     Runs ONCE before any test. Alembic is called as subprocess because
     its env.py uses asyncio.run() which can't nest inside pytest's loop.
     """
+    # Disable the background notification processor for the entire suite.
+    # The app lifespan (started lazily by the ASGI client on first request,
+    # which is always after this session-scoped fixture) reads this flag and
+    # skips create_task(run_processor). Tests drive _stage_resolve/_stage_deliver/
+    # _stage_rollup manually; a live background loop would race them via
+    # FOR UPDATE SKIP LOCKED and cause flaky delivery skips (attempts stays 0).
+    settings.notification_processor_enabled = False
+
     # Run Alembic migrations (ensures tables exist).
     result = subprocess.run(
         ["python", "-m", "alembic", "upgrade", "head"],
