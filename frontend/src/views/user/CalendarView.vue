@@ -127,10 +127,11 @@
     <!-- Empty: no practices on the selected day -->
     <VEmptyState
       v-else-if="dayPractices.length === 0"
-      icon="📅"
       title="Нет практик"
       description="На этот день практик нет. Выберите другой день или измените фильтры."
-    />
+    >
+      <template #icon><IconClock :size="48" /></template>
+    </VEmptyState>
 
     <!-- Selected-day practices -->
     <div v-else class="calendar__list">
@@ -161,7 +162,7 @@ import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import WeekStrip from '@/components/shared/WeekStrip.vue'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
 import CalendarFilterModal from '@/components/shared/CalendarFilterModal.vue'
-import { IconCheck } from '@/components/icons'
+import { IconCheck, IconClock } from '@/components/icons'
 import { formatDateShort } from '@/utils/format'
 import {
   DIRECTION_LABEL,
