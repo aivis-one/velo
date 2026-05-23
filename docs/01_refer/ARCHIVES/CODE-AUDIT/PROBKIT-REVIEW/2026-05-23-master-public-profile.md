@@ -51,30 +51,13 @@
 
 ## Раздел 5 — Производительность
 
-### 🟢 SUGGESTION-1 — `get_public_master_profile`: 3 последовательных DB-запроса вместо 2
+### ~~SUGGESTION-1~~ — `get_public_master_profile`: параллелизация COUNT-запросов через `asyncio.gather`
 
-`backend/app/modules/masters/service.py` · функция `get_public_master_profile`
-
-Два COUNT-запроса (`practices_count_stmt` и `reviews_count_stmt`) выполняются строго последовательно, хотя они полностью независимы друг от друга.
-
-```python
-# Текущий код (упрощённо):
-row = await session.execute(main_stmt)       # round-trip 1
-practices_count = await session.scalar(...)  # round-trip 2
-reviews_count = await session.scalar(...)    # round-trip 3
-```
-
-```python
-# Улучшение: объединить 2 и 3 через asyncio.gather
-import asyncio
-
-practices_count, reviews_count = await asyncio.gather(
-    session.scalar(practices_count_stmt),
-    session.scalar(reviews_count_stmt),
-)
-```
-
-Риск: низкий — endpoint за авторизацией, detail-страница (не список). При текущем масштабе выигрыш незначителен. По мере роста числа просмотров профилей — целесообразная оптимизация.
+> **Отозвано** (2026-05-23, по результату review). Первоначальное предложение — использовать `asyncio.gather` для параллельного запуска двух COUNT-запросов — **технически некорректно**.
+>
+> `AsyncSession` SQLAlchemy **не является потокобезопасной и не поддерживает конкурентные операции на одном объекте сессии**. Два `session.scalar(...)` внутри `asyncio.gather` на одной сессии вызовут `sqlalchemy.exc.InterfaceError: already executing`. Реальная параллелизация требует двух отдельных сессий (`AsyncSession`), overhead которых (2× acquire из connection pool + 2× overhead asyncio task) превышает выигрыш от двух лёгких COUNT по индексу на поле `master_id`.
+>
+> Текущий последовательный код **корректен** для данного контекста: endpoint за авторизацией, detail-страница (не горячий цикл). **Won't fix** — оба COUNT-запроса лёгкие, выполняются по индексу, endpoint не является узким местом.
 
 ---
 
@@ -218,7 +201,7 @@ resp = practice_to_response(..., master_avatar_url=master_avatar_url)
 
 ## Итоговая оценка
 
-**9/10** — Чистый, хорошо спроектированный PR. Граница безопасности `MasterPublicResponse` явная и верифицирована тестами. Порядок маршрутов корректен и задокументирован. P-08 паттерн выдержан. Три SUGGESTION носят косметический и профилактический характер: параллелизация COUNT-запросов, документирование намерения по `reviews_count`, перенос пояснительного комментария из схемы в сервис.
+**9/10** — Чистый, хорошо спроектированный PR. Граница безопасности `MasterPublicResponse` явная и верифицирована тестами. Порядок маршрутов корректен и задокументирован. P-08 паттерн выдержан. S-1 отозвано (asyncio.gather на одной AsyncSession — антипаттерн; реальная параллелизация дороже выигрыша). Два оставшихся SUGGESTION носят профилактический характер: документирование намерения по `reviews_count`, перенос пояснительного комментария из схемы в сервис.
 
 ---
 
@@ -229,7 +212,7 @@ resp = practice_to_response(..., master_avatar_url=master_avatar_url)
 - нет
 
 🟢 SUGGESTION — желательно:
-- S-1: `service.py` — объединить `practices_count` и `reviews_count` через `asyncio.gather` для параллельного выполнения
+- ~~S-1~~: ~~`service.py` — объединить через `asyncio.gather`~~ — **отозвано**: AsyncSession не поддерживает конкурентные запросы; последовательный код корректен
 - S-2: `service.py` — задокументировать намерение по `reviews_count`: считать ли отзывы на удалённые/отменённые практики или добавить фильтр по статусу
 - S-3: `practices/schemas.py` — перенести комментарий об условиях заполнения `master_avatar_url` из схемы в `practice_to_response()` / `get_practice_detail()`
 
@@ -239,5 +222,5 @@ resp = practice_to_response(..., master_avatar_url=master_avatar_url)
 |----------|--------|
 | 🔴 CRITICAL | 0 |
 | 🟡 WARNING | 0 |
-| 🟢 SUGGESTION | 3 |
-| **Итого** | **3** |
+| 🟢 SUGGESTION | 2 (1 отозвано) |
+| **Итого** | **2** |
