@@ -280,6 +280,12 @@ async def get_public_master_profile(
 
     prof = profile.data.get("profile", {})
 
+    # The two counters below run sequentially, not via asyncio.gather:
+    # a single AsyncSession does not allow concurrent operations
+    # (SQLAlchemy raises "another operation is in progress"), and spinning
+    # up a second session/connection just to parallelize two cheap indexed
+    # COUNTs on a cold path (profile open) is not worth the overhead.
+
     # -- Live counter: public practices (excludes draft/deleted) --
     practices_count_stmt = select(func.count(Practice.id)).where(
         Practice.master_id == user_id,
@@ -290,6 +296,11 @@ async def get_public_master_profile(
     ).scalar_one()
 
     # -- Live counter: all feedback across this master's practices --
+    # Intentionally NOT filtered by Practice.status: this counts every
+    # feedback the master ever received (variant A). It is asymmetric with
+    # practices_count (which excludes draft/deleted) on purpose -- the two
+    # are independent stats on the profile, not a matched pair, so feedback
+    # on a since-deleted/cancelled practice still counts as a real review.
     reviews_count_stmt = (
         select(func.count(Feedback.id))
         .join(Practice, Feedback.practice_id == Practice.id)
