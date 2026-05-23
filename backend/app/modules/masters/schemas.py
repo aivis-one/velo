@@ -20,6 +20,16 @@
 #   could be {"type": "certificate", "number": "123"} or
 #   {"type": "link", "url": "https://..."}.
 #   TODO: Replace with file upload when S3/storage is ready.
+#
+# PUBLIC PROFILE (Calendar iteration, S-4):
+#   MasterPublicResponse -- the user-facing master profile shown when a
+#   user taps "Подробнее" on a practice's master card (frame 4) or opens
+#   the master profile screen (node 541:2065). It exposes ONLY safe public
+#   fields plus two live ORM aggregate counters (practices_count,
+#   reviews_count). It deliberately does NOT include any financial data
+#   (frozen/available balance, payout, withdrawal limits) or contact data
+#   (email, phone) -- those live only in the master-private
+#   MasterProfileResponse returned by GET /me.
 # =============================================================================
 
 from datetime import datetime
@@ -143,3 +153,41 @@ class MasterProfileResponse(BaseModel):
     payout: PayoutDetails | None = None
     created_at: datetime
     updated_at: datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# Public master profile (Calendar iteration, S-4)
+# ---------------------------------------------------------------------------
+class MasterPublicResponse(BaseModel):
+    """User-facing master profile -- safe public subset + live counters.
+
+    Returned by GET /api/v1/masters/{user_id} for any authenticated user.
+    Used by the practice detail "Подробнее" link (frame 4) and the master
+    profile screen (node 541:2065).
+
+    SECURITY: this schema is the isolation boundary between public and
+    private master data. It MUST NOT carry any financial fields
+    (frozen_cents, available_cents, payout, withdrawal limits) or contact
+    fields (email, phone). Only a verified master is exposed; pending /
+    rejected / non-master ids resolve to 404 in the service (we do not
+    reveal the existence of an unverified application).
+
+    practices_count and reviews_count are LIVE ORM aggregates computed in
+    the service, NOT read from the stale data.stats JSONB cache:
+      practices_count -- Practice rows for this master, excluding
+                         draft and deleted statuses.
+      reviews_count   -- Feedback rows across all of this master's
+                         practices (every feedback, regardless of text).
+    """
+
+    user_id: UUID
+    status: str
+    display_name: str | None = None
+    bio: str | None = None
+    methods: list[str] = Field(default_factory=list)
+    experience_years: int | None = None
+    # Master avatar (User.avatar_url, synced from Telegram photo_url).
+    avatar_url: str | None = None
+    # Live ORM aggregate counters (see class docstring).
+    practices_count: int
+    reviews_count: int

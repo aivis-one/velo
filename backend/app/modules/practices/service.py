@@ -223,14 +223,18 @@ def practice_to_response(
     master_name: str | None = None,
     master_methods: list[str] | None = None,
     *,
+    master_avatar_url: str | None = None,
     is_booked: bool = False,
     is_paid: bool = False,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
-    master_name:    User.first_name from JOIN (or User object on mutations).
-    master_methods: MasterProfile.data.profile.methods from outer join in
-                    get_practice(). List endpoints pass [] (not shown on cards).
+    master_name:       User.first_name from JOIN (or User object on mutations).
+    master_methods:    MasterProfile.data.profile.methods from outer join in
+                       get_practice(). List endpoints pass [] (not shown on cards).
+    master_avatar_url: User.avatar_url from JOIN in get_practice() (detail only).
+                       List endpoints leave it None -- avatars are not shown on
+                       feed cards (V3: feed is untouched).
 
     Calendar taxonomy (direction / style / difficulty) is extracted from
     practice.data.taxonomy. Missing keys (e.g. practices created before the
@@ -238,6 +242,7 @@ def practice_to_response(
     """
     resp = PracticeResponse.model_validate(practice)
     resp.master_name = master_name
+    resp.master_avatar_url = master_avatar_url
     resp.master_methods = master_methods or []
 
     taxonomy = (practice.data or {}).get("taxonomy", {})
@@ -362,21 +367,28 @@ async def get_practice(
     practice_id: UUID,
     user: User,
     session: AsyncSession,
-) -> tuple[Practice, str | None, list[str]]:
+) -> tuple[Practice, str | None, str | None, list[str]]:
     """Get a practice by id with visibility rules.
 
-    Returns (Practice, master_name, master_methods) tuple.
+    Returns (Practice, master_name, master_avatar_url, master_methods) tuple.
 
     Uses OUTER JOIN to MasterProfile so that a practice is never hidden
     just because its master profile was deleted (review #3 finding).
     master_methods extracted from MasterProfile.data.profile.methods;
     defaults to [] when profile row is missing.
+    master_avatar_url is User.avatar_url (synced from Telegram on login);
+    None when the master has no Telegram photo.
 
     Draft/deleted practices are visible only to the owner master.
     All other statuses are visible to any authenticated user.
     """
     stmt = (
-        select(Practice, User.first_name, MasterProfile.data)
+        select(
+            Practice,
+            User.first_name,
+            User.avatar_url,
+            MasterProfile.data,
+        )
         .join(User, Practice.master_id == User.id)
         .outerjoin(MasterProfile, Practice.master_id == MasterProfile.user_id)
         .where(Practice.id == practice_id)
@@ -387,7 +399,7 @@ async def get_practice(
     if not row:
         raise NotFoundError("Practice not found")
 
-    practice, master_name, profile_data = row
+    practice, master_name, master_avatar_url, profile_data = row
 
     # Draft/deleted visible only to owner (P-08: 404 not 403).
     if (
@@ -402,7 +414,7 @@ async def get_practice(
         else []
     )
 
-    return practice, master_name, master_methods
+    return practice, master_name, master_avatar_url, master_methods
 
 
 async def get_practice_detail(
@@ -417,8 +429,8 @@ async def get_practice_detail(
     and response assembly so the router stays thin and does not reach into
     private helpers (C-1: no cross-layer import of _user_flags_for_practices).
     """
-    practice, master_name, master_methods = await get_practice(
-        practice_id, user, session,
+    practice, master_name, master_avatar_url, master_methods = (
+        await get_practice(practice_id, user, session)
     )
     flags = await _user_flags_for_practices(user.id, [practice.id], session)
     is_booked, is_paid = flags.get(practice.id, (False, False))
@@ -426,6 +438,7 @@ async def get_practice_detail(
         practice,
         master_name,
         master_methods,
+        master_avatar_url=master_avatar_url,
         is_booked=is_booked,
         is_paid=is_paid,
     )

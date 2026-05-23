@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend — Master Service (updated RACE-06)
+# VELO Backend -- Master Service (updated RACE-06)
 # =============================================================================
 #
 # Business logic for master applications.
@@ -26,22 +26,43 @@
 # JSONB SAFETY:
 #   All mutations to MasterProfile.data use set_jsonb() (from JSONBMixin).
 #   NEVER assign profile.data = ... directly.
+#
+# PUBLIC PROFILE (Calendar iteration, S-4):
+#   get_public_master_profile() builds the user-facing MasterPublicResponse
+#   for GET /masters/{user_id}. Only verified masters are exposed (404
+#   otherwise -- we do not reveal pending/rejected applications). The two
+#   counters are LIVE ORM aggregates (ORM-only, no raw SQL), NOT read from
+#   the stale data.stats JSONB cache.
 # =============================================================================
 
 from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, ForbiddenError
+from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.modules.diary.models import Feedback
 from app.modules.masters.models import MasterProfile
-from app.modules.masters.schemas import MasterApplyRequest
+from app.modules.masters.schemas import MasterApplyRequest, MasterPublicResponse
+from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
 
 logger = structlog.get_logger()
+
+# Master account status that is publicly visible via GET /masters/{id}.
+# Only verified masters are exposed; pending/rejected resolve to 404 so we
+# do not reveal the existence of an unverified application.
+_PUBLIC_MASTER_STATUS = "verified"
+
+# Practice statuses excluded from the public practices_count aggregate.
+# draft and deleted are not "real" practices for a public profile.
+_NON_COUNTABLE_PRACTICE_STATUSES = (
+    PracticeStatus.DRAFT.value,
+    PracticeStatus.DELETED.value,
+)
 
 
 def _build_data(body: MasterApplyRequest) -> dict:
@@ -212,3 +233,84 @@ async def get_master_display_name(
         return user.first_name
 
     return "Master"
+
+
+async def get_public_master_profile(
+    user_id: UUID,
+    session: AsyncSession,
+) -> MasterPublicResponse:
+    """Build the user-facing public master profile (S-4).
+
+    Returns a MasterPublicResponse with display fields, avatar, and two
+    live ORM aggregate counters. Only verified masters are exposed.
+
+    Visibility (P-08 style -- do not reveal existence):
+      - No MasterProfile row for user_id          -> 404
+      - MasterProfile status != "verified"        -> 404
+
+    Counters (ORM-only, never the stale data.stats cache):
+      practices_count -- Practice rows for this master, excluding
+                         draft/deleted statuses.
+      reviews_count   -- Feedback rows across all of this master's
+                         practices (joined Feedback -> Practice).
+
+    avatar_url is User.avatar_url (synced from Telegram photo_url on login);
+    None when the master has no Telegram photo. The MasterProfile is joined
+    via its user_id PK to the users row to read first_name fallback + avatar.
+    """
+    # Load the profile + owning user in one outer-joined row. MasterProfile
+    # PK is user_id (see get_master_display_name), so we match on it.
+    stmt = (
+        select(MasterProfile, User.first_name, User.avatar_url)
+        .join(User, MasterProfile.user_id == User.id)
+        .where(MasterProfile.user_id == user_id)
+    )
+    result = await session.execute(stmt)
+    row = result.one_or_none()
+
+    if row is None:
+        raise NotFoundError("Master not found")
+
+    profile, first_name, avatar_url = row
+
+    account = profile.data.get("account", {})
+    if account.get("status") != _PUBLIC_MASTER_STATUS:
+        # Pending/rejected: do not reveal the unverified application.
+        raise NotFoundError("Master not found")
+
+    prof = profile.data.get("profile", {})
+
+    # -- Live counter: public practices (excludes draft/deleted) --
+    practices_count_stmt = select(func.count(Practice.id)).where(
+        Practice.master_id == user_id,
+        Practice.status.notin_(_NON_COUNTABLE_PRACTICE_STATUSES),
+    )
+    practices_count = (
+        await session.execute(practices_count_stmt)
+    ).scalar_one()
+
+    # -- Live counter: all feedback across this master's practices --
+    reviews_count_stmt = (
+        select(func.count(Feedback.id))
+        .join(Practice, Feedback.practice_id == Practice.id)
+        .where(Practice.master_id == user_id)
+    )
+    reviews_count = (
+        await session.execute(reviews_count_stmt)
+    ).scalar_one()
+
+    # display_name falls back to User.first_name when the profile field is
+    # empty (mirrors get_master_display_name lookup order).
+    display_name = prof.get("display_name") or first_name
+
+    return MasterPublicResponse(
+        user_id=profile.user_id,
+        status=account.get("status", _PUBLIC_MASTER_STATUS),
+        display_name=display_name,
+        bio=prof.get("bio"),
+        methods=prof.get("methods", []),
+        experience_years=prof.get("experience_years"),
+        avatar_url=avatar_url,
+        practices_count=practices_count,
+        reviews_count=reviews_count,
+    )

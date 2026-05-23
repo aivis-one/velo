@@ -391,6 +391,10 @@ class PracticeResponse(BaseModel):
     id: UUID
     master_id: UUID
     master_name: str | None = None
+    # Master avatar (User.avatar_url, synced from Telegram photo_url on login).
+    # Populated only by the detail endpoint via get_practice(); list endpoints
+    # leave it None (avatars are not shown on feed cards).
+    master_avatar_url: str | None = None
     master_methods: list[str] = []
     practice_type: PracticeType
     status: PracticeStatus

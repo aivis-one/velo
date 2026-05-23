@@ -7,6 +7,7 @@
 #   GET   /api/v1/masters/me             -- my master profile (Frontend Backlog)
 #   PATCH /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
 #   GET   /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
+#   GET   /api/v1/masters/{user_id}      -- public master profile (S-4)
 #
 # F7: _make_profile_response() now includes payout field extracted from
 #   MasterProfile.data.get("payout"). Returns None when not configured.
@@ -14,9 +15,15 @@
 # CR-01: _make_profile_response() now includes min_withdrawal_cents and
 #   withdrawal_fee_cents from settings so frontend has a single source
 #   of truth for financial limits.
+#
+# S-4 (Calendar iteration): GET /{user_id} returns the user-facing public
+#   profile (MasterPublicResponse). It is declared AFTER all /me* routes so
+#   the dynamic /{user_id} path never shadows the literal /me paths
+#   (FastAPI matches routes in declaration order).
 # =============================================================================
 
 import copy
+from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, Query, status
@@ -31,10 +38,14 @@ from app.modules.masters.schemas import (
     MasterApplyRequest,
     MasterApplyResponse,
     MasterProfileResponse,
+    MasterPublicResponse,
     PayoutDetails,
     PayoutDetailsUpdate,
 )
-from app.modules.masters.service import apply_for_master
+from app.modules.masters.service import (
+    apply_for_master,
+    get_public_master_profile,
+)
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
 from app.modules.users.models import User
@@ -221,3 +232,30 @@ async def list_my_practices(
     return await list_master_practices(
         user, session, limit=limit, offset=offset,
     )
+
+
+# ===================================================================
+# S-4 (Calendar iteration): GET /{user_id} -- public master profile
+# ===================================================================
+#
+# IMPORTANT: this dynamic route is declared LAST, after every /me* route,
+# so that the literal /me paths are matched first. FastAPI resolves routes
+# in declaration order; a /{user_id} placed earlier would capture "me" as
+# a (non-UUID) user_id and break GET /me.
+@router.get(
+    "/{user_id}",
+    response_model=MasterPublicResponse,
+)
+async def get_public_master(
+    user_id: UUID,
+    _user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> MasterPublicResponse:
+    """Return a verified master's public profile.
+
+    Any authenticated user may view. Only verified masters are exposed;
+    pending / rejected / non-master ids resolve to 404. Includes live
+    practices_count and reviews_count aggregates. Carries no financial
+    or contact data (see MasterPublicResponse).
+    """
+    return await get_public_master_profile(user_id, session)
