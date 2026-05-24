@@ -19,6 +19,7 @@ import type {
   MasterApplyRequest,
   MasterApplyResponse,
   MasterProfileResponse,
+  MasterPublicResponse,
   PaginatedPracticesResponse,
   PayoutDetails,
   PaginatedWithdrawalsResponse,
@@ -40,6 +41,16 @@ export function applyMaster(body: MasterApplyRequest): Promise<MasterApplyRespon
  */
 export function getMyMasterProfile(): Promise<MasterProfileResponse> {
   return api.get<MasterProfileResponse>('/api/v1/masters/me')
+}
+
+/**
+ * Fetch a verified master's PUBLIC profile (S-4).
+ * Callable by any authenticated user. Only verified masters resolve;
+ * pending / rejected / non-master ids return 404. Carries no financial
+ * or contact data -- safe public subset + practices_count / reviews_count.
+ */
+export function getPublicMaster(userId: string): Promise<MasterPublicResponse> {
+  return api.get<MasterPublicResponse>(`/api/v1/masters/${userId}`)
 }
 
 /**

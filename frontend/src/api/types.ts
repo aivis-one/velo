@@ -47,6 +47,7 @@ export type {
   MasterApplyRequest,
   MasterApplyResponse,
   MasterProfileResponse,
+  MasterPublicResponse,
   MoodDistribution,
   PaginatedAdminWithdrawalsResponse,
   PaginatedBookingsResponse,

@@ -95,6 +95,11 @@ const router = createRouter({
           component: () => import('@/views/user/PracticeDetailView.vue'),
         },
         {
+          path: 'masters/:id',
+          name: 'user-master-public',
+          component: () => import('@/views/user/MasterPublicView.vue'),
+        },
+        {
           path: 'bookings',
           name: 'user-bookings',
           component: () => import('@/views/user/MyBookingsView.vue'),

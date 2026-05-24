@@ -42,8 +42,8 @@
   <!-- Content -->
   <div v-else-if="practice" class="detail">
 
-    <!-- Back button header -->
-    <VHeader title="Моя практика" show-back @back="router.back()" />
+    <!-- Back button header (contextual: catalog vs booked) -->
+    <VHeader :title="booked ? 'Моя практика' : 'Практика'" show-back @back="router.back()" />
 
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">
@@ -54,6 +54,9 @@
           :date="formattedDate"
           :duration="formattedDuration"
           :participants="!booked ? formattedParticipants : null"
+          :direction="practice.direction"
+          :difficulty-dots="difficultyDots"
+          :difficulty-label="difficultyLabel"
         >
           <template #badge>
             <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
@@ -68,20 +71,6 @@
 
       <!-- Body -->
       <div class="detail__body">
-
-        <!-- Сложность indicator (Calendar iteration) -->
-        <div v-if="difficultyDots" class="detail__difficulty">
-          <span class="detail__difficulty-label">Сложность</span>
-          <span class="detail__difficulty-dots" :aria-label="difficultyLabel">
-            <span
-              v-for="n in 3"
-              :key="n"
-              class="detail__difficulty-dot"
-              :class="{ 'detail__difficulty-dot--on': n <= difficultyDots }"
-            />
-          </span>
-          <span class="detail__difficulty-text">{{ difficultyLabel }}</span>
-        </div>
 
         <!-- О практике accordion -->
         <VAccordion v-if="practice.description" title="О практике">
@@ -99,6 +88,8 @@
           <MasterCard
             :master-name="practice.master_name"
             :methods="practice.master_methods"
+            :avatar-url="practice.master_avatar_url"
+            :master-id="practice.master_id"
           />
         </section>
 
@@ -475,42 +466,6 @@ onUnmounted(() => {
 }
 
 /* Difficulty indicator (Calendar iteration) */
-.detail__difficulty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) 0;
-}
-
-.detail__difficulty-label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-}
-
-.detail__difficulty-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.detail__difficulty-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-}
-
-.detail__difficulty-dot--on {
-  background: var(--velo-primary);
-}
-
-.detail__difficulty-text {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-}
-
 /* Accordion text body */
 .detail__accordion-text {
   font-family: var(--font-body);

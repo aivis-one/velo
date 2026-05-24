@@ -17,6 +17,8 @@ import type {
   DurationBucket,
   TimeOfDay,
 } from '@/api/types'
+import type { Component } from 'vue'
+import { IconMeditation, IconYoga, IconBreathwork } from '@/components/icons'
 
 // ---------------------------------------------------------------------------
 // Practice type
@@ -100,6 +102,22 @@ export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
   yoga:       'Йога',
   breathwork: 'Дыхательные практики',
 }
+
+// Direction -> icon component for the practice hero card.
+// Partial (not Record) ON PURPOSE: the backend direction list will grow
+// (somatic / womens_circle / tantra / ...), and generated.ts will widen
+// PracticeDirection. A full Record would then fail vue-tsc until every new
+// value got an icon. With Partial + DIRECTION_ICON_FALLBACK, a new direction
+// simply renders the fallback glyph until its own icon is added here.
+// IconYoga is a placeholder (TD-CAL-ICON-YOGA), swap when the real asset lands.
+export const DIRECTION_ICON: Partial<Record<PracticeDirection, Component>> = {
+  meditation: IconMeditation,
+  yoga:       IconYoga,
+  breathwork: IconBreathwork,
+}
+
+/** Fallback glyph for directions without a dedicated icon yet. */
+export const DIRECTION_ICON_FALLBACK: Component = IconMeditation
 
 export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
   beginner: 'Начальная',

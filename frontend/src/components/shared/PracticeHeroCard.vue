@@ -2,16 +2,20 @@
   VELO Frontend -- PracticeHeroCard (shared)
 
   Hero card used at the top of practice/booking detail screens
-  (Figma 15 / 18 / dashboard):
-    - Practice icon in a teal circle
+  (Figma 15 / 18 / dashboard / Calendar frame 4):
+    - Practice icon in a teal circle -- chosen by `direction` (taxonomy);
+      falls back to a default glyph when direction is absent/unknown.
     - Title
     - Meta row: date, duration, optional participants
+    - Optional difficulty dots ("Сложность ●●○") -- shown only when
+      difficultyDots > 0 (Calendar frame 4). Word level is intentionally
+      NOT shown (matches the mockup: label + dots only).
     - Optional #badge slot (e.g. "Оплачено", "LIVE" -- screen 15)
 
-  Props cover all three cases:
-    - Catalog (15, not booked):  participants shown, no badge
-    - Booked (15):               no participants, "Оплачено" badge via slot
-    - Booking detail (18):       no participants, no badge
+  Props cover all cases:
+    - Catalog (frame 4, not booked):  participants shown, difficulty dots, no badge
+    - Booked (15):                    no participants, "Оплачено" badge via slot
+    - Booking detail (18):            no participants, no badge
 
   The outer margin is left to the parent -- this is just the card.
 -->
@@ -19,7 +23,7 @@
 <template>
   <div class="hero-card">
     <div class="hero-card__icon">
-      <IconMeditation :size="26" />
+      <component :is="iconComponent" :size="26" />
     </div>
     <h1 class="hero-card__title">{{ title }}</h1>
     <div class="hero-card__meta">
@@ -34,23 +38,57 @@
       </span>
       <slot name="badge" />
     </div>
+
+    <!-- Difficulty dots (Calendar frame 4): label + dots only, no word level. -->
+    <div v-if="difficultyDots > 0" class="hero-card__difficulty">
+      <span class="hero-card__difficulty-label">Сложность</span>
+      <span class="hero-card__difficulty-dots" :aria-label="difficultyLabel || undefined">
+        <span
+          v-for="n in 3"
+          :key="n"
+          class="hero-card__difficulty-dot"
+          :class="{ 'hero-card__difficulty-dot--on': n <= difficultyDots }"
+        />
+      </span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { IconMeditation, IconCalendar, IconClock, IconGroup } from '@/components/icons'
+import { computed } from 'vue'
+import { IconCalendar, IconClock, IconGroup } from '@/components/icons'
+import { DIRECTION_ICON, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
+import type { PracticeDirection } from '@/api/types'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string
     date: string
     duration: string
     /** Optional "N / M" participants string. Omit to hide (booked / detail). */
     participants?: string | null
+    /** Content direction (taxonomy) -- picks the hero glyph. */
+    direction?: PracticeDirection | string | null
+    /** Filled-dot count for difficulty (0 hides the block). */
+    difficultyDots?: number
+    /** Human difficulty label -- used for aria only (not rendered as text). */
+    difficultyLabel?: string
   }>(),
   {
     participants: null,
+    direction: null,
+    difficultyDots: 0,
+    difficultyLabel: '',
   },
+)
+
+// Icon by direction with a safe fallback. Unknown / absent direction (e.g.
+// booked & booking-detail screens that don't pass it, or a freshly added
+// backend direction without its own icon) renders the fallback glyph.
+const iconComponent = computed(
+  () =>
+    (props.direction && DIRECTION_ICON[props.direction as PracticeDirection]) ||
+    DIRECTION_ICON_FALLBACK,
 )
 </script>
 
@@ -104,5 +142,32 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+.hero-card__difficulty {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+}
+
+.hero-card__difficulty-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hero-card__difficulty-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+}
+
+.hero-card__difficulty-dot--on {
+  background: var(--velo-primary);
 }
 </style>
