@@ -20,7 +20,6 @@
     :submit-disabled="!selectedRating"
     submit-label="Отправить feedback"
     :submitted="submitted"
-    success-icon="💚"
     success-title="Спасибо за feedback!"
     success-text="Ваш отзыв поможет нам улучшить практики"
     @back="onBack"
@@ -52,6 +51,13 @@
       </div>
     </template>
 
+    <!-- Success icon: teal heart (Figma 541:2354) -->
+    <template #success-icon>
+      <span class="feedback__success-heart">
+        <IconHeart :size="56" />
+      </span>
+    </template>
+
     <!-- Success actions -->
     <template #success-actions>
       <VButton variant="primary" size="lg" block @click="goToDiary">
@@ -76,6 +82,7 @@ import {
   IconRatingConfused,
   IconRatingGood,
   IconRatingFire,
+  IconHeart,
 } from '@/components/icons'
 import FormShell from '@/components/shared/FormShell.vue'
 import { RATING_OPTIONS, RATING_ICON_COLOR } from '@/utils/displayHelpers'
@@ -196,6 +203,13 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.feedback__success-heart {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--velo-teal-400);
 }
 
 .feedback__rating-label {
