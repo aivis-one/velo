@@ -68,6 +68,16 @@
   --velo-mood-mid: #fbc088;
   --velo-mood-high: #76dde6;
 
+  /* === Colors: Rating icons (feedback screen) ===
+   * Accent color per rating icon, matching the Figma feedback design:
+   * confused = brand blue, good = rose, fire = peach/orange.
+   * Kept separate from RATING_COLOR (analytics bar fills) on purpose --
+   * these are the icon accents on the feedback form, not the analytics bars.
+   */
+  --velo-rating-confused: var(--velo-primary-dark);  /* #4c6589 */
+  --velo-rating-good: #d66674;                        /* new */
+  --velo-rating-fire: var(--velo-peach-500);          /* #d4863c */
+
   /* === Typography === */
   --font-body: 'Marmelad', 'Noto Sans', sans-serif;
   --font-heading: 'Marmelad', 'Noto Sans', sans-serif;

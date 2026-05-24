@@ -44,7 +44,9 @@
           ]"
           @click="selectRating(opt.value)"
         >
-          <span class="feedback__rating-emoji">{{ opt.emoji }}</span>
+          <span class="feedback__rating-icon" :style="{ color: RATING_ICON_COLOR[opt.value] }">
+            <component :is="RATING_ICON[opt.value]" :size="40" />
+          </span>
           <span class="feedback__rating-label">{{ opt.label }}</span>
         </button>
       </div>
@@ -70,9 +72,23 @@ import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton } from '@/components/ui'
+import {
+  IconRatingConfused,
+  IconRatingGood,
+  IconRatingFire,
+} from '@/components/icons'
 import FormShell from '@/components/shared/FormShell.vue'
-import { RATING_OPTIONS } from '@/utils/displayHelpers'
+import { RATING_OPTIONS, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import type { FeedbackRating } from '@/api/types'
+
+// Map rating value -> icon component (kept here, not in displayHelpers, to
+// avoid mixing the utils layer with .vue components -- same as MOOD_ICON in
+// CheckinView). Colors come from RATING_ICON_COLOR (--velo-rating-* tokens).
+const RATING_ICON = {
+  confused: IconRatingConfused,
+  good:     IconRatingGood,
+  fire:     IconRatingFire,
+} as const
 
 const route = useRoute()
 const router = useRouter()
@@ -176,8 +192,10 @@ onMounted(() => {
   box-shadow: var(--velo-shadow-glow);
 }
 
-.feedback__rating-emoji {
-  font-size: 36px;
+.feedback__rating-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .feedback__rating-label {

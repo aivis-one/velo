@@ -89,6 +89,18 @@ export const RATING_COLOR: Record<string, string> = {
   confused: 'var(--velo-warning)',     // #F59E0B
 }
 
+/**
+ * Accent color per rating ICON on the feedback form (Figma feedback design):
+ * confused = brand blue, good = rose, fire = peach/orange. Separate from
+ * RATING_COLOR (analytics bar fills) on purpose -- different surfaces,
+ * different palettes. Values reference --velo-rating-* tokens (variables.css).
+ */
+export const RATING_ICON_COLOR: Record<FeedbackRating, string> = {
+  confused: 'var(--velo-rating-confused)',
+  good:     'var(--velo-rating-good)',
+  fire:     'var(--velo-rating-fire)',
+}
+
 // ---------------------------------------------------------------------------
 // Calendar taxonomy (direction / difficulty) + feed buckets
 // ---------------------------------------------------------------------------
