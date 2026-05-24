@@ -365,9 +365,10 @@ function onPurchased(): void {
   showBookingPopup.value = false
   justPurchased.value = true
   const id = route.params.id as string
-  // Refresh data so the detail screen shows the booked state when the user
-  // navigates back here from the confirmation screen.
-  store.fetchPractice(id)
+  // No fetchPractice here: BookingConfirmedView loads the practice itself,
+  // and this detail view reloads via its own onMounted when the user returns
+  // (routes are not kept alive). Refreshing bookings keeps the global store
+  // in sync so the booked state is correct on return.
   bookingsStore.refreshBookings()
   // Frame 5: go to the dedicated booking-confirmed screen.
   router.push({ name: 'user-booking-confirmed', params: { practiceId: id } })
