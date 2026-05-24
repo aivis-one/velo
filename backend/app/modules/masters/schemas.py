@@ -19,6 +19,7 @@
 # DOCUMENTS: list[dict] for now (JSONB sandbox). Each dict is freeform --
 #   could be {"type": "certificate", "number": "123"} or
 #   {"type": "link", "url": "https://..."}.
+#   TODO: Replace with file upload when S3/storage is ready.
 #
 # PUBLIC PROFILE (Calendar iteration, S-4):
 #   MasterPublicResponse -- the user-facing master profile shown when a
