@@ -20,6 +20,7 @@
     :submit-disabled="!selectedRating"
     submit-label="Отправить feedback"
     :submitted="submitted"
+    success-icon=""
     success-title="Спасибо за feedback!"
     success-text="Ваш отзыв поможет нам улучшить практики"
     @back="onBack"
