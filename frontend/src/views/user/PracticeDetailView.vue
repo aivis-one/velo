@@ -365,8 +365,12 @@ function onPurchased(): void {
   showBookingPopup.value = false
   justPurchased.value = true
   const id = route.params.id as string
+  // Refresh data so the detail screen shows the booked state when the user
+  // navigates back here from the confirmation screen.
   store.fetchPractice(id)
   bookingsStore.refreshBookings()
+  // Frame 5: go to the dedicated booking-confirmed screen.
+  router.push({ name: 'user-booking-confirmed', params: { practiceId: id } })
 }
 
 function onCheckin(): void {

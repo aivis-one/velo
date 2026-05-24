@@ -100,6 +100,11 @@ const router = createRouter({
           component: () => import('@/views/user/MasterPublicView.vue'),
         },
         {
+          path: 'booking-confirmed/:practiceId',
+          name: 'user-booking-confirmed',
+          component: () => import('@/views/user/BookingConfirmedView.vue'),
+        },
+        {
           path: 'bookings',
           name: 'user-bookings',
           component: () => import('@/views/user/MyBookingsView.vue'),
