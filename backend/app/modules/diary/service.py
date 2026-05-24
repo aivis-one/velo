@@ -51,32 +51,11 @@ from app.modules.diary.projections import (
     upsert_entry_event,
     upsert_feedback_event,
 )
+from app.modules.masters.service import get_master_display_name
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
-
-
-# ===================================================================
-# Master-name helper (feed snapshots)
-# ===================================================================
-
-
-async def _master_name_for_practice(
-    practice: Practice,
-    session: AsyncSession,
-) -> str | None:
-    """Resolve the master's display name (User.first_name) for a practice.
-
-    Same source as get_practice() in practices/service.py -- the feed card
-    shows "Alex Mindful" next to the practice. One light lookup by master_id;
-    None if the master row is somehow missing.
-    """
-    return (
-        await session.execute(
-            select(User.first_name).where(User.id == practice.master_id)
-        )
-    ).scalar_one_or_none()
 
 
 # ===================================================================
@@ -179,7 +158,7 @@ async def upsert_checkin(
         )
 
         # Diary feed: refresh the timeline event for this check-in.
-        master_name = await _master_name_for_practice(practice, session)
+        master_name = await get_master_display_name(practice.master_id, session)
         await upsert_checkin_event(
             session,
             checkin=existing,
@@ -219,7 +198,7 @@ async def upsert_checkin(
     )
 
     # Diary feed: project the new check-in onto the user's timeline.
-    master_name = await _master_name_for_practice(practice, session)
+    master_name = await get_master_display_name(practice.master_id, session)
     await upsert_checkin_event(
         session,
         checkin=checkin,
@@ -380,7 +359,7 @@ async def upsert_feedback(
         )
 
         # Diary feed: refresh the timeline event for this feedback.
-        master_name = await _master_name_for_practice(practice, session)
+        master_name = await get_master_display_name(practice.master_id, session)
         await upsert_feedback_event(
             session,
             feedback=existing,
@@ -419,7 +398,7 @@ async def upsert_feedback(
     )
 
     # Diary feed: project the new feedback onto the user's timeline.
-    master_name = await _master_name_for_practice(practice, session)
+    master_name = await get_master_display_name(practice.master_id, session)
     await upsert_feedback_event(
         session,
         feedback=feedback,

@@ -179,23 +179,6 @@ async def recalculate_participants(
     return count
 
 
-async def _master_name_for_practice(
-    practice: Practice,
-    session: AsyncSession,
-) -> str | None:
-    """Resolve the master's display name (User.first_name) for a practice.
-
-    Used to embed the master name into diary feed snapshots so feed cards
-    render "Alex Mindful" without a join. Same source as get_practice() in
-    practices/service.py. One light lookup by master_id; None if missing.
-    """
-    return (
-        await session.execute(
-            select(User.first_name).where(User.id == practice.master_id)
-        )
-    ).scalar_one_or_none()
-
-
 async def create_booking(
     user: User,
     practice_id: UUID,
@@ -285,7 +268,8 @@ async def create_booking(
     # Lazy import keeps the dependency one-way (bookings -> diary) and avoids
     # an import cycle, same pattern as process_waitlist below.
     from app.modules.diary.projections import project_booking_confirmed
-    master_name = await _master_name_for_practice(practice, session)
+    from app.modules.masters.service import get_master_display_name
+    master_name = await get_master_display_name(practice.master_id, session)
     await project_booking_confirmed(
         session,
         booking=booking,
@@ -416,7 +400,8 @@ async def cancel_booking(
     # occurred_at is the cancellation instant (set above). Lazy import keeps
     # the dependency one-way (bookings -> diary).
     from app.modules.diary.projections import project_booking_cancelled
-    master_name = await _master_name_for_practice(practice, session)
+    from app.modules.masters.service import get_master_display_name
+    master_name = await get_master_display_name(practice.master_id, session)
     await project_booking_cancelled(
         session,
         booking=booking,
@@ -640,7 +625,8 @@ async def finalize_practice(
     # timeline (attended -> Done, no_show -> "Не состоялась"). occurred_at is
     # the finalization instant. Lazy import keeps the dependency one-way.
     from app.modules.diary.projections import project_practice_outcome
-    master_name = await _master_name_for_practice(practice, session)
+    from app.modules.masters.service import get_master_display_name
+    master_name = await get_master_display_name(practice.master_id, session)
     await project_practice_outcome(
         session,
         practice=practice,

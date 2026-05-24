@@ -304,23 +304,6 @@ async def _user_flags_for_practices(
 # ===================================================================
 
 
-async def _master_name_for_practice(
-    practice: Practice,
-    session: AsyncSession,
-) -> str | None:
-    """Resolve the master's display name (User.first_name) for a practice.
-
-    Used to embed the master name into diary feed snapshots so feed cards
-    render "Alex Mindful" without a join. Same source/join key as
-    get_practice() (Practice.master_id == User.id). None if missing.
-    """
-    return (
-        await session.execute(
-            select(User.first_name).where(User.id == practice.master_id)
-        )
-    ).scalar_one_or_none()
-
-
 async def create_practice(
     user: User,
     body: CreatePracticeRequest,
@@ -597,7 +580,10 @@ async def update_practice(
         from app.modules.diary.projections import (
             project_practice_rescheduled,
         )
-        master_name = await _master_name_for_practice(practice, session)
+        from app.modules.masters.service import get_master_display_name
+        master_name = await get_master_display_name(
+            practice.master_id, session,
+        )
         await project_practice_rescheduled(
             session,
             practice=practice,
@@ -708,13 +694,21 @@ async def cancel_practice(
 
     # Diary feed: collect the booked users BEFORE the refund flow runs --
     # refund_all_bookings_for_practice transitions bookings to cancelled, so
-    # reading them afterwards would yield an empty set. Lazy import keeps the
-    # dependency one-way (practices -> diary).
-    from app.modules.diary.projections import (
-        project_practice_cancelled,
-        _booked_user_ids,
+    # reading them afterwards would yield an empty set. Inline ORM query
+    # (Booking/BookingStatus are already imported) -- we do not import the
+    # private _booked_user_ids from diary.projections (P: no cross-module
+    # private import, consistent with calendar C-1).
+    affected_ids_stmt = (
+        select(Booking.user_id)
+        .where(
+            Booking.practice_id == practice.id,
+            Booking.status != BookingStatus.CANCELLED.value,
+        )
+        .distinct()
     )
-    affected_user_ids = await _booked_user_ids(practice.id, session)
+    affected_user_ids = list(
+        (await session.execute(affected_ids_stmt)).scalars().all()
+    )
 
     # Refund all active bookings + clear waitlist.
     refunded_count = await refund_all_bookings_for_practice(
@@ -746,7 +740,11 @@ async def cancel_practice(
 
     # Diary feed: fan out "master cancelled the practice" to the users who
     # were booked (collected above, before the refund). occurred_at is now.
-    master_name = await _master_name_for_practice(practice, session)
+    # Diary feed: fan out "master cancelled the practice" to the users who
+    # were booked (collected above, before the refund). occurred_at is now.
+    from app.modules.diary.projections import project_practice_cancelled
+    from app.modules.masters.service import get_master_display_name
+    master_name = await get_master_display_name(practice.master_id, session)
     await project_practice_cancelled(
         session,
         practice=practice,
