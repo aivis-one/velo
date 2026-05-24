@@ -212,6 +212,8 @@ export interface CreateDiaryEntryRequest {
   title?: string | null
   mood?: string | null
   practice_id?: string | null
+  entry_type?: string
+  practice_phase?: string | null
 }
 
 /** POST /api/v1/masters/me/promos -- create a master promo code. Master promos: master absorbs the discount from their revenue. type and master_id are set automatically by the service layer. */
@@ -263,11 +265,31 @@ export interface DiaryEntryResponse {
   id: string
   user_id: string
   practice_id: string | null
+  entry_type: string
+  practice_phase: string | null
   title: string | null
   content: string
   mood: string | null
+  is_deleted: boolean
   created_at: string
   updated_at: string | null
+}
+
+/** One event in the unified diary timeline (GET /api/v1/diary/feed). A denormalized projection of a DiaryEvent. `snapshot` is an open dict whose shape depends on `kind` -- the frontend reads the fields it needs per kind (practice card fields, mood, rating, content preview, etc.). Keeping it open here avoids a combinatorial explosion of per-kind schemas while the feed card design is still settling; the kinds themselves are a closed vocabulary (see kind). `source_type` + `source_id` let the card deep-link back to the originating object (practice detail now, replay archive later). */
+export interface DiaryFeedItem {
+  id: string
+  kind: string
+  occurred_at: string
+  source_type: string
+  source_id: string
+  snapshot: Record<string, unknown>
+  created_at: string
+}
+
+/** GET /api/v1/diary/feed -- cursor-paginated unified timeline. `next_cursor` is the occurred_at of the last item when a full page was returned (more may remain); null marks the end of the feed. The client passes it back as the `cursor` query param for the next page. */
+export interface DiaryFeedResponse {
+  items: DiaryFeedItem[]
+  next_cursor: string | null
 }
 
 /** Admin dismisses a report. */
@@ -692,9 +714,12 @@ export interface UpdateDiaryEntryRequest {
   title?: string | null
   mood?: string | null
   practice_id?: string | null
+  entry_type?: string | null
+  practice_phase?: string | null
   clear_mood?: boolean
   clear_title?: boolean
   clear_practice?: boolean
+  clear_practice_phase?: boolean
 }
 
 /** PATCH /api/v1/practices/{id} -- request body. All fields optional. Only provided fields are updated. P-02: NOT NULL fields typed as X | None so that "not sent" works with exclude_unset. Service layer guards against explicit null. Calendar taxonomy (direction / difficulty / style) is optional here: "not sent" leaves the stored value untouched; if sent, it is validated and written into data.taxonomy by the service layer. */
