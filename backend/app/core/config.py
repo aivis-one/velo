@@ -242,6 +242,56 @@ class Settings(BaseSettings):
     diary_entry_content_max_length: int = 10000
     diary_entry_title_max_length: int = 200
 
+    # Allowed diary entry types (Дневник / Сонник). dream is wired on the
+    # backend now; the UI composer creates note only this iteration.
+    # Validated via @field_validator -- no Literal in schemas.
+    diary_allowed_entry_types: list[str] = ["note", "dream"]
+
+    # Allowed practice_phase values for a practice-linked diary entry
+    # (the "Перед практикой:" / "После практики:" caption).
+    diary_allowed_practice_phases: list[str] = ["before", "after"]
+
+    # -- Diary feed (Diary redesign iteration) --
+    # The unified timeline feed (GET /diary/feed) reads from the DiaryEvent
+    # journal. These bound the feed's behavior; kept here (NO-LITERALS) so
+    # page size, preview length, and the kind/category vocab live in one place.
+    #
+    # Default and max page size for cursor pagination.
+    diary_feed_page_size: int = 20
+    diary_feed_max_page_size: int = 100
+    # Max length of the denormalized text preview stored in event snapshots
+    # (check-in/feedback comment preview, entry content preview).
+    diary_feed_preview_length: int = 140
+    # Event kinds that exist in the journal (mirrors DiaryEventKind). Used to
+    # validate the feed `kind` filter -- no Literal in the router.
+    diary_feed_allowed_kinds: list[str] = [
+        "booking_confirmed",
+        "booking_cancelled_by_user",
+        "practice_rescheduled",
+        "practice_cancelled_by_master",
+        "practice_outcome",
+        "checkin",
+        "feedback",
+        "note",
+        "dream",
+    ]
+    # Filter chips on the feed map onto groups of kinds (Все / Дневник /
+    # Сонник / Feedbacks / Check-ins). "all" is represented by passing no
+    # category. Each category resolves to the kinds it includes.
+    diary_feed_categories: dict[str, list[str]] = {
+        "entries": ["note"],
+        "dreams": ["dream"],
+        "feedbacks": ["feedback"],
+        "checkins": ["checkin"],
+        "practices": [
+            "booking_confirmed",
+            "booking_cancelled_by_user",
+            "practice_rescheduled",
+            "practice_cancelled_by_master",
+            "practice_outcome",
+        ],
+    }
+
     # -- Admin (Phase 2.3 / 6.6 / 3.3) --
     # Max length of admin notes on master verify/reject actions
     # and withdrawal approve/reject notes.

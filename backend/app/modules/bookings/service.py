@@ -179,6 +179,23 @@ async def recalculate_participants(
     return count
 
 
+async def _master_name_for_practice(
+    practice: Practice,
+    session: AsyncSession,
+) -> str | None:
+    """Resolve the master's display name (User.first_name) for a practice.
+
+    Used to embed the master name into diary feed snapshots so feed cards
+    render "Alex Mindful" without a join. Same source as get_practice() in
+    practices/service.py. One light lookup by master_id; None if missing.
+    """
+    return (
+        await session.execute(
+            select(User.first_name).where(User.id == practice.master_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def create_booking(
     user: User,
     practice_id: UUID,
@@ -262,6 +279,19 @@ async def create_booking(
         status=booking.status,
         paid_cents=purchase.paid_cents,
         promo_code=promo.code if promo else None,
+    )
+
+    # Diary feed: project "user booked a practice" onto the user's timeline.
+    # Lazy import keeps the dependency one-way (bookings -> diary) and avoids
+    # an import cycle, same pattern as process_waitlist below.
+    from app.modules.diary.projections import project_booking_confirmed
+    master_name = await _master_name_for_practice(practice, session)
+    await project_booking_confirmed(
+        session,
+        booking=booking,
+        practice=practice,
+        master_name=master_name,
+        occurred_at=booking.created_at,
     )
 
     return booking
@@ -381,6 +411,19 @@ async def cancel_booking(
     # Phase 5.3: Notify next waiting user in the queue.
     from app.modules.waitlist.service import process_waitlist
     await process_waitlist(booking.practice_id, session)
+
+    # Diary feed: project "user cancelled their booking" onto the timeline.
+    # occurred_at is the cancellation instant (set above). Lazy import keeps
+    # the dependency one-way (bookings -> diary).
+    from app.modules.diary.projections import project_booking_cancelled
+    master_name = await _master_name_for_practice(practice, session)
+    await project_booking_cancelled(
+        session,
+        booking=booking,
+        practice=practice,
+        master_name=master_name,
+        occurred_at=booking.cancelled_at,
+    )
 
     return booking
 
@@ -555,6 +598,10 @@ async def finalize_practice(
 
     attended_count = 0
     no_show_count = 0
+    # Collect (user_id, booking_id, status) for the diary feed projection.
+    # We capture the resolved outcome per booking so each booker gets a card
+    # showing Done (attended) or "Не состоялась" (no_show).
+    outcomes: list[tuple[UUID, UUID, str]] = []
 
     for booking in bookings:
         if booking.joined_at is not None:
@@ -563,6 +610,9 @@ async def finalize_practice(
         else:
             booking.status = BookingStatus.NO_SHOW.value
             no_show_count += 1
+        outcomes.append(
+            (booking.user_id, booking.id, booking.status)
+        )
 
     practice.status = PracticeStatus.COMPLETED.value
 
@@ -584,6 +634,19 @@ async def finalize_practice(
         attended=attended_count,
         no_show=no_show_count,
         purchases_finalized=len(finalized),
+    )
+
+    # Diary feed: project the finalization outcome onto each booker's
+    # timeline (attended -> Done, no_show -> "Не состоялась"). occurred_at is
+    # the finalization instant. Lazy import keeps the dependency one-way.
+    from app.modules.diary.projections import project_practice_outcome
+    master_name = await _master_name_for_practice(practice, session)
+    await project_practice_outcome(
+        session,
+        practice=practice,
+        master_name=master_name,
+        outcomes=outcomes,
+        occurred_at=datetime.now(timezone.utc),
     )
 
     return practice

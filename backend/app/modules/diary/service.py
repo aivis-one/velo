@@ -30,18 +30,53 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
-from app.modules.diary.models import CheckType, Checkin, DiaryEntry, Feedback
+from app.modules.diary.models import (
+    CheckType,
+    Checkin,
+    DiaryEntry,
+    DiaryEntryType,
+    DiaryEvent,
+    Feedback,
+)
+from app.modules.diary.projections import (
+    hide_entry_event,
+    upsert_checkin_event,
+    upsert_entry_event,
+    upsert_feedback_event,
+)
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
+
+
+# ===================================================================
+# Master-name helper (feed snapshots)
+# ===================================================================
+
+
+async def _master_name_for_practice(
+    practice: Practice,
+    session: AsyncSession,
+) -> str | None:
+    """Resolve the master's display name (User.first_name) for a practice.
+
+    Same source as get_practice() in practices/service.py -- the feed card
+    shows "Alex Mindful" next to the practice. One light lookup by master_id;
+    None if the master row is somehow missing.
+    """
+    return (
+        await session.execute(
+            select(User.first_name).where(User.id == practice.master_id)
+        )
+    ).scalar_one_or_none()
 
 
 # ===================================================================
@@ -142,6 +177,15 @@ async def upsert_checkin(
             practice_id=str(practice_id),
             mood=mood,
         )
+
+        # Diary feed: refresh the timeline event for this check-in.
+        master_name = await _master_name_for_practice(practice, session)
+        await upsert_checkin_event(
+            session,
+            checkin=existing,
+            practice=practice,
+            master_name=master_name,
+        )
         return existing, False
 
     # Create new checkin.
@@ -172,6 +216,15 @@ async def upsert_checkin(
         user_id=str(user.id),
         practice_id=str(practice_id),
         mood=mood,
+    )
+
+    # Diary feed: project the new check-in onto the user's timeline.
+    master_name = await _master_name_for_practice(practice, session)
+    await upsert_checkin_event(
+        session,
+        checkin=checkin,
+        practice=practice,
+        master_name=master_name,
     )
     return checkin, True
 
@@ -325,6 +378,15 @@ async def upsert_feedback(
             practice_id=str(practice_id),
             rating=rating,
         )
+
+        # Diary feed: refresh the timeline event for this feedback.
+        master_name = await _master_name_for_practice(practice, session)
+        await upsert_feedback_event(
+            session,
+            feedback=existing,
+            practice=practice,
+            master_name=master_name,
+        )
         return existing, False
 
     # Create new feedback.
@@ -354,6 +416,15 @@ async def upsert_feedback(
         user_id=str(user.id),
         practice_id=str(practice_id),
         rating=rating,
+    )
+
+    # Diary feed: project the new feedback onto the user's timeline.
+    master_name = await _master_name_for_practice(practice, session)
+    await upsert_feedback_event(
+        session,
+        feedback=feedback,
+        practice=practice,
+        master_name=master_name,
     )
     return feedback, True
 
@@ -426,6 +497,8 @@ async def create_diary_entry(
     title: str | None = None,
     mood: str | None = None,
     practice_id: UUID | None = None,
+    entry_type: str = DiaryEntryType.NOTE.value,
+    practice_phase: str | None = None,
 ) -> DiaryEntry:
     """Create a personal diary entry.
 
@@ -436,6 +509,10 @@ async def create_diary_entry(
         title: Optional short title (max 200 chars).
         mood: Optional mood tag (low/mid/high).
         practice_id: Optional practice link. Validated if provided.
+        entry_type: note (free-form) or dream (Сонник). Defaults to note --
+            the ledger composer only creates note this iteration.
+        practice_phase: before/after relative to the linked practice; only
+            meaningful when practice_id is set.
 
     Returns:
         Created DiaryEntry.
@@ -452,6 +529,8 @@ async def create_diary_entry(
         title=title,
         mood=mood,
         practice_id=practice_id,
+        entry_type=entry_type,
+        practice_phase=practice_phase,
     )
     session.add(entry)
     await session.flush()
@@ -462,7 +541,10 @@ async def create_diary_entry(
         actor_type="user",
         target_type="diary_entry",
         target_id=entry.id,
-        data={"practice_id": str(practice_id) if practice_id else None},
+        data={
+            "practice_id": str(practice_id) if practice_id else None,
+            "entry_type": entry_type,
+        },
         session=session,
     )
 
@@ -470,8 +552,12 @@ async def create_diary_entry(
         "diary_entry_created",
         entry_id=str(entry.id),
         user_id=str(user.id),
+        entry_type=entry_type,
         mood=mood,
     )
+
+    # Diary feed: project the new entry onto the user's timeline.
+    await upsert_entry_event(session, entry=entry)
     return entry
 
 
@@ -520,7 +606,7 @@ async def get_diary_entry(
     """
     entry = await session.get(DiaryEntry, entry_id)
 
-    if entry is None or entry.user_id != user.id:
+    if entry is None or entry.user_id != user.id or entry.is_deleted:
         raise NotFoundError("Diary entry not found")
 
     return entry
@@ -540,9 +626,12 @@ async def update_diary_entry(
     title: str | None = None,
     mood: str | None = None,
     practice_id: UUID | None = None,
+    entry_type: str | None = None,
+    practice_phase: str | None = None,
     clear_title: bool = False,
     clear_mood: bool = False,
     clear_practice: bool = False,
+    clear_practice_phase: bool = False,
 ) -> DiaryEntry:
     """Partially update a diary entry.
 
@@ -550,12 +639,12 @@ async def update_diary_entry(
     nullable fields to None.
 
     Raises:
-        NotFoundError: Entry not found or not owned by user.
+        NotFoundError: Entry not found, not owned by user, or soft-deleted.
         BadRequestError: New practice_id invalid.
     """
     entry = await session.get(DiaryEntry, entry_id)
 
-    if entry is None or entry.user_id != user.id:
+    if entry is None or entry.user_id != user.id or entry.is_deleted:
         raise NotFoundError("Diary entry not found")
 
     # Validate new practice link if provided.
@@ -578,6 +667,14 @@ async def update_diary_entry(
     elif clear_mood:
         entry.mood = None
 
+    if entry_type is not None:
+        entry.entry_type = entry_type
+
+    if practice_phase is not None:
+        entry.practice_phase = practice_phase
+    elif clear_practice_phase:
+        entry.practice_phase = None
+
     await session.flush()
 
     await record_audit(
@@ -586,7 +683,10 @@ async def update_diary_entry(
         actor_type="user",
         target_type="diary_entry",
         target_id=entry.id,
-        data={"practice_id": str(entry.practice_id) if entry.practice_id else None},
+        data={
+            "practice_id": str(entry.practice_id) if entry.practice_id else None,
+            "entry_type": entry.entry_type,
+        },
         session=session,
     )
 
@@ -595,6 +695,9 @@ async def update_diary_entry(
         entry_id=str(entry.id),
         user_id=str(user.id),
     )
+
+    # Diary feed: refresh the timeline event (snapshot + kind + text).
+    await upsert_entry_event(session, entry=entry)
     return entry
 
 
@@ -608,15 +711,23 @@ async def delete_diary_entry(
     entry_id: UUID,
     session: AsyncSession,
 ) -> None:
-    """Hard-delete a diary entry owned by the user.
+    """Soft-delete a diary entry owned by the user.
+
+    Redesign: this is a SOFT delete -- the row is hidden (is_deleted=True),
+    not physically removed. The matching DiaryEvent is hidden in parallel
+    (is_hidden=True) so it drops out of the feed while staying a stable
+    target for future relations. Personal data remains recoverable.
 
     Raises:
-        NotFoundError: Entry not found or not owned by user.
+        NotFoundError: Entry not found, not owned by user, or already deleted.
     """
     entry = await session.get(DiaryEntry, entry_id)
 
-    if entry is None or entry.user_id != user.id:
+    if entry is None or entry.user_id != user.id or entry.is_deleted:
         raise NotFoundError("Diary entry not found")
+
+    entry.is_deleted = True
+    await session.flush()
 
     await record_audit(
         event="diary_entry_deleted",
@@ -628,8 +739,8 @@ async def delete_diary_entry(
         session=session,
     )
 
-    await session.delete(entry)
-    await session.flush()
+    # Diary feed: hide the timeline event (soft) -- never drop the row.
+    await hide_entry_event(session, entry_id=entry.id)
 
     logger.info(
         "diary_entry_deleted",
@@ -651,23 +762,31 @@ async def list_user_diary_entries(
     offset: int = 0,
     practice_id: UUID | None = None,
     mood: str | None = None,
+    entry_type: str | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> tuple[list[DiaryEntry], int]:
     """List diary entries for a user with optional filters.
 
     11.1 fix: count derived from base subquery.
+    Redesign: soft-deleted entries (is_deleted=True) are excluded.
 
     Returns:
         Tuple of (items, total_count).
     """
-    base = select(DiaryEntry).where(DiaryEntry.user_id == user.id)
+    base = select(DiaryEntry).where(
+        DiaryEntry.user_id == user.id,
+        DiaryEntry.is_deleted.is_(False),
+    )
 
     if practice_id is not None:
         base = base.where(DiaryEntry.practice_id == practice_id)
 
     if mood is not None:
         base = base.where(DiaryEntry.mood == mood)
+
+    if entry_type is not None:
+        base = base.where(DiaryEntry.entry_type == entry_type)
 
     if date_from is not None:
         base = base.where(DiaryEntry.created_at >= date_from)
@@ -691,6 +810,109 @@ async def list_user_diary_entries(
     items = list(result.scalars().all())
 
     return items, total
+
+
+# ===================================================================
+# Diary feed (Diary redesign iteration -- unified timeline)
+# ===================================================================
+
+
+def _kinds_for_categories(categories: list[str] | None) -> list[str] | None:
+    """Resolve filter-chip categories to the set of event kinds they include.
+
+    None / empty -> None (no kind filter -> "Все"). Unknown categories are
+    ignored. Categories map to kinds via settings.diary_feed_categories
+    (NO-LITERALS). Multiple categories union their kinds.
+    """
+    if not categories:
+        return None
+    mapping = settings.diary_feed_categories
+    kinds: list[str] = []
+    for category in categories:
+        kinds.extend(mapping.get(category, []))
+    # De-dup while preserving order; empty result means no valid category was
+    # passed -> treat as no filter rather than "match nothing".
+    deduped = list(dict.fromkeys(kinds))
+    return deduped or None
+
+
+async def list_diary_feed(
+    user: User,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    cursor: datetime | None = None,
+    categories: list[str] | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    search: str | None = None,
+) -> tuple[list[DiaryEvent], datetime | None]:
+    """List the unified diary timeline for a user (cursor-paginated).
+
+    The feed reads the append-only DiaryEvent journal in one query, newest
+    first. Hidden events (soft-deleted entries) are excluded.
+
+    Filters:
+        categories: filter chips (entries/dreams/feedbacks/checkins/
+            practices) -> resolved to event kinds. None -> all.
+        date_from / date_to: bound occurred_at.
+        search: case-insensitive ilike over the denormalized text_search.
+        cursor: occurred_at of the last item from the previous page; the
+            next page returns events strictly OLDER than the cursor.
+
+    Returns:
+        Tuple of (events, next_cursor). next_cursor is the occurred_at of the
+        last returned event when a full page was returned, else None (end of
+        feed). The caller echoes it back as `cursor` for the next page.
+
+    Note on cursor stability: occurred_at is not guaranteed unique across
+    events (a master fan-out stamps many rows with the same instant). For
+    alpha volumes a plain occurred_at cursor is acceptable; a future tie-break
+    (occurred_at, id) can be added without an API change.
+    """
+    base = select(DiaryEvent).where(
+        DiaryEvent.user_id == user.id,
+        DiaryEvent.is_hidden.is_(False),
+    )
+
+    kinds = _kinds_for_categories(categories)
+    if kinds is not None:
+        base = base.where(DiaryEvent.kind.in_(kinds))
+
+    if date_from is not None:
+        base = base.where(DiaryEvent.occurred_at >= date_from)
+
+    if date_to is not None:
+        base = base.where(DiaryEvent.occurred_at <= date_to)
+
+    if search:
+        # text_search is stored lowercased; lower the needle to match.
+        needle = f"%{search.lower()}%"
+        base = base.where(
+            or_(
+                DiaryEvent.text_search.ilike(needle),
+                # Practice title lives in the snapshot for practice cards
+                # that may have an empty text_search; match it too.
+                DiaryEvent.snapshot["practice_title"].as_string().ilike(needle),
+            )
+        )
+
+    if cursor is not None:
+        base = base.where(DiaryEvent.occurred_at < cursor)
+
+    stmt = (
+        base
+        .order_by(DiaryEvent.occurred_at.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    items = list(result.scalars().all())
+
+    # next_cursor only when the page was full (more may remain).
+    next_cursor = (
+        items[-1].occurred_at if len(items) == limit else None
+    )
+    return items, next_cursor
 
 
 # ===================================================================

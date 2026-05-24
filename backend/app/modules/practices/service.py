@@ -61,7 +61,7 @@
 # =============================================================================
 
 import copy
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -304,6 +304,23 @@ async def _user_flags_for_practices(
 # ===================================================================
 
 
+async def _master_name_for_practice(
+    practice: Practice,
+    session: AsyncSession,
+) -> str | None:
+    """Resolve the master's display name (User.first_name) for a practice.
+
+    Used to embed the master name into diary feed snapshots so feed cards
+    render "Alex Mindful" without a join. Same source/join key as
+    get_practice() (Practice.master_id == User.id). None if missing.
+    """
+    return (
+        await session.execute(
+            select(User.first_name).where(User.id == practice.master_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def create_practice(
     user: User,
     body: CreatePracticeRequest,
@@ -541,6 +558,11 @@ async def update_practice(
         final_price = _enforce_pricing(final_is_free, final_price)
         update_data["price_cents"] = final_price
 
+    # Capture the pre-update scheduled_at so we can detect a reschedule and
+    # record old -> new in the diary feed projection below. Read BEFORE the
+    # setattr loop overwrites practice.scheduled_at.
+    old_scheduled_at = practice.scheduled_at
+
     # Apply only provided column fields.
     for field, value in update_data.items():
         setattr(practice, field, value)
@@ -562,6 +584,28 @@ async def update_practice(
         fields=list(update_data.keys()),
         taxonomy_fields=list(taxonomy_updates.keys()),
     )
+
+    # Diary feed: if the master moved the time, fan out a reschedule event to
+    # every booked user. Only when scheduled_at actually changed (a PATCH that
+    # touches other fields must not spam reschedule cards). Lazy import keeps
+    # the dependency one-way (practices -> diary).
+    new_scheduled_at = practice.scheduled_at
+    if (
+        "scheduled_at" in update_data
+        and new_scheduled_at != old_scheduled_at
+    ):
+        from app.modules.diary.projections import (
+            project_practice_rescheduled,
+        )
+        master_name = await _master_name_for_practice(practice, session)
+        await project_practice_rescheduled(
+            session,
+            practice=practice,
+            master_name=master_name,
+            old_scheduled_at=old_scheduled_at,
+            new_scheduled_at=new_scheduled_at,
+            occurred_at=datetime.now(UTC),
+        )
 
     return practice
 
@@ -662,6 +706,16 @@ async def cancel_practice(
             f"{practice.status}"
         )
 
+    # Diary feed: collect the booked users BEFORE the refund flow runs --
+    # refund_all_bookings_for_practice transitions bookings to cancelled, so
+    # reading them afterwards would yield an empty set. Lazy import keeps the
+    # dependency one-way (practices -> diary).
+    from app.modules.diary.projections import (
+        project_practice_cancelled,
+        _booked_user_ids,
+    )
+    affected_user_ids = await _booked_user_ids(practice.id, session)
+
     # Refund all active bookings + clear waitlist.
     refunded_count = await refund_all_bookings_for_practice(
         practice=practice,
@@ -688,6 +742,17 @@ async def cancel_practice(
         practice_id=str(practice_id),
         master_id=str(user.id),
         refunded_bookings=refunded_count,
+    )
+
+    # Diary feed: fan out "master cancelled the practice" to the users who
+    # were booked (collected above, before the refund). occurred_at is now.
+    master_name = await _master_name_for_practice(practice, session)
+    await project_practice_cancelled(
+        session,
+        practice=practice,
+        master_name=master_name,
+        user_ids=affected_user_ids,
+        occurred_at=datetime.now(UTC),
     )
 
     return practice

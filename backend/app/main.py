@@ -58,6 +58,7 @@ from app.modules.diary.router import (                             # Phase 8.1-8
     practices_feedback_router,
     feedbacks_router,
     diary_router,
+    diary_feed_router,                                             # Diary redesign
     practices_insights_router,
 )
 from app.modules.ai.router import router as ai_router              # Phase 9.1
@@ -65,7 +66,12 @@ from app.modules.ai.router import router as ai_router              # Phase 9.1
 # Model imports for Alembic and relationship resolution.
 from app.modules.promos.models import Promo  # noqa: F401  # Phase 6.7
 from app.modules.notifications.models import Notification, NotificationDelivery  # noqa: F401  # Phase 7.1
-from app.modules.diary.models import Checkin, Feedback, DiaryEntry  # noqa: F401  # Phase 8.1-8.4
+from app.modules.diary.models import (  # noqa: F401  # Phase 8.1-8.4 + redesign
+    Checkin,
+    Feedback,
+    DiaryEntry,
+    DiaryEvent,
+)
 # Library module has no active models yet (Phase 9.2 stub).
 
 # Notification processor (Phase 7.2).
@@ -158,6 +164,10 @@ app.include_router(practices_checkin_router)      # Phase 8.1
 app.include_router(checkins_router)               # Phase 8.1
 app.include_router(practices_feedback_router)     # Phase 8.2
 app.include_router(feedbacks_router)              # Phase 8.2
+# Diary redesign: feed router MUST be included before diary_router so the
+# static "/api/v1/diary/feed" path is matched ahead of diary_router's
+# dynamic "/api/v1/diary/{entry_id}" (FastAPI matches in include order).
+app.include_router(diary_feed_router)             # Diary redesign
 app.include_router(diary_router)                  # Phase 8.3
 app.include_router(practices_insights_router)     # Phase 8.4
 app.include_router(ai_router)                     # Phase 9.1

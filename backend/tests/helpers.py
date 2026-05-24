@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.audit import AuditLog
 from app.modules.bookings.models import Booking
-from app.modules.diary.models import Checkin, Feedback
+from app.modules.diary.models import Checkin, DiaryEvent, Feedback
 from app.modules.masters.models import MasterProfile
 from app.modules.notifications.models import Notification, NotificationDelivery
 from app.modules.payments.models import (
@@ -225,6 +225,9 @@ async def full_cleanup_range(
     # -----------------------------------------------------------------------
     # 3. checkins   FK -> users.id (CASCADE), practices.id (SET NULL)
     # 4. feedbacks  FK -> users.id (CASCADE), practices.id (SET NULL)
+    # 4b. diary_events  FK -> users.id (CASCADE). Append-only feed journal
+    #     (Diary redesign). No table references it yet (relations socket is
+    #     future), so it can be deleted here with the other diary tables.
     # ADD NEW TABLES HERE (diary-like domain tables before audit_logs)
     # -----------------------------------------------------------------------
     await session.execute(
@@ -232,6 +235,9 @@ async def full_cleanup_range(
     )
     await session.execute(
         delete(Feedback).where(Feedback.user_id.in_(user_ids_subq))
+    )
+    await session.execute(
+        delete(DiaryEvent).where(DiaryEvent.user_id.in_(user_ids_subq))
     )
 
     # -----------------------------------------------------------------------

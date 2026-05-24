@@ -153,6 +153,12 @@ class CreateDiaryEntryRequest(BaseModel):
     )
     mood: str | None = None
     practice_id: UUID | None = None
+    # entry_type: note (default, the only type the composer creates this
+    # iteration) or dream. Wired on the backend ahead of the UI input.
+    entry_type: str = "note"
+    # practice_phase: before/after relative to the linked practice; only
+    # meaningful when practice_id is set.
+    practice_phase: str | None = None
 
     @field_validator("mood")
     @classmethod
@@ -163,6 +169,30 @@ class CreateDiaryEntryRequest(BaseModel):
         allowed = settings.diary_allowed_moods
         if v not in allowed:
             raise ValueError(f"mood must be one of {allowed}, got '{v}'")
+        return v
+
+    @field_validator("entry_type")
+    @classmethod
+    def entry_type_must_be_valid(cls, v: str) -> str:
+        """Validate entry_type against allowed values from config."""
+        allowed = settings.diary_allowed_entry_types
+        if v not in allowed:
+            raise ValueError(
+                f"entry_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("practice_phase")
+    @classmethod
+    def practice_phase_must_be_valid(cls, v: str | None) -> str | None:
+        """Validate practice_phase against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.diary_allowed_practice_phases
+        if v not in allowed:
+            raise ValueError(
+                f"practice_phase must be one of {allowed}, got '{v}'"
+            )
         return v
 
 
@@ -182,11 +212,14 @@ class UpdateDiaryEntryRequest(BaseModel):
     )
     mood: str | None = None
     practice_id: UUID | None = None
+    entry_type: str | None = None
+    practice_phase: str | None = None
     # Sentinel to distinguish "not provided" from "set to null".
     # If clear_mood is True, mood is set to None even if mood field is absent.
     clear_mood: bool = False
     clear_title: bool = False
     clear_practice: bool = False
+    clear_practice_phase: bool = False
 
     @field_validator("mood")
     @classmethod
@@ -199,6 +232,32 @@ class UpdateDiaryEntryRequest(BaseModel):
             raise ValueError(f"mood must be one of {allowed}, got '{v}'")
         return v
 
+    @field_validator("entry_type")
+    @classmethod
+    def entry_type_must_be_valid(cls, v: str | None) -> str | None:
+        """Validate entry_type against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.diary_allowed_entry_types
+        if v not in allowed:
+            raise ValueError(
+                f"entry_type must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("practice_phase")
+    @classmethod
+    def practice_phase_must_be_valid(cls, v: str | None) -> str | None:
+        """Validate practice_phase against allowed values from config."""
+        if v is None:
+            return v
+        allowed = settings.diary_allowed_practice_phases
+        if v not in allowed:
+            raise ValueError(
+                f"practice_phase must be one of {allowed}, got '{v}'"
+            )
+        return v
+
 
 class DiaryEntryResponse(BaseModel):
     """Single diary entry in API responses."""
@@ -206,9 +265,12 @@ class DiaryEntryResponse(BaseModel):
     id: UUID
     user_id: UUID
     practice_id: UUID | None
+    entry_type: str
+    practice_phase: str | None
     title: str | None
     content: str
     mood: str | None
+    is_deleted: bool
     created_at: datetime
     updated_at: datetime | None
 
@@ -267,3 +329,47 @@ class PracticeInsightsResponse(BaseModel):
     checkins: MoodDistribution
     feedbacks: RatingDistribution
     comments_count: int
+
+
+# ===================================================================
+# Diary feed schemas (Diary redesign iteration -- unified timeline)
+# ===================================================================
+
+
+class DiaryFeedItem(BaseModel):
+    """One event in the unified diary timeline (GET /api/v1/diary/feed).
+
+    A denormalized projection of a DiaryEvent. `snapshot` is an open dict
+    whose shape depends on `kind` -- the frontend reads the fields it needs
+    per kind (practice card fields, mood, rating, content preview, etc.).
+    Keeping it open here avoids a combinatorial explosion of per-kind schemas
+    while the feed card design is still settling; the kinds themselves are a
+    closed vocabulary (see kind).
+
+    `source_type` + `source_id` let the card deep-link back to the originating
+    object (practice detail now, replay archive later).
+    """
+
+    id: UUID
+    kind: str
+    occurred_at: datetime
+    source_type: str
+    source_id: UUID
+    snapshot: dict
+    # created_at is the write time (distinct from occurred_at); exposed so the
+    # client can tell "written now about a past event" if needed.
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DiaryFeedResponse(BaseModel):
+    """GET /api/v1/diary/feed -- cursor-paginated unified timeline.
+
+    `next_cursor` is the occurred_at of the last item when a full page was
+    returned (more may remain); null marks the end of the feed. The client
+    passes it back as the `cursor` query param for the next page.
+    """
+
+    items: list[DiaryFeedItem]
+    next_cursor: datetime | None

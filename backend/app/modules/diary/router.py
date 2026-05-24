@@ -28,6 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_user
 from app.modules.diary.schemas import (
@@ -35,6 +36,8 @@ from app.modules.diary.schemas import (
     CheckinResponse,
     CreateDiaryEntryRequest,
     DiaryEntryResponse,
+    DiaryFeedItem,
+    DiaryFeedResponse,
     FeedbackRequest,
     FeedbackResponse,
     PaginatedCheckinsResponse,
@@ -48,6 +51,7 @@ from app.modules.diary.service import (
     delete_diary_entry,
     get_diary_entry,
     get_practice_insights,
+    list_diary_feed,
     list_user_checkins,
     list_user_diary_entries,
     list_user_feedbacks,
@@ -74,6 +78,14 @@ feedbacks_router = APIRouter(
 )
 
 diary_router = APIRouter(
+    prefix="/api/v1/diary", tags=["diary"],
+)
+
+# Separate router for the unified feed. Same prefix as diary_router, but it
+# MUST be included before diary_router in main.py so the static "/feed" path
+# is matched ahead of diary_router's dynamic "/{entry_id}" (otherwise "feed"
+# would be parsed as an entry_id UUID and 422).
+diary_feed_router = APIRouter(
     prefix="/api/v1/diary", tags=["diary"],
 )
 
@@ -245,6 +257,8 @@ async def create_diary_entry_endpoint(
         title=body.title,
         mood=body.mood,
         practice_id=body.practice_id,
+        entry_type=body.entry_type,
+        practice_phase=body.practice_phase,
     )
 
     return DiaryEntryResponse.model_validate(entry)
@@ -261,6 +275,7 @@ async def list_my_diary_entries_endpoint(
     offset: int = Query(default=0, ge=0),
     practice_id: UUID | None = Query(default=None),
     mood: Literal["low", "mid", "high"] | None = Query(default=None),
+    entry_type: Literal["note", "dream"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> PaginatedDiaryEntriesResponse:
@@ -272,6 +287,7 @@ async def list_my_diary_entries_endpoint(
         offset=offset,
         practice_id=practice_id,
         mood=mood,
+        entry_type=entry_type,
         date_from=date_from,
         date_to=date_to,
     )
@@ -323,9 +339,12 @@ async def update_diary_entry_endpoint(
         title=body.title,
         mood=body.mood,
         practice_id=body.practice_id,
+        entry_type=body.entry_type,
+        practice_phase=body.practice_phase,
         clear_mood=body.clear_mood,
         clear_title=body.clear_title,
         clear_practice=body.clear_practice,
+        clear_practice_phase=body.clear_practice_phase,
     )
     await session.refresh(entry)
 
@@ -343,9 +362,71 @@ async def delete_diary_entry_endpoint(
 ) -> None:
     """Delete a diary entry owned by the current user.
 
-    Hard delete -- personal data is permanently removed.
+    Soft delete -- the entry is hidden (is_deleted=True) and its timeline
+    event drops out of the feed, but the row is retained.
     """
     await delete_diary_entry(user, entry_id, session)
+
+
+# ===================================================================
+# Diary feed endpoint (Diary redesign iteration -- unified timeline)
+# ===================================================================
+
+
+@diary_feed_router.get(
+    "/feed",
+    response_model=DiaryFeedResponse,
+)
+async def list_diary_feed_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(
+        default=settings.diary_feed_page_size,
+        ge=1,
+        le=settings.diary_feed_max_page_size,
+    ),
+    cursor: datetime | None = Query(
+        default=None,
+        description=(
+            "occurred_at of the last item from the previous page; "
+            "returns events strictly older than this."
+        ),
+    ),
+    category: list[
+        Literal["entries", "dreams", "feedbacks", "checkins", "practices"]
+    ]
+    | None = Query(
+        default=None,
+        description=(
+            "Filter chips. Omit for all. Repeat the param to union "
+            "categories, e.g. ?category=checkins&category=feedbacks."
+        ),
+    ),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+    search: str | None = Query(default=None, min_length=1),
+) -> DiaryFeedResponse:
+    """List the current user's unified diary timeline (cursor-paginated).
+
+    Aggregates every projected activity (bookings, practice outcomes,
+    check-ins, feedbacks, notes) newest-first. Filter chips map to event
+    kinds; search is a case-insensitive match over the denormalized text.
+    """
+    items, next_cursor = await list_diary_feed(
+        user,
+        session,
+        limit=limit,
+        cursor=cursor,
+        categories=category,
+        date_from=date_from,
+        date_to=date_to,
+        search=search,
+    )
+
+    return DiaryFeedResponse(
+        items=[DiaryFeedItem.model_validate(e) for e in items],
+        next_cursor=next_cursor,
+    )
 
 
 # ===================================================================
