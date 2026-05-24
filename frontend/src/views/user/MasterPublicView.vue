@@ -40,15 +40,7 @@
     <div v-else class="master-public__content">
       <!-- Hero -->
       <div class="master-public__hero">
-        <div class="master-public__avatar">
-          <img
-            v-if="profile.avatar_url"
-            :src="profile.avatar_url"
-            :alt="displayName"
-            class="master-public__avatar-img"
-          />
-          <IconMeditation v-else :size="44" />
-        </div>
+        <VAvatar :url="profile.avatar_url ?? ''" :name="displayName" size="xl" />
 
         <h1 class="master-public__name">{{ displayName }}</h1>
 
@@ -118,9 +110,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VAccordion, VTag } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { IconMeditation, IconCheck } from '@/components/icons'
+import { IconCheck } from '@/components/icons'
 import PracticeCard from '@/components/shared/PracticeCard.vue'
 import { getPublicMaster } from '@/api/masters'
 import { getPractices } from '@/api/practices'
@@ -231,25 +223,6 @@ onMounted(async () => {
   align-items: center;
   text-align: center;
   gap: var(--space-2);
-}
-
-.master-public__avatar {
-  width: 96px;
-  height: 96px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-  overflow: hidden;
-}
-
-.master-public__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-full);
 }
 
 .master-public__name {

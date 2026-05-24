@@ -3,8 +3,8 @@
 
   Master info card used on practice/booking detail screens (Figma 15 / 18 /
   Calendar frame 4):
-    - Avatar: real photo (master_avatar_url) when present, IconMeditation
-      placeholder otherwise (TD-FE-AVATAR remains only for the null case).
+    - Avatar: VAvatar (real photo when master_avatar_url is set, initials
+      from the name otherwise -- the project-wide avatar pattern).
     - Name + verified check
     - Method tags (VTag, cycling blue / pink / sand)
     - "Подробнее" arrow -> master public profile (/user/masters/:id)
@@ -14,15 +14,11 @@
 
 <template>
   <div class="master-card">
-    <div class="master-card__avatar">
-      <img
-        v-if="avatarUrl"
-        :src="avatarUrl"
-        :alt="masterName ?? 'Мастер'"
-        class="master-card__avatar-img"
-      />
-      <IconMeditation v-else :size="32" />
-    </div>
+    <VAvatar
+      :url="avatarUrl ?? ''"
+      :name="masterName ?? 'Мастер'"
+      size="lg"
+    />
     <div class="master-card__info">
       <div class="master-card__name">
         {{ masterName ?? 'Мастер' }}
@@ -52,8 +48,8 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { VTag } from '@/components/ui'
-import { IconMeditation, IconCheck, IconArrowRight } from '@/components/icons'
+import { VTag, VAvatar } from '@/components/ui'
+import { IconCheck, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 
 const props = withDefaults(
@@ -99,26 +95,6 @@ function onMore(): void {
   align-items: center;
   gap: var(--space-3);
   position: relative;
-}
-
-.master-card__avatar {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.master-card__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-full);
 }
 
 .master-card__info {
