@@ -80,10 +80,10 @@
       </div>
 
       <!-- Methods accordion -->
-      <VAccordion v-if="profile.methods.length" title="Методы">
+      <VAccordion v-if="profile.methods?.length" title="Методы">
         <div class="master-public__chips">
           <VTag
-            v-for="(method, i) in profile.methods"
+            v-for="(method, i) in (profile.methods || [])"
             :key="method"
             :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
           >
