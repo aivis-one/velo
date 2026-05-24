@@ -1,8 +1,20 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.4
-**Дата:** 22 мая 2026
+**Версия:** 1.5
+**Дата:** 24 мая 2026
 **Статус:** Active
+
+> **v1.5 (Calendar flow 4-7 + master public, 24 мая 2026):** завершён флоу
+> «Календарь» (Figma node `541:1553`, кадры 4-7 + публичный профиль мастера).
+> Новые вью `MasterPublicView` (профиль мастера для юзера) и `BookingConfirmedView`
+> (кадр 5, экран после брони); аватары мастеров переведены на `VAvatar` (фото или
+> инициалы) — закрыт TD-FE-AVATAR; иконка hero практики выбирается по `direction`
+> (`DIRECTION_ICON` Partial+fallback); emoji-рейтинг и success-сердце на feedback
+> заменены векторными иконками из Figma (`IconRating*`, `IconHeart`) c цветом через
+> новые токены `--velo-rating-*`. Урок: `vue-tsc` проверяет передачу пропов в
+> дочерние компоненты в ШАБЛОНЕ — см. §FP-10. Все «вопросы мастеру» по приложению —
+> заглушки (TD-ASK-MASTER). Детали — §3.5, §10. Аудит итерации: 0 critical /
+> 0 warning, 3 suggestion (S-1/S-3 ✅, S-2 осознанно отложен).
 
 > **v1.4 (Calendar iteration, 22 мая 2026):** реализован экран «Календарь» (кадры 1-3
 > Figma node `541:1553`): отдельный стор `stores/calendar.ts` (загрузка недели одним
@@ -355,6 +367,40 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 пропускает. Старый `CalendarView` (до итерации) был единственным потребителем одиночного
 `practice_type` и переработан полностью; Дашборд `practice_type` не использует — не затронут.
 
+### 3.6. Флоу КАЛЕНДАРЬ (кадры 4-7 + профиль мастера, Calendar flow)
+
+Завершение флоу по Figma (node `541:1553`). Карта вью:
+
+| Кадр | View / компонент | Примечания |
+|------|------------------|-----------|
+| 4 + master profile | `views/user/MasterPublicView.vue` | публичный профиль мастера для юзера: hero (`VAvatar xl` + имя + ✓Верифицирован + «N лет опыта» + bio), две стат-карточки (`practices_count`/`reviews_count` с рус. плюрализацией), аккордеон «Методы», «Ближайшие практики» (`getPractices({master_id, status:'scheduled'})`). «Задать вопрос» → toast-заглушка (TD-ASK-MASTER). Роут `user-master-public` (`masters/:id`). Грузит профиль через `getPublicMaster(userId)`; loading/error/not-found через `VEmptyState`; ошибка списка практик не фатальна (отдельный try/catch → `upcoming=[]`) |
+| 5 «Практика забронирована!» | `views/user/BookingConfirmedView.vue` | экран после успешной брони: success-карточка (`IconSuccess` celebration в teal-круге + статичный Zoom-текст), блок «запрос мастеру» (textarea + инфо-баннер + «Отправить запрос» = toast-заглушка, TD-ASK-MASTER), «В календарь» → calendar, «На главную» → dashboard. Роут `user-booking-confirmed` (`booking-confirmed/:practiceId`). Самодостаточен: грузит практику по id в `onMounted` (переживает reload/deep-link). `PracticeDetailView.onPurchased` редиректит сюда |
+| 6 «Вопрос мастеру» | — отложен | См. TD-ASK-MASTER: вопросы мастеру — отдельная сквозная фича с бэком. Кадр не реализован |
+| 7 Feedback (рейтинг) | `views/user/FeedbackView.vue` | emoji-рейтинг (❓👍🔥) заменён векторными иконками из Figma `IconRatingConfused/Good/Fire` (`<component :is>`), цвет каждой через `RATING_ICON_COLOR` (токены `--velo-rating-*`). `RATING_ICON` map — локально во вью (utils не импортируют `.vue`, как `MOOD_ICON` в Checkin) |
+| 7 Feedback success | `views/user/FeedbackView.vue` (success-слот) | success-сердце `💚` заменено векторным `IconHeart` (Figma, teal через `--velo-teal-400`) в слоте `#success-icon` FormShell |
+
+**Аватары — `VAvatar` (закрыт TD-FE-AVATAR).** Везде, где раньше был плейсхолдер
+`IconMeditation`, теперь `VAvatar` (`ui/VAvatar.vue`): показывает фото по `url` или
+инициалы из `name`, размеры sm/md/lg/xl. `MasterCard` — `VAvatar lg`, `MasterPublicView`
+hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl ?? ''"` + `:name`. Seed-мастер
+без Telegram-фото корректно показывает инициалы (ожидаемо, не баг). Бэк отдаёт
+`master_avatar_url` в деталях практики (Бэковый Кодекс §3.9).
+
+**Иконка hero практики — по `direction`, не по типу.** `PracticeHeroCard` выбирает иконку
+через `DIRECTION_ICON: Partial<Record<PracticeDirection, Component>>` (meditation/yoga/breathwork)
++ `DIRECTION_ICON_FALLBACK = IconMeditation`. **Partial + fallback намеренно:** бэк будет
+расширять список направлений (somatic/womens_circle/mens_circle/tantra/kundalini, TD-CAL-DIRECTIONS-EXPAND) —
+новые значения не сломают `vue-tsc` до появления иконки, просто получат fallback.
+`IconYoga` сейчас — Claude-плейсхолдер (TD-CAL-ICON-YOGA).
+
+**Иконки из Figma — паттерн извлечения.** Рейтинг/сердце экспортированы из Figma как SVG
+(get_design_context → asset URL → curl → реальный SVG, хотя Figma отдаёт `<img>`-обёртку),
+причёсаны под контракт DS-иконок: чистый `<svg :width :height viewBox fill="currentColor">`,
+проп `size`, оригинальный viewBox. Каждая одноцветная → цвет задаёт родитель через токен.
+Новые токены `--velo-rating-confused/good/fire` (good = новый `#d66674`; confused/fire —
+ссылки на `--velo-primary-dark`/`--velo-peach-500`); ОТДЕЛЬНО от `RATING_COLOR`
+(заливки баров аналитики — не трогать, иначе ломается AnalyticsView).
+
 ---
 
 ## 4. Stores (Pinia)
@@ -527,6 +573,36 @@ export type { PracticeResponse } from './generated'
 Скрипт: `backend/scripts/generate_ts_types.py`. Запускается при `velo update` автоматически.
 Frontend-only типы (PracticeFilters, ApiError и т.д.) остаются в `types.ts`.
 
+### FP-10: `vue-tsc` проверяет ШАБЛОН, а не только `<script setup>`
+
+Серверный GATE (`vue-tsc --noEmit` в build) проверяет типы и в шаблоне — в т.ч.
+**передачу пропов в дочерние компоненты** и обращения к optional-полям в биндингах.
+Скрипт-эмуляция, проверяющая только извлечённый `<script setup>` со стаб-компонентами
+(`Component = {}`), эти ошибки НЕ видит — стаб не несёт сигнатуру пропов.
+
+```vue
+<!-- FormShell объявляет successIcon: string (REQUIRED). Слот #success-icon
+     лишь переопределяет рендер (<slot name="success-icon">{{ successIcon }}</slot>),
+     но проп всё равно обязателен по типам. -->
+
+<!-- ❌ vue-tsc TS2345: Property 'successIcon' is missing -->
+<FormShell ...>
+  <template #success-icon><IconHeart /></template>
+</FormShell>
+
+<!-- ✅ передать проп (пустой) + слот: тип удовлетворён, слот рисует иконку -->
+<FormShell success-icon="" ...>
+  <template #success-icon><IconHeart /></template>
+</FormShell>
+```
+
+Та же категория ошибки ловила дважды: optional generated-поле (`profile.methods?.length`
+в шаблоне) и required-проп дочернего компонента. **Правило проверки перед отдачей:** для
+вью, которые передают пропы в дочерние компоненты (FormShell, hero-карточки и т.п.),
+гонять НАСТОЯЩИЙ `vue-tsc` с типизированными стабами дочерних компонентов, а не
+script-эмуляцию. Контр-тест (убрать фикс → ошибка воспроизводится) подтверждает, что
+проверка реальная.
+
 ---
 
 ## 7. Дизайн-система
@@ -677,11 +753,15 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | TD-FE-LOGO-SVGO | 🧪 | `public/icons/logo.svg`, `public/icons/logo-white.svg` | SVG-логотипы загружены через `<img>` как есть из Figma-экспорта: `logo.svg` — 228KB, `logo-white.svg` — 434KB. Избыточный размер из-за неоптимизированных path-данных | Прогнать через `svgo` с дефолтными настройками — ожидаемое уменьшение в 5–10× без видимых изменений |
 | AUDIT-0520-FE | 🧪 | `src/**` | Нет компонентных тестов фронтенда (отмечено аудитом 2026-05-20). Логика вью покрыта только ручной проверкой | Vitest + Vue Test Utils для ключевых вью (OnboardingView gate-машина, BookingPopup, формы) |
 | **TD-FE-AISUM** | 🧪 | `views/user/AiSummaryView.vue` | Экран 16 — честная заглушка "в разработке". Персонального AI-саммари юзера на бэке нет (есть только мастерский per-practice, розетка Phase 9) | Реализовать полноценный экран, когда появится бэк-эндпоинт юзерского AI-саммари |
-| **TD-FE-AVATAR** | 🧪 | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` (нет поля с URL аватара) | Подтянуть реальные аватары, когда бэк начнёт их отдавать |
+| **TD-FE-AVATAR** | ✅ | `shared/MasterCard.vue`, `PracticeHeroCard.vue`, `MasterPublicView.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` (нет поля с URL аватара) | ЗАКРЫТО (Calendar flow): бэк отдаёт `master_avatar_url`; фронт перешёл на `VAvatar` (фото по `url` или инициалы по `name`). MasterCard — lg, MasterPublicView hero — xl |
 | **TD-FE-ICONSVG** | 🧪 | `src/components/icons/` | В каталоге доменных иконок остались сырые `.svg`-файлы рядом с `.vue`-компонентами (артефакт экспорта) | `git rm` сырых `.svg` (операция в рабочей копии) |
 | **S-4** | 🧪 | `shared/MasterCard.vue` | Кнопка "Подробнее" (профиль мастера) кликабельна и показывает toast "скоро", хотя экрана профиля мастера для юзера ещё нет | Осознанно отложено: либо disabled-state, либо реальный экран профиля. Аудит 2026-05-20 предлагал disabled — решено оставить toast-заглушку до появления экрана |
 | **TD-CAL-STYLE** | 🧪 | `shared/CalendarFilterModal.vue` | «Вид практики» (style) — свободный `VInput`, в Figma (кадр 2) задуман дропдаун. Справочника стилей пока нет, бэк принимает свободную строку (точное совпадение) | Заменить на дропдаун, когда появится каталог стилей практик |
 | **TD-CAL-ARROW** | 🧪 | `shared/WeekStrip.vue`, `CalendarView.vue` | Стрелки недели и шеврон/воронка — inline SVG (в `components/icons` нет `IconChevron`/левой стрелки/воронки) | Завести `IconChevronLeft/Right`, `IconFilter` в DS и заменить inline SVG |
+| **TD-ASK-MASTER** | 🧪 | `MasterPublicView.vue`, `BookingConfirmedView.vue`, и везде, где есть «вопрос мастеру» | Вопросы мастеру — сквозная фича: задаются из профиля мастера («в общем», без привязки к практике), ИЛИ до брони, ИЛИ после; улетают в Telegram-бот мастера, мастер отвечает юзеру тоже в бот. Требует серьёзного бэка. Сейчас ВСЕ кнопки/поля «вопрос мастеру» ЕСТЬ визуально, но ведут в toast-заглушку. Кадр 6 флоу отложен | Спроектировать и реализовать бэк (маршрутизация в бота, треды вопрос/ответ), затем подключить все точки входа |
+| **TD-CAL-ICON-YOGA** | 🧪 | `components/icons/IconYoga.vue` | `IconYoga` — Claude-сгенерированный плейсхолдер | Заменить на ассет дизайнера (тот же filename/viewBox/`currentColor` → замена без правок кода) |
+| **TD-CAL-DIRECTIONS-EXPAND** | 🧪 | `utils/displayHelpers.ts` (`DIRECTION_ICON`) | Бэк добавит направления (somatic/womens_circle/mens_circle/tantra/kundalini) | Иконки уже Partial+fallback — добавить новые иконки в `DIRECTION_ICON` по мере появления (рост списка код не ломает) |
+| **TD-ZOOM-TEXT** | 🧪 | `views/user/BookingConfirmedView.vue` | Текст «Ссылка на Zoom придёт за 10 минут» статичен независимо от типа практики (аудит S-2, осознанно отложено — все практики сейчас через Zoom) | Сделать нейтральным («Детали подключения…») или условным по `practice.zoom_link`, когда появятся не-Zoom практики |
 
 ### Осознанные решения (не техдолг)
 
@@ -698,7 +778,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | Фон через `body { background }` в `global.css`, не через `#app::before` | `#app::before` — статический CSS, Telegram WebApp кеширует и не обновляет. `global.css` импортируется в `main.ts` и попадает в JS-бандл, который обновляется при каждом деплое |
 | SVG-логотипы через `<img>` (не inline) | Файлы из Figma-экспорта весят 228KB и 434KB — inline SVG раздует HTML. `<img>` позволяет браузеру кешировать отдельно (TD-FE-LOGO-SVGO покроет оптимизацию) |
 | Один `PracticeDetailView` на каталог + booked (экран 15) | Состояния практики (доступна к брони / уже забронирована) различаются в одном вью. God-component-долг смягчён выносом hero/master в `PracticeHeroCard`/`MasterCard` |
-| `MasterCard` "Подробнее" → toast вместо disabled (S-4) | Экрана профиля мастера для юзера пока нет; toast честнее пустого disabled. Помечено как S-4 в техдолге до появления экрана |
+| `MasterCard` "Подробнее" → toast вместо disabled (S-4) | ЗАКРЫТО (Calendar flow): экран профиля мастера для юзера реализован (`MasterPublicView`), `onMore()` теперь ведёт на `user-master-public` (с guard `if (!masterId)` → toast). Toast-заглушка убрана |
 | Отдельный `useCalendarStore` (не общий `usePracticesStore`) | Навигация по неделям и фасет-фильтры Календаря не должны задевать общий фид. Дашборд использует `usePracticesStore`/`useBookingsStore` — изолирован |
 | Календарь грузит неделю одним запросом + буфер ±1 день | Объём недели мал; маркеры/список дня выводятся клиентом по TZ практики. Буфер ±1д закрывает W-2 (практики экстремальных TZ у границы недели) |
 | «Выбрать практики»: модалка — единственный источник фильтров (Вариант 1) | Inline-чипы лишь отображают/снимают активные фильтры; редактирование — в `CalendarFilterModal`. Не дублируем UI выбора, нет рассинхрона |

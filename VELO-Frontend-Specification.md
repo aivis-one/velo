@@ -1,8 +1,14 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.7
-**Дата:** 22 мая 2026
+**Версия:** 1.8
+**Дата:** 24 мая 2026
 **Статус:** Active
+
+> v1.8: завершён флоу «Календарь» (кадры 4-7 + публичный профиль мастера, node `541:1553`) —
+> новые экраны `MasterPublicView` / `BookingConfirmedView`, новые маршруты, аватары на
+> `VAvatar` (закрыт TD-FE-AVATAR), векторные иконки feedback. Кадр 6 (вопрос мастеру) —
+> отложен (TD-ASK-MASTER). См. блок «Флоу КАЛЕНДАРЬ (кадры 4-7)» и реестр техдолга;
+> детали реализации — Фронтовый Кодекс §3.6, §FP-10.
 
 > v1.7: добавлена запись об итерации «Календарь» (кадры 1-3, node `541:1553`) —
 > см. реестр техдолга, блок «Флоу КАЛЕНДАРЬ», и Фронтовый Кодекс §3.5.
@@ -1315,7 +1321,7 @@ COALESCE в merge, +5 бэкенд-тестов на инвариант рело
 | ID | Среда | Файл | Описание | Решение | Статус |
 |----|-------|------|----------|---------|--------|
 | TD-FE-AISUM | 🧪 | `views/user/AiSummaryView.vue` | Экран 16 — заглушка. Персонального AI-саммари юзера на бэке нет (есть только мастерский per-practice, розетка Phase 9) | Реализовать при появлении бэк-эндпоинта юзерского AI-саммари | ⬜ |
-| TD-FE-AVATAR | 🧪 | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` | Подтянуть реальные аватары при поддержке на бэке | ⬜ |
+| TD-FE-AVATAR | ✅ | `shared/MasterCard.vue`, `PracticeHeroCard.vue` | Аватарки мастеров — плейсхолдер `IconMeditation` | ЗАКРЫТО (Calendar flow 4-7): `VAvatar` (фото/инициалы), бэк отдаёт `master_avatar_url` | ✅ |
 | TD-FE-ICONSVG | 🧪 | `src/components/icons/` | Сырые `.svg` рядом с `.vue`-компонентами иконок (артефакт экспорта) | `git rm` сырых `.svg` | ⬜ |
 | S-4 | 🧪 | `shared/MasterCard.vue` | Кнопка "Подробнее" (профиль мастера) кликабельна с toast "скоро", экрана нет. Аудит 2026-05-20 предлагал disabled — оставлено toast-заглушкой | disabled-state либо реальный экран профиля мастера для юзера | ⬜ |
 
@@ -1352,6 +1358,42 @@ W-3 (дефолты таксономии в Edit) — won't fix (БД сноси
 |----|-------|------|----------|---------|--------|
 | TD-CAL-STYLE | 🧪 | `shared/CalendarFilterModal.vue` | «Вид практики» (style) — свободный `VInput`, в Figma дропдаун. Справочника стилей нет, бэк принимает свободную строку | Дропдаун при появлении каталога стилей | ⬜ |
 | TD-CAL-ARROW | 🧪 | `shared/WeekStrip.vue`, `CalendarView.vue` | Стрелки недели / шеврон / воронка — inline SVG (в DS нет `IconChevron`/`IconFilter`/левой стрелки) | Завести иконки в DS, заменить inline SVG | ⬜ |
+
+---
+
+### Флоу КАЛЕНДАРЬ (кадры 4–7 + профиль мастера) — реализация 2026-05-24
+
+Завершение флоу по Figma (node `541:1553`) поверх кадров 1-3. Детали реализации и
+паттерны — **Фронтовый Кодекс §3.6**. Кратко по экранам:
+
+| Кадр | Экран | Маршрут | Статус |
+|------|-------|---------|--------|
+| 4 + master profile | `MasterPublicView.vue` — публичный профиль мастера для юзера (hero `VAvatar`, статы practices/reviews, методы, ближайшие практики, «Задать вопрос» = заглушка) | `user-master-public` (`/user/masters/:id`) | ✅ |
+| 5 | `BookingConfirmedView.vue` — «Практика забронирована!» (success `IconSuccess`, блок «запрос мастеру» = заглушка, «В календарь» / «На главную») | `user-booking-confirmed` (`/user/booking-confirmed/:practiceId`) | ✅ |
+| 6 | «Вопрос мастеру» | — | ⬜ отложен (TD-ASK-MASTER) |
+| 7 | `FeedbackView.vue` — рейтинг (векторные иконки вместо emoji) + success-сердце `IconHeart` | `user-feedback` (существующий) | ✅ |
+
+**Новые маршруты** (`router/index.ts`, под `/user`): `user-master-public` (`masters/:id`)
+и `user-booking-confirmed` (`booking-confirmed/:practiceId`). Оба без roleGuard (мастер
+тоже бронирует как юзер). `PracticeDetailView.onPurchased` редиректит на booking-confirmed.
+
+**Бэк-разблокировка:** публичный профиль `GET /api/v1/masters/{user_id}`
+(`MasterPublicResponse`, только публичные поля) + `master_avatar_url` в деталях практики
+(Бэковый Кодекс §3.9).
+
+**Аудит итерации (2026-05-24):** 0 critical / 0 warning, 3 suggestion.
+S-1 (лишний `fetchPractice` в `onPurchased`) — ✅ устранён; S-3 (trailing newline в
+`masters/schemas.py`) — ✅ устранён; S-2 (статичный Zoom-текст) — осознанно отложен
+(TD-ZOOM-TEXT). Оценка 9/10.
+
+**Новый техдолг флоу:**
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-ASK-MASTER | 🧪 | `MasterPublicView.vue`, `BookingConfirmedView.vue`, везде «вопрос мастеру» | Вопросы мастеру — сквозная фича (из профиля «в общем» / до брони / после), маршрутизация в Telegram-бот мастера + ответ юзеру в бот. Требует бэка. Сейчас все точки входа — toast-заглушки. Кадр 6 отложен | Спроектировать+реализовать бэк, подключить точки входа |
+| TD-CAL-ICON-YOGA | 🧪 | `components/icons/IconYoga.vue` | `IconYoga` — Claude-плейсхолдер | Заменить ассетом дизайнера (тот же filename/viewBox/`currentColor`) |
+| TD-CAL-DIRECTIONS-EXPAND | 🧪 | `utils/displayHelpers.ts` | Бэк добавит направления (somatic/womens_circle/mens_circle/tantra/kundalini) | `DIRECTION_ICON` уже Partial+fallback; добавлять иконки по мере появления |
+| TD-ZOOM-TEXT | 🧪 | `BookingConfirmedView.vue` | Статичный Zoom-текст (аудит S-2) | Нейтральная формулировка или условие по `practice.zoom_link`, когда появятся не-Zoom практики |
 
 ---
 

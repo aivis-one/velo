@@ -1,9 +1,19 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.4
-**Дата:** 22 мая 2026
+**Версия:** 1.5
+**Дата:** 24 мая 2026
 **Статус:** Active
-**Тесты:** 435 passed, 3 skipped
+**Тесты:** 446 passed, 3 skipped
+
+> **v1.5 (Calendar flow 4-7 + master public, 24 мая 2026):** добавлен публичный
+> профиль мастера `GET /api/v1/masters/{user_id}` (схема `MasterPublicResponse` —
+> только публичные поля, без финансов/контактов; verified-only или 404 по P-08;
+> два live-COUNT practices/reviews) + `master_avatar_url` в детали практики;
+> найден и устранён root-cause флака теста доставки уведомлений — фоновый
+> процессор гонялся с ручными `_stage_*` в тестах; введён флаг
+> `notification_processor_enabled` (§5.2). +11 тестов master_public (диапазон
+> `telegram_id` 56xxx). Детали — §3.9 (master public), §5.2 (processor toggle), §8.
+> Аудит итерации (24 мая): 0 critical / 0 warning, 3 suggestion (все обработаны).
 
 > **v1.4 (Calendar iteration, 22 мая 2026):** Practice получил JSONB-колонку `data`
 > с taxonomy-песочницей (direction / difficulty / style); публичный фид расширен
@@ -426,6 +436,36 @@ Practice получил JSONB-колонку `data` (миграция `b2c3d4e5f
 Тесты: `tests/test_practices.py` (раздел Calendar) — хранение таксономии (create/update-merge),
 фильтры фида (каждый + комбинированный AND), флаги is_booked/is_paid.
 
+### 3.9. Публичный профиль мастера (Calendar flow)
+
+`GET /api/v1/masters/{user_id}` — публичная карточка мастера для юзера (Figma
+кадр 4 + master profile). Схема ответа `MasterPublicResponse` (`masters/schemas.py`).
+
+- **Изоляция по схеме (граница безопасности):** `MasterPublicResponse` содержит
+  ТОЛЬКО публичные поля — `user_id`, `status`, `display_name`, `bio`, `methods`,
+  `experience_years`, `avatar_url`, `practices_count`, `reviews_count`. Финансовые
+  и контактные поля (баланс, payout-реквизиты, и т.п.) в схему не входят и с бэка
+  не приходят в принципе. `PayoutDetails` (та же `schemas.py`) к этому ответу
+  отношения не имеет и импортируется `admin/withdrawals` — не удалять.
+- **Доступ:** только verified-мастер, иначе 404 (P-08: не раскрываем существование
+  неверифицированного/чужого профиля).
+- **Счётчики — два live ORM-COUNT** (не denormalized, считаются на каждый запрос):
+  `practices_count` исключает draft/deleted; `reviews_count` = `count(Feedback.id)`
+  через join на Practice по `master_id` (вариант A — все отзывы мастера, не
+  фильтруются по статусу практики; задокументировано в коде, ответ на S-2 аудита).
+  Два COUNT идут последовательно (нельзя `asyncio.gather` на одной `AsyncSession` —
+  тоже зафиксировано комментарием, ответ на S-1).
+- **`display_name`** падает в `first_name`, если профильное имя пустое.
+- **Роут объявлен ПОСЛЕДНИМ** в `masters/router.py` (после всех `/me*`), чтобы
+  динамический `/{user_id}` не перехватывал статические пути.
+- **`master_avatar_url` в деталях практики:** `get_practice()` дополнительно
+  SELECT-ит `User.avatar_url` (4-колоночный tuple); `practice_to_response()`
+  получил keyword-only параметр `master_avatar_url` (в списочных вызовах — None,
+  у фида аватары не нужны).
+
+Тесты: `tests/test_master_public.py` — 11 тестов (verified/404, счётчики,
+изоляция полей), диапазон `telegram_id` 56xxx.
+
 ---
 
 ## 4. Платёжная архитектура
@@ -474,6 +514,22 @@ CR-01: `MasterProfileResponse` возвращает `min_withdrawal_cents` и `w
 ### 5.2. Процессор
 
 Фоновая задача (`notifications/processor.py`). Забирает pending Notification, резолвит target → список юзеров, создаёт `NotificationDelivery` per-user, отправляет через channel-formatter.
+
+**Запуск процессора управляется флагом** `notification_processor_enabled: bool = True`
+(`core/config.py`). В `main.py` lifespan читает флаг ДО `create_task(run_processor())`:
+при `False` фоновая задача не стартует (лог `notification_processor_disabled`).
+Safe default — в production флаг включён.
+
+> **Почему флаг (root-cause флака теста доставки, 24 мая 2026):** тесты гоняются
+> через `ASGITransport(app=app)`, что активирует lifespan → фоновый `run_processor()`
+> крутится в том же event loop, что и тело теста. Процессор забирает delivery-строки
+> через `FOR UPDATE SKIP LOCKED`; когда тест вручную вызывал `_stage_deliver()`,
+> фоновый цикл успевал залочить ту же строку → ручной вызов её пропускал → `attempts`
+> оставался 0 (тест ждал 1). Гонка таймингова (не зависела от порядка тестов —
+> `pytest-randomly` не стоит). Лечится на уровне конфига, а не патчингом теста:
+> `conftest.py` в session-autouse `setup_infrastructure` (ДО миграций и lifespan)
+> ставит `settings.notification_processor_enabled = False`. Тесты, которым нужен
+> процессор, вызывают его шаги вручную и детерминированно.
 
 ### 5.3. Шаблоны
 
@@ -549,7 +605,7 @@ En-значения query-параметров (`short|long`, `night|morning|day
 
 ## 8. Тесты
 
-435 passed, 3 skipped. Все запускаются внутри Docker:
+446 passed, 3 skipped. Все запускаются внутри Docker:
 
 ```bash
 velo test          # все тесты
@@ -573,6 +629,15 @@ velo lint          # ruff check
 | cancellation | 76xxx |
 | withdrawals | 75xxx |
 | practices (Calendar iteration) | 60xxx |
+| masters (public profile) | 56500-56599 |
+
+> **Развод диапазона 56xxx (TD-TGID-56XXX, закрыт 24 мая):** изначально
+> `test_master_public.py` занимал весь 56000-56999 и пересекался с
+> `test_admin_masters.py` (56001-56010 аппликанты, 56900-56907 админы) по id
+> 56001/56900 — оба модуля ещё и чистили весь 56xxx (`cleanup_range(56000,56999)`).
+> Зелено держалось только на cleanup между модулями — хрупко. Исправлено: master_public
+> перенесён в компактный **56500-56599** (мастер 56501, вьюеры 565xx, админ 56590) и
+> чистит ТОЛЬКО свой поддиапазон. admin_masters не тронут (остаётся в 560xx/569xx).
 
 ---
 
@@ -621,6 +686,8 @@ velo lint          # ruff check
 | **AUDIT-0520-08** | 🧪 | `payments/refund.py` | `update(Waitlist).values(status=...)` (bulk core UPDATE) не обновляет `Waitlist.updated_at` | Добавить `updated_at=func.now()` в `.values(...)` или onupdate-триггер для bulk |
 | **AUDIT-0520-09** | 🧪 | `tests/` | Нет теста на Stripe `amount_total=None` (кейс AUDIT-0520-01) | Тест: webhook без `amount_total` -> payment FAILED, баланс не кредитуется |
 | **AUDIT-0520-S** | 🧪 | разное (SUGGESTION) | Унификация count-паттерна в 3 модулях (см. B-05/B-09); вынос `recalculate_participants` (см. TD-034); обновление Stripe SDK до v9 | Низкий приоритет, по мере касания кода |
+| **CAL-FLAKE** | ✅ | `tests/test_notifications.py`, `core/config.py`, `main.py`, `tests/conftest.py` | Флак `TestStageDeliver::test_failed_delivery_retries` (attempts 0 вместо 1): фоновый `run_processor()` под `ASGITransport` lifespan гонялся с ручными `_stage_*` через `FOR UPDATE SKIP LOCKED` | ЗАКРЫТО (24 мая): флаг `notification_processor_enabled` (safe default True); тесты выключают его в session-autouse `setup_infrastructure`. Детали — §5.2 |
+| **TD-TGID-56XXX** | ✅ | `tests/test_master_public.py` | Диапазон `telegram_id` 56xxx пересекался между master_public (был 56000-56999) и admin_masters (56001-56010, 56900-56907); оба чистили весь 56xxx — зелено только из-за cleanup между модулями, хрупко | ЗАКРЫТО (24 мая): master_public перенесён в 56500-56599 (мастер 56501, вьюеры 565xx, админ 56590) и чистит только свой поддиапазон. admin_masters не тронут |
 
 > **Источник AUDIT-0520-*:** полный аудит ветки main от 2026-05-20.
 > Отчёт: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md` (оценка 7/10).

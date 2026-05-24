@@ -5,10 +5,16 @@
 # Covers GET /api/v1/masters/{user_id} (MasterPublicResponse) and the
 # master_avatar_url field surfaced on GET /api/v1/practices/{id}.
 #
-# telegram_id ranges:
-#   56000-56099 -- master users
-#   56100-56199 -- regular users (non-master)
-#   56900-56999 -- admin users
+# telegram_id ranges (56500-56599 -- this module owns this sub-range):
+#   56501        -- verified master (default in _make_verified_master)
+#   56510-56551  -- viewers / reviewers / applicants (non-master)
+#   56590        -- admin (ADMIN_TID)
+#
+# NOTE: moved out of the shared 56xxx block to 56500-56599 to avoid colliding
+# with test_admin_masters.py (56001-56010 applicants, 56900-56907 admins),
+# which also cleans the whole 56000-56999 range. Both modules used to share
+# 56xxx and only stayed green because cleanup ran between modules -- fragile.
+# Now this module lives in and cleans ONLY 56500-56599 (TD-TGID-56XXX closed).
 #
 # Counters and avatar are exercised with direct ORM writes (Practice,
 # Feedback, User.avatar_url) -- we do not drive the full booking ->
@@ -39,7 +45,7 @@ PRACTICES_URL = "/api/v1/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
-ADMIN_TID = 56900
+ADMIN_TID = 56590
 
 
 # ---------------------------------------------------------------------------
@@ -54,8 +60,8 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Full ORM cleanup for telegram_id 56000-56999."""
-    await full_cleanup_range(session, 56000, 56999, delete_users=False)
+    """Full ORM cleanup for telegram_id 56500-56599."""
+    await full_cleanup_range(session, 56500, 56599, delete_users=False)
     await session.commit()
 
 
@@ -80,7 +86,7 @@ def _valid_apply_body() -> dict:
 async def _make_verified_master(
     client: AsyncClient,
     db_session: AsyncSession,
-    telegram_id: int = 56001,
+    telegram_id: int = 56501,
 ) -> dict:
     """Create user, apply as master, verify via admin. Returns master auth.
 
@@ -208,7 +214,7 @@ async def test_public_master_profile_success(
     master_id = master_auth["user"]["id"]
 
     viewer = await login_user(
-        client, telegram_id=56100, first_name="Viewer",
+        client, telegram_id=56510, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{master_id}",
@@ -262,7 +268,7 @@ async def test_public_master_profile_practices_count(
     await db_session.commit()
 
     viewer = await login_user(
-        client, telegram_id=56101, first_name="Viewer",
+        client, telegram_id=56511, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{master_auth['user']['id']}",
@@ -292,10 +298,10 @@ async def test_public_master_profile_reviews_count(
 
     # Two reviewers leave feedback on this master's practice.
     reviewer_a = await login_user(
-        client, telegram_id=56102, first_name="ReviewerA",
+        client, telegram_id=56512, first_name="ReviewerA",
     )
     reviewer_b = await login_user(
-        client, telegram_id=56103, first_name="ReviewerB",
+        client, telegram_id=56513, first_name="ReviewerB",
     )
     await _insert_feedback(
         db_session, practice.id, UUID(reviewer_a["user"]["id"]),
@@ -306,7 +312,7 @@ async def test_public_master_profile_reviews_count(
     await db_session.commit()
 
     viewer = await login_user(
-        client, telegram_id=56104, first_name="Viewer",
+        client, telegram_id=56514, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{master_auth['user']['id']}",
@@ -327,10 +333,10 @@ async def test_public_master_profile_non_master_404(
 ) -> None:
     """A plain user id (no master profile) resolves to 404."""
     plain = await login_user(
-        client, telegram_id=56110, first_name="Plain",
+        client, telegram_id=56520, first_name="Plain",
     )
     viewer = await login_user(
-        client, telegram_id=56111, first_name="Viewer",
+        client, telegram_id=56521, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{plain['user']['id']}",
@@ -349,7 +355,7 @@ async def test_public_master_profile_nonexistent_404(
 ) -> None:
     """An unknown user_id resolves to 404."""
     viewer = await login_user(
-        client, telegram_id=56112, first_name="Viewer",
+        client, telegram_id=56522, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{uuid4()}",
@@ -368,7 +374,7 @@ async def test_public_master_profile_pending_404(
 ) -> None:
     """A pending (unverified) master is not exposed: 404."""
     applicant = await login_user(
-        client, telegram_id=56120, first_name="Applicant",
+        client, telegram_id=56530, first_name="Applicant",
     )
     apply_resp = await client.post(
         APPLY_URL,
@@ -378,7 +384,7 @@ async def test_public_master_profile_pending_404(
     assert apply_resp.status_code == 201  # status == pending
 
     viewer = await login_user(
-        client, telegram_id=56121, first_name="Viewer",
+        client, telegram_id=56531, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{applicant['user']['id']}",
@@ -412,7 +418,7 @@ async def test_public_master_profile_no_sensitive_fields(
     master_auth = await _make_verified_master(client, db_session)
 
     viewer = await login_user(
-        client, telegram_id=56130, first_name="Viewer",
+        client, telegram_id=56540, first_name="Viewer",
     )
     resp = await client.get(
         f"{MASTERS_URL}/{master_auth['user']['id']}",
@@ -485,7 +491,7 @@ async def test_practice_detail_includes_master_avatar(
     await db_session.commit()
 
     viewer = await login_user(
-        client, telegram_id=56140, first_name="Viewer",
+        client, telegram_id=56550, first_name="Viewer",
     )
     resp = await client.get(
         f"{PRACTICES_URL}/{practice.id}",
@@ -514,7 +520,7 @@ async def test_practice_detail_avatar_none_when_unset(
     await db_session.commit()
 
     viewer = await login_user(
-        client, telegram_id=56141, first_name="Viewer",
+        client, telegram_id=56551, first_name="Viewer",
     )
     resp = await client.get(
         f"{PRACTICES_URL}/{practice.id}",
