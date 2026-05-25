@@ -30,9 +30,27 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Don't precache source maps.
         globIgnores: ['**/*.map'],
+        // Runtime caching gives the service worker a valid strategy even when
+        // the precache manifest is empty. Without this, workbox-build aborts
+        // with "Couldn't find configuration for either precaching or runtime
+        // caching" (reproduced on workbox 7.3.0 AND 7.4.0 -- not a version
+        // issue). network-first: try network, fall back to cache offline.
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) =>
+              request.destination === 'document' ||
+              request.destination === 'script' ||
+              request.destination === 'style' ||
+              request.destination === 'image' ||
+              request.destination === 'font',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'velo-runtime',
+              expiration: { maxEntries: 200 },
+            },
+          },
+        ],
       },
-      // Manifest is served from public/manifest.json (not inlined).
-      manifest: false,
     }),
   ],
 
