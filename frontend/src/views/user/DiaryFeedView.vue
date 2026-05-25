@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
 
 /* -- Composer: sticks to the bottom of the scroll viewport, above the tab
    bar. Negative side margins cancel main's 16px padding so the frosted pill
-   spans edge-to-edge background; the inner pill keeps the content width. -->
+   spans edge-to-edge background; the inner pill keeps the content width. */
 .diary-feed__composer {
   position: sticky;
   bottom: 0;
