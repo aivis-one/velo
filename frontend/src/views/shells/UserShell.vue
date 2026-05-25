@@ -10,6 +10,7 @@
   <MobileLayout
     :tabs="USER_TABS"
     :active-tab="activeTab"
+    :fill="isFillRoute"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -31,4 +32,8 @@ const activeTab = computed(() => {
   const match = USER_TABS.find((tab) => path.startsWith(tab.to))
   return match?.to ?? USER_TABS[0]?.to ?? ''
 })
+
+// Chat-style screens that manage their own internal scroll + a fixed bottom
+// composer use the layout's fill mode. Currently only the diary feed.
+const isFillRoute = computed(() => route.name === 'user-diary')
 </script>

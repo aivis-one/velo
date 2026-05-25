@@ -30,8 +30,8 @@
       </button>
     </header>
 
-    <!-- Feed body (flows inside the shell's scroll container) -->
-    <div class="diary-feed__body">
+    <!-- Feed body: the ONLY scrolling area, between fixed header and composer -->
+    <div ref="scrollEl" class="diary-feed__body">
       <!-- Initial loading -->
       <div v-if="initialLoading" class="diary-feed__state">
         <VLoader size="lg" />
@@ -134,6 +134,7 @@ onMounted(async () => {
 
 // -- Infinite scroll ---------------------------------------------------------
 
+const scrollEl = ref<HTMLElement | null>(null)
 const sentinelEl = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -150,7 +151,7 @@ function setupObserver(): void {
         void diaryStore.loadMoreFeed()
       }
     },
-    { rootMargin: '120px' },
+    { root: scrollEl.value, rootMargin: '120px' },
   )
   observer.observe(sentinelEl.value)
 }
@@ -167,24 +168,27 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* The diary lives inside MobileLayout > main (which is the single scroll
-   container: flex:1; overflow-y:auto; padding:16px). This view must NOT
-   create its own height/scroll -- it flows in that container. The composer
-   sticks to the bottom of the scroll viewport via position:sticky, sitting
-   just above the tab bar (which is a sibling of main, not inside it). */
+/* Chat-style layout. The parent (MobileLayout main in `fill` mode) is a flex
+   column that hands us its full height with no scroll of its own. We fill that
+   height and split it into three rows: fixed header, scrolling feed, fixed
+   composer. Only the feed (.diary-feed__body) scrolls -- header and composer
+   stay put, so the composer is always pinned just above the tab bar on both
+   short and long feeds. The background stays continuous across all three rows
+   (overlay look preserved: nothing opaque cuts the runes backdrop). */
 .diary-feed {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
-/* -- Header -- */
+/* -- Header (fixed row) -- */
 .diary-feed__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* main already pads 16px; add a little top/side breathing room */
-  padding: var(--space-2) var(--space-2) var(--space-3);
+  padding: var(--space-5) var(--space-8) var(--space-3);
 }
 
 .diary-feed__title {
@@ -212,9 +216,13 @@ onBeforeUnmount(() => {
   opacity: 0.85;
 }
 
-/* -- Body (no own scroll -- the shell's main scrolls) -- */
+/* -- Body: the ONLY scrolling row -- */
 .diary-feed__body {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--space-8);
 }
 
 .diary-feed__state {
@@ -231,21 +239,11 @@ onBeforeUnmount(() => {
   height: 1px;
 }
 
-/* -- Composer: sticks to the bottom of the scroll viewport, above the tab
-   bar. Negative side margins cancel main's 16px padding so the frosted pill
-   spans edge-to-edge background; the inner pill keeps the content width. */
+/* -- Composer (fixed row, always above the tab bar) -- */
 .diary-feed__composer {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   display: flex;
   justify-content: center;
-  margin: 0 calc(-1 * var(--space-4));
-  padding: var(--space-3) var(--space-4);
-  /* lift the pill above content scrolling beneath it */
-  background: linear-gradient(
-    to top,
-    var(--velo-bg-start) 60%,
-    transparent
-  );
+  padding: var(--space-3) var(--space-8) var(--space-4);
 }
 </style>
