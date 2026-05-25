@@ -15,7 +15,7 @@
 -->
 
 <template>
-  <div class="mobile-layout">
+  <div class="mobile-layout" :class="{ 'mobile-layout--fill': fill }">
     <slot name="header" />
     <main class="mobile-layout__main" :class="{ 'mobile-layout__main--fill': fill }">
       <slot />
@@ -54,6 +54,18 @@ defineEmits<{
   min-height: 100dvh;
   min-height: 100vh; /* fallback */
   background: transparent;
+}
+
+/* Fill mode needs a DEFINITE root height (not just min-height), otherwise the
+   flex chain below has nothing to resolve flex:1 / height:100% against and the
+   content area collapses to its content -- which is exactly why the composer
+   used to stick under the last card instead of the bottom. Locking the root to
+   the viewport height makes `main` (flex:1) take "viewport - header - tabbar",
+   and the diary view fills that, pinning the composer above the tab bar. */
+.mobile-layout--fill {
+  height: 100dvh;
+  height: 100vh; /* fallback */
+  min-height: 0;
 }
 
 .mobile-layout__main {
