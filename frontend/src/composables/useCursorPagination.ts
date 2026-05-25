@@ -20,7 +20,7 @@
 //   feed.reset()                     // clear, keep no cursor
 // =============================================================================
 
-import { ref, computed, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 
 export interface CursorResult<T> {
   items: T[]
