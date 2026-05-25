@@ -39,3 +39,10 @@ export { default as IconClose } from './IconClose.vue'
 export { default as IconMoodLow } from './IconMoodLow.vue'
 export { default as IconMoodMid } from './IconMoodMid.vue'
 export { default as IconMoodHigh } from './IconMoodHigh.vue'
+
+// -- Diary feed (Diary redesign): monochrome glyphs (currentColor) --
+export { default as IconPen } from './IconPen.vue'
+export { default as IconDreamBook } from './IconDreamBook.vue'
+export { default as IconDots } from './IconDots.vue'
+export { default as IconMic } from './IconMic.vue'
+export { default as IconSend } from './IconSend.vue'

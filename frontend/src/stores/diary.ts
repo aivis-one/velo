@@ -1,54 +1,51 @@
 // =============================================================================
-// VELO Frontend -- Diary Store (Phase F9)
+// VELO Frontend -- Diary Store (Diary redesign: unified feed)
 // =============================================================================
 //
 // Manages state for all diary-related data:
 //
-//   submit:
-//     submitCheckin()  -- upsert check-in, used by CheckinView
-//     submitFeedback() -- upsert feedback, used by FeedbackView
+//   submit (unchanged -- used by CheckinView / FeedbackView):
+//     submitCheckin()  -- upsert check-in
+//     submitFeedback() -- upsert feedback
 //
-//   diary entries (DiaryView tab "Записи"):
-//     fetchEntries() / loadMoreEntries() -- paginated list
+//   feed (DiaryFeedView -- the unified timeline, replaces the old tabs):
+//     fetchFeed() / loadMoreFeed() -- cursor-paginated DiaryEvent list
+//     setFeedFilters() / clearFeedFilters() / runFeedSearch()
+//
+//   diary entry CRUD (composer + future inline editor):
 //     createEntry() / updateEntry() / deleteEntry()
 //     selectedEntry + fetchEntry() -- single entry view/edit
 //
-//   checkins (DiaryView tab "Check-ins"):
-//     fetchCheckins() / loadMoreCheckins() -- paginated list
+//   insights (AnalyticsView, master-facing -- unchanged):
+//     loadInsights(practiceId) -- aggregated data for master
 //
-//   feedbacks (DiaryView tab "Feedbacks"):
-//     fetchFeedbacks() / loadMoreFeedbacks() -- paginated list
-//
-//   insights (AnalyticsView):
-//     fetchInsights(practiceId) -- aggregated data for master
-//
-// Each list uses usePagination internally for consistent load-more behaviour.
+// The feed uses useCursorPagination (cursor, not offset) because the
+// DiaryEvent journal is append-only and read newest-first. Entry CRUD
+// refreshes the feed (a created/edited/deleted note is a feed event).
 // =============================================================================
 
 import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { extractApiError } from '@/composables/useApiError'
-import { usePagination } from '@/composables/usePagination'
+import { useCursorPagination } from '@/composables/useCursorPagination'
 import {
   upsertCheckin,
   upsertFeedback,
-  listMyCheckins,
-  listMyFeedbacks,
   createDiaryEntry,
-  listDiaryEntries,
   getDiaryEntry,
   updateDiaryEntry,
   deleteDiaryEntry,
+  listDiaryFeed,
   getPracticeInsights,
 } from '@/api/diary'
 import type {
   CheckinRequest,
-  CheckinResponse,
   FeedbackRequest,
-  FeedbackResponse,
   CreateDiaryEntryRequest,
   UpdateDiaryEntryRequest,
   DiaryEntryResponse,
+  DiaryFeedItem,
+  DiaryFeedFilters,
   PracticeInsightsResponse,
 } from '@/api/types'
 
@@ -78,8 +75,7 @@ export const useDiaryStore = defineStore('diary', () => {
       await upsertCheckin(practiceId, body)
       return { ok: true, error: '' }
     } catch (e) {
-      const message =
-        extractApiError(e, 'Не удалось отправить check-in')
+      const message = extractApiError(e, 'Не удалось отправить check-in')
       return { ok: false, error: message }
     } finally {
       checkinSubmitting.value = false
@@ -106,8 +102,7 @@ export const useDiaryStore = defineStore('diary', () => {
       await upsertFeedback(practiceId, body)
       return { ok: true, error: '' }
     } catch (e) {
-      const message =
-        extractApiError(e, 'Не удалось отправить feedback')
+      const message = extractApiError(e, 'Не удалось отправить feedback')
       return { ok: false, error: message }
     } finally {
       feedbackSubmitting.value = false
@@ -115,27 +110,69 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   // ===========================================================================
-  // Diary entries list (DiaryView tab "Записи")
+  // Unified feed (DiaryFeedView)
+  //
+  // Cursor pagination over GET /api/v1/diary/feed. Filters live alongside the
+  // pagination: changing them resets and refetches from the first page so the
+  // cursor stays consistent with the active filter set.
   // ===========================================================================
 
-  const entriesPagination = usePagination<DiaryEntryResponse>(
-    (limit, offset) => listDiaryEntries({ limit, offset }),
+  const feedFilters = reactive<DiaryFeedFilters>({
+    categories: [],
+    date_from: undefined,
+    date_to: undefined,
+    search: undefined,
+  })
+
+  const feed = useCursorPagination<DiaryFeedItem>(
+    (cursor, limit) =>
+      listDiaryFeed({
+        categories: feedFilters.categories,
+        date_from: feedFilters.date_from,
+        date_to: feedFilters.date_to,
+        search: feedFilters.search,
+        cursor: cursor ?? undefined,
+        limit,
+      }),
   )
 
   /**
-   * Initial load of diary entries.
-   * Skips if already loaded (navigating back).
+   * Initial feed load. Skips if already loaded (navigating back).
    */
-  async function fetchEntries(): Promise<void> {
-    if (entriesPagination.items.value.length > 0) return
-    await entriesPagination.refresh()
+  async function fetchFeed(): Promise<void> {
+    if (feed.items.value.length > 0) return
+    await feed.refresh()
   }
 
   /**
-   * Force-reload entries list (after create/update/delete).
+   * Apply new filters (merge) and reload the feed from the first page.
+   * Pass a fresh categories array / dates / search; omitted keys are kept.
    */
-  async function refreshEntries(): Promise<void> {
-    await entriesPagination.refresh()
+  async function setFeedFilters(
+    patch: Partial<DiaryFeedFilters>,
+  ): Promise<void> {
+    Object.assign(feedFilters, patch)
+    await feed.refresh()
+  }
+
+  /**
+   * Clear all filters (back to "Все", no date range, no search) and reload.
+   */
+  async function clearFeedFilters(): Promise<void> {
+    feedFilters.categories = []
+    feedFilters.date_from = undefined
+    feedFilters.date_to = undefined
+    feedFilters.search = undefined
+    await feed.refresh()
+  }
+
+  /**
+   * Run a text search (empty string clears it) and reload from the first page.
+   */
+  async function runFeedSearch(query: string): Promise<void> {
+    const trimmed = query.trim()
+    feedFilters.search = trimmed.length > 0 ? trimmed : undefined
+    await feed.refresh()
   }
 
   // ===========================================================================
@@ -147,22 +184,16 @@ export const useDiaryStore = defineStore('diary', () => {
   const selectedEntryError = ref<string | null>(null)
 
   /**
-   * Fetch a single diary entry by ID.
-   * Tries the already-loaded list first to avoid a network call.
+   * Fetch a single diary entry by ID (always from the API -- the feed stores
+   * DiaryEvent snapshots, not full DiaryEntry rows).
    */
   async function fetchEntry(id: string): Promise<void> {
-    const cached = entriesPagination.items.value.find((e) => e.id === id)
-    if (cached) {
-      selectedEntry.value = cached
-      return
-    }
     selectedEntryLoading.value = true
     selectedEntryError.value = null
     try {
       selectedEntry.value = await getDiaryEntry(id)
     } catch (e) {
-      selectedEntryError.value =
-        extractApiError(e, 'Запись не найдена')
+      selectedEntryError.value = extractApiError(e, 'Запись не найдена')
       selectedEntry.value = null
     } finally {
       selectedEntryLoading.value = false
@@ -176,27 +207,29 @@ export const useDiaryStore = defineStore('diary', () => {
 
   // ===========================================================================
   // Diary entry CRUD
+  //
+  // A created / edited / deleted note is a feed event, so each mutation
+  // refreshes the feed (not a separate list).
   // ===========================================================================
 
   /**
-   * Create a new diary entry, then refresh the list.
+   * Create a new diary entry, then refresh the feed.
    */
   async function createEntry(
     body: CreateDiaryEntryRequest,
   ): Promise<SubmitResult & { entry: DiaryEntryResponse | null }> {
     try {
       const entry = await createDiaryEntry(body)
-      await refreshEntries()
+      await feed.refresh()
       return { ok: true, error: '', entry }
     } catch (e) {
-      const message =
-        extractApiError(e, 'Не удалось создать запись')
+      const message = extractApiError(e, 'Не удалось создать запись')
       return { ok: false, error: message, entry: null }
     }
   }
 
   /**
-   * Update an existing diary entry, then refresh the list.
+   * Update an existing diary entry, then refresh the feed.
    */
   async function updateEntry(
     id: string,
@@ -204,67 +237,32 @@ export const useDiaryStore = defineStore('diary', () => {
   ): Promise<SubmitResult & { entry: DiaryEntryResponse | null }> {
     try {
       const entry = await updateDiaryEntry(id, body)
-      await refreshEntries()
-      // Update selected entry in-place if it's the one being edited.
+      await feed.refresh()
       if (selectedEntry.value?.id === id) {
         selectedEntry.value = entry
       }
       return { ok: true, error: '', entry }
     } catch (e) {
-      const message =
-        extractApiError(e, 'Не удалось обновить запись')
+      const message = extractApiError(e, 'Не удалось обновить запись')
       return { ok: false, error: message, entry: null }
     }
   }
 
   /**
-   * Hard-delete a diary entry, then refresh the list.
+   * Soft-delete a diary entry, then refresh the feed.
    */
   async function deleteEntry(id: string): Promise<SubmitResult> {
     try {
       await deleteDiaryEntry(id)
-      await refreshEntries()
+      await feed.refresh()
       if (selectedEntry.value?.id === id) {
         selectedEntry.value = null
       }
       return { ok: true, error: '' }
     } catch (e) {
-      const message =
-        extractApiError(e, 'Не удалось удалить запись')
+      const message = extractApiError(e, 'Не удалось удалить запись')
       return { ok: false, error: message }
     }
-  }
-
-  // ===========================================================================
-  // Checkins list (DiaryView tab "Check-ins")
-  // ===========================================================================
-
-  const checkinsPagination = usePagination<CheckinResponse>(
-    (limit, offset) => listMyCheckins({ limit, offset }),
-  )
-
-  /**
-   * Initial load of check-ins for the diary tab.
-   */
-  async function fetchCheckins(): Promise<void> {
-    if (checkinsPagination.items.value.length > 0) return
-    await checkinsPagination.refresh()
-  }
-
-  // ===========================================================================
-  // Feedbacks list (DiaryView tab "Feedbacks")
-  // ===========================================================================
-
-  const feedbacksPagination = usePagination<FeedbackResponse>(
-    (limit, offset) => listMyFeedbacks({ limit, offset }),
-  )
-
-  /**
-   * Initial load of feedbacks for the diary tab.
-   */
-  async function fetchFeedbacks(): Promise<void> {
-    if (feedbacksPagination.items.value.length > 0) return
-    await feedbacksPagination.refresh()
   }
 
   // ===========================================================================
@@ -276,9 +274,9 @@ export const useDiaryStore = defineStore('diary', () => {
   // re-visit unless $reset() is called (logout).
   // ===========================================================================
 
-  const insightsCache     = reactive(new Map<string, PracticeInsightsResponse>())
+  const insightsCache      = reactive(new Map<string, PracticeInsightsResponse>())
   const insightsLoadingSet = reactive(new Set<string>())
-  const insightsErrorMap  = reactive(new Map<string, string>())
+  const insightsErrorMap   = reactive(new Map<string, string>())
 
   /** NEW-6: max entries in insightsCache to prevent unbounded memory growth. */
   const MAX_INSIGHTS_CACHE = 100
@@ -316,12 +314,11 @@ export const useDiaryStore = defineStore('diary', () => {
   function $reset(): void {
     checkinSubmitting.value = false
     feedbackSubmitting.value = false
-    entriesPagination.items.value = []
-    entriesPagination.total.value = 0
-    checkinsPagination.items.value = []
-    checkinsPagination.total.value = 0
-    feedbacksPagination.items.value = []
-    feedbacksPagination.total.value = 0
+    feed.reset()
+    feedFilters.categories = []
+    feedFilters.date_from = undefined
+    feedFilters.date_to = undefined
+    feedFilters.search = undefined
     selectedEntry.value = null
     selectedEntryError.value = null
     insightsCache.clear()
@@ -330,23 +327,24 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   return {
-    // Check-in submit
+    // Check-in / feedback submit
     checkinSubmitting,
     submitCheckin,
-
-    // Feedback submit
     feedbackSubmitting,
     submitFeedback,
 
-    // Diary entries list
-    entries: entriesPagination.items,
-    entriesTotal: entriesPagination.total,
-    entriesLoading: entriesPagination.loading,
-    entriesError: entriesPagination.error,
-    entriesHasMore: entriesPagination.hasMore,
-    fetchEntries,
-    loadMoreEntries: entriesPagination.loadMore,
-    refreshEntries,
+    // Unified feed
+    feedItems: feed.items,
+    feedLoading: feed.loading,
+    feedError: feed.error,
+    feedHasMore: feed.hasMore,
+    feedFilters,
+    fetchFeed,
+    loadMoreFeed: feed.loadMore,
+    refreshFeed: feed.refresh,
+    setFeedFilters,
+    clearFeedFilters,
+    runFeedSearch,
 
     // Single entry
     selectedEntry,
@@ -359,24 +357,6 @@ export const useDiaryStore = defineStore('diary', () => {
     createEntry,
     updateEntry,
     deleteEntry,
-
-    // Checkins list
-    checkins: checkinsPagination.items,
-    checkinsTotal: checkinsPagination.total,
-    checkinsLoading: checkinsPagination.loading,
-    checkinsError: checkinsPagination.error,
-    checkinsHasMore: checkinsPagination.hasMore,
-    fetchCheckins,
-    loadMoreCheckins: checkinsPagination.loadMore,
-
-    // Feedbacks list
-    feedbacks: feedbacksPagination.items,
-    feedbacksTotal: feedbacksPagination.total,
-    feedbacksLoading: feedbacksPagination.loading,
-    feedbacksError: feedbacksPagination.error,
-    feedbacksHasMore: feedbacksPagination.hasMore,
-    fetchFeedbacks,
-    loadMoreFeedbacks: feedbacksPagination.loadMore,
 
     // Insights cache
     insightsCache,

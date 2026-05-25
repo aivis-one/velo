@@ -2,15 +2,8 @@
 // VELO Frontend -- Router (Phase F2.2, updated F9, TD-FE-ROLE-SWITCH, WARNING-3)
 // =============================================================================
 //
-// F9: Added two new user routes:
-//   /user/checkin/:practiceId  → CheckinView  (full-screen check-in form)
-//   /user/feedback/:practiceId → FeedbackView (full-screen feedback form)
-//
-// Both are accessible to users AND masters (no roleGuard) because masters
-// are also users and may participate in practices.
-//
-// TD-FE-ROLE-SWITCH: Added /admin/profile route.
-// beforeEach updated: if uiMode === 'user', master/admin can reach /user/dashboard.
+// Diary redesign: /user/diary now points at DiaryFeedView (the unified feed +
+// thread). The old DiaryView and its tab sub-components are removed.
 // =============================================================================
 
 import { createRouter, createWebHistory } from 'vue-router'
@@ -28,13 +21,11 @@ import AdminShell from '@/views/shells/AdminShell.vue'
 
 // =============================================================================
 // applyGuard: verified masters don't need to visit the apply form.
-// A master who is already verified has no reason to visit the apply form.
 // =============================================================================
 const applyGuard = async () => {
   const { timedOut }: ReadyResult = await waitUntilReady()
   const auth = useAuthStore()
 
-  // WARNING-3: if auth stalled, send to error screen.
   if (timedOut && auth.role === null) {
     return { path: '/auth-error' }
   }
@@ -42,7 +33,6 @@ const applyGuard = async () => {
   if (auth.role !== 'master') return true
 
   const masterStore = useMasterStore()
-  // Lazy-fetch profile (skips network if already loaded this session).
   await masterStore.fetchMyProfile()
   if (masterStore.profile?.status === 'verified') {
     return { path: '/master/dashboard' }
@@ -53,12 +43,10 @@ const applyGuard = async () => {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    // -- Root: redirect to role dashboard --
     {
       path: '/',
       name: 'root',
       beforeEnter: roleRedirect,
-      // Component required by Vue Router but never renders (guard always redirects)
       component: { template: '' },
     },
 
@@ -82,7 +70,7 @@ const router = createRouter({
         {
           path: 'diary',
           name: 'user-diary',
-          component: () => import('@/views/user/DiaryView.vue'),
+          component: () => import('@/views/user/DiaryFeedView.vue'),
         },
         {
           path: 'profile',
@@ -114,7 +102,6 @@ const router = createRouter({
           name: 'booking-detail',
           component: () => import('@/views/user/BookingDetailView.vue'),
         },
-        // F9: check-in and feedback -- full-screen flows
         {
           path: 'checkin/:practiceId',
           name: 'user-checkin',
@@ -125,14 +112,11 @@ const router = createRouter({
           name: 'user-feedback',
           component: () => import('@/views/user/FeedbackView.vue'),
         },
-        // Practice-Live (screen 14): full-screen in-progress practice view.
-        // Accessible to users AND masters (no roleGuard) -- same as checkin.
         {
           path: 'practice-live/:practiceId',
           name: 'practice-live',
           component: () => import('@/views/user/PracticeLiveView.vue'),
         },
-        // AI-summary (screen 16): placeholder until the user AI backend exists.
         {
           path: 'ai-summary',
           name: 'user-ai-summary',
@@ -153,7 +137,6 @@ const router = createRouter({
           name: 'user-topup-cancel',
           component: () => import('@/views/user/TopupCancelView.vue'),
         },
-        // Default: /user -> /user/dashboard
         {
           path: '',
           redirect: { name: 'user-dashboard' },
@@ -162,7 +145,7 @@ const router = createRouter({
     },
 
     // =========================================================================
-    // MASTER routes (role=master required via roleGuard)
+    // MASTER routes
     // =========================================================================
     {
       path: '/master',
@@ -214,7 +197,6 @@ const router = createRouter({
           beforeEnter: masterStatusGuard,
           component: () => import('@/views/master/MasterFinanceView.vue'),
         },
-        // Default: /master -> /master/dashboard
         {
           path: '',
           redirect: { name: 'master-dashboard' },
@@ -222,20 +204,9 @@ const router = createRouter({
       ],
     },
 
-    // =========================================================================
-    // MASTER apply / pending -- standalone (no MasterShell, no roleGuard)
-    //
-    // Accessible to:
-    //   - role='user'   visiting /master/apply to submit application
-    //   - role='master' visiting /master/pending while awaiting verification
-    //
-    // Auth is still enforced by App.vue (unauthenticated users never reach here).
-    // These views render their own header without MasterShell tab bar.
-    // =========================================================================
     {
       path: '/master/apply',
       name: 'master-apply',
-      // S-6: verified masters have nothing to do on the apply form.
       beforeEnter: applyGuard,
       component: () => import('@/views/master/MasterApplyView.vue'),
     },
@@ -283,13 +254,11 @@ const router = createRouter({
           name: 'admin-consistency',
           component: () => import('@/views/admin/AdminConsistencyView.vue'),
         },
-        // TD-FE-ROLE-SWITCH: admin profile with user-mode switch button.
         {
           path: 'profile',
           name: 'admin-profile',
           component: () => import('@/views/admin/AdminProfileView.vue'),
         },
-        // Default: /admin -> /admin/dashboard
         {
           path: '',
           redirect: { name: 'admin-dashboard' },
@@ -297,18 +266,12 @@ const router = createRouter({
       ],
     },
 
-    // =========================================================================
-    // Auth error -- shown when waitUntilReady() times out with null role.
-    // =========================================================================
     {
       path: '/auth-error',
       name: 'auth-error',
       component: () => import('@/views/auth/LoadingErrorView.vue'),
     },
 
-    // =========================================================================
-    // Catch-all
-    // =========================================================================
     {
       path: '/404',
       name: 'not-found',
@@ -322,26 +285,11 @@ const router = createRouter({
 })
 
 // =============================================================================
-// Global guard: redirect master/admin away from /user/dashboard only (P-1 fix).
-//
-// Problem: /user/* has no roleGuard. A master can land on /user/dashboard via:
-//   - saved URL in browser history (after role upgrade user -> master)
-//   - restoreSession() which skips / -> roleRedirect entirely
-//
-// P-1 fix: only block /user/dashboard (and /user bare path).
-// All other /user/* routes (/user/practices/:id, /user/bookings, /user/topup
-// etc.) remain accessible -- masters are also users and need them.
-//
-// TD-FE-ROLE-SWITCH: if uiMode === 'user', let master/admin through to
-// /user/dashboard without redirect.
-//
-// waitUntilReady() is called only on the first navigation (authInitialized
-// flag) -- subsequent navigations resolve immediately with no overhead.
+// Global guard (P-1): redirect master/admin away from /user/dashboard only.
 // =============================================================================
 let authInitialized = false
 
 router.beforeEach(async (to) => {
-  // Wait for auth on first navigation only.
   if (!authInitialized) {
     const { timedOut }: ReadyResult = await waitUntilReady()
     authInitialized = true
@@ -350,8 +298,6 @@ router.beforeEach(async (to) => {
     }
   }
 
-  // Only intercept the dashboard entry point, not all of /user/*.
-  // Masters need /user/practices/:id, /user/bookings, /user/topup etc.
   if (to.name !== 'user-dashboard' && to.path !== '/user' && to.path !== '/user/') {
     return true
   }
@@ -359,7 +305,6 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
   if (auth.role === 'master' || auth.role === 'admin') {
-    // TD-FE-ROLE-SWITCH: allow through if user explicitly switched to user mode.
     const uiStore = useUiStore()
     if (uiStore.uiMode === 'user') return true
 

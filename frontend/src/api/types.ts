@@ -38,6 +38,8 @@ export type {
   CreateReportRequest,
   CreateWithdrawalRequest,
   DiaryEntryResponse,
+  DiaryFeedItem,
+  DiaryFeedResponse,
   DismissReportRequest,
   ExistingReportResponse,
   FeedbackRequest,
@@ -137,6 +139,40 @@ export type WithdrawalStatus = 'pending' | 'approved' | 'rejected'
 export type WaitlistStatus = 'waiting' | 'notified' | 'confirmed' | 'left' | 'expired' | 'declined'
 export type Mood = 'low' | 'mid' | 'high'
 export type FeedbackRating = 'fire' | 'good' | 'confused'
+
+// -- Diary feed (unified timeline) --
+// Event kinds are a closed vocabulary on the backend (DiaryEventKind). We
+// narrow the generated `DiaryFeedItem.kind: string` to this union at the
+// rendering layer for exhaustive card mapping. Keep in sync with the backend
+// enum -- regenerating types does NOT produce this (snapshot/kind stay open).
+export type DiaryEventKind =
+  | 'booking_confirmed'
+  | 'booking_cancelled_by_user'
+  | 'practice_rescheduled'
+  | 'practice_cancelled_by_master'
+  | 'practice_outcome'
+  | 'checkin'
+  | 'feedback'
+  | 'note'
+  | 'dream'
+
+// Filter chips on the feed. Map 1:1 onto backend `category` query values
+// (settings.diary_feed_categories). Omitting category = "Все".
+export type DiaryFeedCategory =
+  | 'entries'
+  | 'dreams'
+  | 'feedbacks'
+  | 'checkins'
+  | 'practices'
+
+// Query params for GET /api/v1/diary/feed (cursor pagination).
+export interface DiaryFeedFilters {
+  // Filter chips -> repeated `category` params. Empty/undefined = all.
+  categories?: DiaryFeedCategory[]
+  date_from?: string
+  date_to?: string
+  search?: string
+}
 
 // -- Query / filter types (used by stores and API modules) -------------------
 

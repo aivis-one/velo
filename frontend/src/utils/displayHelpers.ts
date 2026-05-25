@@ -160,6 +160,39 @@ export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
 }
 
 // ---------------------------------------------------------------------------
+// Diary feed (unified timeline)
+// ---------------------------------------------------------------------------
+//
+// Card title per event kind. The feed renders these as the card heading;
+// checkin/feedback append the mood/rating label (e.g. "Check-in: Не очень").
+// Values match the design (screens 40/41). kind->icon COMPONENT mapping lives
+// in DiaryFeedCard.vue, not here -- the utils layer must not import .vue files
+// (same rule as MOOD_ICON in CheckinView).
+
+import type { DiaryEventKind } from '@/api/types'
+
+export const FEED_KIND_TITLE: Record<DiaryEventKind, string> = {
+  booking_confirmed:            'Вы записались',
+  booking_cancelled_by_user:    'Вы отменили запись',
+  practice_rescheduled:         'Мастер перенёс практику',
+  practice_cancelled_by_master: 'Практика отменена',
+  practice_outcome:             '',          // uses practice_title from snapshot
+  checkin:                      'Check-in',  // + ": " + mood label
+  feedback:                     'Feedback',  // + ": " + rating label
+  note:                         'Дневник',
+  dream:                        'Сонник',
+}
+
+/**
+ * Outcome badge label for a practice_outcome card.
+ * attended -> "Done" (teal), no_show -> "Не состоялась".
+ */
+export const OUTCOME_LABEL: Record<string, string> = {
+  attended: 'Done',
+  no_show:  'Не состоялась',
+}
+
+// ---------------------------------------------------------------------------
 // Date helper
 // ---------------------------------------------------------------------------
 

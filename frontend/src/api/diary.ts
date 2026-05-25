@@ -36,6 +36,8 @@ import type {
   UpdateDiaryEntryRequest,
   DiaryEntryResponse,
   PaginatedDiaryEntriesResponse,
+  DiaryFeedResponse,
+  DiaryFeedFilters,
   PracticeInsightsResponse,
   Mood,
   FeedbackRating,
@@ -173,6 +175,43 @@ export function listDiaryEntries(
     offset: params.offset ?? 0,
   })
   return api.get<PaginatedDiaryEntriesResponse>(`/api/v1/diary${query}`)
+}
+
+// ============================================================================
+// Diary feed (unified timeline)
+// ============================================================================
+
+export interface ListDiaryFeedParams extends DiaryFeedFilters {
+  // occurred_at of the last item from the previous page; the next page
+  // returns events strictly older than this. Omit for the first page.
+  cursor?: string
+  limit?: number
+}
+
+/**
+ * Fetch the unified diary timeline (cursor-paginated).
+ *
+ * Aggregates every projected activity (bookings, practice outcomes,
+ * check-ins, feedbacks, notes/dreams) newest-first. Filter chips map to
+ * `category` (repeated param); `search` is a case-insensitive text match.
+ *
+ * Pagination is cursor-based: pass `cursor` = previous response's
+ * `next_cursor` to load the next page. `next_cursor === null` means the
+ * end of the feed.
+ */
+export function listDiaryFeed(
+  params: ListDiaryFeedParams = {},
+): Promise<DiaryFeedResponse> {
+  const query = buildQuery({
+    // categories[] -> repeated `category` query params (FastAPI list[...]).
+    category: params.categories,
+    date_from: params.date_from,
+    date_to: params.date_to,
+    search: params.search,
+    cursor: params.cursor,
+    limit: params.limit,
+  })
+  return api.get<DiaryFeedResponse>(`/api/v1/diary/feed${query}`)
 }
 
 /**

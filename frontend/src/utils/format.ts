@@ -116,6 +116,38 @@ export function formatTime(
 }
 
 /**
+ * Format an ISO datetime into the diary feed card date line:
+ *   "23 января • Пятница • 14:35"
+ * (day + month, weekday, time -- separated by bullets, matching the design).
+ * Used by DiaryFeedCard. Defaults to the user's timezone (the diary is a
+ * personal timeline -- "when it happened in my time").
+ */
+export function formatFeedDateTime(
+  isoString: string,
+  timezone = 'UTC',
+  locale = 'ru',
+): string {
+  const date = new Date(isoString)
+  const dayMonth = new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  }).format(date)
+  const weekday = new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    timeZone: timezone,
+  }).format(date)
+  const time = new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: timezone,
+  }).format(date)
+  // Capitalize the weekday (Intl returns lowercase in ru: "пятница").
+  const weekdayCap = weekday.charAt(0).toUpperCase() + weekday.slice(1)
+  return `${dayMonth} • ${weekdayCap} • ${time}`
+}
+
+/**
  * Format duration in minutes into a readable string.
  *
  * Examples:
