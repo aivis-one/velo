@@ -30,8 +30,8 @@
       </button>
     </header>
 
-    <!-- Scrollable feed body -->
-    <div ref="scrollEl" class="diary-feed__body">
+    <!-- Feed body (flows inside the shell's scroll container) -->
+    <div class="diary-feed__body">
       <!-- Initial loading -->
       <div v-if="initialLoading" class="diary-feed__state">
         <VLoader size="lg" />
@@ -134,7 +134,6 @@ onMounted(async () => {
 
 // -- Infinite scroll ---------------------------------------------------------
 
-const scrollEl = ref<HTMLElement | null>(null)
 const sentinelEl = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
@@ -151,7 +150,7 @@ function setupObserver(): void {
         void diaryStore.loadMoreFeed()
       }
     },
-    { root: scrollEl.value, rootMargin: '120px' },
+    { rootMargin: '120px' },
   )
   observer.observe(sentinelEl.value)
 }
@@ -168,11 +167,15 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* The diary lives inside MobileLayout > main (which is the single scroll
+   container: flex:1; overflow-y:auto; padding:16px). This view must NOT
+   create its own height/scroll -- it flows in that container. The composer
+   sticks to the bottom of the scroll viewport via position:sticky, sitting
+   just above the tab bar (which is a sibling of main, not inside it). */
 .diary-feed {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  position: relative;
+  min-height: 100%;
 }
 
 /* -- Header -- */
@@ -180,8 +183,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-5) var(--space-8) var(--space-3);
-  flex-shrink: 0;
+  /* main already pads 16px; add a little top/side breathing room */
+  padding: var(--space-2) var(--space-2) var(--space-3);
 }
 
 .diary-feed__title {
@@ -209,13 +212,9 @@ onBeforeUnmount(() => {
   opacity: 0.85;
 }
 
-/* -- Body (scroll area) -- */
+/* -- Body (no own scroll -- the shell's main scrolls) -- */
 .diary-feed__body {
   flex: 1;
-  overflow-y: auto;
-  padding: 0 var(--space-8) var(--space-5);
-  /* room so the last cards clear the pinned composer */
-  padding-bottom: 90px;
 }
 
 .diary-feed__state {
@@ -232,19 +231,21 @@ onBeforeUnmount(() => {
   height: 1px;
 }
 
-/* -- Composer (pinned bottom) -- */
+/* -- Composer: sticks to the bottom of the scroll viewport, above the tab
+   bar. Negative side margins cancel main's 16px padding so the frosted pill
+   spans edge-to-edge background; the inner pill keeps the content width. -->
 .diary-feed__composer {
-  position: absolute;
-  left: 0;
-  right: 0;
+  position: sticky;
   bottom: 0;
   display: flex;
   justify-content: center;
-  padding: var(--space-3) var(--space-8) var(--space-5);
-  pointer-events: none;
-}
-
-.diary-feed__composer > * {
-  pointer-events: auto;
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  /* lift the pill above content scrolling beneath it */
+  background: linear-gradient(
+    to top,
+    var(--velo-bg-start) 60%,
+    transparent
+  );
 }
 </style>
