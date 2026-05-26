@@ -1853,13 +1853,21 @@ async def seed(reset: bool = False) -> None:
                         session, user,
                     )
 
-                # 5. Diary on banner practices (#12 check-in, #13 + #14).
-                #    Find the seeded banner practices by their titles.
+                # 5. Diary on the LIVE banner practice only (#14).
+                #
+                # The dashboard shows a "Пора на check-in!" banner for #12 and
+                # an "Оставьте feedback!" banner for #13 -- those practices
+                # exist to DEMO those prompts. The banners hide once the action
+                # is done (has_checkin / has_feedback), so we must NOT pre-seed
+                # the prompted action here, or the banner never appears:
+                #   - #12 "Утренняя медитация": no check-in -> check-in banner.
+                #   - #13 "Вечерняя медитация": no feedback -> feedback banner
+                #     (a PRE check-in is fine -- it does not affect that banner).
+                # #14 "Дневная практика (эфир)" is the live-now demo and drives
+                # no check-in/feedback banner, so its check-in stays for feed
+                # variety.
                 banner_titles_moods = {
-                    "Утренняя медитация": ("mid", None,
-                                           "Готовлюсь к утренней практике.", None),
-                    "Вечерняя медитация": ("high", "fire", None,
-                                           "Отличное завершение дня!"),
+                    "Вечерняя медитация": ("high", None, None, None),
                     "Дневная практика (эфир)": ("mid", None, None, None),
                 }
                 for practice, _tmpl in (
