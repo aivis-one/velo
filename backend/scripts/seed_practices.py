@@ -70,9 +70,9 @@ for _p in (_HERE, _BACKEND):
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import AuditLog
 from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
-from app.modules.audit.models import AuditLog
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import recalculate_participants
 from app.modules.diary.models import (
