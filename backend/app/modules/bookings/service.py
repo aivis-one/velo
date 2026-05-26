@@ -684,16 +684,28 @@ async def list_user_bookings(
     status_filter: str | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> tuple[list[tuple[Booking, Practice]], int]:
+) -> tuple[list[tuple[Booking, Practice, bool, bool]], int]:
     """List bookings for a user with practice details (paginated).
 
     B-05: count derived from base query subquery instead of maintaining
     a parallel count_base with duplicated filter clauses. Same pattern
     as list_user_checkins in diary/service.py.
 
+    Each row also carries two diary-state flags for the dashboard banners:
+      - has_feedback: the user already left a feedback for this practice.
+      - has_checkin:  the user already did a PRE check-in for this booking.
+    They let the dashboard hide the "оставьте feedback" / "пора на check-in"
+    prompt once done (and stop re-submitting through a stale banner). Computed
+    with two set-membership queries over the current page -- no N+1.
+
     Returns:
-        Tuple of (list of (Booking, Practice) pairs, total count).
+        Tuple of (list of (Booking, Practice, has_feedback, has_checkin)
+        tuples, total count).
     """
+    # Local import keeps the bookings -> diary dependency one-way and avoids
+    # any import-order surprise (diary.projections imports bookings lazily).
+    from app.modules.diary.models import Checkin, CheckType, Feedback
+
     base = (
         select(Booking, Practice)
         .join(Practice, Booking.practice_id == Practice.id)
@@ -717,9 +729,53 @@ async def list_user_bookings(
         .offset(offset)
     )
     result = await session.execute(items_stmt)
-    rows = result.all()
+    page = [(row[0], row[1]) for row in result.all()]
 
-    return [(row[0], row[1]) for row in rows], total
+    # Diary-state flags for this page (set membership -- no per-row query).
+    practice_ids = [b.practice_id for b, _ in page]
+    booking_ids = [b.id for b, _ in page]
+
+    feedback_practice_ids: set[UUID] = set()
+    if practice_ids:
+        feedback_practice_ids = set(
+            (
+                await session.execute(
+                    select(Feedback.practice_id)
+                    .where(
+                        Feedback.user_id == user.id,
+                        Feedback.practice_id.in_(practice_ids),
+                    )
+                    .distinct()
+                )
+            ).scalars().all()
+        )
+
+    checkin_booking_ids: set[UUID] = set()
+    if booking_ids:
+        checkin_booking_ids = set(
+            (
+                await session.execute(
+                    select(Checkin.booking_id)
+                    .where(
+                        Checkin.booking_id.in_(booking_ids),
+                        Checkin.check_type == CheckType.PRE.value,
+                    )
+                    .distinct()
+                )
+            ).scalars().all()
+        )
+
+    items = [
+        (
+            booking,
+            practice,
+            booking.practice_id in feedback_practice_ids,
+            booking.id in checkin_booking_ids,
+        )
+        for booking, practice in page
+    ]
+
+    return items, total
 
 
 async def get_booking_by_id(

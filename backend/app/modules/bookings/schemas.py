@@ -87,6 +87,12 @@ class BookingWithPracticeResponse(BaseModel):
     left_at: datetime | None
     created_at: datetime
     updated_at: datetime | None
+    # Diary state for the dashboard banners: whether the current user has
+    # already left a feedback for this practice / done a PRE check-in for this
+    # booking. Lets the dashboard hide the "оставьте feedback" / "пора на
+    # check-in" prompt once done (and stops re-submitting via a stale banner).
+    has_feedback: bool
+    has_checkin: bool
     practice: PracticeSummary
 
     model_config = {"from_attributes": True}

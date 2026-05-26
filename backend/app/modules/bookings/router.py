@@ -159,9 +159,11 @@ async def list_my_bookings_endpoint(
                 left_at=booking.left_at,
                 created_at=booking.created_at,
                 updated_at=booking.updated_at,
+                has_feedback=has_feedback,
+                has_checkin=has_checkin,
                 practice=PracticeSummary.model_validate(practice),
             )
-            for booking, practice in items
+            for booking, practice, has_feedback, has_checkin in items
         ],
         total=total,
         limit=limit,

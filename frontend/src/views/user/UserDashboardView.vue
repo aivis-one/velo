@@ -278,11 +278,13 @@ const greetingText = computed((): string => {
 // Alert banners
 // =========================================================================
 
-/** First confirmed booking currently in the check-in window. */
+/** First confirmed booking currently in the check-in window, not yet done. */
 const checkinAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'confirmed') return false
+      // Hide once the user has already checked in (no re-submit via banner).
+      if (b.has_checkin) return false
       const scheduledMs = new Date(b.practice.scheduled_at).getTime()
       return isInCheckinWindow(scheduledMs, now.value)
     }) ?? null
@@ -300,11 +302,13 @@ const checkinAlertTime = computed((): string => {
   return ` • через ${hours} ч`
 })
 
-/** First attended booking currently in the feedback window. */
+/** First attended booking currently in the feedback window, not yet done. */
 const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
   return (
     bookingsStore.bookings.find((b) => {
       if (b.status !== 'attended') return false
+      // Hide once the user has already left feedback (no re-submit via banner).
+      if (b.has_feedback) return false
       const scheduledMs = new Date(b.practice.scheduled_at).getTime()
       return isInFeedbackWindow(scheduledMs, b.practice.duration_minutes, now.value)
     }) ?? null

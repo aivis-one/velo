@@ -28,6 +28,7 @@ import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { extractApiError } from '@/composables/useApiError'
 import { useCursorPagination } from '@/composables/useCursorPagination'
+import { useBookingsStore } from '@/stores/bookings'
 import {
   upsertCheckin,
   upsertFeedback,
@@ -73,6 +74,9 @@ export const useDiaryStore = defineStore('diary', () => {
     checkinSubmitting.value = true
     try {
       await upsertCheckin(practiceId, body)
+      // The check-in is now a feed event and flips the booking's has_checkin
+      // flag -- refresh both so the diary feed and dashboard banner update.
+      await refreshAfterDiaryMutation()
       return { ok: true, error: '' }
     } catch (e) {
       const message = extractApiError(e, 'Не удалось отправить check-in')
@@ -100,6 +104,9 @@ export const useDiaryStore = defineStore('diary', () => {
     feedbackSubmitting.value = true
     try {
       await upsertFeedback(practiceId, body)
+      // The feedback is now a feed event and flips the booking's has_feedback
+      // flag -- refresh both so the diary feed and dashboard banner update.
+      await refreshAfterDiaryMutation()
       return { ok: true, error: '' }
     } catch (e) {
       const message = extractApiError(e, 'Не удалось отправить feedback')
@@ -173,6 +180,22 @@ export const useDiaryStore = defineStore('diary', () => {
     const trimmed = query.trim()
     feedFilters.search = trimmed.length > 0 ? trimmed : undefined
     await feed.refresh()
+  }
+
+  /**
+   * Refresh the data a check-in / feedback mutation affects:
+   *   - the unified feed (a new event was projected onto the timeline), and
+   *   - the bookings list (the booking's has_feedback / has_checkin flag
+   *     flipped, so the dashboard banners hide and can't be re-submitted).
+   * Parallel + best-effort: a refresh failure must not fail the submit, and
+   * fetchFeed()/fetchMyBookings() skip their own load since the store is now
+   * fresh (the views read straight from it on navigation).
+   */
+  async function refreshAfterDiaryMutation(): Promise<void> {
+    await Promise.allSettled([
+      feed.refresh(),
+      useBookingsStore().refreshBookings(),
+    ])
   }
 
   // ===========================================================================
