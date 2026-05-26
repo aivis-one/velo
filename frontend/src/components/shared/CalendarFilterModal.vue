@@ -158,7 +158,16 @@ const emit = defineEmits<{
 
 // -- Chip option lists (label + value), values match the backend literals --
 const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
-  ['meditation', 'yoga', 'breathwork'] as PracticeDirection[]
+  [
+    'meditation',
+    'yoga',
+    'breathwork',
+    'somatic',
+    'tantra',
+    'womens_circle',
+    'mens_circle',
+    'kundalini',
+  ] as PracticeDirection[]
 ).map((v) => ({ value: v, label: DIRECTION_LABEL[v] }))
 
 const DIFFICULTY_CHIPS: { value: PracticeDifficulty; label: string }[] = (

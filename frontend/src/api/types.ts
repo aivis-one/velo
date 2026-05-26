@@ -126,7 +126,17 @@ export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'can
 export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
 
 // -- Calendar taxonomy facets (match backend data.taxonomy values) --
-export type PracticeDirection = 'meditation' | 'yoga' | 'breathwork'
+// Mirror of settings.practice_allowed_directions in backend/app/core/config.py.
+// Keep in sync when the backend list is extended.
+export type PracticeDirection =
+  | 'meditation'
+  | 'yoga'
+  | 'breathwork'
+  | 'somatic'
+  | 'tantra'
+  | 'womens_circle'
+  | 'mens_circle'
+  | 'kundalini'
 export type PracticeDifficulty = 'beginner' | 'medium' | 'high'
 // -- Calendar feed buckets (match backend filter literals) --
 export type DurationBucket = 'short' | 'long'

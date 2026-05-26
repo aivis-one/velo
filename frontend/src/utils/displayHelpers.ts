@@ -110,9 +110,14 @@ export const RATING_ICON_COLOR: Record<FeedbackRating, string> = {
 // do not duplicate these strings in components.
 
 export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
-  meditation: 'Медитация',
-  yoga:       'Йога',
-  breathwork: 'Дыхательные практики',
+  meditation:    'Медитация',
+  yoga:          'Йога',
+  breathwork:    'Дыхательные практики',
+  somatic:       'Соматика',
+  tantra:        'Тантра',
+  womens_circle: 'Женский круг',
+  mens_circle:   'Мужской круг',
+  kundalini:     'Кундалини',
 }
 
 // Direction -> icon component for the practice hero card.

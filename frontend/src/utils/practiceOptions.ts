@@ -32,6 +32,11 @@ export const DIRECTION_OPTIONS: { label: string; value: string }[] = [
   { label: 'Медитация',           value: 'meditation' },
   { label: 'Йога',                value: 'yoga' },
   { label: 'Дыхательные практики', value: 'breathwork' },
+  { label: 'Соматика',            value: 'somatic' },
+  { label: 'Тантра',              value: 'tantra' },
+  { label: 'Женский круг',        value: 'womens_circle' },
+  { label: 'Мужской круг',        value: 'mens_circle' },
+  { label: 'Кундалини',           value: 'kundalini' },
 ]
 
 export const DIFFICULTY_OPTIONS: { label: string; value: string }[] = [
