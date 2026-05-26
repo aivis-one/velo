@@ -261,6 +261,24 @@ async def list_user_checkins(
     return items, total
 
 
+async def get_checkin(
+    user: User,
+    checkin_id: UUID,
+    session: AsyncSession,
+) -> Checkin:
+    """Get a single check-in owned by the user (read-only detail).
+
+    Raises:
+        NotFoundError: Check-in not found or not owned by user.
+    """
+    checkin = await session.get(Checkin, checkin_id)
+
+    if checkin is None or checkin.user_id != user.id:
+        raise NotFoundError("Check-in not found")
+
+    return checkin
+
+
 # ===================================================================
 # Upsert feedback (Phase 8.2)
 # ===================================================================
@@ -461,6 +479,24 @@ async def list_user_feedbacks(
     items = list(result.scalars().all())
 
     return items, total
+
+
+async def get_feedback(
+    user: User,
+    feedback_id: UUID,
+    session: AsyncSession,
+) -> Feedback:
+    """Get a single feedback owned by the user (read-only detail).
+
+    Raises:
+        NotFoundError: Feedback not found or not owned by user.
+    """
+    feedback = await session.get(Feedback, feedback_id)
+
+    if feedback is None or feedback.user_id != user.id:
+        raise NotFoundError("Feedback not found")
+
+    return feedback
 
 
 # ===================================================================

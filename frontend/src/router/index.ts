@@ -78,6 +78,11 @@ const router = createRouter({
           component: () => import('@/views/user/EntryView.vue'),
         },
         {
+          path: 'diary/:type(checkin|feedback)/:id',
+          name: 'user-diary-detail',
+          component: () => import('@/views/user/DetailView.vue'),
+        },
+        {
           path: 'profile',
           name: 'user-profile',
           component: () => import('@/views/user/UserProfileView.vue'),

@@ -49,7 +49,9 @@ from app.modules.diary.schemas import (
 from app.modules.diary.service import (
     create_diary_entry,
     delete_diary_entry,
+    get_checkin,
     get_diary_entry,
+    get_feedback,
     get_practice_insights,
     list_diary_feed,
     list_user_checkins,
@@ -163,6 +165,20 @@ async def list_my_checkins_endpoint(
     )
 
 
+@checkins_router.get(
+    "/checkins/{checkin_id}",
+    response_model=CheckinResponse,
+)
+async def get_checkin_endpoint(
+    checkin_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> CheckinResponse:
+    """Get a single check-in owned by the current user (read-only detail)."""
+    checkin = await get_checkin(user, checkin_id, session)
+    return CheckinResponse.model_validate(checkin)
+
+
 # ===================================================================
 # Feedback endpoints (Phase 8.2)
 # ===================================================================
@@ -233,6 +249,20 @@ async def list_my_feedbacks_endpoint(
         limit=limit,
         offset=offset,
     )
+
+
+@feedbacks_router.get(
+    "/feedbacks/{feedback_id}",
+    response_model=FeedbackResponse,
+)
+async def get_feedback_endpoint(
+    feedback_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> FeedbackResponse:
+    """Get a single feedback owned by the current user (read-only detail)."""
+    feedback = await get_feedback(user, feedback_id, session)
+    return FeedbackResponse.model_validate(feedback)
 
 
 # ===================================================================

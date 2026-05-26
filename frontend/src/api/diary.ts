@@ -88,6 +88,13 @@ export function listMyCheckins(
   return api.get<PaginatedCheckinsResponse>(`/api/v1/users/me/checkins${query}`)
 }
 
+/**
+ * Fetch a single check-in by ID (read-only detail).
+ */
+export function getCheckin(id: string): Promise<CheckinResponse> {
+  return api.get<CheckinResponse>(`/api/v1/users/me/checkins/${id}`)
+}
+
 // ============================================================================
 // Feedback
 // ============================================================================
@@ -133,6 +140,13 @@ export function listMyFeedbacks(
     offset: params.offset ?? 0,
   })
   return api.get<PaginatedFeedbacksResponse>(`/api/v1/users/me/feedbacks${query}`)
+}
+
+/**
+ * Fetch a single feedback by ID (read-only detail).
+ */
+export function getFeedback(id: string): Promise<FeedbackResponse> {
+  return api.get<FeedbackResponse>(`/api/v1/users/me/feedbacks/${id}`)
 }
 
 // ============================================================================

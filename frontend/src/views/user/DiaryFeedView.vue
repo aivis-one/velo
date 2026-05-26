@@ -129,15 +129,37 @@ const loadingMore = computed(
 // -- Tap handling ------------------------------------------------------------
 
 function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
+  const item = payload.item
   if (payload.editable) {
     // note/dream -- open the full entry screen (view/edit/delete). The card's
     // source_id is the DiaryEntry id.
     void router.push({
       name: 'user-diary-entry',
-      params: { id: payload.item.source_id },
+      params: { id: item.source_id },
     })
+    return
   }
-  // Other cards (practice/checkin/feedback detail) land in Batch 1b.
+
+  // Read-only detail for check-in / feedback (source_id is the row id).
+  if (item.kind === 'checkin' || item.kind === 'feedback') {
+    void router.push({
+      name: 'user-diary-detail',
+      params: { type: item.kind, id: item.source_id },
+    })
+    return
+  }
+
+  // Practice outcome -> existing practice detail page (source_id is the
+  // practice id, per project_practice_outcome).
+  if (item.kind === 'practice_outcome') {
+    void router.push({
+      name: 'practice-detail',
+      params: { id: item.source_id },
+    })
+    return
+  }
+
+  // Banner kinds (booking_confirmed/cancelled/rescheduled) are not tappable.
 }
 
 function onMenu(): void {

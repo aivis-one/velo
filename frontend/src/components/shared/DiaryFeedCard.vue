@@ -41,7 +41,12 @@
   <!-- ===================== PRACTICE ===================== -->
   <div
     v-else-if="form === 'practice'"
-    class="feed-card feed-card--practice"
+    class="feed-card feed-card--practice feed-card--tappable"
+    role="button"
+    tabindex="0"
+    @click="onTap"
+    @keydown.enter="onTap"
+    @keydown.space.prevent="onTap"
   >
     <p class="feed-card__practice-title">{{ practiceTitle }}</p>
 
@@ -361,6 +366,11 @@ function onTap(): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Practice card is tappable (-> practice detail). */
+.feed-card--tappable {
+  cursor: pointer;
 }
 
 .feed-card__practice-title {
