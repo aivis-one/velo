@@ -154,6 +154,8 @@ export interface BookingWithPracticeResponse {
   left_at: string | null
   created_at: string
   updated_at: string | null
+  has_feedback: boolean
+  has_checkin: boolean
   practice: PracticeSummary
 }
 
