@@ -40,7 +40,7 @@
 | `withdrawals` | `app/modules/withdrawals/` | Запросы на вывод средств |
 | `reports` | `app/modules/reports/` | Жалобы пользователей |
 | `notifications` | `app/modules/notifications/` | Telegram-бот, процессор, шаблоны, напоминания |
-| `diary` | `app/modules/diary/` | Check-ins, feedbacks, diary entries, insights |
+| `diary` | `app/modules/diary/` | Check-ins, feedbacks, diary entries, insights; append-only `DiaryEvent` journal (`models.py`) + `projections.py` (единственный писатель журнала) + единая лента `GET /diary/feed` (cursor) |
 | `admin` | `app/modules/admin/` | Верификация мастеров, модерация, семафоры |
 | `ai` | `app/modules/ai/` | Розетка AI-саммари (Phase 9) |
 
@@ -188,12 +188,46 @@ GET   /api/v1/reports/me            -- Мои жалобы (пагинация)
 ### Diary
 
 ```
-POST   /api/v1/diary                -- Создать запись дневника
-GET    /api/v1/diary                -- Мои записи дневника (пагинация)
+POST   /api/v1/diary                -- Создать запись дневника (note/dream)
+GET    /api/v1/diary                -- Мои записи дневника (пагинация, legacy)
 GET    /api/v1/diary/{id}           -- Запись дневника
 PATCH  /api/v1/diary/{id}           -- Обновить запись
-DELETE /api/v1/diary/{id}           -- Удалить запись
+DELETE /api/v1/diary/{id}           -- Удалить запись (soft-delete)
+GET    /api/v1/diary/feed           -- Единая лента дневника (cursor pagination)
 ```
+
+**Diary redesign (журнал событий + единая лента).** Поверх неизменных
+таблиц-источников (Booking, Practice, Checkin, Feedback, DiaryEntry) работает
+тонкий append-only журнал `DiaryEvent`, который наполняется ТОЛЬКО через
+`projections.py` в момент мутации источника (в той же транзакции). Лента
+`GET /api/v1/diary/feed` отдаёт события из журнала, отсортированные
+newest-first, с курсорной пагинацией (`{ items, next_cursor }`,
+`next_cursor === null` = конец).
+
+9 видов событий (`DiaryEventKind`): `booking_confirmed`,
+`booking_cancelled_by_user`, `practice_rescheduled`,
+`practice_cancelled_by_master`, `practice_outcome`, `checkin`, `feedback`,
+`note`, `dream`. Каждое событие несёт `snapshot` (денормализованный слепок
+источника на момент события) — лента самодостаточна и не делает JOIN к
+источникам при чтении.
+
+**Snapshot-контракт** (что кладёт `projections.py`):
+- `_practice_snapshot` (базовый): `practice_id, practice_title, master_id,
+  master_name, scheduled_at, duration_minutes, direction`. NB: аватар мастера
+  и verified-флаг в snapshot НЕ входят (TD-DIARY-PRACTICE-AVATAR).
+- `practice_outcome` += `outcome_status` (`attended` / `no_show`).
+- `practice_rescheduled` += `old_scheduled_at`, `new_scheduled_at`.
+- `checkin` += `mood`, `comment_preview`.
+- `feedback` += `rating`, `comment_preview`.
+- `note` / `dream` (entry): `entry_type, title, content_preview, mood,
+  practice_id, practice_phase`.
+
+Миграция журнала: `c4d5e6f7a8b9`.
+
+Открытый техдолг бэка дневника: TD-DIARY-FEED-CURSOR-TIEBREAK (стабильный
+тай-брейк курсора при равных `occurred_at`), TD-DIARY-SNAPSHOT-TYPED
+(типизировать snapshot вместо открытого dict), TD-DIARY-CANCEL-COMMENT
+(причина отмены в snapshot), TD-ASK-MASTER (вопрос мастеру с узлов нити).
 
 ### Admin
 
@@ -465,6 +499,28 @@ Practice получил JSONB-колонку `data` (миграция `b2c3d4e5f
 
 Тесты: `tests/test_master_public.py` — 11 тестов (verified/404, счётчики,
 изоляция полей), диапазон `telegram_id` 56xxx.
+
+---
+
+### 3.10. Diary projections — единственный писатель журнала (Diary redesign)
+
+`DiaryEvent` — append-only журнал поверх неизменных источников. Инвариант:
+**журнал наполняется ТОЛЬКО через `projections.py`, и только в момент мутации
+источника, в той же транзакции.** Никакой код не пишет `DiaryEvent` напрямую
+через ORM в обход проекций, и журнал НЕ наполняется задним числом (backfill
+отсутствует by design).
+
+- Функции-проекции (`project_*` / `upsert_*_event` в `projections.py`)
+  вызываются из сервисов источников (bookings/practices/diary) сразу после
+  успешной мутации, до коммита, через ленивый импорт (избегаем циклов).
+- Каждое событие несёт денормализованный `snapshot` (см. snapshot-контракт в
+  разделе «Diary» выше). Лента читается без JOIN к источникам.
+- Следствие для сидов и фикстур: чтобы события появились в ленте, seed ДОЛЖЕН
+  вызывать проекции (или идти через те же сервисные функции, что и прод), а не
+  создавать Booking/Practice/Checkin напрямую — иначе журнал останется пустым
+  при наполненных источниках.
+- Чтение: `GET /diary/feed`, курсорная пагинация newest-first. Открытый
+  тай-брейк при равных `occurred_at` — TD-DIARY-FEED-CURSOR-TIEBREAK.
 
 ---
 

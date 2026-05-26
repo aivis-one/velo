@@ -1099,13 +1099,17 @@ export const api = {
 
 ### F9.2: Дневник
 
-**Цель:** Личные записи юзера.
+> **⚠️ Замещено PHASE F12 (Diary redesign).** Вкладочный `DiaryView` ниже —
+> исходный план; он реализован, затем переделан в единую ленту-нить
+> `DiaryFeedView` (см. PHASE F12). Раздел сохранён как история.
 
-**Задачи:**
-- [ ] src/views/user/DiaryView.vue:
-  - Вкладки: Все / Check-ins / Feedbacks / Записи
-  - CRUD записей дневника
-  - GET /api/v1/diary
+**Цель (исходная):** Личные записи юзера.
+
+**Задачи (исходные, заменены F12):**
+- [x] ~~src/views/user/DiaryView.vue~~ → удалён, заменён `DiaryFeedView`:
+  - ~~Вкладки: Все / Check-ins / Feedbacks / Записи~~
+  - CRUD записей дневника (сохранён, теперь рефрешит ленту)
+  - ~~GET /api/v1/diary~~ → `GET /api/v1/diary/feed` (cursor)
 
 **Зависимость от бэкенда:** Phase 8 бэкенда (Phase 8.4 ✅ — **разблокировано**).
 
@@ -1224,6 +1228,38 @@ COALESCE в merge, +5 бэкенд-тестов на инвариант рело
 
 **Критерий готовности:** Новый юзер видит Welcome -> онбординг -> подтверждает таймзону ->
 попадает в приложение; флаг переживает релогин. ✅
+
+---
+
+## PHASE F12: Diary redesign — единая лента-нить ✅
+
+**Цель:** Заменить вкладочный `DiaryView` (Все / Check-ins / Feedbacks /
+Записи) единой лентой активности, отрисованной как «нить» (Figma экран 40):
+карточки на центральной оси с альтернированием, дата-узлы, нижний композер.
+
+**Задачи:**
+- [x] Слой данных (1b-1): `api/types.ts` (+реэкспорт `DiaryFeedItem`/`DiaryFeedResponse`, UI-типы `DiaryEventKind`/`DiaryFeedCategory`/`DiaryFeedFilters`), `api/diary.ts` (`listDiaryFeed` — cursor+категории+дата+поиск), `composables/useCursorPagination.ts` (NEW), переписан `stores/diary.ts` (курсорная лента + фильтры; сохранены submit/CRUD/insights; удалены 3 offset-списка)
+- [x] Компоненты (1b-2): `components/shared/DiaryFeedCard.vue` (3 формы: banner/practice/standard), `DiaryComposer.vue` (нижний pill, создаёт note), `DiaryTimeline.vue` (нить с альтернированием), `views/user/DiaryFeedView.vue` (шапка + нить + infinite scroll + композер); новые иконки (IconPen/IconDreamBook/IconDots/IconMic/IconSend/IconDateLeaf)
+- [x] `router/index.ts` — `user-diary` → `DiaryFeedView`
+- [x] Удалены старый `DiaryView.vue` + 5 sub-компонентов (DiaryList/DiaryCheckinDetail/DiaryFeedbackDetail/DiaryEntryDetail/DiaryEntryForm)
+- [x] `components/layout/MobileLayout.vue` — режим `fill` (чат-раскладка: скроллится только лента, композер фиксирован над таб-баром); `UserShell.vue` включает fill по роуту дневника
+- [x] `vite.config.ts` — PWA build fix (runtimeCaching, убран `manifest:false`)
+
+**Ключевые решения:**
+- Вид дневника = **только нить** (экран 40); list (41) и переключатель — отложены (TD-DIARY-LIST-VIEW).
+- Пагинация = **infinite scroll** (IntersectionObserver), курсорная (отступление от проектной кнопки «Показать ещё» — для чат-ленты читается естественнее).
+- Нить = **Уровень 2 упрощённый**: banner/practice по центру оси, standard чередуются L/R сквозным счётчиком со сбросом каждый день; дата-узлы по календарным дням в tz юзера; коннекторы — CSS-штрихи (не Figma-кривые).
+- Тап = **Вариант A**: note/dream → toast «Функция временно недоступна», остальное no-op; композер создаёт note (TD-DIARY-TAP-VARIANT-B).
+- Аватар мастера в practice-карточке убран (бэк не кладёт в snapshot — TD-DIARY-PRACTICE-AVATAR).
+
+**Зависимость от бэкенда:** Phase 8.5 (журнал + `/diary/feed`) ✅.
+
+**Открытый фронт-техдолг:** TD-DIARY-PRACTICE-AVATAR, TD-DIARY-TAP-VARIANT-B,
+TD-DIARY-LIST-VIEW, TD-DIARY-FILTER-SEARCH, TD-DIARY-ORNAMENT (см. Фронтовый
+Кодекс).
+
+**Критерий готовности:** Лента-нить рендерится, заметки создаются из
+композера, композер зафиксирован над таб-баром, сборка зелёная. ✅
 
 ---
 

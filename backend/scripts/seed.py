@@ -21,6 +21,10 @@
 #   - 12 practices across all types and statuses
 #   - Bookings with full double-entry ledger
 #   - User balances via topup ledger entries
+#   - Diary timeline events (DiaryEvent journal) for real users -- projected
+#     via diary/projections.py so they show up in GET /diary/feed: bookings,
+#     practice outcomes (attended + no_show), check-ins, feedbacks, and
+#     personal note/dream entries spread across several calendar days
 #
 # ROLE RULES:
 #   - Admin is always also a master (MasterProfile created).
@@ -57,8 +61,24 @@ from app.core.config import settings
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import recalculate_participants
-from app.modules.diary.models import Checkin, CheckType, DiaryEntry, Feedback
+from app.modules.diary.models import (
+    Checkin,
+    CheckType,
+    DiaryEntry,
+    DiaryEntryType,
+    DiaryEvent,
+    Feedback,
+)
+from app.modules.diary.projections import (
+    project_booking_cancelled,
+    project_booking_confirmed,
+    project_practice_outcome,
+    upsert_checkin_event,
+    upsert_entry_event,
+    upsert_feedback_event,
+)
 from app.modules.masters.models import MasterProfile
+from app.modules.masters.service import get_master_display_name
 from app.modules.notifications.models import Notification, NotificationDelivery
 from app.modules.payments.models import (
     CompanyLedger,
@@ -638,6 +658,70 @@ JOURNEY_PRACTICES: list[dict] = [
 
 
 # ===================================================================
+# Personal diary entries (note / dream) for the unified feed
+# ===================================================================
+#
+# Standalone journal entries (NOT tied to a practice) seeded onto every real
+# user's timeline. They give the feed its note ("Дневник") and dream
+# ("Сонник") cards -- the standard-card form the practice-derived events do
+# not produce -- and spread across a few calendar days so the date-nodes and
+# left/right alternation are visible. created_at is backdated (the projection
+# takes the event occurred_at from entry.created_at).
+DIARY_ENTRY_TEMPLATES: list[dict] = [
+    {
+        "entry_type": DiaryEntryType.NOTE.value,
+        "title": "Мысли после недели практик",
+        "content": (
+            "Замечаю, что стал спокойнее реагировать на мелкие раздражители. "
+            "Утренняя медитация явно держит фон ровнее в течение дня."
+        ),
+        "mood": "high",
+        "offset": timedelta(days=-1, hours=21),
+    },
+    {
+        "entry_type": DiaryEntryType.DREAM.value,
+        "title": "Сон про полёт над морем",
+        "content": (
+            "Снилось, будто лечу низко над водой, чувствую брызги и ветер. "
+            "Совсем не страшно -- наоборот, спокойствие и лёгкость."
+        ),
+        "mood": "mid",
+        "offset": timedelta(days=-1, hours=7),
+    },
+    {
+        "entry_type": DiaryEntryType.NOTE.value,
+        "title": "Короткая запись дня",
+        "content": (
+            "День выдался суматошный, но вечерняя практика помогла собраться "
+            "и отпустить лишнее."
+        ),
+        "mood": "mid",
+        "offset": timedelta(days=-3, hours=22),
+    },
+    {
+        "entry_type": DiaryEntryType.DREAM.value,
+        "title": "Странный сон с лабиринтом",
+        "content": (
+            "Долго блуждал по бесконечным коридорам в поисках выхода. "
+            "Проснулся с ощущением, что что-то важное осталось недосказанным."
+        ),
+        "mood": None,
+        "offset": timedelta(days=-5, hours=6),
+    },
+    {
+        "entry_type": DiaryEntryType.NOTE.value,
+        "title": "Намерение на месяц",
+        "content": (
+            "Хочу довести до автоматизма утреннюю практику и добавить короткую "
+            "дыхательную сессию перед сном."
+        ),
+        "mood": "high",
+        "offset": timedelta(days=-8, hours=20),
+    },
+]
+
+
+# ===================================================================
 # Interactive input
 # ===================================================================
 
@@ -752,7 +836,10 @@ async def wipe_all_data(session: AsyncSession) -> None:
     await session.execute(delete(NotificationDelivery))
     await session.execute(delete(Notification))
 
-    # 2. Diary: check-ins, feedbacks, personal entries.
+    # 2. Diary: timeline journal first, then check-ins, feedbacks, entries.
+    # DiaryEvent.user_id is ON DELETE CASCADE, but we delete it explicitly
+    # (same pattern as the rest of this wipe) so a re-seed starts clean.
+    await session.execute(delete(DiaryEvent))
     await session.execute(delete(Checkin))
     await session.execute(delete(Feedback))
     await session.execute(delete(DiaryEntry))
@@ -1112,7 +1199,19 @@ async def create_seed_diary(
       completed (matches the real feedback condition: attended + completed).
     - Comments are written only when non-empty (model requires min_length=1).
     - Idempotent: skips if a matching row already exists.
+
+    DIARY FEED (redesign): after creating each source row we project it onto
+    the timeline journal via the SAME upsert_* functions production uses
+    (diary/service.py), so the row shows up in GET /diary/feed. The projection
+    reads occurred_at from the source's created_at, so we backdate created_at:
+    the check-in lands just before the practice, the feedback just after it.
+    Both are clamped to NOW so future / live practices (banner check-ins)
+    never project an event with a future timestamp. All callers pass real
+    users, so projecting unconditionally here is fine.
     """
+    # Master display name for the snapshot (one lookup, reused below).
+    master_name = await get_master_display_name(practice.master_id, session)
+
     # -- Check-in (one PRE per booking) --
     existing_checkin = (
         await session.execute(
@@ -1131,8 +1230,21 @@ async def create_seed_diary(
             comment=checkin_comment or None,
             check_type=CheckType.PRE.value,
         )
+        # Backdate so the projected event sits on the practice's day, just
+        # before it; clamp to NOW for future / live practices.
+        checkin.created_at = min(
+            practice.scheduled_at - timedelta(minutes=30), NOW,
+        )
         session.add(checkin)
         await session.flush()
+
+        # Diary feed projection (occurred_at = checkin.created_at).
+        await upsert_checkin_event(
+            session,
+            checkin=checkin,
+            practice=practice,
+            master_name=master_name,
+        )
 
     # -- Feedback (one per practice+user, only for completed practices) --
     if rating is not None and practice.status == PracticeStatus.COMPLETED.value:
@@ -1152,8 +1264,117 @@ async def create_seed_diary(
                 rating=rating,
                 comment=feedback_comment or None,
             )
+            # Backdate to just after the practice ended; clamp to NOW.
+            feedback.created_at = min(
+                practice.scheduled_at
+                + timedelta(minutes=practice.duration_minutes + 15),
+                NOW,
+            )
             session.add(feedback)
             await session.flush()
+
+            # Diary feed projection (occurred_at = feedback.created_at).
+            await upsert_feedback_event(
+                session,
+                feedback=feedback,
+                practice=practice,
+                master_name=master_name,
+            )
+
+
+# ===================================================================
+# Diary feed projections for seeded bookings (redesign)
+# ===================================================================
+
+async def project_seed_booking_events(
+    session: AsyncSession,
+    booking: Booking,
+    practice: Practice,
+    *,
+    outcome_status: str | None = None,
+) -> None:
+    """Project the timeline events for a freshly seeded booking.
+
+    Mirrors the production projection sites (bookings/service.py):
+      - booking_confirmed: always, occurred_at set just before the practice
+        (the seeded booking has no realistic created_at to reuse, so we pass
+        an explicit time -- the projection accepts occurred_at directly).
+      - practice_outcome: only when the booking is finalized, with the given
+        status (attended / no_show), occurred_at at the practice end.
+
+    Call ONLY for newly created bookings of real users: the per-fact kinds are
+    append-only, so re-projecting on a re-run would duplicate rows. The journey
+    callers gate on `create_seed_booking(...) is not None` (a fresh booking).
+    """
+    master_name = await get_master_display_name(practice.master_id, session)
+
+    booked_at = min(practice.scheduled_at - timedelta(hours=2), NOW)
+    await project_booking_confirmed(
+        session,
+        booking=booking,
+        practice=practice,
+        master_name=master_name,
+        occurred_at=booked_at,
+    )
+
+    if outcome_status is not None:
+        ended_at = min(
+            practice.scheduled_at
+            + timedelta(minutes=practice.duration_minutes),
+            NOW,
+        )
+        await project_practice_outcome(
+            session,
+            practice=practice,
+            master_name=master_name,
+            outcomes=[(booking.user_id, booking.id, outcome_status)],
+            occurred_at=ended_at,
+        )
+
+
+async def create_seed_diary_entries(
+    session: AsyncSession,
+    user: User,
+) -> int:
+    """Seed standalone diary entries (note / dream) onto a real user's feed.
+
+    Each entry is created directly with a backdated created_at, then projected
+    via upsert_entry_event (the same path diary/service.py uses), so it lands
+    in the timeline journal on the right day. These give the feed its note
+    ("Дневник") and dream ("Сонник") cards. Idempotent: skips an entry whose
+    (user, title, type) already exists. Returns the number of entries created.
+    """
+    created = 0
+    for tmpl in DIARY_ENTRY_TEMPLATES:
+        exists = (
+            await session.execute(
+                select(DiaryEntry.id).where(
+                    DiaryEntry.user_id == user.id,
+                    DiaryEntry.title == tmpl["title"],
+                    DiaryEntry.entry_type == tmpl["entry_type"],
+                ).limit(1)
+            )
+        ).scalar_one_or_none()
+        if exists is not None:
+            continue
+
+        entry = DiaryEntry(
+            user_id=user.id,
+            entry_type=tmpl["entry_type"],
+            title=tmpl["title"],
+            content=tmpl["content"],
+            mood=tmpl.get("mood"),
+        )
+        # Backdate so the projected event's occurred_at lands on the chosen
+        # day (the projection takes occurred_at from entry.created_at).
+        entry.created_at = NOW + tmpl["offset"]
+        session.add(entry)
+        await session.flush()
+
+        await upsert_entry_event(session, entry=entry)
+        created += 1
+
+    return created
 
 
 # ===================================================================
@@ -1475,11 +1696,14 @@ async def seed(reset: bool = False) -> None:
             log("Seeding real-user journey (history + diary + statuses)...")
 
             # Real users only (exclude dummies). These are the people who will
-            # actually open the app and need a rich, varied history.
+            # actually open the app and need a rich, varied history. Real
+            # Telegram IDs are large, so "real" == above the dummy range
+            # (matches the banner-booking predicate; the dummy range is
+            # 9900001..9900030).
             journey_users = [
                 u for u in all_users
                 if u.telegram_id is not None
-                and u.telegram_id < DUMMY_TID_MIN
+                and u.telegram_id > DUMMY_TID_MAX
             ]
 
             journey_master = master_by_tid.get(JOURNEY_MASTER_TID)
@@ -1559,6 +1783,11 @@ async def seed(reset: bool = False) -> None:
                         b = await create_seed_booking(session, user, practice)
                         if b is not None:
                             journey_bookings += 1
+                            # Diary feed: booking_confirmed + attended outcome.
+                            await project_seed_booking_events(
+                                session, b, practice,
+                                outcome_status=BookingStatus.ATTENDED.value,
+                            )
                             await create_seed_diary(
                                 session, b, practice,
                                 mood=jt["mood"],
@@ -1579,6 +1808,28 @@ async def seed(reset: bool = False) -> None:
                             cb.cancellation_reason = "Не смогу присутствовать"
                             await session.flush()
                             journey_bookings += 1
+                            # Diary feed: honest chronology -- confirmed first,
+                            # then cancelled (two rows). Confirm strictly before
+                            # the cancel instant (cancel_practice is in the
+                            # future, so a generic "2h before" would clamp to
+                            # NOW and land after the cancel).
+                            cancel_master = await get_master_display_name(
+                                cancel_practice.master_id, session,
+                            )
+                            await project_booking_confirmed(
+                                session,
+                                booking=cb,
+                                practice=cancel_practice,
+                                master_name=cancel_master,
+                                occurred_at=cb.cancelled_at - timedelta(days=1),
+                            )
+                            await project_booking_cancelled(
+                                session,
+                                booking=cb,
+                                practice=cancel_practice,
+                                master_name=cancel_master,
+                                occurred_at=cb.cancelled_at,
+                            )
 
                     # 3. No-show booking (attended-window missed).
                     if noshow_practice is not None:
@@ -1591,8 +1842,18 @@ async def seed(reset: bool = False) -> None:
                             nb.left_at = None
                             await session.flush()
                             journey_bookings += 1
+                            # Diary feed: booking_confirmed + no_show outcome.
+                            await project_seed_booking_events(
+                                session, nb, noshow_practice,
+                                outcome_status=BookingStatus.NO_SHOW.value,
+                            )
 
-                # 4. Diary on banner practices (#12 check-in, #13 + #14).
+                    # 4. Personal diary entries (note / dream) for the feed.
+                    journey_diary += await create_seed_diary_entries(
+                        session, user,
+                    )
+
+                # 5. Diary on banner practices (#12 check-in, #13 + #14).
                 #    Find the seeded banner practices by their titles.
                 banner_titles_moods = {
                     "Утренняя медитация": ("mid", None,

@@ -2568,6 +2568,52 @@ backend/tests/
 
 ---
 
+### 8.5: Diary redesign — журнал событий + единая лента ✅
+
+**Цель:** Заменить разрозненные списки (checkins / feedbacks / entries) единой
+лентой активности дневника поверх неизменных источников.
+
+**Задачи:**
+- [x] app/modules/diary/models.py — `DiaryEvent` (append-only журнал), `DiaryEventKind` (9 видов)
+- [x] app/modules/diary/projections.py — единственный писатель журнала (`project_*` / `upsert_*_event`), вызывается из сервисов источников в той же транзакции
+- [x] app/modules/diary/schemas.py — `DiaryFeedItem`, `DiaryFeedResponse` (cursor)
+- [x] app/modules/diary/service.py — `list_diary_feed` (cursor pagination, newest-first)
+- [x] GET /api/v1/diary/feed (cursor: `{ items, next_cursor }`, `next_cursor === null` = конец)
+- [x] Миграция: c4d5e6f7a8b9 (create diary_events table)
+- [x] 459 passed, 3 skipped
+
+**9 видов событий (`DiaryEventKind`):** booking_confirmed,
+booking_cancelled_by_user, practice_rescheduled, practice_cancelled_by_master,
+practice_outcome, checkin, feedback, note, dream.
+
+**Snapshot-контракт** (денормализованный слепок в каждом событии — лента
+самодостаточна, без JOIN при чтении):
+- базовый `_practice_snapshot`: practice_id, practice_title, master_id,
+  master_name, scheduled_at, duration_minutes, direction (аватар/verified НЕ
+  входят — TD-DIARY-PRACTICE-AVATAR);
+- practice_outcome += outcome_status (attended/no_show);
+- practice_rescheduled += old_scheduled_at, new_scheduled_at;
+- checkin += mood, comment_preview;
+- feedback += rating, comment_preview;
+- note/dream (entry): entry_type, title, content_preview, mood, practice_id,
+  practice_phase.
+
+**Ключевые решения:**
+- Источники (Booking/Practice/Checkin/Feedback/DiaryEntry) НЕ меняются —
+  журнал тонкий слой поверх. Старые эндпоинты списков сохранены (legacy).
+- **Инвариант:** журнал пишется ТОЛЬКО через проекции в момент мутации
+  источника; backfill отсутствует by design (см. Бэковый Кодекс §3.10). Seed
+  обязан вызывать проекции, иначе лента пуста при наполненных источниках.
+
+**Открытый техдолг:** TD-DIARY-FEED-CURSOR-TIEBREAK (тай-брейк курсора при
+равных occurred_at), TD-DIARY-SNAPSHOT-TYPED (типизировать snapshot),
+TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER.
+
+**Критерий готовности:** Единая лента отдаётся с курсорной пагинацией; события
+проецируются при мутации источников. ✅
+
+---
+
 ## PHASE 9: Полировка + розетки
 
 ### 9.1: AI-саммари розетка

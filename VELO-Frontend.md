@@ -89,7 +89,7 @@ frontend/
 │   │   ├── bookings.ts        -- Бронирования, purchase, waitlist
 │   │   ├── payments.ts        -- Topup
 │   │   ├── masters.ts         -- Apply, profile, payout, withdrawals
-│   │   ├── diary.ts           -- Check-ins, feedbacks, entries, insights
+│   │   ├── diary.ts           -- Check-ins, feedbacks, entries, insights, listDiaryFeed (cursor)
 │   │   └── admin.ts           -- Stats, verify, reports, consistency
 │   │
 │   ├── components/
@@ -101,7 +101,8 @@ frontend/
 │   │
 │   ├── composables/
 │   │   ├── useAuth.ts         -- Login/logout flow + waitUntilReady()
-│   │   ├── usePagination.ts   -- Пагинация + infinite scroll
+│   │   ├── usePagination.ts   -- Пагинация + infinite scroll (offset)
+│   │   ├── useCursorPagination.ts -- Курсорная пагинация (Diary feed: {items,next_cursor})
 │   │   ├── useToast.ts        -- Всплывающие уведомления
 │   │   └── useForm.ts         -- Валидация форм
 │   │
@@ -119,7 +120,7 @@ frontend/
 │   │   ├── bookings.ts        -- my bookings
 │   │   ├── balance.ts         -- balance_cents, operations
 │   │   ├── master.ts          -- master profile, practices, finance
-│   │   └── diary.ts           -- checkins, feedbacks, entries, insights cache
+│   │   └── diary.ts           -- unified cursor feed (feedItems/filters), submit checkin/feedback, entry CRUD, insights cache
 │   │
 │   ├── styles/
 │   │   ├── variables.css      -- Дизайн-токены (единственный источник цветов)
@@ -162,7 +163,7 @@ frontend/
 -- User --
 /user/dashboard             → UserDashboardView
 /user/calendar              → CalendarView
-/user/diary                 → DiaryView
+/user/diary                 → DiaryFeedView             (name: user-diary -- единая лента-нить, экран 40; шелл в fill-режиме)
 /user/profile               → UserProfileView
 /user/practices/:id         → PracticeDetailView
 /user/practice-live/:practiceId → PracticeLiveView      (name: practice-live -- экран 14, live-сессия + Zoom)
@@ -306,7 +307,7 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 |-----------|----------|
 | `VHeader` | Заголовок с кнопкой назад и action-слотом справа |
 | `VTabBar` | Нижняя навигация, конфигурируется через `items` пропс. Редизайн по Figma: круглые стеклянные "пузыри" 63x63, без подписей (aria-label сохранён). Активная вкладка — растворённый пузырь + `box-shadow: var(--velo-shadow-glow)` (мягкое свечение), различается ТОЛЬКО свечением, не размером. Иконки 27x27 (`fill="currentColor"`). Поле `badge` в интерфейсе оставлено, но не рендерится |
-| `MobileLayout` | Header-слот + `<slot>` + VTabBar (user и master) |
+| `MobileLayout` | Header-слот + `<slot>` + VTabBar (user и master). Проп `fill?` (по умолчанию false): в fill-режиме `main` не скроллится сам, а отдаёт полную высоту дочернему вью (для чат-экранов с фиксированным низом — дневник). Включается в UserShell по роуту `user-diary` |
 | `AdminLayout` | Аналогично, отдельный для будущего desktop-варианта |
 
 ### 3.3. Shared-компоненты (src/components/shared/)
@@ -323,6 +324,9 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `WeekStrip` | (Calendar) недельная лента: 7 пилюль ПН-ВС (день+число+точка-маркер), активный день залит `--velo-primary`, стрелки ←→. Dumb: пропы `days/selectedDate/daysWithPractices/localDateKey`, эмиты `select-day/prev-week/next-week`. Пилюли rounded-15 (Figma 44×71), стрелки — inline SVG (в DS нет компонента-стрелки) |
 | `CalendarPracticeCard` | (Calendar) карточка практики фида на визуальном языке `BookingCard` (иконка-в-круге 46px, мастер+verified, мета 🗓️/🕐). Бейдж: `is_paid`→«Оплачено» (teal), иначе `is_free`→«Бесплатно» (blue). Проп `practice: PracticeResponse`, эмит `click` |
 | `CalendarFilterModal` | (Calendar) модалка фильтра на `VModal` (кадр 2). Группы: Направление/Сложность/Тип (мульти-чипы), Длительность/Время (одиночный выбор, 4 корзины времени), Вид практики (свободный `VInput` — см. техдолг). Работает на draft-копии, применяет по «Применить». Пропы `open/filters`, эмиты `apply/close` |
+| `DiaryFeedCard` | (Diary redesign) карточка события ленты, 3 формы по `kind`: **banner** (бирюзовый для `booking_confirmed`, нейтральный для отмен/переносов), **practice** (белая: practice_outcome — мастер+дата+бейдж Done/Не состоялась, без аватара — TD-DIARY-PRACTICE-AVATAR), **standard** (иконка+заголовок+превью+дата для checkin/feedback/note/dream). Читает `snapshot` защитно. `@tap` эмитит `{ item, editable }` (note/dream → editable). kind→иконка-маппинг локально во вью (utils не импортируют `.vue`) |
+| `DiaryComposer` | (Diary redesign) нижний композер-pill: поле + mic-стаб (toast) + send. Создаёт note через `diaryStore.createEntry`. Стекло: `--velo-glass-blue-15`, backdrop-blur, glow-тень |
+| `DiaryTimeline` | (Diary redesign) нить с альтернированием (экран 40, Уровень 2 упрощённый): центральная ось (CSS), дата-узлы по календарным дням в tz юзера, banner/practice по центру, standard чередуются L/R сквозным счётчиком со **сбросом каждый день**, сторона детерминирована позицией (пагинация не перетасовывает). Коннекторы — CSS-штрихи (не Figma-кривые) |
 
 ### 3.4. Флоу ДАШБОРД (экраны 10–18)
 
@@ -413,7 +417,7 @@ hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl
 | `bookings` | `bookings[]`, `total`, `loading`; `selectedBooking`, `selectedLoading`, `selectedError`; методы `fetchBooking(id)` (через `getBooking` → `BookingDetailResponse`), `joinBooking`/`leaveBooking` (возвращают `{ ok, error }` через `extractApiError`) |
 | `balance` | `balance_cents`, `operations[]` |
 | `master` | `profile` (MasterProfile), `practices[]`, `withdrawals[]` |
-| `diary` | `checkins[]`, `feedbacks[]`, `entries[]`, `insightsCache` |
+| `diary` | Переписан (Diary redesign). Единая курсорная лента: `feedItems[]`, `feedLoading`, `feedError`, `feedHasMore`, реактивные `feedFilters` (categories/date_from/date_to/search); actions `fetchFeed`/`loadMoreFeed`/`refreshFeed`/`setFeedFilters`/`clearFeedFilters`/`runFeedSearch` (на `useCursorPagination`). Сохранены `submitCheckin`/`submitFeedback` (Checkin/FeedbackView), CRUD записей `createEntry`/`updateEntry`/`deleteEntry` (рефрешат ленту), `selectedEntry`+`fetchEntry`, `insightsCache` (master-facing), `$reset`. Удалены три offset-списка (checkins/feedbacks/entries) и их `fetch*`/`loadMore*` — их роль забрала лента |
 
 **Осознанное решение:** `token` хранится как module-level переменная в `api/client.ts`, не в Pinia — исключает circular dependency `client → store → client`.
 
@@ -728,11 +732,11 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | ID | Среда | Файл | Описание | Решение |
 |----|-------|------|----------|---------|
 | **NEW-1** | 🧪 | `UserDashboardView.vue`, `PracticeDetailView.vue` | `CHECKIN_WINDOW_H=3` и `FEEDBACK_WINDOW_H=72` захардкожены в двух местах — рассинхрон при изменении | Вынести в `utils/constants.ts` |
-| **NEW-2** | 🧪 | `DiaryView.vue` | Локальная `formatShortDate` (month: `'long'`) конфликтует с одноимённой из `displayHelpers.ts` (month: `'short'`) | Переименовать локальную в `formatLongDate` |
-| **NEW-3** | 🧪 | `DiaryView.vue` | Монолит ~1000 строк с 6 internal views через ручной state machine. Невозможно тестировать sub-view изолированно | Декомпозиция: `DiaryList.vue`, `DiaryEntryForm.vue`, `DiaryCheckinDetail.vue`, `DiaryFeedbackDetail.vue` |
-| **NEW-4** | 🧪 | `DiaryView.vue` | `onMounted` запускает `Promise.all` без `.catch()` — ошибки уходят в unhandled rejection | `onMounted(async () => { try { await Promise.all([...]) } catch(e) { toast.error(...) } })` |
+| **NEW-2** | ✅ | ~~`DiaryView.vue`~~ | Снято Diary redesign: `DiaryView.vue` удалён (заменён `DiaryFeedView`), локальной `formatShortDate` больше нет; дата ленты — `formatFeedDateTime` в `utils/format.ts` |
+| **NEW-3** | ✅ | ~~`DiaryView.vue`~~ | Снято Diary redesign: монолит-вкладки удалён целиком вместе с 5 sub-компонентами (DiaryList/DiaryCheckinDetail/DiaryFeedbackDetail/DiaryEntryDetail/DiaryEntryForm). Новая структура — `DiaryFeedView` + `DiaryTimeline` + `DiaryFeedCard` + `DiaryComposer` |
+| **NEW-4** | ✅ | ~~`DiaryView.vue`~~ | Снято Diary redesign: старый `onMounted` с `Promise.all` удалён; `DiaryFeedView` грузит ленту через стор с обработкой ошибок (`feedError` + состояние ошибки во вью) |
 | **NEW-5** | ✅ | `CheckinView.vue`, `FeedbackView.vue`, `DiaryView.vue` | `background: white` хардкод | Закрыто в DS-7 — заменено на `transparent` / glass-токены |
-| **NEW-6** | 🧪 | `stores/diary.ts` | `insightsCache` (Map) растёт бесконечно — утечка памяти при большом числе практик | LRU-ограничение (50-100 записей) |
+| **NEW-6** | ✅ | `stores/diary.ts` | Снято Diary redesign: в переписанном сторе у `insightsCache` есть LRU-ограничение (`MAX_INSIGHTS_CACHE=100` + эвикция старейшего ключа при переполнении) |
 | **WARNING-1** | ✅ | `stores/*.ts` | Каждый store реализует свой паттерн try/catch — 7+ дублей одинаковой структуры | ЗАКРЫТО: единый `composables/useApiError.ts` (`extractApiError`), применён в bookings-store (join/leave/fetchBooking) и далее по мере касания |
 | **WARNING-3** | 🧪 | `composables/useAuth.ts` | `waitUntilReady()` при таймауте резолвится без ошибки — код дальше думает что auth готов | Возвращать `{ ok: boolean, timedOut: boolean }` |
 | **WARNING-8** | 🧪 | `CheckinView.vue`, `FeedbackView.vue` | `fetchPractice()` вызывается всегда в `onMounted`, даже если practice уже в store | `if (store.selected?.id !== practiceId)` перед fetch |
@@ -760,6 +764,11 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | **TD-CAL-ARROW** | 🧪 | `shared/WeekStrip.vue`, `CalendarView.vue` | Стрелки недели и шеврон/воронка — inline SVG (в `components/icons` нет `IconChevron`/левой стрелки/воронки) | Завести `IconChevronLeft/Right`, `IconFilter` в DS и заменить inline SVG |
 | **TD-ASK-MASTER** | 🧪 | `MasterPublicView.vue`, `BookingConfirmedView.vue`, и везде, где есть «вопрос мастеру» | Вопросы мастеру — сквозная фича: задаются из профиля мастера («в общем», без привязки к практике), ИЛИ до брони, ИЛИ после; улетают в Telegram-бот мастера, мастер отвечает юзеру тоже в бот. Требует серьёзного бэка. Сейчас ВСЕ кнопки/поля «вопрос мастеру» ЕСТЬ визуально, но ведут в toast-заглушку. Кадр 6 флоу отложен | Спроектировать и реализовать бэк (маршрутизация в бота, треды вопрос/ответ), затем подключить все точки входа |
 | **TD-CAL-ICON-YOGA** | 🧪 | `components/icons/IconYoga.vue` | `IconYoga` — Claude-сгенерированный плейсхолдер | Заменить на ассет дизайнера (тот же filename/viewBox/`currentColor` → замена без правок кода) |
+| **TD-DIARY-PRACTICE-AVATAR** | 🧪 | `shared/DiaryFeedCard.vue` (practice-форма), бэк `diary/projections.py` | В practice-карточке ленты убраны аватар мастера и verified-галочка: бэк не кладёт `master_avatar_url`/`master_verified` в `_practice_snapshot`. Карточка показывает имя мастера | Добавить эти поля в `_practice_snapshot` (бэк), затем вернуть аватар+галочку в карточку (слоты под них уже есть) |
+| **TD-DIARY-TAP-VARIANT-B** | 🧪 | `views/user/DiaryFeedView.vue` (`onTap`) | Вариант A: тап по note/dream → toast «Функция временно недоступна», остальное no-op. Редактирования/удаления записи из ленты пока нет | Вариант B: тап по note/dream открывает редактор (bottom-sheet или экран) с правкой/удалением. Меняется только обработчик `onTap` во вью; карточки и нить не трогаются (`@tap` уже эмитит `{ item, editable }`) |
+| **TD-DIARY-LIST-VIEW** | 🧪 | дневник | В MVP дневник = только нить (экран 40). Плоский список (экран 41) и переключатель list/map не сделаны | Добавить list-вид (плоский стек карточек, 1:1 с feed) и переключатель, когда понадобится |
+| **TD-DIARY-FILTER-SEARCH** | 🧪 | `views/user/DiaryFeedView.vue` («...» меню), стор (`feedFilters`/`runFeedSearch` уже есть) | Фильтр по категориям + поиск + диапазон дат на бэке и в сторе готовы, но UI («...» меню → модалка фильтра/поиск) — заглушка-toast | Реализовать модалку фильтра/поиск на `VModal`, повесить на готовые `setFeedFilters`/`runFeedSearch` |
+| **TD-DIARY-ORNAMENT** | 🧪 | `components/icons/IconDateLeaf.vue` | Орнамент дата-узлов нити — лёгкий рисованный (`IconDateLeaf`), не оригинальный Figma-SVG (тот — 2×31KB с масками). Аутентичные сохранены | Вернуть аутентичные орнаменты, если заказчик захочет «точь-в-точь макет» |
 | **TD-CAL-DIRECTIONS-EXPAND** | 🧪 | `utils/displayHelpers.ts` (`DIRECTION_ICON`) | Бэк добавит направления (somatic/womens_circle/mens_circle/tantra/kundalini) | Иконки уже Partial+fallback — добавить новые иконки в `DIRECTION_ICON` по мере появления (рост списка код не ломает) |
 | **TD-ZOOM-TEXT** | 🧪 | `views/user/BookingConfirmedView.vue` | Текст «Ссылка на Zoom придёт за 10 минут» статичен независимо от типа практики (аудит S-2, осознанно отложено — все практики сейчас через Zoom) | Сделать нейтральным («Детали подключения…») или условным по `practice.zoom_link`, когда появятся не-Zoom практики |
 
