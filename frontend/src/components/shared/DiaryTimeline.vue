@@ -4,6 +4,11 @@
   The unified feed rendered as a vertical "thread": a central axis with cards
   hanging off it, alternating left/right, split into day groups by date-nodes.
 
+  ORDER (chat-mode): oldest at the TOP, newest at the BOTTOM. The feed arrives
+  newest-first from the backend; this component renders a chronological copy
+  so the newest entry sits at the bottom, next to the composer (see
+  DiaryFeedView for the scroll handling that pins the view to the bottom).
+
   DETERMINISTIC ALTERNATION RULES (agreed):
     1. Banner kinds (booking_confirmed / booking_cancelled_by_user /
        practice_rescheduled / practice_cancelled_by_master) and the
@@ -154,7 +159,15 @@ const dayGroups = computed<DayGroup[]>(() => {
   // Standard-card counter, reset on each new day (rule 5).
   let standardIdx = 0
 
-  for (const item of props.items) {
+  // Chat-mode order: the feed arrives newest-first (backend ORDER BY
+  // occurred_at DESC, older pages appended). We render the thread oldest at
+  // the top, newest at the bottom, so iterate a chronological copy. This keeps
+  // the grouping/alternation rules intact -- the first standard card of a day
+  // (rule 5, left) is now the day's OLDEST, i.e. the topmost, which reads
+  // naturally. reverse() is on a shallow copy; props.items is not mutated.
+  const chronological = [...props.items].reverse()
+
+  for (const item of chronological) {
     const key = dayKeyOf(item.occurred_at)
     if (!current || current.dayKey !== key) {
       current = {

@@ -57,21 +57,26 @@
         description="Здесь появятся ваши записи, практики, check-ins и отзывы"
       />
 
-      <!-- Thread -->
+      <!-- Thread (chat-mode: oldest at top, newest at bottom) -->
       <template v-else>
-        <DiaryTimeline :items="items" :timezone="timezone" @tap="onTap" />
-
-        <!-- Infinite-scroll sentinel + loading more indicator -->
+        <!-- Infinite-scroll sentinel + "loading older" indicator sit ABOVE the
+             thread: history is loaded by scrolling UP. -->
         <div ref="sentinelEl" class="diary-feed__sentinel" />
         <div v-if="loadingMore" class="diary-feed__state diary-feed__state--more">
           <VLoader />
+        </div>
+
+        <!-- Wrapper pins a short feed to the bottom (margin-top:auto) so few
+             entries sit next to the composer, chat-style. -->
+        <div class="diary-feed__thread">
+          <DiaryTimeline :items="items" :timezone="timezone" @tap="onTap" />
         </div>
       </template>
     </div>
 
     <!-- Composer -->
     <div class="diary-feed__composer">
-      <DiaryComposer />
+      <DiaryComposer @created="onComposerCreated" />
     </div>
   </div>
 </template>
@@ -129,8 +134,27 @@ async function reload(): Promise<void> {
 onMounted(async () => {
   await diaryStore.fetchFeed()
   await nextTick()
+  // Chat-mode: open pinned to the newest entry (bottom). Do this BEFORE
+  // attaching the observer so the top sentinel (now out of view) does not
+  // immediately fire and load an older page.
+  scrollToBottom()
+  await nextTick()
   setupObserver()
 })
+
+// -- Scroll helpers (chat-mode) ----------------------------------------------
+
+function scrollToBottom(): void {
+  const el = scrollEl.value
+  if (el) el.scrollTop = el.scrollHeight
+}
+
+// Composer just created a note: the store refreshed the feed to the newest
+// page, so jump to the bottom to reveal it.
+async function onComposerCreated(): Promise<void> {
+  await nextTick()
+  scrollToBottom()
+}
 
 // -- Infinite scroll ---------------------------------------------------------
 
@@ -148,12 +172,25 @@ function setupObserver(): void {
         feedHasMore.value &&
         !feedLoading.value
       ) {
-        void diaryStore.loadMoreFeed()
+        void onLoadMore()
       }
     },
     { root: scrollEl.value, rootMargin: '120px' },
   )
   observer.observe(sentinelEl.value)
+}
+
+// Load an older page (triggered by scrolling UP to the top sentinel) and
+// preserve the viewport: older cards are prepended at the top, so without
+// compensation the content would jump. Measure height around the load and
+// shift scrollTop by the delta.
+async function onLoadMore(): Promise<void> {
+  const el = scrollEl.value
+  const prevHeight = el?.scrollHeight ?? 0
+  const prevTop = el?.scrollTop ?? 0
+  await diaryStore.loadMoreFeed()
+  await nextTick()
+  if (el) el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
 }
 
 // The sentinel only exists once items render; re-attach when it appears.
@@ -223,6 +260,17 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 0 var(--space-8);
+  /* Chat-mode: a flex column so the thread wrapper can pin a short feed to the
+     bottom (next to the composer). When the feed overflows, this has no effect
+     and the area scrolls normally. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pins a short feed to the bottom; a long one scrolls normally (margin-top
+   collapses once content fills the column). */
+.diary-feed__thread {
+  margin-top: auto;
 }
 
 .diary-feed__state {
