@@ -129,6 +129,7 @@ class Settings(BaseSettings):
     #               йога". Optional; capped at practice_style_max_length.
     practice_allowed_directions: list[str] = [
         "meditation", "yoga", "breathwork",
+        "somatic", "tantra", "womens_circle", "mens_circle", "kundalini",
     ]
     practice_allowed_difficulties: list[str] = [
         "beginner", "medium", "high",
