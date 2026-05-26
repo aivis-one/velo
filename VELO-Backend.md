@@ -3,7 +3,7 @@
 **Версия:** 1.5
 **Дата:** 24 мая 2026
 **Статус:** Active
-**Тесты:** 446 passed, 3 skipped
+**Тесты:** 446 passed, 3 skipped 
 
 > **v1.5 (Calendar flow 4-7 + master public, 24 мая 2026):** добавлен публичный
 > профиль мастера `GET /api/v1/masters/{user_id}` (схема `MasterPublicResponse` —
