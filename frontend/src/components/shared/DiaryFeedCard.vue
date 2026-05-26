@@ -116,6 +116,7 @@ import {
   IconBreathwork,
   IconPen,
   IconDreamBook,
+  IconDots,
 } from '@/components/icons'
 import {
   FEED_KIND_TITLE,
@@ -179,6 +180,10 @@ const RATING_ICON: Record<string, Component> = {
   confused: IconRatingConfused,
 }
 
+// Only the three directions with real assets are mapped; the five newer ones
+// (somatic / tantra / womens_circle / mens_circle / kundalini) fall back to a
+// neutral glyph below (see directionIcon) until their icons land -- same
+// reasoning as DIRECTION_ICON_FALLBACK in displayHelpers.
 const DIRECTION_ICON_LOCAL: Record<string, Component> = {
   meditation: IconMeditation,
   yoga: IconYoga,
@@ -254,7 +259,8 @@ const outcomeLabel = computed(
 
 const directionIcon = computed<Component>(() => {
   const dir = snapStr('direction') ?? ''
-  return DIRECTION_ICON_LOCAL[dir] ?? IconMeditation
+  // Neutral placeholder (not IconMeditation) for unmapped directions.
+  return DIRECTION_ICON_LOCAL[dir] ?? IconDots
 })
 
 // -- standard icon -----------------------------------------------------------

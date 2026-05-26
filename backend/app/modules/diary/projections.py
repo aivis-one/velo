@@ -89,7 +89,8 @@ def _practice_direction(practice) -> str | None:  # noqa: ANN001 -- ORM Practice
     return taxonomy.get("direction")
 
 
-def _practice_snapshot(
+async def _practice_snapshot(
+    session: AsyncSession,
     practice,  # noqa: ANN001 -- ORM Practice (avoid import cycle)
     *,
     master_name: str | None,
@@ -100,13 +101,23 @@ def _practice_snapshot(
     Captures the fields needed to render the feed card without joining back
     to practices/users. scheduled_at is captured as-of the event (an override
     lets reschedule record the OLD time on the "before" side if needed).
+
+    master_verified is snapshotted as-of the event too (W-1): the feed is an
+    append-only historical record, so we freeze the master's verified state at
+    projection time rather than resolving it live on read. Lazy import keeps
+    the diary->masters dependency from loading at module import (house style;
+    same reason bookings is imported lazily below).
     """
+    from app.modules.masters.service import is_master_verified
+
     scheduled_at = scheduled_at_override or practice.scheduled_at
+    master_verified = await is_master_verified(practice.master_id, session)
     return {
         "practice_id": str(practice.id),
         "practice_title": practice.title,
         "master_id": str(practice.master_id),
         "master_name": master_name,
+        "master_verified": master_verified,
         "scheduled_at": scheduled_at.isoformat() if scheduled_at else None,
         "duration_minutes": practice.duration_minutes,
         "direction": _practice_direction(practice),
@@ -212,7 +223,9 @@ async def project_booking_confirmed(
     caller passes it explicitly so the projection does not depend on flush
     ordering).
     """
-    snapshot = _practice_snapshot(practice, master_name=master_name)
+    snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     return await _add_event(
         session,
         user_id=booking.user_id,
@@ -234,7 +247,9 @@ async def project_booking_cancelled(
     occurred_at: datetime,
 ) -> DiaryEvent:
     """Project "user cancelled their own booking" onto their timeline."""
-    snapshot = _practice_snapshot(practice, master_name=master_name)
+    snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     return await _add_event(
         session,
         user_id=booking.user_id,
@@ -262,7 +277,9 @@ async def project_practice_outcome(
     We embed the per-user status in the snapshot so the card can render
     "Done" vs "Не состоялась". Returns the number of events written.
     """
-    base_snapshot = _practice_snapshot(practice, master_name=master_name)
+    base_snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     count = 0
     for user_id, booking_id, status in outcomes:
         snapshot = dict(base_snapshot)
@@ -308,7 +325,8 @@ async def project_practice_rescheduled(
     "перенёс на ...". Returns the number of events written.
     """
     user_ids = await _booked_user_ids(practice.id, session)
-    snapshot = _practice_snapshot(
+    snapshot = await _practice_snapshot(
+        session,
         practice,
         master_name=master_name,
         scheduled_at_override=new_scheduled_at,
@@ -349,7 +367,9 @@ async def project_practice_cancelled(
     refund flow mutates booking statuses, then passes them here. Returns the
     number of events written.
     """
-    snapshot = _practice_snapshot(practice, master_name=master_name)
+    snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     for user_id in user_ids:
         await _add_event(
             session,
@@ -386,7 +406,9 @@ async def upsert_checkin_event(
     occurred_at is the check-in creation time (checkin.created_at). On edit
     we keep the original occurred_at but refresh the snapshot + text.
     """
-    snapshot = _practice_snapshot(practice, master_name=master_name)
+    snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     snapshot["mood"] = checkin.mood
     snapshot["comment_preview"] = _preview(checkin.comment)
 
@@ -423,7 +445,9 @@ async def upsert_feedback_event(
     master_name: str | None,
 ) -> DiaryEvent:
     """Create or refresh the timeline event for a feedback."""
-    snapshot = _practice_snapshot(practice, master_name=master_name)
+    snapshot = await _practice_snapshot(
+        session, practice, master_name=master_name,
+    )
     snapshot["rating"] = feedback.rating
     snapshot["comment_preview"] = _preview(feedback.comment)
 

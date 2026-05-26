@@ -235,6 +235,28 @@ async def get_master_display_name(
     return "Master"
 
 
+async def is_master_verified(
+    master_id: UUID,
+    session: AsyncSession,
+) -> bool:
+    """Whether a master's account status is "verified".
+
+    Used by the diary projections to snapshot the verified badge as-of the
+    event (the feed is an append-only historical record). Reads the same
+    data.account.status as get_public_master_profile. Returns False when no
+    profile exists.
+
+    Cheap by design: callers (projections) resolve master_name via
+    get_master_display_name first, which loads the MasterProfile into the
+    session identity map, so this session.get is a cache hit, not a new query.
+    """
+    profile = await session.get(MasterProfile, master_id)
+    if profile is None:
+        return False
+    status = profile.data.get("account", {}).get("status")
+    return status == _PUBLIC_MASTER_STATUS
+
+
 async def get_public_master_profile(
     user_id: UUID,
     session: AsyncSession,

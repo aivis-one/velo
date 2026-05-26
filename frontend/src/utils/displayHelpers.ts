@@ -18,7 +18,7 @@ import type {
   TimeOfDay,
 } from '@/api/types'
 import type { Component } from 'vue'
-import { IconMeditation, IconYoga, IconBreathwork } from '@/components/icons'
+import { IconMeditation, IconYoga, IconBreathwork, IconDots } from '@/components/icons'
 
 // ---------------------------------------------------------------------------
 // Practice type
@@ -133,8 +133,12 @@ export const DIRECTION_ICON: Partial<Record<PracticeDirection, Component>> = {
   breathwork: IconBreathwork,
 }
 
-/** Fallback glyph for directions without a dedicated icon yet. */
-export const DIRECTION_ICON_FALLBACK: Component = IconMeditation
+/** Neutral placeholder glyph for directions without a dedicated icon yet
+ * (somatic / tantra / womens_circle / mens_circle / kundalini). Deliberately
+ * NOT IconMeditation: a meditation glyph on a tantra/yoga practice is
+ * misleading -- a neutral "..." reads as "icon pending" instead. Swap each new
+ * direction into DIRECTION_ICON as its real asset lands. */
+export const DIRECTION_ICON_FALLBACK: Component = IconDots
 
 export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
   beginner: 'Начальная',
