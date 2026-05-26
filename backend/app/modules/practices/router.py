@@ -30,12 +30,14 @@
 # =============================================================================
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
+from pydantic import AfterValidator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import (
     get_current_master,
@@ -65,6 +67,56 @@ router = APIRouter(
 
 
 # ------------------------------------------------------------------
+# Query-parameter validators (NO-LITERALS policy)
+# ------------------------------------------------------------------
+# The list-feed endpoint historically hardcoded Literal[...] inline for
+# practice_type / direction / difficulty. That duplicated the source of
+# truth (settings.practice_allowed_*) and went out of sync the moment those
+# lists were extended (422 on the new directions). The three helpers below
+# read the same settings lists that CreatePracticeRequest field-validators
+# use (practices/schemas.py), so create and list now share one source.
+# duration_bucket / time_of_day / status_filter / sort_by / sort_order
+# stay as inline Literal -- those are closed, by-design vocabularies that
+# are not config-driven.
+
+
+def _validate_practice_types(v: list[str] | None) -> list[str] | None:
+    if not v:
+        return v
+    allowed = settings.practice_allowed_types
+    bad = [x for x in v if x not in allowed]
+    if bad:
+        raise ValueError(
+            f"practice_type must be one of {allowed}, got {bad}"
+        )
+    return v
+
+
+def _validate_directions(v: list[str] | None) -> list[str] | None:
+    if not v:
+        return v
+    allowed = settings.practice_allowed_directions
+    bad = [x for x in v if x not in allowed]
+    if bad:
+        raise ValueError(
+            f"direction must be one of {allowed}, got {bad}"
+        )
+    return v
+
+
+def _validate_difficulties(v: list[str] | None) -> list[str] | None:
+    if not v:
+        return v
+    allowed = settings.practice_allowed_difficulties
+    bad = [x for x in v if x not in allowed]
+    if bad:
+        raise ValueError(
+            f"difficulty must be one of {allowed}, got {bad}"
+        )
+    return v
+
+
+# ------------------------------------------------------------------
 # GET /api/v1/practices -- public feed (Phase 4.3)
 # ------------------------------------------------------------------
 @router.get("", response_model=PaginatedPracticesResponse)
@@ -74,15 +126,15 @@ async def list_practices_endpoint(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     master_id: UUID | None = Query(default=None),
-    practice_type: list[
-        Literal["live", "series", "one_on_one", "replay"]
-    ] | None = Query(default=None),
-    direction: list[
-        Literal["meditation", "yoga", "breathwork"]
-    ] | None = Query(default=None),
-    difficulty: list[
-        Literal["beginner", "medium", "high"]
-    ] | None = Query(default=None),
+    practice_type: Annotated[
+        list[str] | None, AfterValidator(_validate_practice_types),
+    ] = Query(default=None),
+    direction: Annotated[
+        list[str] | None, AfterValidator(_validate_directions),
+    ] = Query(default=None),
+    difficulty: Annotated[
+        list[str] | None, AfterValidator(_validate_difficulties),
+    ] = Query(default=None),
     style: str | None = Query(default=None),
     duration_bucket: Literal["short", "long"] | None = Query(default=None),
     time_of_day: Literal[
