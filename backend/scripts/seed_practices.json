@@ -1,6 +1,5 @@
 {
   "_comment": "Источник данных для backend/scripts/seed_practices.py. Многострочные тексты хранятся как массивы строк — скрипт склеивает их через '\\n' при чтении. Пустая строка '' = разрыв абзаца. TID мастеров: 10001..10011 (положительные, выше старых dummy 9900001..9900030, ниже реальных Telegram user_id). Расписание: неделя 18-24 мая 2026 (ПН-ВС). 10 практик ПН-ЧТ + утро ПТ → completed, 4 практики СБ-ВС → scheduled.",
-
   "masters": [
     {
       "key": "ira-kosobukina",
@@ -8,7 +7,13 @@
       "first_name": "Ира",
       "last_name": "Кособукина",
       "display_name": "Ира Кособукина",
-      "methods": ["yoga", "meditation", "breathwork", "somatic", "womens_circle"],
+      "methods": [
+        "yoga",
+        "meditation",
+        "breathwork",
+        "somatic",
+        "womens_circle"
+      ],
       "bio": [
         "Я Ира, и я больше 20 лет занимаюсь йогой и медитацией. Любопытство завело меня во все возможные школы йоги и на самые странные спиритуальные практики, которые я находила по всему миру, в том числе на Бали, куда я уехала жить 17 лет назад.",
         "",
@@ -23,7 +28,9 @@
       "first_name": "Дмитрий",
       "last_name": "Шаменков",
       "display_name": "Дмитрий Шаменков",
-      "methods": ["meditation"],
+      "methods": [
+        "meditation"
+      ],
       "bio": [
         "Меня зовут Дмитрий Шаменков, я — врач, психолог, психофизиолог, в прошлом — буддийский монах. Создатель метода «Открытый диалог».",
         "",
@@ -42,7 +49,10 @@
       "first_name": "Георгий",
       "last_name": "Голобоков",
       "display_name": "Георгий Голобоков",
-      "methods": ["tantra", "meditation"],
+      "methods": [
+        "tantra",
+        "meditation"
+      ],
       "bio": [
         "Георгий Голобоков (г. Москва, 45 лет).",
         "",
@@ -59,7 +69,10 @@
       "first_name": "Ира",
       "last_name": "SoundMagic",
       "display_name": "Ира SoundMagic",
-      "methods": ["somatic", "meditation"],
+      "methods": [
+        "somatic",
+        "meditation"
+      ],
       "bio": [
         "Я Ира, аудиорежиссёр, инструктор практик осознанности и основатель проекта «Состояния» 🎧",
         "",
@@ -78,7 +91,9 @@
       "first_name": "Даша",
       "last_name": "Чен",
       "display_name": "Даша Чен",
-      "methods": ["breathwork"],
+      "methods": [
+        "breathwork"
+      ],
       "bio": [
         "Привет, я Даша, и я дышу людей.",
         "",
@@ -99,7 +114,10 @@
       "first_name": "StateFirst",
       "last_name": null,
       "display_name": "StateFirst",
-      "methods": ["breathwork", "meditation"],
+      "methods": [
+        "breathwork",
+        "meditation"
+      ],
       "bio": [
         "StateFirst — это Вера Козырь и Юлия Воронина.",
         "",
@@ -118,7 +136,9 @@
       "first_name": "Игорь",
       "last_name": "Михненко",
       "display_name": "Игорь Михненко",
-      "methods": ["meditation"],
+      "methods": [
+        "meditation"
+      ],
       "bio": [
         "Всем привет, я Игорь.",
         "",
@@ -135,7 +155,9 @@
       "first_name": "Дима",
       "last_name": "Мацкевич",
       "display_name": "Дима Мацкевич",
-      "methods": ["mens_circle"],
+      "methods": [
+        "mens_circle"
+      ],
       "bio": [
         "Дима Мацкевич — предприниматель и AI-практик на стыке технологий, нейронауки, тела и человеческого состояния.",
         "",
@@ -150,7 +172,10 @@
       "first_name": "Дарья",
       "last_name": "Тимакова",
       "display_name": "Дарья Тимакова",
-      "methods": ["yoga", "meditation"],
+      "methods": [
+        "yoga",
+        "meditation"
+      ],
       "bio": [
         "Дарья Тимакова — практика как образ жизни с возможностью исследования внутреннего потенциала и развития духа.",
         "",
@@ -169,7 +194,10 @@
       "first_name": "Саша",
       "last_name": "Адам",
       "display_name": "Саша Адам",
-      "methods": ["breathwork", "meditation"],
+      "methods": [
+        "breathwork",
+        "meditation"
+      ],
       "bio": [
         "Меня зовут Саша Адам — я предприниматель, блогер, исследователь человеческой природы и создатель трансформационных пространств, в которых человек может встретиться с собой настоящим и чем-то большим, чем он сам.",
         "",
@@ -190,7 +218,10 @@
       "first_name": "Миша",
       "last_name": "Вихман",
       "display_name": "Миша Вихман",
-      "methods": ["kundalini", "meditation"],
+      "methods": [
+        "kundalini",
+        "meditation"
+      ],
       "bio": [
         "Кундалини-йога и даосская медитация.",
         "",
@@ -198,7 +229,6 @@
       ]
     }
   ],
-
   "practices": [
     {
       "key": "2026-05-18-08-ira-kosobukina",
@@ -545,12 +575,10 @@
       "contraindications": null
     }
   ],
-
   "_test_users_comment": "Тест-юзеры для наполнения ПОЛЬЗОВАТЕЛЬСКОЙ стороны приложения (таймлайн-фид: дневник, брони, чек-ины, отзывы). Это РЕАЛЬНЫЕ telegram-аккаунты: впиши в telegram_id реальный TG user_id тестера — и он, залогинившись, увидит наполненный аккаунт. Записи с telegram_id == null ПРОПУСКАЮТСЯ (это шаблоны — скопируй строку и впиши свой ID). Добавляй столько записей, сколько у тебя ID — роль аккаунта не важна. Объёмы (diary_entries/attended_bookings/checkins/feedbacks/upcoming_bookings/cancelled_bookings) опциональны; если не указать — берутся дефолты из seed_practices.py (≈40 карточек в ленте). first_name/last_name/language применяются ТОЛЬКО если юзера ещё нет в БД (существующему не перетираются). Зачистка --clean/--reset удаляет ТОЛЬКО наши seed-строки, сам аккаунт и его настоящие данные не трогает.",
-
   "test_users": [
     {
-      "telegram_id": null,
+      "telegram_id": 526738615,
       "key": "tester-1",
       "first_name": "Тестер 1",
       "language": "ru",
@@ -562,10 +590,52 @@
       "cancelled_bookings": 1
     },
     {
-      "telegram_id": null,
+      "telegram_id": 231944851,
       "key": "tester-2",
       "first_name": "Тестер 2",
-      "language": "ru"
+      "language": "ru",
+      "diary_entries": 12,
+      "attended_bookings": 7,
+      "checkins": 6,
+      "feedbacks": 6,
+      "upcoming_bookings": 1,
+      "cancelled_bookings": 1
+    },
+    {
+      "telegram_id": 792933976,
+      "key": "tester-3",
+      "first_name": "Тестер 3",
+      "language": "ru",
+      "diary_entries": 12,
+      "attended_bookings": 7,
+      "checkins": 6,
+      "feedbacks": 6,
+      "upcoming_bookings": 1,
+      "cancelled_bookings": 1
+    },
+    {
+      "telegram_id": 936933042,
+      "key": "tester-4",
+      "first_name": "Тестер 4",
+      "language": "ru",
+      "diary_entries": 12,
+      "attended_bookings": 7,
+      "checkins": 6,
+      "feedbacks": 6,
+      "upcoming_bookings": 1,
+      "cancelled_bookings": 1
+    },
+    {
+      "telegram_id": 1051790788,
+      "key": "tester-5",
+      "first_name": "Тестер 5",
+      "language": "ru",
+      "diary_entries": 12,
+      "attended_bookings": 7,
+      "checkins": 6,
+      "feedbacks": 6,
+      "upcoming_bookings": 1,
+      "cancelled_bookings": 1
     }
   ]
 }
