@@ -462,6 +462,9 @@ function onTap(): void {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  /* Allow the text column to shrink below its content width so long
+     previews clamp instead of pushing the card wider. */
+  min-width: 0;
 }
 
 .feed-card__icon {
@@ -487,20 +490,30 @@ function onTap(): void {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
   min-width: 0;
 }
 
 .feed-card__title {
   font-size: 16px;
   letter-spacing: 0.32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .feed-card__preview {
   font-size: 12.375px;
   letter-spacing: 0.2475px;
   opacity: 0.6;
+  /* Two-line teaser; the full text opens on tap (Variant B). line-clamp
+     supplies the ellipsis, so no white-space/text-overflow here. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Clip an unbroken long token (e.g. a URL) instead of overflowing. */
+  overflow-wrap: anywhere;
 }
 </style>
