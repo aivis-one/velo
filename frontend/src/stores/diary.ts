@@ -36,6 +36,7 @@ import {
   getDiaryEntry,
   updateDiaryEntry,
   deleteDiaryEntry,
+  restoreDiaryEntry,
   listDiaryFeed,
   getPracticeInsights,
 } from '@/api/diary'
@@ -288,6 +289,21 @@ export const useDiaryStore = defineStore('diary', () => {
     }
   }
 
+  /**
+   * Restore a soft-deleted diary entry (undo delete), then refresh the feed
+   * so the entry's event reappears in the timeline.
+   */
+  async function restoreEntry(id: string): Promise<SubmitResult> {
+    try {
+      await restoreDiaryEntry(id)
+      await feed.refresh()
+      return { ok: true, error: '' }
+    } catch (e) {
+      const message = extractApiError(e, 'Не удалось восстановить запись')
+      return { ok: false, error: message }
+    }
+  }
+
   // ===========================================================================
   // Practice insights cache (AnalyticsView, master-facing)
   //
@@ -380,6 +396,7 @@ export const useDiaryStore = defineStore('diary', () => {
     createEntry,
     updateEntry,
     deleteEntry,
+    restoreEntry,
 
     // Insights cache
     insightsCache,

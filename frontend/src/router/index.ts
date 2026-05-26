@@ -73,6 +73,11 @@ const router = createRouter({
           component: () => import('@/views/user/DiaryFeedView.vue'),
         },
         {
+          path: 'diary/entry/:id',
+          name: 'user-diary-entry',
+          component: () => import('@/views/user/EntryView.vue'),
+        },
+        {
           path: 'profile',
           name: 'user-profile',
           component: () => import('@/views/user/UserProfileView.vue'),

@@ -55,6 +55,7 @@ from app.modules.diary.service import (
     list_user_checkins,
     list_user_diary_entries,
     list_user_feedbacks,
+    restore_diary_entry,
     update_diary_entry,
     upsert_checkin,
     upsert_feedback,
@@ -366,6 +367,25 @@ async def delete_diary_entry_endpoint(
     event drops out of the feed, but the row is retained.
     """
     await delete_diary_entry(user, entry_id, session)
+
+
+@diary_router.post(
+    "/{entry_id}/restore",
+    response_model=DiaryEntryResponse,
+)
+async def restore_diary_entry_endpoint(
+    entry_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> DiaryEntryResponse:
+    """Restore a soft-deleted diary entry owned by the current user.
+
+    Undo for DELETE: clears is_deleted and brings the timeline event back
+    into the feed. 404 if the entry is missing, not owned, or not deleted.
+    """
+    entry = await restore_diary_entry(user, entry_id, session)
+    await session.refresh(entry)
+    return DiaryEntryResponse.model_validate(entry)
 
 
 # ===================================================================

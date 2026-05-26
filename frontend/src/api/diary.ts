@@ -235,10 +235,18 @@ export function updateDiaryEntry(
 }
 
 /**
- * Hard-delete a diary entry. Returns 204 No Content.
+ * Soft-delete a diary entry (hidden from the feed, recoverable via restore).
+ * Returns 204 No Content.
  */
 export function deleteDiaryEntry(id: string): Promise<void> {
   return api.delete(`/api/v1/diary/${id}`)
+}
+
+/**
+ * Restore a soft-deleted diary entry (undo delete). Returns the entry.
+ */
+export function restoreDiaryEntry(id: string): Promise<DiaryEntryResponse> {
+  return api.post<DiaryEntryResponse>(`/api/v1/diary/${id}/restore`)
 }
 
 // ============================================================================

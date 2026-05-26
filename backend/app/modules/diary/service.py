@@ -729,6 +729,59 @@ async def delete_diary_entry(
 
 
 # ===================================================================
+# Restore diary entry (Diary redesign -- undo soft-delete)
+# ===================================================================
+
+
+async def restore_diary_entry(
+    user: User,
+    entry_id: UUID,
+    session: AsyncSession,
+) -> DiaryEntry:
+    """Restore a soft-deleted diary entry owned by the user (undo delete).
+
+    Mirror of delete_diary_entry: clears is_deleted and re-projects the
+    timeline event (upsert_entry_event sets is_hidden = entry.is_deleted, so
+    re-projecting un-hides it and the entry returns to the feed).
+
+    We load the row directly (NOT via get_diary_entry, which 404s deleted
+    rows) and require it to be currently deleted -- restoring an active entry
+    is a no-op the client never needs, so we 404 to keep the contract tight.
+
+    Raises:
+        NotFoundError: Entry not found, not owned by user, or not deleted.
+    """
+    entry = await session.get(DiaryEntry, entry_id)
+
+    if entry is None or entry.user_id != user.id or not entry.is_deleted:
+        raise NotFoundError("Diary entry not found")
+
+    entry.is_deleted = False
+    await session.flush()
+
+    await record_audit(
+        event="diary_entry_restored",
+        actor_id=user.id,
+        actor_type="user",
+        target_type="diary_entry",
+        target_id=entry.id,
+        data={"title": entry.title},
+        session=session,
+    )
+
+    # Diary feed: re-project the timeline event -- upsert sets is_hidden to
+    # entry.is_deleted (now False), so the event reappears in the feed.
+    await upsert_entry_event(session, entry=entry)
+
+    logger.info(
+        "diary_entry_restored",
+        entry_id=str(entry_id),
+        user_id=str(user.id),
+    )
+    return entry
+
+
+# ===================================================================
 # List user diary entries (Phase 8.3)
 # ===================================================================
 

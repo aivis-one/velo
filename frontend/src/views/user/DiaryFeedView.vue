@@ -74,6 +74,19 @@
       </template>
     </div>
 
+    <!-- Undo bar: shown after deleting an entry (Figma screen 58) -->
+    <div v-if="deletedEntryId" class="diary-feed__undo">
+      <span class="diary-feed__undo-text">Запись удалена</span>
+      <button
+        type="button"
+        class="diary-feed__undo-btn"
+        :disabled="undoing"
+        @click="onUndoDelete"
+      >
+        Отменить
+      </button>
+    </div>
+
     <!-- Composer -->
     <div class="diary-feed__composer">
       <DiaryComposer @created="onComposerCreated" />
@@ -83,6 +96,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { IconDots } from '@/components/icons'
@@ -93,6 +107,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { DiaryFeedItem } from '@/api/types'
 
+const router = useRouter()
+const route = useRoute()
 const diaryStore = useDiaryStore()
 const authStore = useAuthStore()
 const toast = useToast()
@@ -110,19 +126,83 @@ const loadingMore = computed(
   () => feedLoading.value && items.value.length > 0,
 )
 
-// -- Tap handling (Variant A) ------------------------------------------------
+// -- Tap handling ------------------------------------------------------------
 
 function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
   if (payload.editable) {
-    // note/dream -- inline editor arrives in Variant B.
-    toast.info('Функция временно недоступна')
+    // note/dream -- open the full entry screen (view/edit/delete). The card's
+    // source_id is the DiaryEntry id.
+    void router.push({
+      name: 'user-diary-entry',
+      params: { id: payload.item.source_id },
+    })
   }
-  // All other cards: no-op in this iteration.
+  // Other cards (practice/checkin/feedback detail) land in Batch 1b.
 }
 
 function onMenu(): void {
   // Filter / search menu lands in a later sub-step (1b-3).
   toast.info('Функция временно недоступна')
+}
+
+// -- Undo bar (after deleting an entry on EntryView) -------------------------
+//
+// EntryView soft-deletes then navigates back here with ?deleted=<entryId>.
+// We surface an "Запись удалена / Отменить" bar (Figma screen 58); tapping
+// Отменить restores the entry. The bar auto-dismisses after a few seconds.
+
+const UNDO_DURATION_MS = 6000
+const deletedEntryId = ref<string | null>(null)
+const undoing = ref(false)
+let undoTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearUndoTimer(): void {
+  if (undoTimer) {
+    clearTimeout(undoTimer)
+    undoTimer = null
+  }
+}
+
+function dismissUndo(): void {
+  clearUndoTimer()
+  deletedEntryId.value = null
+}
+
+// Strip the ?deleted param without adding a history entry.
+function stripDeletedQuery(): void {
+  if (route.query.deleted !== undefined) {
+    const query = { ...route.query }
+    delete query.deleted
+    void router.replace({ query })
+  }
+}
+
+watch(
+  () => route.query.deleted,
+  (val) => {
+    const id = Array.isArray(val) ? val[0] : val
+    if (!id) return
+    deletedEntryId.value = id
+    stripDeletedQuery()
+    clearUndoTimer()
+    undoTimer = setTimeout(dismissUndo, UNDO_DURATION_MS)
+  },
+  { immediate: true },
+)
+
+async function onUndoDelete(): Promise<void> {
+  const id = deletedEntryId.value
+  if (!id || undoing.value) return
+  undoing.value = true
+  const result = await diaryStore.restoreEntry(id)
+  undoing.value = false
+  dismissUndo()
+  if (result.ok) {
+    await nextTick()
+    scrollToBottom()
+  } else {
+    toast.error(result.error)
+  }
 }
 
 // -- Data load ---------------------------------------------------------------
@@ -201,6 +281,7 @@ watch(sentinelEl, (el) => {
 onBeforeUnmount(() => {
   observer?.disconnect()
   observer = null
+  clearUndoTimer()
 })
 </script>
 
@@ -285,6 +366,47 @@ onBeforeUnmount(() => {
 
 .diary-feed__sentinel {
   height: 1px;
+}
+
+/* -- Undo bar (delete confirmation, Figma screen 58) -- */
+.diary-feed__undo {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 var(--space-8);
+  padding: var(--space-3) var(--space-4);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid var(--velo-border);
+  border-radius: var(--radius-md);
+}
+
+.diary-feed__undo-text {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+}
+
+.diary-feed__undo-btn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--velo-teal-600);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.diary-feed__undo-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.diary-feed__undo-btn:not(:disabled):hover {
+  opacity: 0.8;
 }
 
 /* -- Composer (fixed row, always above the tab bar) -- */
