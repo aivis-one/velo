@@ -1336,6 +1336,15 @@ Triggered by velo update on commit $NEW_COMMIT" || {
         $COMPOSE_CMD exec app python scripts/seed.py $SEED_ARGS
         ;;
 
+    seed-practices)
+        echo "Running seed_practices..."
+        cd_compose
+        # Прокидываем все аргументы (--reset / --clean / --dry-run / --yes
+        # и их комбинации) напрямую в скрипт — он сам их парсит через argparse.
+        shift  # отбрасываем "seed-practices"
+        $COMPOSE_CMD exec app python scripts/seed_practices.py "$@"
+        ;;
+
     # === Nginx ===
 
     nginx)
@@ -1417,6 +1426,10 @@ Triggered by velo update on commit $NEW_COMMIT" || {
         echo "  db migrate          — Run Alembic migrations"
         echo "  seed                — Populate DB with test data"
         echo "  seed --reset        — Clean seed data & re-seed"
+        echo "  seed-practices      — Sync practice schedule from seed_practices.json"
+        echo "  seed-practices --reset    — Clean own data & re-seed from JSON"
+        echo "  seed-practices --clean    — Clean own data only (no re-seed)"
+        echo "  seed-practices --dry-run  — Show plan without writing to DB"
         echo ""
         echo "Maintenance:"
         echo "  backup              — Backup DB + .env"
