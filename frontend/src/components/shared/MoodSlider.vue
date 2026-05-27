@@ -139,13 +139,19 @@ function selectZone(i: number): void {
   border-radius: var(--radius-md);
   background: var(--velo-bg-card-solid);
   opacity: 0.8;
-  /* Smooth, slowed fade as the active zone changes. */
-  transition: opacity var(--mood-slider-icon-duration) var(--mood-slider-ease);
+  /* Inactive cards sit slightly smaller + dimmer; the active zone's card
+     grows and brightens. Both ride the same slow, soft curve. */
+  transform: scale(0.92);
+  transform-origin: center;
+  transition:
+    transform var(--mood-slider-icon-duration) var(--mood-slider-ease),
+    opacity var(--mood-slider-icon-duration) var(--mood-slider-ease);
   cursor: pointer;
 }
 
 .mood-slider__card--active {
   opacity: 1;
+  transform: scale(1.08);
 }
 
 .mood-slider__icon {
