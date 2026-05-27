@@ -19,7 +19,18 @@
   <div class="diary-feed">
     <!-- Header -->
     <header class="diary-feed__header">
-      <h1 class="diary-feed__title">Дневник</h1>
+      <div class="diary-feed__title-wrap">
+        <h1 class="diary-feed__title">{{ feedTitle }}</h1>
+        <button
+          v-if="filterActive"
+          type="button"
+          class="diary-feed__filter-clear"
+          aria-label="Сбросить фильтр"
+          @click="clearFilter"
+        >
+          <IconClose :size="16" />
+        </button>
+      </div>
       <div class="diary-feed__menu-wrap">
         <button
           type="button"
@@ -135,7 +146,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { IconDots } from '@/components/icons'
+import { IconDots, IconClose } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
 import DiaryFilterModal from '@/components/shared/DiaryFilterModal.vue'
@@ -242,6 +253,45 @@ async function onApplySearch(query: string): Promise<void> {
   // runFeedSearch trims; an empty string clears the search. Both reload the
   // feed from the first page.
   await diaryStore.runFeedSearch(query)
+  await nextTick()
+  scrollToBottom()
+}
+
+// -- Active-filter header + reset (minimal indicator) ------------------------
+//
+// When a filter is active the header shows it and offers a one-tap reset
+// (the cross), so the user is never confused about whether the feed is
+// filtered. The title is swapped to the category name ONLY when exactly one
+// category is selected (screens "Check-ins" / "Feedbacks" / "Сонник" ...);
+// otherwise it stays "Дневник" but the cross still appears.
+
+const CATEGORY_TITLE: Record<DiaryFeedCategory, string> = {
+  entries: 'Дневник',
+  dreams: 'Сонник',
+  feedbacks: 'Feedbacks',
+  checkins: 'Check-ins',
+  practices: 'Практики',
+}
+
+// Any filter axis active = categories and/or date range and/or search.
+const filterActive = computed(
+  () =>
+    activeCategories.value.length > 0 ||
+    feedFilters.value.date_from !== undefined ||
+    feedFilters.value.date_to !== undefined ||
+    (feedFilters.value.search ?? '') !== '',
+)
+
+const feedTitle = computed(() => {
+  const cats = activeCategories.value
+  if (cats.length === 1) return CATEGORY_TITLE[cats[0]]
+  return 'Дневник'
+})
+
+async function clearFilter(): Promise<void> {
+  // Full reset: categories + date range + search (clearFeedFilters reloads
+  // the feed from the first page).
+  await diaryStore.clearFeedFilters()
   await nextTick()
   scrollToBottom()
 }
@@ -415,6 +465,33 @@ onBeforeUnmount(() => {
   font-size: var(--text-base);
   letter-spacing: 0.36px;
   color: var(--velo-text-primary);
+}
+
+/* Title + active-filter reset cross. */
+.diary-feed__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.diary-feed__filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+  color: var(--velo-text-secondary);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.diary-feed__filter-clear:hover {
+  opacity: 0.8;
 }
 
 .diary-feed__menu {
