@@ -916,7 +916,7 @@ async def test_create_persists_taxonomy(
     resp = await client.post(
         PRACTICES_URL,
         json=_valid_practice_body(
-            direction="yoga", difficulty="high", style="Кундалини йога",
+            direction="yoga", difficulty="high", style="kundalini",
         ),
         headers=auth_headers(auth["session_token"]),
     )
@@ -924,7 +924,7 @@ async def test_create_persists_taxonomy(
     data = resp.json()
     assert data["direction"] == "yoga"
     assert data["difficulty"] == "high"
-    assert data["style"] == "Кундалини йога"
+    assert data["style"] == "kundalini"
 
     # Re-fetch via GET to confirm it is persisted (not just echoed).
     pid = data["id"]
@@ -936,7 +936,7 @@ async def test_create_persists_taxonomy(
     got = get_resp.json()
     assert got["direction"] == "yoga"
     assert got["difficulty"] == "high"
-    assert got["style"] == "Кундалини йога"
+    assert got["style"] == "kundalini"
 
 
 @pytest.mark.asyncio
@@ -967,7 +967,7 @@ async def test_update_merges_taxonomy(
     create = await client.post(
         PRACTICES_URL,
         json=_valid_practice_body(
-            direction="yoga", difficulty="beginner", style="Хатха",
+            direction="yoga", difficulty="beginner", style="hatha",
         ),
         headers=auth_headers(auth["session_token"]),
     )
@@ -982,7 +982,7 @@ async def test_update_merges_taxonomy(
     data = patch.json()
     assert data["difficulty"] == "high"      # changed
     assert data["direction"] == "yoga"       # preserved
-    assert data["style"] == "Хатха"          # preserved
+    assert data["style"] == "hatha"          # preserved
 
 
 # ---------------------------------------------------------------------------
@@ -1080,13 +1080,13 @@ async def test_filter_style(
     auth = await _make_verified_master(client, db_session)
     master_id = auth["user"]["id"]
     await _create_and_publish(
-        client, auth, style="Кундалини йога", title="K",
+        client, auth, style="kundalini", title="K",
     )
-    await _create_and_publish(client, auth, style="Хатха", title="X")
+    await _create_and_publish(client, auth, style="hatha", title="X")
 
     viewer = await login_user(client, telegram_id=60113, first_name="V")
     resp = await client.get(
-        f"{PRACTICES_URL}?style=Хатха&master_id={master_id}",
+        f"{PRACTICES_URL}?style=hatha&master_id={master_id}",
         headers=auth_headers(viewer["session_token"]),
     )
     assert resp.status_code == 200
