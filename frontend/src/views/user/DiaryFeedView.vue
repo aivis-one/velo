@@ -96,6 +96,8 @@
     <DiaryFilterModal
       :open="showFilter"
       :categories="activeCategories"
+      :date-from="feedFilters.date_from"
+      :date-to="feedFilters.date_to"
       @apply="onApplyFilter"
       @close="showFilter = false"
     />
@@ -185,9 +187,17 @@ function onMenu(): void {
   showFilter.value = true
 }
 
-async function onApplyFilter(categories: DiaryFeedCategory[]): Promise<void> {
+async function onApplyFilter(payload: {
+  categories: DiaryFeedCategory[]
+  date_from?: string
+  date_to?: string
+}): Promise<void> {
   // setFeedFilters resets the feed to the first page with the new filter set.
-  await diaryStore.setFeedFilters({ categories })
+  await diaryStore.setFeedFilters({
+    categories: payload.categories,
+    date_from: payload.date_from,
+    date_to: payload.date_to,
+  })
   await nextTick()
   // Chat-mode: jump to the newest matching entry (bottom) after refiltering.
   scrollToBottom()
