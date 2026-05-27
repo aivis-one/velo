@@ -108,9 +108,9 @@ onUnmounted(() => {
   max-width: 420px;
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--velo-bg-card, var(--velo-glass-blue-60));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--velo-glass-white-25);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   border: 1px solid #ffffff;
   border-radius: 20px 20px 0 0;
   padding: var(--space-6);
