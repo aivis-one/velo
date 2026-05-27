@@ -31,27 +31,11 @@
           <IconClose :size="16" />
         </button>
       </div>
-      <div class="diary-feed__menu-wrap">
-        <button
-          type="button"
-          class="diary-feed__menu"
-          :class="{ 'diary-feed__menu--open': menuOpen }"
-          aria-label="Меню"
-          @click="menuOpen = !menuOpen"
-        >
-          <IconDots :size="20" />
-        </button>
-
-        <!-- Expanded icon panel (Figma 46): round icon buttons below "...".
-             Filter (funnel) + Search (magnifier). "Связи" (Relationships) is
-             an AI feature outside the MVP and is intentionally omitted. -->
-        <div v-if="menuOpen" class="diary-feed__menu-panel" role="menu">
-          <button
-            type="button"
-            class="diary-feed__menu-icon"
-            aria-label="Фильтр"
-            @click="openFilter"
-          >
+      <VMenu>
+        <template #default="{ close }">
+          <!-- Filter (funnel) + Search (magnifier). "Связи" (Relationships)
+               is an AI feature outside the MVP and is intentionally omitted. -->
+          <VMenuItem aria-label="Фильтр" @click="openFilter(); close()">
             <svg
               class="diary-feed__menu-glyph"
               viewBox="0 0 20 20"
@@ -64,13 +48,8 @@
                 fill="currentColor"
               />
             </svg>
-          </button>
-          <button
-            type="button"
-            class="diary-feed__menu-icon"
-            aria-label="Поиск"
-            @click="openSearch"
-          >
+          </VMenuItem>
+          <VMenuItem aria-label="Поиск" @click="openSearch(); close()">
             <svg
               class="diary-feed__menu-glyph diary-feed__menu-glyph--magnifier"
               viewBox="0 0 13.6562 22.999"
@@ -83,9 +62,9 @@
                 fill="currentColor"
               />
             </svg>
-          </button>
-        </div>
-      </div>
+          </VMenuItem>
+        </template>
+      </VMenu>
     </header>
 
     <!-- Feed body: the ONLY scrolling area, between fixed header and composer -->
@@ -175,8 +154,8 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { IconDots, IconClose } from '@/components/icons'
+import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
+import { IconClose } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
 import DiaryFilterModal from '@/components/shared/DiaryFilterModal.vue'
@@ -244,7 +223,6 @@ function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
 
 // -- "..." menu + filter / search modals (screens 42 / 43 / 44) --------------
 
-const menuOpen = ref(false)
 const showFilter = ref(false)
 const showSearch = ref(false)
 
@@ -254,12 +232,10 @@ const activeCategories = computed<DiaryFeedCategory[]>(
 )
 
 function openFilter(): void {
-  menuOpen.value = false
   showFilter.value = true
 }
 
 function openSearch(): void {
-  menuOpen.value = false
   showSearch.value = true
 }
 
@@ -529,63 +505,8 @@ onBeforeUnmount(() => {
   opacity: 0.8;
 }
 
-.diary-feed__menu {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-nav-active-bg);
-  color: #ffffff;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.diary-feed__menu:hover {
-  opacity: 0.85;
-}
-
-/* Active state while the icon panel is open. */
-.diary-feed__menu--open {
-  opacity: 0.85;
-}
-
-/* "..." expands into a vertical column of round icon buttons (Figma 46). */
-.diary-feed__menu-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.diary-feed__menu-panel {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
-  z-index: var(--z-sticky, 10);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.diary-feed__menu-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-nav-active-bg);
-  color: #ffffff;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.diary-feed__menu-icon:hover {
-  opacity: 0.85;
-}
-
+/* Glyphs for the filter / search items inside the "..." menu (VMenu). The
+   round button + popover styles now live in VMenu / VMenuItem. */
 .diary-feed__menu-glyph {
   width: 18px;
   height: 18px;

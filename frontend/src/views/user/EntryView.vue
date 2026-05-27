@@ -42,28 +42,23 @@
       </button>
       <h1 class="entry__title-bar">Запись</h1>
 
-      <!-- Edit / delete actions (view mode only): two round icon buttons on
-           a blue fill, no labels -- same style as the filter buttons.
-           Delete is safe to fire directly: the diary feed shows an undo bar. -->
-      <div v-if="mode === 'view'" class="entry__actions">
-        <button
-          type="button"
-          class="entry__icon-btn entry__action-btn"
-          aria-label="Редактировать"
-          @click="startEdit"
-        >
-          <IconPen :size="20" />
-        </button>
-        <button
-          type="button"
-          class="entry__icon-btn entry__action-btn"
-          aria-label="Удалить"
-          @click="onDelete"
-        >
-          <IconTrash :size="20" />
-        </button>
-      </div>
-      <!-- Spacer to keep the title centered in edit mode (no action buttons). -->
+      <!-- "..." menu (view mode only): edit + delete as round icon buttons.
+           Delete fires directly -- the diary feed shows an undo bar. -->
+      <VMenu v-if="mode === 'view'">
+        <template #default="{ close }">
+          <VMenuItem
+            :icon="IconPen"
+            aria-label="Редактировать"
+            @click="startEdit(); close()"
+          />
+          <VMenuItem
+            :icon="IconTrash"
+            aria-label="Удалить"
+            @click="onDelete(); close()"
+          />
+        </template>
+      </VMenu>
+      <!-- Spacer to keep the title centered in edit mode (no menu button). -->
       <span v-else class="entry__icon-btn entry__icon-spacer" aria-hidden="true" />
     </header>
 
@@ -169,7 +164,7 @@
 import { ref, computed, onMounted, nextTick, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
 import {
   IconArrowRight,
   IconDots,
@@ -390,19 +385,6 @@ function goBack(): void {
 /* The only "back" glyph available is a right arrow -- mirror it. */
 .entry__back-glyph {
   transform: scaleX(-1);
-}
-
-/* -- Edit / delete action buttons (two round icons on a blue fill) -- */
-.entry__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-shrink: 0;
-}
-
-.entry__action-btn {
-  background: var(--velo-nav-active-bg);
-  color: #ffffff;
 }
 
 .entry__icon-btn:hover {

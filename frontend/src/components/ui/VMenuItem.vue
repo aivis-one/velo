@@ -1,0 +1,58 @@
+<!--
+  VELO Frontend -- VMenuItem (action button inside VMenu)
+
+  A round 40x40 icon button on the brand-blue fill, no label. Used as a child
+  of VMenu for each action (edit / delete / filter / search ...). The glyph is
+  supplied either via the `icon` prop (an icon component, e.g. IconPen) or via
+  the default slot (for inline SVG paths that are not icon components yet).
+
+  The parent wires @click and, after running the action, calls the `close`
+  slot-prop that VMenu exposes so the popover dismisses.
+-->
+<template>
+  <button
+    type="button"
+    class="v-menu-item"
+    :aria-label="ariaLabel"
+  >
+    <component :is="icon" v-if="icon" :size="iconSize" />
+    <slot v-else />
+  </button>
+</template>
+
+<script setup lang="ts">
+import type { Component } from 'vue'
+
+withDefaults(
+  defineProps<{
+    /** Icon component to render (e.g. IconPen). Omit to use the default slot. */
+    icon?: Component
+    /** Accessible label -- there is no visible text. */
+    ariaLabel: string
+    /** Size passed to the icon component (ignored when using the slot). */
+    iconSize?: number
+  }>(),
+  { iconSize: 20 },
+)
+</script>
+
+<style scoped>
+.v-menu-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-nav-active-bg);
+  color: #ffffff;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.v-menu-item:hover {
+  opacity: 0.85;
+}
+</style>
