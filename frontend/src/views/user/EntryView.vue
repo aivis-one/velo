@@ -48,12 +48,12 @@
         <template #default="{ close }">
           <VMenuItem
             :icon="IconPen"
-            aria-label="Редактировать"
+            ariaLabel="Редактировать"
             @click="startEdit(); close()"
           />
           <VMenuItem
             :icon="IconTrash"
-            aria-label="Удалить"
+            ariaLabel="Удалить"
             @click="onDelete(); close()"
           />
         </template>

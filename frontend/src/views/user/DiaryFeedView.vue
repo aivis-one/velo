@@ -35,7 +35,7 @@
         <template #default="{ close }">
           <!-- Filter (funnel) + Search (magnifier). "Связи" (Relationships)
                is an AI feature outside the MVP and is intentionally omitted. -->
-          <VMenuItem aria-label="Фильтр" @click="openFilter(); close()">
+          <VMenuItem ariaLabel="Фильтр" @click="openFilter(); close()">
             <svg
               class="diary-feed__menu-glyph"
               viewBox="0 0 20 20"
@@ -49,7 +49,7 @@
               />
             </svg>
           </VMenuItem>
-          <VMenuItem aria-label="Поиск" @click="openSearch(); close()">
+          <VMenuItem ariaLabel="Поиск" @click="openSearch(); close()">
             <svg
               class="diary-feed__menu-glyph diary-feed__menu-glyph--magnifier"
               viewBox="0 0 13.6562 22.999"
