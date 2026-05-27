@@ -289,6 +289,9 @@ function onReset(): void {
   draft.style = ''
   draft.duration_bucket = undefined
   draft.time_of_day = undefined
+  // Reset is one click: clear all axes, apply (feed shows everything), close.
+  emit('apply', buildFilters())
+  emit('close')
 }
 </script>
 

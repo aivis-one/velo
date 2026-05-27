@@ -394,6 +394,9 @@ function onApply(): void {
 function onReset(): void {
   draft.value = []
   clearDates()
+  // Reset is one click: with the draft cleared, onApply emits empty filters
+  // (feed shows everything) and closes the modal.
+  onApply()
 }
 </script>
 
