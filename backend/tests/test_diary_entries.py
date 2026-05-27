@@ -223,7 +223,7 @@ async def test_create_entry_full(
         json={
             "content": "Felt amazing after meditation.",
             "title": "Morning Reflection",
-            "mood": "high",
+            "mood": 9,
             "practice_id": str(practice.id),
         },
         headers=auth_headers(auth["session_token"]),
@@ -233,7 +233,7 @@ async def test_create_entry_full(
     data = resp.json()
     assert data["content"] == "Felt amazing after meditation."
     assert data["title"] == "Morning Reflection"
-    assert data["mood"] == "high"
+    assert data["mood"] == 9
     assert data["practice_id"] == str(practice.id)
 
 
@@ -364,7 +364,7 @@ async def test_create_entry_invalid_mood(
 
     resp = await client.post(
         DIARY_URL,
-        json={"content": "Text.", "mood": "euphoric"},
+        json={"content": "Text.", "mood": 11},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
@@ -434,23 +434,23 @@ async def test_list_entries_filter_mood(
 
     await client.post(
         DIARY_URL,
-        json={"content": "Happy day", "mood": "high"},
+        json={"content": "Happy day", "mood": 9},
         headers=headers,
     )
     await client.post(
         DIARY_URL,
-        json={"content": "Rough day", "mood": "low"},
+        json={"content": "Rough day", "mood": 2},
         headers=headers,
     )
 
     resp = await client.get(
-        f"{DIARY_URL}?mood=high",
+        f"{DIARY_URL}?mood=9",
         headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
-    assert data["items"][0]["mood"] == "high"
+    assert data["items"][0]["mood"] == 9
 
 
 # ===================================================================
@@ -567,20 +567,20 @@ async def test_update_entry_success(
 
     create_resp = await client.post(
         DIARY_URL,
-        json={"content": "Original text.", "mood": "low"},
+        json={"content": "Original text.", "mood": 2},
         headers=headers,
     )
     entry_id = create_resp.json()["id"]
 
     resp = await client.patch(
         f"{DIARY_URL}/{entry_id}",
-        json={"content": "Updated text.", "mood": "high"},
+        json={"content": "Updated text.", "mood": 9},
         headers=headers,
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["content"] == "Updated text."
-    assert data["mood"] == "high"
+    assert data["mood"] == 9
     assert data["id"] == entry_id
 
 
@@ -603,7 +603,7 @@ async def test_update_entry_clear_fields(
         json={
             "content": "Text with mood.",
             "title": "My Title",
-            "mood": "mid",
+            "mood": 6,
         },
         headers=headers,
     )

@@ -1867,8 +1867,8 @@ async def seed(reset: bool = False) -> None:
                 # no check-in/feedback banner, so its check-in stays for feed
                 # variety.
                 banner_titles_moods = {
-                    "Вечерняя медитация": ("high", None, None, None),
-                    "Дневная практика (эфир)": ("mid", None, None, None),
+                    "Вечерняя медитация": (9, None, None, None),
+                    "Дневная практика (эфир)": (6, None, None, None),
                 }
                 for practice, _tmpl in (
                     (p, t) for p, t in zip(practices, PRACTICE_TEMPLATES)

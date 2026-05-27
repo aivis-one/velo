@@ -172,7 +172,7 @@ async def _insert_feedback(
     practice_id: UUID,
     user_id: UUID,
     *,
-    rating: str = "fire",
+    rating: int = 9,
 ) -> None:
     """Insert a Booking + Feedback row directly via ORM.
 

@@ -248,7 +248,7 @@ async def test_checkin_creates_and_refreshes_event(
     # First check-in.
     resp = await client.post(
         CHECKIN_URL.format(practice_id=pid),
-        json={"mood": "low", "comment": "tired"},
+        json={"mood": 2, "comment": "tired"},
         headers=auth_headers(token),
     )
     assert resp.status_code == 200, resp.text
@@ -256,7 +256,7 @@ async def test_checkin_creates_and_refreshes_event(
     # Re-check-in (upsert) with a new mood.
     resp = await client.post(
         CHECKIN_URL.format(practice_id=pid),
-        json={"mood": "high", "comment": "better now"},
+        json={"mood": 9, "comment": "better now"},
         headers=auth_headers(token),
     )
     assert resp.status_code == 200, resp.text
@@ -265,7 +265,7 @@ async def test_checkin_creates_and_refreshes_event(
     checkin_events = [i for i in body["items"] if i["kind"] == "checkin"]
     # Upsert: exactly one checkin event, reflecting the latest mood.
     assert len(checkin_events) == 1
-    assert checkin_events[0]["snapshot"]["mood"] == "high"
+    assert checkin_events[0]["snapshot"]["mood"] == 9
 
 
 # ===================================================================
