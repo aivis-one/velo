@@ -2,7 +2,9 @@
   VELO Frontend -- PracticeLiveView (screen 14, Practice-Live)
 
   Full-screen view for a practice that is currently in progress (LIVE).
-  No header/back button -- the user leaves via "Покинуть практику".
+  Header has a back arrow (VHeader show-back) so the user can return to the
+  previous screen without leaving the practice. "Покинуть практику" remains
+  the explicit way to leave (sets left_at + back to dashboard).
 
   Layout (top -> bottom):
     - Video placeholder (no real video in MVP; Zoom is external)
@@ -28,6 +30,9 @@
 
 <template>
   <div class="live">
+    <!-- Back arrow only -- the user can return to the previous screen. -->
+    <VHeader show-back @back="router.back()" />
+
     <!-- Video placeholder (no real video in MVP) -->
     <div class="live__video">
       <span class="live__video-label">video</span>
@@ -81,6 +86,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 
 const route = useRoute()
 const router = useRouter()

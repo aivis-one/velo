@@ -162,9 +162,7 @@ const emit = defineEmits<{
   min-height: 100%;
   padding: var(--space-6);
   text-align: center;
-  background: var(--velo-glass-teal-30);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: #ffffff;
 }
 
 .form-shell-success__icon {
@@ -176,16 +174,16 @@ const emit = defineEmits<{
   font-family: var(--font-body);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-success-text);
+  color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin-bottom: var(--space-3);
 }
 
 .form-shell-success__text {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-success-text);
+  color: var(--velo-text-primary);
   margin-bottom: var(--space-8);
   max-width: 280px;
 }

@@ -98,7 +98,7 @@
             <IconMeditation :size="26" />
           </span>
           <div class="dashboard__practice-info">
-            <h4 class="dashboard__practice-title">{{ nearestBooking.practice.title }}</h4>
+            <h4 class="dashboard__practice-title">{{ nearestPracticeTitle }}</h4>
             <p class="dashboard__practice-master">
               <span class="dashboard__practice-master-avatar">{{ masterInitial }}</span>
               <span class="dashboard__practice-master-name">
@@ -118,7 +118,7 @@
             <IconClock :size="14" /> {{ nearestPracticeDuration }}
           </span>
           <VBadge v-if="nearestIsLive" variant="success">
-            В эфире
+            · В эфире
           </VBadge>
           <VBadge v-else-if="nearestBooking.purchase_id" variant="success">
             <IconCheck :size="12" /> Оплачено
@@ -134,7 +134,7 @@
         <VButton
           variant="secondary"
           block
-          @click="openNearest"
+          @click="onZoomClick"
         >
           Zoom
         </VButton>
@@ -229,6 +229,9 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
+import { usePracticesStore } from '@/stores/practices'
+import { useToast } from '@/composables/useToast'
+import { platform } from '@/platform'
 import { VLoader, VButton, VBadge } from '@/components/ui'
 import {
   IconClock,
@@ -252,6 +255,8 @@ void CHECKIN_WINDOW_H
 const router = useRouter()
 const authStore = useAuthStore()
 const bookingsStore = useBookingsStore()
+const practicesStore = usePracticesStore()
+const toast = useToast()
 
 // -- Reactive clock: updated every 60s so alert computeds re-evaluate --
 const now = ref(Date.now())
@@ -341,6 +346,45 @@ const masterInitial = computed((): string => {
 const nearestIsLive = computed((): boolean =>
   nearestBooking.value?.practice.status === 'live',
 )
+
+/**
+ * Practice title without a trailing " (эфир)" marker. Some seeded / manually
+ * created practices include "(эфир)" in their title (see seed.py); since the
+ * card already shows a "В эфире" badge for live practices, the suffix in the
+ * title is redundant — strip it on the client.
+ */
+const nearestPracticeTitle = computed((): string => {
+  const title = nearestBooking.value?.practice.title ?? ''
+  return title.replace(/\s*\(эфир\)\s*$/, '')
+})
+
+/**
+ * Open the Zoom link directly (not the practice screen).
+ *
+ * BookingWithPracticeResponse embeds a PracticeSummary (no zoom_link), so we
+ * lazy-fetch the full PracticeResponse on click. The https:// guard mirrors
+ * PracticeLiveView (AUDIT-0520-02). If the link is missing or invalid, show
+ * a toast — we deliberately do NOT navigate to the practice screen, since the
+ * whole point of this button is to skip that screen.
+ */
+async function onZoomClick(): Promise<void> {
+  const booking = nearestBooking.value
+  if (!booking) return
+
+  // Fetch the full practice if it's not already the currently-selected one.
+  if (practicesStore.selected?.id !== booking.practice_id) {
+    await practicesStore.fetchPractice(booking.practice_id)
+  }
+
+  const zoomLink = practicesStore.selected?.zoom_link
+  if (!zoomLink || !zoomLink.startsWith('https://')) {
+    toast.error('Ссылка на Zoom ещё не указана')
+    return
+  }
+
+  try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
+  platform.openLink(zoomLink)
+}
 
 /**
  * Open the nearest practice. A live practice goes to the Practice-Live
@@ -527,7 +571,7 @@ onUnmounted(() => {
 .dashboard__section-title {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
+  font-weight: 700;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-4);
@@ -646,6 +690,12 @@ onUnmounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
   margin-top: var(--space-4);
+}
+
+/* Zoom / Check-in buttons use a larger 20px label (Figma 2266:527, 2266:530)
+   without changing the base VButton size variants. */
+.dashboard__practice-actions :deep(.v-btn) {
+  font-size: var(--text-lg);
 }
 
 /* ===== Loader / empty ===== */

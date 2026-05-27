@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- FeedbackView (Phase F9.1, updated back-button, WARNING-9)
+  VELO Frontend -- FeedbackView
 
   Full-screen post-practice feedback form.
   Uses FormShell for shared layout/CSS. Only rating-specific logic stays here.
@@ -42,21 +42,21 @@
       </div>
     </template>
 
-    <!-- Success icon: teal heart (Figma 541:2354) -->
+    <!-- Success icon: teal heart (Figma 2266:2305, 93x87 native viewBox) -->
     <template #success-icon>
       <span class="feedback__success-heart">
-        <IconHeart :size="56" />
+        <IconHeart :size="80" />
       </span>
     </template>
 
-    <!-- Success actions -->
+    <!-- Success actions: primary "В дневник" + text link "На главную" (Figma 2266:2296) -->
     <template #success-actions>
       <VButton variant="primary" size="lg" block @click="goToDiary">
         В дневник
       </VButton>
-      <VButton variant="ghost" block @click="goToDashboard">
+      <button type="button" class="feedback__success-link" @click="goToDashboard">
         На главную
-      </VButton>
+      </button>
     </template>
   </FormShell>
 </template>
@@ -120,7 +120,15 @@ async function onSubmit(): Promise<void> {
 }
 
 function onBack(): void {
-  router.push({ name: 'user-bookings' })
+  // Возврат на тот экран, с которого пришёл пользователь (дашборд, детали
+  // практики, ...). Fallback на дашборд, если истории нет — например, после
+  // релоада или прямой ссылки в Telegram.
+  const hasHistory = window.history.state?.back != null
+  if (hasHistory) {
+    router.back()
+  } else {
+    router.push({ name: 'user-dashboard' })
+  }
 }
 
 function goToDiary(): void {
@@ -153,5 +161,26 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--velo-teal-400);
+}
+
+.feedback__success-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.feedback__success-link:hover {
+  opacity: 0.7;
+}
+
+.feedback__success-link:focus-visible {
+  outline: 2px solid var(--velo-primary);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
 }
 </style>
