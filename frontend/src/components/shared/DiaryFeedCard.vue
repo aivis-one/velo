@@ -51,14 +51,11 @@
     <p class="feed-card__practice-title">{{ practiceTitle }}</p>
 
     <div class="feed-card__practice-master">
-      <span class="feed-card__avatar" aria-hidden="true">
-        <img
-          v-if="masterAvatarUrl"
-          :src="masterAvatarUrl"
-          alt=""
-          class="feed-card__avatar-img"
-        />
-      </span>
+      <VAvatar
+        :url="masterAvatarUrl ?? ''"
+        :name="masterName ?? 'Мастер'"
+        size="sm"
+      />
       <span class="feed-card__master-name">{{ masterName }}</span>
       <IconCheck v-if="masterVerified" :size="14" class="feed-card__verified" />
     </div>
@@ -107,6 +104,7 @@
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
+import { VAvatar } from '@/components/ui'
 import {
   IconCheck,
   IconCalendar,
@@ -383,22 +381,7 @@ function onTap(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
-}
-
-.feed-card__avatar {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-40);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.feed-card__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  gap: var(--space-2);
 }
 
 .feed-card__master-name {

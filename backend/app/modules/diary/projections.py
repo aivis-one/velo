@@ -104,20 +104,28 @@ async def _practice_snapshot(
 
     master_verified is snapshotted as-of the event too (W-1): the feed is an
     append-only historical record, so we freeze the master's verified state at
-    projection time rather than resolving it live on read. Lazy import keeps
-    the diary->masters dependency from loading at module import (house style;
-    same reason bookings is imported lazily below).
+    projection time rather than resolving it live on read. master_avatar_url is
+    captured the same way (User.avatar_url at projection time). Lazy import
+    keeps the diary->masters dependency from loading at module import (house
+    style; same reason bookings is imported lazily below).
     """
-    from app.modules.masters.service import is_master_verified
+    from app.modules.masters.service import (
+        get_master_avatar_url,
+        is_master_verified,
+    )
 
     scheduled_at = scheduled_at_override or practice.scheduled_at
     master_verified = await is_master_verified(practice.master_id, session)
+    master_avatar_url = await get_master_avatar_url(
+        practice.master_id, session,
+    )
     return {
         "practice_id": str(practice.id),
         "practice_title": practice.title,
         "master_id": str(practice.master_id),
         "master_name": master_name,
         "master_verified": master_verified,
+        "master_avatar_url": master_avatar_url,
         "scheduled_at": scheduled_at.isoformat() if scheduled_at else None,
         "duration_minutes": practice.duration_minutes,
         "direction": _practice_direction(practice),
