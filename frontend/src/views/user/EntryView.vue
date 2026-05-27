@@ -174,13 +174,16 @@ import {
   IconArrowRight,
   IconDots,
   IconPen,
-  IconTrash,
   IconCalendar,
   IconClock,
   IconMeditation,
   IconYoga,
   IconBreathwork,
 } from '@/components/icons'
+// IconTrash is not re-exported from the icons barrel yet; import the component
+// file directly (same pattern as IconDateLeaf elsewhere) so we get the real
+// trash glyph instead of aliasing IconClose.
+import IconTrash from '@/components/icons/IconTrash.vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
