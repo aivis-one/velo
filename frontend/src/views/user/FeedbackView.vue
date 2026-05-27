@@ -17,7 +17,7 @@
     question-subtitle="Оцените своё состояние после"
     v-model:comment="comment"
     :submitting="diaryStore.feedbackSubmitting"
-    :submit-disabled="!selectedRating"
+    :submit-disabled="false"
     submit-label="Отправить feedback"
     :submitted="submitted"
     success-icon=""
@@ -31,24 +31,14 @@
       с {{ practice?.master_name ?? 'Мастером' }} · Завершена
     </template>
 
-    <!-- Rating buttons -->
+    <!-- Rating slider -->
     <template #selection>
-      <div class="feedback__rating-buttons">
-        <button
-          v-for="opt in RATING_OPTIONS"
-          :key="opt.value"
-          class="feedback__rating-btn"
-          :class="[
-            `feedback__rating-btn--${opt.value}`,
-            { 'feedback__rating-btn--selected': selectedRating === opt.value },
-          ]"
-          @click="selectRating(opt.value)"
-        >
-          <span class="feedback__rating-icon" :style="{ color: RATING_ICON_COLOR[opt.value] }">
-            <component :is="RATING_ICON[opt.value]" :size="40" />
-          </span>
-          <span class="feedback__rating-label">{{ opt.label }}</span>
-        </button>
+      <div class="feedback__rating">
+        <MoodSlider
+          v-model="ratingScore"
+          :zones="RATING_ZONES"
+          aria-label="Оценка практики от 1 до 10"
+        />
       </div>
     </template>
 
@@ -86,17 +76,17 @@ import {
   IconHeart,
 } from '@/components/icons'
 import FormShell from '@/components/shared/FormShell.vue'
-import { RATING_OPTIONS, RATING_ICON_COLOR } from '@/utils/displayHelpers'
-import type { FeedbackRating } from '@/api/types'
+import MoodSlider from '@/components/shared/MoodSlider.vue'
+import { RATING_ICON_COLOR } from '@/utils/displayHelpers'
 
-// Map rating value -> icon component (kept here, not in displayHelpers, to
-// avoid mixing the utils layer with .vue components -- same as MOOD_ICON in
-// CheckinView). Colors come from RATING_ICON_COLOR (--velo-rating-* tokens).
-const RATING_ICON = {
-  confused: IconRatingConfused,
-  good:     IconRatingGood,
-  fire:     IconRatingFire,
-} as const
+// Three slider zones (low -> high), passed to MoodSlider. Icons are .vue
+// components so they stay in the view. Per-zone color keeps the Figma tint
+// (confused = brand blue, good = rose, fire = peach) via --velo-rating-*.
+const RATING_ZONES = [
+  { icon: IconRatingConfused, label: 'Есть вопросы', color: RATING_ICON_COLOR.confused },
+  { icon: IconRatingGood,     label: 'Хорошо',       color: RATING_ICON_COLOR.good },
+  { icon: IconRatingFire,     label: 'Огонь!',       color: RATING_ICON_COLOR.fire },
+]
 
 const route = useRoute()
 const router = useRouter()
@@ -109,25 +99,15 @@ const practiceId = route.params.practiceId as string
 const practice = computed(() => practicesStore.selected)
 const practiceLoading = computed(() => practicesStore.selectedLoading)
 
-const selectedRating = ref<FeedbackRating | null>(null)
+const ratingScore = ref<number>(6)
 const comment = ref('')
 const submitted = ref(false)
 
-function selectRating(rating: FeedbackRating): void {
-  selectedRating.value = rating
-  try { platform.hapticFeedback('light') } catch { /* silent fallback */ }
-}
-
 async function onSubmit(): Promise<void> {
-  if (!selectedRating.value || diaryStore.feedbackSubmitting) return
-
-  // selectedRating stays a discrete FeedbackRating for the UI; the backend
-  // now takes a 1..10 score, so map the chosen option to its score.
-  const ratingScore =
-    RATING_OPTIONS.find((o) => o.value === selectedRating.value)?.score ?? 6
+  if (diaryStore.feedbackSubmitting) return
 
   const result = await diaryStore.submitFeedback(practiceId, {
-    rating: ratingScore,
+    rating: ratingScore.value,
     comment: comment.value.trim() || null,
   })
 
@@ -159,56 +139,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Rating buttons -- unique to FeedbackView */
-.feedback__rating-buttons {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-4);
-}
-
-.feedback__rating-btn {
+/* Rating slider wrapper -- the slider carries its own styles. */
+.feedback__rating {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  min-width: var(--size-option-btn-min);
-  font-family: var(--font-body);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.feedback__rating-btn:hover {
-  opacity: 0.8;
-}
-
-.feedback__rating-btn--selected.feedback__rating-btn--confused {
-  border-color: var(--velo-peach-300);
-  background: var(--velo-glass-peach-40);
-  box-shadow: var(--velo-shadow-glow);
-}
-
-.feedback__rating-btn--selected.feedback__rating-btn--good {
-  border-color: var(--velo-teal-400);
-  background: var(--velo-glass-teal-30);
-  box-shadow: var(--velo-shadow-glow);
-}
-
-.feedback__rating-btn--selected.feedback__rating-btn--fire {
-  border-color: var(--velo-pink-300);
-  background: var(--velo-glass-peach-40);
-  box-shadow: var(--velo-shadow-glow);
-}
-
-.feedback__rating-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  gap: var(--space-4);
+  width: 100%;
 }
 
 .feedback__success-heart {
@@ -216,11 +153,5 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--velo-teal-400);
-}
-
-.feedback__rating-label {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
 }
 </style>
