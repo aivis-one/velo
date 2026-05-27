@@ -33,7 +33,9 @@
           >
             ✕
           </button>
-          <slot />
+          <div class="v-modal__scroll">
+            <slot />
+          </div>
         </div>
       </div>
     </Transition>
@@ -107,18 +109,28 @@ onUnmounted(() => {
   width: 100%;
   max-width: 420px;
   max-height: 85vh;
-  overflow-y: auto;
+  /* Clip the scrollbar to the rounded corners so it never pokes above the
+     sheet. The actual scrolling happens on .v-modal__scroll inside. */
+  overflow: hidden;
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: 20px 20px 0 0;
-  padding: var(--space-6);
   box-shadow: var(--shadow-xl);
+}
+
+/* Inner scroll area: holds the padding and owns the vertical scroll, so the
+   scrollbar stays within the container's rounded clip. */
+.v-modal__scroll {
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: var(--space-6);
 }
 
 .v-modal__close {
   position: absolute;
   top: var(--space-4);
   right: var(--space-4);
+  z-index: 1;
   width: 32px;
   height: 32px;
   display: flex;
