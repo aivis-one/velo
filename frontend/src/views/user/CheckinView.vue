@@ -141,8 +141,13 @@ function selectMood(mood: Mood): void {
 async function onSubmit(): Promise<void> {
   if (!selectedMood.value || diaryStore.checkinSubmitting) return
 
+  // selectedMood stays a discrete Mood for the UI (icons / track); the
+  // backend now takes a 1..10 score, so map the chosen option to its score.
+  const moodScore =
+    MOOD_OPTIONS.find((o) => o.value === selectedMood.value)?.score ?? 6
+
   const result = await diaryStore.submitCheckin(practiceId, {
-    mood: selectedMood.value,
+    mood: moodScore,
     comment: comment.value.trim() || null,
   })
 

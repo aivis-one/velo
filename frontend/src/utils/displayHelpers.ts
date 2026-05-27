@@ -35,11 +35,13 @@ export const PRACTICE_TYPE_EMOJI: Record<PracticeType, string> = {
 // Mood (check-in)
 // ---------------------------------------------------------------------------
 
-/** Ordered array -- use for rendering mood buttons in CheckinView. */
-export const MOOD_OPTIONS: Array<{ value: Mood; emoji: string; label: string }> = [
-  { value: 'low',  emoji: '😔', label: 'Не очень' },
-  { value: 'mid',  emoji: '😐', label: 'Нормально' },
-  { value: 'high', emoji: '😊', label: 'Хорошо' },
+/** Ordered array -- use for rendering mood buttons in CheckinView.
+ *  `score` is the 1..10 value submitted to the backend; the three discrete
+ *  buttons map to the middle of each range (1-3 / 4-7 / 8-10). */
+export const MOOD_OPTIONS: Array<{ value: Mood; score: number; emoji: string; label: string }> = [
+  { value: 'low',  score: 2, emoji: '😔', label: 'Не очень' },
+  { value: 'mid',  score: 6, emoji: '😐', label: 'Нормально' },
+  { value: 'high', score: 9, emoji: '😊', label: 'Хорошо' },
 ]
 
 /** Map form -- use for lookups in DiaryView / DiaryStore. */
@@ -59,11 +61,13 @@ export const MOOD_LABEL: Record<string, string> = {
 // Feedback rating
 // ---------------------------------------------------------------------------
 
-/** Ordered array -- use for rendering rating buttons in FeedbackView. */
-export const RATING_OPTIONS: Array<{ value: FeedbackRating; emoji: string; label: string }> = [
-  { value: 'confused', emoji: '❓', label: 'Есть вопросы' },
-  { value: 'good',     emoji: '👍', label: 'Хорошо' },
-  { value: 'fire',     emoji: '🔥', label: 'Огонь!' },
+/** Ordered array -- use for rendering rating buttons in FeedbackView.
+ *  `score` is the 1..10 value submitted to the backend; the three discrete
+ *  buttons map to the middle of each range (1-3 / 4-7 / 8-10). */
+export const RATING_OPTIONS: Array<{ value: FeedbackRating; score: number; emoji: string; label: string }> = [
+  { value: 'confused', score: 2, emoji: '❓', label: 'Есть вопросы' },
+  { value: 'good',     score: 6, emoji: '👍', label: 'Хорошо' },
+  { value: 'fire',     score: 9, emoji: '🔥', label: 'Огонь!' },
 ]
 
 /** Map form -- use for lookups in DiaryView / AnalyticsView. */

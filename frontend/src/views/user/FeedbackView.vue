@@ -121,8 +121,13 @@ function selectRating(rating: FeedbackRating): void {
 async function onSubmit(): Promise<void> {
   if (!selectedRating.value || diaryStore.feedbackSubmitting) return
 
+  // selectedRating stays a discrete FeedbackRating for the UI; the backend
+  // now takes a 1..10 score, so map the chosen option to its score.
+  const ratingScore =
+    RATING_OPTIONS.find((o) => o.value === selectedRating.value)?.score ?? 6
+
   const result = await diaryStore.submitFeedback(practiceId, {
-    rating: selectedRating.value,
+    rating: ratingScore,
     comment: comment.value.trim() || null,
   })
 
