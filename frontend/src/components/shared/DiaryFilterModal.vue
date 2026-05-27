@@ -155,6 +155,7 @@ const props = defineProps<{
   categories: DiaryFeedCategory[]
   dateFrom?: string
   dateTo?: string
+  timezone?: string
 }>()
 
 const emit = defineEmits<{
@@ -207,10 +208,50 @@ function dayKey(d: Date): string {
   }).format(d)
 }
 
-/** Parse a YYYY-MM-DD (or ISO) string to a local midnight Date. */
-function parseDayKey(s: string): string {
+/** Extract the YYYY-MM-DD date part from a YYYY-MM-DD or full ISO string. */
+function extractDatePart(s: string): string {
   // Keep only the date part; the grid works in whole days.
   return s.slice(0, 10)
+}
+
+/**
+ * UTC instant (ms) of local midnight for a YYYY-MM-DD day key in IANA `tz`.
+ * W-1: the calendar produces local day keys, so the range bounds must be the
+ * day's start/end IN THE USER'S TIMEZONE, not UTC midnight (a `...Z` suffix on
+ * a local key shifts the boundary by the tz offset and clips events near
+ * midnight for non-UTC users). Computed by formatting a probe instant in `tz`
+ * and applying the resulting offset; DST-correct.
+ */
+function startOfDayUtcMs(dayKey: string, tz: string): number {
+  const [y = 0, m = 1, d = 1] = dayKey.split('-').map(Number)
+  const guess = Date.UTC(y, m - 1, d, 0, 0, 0, 0)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(new Date(guess))
+    .filter((p) => p.type !== 'literal')
+    .reduce<Record<string, string>>((acc, p) => {
+      acc[p.type] = p.value
+      return acc
+    }, {})
+  let h = Number(parts.hour)
+  if (h === 24) h = 0
+  const tzClock = Date.UTC(
+    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
+    h, Number(parts.minute), Number(parts.second),
+  )
+  return guess - (tzClock - guess)
+}
+
+/** YYYY-MM-DD of the day after `dayKey`. */
+function nextDayKey(dayKey: string): string {
+  const [y = 0, m = 1, d = 1] = dayKey.split('-').map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d))
+  t.setUTCDate(t.getUTCDate() + 1)
+  return t.toISOString().slice(0, 10)
 }
 
 const MONTH_LABELS = [
@@ -307,8 +348,8 @@ watch(
   (isOpen) => {
     if (!isOpen) return
     draft.value = [...props.categories]
-    draftFrom.value = props.dateFrom ? parseDayKey(props.dateFrom) : null
-    draftTo.value = props.dateTo ? parseDayKey(props.dateTo) : null
+    draftFrom.value = props.dateFrom ? extractDatePart(props.dateFrom) : null
+    draftTo.value = props.dateTo ? extractDatePart(props.dateTo) : null
     // Open the grid on the selected from-date's month, else current month.
     viewMonth.value = startOfMonth(
       draftFrom.value ? new Date(draftFrom.value) : new Date(),
@@ -330,13 +371,18 @@ function toggle(value: DiaryFeedCategory): void {
 }
 
 function onApply(): void {
-  // Day keys -> inclusive ISO day-bounds for the backend range filter.
+  // Day keys -> inclusive bounds in the USER'S timezone (W-1). The end of the
+  // range is the start of the day AFTER `to`, minus 1ms -- DST-safe and avoids
+  // clipping events near local midnight for non-UTC users.
+  const tz = props.timezone ?? 'UTC'
   const from = draftFrom.value
-    ? `${draftFrom.value}T00:00:00.000Z`
+    ? new Date(startOfDayUtcMs(draftFrom.value, tz)).toISOString()
     : undefined
   // Single-day range (only `from` tapped) covers that whole day.
   const toKey = draftTo.value ?? draftFrom.value
-  const to = toKey ? `${toKey}T23:59:59.999Z` : undefined
+  const to = toKey
+    ? new Date(startOfDayUtcMs(nextDayKey(toKey), tz) - 1).toISOString()
+    : undefined
   emit('apply', {
     categories: [...draft.value],
     date_from: from,

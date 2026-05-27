@@ -127,6 +127,7 @@
       :categories="activeCategories"
       :date-from="feedFilters.date_from"
       :date-to="feedFilters.date_to"
+      :timezone="timezone"
       @apply="onApplyFilter"
       @close="showFilter = false"
     />

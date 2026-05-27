@@ -108,11 +108,24 @@ async def _practice_snapshot(
     captured the same way (User.avatar_url at projection time). Lazy import
     keeps the diary->masters dependency from loading at module import (house
     style; same reason bookings is imported lazily below).
+
+    S-1: master_name is resolved by the caller (passed in), so we cannot
+    assume the MasterProfile / User are already in this session's identity
+    map. We prime both once up front, making the session.get calls inside
+    is_master_verified (MasterProfile) and get_master_avatar_url (User)
+    guaranteed cache hits rather than fresh queries.
     """
+    from app.modules.masters.models import MasterProfile
     from app.modules.masters.service import (
         get_master_avatar_url,
         is_master_verified,
     )
+    from app.modules.users.models import User
+
+    # Prime the identity map once (see S-1 note above): is_master_verified
+    # reads MasterProfile, get_master_avatar_url reads User.
+    await session.get(MasterProfile, practice.master_id)
+    await session.get(User, practice.master_id)
 
     scheduled_at = scheduled_at_override or practice.scheduled_at
     master_verified = await is_master_verified(practice.master_id, session)
