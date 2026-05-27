@@ -244,11 +244,9 @@ async def is_master_verified(
     Used by the diary projections to snapshot the verified badge as-of the
     event (the feed is an append-only historical record). Reads the same
     data.account.status as get_public_master_profile. Returns False when no
-    profile exists.
-
-    Cheap by design: callers (projections) resolve master_name via
-    get_master_display_name first, which loads the MasterProfile into the
-    session identity map, so this session.get is a cache hit, not a new query.
+    profile exists. Cheap in the projection path: the caller
+    (_practice_snapshot) primes the MasterProfile into the session identity
+    map first, so this session.get is a cache hit there.
     """
     profile = await session.get(MasterProfile, master_id)
     if profile is None:
@@ -265,9 +263,9 @@ async def get_master_avatar_url(
 
     Used by the diary projections to snapshot the avatar as-of the event
     (same pattern/rationale as is_master_verified). Returns None when the
-    user has no Telegram photo. Cheap by design: callers resolve master_name
-    via get_master_display_name first, which loads the User into the session
-    identity map, so this session.get is a cache hit, not a new query.
+    user has no Telegram photo. Cheap in the projection path: the caller
+    (_practice_snapshot) primes the User into the session identity map first,
+    so this session.get is a cache hit there.
     """
     user = await session.get(User, master_id)
     return user.avatar_url if user else None
