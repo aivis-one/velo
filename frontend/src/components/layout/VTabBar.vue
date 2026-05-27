@@ -3,13 +3,17 @@
 
   Bottom tab navigation. Per-role tab items (user 4 / master 4 / admin 4).
 
-  Visual spec (Figma):
-    - Inactive tab: 63x63 circle, 1.26px white border, glass-blue fill,
-      backdrop-blur, monochrome icon in --velo-text-primary.
-    - Active tab: same circle slot, NO border / NO fill / NO blur,
-      only a soft white glow around the icon (--velo-shadow-glow).
-      Icon color stays the same -- only the ambience changes.
+  Visual spec (Figma node 2212:292):
+    - Inactive tab: 63x63 circle, 1.26px white border, glass-blue fill
+      (--velo-nav-inactive-bg = rgba(98,122,156,0.15)), backdrop-blur,
+      monochrome icon in --velo-text-primary.
+    - Active tab: same circle slot, same border + blur as inactive, but
+      a darker fill (--velo-nav-active-bg = #627a9c) with a white icon.
+      Per Figma the only difference between states is the fill alpha;
+      border, blur and shape stay the same.
     - No text labels under icons. aria-label preserved for screen readers.
+    - The bar sits ~25px above the screen edge (space-8 padding-bottom)
+      so it doesn't visually stick to the bottom.
 
   TabItem.badge is preserved in the interface for future use (notification
   count) but is NOT rendered -- not present in current Figma design.
@@ -71,13 +75,16 @@ defineEmits<{
   /* Figma: 4 circles x 63px with 25px gaps (left positions 37/125/213/301, step 88) */
   gap: 25px;
   padding: var(--space-2) var(--velo-screen-padding);
-  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  /* Lift the bar away from the screen edge (Figma 2212:292) -- 33px keeps it
+     comfortably above the home indicator on iOS and visually detached from
+     the very bottom on Android. */
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
   background: transparent;
   z-index: var(--z-sticky, 200);
 }
 
 .v-tabbar__item {
-  /* Figma node 541:6760 / 6766 / 6771 -- 63x63 circle */
+  /* Figma node 2212:413 (inactive) / 2212:390 (active) -- 63x63 circle */
   width: 63px;
   height: 63px;
   flex-shrink: 0;
@@ -89,27 +96,22 @@ defineEmits<{
   color: var(--velo-text-primary);
   /* Inactive (default): glass bubble. Component-specific border-width and
      blur radius come straight from Figma spec -- not reusable elsewhere. */
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-nav-inactive-bg);
   border: 1.26px solid #ffffff;
   backdrop-filter: blur(2.52px);
   -webkit-backdrop-filter: blur(2.52px);
   transition:
     background var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    backdrop-filter var(--transition-fast);
+    color var(--transition-fast);
 }
 
 /*
- * Active state: bubble dissolves, soft white halo appears around the icon.
- * Same icon, different ambience -- per spec the icons differ only by glow.
+ * Active state (Figma 2212:390): same circle, same border + blur as inactive,
+ * darker fill, white icon. Only the fill and icon color change.
  */
 .v-tabbar__item--active {
-  background: transparent;
-  border-color: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: var(--velo-shadow-glow);
+  background: var(--velo-nav-active-bg);
+  color: #ffffff;
 }
 
 .v-tabbar__item:focus-visible {
