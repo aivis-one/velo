@@ -164,13 +164,13 @@ async def test_feedback_create_success(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "fire", "comment": "Amazing practice!"},
+        json={"rating": 9, "comment": "Amazing practice!"},
         headers=auth_headers(auth["session_token"]),
     )
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["rating"] == "fire"
+    assert data["rating"] == 9
     assert data["comment"] == "Amazing practice!"
     assert data["practice_id"] == str(practice.id)
     assert data["user_id"] == auth["user"]["id"]
@@ -205,7 +205,7 @@ async def test_feedback_upsert_update(
 
     # First feedback.
     resp1 = await client.post(
-        url, json={"rating": "good"}, headers=headers,
+        url, json={"rating": 6}, headers=headers,
     )
     assert resp1.status_code == 200
     feedback_id = resp1.json()["id"]
@@ -213,12 +213,12 @@ async def test_feedback_upsert_update(
     # Update feedback.
     resp2 = await client.post(
         url,
-        json={"rating": "fire", "comment": "Changed my mind"},
+        json={"rating": 9, "comment": "Changed my mind"},
         headers=headers,
     )
     assert resp2.status_code == 200
     assert resp2.json()["id"] == feedback_id  # Same record.
-    assert resp2.json()["rating"] == "fire"
+    assert resp2.json()["rating"] == 9
     assert resp2.json()["comment"] == "Changed my mind"
 
 
@@ -246,7 +246,7 @@ async def test_feedback_no_attended_booking(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "good"},
+        json={"rating": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 404
@@ -283,7 +283,7 @@ async def test_feedback_confirmed_not_attended(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "good"},
+        json={"rating": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 404
@@ -334,7 +334,7 @@ async def test_feedback_practice_not_completed(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "fire"},
+        json={"rating": 9},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 400
@@ -371,7 +371,7 @@ async def test_feedback_window_closed(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "good"},
+        json={"rating": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 400
@@ -389,7 +389,7 @@ async def test_feedback_no_auth(
 ) -> None:
     """No Authorization header: 401."""
     url = FEEDBACK_URL.format(practice_id=uuid4())
-    resp = await client.post(url, json={"rating": "fire"})
+    resp = await client.post(url, json={"rating": 9})
     assert resp.status_code == 401
 
 
@@ -408,7 +408,7 @@ async def test_feedback_invalid_rating(
     url = FEEDBACK_URL.format(practice_id=uuid4())
     resp = await client.post(
         url,
-        json={"rating": "amazing"},
+        json={"rating": 11},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
@@ -429,7 +429,7 @@ async def test_feedback_comment_too_long(
     url = FEEDBACK_URL.format(practice_id=uuid4())
     resp = await client.post(
         url,
-        json={"rating": "fire", "comment": "x" * 1001},
+        json={"rating": 9, "comment": "x" * 1001},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
@@ -462,12 +462,12 @@ async def test_feedback_without_comment(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"rating": "confused"},
+        json={"rating": 2},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["rating"] == "confused"
+    assert data["rating"] == 2
     assert data["comment"] is None
 
 
@@ -513,7 +513,7 @@ async def test_list_feedbacks_success(
         url = FEEDBACK_URL.format(practice_id=p.id)
         resp = await client.post(
             url,
-            json={"rating": "fire"},
+            json={"rating": 9},
             headers=auth_headers(auth["session_token"]),
         )
         assert resp.status_code == 200
@@ -567,7 +567,7 @@ async def test_list_feedbacks_filter_practice(
         url = FEEDBACK_URL.format(practice_id=p.id)
         await client.post(
             url,
-            json={"rating": "good"},
+            json={"rating": 6},
             headers=auth_headers(auth["session_token"]),
         )
 
@@ -616,24 +616,24 @@ async def test_list_feedbacks_filter_rating(
     # Fire for p1, confused for p2.
     await client.post(
         FEEDBACK_URL.format(practice_id=p1.id),
-        json={"rating": "fire"},
+        json={"rating": 9},
         headers=auth_headers(auth["session_token"]),
     )
     await client.post(
         FEEDBACK_URL.format(practice_id=p2.id),
-        json={"rating": "confused"},
+        json={"rating": 2},
         headers=auth_headers(auth["session_token"]),
     )
 
     # Filter by fire.
     resp = await client.get(
-        f"{MY_FEEDBACKS_URL}?rating=fire",
+        f"{MY_FEEDBACKS_URL}?rating=9",
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
-    assert data["items"][0]["rating"] == "fire"
+    assert data["items"][0]["rating"] == 9
 
 
 # ===================================================================
@@ -670,7 +670,7 @@ async def test_list_feedbacks_pagination(
     for p in practices:
         await client.post(
             FEEDBACK_URL.format(practice_id=p.id),
-            json={"rating": "good"},
+            json={"rating": 6},
             headers=auth_headers(auth["session_token"]),
         )
 

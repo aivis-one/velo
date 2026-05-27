@@ -560,7 +560,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Коврик, удобная одежда.",
         "duration_minutes": 60,
         "offset": timedelta(days=-2, hours=8),
-        "mood": "high", "rating": "fire",
+        "mood": 9, "rating": 9,
         "checkin_comment": "Проснулась с лёгкостью, настроена на практику.",
         "feedback_comment": "Прекрасное начало дня, чувствую прилив сил!",
     },
@@ -570,7 +570,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Подушка для медитации.",
         "duration_minutes": 45,
         "offset": timedelta(days=-4, hours=19),
-        "mood": "mid", "rating": "good",
+        "mood": 6, "rating": 6,
         "checkin_comment": None,
         "feedback_comment": None,
     },
@@ -580,7 +580,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Тихое место, прямая спина.",
         "duration_minutes": 30,
         "offset": timedelta(days=-6, hours=7),
-        "mood": "low", "rating": "confused",
+        "mood": 2, "rating": 2,
         "checkin_comment": "Чувствую тревогу, тяжело сосредоточиться.",
         "feedback_comment": "Не до конца поняла технику, нужно повторить.",
     },
@@ -590,7 +590,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Плед, маска для сна.",
         "duration_minutes": 45,
         "offset": timedelta(days=-9, hours=21),
-        "mood": "high", "rating": "good",
+        "mood": 9, "rating": 6,
         "checkin_comment": None,
         "feedback_comment": None,
     },
@@ -600,7 +600,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Коврик, плед.",
         "duration_minutes": 60,
         "offset": timedelta(days=-12, hours=18),
-        "mood": "mid", "rating": "fire",
+        "mood": 6, "rating": 9,
         "checkin_comment": "День был насыщенный, хочу расслабиться.",
         "feedback_comment": "Невероятно глубокое погружение, всё тело отдохнуло.",
     },
@@ -610,7 +610,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Коврик, вода.",
         "duration_minutes": 60,
         "offset": timedelta(days=-16, hours=9),
-        "mood": "low", "rating": "fire",
+        "mood": 2, "rating": 9,
         "checkin_comment": None,
         "feedback_comment": None,
     },
@@ -620,7 +620,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Удобное сидячее положение.",
         "duration_minutes": 30,
         "offset": timedelta(days=-20, hours=20),
-        "mood": "low", "rating": "good",
+        "mood": 2, "rating": 6,
         "checkin_comment": "Грустное настроение, нужна поддержка.",
         "feedback_comment": "Стало теплее на душе, спасибо.",
     },
@@ -630,7 +630,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Белая одежда, коврик.",
         "duration_minutes": 75,
         "offset": timedelta(days=-25, hours=10),
-        "mood": "mid", "rating": "confused",
+        "mood": 6, "rating": 2,
         "checkin_comment": None,
         "feedback_comment": None,
     },
@@ -640,7 +640,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Коврик, ремень для йоги.",
         "duration_minutes": 45,
         "offset": timedelta(days=-30, hours=18),
-        "mood": "high", "rating": "confused",
+        "mood": 9, "rating": 2,
         "checkin_comment": "Спина устала за неделю, нужна растяжка.",
         "feedback_comment": "Хорошо потянулась, но местами было непонятно.",
     },
@@ -650,7 +650,7 @@ JOURNEY_PRACTICES: list[dict] = [
         "what_to_prepare": "Плед, приглушённый свет.",
         "duration_minutes": 30,
         "offset": timedelta(days=-40, hours=22),
-        "mood": "mid", "rating": "good",
+        "mood": 6, "rating": 6,
         "checkin_comment": None,
         "feedback_comment": None,
     },
@@ -675,7 +675,7 @@ DIARY_ENTRY_TEMPLATES: list[dict] = [
             "Замечаю, что стал спокойнее реагировать на мелкие раздражители. "
             "Утренняя медитация явно держит фон ровнее в течение дня."
         ),
-        "mood": "high",
+        "mood": 9,
         "offset": timedelta(days=-1, hours=21),
     },
     {
@@ -685,7 +685,7 @@ DIARY_ENTRY_TEMPLATES: list[dict] = [
             "Снилось, будто лечу низко над водой, чувствую брызги и ветер. "
             "Совсем не страшно -- наоборот, спокойствие и лёгкость."
         ),
-        "mood": "mid",
+        "mood": 6,
         "offset": timedelta(days=-1, hours=7),
     },
     {
@@ -695,7 +695,7 @@ DIARY_ENTRY_TEMPLATES: list[dict] = [
             "День выдался суматошный, но вечерняя практика помогла собраться "
             "и отпустить лишнее."
         ),
-        "mood": "mid",
+        "mood": 6,
         "offset": timedelta(days=-3, hours=22),
     },
     {
@@ -715,7 +715,7 @@ DIARY_ENTRY_TEMPLATES: list[dict] = [
             "Хочу довести до автоматизма утреннюю практику и добавить короткую "
             "дыхательную сессию перед сном."
         ),
-        "mood": "high",
+        "mood": 9,
         "offset": timedelta(days=-8, hours=20),
     },
 ]

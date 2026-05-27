@@ -247,19 +247,19 @@ async def test_insights_full_data(
     # 5 participants with varied data.
     await _add_participant(
         client, db_session, practice, 88001,
-        mood="high", rating="fire", feedback_comment="Loved it!",
+        mood=9, rating=9, feedback_comment="Loved it!",
     )
     await _add_participant(
         client, db_session, practice, 88002,
-        mood="high", rating="fire",
+        mood=9, rating=9,
     )
     await _add_participant(
         client, db_session, practice, 88003,
-        mood="mid", rating="good", feedback_comment="Solid session.",
+        mood=6, rating=6, feedback_comment="Solid session.",
     )
     await _add_participant(
         client, db_session, practice, 88004,
-        mood="low", rating="confused",
+        mood=2, rating=2,
     )
     # Participant 5: attended but no checkin/feedback.
     await _add_participant(
@@ -485,7 +485,7 @@ async def test_insights_only_attended_participants(
     # 1 attended.
     await _add_participant(
         client, db_session, practice, 88007,
-        rating="fire",
+        rating=9,
     )
 
     # 1 confirmed (not attended).
@@ -555,7 +555,7 @@ async def test_insights_no_user_data_exposed(
     )
     await _add_participant(
         client, db_session, practice, 88011,
-        mood="high", rating="fire", feedback_comment="Secret thoughts",
+        mood=9, rating=9, feedback_comment="Secret thoughts",
     )
     await db_session.commit()
 

@@ -84,6 +84,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -95,14 +96,6 @@ from app.core.database import Base
 from app.core.mixins import JSONBMixin, TimestampMixin, UUIDMixin
 
 
-class Mood(enum.StrEnum):
-    """User mood before (or after) a practice."""
-
-    LOW = "low"
-    MID = "mid"
-    HIGH = "high"
-
-
 class CheckType(enum.StrEnum):
     """Check-in timing relative to practice.
 
@@ -112,14 +105,6 @@ class CheckType(enum.StrEnum):
 
     PRE = "pre"
     POST = "post"
-
-
-class Rating(enum.StrEnum):
-    """Feedback rating after a practice."""
-
-    FIRE = "fire"
-    GOOD = "good"
-    CONFUSED = "confused"
 
 
 class DiaryEntryType(enum.StrEnum):
@@ -215,8 +200,11 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
     )
 
     # -- Check-in data --
-    mood: Mapped[str] = mapped_column(
-        String(10), nullable=False,
+    # mood is a 1..10 score (slider). The icon/label shown in the UI is
+    # derived from the range: 1-3 / 4-7 / 8-10. Range enforced by
+    # ck_checkin_mood below.
+    mood: Mapped[int] = mapped_column(
+        Integer, nullable=False,
     )
     comment: Mapped[str | None] = mapped_column(
         Text, default=None,
@@ -236,7 +224,7 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
             name="uq_checkin_booking_type",
         ),
         CheckConstraint(
-            "mood IN ('low', 'mid', 'high')",
+            "mood BETWEEN 1 AND 10",
             name="ck_checkin_mood",
         ),
         # 11.3 fix: check_type had no DB-level constraint. Non-API write
@@ -283,8 +271,11 @@ class Feedback(UUIDMixin, TimestampMixin, Base):
     )
 
     # -- Feedback data --
-    rating: Mapped[str] = mapped_column(
-        String(10), nullable=False,
+    # rating is a 1..10 score (slider). The icon/label shown in the UI is
+    # derived from the range: 1-3 / 4-7 / 8-10. Range enforced by
+    # ck_feedback_rating below.
+    rating: Mapped[int] = mapped_column(
+        Integer, nullable=False,
     )
     comment: Mapped[str | None] = mapped_column(
         Text, default=None,
@@ -297,7 +288,7 @@ class Feedback(UUIDMixin, TimestampMixin, Base):
             name="uq_feedback_practice_user",
         ),
         CheckConstraint(
-            "rating IN ('fire', 'good', 'confused')",
+            "rating BETWEEN 1 AND 10",
             name="ck_feedback_rating",
         ),
     )
@@ -359,8 +350,10 @@ class DiaryEntry(UUIDMixin, TimestampMixin, Base):
     content: Mapped[str] = mapped_column(
         Text, nullable=False,
     )
-    mood: Mapped[str | None] = mapped_column(
-        String(10), default=None,
+    # mood is an optional 1..10 score (same scale as Checkin/Feedback).
+    # Not yet entered from the composer UI; range enforced when present.
+    mood: Mapped[int | None] = mapped_column(
+        Integer, default=None,
     )
 
     # -- Soft delete (redesign) --
@@ -375,7 +368,7 @@ class DiaryEntry(UUIDMixin, TimestampMixin, Base):
 
     __table_args__ = (
         CheckConstraint(
-            "mood IS NULL OR mood IN ('low', 'mid', 'high')",
+            "mood IS NULL OR mood BETWEEN 1 AND 10",
             name="ck_diary_entry_mood",
         ),
         CheckConstraint(

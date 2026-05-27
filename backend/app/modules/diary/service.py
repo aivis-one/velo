@@ -66,7 +66,7 @@ logger = structlog.get_logger()
 async def upsert_checkin(
     user: User,
     practice_id: UUID,
-    mood: str,
+    mood: int,
     session: AsyncSession,
     *,
     comment: str | None = None,
@@ -76,7 +76,7 @@ async def upsert_checkin(
     Args:
         user: Authenticated user.
         practice_id: Target practice UUID.
-        mood: One of low/mid/high.
+        mood: A 1..10 score (validated in schema).
         session: Write session (caller manages commit).
         comment: Optional text (max length validated in schema).
 
@@ -287,7 +287,7 @@ async def get_checkin(
 async def upsert_feedback(
     user: User,
     practice_id: UUID,
-    rating: str,
+    rating: int,
     session: AsyncSession,
     *,
     comment: str | None = None,
@@ -297,7 +297,7 @@ async def upsert_feedback(
     Args:
         user: Authenticated user.
         practice_id: Target practice UUID.
-        rating: One of fire/good/confused.
+        rating: A 1..10 score (validated in schema).
         session: Write session (caller manages commit).
         comment: Optional text (max length validated in schema).
 
@@ -438,7 +438,7 @@ async def list_user_feedbacks(
     limit: int = 20,
     offset: int = 0,
     practice_id: UUID | None = None,
-    rating: str | None = None,
+    rating: int | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> tuple[list[Feedback], int]:
@@ -510,7 +510,7 @@ async def create_diary_entry(
     session: AsyncSession,
     *,
     title: str | None = None,
-    mood: str | None = None,
+    mood: int | None = None,
     practice_id: UUID | None = None,
     entry_type: str = DiaryEntryType.NOTE.value,
     practice_phase: str | None = None,
@@ -522,7 +522,7 @@ async def create_diary_entry(
         content: Entry text (1-10000 chars, validated in schema).
         session: Write session (caller manages commit).
         title: Optional short title (max 200 chars).
-        mood: Optional mood tag (low/mid/high).
+        mood: Optional 1..10 score (validated in schema).
         practice_id: Optional practice link. Validated if provided.
         entry_type: note (free-form) or dream (Сонник). Defaults to note --
             the ledger composer only creates note this iteration.
@@ -639,7 +639,7 @@ async def update_diary_entry(
     *,
     content: str | None = None,
     title: str | None = None,
-    mood: str | None = None,
+    mood: int | None = None,
     practice_id: UUID | None = None,
     entry_type: str | None = None,
     practice_phase: str | None = None,
@@ -829,7 +829,7 @@ async def list_user_diary_entries(
     limit: int = 20,
     offset: int = 0,
     practice_id: UUID | None = None,
-    mood: str | None = None,
+    mood: int | None = None,
     entry_type: str | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
@@ -988,6 +988,20 @@ async def list_diary_feed(
 # ===================================================================
 
 
+def _score_bucket(score: int) -> str:
+    """Map a 1..10 mood/rating score into a distribution bucket.
+
+    1-3 -> low, 4-7 -> mid, 8-10 -> high. Feedback ratings reuse the same
+    ranges under different names (confused/good/fire) via a name map at the
+    call site.
+    """
+    if score <= 3:
+        return "low"
+    if score <= 7:
+        return "mid"
+    return "high"
+
+
 async def get_practice_insights(
     user: User,
     practice_id: UUID,
@@ -1032,23 +1046,31 @@ async def get_practice_insights(
     )
     participants = (await session.execute(participants_stmt)).scalar_one()
 
-    # 3. Mood distribution from check-ins.
+    # 3. Mood distribution from check-ins, bucketed by score range
+    #    (1-3 low / 4-7 mid / 8-10 high). mood is a 1..10 score now, so we
+    #    pull the scores and bucket in Python rather than GROUP BY a string.
     checkins_stmt = (
         select(Checkin.mood, func.count(Checkin.id))
         .where(Checkin.practice_id == practice_id)
         .group_by(Checkin.mood)
     )
     checkins_result = await session.execute(checkins_stmt)
-    checkins_dist = {mood: count for mood, count in checkins_result.all()}
+    checkins_buckets = {"low": 0, "mid": 0, "high": 0}
+    for score, count in checkins_result.all():
+        checkins_buckets[_score_bucket(score)] += count
 
-    # 4. Rating distribution from feedbacks.
+    # 4. Rating distribution from feedbacks, bucketed by the same ranges
+    #    (1-3 confused / 4-7 good / 8-10 fire).
     feedbacks_stmt = (
         select(Feedback.rating, func.count(Feedback.id))
         .where(Feedback.practice_id == practice_id)
         .group_by(Feedback.rating)
     )
     feedbacks_result = await session.execute(feedbacks_stmt)
-    feedbacks_dist = {rating: count for rating, count in feedbacks_result.all()}
+    feedbacks_buckets = {"confused": 0, "good": 0, "fire": 0}
+    _rating_bucket_name = {"low": "confused", "mid": "good", "high": "fire"}
+    for score, count in feedbacks_result.all():
+        feedbacks_buckets[_rating_bucket_name[_score_bucket(score)]] += count
 
     # 5. Count feedbacks with comments.
     comments_stmt = (
@@ -1060,21 +1082,20 @@ async def get_practice_insights(
     )
     comments_count = (await session.execute(comments_stmt)).scalar_one()
 
-    # CR-01: explicitly provide all keys -- GROUP BY only returns
-    # moods/ratings that exist in the data. MoodDistribution and
-    # RatingDistribution fields are required (no default=0).
+    # MoodDistribution / RatingDistribution fields are required; the buckets
+    # above are pre-seeded with all keys at 0, so missing scores are covered.
     return {
         "practice_id": practice_id,
         "participants": participants,
         "checkins": {
-            "high": checkins_dist.get("high", 0),
-            "mid": checkins_dist.get("mid", 0),
-            "low": checkins_dist.get("low", 0),
+            "high": checkins_buckets["high"],
+            "mid": checkins_buckets["mid"],
+            "low": checkins_buckets["low"],
         },
         "feedbacks": {
-            "fire": feedbacks_dist.get("fire", 0),
-            "good": feedbacks_dist.get("good", 0),
-            "confused": feedbacks_dist.get("confused", 0),
+            "fire": feedbacks_buckets["fire"],
+            "good": feedbacks_buckets["good"],
+            "confused": feedbacks_buckets["confused"],
         },
         "comments_count": comments_count,
     }

@@ -223,9 +223,7 @@ async def list_my_feedbacks_endpoint(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     practice_id: UUID | None = Query(default=None),
-    rating: Literal["fire", "good", "confused"] | None = Query(
-        default=None,
-    ),
+    rating: int | None = Query(default=None, ge=1, le=10),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> PaginatedFeedbacksResponse:
@@ -305,7 +303,7 @@ async def list_my_diary_entries_endpoint(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     practice_id: UUID | None = Query(default=None),
-    mood: Literal["low", "mid", "high"] | None = Query(default=None),
+    mood: int | None = Query(default=None, ge=1, le=10),
     entry_type: Literal["note", "dream"] | None = Query(default=None),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),

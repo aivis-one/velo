@@ -238,13 +238,9 @@ class Settings(BaseSettings):
     # via settings.diary_comment_max_length -- change once, applies everywhere.
     diary_comment_max_length: int = 1000
 
-    # Allowed mood values for check-ins and diary entries.
-    # Validated via @field_validator -- no Literal in schemas.
-    diary_allowed_moods: list[str] = ["low", "mid", "high"]
-
-    # Allowed rating values for practice feedback.
-    # Validated via @field_validator -- no Literal in schemas.
-    diary_allowed_ratings: list[str] = ["fire", "good", "confused"]
+    # mood / rating are 1..10 integer scores now (slider). They are
+    # validated by range in the schemas, not against a config list, so the
+    # old diary_allowed_moods / diary_allowed_ratings lists were removed.
 
     # Diary entry field limits.
     diary_entry_content_max_length: int = 10000

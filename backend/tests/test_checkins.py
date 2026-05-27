@@ -158,13 +158,13 @@ async def test_checkin_create_success(
     url = CHECKIN_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"mood": "high", "comment": "Feeling great"},
+        json={"mood": 9, "comment": "Feeling great"},
         headers=auth_headers(auth["session_token"]),
     )
 
     assert resp.status_code == 200
     data = resp.json()
-    assert data["mood"] == "high"
+    assert data["mood"] == 9
     assert data["comment"] == "Feeling great"
     assert data["check_type"] == "pre"
     assert data["practice_id"] == str(practice.id)
@@ -200,19 +200,19 @@ async def test_checkin_upsert_update(
 
     # First check-in.
     resp1 = await client.post(
-        url, json={"mood": "low"}, headers=headers,
+        url, json={"mood": 2}, headers=headers,
     )
     assert resp1.status_code == 200
     checkin_id = resp1.json()["id"]
 
     # Update check-in.
     resp2 = await client.post(
-        url, json={"mood": "high", "comment": "Changed my mind"},
+        url, json={"mood": 9, "comment": "Changed my mind"},
         headers=headers,
     )
     assert resp2.status_code == 200
     assert resp2.json()["id"] == checkin_id  # Same record.
-    assert resp2.json()["mood"] == "high"
+    assert resp2.json()["mood"] == 9
     assert resp2.json()["comment"] == "Changed my mind"
 
 
@@ -240,7 +240,7 @@ async def test_checkin_no_booking(
     url = CHECKIN_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"mood": "mid"},
+        json={"mood": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 404
@@ -276,7 +276,7 @@ async def test_checkin_window_too_early(
     url = CHECKIN_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"mood": "mid"},
+        json={"mood": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 400
@@ -312,7 +312,7 @@ async def test_checkin_window_closed(
     url = CHECKIN_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"mood": "mid"},
+        json={"mood": 6},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 400
@@ -330,7 +330,7 @@ async def test_checkin_no_auth(
 ) -> None:
     """No Authorization header: 401."""
     url = CHECKIN_URL.format(practice_id=uuid4())
-    resp = await client.post(url, json={"mood": "mid"})
+    resp = await client.post(url, json={"mood": 6})
     assert resp.status_code == 401
 
 
@@ -349,7 +349,7 @@ async def test_checkin_invalid_mood(
     url = CHECKIN_URL.format(practice_id=uuid4())
     resp = await client.post(
         url,
-        json={"mood": "super_happy"},
+        json={"mood": 11},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
@@ -370,7 +370,7 @@ async def test_checkin_comment_too_long(
     url = CHECKIN_URL.format(practice_id=uuid4())
     resp = await client.post(
         url,
-        json={"mood": "mid", "comment": "x" * 1001},
+        json={"mood": 6, "comment": "x" * 1001},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 422
@@ -403,7 +403,7 @@ async def test_checkin_no_comment(
     url = CHECKIN_URL.format(practice_id=practice.id)
     resp = await client.post(
         url,
-        json={"mood": "low"},
+        json={"mood": 2},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 200
@@ -463,7 +463,7 @@ async def test_list_checkins_with_pagination(
 
         url = CHECKIN_URL.format(practice_id=practice.id)
         resp = await client.post(
-            url, json={"mood": "mid"}, headers=headers,
+            url, json={"mood": 6}, headers=headers,
         )
         assert resp.status_code == 200
 
@@ -520,7 +520,7 @@ async def test_list_checkins_filter_practice(
     # Check in to both.
     for p in practices:
         url = CHECKIN_URL.format(practice_id=p.id)
-        await client.post(url, json={"mood": "high"}, headers=headers)
+        await client.post(url, json={"mood": 9}, headers=headers)
 
     # Filter by first practice.
     resp = await client.get(

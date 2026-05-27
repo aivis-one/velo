@@ -16,12 +16,13 @@
 #   MoodDistribution / RatingDistribution / PracticeInsightsResponse
 #
 # SUGGESTION-6 fix: ConfigDict(from_attributes=True) instead of dict style.
-# NO-LITERALS: all allowed values and field limits sourced from config.py:
-#   settings.diary_allowed_moods       -- mood field values
-#   settings.diary_allowed_ratings     -- rating field values
+# NO-LITERALS: field limits sourced from config.py:
 #   settings.diary_comment_max_length  -- comment field limit
 #   settings.diary_entry_content_max_length
 #   settings.diary_entry_title_max_length
+# mood / rating are 1..10 integer scores (slider); validated by range,
+#   not by a config list. UI derives the icon/label from the range
+#   (1-3 / 4-7 / 8-10).
 #
 # CR-01: MoodDistribution / RatingDistribution fields changed from
 #   optional (default=0) to required. These are response-only schemas --
@@ -46,7 +47,7 @@ from app.core.config import settings
 class CheckinRequest(BaseModel):
     """POST /api/v1/practices/{id}/checkin body."""
 
-    mood: str
+    mood: int
     comment: str | None = Field(
         default=None,
         min_length=1,
@@ -55,11 +56,10 @@ class CheckinRequest(BaseModel):
 
     @field_validator("mood")
     @classmethod
-    def mood_must_be_valid(cls, v: str) -> str:
-        """Validate mood against allowed values from config."""
-        allowed = settings.diary_allowed_moods
-        if v not in allowed:
-            raise ValueError(f"mood must be one of {allowed}, got '{v}'")
+    def mood_must_be_valid(cls, v: int) -> int:
+        """Validate mood is a 1..10 score."""
+        if not 1 <= v <= 10:
+            raise ValueError(f"mood must be between 1 and 10, got {v}")
         return v
 
 
@@ -70,7 +70,7 @@ class CheckinResponse(BaseModel):
     practice_id: UUID
     user_id: UUID
     booking_id: UUID
-    mood: str
+    mood: int
     comment: str | None
     check_type: str
     created_at: datetime
@@ -96,7 +96,7 @@ class PaginatedCheckinsResponse(BaseModel):
 class FeedbackRequest(BaseModel):
     """POST /api/v1/practices/{id}/feedback body."""
 
-    rating: str
+    rating: int
     comment: str | None = Field(
         default=None,
         min_length=1,
@@ -105,11 +105,10 @@ class FeedbackRequest(BaseModel):
 
     @field_validator("rating")
     @classmethod
-    def rating_must_be_valid(cls, v: str) -> str:
-        """Validate rating against allowed values from config."""
-        allowed = settings.diary_allowed_ratings
-        if v not in allowed:
-            raise ValueError(f"rating must be one of {allowed}, got '{v}'")
+    def rating_must_be_valid(cls, v: int) -> int:
+        """Validate rating is a 1..10 score."""
+        if not 1 <= v <= 10:
+            raise ValueError(f"rating must be between 1 and 10, got {v}")
         return v
 
 
@@ -120,7 +119,7 @@ class FeedbackResponse(BaseModel):
     practice_id: UUID
     user_id: UUID
     booking_id: UUID
-    rating: str
+    rating: int
     comment: str | None
     created_at: datetime
     updated_at: datetime | None
@@ -151,7 +150,7 @@ class CreateDiaryEntryRequest(BaseModel):
     title: str | None = Field(
         default=None, max_length=settings.diary_entry_title_max_length,
     )
-    mood: str | None = None
+    mood: int | None = None
     practice_id: UUID | None = None
     # entry_type: note (default, the only type the composer creates this
     # iteration) or dream. Wired on the backend ahead of the UI input.
@@ -162,13 +161,12 @@ class CreateDiaryEntryRequest(BaseModel):
 
     @field_validator("mood")
     @classmethod
-    def mood_must_be_valid(cls, v: str | None) -> str | None:
-        """Validate mood against allowed values from config."""
+    def mood_must_be_valid(cls, v: int | None) -> int | None:
+        """Validate mood is a 1..10 score (when provided)."""
         if v is None:
             return v
-        allowed = settings.diary_allowed_moods
-        if v not in allowed:
-            raise ValueError(f"mood must be one of {allowed}, got '{v}'")
+        if not 1 <= v <= 10:
+            raise ValueError(f"mood must be between 1 and 10, got {v}")
         return v
 
     @field_validator("entry_type")
@@ -210,7 +208,7 @@ class UpdateDiaryEntryRequest(BaseModel):
     title: str | None = Field(
         default=None, max_length=settings.diary_entry_title_max_length,
     )
-    mood: str | None = None
+    mood: int | None = None
     practice_id: UUID | None = None
     entry_type: str | None = None
     practice_phase: str | None = None
@@ -223,13 +221,12 @@ class UpdateDiaryEntryRequest(BaseModel):
 
     @field_validator("mood")
     @classmethod
-    def mood_must_be_valid(cls, v: str | None) -> str | None:
-        """Validate mood against allowed values from config."""
+    def mood_must_be_valid(cls, v: int | None) -> int | None:
+        """Validate mood is a 1..10 score (when provided)."""
         if v is None:
             return v
-        allowed = settings.diary_allowed_moods
-        if v not in allowed:
-            raise ValueError(f"mood must be one of {allowed}, got '{v}'")
+        if not 1 <= v <= 10:
+            raise ValueError(f"mood must be between 1 and 10, got {v}")
         return v
 
     @field_validator("entry_type")
@@ -269,7 +266,7 @@ class DiaryEntryResponse(BaseModel):
     practice_phase: str | None
     title: str | None
     content: str
-    mood: str | None
+    mood: int | None
     is_deleted: bool
     created_at: datetime
     updated_at: datetime | None
@@ -292,12 +289,15 @@ class PaginatedDiaryEntriesResponse(BaseModel):
 
 
 class MoodDistribution(BaseModel):
-    """Check-in mood counts for a practice.
+    """Check-in mood counts for a practice, bucketed by score range.
+
+    mood is a 1..10 score; counts are grouped into three buckets:
+      low  = scores 1-3
+      mid  = scores 4-7
+      high = scores 8-10
 
     CR-01: fields are required (no default=0). This is a response-only
-    schema -- the service always provides concrete values. Making them
-    required ensures OpenAPI marks them as such, and the TS generator
-    emits non-optional fields.
+    schema -- the service always provides concrete values.
     """
 
     high: int
@@ -306,7 +306,12 @@ class MoodDistribution(BaseModel):
 
 
 class RatingDistribution(BaseModel):
-    """Feedback rating counts for a practice.
+    """Feedback rating counts for a practice, bucketed by score range.
+
+    rating is a 1..10 score; counts are grouped into three buckets:
+      confused = scores 1-3
+      good     = scores 4-7
+      fire     = scores 8-10
 
     CR-01: fields are required (no default=0). Same rationale as
     MoodDistribution above.
