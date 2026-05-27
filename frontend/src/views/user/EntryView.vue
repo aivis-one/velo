@@ -42,31 +42,28 @@
       </button>
       <h1 class="entry__title-bar">Запись</h1>
 
-      <!-- "..." menu (view mode only) -->
-      <div v-if="mode === 'view'" class="entry__menu-wrap">
+      <!-- Edit / delete actions (view mode only): two round icon buttons on
+           a blue fill, no labels -- same style as the filter buttons.
+           Delete is safe to fire directly: the diary feed shows an undo bar. -->
+      <div v-if="mode === 'view'" class="entry__actions">
         <button
           type="button"
-          class="entry__icon-btn entry__menu-btn"
-          aria-label="Меню"
-          @click="menuOpen = !menuOpen"
+          class="entry__icon-btn entry__action-btn"
+          aria-label="Редактировать"
+          @click="startEdit"
         >
-          <IconDots :size="20" />
+          <IconPen :size="20" />
         </button>
-        <div v-if="menuOpen" class="entry__menu" role="menu">
-          <button type="button" class="entry__menu-item" @click="startEdit">
-            <IconPen :size="18" />
-            <span>Редактировать</span>
-          </button>
-          <button
-            type="button"
-            class="entry__menu-item entry__menu-item--danger"
-            @click="onDelete"
-          >
-            <span>Удалить</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          class="entry__icon-btn entry__action-btn"
+          aria-label="Удалить"
+          @click="onDelete"
+        >
+          <IconTrash :size="20" />
+        </button>
       </div>
-      <!-- Spacer to keep the title centered in edit mode (no menu button). -->
+      <!-- Spacer to keep the title centered in edit mode (no action buttons). -->
       <span v-else class="entry__icon-btn entry__icon-spacer" aria-hidden="true" />
     </header>
 
@@ -177,6 +174,7 @@ import {
   IconArrowRight,
   IconDots,
   IconPen,
+  IconTrash,
   IconCalendar,
   IconClock,
   IconMeditation,
@@ -209,10 +207,9 @@ const tz = computed(() => authStore.user?.timezone ?? 'UTC')
 
 const entryId = computed(() => String(route.params.id))
 
-// -- mode (view / edit) + menu ----------------------------------------------
+// -- mode (view / edit) ------------------------------------------------------
 
 const mode = ref<'view' | 'edit'>('view')
-const menuOpen = ref(false)
 
 // -- practice header (optional) ---------------------------------------------
 
@@ -281,7 +278,6 @@ function autogrow(): void {
 
 async function startEdit(): Promise<void> {
   if (!entry.value) return
-  menuOpen.value = false
   editTitle.value = entry.value.title ?? ''
   editContent.value = entry.value.content
   mode.value = 'edit'
@@ -315,7 +311,6 @@ function entryEditTitleTrimmed(): string {
 
 async function onDelete(): Promise<void> {
   if (!entry.value) return
-  menuOpen.value = false
   const id = entry.value.id
   const result = await diaryStore.deleteEntry(id)
   if (!result.ok) {
@@ -395,57 +390,21 @@ function goBack(): void {
   transform: scaleX(-1);
 }
 
-.entry__menu-btn {
+/* -- Edit / delete action buttons (two round icons on a blue fill) -- */
+.entry__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.entry__action-btn {
   background: var(--velo-nav-active-bg);
   color: #ffffff;
 }
 
 .entry__icon-btn:hover {
   opacity: 0.85;
-}
-
-/* -- "..." menu popover -- */
-.entry__menu-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.entry__menu {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  z-index: var(--z-content);
-  display: flex;
-  flex-direction: column;
-  min-width: 180px;
-  padding: var(--space-1);
-  background: var(--velo-bg-card-solid);
-  border-radius: var(--radius-md);
-  box-shadow: var(--velo-shadow-glow);
-}
-
-.entry__menu-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  text-align: left;
-  transition: background var(--transition-fast);
-}
-
-.entry__menu-item:hover {
-  background: var(--velo-glass-blue-15);
-}
-
-.entry__menu-item--danger {
-  color: var(--velo-error-text);
 }
 
 /* -- Body (scrolls) -- */
