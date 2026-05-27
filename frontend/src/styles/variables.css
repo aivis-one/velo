@@ -157,6 +157,7 @@
 
   /* === VELΘ: Navigation === */
   --velo-nav-active-bg: #627a9c;
+  --velo-nav-active-bg-glass: rgba(98, 122, 156, 0.60); /* Tab bar active circle (Figma 2212:390): primary with 60% alpha, gives a soft blue-grey on light bg, NOT a saturated solid colour. Distinct from --velo-nav-active-bg (used by VToggle/VMenu/VMenuItem/DiaryComposer) which is opaque. */
   --velo-nav-inactive-bg: rgba(98, 122, 156, 0.15);
 
   /* === VELΘ: Border === */

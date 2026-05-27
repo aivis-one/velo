@@ -3,14 +3,16 @@
 
   Bottom tab navigation. Per-role tab items (user 4 / master 4 / admin 4).
 
-  Visual spec (Figma node 2212:292):
+  Visual spec (Figma node 2212:292 / 2212:390):
     - Inactive tab: 63x63 circle, 1.26px white border, glass-blue fill
       (--velo-nav-inactive-bg = rgba(98,122,156,0.15)), backdrop-blur,
       monochrome icon in --velo-text-primary.
     - Active tab: same circle slot, same border + blur as inactive, but
-      a darker fill (--velo-nav-active-bg = #627a9c) with a white icon.
-      Per Figma the only difference between states is the fill alpha;
-      border, blur and shape stay the same.
+      a soft blue-grey fill (--velo-nav-active-bg-glass = rgba(98,122,
+      156,0.60)) with a white icon. Per Figma the only difference
+      between states is the fill alpha (.15 -> .60); border, blur and
+      shape stay the same. Do NOT use --velo-nav-active-bg here — that
+      token is opaque #627a9c, used by VToggle/VMenu/VMenuItem.
     - No text labels under icons. aria-label preserved for screen readers.
     - The bar sits ~25px above the screen edge (space-8 padding-bottom)
       so it doesn't visually stick to the bottom.
@@ -107,10 +109,12 @@ defineEmits<{
 
 /*
  * Active state (Figma 2212:390): same circle, same border + blur as inactive,
- * darker fill, white icon. Only the fill and icon color change.
+ * a darker semi-transparent fill, white icon. Only the fill and icon color
+ * change. The fill is primary with 60% alpha (-> soft blue-grey on the light
+ * page bg), NOT the fully opaque --velo-nav-active-bg.
  */
 .v-tabbar__item--active {
-  background: var(--velo-nav-active-bg);
+  background: var(--velo-nav-active-bg-glass);
   color: #ffffff;
 }
 
