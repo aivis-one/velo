@@ -284,7 +284,8 @@ const filterActive = computed(
 
 const feedTitle = computed(() => {
   const cats = activeCategories.value
-  if (cats.length === 1) return CATEGORY_TITLE[cats[0]]
+  const only = cats.length === 1 ? cats[0] : undefined
+  if (only !== undefined) return CATEGORY_TITLE[only]
   return 'Дневник'
 })
 
