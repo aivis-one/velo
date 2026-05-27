@@ -94,7 +94,7 @@
         <textarea
           :value="comment"
           class="form-shell__textarea"
-          placeholder="Добавьте комментарий (необязательно)..."
+          placeholder="Добавьте комментарий..."
           maxlength="1000"
           rows="3"
           @input="emit('update:comment', ($event.target as HTMLTextAreaElement).value)"
