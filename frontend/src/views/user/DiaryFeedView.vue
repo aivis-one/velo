@@ -91,6 +91,14 @@
     <div class="diary-feed__composer">
       <DiaryComposer @created="onComposerCreated" />
     </div>
+
+    <!-- Category filter (screen 42), opened from the "..." menu -->
+    <DiaryFilterModal
+      :open="showFilter"
+      :categories="activeCategories"
+      @apply="onApplyFilter"
+      @close="showFilter = false"
+    />
   </div>
 </template>
 
@@ -102,10 +110,11 @@ import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { IconDots } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
+import DiaryFilterModal from '@/components/shared/DiaryFilterModal.vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import type { DiaryFeedItem } from '@/api/types'
+import type { DiaryFeedItem, DiaryFeedCategory } from '@/api/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -113,7 +122,8 @@ const diaryStore = useDiaryStore()
 const authStore = useAuthStore()
 const toast = useToast()
 
-const { feedItems, feedLoading, feedError, feedHasMore } = storeToRefs(diaryStore)
+const { feedItems, feedLoading, feedError, feedHasMore, feedFilters } =
+  storeToRefs(diaryStore)
 
 const items = computed<DiaryFeedItem[]>(() => feedItems.value)
 const timezone = computed(() => authStore.user?.timezone ?? 'UTC')
@@ -162,9 +172,25 @@ function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
   // Banner kinds (booking_confirmed/cancelled/rescheduled) are not tappable.
 }
 
+// -- Filter modal (screen 42) ------------------------------------------------
+
+const showFilter = ref(false)
+
+// Current categories from the store, used to seed the modal's draft.
+const activeCategories = computed<DiaryFeedCategory[]>(
+  () => feedFilters.value.categories ?? [],
+)
+
 function onMenu(): void {
-  // Filter / search menu lands in a later sub-step (1b-3).
-  toast.info('Функция временно недоступна')
+  showFilter.value = true
+}
+
+async function onApplyFilter(categories: DiaryFeedCategory[]): Promise<void> {
+  // setFeedFilters resets the feed to the first page with the new filter set.
+  await diaryStore.setFeedFilters({ categories })
+  await nextTick()
+  // Chat-mode: jump to the newest matching entry (bottom) after refiltering.
+  scrollToBottom()
 }
 
 // -- Undo bar (after deleting an entry on EntryView) -------------------------
