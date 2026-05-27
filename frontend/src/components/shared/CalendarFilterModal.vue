@@ -1,14 +1,12 @@
 <!--
   VELO Frontend -- CalendarFilterModal (Calendar iteration, frame 2)
 
-  Filter modal for the Calendar feed. Groups (per Figma frame 2):
-    - Направление   (direction)      -- multi-select chips
-    - Вид практики  (style)          -- free-text input (backend matches the
-                                        free-form data.taxonomy.style string)
-    - Сложность     (difficulty)     -- multi-select chips
-    - Длительность  (duration_bucket)-- single-select chips (short / long)
-    - Время         (time_of_day)    -- single-select chips (4 buckets)
-    - Тип практики  (practice_type)  -- multi-select chips
+  Filter modal for the Calendar feed. Groups (per Figma 22_Calendar filter):
+    - Направление практики (direction)  -- "Все" + multi-select chips
+    - Вид практики  (style)             -- dropdown (VSelect, STYLE_OPTIONS)
+    - Сложность     (difficulty)        -- "Все" + multi-select chips
+    - Длительность  (duration_bucket)   -- "Все" + single-select chips
+    - Время         (time_of_day)       -- "Все" + single-select chips
 
   Works on a local DRAFT copy of the facets; nothing is applied until the
   user taps "Применить" (-> emits `apply`). "Сбросить" clears the draft.
@@ -27,10 +25,18 @@
     <div class="cal-filter">
       <h2 class="cal-filter__heading">Фильтр</h2>
 
-      <!-- Направление -->
+      <!-- Направление практики -->
       <section class="cal-filter__group">
-        <h3 class="cal-filter__label">Направление</h3>
+        <h3 class="cal-filter__label">Направление практики</h3>
         <div class="cal-filter__chips">
+          <button
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.direction.length === 0 }"
+            @click="clearArray('direction')"
+          >
+            Все
+          </button>
           <button
             v-for="opt in DIRECTION_CHIPS"
             :key="opt.value"
@@ -44,16 +50,24 @@
         </div>
       </section>
 
-      <!-- Вид практики (free-form style) -->
+      <!-- Вид практики (style dropdown) -->
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Вид практики</h3>
-        <VInput v-model="draft.style" placeholder="Например, Кундалини йога" />
+        <VSelect v-model="draft.style" :options="STYLE_SELECT_OPTIONS" />
       </section>
 
       <!-- Сложность -->
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Сложность</h3>
         <div class="cal-filter__chips">
+          <button
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.difficulty.length === 0 }"
+            @click="clearArray('difficulty')"
+          >
+            Все
+          </button>
           <button
             v-for="opt in DIFFICULTY_CHIPS"
             :key="opt.value"
@@ -72,6 +86,14 @@
         <h3 class="cal-filter__label">Длительность</h3>
         <div class="cal-filter__chips">
           <button
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.duration_bucket === undefined }"
+            @click="clearSingle('duration_bucket')"
+          >
+            Все
+          </button>
+          <button
             v-for="opt in DURATION_CHIPS"
             :key="opt.value"
             type="button"
@@ -84,10 +106,18 @@
         </div>
       </section>
 
-      <!-- Время (single-select, 4 buckets) -->
+      <!-- Время (single-select) -->
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Время</h3>
         <div class="cal-filter__chips">
+          <button
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.time_of_day === undefined }"
+            @click="clearSingle('time_of_day')"
+          >
+            Все
+          </button>
           <button
             v-for="opt in TIME_CHIPS"
             :key="opt.value"
@@ -95,23 +125,6 @@
             class="cal-filter__chip"
             :class="{ 'cal-filter__chip--on': draft.time_of_day === opt.value }"
             @click="toggleSingle('time_of_day', opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </section>
-
-      <!-- Тип практики -->
-      <section class="cal-filter__group">
-        <h3 class="cal-filter__label">Тип практики</h3>
-        <div class="cal-filter__chips">
-          <button
-            v-for="opt in TYPE_CHIPS"
-            :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.practice_type.includes(opt.value) }"
-            @click="toggleArray('practice_type', opt.value)"
           >
             {{ opt.label }}
           </button>
@@ -129,19 +142,17 @@
 
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
-import { VModal, VButton, VInput } from '@/components/ui'
+import { VModal, VButton, VSelect } from '@/components/ui'
 import {
   DIRECTION_LABEL,
   DIFFICULTY_LABEL,
-  DURATION_BUCKET_LABEL,
   TIME_OF_DAY_LABEL,
-  PRACTICE_TYPE_EMOJI,
 } from '@/utils/displayHelpers'
+import { STYLE_OPTIONS } from '@/utils/practiceOptions'
 import type { CalendarFacetFilters } from '@/stores/calendar'
 import type {
   PracticeDirection,
   PracticeDifficulty,
-  PracticeType,
   DurationBucket,
   TimeOfDay,
 } from '@/api/types'
@@ -157,6 +168,8 @@ const emit = defineEmits<{
 }>()
 
 // -- Chip option lists (label + value), values match the backend literals --
+// Direction: kundalini is intentionally hidden from the chips (it belongs to
+// "Вид практики" now); the value stays in the type/union, just not shown here.
 const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
   [
     'meditation',
@@ -166,7 +179,6 @@ const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
     'tantra',
     'womens_circle',
     'mens_circle',
-    'kundalini',
   ] as PracticeDirection[]
 ).map((v) => ({ value: v, label: DIRECTION_LABEL[v] }))
 
@@ -174,29 +186,29 @@ const DIFFICULTY_CHIPS: { value: PracticeDifficulty; label: string }[] = (
   ['beginner', 'medium', 'high'] as PracticeDifficulty[]
 ).map((v) => ({ value: v, label: DIFFICULTY_LABEL[v] }))
 
-const DURATION_CHIPS: { value: DurationBucket; label: string }[] = (
-  ['short', 'long'] as DurationBucket[]
-).map((v) => ({ value: v, label: DURATION_BUCKET_LABEL[v] }))
+// Duration labels are LOCAL here (per the filter mock: "30 - 45 мин" /
+// "1 час и более"). The global DURATION_BUCKET_LABEL is left untouched so
+// other surfaces (cards / detail) keep their wording.
+const DURATION_CHIPS: { value: DurationBucket; label: string }[] = [
+  { value: 'short', label: '30 - 45 мин' },
+  { value: 'long', label: '1 час и более' },
+]
 
 const TIME_CHIPS: { value: TimeOfDay; label: string }[] = (
   ['morning', 'day', 'evening', 'night'] as TimeOfDay[]
 ).map((v) => ({ value: v, label: TIME_OF_DAY_LABEL[v] }))
 
-const TYPE_LABEL: Record<PracticeType, string> = {
-  live: 'Live',
-  series: 'Серии',
-  one_on_one: 'Личные',
-  replay: 'Записи',
-}
-const TYPE_CHIPS: { value: PracticeType; label: string }[] = (
-  ['live', 'series', 'one_on_one', 'replay'] as PracticeType[]
-).map((v) => ({ value: v, label: `${PRACTICE_TYPE_EMOJI[v]} ${TYPE_LABEL[v]}` }))
+// "Вид практики" dropdown: a leading empty option = "Все" (no style filter),
+// then the catalog from practiceOptions (mirrors backend allowed styles).
+const STYLE_SELECT_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Все' },
+  ...STYLE_OPTIONS,
+]
 
 // -- Local draft state (arrays always defined for easy toggling) --
 interface Draft {
   direction: PracticeDirection[]
   difficulty: PracticeDifficulty[]
-  practice_type: PracticeType[]
   style: string
   duration_bucket: DurationBucket | undefined
   time_of_day: TimeOfDay | undefined
@@ -205,7 +217,6 @@ interface Draft {
 const draft = reactive<Draft>({
   direction: [],
   difficulty: [],
-  practice_type: [],
   style: '',
   duration_bucket: undefined,
   time_of_day: undefined,
@@ -215,7 +226,6 @@ const draft = reactive<Draft>({
 function syncFromProps(): void {
   draft.direction = [...(props.filters.direction ?? [])]
   draft.difficulty = [...(props.filters.difficulty ?? [])]
-  draft.practice_type = [...(props.filters.practice_type ?? [])]
   draft.style = props.filters.style ?? ''
   draft.duration_bucket = props.filters.duration_bucket
   draft.time_of_day = props.filters.time_of_day
@@ -230,13 +240,18 @@ watch(
 )
 
 // -- Toggle helpers --
-type ArrayKey = 'direction' | 'difficulty' | 'practice_type'
+type ArrayKey = 'direction' | 'difficulty'
 
 function toggleArray(key: ArrayKey, value: string): void {
   const arr = draft[key] as string[]
   const idx = arr.indexOf(value)
   if (idx === -1) arr.push(value)
   else arr.splice(idx, 1)
+}
+
+/** "Все" for a multi-select axis = empty the array. */
+function clearArray(key: ArrayKey): void {
+  ;(draft[key] as string[]).length = 0
 }
 
 type SingleKey = 'duration_bucket' | 'time_of_day'
@@ -246,13 +261,17 @@ function toggleSingle(key: SingleKey, value: DurationBucket | TimeOfDay): void {
   draft[key] = (draft[key] === value ? undefined : value) as never
 }
 
+/** "Все" for a single-select axis = clear it. */
+function clearSingle(key: SingleKey): void {
+  draft[key] = undefined as never
+}
+
 // -- Build the facet filters object, omitting empty axes (undefined). --
 function buildFilters(): CalendarFacetFilters {
   const style = draft.style.trim()
   return {
     direction: draft.direction.length ? [...draft.direction] : undefined,
     difficulty: draft.difficulty.length ? [...draft.difficulty] : undefined,
-    practice_type: draft.practice_type.length ? [...draft.practice_type] : undefined,
     style: style || undefined,
     duration_bucket: draft.duration_bucket,
     time_of_day: draft.time_of_day,
@@ -267,7 +286,6 @@ function onApply(): void {
 function onReset(): void {
   draft.direction = []
   draft.difficulty = []
-  draft.practice_type = []
   draft.style = ''
   draft.duration_bucket = undefined
   draft.time_of_day = undefined

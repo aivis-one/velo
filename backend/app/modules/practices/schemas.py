@@ -26,6 +26,7 @@
 #   Allowed values + the style length cap live in config.py:
 #     settings.practice_allowed_directions
 #     settings.practice_allowed_difficulties
+#     settings.practice_allowed_styles
 #     settings.practice_style_max_length
 #
 # NO-LITERALS policy:
@@ -144,6 +145,19 @@ class CreatePracticeRequest(BaseModel):
         if v not in allowed:
             raise ValueError(
                 f"difficulty must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("style")
+    @classmethod
+    def style_must_be_valid(cls, v: str | None) -> str | None:
+        """Validate style against allowed values from config (if provided)."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_styles
+        if v not in allowed:
+            raise ValueError(
+                f"style must be one of {allowed}, got '{v}'"
             )
         return v
 
@@ -291,6 +305,21 @@ class UpdatePracticeRequest(BaseModel):
         if v not in allowed:
             raise ValueError(
                 f"difficulty must be one of {allowed}, got '{v}'"
+            )
+        return v
+
+    @field_validator("style")
+    @classmethod
+    def style_must_be_valid(
+        cls, v: str | None,
+    ) -> str | None:
+        """Validate style against allowed values from config (if provided)."""
+        if v is None:
+            return v
+        allowed = settings.practice_allowed_styles
+        if v not in allowed:
+            raise ValueError(
+                f"style must be one of {allowed}, got '{v}'"
             )
         return v
 

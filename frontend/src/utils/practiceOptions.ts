@@ -44,3 +44,13 @@ export const DIFFICULTY_OPTIONS: { label: string; value: string }[] = [
   { label: 'Средняя',   value: 'medium' },
   { label: 'Высокая',   value: 'high' },
 ]
+
+// PLACEHOLDER list -- mirrors backend config.practice_allowed_styles.
+// Values MUST match that list; to be replaced with the real catalog by
+// the client. Used by the master create/edit forms and the Calendar filter.
+export const STYLE_OPTIONS: { label: string; value: string }[] = [
+  { label: 'Хатха йога',    value: 'hatha' },
+  { label: 'Кундалини йога', value: 'kundalini' },
+  { label: 'Виньяса флоу',  value: 'vinyasa' },
+  { label: 'Инь йога',      value: 'yin' },
+]

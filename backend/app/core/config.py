@@ -125,14 +125,21 @@ class Settings(BaseSettings):
     #
     # direction  -- content direction (Направление). Required on create.
     # difficulty -- difficulty level (Сложность). Required on create.
-    # style      -- free-form style string (Вид практики), e.g. "Кундалини
-    #               йога". Optional; capped at practice_style_max_length.
+    # style      -- practice style (Вид практики), e.g. "kundalini". Optional;
+    #               validated against practice_allowed_styles and capped at
+    #               practice_style_max_length.
     practice_allowed_directions: list[str] = [
         "meditation", "yoga", "breathwork",
         "somatic", "tantra", "womens_circle", "mens_circle", "kundalini",
     ]
     practice_allowed_difficulties: list[str] = [
         "beginner", "medium", "high",
+    ]
+    # PLACEHOLDER list -- to be replaced with the real catalog by the client.
+    # Frontend mirror: frontend/src/utils/practiceOptions.ts STYLE_OPTIONS
+    # (values MUST stay in sync with this list).
+    practice_allowed_styles: list[str] = [
+        "hatha", "kundalini", "vinyasa", "yin",
     ]
     practice_style_max_length: int = 100
 
