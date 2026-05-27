@@ -1,6 +1,6 @@
 # =============================================================================
 # VELO Backend -- Auth Service (updated Phase 7.3, FIX 2.2 + 2.3, QW-1,
-#                               HIGH-1, CRITICAL-4, WARNING-4, NO-LITERALS)
+#                               HIGH-1, CRITICAL-4, NO-LITERALS)
 # =============================================================================
 #
 # RESPONSIBILITIES:
@@ -32,11 +32,6 @@
 #   per telegram_id.
 #   Key: auth_rate:{telegram_id}, TTL = auth_rate_limit_window_seconds.
 #   Prevents Redis OOM via session flooding from a replayed valid initData.
-#
-# WARNING-4: Anti-replay protection for initData.
-#   Each initData hash is stored in Redis with TTL=auth_init_data_ttl_seconds.
-#   A second request with the same initData within the window is rejected.
-#   Key: init_data_used:{sha256(init_data)}, SET NX TTL = auth_init_data_ttl_seconds.
 # =============================================================================
 
 import hashlib
@@ -167,33 +162,17 @@ def validate_telegram_init_data(init_data: str, bot_token: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Auth security: anti-replay + rate limiting
+# Auth security: rate limiting
 # ---------------------------------------------------------------------------
-
-
-async def check_init_data_replay(init_data: str) -> None:
-    """Reject replayed initData within the 5-minute validity window.
-
-    WARNING-4: Each initData hash is stored in Redis with TTL=auth_init_data_ttl_seconds.
-    A second request with the same initData is rejected immediately,
-    preventing a stolen or intercepted token from being reused.
-
-    Args:
-        init_data: Raw Telegram initData string (already HMAC-validated).
-
-    Raises:
-        TelegramValidationError: If this initData was already used.
-    """
-    redis = get_redis()
-    init_data_hash = hashlib.sha256(init_data.encode()).hexdigest()
-    replay_key = f"init_data_used:{init_data_hash}"
-    # SET NX (only if not exists) with TTL = initData validity window.
-    # Returns True if key was set (first use), None if already existed.
-    was_set = await redis.set(
-        replay_key, "1", ex=settings.auth_init_data_ttl_seconds, nx=True,
-    )
-    if not was_set:
-        raise TelegramValidationError("initData already used")
+#
+# NOTE: an initData anti-replay key (SET NX on sha256(init_data)) used to live
+# here. It was removed because it broke the legitimate logout -> re-login flow:
+# Telegram keeps window.Telegram.WebApp.initData constant for the lifetime of
+# an open Mini App, so a second login reused the same string and was rejected
+# until the key expired. Replay within the validity window is already bounded
+# by validate_telegram_init_data(), which rejects initData whose auth_date is
+# older than auth_init_data_ttl_seconds (or set in the future), and abusive
+# bursts are bounded by check_auth_rate_limit() below.
 
 
 async def check_auth_rate_limit(telegram_id: int) -> None:
