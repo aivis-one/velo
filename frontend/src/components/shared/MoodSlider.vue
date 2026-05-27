@@ -27,7 +27,7 @@
       >
         <component
           :is="zone.icon"
-          :size="activeZone === i ? 63 : 40"
+          :size="63"
           class="mood-slider__icon"
           :style="zone.color ? { color: zone.color } : undefined"
         />
@@ -112,6 +112,12 @@ function selectZone(i: number): void {
   flex-direction: column;
   gap: var(--space-5);
   width: 100%;
+  /* Slider-local motion: slower + softer than the global --transition-base
+     so the icons grow/fade gently as the thumb moves. Scoped to this
+     component on purpose -- does not affect the rest of the UI. */
+  --mood-slider-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --mood-slider-icon-duration: 450ms;
+  --mood-slider-thumb-duration: 350ms;
 }
 
 .mood-slider__icons {
@@ -133,22 +139,27 @@ function selectZone(i: number): void {
   border-radius: var(--radius-md);
   background: var(--velo-bg-card-solid);
   opacity: 0.8;
-  /* Smooth "live" scaling + fade as the active zone changes. */
-  transition:
-    transform var(--transition-base),
-    opacity var(--transition-base);
+  /* Smooth, slowed fade as the active zone changes. */
+  transition: opacity var(--mood-slider-icon-duration) var(--mood-slider-ease);
   cursor: pointer;
 }
 
 .mood-slider__card--active {
   opacity: 1;
-  transform: scale(1.12);
 }
 
 .mood-slider__icon {
-  /* Icon size is driven by the :size prop (40 / 63); keep transitions on the
-     wrapping card so the whole tile scales together. */
   display: block;
+  /* The icon is rendered at its full size (63) and scaled down when its zone
+     is inactive (40/63 = 0.635). Animating scale -- not the :size prop --
+     lets the size change ride the same slow, soft curve as the fade. */
+  transform: scale(0.635);
+  transform-origin: center;
+  transition: transform var(--mood-slider-icon-duration) var(--mood-slider-ease);
+}
+
+.mood-slider__card--active .mood-slider__icon {
+  transform: scale(1);
 }
 
 .mood-slider__label {
@@ -181,7 +192,7 @@ function selectZone(i: number): void {
   background: var(--velo-primary);
   border-radius: var(--radius-full);
   transform: translate(-50%, -50%);
-  transition: left var(--transition-base);
+  transition: left var(--mood-slider-thumb-duration) var(--mood-slider-ease);
   pointer-events: none;
 }
 
