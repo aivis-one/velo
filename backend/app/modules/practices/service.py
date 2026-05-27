@@ -7,9 +7,12 @@
 #
 # MASTER_NAME / MASTER_METHODS (Frontend F3 prep, DS-sprint):
 #   practice_to_response() builds PracticeResponse with master_name and
-#   master_methods populated from User.first_name and MasterProfile.data
-#   via OUTER JOIN. get_practice() outer-joins MasterProfile to return methods.
-#   If MasterProfile is missing, master_methods defaults to [].
+#   master_methods. master_name is the full "First Last" name, built by
+#   _master_full_name() from User.first_name + User.last_name in every JOIN /
+#   mutation path (MVP rule: Telegram name, surname appended only if present).
+#   master_methods come from MasterProfile.data via OUTER JOIN; get_practice()
+#   outer-joins MasterProfile to return methods. If MasterProfile is missing,
+#   master_methods defaults to [].
 #   List functions pass master_methods=[] (methods not shown in list cards).
 #
 # CALENDAR TAXONOMY (Calendar iteration):
@@ -218,6 +221,22 @@ async def _has_active_bookings(
     return result.scalar_one() > 0
 
 
+def _master_full_name(
+    first_name: str | None,
+    last_name: str | None,
+) -> str:
+    """Build the master's display name as "First Last".
+
+    MVP rule (mirrors the frontend masterDisplayName helper): always use the
+    Telegram first_name + last_name, ignoring MasterProfile.display_name.
+    Telegram guarantees first_name but last_name is optional, so the surname
+    is appended only when present; if both are empty we fall back to "Мастер".
+    Empty parts are filtered out so there is no trailing space or "None".
+    """
+    parts = [p for p in (first_name, last_name) if p]
+    return " ".join(parts) if parts else "Мастер"
+
+
 def practice_to_response(
     practice: Practice,
     master_name: str | None = None,
@@ -229,7 +248,8 @@ def practice_to_response(
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
-    master_name:       User.first_name from JOIN (or User object on mutations).
+    master_name:       full "First Last" built via _master_full_name() from the
+                       User row in the JOIN (or the mutation's User object).
     master_methods:    MasterProfile.data.profile.methods from outer join in
                        get_practice(). List endpoints pass [] (not shown on cards).
     master_avatar_url: User.avatar_url from JOIN in get_practice() (detail only).
@@ -386,6 +406,7 @@ async def get_practice(
         select(
             Practice,
             User.first_name,
+            User.last_name,
             User.avatar_url,
             MasterProfile.data,
         )
@@ -399,7 +420,8 @@ async def get_practice(
     if not row:
         raise NotFoundError("Practice not found")
 
-    practice, master_name, master_avatar_url, profile_data = row
+    practice, first_name, last_name, master_avatar_url, profile_data = row
+    master_name = _master_full_name(first_name, last_name)
 
     # Draft/deleted visible only to owner (P-08: 404 not 403).
     if (
@@ -580,9 +602,13 @@ async def update_practice(
         from app.modules.diary.projections import (
             project_practice_rescheduled,
         )
-        from app.modules.masters.service import get_master_display_name
-        master_name = await get_master_display_name(
-            practice.master_id, session,
+        # Master name for the diary card: full "First Last" (MVP rule), same
+        # as practice cards. Load the User directly -- get_master_display_name
+        # is for notifications and would return the profile display_name.
+        master_user = await session.get(User, practice.master_id)
+        master_name = _master_full_name(
+            master_user.first_name if master_user else None,
+            master_user.last_name if master_user else None,
         )
         await project_practice_rescheduled(
             session,
@@ -743,8 +769,13 @@ async def cancel_practice(
     # Diary feed: fan out "master cancelled the practice" to the users who
     # were booked (collected above, before the refund). occurred_at is now.
     from app.modules.diary.projections import project_practice_cancelled
-    from app.modules.masters.service import get_master_display_name
-    master_name = await get_master_display_name(practice.master_id, session)
+    # Master name for the diary card: full "First Last" (MVP rule). Load the
+    # User directly rather than get_master_display_name (notification helper).
+    master_user = await session.get(User, practice.master_id)
+    master_name = _master_full_name(
+        master_user.first_name if master_user else None,
+        master_user.last_name if master_user else None,
+    )
     await project_practice_cancelled(
         session,
         practice=practice,
@@ -786,7 +817,7 @@ async def list_master_practices(
 
     # -- Paginated items with master name --
     stmt = (
-        select(Practice, User.first_name)
+        select(Practice, User.first_name, User.last_name)
         .join(User, Practice.master_id == User.id)
         .where(*base_filter)
         .order_by(Practice.scheduled_at.desc())
@@ -798,8 +829,8 @@ async def list_master_practices(
 
     return PaginatedPracticesResponse(
         items=[
-            practice_to_response(p, master_name)
-            for p, master_name in rows
+            practice_to_response(p, _master_full_name(first, last))
+            for p, first, last in rows
         ],
         total=total,
         limit=limit,
@@ -947,7 +978,7 @@ async def list_public_practices(
 
     # -- Paginated items with master name --
     query = (
-        select(Practice, User.first_name)
+        select(Practice, User.first_name, User.last_name)
         .join(User, Practice.master_id == User.id)
         .where(*filters)
         .order_by(sort_column)
@@ -958,18 +989,18 @@ async def list_public_practices(
     rows = result.all()
 
     # -- Per-user flags for the practices on this page (single query) --
-    practice_ids = [p.id for p, _ in rows]
+    practice_ids = [p.id for p, _first, _last in rows]
     flags = await _user_flags_for_practices(user.id, practice_ids, session)
 
     return PaginatedPracticesResponse(
         items=[
             practice_to_response(
                 p,
-                master_name,
+                _master_full_name(first, last),
                 is_booked=flags.get(p.id, (False, False))[0],
                 is_paid=flags.get(p.id, (False, False))[1],
             )
-            for p, master_name in rows
+            for p, first, last in rows
         ],
         total=total,
         limit=limit,
