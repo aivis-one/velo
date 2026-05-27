@@ -166,7 +166,7 @@ export interface CancelBookingRequest {
 
 /** POST /api/v1/practices/{id}/checkin body. */
 export interface CheckinRequest {
-  mood: string
+  mood: number
   comment?: string | null
 }
 
@@ -176,7 +176,7 @@ export interface CheckinResponse {
   practice_id: string
   user_id: string
   booking_id: string
-  mood: string
+  mood: number
   comment: string | null
   check_type: string
   created_at: string
@@ -212,7 +212,7 @@ export interface CreateCompanyPromoRequest {
 export interface CreateDiaryEntryRequest {
   content: string
   title?: string | null
-  mood?: string | null
+  mood?: number | null
   practice_id?: string | null
   entry_type?: string
   practice_phase?: string | null
@@ -271,7 +271,7 @@ export interface DiaryEntryResponse {
   practice_phase: string | null
   title: string | null
   content: string
-  mood: string | null
+  mood: number | null
   is_deleted: boolean
   created_at: string
   updated_at: string | null
@@ -307,7 +307,7 @@ export interface ExistingReportResponse {
 
 /** POST /api/v1/practices/{id}/feedback body. */
 export interface FeedbackRequest {
-  rating: string
+  rating: number
   comment?: string | null
 }
 
@@ -317,7 +317,7 @@ export interface FeedbackResponse {
   practice_id: string
   user_id: string
   booking_id: string
-  rating: string
+  rating: number
   comment: string | null
   created_at: string
   updated_at: string | null
@@ -382,7 +382,7 @@ export interface MasterPublicResponse {
   reviews_count: number
 }
 
-/** Check-in mood counts for a practice. CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. Making them required ensures OpenAPI marks them as such, and the TS generator emits non-optional fields. */
+/** Check-in mood counts for a practice, bucketed by score range. mood is a 1..10 score; counts are grouped into three buckets: low = scores 1-3 mid = scores 4-7 high = scores 8-10 CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. */
 export interface MoodDistribution {
   high: number
   mid: number
@@ -644,7 +644,7 @@ export interface PurchaseWithPracticeResponse {
   practice: PracticeSummary
 }
 
-/** Feedback rating counts for a practice. CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
+/** Feedback rating counts for a practice, bucketed by score range. rating is a 1..10 score; counts are grouped into three buckets: confused = scores 1-3 good = scores 4-7 fire = scores 8-10 CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
 export interface RatingDistribution {
   fire: number
   good: number
@@ -714,7 +714,7 @@ export interface TopupResponse {
 export interface UpdateDiaryEntryRequest {
   content?: string | null
   title?: string | null
-  mood?: string | null
+  mood?: number | null
   practice_id?: string | null
   entry_type?: string | null
   practice_phase?: string | null
