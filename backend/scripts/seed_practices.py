@@ -151,20 +151,24 @@ TEST_USER_DEFAULTS = {
     "cancelled_bookings": 1,
 }
 
-MOODS = ("low", "mid", "high")          # CHECK на Checkin.mood и DiaryEntry.mood
-RATINGS = ("fire", "good", "confused")  # CHECK на Feedback.rating
+# mood/rating теперь Integer score 1..10 (миграция d5e6f7a8b9c0,
+# CHECK BETWEEN 1 AND 10). Маппинг дискретных уровней в score совпадает
+# с тем, что применил backend в seed.py: low/confused=2, mid/good=6,
+# high/fire=9 (середины зон 1-3 / 4-7 / 8-10).
+MOOD_SCORES = (2, 6, 9)    # low / mid / high
+RATING_SCORES = (9, 6, 2)  # fire / good / confused
 
 # Личные записи дневника (note/dream). Backdate раскидан по ~20 дням назад.
 # key — стабильный идентификатор шаблона (идёт в snapshot.seed.key); title
 # уникален в рамках юзера (используется для идемпотентности).
 SEED_V2_DIARY_TEMPLATES: list[dict] = [
     {"key": "note-01", "entry_type": "note", "practice_phase": "before",
-     "mood": "mid", "offset_days": 1,
+     "mood": 6, "offset_days": 1,
      "title": "Перед практикой — мысли роятся",
      "content": "Проснулась с тяжёлой головой, в мыслях уже список дел. "
                 "Хочу за эти 60 минут просто замедлиться и выдохнуть."},
     {"key": "note-02", "entry_type": "note", "practice_phase": "after",
-     "mood": "high", "offset_days": 1,
+     "mood": 9, "offset_days": 1,
      "title": "После практики — будто перезагрузился",
      "content": "Тело гудит приятно, ум тихий. Удивительно, как 40 минут "
                 "дыхания меняют весь настрой на день."},
@@ -174,12 +178,12 @@ SEED_V2_DIARY_TEMPLATES: list[dict] = [
      "content": "Снился старый дом на берегу, вода подходила к самому порогу, "
                 "но было спокойно, а не тревожно. Проснулся с ощущением тепла."},
     {"key": "note-03", "entry_type": "note", "practice_phase": "before",
-     "mood": "low", "offset_days": 3,
+     "mood": 2, "offset_days": 3,
      "title": "Сегодня тяжело начинать",
      "content": "Сил почти нет, но пришёл на практику через не хочу. "
                 "Посмотрим, что будет к концу."},
     {"key": "note-04", "entry_type": "note", "practice_phase": "after",
-     "mood": "mid", "offset_days": 3,
+     "mood": 6, "offset_days": 3,
      "title": "Отпустило к середине",
      "content": "Первые минут десять не мог поймать ритм, потом дыхание само "
                 "выровнялось. Ушёл спокойнее, чем пришёл."},
@@ -189,17 +193,17 @@ SEED_V2_DIARY_TEMPLATES: list[dict] = [
      "content": "Летал низко над крышами, без страха высоты. Кто-то снизу "
                 "махал рукой. Яркие краски, давно так не снилось."},
     {"key": "note-05", "entry_type": "note", "practice_phase": None,
-     "mood": "high", "offset_days": 6,
+     "mood": 9, "offset_days": 6,
      "title": "Поймал состояние",
      "content": "Сегодня впервые за неделю почувствовал ту самую тишину внутри. "
                 "Ничего не делал специально — просто случилось."},
     {"key": "note-06", "entry_type": "note", "practice_phase": "before",
-     "mood": "mid", "offset_days": 8,
+     "mood": 6, "offset_days": 8,
      "title": "Намерение на утро",
      "content": "Хочу сегодня меньше думать и больше чувствовать тело. "
                 "Ставлю это как намерение перед началом."},
     {"key": "note-07", "entry_type": "note", "practice_phase": "after",
-     "mood": "high", "offset_days": 8,
+     "mood": 9, "offset_days": 8,
      "title": "Тело сказало спасибо",
      "content": "После телесной практики плечи опустились, дыхание стало "
                 "глубже. Заметил, сколько напряжения носил и не замечал."},
@@ -209,17 +213,17 @@ SEED_V2_DIARY_TEMPLATES: list[dict] = [
      "content": "Шёл по горной тропе, туман то накрывал, то расходился. "
                 "Не было цели дойти — просто шёл и смотрел."},
     {"key": "note-08", "entry_type": "note", "practice_phase": None,
-     "mood": "low", "offset_days": 13,
+     "mood": 2, "offset_days": 13,
      "title": "День, когда ничего не хотелось",
      "content": "Записываю честно: апатия. Практика не «починила» настроение, "
                 "но хотя бы дала паузу, в которой можно было это заметить."},
     {"key": "note-09", "entry_type": "note", "practice_phase": "after",
-     "mood": "mid", "offset_days": 15,
+     "mood": 6, "offset_days": 15,
      "title": "Маленький сдвиг",
      "content": "Не фейерверк, но стало чуть легче. Учусь замечать такие "
                 "небольшие изменения и не обесценивать их."},
     {"key": "note-10", "entry_type": "note", "practice_phase": "before",
-     "mood": "mid", "offset_days": 17,
+     "mood": 6, "offset_days": 17,
      "title": "Возвращаюсь к регулярности",
      "content": "Несколько дней пропускал. Сегодня снова на коврике — и уже "
                 "одно это ощущается как маленькая победа."},
@@ -229,7 +233,7 @@ SEED_V2_DIARY_TEMPLATES: list[dict] = [
      "content": "Разговаривали с человеком, которого давно не видел. Сон "
                 "оставил тёплое послевкусие и желание написать ему."},
     {"key": "note-11", "entry_type": "note", "practice_phase": "after",
-     "mood": "high", "offset_days": 20,
+     "mood": 9, "offset_days": 20,
      "title": "Три недели практики",
      "content": "Оглядываюсь назад: стал спокойнее реагировать на мелочи, "
                 "лучше сплю. Кажется, это работает не за один раз, а накопительно."},
@@ -471,11 +475,17 @@ def _validate_practice_for_orm_insert(p: dict) -> None:
         )
 
     style = p.get("style")
-    if style is not None and len(style) > settings.practice_style_max_length:
-        raise ValueError(
-            f"practice {p['key']}: style length {len(style)} "
-            f"exceeds {settings.practice_style_max_length}",
-        )
+    if style is not None:
+        if style not in settings.practice_allowed_styles:
+            raise ValueError(
+                f"practice {p['key']}: style='{style}' "
+                f"not in {settings.practice_allowed_styles}",
+            )
+        if len(style) > settings.practice_style_max_length:
+            raise ValueError(
+                f"practice {p['key']}: style length {len(style)} "
+                f"exceeds {settings.practice_style_max_length}",
+            )
 
     status = p.get("status", "scheduled")
     valid_statuses = {s.value for s in PracticeStatus}
@@ -836,7 +846,7 @@ async def _seed_checkin(
         practice_id=practice.id,
         user_id=user.id,
         booking_id=booking.id,
-        mood=MOODS[idx % len(MOODS)],
+        mood=MOOD_SCORES[idx % len(MOOD_SCORES)],
         comment="Настраиваюсь на практику." if idx % 2 == 0 else None,
         check_type="pre",
     )
@@ -881,7 +891,7 @@ async def _seed_feedback(
         practice_id=practice.id,
         user_id=user.id,
         booking_id=booking.id,
-        rating=RATINGS[idx % len(RATINGS)],
+        rating=RATING_SCORES[idx % len(RATING_SCORES)],
         comment=comments[idx % len(comments)],
     )
     session.add(fb)
