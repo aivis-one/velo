@@ -20,14 +20,32 @@
     <!-- Header -->
     <header class="diary-feed__header">
       <h1 class="diary-feed__title">Дневник</h1>
-      <button
-        type="button"
-        class="diary-feed__menu"
-        aria-label="Меню"
-        @click="onMenu"
-      >
-        <IconDots :size="20" />
-      </button>
+      <div class="diary-feed__menu-wrap">
+        <button
+          type="button"
+          class="diary-feed__menu"
+          aria-label="Меню"
+          @click="menuOpen = !menuOpen"
+        >
+          <IconDots :size="20" />
+        </button>
+        <div v-if="menuOpen" class="diary-feed__menu-pop" role="menu">
+          <button
+            type="button"
+            class="diary-feed__menu-item"
+            @click="openFilter"
+          >
+            Фильтр
+          </button>
+          <button
+            type="button"
+            class="diary-feed__menu-item"
+            @click="openSearch"
+          >
+            Поиск
+          </button>
+        </div>
+      </div>
     </header>
 
     <!-- Feed body: the ONLY scrolling area, between fixed header and composer -->
@@ -101,6 +119,14 @@
       @apply="onApplyFilter"
       @close="showFilter = false"
     />
+
+    <!-- Text search (screen 44), opened from the "..." menu -->
+    <DiarySearchModal
+      :open="showSearch"
+      :initial="feedFilters.search ?? ''"
+      @search="onApplySearch"
+      @close="showSearch = false"
+    />
   </div>
 </template>
 
@@ -113,6 +139,7 @@ import { IconDots } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
 import DiaryFilterModal from '@/components/shared/DiaryFilterModal.vue'
+import DiarySearchModal from '@/components/shared/DiarySearchModal.vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -174,17 +201,25 @@ function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
   // Banner kinds (booking_confirmed/cancelled/rescheduled) are not tappable.
 }
 
-// -- Filter modal (screen 42) ------------------------------------------------
+// -- "..." menu + filter / search modals (screens 42 / 43 / 44) --------------
 
+const menuOpen = ref(false)
 const showFilter = ref(false)
+const showSearch = ref(false)
 
-// Current categories from the store, used to seed the modal's draft.
+// Current categories from the store, used to seed the filter modal's draft.
 const activeCategories = computed<DiaryFeedCategory[]>(
   () => feedFilters.value.categories ?? [],
 )
 
-function onMenu(): void {
+function openFilter(): void {
+  menuOpen.value = false
   showFilter.value = true
+}
+
+function openSearch(): void {
+  menuOpen.value = false
+  showSearch.value = true
 }
 
 async function onApplyFilter(payload: {
@@ -200,6 +235,14 @@ async function onApplyFilter(payload: {
   })
   await nextTick()
   // Chat-mode: jump to the newest matching entry (bottom) after refiltering.
+  scrollToBottom()
+}
+
+async function onApplySearch(query: string): Promise<void> {
+  // runFeedSearch trims; an empty string clears the search. Both reload the
+  // feed from the first page.
+  await diaryStore.runFeedSearch(query)
+  await nextTick()
   scrollToBottom()
 }
 
@@ -390,6 +433,43 @@ onBeforeUnmount(() => {
 
 .diary-feed__menu:hover {
   opacity: 0.85;
+}
+
+/* "..." menu popover (Фильтр / Поиск) */
+.diary-feed__menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.diary-feed__menu-pop {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: var(--z-content);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  padding: var(--space-1);
+  background: var(--velo-bg-card-solid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--velo-shadow-glow);
+}
+
+.diary-feed__menu-item {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.diary-feed__menu-item:hover {
+  background: var(--velo-glass-blue-15);
 }
 
 /* -- Body: the ONLY scrolling row -- */
