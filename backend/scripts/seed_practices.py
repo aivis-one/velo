@@ -56,6 +56,7 @@ import json
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # ── sys.path bootstrap ───────────────────────────────────────────────────────
 # Кладём backend/scripts (для импорта соседнего seed.py) и backend (для app.*)
@@ -139,16 +140,16 @@ JSON_PATH = Path(__file__).parent / "seed_practices.json"
 # них не обязателен.
 
 # Дефолтные объёмы на одного тест-юзера (можно переопределить в JSON per-user).
-# Подобраны так, чтобы лента была ~40 карточек и её было что листать:
-#   12 личных записей + 7 attended (×2 карточки) + 6 чек-инов + 6 отзывов
-#   + 1 будущая + 1 отменённая (×2) ≈ 41 элемент фида.
+# Подобраны так, чтобы лента была наглядно «живой» и её было что листать:
+#   28 личных записей + 14 attended (×2 карточки) + 12 чек-инов + 12 отзывов
+#   + 4 будущих + 2 отменённых (×2) ≈ 80+ элементов фида.
 TEST_USER_DEFAULTS = {
-    "diary_entries": 12,
-    "attended_bookings": 7,
-    "checkins": 6,
-    "feedbacks": 6,
-    "upcoming_bookings": 1,
-    "cancelled_bookings": 1,
+    "diary_entries": 28,
+    "attended_bookings": 14,
+    "checkins": 12,
+    "feedbacks": 12,
+    "upcoming_bookings": 4,
+    "cancelled_bookings": 2,
 }
 
 # mood/rating теперь Integer score 1..10 (миграция d5e6f7a8b9c0,
@@ -158,86 +159,10 @@ TEST_USER_DEFAULTS = {
 MOOD_SCORES = (2, 6, 9)    # low / mid / high
 RATING_SCORES = (9, 6, 2)  # fire / good / confused
 
-# Личные записи дневника (note/dream). Backdate раскидан по ~20 дням назад.
-# key — стабильный идентификатор шаблона (идёт в snapshot.seed.key); title
-# уникален в рамках юзера (используется для идемпотентности).
-SEED_V2_DIARY_TEMPLATES: list[dict] = [
-    {"key": "note-01", "entry_type": "note", "practice_phase": "before",
-     "mood": 6, "offset_days": 1,
-     "title": "Перед практикой — мысли роятся",
-     "content": "Проснулась с тяжёлой головой, в мыслях уже список дел. "
-                "Хочу за эти 60 минут просто замедлиться и выдохнуть."},
-    {"key": "note-02", "entry_type": "note", "practice_phase": "after",
-     "mood": 9, "offset_days": 1,
-     "title": "После практики — будто перезагрузился",
-     "content": "Тело гудит приятно, ум тихий. Удивительно, как 40 минут "
-                "дыхания меняют весь настрой на день."},
-    {"key": "dream-01", "entry_type": "dream", "practice_phase": None,
-     "mood": None, "offset_days": 2,
-     "title": "Сон про дом у воды",
-     "content": "Снился старый дом на берегу, вода подходила к самому порогу, "
-                "но было спокойно, а не тревожно. Проснулся с ощущением тепла."},
-    {"key": "note-03", "entry_type": "note", "practice_phase": "before",
-     "mood": 2, "offset_days": 3,
-     "title": "Сегодня тяжело начинать",
-     "content": "Сил почти нет, но пришёл на практику через не хочу. "
-                "Посмотрим, что будет к концу."},
-    {"key": "note-04", "entry_type": "note", "practice_phase": "after",
-     "mood": 6, "offset_days": 3,
-     "title": "Отпустило к середине",
-     "content": "Первые минут десять не мог поймать ритм, потом дыхание само "
-                "выровнялось. Ушёл спокойнее, чем пришёл."},
-    {"key": "dream-02", "entry_type": "dream", "practice_phase": None,
-     "mood": None, "offset_days": 5,
-     "title": "Сон: лечу над городом",
-     "content": "Летал низко над крышами, без страха высоты. Кто-то снизу "
-                "махал рукой. Яркие краски, давно так не снилось."},
-    {"key": "note-05", "entry_type": "note", "practice_phase": None,
-     "mood": 9, "offset_days": 6,
-     "title": "Поймал состояние",
-     "content": "Сегодня впервые за неделю почувствовал ту самую тишину внутри. "
-                "Ничего не делал специально — просто случилось."},
-    {"key": "note-06", "entry_type": "note", "practice_phase": "before",
-     "mood": 6, "offset_days": 8,
-     "title": "Намерение на утро",
-     "content": "Хочу сегодня меньше думать и больше чувствовать тело. "
-                "Ставлю это как намерение перед началом."},
-    {"key": "note-07", "entry_type": "note", "practice_phase": "after",
-     "mood": 9, "offset_days": 8,
-     "title": "Тело сказало спасибо",
-     "content": "После телесной практики плечи опустились, дыхание стало "
-                "глубже. Заметил, сколько напряжения носил и не замечал."},
-    {"key": "dream-03", "entry_type": "dream", "practice_phase": None,
-     "mood": None, "offset_days": 11,
-     "title": "Сон про дорогу в горах",
-     "content": "Шёл по горной тропе, туман то накрывал, то расходился. "
-                "Не было цели дойти — просто шёл и смотрел."},
-    {"key": "note-08", "entry_type": "note", "practice_phase": None,
-     "mood": 2, "offset_days": 13,
-     "title": "День, когда ничего не хотелось",
-     "content": "Записываю честно: апатия. Практика не «починила» настроение, "
-                "но хотя бы дала паузу, в которой можно было это заметить."},
-    {"key": "note-09", "entry_type": "note", "practice_phase": "after",
-     "mood": 6, "offset_days": 15,
-     "title": "Маленький сдвиг",
-     "content": "Не фейерверк, но стало чуть легче. Учусь замечать такие "
-                "небольшие изменения и не обесценивать их."},
-    {"key": "note-10", "entry_type": "note", "practice_phase": "before",
-     "mood": 6, "offset_days": 17,
-     "title": "Возвращаюсь к регулярности",
-     "content": "Несколько дней пропускал. Сегодня снова на коврике — и уже "
-                "одно это ощущается как маленькая победа."},
-    {"key": "dream-04", "entry_type": "dream", "practice_phase": None,
-     "mood": None, "offset_days": 19,
-     "title": "Сон с давним другом",
-     "content": "Разговаривали с человеком, которого давно не видел. Сон "
-                "оставил тёплое послевкусие и желание написать ему."},
-    {"key": "note-11", "entry_type": "note", "practice_phase": "after",
-     "mood": 9, "offset_days": 20,
-     "title": "Три недели практики",
-     "content": "Оглядываюсь назад: стал спокойнее реагировать на мелочи, "
-                "лучше сплю. Кажется, это работает не за один раз, а накопительно."},
-]
+# Личные записи дневника (note/dream) теперь живут в seed_practices.json
+# (секция diary_templates) и грузятся через load_source(). Пулы текстов
+# чек-инов и отзывов — там же (checkin_comments / feedback_comments).
+# Сидер получает их как аргументы (pools), а не из модульной константы.
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -296,6 +221,65 @@ def _join_lines(value: list[str] | str | None) -> str | None:
     return value
 
 
+def expand_schedule(
+    templates: list[dict], schedule: dict, now: datetime,
+) -> list[dict]:
+    """Разворачивает practice_templates по сетке schedule в конкретные практики.
+
+    Для каждого дня в окне [-days_back; +days_forward] от «сегодня» (в
+    schedule.timezone) и для каждого слота берётся следующий шаблон по кругу
+    (round-robin) — это даёт разнообразие направлений/мастеров/времени суток.
+    Прошлые дни используют slots_past (реже), сегодняшний и будущие —
+    slots_future (плотнее).
+
+    Статус определяется датой относительно now:
+      end   <= now          -> completed
+      start <= now < end    -> live
+      start >  now          -> scheduled
+
+    key практики стабилен (v2-{date}-{HHMM}-{template_key}) -> идемпотентно при
+    повторном прогоне в тот же день. Возвращает список practice-dict в том же
+    формате, что раньше читался из JSON-секции "practices" (downstream-конвейер
+    не меняется).
+    """
+    tz = ZoneInfo(schedule["timezone"])
+    tzname = schedule["timezone"]
+    days_back = int(schedule["days_back"])
+    days_forward = int(schedule["days_forward"])
+    slots_past = schedule["slots_past"]
+    slots_future = schedule["slots_future"]
+
+    today = now.astimezone(tz).date()
+    out: list[dict] = []
+    rr = 0  # round-robin индекс по всему окну
+    for day_offset in range(-days_back, days_forward + 1):
+        day = today + timedelta(days=day_offset)
+        slots = slots_past if day_offset < 0 else slots_future
+        for slot in slots:
+            hh, mm = (int(x) for x in slot.split(":"))
+            start = datetime(day.year, day.month, day.day, hh, mm, tzinfo=tz)
+            tmpl = templates[rr % len(templates)]
+            rr += 1
+            dur = int(tmpl.get("duration_minutes", 60))
+            end = start + timedelta(minutes=dur)
+            if end <= now:
+                status = "completed"
+            elif start <= now < end:
+                status = "live"
+            else:
+                status = "scheduled"
+            key = f"v2-{day.isoformat()}-{slot.replace(':', '')}-{tmpl['key']}"
+            out.append({
+                **tmpl,
+                "key": key,
+                "template_key": tmpl["key"],
+                "scheduled_at": start.isoformat(),
+                "timezone": tzname,
+                "status": status,
+            })
+    return out
+
+
 def load_source() -> dict:
     if not JSON_PATH.exists():
         raise FileNotFoundError(f"Источник не найден: {JSON_PATH}")
@@ -304,11 +288,24 @@ def load_source() -> dict:
 
     for m in data["masters"]:
         m["bio"] = _join_lines(m.get("bio"))
+
+    # Расписание генерируется из шаблонов: practice_templates + schedule ->
+    # конкретные практики (со scheduled_at/status). Кладём под ключ "practices",
+    # чтобы остальной конвейер (cmd_seed, dry-run, тест-юзеры) работал без правок.
+    data["practices"] = expand_schedule(
+        data["practice_templates"], data["schedule"],
+        datetime.now(timezone.utc),
+    )
     for p in data["practices"]:
         p["description"] = _join_lines(p.get("description"))
         # what_to_prepare / contraindications обычно строки, но на всякий случай:
         p["what_to_prepare"] = _join_lines(p.get("what_to_prepare"))
         p["contraindications"] = _join_lines(p.get("contraindications"))
+
+    # Склейка multiline content у личных записей дневника (note/dream).
+    for t in data.get("diary_templates", []):
+        t["content"] = _join_lines(t.get("content"))
+
     return data
 
 
@@ -657,6 +654,11 @@ async def cmd_seed(
         src_scheduled = sum(
             1 for p in source["practices"] if p.get("status") == "scheduled"
         )
+        pools = {
+            "diary": source.get("diary_templates", []),
+            "checkin": source.get("checkin_comments", []),
+            "feedback": source.get("feedback_comments", []),
+        }
         await cmd_seed_test_users(
             session,
             test_users,
@@ -664,6 +666,7 @@ async def cmd_seed(
             scheduled_practices,
             batch_iso,
             dry_run,
+            pools,
             src_completed=src_completed,
             src_scheduled=src_scheduled,
         )
@@ -783,13 +786,15 @@ async def ensure_test_user(
 
 async def create_v2_diary_entries(
     session: AsyncSession, user: User, count: int, batch_iso: str,
+    templates: list[dict],
 ) -> int:
     """Сеет личные записи дневника (note/dream) тест-юзеру. Backdate через
     entry.created_at ДО проекции, маркер — в snapshot.seed связанного DiaryEvent.
-    Идемпотентно по (user_id, title, entry_type)."""
+    Идемпотентно по (user_id, title, entry_type). templates — из JSON
+    (source.diary_templates)."""
     created = 0
     now = _now()
-    for tmpl in SEED_V2_DIARY_TEMPLATES[:count]:
+    for tmpl in templates[:count]:
         # Идемпотентность.
         dup = (await session.execute(
             select(DiaryEntry.id).where(
@@ -828,10 +833,11 @@ async def create_v2_diary_entries(
 
 async def _seed_checkin(
     session: AsyncSession, user: User, practice: Practice, booking: Booking,
-    master_name: str | None, batch_iso: str, idx: int,
+    master_name: str | None, batch_iso: str, idx: int, comments: list[str],
 ) -> bool:
     """Исторический pre-чек-ин ORM-insert'ом + ручная проекция в фид.
-    Идемпотентно по UniqueConstraint(booking_id, check_type='pre')."""
+    Идемпотентно по UniqueConstraint(booking_id, check_type='pre').
+    comments — пул текстов из JSON (source.checkin_comments)."""
     dup = (await session.execute(
         select(Checkin.id).where(
             Checkin.booking_id == booking.id,
@@ -847,7 +853,7 @@ async def _seed_checkin(
         user_id=user.id,
         booking_id=booking.id,
         mood=MOOD_SCORES[idx % len(MOOD_SCORES)],
-        comment="Настраиваюсь на практику." if idx % 2 == 0 else None,
+        comment=(comments[idx % len(comments)] if comments and idx % 2 == 0 else None),
         check_type="pre",
     )
     session.add(ck)
@@ -868,10 +874,11 @@ async def _seed_checkin(
 
 async def _seed_feedback(
     session: AsyncSession, user: User, practice: Practice, booking: Booking,
-    master_name: str | None, batch_iso: str, idx: int,
+    master_name: str | None, batch_iso: str, idx: int, comments: list[str],
 ) -> bool:
     """Исторический отзыв ORM-insert'ом + ручная проекция в фид.
-    Идемпотентно по UniqueConstraint(practice_id, user_id)."""
+    Идемпотентно по UniqueConstraint(practice_id, user_id).
+    comments — пул текстов из JSON (source.feedback_comments)."""
     dup = (await session.execute(
         select(Feedback.id).where(
             Feedback.practice_id == practice.id,
@@ -882,17 +889,12 @@ async def _seed_feedback(
         return False
 
     now = _now()
-    comments = [
-        "Очень мягко и бережно, ровно то, что было нужно утром.",
-        "Сначала было непросто включиться, но к концу отпустило.",
-        "Спасибо, ушёл с ясной головой и спокойным телом.",
-    ]
     fb = Feedback(
         practice_id=practice.id,
         user_id=user.id,
         booking_id=booking.id,
         rating=RATING_SCORES[idx % len(RATING_SCORES)],
-        comment=comments[idx % len(comments)],
+        comment=(comments[idx % len(comments)] if comments else None),
     )
     session.add(fb)
     dur = practice.duration_minutes or 60
@@ -918,6 +920,7 @@ async def seed_one_test_user(
     completed: list[Practice],
     scheduled: list[Practice],
     batch_iso: str,
+    pools: dict,
 ) -> dict:
     """Наполняет одного тест-юзера. Возвращает счётчики для лога."""
     n_attended = min(cfg["attended_bookings"], len(completed))
@@ -950,11 +953,11 @@ async def seed_one_test_user(
         master_name = await get_master_display_name(practice.master_id, session)
         if i < n_checkins:
             if await _seed_checkin(session, user, practice, booking,
-                                   master_name, batch_iso, i):
+                                   master_name, batch_iso, i, pools["checkin"]):
                 stats["checkins"] += 1
         if i < n_feedbacks:
             if await _seed_feedback(session, user, practice, booking,
-                                    master_name, batch_iso, i):
+                                    master_name, batch_iso, i, pools["feedback"]):
                 stats["feedbacks"] += 1
 
     # 3. Будущие confirmed-брони на scheduled-практики.
@@ -1001,7 +1004,7 @@ async def seed_one_test_user(
 
     # 5. Личные записи дневника.
     stats["diary"] = await create_v2_diary_entries(
-        session, user, cfg["diary_entries"], batch_iso,
+        session, user, cfg["diary_entries"], batch_iso, pools["diary"],
     )
 
     # 6. Пересчёт участников по затронутым практикам (COUNT-based, идемпотентно).
@@ -1018,6 +1021,7 @@ async def cmd_seed_test_users(
     scheduled: list[Practice],
     batch_iso: str,
     dry_run: bool,
+    pools: dict,
     *,
     src_completed: int = 0,
     src_scheduled: int = 0,
@@ -1050,14 +1054,14 @@ async def cmd_seed_test_users(
             n_can = min(cfg["cancelled_bookings"],
                         max(0, avail_scheduled - n_up))
             print(f"  {marker} {label:<14s} TID {tu['telegram_id']}  → "
-                  f"дневник≈{min(cfg['diary_entries'], len(SEED_V2_DIARY_TEMPLATES))}, "
+                  f"дневник≈{min(cfg['diary_entries'], len(pools['diary']))}, "
                   f"attended≈{n_att}, чек-ины≈{min(cfg['checkins'], n_att)}, "
                   f"отзывы≈{min(cfg['feedbacks'], n_att)}, "
                   f"будущие≈{n_up}, отменённые≈{n_can}")
             continue
 
         stats = await seed_one_test_user(
-            session, user, cfg, completed, scheduled, batch_iso,
+            session, user, cfg, completed, scheduled, batch_iso, pools,
         )
         print(f"  {marker} {label:<14s} TID {tu['telegram_id']}  → "
               f"дневник={stats['diary']}, attended={stats['attended']}, "
