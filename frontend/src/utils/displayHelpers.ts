@@ -83,6 +83,38 @@ export const RATING_LABEL: Record<string, string> = {
   confused: 'Есть вопросы',
 }
 
+// ---------------------------------------------------------------------------
+// Score (1..10) -> zone / label
+// ---------------------------------------------------------------------------
+//
+// mood and rating are stored as a 1..10 score now. The UI derives the icon
+// and label from the range: 1-3 / 4-7 / 8-10. The diary feed cards (and any
+// other read surface) use these helpers so the bucketing lives in one place.
+
+/** mood score (1..10) -> mood key. 1-3 low / 4-7 mid / 8-10 high. */
+export function moodZoneFromScore(score: number): 'low' | 'mid' | 'high' {
+  if (score <= 3) return 'low'
+  if (score <= 7) return 'mid'
+  return 'high'
+}
+
+/** rating score (1..10) -> rating key. 1-3 confused / 4-7 good / 8-10 fire. */
+export function ratingZoneFromScore(score: number): 'confused' | 'good' | 'fire' {
+  if (score <= 3) return 'confused'
+  if (score <= 7) return 'good'
+  return 'fire'
+}
+
+/** mood score -> Russian label ("Не очень" / "Нормально" / "Хорошо"). */
+export function moodLabelFromScore(score: number): string {
+  return MOOD_LABEL[moodZoneFromScore(score)] ?? ''
+}
+
+/** rating score -> Russian label ("Есть вопросы" / "Хорошо" / "Огонь!"). */
+export function ratingLabelFromScore(score: number): string {
+  return RATING_LABEL[ratingZoneFromScore(score)] ?? ''
+}
+
 /**
  * CSS variable references for rating progress bar fills (AnalyticsView).
  * Values reference tokens from variables.css -- no hardcoded hex.

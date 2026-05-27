@@ -41,21 +41,19 @@
   <!-- ===================== PRACTICE ===================== -->
   <div
     v-else-if="form === 'practice'"
-    class="feed-card feed-card--practice feed-card--tappable"
-    role="button"
-    tabindex="0"
-    @click="onTap"
-    @keydown.enter="onTap"
-    @keydown.space.prevent="onTap"
+    class="feed-card feed-card--practice"
   >
     <p class="feed-card__practice-title">{{ practiceTitle }}</p>
 
     <div class="feed-card__practice-master">
-      <VAvatar
-        :url="masterAvatarUrl ?? ''"
-        :name="masterName ?? 'Мастер'"
-        size="sm"
-      />
+      <span class="feed-card__avatar" aria-hidden="true">
+        <img
+          v-if="masterAvatarUrl"
+          :src="masterAvatarUrl"
+          alt=""
+          class="feed-card__avatar-img"
+        />
+      </span>
       <span class="feed-card__master-name">{{ masterName }}</span>
       <IconCheck v-if="masterVerified" :size="14" class="feed-card__verified" />
     </div>
@@ -104,7 +102,6 @@
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import { VAvatar } from '@/components/ui'
 import {
   IconCheck,
   IconCalendar,
@@ -124,8 +121,10 @@ import {
 import {
   FEED_KIND_TITLE,
   OUTCOME_LABEL,
-  MOOD_LABEL,
-  RATING_LABEL,
+  moodZoneFromScore,
+  ratingZoneFromScore,
+  moodLabelFromScore,
+  ratingLabelFromScore,
 } from '@/utils/displayHelpers'
 import { formatFeedDateTime, formatDate } from '@/utils/format'
 import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
@@ -167,6 +166,13 @@ function snapStr(key: string): string | null {
   return typeof v === 'string' && v.length > 0 ? v : null
 }
 
+// mood / rating are numbers (1..10) in the snapshot now. Read them as a number
+// so titles and icons can derive the zone (1-3 / 4-7 / 8-10).
+function snapNum(key: string): number | null {
+  const v = snap.value[key]
+  return typeof v === 'number' ? v : null
+}
+
 const tz = computed(() => props.timezone ?? 'UTC')
 
 // -- standard / banner icon maps (kind|mood|rating -> component) -------------
@@ -200,12 +206,14 @@ const kind = computed(() => props.item.kind as DiaryEventKind)
 const title = computed(() => {
   const base = FEED_KIND_TITLE[kind.value] ?? ''
   if (kind.value === 'checkin') {
-    const mood = snapStr('mood')
-    return mood ? `${base}: ${MOOD_LABEL[mood] ?? ''}`.trim() : base
+    const mood = snapNum('mood')
+    return mood !== null ? `${base}: ${moodLabelFromScore(mood)}`.trim() : base
   }
   if (kind.value === 'feedback') {
-    const rating = snapStr('rating')
-    return rating ? `${base}: ${RATING_LABEL[rating] ?? ''}`.trim() : base
+    const rating = snapNum('rating')
+    return rating !== null
+      ? `${base}: ${ratingLabelFromScore(rating)}`.trim()
+      : base
   }
   // booking_confirmed shows the practice title on the second banner line,
   // so the title line stays the kind label ("Вы записались").
@@ -270,10 +278,14 @@ const directionIcon = computed<Component>(() => {
 
 const standardIcon = computed<Component>(() => {
   switch (kind.value) {
-    case 'checkin':
-      return MOOD_ICON[snapStr('mood') ?? 'mid'] ?? IconMoodMid
-    case 'feedback':
-      return RATING_ICON[snapStr('rating') ?? 'good'] ?? IconRatingGood
+    case 'checkin': {
+      const mood = snapNum('mood')
+      return MOOD_ICON[moodZoneFromScore(mood ?? 6)] ?? IconMoodMid
+    }
+    case 'feedback': {
+      const rating = snapNum('rating')
+      return RATING_ICON[ratingZoneFromScore(rating ?? 6)] ?? IconRatingGood
+    }
     case 'note':
       return IconPen
     case 'dream':
@@ -366,11 +378,6 @@ function onTap(): void {
   gap: var(--space-2);
 }
 
-/* Practice card is tappable (-> practice detail). */
-.feed-card--tappable {
-  cursor: pointer;
-}
-
 .feed-card__practice-title {
   font-size: 16px;
   text-align: center;
@@ -381,7 +388,22 @@ function onTap(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
+}
+
+.feed-card__avatar {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-teal-40);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.feed-card__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .feed-card__master-name {
