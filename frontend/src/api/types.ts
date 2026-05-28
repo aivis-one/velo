@@ -202,7 +202,10 @@ export interface PracticeFilters {
   // Calendar facets (all optional). Multi-select facets are arrays.
   direction?: PracticeDirection[]
   difficulty?: PracticeDifficulty[]
-  style?: string
+  // F-8 (2026-05-29): style теперь multi-select chips, отправляется как массив
+  // (как direction/difficulty). Backend B-4 принимает list[str] и фильтрует
+  // через .in_().
+  style?: string[]
   duration_bucket?: DurationBucket
   time_of_day?: TimeOfDay
   status?: 'scheduled' | 'live'

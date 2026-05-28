@@ -1,23 +1,27 @@
 <!--
-  VELO Frontend -- CalendarFilterModal (Calendar iteration)
+  VELO Frontend -- CalendarFilterModal (Calendar iteration, F-8)
 
   Filter modal for the Calendar feed. Groups (per Figma 22_Calendar filter):
     - Направление практики (direction)  -- SINGLE-select chips (incl. "Все")
-    - Вид практики        (style)       -- dropdown, shown ONLY when the
-                                            current direction has styles
+    - Вид практики        (style)       -- MULTI-select chips, shown ONLY when
+                                            the current direction has styles
                                             (meditation / yoga / circles)
     - Сложность           (difficulty)  -- "Все" + multi-select chips
     - Длительность        (duration_bucket) -- "Все" + single-select chips
     - Время               (time_of_day) -- "Все" + single-select chips
 
-  Why direction is single-select now (2026-05-28): styles are
+  F-8 (2026-05-29):
+    1. No "Применить" button — every chip click immediately emits `apply`.
+       Modal stays open; user closes via the X (VModal close emit) when done.
+    2. Style switched from VSelect dropdown to multi-select chips (same UX
+       as direction/difficulty). Requires backend B-4 (style: list[str]).
+    3. "Сбросить" clears all axes (also emits apply via the auto-apply path).
+
+  Why direction is single-select (2026-05-28): styles are
   direction-conditional (см. utils/practiceOptions STYLE_OPTIONS_BY_DIRECTION),
   so showing a meaningful style picker requires knowing the single direction.
   Type CalendarFacetFilters.direction stays as PracticeDirection[] for
   backend compatibility — we just always send 0 or 1 element.
-
-  Works on a local DRAFT copy of the facets; nothing is applied until the
-  user taps "Применить" (-> emits `apply`). "Сбросить" clears the draft.
 
   Usage:
     <CalendarFilterModal
@@ -58,10 +62,29 @@
         </div>
       </section>
 
-      <!-- Вид практики (direction-dependent dropdown) -->
+      <!-- Вид практики (direction-dependent multi-select chips) -->
       <section v-if="styleOptions.length > 0" class="cal-filter__group">
         <h3 class="cal-filter__label">Вид практики</h3>
-        <VSelect v-model="draft.style" :options="styleSelectOptions" />
+        <div class="cal-filter__chips">
+          <button
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.style.length === 0 }"
+            @click="clearStyle"
+          >
+            Все
+          </button>
+          <button
+            v-for="opt in styleOptions"
+            :key="opt.value"
+            type="button"
+            class="cal-filter__chip"
+            :class="{ 'cal-filter__chip--on': draft.style.includes(opt.value) }"
+            @click="toggleStyle(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </section>
 
       <!-- Сложность -->
@@ -139,10 +162,10 @@
         </div>
       </section>
 
-      <!-- Actions -->
+      <!-- F-8: Только «Сбросить». «Применить» удалён — каждое нажатие на
+           чип уже эмитит apply. Закрыть модалку = X в VModal-шапке. -->
       <div class="cal-filter__actions">
         <VButton variant="secondary" block @click="onReset">Сбросить</VButton>
-        <VButton variant="primary" block @click="onApply">Применить</VButton>
       </div>
     </div>
   </VModal>
@@ -150,7 +173,7 @@
 
 <script setup lang="ts">
 import { reactive, watch, computed } from 'vue'
-import { VModal, VButton, VSelect } from '@/components/ui'
+import { VModal, VButton } from '@/components/ui'
 import {
   DIRECTION_LABEL,
   DIFFICULTY_LABEL,
@@ -176,8 +199,6 @@ const emit = defineEmits<{
 }>()
 
 // -- Chip option lists (label + value), values match the backend literals --
-// Direction is single-select now (см. file header). Order = DIRECTION_OPTIONS
-// from practiceOptions: meditation → ... → movement.
 const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
   [
     'meditation',
@@ -210,10 +231,11 @@ const TIME_CHIPS: { value: TimeOfDay; label: string }[] = (
 ).map((v) => ({ value: v, label: TIME_OF_DAY_LABEL[v] }))
 
 // -- Local draft state (single direction; array kept for type compat) --
+// F-8: style now multi-select (array). buildFilters omits empty axes.
 interface Draft {
   direction: PracticeDirection[]
   difficulty: PracticeDifficulty[]
-  style: string
+  style: string[]
   duration_bucket: DurationBucket | undefined
   time_of_day: TimeOfDay | undefined
 }
@@ -221,7 +243,7 @@ interface Draft {
 const draft = reactive<Draft>({
   direction: [],
   difficulty: [],
-  style: '',
+  style: [],
   duration_bucket: undefined,
   time_of_day: undefined,
 })
@@ -235,19 +257,13 @@ const selectedDirection = computed<PracticeDirection | undefined>(() =>
  *  or when the direction has no styles). */
 const styleOptions = computed(() => stylesForDirection(selectedDirection.value))
 
-const styleSelectOptions = computed(() => [
-  { value: '', label: 'Все' },
-  ...styleOptions.value,
-])
-
-/** Sync the draft from incoming filters whenever the modal opens. Caller
- *  may pass multi-element direction[] (legacy); we keep only the first. */
+/** Sync the draft from incoming filters whenever the modal opens. */
 function syncFromProps(): void {
   const incoming = props.filters.direction ?? []
   const first = incoming[0]
   draft.direction = first !== undefined ? [first] : []
   draft.difficulty = [...(props.filters.difficulty ?? [])]
-  draft.style = props.filters.style ?? ''
+  draft.style = [...(props.filters.style ?? [])]
   draft.duration_bucket = props.filters.duration_bucket
   draft.time_of_day = props.filters.time_of_day
 }
@@ -260,6 +276,22 @@ watch(
   { immediate: true },
 )
 
+// -- Build the facet filters object, omitting empty axes (undefined). --
+function buildFilters(): CalendarFacetFilters {
+  return {
+    direction: draft.direction.length ? [...draft.direction] : undefined,
+    difficulty: draft.difficulty.length ? [...draft.difficulty] : undefined,
+    style: draft.style.length ? [...draft.style] : undefined,
+    duration_bucket: draft.duration_bucket,
+    time_of_day: draft.time_of_day,
+  }
+}
+
+/** F-8: apply current draft immediately. Modal stays open. */
+function applyNow(): void {
+  emit('apply', buildFilters())
+}
+
 // -- Direction (single-select) --
 function setDirection(value: PracticeDirection): void {
   if (draft.direction[0] === value) {
@@ -268,15 +300,30 @@ function setDirection(value: PracticeDirection): void {
   } else {
     draft.direction = [value]
   }
-  // Selected direction changed -> the previous style might be invalid;
-  // clear it. (The style dropdown also disappears if the new direction
-  // has no styles.)
-  draft.style = ''
+  // Selected direction changed -> the previous styles might be invalid for
+  // the new direction; clear them. (The style chips section also disappears
+  // if the new direction has no styles.)
+  draft.style = []
+  applyNow()
 }
 
 function clearDirection(): void {
   draft.direction = []
-  draft.style = ''
+  draft.style = []
+  applyNow()
+}
+
+// -- Style (multi-select) --
+function toggleStyle(value: string): void {
+  const idx = draft.style.indexOf(value)
+  if (idx === -1) draft.style.push(value)
+  else draft.style.splice(idx, 1)
+  applyNow()
+}
+
+function clearStyle(): void {
+  draft.style = []
+  applyNow()
 }
 
 // -- Difficulty (multi-select) --
@@ -284,10 +331,12 @@ function toggleDifficulty(value: PracticeDifficulty): void {
   const idx = draft.difficulty.indexOf(value)
   if (idx === -1) draft.difficulty.push(value)
   else draft.difficulty.splice(idx, 1)
+  applyNow()
 }
 
 function clearDifficulty(): void {
-  draft.difficulty.length = 0
+  draft.difficulty = []
+  applyNow()
 }
 
 // -- Single-select axes (duration_bucket / time_of_day) --
@@ -295,38 +344,23 @@ type SingleKey = 'duration_bucket' | 'time_of_day'
 
 function toggleSingle(key: SingleKey, value: DurationBucket | TimeOfDay): void {
   draft[key] = (draft[key] === value ? undefined : value) as never
+  applyNow()
 }
 
 function clearSingle(key: SingleKey): void {
   draft[key] = undefined as never
+  applyNow()
 }
 
-// -- Build the facet filters object, omitting empty axes (undefined). --
-function buildFilters(): CalendarFacetFilters {
-  const style = draft.style.trim()
-  return {
-    direction: draft.direction.length ? [...draft.direction] : undefined,
-    difficulty: draft.difficulty.length ? [...draft.difficulty] : undefined,
-    style: style || undefined,
-    duration_bucket: draft.duration_bucket,
-    time_of_day: draft.time_of_day,
-  }
-}
-
-function onApply(): void {
-  emit('apply', buildFilters())
-  emit('close')
-}
-
+/** F-8: "Сбросить" clears every axis then applies (lenta returns full feed).
+ *  Modal stays open — user closes via X when done. */
 function onReset(): void {
   draft.direction = []
   draft.difficulty = []
-  draft.style = ''
+  draft.style = []
   draft.duration_bucket = undefined
   draft.time_of_day = undefined
-  // Reset is one click: clear all axes, apply (feed shows everything), close.
-  emit('apply', buildFilters())
-  emit('close')
+  applyNow()
 }
 </script>
 
