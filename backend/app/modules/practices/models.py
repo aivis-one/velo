@@ -67,13 +67,24 @@ class PracticeStatus(enum.StrEnum):
 class PracticeDirection(enum.StrEnum):
     """Content direction of a practice -- the Calendar "Направление" facet.
 
-    Stored inside data.taxonomy.direction (JSONB schema-on-read sandbox).
+    Stored inside data.taxonomy.direction (JSONB schema-on-read sandbox)
+    — NOT a column. Extending this enum does not change the DB schema.
     Distinct from PracticeType, which is the session *format*.
+
+    Keep in sync with settings.practice_allowed_directions and the
+    frontend PracticeDirection literal union (api/types.ts).
     """
 
     MEDITATION = "meditation"
     YOGA = "yoga"
     BREATHWORK = "breathwork"
+    SOMATIC = "somatic"
+    TANTRA = "tantra"
+    CIRCLES = "circles"
+    SOUND_HEALING = "sound_healing"
+    ART = "art"
+    NARRATIVE = "narrative"
+    MOVEMENT = "movement"
 
 
 class PracticeDifficulty(enum.StrEnum):
@@ -179,6 +190,16 @@ class Practice(JSONBMixin, UUIDMixin, TimestampMixin, Base):
         default=dict,
         server_default="{}",
     )
+
+    # -- JSONB-derived read-only properties (B-1, 2026-05-28) --
+    # Expose data.taxonomy.direction as a plain Python attribute so that
+    # Pydantic schemas with from_attributes=True (PracticeSummary etc.) can
+    # pick it up without a separate hand-written extractor in each router.
+    # practice_to_response() still overrides these for PracticeResponse to
+    # keep the legacy single source of truth in service.py.
+    @property
+    def direction(self) -> str | None:
+        return (self.data or {}).get("taxonomy", {}).get("direction")
 
     def __repr__(self) -> str:
         return (

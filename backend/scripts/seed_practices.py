@@ -473,10 +473,18 @@ def _validate_practice_for_orm_insert(p: dict) -> None:
 
     style = p.get("style")
     if style is not None:
-        if style not in settings.practice_allowed_styles:
+        # Taxonomy v2 (2026-05-28): style is direction-conditional.
+        by_dir = settings.practice_allowed_styles_by_direction
+        allowed_for_dir = by_dir.get(p["direction"])
+        if allowed_for_dir is None:
             raise ValueError(
-                f"practice {p['key']}: style='{style}' "
-                f"not in {settings.practice_allowed_styles}",
+                f"practice {p['key']}: direction='{p['direction']}' does not "
+                f"admit a style; got '{style}'",
+            )
+        if style not in allowed_for_dir:
+            raise ValueError(
+                f"practice {p['key']}: style='{style}' for "
+                f"direction='{p['direction']}' not in {allowed_for_dir}",
             )
         if len(style) > settings.practice_style_max_length:
             raise ValueError(

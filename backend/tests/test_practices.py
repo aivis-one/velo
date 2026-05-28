@@ -1079,10 +1079,15 @@ async def test_filter_style(
     """style filter matches the exact stored style string."""
     auth = await _make_verified_master(client, db_session)
     master_id = auth["user"]["id"]
+    # Taxonomy v2 (2026-05-28): styles are direction-conditional.
+    # kundalini & hatha are yoga styles, so the direction must be yoga
+    # (default _valid_practice_body direction = meditation, not compatible).
     await _create_and_publish(
-        client, auth, style="kundalini", title="K",
+        client, auth, direction="yoga", style="kundalini", title="K",
     )
-    await _create_and_publish(client, auth, style="hatha", title="X")
+    await _create_and_publish(
+        client, auth, direction="yoga", style="hatha", title="X",
+    )
 
     viewer = await login_user(client, telegram_id=60113, first_name="V")
     resp = await client.get(

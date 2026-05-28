@@ -26,7 +26,7 @@
 #   Allowed values + the style length cap live in config.py:
 #     settings.practice_allowed_directions
 #     settings.practice_allowed_difficulties
-#     settings.practice_allowed_styles
+#     settings.practice_allowed_styles_by_direction  (taxonomy v2, 2026-05-28)
 #     settings.practice_style_max_length
 #
 # NO-LITERALS policy:
@@ -64,13 +64,63 @@ from datetime import datetime, timezone
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import settings
 from app.modules.practices.models import (
     PracticeStatus,
     PracticeType,
 )
+
+
+# -- Style validation helpers (Calendar taxonomy v2, 2026-05-28) --
+# Style is direction-conditional: only meditation / yoga / circles have
+# styles, the other seven directions accept style=None only. Logic is
+# centralised here so both CreatePracticeRequest and UpdatePracticeRequest
+# can reuse it via @model_validator(mode="after").
+
+def _flat_allowed_styles() -> list[str]:
+    """All allowed style values, flattened across directions. Used when
+    direction is not present in the request (Update with only style)."""
+    return [
+        s
+        for styles in settings.practice_allowed_styles_by_direction.values()
+        for s in styles
+    ]
+
+
+def _validate_style_for_direction(direction: str | None, style: str | None) -> None:
+    """Raise ValueError if style is invalid for the given direction.
+
+    Rules:
+      style is None                                  -> always OK.
+      direction is None (Update without direction)   -> style must be in
+                                                        the flattened union.
+      direction not in styles_by_direction map       -> style MUST be None;
+                                                        if non-None, reject.
+      direction in map                               -> style must be in
+                                                        the direction's list.
+    """
+    if style is None:
+        return
+    if direction is None:
+        # No direction context — fall back to flat membership.
+        flat = _flat_allowed_styles()
+        if style not in flat:
+            raise ValueError(f"style must be one of {flat}, got '{style}'")
+        return
+    by_dir = settings.practice_allowed_styles_by_direction
+    allowed = by_dir.get(direction)
+    if allowed is None:
+        # This direction has no styles -> style must be None.
+        raise ValueError(
+            f"direction '{direction}' does not admit a style; got '{style}'"
+        )
+    if style not in allowed:
+        raise ValueError(
+            f"style for direction '{direction}' must be one of {allowed}, "
+            f"got '{style}'"
+        )
 
 
 class CreatePracticeRequest(BaseModel):
@@ -148,18 +198,14 @@ class CreatePracticeRequest(BaseModel):
             )
         return v
 
-    @field_validator("style")
-    @classmethod
-    def style_must_be_valid(cls, v: str | None) -> str | None:
-        """Validate style against allowed values from config (if provided)."""
-        if v is None:
-            return v
-        allowed = settings.practice_allowed_styles
-        if v not in allowed:
-            raise ValueError(
-                f"style must be one of {allowed}, got '{v}'"
-            )
-        return v
+    @model_validator(mode="after")
+    def _check_style_vs_direction(self) -> "CreatePracticeRequest":
+        """Style is direction-conditional (taxonomy v2, 2026-05-28).
+
+        direction is REQUIRED on create, so this validator always has it.
+        """
+        _validate_style_for_direction(self.direction, self.style)
+        return self
 
     @field_validator("currency")
     @classmethod
@@ -308,20 +354,17 @@ class UpdatePracticeRequest(BaseModel):
             )
         return v
 
-    @field_validator("style")
-    @classmethod
-    def style_must_be_valid(
-        cls, v: str | None,
-    ) -> str | None:
-        """Validate style against allowed values from config (if provided)."""
-        if v is None:
-            return v
-        allowed = settings.practice_allowed_styles
-        if v not in allowed:
-            raise ValueError(
-                f"style must be one of {allowed}, got '{v}'"
-            )
-        return v
+    @model_validator(mode="after")
+    def _check_style_vs_direction(self) -> "UpdatePracticeRequest":
+        """Style is direction-conditional (taxonomy v2, 2026-05-28).
+
+        On UPDATE, direction is optional — if absent here the validator
+        falls back to a flat membership check (full direction-style match
+        is re-verified in the service layer after merging with the stored
+        practice).
+        """
+        _validate_style_for_direction(self.direction, self.style)
+        return self
 
     @field_validator("currency")
     @classmethod
@@ -502,5 +545,10 @@ class PracticeSummary(BaseModel):
     timezone: str
     master_id: UUID
     master_name: str | None = None
+    # B-1 (2026-05-28): direction surfaced so list-view consumers (booking /
+    # waitlist / purchase responses) can render the practice icon without a
+    # separate GET /practices/{id}. Lives in JSONB data.taxonomy → picked up
+    # via from_attributes through the Practice ORM property.
+    direction: str | None = None
 
     model_config = {"from_attributes": True}

@@ -4,8 +4,19 @@
     "timezone": "Europe/Moscow",
     "days_back": 14,
     "days_forward": 14,
-    "slots_past": ["08:00", "12:00", "19:00"],
-    "slots_future": ["08:00", "10:00", "12:00", "17:00", "19:00", "21:00"]
+    "slots_past": [
+      "08:00",
+      "12:00",
+      "19:00"
+    ],
+    "slots_future": [
+      "08:00",
+      "10:00",
+      "12:00",
+      "17:00",
+      "19:00",
+      "21:00"
+    ]
   },
   "masters": [
     {
@@ -19,7 +30,7 @@
         "meditation",
         "breathwork",
         "somatic",
-        "womens_circle"
+        "circles"
       ],
       "bio": [
         "Я Ира, и я больше 20 лет занимаюсь йогой и медитацией. Любопытство завело меня во все возможные школы йоги и на самые странные спиритуальные практики, которые я находила по всему миру, в том числе на Бали, куда я уехала жить 17 лет назад.",
@@ -163,7 +174,7 @@
       "last_name": "Мацкевич",
       "display_name": "Дима Мацкевич",
       "methods": [
-        "mens_circle"
+        "circles"
       ],
       "bio": [
         "Дима Мацкевич — предприниматель и AI-практик на стыке технологий, нейронауки, тела и человеческого состояния.",
@@ -226,7 +237,7 @@
       "last_name": "Вихман",
       "display_name": "Миша Вихман",
       "methods": [
-        "kundalini",
+        "yoga",
         "meditation"
       ],
       "bio": [
@@ -244,7 +255,7 @@
       "practice_type": "live",
       "direction": "somatic",
       "difficulty": "medium",
-      "style": "hatha",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -284,9 +295,9 @@
       "master": "ira-kosobukina",
       "title": "Женский круг с Ирой",
       "practice_type": "live",
-      "direction": "womens_circle",
+      "direction": "circles",
       "difficulty": "medium",
-      "style": "hatha",
+      "style": "womens",
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -307,7 +318,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "medium",
-      "style": "yin",
+      "style": "silence",
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -328,7 +339,7 @@
       "practice_type": "live",
       "direction": "breathwork",
       "difficulty": "medium",
-      "style": "hatha",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -349,7 +360,7 @@
       "practice_type": "one_on_one",
       "direction": "breathwork",
       "difficulty": "high",
-      "style": "hatha",
+      "style": null,
       "duration_minutes": 75,
       "is_free": true,
       "price_cents": 0,
@@ -370,7 +381,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "medium",
-      "style": "yin",
+      "style": "presence",
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -433,7 +444,7 @@
       "practice_type": "live",
       "direction": "breathwork",
       "difficulty": "medium",
-      "style": "vinyasa",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -454,7 +465,7 @@
       "practice_type": "live",
       "direction": "breathwork",
       "difficulty": "medium",
-      "style": "hatha",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -477,7 +488,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "beginner",
-      "style": "hatha",
+      "style": "presence",
       "duration_minutes": 45,
       "is_free": true,
       "price_cents": 0,
@@ -498,7 +509,7 @@
       "practice_type": "live",
       "direction": "tantra",
       "difficulty": "medium",
-      "style": "kundalini",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -519,7 +530,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "beginner",
-      "style": "yin",
+      "style": "presence",
       "duration_minutes": 30,
       "is_free": true,
       "price_cents": 0,
@@ -540,7 +551,7 @@
       "practice_type": "live",
       "direction": "somatic",
       "difficulty": "medium",
-      "style": "yin",
+      "style": null,
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -561,7 +572,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "beginner",
-      "style": "yin",
+      "style": "sound",
       "duration_minutes": 45,
       "is_free": true,
       "price_cents": 0,
@@ -580,9 +591,9 @@
       "master": "dima-matskevich",
       "title": "Мужской круг с Димой",
       "practice_type": "live",
-      "direction": "mens_circle",
+      "direction": "circles",
       "difficulty": "medium",
-      "style": "kundalini",
+      "style": "mens",
       "duration_minutes": 60,
       "is_free": true,
       "price_cents": 0,
@@ -605,7 +616,7 @@
       "master": "misha-vikhman",
       "title": "Кундалини-йога и даосская медитация",
       "practice_type": "live",
-      "direction": "kundalini",
+      "direction": "yoga",
       "difficulty": "medium",
       "style": "kundalini",
       "duration_minutes": 60,
@@ -626,7 +637,7 @@
       "master": "misha-vikhman",
       "title": "Кундалини-крия: вечерний цикл",
       "practice_type": "series",
-      "direction": "kundalini",
+      "direction": "yoga",
       "difficulty": "high",
       "style": "kundalini",
       "duration_minutes": 75,
@@ -649,7 +660,7 @@
       "practice_type": "live",
       "direction": "meditation",
       "difficulty": "beginner",
-      "style": "yin",
+      "style": "presence",
       "duration_minutes": 30,
       "is_free": true,
       "price_cents": 0,
@@ -666,38 +677,358 @@
   ],
   "_diary_comment": "Личные записи дневника (note=Дневник / dream=Сонник) для тест-юзеров. mood — целое 1..10 или null (под score-схему миграции d5e6f7a8b9c0). content — массив строк (склейка через '\\n'). offset_days — на сколько дней назад backdate'ить запись (раскидано по ~25 дням). key — стабильный slug для маркера. Идемпотентность сидера — по (user, title, entry_type).",
   "diary_templates": [
-    {"key": "note-01", "entry_type": "note", "practice_phase": "before", "mood": 6, "offset_days": 1, "title": "Перед практикой — мысли роятся", "content": ["Проснулась с тяжёлой головой, в мыслях уже список дел. Хочу за эти 60 минут просто замедлиться и выдохнуть."]},
-    {"key": "note-02", "entry_type": "note", "practice_phase": "after", "mood": 9, "offset_days": 1, "title": "После практики — будто перезагрузился", "content": ["Тело гудит приятно, ум тихий. Удивительно, как 40 минут дыхания меняют весь настрой на день."]},
-    {"key": "dream-01", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 2, "title": "Сон про дом у воды", "content": ["Снился старый дом на берегу, вода подходила к самому порогу, но было спокойно, а не тревожно. Проснулся с ощущением тепла."]},
-    {"key": "note-03", "entry_type": "note", "practice_phase": "before", "mood": 2, "offset_days": 3, "title": "Сегодня тяжело начинать", "content": ["Сил почти нет, но пришёл на практику через не хочу. Посмотрим, что будет к концу."]},
-    {"key": "note-04", "entry_type": "note", "practice_phase": "after", "mood": 6, "offset_days": 3, "title": "Отпустило к середине", "content": ["Первые минут десять не мог поймать ритм, потом дыхание само выровнялось. Ушёл спокойнее, чем пришёл."]},
-    {"key": "dream-02", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 5, "title": "Сон: лечу над городом", "content": ["Летал низко над крышами, без страха высоты. Кто-то снизу махал рукой. Яркие краски, давно так не снилось."]},
-    {"key": "note-05", "entry_type": "note", "practice_phase": null, "mood": 9, "offset_days": 6, "title": "Поймал состояние", "content": ["Сегодня впервые за неделю почувствовал ту самую тишину внутри. Ничего не делал специально — просто случилось."]},
-    {"key": "note-06", "entry_type": "note", "practice_phase": "before", "mood": 5, "offset_days": 8, "title": "Намерение на утро", "content": ["Хочу сегодня меньше думать и больше чувствовать тело. Ставлю это как намерение перед началом."]},
-    {"key": "note-07", "entry_type": "note", "practice_phase": "after", "mood": 8, "offset_days": 8, "title": "Тело сказало спасибо", "content": ["После телесной практики плечи опустились, дыхание стало глубже. Заметил, сколько напряжения носил и не замечал."]},
-    {"key": "dream-03", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 11, "title": "Сон про дорогу в горах", "content": ["Шёл по горной тропе, туман то накрывал, то расходился. Не было цели дойти — просто шёл и смотрел."]},
-    {"key": "note-08", "entry_type": "note", "practice_phase": null, "mood": 2, "offset_days": 13, "title": "День, когда ничего не хотелось", "content": ["Записываю честно: апатия. Практика не «починила» настроение, но хотя бы дала паузу, в которой можно было это заметить."]},
-    {"key": "note-09", "entry_type": "note", "practice_phase": "after", "mood": 6, "offset_days": 15, "title": "Маленький сдвиг", "content": ["Не фейерверк, но стало чуть легче. Учусь замечать такие небольшие изменения и не обесценивать их."]},
-    {"key": "note-10", "entry_type": "note", "practice_phase": "before", "mood": 5, "offset_days": 17, "title": "Возвращаюсь к регулярности", "content": ["Несколько дней пропускал. Сегодня снова на коврике — и уже одно это ощущается как маленькая победа."]},
-    {"key": "dream-04", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 19, "title": "Сон с давним другом", "content": ["Разговаривали с человеком, которого давно не видел. Сон оставил тёплое послевкусие и желание написать ему."]},
-    {"key": "note-11", "entry_type": "note", "practice_phase": "after", "mood": 9, "offset_days": 20, "title": "Три недели практики", "content": ["Оглядываюсь назад: стал спокойнее реагировать на мелочи, лучше сплю. Кажется, это работает не за один раз, а накопительно."]},
-    {"key": "note-12", "entry_type": "note", "practice_phase": "before", "mood": 4, "offset_days": 2, "title": "Тревожное утро", "content": ["С утра тревожно, в груди сжато. Иду на практику в надежде, что дыхание поможет разжать этот узел."]},
-    {"key": "note-13", "entry_type": "note", "practice_phase": "after", "mood": 7, "offset_days": 4, "title": "Стало легче дышать", "content": ["Узел в груди отпустил где-то на середине. Не до конца, но заметно. Уже хорошо."]},
-    {"key": "dream-05", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 7, "title": "Сон про экзамен", "content": ["Снова этот сон, где я опаздываю на экзамен и не могу найти аудиторию. Проснулся с колотящимся сердцем."]},
-    {"key": "note-14", "entry_type": "note", "practice_phase": null, "mood": 8, "offset_days": 9, "title": "Хороший день", "content": ["Ничего особенного не случилось, но день был ровный и тёплый. Учусь ценить именно такие — без событий."]},
-    {"key": "note-15", "entry_type": "note", "practice_phase": "before", "mood": 3, "offset_days": 10, "title": "Не выспался", "content": ["Лёг поздно, голова мутная. Пришёл скорее по привычке. Не жду многого, просто побуду."]},
-    {"key": "note-16", "entry_type": "note", "practice_phase": "after", "mood": 7, "offset_days": 12, "title": "Practice вытащила из тумана", "content": ["Думал, ничего не получится из-за усталости, но к концу прояснилось. Тело знает, что делать, даже когда голова сопротивляется."]},
-    {"key": "dream-06", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 14, "title": "Сон про море ночью", "content": ["Стоял на берегу ночного моря, волны светились. Было одновременно страшно и завораживающе."]},
-    {"key": "note-17", "entry_type": "note", "practice_phase": null, "mood": 10, "offset_days": 16, "title": "Чистая радость", "content": ["Сегодня поймал состояние почти детской радости без причины. Записываю, чтобы помнить, что так бывает."]},
-    {"key": "note-18", "entry_type": "note", "practice_phase": "before", "mood": 5, "offset_days": 18, "title": "Ровное начало", "content": ["Без перепадов, спокойно. Иду на практику не чтобы что-то исправить, а просто побыть в контакте с собой."]},
-    {"key": "note-19", "entry_type": "note", "practice_phase": "after", "mood": 8, "offset_days": 21, "title": "Благодарность телу", "content": ["После практики поймал тихую благодарность телу за то, что оно меня несёт. Редкое и важное чувство."]},
-    {"key": "dream-07", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 22, "title": "Сон про детство", "content": ["Снился двор, где вырос, и голоса друзей. Проснулся с ностальгией и желанием позвонить родителям."]},
-    {"key": "note-20", "entry_type": "note", "practice_phase": null, "mood": 4, "offset_days": 23, "title": "Качели настроения", "content": ["С утра было неплохо, к вечеру укатило вниз. Учусь не цепляться — настроение приходит и уходит, как погода."]},
-    {"key": "note-21", "entry_type": "note", "practice_phase": "before", "mood": 6, "offset_days": 24, "title": "Намерение на неделю", "content": ["Хочу на этой неделе быть мягче к себе. Меньше гнать, больше замечать. Ставлю это перед практикой."]},
-    {"key": "note-22", "entry_type": "note", "practice_phase": "after", "mood": 9, "offset_days": 25, "title": "Месяц практики позади", "content": ["Месяц назад начинал с тяжёлой головой и сомнениями. Сейчас вижу: фон ровнее, реакции мягче, сон глубже. Продолжаю."]},
-    {"key": "dream-08", "entry_type": "dream", "practice_phase": null, "mood": null, "offset_days": 26, "title": "Сон про полёт на воздушном шаре", "content": ["Летел на шаре над зелёными холмами, тихо и медленно. Внизу — ни души, только ветер и простор."]},
-    {"key": "note-23", "entry_type": "note", "practice_phase": null, "mood": 7, "offset_days": 27, "title": "Тихий вечер", "content": ["Вечер без телефона и спешки. Чай, тишина, дыхание. Оказывается, мне этого сильно не хватало."]},
-    {"key": "note-24", "entry_type": "note", "practice_phase": "before", "mood": 3, "offset_days": 28, "title": "Сопротивление", "content": ["Сегодня сильное сопротивление идти на практику. Записываю это честно и всё равно сажусь на коврик."]}
+    {
+      "key": "note-01",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 6,
+      "offset_days": 1,
+      "title": "Перед практикой — мысли роятся",
+      "content": [
+        "Проснулась с тяжёлой головой, в мыслях уже список дел. Хочу за эти 60 минут просто замедлиться и выдохнуть."
+      ]
+    },
+    {
+      "key": "note-02",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 9,
+      "offset_days": 1,
+      "title": "После практики — будто перезагрузился",
+      "content": [
+        "Тело гудит приятно, ум тихий. Удивительно, как 40 минут дыхания меняют весь настрой на день."
+      ]
+    },
+    {
+      "key": "dream-01",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 2,
+      "title": "Сон про дом у воды",
+      "content": [
+        "Снился старый дом на берегу, вода подходила к самому порогу, но было спокойно, а не тревожно. Проснулся с ощущением тепла."
+      ]
+    },
+    {
+      "key": "note-03",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 2,
+      "offset_days": 3,
+      "title": "Сегодня тяжело начинать",
+      "content": [
+        "Сил почти нет, но пришёл на практику через не хочу. Посмотрим, что будет к концу."
+      ]
+    },
+    {
+      "key": "note-04",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 6,
+      "offset_days": 3,
+      "title": "Отпустило к середине",
+      "content": [
+        "Первые минут десять не мог поймать ритм, потом дыхание само выровнялось. Ушёл спокойнее, чем пришёл."
+      ]
+    },
+    {
+      "key": "dream-02",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 5,
+      "title": "Сон: лечу над городом",
+      "content": [
+        "Летал низко над крышами, без страха высоты. Кто-то снизу махал рукой. Яркие краски, давно так не снилось."
+      ]
+    },
+    {
+      "key": "note-05",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 9,
+      "offset_days": 6,
+      "title": "Поймал состояние",
+      "content": [
+        "Сегодня впервые за неделю почувствовал ту самую тишину внутри. Ничего не делал специально — просто случилось."
+      ]
+    },
+    {
+      "key": "note-06",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 5,
+      "offset_days": 8,
+      "title": "Намерение на утро",
+      "content": [
+        "Хочу сегодня меньше думать и больше чувствовать тело. Ставлю это как намерение перед началом."
+      ]
+    },
+    {
+      "key": "note-07",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 8,
+      "offset_days": 8,
+      "title": "Тело сказало спасибо",
+      "content": [
+        "После телесной практики плечи опустились, дыхание стало глубже. Заметил, сколько напряжения носил и не замечал."
+      ]
+    },
+    {
+      "key": "dream-03",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 11,
+      "title": "Сон про дорогу в горах",
+      "content": [
+        "Шёл по горной тропе, туман то накрывал, то расходился. Не было цели дойти — просто шёл и смотрел."
+      ]
+    },
+    {
+      "key": "note-08",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 2,
+      "offset_days": 13,
+      "title": "День, когда ничего не хотелось",
+      "content": [
+        "Записываю честно: апатия. Практика не «починила» настроение, но хотя бы дала паузу, в которой можно было это заметить."
+      ]
+    },
+    {
+      "key": "note-09",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 6,
+      "offset_days": 15,
+      "title": "Маленький сдвиг",
+      "content": [
+        "Не фейерверк, но стало чуть легче. Учусь замечать такие небольшие изменения и не обесценивать их."
+      ]
+    },
+    {
+      "key": "note-10",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 5,
+      "offset_days": 17,
+      "title": "Возвращаюсь к регулярности",
+      "content": [
+        "Несколько дней пропускал. Сегодня снова на коврике — и уже одно это ощущается как маленькая победа."
+      ]
+    },
+    {
+      "key": "dream-04",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 19,
+      "title": "Сон с давним другом",
+      "content": [
+        "Разговаривали с человеком, которого давно не видел. Сон оставил тёплое послевкусие и желание написать ему."
+      ]
+    },
+    {
+      "key": "note-11",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 9,
+      "offset_days": 20,
+      "title": "Три недели практики",
+      "content": [
+        "Оглядываюсь назад: стал спокойнее реагировать на мелочи, лучше сплю. Кажется, это работает не за один раз, а накопительно."
+      ]
+    },
+    {
+      "key": "note-12",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 4,
+      "offset_days": 2,
+      "title": "Тревожное утро",
+      "content": [
+        "С утра тревожно, в груди сжато. Иду на практику в надежде, что дыхание поможет разжать этот узел."
+      ]
+    },
+    {
+      "key": "note-13",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 7,
+      "offset_days": 4,
+      "title": "Стало легче дышать",
+      "content": [
+        "Узел в груди отпустил где-то на середине. Не до конца, но заметно. Уже хорошо."
+      ]
+    },
+    {
+      "key": "dream-05",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 7,
+      "title": "Сон про экзамен",
+      "content": [
+        "Снова этот сон, где я опаздываю на экзамен и не могу найти аудиторию. Проснулся с колотящимся сердцем."
+      ]
+    },
+    {
+      "key": "note-14",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 8,
+      "offset_days": 9,
+      "title": "Хороший день",
+      "content": [
+        "Ничего особенного не случилось, но день был ровный и тёплый. Учусь ценить именно такие — без событий."
+      ]
+    },
+    {
+      "key": "note-15",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 3,
+      "offset_days": 10,
+      "title": "Не выспался",
+      "content": [
+        "Лёг поздно, голова мутная. Пришёл скорее по привычке. Не жду многого, просто побуду."
+      ]
+    },
+    {
+      "key": "note-16",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 7,
+      "offset_days": 12,
+      "title": "Practice вытащила из тумана",
+      "content": [
+        "Думал, ничего не получится из-за усталости, но к концу прояснилось. Тело знает, что делать, даже когда голова сопротивляется."
+      ]
+    },
+    {
+      "key": "dream-06",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 14,
+      "title": "Сон про море ночью",
+      "content": [
+        "Стоял на берегу ночного моря, волны светились. Было одновременно страшно и завораживающе."
+      ]
+    },
+    {
+      "key": "note-17",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 10,
+      "offset_days": 16,
+      "title": "Чистая радость",
+      "content": [
+        "Сегодня поймал состояние почти детской радости без причины. Записываю, чтобы помнить, что так бывает."
+      ]
+    },
+    {
+      "key": "note-18",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 5,
+      "offset_days": 18,
+      "title": "Ровное начало",
+      "content": [
+        "Без перепадов, спокойно. Иду на практику не чтобы что-то исправить, а просто побыть в контакте с собой."
+      ]
+    },
+    {
+      "key": "note-19",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 8,
+      "offset_days": 21,
+      "title": "Благодарность телу",
+      "content": [
+        "После практики поймал тихую благодарность телу за то, что оно меня несёт. Редкое и важное чувство."
+      ]
+    },
+    {
+      "key": "dream-07",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 22,
+      "title": "Сон про детство",
+      "content": [
+        "Снился двор, где вырос, и голоса друзей. Проснулся с ностальгией и желанием позвонить родителям."
+      ]
+    },
+    {
+      "key": "note-20",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 4,
+      "offset_days": 23,
+      "title": "Качели настроения",
+      "content": [
+        "С утра было неплохо, к вечеру укатило вниз. Учусь не цепляться — настроение приходит и уходит, как погода."
+      ]
+    },
+    {
+      "key": "note-21",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 6,
+      "offset_days": 24,
+      "title": "Намерение на неделю",
+      "content": [
+        "Хочу на этой неделе быть мягче к себе. Меньше гнать, больше замечать. Ставлю это перед практикой."
+      ]
+    },
+    {
+      "key": "note-22",
+      "entry_type": "note",
+      "practice_phase": "after",
+      "mood": 9,
+      "offset_days": 25,
+      "title": "Месяц практики позади",
+      "content": [
+        "Месяц назад начинал с тяжёлой головой и сомнениями. Сейчас вижу: фон ровнее, реакции мягче, сон глубже. Продолжаю."
+      ]
+    },
+    {
+      "key": "dream-08",
+      "entry_type": "dream",
+      "practice_phase": null,
+      "mood": null,
+      "offset_days": 26,
+      "title": "Сон про полёт на воздушном шаре",
+      "content": [
+        "Летел на шаре над зелёными холмами, тихо и медленно. Внизу — ни души, только ветер и простор."
+      ]
+    },
+    {
+      "key": "note-23",
+      "entry_type": "note",
+      "practice_phase": null,
+      "mood": 7,
+      "offset_days": 27,
+      "title": "Тихий вечер",
+      "content": [
+        "Вечер без телефона и спешки. Чай, тишина, дыхание. Оказывается, мне этого сильно не хватало."
+      ]
+    },
+    {
+      "key": "note-24",
+      "entry_type": "note",
+      "practice_phase": "before",
+      "mood": 3,
+      "offset_days": 28,
+      "title": "Сопротивление",
+      "content": [
+        "Сегодня сильное сопротивление идти на практику. Записываю это честно и всё равно сажусь на коврик."
+      ]
+    }
   ],
   "_comments_note": "Пулы текстов для чек-инов (перед практикой) и отзывов (после). Сидер берёт их циклически по индексу, чтобы у разных броней были разные комментарии.",
   "checkin_comments": [

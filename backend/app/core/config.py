@@ -121,26 +121,38 @@ class Settings(BaseSettings):
     # -- Practice taxonomy (Calendar iteration, JSONB data.taxonomy) --
     # Catalog facets stored in Practice.data.taxonomy and used by the
     # Calendar filter. Schema-on-read: values live in JSONB for now,
-    # validated via @field_validator against these lists -- no Literal.
+    # validated against these lists -- no Literal.
     #
     # direction  -- content direction (Направление). Required on create.
     # difficulty -- difficulty level (Сложность). Required on create.
-    # style      -- practice style (Вид практики), e.g. "kundalini". Optional;
-    #               validated against practice_allowed_styles and capped at
-    #               practice_style_max_length.
+    # style      -- practice style (Вид практики). Optional, DIRECTION-CONDITIONAL
+    #               since 2026-05-28: validated against
+    #               practice_allowed_styles_by_direction[direction] and capped
+    #               at practice_style_max_length.
+    #
+    # FRONT-FIRST 2026-05-28 (handoff §10 F-1): taxonomy went from 8 to 10
+    # directions. New ones: circles / sound_healing / art / narrative / movement.
+    # Migrated away (now styles): womens_circle/mens_circle → circles+style,
+    # kundalini → yoga+style=kundalini. Frontend mirror lives in
+    # frontend/src/api/types.ts (PracticeDirection union) and
+    # frontend/src/utils/practiceOptions.ts (STYLE_OPTIONS_BY_DIRECTION).
     practice_allowed_directions: list[str] = [
         "meditation", "yoga", "breathwork",
-        "somatic", "tantra", "womens_circle", "mens_circle", "kundalini",
+        "somatic", "tantra", "circles",
+        "sound_healing", "art", "narrative", "movement",
     ]
     practice_allowed_difficulties: list[str] = [
         "beginner", "medium", "high",
     ]
-    # PLACEHOLDER list -- to be replaced with the real catalog by the client.
-    # Frontend mirror: frontend/src/utils/practiceOptions.ts STYLE_OPTIONS
-    # (values MUST stay in sync with this list).
-    practice_allowed_styles: list[str] = [
-        "hatha", "kundalini", "vinyasa", "yin",
-    ]
+    # Direction-conditional styles. Only direction keys with styles are listed;
+    # the seven other directions (breathwork / somatic / tantra / sound_healing /
+    # art / narrative / movement) admit only style=None.
+    # Frontend mirror: STYLE_OPTIONS_BY_DIRECTION in practiceOptions.ts.
+    practice_allowed_styles_by_direction: dict[str, list[str]] = {
+        "meditation": ["silence", "presence", "sound", "taoist"],
+        "yoga": ["nidra", "yin", "hatha", "vinyasa", "kundalini", "ashtanga"],
+        "circles": ["womens", "mens", "sharing"],
+    }
     practice_style_max_length: int = 100
 
     # -- Calendar feed filters (Calendar iteration) --
