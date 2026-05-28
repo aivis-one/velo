@@ -673,6 +673,90 @@
       ],
       "what_to_prepare": "Тихое место, прямая спина",
       "contraindications": null
+    },
+    {
+      "key": "soundmagic-healing-bath",
+      "master": "ira-soundmagic",
+      "title": "Звуковое исцеление: ванна гонгов",
+      "practice_type": "live",
+      "direction": "sound_healing",
+      "difficulty": "beginner",
+      "style": null,
+      "duration_minutes": 60,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 80,
+      "zoom_link": null,
+      "description": [
+        "Звуковая ванна гонгов и поющих чаш для глубокого расслабления.",
+        "",
+        "Длительные вибрации настраивают тело и нервную систему на низкочастотный покой — лучше всего работает лёжа, в наушниках."
+      ],
+      "what_to_prepare": "Наушники, коврик, плед",
+      "contraindications": null
+    },
+    {
+      "key": "ira-art-emotion",
+      "master": "ira-kosobukina",
+      "title": "Арт-практика: рисуем эмоции",
+      "practice_type": "live",
+      "direction": "art",
+      "difficulty": "beginner",
+      "style": null,
+      "duration_minutes": 60,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 30,
+      "zoom_link": null,
+      "description": [
+        "Простая арт-практика: даём руке вести себя свободно по бумаге, без задачи «красиво».",
+        "",
+        "Через цвет и линию выходит то, что внутри было словами не назвать. После — короткая шеринг-часть, по желанию."
+      ],
+      "what_to_prepare": "Лист A3 (или несколько A4), любые краски/маркеры/мелки",
+      "contraindications": null
+    },
+    {
+      "key": "matskevich-narrative-myth",
+      "master": "dima-matskevich",
+      "title": "Нарративная практика: личный миф",
+      "practice_type": "live",
+      "direction": "narrative",
+      "difficulty": "medium",
+      "style": null,
+      "duration_minutes": 75,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 25,
+      "zoom_link": null,
+      "description": [
+        "Разбираем личную историю как миф: фокус на сюжет, героя, поворотные точки.",
+        "",
+        "Через нарративные техники переписываем эпизоды, в которых «застряли», и собираем образ предпочитаемого будущего."
+      ],
+      "what_to_prepare": "Блокнот, ручка, уединённое место",
+      "contraindications": null
+    },
+    {
+      "key": "sasha-movement-rhythms",
+      "master": "sasha-adam",
+      "title": "Движение: 5 ритмов",
+      "practice_type": "live",
+      "direction": "movement",
+      "difficulty": "beginner",
+      "style": null,
+      "duration_minutes": 60,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 50,
+      "zoom_link": null,
+      "description": [
+        "Свободное движение в формате 5 ритмов Габриэлы Рот.",
+        "",
+        "Без хореографии: тело двигается так, как ему хочется, через смену ритмов — от плавных к динамичным и обратно к покою."
+      ],
+      "what_to_prepare": "Свободная одежда, пространство для движения, наушники",
+      "contraindications": "Острые травмы, серьёзные проблемы с сердцем"
     }
   ],
   "_diary_comment": "Личные записи дневника (note=Дневник / dream=Сонник) для тест-юзеров. mood — целое 1..10 или null (под score-схему миграции d5e6f7a8b9c0). content — массив строк (склейка через '\\n'). offset_days — на сколько дней назад backdate'ить запись (раскидано по ~25 дням). key — стабильный slug для маркера. Идемпотентность сидера — по (user, title, entry_type).",
