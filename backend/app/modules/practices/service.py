@@ -884,7 +884,7 @@ async def list_public_practices(
     practice_type: list[str] | None = None,
     direction: list[str] | None = None,
     difficulty: list[str] | None = None,
-    style: str | None = None,
+    style: list[str] | None = None,
     duration_bucket: Literal["short", "long"] | None = None,
     time_of_day: Literal[
         "night", "morning", "day", "evening",
@@ -927,8 +927,9 @@ async def list_public_practices(
         filters.append(Practice.practice_type.in_(practice_type))
 
     # -- Calendar taxonomy facets (JSONB data.taxonomy, schema-on-read) --
-    # direction / difficulty: multi-select (OR within facet).
-    # style: single free-form match.
+    # direction / difficulty / style: multi-select (OR within facet).
+    # B-4 (2026-05-29): style switched to list[str] + .in_() — was a single
+    # exact match. Frontend sends one or more selected style chips.
     if direction:
         filters.append(
             Practice.data["taxonomy"]["direction"].as_string().in_(direction)
@@ -937,9 +938,9 @@ async def list_public_practices(
         filters.append(
             Practice.data["taxonomy"]["difficulty"].as_string().in_(difficulty)
         )
-    if style is not None:
+    if style:
         filters.append(
-            Practice.data["taxonomy"]["style"].as_string() == style
+            Practice.data["taxonomy"]["style"].as_string().in_(style)
         )
 
     # duration_bucket: short = < N minutes, long = >= N minutes.

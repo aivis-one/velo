@@ -1101,6 +1101,67 @@ async def test_filter_style(
 
 
 # ---------------------------------------------------------------------------
+# Feed filter -- style multi-select (B-4, 2026-05-29)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_style_multi(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """B-4: style now accepts list[str] — repeated ?style=A&style=B returns
+    practices matching ANY of the values (OR within facet).
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    # Three yoga practices with different styles; we'll select two.
+    await _create_and_publish(
+        client, auth, direction="yoga", style="kundalini", title="K",
+    )
+    await _create_and_publish(
+        client, auth, direction="yoga", style="hatha", title="H",
+    )
+    await _create_and_publish(
+        client, auth, direction="yoga", style="vinyasa", title="V",
+    )
+
+    viewer = await login_user(client, telegram_id=60116, first_name="V")
+    # Multi-select: repeated query param.
+    resp = await client.get(
+        f"{PRACTICES_URL}?style=hatha&style=vinyasa&master_id={master_id}",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 2
+    titles = sorted(item["title"] for item in data["items"])
+    assert titles == ["H", "V"]
+
+
+# ---------------------------------------------------------------------------
+# Feed filter -- style validation (B-4)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_style_validation_rejects_unknown(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """B-4: style validator rejects values that are not in any
+    practice_allowed_styles_by_direction bucket.
+    """
+    auth = await _make_verified_master(client, db_session)
+    viewer = await login_user(client, telegram_id=60117, first_name="V")
+    resp = await client.get(
+        f"{PRACTICES_URL}?style=hatha&style=bogus_style",
+        headers=auth_headers(viewer["session_token"]),
+    )
+    assert resp.status_code == 422
+    body = resp.json()
+    # FastAPI 422 with our AfterValidator surfaces the bad value somewhere
+    # in the detail payload.
+    assert "bogus_style" in str(body)
+
+
+# ---------------------------------------------------------------------------
 # Feed filter -- duration_bucket (short < 60 <= long)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio

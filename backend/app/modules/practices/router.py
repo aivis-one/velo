@@ -49,6 +49,7 @@ from app.modules.practices.schemas import (
     PaginatedPracticesResponse,
     PracticeResponse,
     UpdatePracticeRequest,
+    _flat_allowed_styles,
 )
 from app.modules.practices.service import (
     cancel_practice,
@@ -116,6 +117,23 @@ def _validate_difficulties(v: list[str] | None) -> list[str] | None:
     return v
 
 
+def _validate_styles(v: list[str] | None) -> list[str] | None:
+    """B-4 (2026-05-29): styles are direction-conditional in the source
+    of truth (practice_allowed_styles_by_direction), but the feed filter
+    accepts any combination (e.g. ['hatha', 'silence'] selects practices
+    of either yoga/hatha or meditation/silence). We validate against the
+    flat union of all allowed style values."""
+    if not v:
+        return v
+    allowed = _flat_allowed_styles()
+    bad = [x for x in v if x not in allowed]
+    if bad:
+        raise ValueError(
+            f"style must be one of {allowed}, got {bad}"
+        )
+    return v
+
+
 # ------------------------------------------------------------------
 # GET /api/v1/practices -- public feed (Phase 4.3)
 # ------------------------------------------------------------------
@@ -135,7 +153,9 @@ async def list_practices_endpoint(
     difficulty: Annotated[
         list[str] | None, AfterValidator(_validate_difficulties),
     ] = Query(default=None),
-    style: str | None = Query(default=None),
+    style: Annotated[
+        list[str] | None, AfterValidator(_validate_styles),
+    ] = Query(default=None),
     duration_bucket: Literal["short", "long"] | None = Query(default=None),
     time_of_day: Literal[
         "night", "morning", "day", "evening",
