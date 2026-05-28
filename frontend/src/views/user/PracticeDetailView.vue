@@ -551,6 +551,12 @@ onUnmounted(() => {
 }
 
 .detail__price-row {
+  /* F-5.4 sync: в Figma practice-booked.svg price-row — белая card 336×48
+   * rx=15 (стиль как у accordion и status-row), не голый flex-row. */
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   justify-content: space-between;
   align-items: center;
