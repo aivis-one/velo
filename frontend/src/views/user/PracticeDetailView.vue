@@ -93,16 +93,16 @@
           />
         </section>
 
-        <!-- Contraindications banner -->
-        <div v-if="practice.contraindications" class="detail__contraindications">
-          <span class="detail__contraindications-icon">
-            <IconWarning :size="22" />
-          </span>
-          <div class="detail__contraindications-text">
-            <div class="detail__contraindications-title">ПРОТИВОПОКАЗАНИЯ</div>
-            <div class="detail__contraindications-body">{{ practice.contraindications }}</div>
-          </div>
-        </div>
+        <!-- Contraindications (shared Banner) -->
+        <Banner
+          v-if="practice.contraindications"
+          variant="warning"
+          title="ПРОТИВОПОКАЗАНИЯ"
+          :body="practice.contraindications"
+          class="detail__contraindications"
+        >
+          <template #icon><IconWarning :size="22" /></template>
+        </Banner>
 
       </div>
     </div>
@@ -207,6 +207,7 @@ import { useToast } from '@/composables/useToast'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import MasterCard from '@/components/shared/MasterCard.vue'
+import Banner from '@/components/shared/Banner.vue'
 import {
   formatDate,
   formatDuration,
@@ -532,47 +533,10 @@ onUnmounted(() => {
   margin-bottom: var(--space-3);
 }
 
-/* ===== Contraindications banner ===== */
+/* ===== Contraindications banner (shared Banner) =====
+ * Все стили — в Banner.vue (variant="warning"). Здесь только spacing вокруг. */
 .detail__contraindications {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  background: var(--velo-glass-peach-40);
-  border: 2px solid var(--velo-peach-300);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   margin-top: var(--space-2);
-}
-
-.detail__contraindications-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--velo-peach-700);
-}
-
-.detail__contraindications-text {
-  flex: 1;
-}
-
-.detail__contraindications-title {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-peach-700);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 2px;
-}
-
-.detail__contraindications-body {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-peach-500);
-  line-height: 1.4;
 }
 
 /* ===== Footer =====

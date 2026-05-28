@@ -171,4 +171,30 @@
   --size-success-icon: 80px;   /* success screen emoji */
   --size-practice-emoji: 56px; /* practice type emoji in form screens */
   --size-option-btn-min: 90px; /* mood/rating button minimum width */
+
+  /* === VELΘ: Card DS tokens (Figma 2026-05, F-2.x) ===
+   * Единые значения для PracticeListCard, MasterCard, PracticeHeroCard.
+   * Источник: Figma SVGs (dashboard, calendar-list, booked-practice,
+   * booking-detail, my-reservations).
+   */
+  --velo-card-padding-y: 13px;
+  --velo-card-padding-x: 15px;
+  --velo-card-height-list: 104px;       /* PracticeListCard, MasterCard */
+  --velo-card-height-hero: 142px;       /* PracticeHeroCard без difficulty */
+  --velo-card-height-hero-full: 161px;  /* PracticeHeroCard c difficulty */
+  --velo-card-gap-icon-title: 5px;
+  --velo-card-gap-title-meta: 16px;
+  --velo-card-gap-meta-footer: 19px;
+  --velo-card-meta-row-gap: 10px;
+  --velo-card-letter-spacing-title: 0.36px;
+  --velo-card-letter-spacing-meta: 0.28px;
+  /* Симметричное обрамление title в PracticeListCard, чтобы текст не наезжал
+   * на icon absolute (icon ширина 46 + 4 буфера = 50px с каждой стороны). */
+  --velo-card-title-side-pad: 50px;
+
+  /* === VELΘ: Banner DS tokens === */
+  --velo-banner-padding: 15px;
+  --velo-banner-border-width: 2px;
+  --velo-banner-min-height: 64px;
+  --velo-banner-gap-icon-text: 14px;
 }

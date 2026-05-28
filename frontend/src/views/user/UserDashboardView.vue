@@ -30,35 +30,31 @@
       <h2 class="dashboard__greeting-name">{{ userName }}</h2>
     </div>
 
-    <!-- Check-in alert banner -->
-    <div
+    <!-- Check-in alert banner (shared Banner) -->
+    <Banner
       v-if="checkinAlert"
-      class="dashboard__alert dashboard__alert--checkin"
+      variant="warning"
+      title="Пора на check-in!"
+      :body="`${checkinAlert.practice.title}${checkinAlertTime}`"
+      :clickable="true"
+      class="dashboard__alert"
       @click="goToCheckin(checkinAlert.practice_id)"
     >
-      <div class="dashboard__alert-content">
-        <span class="dashboard__alert-icon"><IconClock :size="28" /></span>
-        <div class="dashboard__alert-text">
-          <h4>Пора на check-in!</h4>
-          <p>{{ checkinAlert.practice.title }}{{ checkinAlertTime }}</p>
-        </div>
-      </div>
-    </div>
+      <template #icon><IconClock :size="28" /></template>
+    </Banner>
 
-    <!-- Feedback alert banner -->
-    <div
+    <!-- Feedback alert banner (shared Banner) -->
+    <Banner
       v-if="feedbackAlert"
-      class="dashboard__alert dashboard__alert--feedback"
+      variant="success"
+      title="Оставьте feedback!"
+      :body="`${feedbackAlert.practice.title} • Вчера`"
+      :clickable="true"
+      class="dashboard__alert"
       @click="goToFeedback(feedbackAlert.practice_id)"
     >
-      <div class="dashboard__alert-content">
-        <span class="dashboard__alert-icon"><IconFeedback :size="28" /></span>
-        <div class="dashboard__alert-text">
-          <h4>Оставьте feedback!</h4>
-          <p>{{ feedbackAlert.practice.title }} • Вчера</p>
-        </div>
-      </div>
-    </div>
+      <template #icon><IconFeedback :size="28" /></template>
+    </Banner>
 
     <!-- ================================================================
          NEAREST PRACTICE
@@ -86,46 +82,30 @@
         </VButton>
       </div>
 
-      <!-- Practice card — layout per Figma 2266:452: icon absolute слева,
-           title и master row центрированы, footer (meta + badge) внизу
-           через space-between. Тот же шаблон, что в CalendarPracticeCard. -->
-      <div
+      <!-- Practice card (shared PracticeListCard) -->
+      <PracticeListCard
         v-else-if="nearestBooking"
-        class="dashboard__practice-card"
+        :practice="nearestBooking.practice"
+        :title="nearestPracticeTitle"
         @click="openNearest"
       >
-        <span class="dashboard__practice-icon">
-          <component :is="nearestPracticeIcon" :size="46" />
-        </span>
-
-        <h4 class="dashboard__practice-title">{{ nearestPracticeTitle }}</h4>
-
-        <p class="dashboard__practice-master">
-          <span class="dashboard__practice-master-avatar">{{ masterInitial }}</span>
-          <span class="dashboard__practice-master-name">
-            {{ nearestBooking.practice.master_name ?? 'Мастер' }}
+        <template #meta-left>
+          <span class="plc-meta-item">
+            <IconCalendar :size="14" /> {{ nearestPracticeDate }}
           </span>
-          <span class="dashboard__practice-verified"><IconCheck :size="11" /></span>
-        </p>
-
-        <!-- Footer: date + duration слева, paid / live badge справа -->
-        <div class="dashboard__practice-meta">
-          <span class="dashboard__practice-meta-left">
-            <span class="dashboard__practice-meta-item">
-              <IconCalendar :size="14" /> {{ nearestPracticeDate }}
-            </span>
-            <span class="dashboard__practice-meta-item">
-              <IconClock :size="14" /> {{ nearestPracticeDuration }}
-            </span>
+          <span class="plc-meta-item">
+            <IconClock :size="14" /> {{ nearestPracticeDuration }}
           </span>
+        </template>
+        <template #badge>
           <VBadge v-if="nearestIsLive" variant="success">
             · В эфире
           </VBadge>
           <VBadge v-else-if="nearestBooking.purchase_id" variant="success">
             <IconCheck :size="12" /> Оплачено
           </VBadge>
-        </div>
-      </div>
+        </template>
+      </PracticeListCard>
 
       <!-- Action buttons (outside the card, per Figma) -->
       <div
@@ -243,10 +223,11 @@ import {
   IconMoodMid,
   IconMoodHigh,
 } from '@/components/icons'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import Banner from '@/components/shared/Banner.vue'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
-import { practiceIconFor, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
@@ -337,12 +318,6 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
   return confirmed[0] ?? null
 })
 
-/** First letter of the master's name for the avatar placeholder. */
-const masterInitial = computed((): string => {
-  const name = nearestBooking.value?.practice.master_name ?? 'М'
-  return (name.trim().charAt(0) || 'М').toUpperCase()
-})
-
 /** True when the nearest practice is currently live (status from PracticeSummary). */
 const nearestIsLive = computed((): boolean =>
   nearestBooking.value?.practice.status === 'live',
@@ -357,13 +332,6 @@ const nearestIsLive = computed((): boolean =>
 const nearestPracticeTitle = computed((): string => {
   const title = nearestBooking.value?.practice.title ?? ''
   return title.replace(/\s*\(эфир\)\s*$/, '')
-})
-
-/** Icon for nearest practice — by direction when available (full PracticeResponse),
- *  title-heuristic for PracticeSummary (TODO: backend extends PracticeSummary). */
-const nearestPracticeIcon = computed(() => {
-  const p = nearestBooking.value?.practice
-  return p ? practiceIconFor(p) : DIRECTION_ICON_FALLBACK
 })
 
 /**
@@ -502,73 +470,9 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* ===== Alert banners ===== */
+/* ===== Alert banner (shared Banner) — only spacing here ===== */
 .dashboard__alert {
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   margin-bottom: var(--space-4);
-  cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border: 2px solid transparent;
-  transition: opacity var(--transition-fast);
-}
-
-.dashboard__alert:hover {
-  opacity: 0.9;
-}
-
-.dashboard__alert--checkin {
-  background: var(--velo-glass-peach-40);
-  border-color: var(--velo-warning-border);
-}
-
-.dashboard__alert--feedback {
-  background: var(--velo-glass-teal-40);
-  border-color: var(--velo-success);
-}
-
-.dashboard__alert-content {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.dashboard__alert-icon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.dashboard__alert-text h4 {
-  font-weight: 400;
-  font-size: var(--text-base);
-  margin-bottom: 2px;
-}
-
-.dashboard__alert-text p {
-  font-size: var(--text-xs);
-}
-
-/* Themed colors: check-in (peach) / feedback (teal) */
-.dashboard__alert--checkin .dashboard__alert-icon {
-  color: var(--velo-peach-700);
-}
-.dashboard__alert--checkin .dashboard__alert-text h4 {
-  color: var(--velo-warning-text);
-}
-.dashboard__alert--checkin .dashboard__alert-text p {
-  color: var(--velo-peach-500);
-}
-
-.dashboard__alert--feedback .dashboard__alert-icon {
-  color: var(--velo-teal-700);
-}
-.dashboard__alert--feedback .dashboard__alert-text h4 {
-  color: var(--velo-teal-700);
-}
-.dashboard__alert--feedback .dashboard__alert-text p {
-  color: var(--velo-teal-600);
 }
 
 /* ===== Sections ===== */
@@ -588,114 +492,9 @@ onUnmounted(() => {
 }
 
 /* ===== Nearest practice card =====
- * Figma 2266:452 — card 336×104, padding 13/15, icon absolute слева,
- * title и master row центрированы по карточке, footer space-between
- * (meta слева / badge справа). Тот же шаблон, что у CalendarPracticeCard. */
-.dashboard__practice-card {
-  position: relative;
-  height: 104px;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: 13px 15px;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.dashboard__practice-card:active {
-  opacity: 0.8;
-}
-
-.dashboard__practice-icon {
-  position: absolute;
-  left: 15px;
-  top: 13px;
-  width: 46px;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Иконка сама несёт circle-обводку (IconMeditation.vue) — без teal-подложки. */
-  color: var(--velo-text-primary);
-}
-
-.dashboard__practice-title {
-  text-align: center;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.36px;
-  line-height: 1;
-  margin: 0 0 5px;
-}
-
-.dashboard__practice-master {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  letter-spacing: 0.28px;
-  margin: 0 0 19px;
-}
-
-.dashboard__practice-master-avatar {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-subtle);
-  color: var(--velo-primary);
-  font-size: 9px;
-  line-height: 1;
-}
-
-.dashboard__practice-master-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dashboard__practice-verified {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-}
-
-.dashboard__practice-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* Левый кластер footer-а: date + duration в один ряд */
-.dashboard__practice-meta-left {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.dashboard__practice-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
+ * Карточка ближайшей практики — shared PracticeListCard (см.
+ * components/shared/PracticeListCard.vue). Все card-стили перенесены туда,
+ * здесь остаётся только spacing вокруг actions row под карточкой. */
 
 .dashboard__practice-actions {
   display: grid;
