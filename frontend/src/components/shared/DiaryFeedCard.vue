@@ -372,15 +372,26 @@ function onTap(): void {
 
 .feed-card__practice-title {
   font-size: 16px;
-  text-align: center;
+  /* 2026-05-29: text-align LEFT, anchored at icon right edge (V3 fix, см.
+   * аналогичную правку в PracticeListCard). Раньше center — при разной
+   * длине titles левый край плавал ±7px по горизонтали. */
+  text-align: left;
   letter-spacing: 0.32px;
+  margin-left: calc(var(--space-4) + 40px + 9px);
+  padding-right: var(--space-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .feed-card__practice-master {
   display: flex;
   align-items: center;
-  justify-content: center;
+  /* 2026-05-29: justify LEFT по той же линии что title (V3 fix). Раньше
+   * center — master row плавал ±27px при разной длине имени мастера. */
+  justify-content: flex-start;
   gap: var(--space-1);
+  margin-left: calc(var(--space-4) + 40px + 9px);
 }
 
 .feed-card__avatar {
