@@ -218,11 +218,15 @@ onMounted(() => {
 }
 
 .bdetail__hero {
-  margin: var(--space-4) var(--space-4) 0;
+  /* F-5.2 sync: horizontal margin снят — MobileLayout даёт screen-padding 33.
+   * Hero card в Figma booking-detail.svg на x=33 (ровно screen edge). */
+  margin: var(--space-4) 0 0;
 }
 
 .bdetail__body {
-  padding: var(--space-4);
+  /* F-5.2 sync: horizontal padding снят (MobileLayout уже 33). Status row,
+   * MasterCard, ZOOM card в Figma на x=33. */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -270,6 +274,7 @@ onMounted(() => {
 
 /* Actions footer */
 .bdetail__actions {
-  padding: var(--space-4);
+  /* F-5.2 sync: horizontal padding снят (MobileLayout уже 33). */
+  padding: var(--space-4) 0;
 }
 </style>
