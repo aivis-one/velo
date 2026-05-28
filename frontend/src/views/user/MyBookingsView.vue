@@ -210,7 +210,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-4);
+  /* F-5 sync: horizontal padding снят — MobileLayout уже даёт
+   * var(--velo-screen-padding) (=33). Раньше тут было var(--space-4) (16),
+   * cards рендерились 304 wide вместо Figma 336.
+   * Vertical паддинг top/bottom 16 оставляем (визуальный отступ от header
+   * и от tab-bar; Figma my-reservations.svg gap header→title ≈ 28, у нас
+   * MobileLayout 16 + 14 (section-title margin) = 30, расхождение 2px). */
+  padding: var(--space-4) 0;
 }
 
 .bookings__section-title {
