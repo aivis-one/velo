@@ -203,32 +203,25 @@ export const DIRECTION_ICON_FALLBACK: Component = IconDots
 /**
  * Pick the icon component for a practice card by direction.
  *
- * Accepts both PracticeResponse (has `direction`) and PracticeSummary
- * (compact model embedded in BookingWithPracticeResponse — does NOT have
- * `direction` as of 2026-05). For PracticeSummary, falls back to a title
- * heuristic so booking / dashboard cards keep showing the right glyph
- * until the backend extends PracticeSummary with `direction`.
+ * Works for both PracticeResponse and PracticeSummary — backend B-1 added
+ * `direction` to PracticeSummary on 2026-05-28, so the title-heuristic
+ * fallback that used to live here is no longer needed (removed 2026-05-29).
+ * Unknown direction → neutral IconDots fallback.
  *
- * TODO (backend): add `direction` to PracticeSummary. Once it lands and
- * generated.ts is regenerated, drop the title-heuristic fallback.
+ * `title` prop kept in the signature for call-site compatibility (some
+ * legacy callers pass it); ignored internally.
  */
 export function practiceIconFor(p: {
   /** direction идёт из generated.ts как string (бэкенд widen-нул enum);
    *  принимаем string и сами проверяем через DIRECTION_ICON. */
   direction?: string | null
+  /** Kept for backwards compatibility — ignored after B-1 (2026-05-28). */
   title?: string | null
 }): Component {
-  // 1. Primary signal: explicit direction from the backend.
   const dir = p.direction as PracticeDirection | undefined
   if (dir && DIRECTION_ICON[dir]) {
     return DIRECTION_ICON[dir]!
   }
-  // 2. Fallback for PracticeSummary (no direction field): title heuristic.
-  const lower = (p.title ?? '').toLowerCase()
-  if (lower.includes('breathwork') || lower.includes('дыхан')) return IconBreathwork
-  if (lower.includes('йог')      || lower.includes('yoga'))   return IconYoga
-  if (lower.includes('медитац')  || lower.includes('meditat')) return IconMeditation
-  // 3. Nothing matched -> neutral placeholder.
   return DIRECTION_ICON_FALLBACK
 }
 
