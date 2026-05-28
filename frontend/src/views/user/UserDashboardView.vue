@@ -86,36 +86,37 @@
         </VButton>
       </div>
 
-      <!-- Practice card -->
+      <!-- Practice card — layout per Figma 2266:452: icon absolute слева,
+           title и master row центрированы, footer (meta + badge) внизу
+           через space-between. Тот же шаблон, что в CalendarPracticeCard. -->
       <div
         v-else-if="nearestBooking"
         class="dashboard__practice-card"
         @click="openNearest"
       >
-        <!-- Header: meditation icon + title + master -->
-        <div class="dashboard__practice-header">
-          <span class="dashboard__practice-icon">
-            <component :is="nearestPracticeIcon" :size="46" />
-          </span>
-          <div class="dashboard__practice-info">
-            <h4 class="dashboard__practice-title">{{ nearestPracticeTitle }}</h4>
-            <p class="dashboard__practice-master">
-              <span class="dashboard__practice-master-avatar">{{ masterInitial }}</span>
-              <span class="dashboard__practice-master-name">
-                {{ nearestBooking.practice.master_name ?? 'Мастер' }}
-              </span>
-              <span class="dashboard__practice-verified"><IconCheck :size="11" /></span>
-            </p>
-          </div>
-        </div>
+        <span class="dashboard__practice-icon">
+          <component :is="nearestPracticeIcon" :size="46" />
+        </span>
 
-        <!-- Meta row: date, duration, paid / live badge -->
-        <div class="dashboard__practice-meta">
-          <span class="dashboard__practice-meta-item">
-            <IconCalendar :size="14" /> {{ nearestPracticeDate }}
+        <h4 class="dashboard__practice-title">{{ nearestPracticeTitle }}</h4>
+
+        <p class="dashboard__practice-master">
+          <span class="dashboard__practice-master-avatar">{{ masterInitial }}</span>
+          <span class="dashboard__practice-master-name">
+            {{ nearestBooking.practice.master_name ?? 'Мастер' }}
           </span>
-          <span class="dashboard__practice-meta-item">
-            <IconClock :size="14" /> {{ nearestPracticeDuration }}
+          <span class="dashboard__practice-verified"><IconCheck :size="11" /></span>
+        </p>
+
+        <!-- Footer: date + duration слева, paid / live badge справа -->
+        <div class="dashboard__practice-meta">
+          <span class="dashboard__practice-meta-left">
+            <span class="dashboard__practice-meta-item">
+              <IconCalendar :size="14" /> {{ nearestPracticeDate }}
+            </span>
+            <span class="dashboard__practice-meta-item">
+              <IconClock :size="14" /> {{ nearestPracticeDuration }}
+            </span>
           </span>
           <VBadge v-if="nearestIsLive" variant="success">
             · В эфире
@@ -578,18 +579,25 @@ onUnmounted(() => {
 .dashboard__section-title {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 700;
+  /* Figma 2266:452 — все секционные заголовки 'Marmelad:Regular' (400),
+   * не bold. Было 700 — баг-фикс. */
+  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0 0 var(--space-4);
 }
 
-/* ===== Nearest practice card ===== */
+/* ===== Nearest practice card =====
+ * Figma 2266:452 — card 336×104, padding 13/15, icon absolute слева,
+ * title и master row центрированы по карточке, footer space-between
+ * (meta слева / badge справа). Тот же шаблон, что у CalendarPracticeCard. */
 .dashboard__practice-card {
+  position: relative;
+  height: 104px;
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: 13px 15px;
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -598,17 +606,12 @@ onUnmounted(() => {
   opacity: 0.8;
 }
 
-.dashboard__practice-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
 .dashboard__practice-icon {
+  position: absolute;
+  left: 15px;
+  top: 13px;
   width: 46px;
   height: 46px;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -616,30 +619,27 @@ onUnmounted(() => {
   color: var(--velo-text-primary);
 }
 
-.dashboard__practice-info {
-  flex: 1;
-  min-width: 0;
-}
-
 .dashboard__practice-title {
+  text-align: center;
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
-  margin: 0 0 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.36px;
+  line-height: 1;
+  margin: 0 0 5px;
 }
 
 .dashboard__practice-master {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  gap: 10px;
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin: 0;
+  letter-spacing: 0.28px;
+  margin: 0 0 19px;
 }
 
 .dashboard__practice-master-avatar {
@@ -678,8 +678,14 @@ onUnmounted(() => {
 .dashboard__practice-meta {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+/* Левый кластер footer-а: date + duration в один ряд */
+.dashboard__practice-meta-left {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-3);
-  flex-wrap: wrap;
 }
 
 .dashboard__practice-meta-item {
@@ -694,8 +700,9 @@ onUnmounted(() => {
 .dashboard__practice-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
+  /* Figma: 15 — близко к --space-3 (14), но точно 15 для соответствия */
+  gap: 15px;
+  margin-top: 15px;
 }
 
 /* Zoom / Check-in buttons use a larger 20px label (Figma 2266:527, 2266:530)
@@ -727,19 +734,26 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* ===== Progress stats ===== */
+/* ===== Progress stats =====
+ * Figma 2266:452 — 2 карточки 160×104, gap 16 (--space-4),
+ * контент flex-центрирован по обеим осям, gap value→label 9. */
 .dashboard__stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 .dashboard__stat-card {
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
+  height: 104px;
   padding: var(--space-4);
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
 }
 
 .dashboard__stat-value {
@@ -747,6 +761,7 @@ onUnmounted(() => {
   font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.64px;
   line-height: 1.1;
 }
 
@@ -755,7 +770,6 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
-  margin-top: var(--space-1);
 }
 
 /* ===== AI summary ===== */
