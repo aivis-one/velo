@@ -24,7 +24,8 @@
         :aria-label="title ? 'Назад' : undefined"
         @click="$emit('back')"
       >
-        <span aria-hidden="true">←</span><template v-if="!title"> {{ backLabel }}</template>
+        <IconArrowRight :size="18" class="v-header__back-arrow" />
+        <template v-if="!title">{{ backLabel }}</template>
       </button>
       <h1 v-if="title" class="v-header__title">{{ title }}</h1>
       <span v-if="badge" class="v-header__badge">{{ badge }}</span>
@@ -36,6 +37,8 @@
 </template>
 
 <script setup lang="ts">
+import { IconArrowRight } from '@/components/icons'
+
 withDefaults(
   defineProps<{
     title?: string
@@ -107,6 +110,13 @@ defineEmits<{
   background: #ffffff;
   font-size: 18px;
   line-height: 1;
+}
+
+/* Mirror IconArrowRight to make it a back-arrow.
+ * Same pattern as EntryView/DetailView (`.entry__back-glyph`). */
+.v-header__back-arrow {
+  transform: scaleX(-1);
+  flex-shrink: 0;
 }
 
 .v-header__back:active {
