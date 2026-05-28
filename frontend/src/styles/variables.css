@@ -188,9 +188,11 @@
   --velo-card-meta-row-gap: 10px;
   --velo-card-letter-spacing-title: 0.36px;
   --velo-card-letter-spacing-meta: 0.28px;
-  /* Симметричное обрамление title в PracticeListCard, чтобы текст не наезжал
-   * на icon absolute (icon ширина 46 + 4 буфера = 50px с каждой стороны). */
-  --velo-card-title-side-pad: 50px;
+  /* Отступ начала текстовой колонки (title + master) от левого края
+   * PracticeListCard. = padding-x 15 + icon width 46 + 9px visual gap.
+   * Title и master выровнены по этой линии (text-align: left) — иначе
+   * при разной длине строк текст «прыгал» по горизонтали (фикс 2026-05-29). */
+  --velo-card-content-indent: 70px;
 
   /* === VELΘ: Banner DS tokens === */
   --velo-banner-padding: 15px;

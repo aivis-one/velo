@@ -11,11 +11,13 @@
     - Card 336×104, padding 13/15, white background, 1px white border, radius 15
     - Icon position: absolute left 15, top 13, size 46×46 (icon itself carries
       the circle outline — wrapper is just a slot for color)
-    - Title text-align center, font-size 18, letter-spacing 0.36px, line-height 1,
-      margin: 0 50px 5px (50px side gutter so long titles don't overlap icon),
-      ellipsis-truncated on overflow
-    - Master row centered, font-size 14, gap 10, letter-spacing 0.28px,
-      margin-bottom 19
+    - Title text-align LEFT (2026-05-29 fix: ранее center, но при разной
+      длине строк левый край title плавал ±6px относительно линии иконки —
+      зрительно текст «прыгал»). Начало колонки: 70px от левого края card
+      (= padding-x 15 + icon 46 + 9 gap) — токен --velo-card-content-indent.
+      font-size 18, letter-spacing 0.36px, line-height 1, ellipsis-truncated.
+    - Master row LEFT по той же линии, что title (выровнено с заголовком).
+      font-size 14, gap 10, letter-spacing 0.28px, margin-bottom 19.
     - Footer: flex space-between (meta cluster left + badge slot right)
 
   Slots:
@@ -162,15 +164,17 @@ const masterInitial = computed(() => {
 }
 
 .practice-list-card__title {
-  text-align: center;
+  /* 2026-05-29: text-align LEFT, фиксированный левый край (--velo-card-content-indent).
+   * Раньше был center — при разной длине titles текст «прыгал» ±6px
+   * по горизонтали относительно иконки. */
+  text-align: left;
   font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: var(--velo-card-letter-spacing-title);
   line-height: 1;
-  /* Симметричное обрамление, чтобы длинный title не перекрывал icon absolute.
-   * При overflow — ellipsis с одной строкой. */
-  margin: 0 var(--velo-card-title-side-pad) var(--velo-card-gap-icon-title);
+  margin: 0 var(--velo-card-padding-x) var(--velo-card-gap-icon-title)
+          var(--velo-card-content-indent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -179,16 +183,15 @@ const masterInitial = computed(() => {
 .practice-list-card__master {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--velo-card-meta-row-gap);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: var(--velo-card-letter-spacing-meta);
-  margin: 0 0 var(--velo-card-gap-meta-footer);
-  /* Тоже ограничиваем по ширине, чтобы длинные имена мастеров не растягивали. */
-  max-width: calc(100% - 2 * var(--velo-card-title-side-pad));
-  margin-left: auto;
-  margin-right: auto;
+  /* Левая колонка выровнена с title (--velo-card-content-indent),
+   * правая граница как у title (padding-x). */
+  margin: 0 var(--velo-card-padding-x) var(--velo-card-gap-meta-footer)
+          var(--velo-card-content-indent);
 }
 
 .practice-list-card__master-avatar {
