@@ -71,6 +71,35 @@ async def setup_infrastructure():
     await dispose_engine()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _stub_notification_formatter():
+    """Force StubFormatter for all notification deliveries in the test suite.
+
+    After backend/.env got a real @veloappbot token (handoff §6 migration,
+    2026-05-27), the lazy-initialised TelegramFormatter in
+    app/modules/notifications/formatters.py started instantiating an aiogram
+    Bot in tests. Tests then created users with fake telegram_ids (e.g. 83050)
+    and called _stage_deliver()/_stage_rollup() — the formatter sent real HTTP
+    requests to Telegram, which replied "Bad Request: chat not found", and
+    notification tests went red.
+
+    This fixture pre-populates the module-level singletons so
+    get_formatter('telegram') short-circuits to the existing StubFormatter
+    without ever calling _init_telegram_formatter() — no real Bot, no HTTP,
+    fully deterministic.
+
+    Tests that intentionally patch get_formatter (e.g. via mock.patch in
+    TestStageDeliver.test_failed_delivery_retries) still work — they patch
+    'app.modules.notifications.processor.get_formatter' at the call site.
+    """
+    from app.modules.notifications import formatters
+    formatters._telegram_formatter = formatters._stub
+    formatters._telegram_init_attempted = True
+    yield
+    formatters._telegram_formatter = None
+    formatters._telegram_init_attempted = False
+
+
 @pytest.fixture(autouse=True)
 async def flush_auth_redis_keys() -> AsyncGenerator[None, None]:
     """Delete anti-replay and rate-limit Redis keys before each test.
