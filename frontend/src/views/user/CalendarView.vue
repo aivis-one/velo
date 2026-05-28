@@ -241,8 +241,10 @@ const activeChips = computed<ActiveChip[]>(() => {
       label: TIME_OF_DAY_LABEL[f.time_of_day],
     })
   }
-  if (f.style) {
-    chips.push({ key: `sty:${f.style}`, kind: 'style', value: f.style, label: f.style })
+  // F-8: style теперь array — рендерим chip на каждый выбранный стиль
+  // (как direction/difficulty), удаление снимает только один.
+  for (const v of f.style ?? []) {
+    chips.push({ key: `sty:${v}`, kind: 'style', value: v, label: v })
   }
 
   return chips
@@ -255,7 +257,7 @@ function removeChip(chip: ActiveChip): void {
     direction: f.direction ? [...f.direction] : undefined,
     difficulty: f.difficulty ? [...f.difficulty] : undefined,
     practice_type: f.practice_type ? [...f.practice_type] : undefined,
-    style: f.style,
+    style: f.style ? [...f.style] : undefined,
     duration_bucket: f.duration_bucket,
     time_of_day: f.time_of_day,
   }
@@ -280,7 +282,9 @@ function removeChip(chip: ActiveChip): void {
       next.time_of_day = undefined
       break
     case 'style':
-      next.style = undefined
+      // F-8: удалить ровно ОДИН стиль (multi-select).
+      next.style = (next.style ?? []).filter((v) => v !== chip.value)
+      if (next.style.length === 0) next.style = undefined
       break
   }
 
