@@ -144,13 +144,17 @@
         Оставить feedback
       </VButton>
 
-      <!-- Already booked, no active window -->
+      <!-- Already booked, no active window. Visually solid primary (per
+           Figma booked-practice.svg) but non-interactive: keep `disabled`
+           for screen-reader semantics; opacity override below restores
+           full color. -->
       <VButton
         v-else-if="booked"
-        variant="secondary"
+        variant="primary"
         size="lg"
         block
         disabled
+        class="detail__booked-btn"
       >
         Вы записаны
       </VButton>
@@ -166,14 +170,15 @@
       >
         {{ bookButtonText }}
       </VButton>
-      <!-- Cancel booking button (visible when booked and cancellable) -->
+      <!-- Cancel booking button (visible when booked and cancellable).
+           Per Figma booked-practice.svg — solid pink (#F795A2 = velo-pink-300),
+           that's `variant="danger"` (already exists in VButton). -->
       <VButton
         v-if="booked && canCancel"
-        variant="ghost"
+        variant="danger"
         size="lg"
         block
         :loading="cancelling"
-        class="detail__cancel-btn"
         @click="onCancelBooking"
       >
         Отменить бронирование
@@ -457,14 +462,17 @@ onUnmounted(() => {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ===== Hero (shared PracticeHeroCard wrapper) ===== */
+/* ===== Hero (shared PracticeHeroCard wrapper) =====
+ * Horizontal screen-padding раздаётся MobileLayout (--velo-screen-padding=33).
+ * Здесь только vertical top-margin, чтобы не было двойного отступа. */
 .detail__hero {
-  margin: var(--space-4) var(--space-4) 0;
+  margin-top: var(--space-4);
 }
 
-/* ===== Body ===== */
+/* ===== Body =====
+ * Аналогично — горизонтальный padding из ML, локально только vertical. */
 .detail__body {
-  padding: var(--space-4);
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -567,17 +575,15 @@ onUnmounted(() => {
   line-height: 1.4;
 }
 
-/* ===== Footer ===== */
+/* ===== Footer =====
+ * Figma booked-practice.svg: кнопки сидят прямо на mandala-фоне экрана,
+ * никакой стеклянной подложки. Убран background/backdrop-filter/border-top. */
 .detail__actions {
   flex-shrink: 0;
-  padding: var(--space-4);
-  background: var(--velo-glass-blue-60);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border-top: 1px solid #ffffff;
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 15px;
 }
 
 .detail__price-row {
@@ -604,8 +610,10 @@ onUnmounted(() => {
   color: var(--velo-success-text);
 }
 
-/* Cancel button: ghost with red tint */
-.detail__actions .detail__cancel-btn {
-  color: var(--velo-error-text);
+/* "Вы записаны" — visually solid primary, semantically disabled.
+ * Restore full opacity and use default cursor so it doesn't look broken. */
+.detail__actions :deep(.detail__booked-btn):disabled {
+  opacity: 1;
+  cursor: default;
 }
 </style>
