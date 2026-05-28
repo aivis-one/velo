@@ -17,7 +17,8 @@
     question-subtitle="Оцените своё состояние перед практикой"
     v-model:comment="comment"
     :submitting="diaryStore.checkinSubmitting"
-    :submit-disabled="false"
+    :submit-disabled="windowClosed"
+    :disabled-hint="windowClosed ? 'Чек-ин закрыт — практика уже началась' : ''"
     submit-label="Check-in перед практикой"
     :show-skip="true"
     :submitted="submitted"
@@ -28,10 +29,14 @@
     @submit="onSubmit"
     @skip="onSkip"
   >
-    <!-- Practice meta line -->
+    <!-- Practice meta — две колонки (Figma 2266:716): мастер | дата. -->
     <template #practice-meta>
-      с {{ practice?.master_name ?? 'Мастером' }}
-      <IconCalendar :size="14" /> {{ formattedDate }}
+      <span class="form-shell__practice-meta-cell">
+        с {{ practice?.master_name ?? 'Мастером' }}
+      </span>
+      <span class="form-shell__practice-meta-cell">
+        <IconCalendar :size="14" /> {{ formattedDate }}
+      </span>
     </template>
 
     <!-- Mood selector: selected face grows to center, others shrink/dim.
@@ -67,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useDiaryStore } from '@/stores/diary'
@@ -111,6 +116,19 @@ const moodScore = ref<number>(6)
 const comment = ref('')
 const submitted = ref(false)
 
+// Tick `now` once a minute so submit auto-disables when the practice starts
+// while the user is sitting on this screen. Backend rejects late check-ins
+// ("Window has closed") -- we mirror the same boundary client-side to avoid
+// the error screen.
+const nowMs = ref<number>(Date.now())
+let tickHandle: ReturnType<typeof setInterval> | null = null
+
+const windowClosed = computed<boolean>(() => {
+  const s = practice.value?.scheduled_at
+  if (!s) return false
+  return nowMs.value > new Date(s).getTime()
+})
+
 const formattedDate = computed(() =>
   practice.value
     ? formatDate(practice.value.scheduled_at, practice.value.timezone)
@@ -118,7 +136,7 @@ const formattedDate = computed(() =>
 )
 
 async function onSubmit(): Promise<void> {
-  if (diaryStore.checkinSubmitting) return
+  if (diaryStore.checkinSubmitting || windowClosed.value) return
 
   const result = await diaryStore.submitCheckin(practiceId, {
     mood: moodScore.value,
@@ -157,6 +175,11 @@ onMounted(() => {
   if (practicesStore.selected?.id !== practiceId) {
     practicesStore.fetchPractice(practiceId)
   }
+  tickHandle = setInterval(() => { nowMs.value = Date.now() }, 60_000)
+})
+
+onBeforeUnmount(() => {
+  if (tickHandle) clearInterval(tickHandle)
 })
 </script>
 

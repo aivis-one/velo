@@ -65,14 +65,16 @@
       <!-- Practice info -->
       <div v-if="practice" class="form-shell__practice">
         <span class="form-shell__practice-icon">
-          <IconMeditation :size="26" />
+          <component :is="practiceIcon" :size="46" />
         </span>
         <h2 class="form-shell__practice-name">{{ practice.title }}</h2>
-        <p class="form-shell__practice-meta">
+        <div class="form-shell__practice-meta">
           <slot name="practice-meta">
-            с {{ practice.master_name ?? 'Мастером' }}
+            <span class="form-shell__practice-meta-cell">
+              с {{ practice.master_name ?? 'Мастером' }}
+            </span>
           </slot>
-        </p>
+        </div>
       </div>
       <div v-else-if="practiceLoading" class="form-shell__loader">
         <VLoader />
@@ -113,6 +115,12 @@
         >
           {{ submitLabel }}
         </VButton>
+        <p
+          v-if="submitDisabled && disabledHint"
+          class="form-shell__disabled-hint"
+        >
+          {{ disabledHint }}
+        </p>
         <VButton v-if="showSkip" variant="ghost" block @click="emit('skip')">
           Пропустить
         </VButton>
@@ -122,12 +130,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { IconMeditation } from '@/components/icons'
+import { practiceIconFor, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
 import type { PracticeResponse } from '@/api/types'
 
-defineProps<{
+const props = defineProps<{
   backLabel: string
   practice: PracticeResponse | null
   practiceLoading: boolean
@@ -136,6 +145,9 @@ defineProps<{
   comment: string
   submitting: boolean
   submitDisabled: boolean
+  /** Helper text shown right under the submit button when submitDisabled is true
+   * (e.g. "Чек-ин закрыт — практика уже началась"). */
+  disabledHint?: string
   submitLabel: string
   showSkip?: boolean
   submitted: boolean
@@ -150,6 +162,12 @@ const emit = defineEmits<{
   skip: []
   'update:comment': [value: string]
 }>()
+
+// Иконка практики выбирается по `direction` (медитация / йога / дыхательные ...).
+// Для направлений без своей иконки — neutral fallback (IconDots), как везде в проекте.
+const practiceIcon = computed(() =>
+  props.practice ? practiceIconFor(props.practice) : DIRECTION_ICON_FALLBACK,
+)
 </script>
 
 <style scoped>
@@ -207,11 +225,12 @@ const emit = defineEmits<{
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: var(--space-6) var(--space-4);
+  /* Figma 2266:716: горизонтальный screen-padding = 33px, не 16px. */
+  padding: var(--space-6) var(--velo-screen-padding);
   gap: var(--space-6);
 }
 
-/* Practice info */
+/* Practice info — паддинги и внутренние отступы по Figma 2266:728 */
 .form-shell__practice {
   display: flex;
   flex-direction: column;
@@ -220,7 +239,7 @@ const emit = defineEmits<{
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: 19px var(--space-4) var(--space-5);
 }
 
 .form-shell__practice-icon {
@@ -229,10 +248,10 @@ const emit = defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
-  margin-bottom: var(--space-2);
+  /* Иконка сама несёт circle-обводку (см. IconMeditation.vue),
+   * никаких подложек/border-radius/teal-фона тут не нужно. */
+  color: var(--velo-text-primary);
+  margin-bottom: 5px;
 }
 
 .form-shell__practice-name {
@@ -241,18 +260,31 @@ const emit = defineEmits<{
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin-bottom: var(--space-2);
+  margin-bottom: 16px;
 }
 
+/* Meta row: две колонки 1fr/1fr — мастер слева, дата/статус справа
+ * (Figma 2266:716: master около x=85, date около x=205 в карточке 336px). */
 .form-shell__practice-meta {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
+  width: 100%;
   font-family: var(--font-body);
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
+}
+
+/* Дублируем правило в scoped + :slotted, чтобы один и тот же класс работал
+ * и для дефолтного содержимого слота (FormShell scope), и для override от
+ * CheckinView / FeedbackView (parent scope, нужен :slotted). */
+.form-shell__practice-meta-cell,
+:slotted(.form-shell__practice-meta-cell) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
 }
 
 .form-shell__loader {
@@ -261,13 +293,13 @@ const emit = defineEmits<{
   padding: var(--space-4) 0;
 }
 
-/* Question */
+/* Question — паддинги и gap по Figma 2266:728 (карточка 336x87) */
 .form-shell__question {
   text-align: center;
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: 20px var(--space-4) 22px;
 }
 
 .form-shell__question h3 {
@@ -276,7 +308,7 @@ const emit = defineEmits<{
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin-bottom: var(--space-1);
+  margin-bottom: 13px;
 }
 
 .form-shell__question p {
@@ -325,5 +357,13 @@ const emit = defineEmits<{
   flex-direction: column;
   gap: var(--space-3);
   margin-top: auto;
+}
+
+.form-shell__disabled-hint {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  margin: calc(-1 * var(--space-2)) 0 0;
 }
 </style>

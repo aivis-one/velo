@@ -26,9 +26,12 @@
     @back="onBack"
     @submit="onSubmit"
   >
-    <!-- Practice meta line -->
+    <!-- Practice meta — две колонки (Figma 2266:2988): мастер | статус. -->
     <template #practice-meta>
-      с {{ practice?.master_name ?? 'Мастером' }} · Завершена
+      <span class="form-shell__practice-meta-cell">
+        с {{ practice?.master_name ?? 'Мастером' }}
+      </span>
+      <span class="form-shell__practice-meta-cell">Завершена</span>
     </template>
 
     <!-- Rating slider -->

@@ -23,7 +23,7 @@
   >
     <div class="booking-card__main">
       <span class="booking-card__icon">
-        <component :is="typeIcon" :size="26" />
+        <component :is="typeIcon" :size="46" />
       </span>
 
       <div class="booking-card__info">
@@ -58,12 +58,11 @@
 import { computed } from 'vue'
 import { formatDate } from '@/utils/format'
 import {
-  IconMeditation,
-  IconBreathwork,
   IconCheck,
   IconClock,
   IconClose,
 } from '@/components/icons'
+import { practiceIconFor } from '@/utils/displayHelpers'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 /** Badge descriptor passed by the parent (null = no badge). */
@@ -88,15 +87,12 @@ defineEmits<{
   click: []
 }>()
 
-// -- Practice-type icon. NOTE: the backend practice_type enum is
-//    live / series / one_on_one / replay -- there is NO "breathwork" type.
-//    Breathwork is a content category not modelled in the schema, so we
-//    detect it via a title heuristic and fall back to the meditation glyph. --
-const typeIcon = computed(() =>
-  props.booking.practice.title.toLowerCase().includes('breathwork')
-    ? IconBreathwork
-    : IconMeditation,
-)
+// Иконка практики — по `direction`, если приходит. PracticeSummary в bookings
+// сейчас НЕ содержит direction (см. PracticeSummary в generated.ts) — для него
+// сработает title-heuristic внутри practiceIconFor (см. displayHelpers).
+// TODO (backend): расширить PracticeSummary полем `direction`, тогда heuristic
+// внутри practiceIconFor больше не понадобится.
+const typeIcon = computed(() => practiceIconFor(props.booking.practice))
 
 // -- Master initial for the mini avatar --
 const masterInitial = computed(() => {
@@ -157,9 +153,8 @@ const formattedDate = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  /* Иконка сама несёт circle-обводку (IconMeditation.vue) — без teal-подложки. */
+  color: var(--velo-text-primary);
 }
 
 .booking-card__info {

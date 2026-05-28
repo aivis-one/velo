@@ -95,7 +95,7 @@
         <!-- Header: meditation icon + title + master -->
         <div class="dashboard__practice-header">
           <span class="dashboard__practice-icon">
-            <IconMeditation :size="26" />
+            <component :is="nearestPracticeIcon" :size="46" />
           </span>
           <div class="dashboard__practice-info">
             <h4 class="dashboard__practice-title">{{ nearestPracticeTitle }}</h4>
@@ -237,7 +237,6 @@ import {
   IconClock,
   IconCalendar,
   IconFeedback,
-  IconMeditation,
   IconCheck,
   IconArrowRight,
   IconMoodMid,
@@ -246,6 +245,7 @@ import {
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
+import { practiceIconFor, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
@@ -356,6 +356,13 @@ const nearestIsLive = computed((): boolean =>
 const nearestPracticeTitle = computed((): string => {
   const title = nearestBooking.value?.practice.title ?? ''
   return title.replace(/\s*\(эфир\)\s*$/, '')
+})
+
+/** Icon for nearest practice — by direction when available (full PracticeResponse),
+ *  title-heuristic for PracticeSummary (TODO: backend extends PracticeSummary). */
+const nearestPracticeIcon = computed(() => {
+  const p = nearestBooking.value?.practice
+  return p ? practiceIconFor(p) : DIRECTION_ICON_FALLBACK
 })
 
 /**
@@ -605,9 +612,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  /* Иконка сама несёт circle-обводку (IconMeditation.vue) — без teal-подложки. */
+  color: var(--velo-text-primary);
 }
 
 .dashboard__practice-info {

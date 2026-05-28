@@ -23,7 +23,7 @@
 <template>
   <div class="hero-card">
     <div class="hero-card__icon">
-      <component :is="iconComponent" :size="26" />
+      <component :is="iconComponent" :size="46" />
     </div>
     <h1 class="hero-card__title">{{ title }}</h1>
     <div class="hero-card__meta">
@@ -111,9 +111,8 @@ const iconComponent = computed(
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  /* Иконка сама несёт circle-обводку (IconMeditation.vue) — без teal-подложки. */
+  color: var(--velo-text-primary);
   margin-bottom: var(--space-1);
 }
 

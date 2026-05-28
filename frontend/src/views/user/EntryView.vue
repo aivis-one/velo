@@ -424,7 +424,8 @@ function goBack(): void {
   position: absolute;
   top: var(--space-3);
   left: var(--space-4);
-  color: var(--velo-teal-400);
+  /* Цвет — text-primary (Figma DS): иконка сама несёт circle-обводку. */
+  color: var(--velo-text-primary);
 }
 
 .entry__practice-title {

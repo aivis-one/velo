@@ -20,7 +20,7 @@
   <div class="cal-card" @click="$emit('click', practice.id)">
     <div class="cal-card__main">
       <span class="cal-card__icon">
-        <component :is="typeIcon" :size="26" />
+        <component :is="typeIcon" :size="46" />
       </span>
 
       <div class="cal-card__info">
@@ -57,12 +57,11 @@
 import { computed } from 'vue'
 import { formatTime, formatDuration, formatMoney } from '@/utils/format'
 import {
-  IconMeditation,
-  IconBreathwork,
   IconCheck,
   IconCalendar,
   IconClock,
 } from '@/components/icons'
+import { practiceIconFor } from '@/utils/displayHelpers'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
@@ -73,14 +72,10 @@ defineEmits<{
   click: [id: string]
 }>()
 
-// Practice-type icon. Backend practice_type has no "breathwork"; detect it
-// via a title heuristic and fall back to the meditation glyph (same approach
-// as BookingCard.typeIcon).
-const typeIcon = computed(() =>
-  props.practice.title.toLowerCase().includes('breathwork')
-    ? IconBreathwork
-    : IconMeditation,
-)
+// Иконка практики — по `direction` из полной PracticeResponse.
+// practiceIconFor вернёт DIRECTION_ICON[dir] для known direction либо
+// title-heuristic / IconDots fallback (см. displayHelpers).
+const typeIcon = computed(() => practiceIconFor(props.practice))
 
 const masterInitial = computed(() => {
   const name = props.practice.master_name?.trim()
@@ -143,9 +138,8 @@ const badge = computed<Badge>(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-600);
+  /* Иконка сама несёт circle-обводку (IconMeditation.vue) — без teal-подложки. */
+  color: var(--velo-text-primary);
 }
 
 .cal-card__info {
