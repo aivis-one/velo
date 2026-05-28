@@ -13,35 +13,40 @@
 -->
 
 <template>
-  <div class="master-card">
-    <VAvatar
-      :url="avatarUrl ?? ''"
-      :name="masterName ?? 'Мастер'"
-      size="lg"
-    />
-    <div class="master-card__info">
-      <div class="master-card__name">
-        {{ masterName ?? 'Мастер' }}
-        <span class="master-card__verified">
-          <IconCheck :size="14" />
-        </span>
-      </div>
-      <div v-if="methods?.length" class="master-card__tags">
-        <VTag
-          v-for="(method, i) in methods"
-          :key="method"
-          :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
-        >
-          {{ method }}
-        </VTag>
+  <div class="master-card-wrapper">
+    <div class="master-card">
+      <VAvatar
+        :url="avatarUrl ?? ''"
+        :name="masterName ?? 'Мастер'"
+        size="xl"
+      />
+      <div class="master-card__info">
+        <div class="master-card__name">
+          {{ masterName ?? 'Мастер' }}
+          <span class="master-card__verified">
+            <IconCheck :size="14" />
+          </span>
+        </div>
+        <div v-if="methods?.length" class="master-card__tags">
+          <VTag
+            v-for="(method, i) in methods"
+            :key="method"
+            :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
+          >
+            {{ method }}
+          </VTag>
+        </div>
       </div>
     </div>
     <button
-      class="master-card__arrow"
+      class="master-card__more"
       aria-label="Профиль мастера"
       @click="onMore"
     >
-      <IconArrowRight :size="20" />
+      <span class="master-card__more-text">Подробнее</span>
+      <span class="master-card__more-pill">
+        <IconArrowRight :size="20" />
+      </span>
     </button>
   </div>
 </template>
@@ -86,15 +91,28 @@ function onMore(): void {
 </script>
 
 <style scoped>
+/* F-4 sync: wrapper держит карточку + footer-кнопку «Подробнее» под ней.
+ * Figma master-card.svg (336×145 canvas): card 336×104 → gap 5.5 → pill
+ * 63×35 справа. Round to space-1=4 для gap (acceptable visual noise). */
+.master-card-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .master-card {
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-3);
+  /* Figma: card height ровно 104. avatar xl=80 + padding-y 12+12 = 104. */
+  height: var(--velo-card-height-list);
+  padding: 12px var(--space-3);
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  position: relative;
+  /* Figma: tags start at x=111 от card left = 14 padding + 80 avatar + 17 gap.
+   * Round 17 до space-4=16 — расхождение 1px. */
+  gap: var(--space-4);
+  box-sizing: border-box;
 }
 
 .master-card__info {
@@ -105,7 +123,8 @@ function onMore(): void {
 .master-card__name {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  /* Figma: gap name→verified ≈ 12 (233-221). Round до space-2=8. */
+  gap: var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
@@ -117,8 +136,9 @@ function onMore(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  /* Figma: verified circle r=13 → 26×26 (был 18). */
+  width: 26px;
+  height: 26px;
   border-radius: var(--radius-full);
   background: var(--velo-glass-teal-30);
   color: var(--velo-teal-600);
@@ -131,24 +151,43 @@ function onMore(): void {
   margin-top: var(--space-1);
 }
 
-.master-card__arrow {
-  position: absolute;
-  bottom: var(--space-3);
-  right: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  width: 36px;
-  height: 36px;
+/* Footer-кнопка «Подробнее» — отдельным row под card (Figma: text label
+ * + pill 63×35 со стрелкой, right-aligned). Заменяет старую round 36×36
+ * absolute bottom-right inside card. */
+.master-card__more {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--velo-text-primary);
+  justify-content: flex-end;
+  /* Figma: text ends x=259, pill starts x=272.5 → gap 13. */
+  gap: 13px;
+  background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
 
-.master-card__arrow:hover {
+.master-card__more:hover {
   opacity: 0.8;
+}
+
+.master-card__more-text {
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: 0.28px;
+  color: var(--velo-text-primary);
+}
+
+.master-card__more-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Figma: pill 63×35 rx=17.5 (capsule). */
+  width: 63px;
+  height: 35px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+  border: 1px solid #ffffff;
+  color: var(--velo-text-primary);
 }
 </style>
