@@ -33,10 +33,13 @@
     <!-- Back arrow only -- the user can return to the previous screen. -->
     <VHeader show-back @back="router.back()" />
 
-    <!-- Video placeholder (no real video in MVP) -->
-    <div class="live__video">
-      <span class="live__video-label">video</span>
-    </div>
+    <!-- Themed direction placeholder in place of a real video stream
+         (no real video in MVP; Zoom is external). -->
+    <PracticePlaceholder
+      class="live__video"
+      :direction="practice?.direction"
+      :title="practice?.title"
+    />
 
     <!-- Info card -->
     <div class="live__info">
@@ -87,6 +90,7 @@ import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
+import PracticePlaceholder from '@/components/shared/PracticePlaceholder.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -187,26 +191,11 @@ onMounted(() => {
   min-height: 100%;
 }
 
-/* Video placeholder */
+/* Direction placeholder: PracticePlaceholder already carries the
+   336x199 aspect, glass-blue background, white border and glow shadow.
+   Layout-only overrides here. */
 .live__video {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 199px;
-  border-radius: var(--radius-md);
-  background: var(--velo-primary);
-  border: 1px solid #ffffff;
-  box-shadow: var(--velo-shadow-glow);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.live__video-label {
-  font-family: var(--font-body);
-  font-size: 28px;
-  font-weight: 400;
-  color: #ffffff;
-  letter-spacing: 0.02em;
+  align-self: center;
 }
 
 /* Info card */

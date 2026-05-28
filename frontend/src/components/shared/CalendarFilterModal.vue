@@ -1,12 +1,20 @@
 <!--
-  VELO Frontend -- CalendarFilterModal (Calendar iteration, frame 2)
+  VELO Frontend -- CalendarFilterModal (Calendar iteration)
 
   Filter modal for the Calendar feed. Groups (per Figma 22_Calendar filter):
-    - Направление практики (direction)  -- "Все" + multi-select chips
-    - Вид практики  (style)             -- dropdown (VSelect, STYLE_OPTIONS)
-    - Сложность     (difficulty)        -- "Все" + multi-select chips
-    - Длительность  (duration_bucket)   -- "Все" + single-select chips
-    - Время         (time_of_day)       -- "Все" + single-select chips
+    - Направление практики (direction)  -- SINGLE-select chips (incl. "Все")
+    - Вид практики        (style)       -- dropdown, shown ONLY when the
+                                            current direction has styles
+                                            (meditation / yoga / circles)
+    - Сложность           (difficulty)  -- "Все" + multi-select chips
+    - Длительность        (duration_bucket) -- "Все" + single-select chips
+    - Время               (time_of_day) -- "Все" + single-select chips
+
+  Why direction is single-select now (2026-05-28): styles are
+  direction-conditional (см. utils/practiceOptions STYLE_OPTIONS_BY_DIRECTION),
+  so showing a meaningful style picker requires knowing the single direction.
+  Type CalendarFacetFilters.direction stays as PracticeDirection[] for
+  backend compatibility — we just always send 0 or 1 element.
 
   Works on a local DRAFT copy of the facets; nothing is applied until the
   user taps "Применить" (-> emits `apply`). "Сбросить" clears the draft.
@@ -25,15 +33,15 @@
     <div class="cal-filter">
       <h2 class="cal-filter__heading">Фильтр</h2>
 
-      <!-- Направление практики -->
+      <!-- Направление практики (single-select) -->
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Направление практики</h3>
         <div class="cal-filter__chips">
           <button
             type="button"
             class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.direction.length === 0 }"
-            @click="clearArray('direction')"
+            :class="{ 'cal-filter__chip--on': selectedDirection === undefined }"
+            @click="clearDirection"
           >
             Все
           </button>
@@ -42,18 +50,18 @@
             :key="opt.value"
             type="button"
             class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.direction.includes(opt.value) }"
-            @click="toggleArray('direction', opt.value)"
+            :class="{ 'cal-filter__chip--on': selectedDirection === opt.value }"
+            @click="setDirection(opt.value)"
           >
             {{ opt.label }}
           </button>
         </div>
       </section>
 
-      <!-- Вид практики (style dropdown) -->
-      <section class="cal-filter__group">
+      <!-- Вид практики (direction-dependent dropdown) -->
+      <section v-if="styleOptions.length > 0" class="cal-filter__group">
         <h3 class="cal-filter__label">Вид практики</h3>
-        <VSelect v-model="draft.style" :options="STYLE_SELECT_OPTIONS" />
+        <VSelect v-model="draft.style" :options="styleSelectOptions" />
       </section>
 
       <!-- Сложность -->
@@ -64,7 +72,7 @@
             type="button"
             class="cal-filter__chip"
             :class="{ 'cal-filter__chip--on': draft.difficulty.length === 0 }"
-            @click="clearArray('difficulty')"
+            @click="clearDifficulty"
           >
             Все
           </button>
@@ -74,7 +82,7 @@
             type="button"
             class="cal-filter__chip"
             :class="{ 'cal-filter__chip--on': draft.difficulty.includes(opt.value) }"
-            @click="toggleArray('difficulty', opt.value)"
+            @click="toggleDifficulty(opt.value)"
           >
             {{ opt.label }}
           </button>
@@ -141,14 +149,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { reactive, watch, computed } from 'vue'
 import { VModal, VButton, VSelect } from '@/components/ui'
 import {
   DIRECTION_LABEL,
   DIFFICULTY_LABEL,
   TIME_OF_DAY_LABEL,
 } from '@/utils/displayHelpers'
-import { STYLE_OPTIONS } from '@/utils/practiceOptions'
+import { stylesForDirection } from '@/utils/practiceOptions'
 import type { CalendarFacetFilters } from '@/stores/calendar'
 import type {
   PracticeDirection,
@@ -168,8 +176,8 @@ const emit = defineEmits<{
 }>()
 
 // -- Chip option lists (label + value), values match the backend literals --
-// Direction: kundalini is intentionally hidden from the chips (it belongs to
-// "Вид практики" now); the value stays in the type/union, just not shown here.
+// Direction is single-select now (см. file header). Order = DIRECTION_OPTIONS
+// from practiceOptions: meditation → ... → movement.
 const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
   [
     'meditation',
@@ -177,8 +185,11 @@ const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
     'breathwork',
     'somatic',
     'tantra',
-    'womens_circle',
-    'mens_circle',
+    'circles',
+    'sound_healing',
+    'art',
+    'narrative',
+    'movement',
   ] as PracticeDirection[]
 ).map((v) => ({ value: v, label: DIRECTION_LABEL[v] }))
 
@@ -198,14 +209,7 @@ const TIME_CHIPS: { value: TimeOfDay; label: string }[] = (
   ['morning', 'day', 'evening', 'night'] as TimeOfDay[]
 ).map((v) => ({ value: v, label: TIME_OF_DAY_LABEL[v] }))
 
-// "Вид практики" dropdown: a leading empty option = "Все" (no style filter),
-// then the catalog from practiceOptions (mirrors backend allowed styles).
-const STYLE_SELECT_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'Все' },
-  ...STYLE_OPTIONS,
-]
-
-// -- Local draft state (arrays always defined for easy toggling) --
+// -- Local draft state (single direction; array kept for type compat) --
 interface Draft {
   direction: PracticeDirection[]
   difficulty: PracticeDifficulty[]
@@ -222,9 +226,26 @@ const draft = reactive<Draft>({
   time_of_day: undefined,
 })
 
-/** Sync the draft from incoming filters whenever the modal opens. */
+/** Convenience accessor: the single selected direction, or undefined for "Все". */
+const selectedDirection = computed<PracticeDirection | undefined>(() =>
+  draft.direction[0],
+)
+
+/** Style options for the currently selected direction (empty when "Все"
+ *  or when the direction has no styles). */
+const styleOptions = computed(() => stylesForDirection(selectedDirection.value))
+
+const styleSelectOptions = computed(() => [
+  { value: '', label: 'Все' },
+  ...styleOptions.value,
+])
+
+/** Sync the draft from incoming filters whenever the modal opens. Caller
+ *  may pass multi-element direction[] (legacy); we keep only the first. */
 function syncFromProps(): void {
-  draft.direction = [...(props.filters.direction ?? [])]
+  const incoming = props.filters.direction ?? []
+  const first = incoming[0]
+  draft.direction = first !== undefined ? [first] : []
   draft.difficulty = [...(props.filters.difficulty ?? [])]
   draft.style = props.filters.style ?? ''
   draft.duration_bucket = props.filters.duration_bucket
@@ -239,29 +260,43 @@ watch(
   { immediate: true },
 )
 
-// -- Toggle helpers --
-type ArrayKey = 'direction' | 'difficulty'
-
-function toggleArray(key: ArrayKey, value: string): void {
-  const arr = draft[key] as string[]
-  const idx = arr.indexOf(value)
-  if (idx === -1) arr.push(value)
-  else arr.splice(idx, 1)
+// -- Direction (single-select) --
+function setDirection(value: PracticeDirection): void {
+  if (draft.direction[0] === value) {
+    // Tap the active chip again to clear it (acts like "Все" reset).
+    draft.direction = []
+  } else {
+    draft.direction = [value]
+  }
+  // Selected direction changed -> the previous style might be invalid;
+  // clear it. (The style dropdown also disappears if the new direction
+  // has no styles.)
+  draft.style = ''
 }
 
-/** "Все" for a multi-select axis = empty the array. */
-function clearArray(key: ArrayKey): void {
-  ;(draft[key] as string[]).length = 0
+function clearDirection(): void {
+  draft.direction = []
+  draft.style = ''
 }
 
+// -- Difficulty (multi-select) --
+function toggleDifficulty(value: PracticeDifficulty): void {
+  const idx = draft.difficulty.indexOf(value)
+  if (idx === -1) draft.difficulty.push(value)
+  else draft.difficulty.splice(idx, 1)
+}
+
+function clearDifficulty(): void {
+  draft.difficulty.length = 0
+}
+
+// -- Single-select axes (duration_bucket / time_of_day) --
 type SingleKey = 'duration_bucket' | 'time_of_day'
 
 function toggleSingle(key: SingleKey, value: DurationBucket | TimeOfDay): void {
-  // Tap the active chip again to clear it (acts like an "Все" reset).
   draft[key] = (draft[key] === value ? undefined : value) as never
 }
 
-/** "Все" for a single-select axis = clear it. */
 function clearSingle(key: SingleKey): void {
   draft[key] = undefined as never
 }

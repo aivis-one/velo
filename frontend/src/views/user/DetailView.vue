@@ -118,17 +118,13 @@ import {
   IconRatingFire,
   IconRatingGood,
   IconRatingConfused,
-  IconMeditation,
-  IconYoga,
-  IconBreathwork,
-  IconDots,
 } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
 import { extractApiError } from '@/composables/useApiError'
 import { getCheckin, getFeedback } from '@/api/diary'
 import { getPractice } from '@/api/practices'
 import { formatFeedDateTime, formatDate, formatDuration } from '@/utils/format'
-import { MOOD_LABEL, RATING_LABEL } from '@/utils/displayHelpers'
+import { MOOD_LABEL, RATING_LABEL, practiceIconFor } from '@/utils/displayHelpers'
 import type {
   CheckinResponse,
   FeedbackResponse,
@@ -170,12 +166,6 @@ const RATING_ICON: Record<string, Component> = {
   good: IconRatingGood,
   confused: IconRatingConfused,
 }
-const DIRECTION_ICON_LOCAL: Record<string, Component> = {
-  meditation: IconMeditation,
-  yoga: IconYoga,
-  breathwork: IconBreathwork,
-}
-
 const leadIcon = computed<Component>(() => {
   if (detailType.value === 'checkin') {
     return MOOD_ICON[checkin.value?.mood ?? 'mid'] ?? IconMoodMid
@@ -207,10 +197,12 @@ const dateLine = computed(() =>
 
 // -- practice header ---------------------------------------------------------
 
-const practiceIcon = computed<Component>(() => {
-  const dir = practice.value?.direction ?? ''
-  return DIRECTION_ICON_LOCAL[dir] ?? IconDots
-})
+const practiceIcon = computed<Component>(() =>
+  practiceIconFor({
+    direction: practice.value?.direction,
+    title: practice.value?.title,
+  }),
+)
 const practiceDate = computed(() =>
   practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',
 )

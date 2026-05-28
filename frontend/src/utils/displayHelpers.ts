@@ -18,7 +18,19 @@ import type {
   TimeOfDay,
 } from '@/api/types'
 import type { Component } from 'vue'
-import { IconMeditation, IconYoga, IconBreathwork, IconDots } from '@/components/icons'
+import {
+  IconMeditation,
+  IconYoga,
+  IconBreathwork,
+  IconSomatic,
+  IconTantra,
+  IconCircles,
+  IconSoundHealing,
+  IconArt,
+  IconNarrative,
+  IconMovement,
+  IconDots,
+} from '@/components/icons'
 
 // ---------------------------------------------------------------------------
 // Practice type
@@ -151,29 +163,41 @@ export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
   breathwork:    'Дыхательные практики',
   somatic:       'Соматика',
   tantra:        'Тантра',
-  womens_circle: 'Женский круг',
-  mens_circle:   'Мужской круг',
-  kundalini:     'Кундалини',
+  circles:       'Круги',
+  sound_healing: 'Саундхиллинг',
+  art:           'Арт-практики',
+  narrative:     'Нарративные практики',
+  movement:      'Движение',
 }
 
 // Direction -> icon component for the practice hero card.
-// Partial (not Record) ON PURPOSE: the backend direction list will grow
-// (somatic / womens_circle / tantra / ...), and generated.ts will widen
-// PracticeDirection. A full Record would then fail vue-tsc until every new
-// value got an icon. With Partial + DIRECTION_ICON_FALLBACK, a new direction
-// simply renders the fallback glyph until its own icon is added here.
-// IconYoga is a placeholder (TD-CAL-ICON-YOGA), swap when the real asset lands.
+// Partial (not Record) ON PURPOSE: PracticeDirection is hand-maintained in
+// api/types.ts and matches the future backend list — but until backend B-2
+// lands (handoff §9), some directions still can't be created by masters.
+// A new direction added here without its own icon would fall through to
+// DIRECTION_ICON_FALLBACK instead of failing vue-tsc.
 export const DIRECTION_ICON: Partial<Record<PracticeDirection, Component>> = {
-  meditation: IconMeditation,
-  yoga:       IconYoga,
-  breathwork: IconBreathwork,
+  meditation:    IconMeditation,
+  yoga:          IconYoga,
+  breathwork:    IconBreathwork,
+  somatic:       IconSomatic,
+  tantra:        IconTantra,
+  circles:       IconCircles,
+  sound_healing: IconSoundHealing,
+  art:           IconArt,
+  narrative:     IconNarrative,
+  movement:      IconMovement,
 }
 
-/** Neutral placeholder glyph for directions without a dedicated icon yet
- * (somatic / tantra / womens_circle / mens_circle / kundalini). Deliberately
- * NOT IconMeditation: a meditation glyph on a tantra/yoga practice is
- * misleading -- a neutral "..." reads as "icon pending" instead. Swap each new
- * direction into DIRECTION_ICON as its real asset lands. */
+/** Neutral fallback glyph. After F-1 closed (2026-05-28) all 10 directions
+ * in DIRECTION_ICON have real artwork, so this is only hit when:
+ *   - the backend returns an unknown direction string (e.g. transient state
+ *     during the B-2 migration when old kundalini/womens_circle/mens_circle
+ *     records have not been remapped yet);
+ *   - the caller passes direction=null/undefined and the title-heuristic in
+ *     practiceIconFor() also fails to match.
+ * Deliberately NOT IconMeditation — a neutral "..." reads as "icon pending"
+ * instead of misleading the user about the direction. */
 export const DIRECTION_ICON_FALLBACK: Component = IconDots
 
 /**

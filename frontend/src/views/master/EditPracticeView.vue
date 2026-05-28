@@ -96,6 +96,7 @@
               v-model="form.direction"
               label="Направление *"
               :options="DIRECTION_OPTIONS"
+              @update:modelValue="onDirectionChange"
             />
 
             <VSelect
@@ -104,10 +105,11 @@
               :options="DIFFICULTY_OPTIONS"
             />
 
-            <VInput
+            <VSelect
+              v-if="styleOptionsForForm.length > 0"
               v-model="form.style"
               label="Вид практики"
-              placeholder="Кундалини йога"
+              :options="styleSelectOptions"
             />
           </div>
 
@@ -393,10 +395,11 @@ import {
   TIMEZONE_OPTIONS,
   DIRECTION_OPTIONS,
   DIFFICULTY_OPTIONS,
+  stylesForDirection,
 } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { PracticeResponse, PracticeType, PracticeStatus } from '@/api/types'
+import type { PracticeResponse, PracticeType, PracticeStatus, PracticeDirection } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -495,6 +498,21 @@ const STATUS_LABELS: Record<PracticeStatus, string> = {
 }
 function statusLabel(s: PracticeStatus): string {
   return STATUS_LABELS[s] ?? s
+}
+
+// Direction-conditional style options (mirror of CreatePracticeView).
+const styleOptionsForForm = computed(() =>
+  stylesForDirection(form.direction as PracticeDirection),
+)
+const styleSelectOptions = computed(() => [
+  { value: '', label: 'Без вида' },
+  ...styleOptionsForForm.value,
+])
+
+/** Reset style when direction changes — the previous value is likely
+ *  invalid for the new direction. */
+function onDirectionChange(): void {
+  form.style = ''
 }
 
 function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {

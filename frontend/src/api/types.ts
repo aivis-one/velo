@@ -128,15 +128,25 @@ export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'del
 // -- Calendar taxonomy facets (match backend data.taxonomy values) --
 // Mirror of settings.practice_allowed_directions in backend/app/core/config.py.
 // Keep in sync when the backend list is extended.
+//
+// FRONT-FIRST (2026-05-28): the 10 keys below reflect the final taxonomy
+// agreed with the operator. The backend currently accepts the OLD 8 keys
+// (meditation/yoga/breathwork/somatic/tantra/womens_circle/mens_circle/
+// kundalini); see handoff §9 task B-2 for the matching backend rollout
+// (extend practice_allowed_directions, migrate womens_circle/mens_circle
+// → circles + style, migrate kundalini → yoga + style=kundalini). The
+// frontend commit MUST wait for the backend deploy.
 export type PracticeDirection =
   | 'meditation'
   | 'yoga'
   | 'breathwork'
   | 'somatic'
   | 'tantra'
-  | 'womens_circle'
-  | 'mens_circle'
-  | 'kundalini'
+  | 'circles'
+  | 'sound_healing'
+  | 'art'
+  | 'narrative'
+  | 'movement'
 export type PracticeDifficulty = 'beginner' | 'medium' | 'high'
 // -- Calendar feed buckets (match backend filter literals) --
 export type DurationBucket = 'short' | 'long'

@@ -167,14 +167,11 @@ import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
 import {
   IconArrowRight,
-  IconDots,
   IconPen,
   IconCalendar,
   IconClock,
-  IconMeditation,
-  IconYoga,
-  IconBreathwork,
 } from '@/components/icons'
+import { practiceIconFor } from '@/utils/displayHelpers'
 // IconTrash is not re-exported from the icons barrel; import the component
 // file directly (same pattern as other ad-hoc icon imports in the project).
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -212,18 +209,12 @@ const mode = ref<'view' | 'edit'>('view')
 
 const practice = ref<PracticeResponse | null>(null)
 
-const DIRECTION_ICON_LOCAL: Record<string, Component> = {
-  meditation: IconMeditation,
-  yoga: IconYoga,
-  breathwork: IconBreathwork,
-}
-
-const practiceIcon = computed<Component>(() => {
-  const dir = practice.value?.direction ?? ''
-  // Neutral placeholder (IconDots) for directions without a dedicated icon,
-  // matching DiaryFeedCard.
-  return DIRECTION_ICON_LOCAL[dir] ?? IconDots
-})
+const practiceIcon = computed<Component>(() =>
+  practiceIconFor({
+    direction: practice.value?.direction,
+    title: practice.value?.title,
+  }),
+)
 
 const practiceDate = computed(() =>
   practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',

@@ -111,12 +111,8 @@ import {
   IconRatingFire,
   IconRatingGood,
   IconRatingConfused,
-  IconMeditation,
-  IconYoga,
-  IconBreathwork,
   IconPen,
   IconDreamBook,
-  IconDots,
 } from '@/components/icons'
 import {
   FEED_KIND_TITLE,
@@ -125,6 +121,7 @@ import {
   ratingZoneFromScore,
   moodLabelFromScore,
   ratingLabelFromScore,
+  practiceIconFor,
 } from '@/utils/displayHelpers'
 import { formatFeedDateTime, formatDate } from '@/utils/format'
 import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
@@ -189,15 +186,9 @@ const RATING_ICON: Record<string, Component> = {
   confused: IconRatingConfused,
 }
 
-// Only the three directions with real assets are mapped; the five newer ones
-// (somatic / tantra / womens_circle / mens_circle / kundalini) fall back to a
-// neutral glyph below (see directionIcon) until their icons land -- same
-// reasoning as DIRECTION_ICON_FALLBACK in displayHelpers.
-const DIRECTION_ICON_LOCAL: Record<string, Component> = {
-  meditation: IconMeditation,
-  yoga: IconYoga,
-  breathwork: IconBreathwork,
-}
+// Direction -> icon mapping is centralised in displayHelpers
+// (DIRECTION_ICON / practiceIconFor). The diary feed reuses it via
+// directionIcon below so all 10 directions get the right glyph.
 
 // -- titles / labels ---------------------------------------------------------
 
@@ -268,11 +259,12 @@ const outcomeLabel = computed(
   () => OUTCOME_LABEL[outcomeStatus.value] ?? '',
 )
 
-const directionIcon = computed<Component>(() => {
-  const dir = snapStr('direction') ?? ''
-  // Neutral placeholder (not IconMeditation) for unmapped directions.
-  return DIRECTION_ICON_LOCAL[dir] ?? IconDots
-})
+const directionIcon = computed<Component>(() =>
+  practiceIconFor({
+    direction: snapStr('direction'),
+    title: snapStr('practice_title'),
+  }),
+)
 
 // -- standard icon -----------------------------------------------------------
 
