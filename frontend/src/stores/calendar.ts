@@ -6,9 +6,14 @@
 // usePracticesStore (Dashboard/old catalog) so that week navigation and
 // the Calendar facet filters never disturb that shared feed.
 //
-// Loading strategy (agreed): the whole visible week is fetched in ONE
-// request (date_from = Monday 00:00, date_to = Sunday 23:59:59 of the
-// week, in the user's local timezone). The volume per week is small, so:
+// Window model: the strip shows a SLIDING 7-day window whose first cell
+// is the `weekAnchor` (defaults to today). Prev/next shift the anchor by
+// ±7 days. Past windows (anchor < today) are blocked at the UI level via
+// `canGoPrev` because past days can no longer be booked.
+//
+// Loading strategy (agreed): the whole visible window is fetched in ONE
+// request (date_from = anchor 00:00, date_to = anchor+6 23:59:59 of the
+// window, in the user's local timezone). The volume is small, so:
 //   - day dot-markers are derived on the client from the loaded set,
 //   - the selected-day list is filtered on the client,
 //   - no pagination is needed (avoids the "client filter breaks server
@@ -65,20 +70,10 @@ function localDateKey(d: Date): string {
   }).format(d)
 }
 
-/** Monday 00:00:00.000 (local) of the week containing `d`. */
-function startOfWeek(d: Date): Date {
-  const date = new Date(d)
-  date.setHours(0, 0, 0, 0)
-  // getDay(): 0=Sun..6=Sat. Shift so Monday is the first day.
-  const day = date.getDay()
-  const diff = (day === 0 ? -6 : 1) - day
-  date.setDate(date.getDate() + diff)
-  return date
-}
-
-/** The 7 day-Dates (Mon..Sun, local midnight) of the week containing `d`. */
+/** 7 day-Dates starting from `anchor` (normalized to local midnight). */
 function weekDays(anchor: Date): Date[] {
-  const start = startOfWeek(anchor)
+  const start = new Date(anchor)
+  start.setHours(0, 0, 0, 0)
   return Array.from({ length: 7 }, (_, i) => {
     const day = new Date(start)
     day.setDate(start.getDate() + i)
@@ -86,12 +81,26 @@ function weekDays(anchor: Date): Date[] {
   })
 }
 
+/** Parse a YYYY-MM-DD local-day key back to a Date at local midnight. */
+function parseLocalDateKey(key: string): Date {
+  const [y, m, d] = key.split('-').map(Number)
+  return new Date(y!, (m ?? 1) - 1, d ?? 1)
+}
+
+/** Today at local midnight. */
+function todayMidnight(): Date {
+  const t = new Date()
+  t.setHours(0, 0, 0, 0)
+  return t
+}
+
 export const useCalendarStore = defineStore('calendar', () => {
   // -- State --
-  // Anchor date inside the currently viewed week (local). Defaults to today.
-  const weekAnchor = ref<Date>(new Date())
+  // First day of the currently viewed 7-day window (local midnight).
+  // Defaults to today; never moved earlier than today via the UI.
+  const weekAnchor = ref<Date>(todayMidnight())
   // Selected day key (YYYY-MM-DD, local). Defaults to today.
-  const selectedDate = ref<string>(localDateKey(new Date()))
+  const selectedDate = ref<string>(localDateKey(weekAnchor.value))
   // Practices for the whole visible week (one request).
   const weekPractices = ref<PracticeResponse[]>([])
   // Active facet filters (server-applied on load).
@@ -100,8 +109,14 @@ export const useCalendarStore = defineStore('calendar', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // -- Derived: the 7 day-Dates of the current week --
+  // -- Derived: the 7 day-Dates of the current window --
   const days = computed<Date[]>(() => weekDays(weekAnchor.value))
+
+  // Prev arrow is disabled when the window already starts at today
+  // (we don't navigate into the past: those days can't be booked).
+  const canGoPrev = computed<boolean>(
+    () => localDateKey(weekAnchor.value) !== localDateKey(new Date()),
+  )
 
   // -- Derived: set of local-day keys that have at least one practice --
   // Markers are computed in each practice's own timezone so a practice
@@ -176,19 +191,27 @@ export const useCalendarStore = defineStore('calendar', () => {
     selectedDate.value = dateKey
   }
 
-  /** Move to the previous week and reload. Keeps the same weekday selected. */
-  async function prevWeek(): Promise<void> {
+  /** Shift the window by ±7 days; also shift selectedDate so its position
+   *  in the strip (and weekday) is preserved. */
+  function shiftWindow(deltaDays: number): void {
     const a = new Date(weekAnchor.value)
-    a.setDate(a.getDate() - 7)
+    a.setDate(a.getDate() + deltaDays)
     weekAnchor.value = a
+    const s = parseLocalDateKey(selectedDate.value)
+    s.setDate(s.getDate() + deltaDays)
+    selectedDate.value = localDateKey(s)
+  }
+
+  /** Move the window 7 days back and reload. No-op if already at today. */
+  async function prevWeek(): Promise<void> {
+    if (!canGoPrev.value) return
+    shiftWindow(-7)
     await loadWeek()
   }
 
-  /** Move to the next week and reload. Keeps the same weekday selected. */
+  /** Move the window 7 days forward and reload. */
   async function nextWeek(): Promise<void> {
-    const a = new Date(weekAnchor.value)
-    a.setDate(a.getDate() + 7)
-    weekAnchor.value = a
+    shiftWindow(7)
     await loadWeek()
   }
 
@@ -204,10 +227,11 @@ export const useCalendarStore = defineStore('calendar', () => {
     await loadWeek()
   }
 
-  /** First load for the screen: jump to the week of today and fetch it. */
+  /** First load for the screen: snap the window to today and fetch it. */
   async function init(): Promise<void> {
-    weekAnchor.value = new Date()
-    selectedDate.value = localDateKey(new Date())
+    const today = todayMidnight()
+    weekAnchor.value = today
+    selectedDate.value = localDateKey(today)
     await loadWeek()
   }
 
@@ -221,6 +245,7 @@ export const useCalendarStore = defineStore('calendar', () => {
     error,
     // derived
     days,
+    canGoPrev,
     daysWithPractices,
     selectedDayPractices,
     // actions

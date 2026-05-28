@@ -16,6 +16,7 @@
       :selected-date="store.selectedDate"
       :days-with-practices="store.daysWithPractices"
       :local-date-key="store.localDateKey"
+      :can-go-prev="store.canGoPrev"
       @select-day="store.selectDay"
       @prev-week="store.prevWeek"
       @next-week="store.nextWeek"
@@ -47,6 +48,7 @@
         type="button"
         class="week-strip__arrow"
         aria-label="Предыдущая неделя"
+        :disabled="!canGoPrev"
         @click="$emit('prev-week')"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -83,7 +85,7 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  /** The 7 day-Dates (Mon..Sun) of the current week. */
+  /** The 7 day-Dates of the current window (today-anchored). */
   days: Date[]
   /** Selected day key (YYYY-MM-DD, local). */
   selectedDate: string
@@ -91,6 +93,8 @@ const props = defineProps<{
   daysWithPractices: Set<string>
   /** Local-day key formatter (shared with the store). */
   localDateKey: (d: Date) => string
+  /** Whether the prev-window arrow is enabled (false when window starts today). */
+  canGoPrev: boolean
 }>()
 
 defineEmits<{
@@ -219,5 +223,14 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__arrow:hover {
   opacity: 0.85;
+}
+
+.week-strip__arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.week-strip__arrow:disabled:hover {
+  opacity: 0.35;
 }
 </style>

@@ -28,6 +28,7 @@
       :selected-date="store.selectedDate"
       :days-with-practices="store.daysWithPractices"
       :local-date-key="store.localDateKey"
+      :can-go-prev="store.canGoPrev"
       @select-day="store.selectDay"
       @prev-week="store.prevWeek"
       @next-week="store.nextWeek"
