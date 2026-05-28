@@ -45,8 +45,18 @@
       </p>
     </div>
 
-    <!-- Actions -->
+    <!-- Actions — side-by-side, safe action ЛЕВЕЕ и primary-вариант
+         (Figma cancel-reservation.svg + DS-паттерн для destructive-confirm:
+         prominent = safe, subtle/destructive = pink). -->
     <div class="cancel__actions">
+      <VButton
+        variant="primary"
+        block
+        :disabled="loading"
+        @click="onClose"
+      >
+        Нет, оставить
+      </VButton>
       <VButton
         variant="danger"
         block
@@ -55,14 +65,6 @@
         @click="$emit('confirm')"
       >
         Да, отменить
-      </VButton>
-      <VButton
-        variant="ghost"
-        block
-        :disabled="loading"
-        @click="onClose"
-      >
-        Нет, оставить
       </VButton>
     </div>
   </VModal>
@@ -169,10 +171,12 @@ const willRefund = computed(() => {
   color: var(--velo-success-text);
 }
 
-/* Actions */
+/* Actions: side-by-side (F-5.3 sync с Figma cancel-reservation.svg).
+ * Каждая кнопка block (=100%) — flex parent делит пополам. Gap space-2 (8)
+ * близок к Figma 11 (diff 3, acceptable visual noise). */
 .cancel__actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: var(--space-2);
 }
 </style>
