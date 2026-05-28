@@ -75,7 +75,7 @@
     <!-- Practice direction glyph, top-left. -->
     <component
       :is="directionIcon"
-      :size="40"
+      :size="37"
       class="feed-card__practice-icon"
     />
   </div>
@@ -333,6 +333,9 @@ function onTap(): void {
   border-radius: var(--radius-md);
   border: 1.829px solid;
   text-align: center;
+  /* Figma diary-list.svg: banner narrow ~290 centered в 336 content_width. */
+  max-width: 290px;
+  margin-inline: auto;
 }
 
 .feed-card--banner-teal {
@@ -377,7 +380,7 @@ function onTap(): void {
    * длине titles левый край плавал ±7px по горизонтали. */
   text-align: left;
   letter-spacing: 0.32px;
-  margin-left: calc(var(--space-4) + 40px + 9px);
+  margin-left: calc(var(--space-4) + 37px + 9px);
   padding-right: var(--space-4);
   white-space: nowrap;
   overflow: hidden;
@@ -391,7 +394,7 @@ function onTap(): void {
    * center — master row плавал ±27px при разной длине имени мастера. */
   justify-content: flex-start;
   gap: var(--space-1);
-  margin-left: calc(var(--space-4) + 40px + 9px);
+  margin-left: calc(var(--space-4) + 37px + 9px);
 }
 
 .feed-card__avatar {
@@ -497,7 +500,9 @@ function onTap(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  /* Figma diary-list.svg: standard icon container 37 (circle r=19 → d=38). */
+  width: 37px;
+  height: 37px;
 }
 
 /* Monochrome glyphs take the brand text color; mood faces carry their own
