@@ -305,7 +305,8 @@ onMounted(() => {
 
 .calendar__heading {
   font-family: var(--font-body);
-  font-size: var(--text-lg);
+  /* Figma 2266:2307 — заголовок 18 (text-base), не text-lg. */
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;

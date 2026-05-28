@@ -71,7 +71,11 @@ defineEmits<{
 .mobile-layout__main {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
+  /* Horizontal screen-padding по Figma DS — 33px (--velo-screen-padding).
+   * Vertical оставляем --space-4 (16). Точечные экраны могут добавить
+   * vertical паддинги поверх, но screen-padding по бокам — единая
+   * DS-константа, единое место правки. */
+  padding: var(--space-4) var(--velo-screen-padding);
   -webkit-overflow-scrolling: touch;
 }
 

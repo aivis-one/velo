@@ -225,8 +225,9 @@ const practiceIcon = computed(() =>
   flex: 1;
   display: flex;
   flex-direction: column;
-  /* Figma 2266:716: горизонтальный screen-padding = 33px, не 16px. */
-  padding: var(--space-6) var(--velo-screen-padding);
+  /* Horizontal screen-padding теперь раздаётся MobileLayout-ом (--velo-screen-padding).
+   * Здесь добавляем только vertical, чтобы не было двойного отступа по бокам. */
+  padding: var(--space-6) 0;
   gap: var(--space-6);
 }
 

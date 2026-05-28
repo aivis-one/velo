@@ -135,7 +135,8 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__days {
   display: flex;
-  gap: var(--space-2);
+  /* Figma 2266:2307 — gap между day-pills = 5px, не --space-2 (8). */
+  gap: 5px;
   justify-content: space-between;
 }
 

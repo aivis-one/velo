@@ -17,23 +17,23 @@
 -->
 
 <template>
+  <!-- Layout по Figma 2266:2307: card 336×104 фиксированной высоты,
+       icon absolute слева, title и master row центрированы,
+       footer (meta + badge) внизу. -->
   <div class="cal-card" @click="$emit('click', practice.id)">
-    <div class="cal-card__main">
-      <span class="cal-card__icon">
-        <component :is="typeIcon" :size="46" />
-      </span>
+    <span class="cal-card__icon">
+      <component :is="typeIcon" :size="46" />
+    </span>
 
-      <div class="cal-card__info">
-        <h4 class="cal-card__title">{{ practice.title }}</h4>
-        <p class="cal-card__master">
-          <span class="cal-card__master-avatar">{{ masterInitial }}</span>
-          <span class="cal-card__master-name">
-            {{ practice.master_name ?? 'Мастер' }}
-          </span>
-          <span class="cal-card__verified"><IconCheck :size="11" /></span>
-        </p>
-      </div>
-    </div>
+    <h4 class="cal-card__title">{{ practice.title }}</h4>
+
+    <p class="cal-card__master">
+      <span class="cal-card__master-avatar">{{ masterInitial }}</span>
+      <span class="cal-card__master-name">
+        {{ practice.master_name ?? 'Мастер' }}
+      </span>
+      <span class="cal-card__verified"><IconCheck :size="11" /></span>
+    </p>
 
     <div class="cal-card__footer">
       <span class="cal-card__meta">
@@ -109,14 +109,15 @@ const badge = computed<Badge>(() => {
 </script>
 
 <style scoped>
+/* Figma 2266:2307 — card 336×104, padding 13/15, icon absolute слева,
+ * title и master row центрированы по карточке, footer внизу. */
 .cal-card {
+  position: relative;
+  height: 104px;
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  padding: 13px 15px;
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -125,16 +126,12 @@ const badge = computed<Badge>(() => {
   opacity: 0.9;
 }
 
-.cal-card__main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
 .cal-card__icon {
+  position: absolute;
+  left: 15px;
+  top: 13px;
   width: 46px;
   height: 46px;
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -142,28 +139,27 @@ const badge = computed<Badge>(() => {
   color: var(--velo-text-primary);
 }
 
-.cal-card__info {
-  flex: 1;
-  min-width: 0;
-}
-
 .cal-card__title {
+  text-align: center;
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  line-height: 1.3;
-  margin: 0 0 var(--space-1);
+  letter-spacing: 0.36px;
+  line-height: 1;
+  margin: 0 0 5px;
 }
 
 .cal-card__master {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  gap: 10px;
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin: 0;
+  letter-spacing: 0.28px;
+  margin: 0 0 19px;
 }
 
 .cal-card__master-avatar {
