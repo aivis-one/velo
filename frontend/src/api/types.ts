@@ -90,6 +90,7 @@ export type {
   UpdateReportRequest,
   UserResponse,
   UserRole,
+  UserStatsResponse,
   UserUpdate,
   VerifyMasterRequest,
   WaitlistConfirmResponse,
@@ -176,7 +177,7 @@ export type DiaryEventKind =
   | 'note'
   | 'dream'
 
-// Filter chips on the feed. Map 1:1 onto backend `category` query values
+// Filter chips on the feed. Map 1:1 onto backend \`category\` query values
 // (settings.diary_feed_categories). Omitting category = "Все".
 export type DiaryFeedCategory =
   | 'entries'
@@ -187,7 +188,7 @@ export type DiaryFeedCategory =
 
 // Query params for GET /api/v1/diary/feed (cursor pagination).
 export interface DiaryFeedFilters {
-  // Filter chips -> repeated `category` params. Empty/undefined = all.
+  // Filter chips -> repeated \`category\` params. Empty/undefined = all.
   categories?: DiaryFeedCategory[]
   date_from?: string
   date_to?: string
