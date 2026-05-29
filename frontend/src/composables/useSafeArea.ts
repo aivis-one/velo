@@ -1,103 +1,53 @@
 // =============================================================================
-// VELO Frontend -- useSafeArea Composable (safe-area step 0)
+// VELO Frontend -- useSafeArea Composable (@tma.js/sdk-vue) -- safe-area step 2
 // =============================================================================
 //
-// Single source of truth for the Telegram content safe-area top inset.
+// Single source of truth for the Telegram content safe-area top inset, now
+// backed by the official SDK signal instead of a hand-rolled window.Telegram
+// event subscription.
 //
-// WHY THIS EXISTS (and why a plain CSS var() was not enough):
-//   The Telegram SDK writes --tg-content-safe-area-inset-top onto :root via
-//   element.style.setProperty AFTER the first paint (it arrives on the async
-//   contentSafeAreaChanged event). In the Telegram iOS WebView, a stylesheet
-//   rule reading that CSS variable through var() does NOT reliably recompute
-//   when the variable changes later -- so a layout whose padding-top is
-//   `var(--tg-content-safe-area-inset-top)` stays at the fallback 0px even
-//   once the real inset (46px in fullscreen) has been pushed. Reading the
-//   value in JS and exposing it as a reactive Vue ref forces Vue to re-render
-//   the bound inline style, which DOES update the rendered padding.
+// WHY THE SDK SIGNAL (and not a raw CSS var or manual onEvent):
+//   The content safe-area inset arrives asynchronously, after first paint.
+//   The vendored SDK wrote --tg-content-safe-area-inset-top via a raw
+//   setProperty that did not trigger a style recompute in the Telegram iOS
+//   WebView, so a CSS var() stayed at 0. @tma.js/sdk exposes the inset as a
+//   reactive SIGNAL (viewport.contentSafeAreaInsetTop); useSignal() turns it
+//   into a Vue ref that updates on every change, so any inline style bound to
+//   it re-renders when the inset arrives -- which is what actually moves the
+//   content.
 //
-//   Device-verified: with this reactive ref the dashboard content starts at
-//   the inset offset on first open, with no manual refresh.
+// GUARDED: outside Telegram (standalone browser, unit tests in happy-dom) the
+// viewport component is never mounted, so reading the signal is unsafe. We
+// detect mount state and fall back to 0, keeping the standalone build and the
+// test gate green.
 //
-// PATTERN: module-level ref shared across all useSafeArea() calls, matching
-// the singleton-composable style already used by useAuth / useToast.
+// PATTERN: thin composable returning a readonly reactive value, consistent
+// with useAuth / useToast.
 // =============================================================================
 
-import { ref, readonly, onMounted, onUnmounted } from 'vue'
-
-/** Minimal shape of the bits of the Telegram WebApp SDK we read here. */
-interface TelegramWebAppLike {
-  contentSafeAreaInset?: { top?: number; bottom?: number; left?: number; right?: number }
-  safeAreaInset?: { top?: number; bottom?: number; left?: number; right?: number }
-  onEvent?: (event: string, callback: () => void) => void
-  offEvent?: (event: string, callback: () => void) => void
-}
-
-function getWebApp(): TelegramWebAppLike | null {
-  return (window as unknown as { Telegram?: { WebApp?: TelegramWebAppLike } }).Telegram?.WebApp ?? null
-}
+import { computed, type ComputedRef } from 'vue'
+import { viewport, useSignal } from '@tma.js/sdk-vue'
 
 /**
- * Content safe-area top inset in pixels.
+ * Reactive Telegram content safe-area top inset, in pixels.
  *
- * "Content" safe area is the space Telegram reserves for its own controls
- * (Close / menu) when the Mini App is opened fullscreen. In fullscreen it is
- * 46px on the tested device; launched inside a chat it is 0 (Telegram draws
- * its own header). This is the value to push content down by.
- */
-const contentSafeTop = ref<number>(readInset())
-
-/** How many live consumers are mounted -- so we subscribe once and clean up. */
-let _refCount = 0
-
-/** Telegram event names that affect the safe area (SDK uses camelCase). */
-const SAFE_AREA_EVENTS = ['contentSafeAreaChanged', 'safeAreaChanged', 'viewportChanged'] as const
-
-function readInset(): number {
-  const wa = getWebApp()
-  const top = wa?.contentSafeAreaInset?.top
-  return typeof top === 'number' ? top : 0
-}
-
-function refresh(): void {
-  contentSafeTop.value = readInset()
-}
-
-/**
- * Reactive access to the Telegram content safe-area top inset.
- *
- * Returns a readonly ref (px). Components bind it to an inline style, e.g.
+ * "Content" safe area is the room Telegram reserves for its own controls
+ * (Close / menu) in fullscreen. Device-verified: 46px in fullscreen, 0 inside
+ * a chat. Bind it to an inline style so the padding re-renders reactively:
  *   :style="{ paddingTop: contentSafeTop + 'px' }"
- * so the padding re-renders when the inset arrives/changes.
  */
-export function useSafeArea() {
-  onMounted(() => {
-    _refCount += 1
-    // Read once now (covers the case where the inset is already present), then
-    // keep it in sync with Telegram's async events.
-    refresh()
-    const wa = getWebApp()
-    if (wa?.onEvent) {
-      for (const evt of SAFE_AREA_EVENTS) {
-        wa.onEvent(evt, refresh)
-      }
-    }
+export function useSafeArea(): { contentSafeTop: ComputedRef<number> } {
+  // viewport.contentSafeAreaInsetTop is a signal; useSignal gives a Vue ref
+  // that tracks it. When the viewport isn't mounted (standalone / tests),
+  // reading the signal could throw, so guard with isMounted and default to 0.
+  const isMounted = useSignal(viewport.isMounted)
+  const rawTop = useSignal(viewport.contentSafeAreaInsetTop)
+
+  const contentSafeTop = computed<number>(() => {
+    if (!isMounted.value) return 0
+    const top = rawTop.value
+    return typeof top === 'number' && Number.isFinite(top) ? top : 0
   })
 
-  onUnmounted(() => {
-    _refCount -= 1
-    if (_refCount <= 0) {
-      _refCount = 0
-      const wa = getWebApp()
-      if (wa?.offEvent) {
-        for (const evt of SAFE_AREA_EVENTS) {
-          wa.offEvent(evt, refresh)
-        }
-      }
-    }
-  })
-
-  return {
-    /** Content safe-area top inset in px (reactive, readonly). */
-    contentSafeTop: readonly(contentSafeTop),
-  }
+  return { contentSafeTop }
 }
