@@ -89,11 +89,14 @@
         >
           <template #meta-left>
             <span class="plc-meta-item">
-              <IconCalendar :size="14" /> {{ practiceDate }}
+              <IconCalendar :size="14" /> {{ practiceTime }}
             </span>
             <span class="plc-meta-item">
               <IconClock :size="14" /> {{ practiceDuration }}
             </span>
+          </template>
+          <template v-if="practiceDone" #badge>
+            <VBadge variant="success">Состоялась</VBadge>
           </template>
         </PracticeListCard>
 
@@ -152,7 +155,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconArrowRight,
@@ -167,7 +170,7 @@ import { useDiaryStore } from '@/stores/diary'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { getPractice } from '@/api/practices'
-import { formatFeedDateTime, formatDate, formatDuration } from '@/utils/format'
+import { formatFeedDateTime, formatDuration, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
 const MAX_TITLE_LEN = 200
@@ -197,11 +200,18 @@ const mode = ref<'view' | 'edit'>('view')
 
 const practice = ref<PracticeResponse | null>(null)
 
-const practiceDate = computed(() =>
-  practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',
+const practiceTime = computed(() =>
+  practice.value ? formatTime(practice.value.scheduled_at, tz.value) : '',
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
+)
+// "Состоялась" badge only for a past practice (a note linked to an upcoming
+// practice must not claim it already happened).
+const practiceDone = computed(
+  () =>
+    !!practice.value &&
+    new Date(practice.value.scheduled_at).getTime() < Date.now(),
 )
 
 // Muted context line linking the note to its practice (if any).

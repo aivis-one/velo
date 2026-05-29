@@ -69,6 +69,7 @@
             :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
             @click="toggleView(); close()"
           >
+            <!-- On map -> offer "list" (bulleted rows); on list -> offer "thread". -->
             <svg
               v-if="viewMode === 'map'"
               class="diary-feed__menu-glyph"
@@ -77,10 +78,13 @@
               xmlns="http://www.w3.org/2000/svg"
               aria-hidden="true"
             >
+              <circle cx="4" cy="5" r="1.3" fill="currentColor" />
+              <circle cx="4" cy="10" r="1.3" fill="currentColor" />
+              <circle cx="4" cy="15" r="1.3" fill="currentColor" />
               <path
-                d="M3 5h14M3 10h14M3 15h14"
+                d="M8 5h9M8 10h9M8 15h9"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="1.8"
                 stroke-linecap="round"
               />
             </svg>
@@ -92,12 +96,18 @@
               xmlns="http://www.w3.org/2000/svg"
               aria-hidden="true"
             >
-              <circle cx="10" cy="4" r="2" fill="currentColor" />
-              <circle cx="10" cy="16" r="2" fill="currentColor" />
               <path
-                d="M10 6v8M10 10h6"
+                d="M10 3.5v13"
                 stroke="currentColor"
-                stroke-width="1.6"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <circle cx="10" cy="5" r="2.3" fill="currentColor" />
+              <circle cx="10" cy="15" r="2.3" fill="currentColor" />
+              <path
+                d="M10 10h5.5"
+                stroke="currentColor"
+                stroke-width="1.8"
                 stroke-linecap="round"
               />
             </svg>

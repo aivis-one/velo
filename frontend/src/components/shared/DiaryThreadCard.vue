@@ -62,6 +62,11 @@
     </span>
     <span class="tcard__tx">
       <span class="tcard__t1">{{ sideTitle }}</span>
+      <!-- Mood/rating scale dots (Figma map side card), feedback only. -->
+      <span v-if="kind === 'feedback'" class="tcard__scale" aria-hidden="true">
+        <i class="tcard__dot tcard__dot--a" />
+        <i class="tcard__dot tcard__dot--b" />
+      </span>
     </span>
     <span v-if="sideTag" class="tcard__tag">{{ sideTag }}</span>
   </button>
@@ -344,6 +349,27 @@ function onTap(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+}
+
+.tcard__scale {
+  display: inline-flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.tcard__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  display: block;
+}
+
+.tcard__dot--a {
+  background: var(--velo-text-primary);
+}
+
+.tcard__dot--b {
+  background: var(--velo-teal-400);
 }
 .tcard__tag {
   flex-shrink: 0;

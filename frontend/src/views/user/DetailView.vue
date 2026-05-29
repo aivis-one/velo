@@ -66,11 +66,14 @@
         >
           <template #meta-left>
             <span class="plc-meta-item">
-              <IconCalendar :size="14" /> {{ practiceDate }}
+              <IconCalendar :size="14" /> {{ practiceTime }}
             </span>
             <span class="plc-meta-item">
               <IconClock :size="14" /> {{ practiceDuration }}
             </span>
+          </template>
+          <template v-if="practiceDone" #badge>
+            <VBadge variant="success">Состоялась</VBadge>
           </template>
         </PracticeListCard>
 
@@ -97,7 +100,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconArrowRight,
@@ -114,7 +117,7 @@ import { useAuthStore } from '@/stores/auth'
 import { extractApiError } from '@/composables/useApiError'
 import { getCheckin, getFeedback } from '@/api/diary'
 import { getPractice } from '@/api/practices'
-import { formatFeedDateTime, formatDate, formatDuration } from '@/utils/format'
+import { formatFeedDateTime, formatDuration, formatTime } from '@/utils/format'
 import { MOOD_LABEL, RATING_LABEL } from '@/utils/displayHelpers'
 import type {
   CheckinResponse,
@@ -188,11 +191,18 @@ const dateLine = computed(() =>
 
 // -- practice header (rendered by PracticeListCard) --------------------------
 
-const practiceDate = computed(() =>
-  practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',
+const practiceTime = computed(() =>
+  practice.value ? formatTime(practice.value.scheduled_at, tz.value) : '',
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
+)
+// "Состоялась" badge only for a practice already in the past — a check-in
+// before an upcoming practice must not claim it already happened.
+const practiceDone = computed(
+  () =>
+    !!practice.value &&
+    new Date(practice.value.scheduled_at).getTime() < Date.now(),
 )
 
 // Context line under the comment: relates this check-in / feedback to the
