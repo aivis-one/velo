@@ -767,6 +767,8 @@ export interface UserResponse {
   created_at: string
   last_login_at: string | null
   onboarding_completed: boolean
+  phone: string | null
+  bio: string | null
 }
 
 /** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */
@@ -775,13 +777,15 @@ export interface UserStatsResponse {
   hours_attended: number
 }
 
-/** PATCH /api/v1/users/me — updatable profile fields. All fields are optional. Only provided fields are updated. avatar_url is excluded — managed by Telegram (future: Bot API). Empty strings are rejected (min_length=1). To clear a field, send null explicitly: {"last_name": null}. timezone and language are NOT NULL in DB — sending null for them is rejected by _reject_null_for_required_fields (mode="before"). onboarding_completed is written into the credentials JSONB by the service layer (not a column). null is meaningless here, so only true/false are accepted; "not sent" leaves it untouched. */
+/** PATCH /api/v1/users/me — updatable profile fields. All fields are optional. Only provided fields are updated. avatar_url is excluded — managed by Telegram (future: Bot API). Empty strings are rejected (min_length=1). To clear a field, send null explicitly: {"last_name": null}. timezone and language are NOT NULL in DB — sending null for them is rejected by _reject_null_for_required_fields (mode="before"). onboarding_completed is written into the credentials JSONB by the service layer (not a column). null is meaningless here, so only true/false are accepted; "not sent" leaves it untouched. phone and bio also live in the credentials JSONB (schema-on-read, same pattern). Unlike the name fields, they allow an EMPTY STRING as a valid value: sending "" clears the field (stored as "" in credentials). They have no min_length for that reason -- only a max_length cap. "Not sent" leaves them untouched; null is treated the same as "not sent" by the service (dropped), so use "" (not null) to clear. */
 export interface UserUpdate {
   first_name?: string | null
   last_name?: string | null
   timezone?: string | null
   language?: string | null
   onboarding_completed?: boolean | null
+  phone?: string | null
+  bio?: string | null
 }
 
 /** POST /admin/masters/{user_id}/verify -- request body. */
