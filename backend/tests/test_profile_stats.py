@@ -24,6 +24,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import (
     Practice,
     PracticeStatus,
@@ -60,15 +61,30 @@ async def _make_master(
     db_session: AsyncSession,
     telegram_id: int,
 ) -> str:
-    """Create a master user (owns the practices). Returns user id."""
+    """Create a master user that can own practices. Returns user id.
+
+    Practices reference master_profiles.user_id (FK practices_master_id_fkey),
+    so a plain role change is not enough -- a MasterProfile row must exist for
+    this user, otherwise inserting a practice violates the FK. We don't need a
+    verified status here (the stats aggregate doesn't care), so a minimal
+    profile with a verified-shaped data blob is sufficient and future-proof.
+    """
     auth = await login_user(client, telegram_id=telegram_id, first_name="Master")
+    user_id = auth["user"]["id"]
+
     await db_session.execute(
         update(User)
-        .where(User.id == auth["user"]["id"])
+        .where(User.id == user_id)
         .values(role=UserRole.MASTER.value)
     )
+    db_session.add(
+        MasterProfile(
+            user_id=user_id,
+            data={"account": {"status": "verified"}},
+        )
+    )
     await db_session.commit()
-    return auth["user"]["id"]
+    return user_id
 
 
 async def _make_completed_practice(
