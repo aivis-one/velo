@@ -53,3 +53,11 @@ export { default as IconDreamBook } from './IconDreamBook.vue'
 export { default as IconDots } from './IconDots.vue'
 export { default as IconMic } from './IconMic.vue'
 export { default as IconSend } from './IconSend.vue'
+
+// -- Profile menu (Screen A): monochrome glyphs (currentColor) --
+export { default as IconEdit } from './IconEdit.vue'
+export { default as IconBookings } from './IconBookings.vue'
+export { default as IconBell } from './IconBell.vue'
+export { default as IconGlobe } from './IconGlobe.vue'
+export { default as IconShare } from './IconShare.vue'
+export { default as IconLogout } from './IconLogout.vue'

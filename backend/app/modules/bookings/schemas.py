@@ -155,3 +155,18 @@ class AttendanceResponse(BaseModel):
     no_show: int
     pending: int
     items: list[AttendanceItemResponse]
+
+
+# -- Screen A: profile stats --
+
+
+class UserStatsResponse(BaseModel):
+    """GET /api/v1/bookings/me/stats -- current user's practice stats.
+
+    Powers the two stat cards on the main profile screen:
+      - practices_attended: how many practices the user actually attended.
+      - hours_attended: total attended duration in hours (one decimal).
+    """
+
+    practices_attended: int
+    hours_attended: float

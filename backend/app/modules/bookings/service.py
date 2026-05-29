@@ -809,3 +809,43 @@ async def get_booking_by_id(
         raise NotFoundError("Booking not found")
 
     return booking, practice
+
+
+# ===================================================================
+# Profile stats (Screen A: main profile)
+# ===================================================================
+
+
+async def get_user_practice_stats(
+    user: User,
+    session: AsyncSession,
+) -> tuple[int, float]:
+    """Aggregate the user's attended-practice stats for the profile screen.
+
+    Returns (practices_attended, hours_attended):
+      - practices_attended: count of the user's bookings with status=attended.
+      - hours_attended: sum of those practices' duration_minutes / 60,
+        rounded to one decimal (mockup shows e.g. "9.5").
+
+    Single ORM query (count + coalesced sum) joined practices<->bookings.
+    Only attended bookings count, so the two numbers stay consistent
+    (a practice contributes to both the count and the hours, or neither).
+    coalesce keeps sum at 0 (not NULL) when the user has no attended
+    bookings, so the empty case returns (0, 0.0).
+    """
+    stmt = (
+        select(
+            func.count(Booking.id),
+            func.coalesce(func.sum(Practice.duration_minutes), 0),
+        )
+        .join(Practice, Booking.practice_id == Practice.id)
+        .where(
+            Booking.user_id == user.id,
+            Booking.status == BookingStatus.ATTENDED.value,
+        )
+    )
+    result = await session.execute(stmt)
+    practices_attended, total_minutes = result.one()
+
+    hours_attended = round(int(total_minutes) / 60, 1)
+    return int(practices_attended), hours_attended

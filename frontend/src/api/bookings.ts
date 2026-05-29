@@ -22,6 +22,7 @@ import type {
   BookingDetailResponse,
   PurchaseResponse,
   PreviewPurchaseResponse,
+  UserStatsResponse,
 } from '@/api/types'
 
 /**
@@ -75,6 +76,16 @@ export function getMyBookings(
     offset,
   })
   return api.get<PaginatedBookingsResponse>(`/api/v1/bookings/me${query}`)
+}
+
+/**
+ * Fetch the current user's attended-practice stats (profile screen).
+ *
+ * Returns counts the profile header renders as two cards:
+ * practices_attended and hours_attended.
+ */
+export function getMyStats(): Promise<UserStatsResponse> {
+  return api.get<UserStatsResponse>('/api/v1/bookings/me/stats')
 }
 
 /**

@@ -47,6 +47,7 @@ from app.modules.bookings.schemas import (
     CancelBookingRequest,
     CreateBookingRequest,
     PaginatedBookingsResponse,
+    UserStatsResponse,
 )
 from app.modules.bookings.service import (
     cancel_booking,
@@ -54,6 +55,7 @@ from app.modules.bookings.service import (
     finalize_practice,
     get_attendance,
     get_booking_by_id,
+    get_user_practice_stats,
     join_booking,
     leave_booking,
     list_user_bookings,
@@ -174,6 +176,28 @@ async def list_my_bookings_endpoint(
 # ===================================================================
 # Frontend Backlog: GET /{booking_id} -- booking detail
 # ===================================================================
+
+
+@router.get(
+    "/me/stats",
+    response_model=UserStatsResponse,
+)
+async def get_my_stats_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> UserStatsResponse:
+    """Current user's attended-practice stats for the profile screen.
+
+    Declared before GET /{booking_id} so "me/stats" is not parsed as a
+    booking UUID (same route-order rule as GET /me above).
+    """
+    practices_attended, hours_attended = await get_user_practice_stats(
+        user, session,
+    )
+    return UserStatsResponse(
+        practices_attended=practices_attended,
+        hours_attended=hours_attended,
+    )
 
 
 @router.get(
