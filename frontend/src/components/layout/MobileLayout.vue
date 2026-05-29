@@ -13,19 +13,21 @@
       <DashboardContent />
     </MobileLayout>
 
-  Telegram safe area (2026-05): launched from the chat list ("Открыть"),
-  Telegram opens the Mini App in fullscreen and draws its own Close/menu
-  controls ON TOP of our content (no native header). The content safe-area
-  inset (--tg-content-safe-area-inset-top, set live by the SDK) is how far down
-  the content must start to clear those controls. Launched from inside the chat
-  the inset is 0 (Telegram draws its own header), so the padding is a no-op
-  there. Verified on device: fullscreen inset = 46px, in-chat inset = 0px.
-  box-sizing:border-box keeps the padding INSIDE the height so 100dvh never
-  overflows (including the --fill branch below).
+  Telegram safe area (step 0): the top inset comes from useSafeArea() as a
+  REACTIVE px value, applied as an inline style -- not via a CSS var(). In the
+  Telegram iOS WebView a var(--tg-content-safe-area-inset-top) in a stylesheet
+  does not reliably recompute when the inset arrives after first paint, so the
+  padding stayed at 0. Binding a reactive ref forces Vue to re-render the inline
+  style when the inset updates, which does move the content. box-sizing:border-box
+  keeps the padding inside the height so 100dvh never overflows (incl. --fill).
 -->
 
 <template>
-  <div class="mobile-layout" :class="{ 'mobile-layout--fill': fill }">
+  <div
+    class="mobile-layout"
+    :class="{ 'mobile-layout--fill': fill }"
+    :style="{ paddingTop: contentSafeTop + 'px' }"
+  >
     <slot name="header" />
     <main class="mobile-layout__main" :class="{ 'mobile-layout__main--fill': fill }">
       <slot />
@@ -40,6 +42,7 @@
 
 <script setup lang="ts">
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
+import { useSafeArea } from '@/composables/useSafeArea'
 
 defineProps<{
   tabs: TabItem[]
@@ -55,6 +58,10 @@ defineProps<{
 defineEmits<{
   navigate: [to: string]
 }>()
+
+// Reactive Telegram content safe-area top inset (px). Bound to padding-top
+// inline above so it re-renders when Telegram pushes the inset after paint.
+const { contentSafeTop } = useSafeArea()
 </script>
 
 <style scoped>
@@ -64,10 +71,8 @@ defineEmits<{
   min-height: 100dvh;
   min-height: 100vh; /* fallback */
   background: transparent;
-  /* Push all content below Telegram's native controls in fullscreen; no-op in
-     chat mode (inset 0). See file header for the device-verified values. */
+  /* padding-top is applied via inline style from useSafeArea (reactive). */
   box-sizing: border-box;
-  padding-top: var(--tg-content-safe-area-inset-top, 0px);
 }
 
 /* Fill mode needs a DEFINITE root height (not just min-height), otherwise the
@@ -76,9 +81,8 @@ defineEmits<{
    used to stick under the last card instead of the bottom. Locking the root to
    the viewport height makes `main` (flex:1) take "viewport - header - tabbar",
    and the diary view fills that, pinning the composer above the tab bar.
-   With box-sizing:border-box the safe-area padding-top above stays INSIDE this
-   height, so the column is "100dvh minus inset minus header minus tabbar" and
-   the composer remains pinned above the tab bar in both launch modes. */
+   With box-sizing:border-box the reactive safe-area padding-top stays INSIDE
+   this height, so the composer remains pinned above the tab bar in both modes. */
 .mobile-layout--fill {
   height: 100dvh;
   height: 100vh; /* fallback */
