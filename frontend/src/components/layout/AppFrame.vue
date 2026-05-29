@@ -29,9 +29,13 @@ const { contentSafeTop } = useSafeArea()
 
 <style scoped>
 .app-frame {
-  /* Full viewport height; children size against 100% of this (below padding). */
-  min-height: 100dvh;
-  min-height: 100vh; /* fallback */
+  /* Definite viewport height so children using height:100% resolve against it
+     (fill-mode screens like the diary need a bounded height to scroll their
+     inner body instead of growing the whole frame). box-sizing:border-box keeps
+     the safe-area padding inside this height. */
+  height: 100vh; /* fallback for browsers without dvh */
+  height: 100dvh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
