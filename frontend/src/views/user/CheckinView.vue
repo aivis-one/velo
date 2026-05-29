@@ -72,9 +72,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
+import { useBookingsStore } from '@/stores/bookings'
 import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
@@ -102,6 +103,7 @@ const MOOD_ZONES = [
 const route = useRoute()
 const router = useRouter()
 const practicesStore = usePracticesStore()
+const bookingsStore = useBookingsStore()
 const diaryStore = useDiaryStore()
 const toast = useToast()
 
@@ -129,6 +131,15 @@ const windowClosed = computed<boolean>(() => {
   return nowMs.value > new Date(s).getTime()
 })
 
+// One check-in per booking (hard rule). The booking list already carries
+// `has_checkin`, so we read it from there instead of an extra request.
+// When true, the form is replaced by the success screen and submit is blocked.
+const alreadyCheckedIn = computed<boolean>(() =>
+  bookingsStore.bookings.some(
+    (b) => b.practice_id === practiceId && b.has_checkin,
+  ),
+)
+
 const formattedDate = computed(() =>
   practice.value
     ? formatDate(practice.value.scheduled_at, practice.value.timezone)
@@ -136,7 +147,7 @@ const formattedDate = computed(() =>
 )
 
 async function onSubmit(): Promise<void> {
-  if (diaryStore.checkinSubmitting || windowClosed.value) return
+  if (diaryStore.checkinSubmitting || windowClosed.value || alreadyCheckedIn.value) return
 
   const result = await diaryStore.submitCheckin(practiceId, {
     mood: moodScore.value,
@@ -146,6 +157,11 @@ async function onSubmit(): Promise<void> {
   if (result.ok) {
     try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
     submitted.value = true
+    // Refresh bookings so `has_checkin` is up to date this session: the
+    // dashboard banner, the dashboard "Check-in" button and the practice-detail
+    // button all read it. Without this they keep offering a check-in until a
+    // full reload (fetchMyBookings is a no-op while the list is non-empty).
+    void bookingsStore.refreshBookings()
   } else {
     toast.error(result.error)
   }
@@ -157,9 +173,10 @@ function onSkip(): void {
 }
 
 function onBack(): void {
-  // Return to wherever the user came from (practice detail, dashboard, etc.)
-  // instead of always pushing practice-detail, which created a 12<->15 loop.
-  router.back()
+  // Always return to the dashboard. Using router.back() here sent the user
+  // back into the practice detail card (which itself uses router.back()),
+  // creating a check-in <-> detail loop.
+  router.push({ name: 'user-dashboard' })
 }
 
 function goToDashboard(): void {
@@ -171,9 +188,23 @@ function goToPracticeLive(): void {
   router.push({ name: 'practice-live', params: { practiceId } })
 }
 
-onMounted(() => {
+// If the user has already checked in for this booking, show the success
+// screen straight away (hard one-time rule) instead of an editable form.
+// Skip while the user is mid-success from a fresh submit this session.
+watch(alreadyCheckedIn, (done) => {
+  if (done) submitted.value = true
+})
+
+onMounted(async () => {
   if (practicesStore.selected?.id !== practiceId) {
     practicesStore.fetchPractice(practiceId)
+  }
+  // Ensure bookings are loaded so `has_checkin` is available. fetchMyBookings
+  // is a no-op when the list is already populated (e.g. arriving from the
+  // dashboard); on a direct deep-link it performs the initial load.
+  await bookingsStore.fetchMyBookings()
+  if (alreadyCheckedIn.value) {
+    submitted.value = true
   }
   tickHandle = setInterval(() => { nowMs.value = Date.now() }, 60_000)
 })

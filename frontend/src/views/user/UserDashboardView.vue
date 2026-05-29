@@ -122,6 +122,7 @@
         <VButton
           variant="primary"
           block
+          :disabled="nearestCheckedIn"
           @click="goToCheckin(nearestBooking.practice_id)"
         >
           Check-in
@@ -321,6 +322,15 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
 /** True when the nearest practice is currently live (status from PracticeSummary). */
 const nearestIsLive = computed((): boolean =>
   nearestBooking.value?.practice.status === 'live',
+)
+
+/**
+ * True when the nearest booking already has a check-in. Used to disable the
+ * "Check-in" action button (one check-in per booking) -- mirrors the banner,
+ * which hides itself on has_checkin.
+ */
+const nearestCheckedIn = computed((): boolean =>
+  nearestBooking.value?.has_checkin ?? false,
 )
 
 /**

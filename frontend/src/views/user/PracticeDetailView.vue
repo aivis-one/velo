@@ -292,6 +292,8 @@ const myBooking = computed(() => {
 const inCheckinWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'confirmed') return false
+  // One check-in per booking: once done, drop back to the "Вы записаны" state.
+  if (myBooking.value.has_checkin) return false
   const scheduledMs = new Date(practice.value.scheduled_at).getTime()
   return isInCheckinWindow(scheduledMs, now.value)
 })
@@ -302,6 +304,8 @@ const inCheckinWindow = computed((): boolean => {
 const inFeedbackWindow = computed((): boolean => {
   if (!practice.value || !myBooking.value) return false
   if (myBooking.value.status !== 'attended') return false
+  // One feedback per booking: once left, drop back to the "Вы записаны" state.
+  if (myBooking.value.has_feedback) return false
   const scheduledMs = new Date(practice.value.scheduled_at).getTime()
   return isInFeedbackWindow(scheduledMs, practice.value.duration_minutes, now.value)
 })

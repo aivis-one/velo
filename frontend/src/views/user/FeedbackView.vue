@@ -68,6 +68,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
+import { useBookingsStore } from '@/stores/bookings'
 import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
@@ -94,6 +95,7 @@ const RATING_ZONES = [
 const route = useRoute()
 const router = useRouter()
 const practicesStore = usePracticesStore()
+const bookingsStore = useBookingsStore()
 const diaryStore = useDiaryStore()
 const toast = useToast()
 
@@ -117,6 +119,9 @@ async function onSubmit(): Promise<void> {
   if (result.ok) {
     try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
     submitted.value = true
+    // Refresh bookings so `has_feedback` is up to date this session -- the
+    // dashboard feedback banner and the practice-detail button read it.
+    void bookingsStore.refreshBookings()
   } else {
     toast.error(result.error)
   }
