@@ -1,8 +1,20 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.5
-**Дата:** 24 мая 2026
+**Версия:** 1.6
+**Дата:** 29 мая 2026
 **Статус:** Active 
+
+> **v1.6 (раздел Профиль + аудит-фиксы, 29 мая 2026):** реализован раздел
+> «Профиль» (Figma `F7PD5isLfLdyc0q1Bd5n5c`, node `4715-3463`). Новые вью
+> `LanguageTimezoneView` (язык-заглушка + переиспользуемый picker таймзоны),
+> `EditProfileView` (имя/email-заглушка/телефон/о-себе + модалка удаления),
+> `NotificationsView` (4 свича); переработан `UserProfileView` (две стат-карточки
+> из `GET /bookings/me/stats`, пункты-переходы). Новый UI-примитив `VSwitch`
+> (on/off). Новые роуты `user-language-timezone`, `user-edit-profile`,
+> `user-notifications`. Экран G (Поддержка, node 76) — отложен по решению
+> заказчика (пункт «Поддержка» = toast-заглушка). Аудит-фиксы: W-2 (честный текст
+> модала удаления), S-1 (`bio.trimEnd()`), S-2 (язык-строка неинтерактивна при
+> одном языке). Детали — §3.7, §10. i18n в проекте по-прежнему НЕТ (язык — задел).
 
 > **v1.5 (Calendar flow 4-7 + master public, 24 мая 2026):** завершён флоу
 > «Календарь» (Figma node `541:1553`, кадры 4-7 + публичный профиль мастера).
@@ -165,6 +177,9 @@ frontend/
 /user/calendar              → CalendarView
 /user/diary                 → DiaryFeedView             (name: user-diary -- единая лента-нить, экран 40; шелл в fill-режиме)
 /user/profile               → UserProfileView
+/user/profile/language-timezone → LanguageTimezoneView  (name: user-language-timezone -- Профиль, экран F)
+/user/profile/edit          → EditProfileView            (name: user-edit-profile -- Профиль, экраны C+D)
+/user/profile/notifications → NotificationsView          (name: user-notifications -- Профиль, экран E)
 /user/practices/:id         → PracticeDetailView
 /user/practice-live/:practiceId → PracticeLiveView      (name: practice-live -- экран 14, live-сессия + Zoom)
 /user/bookings              → MyBookingsView
@@ -404,6 +419,31 @@ hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl
 Новые токены `--velo-rating-confused/good/fire` (good = новый `#d66674`; confused/fire —
 ссылки на `--velo-primary-dark`/`--velo-peach-500`); ОТДЕЛЬНО от `RATING_COLOR`
 (заливки баров аналитики — не трогать, иначе ломается AnalyticsView).
+
+---
+
+### 3.7. Флоу ПРОФИЛЬ (раздел Профиль, node `4715-3463`)
+
+Реализован раздел «Профиль» по Figma (`F7PD5isLfLdyc0q1Bd5n5c`). Это USER-профиль.
+Карта вью:
+
+| Экран (Figma node) | View / роут | Примечания |
+|--------------------|-------------|-----------|
+| A — главный (70/71) | `UserProfileView.vue` (`user-profile`) | две стат-карточки из `GET /bookings/me/stats` (`getMyStats` в `api/bookings.ts`); векторные иконки (IconEdit/Bookings/Bell/Globe/Share/Logout); пункты-переходы. Балансовая карта и email УБРАНЫ с главного; «Сообщения» УБРАНЫ (модуля нет). «Изменить фото» / share / прочие заглушки — toast |
+| F — Язык/Часовой пояс (75) | `LanguageTimezoneView.vue` (`user-language-timezone`) | таймзона = переиспользуемый `VSelect` + `TIMEZONE_OPTIONS` (`practiceOptions.ts`), автосейв `updateProfile({timezone})` + revert-on-error. Язык — заглушка из ОДНОГО пункта «Русский» (i18n НЕТ), рендер через `v-for` по `LANGUAGE_OPTIONS` (расширяемо), неинтерактивна пока язык один (`isLanguageStatic`), НЕ сохраняется. «Изменить город»/radio-список из макета НЕ делаем — выбор пояса через select |
+| C — Редактирование (72) | `EditProfileView.vue` (`user-edit-profile`) | Имя=`first_name`; E-mail=disabled-заглушка «появится позже» (не сохраняется); Телефон=`phone`, О себе=`bio` (оба в credentials JSONB, см. Бэк §3.11); «Изменить фото»=toast. Сохранение шлёт только изменённые поля; очистка phone/bio = пустая строка. `VInput` БЕЗ пропа `error` — ошибка телефона рисуется отдельным `<p>`. `bio` сравнивается/шлётся через `.trimEnd()` (S-1) |
+| D — Удаление (73) | модалка в `EditProfileView` (`VModal`) | «Удалить аккаунт» -> подтверждение -> `deleteMe()` (`DELETE /users/me`) -> `authStore.logout()`. MVP = сброс онбординга (Бэк §3.11), данные сохраняются. Текст модала ЧЕСТНЫЙ: «вернётся к начальному состоянию… данные сохранятся» (W-2), кнопка осталась «Удалить» |
+| E — Уведомления (74) | `NotificationsView.vue` (`user-notifications`) | 4 свича (push / practice_reminders / master_messages / support_messages), все ON по умолчанию; хранение — вложенный `credentials.notifications` (Бэк §3.11); автосейв при флипе ТИХО (без тоста), revert-on-error; шлётся только флипнутый ключ |
+| G — Поддержка (76) | — отложен | Не реализован по решению заказчика. Пункт «Поддержка» на экране A — toast-заглушка. Задумано: форма (Тема+Сообщение+Отправить) + тост, без бэка |
+
+**Новый UI-примитив `VSwitch`** (`components/ui/VSwitch.vue`, в barrel рядом с
+`VCheckbox`): boolean on/off (pill + ползунок), `v-model`, `disabled`, `aria-label`.
+Отличается от `VToggle` (segmented control) и `VCheckbox` (квадратный чек). Цвета —
+токены (`--velo-primary` вкл).
+
+**i18n НЕ существует** — язык на экране F это задел: переключатель показан, но
+интерфейс не переключает и предпочтение не сохраняется. Полноценная локализация —
+отдельная крупная задача, в MVP не входит.
 
 ---
 
@@ -771,6 +811,15 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | **TD-DIARY-ORNAMENT** | 🧪 | `components/icons/IconDateLeaf.vue` | Орнамент дата-узлов нити — лёгкий рисованный (`IconDateLeaf`), не оригинальный Figma-SVG (тот — 2×31KB с масками). Аутентичные сохранены | Вернуть аутентичные орнаменты, если заказчик захочет «точь-в-точь макет» |
 | **TD-CAL-DIRECTIONS-EXPAND** | 🧪 | `utils/displayHelpers.ts` (`DIRECTION_ICON`) | Бэк добавит направления (somatic/womens_circle/mens_circle/tantra/kundalini) | Иконки уже Partial+fallback — добавить новые иконки в `DIRECTION_ICON` по мере появления (рост списка код не ломает) |
 | **TD-ZOOM-TEXT** | 🧪 | `views/user/BookingConfirmedView.vue` | Текст «Ссылка на Zoom придёт за 10 минут» статичен независимо от типа практики (аудит S-2, осознанно отложено — все практики сейчас через Zoom) | Сделать нейтральным («Детали подключения…») или условным по `practice.zoom_link`, когда появятся не-Zoom практики |
+| **TD-PROFILE-SUPPORT** | 🧪 | раздел Профиль, экран G (node 76) | Экран «Поддержка» не реализован (отложен заказчиком). Пункт «Поддержка» на экране A — toast-заглушка. Единственный незакрытый экран раздела | Сверстать форму (Тема+Сообщение+Отправить) + тост; бэка нет (витрина) |
+| **TD-PROFILE-LANG-I18N** | 🧪 | `LanguageTimezoneView.vue` | Переключатель языка — заглушка из одного пункта: i18n в проекте нет, выбор не сохраняется и интерфейс не меняется | Реализовать локализацию (vue-i18n), снять `isLanguageStatic`, добавить языки в `LANGUAGE_OPTIONS`, сохранять `user.language` |
+| **TD-PROFILE-AVATAR-UPLOAD** | 🧪 | `EditProfileView.vue` | «Изменить фото» — toast-заглушка: инфраструктуры загрузки аватара нет (аватар приходит из Telegram `photo_url`) | Реализовать загрузку при появлении файлового бэка/хранилища |
+
+> **Аудит итерации «Профиль» (2026-05-29):** закрыты W-2 (честный текст модала
+> удаления в `EditProfileView` — поведение = сброс онбординга, данные сохраняются),
+> S-1 (`bio.trimEnd()` перед сравнением/отправкой), S-2 (язык-строка `:disabled`
+> + `cursor:default` при одном языке, авто-снимается при добавлении второго).
+> W-1/W-4/S-5 — на бэке (Бэковый Кодекс §9). W-3/S-3 — осознанно не код.
 
 ### Осознанные решения (не техдолг)
 

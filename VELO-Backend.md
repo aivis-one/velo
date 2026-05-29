@@ -1,9 +1,22 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.5
-**Дата:** 24 мая 2026
+**Версия:** 1.6
+**Дата:** 29 мая 2026
 **Статус:** Active
-**Тесты:** 446 passed, 3 skipped 
+**Тесты:** 480 passed, 3 skipped 
+
+> **v1.6 (Профиль пользователя + аудит-фиксы, 29 мая 2026):** реализован раздел
+> «Профиль» (Figma `F7PD5isLfLdyc0q1Bd5n5c`, node `4715-3463`). Бэк-часть:
+> новые поля профиля `phone` / `bio` и настройки `notifications` живут в
+> `User.credentials` JSONB (schema-on-read, тот же паттерн, что
+> `onboarding_completed` — см. §3.7 и новый §3.11); новый эндпоинт статистики
+> `GET /api/v1/bookings/me/stats` (`UserStatsResponse`, ORM-агрегат COUNT+SUM по
+> attended-броням) и `DELETE /api/v1/users/me` (MVP-семантика — сброс онбординга,
+> не удаление, см. §3.11). Аудит ветки (W-1): `update_practice` теперь ре-валидирует
+> `style` против СОХРАНЁННОГО `direction` при PATCH без direction (переиспользует
+> `_validate_style_for_direction` — закрыто и S-5; +3 теста W-4). W-3 (replay-окно
+> initData) и S-3 (banker's rounding в `hours_attended`) — осознанно не код
+> (см. §9). Тесты 446 -> 480. Детали — §2, §3.8, §3.11.
 
 > **v1.5 (Calendar flow 4-7 + master public, 24 мая 2026):** добавлен публичный
 > профиль мастера `GET /api/v1/masters/{user_id}` (схема `MasterPublicResponse` —
@@ -70,14 +83,18 @@ POST /api/v1/auth/logout-all        -- Выход со всех устройст
 ### Users
 
 ```
-GET   /api/v1/users/me              -- Мой профиль (+ onboarding_completed)
-PATCH /api/v1/users/me              -- Обновить профиль (вкл. onboarding_completed)
+GET   /api/v1/users/me              -- Мой профиль (+ onboarding_completed, phone, bio, notifications)
+PATCH /api/v1/users/me              -- Обновить профиль (вкл. onboarding_completed, phone, bio, notifications)
+DELETE /api/v1/users/me             -- "Удалить аккаунт" (MVP: сброс онбординга, см. 3.11)
 GET   /api/v1/users/me/checkins     -- Мои check-ins (пагинация)
 GET   /api/v1/users/me/feedbacks    -- Мои feedbacks (пагинация)
 ```
 
 `UserResponse.onboarding_completed: bool` — вычисляется из `credentials` JSONB (см. 3.7), не колонка.
 `UserUpdate.onboarding_completed: bool | None` — флаг завершения онбординга пишется в `credentials`.
+`UserResponse.phone/bio: str | None` и `UserResponse.notifications: NotificationSettings` —
+также вычисляются из `credentials` JSONB (schema-on-read, см. 3.11). `UserUpdate` принимает
+`phone`/`bio` (пустая строка = очистить) и `notifications` (частичный объект, мёржится).
 
 ### Masters
 
@@ -150,11 +167,18 @@ GET    /api/v1/practices/{id}/ai-summary        -- AI-саммари (розет
 ```
 POST   /api/v1/bookings             -- Забронировать (+ опциональный promo_code)
 GET    /api/v1/bookings/me          -- Мои бронирования
+GET    /api/v1/bookings/me/stats    -- Моя статистика практик (объявлен ДО /{id})
 GET    /api/v1/bookings/{id}        -- Детали бронирования
 DELETE /api/v1/bookings/{id}        -- Отменить бронирование
 POST   /api/v1/bookings/{id}/join   -- Отметить приход (владелец брони)
 POST   /api/v1/bookings/{id}/leave  -- Отметить уход (владелец брони)
 ```
+
+`GET /bookings/me/stats` -> `UserStatsResponse { practices_attended: int, hours_attended: float }`.
+Один ORM-запрос: `func.count(Booking.id)` + `func.coalesce(func.sum(Practice.duration_minutes), 0)`
+с join `Practice` по `practice_id` и фильтром `user_id == me AND status == attended`;
+`hours_attended = round(minutes/60, 1)`. Роут объявлен ДО динамического `/{booking_id}`,
+иначе `me/stats` перехватился бы как booking_id (Профиль, экран A).
 
 > **Доступ к join/leave:** доступны **владельцу брони** (юзеру), non-owner → 404
 > (`test_join_booking_success` — owner 200; `test_join_booking_not_owner` — 404).
@@ -293,7 +317,7 @@ profile.set_jsonb("data", new_dict)
 | Модель | Колонка | JSONBMixin |
 |--------|---------|------------|
 | `MasterProfile` | `data` | ✅ |
-| `User` | `credentials` | ✅ (TD-024 закрыт — onboarding flow, set_jsonb в users/service.py) |
+| `User` | `credentials` | ✅ (TD-024 закрыт — onboarding flow + phone/bio/notifications, set_jsonb в users/service.py, см. §3.7, §3.11) |
 | `Practice` | `data` | ✅ (Calendar iteration — taxonomy sandbox, set_jsonb в practices/service.py, см. §3.8) |
 
 ### 3.2. Session Commit Rule
@@ -524,6 +548,52 @@ Practice получил JSONB-колонку `data` (миграция `b2c3d4e5f
 
 ---
 
+### 3.11. Профиль в credentials + "удаление" аккаунта (Профиль, 29 мая)
+
+Раздел «Профиль» (Figma node `4715-3463`) расширил schema-on-read в
+`User.credentials` тремя сущностями — тем же паттерном, что `onboarding_completed`
+(§3.7), без миграций.
+
+**phone / bio (экран C — Edit Profile):**
+- `UserResponse` отдаёт их через `@computed_field` (`credentials_in.get("phone")` /
+  `("bio")`), `None` если ключа нет.
+- `UserUpdate`: `phone` (max_length=20, мягкий валидатор: только цифры/пробел/`+()-`,
+  >=5 цифр), `bio` (max_length=2000). **БЕЗ `min_length`** — в отличие от имён,
+  пустая строка `""` допустима и означает «очистить» (вариант (б)). `null` для них
+  = «не трогать» (как и для onboarding-флага: `update_user` отбрасывает `None`).
+  Очистка делается пустой строкой, не null.
+- `service.py`: `_JSONB_CREDENTIAL_FIELDS = {onboarding_completed, phone, bio}` —
+  тот же единый write-путь (`""` проходит `is not None`, `null` отсекается).
+
+**notifications (экран E — Notifications):**
+- ВЛОЖЕННЫЙ объект `credentials["notifications"]` = `{push, practice_reminders,
+  master_messages, support_messages}`, все дефолты **True** (`_NOTIFICATION_DEFAULTS`).
+  Схемы `NotificationSettings` (Response) и `NotificationSettingsUpdate` (все поля
+  опциональны) в `users/schemas.py`.
+- `UserResponse.notifications` всегда отдаёт полный объект: дефолты накладываются
+  на сохранённые ключи (частично сохранённый блоб дополняется до полного).
+- **Частичный апдейт МЕРЖИТСЯ** ключ-за-ключом ОТДЕЛЬНОЙ веткой в `update_user`
+  (`notifications` извлекается `updates.pop(...)` ДО плоской JSONB-развилки; читаем
+  текущий объект, накладываем не-None ключи, `set_jsonb`). НЕЛЬЗЯ класть в плоский
+  `_JSONB_CREDENTIAL_FIELDS` — `dict.update` затёр бы весь объект и сбросил
+  неприсланные тоглы. Push-движок НЕ подключён — флаги это задел, переживают
+  релогин (merge credentials, §3.7).
+
+**DELETE /api/v1/users/me — "удаление" = сброс онбординга (экран D, MVP):**
+- `reset_user_to_onboarding` (service.py) ставит `onboarding_completed=False` через
+  `set_jsonb`. **is_active НЕ трогается, данные НЕ стираются.** При следующем входе
+  юзер проходит онбординг заново, старые данные «всплывают» (merge при логине).
+- Эндпоинт возвращает 204. Фронт после вызова делает logout (закрытие Mini App в
+  Telegram). Контракт `DELETE` намеренно оставлен под будущее РЕАЛЬНОЕ удаление —
+  менять только тело сервиса, не контракт (докстринг это фиксирует; specification
+  drift осознан — Frontend Codex W-2 привёл текст модала в соответствие).
+
+Тесты: `tests/test_users.py` — phone/bio set/clear(""), мягкая валидация телефона,
+relogin-persist; notifications дефолты-all-true, частичный merge, накопление,
+сосуществование с onboarding/phone; delete сбрасывает онбординг и сохраняет данные.
+
+---
+
 ## 4. Платёжная архитектура
 
 ### 4.1. Double-Entry принцип
@@ -661,7 +731,7 @@ En-значения query-параметров (`short|long`, `night|morning|day
 
 ## 8. Тесты
 
-446 passed, 3 skipped. Все запускаются внутри Docker:
+480 passed, 3 skipped. Все запускаются внутри Docker:
 
 ```bash
 velo test          # все тесты
@@ -763,6 +833,21 @@ velo lint          # ruff check
 >   таксономии не существует; ветка недостижима. Пересмотреть, если появится импорт
 >   практик извне или миграция без сноса БД.
 > - 5 SUGGESTION — открыты, низкий приоритет, см. отчёт.
+
+> **Аудит итерации «Профиль» (2026-05-29):**
+> - **W-1** (`practices/service.py` `update_practice`) — ✅ устранено: при PATCH
+>   `style` без `direction` сервис ре-валидирует против СОХРАНЁННОГО direction
+>   (`_validate_style_for_direction` из schemas), невалидная пара -> 400. Закрыло
+>   и **S-5** (функция-валидатор теперь переиспользуется и в service, не только в
+>   schemas). **W-4** — добавлены 3 теста (`test_update_style_rejected_for_wrong_direction`,
+>   `..._for_styleless_direction`, `..._accepted_for_same_direction`).
+> - **W-3** (replay-окно initData после удаления anti-replay) — ⬜ осознанный
+>   компромисс, не код: приемлемо в Telegram-контексте (HTTPS + rate-limit),
+>   задокументировать в threat model; пересмотреть при server-side push/критичных
+>   операциях.
+> - **S-3** (`bookings/service.py` `hours_attended` — banker's rounding в `round()`)
+>   — ⬜ безвреден для статистики; заменить на `Decimal`, если значение пойдёт в
+>   финансовые расчёты.
 
 ---
 

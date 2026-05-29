@@ -1,8 +1,16 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 1.8
-**Дата:** 24 мая 2026
+**Версия:** 1.9
+**Дата:** 29 мая 2026
 **Статус:** Active
+
+> v1.9: реализован раздел «Профиль» (node `4715-3463`) — новые экраны
+> `UserProfileView` (переработан), `LanguageTimezoneView`, `EditProfileView`
+> (+ модалка удаления), `NotificationsView`; новый примитив `VSwitch`; новые
+> маршруты. Язык — заглушка (i18n нет). Экран G (Поддержка) — отложен. Аудит-фиксы
+> W-2/S-1/S-2. Бэк-разблокировка: `GET /bookings/me/stats`, `DELETE /users/me`,
+> phone/bio/notifications в credentials. См. блок «Раздел ПРОФИЛЬ» в реестре
+> техдолга и Фронтовый Кодекс §3.7.
 
 > v1.8: завершён флоу «Календарь» (кадры 4-7 + публичный профиль мастера, node `541:1553`) —
 > новые экраны `MasterPublicView` / `BookingConfirmedView`, новые маршруты, аватары на
@@ -1430,6 +1438,42 @@ S-1 (лишний `fetchPractice` в `onPurchased`) — ✅ устранён; S-
 | TD-CAL-ICON-YOGA | 🧪 | `components/icons/IconYoga.vue` | `IconYoga` — Claude-плейсхолдер | Заменить ассетом дизайнера (тот же filename/viewBox/`currentColor`) |
 | TD-CAL-DIRECTIONS-EXPAND | 🧪 | `utils/displayHelpers.ts` | Бэк добавит направления (somatic/womens_circle/mens_circle/tantra/kundalini) | `DIRECTION_ICON` уже Partial+fallback; добавлять иконки по мере появления |
 | TD-ZOOM-TEXT | 🧪 | `BookingConfirmedView.vue` | Статичный Zoom-текст (аудит S-2) | Нейтральная формулировка или условие по `practice.zoom_link`, когда появятся не-Zoom практики |
+
+---
+
+### Раздел ПРОФИЛЬ — реализация 2026-05-29
+
+Реализован раздел «Профиль пользователя» по Figma (`F7PD5isLfLdyc0q1Bd5n5c`,
+node `4715-3463`). Детали и паттерны — **Фронтовый Кодекс §3.7**. Карта экранов:
+
+| Экран (node) | View / маршрут | Статус |
+|------|-------|--------|
+| A — главный (70/71) | `UserProfileView.vue` (`user-profile`) — переработан: две стат-карточки (`GET /bookings/me/stats`), пункты-переходы, векторные иконки | ✅ |
+| F — Язык/Часовой пояс (75) | `LanguageTimezoneView.vue` (`user-language-timezone`) — таймзона (переисп. picker, автосейв), язык-заглушка | ✅ |
+| C — Редактирование (72) | `EditProfileView.vue` (`user-edit-profile`) — имя/email-заглушка/телефон/о-себе | ✅ |
+| D — Удаление (73) | модалка в `EditProfileView` — `DELETE /users/me`, MVP = сброс онбординга | ✅ |
+| E — Уведомления (74) | `NotificationsView.vue` (`user-notifications`) — 4 свича, автосейв | ✅ |
+| G — Поддержка (76) | — | ⬜ отложен (заказчик) |
+
+**Новый примитив** `components/ui/VSwitch.vue` (on/off boolean). **Новые маршруты**
+(`router/index.ts`, под `/user`): `user-language-timezone`, `user-edit-profile`,
+`user-notifications`.
+
+**Бэк-разблокировка:** `GET /api/v1/bookings/me/stats` (`UserStatsResponse`),
+`DELETE /api/v1/users/me` (сброс онбординга), `phone`/`bio`/`notifications` в
+`User.credentials` JSONB (Бэковый Кодекс §3.11).
+
+**Аудит итерации (2026-05-29):** W-2 (честный текст модала удаления), S-1
+(`bio.trimEnd()`), S-2 (язык-строка неинтерактивна при одном языке) — ✅. W-1/W-4/S-5
+— на бэке. W-3/S-3 — осознанно не код.
+
+**Новый техдолг раздела:**
+
+| ID | Среда | Файл | Описание | Решение | Статус |
+|----|-------|------|----------|---------|--------|
+| TD-PROFILE-SUPPORT | 🧪 | экран G (node 76) | «Поддержка» не реализована (отложена заказчиком); пункт на экране A — toast | Форма (Тема+Сообщение+Отправить) + тост, без бэка | ⬜ |
+| TD-PROFILE-LANG-I18N | 🧪 | `LanguageTimezoneView.vue` | Язык — заглушка из одного пункта (i18n нет), не сохраняется | vue-i18n, снять `isLanguageStatic`, сохранять `user.language` | ⬜ |
+| TD-PROFILE-AVATAR-UPLOAD | 🧪 | `EditProfileView.vue` | «Изменить фото» — toast (нет загрузки; аватар из Telegram) | Загрузка при появлении файлового бэка | ⬜ |
 
 ---
 

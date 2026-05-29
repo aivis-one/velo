@@ -1,7 +1,7 @@
 # VELO -- Техническое задание
 
-**Версия:** 3.3
-**Дата:** 24 мая 2026
+**Версия:** 3.4
+**Дата:** 29 мая 2026
 **Статус:** Active
 
 ---
@@ -3013,6 +3013,40 @@ TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER
 - Race condition на `_redis_client` — теоретически возможен, но `init_redis()` вызывается однократно в lifespan до приёма запросов
 - `.env` в Docker image — уже исключён через `.dockerignore`
 - Dev-зависимости в production image — осознанный выбор: тесты запускаются в том же контейнере через `velo test`. Образ чуть больше, но единая среда (Phase 0.6)
+
+---
+
+### Итерация «Профиль» — реализация 2026-05-29
+
+Реализован раздел «Профиль пользователя» по Figma (`F7PD5isLfLdyc0q1Bd5n5c`,
+node `4715-3463`, 7 экранов). Детали бэка — **Бэковый Кодекс §2, §3.11**; фронта —
+**Фронтовый Кодекс §3.7**. Кратко:
+
+**Бэк:** profile-поля `phone`/`bio` и настройки `notifications` живут в
+`User.credentials` JSONB (schema-on-read, без миграций, как `onboarding_completed`).
+Новые эндпоинты: `GET /api/v1/bookings/me/stats` (`UserStatsResponse` — ORM
+COUNT+SUM по attended-броням) и `DELETE /api/v1/users/me` (MVP-семантика: сброс
+онбординга, НЕ удаление — `is_active` и данные не трогаются; контракт оставлен под
+будущее реальное удаление). `notifications` — вложенный объект с частичным
+key-by-key merge (отдельная ветка в `update_user`, не плоский `_JSONB_CREDENTIAL_FIELDS`).
+
+**Фронт:** новые вью `UserProfileView` (переработан: две стат-карточки),
+`LanguageTimezoneView`, `EditProfileView` (+ модалка удаления), `NotificationsView`;
+новый примитив `VSwitch`; новые роуты `user-language-timezone`/`user-edit-profile`/
+`user-notifications`. Язык — заглушка (i18n нет). Экран G (Поддержка) — отложен.
+
+**Аудит итерации (2026-05-29):**
+- **W-1** (бэк, `update_practice` не ре-валидировал `style` против сохранённого
+  `direction` при PATCH без direction -> битая таксономия в JSONB) — ✅ устранено
+  (+ закрыт **S-5**: `_validate_style_for_direction` переиспользована в service).
+  **W-4** — добавлены 3 теста.
+- **W-2** (фронт, текст модала удаления «восстановить невозможно» противоречил
+  реальному поведению) — ✅ исправлен на честный.
+- **S-1** (`bio` без `.trimEnd()`), **S-2** (язык-строка выглядела кликабельной) — ✅.
+- **W-3** (replay-окно initData) и **S-3** (banker's rounding в `hours_attended`) —
+  ⬜ осознанно не код (W-3 — threat model; S-3 — Decimal при финансовых расчётах).
+
+**Тесты:** 446 -> 480 passed, 3 skipped.
 
 ---
 
