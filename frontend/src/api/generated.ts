@@ -769,6 +769,12 @@ export interface UserResponse {
   onboarding_completed: boolean
 }
 
+/** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */
+export interface UserStatsResponse {
+  practices_attended: number
+  hours_attended: number
+}
+
 /** PATCH /api/v1/users/me — updatable profile fields. All fields are optional. Only provided fields are updated. avatar_url is excluded — managed by Telegram (future: Bot API). Empty strings are rejected (min_length=1). To clear a field, send null explicitly: {"last_name": null}. timezone and language are NOT NULL in DB — sending null for them is rejected by _reject_null_for_required_fields (mode="before"). onboarding_completed is written into the credentials JSONB by the service layer (not a column). null is meaningless here, so only true/false are accepted; "not sent" leaves it untouched. */
 export interface UserUpdate {
   first_name?: string | null
