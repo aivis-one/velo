@@ -44,7 +44,11 @@
             :key="opt.value"
             type="button"
             class="lang-tz__row"
-            :class="{ 'lang-tz__row--active': opt.value === selectedLanguage }"
+            :class="{
+              'lang-tz__row--active': opt.value === selectedLanguage,
+              'lang-tz__row--static': isLanguageStatic,
+            }"
+            :disabled="isLanguageStatic"
             @click="onSelectLanguage(opt.value)"
           >
             <span class="lang-tz__row-label">{{ opt.label }}</span>
@@ -102,6 +106,11 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   { value: 'ru', label: 'Русский' },
 ]
 
+// While there is only one language, the row is non-interactive (it is already
+// selected and there is nothing to switch to). When real languages are added
+// this flips to false automatically and the row becomes tappable again.
+const isLanguageStatic = LANGUAGE_OPTIONS.length <= 1
+
 // Current language: the user's stored value if it is one we offer, else the
 // only available option. With one option this is always 'ru'.
 const selectedLanguage = ref(
@@ -111,8 +120,9 @@ const selectedLanguage = ref(
 )
 
 function onSelectLanguage(value: string): void {
-  // Single option for now -- nothing to switch to, nothing to persist.
-  // Kept as a handler so wiring real languages later is a one-line change.
+  // No-op while only one language exists (button is disabled too). Kept as a
+  // handler so wiring real languages later is a one-line change.
+  if (isLanguageStatic) return
   selectedLanguage.value = value
 }
 
@@ -222,6 +232,10 @@ async function onTimezoneChange(value: string): Promise<void> {
 
 .lang-tz__row + .lang-tz__row {
   border-top: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.lang-tz__row--static {
+  cursor: default;
 }
 
 .lang-tz__row--active {

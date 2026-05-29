@@ -102,7 +102,8 @@
       <div class="edit-profile__modal">
         <h2 class="edit-profile__modal-title">Удалить аккаунт?</h2>
         <p class="edit-profile__modal-text">
-          Вы уверены? После удаления восстановить аккаунт будет уже невозможно.
+          Аккаунт вернётся к начальному состоянию — при следующем входе
+          вы пройдёте настройку заново. Ваши данные и бронирования сохранятся.
         </p>
         <div class="edit-profile__modal-actions">
           <VButton
@@ -208,8 +209,9 @@ async function onSave(): Promise<void> {
   if (nextPhone !== (user.value?.phone ?? '')) {
     body.phone = nextPhone
   }
-  if (form.bio !== (user.value?.bio ?? '')) {
-    body.bio = form.bio
+  const nextBio = form.bio.trimEnd()
+  if (nextBio !== (user.value?.bio ?? '')) {
+    body.bio = nextBio
   }
 
   if (Object.keys(body).length === 0) {
