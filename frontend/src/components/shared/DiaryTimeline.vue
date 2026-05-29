@@ -2,89 +2,45 @@
   VELO Frontend -- DiaryTimeline (Diary redesign, screen 40 "map")
 
   The unified feed rendered as a vertical "thread": a central axis with cards
-  hanging off it, alternating left/right, split into day groups by date-nodes.
+  strung along it as compact beads (DiaryThreadCard), split into day groups by
+  date-nodes. Aligned to the Figma map screens (2026-05-29):
+    - cards are CENTERED on the axis (no left/right alternation);
+    - date-nodes are a centered label with small ornament dots on the axis;
+    - the axis is a light vertical stroke behind the beads.
 
   ORDER (chat-mode): oldest at the TOP, newest at the BOTTOM. The feed arrives
-  newest-first from the backend; this component renders a chronological copy
-  so the newest entry sits at the bottom, next to the composer (see
-  DiaryFeedView for the scroll handling that pins the view to the bottom).
+  newest-first; we render a chronological copy so the newest entry sits at the
+  bottom, next to the composer (see DiaryFeedView for the scroll handling).
 
-  DETERMINISTIC ALTERNATION RULES (agreed):
-    1. Banner kinds (booking_confirmed / booking_cancelled_by_user /
-       practice_rescheduled / practice_cancelled_by_master) and the
-       practice_outcome card sit CENTERED on the axis (full width); the thread
-       passes through them.
-    2. Standard cards (checkin / feedback / note / dream) alternate left/right.
-    3. The alternation counter advances ONLY on standard cards -- centered
-       cards do not disturb it.
-    4. Side is a function of position in the sorted list (stable across
-       pagination -- appending a page never reshuffles earlier cards).
-    5. The counter RESETS each new day: the first standard card of a day is
-       always on the left.
-    6. A date-node splits the thread whenever the calendar day changes
-       (computed in the user's timezone -- the diary is a personal timeline).
-
-  The thread connectors are CSS strokes (not the Figma bezier art): Level-2
-  "simplified" -- the visual idea (axis + alternation + date-nodes + a light
-  date ornament) without pixel-perfect curves, so it survives real data of
-  variable length.
-
-  Cards themselves are delegated to DiaryFeedCard; this component only owns
-  layout/positioning and the day grouping.
+  Cards themselves are delegated to DiaryThreadCard; this component only owns
+  the axis/date-node layout and the day grouping. The flat-column view uses
+  DiaryList + DiaryFeedCard instead (toggled in DiaryFeedView).
 -->
 
 <template>
   <div class="timeline">
-    <template v-for="(group, gi) in dayGroups" :key="group.dayKey">
-      <!-- Date node (centered on the axis) -->
+    <template v-for="group in dayGroups" :key="group.dayKey">
+      <!-- Date node: centered label + ornament dots on the axis -->
       <div class="timeline__date-node">
-        <span class="timeline__ornament timeline__ornament--left" aria-hidden="true">
-          <IconDateLeaf :size="22" />
-        </span>
         <span class="timeline__date-label">{{ group.label }}</span>
-        <span class="timeline__ornament timeline__ornament--right" aria-hidden="true">
-          <IconDateLeaf :size="22" mirrored />
-        </span>
       </div>
 
-      <!-- Cards of this day -->
-      <div
-        v-for="row in group.rows"
-        :key="row.item.id"
-        class="timeline__row"
-        :class="`timeline__row--${row.placement}`"
-      >
-        <!-- Connector stub from axis to the card -->
-        <span
-          v-if="row.placement !== 'center'"
-          class="timeline__connector"
-          :class="`timeline__connector--${row.placement}`"
-          aria-hidden="true"
+      <!-- Cards of this day, centered on the axis -->
+      <div v-for="item in group.items" :key="item.id" class="timeline__row">
+        <DiaryThreadCard
+          :item="item"
+          :timezone="timezone"
+          @tap="(p) => emit('tap', p)"
         />
-        <div class="timeline__card-wrap">
-          <DiaryFeedCard
-            :item="row.item"
-            :timezone="timezone"
-            @tap="(p) => emit('tap', p)"
-          />
-        </div>
       </div>
-
-      <!-- Inter-group axis segment (not after the last group) -->
-      <div
-        v-if="gi < dayGroups.length - 1"
-        class="timeline__axis-gap"
-        aria-hidden="true"
-      />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import DiaryFeedCard from '@/components/shared/DiaryFeedCard.vue'
-import IconDateLeaf from '@/components/icons/IconDateLeaf.vue'
-import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
+import DiaryThreadCard from '@/components/shared/DiaryThreadCard.vue'
+import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
   items: DiaryFeedItem[]
@@ -96,20 +52,6 @@ const emit = defineEmits<{
 }>()
 
 const tz = computed(() => props.timezone ?? 'UTC')
-
-// -- placement decision per kind ---------------------------------------------
-
-const CENTER_KINDS: DiaryEventKind[] = [
-  'booking_confirmed',
-  'booking_cancelled_by_user',
-  'practice_rescheduled',
-  'practice_cancelled_by_master',
-  'practice_outcome',
-]
-
-function isCenter(kind: string): boolean {
-  return CENTER_KINDS.includes(kind as DiaryEventKind)
-}
 
 // -- day key + label in the user's timezone ----------------------------------
 
@@ -140,54 +82,30 @@ function dayLabelOf(iso: string): string {
   }).format(new Date(iso))
 }
 
-// -- group into days, assign deterministic placement -------------------------
+// -- group into days ---------------------------------------------------------
 
-type Placement = 'center' | 'left' | 'right'
-interface Row {
-  item: DiaryFeedItem
-  placement: Placement
-}
 interface DayGroup {
   dayKey: string
   label: string
-  rows: Row[]
+  items: DiaryFeedItem[]
 }
 
 const dayGroups = computed<DayGroup[]>(() => {
   const groups: DayGroup[] = []
   let current: DayGroup | null = null
-  // Standard-card counter, reset on each new day (rule 5).
-  let standardIdx = 0
 
-  // Chat-mode order: the feed arrives newest-first (backend ORDER BY
-  // occurred_at DESC, older pages appended). We render the thread oldest at
-  // the top, newest at the bottom, so iterate a chronological copy. This keeps
-  // the grouping/alternation rules intact -- the first standard card of a day
-  // (rule 5, left) is now the day's OLDEST, i.e. the topmost, which reads
-  // naturally. reverse() is on a shallow copy; props.items is not mutated.
+  // Chat-mode: the feed arrives newest-first; render a chronological copy so
+  // the newest entry is at the bottom. reverse() runs on a shallow copy;
+  // props.items is not mutated.
   const chronological = [...props.items].reverse()
 
   for (const item of chronological) {
     const key = dayKeyOf(item.occurred_at)
     if (!current || current.dayKey !== key) {
-      current = {
-        dayKey: key,
-        label: dayLabelOf(item.occurred_at),
-        rows: [],
-      }
+      current = { dayKey: key, label: dayLabelOf(item.occurred_at), items: [] }
       groups.push(current)
-      standardIdx = 0
     }
-
-    let placement: Placement
-    if (isCenter(item.kind)) {
-      placement = 'center' // rule 1, does not advance the counter (rule 3)
-    } else {
-      // rule 2 + 4 + 5: even -> left, odd -> right, reset per day
-      placement = standardIdx % 2 === 0 ? 'left' : 'right'
-      standardIdx += 1
-    }
-    current.rows.push({ item, placement })
+    current.items.push(item)
   }
 
   return groups
@@ -200,12 +118,12 @@ const dayGroups = computed<DayGroup[]>(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
   padding: var(--space-3) 0;
 }
 
-/* Central vertical axis behind everything. */
+/* Central vertical axis behind the beads. */
 .timeline::before {
   content: '';
   position: absolute;
@@ -218,87 +136,55 @@ const dayGroups = computed<DayGroup[]>(() => {
   z-index: var(--z-background);
 }
 
-/* -- Date node -- */
+/* -- Date node: centered label + two ornament dots on the axis above it -- */
 .timeline__date-node {
   position: relative;
   z-index: var(--z-content);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
-  background: var(--velo-bg-start);
+  text-align: center;
+  /* room for the ornament dots that sit on the axis above the label */
+  padding-top: var(--space-5);
+  margin: var(--space-2) 0;
+}
+
+/* bigger dot then a smaller one, centred on the axis above the label */
+.timeline__date-node::before,
+.timeline__date-node::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   border-radius: var(--radius-full);
+  background: var(--velo-text-primary);
+}
+.timeline__date-node::before {
+  top: 4px;
+  width: 6px;
+  height: 6px;
+}
+.timeline__date-node::after {
+  top: 14px;
+  width: 3px;
+  height: 3px;
 }
 
 .timeline__date-label {
+  display: inline-block;
+  /* opaque-ish backdrop blends with the app background and masks the axis
+     stroke behind the text (so the line doesn't run through the label). */
+  background: var(--velo-bg-start);
+  padding: 0 var(--space-3);
   font-family: var(--font-body);
   font-size: var(--text-base);
   letter-spacing: 0.36px;
   color: var(--velo-text-primary);
 }
 
-.timeline__ornament {
-  display: inline-flex;
-  color: var(--velo-text-primary);
-}
-
-/* -- Card rows -- */
+/* -- Card rows (all centered on the axis) -- */
 .timeline__row {
   position: relative;
   z-index: var(--z-content);
   display: flex;
-  width: 100%;
-}
-
-.timeline__row--center {
   justify-content: center;
-}
-
-.timeline__row--left {
-  justify-content: flex-start;
-}
-
-.timeline__row--right {
-  justify-content: flex-end;
-}
-
-.timeline__card-wrap {
-  /* Side cards take a little under half so they read as hanging off the axis;
-     center cards (banner/practice) use the standard content width. */
   width: 100%;
-  max-width: var(--velo-content-width);
-}
-
-.timeline__row--left .timeline__card-wrap,
-.timeline__row--right .timeline__card-wrap {
-  max-width: 76%;
-}
-
-/* Connector stub from the axis to a side card. */
-.timeline__connector {
-  position: absolute;
-  top: 50%;
-  width: 12%;
-  height: 2px;
-  background: var(--velo-border-light);
-  transform: translateY(-50%);
-  z-index: var(--z-background);
-}
-
-.timeline__connector--left {
-  left: 50%;
-  transform: translate(-100%, -50%);
-}
-
-.timeline__connector--right {
-  right: 50%;
-  transform: translate(100%, -50%);
-}
-
-/* Axis segment between day groups (the ::before already draws a continuous
-   line; this just guarantees vertical rhythm between groups). */
-.timeline__axis-gap {
-  height: var(--space-3);
 }
 </style>
