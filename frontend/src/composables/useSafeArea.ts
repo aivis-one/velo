@@ -1,52 +1,58 @@
 // =============================================================================
-// VELO Frontend -- useSafeArea Composable (@tma.js/sdk-vue) -- safe-area step 2
+// VELO Frontend -- useSafeArea Composable (@tma.js/sdk-vue)
 // =============================================================================
 //
-// Single source of truth for the Telegram content safe-area top inset, now
-// backed by the official SDK signal instead of a hand-rolled window.Telegram
-// event subscription.
+// Single source of truth for the top safe-area offset the app content must
+// leave clear in fullscreen, backed by the official SDK viewport signals.
 //
-// WHY THE SDK SIGNAL (and not a raw CSS var or manual onEvent):
-//   The content safe-area inset arrives asynchronously, after first paint.
-//   The vendored SDK wrote --tg-content-safe-area-inset-top via a raw
-//   setProperty that did not trigger a style recompute in the Telegram iOS
-//   WebView, so a CSS var() stayed at 0. @tma.js/sdk exposes the inset as a
-//   reactive SIGNAL (viewport.contentSafeAreaInsetTop); useSignal() turns it
-//   into a Vue ref that updates on every change, so any inline style bound to
-//   it re-renders when the inset arrives -- which is what actually moves the
-//   content.
+// WHY THE SUM OF TWO INSETS (device-verified):
+//   Telegram exposes two top insets, and the buttons (Close / menu) sit ABOVE
+//   the system status-bar area, so the content must clear BOTH:
+//     - safeAreaInset.top        = system area (status bar / notch), e.g. 44px
+//     - contentSafeAreaInset.top = Telegram's own controls strip, e.g. 46px
+//   Taking only contentSafeAreaInset (46) pushed content out from under the
+//   status bar but NOT from under the Close button. The full clearance is the
+//   SUM: 44 + 46 = 90px in fullscreen. Out of fullscreen (launched from a
+//   chat) both are 0, so the sum is 0 and Telegram draws its own header --
+//   exactly what we want, no extra padding.
 //
-// GUARDED: outside Telegram (standalone browser, unit tests in happy-dom) the
-// viewport component is never mounted, so reading the signal is unsafe. We
-// detect mount state and fall back to 0, keeping the standalone build and the
-// test gate green.
+//   These numbers were read live on device via the diagnostic panel:
+//     fullscreen: safeAreaInset.top=44, contentSafeAreaInset.top=46
+//     in-chat:    both 0
 //
-// PATTERN: thin composable returning a readonly reactive value, consistent
-// with useAuth / useToast.
+// WHY SIGNALS (not a CSS var): the insets arrive asynchronously after first
+// paint; the vendored SDK's raw setProperty did not trigger a style recompute
+// in the Telegram iOS WebView, so a CSS var() stayed at 0. useSignal() turns
+// each SDK signal into a Vue ref, so an inline style bound to the value
+// re-renders when the inset arrives -- which is what moves the content.
+//
+// GUARDED: outside Telegram (standalone, unit tests) the viewport is never
+// mounted; we fall back to 0 to keep the standalone build and test gate green.
 // =============================================================================
 
 import { computed, type ComputedRef } from 'vue'
 import { viewport, useSignal } from '@tma.js/sdk-vue'
 
+function toNum(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0
+}
+
 /**
- * Reactive Telegram content safe-area top inset, in pixels.
+ * Reactive top safe-area offset, in pixels: the full clearance the content
+ * needs below Telegram's controls in fullscreen (system area + controls strip).
  *
- * "Content" safe area is the room Telegram reserves for its own controls
- * (Close / menu) in fullscreen. Device-verified: 46px in fullscreen, 0 inside
- * a chat. Bind it to an inline style so the padding re-renders reactively:
+ * Bind to an inline style so the padding re-renders reactively:
  *   :style="{ paddingTop: contentSafeTop + 'px' }"
  */
 export function useSafeArea(): { contentSafeTop: ComputedRef<number> } {
-  // viewport.contentSafeAreaInsetTop is a signal; useSignal gives a Vue ref
-  // that tracks it. When the viewport isn't mounted (standalone / tests),
-  // reading the signal could throw, so guard with isMounted and default to 0.
   const isMounted = useSignal(viewport.isMounted)
-  const rawTop = useSignal(viewport.contentSafeAreaInsetTop)
+  const safeTop = useSignal(viewport.safeAreaInsetTop)
+  const contentTop = useSignal(viewport.contentSafeAreaInsetTop)
 
   const contentSafeTop = computed<number>(() => {
     if (!isMounted.value) return 0
-    const top = rawTop.value
-    return typeof top === 'number' && Number.isFinite(top) ? top : 0
+    // Full top clearance = system safe area + Telegram controls strip.
+    return toNum(safeTop.value) + toNum(contentTop.value)
   })
 
   return { contentSafeTop }
