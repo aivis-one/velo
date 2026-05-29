@@ -15,6 +15,14 @@
   Style mirrors StandaloneStubView (glass pill buttons, slogan). Logo uses the
   white mandala variant at a large size to match Figma 01_Welcome; the wordmark
   is part of the logo, so there is no separate text heading.
+
+  Telegram safe area (2026-05): when launched from the chat list ("Открыть")
+  Telegram opens the Mini App in fullscreen, drawing its own Close/menu controls
+  ON TOP of our content (no native header). The content safe-area inset
+  (--tg-content-safe-area-inset-top, set live by the SDK) tells us how far down
+  to push so the logo clears those controls. Launched from inside the chat the
+  inset is 0 (Telegram draws its own header), so the same expression is a no-op
+  there. Verified on device: fullscreen inset = 46px, in-chat inset = 0px.
 -->
 
 <template>
@@ -72,7 +80,12 @@ const { isStandalone } = useAuth()
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: var(--space-6);
+  /* Top padding includes the Telegram content safe-area inset so the content
+     clears Telegram's own controls in fullscreen (inset 46px) while staying
+     unchanged in chat mode (inset 0px). box-sizing:border-box (global reset)
+     keeps this padding INSIDE min-height, so 100dvh never overflows. */
+  padding: calc(var(--space-6) + var(--tg-content-safe-area-inset-top, 0px))
+    var(--space-6) var(--space-6);
   background: transparent;
   text-align: center;
   /* Logo is intentionally larger than the viewport (matches Figma bleed).
