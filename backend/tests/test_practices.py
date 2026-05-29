@@ -985,6 +985,92 @@ async def test_update_merges_taxonomy(
     assert data["style"] == "hatha"          # preserved
 
 
+@pytest.mark.asyncio
+async def test_update_style_rejected_for_wrong_direction(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """PATCH a style not valid for the STORED direction -> 400 (W-1).
+
+    The practice is stored as yoga; "silence" is a meditation-only style.
+    The Pydantic model validator passes (no direction in the request -> flat
+    union check), so the service must catch the cross-direction mismatch
+    against the stored direction.
+    """
+    auth = await _make_verified_master(client, db_session)
+    create = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            direction="yoga", difficulty="beginner", style="hatha",
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    pid = create.json()["id"]
+
+    patch = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"style": "silence"},  # meditation style, invalid for yoga
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_update_style_rejected_for_styleless_direction(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """PATCH a style onto a direction that admits no styles -> 400 (W-1).
+
+    breathwork has no styles; setting any style on a stored breathwork
+    practice (without re-sending direction) must be rejected by the service.
+    """
+    auth = await _make_verified_master(client, db_session)
+    create = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(direction="breathwork", difficulty="beginner"),
+        headers=auth_headers(auth["session_token"]),
+    )
+    pid = create.json()["id"]
+
+    patch = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"style": "hatha"},  # any style is invalid for breathwork
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_update_style_accepted_for_same_direction(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Positive control: a style valid for the stored direction still works.
+
+    Guards against the W-1 fix being too strict (rejecting legitimate
+    same-direction style changes). yoga accepts "vinyasa".
+    """
+    auth = await _make_verified_master(client, db_session)
+    create = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(
+            direction="yoga", difficulty="beginner", style="hatha",
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    pid = create.json()["id"]
+
+    patch = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"style": "vinyasa"},  # valid yoga style
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch.status_code == 200
+    assert patch.json()["style"] == "vinyasa"
+    assert patch.json()["direction"] == "yoga"
+
+
 # ---------------------------------------------------------------------------
 # Feed filter -- direction (single + multi)
 # ---------------------------------------------------------------------------

@@ -86,6 +86,7 @@ from app.modules.practices.schemas import (
     PaginatedPracticesResponse,
     PracticeResponse,
     UpdatePracticeRequest,
+    _validate_style_for_direction,
 )
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
@@ -576,6 +577,23 @@ async def update_practice(
     # deepcopy + set_jsonb so SQLAlchemy detects the change. Only the keys
     # actually sent are overwritten; the rest of data.taxonomy is preserved.
     if taxonomy_updates:
+        # W-1: when style is changed WITHOUT direction in the same request,
+        # the Pydantic model validator only checked it against the flattened
+        # union (it has no stored direction context), so a style valid for a
+        # DIFFERENT direction would slip through (e.g. setting "silence", a
+        # meditation style, on a stored yoga practice). Re-validate here
+        # against the direction actually stored on the practice. When direction
+        # IS part of this update, the model validator already checked the pair.
+        if "style" in taxonomy_updates and "direction" not in taxonomy_updates:
+            stored_taxonomy = (practice.data or {}).get("taxonomy", {})
+            stored_direction = stored_taxonomy.get("direction")
+            try:
+                _validate_style_for_direction(
+                    stored_direction, taxonomy_updates["style"],
+                )
+            except ValueError as exc:
+                raise BadRequestError(str(exc)) from exc
+
         data = copy.deepcopy(practice.data) if practice.data else {}
         taxonomy = data.get("taxonomy", {})
         taxonomy.update(taxonomy_updates)
