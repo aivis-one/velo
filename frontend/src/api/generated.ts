@@ -389,6 +389,22 @@ export interface MoodDistribution {
   low: number
 }
 
+/** User notification preferences (nested under credentials.notifications). All flags default to True. Used both as the typed shape returned inside UserResponse.notifications and as the optional update payload in UserUpdate (where every field is optional for partial updates). */
+export interface NotificationSettings {
+  push?: boolean
+  practice_reminders?: boolean
+  master_messages?: boolean
+  support_messages?: boolean
+}
+
+/** Partial update for notification preferences. Every field optional: only the toggles the user flipped are sent. The service merges them onto the stored object so untouched flags are kept. */
+export interface NotificationSettingsUpdate {
+  push?: boolean | null
+  practice_reminders?: boolean | null
+  master_messages?: boolean | null
+  support_messages?: boolean | null
+}
+
 /** Paginated list of withdrawals for admin. */
 export interface PaginatedAdminWithdrawalsResponse {
   items: AdminWithdrawalResponse[]
@@ -769,6 +785,7 @@ export interface UserResponse {
   onboarding_completed: boolean
   phone: string | null
   bio: string | null
+  notifications: NotificationSettings
 }
 
 /** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */
@@ -786,6 +803,7 @@ export interface UserUpdate {
   onboarding_completed?: boolean | null
   phone?: string | null
   bio?: string | null
+  notifications?: NotificationSettingsUpdate | null
 }
 
 /** POST /admin/masters/{user_id}/verify -- request body. */
