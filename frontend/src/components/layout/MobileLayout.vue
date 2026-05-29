@@ -12,6 +12,16 @@
       </template>
       <DashboardContent />
     </MobileLayout>
+
+  Telegram safe area (2026-05): launched from the chat list ("Открыть"),
+  Telegram opens the Mini App in fullscreen and draws its own Close/menu
+  controls ON TOP of our content (no native header). The content safe-area
+  inset (--tg-content-safe-area-inset-top, set live by the SDK) is how far down
+  the content must start to clear those controls. Launched from inside the chat
+  the inset is 0 (Telegram draws its own header), so the padding is a no-op
+  there. Verified on device: fullscreen inset = 46px, in-chat inset = 0px.
+  box-sizing:border-box keeps the padding INSIDE the height so 100dvh never
+  overflows (including the --fill branch below).
 -->
 
 <template>
@@ -54,6 +64,10 @@ defineEmits<{
   min-height: 100dvh;
   min-height: 100vh; /* fallback */
   background: transparent;
+  /* Push all content below Telegram's native controls in fullscreen; no-op in
+     chat mode (inset 0). See file header for the device-verified values. */
+  box-sizing: border-box;
+  padding-top: var(--tg-content-safe-area-inset-top, 0px);
 }
 
 /* Fill mode needs a DEFINITE root height (not just min-height), otherwise the
@@ -61,7 +75,10 @@ defineEmits<{
    content area collapses to its content -- which is exactly why the composer
    used to stick under the last card instead of the bottom. Locking the root to
    the viewport height makes `main` (flex:1) take "viewport - header - tabbar",
-   and the diary view fills that, pinning the composer above the tab bar. */
+   and the diary view fills that, pinning the composer above the tab bar.
+   With box-sizing:border-box the safe-area padding-top above stays INSIDE this
+   height, so the column is "100dvh minus inset minus header minus tabbar" and
+   the composer remains pinned above the tab bar in both launch modes. */
 .mobile-layout--fill {
   height: 100dvh;
   height: 100vh; /* fallback */
