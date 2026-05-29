@@ -8,9 +8,10 @@
 // TD-F01: added getStartParam() -- reads WebApp.initDataUnsafe.start_param
 // for deep link handling (open_practice__{uuid}).
 //
-// TEMP DIAGNOSTIC: prints whether the MobileLayout padding-top actually
-// resolved on device. Decides "variable never reached CSS" vs "padding applied
-// but content still on top". Remove this block once read.
+// TEMP DIAGNOSTIC: measures both .welcome and .mobile-layout (padding-top,
+// box-sizing, geometry) so we can see, on the Welcome screen specifically,
+// whether the padding applied (and where the first child actually sits).
+// Remove this block once read.
 // =============================================================================
 
 import type { Platform } from './types'
@@ -30,9 +31,9 @@ let _backButtonCallback: (() => void) | null = null
 // =============================================================================
 // TEMP DIAGNOSTIC -- remove after reading the values from the client's screen.
 // =============================================================================
-function showLayoutDiagnostic(): void {
+function showDiagnostic(): void {
   const panel = document.createElement('div')
-  panel.id = 'velo-layout-diagnostic'
+  panel.id = 'velo-diagnostic'
   panel.style.cssText = [
     'position:fixed',
     'top:0',
@@ -41,34 +42,40 @@ function showLayoutDiagnostic(): void {
     'z-index:99999',
     'background:rgba(0,0,0,0.85)',
     'color:#0f0',
-    'font:12px/1.5 monospace',
+    'font:11px/1.45 monospace',
     'padding:8px 10px',
     'white-space:pre',
     'pointer-events:none',
   ].join(';')
   document.body.appendChild(panel)
 
+  const measure = (sel: string): string => {
+    const el = document.querySelector(sel) as HTMLElement | null
+    if (!el) return `${sel}: NOT FOUND`
+    const s = getComputedStyle(el)
+    const rectTop = Math.round(el.getBoundingClientRect().top)
+    const childTop = el.firstElementChild
+      ? Math.round((el.firstElementChild as HTMLElement).getBoundingClientRect().top)
+      : NaN
+    const justify = s.justifyContent
+    return [
+      `${sel}: FOUND`,
+      `  padding-top: ${s.paddingTop}`,
+      `  box-sizing:  ${s.boxSizing}`,
+      `  justify:     ${justify}`,
+      `  rect.top:    ${rectTop}`,
+      `  child.top:   ${Number.isNaN(childTop) ? '(none)' : childTop}`,
+    ].join('\n')
+  }
+
   const render = (): void => {
     const root = getComputedStyle(document.documentElement)
     const wa = window.Telegram?.WebApp as unknown as Record<string, unknown>
-
-    // The actual element we patched. If it isn't found, the dashboard is not
-    // rendered through MobileLayout (would explain why padding does nothing).
-    const ml = document.querySelector('.mobile-layout') as HTMLElement | null
-    const mlStyle = ml ? getComputedStyle(ml) : null
-
     const lines = [
       `--tg-content-safe-top (root): ${root.getPropertyValue('--tg-content-safe-area-inset-top').trim() || '(empty)'}`,
       `isFullscreen: ${String(wa?.isFullscreen ?? '(unknown)')}`,
-      `.mobile-layout found: ${ml ? 'YES' : 'NO'}`,
-      `.mobile-layout padding-top: ${mlStyle?.paddingTop ?? '(n/a)'}`,
-      `.mobile-layout box-sizing: ${mlStyle?.boxSizing ?? '(n/a)'}`,
-      `.mobile-layout top (rect): ${ml ? Math.round(ml.getBoundingClientRect().top) : '(n/a)'}`,
-      `first child top (rect): ${
-        ml?.firstElementChild
-          ? Math.round((ml.firstElementChild as HTMLElement).getBoundingClientRect().top)
-          : '(n/a)'
-      }`,
+      measure('.welcome'),
+      measure('.mobile-layout'),
     ]
     panel.textContent = lines.join('\n')
   }
@@ -102,7 +109,7 @@ export const telegramPlatform: Platform = {
     webApp.setBackgroundColor('#F8FAFC')
 
     // TEMP DIAGNOSTIC -- remove after reading values from the client's screen.
-    showLayoutDiagnostic()
+    showDiagnostic()
   },
 
   getInitData(): string | null {
