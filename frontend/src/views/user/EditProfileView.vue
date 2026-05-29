@@ -41,7 +41,7 @@
     <div class="edit-profile__content">
       <!-- Avatar + change photo (stub) -->
       <div class="edit-profile__avatar-block">
-        <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" :size="80" />
+        <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" size="xl" />
         <button type="button" class="edit-profile__change-photo" @click="onChangePhoto">
           Изменить фото
         </button>
