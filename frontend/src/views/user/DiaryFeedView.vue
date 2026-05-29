@@ -63,6 +63,45 @@
               />
             </svg>
           </VMenuItem>
+          <!-- View toggle (list <-> thread map). Glyph + aria reflect the
+               TARGET view (what tapping switches to). -->
+          <VMenuItem
+            :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
+            @click="toggleView(); close()"
+          >
+            <svg
+              v-if="viewMode === 'map'"
+              class="diary-feed__menu-glyph"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 5h14M3 10h14M3 15h14"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+            </svg>
+            <svg
+              v-else
+              class="diary-feed__menu-glyph"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <circle cx="10" cy="4" r="2" fill="currentColor" />
+              <circle cx="10" cy="16" r="2" fill="currentColor" />
+              <path
+                d="M10 6v8M10 10h6"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+              />
+            </svg>
+          </VMenuItem>
         </template>
       </VMenu>
     </header>
@@ -106,7 +145,18 @@
         <!-- Wrapper pins a short feed to the bottom (margin-top:auto) so few
              entries sit next to the composer, chat-style. -->
         <div class="diary-feed__thread">
-          <DiaryTimeline :items="items" :timezone="timezone" @tap="onTap" />
+          <DiaryList
+            v-if="viewMode === 'list'"
+            :items="items"
+            :timezone="timezone"
+            @tap="onTap"
+          />
+          <DiaryTimeline
+            v-else
+            :items="items"
+            :timezone="timezone"
+            @tap="onTap"
+          />
         </div>
       </template>
     </div>
@@ -157,6 +207,7 @@ import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
 import { IconClose } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
+import DiaryList from '@/components/shared/DiaryList.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
 import DiaryFilterModal from '@/components/shared/DiaryFilterModal.vue'
 import DiarySearchModal from '@/components/shared/DiarySearchModal.vue'
@@ -225,6 +276,20 @@ function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
 
 const showFilter = ref(false)
 const showSearch = ref(false)
+
+// View mode: flat column ('list') vs thread/map ('map'), toggled from the
+// "..." menu. Default 'list' — the redesign's primary, more readable view;
+// 'map' is the alternating thread (DiaryTimeline). Resets per mount (no
+// persistence yet — add to the store later if cross-navigation memory is wanted).
+const viewMode = ref<'list' | 'map'>('list')
+
+async function toggleView(): Promise<void> {
+  viewMode.value = viewMode.value === 'list' ? 'map' : 'list'
+  // Chat-mode: both renderers order oldest->newest, so re-pin to the newest
+  // (bottom) after the layout swaps to keep the user's place sensible.
+  await nextTick()
+  scrollToBottom()
+}
 
 // Current categories from the store, used to seed the filter modal's draft.
 const activeCategories = computed<DiaryFeedCategory[]>(
