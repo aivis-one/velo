@@ -24,6 +24,33 @@
 <template>
   <div class="dashboard">
 
+    <!-- ===================================================================
+         TEMP DIAGNOSTIC: side panel showing all SDK viewport insets live.
+         Reads @tma.js/sdk viewport signals via useSignal (reactive) plus the
+         actual computed padding-top of .mobile-layout. Remove once we know
+         which inset carries the value. Placed on the side (not top) so it
+         doesn't sit under Telegram's controls.
+         =================================================================== -->
+    <div class="sa-debug">
+      <div class="sa-debug__row">mounted: {{ saMounted }}</div>
+      <div class="sa-debug__row">fullscreen: {{ saFullscreen }}</div>
+      <div class="sa-debug__row">cssVarsBound: {{ saCssVarsBound }}</div>
+      <div class="sa-debug__sep">safeAreaInset</div>
+      <div class="sa-debug__row">top: {{ saTop }}</div>
+      <div class="sa-debug__row">bottom: {{ saBottom }}</div>
+      <div class="sa-debug__row">left: {{ saLeft }}</div>
+      <div class="sa-debug__row">right: {{ saRight }}</div>
+      <div class="sa-debug__sep">contentSafeAreaInset</div>
+      <div class="sa-debug__row">top: {{ csaTop }}</div>
+      <div class="sa-debug__row">bottom: {{ csaBottom }}</div>
+      <div class="sa-debug__row">left: {{ csaLeft }}</div>
+      <div class="sa-debug__row">right: {{ csaRight }}</div>
+      <div class="sa-debug__sep">viewport</div>
+      <div class="sa-debug__row">h: {{ saHeight }}</div>
+      <div class="sa-debug__sep">.mobile-layout</div>
+      <div class="sa-debug__row">pad-top: {{ mlPadTop }}</div>
+    </div>
+
     <!-- Greeting -->
     <div class="dashboard__greeting">
       <p class="dashboard__greeting-text">{{ greetingText }}</p>
@@ -208,6 +235,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { viewport, useSignal } from '@tma.js/sdk-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
 import { usePracticesStore } from '@/stores/practices'
@@ -434,16 +462,45 @@ function goToFeedback(practiceId: string): void {
 }
 
 // =========================================================================
+// TEMP DIAGNOSTIC -- live SDK viewport insets, shown in the side panel.
+// useSignal turns each SDK signal into a reactive Vue ref. Guarded reads:
+// when the viewport isn't mounted the signals may be 0/undefined.
+// Remove this block (and the template panel + styles) once diagnosed.
+// =========================================================================
+const saMounted = useSignal(viewport.isMounted)
+const saFullscreen = useSignal(viewport.isFullscreen)
+const saCssVarsBound = useSignal(viewport.isCssVarsBound)
+const saTop = useSignal(viewport.safeAreaInsetTop)
+const saBottom = useSignal(viewport.safeAreaInsetBottom)
+const saLeft = useSignal(viewport.safeAreaInsetLeft)
+const saRight = useSignal(viewport.safeAreaInsetRight)
+const csaTop = useSignal(viewport.contentSafeAreaInsetTop)
+const csaBottom = useSignal(viewport.contentSafeAreaInsetBottom)
+const csaLeft = useSignal(viewport.contentSafeAreaInsetLeft)
+const csaRight = useSignal(viewport.contentSafeAreaInsetRight)
+const saHeight = useSignal(viewport.height)
+
+// Actual computed padding-top of .mobile-layout, refreshed on a short timer
+// so we can compare "what the inset signal says" vs "what CSS applied".
+const mlPadTop = ref('?')
+let mlTimer: ReturnType<typeof setInterval> | null = null
+
+// =========================================================================
 // Lifecycle
 // =========================================================================
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
   clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
+  mlTimer = setInterval(() => {
+    const el = document.querySelector('.mobile-layout') as HTMLElement | null
+    mlPadTop.value = el ? getComputedStyle(el).paddingTop : '(no .mobile-layout)'
+  }, 500)
 })
 
 onUnmounted(() => {
   if (clockInterval) clearInterval(clockInterval)
+  if (mlTimer) clearInterval(mlTimer)
 })
 </script>
 
@@ -668,5 +725,34 @@ onUnmounted(() => {
 .dashboard__ai-more-label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
+}
+
+/* ===== TEMP DIAGNOSTIC side panel ===== */
+.sa-debug {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 99999;
+  background: rgba(0, 0, 0, 0.82);
+  color: #0f0;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 8px 0 0 8px;
+  pointer-events: none;
+  max-width: 56vw;
+}
+
+.sa-debug__sep {
+  color: #ff0;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  padding-top: 3px;
+}
+
+.sa-debug__row {
+  white-space: nowrap;
 }
 </style>
