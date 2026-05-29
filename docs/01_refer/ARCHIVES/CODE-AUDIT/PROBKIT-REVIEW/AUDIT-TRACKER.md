@@ -10,3 +10,4 @@
 | 2026-05-22 | calendar iteration ce2d914..cec4b5b (taxonomy, filters, CalendarView) | 7/10 | 1 | 3 | 5 |
 | 2026-05-22 | re-check calendar fixes (5dfeed1) | — | 0 | 0 | 0 |
 | 2026-05-23 | master public profile + avatar in practice detail (5dfeed1..ef7b703) | 9/10 | 0 | 0 | 3 |
+| 2026-05-29 | полный аудит 153 коммита origin/main (профиль A–F, таксономия v2, logout fix) | 7/10 | 0 | 4 | 5 |
