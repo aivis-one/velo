@@ -85,9 +85,12 @@ function getOffsetMinutes(iana: string, at: Date = new Date()): number | null {
     const tzName = parts.find((p) => p.type === 'timeZoneName')?.value ?? ''
     const m = tzName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/)
     if (!m) return 0 // "GMT" with no digits == UTC.
+    // Regex groups are typed `string | undefined` under noUncheckedIndexedAccess
+    // even though a successful match guarantees [1] and [2]. Coalesce to keep
+    // the compiler happy; "0" is also a safe runtime default for [3].
     const sign = m[1] === '-' ? -1 : 1
-    const hours = parseInt(m[2], 10)
-    const minutes = m[3] ? parseInt(m[3], 10) : 0
+    const hours = parseInt(m[2] ?? '0', 10)
+    const minutes = parseInt(m[3] ?? '0', 10)
     return sign * (hours * 60 + minutes)
   } catch {
     return null
