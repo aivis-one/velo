@@ -322,3 +322,179 @@ async def test_onboarding_completed_null_does_not_reset_flag(
     )
     assert resp.status_code == 200
     assert resp.json()["onboarding_completed"] is True
+
+
+# ---------------------------------------------------------------------------
+# Profile phone / bio (stored in credentials JSONB, surfaced as str | None)
+# ---------------------------------------------------------------------------
+
+
+async def test_phone_bio_default_none_for_new_user(client: AsyncClient) -> None:
+    """A fresh user has phone=None and bio=None (keys absent)."""
+    data = await login_user(client, telegram_id=88040, first_name="NoExtra")
+    token = data["session_token"]
+
+    response = await client.get("/api/v1/users/me", headers=auth_headers(token))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] is None
+    assert body["bio"] is None
+
+
+async def test_update_phone_and_bio(client: AsyncClient) -> None:
+    """PATCH phone + bio is persisted and returned (schema-on-read)."""
+    data = await login_user(client, telegram_id=88041, first_name="Filler")
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "+7 (916) 123-45-67", "bio": "Yoga every morning"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] == "+7 (916) 123-45-67"
+    assert body["bio"] == "Yoga every morning"
+
+    # Persisted across a fresh GET.
+    get_response = await client.get(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+    )
+    get_body = get_response.json()
+    assert get_body["phone"] == "+7 (916) 123-45-67"
+    assert get_body["bio"] == "Yoga every morning"
+
+
+async def test_clear_phone_and_bio_with_empty_string(client: AsyncClient) -> None:
+    """Empty string clears phone/bio (stored as ""), unlike name fields.
+
+    Variant (b): "" is an allowed value meaning "cleared". null is NOT used
+    to clear here (the service drops null for JSONB fields).
+    """
+    data = await login_user(client, telegram_id=88042, first_name="Clearer")
+    token = data["session_token"]
+
+    # Set first.
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "+1 555 0100", "bio": "Something"},
+    )
+
+    # Clear via empty string.
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "", "bio": ""},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["phone"] == ""
+    assert body["bio"] == ""
+
+
+async def test_phone_invalid_characters_rejected(client: AsyncClient) -> None:
+    """Phone with letters → 422 (soft validation: only digits/space/+()-)."""
+    data = await login_user(client, telegram_id=88043)
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "call-me-maybe"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_phone_too_few_digits_rejected(client: AsyncClient) -> None:
+    """Phone with fewer than 5 digits → 422."""
+    data = await login_user(client, telegram_id=88044)
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "+1 23"},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_bio_too_long_rejected(client: AsyncClient) -> None:
+    """bio exceeding max_length (2000) → 422."""
+    data = await login_user(client, telegram_id=88045)
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"bio": "x" * 2001},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_phone_survives_relogin(client: AsyncClient) -> None:
+    """phone in credentials survives re-login (merge, like onboarding flag)."""
+    first = await login_user(client, telegram_id=88046, first_name="Keeper")
+    token1 = first["session_token"]
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token1),
+        json={"phone": "+44 20 7946 0958"},
+    )
+
+    second = await login_user(client, telegram_id=88046, first_name="Keeper")
+    token2 = second["session_token"]
+
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token2))
+    assert me.status_code == 200
+    assert me.json()["phone"] == "+44 20 7946 0958"
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/users/me — MVP: resets onboarding (no data wipe, no deactivate)
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_me_resets_onboarding(client: AsyncClient) -> None:
+    """DELETE /me clears onboarding_completed so the user re-onboards.
+
+    MVP semantics: account is NOT erased and NOT deactivated. After delete,
+    onboarding_completed reads false again; is_active stays true; previously
+    saved profile data (phone) is still present.
+    """
+    data = await login_user(client, telegram_id=88050, first_name="Deleter")
+    token = data["session_token"]
+
+    # Finish onboarding + set some data.
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"onboarding_completed": True, "phone": "+7 916 000 11 22"},
+    )
+
+    # Delete account (MVP reset).
+    delete_response = await client.delete(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+    )
+    assert delete_response.status_code == 204
+
+    # Onboarding reset, account still active, data still present.
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+    assert me.status_code == 200
+    body = me.json()
+    assert body["onboarding_completed"] is False
+    assert body["is_active"] is True
+    assert body["phone"] == "+7 916 000 11 22"
+
+
+async def test_delete_me_no_auth(client: AsyncClient) -> None:
+    """DELETE without token → 401."""
+    response = await client.delete("/api/v1/users/me")
+    assert response.status_code == 401

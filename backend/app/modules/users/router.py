@@ -13,14 +13,14 @@
 #   The service no longer needs session.merge().
 # =============================================================================
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_session
 from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
 from app.modules.users.schemas import UserResponse, UserUpdate
-from app.modules.users.service import update_user
+from app.modules.users.service import reset_user_to_onboarding, update_user
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -53,3 +53,22 @@ async def update_me(
     """
     updated = await update_user(user, body, session)
     return UserResponse.model_validate(updated)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    user: User = Depends(get_current_user_write),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Delete the authenticated user's account.
+
+    MVP SEMANTICS (see reset_user_to_onboarding): this does NOT erase data or
+    deactivate the account. It resets the onboarding flag so the next login
+    sends the user through the welcome flow again, with their old data intact.
+    The endpoint contract ("DELETE my account") is kept so that real deletion
+    can later be implemented by changing only the service body.
+
+    Returns 204 No Content. The frontend then logs the user out (which closes
+    the Mini App in Telegram / redirects in standalone).
+    """
+    await reset_user_to_onboarding(user, session)

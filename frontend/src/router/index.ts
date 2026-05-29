@@ -93,6 +93,11 @@ const router = createRouter({
           component: () => import('@/views/user/LanguageTimezoneView.vue'),
         },
         {
+          path: 'profile/edit',
+          name: 'user-edit-profile',
+          component: () => import('@/views/user/EditProfileView.vue'),
+        },
+        {
           path: 'practices/:id',
           name: 'practice-detail',
           component: () => import('@/views/user/PracticeDetailView.vue'),

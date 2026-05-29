@@ -74,6 +74,30 @@ class UserResponse(BaseModel):
         """
         return bool(self.credentials_in.get("onboarding_completed", False))
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def phone(self) -> str | None:
+        """User's contact phone, stored in the credentials JSONB sandbox.
+
+        Same schema-on-read pattern as onboarding_completed (key "phone").
+        Missing key -> None. An empty string means the user cleared it
+        (see UserUpdate: empty string is an allowed "clear" value, unlike
+        first_name which uses null to clear).
+        """
+        value = self.credentials_in.get("phone")
+        return value if isinstance(value, str) else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def bio(self) -> str | None:
+        """User's short "about me" text, stored in the credentials JSONB.
+
+        Schema-on-read (key "bio"). Missing key -> None. Empty string is an
+        allowed cleared value.
+        """
+        value = self.credentials_in.get("bio")
+        return value if isinstance(value, str) else None
+
     model_config = {"from_attributes": True, "populate_by_name": True}
 
 
@@ -92,6 +116,13 @@ class UserUpdate(BaseModel):
     onboarding_completed is written into the credentials JSONB by the
     service layer (not a column). null is meaningless here, so only
     true/false are accepted; "not sent" leaves it untouched.
+
+    phone and bio also live in the credentials JSONB (schema-on-read, same
+    pattern). Unlike the name fields, they allow an EMPTY STRING as a valid
+    value: sending "" clears the field (stored as "" in credentials). They
+    have no min_length for that reason -- only a max_length cap. "Not sent"
+    leaves them untouched; null is treated the same as "not sent" by the
+    service (dropped), so use "" (not null) to clear.
     """
 
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
@@ -99,6 +130,38 @@ class UserUpdate(BaseModel):
     timezone: str | None = Field(default=None, min_length=1, max_length=50)
     language: str | None = Field(default=None, min_length=1, max_length=5)
     onboarding_completed: bool | None = Field(default=None)
+    # Empty string allowed (clear). Cap only; soft format check below.
+    phone: str | None = Field(default=None, max_length=20)
+    bio: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        """Soft, international-friendly phone validation.
+
+        Intentionally permissive: we serve users across many timezones, not
+        only one country, so we do not enforce a single national format. We
+        only guard against obviously bad input.
+
+        Rules (applied to a non-empty value):
+          - allowed characters: digits, spaces, and + ( ) -
+          - must contain at least 5 digits (a plausible phone)
+          - length is already capped at 20 by the Field max_length
+
+        An empty string is allowed and means "clear the phone".
+        None means "not provided" and is left untouched by the service.
+        """
+        if v is None or v == "":
+            return v
+        allowed = set("0123456789 +()-")
+        if not set(v).issubset(allowed):
+            raise ValueError(
+                "Phone may contain only digits, spaces and + ( ) - characters"
+            )
+        digit_count = sum(ch.isdigit() for ch in v)
+        if digit_count < 5:
+            raise ValueError("Phone must contain at least 5 digits")
+        return v
 
     @field_validator("timezone", "language", mode="before")
     @classmethod

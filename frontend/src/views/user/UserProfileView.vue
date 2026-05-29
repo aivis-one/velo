@@ -180,8 +180,7 @@ const hoursLabel = computed(() => {
 // -- Menu actions --
 
 function onEditProfile(): void {
-  // Wired to a real route when 72_Edit Profile (Screen C) lands.
-  toast.info('Редактирование профиля будет доступно в следующем обновлении')
+  router.push({ name: 'user-edit-profile' })
 }
 
 function onNotifications(): void {

@@ -5,14 +5,16 @@
 // Typed wrappers over api.get/patch for the current-user profile endpoints.
 //
 // Backend endpoints:
-//   GET   /api/v1/users/me  -- current user profile
-//   PATCH /api/v1/users/me  -- partial profile update
+//   GET    /api/v1/users/me  -- current user profile
+//   PATCH  /api/v1/users/me  -- partial profile update
+//   DELETE /api/v1/users/me  -- delete account (MVP: resets onboarding)
 //
 // UserResponse / UserUpdate are generated from the backend OpenAPI schema
 // (see api/generated.ts, refreshed on `velo update` / `velo gen-types`).
 // onboarding_completed is part of both: it lives in the credentials JSONB
 // on the backend but is surfaced as a plain bool on UserResponse and is
-// settable via UserUpdate.
+// settable via UserUpdate. phone / bio follow the same JSONB pattern and are
+// likewise surfaced on UserResponse and settable via UserUpdate.
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -34,4 +36,16 @@ export function getMe(): Promise<UserResponse> {
  */
 export function updateMe(body: UserUpdate): Promise<UserResponse> {
   return api.patch<UserResponse>('/api/v1/users/me', body)
+}
+
+/**
+ * Delete the authenticated user's account.
+ *
+ * MVP semantics (backend): this resets the onboarding flag rather than
+ * erasing data or deactivating the account, so the next login sends the user
+ * back through the welcome flow with their old data intact. The caller should
+ * log the user out afterwards. Returns 204 (no body).
+ */
+export function deleteMe(): Promise<void> {
+  return api.delete('/api/v1/users/me')
 }
