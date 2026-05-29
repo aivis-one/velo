@@ -1,23 +1,20 @@
 <!--
   VELO Frontend -- MobileLayout Component (Phase F2.1)
 
-  *** TEMPORARY DIAGNOSTIC BUILD ***
-  padding-top is hard-coded to 400px (NOT the safe-area inset) purely to answer
-  one question: does pushing the content down by a large fixed amount move it
-  OUT from under Telegram's control buttons?
-    - If the content clears the buttons at 400px -> the mechanism works, the
-      inset value was simply too small; we then wire the real inset back.
-    - If the content is STILL under the buttons at 400px -> padding is not the
-      right axis (the buttons share the content's coordinate space and move
-      with it), and we change approach.
-  Revert to the reactive inset (useSafeArea) after reading the result.
+  Telegram safe area: padding-top is the reactive content safe-area top inset
+  from useSafeArea() (backed by the @tma.js/sdk viewport signal), applied as an
+  inline style so it re-renders when the inset arrives/changes. Verified that
+  padding on this element DOES move the content (a hard 400px pushed the
+  greeting far down), so the only remaining variable is the inset value itself,
+  which the SDK provides per launch mode. box-sizing:border-box keeps the
+  padding inside the height so 100dvh never overflows (incl. --fill).
 -->
 
 <template>
   <div
     class="mobile-layout"
     :class="{ 'mobile-layout--fill': fill }"
-    style="padding-top: 400px;"
+    :style="{ paddingTop: contentSafeTop + 'px' }"
   >
     <slot name="header" />
     <main class="mobile-layout__main" :class="{ 'mobile-layout__main--fill': fill }">
@@ -33,6 +30,7 @@
 
 <script setup lang="ts">
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
+import { useSafeArea } from '@/composables/useSafeArea'
 
 defineProps<{
   tabs: TabItem[]
@@ -43,6 +41,9 @@ defineProps<{
 defineEmits<{
   navigate: [to: string]
 }>()
+
+// Reactive Telegram content safe-area top inset (px), bound to padding-top.
+const { contentSafeTop } = useSafeArea()
 </script>
 
 <style scoped>
@@ -53,7 +54,7 @@ defineEmits<{
   min-height: 100vh; /* fallback */
   background: transparent;
   box-sizing: border-box;
-  /* padding-top set inline (temporary 400px diagnostic). */
+  /* padding-top applied inline from useSafeArea (reactive). */
 }
 
 .mobile-layout--fill {
