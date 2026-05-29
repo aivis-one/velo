@@ -21,22 +21,25 @@
 -->
 
 <template>
-  <div class="hero-card">
+  <div class="hero-card" :class="{ 'hero-card--form': variant === 'form' }">
     <div class="hero-card__icon">
       <component :is="iconComponent" :size="46" />
     </div>
     <h1 class="hero-card__title">{{ title }}</h1>
     <div class="hero-card__meta">
-      <span class="hero-card__meta-item">
-        <IconCalendar :size="14" /> {{ date }}
-      </span>
-      <span class="hero-card__meta-item">
-        <IconClock :size="14" /> {{ duration }}
-      </span>
-      <span v-if="participants" class="hero-card__meta-item">
-        <IconGroup :size="14" /> {{ participants }}
-      </span>
-      <slot name="badge" />
+      <!-- #meta переопределяет встроенный icon-row (form-вариант: Check-in / Feedback). -->
+      <slot name="meta">
+        <span class="hero-card__meta-item">
+          <IconCalendar :size="14" /> {{ date }}
+        </span>
+        <span class="hero-card__meta-item">
+          <IconClock :size="14" /> {{ duration }}
+        </span>
+        <span v-if="participants" class="hero-card__meta-item">
+          <IconGroup :size="14" /> {{ participants }}
+        </span>
+        <slot name="badge" />
+      </slot>
     </div>
 
     <!-- Difficulty dots (Calendar frame 4): label + dots only, no word level. -->
@@ -63,8 +66,12 @@ import type { PracticeDirection } from '@/api/types'
 const props = withDefaults(
   defineProps<{
     title: string
-    date: string
-    duration: string
+    /** Layout variant. 'hero' (default) — detail-экраны. 'form' — practice-header
+     *  Check-in / Feedback: меньший заголовок, meta как grid 1fr/1fr через #meta. */
+    variant?: 'hero' | 'form'
+    /** Built-in meta. Нужны только когда слот #meta НЕ передан (hero-вариант). */
+    date?: string
+    duration?: string
     /** Optional "N / M" participants string. Omit to hide (booked / detail). */
     participants?: string | null
     /** Content direction (taxonomy) -- picks the hero glyph. */
@@ -75,6 +82,9 @@ const props = withDefaults(
     difficultyLabel?: string
   }>(),
   {
+    variant: 'hero',
+    date: '',
+    duration: '',
     participants: null,
     direction: null,
     difficultyDots: 0,
@@ -168,5 +178,31 @@ const iconComponent = computed(
 
 .hero-card__difficulty-dot--on {
   background: var(--velo-primary);
+}
+
+/* ===== Form variant — practice-header в Check-in / Feedback (F-3) =====
+ * Числа сверены 1:1 с прежним инлайн-блоком .form-shell__practice. */
+.hero-card--form {
+  padding: 19px var(--space-4) var(--space-5);
+  gap: 0;
+}
+
+.hero-card--form .hero-card__icon {
+  margin-bottom: 5px;
+}
+
+.hero-card--form .hero-card__title {
+  font-size: var(--text-base);
+  margin-bottom: 16px;
+}
+
+/* Meta как 2-колоночный грид: мастер слева, дата/статус справа.
+ * Сами ячейки (#meta слот) стилизуются в FormShell (:slotted .form-shell__practice-meta-cell). */
+.hero-card--form .hero-card__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 0;
+  width: 100%;
 }
 </style>

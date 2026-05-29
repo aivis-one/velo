@@ -62,20 +62,21 @@
     <VHeader show-back :back-label="backLabel" @back="emit('back')" />
 
     <div class="form-shell__body">
-      <!-- Practice info -->
-      <div v-if="practice" class="form-shell__practice">
-        <span class="form-shell__practice-icon">
-          <component :is="practiceIcon" :size="46" />
-        </span>
-        <h2 class="form-shell__practice-name">{{ practice.title }}</h2>
-        <div class="form-shell__practice-meta">
+      <!-- Practice info — общий PracticeHeroCard в form-варианте (F-3). -->
+      <PracticeHeroCard
+        v-if="practice"
+        variant="form"
+        :title="practice.title"
+        :direction="practice.direction"
+      >
+        <template #meta>
           <slot name="practice-meta">
             <span class="form-shell__practice-meta-cell">
               с {{ practice.master_name ?? 'Мастером' }}
             </span>
           </slot>
-        </div>
-      </div>
+        </template>
+      </PracticeHeroCard>
       <div v-else-if="practiceLoading" class="form-shell__loader">
         <VLoader />
       </div>
@@ -130,13 +131,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { practiceIconFor, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
+import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import type { PracticeResponse } from '@/api/types'
 
-const props = defineProps<{
+defineProps<{
   backLabel: string
   practice: PracticeResponse | null
   practiceLoading: boolean
@@ -162,12 +162,6 @@ const emit = defineEmits<{
   skip: []
   'update:comment': [value: string]
 }>()
-
-// Иконка практики выбирается по `direction` (медитация / йога / дыхательные ...).
-// Для направлений без своей иконки — neutral fallback (IconDots), как везде в проекте.
-const practiceIcon = computed(() =>
-  props.practice ? practiceIconFor(props.practice) : DIRECTION_ICON_FALLBACK,
-)
 </script>
 
 <style scoped>
@@ -231,55 +225,11 @@ const practiceIcon = computed(() =>
   gap: var(--space-6);
 }
 
-/* Practice info — паддинги и внутренние отступы по Figma 2266:728 */
-.form-shell__practice {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: 19px var(--space-4) var(--space-5);
-}
-
-.form-shell__practice-icon {
-  width: 46px;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* Иконка сама несёт circle-обводку (см. IconMeditation.vue),
-   * никаких подложек/border-radius/teal-фона тут не нужно. */
-  color: var(--velo-text-primary);
-  margin-bottom: 5px;
-}
-
-.form-shell__practice-name {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin-bottom: 16px;
-}
-
-/* Meta row: две колонки 1fr/1fr — мастер слева, дата/статус справа
- * (Figma 2266:716: master около x=85, date около x=205 в карточке 336px). */
-.form-shell__practice-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  width: 100%;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-/* Дублируем правило в scoped + :slotted, чтобы один и тот же класс работал
- * и для дефолтного содержимого слота (FormShell scope), и для override от
- * CheckinView / FeedbackView (parent scope, нужен :slotted). */
+/* Meta-cell для слота #practice-meta (контент от CheckinView / FeedbackView).
+ * Layout самой practice-карточки (паддинги, иконка, заголовок, грид-meta) теперь
+ * приходит из общего PracticeHeroCard variant="form" (F-3). Здесь остаётся только
+ * стиль ячейки: дублируем scoped + :slotted, чтобы класс работал и для дефолтного
+ * содержимого слота (FormShell scope), и для override от вьюх (parent scope). */
 .form-shell__practice-meta-cell,
 :slotted(.form-shell__practice-meta-cell) {
   display: inline-flex;
