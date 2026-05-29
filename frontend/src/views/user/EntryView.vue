@@ -34,16 +34,15 @@
     <header class="entry__header">
       <button
         type="button"
-        class="entry__icon-btn entry__back"
+        class="entry__back-pill"
         aria-label="Назад"
         @click="goBack"
       >
-        <IconArrowRight :size="20" class="entry__back-glyph" />
+        <IconArrowRight :size="18" class="entry__back-glyph" />
       </button>
       <h1 class="entry__title-bar">Запись</h1>
 
-      <!-- "..." menu (view mode only): edit + delete as round icon buttons.
-           Delete fires directly -- the diary feed shows an undo bar. -->
+      <!-- "..." menu (view mode only): edit + delete. -->
       <VMenu v-if="mode === 'view'">
         <template #default="{ close }">
           <VMenuItem
@@ -58,8 +57,6 @@
           />
         </template>
       </VMenu>
-      <!-- Spacer to keep the title centered in edit mode (no menu button). -->
-      <span v-else class="entry__icon-btn entry__icon-spacer" aria-hidden="true" />
     </header>
 
     <!-- Body -->
@@ -84,31 +81,21 @@
       <template v-else-if="entry">
         <!-- Optional practice header (screen 56). Omitted when the entry has
              no practice link (screen 57). -->
-        <div v-if="practice" class="entry__practice">
-          <component
-            :is="practiceIcon"
-            :size="40"
-            class="entry__practice-icon"
-          />
-          <p class="entry__practice-title">{{ practice.title }}</p>
-          <div class="entry__practice-master">
-            <span class="entry__avatar" aria-hidden="true">
-              <img
-                v-if="practice.master_avatar_url"
-                :src="practice.master_avatar_url"
-                alt=""
-                class="entry__avatar-img"
-              />
+        <PracticeListCard
+          v-if="practice"
+          :practice="practice"
+          :clickable="false"
+          :show-verified="false"
+        >
+          <template #meta-left>
+            <span class="plc-meta-item">
+              <IconCalendar :size="14" /> {{ practiceDate }}
             </span>
-            <span class="entry__master-name">{{ practice.master_name }}</span>
-          </div>
-          <div class="entry__practice-meta">
-            <IconCalendar :size="14" class="entry__meta-icon" />
-            <span>{{ practiceDate }}</span>
-            <IconClock :size="14" class="entry__meta-icon" />
-            <span>{{ practiceDuration }}</span>
-          </div>
-        </div>
+            <span class="plc-meta-item">
+              <IconClock :size="14" /> {{ practiceDuration }}
+            </span>
+          </template>
+        </PracticeListCard>
 
         <!-- The entry card -->
         <div class="entry__card">
@@ -118,6 +105,7 @@
           <template v-if="mode === 'view'">
             <h2 v-if="entry.title" class="entry__heading">{{ entry.title }}</h2>
             <p class="entry__content">{{ entry.content }}</p>
+            <p v-if="contextLine" class="entry__context">{{ contextLine }}</p>
           </template>
 
           <!-- Edit mode -->
@@ -161,17 +149,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, type Component } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconArrowRight,
   IconPen,
   IconCalendar,
   IconClock,
 } from '@/components/icons'
-import { practiceIconFor } from '@/utils/displayHelpers'
 // IconTrash is not re-exported from the icons barrel; import the component
 // file directly (same pattern as other ad-hoc icon imports in the project).
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -209,19 +197,19 @@ const mode = ref<'view' | 'edit'>('view')
 
 const practice = ref<PracticeResponse | null>(null)
 
-const practiceIcon = computed<Component>(() =>
-  practiceIconFor({
-    direction: practice.value?.direction,
-    title: practice.value?.title,
-  }),
-)
-
 const practiceDate = computed(() =>
   practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
 )
+
+// Muted context line linking the note to its practice (if any).
+const contextLine = computed(() => {
+  if (!practice.value) return ''
+  const name = practice.value.master_name ?? 'Мастером'
+  return `Связано с практикой: ${practice.value.title} с ${name}`
+})
 
 // -- entry date line ---------------------------------------------------------
 
@@ -336,41 +324,27 @@ function goBack(): void {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: var(--space-5) var(--space-8) var(--space-3);
 }
 
-.entry__title-bar {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  letter-spacing: 0.36px;
-  color: var(--velo-text-primary);
-}
-
-.entry__icon-btn {
+.entry__back-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 63px;
+  height: 35px;
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
+  background: var(--velo-bg-card-solid);
+  color: var(--velo-text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
 
-.entry__icon-spacer {
-  cursor: default;
-  background: transparent;
-}
-
-.entry__back {
-  background: var(--velo-bg-card-solid);
-  color: var(--velo-text-primary);
+.entry__back-pill:hover {
+  opacity: 0.85;
 }
 
 /* The only "back" glyph available is a right arrow -- mirror it. */
@@ -378,8 +352,14 @@ function goBack(): void {
   transform: scaleX(-1);
 }
 
-.entry__icon-btn:hover {
-  opacity: 0.85;
+/* Title left-aligned next to the pill; flex:1 pushes the "..." menu right. */
+.entry__title-bar {
+  flex: 1;
+  text-align: left;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  letter-spacing: 0.36px;
+  color: var(--velo-text-primary);
 }
 
 /* -- Body (scrolls) -- */
@@ -400,71 +380,7 @@ function goBack(): void {
   padding: var(--space-10) 0;
 }
 
-/* -- Practice header (mirrors feed-card--practice) -- */
-.entry__practice {
-  position: relative;
-  background: var(--velo-bg-card-solid);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.entry__practice-icon {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-4);
-  /* Цвет — text-primary (Figma DS): иконка сама несёт circle-обводку. */
-  color: var(--velo-text-primary);
-}
-
-.entry__practice-title {
-  font-size: 16px;
-  text-align: center;
-  letter-spacing: 0.32px;
-  color: var(--velo-text-primary);
-}
-
-.entry__practice-master {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-}
-
-.entry__avatar {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-40);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.entry__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.entry__master-name {
-  font-size: 12px;
-  color: var(--velo-text-secondary);
-}
-
-.entry__practice-meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  font-size: 12px;
-  color: var(--velo-text-secondary);
-}
-
-.entry__meta-icon {
-  color: var(--velo-text-secondary);
-}
+/* (Practice header is now rendered by the shared PracticeListCard.) */
 
 /* -- Entry card -- */
 .entry__card {
@@ -496,6 +412,13 @@ function goBack(): void {
   color: var(--velo-text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Muted context line linking the note to its practice. */
+.entry__context {
+  font-size: 12.375px;
+  letter-spacing: 0.2475px;
+  color: var(--velo-text-secondary);
 }
 
 /* -- Edit fields -- */

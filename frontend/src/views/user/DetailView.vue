@@ -24,18 +24,17 @@
 
 <template>
   <div class="detail">
-    <!-- Header -->
+    <!-- Header: arrow-only back-pill (63×35) + left-aligned title (Figma "View entry") -->
     <header class="detail__header">
       <button
         type="button"
-        class="detail__icon-btn detail__back"
+        class="detail__back-pill"
         aria-label="Назад"
         @click="goBack"
       >
-        <IconArrowRight :size="20" class="detail__back-glyph" />
+        <IconArrowRight :size="18" class="detail__back-glyph" />
       </button>
       <h1 class="detail__title-bar">Запись</h1>
-      <span class="detail__icon-btn detail__icon-spacer" aria-hidden="true" />
     </header>
 
     <!-- Body -->
@@ -58,32 +57,22 @@
       </VEmptyState>
 
       <template v-else-if="loaded">
-        <!-- Optional practice header (same layout as EntryView). -->
-        <div v-if="practice" class="detail__practice">
-          <component
-            :is="practiceIcon"
-            :size="40"
-            class="detail__practice-icon"
-          />
-          <p class="detail__practice-title">{{ practice.title }}</p>
-          <div class="detail__practice-master">
-            <span class="detail__avatar" aria-hidden="true">
-              <img
-                v-if="practice.master_avatar_url"
-                :src="practice.master_avatar_url"
-                alt=""
-                class="detail__avatar-img"
-              />
+        <!-- Linked practice summary (DS PracticeListCard, 336×104). -->
+        <PracticeListCard
+          v-if="practice"
+          :practice="practice"
+          :clickable="false"
+          :show-verified="false"
+        >
+          <template #meta-left>
+            <span class="plc-meta-item">
+              <IconCalendar :size="14" /> {{ practiceDate }}
             </span>
-            <span class="detail__master-name">{{ practice.master_name }}</span>
-          </div>
-          <div class="detail__practice-meta">
-            <IconCalendar :size="14" class="detail__meta-icon" />
-            <span>{{ practiceDate }}</span>
-            <IconClock :size="14" class="detail__meta-icon" />
-            <span>{{ practiceDuration }}</span>
-          </div>
-        </div>
+            <span class="plc-meta-item">
+              <IconClock :size="14" /> {{ practiceDuration }}
+            </span>
+          </template>
+        </PracticeListCard>
 
         <!-- The check-in / feedback pill -->
         <div class="detail__pill">
@@ -98,6 +87,7 @@
           <p class="detail__date">{{ dateLine }}</p>
           <p v-if="comment" class="detail__content">{{ comment }}</p>
           <p v-else class="detail__empty">Без комментария</p>
+          <p v-if="contextLine" class="detail__context">{{ contextLine }}</p>
         </div>
       </template>
     </div>
@@ -108,6 +98,7 @@
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconArrowRight,
   IconCalendar,
@@ -124,7 +115,7 @@ import { extractApiError } from '@/composables/useApiError'
 import { getCheckin, getFeedback } from '@/api/diary'
 import { getPractice } from '@/api/practices'
 import { formatFeedDateTime, formatDate, formatDuration } from '@/utils/format'
-import { MOOD_LABEL, RATING_LABEL, practiceIconFor } from '@/utils/displayHelpers'
+import { MOOD_LABEL, RATING_LABEL } from '@/utils/displayHelpers'
 import type {
   CheckinResponse,
   FeedbackResponse,
@@ -195,20 +186,23 @@ const dateLine = computed(() =>
   createdAt.value ? formatFeedDateTime(createdAt.value, tz.value) : '',
 )
 
-// -- practice header ---------------------------------------------------------
+// -- practice header (rendered by PracticeListCard) --------------------------
 
-const practiceIcon = computed<Component>(() =>
-  practiceIconFor({
-    direction: practice.value?.direction,
-    title: practice.value?.title,
-  }),
-)
 const practiceDate = computed(() =>
   practice.value ? formatDate(practice.value.scheduled_at, tz.value) : '',
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
 )
+
+// Context line under the comment: relates this check-in / feedback to the
+// linked practice ("Перед практикой: X с Y" / "После практики: X с Y").
+const contextLine = computed(() => {
+  if (!practice.value) return ''
+  const name = practice.value.master_name ?? 'Мастером'
+  const rel = detailType.value === 'checkin' ? 'Перед практикой' : 'После практики'
+  return `${rel}: ${practice.value.title} с ${name}`
+})
 
 // -- load --------------------------------------------------------------------
 
@@ -263,46 +257,32 @@ function goBack(): void {
   min-height: 0;
 }
 
-/* -- Header -- */
+/* -- Header: arrow-only back-pill (63×35) + left-aligned title -- */
 .detail__header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: var(--space-5) var(--space-8) var(--space-3);
 }
 
-.detail__title-bar {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  letter-spacing: 0.36px;
-  color: var(--velo-text-primary);
-}
-
-.detail__icon-btn {
+.detail__back-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 63px;
+  height: 35px;
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
+  background: var(--velo-bg-card-solid);
+  color: var(--velo-text-primary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
 
-.detail__icon-spacer {
-  cursor: default;
-  background: transparent;
-}
-
-.detail__back {
-  background: var(--velo-bg-card-solid);
-  color: var(--velo-text-primary);
+.detail__back-pill:hover {
+  opacity: 0.85;
 }
 
 /* The only "back" glyph available is a right arrow -- mirror it. */
@@ -310,8 +290,11 @@ function goBack(): void {
   transform: scaleX(-1);
 }
 
-.detail__icon-btn:hover {
-  opacity: 0.85;
+.detail__title-bar {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  letter-spacing: 0.36px;
+  color: var(--velo-text-primary);
 }
 
 /* -- Body (scrolls) -- */
@@ -332,71 +315,7 @@ function goBack(): void {
   padding: var(--space-10) 0;
 }
 
-/* -- Practice header (mirrors EntryView / feed-card--practice) -- */
-.detail__practice {
-  position: relative;
-  background: var(--velo-bg-card-solid);
-  border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.detail__practice-icon {
-  position: absolute;
-  top: var(--space-3);
-  left: var(--space-4);
-  /* Цвет — text-primary (Figma DS): иконка сама несёт circle-обводку. */
-  color: var(--velo-text-primary);
-}
-
-.detail__practice-title {
-  font-size: 16px;
-  text-align: center;
-  letter-spacing: 0.32px;
-  color: var(--velo-text-primary);
-}
-
-.detail__practice-master {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-}
-
-.detail__avatar {
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-teal-40);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.detail__avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.detail__master-name {
-  font-size: 12px;
-  color: var(--velo-text-secondary);
-}
-
-.detail__practice-meta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  font-size: 12px;
-  color: var(--velo-text-secondary);
-}
-
-.detail__meta-icon {
-  color: var(--velo-text-secondary);
-}
+/* (Practice header is now rendered by the shared PracticeListCard.) */
 
 /* -- Check-in / feedback pill (lead icon + title) -- */
 .detail__pill {
@@ -445,6 +364,13 @@ function goBack(): void {
   color: var(--velo-text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Muted context line linking the entry to its practice. */
+.detail__context {
+  font-size: 12.375px;
+  letter-spacing: 0.2475px;
+  color: var(--velo-text-secondary);
 }
 
 .detail__empty {
