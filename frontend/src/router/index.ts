@@ -88,6 +88,11 @@ const router = createRouter({
           component: () => import('@/views/user/UserProfileView.vue'),
         },
         {
+          path: 'profile/language-timezone',
+          name: 'user-language-timezone',
+          component: () => import('@/views/user/LanguageTimezoneView.vue'),
+        },
+        {
           path: 'practices/:id',
           name: 'practice-detail',
           component: () => import('@/views/user/PracticeDetailView.vue'),

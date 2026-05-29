@@ -190,8 +190,7 @@ function onNotifications(): void {
 }
 
 function onLanguageTimezone(): void {
-  // Wired to a real route when 75_Language-Timezone (Screen F) lands.
-  toast.info('Настройки языка будут доступны в следующем обновлении')
+  router.push({ name: 'user-language-timezone' })
 }
 
 function onSupport(): void {
