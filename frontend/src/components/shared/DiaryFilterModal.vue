@@ -32,7 +32,19 @@
 <template>
   <VModal :open="open" @close="$emit('close')">
     <div class="diary-filter">
-      <h2 class="diary-filter__heading">Фильтр</h2>
+      <div class="diary-filter__header">
+        <span class="diary-filter__header-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <path
+              d="M3 4h14l-5.5 7v4l-3 1.5v-5.5L3 4z"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+        <h2 class="diary-filter__heading">Фильтр</h2>
+      </div>
 
       <!-- Date range (screen 43): collapsible header + month grid -->
       <section class="diary-filter__group">
@@ -405,6 +417,29 @@ function onReset(): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+
+.diary-filter__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.diary-filter__header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
+  color: #ffffff;
+}
+
+.diary-filter__header-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .diary-filter__heading {

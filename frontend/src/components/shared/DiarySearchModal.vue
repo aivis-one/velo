@@ -24,7 +24,20 @@
 <template>
   <VModal :open="open" @close="$emit('close')">
     <div class="diary-search">
-      <h2 class="diary-search__heading">Поиск</h2>
+      <div class="diary-search__header">
+        <span class="diary-search__header-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="none">
+            <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.8" />
+            <path
+              d="M17 17l-4-4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+        </span>
+        <h2 class="diary-search__heading">Поиск</h2>
+      </div>
 
       <!-- Search field + magnifier -->
       <div class="diary-search__field">
@@ -158,6 +171,29 @@ function submit(term: string): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+}
+
+.diary-search__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.diary-search__header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
+  color: #ffffff;
+}
+
+.diary-search__header-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .diary-search__heading {
