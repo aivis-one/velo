@@ -30,20 +30,24 @@
 -->
 
 <template>
-  <LoadingView v-if="!isReady || isLoggingOut" />
-  <StandaloneStubView v-else-if="isStandalone || !isAuthenticated" />
-  <template v-else>
-    <WelcomeView
-      v-if="stage === 'welcome'"
-      @enter="onWelcomeEnter"
-      @create-account="onCreateAccount"
-    />
-    <OnboardingView
-      v-else-if="stage === 'onboarding'"
-      @done="stage = 'app'"
-    />
-    <RouterView v-else />
-  </template>
+  <!-- Single safe-area frame around every gated screen (see AppFrame). -->
+  <AppFrame>
+    <LoadingView v-if="!isReady || isLoggingOut" />
+    <StandaloneStubView v-else-if="isStandalone || !isAuthenticated" />
+    <template v-else>
+      <WelcomeView
+        v-if="stage === 'welcome'"
+        @enter="onWelcomeEnter"
+        @create-account="onCreateAccount"
+      />
+      <OnboardingView
+        v-else-if="stage === 'onboarding'"
+        @done="stage = 'app'"
+      />
+      <RouterView v-else />
+    </template>
+  </AppFrame>
+  <!-- VToast teleports to body (overlay); kept outside the frame. -->
   <VToast />
 </template>
 
@@ -53,6 +57,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { VToast } from '@/components/ui'
+import AppFrame from '@/components/layout/AppFrame.vue'
 import LoadingView from '@/views/auth/LoadingView.vue'
 import StandaloneStubView from '@/views/auth/StandaloneStubView.vue'
 import WelcomeView from '@/views/auth/WelcomeView.vue'
