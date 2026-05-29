@@ -33,6 +33,22 @@ const isReady = ref(false)
 const isStandalone = ref(false)
 
 /**
+ * Whether a logout is in progress (Telegram only).
+ *
+ * Set the instant logout() starts clearing the session and kept true until
+ * the Mini App actually closes. The App.vue gate shows LoadingView while this
+ * is true, so the brief window between _clearSession() (isAuthenticated -> false)
+ * and platform.close() never falls through to StandaloneStubView. Without it,
+ * a reactive tick could flash the "Open via Telegram" stub before the app closes.
+ */
+const isLoggingOut = ref(false)
+
+/** Begin the logout transition: gate shows LoadingView, not the stub. */
+export function beginLogout(): void {
+  isLoggingOut.value = true
+}
+
+/**
  * Pending deep link route from startapp parameter (TD-F01).
  * Consumed once by roleRedirect, then cleared.
  * Format: { name: string, params?: Record<string, string> }
@@ -66,6 +82,7 @@ function parseStartParam(startParam: string | null): { name: string; params?: Re
 export function resetAuthState(): void {
   isReady.value = false
   isStandalone.value = false
+  isLoggingOut.value = false
   pendingDeepLink.value = null
 }
 
@@ -156,6 +173,7 @@ export function useAuth() {
     isReady,
     isAuthenticated: computed(() => authStore.isAuthenticated),
     isStandalone,
+    isLoggingOut,
     initAuth,
     /** Exposed for testing (10.4). */
     resetAuthState,

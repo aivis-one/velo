@@ -2,7 +2,9 @@
   VELO Frontend -- Root Component (updated: welcome + onboarding gate)
 
   Auth + entry flow on mount:
-    1. Show LoadingView while auth initializes
+    1. Show LoadingView while auth initializes, or while a Telegram logout is
+       in progress (isLoggingOut) -- the latter keeps the stub from flashing
+       between session clear and the Mini App closing.
     2. If standalone (no Telegram) / not authenticated -> StandaloneStubView
     3. Authenticated -> a small entry state machine (stage):
          'welcome'    -> WelcomeView (shown on every app open, for everyone)
@@ -28,7 +30,7 @@
 -->
 
 <template>
-  <LoadingView v-if="!isReady" />
+  <LoadingView v-if="!isReady || isLoggingOut" />
   <StandaloneStubView v-else-if="isStandalone || !isAuthenticated" />
   <template v-else>
     <WelcomeView
@@ -56,7 +58,7 @@ import StandaloneStubView from '@/views/auth/StandaloneStubView.vue'
 import WelcomeView from '@/views/auth/WelcomeView.vue'
 import OnboardingView from '@/views/auth/OnboardingView.vue'
 
-const { isReady, isAuthenticated, isStandalone, initAuth } = useAuth()
+const { isReady, isAuthenticated, isStandalone, isLoggingOut, initAuth } = useAuth()
 const authStore = useAuthStore()
 const toast = useToast()
 

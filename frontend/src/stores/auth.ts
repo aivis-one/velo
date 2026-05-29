@@ -16,6 +16,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthToken, setOnUnauthorized, ApiResponseError } from '@/api/client'
 import { getMe, updateMe } from '@/api/users'
+import { platform } from '@/platform'
 import type { AuthResponse, UserResponse, UserUpdate } from '@/api/types'
 
 const TOKEN_KEY = 'velo_token'
@@ -124,12 +125,36 @@ export const useAuthStore = defineStore('auth', () => {
     const { useMasterStore } = await import('@/stores/master')
     useMasterStore().$reset()
 
+    // In Telegram, "logout" closes the Mini App (product decision): on the
+    // next open it starts fresh -> LoadingView -> auto re-login via initData.
+    // Arm the logging-out gate FIRST so the App.vue gate shows LoadingView
+    // during the brief window between _clearSession() (isAuthenticated -> false)
+    // and the Mini App actually closing -- otherwise it would flash the
+    // StandaloneStubView ("Open via Telegram"). Dynamic import breaks the
+    // circular dep auth -> useAuth -> auth (same pattern as the master store).
+    const inTelegram = platform.name === 'telegram'
+    if (inTelegram) {
+      const { beginLogout } = await import('@/composables/useAuth')
+      beginLogout()
+    }
+
     try {
       await api.post('/api/v1/auth/logout')
     } catch {
       // Ignore -- logging out anyway.
     } finally {
       _clearSession()
+      if (inTelegram) {
+        // close() returns the user to the chat. Wrapped in try/catch so a
+        // missing SDK (getWebApp throws) degrades to the previous behaviour
+        // instead of breaking logout. Standalone close() is a no-op, so we
+        // only call it in Telegram.
+        try {
+          platform.close()
+        } catch {
+          // SDK unavailable -- fall back silently; gate handles the rest.
+        }
+      }
     }
   }
 
