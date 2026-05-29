@@ -98,6 +98,11 @@ const router = createRouter({
           component: () => import('@/views/user/EditProfileView.vue'),
         },
         {
+          path: 'profile/notifications',
+          name: 'user-notifications',
+          component: () => import('@/views/user/NotificationsView.vue'),
+        },
+        {
           path: 'practices/:id',
           name: 'practice-detail',
           component: () => import('@/views/user/PracticeDetailView.vue'),

@@ -25,6 +25,45 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.modules.users.models import UserRole
 
+# Notification preference keys and their defaults (all ON).
+# Stored as a nested object under credentials["notifications"]. Push delivery
+# is NOT wired yet -- these flags are a forward-looking preference store; the
+# UI lets the user set them and they survive relogin, ready for when push and
+# the messages module land. Adding a 5th toggle = one entry here.
+_NOTIFICATION_DEFAULTS: dict[str, bool] = {
+    "push": True,
+    "practice_reminders": True,
+    "master_messages": True,
+    "support_messages": True,
+}
+
+
+class NotificationSettings(BaseModel):
+    """User notification preferences (nested under credentials.notifications).
+
+    All flags default to True. Used both as the typed shape returned inside
+    UserResponse.notifications and as the optional update payload in
+    UserUpdate (where every field is optional for partial updates).
+    """
+
+    push: bool = True
+    practice_reminders: bool = True
+    master_messages: bool = True
+    support_messages: bool = True
+
+
+class NotificationSettingsUpdate(BaseModel):
+    """Partial update for notification preferences.
+
+    Every field optional: only the toggles the user flipped are sent. The
+    service merges them onto the stored object so untouched flags are kept.
+    """
+
+    push: bool | None = None
+    practice_reminders: bool | None = None
+    master_messages: bool | None = None
+    support_messages: bool | None = None
+
 
 class UserResponse(BaseModel):
     """User representation in API responses.
@@ -98,6 +137,24 @@ class UserResponse(BaseModel):
         value = self.credentials_in.get("bio")
         return value if isinstance(value, str) else None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def notifications(self) -> NotificationSettings:
+        """Notification preferences, stored under credentials["notifications"].
+
+        Schema-on-read: any stored keys are layered over the all-true defaults,
+        so a user who has never touched the screen reports every toggle on, and
+        a partial stored object (only some keys) still returns a full set.
+        Unknown/legacy keys in the stored blob are ignored by the model.
+        """
+        stored = self.credentials_in.get("notifications")
+        merged = dict(_NOTIFICATION_DEFAULTS)
+        if isinstance(stored, dict):
+            for key in _NOTIFICATION_DEFAULTS:
+                if isinstance(stored.get(key), bool):
+                    merged[key] = stored[key]
+        return NotificationSettings(**merged)
+
     model_config = {"from_attributes": True, "populate_by_name": True}
 
 
@@ -133,6 +190,10 @@ class UserUpdate(BaseModel):
     # Empty string allowed (clear). Cap only; soft format check below.
     phone: str | None = Field(default=None, max_length=20)
     bio: str | None = Field(default=None, max_length=2000)
+    # Notification preferences (nested object in credentials). Partial: only
+    # the flipped toggles are sent; the service merges onto the stored object.
+    # "Not sent" leaves all preferences untouched.
+    notifications: NotificationSettingsUpdate | None = Field(default=None)
 
     @field_validator("phone")
     @classmethod

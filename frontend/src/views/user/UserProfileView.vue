@@ -184,8 +184,7 @@ function onEditProfile(): void {
 }
 
 function onNotifications(): void {
-  // Wired to a real route when 74_Notifications (Screen E) lands.
-  toast.info('Уведомления будут доступны в следующем обновлении')
+  router.push({ name: 'user-notifications' })
 }
 
 function onLanguageTimezone(): void {

@@ -73,7 +73,17 @@ async def update_user(
     if not updates:
         return user
 
-    # Split JSONB-backed fields from plain column fields.
+    # -- Nested notifications object (partial merge) --------------------------
+    #
+    # notifications is NOT a flat credential field: it is a nested dict, so the
+    # plain dict.update() used for flat fields below would REPLACE the whole
+    # object and wipe toggles the user did not send. Pull it out first and
+    # merge key-by-key onto whatever is stored, preserving untouched flags.
+    # model_dump(exclude_unset=True) already dropped keys the client omitted,
+    # and None values (no opinion) are skipped here too.
+    notifications_update = updates.pop("notifications", None)
+
+    # Split the REMAINING flat JSONB-backed fields from plain column fields.
     #
     # None is dropped for JSONB fields, empty string is kept:
     #   - onboarding_completed: only true/false are meaningful; null would
@@ -99,12 +109,26 @@ async def update_user(
     for field, value in column_updates.items():
         setattr(user, field, value)
 
-    # Apply JSONB-backed fields into credentials. We build a NEW dict (copy)
-    # and hand it to set_jsonb, which reassigns + flag_modified()s the column.
-    # Mutating user.credentials in place would not be detected by SQLAlchemy.
-    if jsonb_updates:
+    # Apply JSONB-backed fields + the merged notifications object into
+    # credentials. We build a NEW dict (copy) and hand it to set_jsonb, which
+    # reassigns + flag_modified()s the column. Mutating user.credentials in
+    # place would not be detected by SQLAlchemy.
+    if jsonb_updates or notifications_update is not None:
         new_credentials = dict(user.credentials or {})
-        new_credentials.update(jsonb_updates)
+
+        if jsonb_updates:
+            new_credentials.update(jsonb_updates)
+
+        if notifications_update is not None:
+            # Merge onto the stored notifications object (or {} if absent),
+            # skipping None values (those mean "leave this toggle as is").
+            current = new_credentials.get("notifications")
+            merged = dict(current) if isinstance(current, dict) else {}
+            for key, value in notifications_update.items():
+                if value is not None:
+                    merged[key] = value
+            new_credentials["notifications"] = merged
+
         user.set_jsonb("credentials", new_credentials)
 
     await session.flush()

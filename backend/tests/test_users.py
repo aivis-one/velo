@@ -498,3 +498,132 @@ async def test_delete_me_no_auth(client: AsyncClient) -> None:
     """DELETE without token → 401."""
     response = await client.delete("/api/v1/users/me")
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Notification preferences (credentials.notifications nested object)
+# ---------------------------------------------------------------------------
+
+
+async def test_notifications_default_all_true(client: AsyncClient) -> None:
+    """A fresh user has all notification toggles on (defaults)."""
+    data = await login_user(client, telegram_id=88060, first_name="Notif")
+    token = data["session_token"]
+
+    response = await client.get("/api/v1/users/me", headers=auth_headers(token))
+
+    assert response.status_code == 200
+    notifications = response.json()["notifications"]
+    assert notifications == {
+        "push": True,
+        "practice_reminders": True,
+        "master_messages": True,
+        "support_messages": True,
+    }
+
+
+async def test_notifications_partial_update_keeps_others(
+    client: AsyncClient,
+) -> None:
+    """Flipping one toggle off leaves the other three untouched.
+
+    Regression guard for the nested-merge logic: a partial notifications
+    payload must not wipe the flags the client did not send.
+    """
+    data = await login_user(client, telegram_id=88061, first_name="Partial")
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"notifications": {"push": False}},
+    )
+
+    assert response.status_code == 200
+    notifications = response.json()["notifications"]
+    assert notifications["push"] is False
+    # Others stay at their default (true).
+    assert notifications["practice_reminders"] is True
+    assert notifications["master_messages"] is True
+    assert notifications["support_messages"] is True
+
+
+async def test_notifications_sequential_updates_accumulate(
+    client: AsyncClient,
+) -> None:
+    """Two partial updates accumulate instead of overwriting each other."""
+    data = await login_user(client, telegram_id=88062, first_name="Accum")
+    token = data["session_token"]
+
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"notifications": {"push": False}},
+    )
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"notifications": {"master_messages": False}},
+    )
+
+    assert response.status_code == 200
+    notifications = response.json()["notifications"]
+    # Both flips persisted; the untouched two remain true.
+    assert notifications["push"] is False
+    assert notifications["master_messages"] is False
+    assert notifications["practice_reminders"] is True
+    assert notifications["support_messages"] is True
+
+
+async def test_notifications_persist_and_survive_relogin(
+    client: AsyncClient,
+) -> None:
+    """Notification prefs persist across GET and survive re-login (merge)."""
+    first = await login_user(client, telegram_id=88063, first_name="Keeper")
+    token1 = first["session_token"]
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token1),
+        json={"notifications": {"support_messages": False, "push": False}},
+    )
+
+    # Re-login with the same telegram_id.
+    second = await login_user(client, telegram_id=88063, first_name="Keeper")
+    token2 = second["session_token"]
+
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token2))
+    assert me.status_code == 200
+    notifications = me.json()["notifications"]
+    assert notifications["support_messages"] is False
+    assert notifications["push"] is False
+    assert notifications["practice_reminders"] is True
+    assert notifications["master_messages"] is True
+
+
+async def test_notifications_coexist_with_onboarding_and_phone(
+    client: AsyncClient,
+) -> None:
+    """Setting notifications must not disturb other credentials keys."""
+    data = await login_user(client, telegram_id=88064, first_name="Coexist")
+    token = data["session_token"]
+
+    # Set onboarding + phone first.
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"onboarding_completed": True, "phone": "+7 916 000 11 22"},
+    )
+    # Now flip a notification toggle.
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"notifications": {"push": False}},
+    )
+
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+    body = me.json()
+    # All three coexist.
+    assert body["onboarding_completed"] is True
+    assert body["phone"] == "+7 916 000 11 22"
+    assert body["notifications"]["push"] is False
+    assert body["notifications"]["practice_reminders"] is True
