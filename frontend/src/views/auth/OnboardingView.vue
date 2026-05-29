@@ -62,7 +62,7 @@
         <VSelect
           v-model="selectedTimezone"
           label="Часовой пояс"
-          :options="TIMEZONE_OPTIONS"
+          :options="timezoneSelectOptions"
         />
       </div>
     </div>
@@ -96,7 +96,7 @@ import { VSelect } from '@/components/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiResponseError } from '@/api/client'
-import { TIMEZONE_OPTIONS } from '@/utils/practiceOptions'
+import { TIMEZONE_OPTIONS, makeTimezoneOption } from '@/utils/practiceOptions'
 
 const emit = defineEmits<{
   /** Onboarding finished (completed or skipped); flag is already persisted. */
@@ -155,31 +155,57 @@ const SLIDES = [
 // not normal flow.
 const currentSlide = computed(() => SLIDES[step.value] ?? SLIDES[0])
 
-// -- Timezone default: auto-detect, fall back to Moscow if not in our list. --
-// We only offer the curated TIMEZONE_OPTIONS set, so an auto-detected zone
-// outside it (e.g. Asia/Novosibirsk) falls back rather than being injected.
-const FALLBACK_TIMEZONE = 'Europe/Moscow'
+// -- Timezone default: auto-detect, fall back to UTC. -------------------------
+// We do NOT clamp to the curated TIMEZONE_OPTIONS set: any valid IANA zone is
+// kept as-is (the picker injects it as an extra option below). Only a missing /
+// invalid detection falls back, and the fallback is UTC (not Moscow).
+const FALLBACK_TIMEZONE = 'UTC'
+
+/**
+ * True if `zone` is a valid IANA id. The browser has no ZoneInfo, so we probe
+ * via Intl: an invalid timeZone makes the constructor throw RangeError.
+ */
+function isValidIana(zone: string): boolean {
+  if (!zone) return false
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: zone })
+    return true
+  } catch {
+    return false
+  }
+}
 
 function detectDefaultTimezone(): string {
+  // 1. Prefer the user's existing profile zone if it is a valid IANA id.
+  const profileTz = authStore.user?.timezone
+  if (profileTz && isValidIana(profileTz)) {
+    return profileTz
+  }
+  // 2. Otherwise the auto-detected zone, kept as-is if it is valid IANA.
   let detected = ''
   try {
     detected = Intl.DateTimeFormat().resolvedOptions().timeZone || ''
   } catch {
     detected = ''
   }
-  const isKnownZone = (zone: string): boolean =>
-    TIMEZONE_OPTIONS.some((opt: { label: string; value: string }) => opt.value === zone)
-
-  // Prefer the user's existing profile zone if it is a known option,
-  // otherwise the detected zone, otherwise the fallback.
-  const profileTz = authStore.user?.timezone
-  if (profileTz && isKnownZone(profileTz)) {
-    return profileTz
+  if (isValidIana(detected)) {
+    return detected
   }
-  return isKnownZone(detected) ? detected : FALLBACK_TIMEZONE
+  // 3. Nothing usable -> UTC.
+  return FALLBACK_TIMEZONE
 }
 
 const selectedTimezone = ref(detectDefaultTimezone())
+
+// Options shown in the picker: the curated list, plus an extra entry for the
+// selected zone when it is not already in the list (an exotic auto-detected /
+// profile zone). Keeps the user's real zone visible and selectable instead of
+// being silently dropped by the curated set.
+const timezoneSelectOptions = computed(() => {
+  const inList = TIMEZONE_OPTIONS.some((opt) => opt.value === selectedTimezone.value)
+  if (inList) return TIMEZONE_OPTIONS
+  return [makeTimezoneOption(selectedTimezone.value), ...TIMEZONE_OPTIONS]
+})
 
 // -- Navigation --------------------------------------------------------------
 

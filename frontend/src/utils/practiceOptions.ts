@@ -12,17 +12,146 @@ export const DURATION_OPTIONS: { label: string; value: string }[] = [
   { label: '120 минут', value: '120' },
 ]
 
-export const TIMEZONE_OPTIONS: { label: string; value: string }[] = [
-  { label: 'Europe/Moscow (UTC+3)',      value: 'Europe/Moscow' },
-  { label: 'Europe/Berlin (UTC+1/2)',    value: 'Europe/Berlin' },
-  { label: 'Europe/London (UTC+0/1)',    value: 'Europe/London' },
-  { label: 'UTC',                        value: 'UTC' },
-  { label: 'Asia/Yerevan (UTC+4)',       value: 'Asia/Yerevan' },
-  { label: 'Asia/Tbilisi (UTC+4)',       value: 'Asia/Tbilisi' },
-  { label: 'Asia/Almaty (UTC+5)',        value: 'Asia/Almaty' },
-  { label: 'Asia/Dubai (UTC+4)',         value: 'Asia/Dubai' },
-  { label: 'America/New_York (UTC-5/4)', value: 'America/New_York' },
+// -- Timezone options (iOS-style world list, 2026-05-29) ----------------------
+// One reference city per unique world UTC offset, from UTC-11 to UTC+14,
+// including the half-hour and 45-minute offsets (India, Nepal, Iran,
+// Afghanistan, Chatham, etc). 37 entries.
+//
+// Storage stays IANA: `value` is the IANA zone id, exactly as before. Only the
+// label changes -- it is rendered as `${City} UTC${offset}` (iOS style), with
+// the offset computed dynamically from the IANA zone at module-load time (see
+// buildTimezoneLabel / formatUtcOffset below). That means a DST zone shows its
+// CURRENT offset (e.g. Berlin UTC+2 in summer, UTC+1 in winter); the label is
+// computed once per page load, which is acceptable -- it can only drift by an
+// hour across a DST boundary within a single session, never the stored value.
+//
+// The exported TIMEZONE_OPTIONS keeps the same { label, value }[] shape the
+// master create/edit forms already consume, so those forms need no change.
+
+// Reference city per offset. Order here is irrelevant -- TIMEZONE_OPTIONS is
+// sorted by the real computed offset below.
+const TIMEZONE_CITIES: { iana: string; city: string }[] = [
+  { iana: 'Pacific/Pago_Pago',     city: 'Pago Pago' },          // -11:00
+  { iana: 'Pacific/Honolulu',      city: 'Honolulu' },           // -10:00
+  { iana: 'Pacific/Marquesas',     city: 'Marquesas' },          // -09:30
+  { iana: 'America/Anchorage',     city: 'Anchorage' },          // -09:00
+  { iana: 'America/Los_Angeles',   city: 'Los Angeles' },        // -08:00
+  { iana: 'America/Denver',        city: 'Denver' },             // -07:00
+  { iana: 'America/Chicago',       city: 'Chicago' },            // -06:00
+  { iana: 'America/New_York',      city: 'New York' },           // -05:00
+  { iana: 'America/Halifax',       city: 'Halifax' },            // -04:00
+  { iana: 'America/St_Johns',      city: "St. John's" },         // -03:30
+  { iana: 'America/Sao_Paulo',     city: 'Sao Paulo' },          // -03:00
+  { iana: 'America/Noronha',       city: 'Fernando de Noronha' }, // -02:00
+  { iana: 'Atlantic/Azores',       city: 'Azores' },             // -01:00
+  { iana: 'Europe/London',         city: 'London' },             // +00:00
+  { iana: 'Europe/Berlin',         city: 'Berlin' },             // +01:00
+  { iana: 'Europe/Kyiv',           city: 'Kyiv' },               // +02:00
+  { iana: 'Europe/Moscow',         city: 'Moscow' },             // +03:00
+  { iana: 'Asia/Tehran',           city: 'Tehran' },             // +03:30
+  { iana: 'Asia/Dubai',            city: 'Dubai' },              // +04:00
+  { iana: 'Asia/Kabul',            city: 'Kabul' },              // +04:30
+  { iana: 'Asia/Karachi',          city: 'Karachi' },            // +05:00
+  { iana: 'Asia/Kolkata',          city: 'Mumbai' },             // +05:30
+  { iana: 'Asia/Kathmandu',        city: 'Kathmandu' },          // +05:45
+  { iana: 'Asia/Almaty',           city: 'Almaty' },             // +06:00
+  { iana: 'Asia/Yangon',           city: 'Yangon' },             // +06:30
+  { iana: 'Asia/Bangkok',          city: 'Bangkok' },            // +07:00
+  { iana: 'Asia/Shanghai',         city: 'Shanghai' },           // +08:00
+  { iana: 'Australia/Eucla',       city: 'Eucla' },              // +08:45
+  { iana: 'Asia/Tokyo',            city: 'Tokyo' },              // +09:00
+  { iana: 'Australia/Darwin',      city: 'Darwin' },             // +09:30
+  { iana: 'Australia/Sydney',      city: 'Sydney' },             // +10:00
+  { iana: 'Australia/Lord_Howe',   city: 'Lord Howe' },          // +10:30
+  { iana: 'Pacific/Guadalcanal',   city: 'Honiara' },            // +11:00
+  { iana: 'Pacific/Auckland',      city: 'Auckland' },           // +12:00
+  { iana: 'Pacific/Chatham',       city: 'Chatham' },            // +12:45
+  { iana: 'Pacific/Tongatapu',     city: "Nuku'alofa" },         // +13:00
+  { iana: 'Pacific/Kiritimati',    city: 'Kiritimati' },         // +14:00
 ]
+
+/**
+ * Current UTC offset of an IANA zone, in minutes (east of UTC positive).
+ * Computed via Intl from `at` (defaults to now), so it reflects DST.
+ * Returns null if the zone is not a valid IANA id (Intl throws RangeError).
+ */
+function getOffsetMinutes(iana: string, at: Date = new Date()): number | null {
+  try {
+    // 'longOffset' yields e.g. "GMT+05:30" / "GMT" / "GMT-3"; parse it.
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: iana,
+      timeZoneName: 'longOffset',
+    }).formatToParts(at)
+    const tzName = parts.find((p) => p.type === 'timeZoneName')?.value ?? ''
+    const m = tzName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/)
+    if (!m) return 0 // "GMT" with no digits == UTC.
+    const sign = m[1] === '-' ? -1 : 1
+    const hours = parseInt(m[2], 10)
+    const minutes = m[3] ? parseInt(m[3], 10) : 0
+    return sign * (hours * 60 + minutes)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Format a UTC offset (in minutes) iOS-style:
+ *   0      -> "UTC±0"
+ *   +180   -> "UTC+3"
+ *   -300   -> "UTC-5"
+ *   +330   -> "UTC+5:30"
+ *   +345   -> "UTC+5:45"
+ * Minutes are shown only when non-zero. Sign uses a plain hyphen "-".
+ */
+export function formatUtcOffset(iana: string, at: Date = new Date()): string {
+  const total = getOffsetMinutes(iana, at)
+  if (total === null) return 'UTC' // unknown zone -> bare UTC, no offset.
+  if (total === 0) return 'UTC\u00B10' // "UTC±0"
+  const sign = total > 0 ? '+' : '-'
+  const abs = Math.abs(total)
+  const hours = Math.floor(abs / 60)
+  const minutes = abs % 60
+  const mm = minutes > 0 ? `:${String(minutes).padStart(2, '0')}` : ''
+  return `UTC${sign}${hours}${mm}`
+}
+
+/** Build the iOS-style label "City UTC+offset" for a known city entry. */
+function buildTimezoneLabel(iana: string, city: string, at: Date = new Date()): string {
+  return `${city} ${formatUtcOffset(iana, at)}`
+}
+
+/**
+ * Derive a display city from a raw IANA id when we have no curated city for
+ * it: take the last "/" segment and turn underscores into spaces.
+ *   "Asia/Novosibirsk"   -> "Novosibirsk"
+ *   "America/Argentina/Buenos_Aires" -> "Buenos Aires"
+ *   "UTC"                -> "UTC"
+ */
+function cityFromIana(iana: string): string {
+  const last = iana.split('/').pop() ?? iana
+  return last.replace(/_/g, ' ')
+}
+
+/**
+ * Build a single { label, value } option for an arbitrary IANA zone, with a
+ * dynamically generated label. Used by the onboarding picker to inject an
+ * exotic auto-detected / profile zone that is not in the curated list, so the
+ * user's real zone is shown and selectable instead of being silently dropped.
+ */
+export function makeTimezoneOption(iana: string): { label: string; value: string } {
+  return { label: buildTimezoneLabel(iana, cityFromIana(iana)), value: iana }
+}
+
+// Curated options, computed once at module load, sorted by real offset
+// (UTC-11 -> UTC+14). Same { label, value }[] shape as before.
+export const TIMEZONE_OPTIONS: { label: string; value: string }[] = TIMEZONE_CITIES
+  .map((z) => ({
+    label: buildTimezoneLabel(z.iana, z.city),
+    value: z.iana,
+    _offset: getOffsetMinutes(z.iana) ?? 0,
+  }))
+  .sort((a, b) => a._offset - b._offset)
+  .map(({ label, value }) => ({ label, value }))
 
 // -- Calendar taxonomy options (front-first, 10 directions, 2026-05-28) --
 // direction / difficulty are required Practice fields (stored in
