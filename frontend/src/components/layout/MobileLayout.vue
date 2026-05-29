@@ -1,20 +1,17 @@
 <!--
   VELO Frontend -- MobileLayout Component (Phase F2.1)
 
-  Telegram safe area: padding-top is the reactive content safe-area top inset
-  from useSafeArea() (backed by the @tma.js/sdk viewport signal), applied as an
-  inline style so it re-renders when the inset arrives/changes. Verified that
-  padding on this element DOES move the content (a hard 400px pushed the
-  greeting far down), so the only remaining variable is the inset value itself,
-  which the SDK provides per launch mode. box-sizing:border-box keeps the
-  padding inside the height so 100dvh never overflows (incl. --fill).
+  Telegram safe area is NO LONGER handled here -- it is applied once, app-wide,
+  by AppFrame (see components/layout/AppFrame.vue) which wraps everything in
+  App.vue. MobileLayout just lays out header / scrollable main / tab bar inside
+  the area AppFrame already padded. Heights are 100% (not 100dvh) so the layout
+  fills the space BELOW AppFrame's safe-area padding instead of overflowing it.
 -->
 
 <template>
   <div
     class="mobile-layout"
     :class="{ 'mobile-layout--fill': fill }"
-    :style="{ paddingTop: contentSafeTop + 'px' }"
   >
     <slot name="header" />
     <main class="mobile-layout__main" :class="{ 'mobile-layout__main--fill': fill }">
@@ -30,7 +27,6 @@
 
 <script setup lang="ts">
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
-import { useSafeArea } from '@/composables/useSafeArea'
 
 defineProps<{
   tabs: TabItem[]
@@ -41,25 +37,20 @@ defineProps<{
 defineEmits<{
   navigate: [to: string]
 }>()
-
-// Reactive Telegram content safe-area top inset (px), bound to padding-top.
-const { contentSafeTop } = useSafeArea()
 </script>
 
 <style scoped>
 .mobile-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  min-height: 100vh; /* fallback */
+  /* Fill the height AppFrame gives us (below its safe-area padding). */
+  min-height: 100%;
   background: transparent;
   box-sizing: border-box;
-  /* padding-top applied inline from useSafeArea (reactive). */
 }
 
 .mobile-layout--fill {
-  height: 100dvh;
-  height: 100vh; /* fallback */
+  height: 100%;
   min-height: 0;
 }
 
