@@ -8,10 +8,11 @@
 // TD-F01: added getStartParam() -- reads WebApp.initDataUnsafe.start_param
 // for deep link handling (open_practice__{uuid}).
 //
-// TEMP DIAGNOSTIC: an on-screen overlay prints live safe-area / viewport
-// values so the client can screenshot them on their own device. This whole
-// block (showSafeAreaDiagnostic + its call in init) is throwaway -- remove it
-// once we have the numbers.
+// TEMP DIAGNOSTIC: an on-screen overlay prints live safe-area / viewport /
+// 100dvh values so the client can screenshot them on a real device. This whole
+// block (showViewportDiagnostic + its call in init) is throwaway -- remove it
+// once we have the numbers. Goal of THIS measurement: find out whether 100dvh
+// equals the Telegram viewport height on iOS, which decides the height system.
 // =============================================================================
 
 import type { Platform } from './types'
@@ -29,17 +30,26 @@ function getWebApp(): TelegramWebApp {
 let _backButtonCallback: (() => void) | null = null
 
 // =============================================================================
-// TEMP DIAGNOSTIC -- remove after we read the values from the client's screen.
+// TEMP DIAGNOSTIC -- remove after reading the values from the client's screen.
 // =============================================================================
 //
-// Renders a fixed panel at the top of the screen showing the values we need to
-// diagnose the "content slides under Telegram's controls" bug. It re-reads the
-// values on every Telegram safe-area / viewport event, because Telegram sends
-// those asynchronously AFTER init() -- a one-shot read would capture zeros.
+// Renders a fixed panel at the top showing everything needed to design the
+// height system: the real pixel height of a `height:100dvh` probe element,
+// window.innerHeight, Telegram's reported viewportHeight, the safe-area insets,
+// and the launch mode. Re-reads on every Telegram resize/safe-area event,
+// because Telegram pushes those asynchronously AFTER init() (a one-shot read
+// would capture stale zeros).
 //
-function showSafeAreaDiagnostic(): void {
+function showViewportDiagnostic(): void {
+  // A real element sized to 100dvh, measured in px. This is the only reliable
+  // way to learn what 100dvh actually resolves to inside the Telegram WebView.
+  const probe = document.createElement('div')
+  probe.style.cssText =
+    'position:absolute;top:0;left:0;width:1px;height:100dvh;pointer-events:none;visibility:hidden;'
+  document.body.appendChild(probe)
+
   const panel = document.createElement('div')
-  panel.id = 'velo-safe-area-diagnostic'
+  panel.id = 'velo-viewport-diagnostic'
   panel.style.cssText = [
     'position:fixed',
     'top:0',
@@ -57,17 +67,20 @@ function showSafeAreaDiagnostic(): void {
 
   const render = (): void => {
     const root = getComputedStyle(document.documentElement)
-    // Read raw WebApp fields not present on our typed interface.
+    // Raw WebApp fields not present on our typed interface.
     const wa = window.Telegram?.WebApp as unknown as Record<string, unknown>
+    const probeH = Math.round(probe.getBoundingClientRect().height)
     const lines = [
-      `--tg-safe-area-inset-top:         ${root.getPropertyValue('--tg-safe-area-inset-top').trim() || '(empty)'}`,
-      `--tg-content-safe-area-inset-top: ${root.getPropertyValue('--tg-content-safe-area-inset-top').trim() || '(empty)'}`,
-      `platform:       ${String(wa?.platform ?? '(unknown)')}`,
-      `version:        ${String(wa?.version ?? '(unknown)')}`,
-      `isExpanded:     ${String(wa?.isExpanded ?? '(unknown)')}`,
-      `isFullscreen:   ${String(wa?.isFullscreen ?? '(unknown)')}`,
-      `viewportHeight: ${String(wa?.viewportHeight ?? '(unknown)')}`,
-      `innerHeight:    ${window.innerHeight}`,
+      `100dvh probe (px):     ${probeH}`,
+      `window.innerHeight:    ${window.innerHeight}`,
+      `viewportHeight (TG):   ${String(wa?.viewportHeight ?? '(unknown)')}`,
+      `viewportStableHeight:  ${String(wa?.viewportStableHeight ?? '(unknown)')}`,
+      `--tg-safe-area-top:    ${root.getPropertyValue('--tg-safe-area-inset-top').trim() || '(empty)'}`,
+      `--tg-content-safe-top: ${root.getPropertyValue('--tg-content-safe-area-inset-top').trim() || '(empty)'}`,
+      `platform:     ${String(wa?.platform ?? '(unknown)')}`,
+      `version:      ${String(wa?.version ?? '(unknown)')}`,
+      `isExpanded:   ${String(wa?.isExpanded ?? '(unknown)')}`,
+      `isFullscreen: ${String(wa?.isFullscreen ?? '(unknown)')}`,
     ]
     panel.textContent = lines.join('\n')
   }
@@ -85,10 +98,11 @@ function showSafeAreaDiagnostic(): void {
   ]
   for (const evt of events) {
     try {
-      // onEvent exists on the live SDK even though it's not on our typed surface.
-      ;(window.Telegram?.WebApp as unknown as {
-        onEvent?: (e: string, cb: () => void) => void
-      }).onEvent?.(evt, render)
+      ;(
+        window.Telegram?.WebApp as unknown as {
+          onEvent?: (e: string, cb: () => void) => void
+        }
+      ).onEvent?.(evt, render)
     } catch {
       // Ignore -- older client without this event.
     }
@@ -110,7 +124,7 @@ export const telegramPlatform: Platform = {
     webApp.setBackgroundColor('#F8FAFC')
 
     // TEMP DIAGNOSTIC -- remove after reading values from the client's screen.
-    showSafeAreaDiagnostic()
+    showViewportDiagnostic()
   },
 
   getInitData(): string | null {
