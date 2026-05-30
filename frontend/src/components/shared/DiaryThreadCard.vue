@@ -11,10 +11,9 @@
     note/dream -- mini card: 47x47 icon box + body (title + date)
     feedback / practice_outcome -- side card 217: leading glyph + title + tag
 
-  NOTE: the kind->title/icon/label logic mirrors DiaryFeedCard. It is duplicated
-  here on purpose to keep the thread rendering fully isolated from the working
-  list card (zero risk to list view). Once both are visually signed off, this
-  model logic should be lifted into a shared `useDiaryCardModel` composable.
+  The kind->title/icon/label model comes from the shared useDiaryCardModel
+  composable (same source as DiaryFeedCard); this component only owns the
+  compact thread layout + the side-card compositions (sideIcon/title/tag).
 -->
 
 <template>
@@ -74,27 +73,8 @@
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
-import {
-  IconMoodLow,
-  IconMoodMid,
-  IconMoodHigh,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-  IconPen,
-  IconDreamBook,
-} from '@/components/icons'
-import {
-  FEED_KIND_TITLE,
-  OUTCOME_LABEL,
-  moodZoneFromScore,
-  ratingZoneFromScore,
-  moodLabelFromScore,
-  ratingLabelFromScore,
-  practiceIconFor,
-} from '@/utils/displayHelpers'
-import { formatFeedDateTime } from '@/utils/format'
-import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
+import { useDiaryCardModel } from '@/composables/useDiaryCardModel'
+import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
   item: DiaryFeedItem
@@ -105,111 +85,41 @@ const emit = defineEmits<{
   tap: [payload: { item: DiaryFeedItem; editable: boolean }]
 }>()
 
-const kind = computed(() => props.item.kind as DiaryEventKind)
-const tz = computed(() => props.timezone ?? 'UTC')
-
-// -- form (mirrors DiaryFeedCard) --------------------------------------------
-const BANNER_KINDS: DiaryEventKind[] = [
-  'booking_confirmed',
-  'booking_cancelled_by_user',
-  'practice_rescheduled',
-  'practice_cancelled_by_master',
-]
-const form = computed<'banner' | 'practice' | 'standard'>(() => {
-  if (BANNER_KINDS.includes(kind.value)) return 'banner'
-  if (kind.value === 'practice_outcome') return 'practice'
-  return 'standard'
-})
-
-// -- snapshot accessors ------------------------------------------------------
-const snap = computed<Record<string, unknown>>(() => props.item.snapshot ?? {})
-function snapStr(key: string): string | null {
-  const v = snap.value[key]
-  return typeof v === 'string' && v.length > 0 ? v : null
-}
-function snapNum(key: string): number | null {
-  const v = snap.value[key]
-  return typeof v === 'number' ? v : null
-}
-
-// -- titles ------------------------------------------------------------------
-const title = computed(() => {
-  const base = FEED_KIND_TITLE[kind.value] ?? ''
-  if (kind.value === 'checkin') {
-    const mood = snapNum('mood')
-    return mood !== null ? `${base}: ${moodLabelFromScore(mood)}`.trim() : base
-  }
-  return base
-})
-
-const dateLine = computed(() =>
-  formatFeedDateTime(props.item.occurred_at, tz.value),
+// Shared card model (same source as DiaryFeedCard).
+const {
+  kind,
+  form,
+  baseTitle,
+  title,
+  dateLine,
+  standardIcon,
+  directionIcon,
+  bannerTone,
+  bannerSubtitle,
+  practiceTitle,
+  outcomeLabel,
+  ratingLabel,
+  editable,
+} = useDiaryCardModel(
+  () => props.item,
+  () => props.timezone,
 )
 
-// -- standard / mini icon (mood face, rating glyph, pen, dream) --------------
-const MOOD_ICON: Record<string, Component> = {
-  low: IconMoodLow,
-  mid: IconMoodMid,
-  high: IconMoodHigh,
-}
-const RATING_ICON: Record<string, Component> = {
-  fire: IconRatingFire,
-  good: IconRatingGood,
-  confused: IconRatingConfused,
-}
-const standardIcon = computed<Component>(() => {
-  switch (kind.value) {
-    case 'checkin':
-      return MOOD_ICON[moodZoneFromScore(snapNum('mood') ?? 6)] ?? IconMoodMid
-    case 'feedback':
-      return RATING_ICON[ratingZoneFromScore(snapNum('rating') ?? 6)] ?? IconRatingGood
-    case 'note':
-      return IconPen
-    case 'dream':
-      return IconDreamBook
-    default:
-      return IconPen
-  }
-})
-
-// -- side card (feedback / practice) -----------------------------------------
-const sideIcon = computed<Component>(() => {
-  if (kind.value === 'practice_outcome') {
-    return practiceIconFor({
-      direction: snapStr('direction'),
-      title: snapStr('practice_title'),
-    })
-  }
-  // feedback -> rating glyph
-  return RATING_ICON[ratingZoneFromScore(snapNum('rating') ?? 6)] ?? IconRatingGood
-})
-
-const sideTitle = computed(() => {
-  if (kind.value === 'practice_outcome') {
-    return snapStr('practice_title') ?? 'Практика'
-  }
-  return FEED_KIND_TITLE[kind.value] ?? '' // "Feedback"
-})
-
+// -- thread-specific compositions of the shared model ------------------------
+// feedback / practice render as a compact "side card 217": one leading glyph,
+// the bare kind/practice title, and a tag (rating label / outcome label).
+const sideIcon = computed<Component>(() =>
+  kind.value === 'practice_outcome' ? directionIcon.value : standardIcon.value,
+)
+const sideTitle = computed(() =>
+  kind.value === 'practice_outcome' ? practiceTitle.value : baseTitle.value,
+)
 const sideTag = computed(() => {
-  if (kind.value === 'practice_outcome') {
-    return OUTCOME_LABEL[snapStr('outcome_status') ?? 'attended'] ?? ''
-  }
-  if (kind.value === 'feedback') {
-    const rating = snapNum('rating')
-    return rating !== null ? ratingLabelFromScore(rating) : ''
-  }
+  if (kind.value === 'practice_outcome') return outcomeLabel.value
+  if (kind.value === 'feedback') return ratingLabel.value
   return ''
 })
 
-// -- banner ------------------------------------------------------------------
-const bannerTone = computed<'teal' | 'neutral'>(() =>
-  kind.value === 'booking_confirmed' ? 'teal' : 'neutral',
-)
-const bannerSubtitle = computed(() => snapStr('practice_title'))
-
-// -- interaction (same contract as DiaryFeedCard) ----------------------------
-const editable = computed(() => kind.value === 'note' || kind.value === 'dream')
 function onTap(): void {
   emit('tap', { item: props.item, editable: editable.value })
 }

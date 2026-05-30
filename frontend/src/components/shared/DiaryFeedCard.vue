@@ -101,30 +101,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, type Component } from 'vue'
-import {
-  IconCheck,
-  IconCalendar,
-  IconMoodLow,
-  IconMoodMid,
-  IconMoodHigh,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-  IconPen,
-  IconDreamBook,
-} from '@/components/icons'
-import {
-  FEED_KIND_TITLE,
-  OUTCOME_LABEL,
-  moodZoneFromScore,
-  ratingZoneFromScore,
-  moodLabelFromScore,
-  ratingLabelFromScore,
-  practiceIconFor,
-} from '@/utils/displayHelpers'
-import { formatFeedDateTime, formatDate } from '@/utils/format'
-import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
+import { useDiaryCardModel } from '@/composables/useDiaryCardModel'
+import { IconCheck, IconCalendar } from '@/components/icons'
+import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
   item: DiaryFeedItem
@@ -136,172 +115,29 @@ const emit = defineEmits<{
   tap: [payload: { item: DiaryFeedItem; editable: boolean }]
 }>()
 
-// -- kind -> visual form -----------------------------------------------------
-
-const BANNER_KINDS: DiaryEventKind[] = [
-  'booking_confirmed',
-  'booking_cancelled_by_user',
-  'practice_rescheduled',
-  'practice_cancelled_by_master',
-]
-
-const form = computed<'banner' | 'practice' | 'standard'>(() => {
-  const kind = props.item.kind as DiaryEventKind
-  if (BANNER_KINDS.includes(kind)) return 'banner'
-  if (kind === 'practice_outcome') return 'practice'
-  return 'standard'
-})
-
-// -- snapshot accessors (open dict -- read defensively) ----------------------
-
-const snap = computed<Record<string, unknown>>(
-  () => props.item.snapshot ?? {},
-)
-
-function snapStr(key: string): string | null {
-  const v = snap.value[key]
-  return typeof v === 'string' && v.length > 0 ? v : null
-}
-
-// mood / rating are numbers (1..10) in the snapshot now. Read them as a number
-// so titles and icons can derive the zone (1-3 / 4-7 / 8-10).
-function snapNum(key: string): number | null {
-  const v = snap.value[key]
-  return typeof v === 'number' ? v : null
-}
-
-const tz = computed(() => props.timezone ?? 'UTC')
-
-// -- standard / banner icon maps (kind|mood|rating -> component) -------------
-
-const MOOD_ICON: Record<string, Component> = {
-  low: IconMoodLow,
-  mid: IconMoodMid,
-  high: IconMoodHigh,
-}
-
-const RATING_ICON: Record<string, Component> = {
-  fire: IconRatingFire,
-  good: IconRatingGood,
-  confused: IconRatingConfused,
-}
-
-// Direction -> icon mapping is centralised in displayHelpers
-// (DIRECTION_ICON / practiceIconFor). The diary feed reuses it via
-// directionIcon below so all 10 directions get the right glyph.
-
-// -- titles / labels ---------------------------------------------------------
-
-const kind = computed(() => props.item.kind as DiaryEventKind)
-
-const title = computed(() => {
-  const base = FEED_KIND_TITLE[kind.value] ?? ''
-  if (kind.value === 'checkin') {
-    const mood = snapNum('mood')
-    return mood !== null ? `${base}: ${moodLabelFromScore(mood)}`.trim() : base
-  }
-  if (kind.value === 'feedback') {
-    const rating = snapNum('rating')
-    return rating !== null
-      ? `${base}: ${ratingLabelFromScore(rating)}`.trim()
-      : base
-  }
-  // booking_confirmed shows the practice title on the second banner line,
-  // so the title line stays the kind label ("Вы записались").
-  return base
-})
-
-const preview = computed(() => {
-  // Standard cards: content preview (note/dream) or comment (checkin/feedback).
-  return snapStr('content_preview') ?? snapStr('comment_preview') ?? snapStr('comment')
-})
-
-// -- banner ------------------------------------------------------------------
-
-const bannerTone = computed<'teal' | 'neutral'>(() =>
-  kind.value === 'booking_confirmed' ? 'teal' : 'neutral',
-)
-
-const bannerSubtitle = computed(() => {
-  // booking_confirmed: practice title on the 2nd line.
-  // reschedule: old -> new time. cancel: practice title if present.
-  if (kind.value === 'booking_confirmed' || kind.value === 'practice_cancelled_by_master') {
-    return snapStr('practice_title')
-  }
-  if (kind.value === 'practice_rescheduled') {
-    const oldAt = snapStr('old_scheduled_at')
-    const newAt = snapStr('new_scheduled_at') ?? snapStr('scheduled_at')
-    if (oldAt && newAt) {
-      return `${formatDate(oldAt, tz.value)} → ${formatDate(newAt, tz.value)}`
-    }
-    return snapStr('practice_title')
-  }
-  // booking_cancelled_by_user
-  return snapStr('practice_title')
-})
-
-// -- practice ----------------------------------------------------------------
-
-const practiceTitle = computed(
-  () => snapStr('practice_title') ?? 'Практика',
-)
-const masterName = computed(() => snapStr('master_name') ?? '')
-const masterAvatarUrl = computed(() => snapStr('master_avatar_url'))
-const masterVerified = computed(() => snap.value['master_verified'] === true)
-
-const practiceDate = computed(() => {
-  const at = snapStr('scheduled_at')
-  return at ? formatDate(at, tz.value) : ''
-})
-
-const outcomeStatus = computed(() => snapStr('outcome_status') ?? 'attended')
-const outcomeLabel = computed(
-  () => OUTCOME_LABEL[outcomeStatus.value] ?? '',
-)
-
-const directionIcon = computed<Component>(() =>
-  practiceIconFor({
-    direction: snapStr('direction'),
-    title: snapStr('practice_title'),
-  }),
-)
-
-// -- standard icon -----------------------------------------------------------
-
-const standardIcon = computed<Component>(() => {
-  switch (kind.value) {
-    case 'checkin': {
-      const mood = snapNum('mood')
-      return MOOD_ICON[moodZoneFromScore(mood ?? 6)] ?? IconMoodMid
-    }
-    case 'feedback': {
-      const rating = snapNum('rating')
-      return RATING_ICON[ratingZoneFromScore(rating ?? 6)] ?? IconRatingGood
-    }
-    case 'note':
-      return IconPen
-    case 'dream':
-      return IconDreamBook
-    default:
-      return IconPen
-  }
-})
-
-// Mood faces are illustrative (default 40); glyphs read better a touch smaller.
-const standardIconSize = computed(() =>
-  kind.value === 'checkin' ? 37 : 32,
-)
-
-// -- date line ---------------------------------------------------------------
-
-const dateLine = computed(() =>
-  formatFeedDateTime(props.item.occurred_at, tz.value),
-)
-
-// -- interaction -------------------------------------------------------------
-
-const editable = computed(
-  () => kind.value === 'note' || kind.value === 'dream',
+// All kind->form/title/icon/label derivation lives in the shared composable
+// (also used by DiaryThreadCard). This card only owns its three-form template.
+const {
+  form,
+  title,
+  preview,
+  dateLine,
+  standardIcon,
+  standardIconSize,
+  directionIcon,
+  bannerTone,
+  bannerSubtitle,
+  practiceTitle,
+  masterName,
+  masterAvatarUrl,
+  masterVerified,
+  practiceDate,
+  outcomeStatus,
+  outcomeLabel,
+  editable,
+} = useDiaryCardModel(
+  () => props.item,
+  () => props.timezone,
 )
 
 function onTap(): void {
