@@ -376,6 +376,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
@@ -534,13 +535,14 @@ function populateForm(p: PracticeResponse): void {
   form.direction = p.direction ?? 'meditation'
   form.difficulty = p.difficulty ?? 'beginner'
   form.style = p.style ?? ''
-  const dt = new Date(p.scheduled_at)
-  form.date = dt.toLocaleDateString('en-CA', { timeZone: p.timezone })
-  form.time = dt.toLocaleTimeString('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: p.timezone,
-  })
+  // Render the stored UTC instant as wall-clock date + time in the practice's
+  // OWN timezone (the one the master created it in), so the form shows the
+  // same values the master originally entered -- not the editor's browser tz.
+  const scheduledDt = DateTime.fromISO(p.scheduled_at, { zone: 'utc' }).setZone(
+    p.timezone,
+  )
+  form.date = scheduledDt.toFormat('yyyy-MM-dd')
+  form.time = scheduledDt.toFormat('HH:mm')
   form.duration_minutes = String(p.duration_minutes)
   form.timezone = p.timezone
   form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
@@ -608,10 +610,21 @@ async function save(): Promise<void> {
   if (!validate() || saving.value) return
   saving.value = true
   try {
-    const scheduledAt =
-      form.date && form.time
-        ? new Date(`${form.date}T${form.time}`).toISOString()
-        : undefined
+    // Convert the wall-clock date + time back to a UTC instant in the
+    // selected timezone (mirrors CreatePracticeView). undefined when either
+    // field is empty so we don't send a bad scheduled_at.
+    let scheduledAt: string | undefined
+    if (form.date && form.time) {
+      const dt = DateTime.fromISO(`${form.date}T${form.time}`, {
+        zone: form.timezone,
+      })
+      if (!dt.isValid) {
+        toast.error('Некорректные дата или время')
+        saving.value = false
+        return
+      }
+      scheduledAt = dt.toUTC().toISO() ?? undefined
+    }
 
     const updated = await updatePractice(practiceId, {
       title: form.title.trim(),

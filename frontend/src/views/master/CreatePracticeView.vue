@@ -21,12 +21,13 @@
     W-7: todayDate is a computed ref -- not stale after midnight
     W-9: commission calc uses COMMISSION_RATE from @/utils/commission
 
-  Timezone note:
-    datetime-local input returns local browser time. We convert it to UTC
-    via new Date(localString).toISOString(). The timezone field is separately
-    set from the master's profile timezone (editable in-form for MVP).
-    This is a known simplification: if browser TZ differs from profile TZ,
-    the displayed time may differ. Full fix: use a TZ-aware date library (F10).
+  Timezone handling:
+    The date + time inputs are wall-clock values in the timezone the master
+    selects (form.timezone). They are converted to a UTC instant with luxon
+    (DateTime.fromISO(..., { zone: form.timezone }).toUTC()), so the stored
+    scheduled_at is the correct moment regardless of the master's browser
+    timezone. Each viewer later sees it rendered in their own timezone.
+    (Closes the earlier "F10" simplification that used browser-local time.)
 -->
 
 <template>
@@ -248,6 +249,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
@@ -375,10 +377,14 @@ function validate(): boolean {
     errors.time = 'Выберите время'
     ok = false
   }
-  // Ensure scheduled_at is in the future
+  // Ensure scheduled_at is in the future, interpreted in the SELECTED
+  // timezone (not the browser's): a master in one tz scheduling for another
+  // must be validated against the wall-clock time they actually picked.
   if (form.date && form.time) {
-    const dt = new Date(`${form.date}T${form.time}`)
-    if (dt <= new Date()) {
+    const dt = DateTime.fromISO(`${form.date}T${form.time}`, {
+      zone: form.timezone,
+    })
+    if (!dt.isValid || dt.toMillis() <= Date.now()) {
       errors.date = 'Дата должна быть в будущем'
       ok = false
     }
@@ -420,10 +426,20 @@ async function submit(): Promise<void> {
   submitting.value = true
 
   try {
-    // Build ISO UTC datetime from local date + time.
-    // MVP simplification: browser local time is treated as the source.
-    // See component-level doc note on timezone handling.
-    const scheduledAt = new Date(`${form.date}T${form.time}`).toISOString()
+    // Build the UTC instant from the wall-clock date + time, interpreted in
+    // the timezone the master selected (form.timezone). luxon handles DST and
+    // offsets; the stored scheduled_at is then correct for every viewer's tz.
+    const scheduledDt = DateTime.fromISO(`${form.date}T${form.time}`, {
+      zone: form.timezone,
+    })
+    const scheduledAt = scheduledDt.toUTC().toISO()
+    if (!scheduledAt) {
+      // Should not happen (validate() already checked date/time), but toISO()
+      // is typed string | null, so guard instead of sending a bad value.
+      toast.error('Некорректные дата или время')
+      submitting.value = false
+      return
+    }
 
     await createPractice({
       practice_type: form.practice_type as PracticeType,
