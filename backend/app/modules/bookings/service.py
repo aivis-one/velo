@@ -212,6 +212,21 @@ async def create_booking(
     if practice.status not in _JOINABLE_PRACTICE_STATUSES:
         raise BadRequestError("Practice is not available for booking")
 
+    # Time guard: a practice that has already started can no longer be booked.
+    # The public feed (practices/service.py list_public_practices) hides
+    # started/past practices, but the booking endpoints are reachable directly
+    # by practice_id (e.g. opening a practice from "my bookings" history or a
+    # deep link), so the feed filter is not enough. This is the single choke
+    # point both POST /bookings and POST /practices/{id}/purchase go through,
+    # so the guard here covers both paths. Threshold is the start
+    # (scheduled_at), matching the feed. The status check above does not catch
+    # this: a practice can still be `scheduled` past its start time when the
+    # master never finalized it and the auto-finalizer has not run yet.
+    if practice.scheduled_at <= datetime.now(timezone.utc):
+        raise BadRequestError(
+            "Cannot book a practice that has already started"
+        )
+
     if practice.master_id == user.id:
         raise BadRequestError("Cannot book your own practice")
 

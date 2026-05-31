@@ -10,6 +10,7 @@
 
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
@@ -279,6 +280,14 @@ async def test_create_booking_past_practice(
         )
     )
     await db_session.commit()
+
+    # Sanity: the update is committed and visible (a fresh read sees the
+    # past scheduled_at). Guards against a silent no-op update masking the
+    # real assertion below.
+    db_session.expire_all()
+    moved = await db_session.get(Practice, UUID(pid))
+    assert moved is not None
+    assert moved.scheduled_at < datetime.now(timezone.utc)
 
     user = await login_user(
         client, telegram_id=61114, first_name="User",
