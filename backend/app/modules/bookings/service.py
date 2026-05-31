@@ -532,42 +532,32 @@ async def leave_booking(
     return booking
 
 
-async def finalize_practice(
-    practice_id: UUID,
-    user: User,
+async def _finalize_practice_core(
+    practice: Practice,
     session: AsyncSession,
+    *,
+    actor: str,
 ) -> Practice:
-    """Finalize a practice -- set attendance statuses + financial settlement.
+    """Shared finalization logic -- NO authorization, NO practice loading.
 
-    Master-only. Transitions:
+    Caller MUST pass a practice that is already loaded FOR UPDATE and already
+    validated to be in a finalizable state (_FINALIZABLE_PRACTICE_STATUSES).
+    This is the single source of truth for what "finalizing a practice" means,
+    shared by the manual master path (finalize_practice) and the system
+    auto-close path (auto_finalize_practice). Keeping one core guarantees the
+    two paths can never drift in how attendance, money, or the diary are
+    settled.
+
+    Transitions:
     - confirmed + joined_at IS NOT NULL -> attended
     - confirmed + joined_at IS NULL     -> no_show
     - Practice status -> completed
     - All pending purchases -> completed (unfreeze + commission)
 
-    Validates:
-    - Practice exists and belongs to master (P-08: 404).
-    - Practice is in finalizable state (scheduled/live).
-
-    Uses FOR UPDATE on practice (P-12).
+    `actor` is logged only (e.g. "master" / "system") -- it does not change
+    behavior. Session rules unchanged (P-01): no commit here.
     """
-    stmt = (
-        select(Practice)
-        .where(Practice.id == practice_id)
-        .with_for_update()
-    )
-    result = await session.execute(stmt)
-    practice = result.scalar_one_or_none()
-
-    if not practice:
-        raise NotFoundError("Practice not found")
-
-    # P-08: 404 not 403 for non-owner.
-    if practice.master_id != user.id:
-        raise NotFoundError("Practice not found")
-
-    if practice.status not in _FINALIZABLE_PRACTICE_STATUSES:
-        raise BadRequestError("Practice already finalized")
+    practice_id = practice.id
 
     # Bulk update: confirmed + joined -> attended, else -> no_show.
     bookings_stmt = (
@@ -615,7 +605,7 @@ async def finalize_practice(
     logger.info(
         "practice_finalized",
         practice_id=str(practice_id),
-        master_id=str(user.id),
+        actor=actor,
         attended=attended_count,
         no_show=no_show_count,
         purchases_finalized=len(finalized),
@@ -636,6 +626,81 @@ async def finalize_practice(
     )
 
     return practice
+
+
+async def finalize_practice(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Practice:
+    """Finalize a practice -- set attendance statuses + financial settlement.
+
+    Master-only manual path. Loads + locks the practice, enforces ownership
+    (P-08) and finalizable state, then delegates the actual settlement to
+    _finalize_practice_core. The auto-close worker uses the same core via
+    auto_finalize_practice (no ownership check).
+
+    Validates:
+    - Practice exists and belongs to master (P-08: 404).
+    - Practice is in finalizable state (scheduled/live).
+
+    Uses FOR UPDATE on practice (P-12).
+    """
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    # P-08: 404 not 403 for non-owner.
+    if practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if practice.status not in _FINALIZABLE_PRACTICE_STATUSES:
+        raise BadRequestError("Practice already finalized")
+
+    return await _finalize_practice_core(practice, session, actor="master")
+
+
+async def auto_finalize_practice(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> Practice:
+    """System path: finalize a practice without a master actor.
+
+    Used by the auto-finalization worker for practices that ran past the
+    24h ceiling and were never closed by their master. There is no User and
+    no ownership check (the actor is the system, mirroring how the Stripe
+    webhook acts: actor_type="system", actor_id=None). Authorization is
+    intentionally absent -- this function must never be exposed via an
+    HTTP route.
+
+    Loads + locks the practice and verifies it is still finalizable (another
+    worker tick or a concurrent manual finalize may have closed it first, in
+    which case we raise BadRequestError and the caller skips it). Delegates
+    settlement to the shared _finalize_practice_core. Session rules unchanged
+    (P-01): no commit here -- the worker's session owns the transaction.
+    """
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    if practice.status not in _FINALIZABLE_PRACTICE_STATUSES:
+        raise BadRequestError("Practice already finalized")
+
+    return await _finalize_practice_core(practice, session, actor="system")
 
 
 async def get_attendance(

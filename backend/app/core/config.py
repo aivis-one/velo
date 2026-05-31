@@ -240,6 +240,31 @@ class Settings(BaseSettings):
     # FOR UPDATE SKIP LOCKED and a delivery can be skipped (attempts stays 0).
     notification_processor_enabled: bool = True
 
+    # -- Practice auto-finalization (Batch 1) --
+    # A master normally finalizes a practice by hand ("Закрыть"). If they
+    # forget, the practice would otherwise stay scheduled/live forever, its
+    # bookings stuck at confirmed and the master's money frozen. A background
+    # worker (app/modules/bookings/autofinalize.py) closes any practice that
+    # started more than practice_max_duration_hours ago, running the SAME
+    # finalization core as the manual path (attendance + ledger settlement +
+    # diary projection) from the system actor.
+    #
+    # Hard ceiling after scheduled_at past which a practice auto-finalizes,
+    # regardless of its own duration_minutes. 24h per product decision.
+    practice_max_duration_hours: int = 24
+    # Worker polling interval in seconds (resets on work found, backs off when
+    # idle). Mirrors notification_poll_interval_seconds.
+    practice_autofinalize_poll_interval_seconds: int = 300
+    # Max backoff when no practice is due (exponential up to this).
+    practice_autofinalize_max_backoff_seconds: int = 600
+    # Background worker toggle. True in prod (the lifespan task polls and
+    # finalizes). Disabled in tests so manual finalize_practice / auto_finalize
+    # calls are the only code touching practices -- otherwise the background
+    # loop races them via FOR UPDATE SKIP LOCKED and a test practice can be
+    # finalized out from under the assertion. Same rationale as
+    # notification_processor_enabled above.
+    practice_autofinalize_enabled: bool = True
+
     # -- Diary (Phase 8) --
     # Hours before practice.scheduled_at when check-in window opens.
     checkin_window_hours: int = 3

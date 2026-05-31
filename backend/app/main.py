@@ -77,6 +77,9 @@ from app.modules.diary.models import (  # noqa: F401  # Phase 8.1-8.4 + redesign
 # Notification processor (Phase 7.2).
 from app.modules.notifications.processor import run_processor  # Phase 7.2
 
+# Practice auto-finalizer (Batch 1).
+from app.modules.bookings.autofinalize import run_autofinalizer  # Batch 1
+
 # Notification templates (Phase 7.3).
 from app.modules.notifications.template_engine import load_templates  # Phase 7.3
 
@@ -96,6 +99,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
 
     processor_task: asyncio.Task | None = None
+    autofinalizer_task: asyncio.Task | None = None
     try:
         await init_redis()
 
@@ -114,6 +118,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("notification_processor_disabled")
 
+        # Start practice auto-finalizer as background task (Batch 1).
+        # Gated by settings for the same reason as the processor above:
+        # tests disable it so the background loop doesn't finalize a test
+        # practice out from under an assertion via FOR UPDATE SKIP LOCKED.
+        if settings.practice_autofinalize_enabled:
+            autofinalizer_task = asyncio.create_task(
+                run_autofinalizer(), name="practice_autofinalizer",
+            )
+        else:
+            logger.info("practice_autofinalizer_disabled")
+
         logger.info(
             "app_started",
             env=settings.app_env,
@@ -126,6 +141,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             processor_task.cancel()
             try:
                 await processor_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop practice auto-finalizer (Batch 1).
+        if autofinalizer_task is not None and not autofinalizer_task.done():
+            autofinalizer_task.cancel()
+            try:
+                await autofinalizer_task
             except asyncio.CancelledError:
                 pass
 
