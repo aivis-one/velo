@@ -24,15 +24,21 @@
 // so the loaded week already reflects them.
 //
 // Timezone note: the week boundaries are computed in the user's local
-// timezone (the browser's). Grouping a practice into a day uses the
-// PRACTICE's own timezone (calendarDateInTz), consistent with how the
-// rest of the app buckets practices by local day.
+// timezone (the browser's) -- this only decides which 7 cells the strip
+// shows and is intentionally left as-is. Grouping a practice into a day,
+// however, uses the VIEWER'S OWN profile timezone (Batch 5 / F5): the
+// profile decides in which timezone the viewer sees practice times, so the
+// day a practice buckets under must match the time shown on its card. When
+// the profile timezone is absent we fall back to 'UTC' (the same neutral
+// default the format helpers use), so day and time stay consistent even in
+// that edge case -- we do not silently fall back to the browser timezone.
 // =============================================================================
 
 import { defineStore } from 'pinia'
 import { ref, reactive, computed } from 'vue'
 import { getPractices } from '@/api/practices'
 import { extractApiError } from '@/composables/useApiError'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeFilters, PracticeResponse } from '@/api/types'
 
 // Calendar-specific facet filters (excludes pagination/sort/date-range,
@@ -109,6 +115,12 @@ export const useCalendarStore = defineStore('calendar', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // F5: the timezone in which THIS VIEWER sees practice times (their profile).
+  // Used to bucket practices into calendar days so the day matches the time
+  // shown on the card. ComputedRef -> groupings below stay reactive if the
+  // profile timezone changes within the session.
+  const viewerTz = useViewerTimezone()
+
   // -- Derived: the 7 day-Dates of the current window --
   const days = computed<Date[]>(() => weekDays(weekAnchor.value))
 
@@ -119,27 +131,28 @@ export const useCalendarStore = defineStore('calendar', () => {
   )
 
   // -- Derived: set of local-day keys that have at least one practice --
-  // Markers are computed in each practice's own timezone so a practice
-  // shows under the day the master scheduled it for.
+  // Markers are computed in the VIEWER'S profile timezone (F5) so a practice
+  // shows under the same day its card time is rendered in. Falls back to 'UTC'
+  // (never the browser) when the profile timezone is absent.
   const daysWithPractices = computed<Set<string>>(() => {
+    const tz = viewerTz.value ?? 'UTC'
     const set = new Set<string>()
     for (const p of weekPractices.value) {
-      set.add(calendarDateInTz(p.scheduled_at, p.timezone))
+      set.add(calendarDateInTz(p.scheduled_at, tz))
     }
     return set
   })
 
   // -- Derived: practices on the selected day (client-side slice) --
-  const selectedDayPractices = computed<PracticeResponse[]>(() =>
-    weekPractices.value
-      .filter(
-        (p) => calendarDateInTz(p.scheduled_at, p.timezone) === selectedDate.value,
-      )
+  const selectedDayPractices = computed<PracticeResponse[]>(() => {
+    const tz = viewerTz.value ?? 'UTC'
+    return weekPractices.value
+      .filter((p) => calendarDateInTz(p.scheduled_at, tz) === selectedDate.value)
       .sort(
         (a, b) =>
           new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
-      ),
-  )
+      )
+  })
 
   // -- Actions --
 

@@ -34,6 +34,7 @@ import { computed } from 'vue'
 import { formatTime, formatDuration, formatMoney } from '@/utils/format'
 import { IconCheck, IconCalendar, IconClock } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
@@ -44,8 +45,11 @@ defineEmits<{
   click: [id: string]
 }>()
 
+// F5: render the time in the viewer's own profile timezone (the profile decides).
+const viewerTz = useViewerTimezone()
+
 const time = computed(() =>
-  formatTime(props.practice.scheduled_at, props.practice.timezone),
+  formatTime(props.practice.scheduled_at, viewerTz.value),
 )
 
 const duration = computed(() => formatDuration(props.practice.duration_minutes))

@@ -228,6 +228,7 @@ import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H, PRACTICE_MAX_DURATION_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
@@ -429,13 +430,16 @@ function openNearest(): void {
 
 /**
  * "Завтра, 07:00" / "5 янв, 10:00"
- * Uses practice.timezone from PracticeSummary (added in DS-sprint).
+ * F5: rendered in the VIEWER'S own profile timezone (the profile decides),
+ * not the practice's timezone. format helpers apply their own neutral
+ * default if the profile timezone is somehow absent.
  */
+const viewerTz = useViewerTimezone()
+
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
-  const tz = nearestBooking.value.practice.timezone ?? 'Europe/Berlin'
-  return `${formatDateShort(iso, tz)}, ${formatTime(iso, tz)}`
+  return `${formatDateShort(iso, viewerTz.value)}, ${formatTime(iso, viewerTz.value)}`
 })
 
 const nearestPracticeDuration = computed((): string => {
