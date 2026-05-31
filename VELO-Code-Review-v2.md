@@ -1,4 +1,4 @@
-# VELO — Code Review (живой документ)
+# VELO — Code Review (живой документ) 
 
 **Последнее обновление:** 2026-03-10
 **Ревьюер:** Senior Software Engineer (Claude Code)
