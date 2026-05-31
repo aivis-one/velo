@@ -36,6 +36,14 @@ const { contentSafeTop } = useSafeArea()
   height: 100vh; /* fallback for browsers without dvh */
   height: 100dvh;
   min-height: 100vh;
+  /* Fixed mobile design frame (Figma 402px). Content never grows wider than the
+     design width, so the absolute px geometry taken from the 402px mockups stays
+     valid; on phones <=402 the frame is full-width. Centered, with the photo
+     background (#app::before, fixed/full-width) showing through any side gutters
+     on wide viewports (tablet / desktop Telegram / browser). */
+  width: 100%;
+  max-width: var(--velo-screen-width);
+  margin-inline: auto;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
