@@ -9,7 +9,8 @@
 
 // ---------------------------------------------------------------------------
 // Time window constants (NEW-1)
-// Mirror: hardcoded in backend finalize/checkin logic (no config key).
+// Mirror: backend config.py checkin_window_hours / feedback_window_hours.
+// If those change, update these too.
 // Used by: UserDashboardView, PracticeDetailView
 // ---------------------------------------------------------------------------
 

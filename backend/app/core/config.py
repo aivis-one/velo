@@ -264,6 +264,10 @@ class Settings(BaseSettings):
     # finalized out from under the assertion. Same rationale as
     # notification_processor_enabled above.
     practice_autofinalize_enabled: bool = True
+    # How many overdue practices to claim per poll cycle. Throttles each tick
+    # so a large backlog is drained in batches rather than one giant locked
+    # SELECT. Internal tuning knob -- rarely changed by the operator.
+    practice_autofinalize_batch_size: int = 50
 
     # -- Diary (Phase 8) --
     # Hours before practice.scheduled_at when check-in window opens.

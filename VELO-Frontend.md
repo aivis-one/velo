@@ -183,7 +183,6 @@ frontend/
 /user/practices/:id         → PracticeDetailView
 /user/practice-live/:practiceId → PracticeLiveView      (name: practice-live -- экран 14, live-сессия + Zoom)
 /user/bookings              → MyBookingsView
-/user/bookings/:id          → BookingDetailView          (name: booking-detail -- экран 18)
 /user/ai-summary            → AiSummaryView              (name: user-ai-summary -- экран 16, заглушка, ждёт AI-бэк юзера)
 /user/checkin/:practiceId   → CheckinView
 /user/feedback/:practiceId  → FeedbackView
@@ -335,7 +334,7 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `BookingCard` | dumb-компонент брони. Пропы `{ booking, badge?, clickable? }` — бейдж считается во вью-родителе (`badgeFor`), сам компонент не содержит бизнес-логики. Экспортит `interface BookingBadge { label; variant }`, `variant: 'live' \| 'today' \| 'tomorrow' \| 'done' \| 'cancelled' \| 'no_show'` |
 | `FormShell` | общая оболочка форм (header + контент + actions + success-экран). Извлечена из CheckinView/FeedbackView — закрыла WARNING-9 (~200 строк дублей CSS) |
 | `BookingPopup` | попап бронирования |
-| `CancelBookingPopup` | попап отмены брони. Тип пропа структурный: `interface CancellableBooking { practice: { title; scheduled_at } }` — принимает и `BookingWithPracticeResponse`, и `BookingDetailResponse`. Refund deadline 24h. Используется только в BookingDetailView |
+| `CancelBookingPopup` | попап отмены брони. Тип пропа структурный: `interface CancellableBooking { practice: { title; scheduled_at } }` — принимает и `BookingWithPracticeResponse`, и `BookingDetailResponse`. Refund deadline 24h. Используется в `PracticeDetailView` (после слияния booking-detail, Батч 6) |
 | `WeekStrip` | (Calendar) недельная лента: 7 пилюль ПН-ВС (день+число+точка-маркер), активный день залит `--velo-primary`, стрелки ←→. Dumb: пропы `days/selectedDate/daysWithPractices/localDateKey`, эмиты `select-day/prev-week/next-week`. Пилюли rounded-15 (Figma 44×71), стрелки — inline SVG (в DS нет компонента-стрелки) |
 | `CalendarPracticeCard` | (Calendar) карточка практики фида на визуальном языке `BookingCard` (иконка-в-круге 46px, мастер+verified, мета 🗓️/🕐). Бейдж: `is_paid`→«Оплачено» (teal), иначе `is_free`→«Бесплатно» (blue). Проп `practice: PracticeResponse`, эмит `click` |
 | `CalendarFilterModal` | (Calendar) модалка фильтра на `VModal` (кадр 2). Группы: Направление/Сложность/Тип (мульти-чипы), Длительность/Время (одиночный выбор, 4 корзины времени), Вид практики (свободный `VInput` — см. техдолг). Работает на draft-копии, применяет по «Применить». Пропы `open/filters`, эмиты `apply/close` |
@@ -352,10 +351,10 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | 10/11 Dashboard | `views/user/UserDashboardView.vue` | белые карточки `--velo-bg-card-solid`, алерты, карточка ближайшей практики, AI-блок (тоггл Неделя/Месяц + mood). `nearestIsLive` + `openNearest()`: live → practice-live, иначе practice-detail |
 | 12/13 Check-in + Success | `views/user/CheckinView.vue` (+ `shared/FormShell.vue`) | mood-лица `IconMood*`, success `IconCheck`. `onBack()` → `router.back()` (фикс петли 12↔15) |
 | 14 Practice-Live | `views/user/PracticeLiveView.vue` | видео-плейсхолдер, бейдж "● В эфире", "Войти" (`platform.openLink`, дизейбл без `https`-zoom), "Check-in", "Покинуть". Достижим из дашборда при live |
-| 15 Practice Detail | `views/user/PracticeDetailView.vue` | каталог + booked в одном вью. Hero/master вынесены в `PracticeHeroCard`/`MasterCard` (рефакторинг, God-component закрыт) |
+| 15 Practice Detail | `views/user/PracticeDetailView.vue` | каталог + booked + бронь (после Батча 6 — единый экран). Hero/master в `PracticeHeroCard`/`MasterCard`. Поглотил бывший «Бронирование» (экран 18): строка «Статус» (`VBadge` по `myAnyBooking` — любой статус, вкл. cancelled/no_show) и секция ZOOM (только при активной брони). Заголовок «Моя практика» при любой брони; «Забронировать» скрыт для attended/no_show. `myBooking`/`booked` (активные статусы) и check-in/feedback не тронуты |
 | 16 AI-summary | `views/user/AiSummaryView.vue` | честная заглушка "в разработке" (`IconBrain`). Персонального AI-саммари юзера на бэке НЕТ |
-| 17 My reservations | `views/user/MyBookingsView.vue` (+ `shared/BookingCard.vue`) | две секции Предстоящие/Прошедшие. Бейдж "В эфире" приоритетнее today/tomorrow; live-практики сортируются вверх (`upcomingRank`). Даты TZ-aware через `calendarDate(d, tz)` |
-| 18 Booking Detail | `views/user/BookingDetailView.vue` | hero, статус + `VBadge`, `MasterCard`, секция Zoom, "Отменить" + `CancelBookingPopup`. Грузит через `bookingsStore.fetchBooking(id)` |
+| 17 My reservations | `views/user/MyBookingsView.vue` (+ `shared/BookingCard.vue`) | две секции Предстоящие/Прошедшие. Деление по правилу B (24ч-потолок + статус completed/cancelled, как дашборд), реактивный clock 60с. Бейдж "В эфире" приоритетнее today/tomorrow; live сортируются вверх (`upcomingRank`). Даты в TZ зрителя (`calendarDate(d, tz)` ← `useViewerTimezone`). Тап ведёт на `practice-detail` по `practice_id` (Батч 6) |
+| 18 Booking Detail | — УДАЛЁН (Батч 6) | Бывший `BookingDetailView` слит в экран 15 (`PracticeDetailView`): уникальные «Статус»-строка и ZOOM перенесены туда. Роут `booking-detail` удалён; `MyBookingsView` ведёт на `practice-detail` |
 
 **Бэк-разблокировка:** `PracticeSummary` получил поле `status` (см. Бэковый Кодекс §2)
 → дашборд и список броней показывают бейдж "В эфире" и ведут на `practice-live`
@@ -506,7 +505,11 @@ centsToEurString(cents: number): string -- 1457 → "14.57"
 
 ### 5.3. format.ts
 
-`formatMoney(cents, currency, locale)`, `formatDate(iso)`, `formatDateShort(iso)`.
+`formatMoney(cents, currency, locale)`, `formatDate(iso, timezone?, locale?)`,
+`formatDateShort(iso, timezone?, locale?)`, `formatTime(iso, timezone?, locale?)`,
+`formatFeedDateTime(...)`. Все дата/время-функции принимают IANA-`timezone`
+(дефолт `'UTC'`). Вызыватели передают пояс ЗРИТЕЛЯ через `useViewerTimezone()`
+(см. §10, «Осознанные решения» — таймзона профиля решает везде).
 
 ### 5.4. commission.ts
 
@@ -835,10 +838,11 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | Auth guard в `App.vue` (Phase F1), не в router | В F1 один маршрут; guards добавлены в F2.2 |
 | Фон через `body { background }` в `global.css`, не через `#app::before` | `#app::before` — статический CSS, Telegram WebApp кеширует и не обновляет. `global.css` импортируется в `main.ts` и попадает в JS-бандл, который обновляется при каждом деплое |
 | SVG-логотипы через `<img>` (не inline) | Файлы из Figma-экспорта весят 228KB и 434KB — inline SVG раздует HTML. `<img>` позволяет браузеру кешировать отдельно (TD-FE-LOGO-SVGO покроет оптимизацию) |
-| Один `PracticeDetailView` на каталог + booked (экран 15) | Состояния практики (доступна к брони / уже забронирована) различаются в одном вью. God-component-долг смягчён выносом hero/master в `PracticeHeroCard`/`MasterCard` |
+| Один `PracticeDetailView` на каталог + booked + бронь (экран 15) | Состояния практики (доступна к брони / забронирована / прошедшая-отменённая бронь) различаются в одном вью. Батч 6: поглотил бывший «Бронирование» (экран 18) — статус-строка и ZOOM перенесены сюда (`myAnyBooking`), `BookingDetailView` и роут `booking-detail` удалены. God-component-долг смягчён выносом hero/master в `PracticeHeroCard`/`MasterCard` |
 | `MasterCard` "Подробнее" → toast вместо disabled (S-4) | ЗАКРЫТО (Calendar flow): экран профиля мастера для юзера реализован (`MasterPublicView`), `onMore()` теперь ведёт на `user-master-public` (с guard `if (!masterId)` → toast). Toast-заглушка убрана |
 | Отдельный `useCalendarStore` (не общий `usePracticesStore`) | Навигация по неделям и фасет-фильтры Календаря не должны задевать общий фид. Дашборд использует `usePracticesStore`/`useBookingsStore` — изолирован |
-| Календарь грузит неделю одним запросом + буфер ±1 день | Объём недели мал; маркеры/список дня выводятся клиентом по TZ практики. Буфер ±1д закрывает W-2 (практики экстремальных TZ у границы недели) |
+| Календарь грузит неделю одним запросом + буфер ±1 день | Объём недели мал; маркеры/список дня группируются клиентом по TZ ЗРИТЕЛЯ (`useViewerTimezone`, фолбэк 'UTC' — Батч 5b, не по TZ практики). Буфер ±1д закрывает W-2 (практики экстремальных TZ у границы недели). Границы окна недели остаются в браузерном TZ (это лишь выбор 7 ячеек, не отображение времени) |
+| **Время практики — всегда в TZ профиля ЗРИТЕЛЯ** (Батч 5) | Каждый видит время практик в своей таймзоне из профиля (`authStore.user.timezone`), а НЕ в TZ практики и НЕ в TZ браузера. Единый источник — `composables/useViewerTimezone.ts` (`ComputedRef<string｜undefined>` = `authStore.user?.timezone ?? undefined`); `format.ts`-функции применяют свой дефолт `'UTC'`, когда пояс не задан. Применено везде: карточки (`PracticeCard`/`CalendarPracticeCard`/`BookingCard`), детали (`PracticeDetailView`), дашборд, `MyBookings`, группировка календаря (`stores/calendar.ts`). На бэке симметрично — фасет `time_of_day` считается в TZ зрителя (Бэковый Кодекс, блок-цитата 2026-05-31). Обоснование: профиль решает; единая точка правды исключает рассинхрон «время на карточке vs день в календаре vs фильтр». Снят прежний хардкод-фолбэк `Europe/Berlin`/`Europe/Moscow` |
 | «Выбрать практики»: модалка — единственный источник фильтров (Вариант 1) | Inline-чипы лишь отображают/снимают активные фильтры; редактирование — в `CalendarFilterModal`. Не дублируем UI выбора, нет рассинхрона |
 
 ---

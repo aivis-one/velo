@@ -63,9 +63,6 @@ _FINALIZABLE_PRACTICE_STATUSES = {
     PracticeStatus.LIVE.value,
 }
 
-# How many overdue practices to claim per poll cycle.
-_BATCH_SIZE = 50
-
 
 # ===================================================================
 # Main loop
@@ -154,6 +151,7 @@ async def _claim_overdue_ids() -> list:
     cutoff = datetime.now(UTC) - timedelta(
         hours=settings.practice_max_duration_hours,
     )
+    batch_size = settings.practice_autofinalize_batch_size
 
     try:
         async with factory() as session:
@@ -164,13 +162,15 @@ async def _claim_overdue_ids() -> list:
                     Practice.scheduled_at <= cutoff,
                 )
                 .order_by(Practice.scheduled_at.asc())
-                .limit(_BATCH_SIZE)
+                .limit(batch_size)
                 .with_for_update(skip_locked=True)
             )
             result = await session.execute(stmt)
             ids = list(result.scalars().all())
-            # Read-only claim: nothing was mutated, so just let the
-            # transaction close (rollback) and release the locks.
+            # Read-only claim: nothing was mutated. Release the FOR UPDATE
+            # SKIP LOCKED locks now with an explicit rollback, rather than
+            # relying on the implicit rollback at session close.
+            await session.rollback()
             return ids
     except Exception:
         logger.exception("practice_autofinalize_claim_error")

@@ -814,6 +814,8 @@ velo lint          # ruff check
 | **AUDIT-0520-S** | 🧪 | разное (SUGGESTION) | Унификация count-паттерна в 3 модулях (см. B-05/B-09); вынос `recalculate_participants` (см. TD-034); обновление Stripe SDK до v9 | Низкий приоритет, по мере касания кода |
 | **CAL-FLAKE** | ✅ | `tests/test_notifications.py`, `core/config.py`, `main.py`, `tests/conftest.py` | Флак `TestStageDeliver::test_failed_delivery_retries` (attempts 0 вместо 1): фоновый `run_processor()` под `ASGITransport` lifespan гонялся с ручными `_stage_*` через `FOR UPDATE SKIP LOCKED` | ЗАКРЫТО (24 мая): флаг `notification_processor_enabled` (safe default True); тесты выключают его в session-autouse `setup_infrastructure`. Детали — §5.2 |
 | **TD-TGID-56XXX** | ✅ | `tests/test_master_public.py` | Диапазон `telegram_id` 56xxx пересекался между master_public (был 56000-56999) и admin_masters (56001-56010, 56900-56907); оба чистили весь 56xxx — зелено только из-за cleanup между модулями, хрупко | ЗАКРЫТО (24 мая): master_public перенесён в 56500-56599 (мастер 56501, вьюеры 565xx, админ 56590) и чистит только свой поддиапазон. admin_masters не тронут |
+| **TD-NOTIF-RACE** | 🧪 | `tests/test_notifications.py`, `notifications/processor.py` | Рецидив `CAL-FLAKE` после ввода второго live-воркера (авто-финализатор, см. блок-цитату ниже). Постоянный `app`-контейнер крутит lifespan-`run_processor`; тесты `exec`-аются в ТОТ ЖЕ контейнер. Стейдж-тесты зовут ГЛОБАЛЬНЫЕ `_stage_resolve/_stage_deliver/_stage_rollup` (без scope — селектят по всей таблице через `FOR UPDATE SKIP LOCKED`), live-процессор гоняется с ними → нотификация застревает в `processing` или `resolved=0`. Флаг `notification_processor_enabled` НЕ помогает: conftest гасит воркер в pytest-процессе, а не в live-uvicorn того же контейнера. Изолированный прогон `pytest tests/test_notifications.py` всегда зелёный | Временно: 3 класса под `@pytest.mark.skip` — `TestStageResolve`, `TestStageDeliver`, `TestRollup` (единственные, кто зовёт глобальные `_stage_*`). Постоянно: опциональный параметр `scope` стадиям (трогает `processor.py`) — тест дёргает стадию только по своему диапазону; ЛИБО одноразовый тест-контейнер без live-воркеров. Прочие классы нотификаций (`TestCreateNotification/TestTargetResolution/TestTemplateEngine/TestTelegramFormatter`) не тронуты |
+| **TD-LOCK-AUTOGEN** | 🧪 | Инфра, `install_velo.sh` (секция `update`) | `package-lock.json` синхронизируется с `package.json` вручную. Сервер эфемерный (сносится по плану), `npm ci` в `frontend/Dockerfile` требует синхронный lock из репозитория — рассинхрон валит сборку фронта при пересоздании сервера | Автогенерировать и пушить `package-lock.json` в репозиторий при смене зависимостей — ровно как `generated.ts` (`velo update` его регенерирует и коммитит, «Types are in sync»). Хук — рядом с генерацией типов в секции `update`: при изменении `package.json` → `npm install --package-lock-only` → commit/push lock |
 
 > **Источник AUDIT-0520-*:** полный аудит ветки main от 2026-05-20.
 > Отчёт: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md` (оценка 7/10).
@@ -848,6 +850,33 @@ velo lint          # ruff check
 > - **S-3** (`bookings/service.py` `hours_attended` — banker's rounding в `round()`)
 >   — ⬜ безвреден для статистики; заменить на `Decimal`, если значение пойдёт в
 >   финансовые расчёты.
+
+> **Итерация авто-финализации + таймзоны (2026-05-31):** переписана работа
+> практик до рабочего состояния. Шесть батчей, все зелёные.
+> - **Авто-финализация 24ч** — ✅ корень «зависших» практик: мастер забывал
+>   финализировать вручную, практика навечно оставалась `scheduled/live`, деньги
+>   заморожены. Фоновый воркер `bookings/autofinalize.py` (`run_autofinalizer`,
+>   поллинг 5 мин, backoff, gate `practice_autofinalize_enabled`) добивает
+>   просроченные через 24ч-потолок. `finalize_practice` расщеплён на
+>   `_finalize_practice_core(actor=...)` (без auth/commit), тонкий owner-checked
+>   `finalize_practice` (P-08, сигнатура та же) и системный
+>   `auto_finalize_practice` (actor_type="system", actor_id=None, без owner-check).
+>   `_claim_overdue_ids` — `FOR UPDATE SKIP LOCKED`, батч 50, своя короткая
+>   транзакция. Тесты гасят воркер флагом в conftest (как процессор).
+> - **Фильтр публичного фида по времени** — ✅ дефолтный фид (`list_public_practices`
+>   без явного `?status=`) теперь отдаёт только `scheduled_at > now()`: начавшиеся/
+>   прошедшие скрыты («можно ли ещё забронировать»). Явный `?status=` обходит гейт.
+> - **`time_of_day` в поясе ЗРИТЕЛЯ** (Батч 5d) — ✅ фасет «утро/день/вечер»
+>   теперь считает локальный час в таймзоне зрителя (`user.timezone`, фолбэк "UTC"),
+>   а не практики: `_time_of_day_filter(time_of_day, viewer_tz)` подаёт строку пояса
+>   в уже-параметризованный `_local_hour` (`func.timezone(tz, ts)` — bound-параметр,
+>   не идентификатор, ORM-чисто). Фид аутентифицирован, `user` уже прокинут —
+>   контракт API и фронт не менялись. Тест `test_filter_time_of_day_uses_viewer_timezone`
+>   доказывает зависимость от пояса зрителя (практика в UTC@08:00 → morning для
+>   UTC-зрителя, day для Asia/Bangkok-зрителя). Решение по таймзонам в целом —
+>   Фронтовый Кодекс §10 (пояс профиля решает везде).
+> - **TD-NOTIF-RACE** — второй live-воркер обострил гонку тест/процессор; 3 класса
+>   под skip. См. «Открытые находки» выше.
 
 ---
 
