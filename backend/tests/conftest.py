@@ -42,13 +42,17 @@ async def setup_infrastructure():
     Runs ONCE before any test. Alembic is called as subprocess because
     its env.py uses asyncio.run() which can't nest inside pytest's loop.
     """
-    # Disable the background notification processor for the entire suite.
+    # Disable the background workers for the entire suite.
     # The app lifespan (started lazily by the ASGI client on first request,
-    # which is always after this session-scoped fixture) reads this flag and
-    # skips create_task(run_processor). Tests drive _stage_resolve/_stage_deliver/
-    # _stage_rollup manually; a live background loop would race them via
-    # FOR UPDATE SKIP LOCKED and cause flaky delivery skips (attempts stays 0).
+    # which is always after this session-scoped fixture) reads these flags and
+    # skips create_task(run_processor) / create_task(run_autofinalizer). Tests
+    # drive the notification stages (_stage_resolve/_stage_deliver/_stage_rollup)
+    # and finalize_practice / auto_finalize_practice manually; a live background
+    # loop would race them via FOR UPDATE SKIP LOCKED and cause flaky results
+    # (e.g. a notification stuck at processing, or a test practice finalized out
+    # from under an assertion).
     settings.notification_processor_enabled = False
+    settings.practice_autofinalize_enabled = False
 
     # Run Alembic migrations (ensures tables exist).
     result = subprocess.run(
