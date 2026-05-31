@@ -228,7 +228,7 @@ import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
-import { CHECKIN_WINDOW_H } from '@/utils/constants'
+import { CHECKIN_WINDOW_H, PRACTICE_MAX_DURATION_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
@@ -307,16 +307,49 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
 // Nearest practice
 // =========================================================================
 
-/** Nearest confirmed booking sorted ascending by scheduled_at. */
+/**
+ * Nearest booking the user can still act on.
+ *
+ * Rule B (matches the auto-finalize ceiling): a booking is shown while its
+ * practice has NOT finished yet -- i.e. the booking is still confirmed, the
+ * practice is not completed/cancelled, and we are still within
+ * PRACTICE_MAX_DURATION_H hours of its start. This keeps a practice visible
+ * to a booked user who joined late (started but not over), and hides it once
+ * it has ended (finalized, cancelled, or past the 24h ceiling).
+ *
+ * Selection among the candidates: a practice that is happening RIGHT NOW
+ * (already started, not yet over) wins over future ones -- that's where Zoom
+ * / Check-in actions matter. Among in-progress ones, the latest start; among
+ * future ones, the soonest start.
+ */
 const nearestBooking = computed((): BookingWithPracticeResponse | null => {
-  const confirmed = bookingsStore.bookings
-    .filter((b) => b.status === 'confirmed')
-    .sort(
-      (a, b) =>
-        new Date(a.practice.scheduled_at).getTime() -
-        new Date(b.practice.scheduled_at).getTime(),
-    )
-  return confirmed[0] ?? null
+  const ceilingMs = PRACTICE_MAX_DURATION_H * 60 * 60 * 1000
+  const current = now.value
+
+  const candidates = bookingsStore.bookings.filter((b) => {
+    if (b.status !== 'confirmed') return false
+    if (b.practice.status === 'completed' || b.practice.status === 'cancelled') {
+      return false
+    }
+    // Not finished yet: still before the start + 24h ceiling.
+    const start = new Date(b.practice.scheduled_at).getTime()
+    return current < start + ceilingMs
+  })
+
+  if (candidates.length === 0) return null
+
+  const startMs = (b: BookingWithPracticeResponse) =>
+    new Date(b.practice.scheduled_at).getTime()
+
+  // In-progress = already started (start <= now) and not past the ceiling.
+  const inProgress = candidates.filter((b) => startMs(b) <= current)
+  if (inProgress.length > 0) {
+    // The one that started most recently is the active session.
+    return inProgress.sort((a, b) => startMs(b) - startMs(a))[0]
+  }
+
+  // Otherwise the soonest upcoming one.
+  return candidates.sort((a, b) => startMs(a) - startMs(b))[0]
 })
 
 /** True when the nearest practice is currently live (status from PracticeSummary). */

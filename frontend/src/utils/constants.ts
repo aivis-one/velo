@@ -19,6 +19,14 @@ export const CHECKIN_WINDOW_H = 3
 /** Hours after practice ends during which feedback is allowed. */
 export const FEEDBACK_WINDOW_H = 72
 
+/**
+ * Hard ceiling (hours after scheduled_at) past which a practice is considered
+ * finished even if its master never closed it. Mirrors the backend
+ * practice_max_duration_hours (config.py) used by the auto-finalizer. The
+ * dashboard uses it to stop showing a booking once the practice has ended.
+ */
+export const PRACTICE_MAX_DURATION_H = 24
+
 // ---------------------------------------------------------------------------
 // Finance constants (TD-FE-W6)
 // Mirror: backend config.py min_withdrawal_cents=5000, withdrawal_fee_cents=200
