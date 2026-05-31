@@ -345,11 +345,13 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
   const inProgress = candidates.filter((b) => startMs(b) <= current)
   if (inProgress.length > 0) {
     // The one that started most recently is the active session.
-    return inProgress.sort((a, b) => startMs(b) - startMs(a))[0]
+    // `?? null` satisfies noUncheckedIndexedAccess ([0] is typed T|undefined);
+    // length > 0 guarantees an element, so this never actually returns null here.
+    return inProgress.sort((a, b) => startMs(b) - startMs(a))[0] ?? null
   }
 
-  // Otherwise the soonest upcoming one.
-  return candidates.sort((a, b) => startMs(a) - startMs(b))[0]
+  // Otherwise the soonest upcoming one (candidates is non-empty, checked above).
+  return candidates.sort((a, b) => startMs(a) - startMs(b))[0] ?? null
 })
 
 /** True when the nearest practice is currently live (status from PracticeSummary). */
