@@ -43,7 +43,7 @@
   <div v-else-if="practice" class="detail">
 
     <!-- Back button header (contextual: catalog vs booked) -->
-    <VHeader :title="booked ? 'Моя практика' : 'Практика'" show-back @back="router.back()" />
+    <VHeader :title="hasAnyBooking ? 'Моя практика' : 'Практика'" show-back @back="router.back()" />
 
     <!-- Scrollable area: hero + body -->
     <div class="detail__scrollable">
@@ -72,6 +72,16 @@
       <!-- Body -->
       <div class="detail__body">
 
+        <!-- Status row (Batch 6: ported from BookingDetailView). Shown when
+             the viewer holds a booking for this practice in any status. -->
+        <div v-if="myAnyBooking" class="detail__status-row">
+          <span class="detail__status-label">Статус</span>
+          <VBadge :variant="statusVariant">
+            <component :is="statusIcon" v-if="statusIcon" :size="12" />
+            {{ statusLabel }}
+          </VBadge>
+        </div>
+
         <!-- О практике accordion -->
         <VAccordion v-if="practice.description" title="О практике">
           <p class="detail__accordion-text">{{ practice.description }}</p>
@@ -91,6 +101,15 @@
             :avatar-url="practice.master_avatar_url"
             :master-id="practice.master_id"
           />
+        </section>
+
+        <!-- Zoom (Batch 6: ported from BookingDetailView). Only while the
+             booking is active -- a past/cancelled booking has no live link. -->
+        <section v-if="showZoom" class="detail__section">
+          <h3 class="detail__section-title">ZOOM</h3>
+          <div class="detail__zoom-card">
+            Ссылка будет отправлена за 10 минут до начала практики
+          </div>
         </section>
 
         <!-- Contraindications (shared Banner) -->
@@ -159,9 +178,11 @@
         Вы записаны
       </VButton>
 
-      <!-- Not booked: book button (hidden for practice owner) -->
+      <!-- Not booked: book button (hidden for practice owner and for a
+           finished booking — attended/no_show should not offer re-booking;
+           a cancelled booking still may, so only isPastBooking is excluded). -->
       <VButton
-        v-else-if="!isMaster"
+        v-else-if="!isMaster && !isPastBooking"
         variant="primary"
         size="lg"
         block
@@ -215,10 +236,14 @@ import {
   formatParticipants,
   isFull,
 } from '@/utils/format'
-import { IconCheck, IconWarning } from '@/components/icons'
+import { IconCheck, IconClose, IconWarning } from '@/components/icons'
 import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
-import type { PracticeDifficulty } from '@/api/types'
+import type {
+  BookingStatus,
+  BookingWithPracticeResponse,
+  PracticeDifficulty,
+} from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -285,6 +310,93 @@ const myBooking = computed(() => {
       (b) => b.practice_id === practice.value!.id,
     ) ?? null
   )
+})
+
+// =========================================================================
+// Batch 6: merged "Бронирование" screen. The dedicated BookingDetailView is
+// gone; its unique pieces (a status row + a ZOOM card) live here now.
+//
+// `myAnyBooking` is ANY booking the viewer holds for this practice, in ANY
+// status (including cancelled / no_show) -- so the history (status row, "Моя
+// практика" title) survives for past/cancelled bookings. This is separate
+// from `booked` / `myBooking` above (active-status semantics), which keep
+// driving price / "Забронировать" / "Вы записаны" / check-in / feedback and
+// must NOT change. Selection: an active booking
+// (confirmed/pending/attended) wins; otherwise the latest by created_at.
+// =========================================================================
+const _ACTIVE_BOOKING_STATUSES = ['confirmed', 'pending', 'attended'] as const
+
+const myAnyBooking = computed((): BookingWithPracticeResponse | null => {
+  if (!practice.value) return null
+  const pid = practice.value.id
+  const mine = bookingsStore.bookings.filter((b) => b.practice_id === pid)
+  if (mine.length === 0) return null
+  const active = mine.find(
+    (b) => (_ACTIVE_BOOKING_STATUSES as readonly string[]).includes(b.status),
+  )
+  if (active) return active
+  // No active booking -> the most recent one (cancelled / no_show history).
+  // `?? null` satisfies noUncheckedIndexedAccess; mine is non-empty here.
+  return [...mine].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )[0] ?? null
+})
+
+/** Any booking exists (any status) -> show the "Моя практика" framing. */
+const hasAnyBooking = computed((): boolean => myAnyBooking.value !== null)
+
+/** A finished booking (attended / no_show) -> hide the "Забронировать" CTA. */
+const isPastBooking = computed((): boolean => {
+  const b = myAnyBooking.value
+  return !!b && (b.status === 'attended' || b.status === 'no_show')
+})
+
+// -- Status row (ported from BookingDetailView; driven by myAnyBooking) --
+const STATUS_LABEL: Record<BookingStatus, string> = {
+  pending: 'Ожидает',
+  confirmed: 'Подтверждена',
+  attended: 'Завершена',
+  no_show: 'Неявка',
+  cancelled: 'Отменена',
+}
+
+const STATUS_VARIANT: Record<
+  BookingStatus,
+  'success' | 'warning' | 'error' | 'info'
+> = {
+  pending: 'warning',
+  confirmed: 'success',
+  attended: 'success',
+  no_show: 'error',
+  cancelled: 'error',
+}
+
+const statusLabel = computed(() =>
+  myAnyBooking.value ? STATUS_LABEL[myAnyBooking.value.status] : '',
+)
+const statusVariant = computed(() =>
+  myAnyBooking.value ? STATUS_VARIANT[myAnyBooking.value.status] : 'info',
+)
+const statusIcon = computed(() => {
+  if (!myAnyBooking.value) return null
+  switch (myAnyBooking.value.status) {
+    case 'confirmed':
+    case 'attended':
+      return IconCheck
+    case 'cancelled':
+    case 'no_show':
+      return IconClose
+    default:
+      return null
+  }
+})
+
+/** ZOOM card shows only while the booking is active (confirmed / pending).
+ *  For past/cancelled bookings the "link will be sent" note is meaningless. */
+const showZoom = computed((): boolean => {
+  const b = myAnyBooking.value
+  return !!b && (b.status === 'confirmed' || b.status === 'pending')
 })
 
 /**
@@ -523,6 +635,36 @@ onUnmounted(() => {
 }
 
 /* ===== Section (master) ===== */
+/* ===== Status row (Batch 6: ported from BookingDetailView) ===== */
+.detail__status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+}
+
+.detail__status-label {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+/* ===== Zoom card (Batch 6: ported from BookingDetailView) ===== */
+.detail__zoom-card {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  line-height: 1.5;
+}
+
 .detail__section {
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--velo-border-light);

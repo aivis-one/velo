@@ -75,52 +75,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
 import BookingCard, { type BookingBadge } from '@/components/shared/BookingCard.vue'
-import { useViewerTimezone } from '@/composables/useViewerTimezone'
-import { PRACTICE_MAX_DURATION_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const store = useBookingsStore()
-
-// F5: the timezone in which THIS VIEWER sees practice times (their profile).
-// Falls back to 'UTC' (never the browser) at the call sites that need a
-// concrete string, matching the format helpers' default.
-const viewerTz = useViewerTimezone()
-
-// Reactive clock so the upcoming/past split (which uses a 24h time ceiling,
-// the same rule B as the dashboard) re-evaluates without a reload. 60s is
-// enough granularity for a day-level boundary. Mirrors UserDashboardView.
-const now = ref(Date.now())
-let clockInterval: ReturnType<typeof setInterval> | null = null
 
 // -- Grouping --
 
 /** Active bookings the user is going to (or might still go to). */
 const UPCOMING_STATUSES = ['confirmed', 'pending'] as const
 
-/**
- * A booking is "upcoming" when its status is still active AND the practice
- * has not finished yet. "Not finished" follows the same rule B as the
- * dashboard: the practice is not completed/cancelled and we are still within
- * PRACTICE_MAX_DURATION_H hours of its start (the 24h ceiling). This keeps
- * MyBookings consistent with the dashboard's "nearest practice": a practice
- * that has passed the ceiling drops to Past even if a forgetful master has
- * not finalized it yet (the auto-finalizer will catch up shortly after).
- */
 function isUpcoming(b: BookingWithPracticeResponse): boolean {
-  if (!(UPCOMING_STATUSES as readonly string[]).includes(b.status)) return false
-  if (b.practice.status === 'completed' || b.practice.status === 'cancelled') {
-    return false
-  }
-  const ceilingMs = PRACTICE_MAX_DURATION_H * 60 * 60 * 1000
-  const start = new Date(b.practice.scheduled_at).getTime()
-  return now.value < start + ceilingMs
+  return (UPCOMING_STATUSES as readonly string[]).includes(b.status)
 }
 
 /** True if the practice is in progress (status live). */
@@ -129,13 +101,11 @@ function isLive(b: BookingWithPracticeResponse): boolean {
 }
 
 /**
- * Calendar-date comparison helpers. F5: dates are compared in the VIEWER'S
- * own profile timezone (the same one formatDate renders in MyBookings), not
- * the practice's timezone and not the browser's -- otherwise "Завтра" could
- * disagree with the shown date near midnight across timezones. The viewer tz
- * is passed in by the callers (helpers stay pure); callers use 'UTC' as the
- * concrete fallback when the profile tz is absent. Same en-CA + timeZone
- * pattern as formatDateShort in utils/format.ts.
+ * Calendar-date comparison helpers. S-1: dates are compared in the
+ * practice's own timezone (the same one formatDate renders), not the
+ * browser's local timezone -- otherwise "Завтра" could disagree with the
+ * shown date near midnight across timezones. Same en-CA + timeZone pattern
+ * as formatDateShort in utils/format.ts.
  */
 function calendarDate(d: Date, timezone: string): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -162,7 +132,7 @@ function isTomorrow(iso: string, timezone: string): boolean {
  */
 function upcomingRank(b: BookingWithPracticeResponse): number {
   const iso = b.practice.scheduled_at
-  const tz = viewerTz.value ?? 'UTC'
+  const tz = b.practice.timezone
   if (isLive(b)) return 0
   if (isToday(iso, tz)) return 1
   if (isTomorrow(iso, tz)) return 2
@@ -203,33 +173,24 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
   // Upcoming -> live takes priority, then today / tomorrow; later dates none.
   if (isLive(b)) return { label: 'В эфире', variant: 'live' }
-  const tz = viewerTz.value ?? 'UTC'
-  if (isToday(b.practice.scheduled_at, tz)) {
+  if (isToday(b.practice.scheduled_at, b.practice.timezone)) {
     return { label: 'Сегодня', variant: 'today' }
   }
-  if (isTomorrow(b.practice.scheduled_at, tz)) {
+  if (isTomorrow(b.practice.scheduled_at, b.practice.timezone)) {
     return { label: 'Завтра', variant: 'tomorrow' }
   }
   return null
 }
 
-// -- Navigation: open booking detail (screen 18). --
+// -- Navigation: open the unified practice detail (Batch 6). The dedicated
+// booking-detail screen is gone; the practice detail now carries the status
+// row + ZOOM and handles past/cancelled bookings. Navigate by practice_id. --
 function openDetail(b: BookingWithPracticeResponse): void {
-  router.push({ name: 'booking-detail', params: { id: b.id } })
+  router.push({ name: 'practice-detail', params: { id: b.practice_id } })
 }
 
 onMounted(() => {
   store.fetchMyBookings()
-  // Tick the clock so the upcoming/past split updates as practices cross the
-  // 24h ceiling while the screen is open. Mirrors UserDashboardView.
-  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
-})
-
-onUnmounted(() => {
-  if (clockInterval !== null) {
-    clearInterval(clockInterval)
-    clockInterval = null
-  }
 })
 </script>
 

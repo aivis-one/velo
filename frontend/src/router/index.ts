@@ -123,11 +123,6 @@ const router = createRouter({
           component: () => import('@/views/user/MyBookingsView.vue'),
         },
         {
-          path: 'bookings/:id',
-          name: 'booking-detail',
-          component: () => import('@/views/user/BookingDetailView.vue'),
-        },
-        {
           path: 'checkin/:practiceId',
           name: 'user-checkin',
           component: () => import('@/views/user/CheckinView.vue'),
