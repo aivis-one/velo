@@ -112,6 +112,26 @@
               />
             </svg>
           </VMenuItem>
+          <!-- Exit the diary (immersive mode has no tab bar; this returns to
+               the tab-bar screens). Glyph = the composer "send" arrow mirrored
+               left. Step-2 will fold all four items into the vertical stack. -->
+          <VMenuItem ariaLabel="Выйти из дневника" @click="exitDiary(); close()">
+            <svg
+              class="diary-feed__menu-glyph"
+              viewBox="0 0 20 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M9 4.5L3.5 10l5.5 5.5M3.5 10H17"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </VMenuItem>
         </template>
       </VMenu>
     </header>
@@ -299,6 +319,12 @@ async function toggleView(): Promise<void> {
   // (bottom) after the layout swaps to keep the user's place sensible.
   await nextTick()
   scrollToBottom()
+}
+
+// Exit the immersive diary back to the tab-bar screens (there is no tab bar
+// inside the diary). Default target is the dashboard.
+function exitDiary(): void {
+  void router.push('/user/dashboard')
 }
 
 // Current categories from the store, used to seed the filter modal's draft.
@@ -526,24 +552,35 @@ onBeforeUnmount(() => {
    stay put, so the composer is always pinned just above the tab bar on both
    short and long feeds. The background stays continuous across all three rows
    (overlay look preserved: nothing opaque cuts the runes backdrop). */
+/* Immersive overlay layout (G-1 glass islands). The feed scrolls edge-to-edge
+   under floating glass islands: NO opaque bars. The header (title pill + "...")
+   and the composer are transparent containers whose only solid pixels are the
+   glass islands themselves; the feed flows under them, blurred only where an
+   island sits on top. The scrollbar is hidden app-wide. */
 .diary-feed {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100%;
   min-height: 0;
 }
 
-/* -- Header (fixed row) -- */
+/* -- Header: transparent overlay, islands only (top row) --
+   Aligned to the same 33px side rail as the composer row, so the title pill
+   sits over the composer field's left edge and "..." over the send button. */
 .diary-feed__header {
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-sticky, 10);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-5) var(--space-8) var(--space-3);
-  /* Above the scrolling feed so the expanded icon menu is never clipped by
-     or drawn under the cards. */
-  position: relative;
-  z-index: var(--z-sticky, 10);
+  padding: var(--space-3) var(--space-8);
+  /* Container is click-through; only the islands inside catch taps. */
+  pointer-events: none;
+}
+.diary-feed__header > * {
+  pointer-events: auto;
 }
 
 .diary-feed__title {
@@ -553,12 +590,19 @@ onBeforeUnmount(() => {
   color: var(--velo-text-primary);
 }
 
-/* Title + active-filter reset cross. */
+/* Title island: a glass pill (Дневник / Дневник • Категория). */
 .diary-feed__title-wrap {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  padding: 7px var(--space-4);
+  border-radius: 16px;
+  background: var(--velo-glass-blue-15);
+  border: 1.26px solid #ffffff;
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  box-shadow: 0 0 14px 4px var(--velo-glass-white-25);
 }
 
 .diary-feed__filter-clear {
@@ -594,18 +638,28 @@ onBeforeUnmount(() => {
   transform: rotate(30deg);
 }
 
-/* -- Body: the ONLY scrolling row -- */
+/* -- Body: the ONLY scrolling area, edge-to-edge UNDER the islands --
+   Fills the whole frame; top/bottom padding (40 / 80, G-1 spec) keeps the first
+   and last card reachable from under the header / composer islands. Scrollbar
+   hidden (app-wide rule). */
 .diary-feed__body {
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 var(--space-8);
+  padding: 40px var(--space-8) 80px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   /* Chat-mode: a flex column so the thread wrapper can pin a short feed to the
      bottom (next to the composer). When the feed overflows, this has no effect
      and the area scrolls normally. */
   display: flex;
   flex-direction: column;
+}
+.diary-feed__body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* Pins a short feed to the bottom; a long one scrolls normally (margin-top
@@ -628,18 +682,24 @@ onBeforeUnmount(() => {
   height: 1px;
 }
 
-/* -- Undo bar (delete confirmation, Figma screen 58) -- */
+/* -- Undo bar (delete confirmation, Figma screen 58) --
+   Floats just above the composer island in the overlay layout. */
 .diary-feed__undo {
-  flex-shrink: 0;
+  position: absolute;
+  left: var(--space-8);
+  right: var(--space-8);
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-sticky, 10);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin: 0 var(--space-8);
   padding: var(--space-3) var(--space-4);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-border);
   border-radius: var(--radius-md);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
 }
 
 .diary-feed__undo-text {
@@ -669,11 +729,24 @@ onBeforeUnmount(() => {
   opacity: 0.8;
 }
 
-/* -- Composer (fixed row, always above the tab bar) -- */
+/* -- Composer: transparent overlay container, the pill is the only island --
+   Floats over the edge-to-edge feed (no opaque bar). The diary hides the tab
+   bar, so the safe-area inset is added here to clear the home indicator.
+   pointer-events: the container is click-through; the composer pill catches
+   taps. Same 33px side rail as the header islands. */
 .diary-feed__composer {
-  flex-shrink: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-sticky, 10);
   display: flex;
   justify-content: center;
-  padding: var(--space-3) var(--space-8) var(--space-4);
+  padding: var(--space-3) var(--space-8)
+    calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+.diary-feed__composer > * {
+  pointer-events: auto;
 }
 </style>

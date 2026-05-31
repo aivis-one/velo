@@ -11,6 +11,7 @@
     :tabs="USER_TABS"
     :active-tab="activeTab"
     :fill="isFillRoute"
+    :hide-tab-bar="isDiaryRoute"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -36,4 +37,12 @@ const activeTab = computed(() => {
 // Chat-style screens that manage their own internal scroll + a fixed bottom
 // composer use the layout's fill mode. Currently only the diary feed.
 const isFillRoute = computed(() => route.name === 'user-diary')
+
+// The diary is an immersive full-screen mode: no bottom tab bar (the feed,
+// the entry view and the check-in/feedback detail all hide it). Exit is via
+// the "..." menu inside the diary, not tab navigation.
+const DIARY_ROUTES = ['user-diary', 'user-diary-entry', 'user-diary-detail']
+const isDiaryRoute = computed(() =>
+  DIARY_ROUTES.includes(route.name as string),
+)
 </script>

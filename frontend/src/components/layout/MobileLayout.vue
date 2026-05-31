@@ -18,6 +18,7 @@
       <slot />
     </main>
     <VTabBar
+      v-if="!hideTabBar"
       :items="tabs"
       :active="activeTab"
       @navigate="$emit('navigate', $event)"
@@ -32,6 +33,9 @@ defineProps<{
   tabs: TabItem[]
   activeTab?: string
   fill?: boolean
+  /** Hide the bottom tab bar (e.g. the diary is an immersive full-screen mode
+   *  that has its own exit in the "..." menu instead of tab navigation). */
+  hideTabBar?: boolean
 }>()
 
 defineEmits<{
