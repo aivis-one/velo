@@ -917,10 +917,13 @@ async def list_public_practices(
 ) -> PaginatedPracticesResponse:
     """List practices visible in the public feed (Calendar feed).
 
-    Only scheduled and live practices are shown (unless status filter
-    explicitly requests one of them). Supports filtering by master, type,
-    date range, status, and the Calendar facets (direction / difficulty /
-    style / duration_bucket / time_of_day).
+    Default feed shows only UPCOMING bookable practices: status in
+    scheduled/live AND scheduled_at strictly in the future. Practices that
+    already started (including live) or are past are excluded -- they can no
+    longer be booked. Passing an explicit `status` bypasses the time gate and
+    matches that status exactly (no future-only restriction). Supports
+    filtering by master, type, date range, and the Calendar facets
+    (direction / difficulty / style / duration_bucket / time_of_day).
 
     Multi-value semantics (Calendar "Выбрать практики"):
       - Within one facet, values are OR-ed (.in_()).
@@ -933,9 +936,19 @@ async def list_public_practices(
     filters: list = []
 
     if status is not None:
+        # Explicit status request (e.g. internal/master tooling): exact match,
+        # no time gate -- the caller asked for a specific status on purpose.
         filters.append(Practice.status == status)
     else:
+        # Default public feed: only practices a user can still BOOK.
+        # "Bookable" = not yet started (scheduled_at strictly in the future).
+        # This drops both past practices and ones that already started (incl.
+        # live) -- you cannot sign up once a practice has begun. Bookings the
+        # user already holds are surfaced elsewhere (dashboard / my bookings)
+        # with a different, end-of-practice cutoff, so this gate does not hide
+        # a practice the user is already attending.
         filters.append(Practice.status.in_(_FEED_STATUSES))
+        filters.append(Practice.scheduled_at > datetime.now(UTC))
 
     if master_id is not None:
         filters.append(Practice.master_id == master_id)

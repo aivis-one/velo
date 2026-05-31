@@ -18,6 +18,11 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
+from app.modules.practices.models import (
+    Practice,
+    PracticeStatus,
+    PracticeType,
+)
 from app.modules.payments.service import record_user_ledger
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
@@ -164,6 +169,137 @@ async def _create_and_publish(
     )
     assert patch_resp.status_code == 200
     return practice_id
+
+
+async def _insert_practice_at(
+    session: AsyncSession,
+    master_id: str,
+    *,
+    scheduled_at: datetime,
+    status: str = PracticeStatus.SCHEDULED.value,
+    title: str = "Practice",
+) -> Practice:
+    """Insert a Practice row directly via ORM at an arbitrary scheduled_at.
+
+    The public-feed time filter must drop practices that already started.
+    The CreatePracticeRequest validator rejects a past scheduled_at, so the
+    only honest way to test "started/past" practices is to write the row
+    directly (the API can never produce one). taxonomy is set via set_jsonb
+    for realism (and so the row looks like a real published practice).
+    Cleaned up by full_cleanup_range (telegram 60000-60999) at teardown.
+    """
+    practice = Practice(
+        master_id=master_id,
+        practice_type=PracticeType.LIVE.value,
+        status=status,
+        title=title,
+        description="Direct-insert practice",
+        scheduled_at=scheduled_at,
+        duration_minutes=60,
+        timezone="UTC",
+        max_participants=20,
+        current_participants=0,
+        is_free=True,
+        price_cents=0,
+        currency="eur",
+    )
+    practice.set_jsonb(
+        "data",
+        {
+            "taxonomy": {
+                "direction": "meditation",
+                "difficulty": "beginner",
+                "style": None,
+            },
+        },
+    )
+    session.add(practice)
+    await session.flush()
+    return practice
+
+
+# ---------------------------------------------------------------------------
+# GET /practices -- public feed time gate (Batch 2)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_practices_excludes_started_and_past(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Default public feed hides started/past practices (Batch 2).
+
+    Only a practice that has NOT started yet is bookable, so only the future
+    one is returned. The started (10 min ago) and past (2 h ago) practices --
+    both still status=scheduled because no one finalized them -- must be
+    excluded. Scoped to this test's master via master_id to stay independent
+    of seed data.
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    now = datetime.now(timezone.utc)
+
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now + timedelta(days=7), title="Future",
+    )
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(minutes=10), title="JustStarted",
+    )
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(hours=2), title="Past",
+    )
+    await db_session.commit()
+
+    user_auth = await login_user(
+        client, telegram_id=60108, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={master_id}",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Future"
+
+
+@pytest.mark.asyncio
+async def test_list_practices_explicit_status_bypasses_time_gate(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """An explicit ?status= request is NOT time-gated (Batch 2).
+
+    The future-only filter applies only to the default feed. When a caller
+    asks for a specific status, a started/past practice in that status is
+    still returned -- the gate must not leak into the explicit-status path.
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    now = datetime.now(timezone.utc)
+
+    # A live practice that already started 10 min ago.
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=now - timedelta(minutes=10),
+        status=PracticeStatus.LIVE.value,
+        title="StartedLive",
+    )
+    await db_session.commit()
+
+    user_auth = await login_user(
+        client, telegram_id=60109, first_name="Viewer",
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}?master_id={master_id}&status=live",
+        headers=auth_headers(user_auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "StartedLive"
 
 
 # ===================================================================

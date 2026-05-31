@@ -174,7 +174,9 @@ async def list_practices_endpoint(
 ) -> PaginatedPracticesResponse:
     """List practices in the public feed.
 
-    Only scheduled and live practices are shown.
+    Default feed shows only upcoming bookable practices (scheduled/live with
+    scheduled_at in the future); started and past practices are excluded.
+    Passing an explicit ?status= bypasses the future-only gate.
     Supports Calendar filters (direction / difficulty / style /
     duration_bucket / time_of_day), multi-select type/direction/difficulty,
     sorting, and pagination. Per-user is_booked/is_paid flags are included.
