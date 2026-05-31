@@ -69,7 +69,10 @@
             :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
             @click="toggleView(); close()"
           >
-            <!-- On map -> offer "list" (bulleted rows); on list -> offer "thread". -->
+            <!-- Glyph reflects the TARGET view (what tapping switches to).
+                 On map -> show the "list" glyph (Group 2506: three dots in a
+                 column); on list -> show the "map/cards" glyph (Group 2529:
+                 stacked layers). Both from the designer's icon set. -->
             <svg
               v-if="viewMode === 'map'"
               class="diary-feed__menu-glyph"
@@ -78,11 +81,11 @@
               xmlns="http://www.w3.org/2000/svg"
               aria-hidden="true"
             >
-              <circle cx="4" cy="5" r="1.3" fill="currentColor" />
-              <circle cx="4" cy="10" r="1.3" fill="currentColor" />
-              <circle cx="4" cy="15" r="1.3" fill="currentColor" />
+              <circle cx="4.75" cy="5" r="1.5" fill="currentColor" />
+              <circle cx="4.75" cy="10" r="1.5" fill="currentColor" />
+              <circle cx="4.75" cy="15" r="1.5" fill="currentColor" />
               <path
-                d="M8 5h9M8 10h9M8 15h9"
+                d="M8.5 5h7M8.5 10h7M8.5 15h7"
                 stroke="currentColor"
                 stroke-width="1.8"
                 stroke-linecap="round"
@@ -96,16 +99,17 @@
               xmlns="http://www.w3.org/2000/svg"
               aria-hidden="true"
             >
-              <path
-                d="M10 3.5v13"
+              <rect
+                x="3"
+                y="3"
+                width="14"
+                height="10"
+                rx="2.5"
                 stroke="currentColor"
                 stroke-width="1.8"
-                stroke-linecap="round"
               />
-              <circle cx="10" cy="5" r="2.3" fill="currentColor" />
-              <circle cx="10" cy="15" r="2.3" fill="currentColor" />
               <path
-                d="M10 10h5.5"
+                d="M5.5 16h9"
                 stroke="currentColor"
                 stroke-width="1.8"
                 stroke-linecap="round"
@@ -389,10 +393,16 @@ const filterActive = computed(
     (feedFilters.value.search ?? '') !== '',
 )
 
+// Breadcrumb title (Figma "Дневник • Сонник"): root "Дневник" + the active
+// category. Only when exactly ONE category is selected; "entries" IS the root
+// (avoid "Дневник • Дневник"); zero / multiple categories stay plain "Дневник"
+// (the reset cross still shows that a filter is active).
 const feedTitle = computed(() => {
   const cats = activeCategories.value
   const only = cats.length === 1 ? cats[0] : undefined
-  if (only !== undefined) return CATEGORY_TITLE[only]
+  if (only !== undefined && only !== 'entries') {
+    return `Дневник • ${CATEGORY_TITLE[only]}`
+  }
   return 'Дневник'
 })
 
