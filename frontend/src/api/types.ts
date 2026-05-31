@@ -95,6 +95,7 @@ export type {
   VerifyMasterRequest,
   WaitlistConfirmResponse,
   WaitlistEntryResponse,
+  WaitlistStatus,
   WaitlistWithPracticeResponse,
   WithdrawalResponse,
 } from './generated'
@@ -157,7 +158,16 @@ export type PurchaseStatus = 'pending' | 'completed' | 'refunded' | 'failed'
 export type MasterStatus = 'pending' | 'verified' | 'rejected'
 export type AttendanceBookingStatus = 'pending' | 'confirmed' | 'attended' | 'no_show'
 export type WithdrawalStatus = 'pending' | 'approved' | 'rejected'
-export type WaitlistStatus = 'waiting' | 'notified' | 'confirmed' | 'left' | 'expired' | 'declined'
+// WaitlistStatus is re-exported from generated.ts (the backend is the source
+// of truth: 'waiting' | 'notified' | 'converted' | 'left' | 'declined' |
+// 'expired'). A stale hand-written copy used to live here with 'confirmed'
+// instead of 'converted' -- removed to avoid shadowing the generated type.
+//
+// Mood / FeedbackRating are UI BUCKETS, not the raw backend value. On the
+// backend a check-in mood and a feedback rating are each a 1..10 score; the
+// frontend groups that score into three labelled buckets for the faces / glyphs
+// (see MOOD_OPTIONS / RATING_OPTIONS in displayHelpers.ts, where each bucket
+// carries its numeric `score`). These are intentionally frontend-only.
 export type Mood = 'low' | 'mid' | 'high'
 export type FeedbackRating = 'fire' | 'good' | 'confused'
 
