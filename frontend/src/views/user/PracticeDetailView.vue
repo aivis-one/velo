@@ -217,6 +217,7 @@ import {
 } from '@/utils/format'
 import { IconCheck, IconWarning } from '@/components/icons'
 import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeDifficulty } from '@/api/types'
 
 const route = useRoute()
@@ -314,9 +315,12 @@ const inFeedbackWindow = computed((): boolean => {
 // Formatted fields
 // =========================================================================
 
+// F5: render the date in the viewer's own profile timezone (the profile decides).
+const viewerTz = useViewerTimezone()
+
 const formattedDate = computed(() => {
   if (!practice.value) return ''
-  return formatDate(practice.value.scheduled_at, practice.value.timezone)
+  return formatDate(practice.value.scheduled_at, viewerTz.value)
 })
 
 const formattedDuration = computed(() => {

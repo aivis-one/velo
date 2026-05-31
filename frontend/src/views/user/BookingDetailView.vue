@@ -113,6 +113,7 @@ import MasterCard from '@/components/shared/MasterCard.vue'
 import CancelBookingPopup from '@/components/shared/CancelBookingPopup.vue'
 import { formatDate, formatDuration } from '@/utils/format'
 import { IconCheck, IconClose } from '@/components/icons'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { BookingStatus } from '@/api/types'
 
 const route = useRoute()
@@ -125,8 +126,11 @@ const booking = computed(() => store.selectedBooking)
 const practice = computed(() => booking.value!.practice)
 
 // -- Formatted fields --
+// F5: render the date in the viewer's own profile timezone (the profile decides).
+const viewerTz = useViewerTimezone()
+
 const formattedDate = computed(() =>
-  formatDate(practice.value.scheduled_at, practice.value.timezone),
+  formatDate(practice.value.scheduled_at, viewerTz.value),
 )
 const formattedDuration = computed(() =>
   formatDuration(practice.value.duration_minutes),

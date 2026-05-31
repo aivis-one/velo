@@ -41,6 +41,7 @@ import { computed } from 'vue'
 import { formatDate } from '@/utils/format'
 import { IconCheck, IconClock, IconClose } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 /** Badge descriptor passed by the parent (null = no badge). */
@@ -77,8 +78,11 @@ const badgeIcon = computed(() => {
   }
 })
 
+// F5: render the date in the viewer's own profile timezone (the profile decides).
+const viewerTz = useViewerTimezone()
+
 const formattedDate = computed(() =>
-  formatDate(props.booking.practice.scheduled_at, props.booking.practice.timezone),
+  formatDate(props.booking.practice.scheduled_at, viewerTz.value),
 )
 </script>
 
