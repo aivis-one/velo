@@ -1455,6 +1455,92 @@ async def test_filter_time_of_day(
 
 
 # ---------------------------------------------------------------------------
+# Feed filter -- time_of_day buckets by the VIEWER'S timezone (F5 / Batch 5d)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_filter_time_of_day_uses_viewer_timezone(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """time_of_day buckets by the VIEWER'S profile timezone, not the practice's.
+
+    A single practice is created in UTC at 08:00 UTC (the practice timezone is
+    fixed). Two viewers ask for it through different time_of_day facets:
+      - a UTC viewer sees local hour 08 -> morning [5,12);
+      - an Asia/Bangkok (+7) viewer sees local hour 15 -> day [12,17).
+    So `morning` returns it only to the UTC viewer and `day` returns it only to
+    the Bangkok viewer. Because the practice timezone never changes, this proves
+    the bucket is decided by the viewer's timezone, not the practice's.
+    """
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+
+    # 08:00 UTC, safely in the future so the default feed gate keeps it.
+    base = datetime.now(timezone.utc) + timedelta(days=7)
+    at_0800_utc = base.replace(hour=8, minute=0, second=0, microsecond=0)
+    await _insert_practice_at(
+        db_session, master_id,
+        scheduled_at=at_0800_utc, title="Eight",
+    )
+    await db_session.commit()
+
+    # Two viewers; set their profile timezones explicitly via ORM (the column
+    # is a plain String, default "UTC"). telegram 60100-60199 = regular users.
+    utc_viewer = await login_user(
+        client, telegram_id=60116, first_name="UtcViewer",
+    )
+    bkk_viewer = await login_user(
+        client, telegram_id=60117, first_name="BkkViewer",
+    )
+    await db_session.execute(
+        update(User)
+        .where(User.telegram_id == 60117)
+        .values(timezone="Asia/Bangkok")
+    )
+    # 60116 keeps the default "UTC"; set it explicitly for clarity/robustness.
+    await db_session.execute(
+        update(User)
+        .where(User.telegram_id == 60116)
+        .values(timezone="UTC")
+    )
+    await db_session.commit()
+
+    # UTC viewer: morning returns it, day does not.
+    r = await client.get(
+        f"{PRACTICES_URL}?time_of_day=morning&master_id={master_id}",
+        headers=auth_headers(utc_viewer["session_token"]),
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Eight"
+
+    r = await client.get(
+        f"{PRACTICES_URL}?time_of_day=day&master_id={master_id}",
+        headers=auth_headers(utc_viewer["session_token"]),
+    )
+    assert r.status_code == 200
+    assert r.json()["total"] == 0
+
+    # Bangkok viewer (+7): same practice now falls in "day", not "morning".
+    r = await client.get(
+        f"{PRACTICES_URL}?time_of_day=day&master_id={master_id}",
+        headers=auth_headers(bkk_viewer["session_token"]),
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Eight"
+
+    r = await client.get(
+        f"{PRACTICES_URL}?time_of_day=morning&master_id={master_id}",
+        headers=auth_headers(bkk_viewer["session_token"]),
+    )
+    assert r.status_code == 200
+    assert r.json()["total"] == 0
+
+
+# ---------------------------------------------------------------------------
 # Feed filter -- combined facets are AND-ed (direction + practice_type)
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio

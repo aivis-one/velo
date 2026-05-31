@@ -857,7 +857,11 @@ async def list_master_practices(
 
 
 def _local_hour(column_tz, column_ts):
-    """Local hour (0-23) of a timestamp in the row's own timezone.
+    """Local hour (0-23) of a timestamp in a given timezone.
+
+    `column_tz` may be a column (e.g. Practice.timezone) or a bound string
+    (e.g. the viewer's timezone) -- func.timezone accepts both, and a string
+    is emitted as a bound parameter, not an identifier.
 
     Postgres: EXTRACT(HOUR FROM (ts AT TIME ZONE tz_name)). Expressed via
     func.timezone(tz, ts) + extract() so it stays within the ORM (no raw
@@ -867,8 +871,14 @@ def _local_hour(column_tz, column_ts):
     return extract("hour", func.timezone(column_tz, column_ts))
 
 
-def _time_of_day_filter(time_of_day: str):
+def _time_of_day_filter(time_of_day: str, viewer_tz: str):
     """Build a half-open local-hour range condition for a time_of_day bucket.
+
+    F5: the local hour is computed in the VIEWER'S timezone (passed in), not
+    the practice's own timezone. The profile decides in which timezone the
+    viewer sees practice times, so the "morning/day/evening" facet must bucket
+    by the same wall-clock the card shows -- otherwise the filter and the
+    displayed time disagree.
 
     Buckets (config-driven boundaries):
       night   [night_start,   morning_start)
@@ -888,7 +898,7 @@ def _time_of_day_filter(time_of_day: str):
         "evening": (evening, 24),
     }
     low, high = ranges[time_of_day]
-    local_hour = _local_hour(Practice.timezone, Practice.scheduled_at)
+    local_hour = _local_hour(viewer_tz, Practice.scheduled_at)
     return and_(local_hour >= low, local_hour < high)
 
 
@@ -982,9 +992,13 @@ async def list_public_practices(
         else:  # "long"
             filters.append(Practice.duration_minutes >= threshold)
 
-    # time_of_day: local-hour bucket in the practice's own timezone.
+    # time_of_day: local-hour bucket in the VIEWER'S timezone (F5). The
+    # profile decides the display timezone, so the facet buckets by the same
+    # wall-clock the card shows. `or "UTC"` guards an empty profile value with
+    # the same neutral default the frontend format helpers use (never the
+    # practice's own timezone, which would reintroduce the mismatch).
     if time_of_day is not None:
-        filters.append(_time_of_day_filter(time_of_day))
+        filters.append(_time_of_day_filter(time_of_day, user.timezone or "UTC"))
 
     if date_from is not None:
         filters.append(Practice.scheduled_at >= date_from)
