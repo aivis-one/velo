@@ -1,11 +1,14 @@
 <!--
-  VELO Frontend -- PracticeCard Component (Phase F3.1)
+  VELO Frontend -- PracticeCard Component (Phase F3.1, updated F5 timezone)
 
   Practice card for catalog lists (Dashboard, Calendar).
   Matches mockup .practice-card layout: emoji + title + master,
   date/time + duration, price + participants, status badge.
 
   Clicking the card navigates to /user/practices/:id.
+
+  F5: the time is rendered in the VIEWER'S OWN profile timezone
+  (useViewerTimezone) -- not the practice's timezone. The profile decides.
 
   Usage:
     <PracticeCard :practice="item" @click="onCardClick(item.id)" />
@@ -54,6 +57,7 @@ import { computed } from 'vue'
 import { VBadge } from '@/components/ui'
 import { formatMoney, formatTime, formatDuration, formatParticipants, isFull } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeResponse } from '@/api/types'
 
 const props = defineProps<{
@@ -64,11 +68,14 @@ defineEmits<{
   click: [id: string]
 }>()
 
+// F5: render times in the viewer's own profile timezone (the profile decides).
+const viewerTz = useViewerTimezone()
+
 // -- Type emoji -- imported from displayHelpers
 const typeEmoji = computed(() => PRACTICE_TYPE_EMOJI[props.practice.practice_type] ?? '🧘')
 
 const time = computed(() =>
-  formatTime(props.practice.scheduled_at, props.practice.timezone),
+  formatTime(props.practice.scheduled_at, viewerTz.value),
 )
 
 const duration = computed(() =>
