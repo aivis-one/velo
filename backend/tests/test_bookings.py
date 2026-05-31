@@ -16,6 +16,7 @@ from httpx import AsyncClient
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.practices.models import Practice
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
@@ -243,6 +244,44 @@ async def test_create_booking_draft_practice(
 
     user = await login_user(
         client, telegram_id=61103, first_name="User",
+    )
+    resp = await client.post(
+        BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=auth_headers(user["session_token"]),
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_booking_past_practice(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Cannot book a practice that has already started: 400.
+
+    The CreatePracticeRequest validator rejects a past scheduled_at, so the
+    practice is created in the future (scheduled) and then moved into the
+    past directly via ORM -- the only honest way to reach the "already
+    started" state (a forgetful master / not-yet-run auto-finalizer leaves
+    the practice `scheduled` past its start). The booking endpoint must
+    refuse it even though the status is still scheduled.
+    """
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    # Move the practice one hour into the past (still status=scheduled).
+    await db_session.execute(
+        update(Practice)
+        .where(Practice.id == pid)
+        .values(
+            scheduled_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+    )
+    await db_session.commit()
+
+    user = await login_user(
+        client, telegram_id=61114, first_name="User",
     )
     resp = await client.post(
         BOOKINGS_URL,

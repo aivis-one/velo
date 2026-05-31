@@ -178,11 +178,14 @@
         Вы записаны
       </VButton>
 
-      <!-- Not booked: book button (hidden for practice owner and for a
-           finished booking — attended/no_show should not offer re-booking;
-           a cancelled booking still may, so only isPastBooking is excluded). -->
+      <!-- Not booked: book button. Hidden for the practice owner, for a
+           finished booking (attended/no_show — no re-booking), and once the
+           practice has started (practiceStarted) — a started practice can no
+           longer be booked (backend enforces the same). A cancelled booking
+           on a not-yet-started practice still may re-book. When hidden for a
+           started practice we simply show no CTA. -->
       <VButton
-        v-else-if="!isMaster && !isPastBooking"
+        v-else-if="!isMaster && !isPastBooking && !practiceStarted"
         variant="primary"
         size="lg"
         block
@@ -350,6 +353,19 @@ const hasAnyBooking = computed((): boolean => myAnyBooking.value !== null)
 const isPastBooking = computed((): boolean => {
   const b = myAnyBooking.value
   return !!b && (b.status === 'attended' || b.status === 'no_show')
+})
+
+/**
+ * True once the practice has started (scheduled_at <= now). The booking
+ * endpoint rejects a started practice (backend create_booking time guard);
+ * we hide the "Забронировать" CTA so it never dangles on a past practice
+ * opened from history / a deep link. Uses the reactive `now` (60s tick) so
+ * the button disappears live when the start time passes. The backend stays
+ * the source of truth (direct API call / the start-while-open race).
+ */
+const practiceStarted = computed((): boolean => {
+  if (!practice.value) return false
+  return new Date(practice.value.scheduled_at).getTime() <= now.value
 })
 
 // -- Status row (ported from BookingDetailView; driven by myAnyBooking) --
