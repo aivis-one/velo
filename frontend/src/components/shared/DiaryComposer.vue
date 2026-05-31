@@ -115,14 +115,24 @@ async function onSend(): Promise<void> {
 </script>
 
 <style scoped>
+/* Transparent flex container — the three islands float on it; nothing opaque
+   here so the feed shows through the gaps between them. */
 .composer {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
   max-width: var(--velo-content-width);
+}
+
+/* Island 1: the glass input pill (the ONLY glass element in the composer). */
+.composer__field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   min-height: 50px;
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   box-sizing: border-box;
   background: var(--velo-glass-blue-15);
   backdrop-filter: blur(15px);
@@ -160,12 +170,15 @@ async function onSend(): Promise<void> {
   flex-shrink: 0;
 }
 
+/* Islands 2 & 3: SOLID round buttons (mic, send) — #627A9C, no glass; the icon
+   stays readable on any backdrop. 44px circles (Figma Group 2545, r=20 ≈ 40-44). */
 .composer__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
   cursor: pointer;
