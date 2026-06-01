@@ -199,8 +199,14 @@ function onTap(): void {
 
 /* ---------------- Practice ---------------- */
 
+/* The practice card is the "anchor" event: it renders NARROWER (290 vs the
+   336 of standard cards) and indented to the right, so the check-in / feedback
+   that belong to it read as nested under it (Figma 5 Feedbacks list / map:
+   x≈55, width 290). All other card forms stay full-width. */
 .feed-card--practice {
   position: relative;
+  width: 290px;
+  margin-left: auto;
   background: var(--velo-bg-card-solid);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
@@ -348,8 +354,10 @@ function onTap(): void {
   color: var(--velo-text-primary);
 }
 
+/* Feedback rating glyph is the "fire" icon, painted the brand fire/peach color
+   (Figma 5 Feedbacks list: #d4863c), NOT teal. */
 .feed-card__icon--feedback {
-  color: var(--velo-teal-400);
+  color: var(--velo-rating-fire);
 }
 
 .feed-card__text {
