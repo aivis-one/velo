@@ -20,19 +20,38 @@
 <template>
   <div class="timeline">
     <template v-for="group in dayGroups" :key="group.dayKey">
-      <!-- Date node: centered label + ornament dots on the axis -->
+      <!-- Date node: a flourish on each side of the label (Figma Group 2355,
+           ±57px from the axis). -->
       <div class="timeline__date-node">
+        <IconDateOrnament class="timeline__flourish" :size="28" />
         <span class="timeline__date-label">{{ group.label }}</span>
-      </div>
-
-      <!-- Cards of this day, centered on the axis -->
-      <div v-for="item in group.items" :key="item.id" class="timeline__row">
-        <DiaryThreadCard
-          :item="item"
-          :timezone="timezone"
-          @tap="(p) => emit('tap', p)"
+        <IconDateOrnament
+          class="timeline__flourish timeline__flourish--right"
+          :size="28"
         />
       </div>
+
+      <!-- Axis link from the date node down to the day's first card
+           (Figma Group 2429). -->
+      <div class="timeline__connector">
+        <IconAxisConnector :size="31" />
+      </div>
+
+      <!-- Cards of this day, centered on the axis, joined by the between-cards
+           axis dot (Figma Vector 110) — shown between cards, not before the
+           first one. -->
+      <template v-for="(item, i) in group.items" :key="item.id">
+        <div v-if="i > 0" class="timeline__dot">
+          <IconAxisDot :size="18" />
+        </div>
+        <div class="timeline__row">
+          <DiaryThreadCard
+            :item="item"
+            :timezone="timezone"
+            @tap="(p) => emit('tap', p)"
+          />
+        </div>
+      </template>
     </template>
   </div>
 </template>
@@ -40,6 +59,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import DiaryThreadCard from '@/components/shared/DiaryThreadCard.vue'
+import {
+  IconDateOrnament,
+  IconAxisConnector,
+  IconAxisDot,
+} from '@/components/icons'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -136,47 +160,59 @@ const dayGroups = computed<DayGroup[]>(() => {
   z-index: var(--z-background);
 }
 
-/* -- Date node: centered label + two ornament dots on the axis above it -- */
+/* -- Date node: flourish + label + flourish (Figma Group 2355). The flourishes
+   sit ±57px from the axis (label centered on the axis). No beads here — the
+   bead links live on the axis BETWEEN rows (see __connector / __dot). -- */
 .timeline__date-node {
   position: relative;
   z-index: var(--z-content);
-  text-align: center;
-  /* room for the ornament dots that sit on the axis above the label */
-  padding-top: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
   margin: var(--space-2) 0;
+  color: var(--velo-text-primary);
 }
 
-/* bigger dot then a smaller one, centred on the axis above the label */
-.timeline__date-node::before,
-.timeline__date-node::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: var(--radius-full);
-  background: var(--velo-text-primary);
+/* Side flourishes (decorative vector, Group 2355, 28×34). Left as-is, right
+   mirrored. */
+.timeline__flourish {
+  flex-shrink: 0;
+  color: var(--velo-text-primary);
 }
-.timeline__date-node::before {
-  top: 4px;
-  width: 6px;
-  height: 6px;
-}
-.timeline__date-node::after {
-  top: 14px;
-  width: 3px;
-  height: 3px;
+.timeline__flourish--right {
+  transform: scaleX(-1);
 }
 
 .timeline__date-label {
-  display: inline-block;
   /* opaque-ish backdrop blends with the app background and masks the axis
      stroke behind the text (so the line doesn't run through the label). */
   background: var(--velo-bg-start);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
   letter-spacing: 0.36px;
   color: var(--velo-text-primary);
+  white-space: nowrap;
+}
+
+/* Axis links on the central thread, with small breathing room around them
+   (Figma: the link floats between elements, not flush). */
+.timeline__connector,
+.timeline__dot {
+  position: relative;
+  z-index: var(--z-content);
+  display: flex;
+  justify-content: center;
+  color: var(--velo-text-primary);
+}
+.timeline__connector {
+  /* date node → first card (Group 2429): ~4px above, ~11px below per export */
+  padding: 4px 0 11px;
+}
+.timeline__dot {
+  /* between cards (Vector 110): symmetric breathing room */
+  padding: 6px 0;
 }
 
 /* -- Card rows (all centered on the axis) -- */

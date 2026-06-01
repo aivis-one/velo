@@ -53,6 +53,9 @@ export { default as IconDreamBook } from './IconDreamBook.vue'
 export { default as IconDots } from './IconDots.vue'
 export { default as IconMic } from './IconMic.vue'
 export { default as IconSend } from './IconSend.vue'
+export { default as IconDateOrnament } from './IconDateOrnament.vue'
+export { default as IconAxisConnector } from './IconAxisConnector.vue'
+export { default as IconAxisDot } from './IconAxisDot.vue'
 
 // -- Profile menu (Screen A): monochrome glyphs (currentColor) --
 export { default as IconEdit } from './IconEdit.vue'
