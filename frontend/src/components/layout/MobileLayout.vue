@@ -61,7 +61,10 @@ defineEmits<{
 .mobile-layout__main {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4) var(--velo-screen-padding);
+  /* Diary-standard rail (24px sides) so content edges align with the tab-bar
+     buttons and other screens. The fog/edge-to-edge dissolve lands later with
+     the immersive G-1 pass. */
+  padding: var(--space-4) var(--velo-rail-pad-x);
   -webkit-overflow-scrolling: touch;
 }
 

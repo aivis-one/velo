@@ -73,10 +73,11 @@ defineEmits<{
   bottom: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
-  /* Figma: 4 circles x 63px with 25px gaps (left positions 37/125/213/301, step 88) */
-  gap: 25px;
-  padding: var(--space-2) var(--velo-screen-padding);
+  /* Spread the buttons across the 24px content rail (space-between), so the
+     outer buttons sit exactly on the same left/right lines as the content and
+     headers on every screen width. */
+  justify-content: space-between;
+  padding: var(--space-2) var(--velo-rail-pad-x);
   /* Lift the bar away from the screen edge (Figma 2212:292) -- 33px keeps it
      comfortably above the home indicator on iOS and visually detached from
      the very bottom on Android. */
