@@ -144,6 +144,10 @@ export const useDiaryStore = defineStore('diary', () => {
       }),
   )
 
+  // Saved feed scroll offset, so returning from an entry/detail restores the
+  // user's place on the timeline instead of jumping back to "today" (bottom).
+  const feedScrollTop = ref(0)
+
   /**
    * Initial feed load. Skips if already loaded (navigating back).
    */
@@ -358,6 +362,7 @@ export const useDiaryStore = defineStore('diary', () => {
     feedFilters.date_from = undefined
     feedFilters.date_to = undefined
     feedFilters.search = undefined
+    feedScrollTop.value = 0
     selectedEntry.value = null
     selectedEntryError.value = null
     insightsCache.clear()
@@ -378,6 +383,7 @@ export const useDiaryStore = defineStore('diary', () => {
     feedError: feed.error,
     feedHasMore: feed.hasMore,
     feedFilters,
+    feedScrollTop,
     fetchFeed,
     loadMoreFeed: feed.loadMore,
     refreshFeed: feed.refresh,

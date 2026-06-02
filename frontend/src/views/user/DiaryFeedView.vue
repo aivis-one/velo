@@ -283,6 +283,9 @@ const loadingMore = computed(
 // -- Tap handling ------------------------------------------------------------
 
 function onTap(payload: { item: DiaryFeedItem; editable: boolean }): void {
+  // Remember the current timeline position so returning from the entry/detail
+  // restores it instead of snapping back to "today" (the bottom).
+  if (scrollEl.value) diaryStore.feedScrollTop = scrollEl.value.scrollTop
   const item = payload.item
   if (payload.editable) {
     // note/dream -- open the full entry screen (view/edit/delete). The card's
@@ -494,10 +497,15 @@ async function reload(): Promise<void> {
 onMounted(async () => {
   await diaryStore.fetchFeed()
   await nextTick()
-  // Chat-mode: open pinned to the newest entry (bottom). Do this BEFORE
-  // attaching the observer so the top sentinel (now out of view) does not
-  // immediately fire and load an older page.
-  scrollToBottom()
+  // Returning from an entry/detail: restore the saved timeline position.
+  // First open (no saved offset): pin to the newest entry (bottom). Do this
+  // BEFORE attaching the observer so the top sentinel (now out of view) does
+  // not immediately fire and load an older page.
+  if (diaryStore.feedScrollTop > 0 && scrollEl.value) {
+    scrollEl.value.scrollTop = diaryStore.feedScrollTop
+  } else {
+    scrollToBottom()
+  }
   await nextTick()
   setupObserver()
 })
@@ -505,6 +513,9 @@ onMounted(async () => {
 // -- Scroll helpers (chat-mode) ----------------------------------------------
 
 function scrollToBottom(): void {
+  // Going to the newest entry clears any saved offset (filters/search/compose
+  // intentionally jump to the bottom).
+  diaryStore.feedScrollTop = 0
   const el = scrollEl.value
   if (el) el.scrollTop = el.scrollHeight
 }

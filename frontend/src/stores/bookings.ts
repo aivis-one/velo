@@ -21,6 +21,9 @@ import {
 } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
+// Lazy cross-store use (called only inside actions) -- mirrors diary.ts using
+// useBookingsStore(); avoids a top-level circular evaluation.
+import { useDiaryStore } from '@/stores/diary'
 import type {
   BookingWithPracticeResponse,
   BookingDetailResponse,
@@ -101,6 +104,10 @@ export const useBookingsStore = defineStore('bookings', () => {
       await apiCancelBooking(bookingId)
       // Refresh bookings list to reflect new status.
       await pagination.refresh()
+      // A cancellation projects a "booking_cancelled_by_user" event onto the
+      // diary timeline; refresh the feed (best-effort) so it shows up without
+      // an app reload.
+      void useDiaryStore().refreshFeed()
       return { ok: true, error: '' }
     } catch (e) {
       const message = extractApiError(e, 'Не удалось отменить бронирование')
