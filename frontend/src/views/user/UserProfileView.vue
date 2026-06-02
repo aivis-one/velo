@@ -149,7 +149,12 @@ import {
   IconArrowRight,
 } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
+import { platform } from '@/platform'
 import { getMyStats } from '@/api/bookings'
+
+// MVP support contact: opens this Telegram chat directly (no dedicated screen
+// yet). TODO: replace with the permanent support account when it's ready.
+const SUPPORT_URL = 'https://t.me/Alx_Chantal'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -192,8 +197,8 @@ function onLanguageTimezone(): void {
 }
 
 function onSupport(): void {
-  // Wired to a real route when 76_Support (Screen G) lands.
-  toast.info('Поддержка будет доступна в следующем обновлении')
+  // MVP: open the support Telegram chat directly (no dedicated screen yet).
+  platform.openLink(SUPPORT_URL)
 }
 
 function onShare(): void {
