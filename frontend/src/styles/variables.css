@@ -143,6 +143,8 @@
   --velo-peach-700: #a16124;
   --velo-pink-300: #f795a2;
   --velo-pink-100: #fde2e2;
+  --velo-pink-700: #ad3444;                       /* rose text — delete/undo bar */
+  --velo-glass-pink-40: rgba(247, 149, 162, 0.4); /* pink-300 @ 0.4 — undo bar fill */
   --velo-blue-100: #e2f0fd;
   --velo-blue-200: #abbfda;
   --velo-sand-100: #fdf3e2;

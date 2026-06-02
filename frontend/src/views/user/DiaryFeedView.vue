@@ -778,8 +778,10 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-border);
+  /* Deletion tone (Figma "запись удалена.svg"): pink fill + pink border +
+     rose text, distinct from the neutral glass chrome. */
+  background: var(--velo-glass-pink-40);
+  border: 1px solid var(--velo-pink-300);
   border-radius: var(--radius-md);
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
@@ -788,7 +790,7 @@ onBeforeUnmount(() => {
 .diary-feed__undo-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
+  color: var(--velo-pink-700);
 }
 
 .diary-feed__undo-btn {
@@ -798,7 +800,7 @@ onBeforeUnmount(() => {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--velo-teal-600);
+  color: var(--velo-pink-700);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
