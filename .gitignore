@@ -7,3 +7,8 @@ desc/
 # that also excludes .env, but this catches misplaced files.
 .env
 .env.*
+
+# Local handoff / working docs (kickoff, prompts, seed context). NOT code —
+# never committed. Lives next to the project as the single working location
+# (consolidated out of GoogleDrive 2026-06-02). Local-only, not synced.
+/.handoff/
