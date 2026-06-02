@@ -19,7 +19,7 @@
     :submitting="diaryStore.checkinSubmitting"
     :submit-disabled="windowClosed"
     :disabled-hint="windowClosed ? 'Чек-ин закрыт — практика уже началась' : ''"
-    submit-label="Check-in перед практикой"
+    submit-label="Отправить"
     :show-skip="true"
     :submitted="submitted"
     success-icon="✅"
