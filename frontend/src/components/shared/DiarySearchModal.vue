@@ -179,6 +179,15 @@ function submit(term: string): void {
   margin-bottom: 0;
 }
 
+/* The diary search belongs to the diary's GLASS world (Figma 3 Search.svg: a
+   glass-blue pill), not the white form-field standard. It also sits on a white
+   modal sheet, where the new white VInput would vanish (white-on-white). Keep it
+   glass + pill here — overriding the shared white field for this diary surface. */
+.diary-search__input :deep(.v-input__field) {
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-full);
+}
+
 .diary-search__go {
   flex-shrink: 0;
   display: inline-flex;
