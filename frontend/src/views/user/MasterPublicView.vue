@@ -84,14 +84,13 @@
         </div>
       </VAccordion>
 
-      <!-- Upcoming practices (white accordion plate, expanded by default) -->
-      <VAccordion
-        v-if="upcoming.length"
-        title="Ближайшие практики"
-        :default-open="true"
-      >
+      <!-- Upcoming practices (white accordion plate). Collapsed by default so the
+           "Задать вопрос" button stays visible without scrolling (operator
+           2026-06-03). Cards use the SAME CalendarPracticeCard as the calendar
+           list for a consistent, icon-based look (not the emoji PracticeCard). -->
+      <VAccordion v-if="upcoming.length" title="Ближайшие практики">
         <div class="master-public__practices">
-          <PracticeCard
+          <CalendarPracticeCard
             v-for="p in upcoming"
             :key="p.id"
             :practice="p"
@@ -116,7 +115,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { IconCheck } from '@/components/icons'
-import PracticeCard from '@/components/shared/PracticeCard.vue'
+import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
 import { getPublicMaster } from '@/api/masters'
 import { getPractices } from '@/api/practices'
 import { extractApiError } from '@/composables/useApiError'
