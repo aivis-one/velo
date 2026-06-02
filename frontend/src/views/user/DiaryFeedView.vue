@@ -747,6 +747,9 @@ onBeforeUnmount(() => {
 .diary-feed__body {
   position: absolute;
   inset: 0;
+  /* Own stacking context (z 0) so feed cards never paint above the compose
+     scrim (which sits at z 1, just below the chrome islands). */
+  z-index: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 100px var(--velo-rail-pad-x) 120px;
@@ -880,10 +883,13 @@ onBeforeUnmount(() => {
 }
 
 /* -- Compose dim scrim --
-   Above the feed (z 1) but BELOW the sticky header/composer islands (z-sticky),
-   so the feed dims while writing and the chrome stays bright. */
+   position:fixed so it covers the WHOLE viewport edge-to-edge (over the top
+   safe-area band and below the composer too), not just the inset diary area.
+   z 1 puts it above the feed (which is isolated to its own stacking context
+   below) but BELOW the sticky header/composer islands (z-sticky), so the whole
+   screen dims while writing and only the chrome stays bright. */
 .diary-feed__scrim {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 1;
   background: var(--velo-scrim);
@@ -893,5 +899,9 @@ onBeforeUnmount(() => {
 }
 .diary-feed__scrim--on {
   opacity: 1;
+  /* Capture taps while writing: blocks accidental feed navigation, and tapping
+     the dim (a non-focusable element) blurs the field -> dismisses the keyboard
+     (in addition to the explicit ⌄ button). */
+  pointer-events: auto;
 }
 </style>

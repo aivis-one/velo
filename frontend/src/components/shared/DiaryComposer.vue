@@ -30,6 +30,7 @@
       class="composer__btn composer__btn--kb"
       aria-label="Свернуть клавиатуру"
       :disabled="submitting"
+      @mousedown.prevent
       @click="toggleKeyboard"
     >
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="composer__kb-glyph">
@@ -60,6 +61,7 @@
         class="composer__btn composer__btn--mic"
         aria-label="Голосовой ввод"
         :disabled="submitting"
+        @mousedown.prevent
         @click="onMic"
       >
         <IconMic :size="20" />
@@ -69,6 +71,7 @@
         class="composer__btn composer__btn--send"
         aria-label="Отправить"
         :disabled="!canSend || submitting"
+        @mousedown.prevent
         @click="onSend"
       >
         <IconSend :size="20" />
