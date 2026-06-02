@@ -11,7 +11,7 @@
     :tabs="USER_TABS"
     :active-tab="activeTab"
     :fill="isFillRoute"
-    :hide-tab-bar="isDiaryRoute"
+    :hide-tab-bar="isDiaryRoute || isFormRoute"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -44,5 +44,13 @@ const isFillRoute = computed(() => route.name === 'user-diary')
 const DIARY_ROUTES = ['user-diary', 'user-diary-entry', 'user-diary-detail']
 const isDiaryRoute = computed(() =>
   DIARY_ROUTES.includes(route.name as string),
+)
+
+// Focused full-screen form flows (check-in / feedback) hide the tab bar too:
+// they have their own "Close" + submit/skip actions, and an in-flow tab bar
+// rides up over the textarea when the keyboard opens.
+const FORM_ROUTES = ['user-checkin', 'user-feedback']
+const isFormRoute = computed(() =>
+  FORM_ROUTES.includes(route.name as string),
 )
 </script>
