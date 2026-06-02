@@ -16,7 +16,7 @@
 -->
 
 <template>
-  <div class="diary-feed">
+  <div class="diary-feed" :class="{ 'diary-feed--composing': composing }">
     <!-- Header -->
     <header class="diary-feed__header">
       <!-- Left: exit back-pill (immersive diary has no tab bar; this returns
@@ -643,7 +643,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--velo-rail-pad-x);
+  /* +20px top so the islands clear the Telegram chrome / screen edge. */
+  padding: calc(var(--space-3) + 20px) var(--velo-rail-pad-x) var(--space-3);
   /* Container is click-through; only the islands inside catch taps. */
   pointer-events: none;
 }
@@ -669,13 +670,14 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Exit back-pill (white), same shape as the view-entry back button (63x35). */
+/* Exit back button (white). Height matched to the round chrome buttons (40px)
+   so its rounded ends share their radius and it doesn't read as an odd pill. */
 .diary-feed__back {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 63px;
-  height: 35px;
+  height: 40px;
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -750,6 +752,7 @@ onBeforeUnmount(() => {
   /* Own stacking context (z 0) so feed cards never paint above the compose
      scrim (which sits at z 1, just below the chrome islands). */
   z-index: 0;
+  transition: opacity 0.28s ease;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 100px var(--velo-rail-pad-x) 120px;
@@ -818,7 +821,7 @@ onBeforeUnmount(() => {
   position: absolute;
   left: var(--velo-rail-pad-x);
   right: var(--velo-rail-pad-x);
-  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(110px + env(safe-area-inset-bottom, 0px));
   z-index: var(--z-sticky, 10);
   display: flex;
   align-items: center;
@@ -874,25 +877,28 @@ onBeforeUnmount(() => {
   z-index: var(--z-sticky, 10);
   display: flex;
   justify-content: center;
+  /* +20px bottom so the composer buttons clear the screen edge / Telegram chrome. */
   padding: var(--space-3) var(--velo-rail-pad-x)
-    calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    calc(var(--space-4) + 20px + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 .diary-feed__composer > * {
   pointer-events: auto;
 }
 
-/* -- Compose dim scrim --
-   position:fixed so it covers the WHOLE viewport edge-to-edge (over the top
-   safe-area band and below the composer too), not just the inset diary area.
-   z 1 puts it above the feed (which is isolated to its own stacking context
-   below) but BELOW the sticky header/composer islands (z-sticky), so the whole
-   screen dims while writing and only the chrome stays bright. */
+/* -- Compose write-mode glass --
+   position:fixed so it covers the WHOLE viewport edge-to-edge. While writing it
+   is a WHITENED FROSTED glass (white wash + blur) over the feed -- NOT a dark
+   dim: the content stays faintly visible behind the frost. z 1 puts it above
+   the feed (isolated to its own stacking context below) but BELOW the sticky
+   header/composer islands, so only the chrome stays crisp. */
 .diary-feed__scrim {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: var(--velo-scrim);
+  background: var(--velo-write-frost);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.28s ease;
@@ -900,8 +906,14 @@ onBeforeUnmount(() => {
 .diary-feed__scrim--on {
   opacity: 1;
   /* Capture taps while writing: blocks accidental feed navigation, and tapping
-     the dim (a non-focusable element) blurs the field -> dismisses the keyboard
-     (in addition to the explicit ⌄ button). */
+     the frost (a non-focusable element) blurs the field -> dismisses the
+     keyboard (in addition to the explicit ⌄ button). */
   pointer-events: auto;
+}
+
+/* Feed content fades slightly (85%) while writing, so it reads as background
+   behind the frosted writing surface. */
+.diary-feed--composing .diary-feed__body {
+  opacity: 0.85;
 }
 </style>

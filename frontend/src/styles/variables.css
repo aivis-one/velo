@@ -133,7 +133,7 @@
   --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
   --velo-glass-white-01: rgba(255, 255, 255, 0.01);
   --velo-glass-white-25: rgba(255, 255, 255, 0.25);  /* frosted modal panel (Figma 648:1861) */
-  --velo-scrim: rgba(18, 26, 40, 0.68);              /* diary compose/focus dim overlay */
+  --velo-write-frost: rgba(255, 255, 255, 0.45);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim) */
 
   /* === VELΘ: Primitive palette === */
   --velo-teal-400: #76dde6;
@@ -157,11 +157,12 @@
   --velo-content-width: 336px;
   --velo-screen-width: 402px;
   --velo-screen-padding: 33px;
-  /* Single content "rail": cap at content width, center, with a minimum
-     screen-padding on narrow screens. Apply as horizontal padding to any
-     full-width container (content/messages/composer/header) so all left/right
-     edges align on every device width (cap 336 + center). */
-  --velo-rail-pad-x: max(var(--velo-screen-padding), calc((100% - var(--velo-content-width)) / 2));
+  /* Content "rail" side padding for the diary (messages/composer/header/undo),
+     so all left/right edges align. Operator-approved 24px (was 33). The app
+     frame is already capped at --velo-screen-width, so a flat value keeps a
+     consistent margin without stretching. The cross-app cap+center variant is
+     revisited when the rail rolls out to every screen. */
+  --velo-rail-pad-x: 24px;
 
   /* === VELΘ: Navigation === */
   --velo-nav-active-bg: #627a9c;

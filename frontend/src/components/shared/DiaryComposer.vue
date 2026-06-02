@@ -154,6 +154,8 @@ function setComposing(on: boolean): void {
   if (composing.value === on) return
   composing.value = on
   emit('composingChange', on)
+  // The grow cap depends on compose mode -- recompute once the class applies.
+  void nextTick(autogrow)
 }
 
 function onFocus(): void {
@@ -180,12 +182,18 @@ function toggleKeyboard(): void {
   else openCompose()
 }
 
-// Grow the textarea with content up to a cap, then scroll internally.
+// Grow the textarea with content, then scroll internally past the cap. In
+// compose mode the field grows UP until its top is ~20% from the screen top
+// (so a long entry can fill most of the screen); collapsed it stays small.
 function autogrow(): void {
   const el = inputEl.value
   if (!el) return
+  const cap = composing.value
+    ? Math.max(120, Math.round(window.innerHeight * 0.8) - 96)
+    : 120
+  el.style.maxHeight = `${cap}px`
   el.style.height = 'auto'
-  el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+  el.style.height = `${Math.min(el.scrollHeight, cap)}px`
 }
 
 function onMic(): void {
@@ -311,6 +319,7 @@ async function onSend(): Promise<void> {
 .composer__kb-glyph {
   width: 22px;
   height: 22px;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .composer__btn:disabled {
@@ -338,19 +347,23 @@ async function onSend(): Promise<void> {
   min-height: 54px;
   align-items: flex-start;
   padding: 13px 18px;
-  border-color: rgba(255, 255, 255, 0.5);
+  /* Blue outline + slightly whitened glass (matches the write-mode frost);
+     NO dark, NO white inversion. */
+  border-color: var(--velo-nav-active-bg);
   box-shadow: none;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   border-radius: 20px;
 }
 
 .composer--composing .composer__input {
-  color: #ffffff;
+  color: var(--velo-text-primary);
 }
 
 .composer--composing .composer__input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-  opacity: 1;
+  color: var(--velo-text-primary);
+  opacity: 0.55;
 }
 
 /* keep mic/send on the right of the second row; the kb button stays left */
@@ -358,9 +371,9 @@ async function onSend(): Promise<void> {
   margin-left: auto;
 }
 
-/* kb button inverts: white circle + primary glyph (supports the top back-pill) */
-.composer--composing .composer__btn--kb {
-  background: #ffffff;
-  color: var(--velo-text-primary);
+/* kb button keeps its blue circle; the chevron rotates UP while writing (a state
+   cue, mirrors the "..." dots animation). No colour inversion. */
+.composer--composing .composer__btn--kb .composer__kb-glyph {
+  transform: rotate(180deg);
 }
 </style>
