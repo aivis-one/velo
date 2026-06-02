@@ -204,8 +204,10 @@ function autogrow(): void {
   // Use the VISUAL viewport height (excludes the on-screen keyboard on iOS), so
   // the field grows only within the area still visible above the keyboard rather
   // than expanding behind it.
+  // -96 clears the composer chrome; -80 extra is the top gap so the field stops
+  // short of the header buttons instead of colliding with them.
   const vh = window.visualViewport?.height ?? window.innerHeight
-  const cap = composing.value ? Math.max(120, Math.round(vh * 0.8) - 96) : 120
+  const cap = composing.value ? Math.max(120, Math.round(vh * 0.8) - 176) : 120
   el.style.maxHeight = `${cap}px`
   el.style.height = 'auto'
   el.style.height = `${Math.min(el.scrollHeight, cap)}px`

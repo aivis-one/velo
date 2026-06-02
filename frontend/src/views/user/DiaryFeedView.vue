@@ -755,32 +755,33 @@ onBeforeUnmount(() => {
   transition: opacity 0.28s ease;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 100px var(--velo-rail-pad-x) 120px;
+  padding: 120px var(--velo-rail-pad-x) 140px;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* 4-zone fog (operator spec 40 / 60 / 60 / 60), top -> bottom:
-       40  hard transparent (behind the title island)
-       60  fade  -- the feed emerges from full transparency
+  /* 4-zone fog (operator spec 50 / 70 / 70 / 70 -- +10 per zone after the
+     islands were nudged +20 off the edges), top -> bottom:
+       50  hard transparent (behind the title island)
+       70  fade  -- the feed emerges from full transparency
        ..  fully visible content
-       60  fade  -- dissolves as it slides under the composer
-       60  hard transparent (behind the composer island)
-     Top padding 100 = 40+60, bottom padding 120 = 60+60. */
+       70  fade  -- dissolves as it slides under the composer
+       70  hard transparent (behind the composer island)
+     Top padding 120 = 50+70, bottom padding 140 = 70+70. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 40px,
-    #000 100px,
-    #000 calc(100% - 120px),
-    transparent calc(100% - 60px),
+    transparent 50px,
+    #000 120px,
+    #000 calc(100% - 140px),
+    transparent calc(100% - 70px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    transparent 40px,
-    #000 100px,
-    #000 calc(100% - 120px),
-    transparent calc(100% - 60px),
+    transparent 50px,
+    #000 120px,
+    #000 calc(100% - 140px),
+    transparent calc(100% - 70px),
     transparent 100%
   );
   /* Chat-mode: a flex column so the thread wrapper can pin a short feed to the
@@ -884,6 +885,13 @@ onBeforeUnmount(() => {
 }
 .diary-feed__composer > * {
   pointer-events: auto;
+}
+
+/* While writing (keyboard up) drop the composer's extra bottom offset so the
+   buttons sit closer to the keyboard -- the keyboard<->buttons gap then roughly
+   matches the buttons<->field gap. */
+.diary-feed--composing .diary-feed__composer {
+  padding-bottom: calc(var(--space-4) + 5px + env(safe-area-inset-bottom, 0px));
 }
 
 /* -- Compose write-mode glass --

@@ -133,7 +133,7 @@
   --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
   --velo-glass-white-01: rgba(255, 255, 255, 0.01);
   --velo-glass-white-25: rgba(255, 255, 255, 0.25);  /* frosted modal panel (Figma 648:1861) */
-  --velo-write-frost: rgba(255, 255, 255, 0.45);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim) */
+  --velo-write-frost: rgba(255, 255, 255, 0.30);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim); 30% keeps the content visible through it */
 
   /* === VELΘ: Primitive palette === */
   --velo-teal-400: #76dde6;
