@@ -30,8 +30,9 @@
 
 <template>
   <div class="live">
-    <!-- Back arrow only -- the user can return to the previous screen. -->
-    <VHeader show-back @back="router.back()" />
+    <!-- Back arrow -> dashboard. Using router.back() returned the user into
+         the check-in success/form screen, creating a check-in <-> live loop. -->
+    <VHeader show-back @back="goBack" />
 
     <!-- Themed direction placeholder in place of a real video stream
          (no real video in MVP; Zoom is external). -->
@@ -64,8 +65,19 @@
         Войти
       </VButton>
 
-      <VButton variant="secondary" size="lg" block @click="onCheckin">
-        Check-in
+      <!-- One check-in per practice: once done, the button locks and shows
+           why (so it does not read as a random disabled control). -->
+      <VButton
+        variant="secondary"
+        size="lg"
+        block
+        :disabled="alreadyCheckedIn"
+        @click="onCheckin"
+      >
+        <template v-if="alreadyCheckedIn">
+          <IconCheck :size="16" /> Check-in сделан
+        </template>
+        <template v-else>Check-in</template>
       </VButton>
 
       <VButton
@@ -90,6 +102,7 @@ import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
 import { VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
+import { IconCheck } from '@/components/icons'
 import PracticePlaceholder from '@/components/shared/PracticePlaceholder.vue'
 
 const route = useRoute()
@@ -111,6 +124,9 @@ const myBooking = computed(() =>
     (b) => b.practice_id === practiceId && b.status !== 'cancelled',
   ),
 )
+
+/** One check-in per practice: once the booking has it, the button locks. */
+const alreadyCheckedIn = computed(() => !!myBooking.value?.has_checkin)
 
 /** A Zoom link is usable only if it is an https URL (AUDIT-0520-02). */
 const hasValidZoom = computed(
@@ -149,7 +165,13 @@ async function onEnter(): Promise<void> {
 }
 
 function onCheckin(): void {
+  if (alreadyCheckedIn.value) return
   router.push({ name: 'user-checkin', params: { practiceId } })
+}
+
+/** Back arrow -> dashboard (breaks the check-in <-> live loop). */
+function goBack(): void {
+  router.push({ name: 'user-dashboard' })
 }
 
 /**
