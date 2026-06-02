@@ -229,7 +229,7 @@ import Banner from '@/components/shared/Banner.vue'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
-import { CHECKIN_WINDOW_H, PRACTICE_MAX_DURATION_H } from '@/utils/constants'
+import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
@@ -311,12 +311,12 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
 /**
  * Nearest booking the user can still act on.
  *
- * Rule B (matches the auto-finalize ceiling): a booking is shown while its
- * practice has NOT finished yet -- i.e. the booking is still confirmed, the
- * practice is not completed/cancelled, and we are still within
- * PRACTICE_MAX_DURATION_H hours of its start. This keeps a practice visible
- * to a booked user who joined late (started but not over), and hides it once
- * it has ended (finalized, cancelled, or past the 24h ceiling).
+ * Rule: a booking is shown while its practice has NOT ended yet -- i.e. the
+ * booking is still confirmed, the practice is not completed/cancelled, and now
+ * is before its END (start + duration_minutes). This keeps the card visible to
+ * a booked user during the live session (Zoom / Check-in) and hides it the
+ * moment the practice is over. (This is "my session" -- distinct from the
+ * bookable calendar feed, which hides a practice once it STARTS.)
  *
  * Selection among the candidates: a practice that is happening RIGHT NOW
  * (already started, not yet over) wins over future ones -- that's where Zoom
@@ -324,7 +324,6 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
  * future ones, the soonest start.
  */
 const nearestBooking = computed((): BookingWithPracticeResponse | null => {
-  const ceilingMs = PRACTICE_MAX_DURATION_H * 60 * 60 * 1000
   const current = now.value
 
   const candidates = bookingsStore.bookings.filter((b) => {
@@ -332,9 +331,11 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
     if (b.practice.status === 'completed' || b.practice.status === 'cancelled') {
       return false
     }
-    // Not finished yet: still before the start + 24h ceiling.
+    // Visible until it ENDS (start + duration): present before & during the
+    // session, gone the moment it is over. Epoch ms -> timezone-independent.
     const start = new Date(b.practice.scheduled_at).getTime()
-    return current < start + ceilingMs
+    const endMs = start + b.practice.duration_minutes * 60 * 1000
+    return current < endMs
   })
 
   if (candidates.length === 0) return null

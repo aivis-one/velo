@@ -115,6 +115,15 @@ export const useCalendarStore = defineStore('calendar', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // Ticks each minute so the selected-day list drops a practice the moment it
+  // starts (a started practice can no longer be booked). The backend feed
+  // already excludes started practices on fetch; this keeps the open calendar
+  // correct live, without waiting for a reload.
+  const now = ref<number>(Date.now())
+  setInterval(() => {
+    now.value = Date.now()
+  }, 60_000)
+
   // F5: the timezone in which THIS VIEWER sees practice times (their profile).
   // Used to bucket practices into calendar days so the day matches the time
   // shown on the card. ComputedRef -> groupings below stay reactive if the
@@ -148,6 +157,9 @@ export const useCalendarStore = defineStore('calendar', () => {
     const tz = viewerTz.value ?? 'UTC'
     return weekPractices.value
       .filter((p) => calendarDateInTz(p.scheduled_at, tz) === selectedDate.value)
+      // Hide already-started practices (can't be booked anymore). Comparison is
+      // in epoch ms (tz-independent); for future days every practice passes.
+      .filter((p) => new Date(p.scheduled_at).getTime() > now.value)
       .sort(
         (a, b) =>
           new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
