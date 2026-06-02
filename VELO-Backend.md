@@ -1,9 +1,23 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.6
-**Дата:** 29 мая 2026
+**Версия:** 1.7
+**Дата:** 2 июня 2026
 **Статус:** Active
-**Тесты:** 480 passed, 3 skipped  
+**Тесты:** 481 passed, 12 skipped  
+
+> **v1.7 (Attendance enrichment для master prep, 2 июня 2026):** `GET
+> /api/v1/practices/{id}/attendance` (master-only) обогащён под экран
+> подготовки мастера: каждый item теперь несёт `user_display_name` /
+> `user_avatar_url` участника и его PRE-чек-ин `checkin { mood, comment }`
+> (если оставлен), иначе `null`. Новая схема `AttendanceCheckinResponse`.
+> `get_attendance` батч-грузит участников (`User.id IN`) и PRE-чек-ины через
+> новую `diary/service.py::get_pre_checkins_for_bookings` (`booking_id IN`) —
+> два запроса, без N+1. **Приватность:** PRE-чек-ин участника осознанно открыт
+> владельцу практики и ТОЛЬКО внутри attendance этой практики (ownership →
+> P-08 → 404 чужому); глобальная приватность `/users/me/checkins` не тронута.
+> Поле `master_request`/эндпоинт сохранения запроса НЕ добавлялись: диалог
+> юзер ↔ мастер — отдельная фича (TD-ASK-MASTER), вне MVP. +6 тестов
+> (`test_attendance.py`, 63xxx). Детали — §2 (Bookings), §3.12.
 
 > **v1.6 (Профиль пользователя + аудит-фиксы, 29 мая 2026):** реализован раздел
 > «Профиль» (Figma `F7PD5isLfLdyc0q1Bd5n5c`, node `4715-3463`). Бэк-часть:
@@ -184,6 +198,31 @@ POST   /api/v1/bookings/{id}/leave  -- Отметить уход (владеле
 > (`test_join_booking_success` — owner 200; `test_join_booking_not_owner` — 404).
 > Фронт использует их на экране 14 (Practice-Live): юзер сам отмечает приход/уход.
 
+**Attendance для мастера (обогащён, v1.7).** `GET /api/v1/practices/{id}/attendance`
+(master-only, в разделе Practices) отдаёт `AttendanceResponse` = агрегаты
+(`total/attended/no_show/pending`) + `items: list[AttendanceItemResponse]`. С
+v1.7 каждый item, помимо `booking_id/user_id/status/joined_at/left_at`, несёт:
+- `user_display_name: str | None` — `first_name` + `last_name` участника
+  (иначе `None`; фоллбэка «Master» нет — это участник, не мастер);
+- `user_avatar_url: str | None` — аватар участника (`User.avatar_url`);
+- `checkin: AttendanceCheckinResponse | None` — PRE-чек-ин участника
+  (`{ mood: int, comment: str | None }`) на эту практику, либо `null`.
+
+`get_attendance` (`bookings/service.py`) после owner-проверки (P-08) батч-грузит
+участников (`User.id IN`) и их PRE-чек-ины одним запросом через
+`diary/service.py::get_pre_checkins_for_bookings` (`Checkin.booking_id IN`,
+`check_type == PRE`) — **без N+1** независимо от числа участников. Роутер только
+маппит результат в схему (хелпер `_participant_display_name`).
+
+> **Приватность чек-ина (осознанное решение, v1.7):** чек-ины приватны
+> (`GET /users/me/checkins` — только свои). Здесь PRE-чек-ин участника
+> открывается мастеру-**владельцу именно этой практики** и **только** в рамках
+> её attendance (booking_ids принадлежат этой практике, авторизацию проверяет
+> вызывающий — тот же trust-boundary, что у `get_practice_insights`). Глобальная
+> приватность не меняется. `master_request`/эндпоинт «вопрос мастеру» НЕ
+> добавлялись — это диалог юзер↔мастер, отдельная фича (TD-ASK-MASTER, §9 / §2
+> Diary), вне MVP. См. §3.12.
+
 ### Waitlist
 
 ```
@@ -251,7 +290,9 @@ newest-first, с курсорной пагинацией (`{ items, next_cursor 
 Открытый техдолг бэка дневника: TD-DIARY-FEED-CURSOR-TIEBREAK (стабильный
 тай-брейк курсора при равных `occurred_at`), TD-DIARY-SNAPSHOT-TYPED
 (типизировать snapshot вместо открытого dict), TD-DIARY-CANCEL-COMMENT
-(причина отмены в snapshot), TD-ASK-MASTER (вопрос мастеру с узлов нити).
+(причина отмены в snapshot), TD-ASK-MASTER (диалог юзер↔мастер как отдельная
+фича — не строка на брони; вне MVP, см. §9; чек-ин клиента мастеру уже
+отдаётся через attendance, см. §3.12).
 
 ### Admin
 
@@ -594,6 +635,46 @@ relogin-persist; notifications дефолты-all-true, частичный merge
 
 ---
 
+### 3.12. Attendance enrichment + «вопрос мастеру» (2 июня)
+
+**Что (v1.7).** `GET /api/v1/practices/{id}/attendance` (master-only) обогащён под
+экран подготовки мастера: по каждому участнику отдаются `user_display_name`,
+`user_avatar_url` и его PRE-чек-ин `checkin { mood, comment } | null`. Новая
+schema `AttendanceCheckinResponse` (`bookings/schemas.py`).
+
+**Откуда данные, без N+1.** `get_attendance` (`bookings/service.py`) после
+owner-проверки (P-08) делает ровно два батч-запроса поверх списка броней:
+- участники — `select(User).where(User.id.in_(user_ids))` → `dict[user_id, User]`;
+- PRE-чек-ины — `diary/service.py::get_pre_checkins_for_bookings(booking_ids)`
+  (`Checkin.booking_id.in_(...)`, `check_type == PRE`) → `dict[booking_id, Checkin]`.
+Сигнатура расширена до `tuple[Practice, list[Booking], dict[UUID, User],
+dict[UUID, Checkin]]`; роутер — тонкий маппер (хелпер `_participant_display_name`:
+`first_name`+`last_name`, иначе `None`; без «Master»-фоллбэка). Зависимость
+`bookings -> diary` односторонняя — `Checkin` под `TYPE_CHECKING` для аннотации +
+локальный рантайм-импорт внутри функции (тот же приём, что в `list_user_bookings`).
+
+**Приватность.** PRE-чек-ин участника приватен (`/users/me/checkins` — свой), но
+владельцу этой практики он открыт **только** внутри её attendance: `booking_ids`
+принадлежат одной практике, авторизацию гарантирует вызывающий. Тот же
+trust-boundary, что у `get_practice_insights` (мастер видит чек-ины участников
+своей практики). Только PRE (что человек написал ДО практики — для подготовки).
+
+**Почему НЕ `master_request`.** Исходный тикет просил поле `master_request` на
+`Booking` + эндпоинт сохранения. Не сделано осознанно: «вопрос к мастеру» — это
+**диалог** юзер↔мастер (мастер должен не только получить сообщение, но и
+ответить; точки входа — из профиля «в общем» / до брони / после; роутинг в
+Telegram-бот мастера с ответом юзеру). Строковое поле на брони такой флоу не
+выносит (нет автора per-сообщение, порядка, статусов, ответов) и в V2 было бы
+выброшено. Это отдельная сущность + флоу — фича диалогов, **вне MVP**
+(TD-ASK-MASTER, §9). Фронт оставляет заглушку `TD-ASK-MASTER` как есть.
+
+Тесты: `tests/test_attendance.py` (63xxx) — +6: имя+аватар; чек-ин виден мастеру;
+`checkin=null` без чек-ина; `comment=None` при пустом; не-владелец → 404 (чек-ины
+не утекают); корректный маппинг чек-инов на нужного участника при нескольких
+участниках.
+
+---
+
 ## 4. Платёжная архитектура
 
 ### 4.1. Double-Entry принцип
@@ -731,7 +812,7 @@ En-значения query-параметров (`short|long`, `night|morning|day
 
 ## 8. Тесты
 
-480 passed, 3 skipped. Все запускаются внутри Docker:
+481 passed, 12 skipped. Все запускаются внутри Docker:
 
 ```bash
 velo test          # все тесты

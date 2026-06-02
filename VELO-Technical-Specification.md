@@ -1510,6 +1510,19 @@ backend/tests/
 - **Attendance GET**: read-only, использует `get_db_reader`. Доступен в любом статусе практики (можно смотреть и после completed)
 - **AttendanceResponse**: содержит агрегаты (total, attended, no_show, pending) + items list
 
+> **Attendance enrichment (2026-06-02, пост-фазовая):** `AttendanceItemResponse`
+> расширен под экран подготовки мастера: помимо `booking_id/user_id/status/
+> joined_at/left_at` теперь несёт `user_display_name`, `user_avatar_url` и PRE-чек-ин
+> участника `checkin: { mood, comment } | null` (новая схема `AttendanceCheckinResponse`
+> в `bookings/schemas.py`). `get_attendance` батч-грузит участников (`User.id IN`) и
+> PRE-чек-ины через новую `diary/service.py::get_pre_checkins_for_bookings`
+> (`Checkin.booking_id IN`) — два запроса, без N+1. Приватность: PRE-чек-ин участника
+> осознанно открыт владельцу практики и только в рамках её attendance (ownership →
+> P-08); глобальная приватность `/users/me/checkins` не тронута. Поле
+> `master_request`/эндпоинт «вопрос мастеру» НЕ добавлялись — диалог юзер↔мастер
+> вынесен в отдельную фичу (TD-ASK-MASTER), вне MVP. +6 тестов (14 -> 20,
+> `test_attendance.py` 63xxx). Полностью: Бэковый Кодекс §3.12.
+
 **Concurrency (аудит Раунд 20):**
 - join_booking: FOR UPDATE на Booking. Practice — только чтение статуса
 - leave_booking: FOR UPDATE на Booking
@@ -2607,7 +2620,9 @@ practice_outcome, checkin, feedback, note, dream.
 
 **Открытый техдолг:** TD-DIARY-FEED-CURSOR-TIEBREAK (тай-брейк курсора при
 равных occurred_at), TD-DIARY-SNAPSHOT-TYPED (типизировать snapshot),
-TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER.
+TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER (диалог
+юзер↔мастер — отдельная фича/сущность, не строка на брони; вне MVP; чек-ин
+клиента мастеру уже отдаётся через attendance, Бэковый Кодекс §3.12).
 
 **Критерий готовности:** Единая лента отдаётся с курсорной пагинацией; события
 проецируются при мутации источников. ✅
@@ -2799,6 +2814,9 @@ TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER
   Фронтовый Кодекс §3.6.
 - **Отложено:** кадр 6 «вопрос мастеру» — сквозная фича с бэком (маршрутизация в Telegram-бот
   мастера, ответ юзеру). Все «вопросы мастеру» по приложению — заглушки. TD-ASK-MASTER.
+  Решение по архитектуре (2026-06-02): это **диалог** юзер↔мастер = отдельная сущность +
+  флоу, НЕ строка `master_request` на брони; вне MVP. Чек-ин клиента мастеру уже отдаётся
+  через attendance (Бэковый Кодекс §3.12).
 
 **Аудит итерации (2026-05-24):** 0 critical / 0 warning, 3 suggestion. Оценка 9/10.
 
@@ -2808,7 +2826,7 @@ TD-DIARY-CANCEL-COMMENT (причина отмены в snapshot), TD-ASK-MASTER
 | FLOW-S3 | — | `backend/masters/schemas.py` | Нет trailing newline (ruff W292); потерян при переносе файла в репо (в исходном файле был) | Добавлен `\n` в конце | ✅ |
 | FLOW-S2 | 🧪 | `frontend/BookingConfirmedView.vue` | Статичный текст про Zoom независимо от типа практики | Won't fix сейчас (все практики через Zoom); нейтрализовать/условить при не-Zoom практиках — TD-ZOOM-TEXT | ⬜ |
 | FLOW-FLAKE | — | `tests/test_notifications.py` + config/main/conftest | Флак доставки: фоновый процессор vs ручные `_stage_*` (FOR UPDATE SKIP LOCKED) | Флаг `notification_processor_enabled`, тесты выключают | ✅ |
-| TD-ASK-MASTER | 🚀 | разное (фронт + будущий бэк) | Вопросы мастеру — сквозная фича, не реализована; точки входа — заглушки | Бэк (маршрутизация в бота, треды) + подключение фронта | ⬜ |
+| TD-ASK-MASTER | 🚀 | разное (фронт + будущий бэк) | Вопросы мастеру — сквозная фича, не реализована; точки входа — заглушки. Решение (2026-06-02): это диалог юзер↔мастер = отдельная сущность+флоу, НЕ строка на брони; вне MVP. Чек-ин клиента мастеру уже отдаётся через attendance (§3.12) | Бэк (маршрутизация в бота, треды вопрос/ответ) + подключение фронта | ⬜ |
 
 
 ### Code Review Feb 2026 — исправлено
