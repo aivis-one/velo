@@ -69,7 +69,11 @@ defineEmits<{
 
 <style scoped>
 .v-tabbar {
-  position: sticky;
+  /* Floats over the edge-to-edge feed (MobileLayout is the positioned anchor),
+     so content scrolls UNDER it and dissolves into the bottom fog. */
+  position: absolute;
+  left: 0;
+  right: 0;
   bottom: 0;
   display: flex;
   align-items: center;

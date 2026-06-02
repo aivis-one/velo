@@ -163,6 +163,14 @@
      consistent margin without stretching. The cross-app cap+center variant is
      revisited when the rail rolls out to every screen. */
   --velo-rail-pad-x: 24px;
+  /* === Fog "table" (T6) — diary-standard dissolve for list screens ===
+     Edit these 4 numbers to tune the fog everywhere (MobileLayout):
+       z1 = top hard (fully transparent), z2 = top fade,
+       z3 = bottom fade,                  z4 = bottom hard (under the tab bar). */
+  --velo-fog-z1: 20px;
+  --velo-fog-z2: 40px;
+  --velo-fog-z3: 70px;
+  --velo-fog-z4: 90px;
 
   /* === VELΘ: Navigation === */
   --velo-nav-active-bg: #627a9c;
