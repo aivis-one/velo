@@ -16,24 +16,36 @@
 -->
 
 <template>
-  <header class="v-header">
-    <div class="v-header__left">
-      <VBackButton
-        v-if="showBack"
-        :aria-label="title ? 'Назад' : backLabel"
-        @click="$emit('back')"
-      />
-      <h1 v-if="title" class="v-header__title">{{ title }}</h1>
-      <span v-if="badge" class="v-header__badge">{{ badge }}</span>
-    </div>
-    <div v-if="$slots.action" class="v-header__right">
-      <slot name="action" />
-    </div>
-  </header>
+  <!-- On screens hosted by a layout with a floating-header island (MobileLayout),
+       teleport the header into that island so it floats ABOVE the masked feed
+       instead of being eaten by the fog (G-1). Elsewhere (shell-less screens,
+       admin) `floating` is false and it renders inline exactly as before. -->
+  <Teleport to=".mobile-layout__island" :disabled="!floating">
+    <header class="v-header" :class="{ 'v-header--floating': floating }">
+      <div class="v-header__left">
+        <VBackButton
+          v-if="showBack"
+          :aria-label="title ? 'Назад' : backLabel"
+          @click="$emit('back')"
+        />
+        <h1 v-if="title" class="v-header__title">{{ title }}</h1>
+        <span v-if="badge" class="v-header__badge">{{ badge }}</span>
+      </div>
+      <div v-if="$slots.action" class="v-header__right">
+        <slot name="action" />
+      </div>
+    </header>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { VBackButton } from '@/components/ui'
+import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
+
+// True when a floating-header island host (MobileLayout) is an ancestor: the
+// header then teleports into the island and registers its presence (so the feed
+// gets top clearance). False -> inline render, unchanged legacy behaviour.
+const floating = useFloatingHeader()
 
 withDefaults(
   defineProps<{
@@ -66,6 +78,23 @@ defineEmits<{
   padding: var(--space-4);
   background: transparent;
   min-height: 56px;
+}
+
+/* Floating island variant (G-1): teleported into MobileLayout's island layer, so
+   it no longer scrolls inside the masked feed. Rail-aligned to --velo-rail-pad-x
+   (= the content rail) with the diary's +20px top offset clearing the Telegram
+   chrome. Click-through so the feed scrolls under the title; only the back button
+   and the action slot catch taps (mirrors the diary header). */
+.v-header--floating {
+  position: static;
+  z-index: auto;
+  padding: calc(var(--space-3) + 20px) var(--velo-rail-pad-x) var(--space-3);
+  pointer-events: none;
+}
+
+.v-header--floating :where(button, a, [role='button']),
+.v-header--floating .v-header__right {
+  pointer-events: auto;
 }
 
 .v-header__left {

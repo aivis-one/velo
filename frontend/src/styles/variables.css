@@ -171,6 +171,13 @@
   --velo-fog-z2: 40px;
   --velo-fog-z3: 70px;
   --velo-fog-z4: 90px;
+  /* === Header-island clearance (G-1) ===
+     VHeader-bearing screens float the header as an island above the feed, so
+     their content needs a bigger TOP fade than the headerless list screens
+     (the island is ~88px tall: 34 top offset + 40 pill + 14). MobileLayout swaps
+     z1/z2 -> these on `.mobile-layout__main--has-header`. Per-screen tuning = п.6. */
+  --velo-fog-header-z1: 50px;  /* top hard transparent (behind the island) */
+  --velo-fog-header-z2: 60px;  /* top fade (content emerges under the island) */
 
   /* === VELΘ: Navigation === */
   --velo-nav-active-bg: #627a9c;
