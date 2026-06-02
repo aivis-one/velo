@@ -235,17 +235,21 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* Rail-based insets: content respects MobileLayout's rail + fog; each surface is
+   a white card (Figma 1 Profile.svg) instead of the old translucent glass-blue. */
 .profile {
   display: flex;
   flex-direction: column;
-  margin: calc(-1 * var(--space-4));
+  gap: var(--space-4);
 }
 
-/* Header */
+/* Header: white profile card */
 .profile__header {
   text-align: center;
-  padding: var(--space-6) var(--space-6) var(--space-4);
-  background: transparent;
+  padding: var(--space-6) var(--space-4) var(--space-5);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
 }
 
 .profile__avatar {
@@ -263,12 +267,10 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* Stats: two cards */
+/* Stats: two white cards */
 .profile__stats {
   display: flex;
   gap: var(--space-4);
-  padding: 0 var(--space-4);
-  margin-bottom: var(--space-4);
 }
 
 .profile__stat-card {
@@ -279,11 +281,9 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-1);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .profile__stat-value {
@@ -303,30 +303,31 @@ onMounted(async () => {
 
 /* Menu sections */
 .profile__menus {
-  padding: 0 var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .profile__menu-section {
-  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .profile__menu-title {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  /* Figma: section labels are Marmelad 18, primary colour (not uppercase muted). */
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-2);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
 }
 
+/* Each menu item is its own white rounded plate (Figma: separate rows, rx15). */
 .profile__menu-list {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .profile__menu-item {
@@ -334,16 +335,15 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.profile__menu-item + .profile__menu-item {
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  transition: opacity var(--transition-fast);
 }
 
 .profile__menu-item:active {
-  background: rgba(255, 255, 255, 0.1);
+  opacity: 0.85;
 }
 
 .profile__menu-icon {
