@@ -14,6 +14,20 @@
 # CR-01: Response schemas use BookingStatus StrEnum instead of str
 #   so OpenAPI emits enum values and generated TypeScript types
 #   produce union literals instead of plain string.
+#
+# ATTENDANCE ENRICHMENT (master prep view):
+#   AttendanceItemResponse now also carries, per participant:
+#     - user_display_name / user_avatar_url: who this booking belongs to, so
+#       the master sees a name+avatar instead of a bare user_id.
+#     - checkin: the participant's PRE check-in (mood + comment) for this
+#       practice, if they left one (AttendanceCheckinResponse | None).
+#   This intentionally exposes a participant's otherwise-private PRE check-in
+#   to the practice owner, and ONLY inside this master-only attendance view
+#   (ownership is enforced in get_attendance, P-08). The global check-in
+#   privacy (GET /users/me/checkins -- own check-ins only) is unchanged.
+#   The original "master_request" field from the spec is intentionally NOT
+#   added here: user<->master messaging is a separate dialog feature, out of
+#   scope for this iteration.
 # =============================================================================
 
 from datetime import datetime
@@ -134,14 +148,35 @@ class PaginatedBookingsResponse(BaseModel):
 # -- Phase 5.4: Attendance --
 
 
+class AttendanceCheckinResponse(BaseModel):
+    """A participant's PRE check-in as shown to the practice master.
+
+    Minimal projection of Checkin (diary module): only what the master needs
+    while preparing for the practice -- the mood score and the optional note.
+    Exposed ONLY inside the master-only attendance view (see module docstring).
+    """
+
+    mood: int
+    comment: str | None
+
+
 class AttendanceItemResponse(BaseModel):
-    """Single booking in attendance list."""
+    """Single booking in attendance list.
+
+    Enriched for the master's prep view (see module docstring):
+      - user_display_name / user_avatar_url identify the participant.
+      - checkin is their PRE check-in for this practice, or None if they
+        did not leave one.
+    """
 
     booking_id: UUID
     user_id: UUID
     status: BookingStatus
     joined_at: datetime | None
     left_at: datetime | None
+    user_display_name: str | None
+    user_avatar_url: str | None
+    checkin: AttendanceCheckinResponse | None
 
     model_config = {"from_attributes": True}
 

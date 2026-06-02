@@ -279,6 +279,51 @@ async def get_checkin(
     return checkin
 
 
+async def get_pre_checkins_for_bookings(
+    booking_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, Checkin]:
+    """Batch-load PRE check-ins for a set of bookings, keyed by booking_id.
+
+    Used by the master-facing attendance view (bookings/service.py
+    get_attendance) to show each participant's PRE check-in alongside their
+    attendance row. One query over booking_id IN (...), so the attendance
+    endpoint stays free of N+1 lookups regardless of participant count.
+
+    PRIVACY: this reads OTHER users' check-ins, which are otherwise private
+    (GET /users/me/checkins is own-only). It is safe here because the only
+    caller already enforced practice ownership (get_attendance, P-08) and the
+    booking_ids it passes all belong to that one practice. This function does
+    NOT re-check authorization -- it must only ever be called with a
+    pre-authorized set of booking_ids. Same trust boundary as
+    get_practice_insights, which also reads participants' check-ins for the
+    owning master.
+
+    Only PRE check-ins are returned (CheckType.PRE): the master cares about
+    what the participant reported BEFORE the practice when preparing for it.
+    The (booking_id, check_type) uniqueness in the Checkin model guarantees at
+    most one PRE row per booking, so the booking_id -> Checkin mapping is
+    unambiguous.
+
+    Returns:
+        Dict mapping booking_id -> Checkin for bookings that have a PRE
+        check-in. Bookings without one are simply absent from the dict.
+        Empty dict when booking_ids is empty.
+    """
+    if not booking_ids:
+        return {}
+
+    stmt = (
+        select(Checkin)
+        .where(
+            Checkin.booking_id.in_(booking_ids),
+            Checkin.check_type == CheckType.PRE.value,
+        )
+    )
+    result = await session.execute(stmt)
+    return {c.booking_id: c for c in result.scalars().all()}
+
+
 # ===================================================================
 # Upsert feedback (Phase 8.2)
 # ===================================================================

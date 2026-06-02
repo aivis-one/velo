@@ -52,6 +52,7 @@
 # =============================================================================
 
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 import structlog
@@ -77,6 +78,11 @@ from app.modules.payments.refund import (
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.promos.models import Promo
 from app.modules.users.models import User
+
+if TYPE_CHECKING:
+    # Type-only import: the runtime import lives inside get_attendance to keep
+    # the bookings -> diary dependency one-way (diary imports from bookings).
+    from app.modules.diary.models import Checkin
 
 logger = structlog.get_logger()
 
@@ -722,14 +728,33 @@ async def get_attendance(
     practice_id: UUID,
     user: User,
     session: AsyncSession,
-) -> tuple[Practice, list[Booking]]:
-    """Get attendance list for a practice (master-only).
+) -> tuple[Practice, list[Booking], dict[UUID, User], dict[UUID, "Checkin"]]:
+    """Get attendance list for a practice (master-only), enriched for prep.
 
-    Returns all non-cancelled bookings with attendance data.
+    Returns all non-cancelled bookings with attendance data, plus two lookup
+    maps the master's prep view needs per participant:
+      - users:    user_id -> User, so the router can show a name + avatar
+                  instead of a bare user_id.
+      - checkins: booking_id -> PRE Checkin, the participant's pre-practice
+                  check-in (mood + comment), when they left one.
+
+    Both maps are built with one batch query each (id IN (...)), so the
+    endpoint stays N+1-free no matter how many participants there are.
+
+    PRIVACY: exposing each participant's PRE check-in to the master is
+    intentional and scoped to this practice only. Ownership is enforced
+    immediately below (P-08), and the check-in batch is keyed on this
+    practice's booking_ids, so no cross-practice data can leak. Global
+    check-in privacy (GET /users/me/checkins -- own-only) is untouched.
 
     Validates:
     - Practice exists and belongs to master (P-08: 404).
     """
+    # Local import keeps the bookings -> diary dependency one-way (diary
+    # already imports from bookings), same pattern as list_user_bookings.
+    from app.modules.diary.models import Checkin
+    from app.modules.diary.service import get_pre_checkins_for_bookings
+
     practice = await session.get(Practice, practice_id)
 
     if not practice:
@@ -749,7 +774,22 @@ async def get_attendance(
     result = await session.execute(stmt)
     bookings = list(result.scalars().all())
 
-    return practice, bookings
+    # Batch-load participants (one query) so the router can render names.
+    user_ids = [b.user_id for b in bookings]
+    users: dict[UUID, User] = {}
+    if user_ids:
+        users_result = await session.execute(
+            select(User).where(User.id.in_(user_ids))
+        )
+        users = {u.id: u for u in users_result.scalars().all()}
+
+    # Batch-load PRE check-ins (one query) keyed by booking_id.
+    booking_ids = [b.id for b in bookings]
+    checkins: dict[UUID, Checkin] = await get_pre_checkins_for_bookings(
+        booking_ids, session,
+    )
+
+    return practice, bookings, users, checkins
 
 
 # ===================================================================

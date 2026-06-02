@@ -10,12 +10,14 @@
 
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.diary.models import CheckType, Checkin
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
@@ -505,3 +507,216 @@ async def test_attendance_list_not_owner(
         headers=auth_headers(other_master["session_token"]),
     )
     assert resp.status_code == 404
+
+
+# ===================================================================
+# GET /practices/{id}/attendance -- enrichment (name/avatar + check-in)
+# ===================================================================
+#
+# The attendance view is enriched for the master's prep screen: each item
+# carries the participant's display name + avatar and their PRE check-in
+# (mood + comment), if any. PRE check-ins are seeded directly via the ORM
+# here: the public POST /checkin endpoint only accepts writes inside the
+# time window (scheduled_at - checkin_window_hours .. scheduled_at), and the
+# test practices are scheduled 7 days out, so the window is closed. Seeding
+# the row directly is the same approach test_insights.py uses.
+
+
+async def _seed_pre_checkin(
+    session: AsyncSession,
+    *,
+    booking_id: str,
+    practice_id: str,
+    user_id: str,
+    mood: int,
+    comment: str | None,
+) -> None:
+    """Insert a PRE check-in row straight through the ORM (bypass window)."""
+    session.add(
+        Checkin(
+            practice_id=UUID(practice_id),
+            user_id=UUID(user_id),
+            booking_id=UUID(booking_id),
+            mood=mood,
+            comment=comment,
+            check_type=CheckType.PRE.value,
+        )
+    )
+    await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_attendance_includes_participant_name_and_avatar(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Each attendance item carries the participant's display name + avatar."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await _book_user(client, pid, telegram_id=63120)
+    user_id = user["user"]["id"]
+
+    # Set an avatar on the participant (login upserts avatar from Telegram
+    # photo_url, which is None in tests, so we set it explicitly).
+    avatar = "https://t.me/i/userpic/320/participant.jpg"
+    await db_session.execute(
+        update(User).where(User.id == UUID(user_id)).values(avatar_url=avatar)
+    )
+    await db_session.commit()
+
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    # login_user sends first_name="User" with no last_name.
+    assert item["user_display_name"] == "User"
+    assert item["user_avatar_url"] == avatar
+
+
+@pytest.mark.asyncio
+async def test_attendance_includes_checkin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A participant's PRE check-in (mood + comment) is exposed to the master."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await _book_user(client, pid, telegram_id=63121)
+    await _seed_pre_checkin(
+        db_session,
+        booking_id=user["booking_id"],
+        practice_id=pid,
+        user_id=user["user"]["id"],
+        mood=8,
+        comment="болят колени, поберегите",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["checkin"] is not None
+    assert item["checkin"]["mood"] == 8
+    assert item["checkin"]["comment"] == "болят колени, поберегите"
+
+
+@pytest.mark.asyncio
+async def test_attendance_checkin_null_when_absent(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """checkin is null for a participant who left no PRE check-in."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    await _book_user(client, pid, telegram_id=63122)
+
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["checkin"] is None
+
+
+@pytest.mark.asyncio
+async def test_attendance_checkin_comment_can_be_none(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A check-in with mood but no comment surfaces mood + comment=None."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await _book_user(client, pid, telegram_id=63123)
+    await _seed_pre_checkin(
+        db_session,
+        booking_id=user["booking_id"],
+        practice_id=pid,
+        user_id=user["user"]["id"],
+        mood=5,
+        comment=None,
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    item = resp.json()["items"][0]
+    assert item["checkin"] is not None
+    assert item["checkin"]["mood"] == 5
+    assert item["checkin"]["comment"] is None
+
+
+@pytest.mark.asyncio
+async def test_attendance_enrichment_only_for_owner(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A non-owner master gets 404 -- enriched check-ins are not exposed."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await _book_user(client, pid, telegram_id=63124)
+    await _seed_pre_checkin(
+        db_session,
+        booking_id=user["booking_id"],
+        practice_id=pid,
+        user_id=user["user"]["id"],
+        mood=9,
+        comment="private note",
+    )
+
+    other_master = await _make_verified_master(
+        client, db_session, telegram_id=63004,
+    )
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(other_master["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_attendance_checkin_maps_to_correct_participant(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """With two participants, each check-in lands on the right item."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user_a = await _book_user(client, pid, telegram_id=63125)
+    user_b = await _book_user(client, pid, telegram_id=63126)
+
+    # Only user A leaves a check-in.
+    await _seed_pre_checkin(
+        db_session,
+        booking_id=user_a["booking_id"],
+        practice_id=pid,
+        user_id=user_a["user"]["id"],
+        mood=7,
+        comment="A's note",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}/{pid}/attendance",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    by_booking = {it["booking_id"]: it for it in resp.json()["items"]}
+
+    a_item = by_booking[user_a["booking_id"]]
+    b_item = by_booking[user_b["booking_id"]]
+
+    assert a_item["checkin"] is not None
+    assert a_item["checkin"]["comment"] == "A's note"
+    assert b_item["checkin"] is None

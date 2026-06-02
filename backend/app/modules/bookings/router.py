@@ -28,7 +28,6 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db_reader, get_db_session
@@ -39,6 +38,7 @@ from app.modules.auth.dependencies import (
 from app.core.exceptions import NotFoundError
 from app.modules.bookings.models import BookingStatus
 from app.modules.bookings.schemas import (
+    AttendanceCheckinResponse,
     AttendanceItemResponse,
     AttendanceResponse,
     BookingDetailResponse,
@@ -75,6 +75,21 @@ router = APIRouter(
 practices_attendance_router = APIRouter(
     prefix="/api/v1/practices", tags=["attendance"],
 )
+
+
+def _participant_display_name(user: User | None) -> str | None:
+    """Human-readable participant name for the master's attendance view.
+
+    Joins first_name + last_name when present. Returns None when the user is
+    missing or has no name on file -- the frontend then falls back to the
+    user_id / a generic label. Unlike get_master_display_name, there is no
+    "Master" fallback: this is a participant, and an empty name is left as
+    None for the client to handle.
+    """
+    if user is None:
+        return None
+    parts = [p for p in (user.first_name, user.last_name) if p]
+    return " ".join(parts) if parts else None
 
 
 @router.post(
@@ -336,22 +351,42 @@ async def get_attendance_endpoint(
     ),
     session: AsyncSession = Depends(get_db_reader),
 ) -> AttendanceResponse:
-    """Get attendance list for a practice (master-only)."""
+    """Get attendance list for a practice (master-only).
+
+    Each item is enriched with the participant's name/avatar and their PRE
+    check-in (mood + comment), if any. The service layer batch-loads users
+    and check-ins; this endpoint only maps them onto the response schema.
+    """
     user, _profile = master_tuple
-    practice, bookings = await get_attendance(
+    practice, bookings, users, checkins = await get_attendance(
         practice_id, user, session,
     )
 
-    items = [
-        AttendanceItemResponse(
-            booking_id=b.id,
-            user_id=b.user_id,
-            status=b.status,
-            joined_at=b.joined_at,
-            left_at=b.left_at,
+    items = []
+    for b in bookings:
+        checkin = checkins.get(b.id)
+        participant = users.get(b.user_id)
+        items.append(
+            AttendanceItemResponse(
+                booking_id=b.id,
+                user_id=b.user_id,
+                status=b.status,
+                joined_at=b.joined_at,
+                left_at=b.left_at,
+                user_display_name=_participant_display_name(participant),
+                user_avatar_url=(
+                    participant.avatar_url if participant else None
+                ),
+                checkin=(
+                    AttendanceCheckinResponse(
+                        mood=checkin.mood,
+                        comment=checkin.comment,
+                    )
+                    if checkin is not None
+                    else None
+                ),
+            )
         )
-        for b in bookings
-    ]
 
     attended = sum(1 for b in bookings if b.status == BookingStatus.ATTENDED.value)
     no_show = sum(1 for b in bookings if b.status == BookingStatus.NO_SHOW.value)
