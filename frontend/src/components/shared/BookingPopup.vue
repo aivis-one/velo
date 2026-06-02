@@ -43,8 +43,8 @@
       </div>
     </div>
 
-    <!-- Promo code -->
-    <div class="popup__promo">
+    <!-- Promo code (temporarily hidden in the prototype; see PROMO_ENABLED) -->
+    <div v-if="PROMO_ENABLED" class="popup__promo">
       <input
         v-model.trim="promoCode"
         type="text"
@@ -65,7 +65,7 @@
     </div>
 
     <!-- Promo result -->
-    <div v-if="promoApplied" class="popup__discount">
+    <div v-if="PROMO_ENABLED && promoApplied" class="popup__discount">
       <span class="popup__discount-label">Скидка {{ discountPercent }}%</span>
       <span class="popup__discount-value">
         −{{ formattedDiscount }}
@@ -131,6 +131,10 @@ const emit = defineEmits<{
 const router = useRouter()
 const toast = useToast()
 const balanceStore = useBalanceStore()
+
+// Promo codes are temporarily hidden in the prototype (kept, not removed).
+// Flip to true to bring the promo input + discount line back.
+const PROMO_ENABLED = false
 
 // -- State --
 const promoCode = ref('')
