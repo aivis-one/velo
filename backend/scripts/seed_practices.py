@@ -121,7 +121,17 @@ from seed import create_seed_booking, project_seed_booking_events  # noqa: E402
 SEED_SOURCE = "seed_practices_v2"
 TID_MIN = 10001
 TID_MAX = 10011
-JSON_PATH = Path(__file__).parent / "seed_practices.json"
+
+# ── База-библиотека + сценарии ───────────────────────────────────────────────
+# Контент (мастера/practice_templates/пулы текстов) — единый источник правды в
+# базе-библиотеке. Сценарии (seed_scenarios/*.json) подключают её через ключ
+# "extends" и выбирают из неё (masters_select), задают расписание/граничные
+# практики/тест-юзеров. Сценарии СМЕНЯЮТ друг друга через --reset (общий маркер
+# SEED_SOURCE => reset чистит ВСЁ наше и сеет выбранный сценарий), не сосуществуют.
+BASE_DIR = Path(__file__).parent
+SCENARIOS_DIR = BASE_DIR / "seed_scenarios"
+DEFAULT_BASE = "seed_practices.json"   # база по умолчанию (если сценарий не задал extends)
+DEFAULT_SCENARIO = "default"           # сценарий по умолчанию (без флага --scenario)
 
 # ── Тест-юзеры (пользовательские данные) ─────────────────────────────────────
 # Тест-юзеры — это РЕАЛЬНЫЕ telegram-аккаунты (ID задаёт оператор в JSON,
@@ -159,10 +169,27 @@ TEST_USER_DEFAULTS = {
 MOOD_SCORES = (2, 6, 9)    # low / mid / high
 RATING_SCORES = (9, 6, 2)  # fire / good / confused
 
-# Личные записи дневника (note/dream) теперь живут в seed_practices.json
-# (секция diary_templates) и грузятся через load_source(). Пулы текстов
-# чек-инов и отзывов — там же (checkin_comments / feedback_comments).
-# Сидер получает их как аргументы (pools), а не из модульной константы.
+# Личные записи дневника (note/dream) живут в базе-библиотеке (секция
+# diary_templates) и грузятся через load_source(). Пулы текстов чек-инов и
+# отзывов — там же (checkin_comments / feedback_comments). Сидер получает их
+# как аргументы (pools), а не из модульной константы.
+
+# Ролевая логика граничных / now-anchored броней (seed_one_test_user, шаг 4.5).
+# create_seed_booking сам ставит статус брони по статусу практики
+# (scheduled/live -> confirmed, completed -> attended); ROLE_BOOKING задаёт лишь:
+#   book          — бронировать ли практику вообще (live_unbooked -> нет);
+#   outcome_status — для проекции карточки-итога в фид (attended / no_show);
+#   to_noshow     — переключить бронь в no_show после создания.
+ROLE_BOOKING: dict[str, tuple[bool, str | None, bool]] = {
+    "checkin":       (True, None, False),        # confirmed, без чек-ина -> баннер check-in
+    "upcoming":      (True, None, False),        # confirmed, будущая -> просто запись
+    "live":          (True, None, False),        # confirmed+joined -> экран эфира
+    "feedback":      (True, "attended", False),  # attended, без отзыва -> баннер feedback
+    "attended":      (True, "attended", False),  # attended -> завершённая карточка
+    "noshow":        (True, "no_show", True),    # attended -> флип no_show -> «Неявка»
+    "live_unbooked": (False, None, False),       # НЕ бронируется (демо «нельзя записаться»)
+}
+BOOKABLE_BOUNDARY_ROLES = {r for r, (book, *_rest) in ROLE_BOOKING.items() if book}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -199,6 +226,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument(
         "--yes", action="store_true",
         help="пропустить интерактивное подтверждение",
+    )
+    p.add_argument(
+        "--scenario", default=DEFAULT_SCENARIO, metavar="NAME",
+        help=f"имя сценария из seed_scenarios/NAME.json (по умолчанию '{DEFAULT_SCENARIO}')",
+    )
+    p.add_argument(
+        "--source", default=None, metavar="PATH",
+        help="явный путь к JSON-сценарию (перебивает --scenario)",
     )
     args = p.parse_args()
     if args.reset:
@@ -306,11 +341,79 @@ def expand_boundary(
     return out
 
 
-def load_source() -> dict:
-    if not JSON_PATH.exists():
-        raise FileNotFoundError(f"Источник не найден: {JSON_PATH}")
-    with JSON_PATH.open(encoding="utf-8") as f:
-        data = json.load(f)
+def _read_json(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"Файл не найден: {path}")
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
+def resolve_source(scenario: str, explicit_source: str | None = None) -> dict:
+    """Собирает итоговый источник: сценарий (seed_scenarios/NAME.json) поверх
+    базы-библиотеки (extends). Контент (мастера/шаблоны/пулы) берётся из базы;
+    сценарий переопределяет schedule / boundary_practices / test_users и может
+    переопределить пулы. masters_select (int|list[str]) подрезает мастеров; под
+    выбранных мастеров автоматически фильтруются practice_templates и
+    boundary_practices (чтобы не остаться со ссылкой на отсутствующего мастера).
+    """
+    if explicit_source:
+        scen_path = Path(explicit_source)
+        if not scen_path.is_absolute():
+            scen_path = BASE_DIR / explicit_source
+    else:
+        scen_path = SCENARIOS_DIR / f"{scenario}.json"
+    scen = _read_json(scen_path)
+    base = _read_json(BASE_DIR / scen.get("extends", DEFAULT_BASE))
+
+    data = {
+        "masters": list(base.get("masters", [])),
+        "practice_templates": list(base.get("practice_templates", [])),
+        "diary_templates": scen.get("diary_templates", base.get("diary_templates", [])),
+        "checkin_comments": scen.get("checkin_comments", base.get("checkin_comments", [])),
+        "feedback_comments": scen.get("feedback_comments", base.get("feedback_comments", [])),
+        "schedule": scen.get("schedule") or base.get("schedule"),
+        "boundary_practices": scen.get("boundary_practices", []),
+        "test_users": scen.get("test_users", []),
+        "_scenario": scenario if not explicit_source else scen_path.name,
+    }
+    if not data["schedule"]:
+        raise ValueError(
+            f"сценарий '{data['_scenario']}': нет секции 'schedule' "
+            f"(ни в сценарии, ни в базе)",
+        )
+
+    # Подрезка мастеров: int -> первые N; list -> по ключам.
+    sel = scen.get("masters_select")
+    if sel is not None:
+        if isinstance(sel, int):
+            data["masters"] = data["masters"][:sel]
+        elif isinstance(sel, list):
+            keyset = set(sel)
+            chosen = [m for m in data["masters"] if m["key"] in keyset]
+            missing = keyset - {m["key"] for m in chosen}
+            if missing:
+                raise ValueError(
+                    f"сценарий '{data['_scenario']}': masters_select содержит "
+                    f"неизвестные ключи {sorted(missing)}",
+                )
+            data["masters"] = chosen
+        else:
+            raise ValueError("masters_select должен быть int или list[str]")
+
+    # Автофильтр шаблонов/граничных практик под выбранных мастеров.
+    selected = {m["key"] for m in data["masters"]}
+    data["practice_templates"] = [
+        t for t in data["practice_templates"] if t["master"] in selected
+    ]
+    data["boundary_practices"] = [
+        b for b in data["boundary_practices"] if b["master"] in selected
+    ]
+    return data
+
+
+def load_source(scenario: str = DEFAULT_SCENARIO,
+                explicit_source: str | None = None) -> dict:
+    data = resolve_source(scenario, explicit_source)
 
     for m in data["masters"]:
         m["bio"] = _join_lines(m.get("bio"))
@@ -643,7 +746,8 @@ async def cmd_seed(
     prefix = "[DRY-RUN] " if dry_run else ""
 
     print(f"\n=== SEED ===")
-    print(f"Источник: {JSON_PATH}")
+    print(f"Сценарий: {source.get('_scenario', '?')}")
+    print(f"Мастеров в наборе: {len(source.get('masters', []))}")
     print(f"Batch:    {batch_iso}")
     print(f"{prefix}Мастера:")
 
@@ -661,10 +765,11 @@ async def cmd_seed(
     # scheduled-практики).
     completed_practices: list[Practice] = []
     scheduled_practices: list[Practice] = []
-    # Граничные практики (boundary_role) идут в отдельную мапу — у них своя,
-    # ролевая логика броней (шаг 7 в seed_one_test_user), они НЕ попадают в общие
-    # пулы attended/upcoming/cancelled.
-    boundary_by_role: dict[str, Practice] = {}
+    # Граничные практики (boundary_role) идут в отдельную мапу role -> [практики]
+    # (на одну роль может быть несколько практик — плотные сценарии). У них своя
+    # ролевая логика броней (шаг 4.5 в seed_one_test_user), в общие пулы
+    # attended/upcoming/cancelled они НЕ попадают.
+    boundary_by_role: dict[str, list[Practice]] = {}
     for p in source["practices"]:
         master_user = masters_by_key.get(p["master"])
         if master_user is None:
@@ -683,7 +788,7 @@ async def cmd_seed(
         if practice is not None:
             role = p.get("boundary_role")
             if role:
-                boundary_by_role[role] = practice
+                boundary_by_role.setdefault(role, []).append(practice)
             elif p.get("status") == "completed":
                 completed_practices.append(practice)
             elif p.get("status") == "scheduled":
@@ -701,10 +806,9 @@ async def cmd_seed(
             1 for p in source["practices"] if p.get("status") == "scheduled"
         )
         # Бронируемые граничные роли (live_unbooked не в счёт — её не бронируем).
-        _bookable_roles = {"checkin", "feedback", "live", "noshow"}
         src_boundary = sum(
             1 for p in source["practices"]
-            if p.get("boundary_role") in _bookable_roles
+            if p.get("boundary_role") in BOOKABLE_BOUNDARY_ROLES
         )
         pools = {
             "diary": source.get("diary_templates", []),
@@ -1057,38 +1161,32 @@ async def seed_one_test_user(
         touched_practice_ids.add(practice.id)
         stats["cancelled"] += 1
 
-    # 4.5. Граничные брони (boundary, привязаны к now). create_seed_booking сам
-    # выставляет статус по статусу практики: scheduled→confirmed, live→confirmed
-    # +joined, completed→attended. Баннеры check-in/feedback показываются только
-    # если действие НЕ преднаполнено — поэтому чек-ин/отзыв тут НЕ сеем.
-    boundary_specs = [
-        # (role, outcome_status для project_seed_booking_events, флип-в-no_show)
-        ("checkin", None, False),    # confirmed-бронь, без чек-ина → «Пора на check-in!»
-        ("feedback", "attended", False),  # attended-бронь, без отзыва → «Оставьте feedback!»
-        ("live", None, False),       # confirmed+joined → экран эфира / бейдж «В эфире»
-        ("noshow", "no_show", True), # attended → флип no_show → бейдж «Неявка»
-    ]
-    for role, outcome, to_noshow in boundary_specs:
-        practice = boundary.get(role)
-        if practice is None:
+    # 4.5. Граничные / now-anchored брони (boundary). На одну роль может быть
+    # несколько практик (плотные сценарии типа super-active). Поведение брони —
+    # по ROLE_BOOKING. create_seed_booking сам выставляет статус по статусу
+    # практики (scheduled/live→confirmed[+joined], completed→attended). Баннеры
+    # check-in/feedback показываются только если действие НЕ преднаполнено —
+    # поэтому чек-ин/отзыв тут НЕ сеем. live_unbooked не бронируется.
+    for role, practices in boundary.items():
+        book, outcome, to_noshow = ROLE_BOOKING.get(role, (True, None, False))
+        if not book:
             continue
-        if await _has_any_booking(session, user.id, practice.id):
-            continue  # идемпотентность
-        booking = await create_seed_booking(session, user, practice)
-        if booking is None:
-            continue
-        if to_noshow:
-            booking.status = BookingStatus.NO_SHOW.value
-            booking.joined_at = None
-            booking.left_at = None
-            await session.flush()
-        await project_seed_booking_events(
-            session, booking, practice, outcome_status=outcome,
-        )
-        touched_practice_ids.add(practice.id)
-        stats["boundary"] += 1
-    # role "live_unbooked" намеренно НЕ бронируется (демо backend-гварда
-    # «нельзя записаться в начавшуюся»).
+        for practice in practices:
+            if await _has_any_booking(session, user.id, practice.id):
+                continue  # идемпотентность
+            booking = await create_seed_booking(session, user, practice)
+            if booking is None:
+                continue
+            if to_noshow:
+                booking.status = BookingStatus.NO_SHOW.value
+                booking.joined_at = None
+                booking.left_at = None
+                await session.flush()
+            await project_seed_booking_events(
+                session, booking, practice, outcome_status=outcome,
+            )
+            touched_practice_ids.add(practice.id)
+            stats["boundary"] += 1
 
     # 5. Личные записи дневника.
     stats["diary"] = await create_v2_diary_entries(
@@ -1584,7 +1682,10 @@ async def main() -> int:
             print("Отменено.")
             return 1
 
-    source = load_source() if args.command in ("seed", "reset") else None
+    source = (
+        load_source(args.scenario, args.source)
+        if args.command in ("seed", "reset") else None
+    )
     session_factory = get_session_factory()
 
     try:
