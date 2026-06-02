@@ -249,7 +249,9 @@ onMounted(async () => {
 
 .profile__name {
   font-family: var(--font-body);
-  font-size: var(--text-2xl);
+  /* Was --text-2xl (50px) — far too large for a name. Down to --text-lg (20px),
+     matching the mockup. */
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
