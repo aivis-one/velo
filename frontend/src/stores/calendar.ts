@@ -147,6 +147,9 @@ export const useCalendarStore = defineStore('calendar', () => {
     const tz = viewerTz.value ?? 'UTC'
     const set = new Set<string>()
     for (const p of weekPractices.value) {
+      // Skip already-started practices so a day's dot matches its (filtered)
+      // list — a day whose practices have all started shows no dot.
+      if (new Date(p.scheduled_at).getTime() <= now.value) continue
       set.add(calendarDateInTz(p.scheduled_at, tz))
     }
     return set

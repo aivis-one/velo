@@ -3,16 +3,16 @@
 
   Full-screen confirmation shown AFTER a successful booking. Figma 541:2120:
     - Success card: celebration icon (IconSuccess) in a teal circle,
-      "Практика забронирована!", "Вы записаны на {title}. Ссылка на Zoom
-      придёт за 10 минут до начала." (Zoom line is static.)
-    - "Ваш запрос мастеру (необязательно)" textarea + teal info banner.
+      "Практика забронирована!", "Ссылка на Zoom появится за 10 минут до
+      начала." (static line).
+    - "Ваш запрос мастеру (по желанию)" textarea + teal info banner.
       VISUAL ONLY: "Отправить запрос" is a stub (TD-ASK-MASTER) -- questions
       to a master are a separate cross-cutting feature (practice-bound or
       general, routed to the master's Telegram bot with replies back to the
       user). Until that exists, the field accepts text but goes nowhere and
       the button shows a toast.
-    - "В календарь" (primary) -> user-calendar
-    - "На главную" (ghost) -> user-dashboard
+    - No in-page navigation buttons: the bottom tab bar handles it (this route
+      highlights the Calendar tab via meta.activeTab).
 
   Reached via router.push from PracticeDetailView.onPurchased. The screen is
   self-contained: it loads the practice by id (survives reload / deep link).
@@ -46,15 +46,14 @@
         </span>
         <h1 class="booking-confirmed__title">Практика забронирована!</h1>
         <p class="booking-confirmed__text">
-          Вы записаны на {{ practice.title }}. Ссылка на Zoom придёт
-          за 10 минут до начала.
+          Ссылка на Zoom появится за 10 минут до начала.
         </p>
       </div>
 
       <!-- Ask-master request (VISUAL ONLY, TD-ASK-MASTER) -->
       <div class="booking-confirmed__ask">
         <label class="booking-confirmed__ask-label" for="master-request">
-          Ваш запрос мастеру (необязательно)
+          Ваш запрос мастеру (по желанию)
         </label>
         <textarea
           id="master-request"
@@ -74,16 +73,6 @@
         </div>
         <VButton variant="secondary" size="lg" block @click="onSendRequest">
           Отправить запрос
-        </VButton>
-      </div>
-
-      <!-- Navigation -->
-      <div class="booking-confirmed__actions">
-        <VButton variant="primary" size="lg" block @click="goToCalendar">
-          В календарь
-        </VButton>
-        <VButton variant="ghost" block @click="goToDashboard">
-          На главную
         </VButton>
       </div>
     </div>
@@ -112,10 +101,6 @@ function onSendRequest(): void {
   // Questions-to-master is a separate feature with its own backend and
   // Telegram-bot routing. Stubbed for now (TD-ASK-MASTER).
   toast.info('Вопросы мастеру -- скоро')
-}
-
-function goToCalendar(): void {
-  router.push({ name: 'user-calendar' })
 }
 
 function goToDashboard(): void {
@@ -221,6 +206,7 @@ onMounted(() => {
   color: var(--velo-text-secondary);
 }
 
+
 .booking-confirmed__ask-banner {
   display: flex;
   align-items: flex-start;
@@ -244,12 +230,5 @@ onMounted(() => {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   line-height: 1.5;
-}
-
-/* Navigation */
-.booking-confirmed__actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 </style>

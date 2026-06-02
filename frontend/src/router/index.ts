@@ -116,6 +116,8 @@ const router = createRouter({
           path: 'booking-confirmed/:practiceId',
           name: 'user-booking-confirmed',
           component: () => import('@/views/user/BookingConfirmedView.vue'),
+          // Post-booking screen has no own tab; light up Calendar in the bar.
+          meta: { activeTab: '/user/calendar' },
         },
         {
           path: 'bookings',

@@ -27,8 +27,12 @@ import { USER_TABS } from '@/router/tabs'
 const route = useRoute()
 const router = useRouter()
 
-// Match current path to closest tab (e.g. /user/practices/123 -> /user)
+// Active tab: a route may pin one via meta.activeTab (e.g. the post-booking
+// screen lights up Calendar). Otherwise match the path to the closest tab
+// (e.g. /user/practices/123 -> /user).
 const activeTab = computed(() => {
+  const metaTab = route.meta.activeTab as string | undefined
+  if (metaTab) return metaTab
   const path = route.path
   const match = USER_TABS.find((tab) => path.startsWith(tab.to))
   return match?.to ?? USER_TABS[0]?.to ?? ''
