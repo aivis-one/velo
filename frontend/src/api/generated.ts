@@ -85,13 +85,22 @@ export interface ApproveWithdrawalRequest {
   note?: string | null
 }
 
-/** Single booking in attendance list. */
+/** A participant's PRE check-in as shown to the practice master. Minimal projection of Checkin (diary module): only what the master needs while preparing for the practice -- the mood score and the optional note. Exposed ONLY inside the master-only attendance view (see module docstring). */
+export interface AttendanceCheckinResponse {
+  mood: number
+  comment: string | null
+}
+
+/** Single booking in attendance list. Enriched for the master's prep view (see module docstring): - user_display_name / user_avatar_url identify the participant. - checkin is their PRE check-in for this practice, or None if they did not leave one. */
 export interface AttendanceItemResponse {
   booking_id: string
   user_id: string
   status: BookingStatus
   joined_at: string | null
   left_at: string | null
+  user_display_name: string | null
+  user_avatar_url: string | null
+  checkin: AttendanceCheckinResponse | null
 }
 
 /** GET /api/v1/practices/{id}/attendance -- response. */
