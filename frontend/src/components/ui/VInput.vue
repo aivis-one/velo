@@ -52,9 +52,10 @@ defineEmits<{
 
 .v-input__label {
   display: block;
-  font-size: var(--text-sm);
+  /* Figma form spec (2 Edit Profile.svg): label Marmelad 18, primary colour. */
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-primary);
   margin-bottom: var(--space-2);
 }
 
@@ -65,7 +66,9 @@ defineEmits<{
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
+  /* Figma: form fields are SOLID WHITE plates (was glass-blue, which read as
+     "transparent" on the photo background). This is the single field standard. */
+  background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
   border-radius: 5px;
   transition: border-color var(--transition-base);
