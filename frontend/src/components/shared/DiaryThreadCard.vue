@@ -67,13 +67,17 @@
         <i class="tcard__dot tcard__dot--b" />
       </span>
     </span>
-    <span v-if="sideTag" class="tcard__tag">{{ sideTag }}</span>
+    <span v-if="outcomeAttended" class="tcard__tag tcard__tag--done">
+      <IconCheck :size="12" />
+    </span>
+    <span v-else-if="sideTag" class="tcard__tag">{{ sideTag }}</span>
   </button>
 </template>
 
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
 import { useDiaryCardModel } from '@/composables/useDiaryCardModel'
+import { IconCheck } from '@/components/icons'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -97,6 +101,7 @@ const {
   bannerTone,
   bannerSubtitle,
   practiceTitle,
+  outcomeStatus,
   outcomeLabel,
   ratingLabel,
   editable,
@@ -114,8 +119,15 @@ const sideIcon = computed<Component>(() =>
 const sideTitle = computed(() =>
   kind.value === 'practice_outcome' ? practiceTitle.value : baseTitle.value,
 )
+// Attended practice shows just a check (not the word "Done"); a miss keeps its
+// "Не состоялась" label. Feedback keeps its rating label.
+const outcomeAttended = computed(
+  () => kind.value === 'practice_outcome' && outcomeStatus.value === 'attended',
+)
 const sideTag = computed(() => {
-  if (kind.value === 'practice_outcome') return outcomeLabel.value
+  if (kind.value === 'practice_outcome') {
+    return outcomeStatus.value === 'attended' ? '' : outcomeLabel.value
+  }
   if (kind.value === 'feedback') return ratingLabel.value
   return ''
 })

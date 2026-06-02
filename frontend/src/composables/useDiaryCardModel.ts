@@ -33,7 +33,7 @@ import {
   ratingLabelFromScore,
   practiceIconFor,
 } from '@/utils/displayHelpers'
-import { formatFeedDateTime, formatDate } from '@/utils/format'
+import { formatTime, formatDate, formatDuration } from '@/utils/format'
 import type { DiaryFeedItem, DiaryEventKind } from '@/api/types'
 
 const BANNER_KINDS: DiaryEventKind[] = [
@@ -75,7 +75,8 @@ export interface DiaryCardModel {
   masterName: ComputedRef<string>
   masterAvatarUrl: ComputedRef<string | null>
   masterVerified: ComputedRef<boolean>
-  practiceDate: ComputedRef<string>
+  practiceTime: ComputedRef<string>
+  practiceDuration: ComputedRef<string>
   outcomeStatus: ComputedRef<string>
   outcomeLabel: ComputedRef<string>
   /** Rating label alone (for the thread side-card tag). */
@@ -158,9 +159,15 @@ export function useDiaryCardModel(
   const masterName = computed(() => snapStr('master_name') ?? '')
   const masterAvatarUrl = computed(() => snapStr('master_avatar_url'))
   const masterVerified = computed(() => snap.value['master_verified'] === true)
-  const practiceDate = computed(() => {
+  // Practice card shows time + duration (not the full date — the day is in the
+  // timeline's day separator). Duration comes from the snapshot (backend).
+  const practiceTime = computed(() => {
     const at = snapStr('scheduled_at')
-    return at ? formatDate(at, tz.value) : ''
+    return at ? formatTime(at, tz.value) : ''
+  })
+  const practiceDuration = computed(() => {
+    const d = snapNum('duration_minutes')
+    return d ? formatDuration(d) : ''
   })
   const outcomeStatus = computed(() => snapStr('outcome_status') ?? 'attended')
   const outcomeLabel = computed(() => OUTCOME_LABEL[outcomeStatus.value] ?? '')
@@ -189,16 +196,19 @@ export function useDiaryCardModel(
         return IconPen
     }
   })
-  // Mood faces are illustrative (read fine at 37); other glyphs a touch smaller.
-  const standardIconSize = computed(() => (kind.value === 'checkin' ? 37 : 32))
+  // All standard glyphs render at 32 inside a 40px container (DiaryFeedCard),
+  // leaving breathing room so the mood face no longer looks cramped.
+  const standardIconSize = computed(() => 32)
 
   const ratingLabel = computed(() => {
     const rating = snapNum('rating')
     return rating !== null ? ratingLabelFromScore(rating) : ''
   })
 
+  // Time only ("23:07"): the day + weekday live in the timeline's day
+  // separator, so the per-card line stays minimal (operator feedback, item 3).
   const dateLine = computed(() =>
-    formatFeedDateTime(item.value.occurred_at, tz.value),
+    formatTime(item.value.occurred_at, tz.value),
   )
 
   const editable = computed(
@@ -221,7 +231,8 @@ export function useDiaryCardModel(
     masterName,
     masterAvatarUrl,
     masterVerified,
-    practiceDate,
+    practiceTime,
+    practiceDuration,
     outcomeStatus,
     outcomeLabel,
     ratingLabel,

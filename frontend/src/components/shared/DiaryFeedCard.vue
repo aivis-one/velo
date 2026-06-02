@@ -61,21 +61,22 @@
     <div class="feed-card__practice-bottom">
       <span class="feed-card__practice-date">
         <IconCalendar :size="14" class="feed-card__date-icon" />
-        {{ practiceDate }}
+        {{ practiceTime }}<template v-if="practiceDuration"> · {{ practiceDuration }}</template>
       </span>
+      <!-- Attended shows just a check (no "Done" text); a miss keeps its label. -->
       <span
         class="feed-card__outcome"
         :class="`feed-card__outcome--${outcomeStatus}`"
       >
         <IconCheck v-if="outcomeStatus === 'attended'" :size="12" />
-        {{ outcomeLabel }}
+        <template v-else>{{ outcomeLabel }}</template>
       </span>
     </div>
 
     <!-- Practice direction glyph, top-left. -->
     <component
       :is="directionIcon"
-      :size="37"
+      :size="32"
       class="feed-card__practice-icon"
     />
   </div>
@@ -131,7 +132,8 @@ const {
   masterName,
   masterAvatarUrl,
   masterVerified,
-  practiceDate,
+  practiceTime,
+  practiceDuration,
   outcomeStatus,
   outcomeLabel,
   editable,
@@ -165,11 +167,13 @@ function onTap(): void {
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
+  /* Tighter vertical padding + width hugging content so the banner reads as a
+     compact status pill, not a full-width "sail" (operator feedback). */
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   border: 1.829px solid;
   text-align: center;
-  /* Figma diary-list.svg: banner narrow ~290 centered в 336 content_width. */
+  width: fit-content;
   max-width: 290px;
   margin-inline: auto;
 }
@@ -222,7 +226,7 @@ function onTap(): void {
    * длине titles левый край плавал ±7px по горизонтали. */
   text-align: left;
   letter-spacing: 0.32px;
-  margin-left: calc(var(--space-4) + 37px + 9px);
+  margin-left: calc(var(--space-4) + 32px + 9px);
   padding-right: var(--space-4);
   white-space: nowrap;
   overflow: hidden;
@@ -236,7 +240,7 @@ function onTap(): void {
    * center — master row плавал ±27px при разной длине имени мастера. */
   justify-content: flex-start;
   gap: var(--space-1);
-  margin-left: calc(var(--space-4) + 37px + 9px);
+  margin-left: calc(var(--space-4) + 32px + 9px);
 }
 
 .feed-card__avatar {
@@ -342,9 +346,10 @@ function onTap(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Figma diary-list.svg: standard icon container 37 (circle r=19 → d=38). */
-  width: 37px;
-  height: 37px;
+  /* 40px container with a 32px glyph: a little breathing room so the mood face
+     no longer looks cramped/squished (operator feedback, item 4). */
+  width: 40px;
+  height: 40px;
 }
 
 /* Monochrome glyphs take the brand text color; mood faces carry their own
