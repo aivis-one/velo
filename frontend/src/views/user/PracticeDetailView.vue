@@ -399,11 +399,16 @@ const statusIcon = computed(() => {
   }
 })
 
-/** ZOOM card shows only while the booking is active (confirmed / pending).
- *  For past/cancelled bookings the "link will be sent" note is meaningless. */
+/** ZOOM card shows only for an UPCOMING active booking (confirmed / pending,
+ *  before the practice starts). Once the practice has started or is past, the
+ *  "link will be sent 10 min before" note is meaningless — hide it. */
 const showZoom = computed((): boolean => {
   const b = myAnyBooking.value
-  return !!b && (b.status === 'confirmed' || b.status === 'pending')
+  return (
+    !!b &&
+    (b.status === 'confirmed' || b.status === 'pending') &&
+    !practiceStarted.value
+  )
 })
 
 /**
