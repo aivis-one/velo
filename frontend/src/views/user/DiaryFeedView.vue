@@ -19,7 +19,19 @@
   <div class="diary-feed">
     <!-- Header -->
     <header class="diary-feed__header">
-      <div class="diary-feed__title-wrap">
+      <!-- Left: exit back-pill (immersive diary has no tab bar; this returns
+           to the tab-bar screens) + plain category title (no backing, per the
+           approved design). The reset-filter cross appears only while a filter
+           is active. -->
+      <div class="diary-feed__left">
+        <button
+          type="button"
+          class="diary-feed__back"
+          aria-label="Выйти из дневника"
+          @click="exitDiary"
+        >
+          <IconArrowRight :size="18" class="diary-feed__back-glyph" />
+        </button>
         <h1 class="diary-feed__title">{{ feedTitle }}</h1>
         <button
           v-if="filterActive"
@@ -32,6 +44,24 @@
         </button>
       </div>
       <VMenu>
+        <!-- Trigger glyph: vertical dots that rotate to horizontal while the
+             menu is open (a state cue, approved animation). The shared default
+             trigger is horizontal dots; the diary overrides it here. -->
+        <template #trigger="{ open }">
+          <svg
+            class="diary-feed__dots"
+            :class="{ 'diary-feed__dots--open': open }"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+          </svg>
+        </template>
         <template #default="{ close }">
           <!-- Filter (funnel) + Search (magnifier). "Связи" (Relationships)
                is an AI feature outside the MVP and is intentionally omitted. -->
@@ -113,26 +143,6 @@
                 stroke="currentColor"
                 stroke-width="1.8"
                 stroke-linecap="round"
-              />
-            </svg>
-          </VMenuItem>
-          <!-- Exit the diary (immersive mode has no tab bar; this returns to
-               the tab-bar screens). Glyph = the composer "send" arrow mirrored
-               left. Step-2 will fold all four items into the vertical stack. -->
-          <VMenuItem ariaLabel="Выйти из дневника" @click="exitDiary(); close()">
-            <svg
-              class="diary-feed__menu-glyph"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M9 4.5L3.5 10l5.5 5.5M3.5 10H17"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
               />
             </svg>
           </VMenuItem>
@@ -239,7 +249,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
-import { IconClose } from '@/components/icons'
+import { IconClose, IconArrowRight } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryList from '@/components/shared/DiaryList.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
@@ -393,15 +403,16 @@ const filterActive = computed(
     (feedFilters.value.search ?? '') !== '',
 )
 
-// Breadcrumb title (Figma "Дневник • Сонник"): root "Дневник" + the active
-// category. Only when exactly ONE category is selected; "entries" IS the root
-// (avoid "Дневник • Дневник"); zero / multiple categories stay plain "Дневник"
-// (the reset cross still shows that a filter is active).
+// Title text (approved design): the active category name alone replaces the
+// title (e.g. "Check-ins" / "Сонник"). Only when exactly ONE category is
+// selected; "entries" IS the root, so it stays "Дневник"; zero / multiple
+// categories also stay plain "Дневник" (the reset cross still shows that a
+// filter is active).
 const feedTitle = computed(() => {
   const cats = activeCategories.value
   const only = cats.length === 1 ? cats[0] : undefined
   if (only !== undefined && only !== 'entries') {
-    return `Дневник • ${CATEGORY_TITLE[only]}`
+    return CATEGORY_TITLE[only]
   }
   return 'Дневник'
 })
@@ -600,19 +611,52 @@ onBeforeUnmount(() => {
   color: var(--velo-text-primary);
 }
 
-/* Title island: a glass pill (Дневник / Дневник • Категория). */
-.diary-feed__title-wrap {
+/* Left island group: exit back-pill + plain category title (no backing). The
+   group itself is click-through so the feed scrolls under the title text; only
+   the back-pill and reset cross re-enable taps. */
+.diary-feed__left {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-  padding: 7px var(--space-4);
-  border-radius: 16px;
-  background: var(--velo-glass-blue-15);
-  border: 1.26px solid #ffffff;
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  box-shadow: 0 0 14px 4px var(--velo-glass-white-25);
+  pointer-events: none;
+}
+
+/* Exit back-pill (white), same shape as the view-entry back button (63x35). */
+.diary-feed__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 63px;
+  height: 35px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-bg-card-solid);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity var(--transition-fast);
+}
+
+.diary-feed__back:hover {
+  opacity: 0.85;
+}
+
+/* The only "back" glyph is a right arrow -- mirror it (matches EntryView). */
+.diary-feed__back-glyph {
+  transform: scaleX(-1);
+}
+
+/* "..." trigger glyph: vertical dots that rotate to horizontal while the menu
+   is open (approved animation, counter-clockwise). Soft ease-out so it glides
+   to a stop rather than snapping (operator-tuned: 500ms soft ease-out). */
+.diary-feed__dots {
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.diary-feed__dots--open {
+  transform: rotate(-90deg);
 }
 
 .diary-feed__filter-clear {
@@ -627,6 +671,7 @@ onBeforeUnmount(() => {
   background: var(--velo-glass-blue-15);
   color: var(--velo-text-secondary);
   cursor: pointer;
+  pointer-events: auto;
   transition: opacity var(--transition-fast);
 }
 

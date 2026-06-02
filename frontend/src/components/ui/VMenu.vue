@@ -19,7 +19,9 @@
 
   The default slot receives { close } so each action can dismiss the panel
   after running. The trigger defaults to a kebab (IconDots); override it via
-  the #trigger slot if a different glyph is needed.
+  the #trigger slot if a different glyph is needed. The #trigger slot receives
+  { open } so a custom glyph can reflect the open/closed state (e.g. the diary
+  rotates its dots when the menu opens).
 -->
 <template>
   <div ref="rootEl" class="v-menu">
@@ -32,7 +34,7 @@
       aria-haspopup="menu"
       @click="toggle"
     >
-      <slot name="trigger">
+      <slot name="trigger" :open="open">
         <IconDots :size="20" />
       </slot>
     </button>
