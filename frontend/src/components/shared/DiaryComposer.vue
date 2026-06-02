@@ -61,7 +61,7 @@
         class="composer__btn composer__btn--mic"
         aria-label="Голосовой ввод"
         :disabled="submitting"
-        @mousedown.prevent
+        @pointerdown.prevent
         @click="onMic"
       >
         <IconMic :size="20" />
@@ -71,7 +71,7 @@
         class="composer__btn composer__btn--send"
         aria-label="Отправить"
         :disabled="!canSend || submitting"
-        @mousedown.prevent
+        @pointerdown.prevent
         @click="onSend"
       >
         <IconSend :size="20" />
@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { IconMic, IconSend } from '@/components/icons'
 import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
@@ -146,7 +146,20 @@ watch(text, (val) => {
 // Switching Дневник <-> Сонник swaps to that target's own draft.
 watch(() => props.entryType, loadDraft)
 
-onMounted(loadDraft)
+// Recompute the grow cap when the visual viewport changes (iOS keyboard show /
+// hide), since the visible height drives how tall the field may grow.
+function onViewportResize(): void {
+  if (composing.value) autogrow()
+}
+
+onMounted(() => {
+  loadDraft()
+  window.visualViewport?.addEventListener('resize', onViewportResize)
+})
+
+onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener('resize', onViewportResize)
+})
 
 // -- Compose focus state -----------------------------------------------------
 
@@ -188,9 +201,11 @@ function toggleKeyboard(): void {
 function autogrow(): void {
   const el = inputEl.value
   if (!el) return
-  const cap = composing.value
-    ? Math.max(120, Math.round(window.innerHeight * 0.8) - 96)
-    : 120
+  // Use the VISUAL viewport height (excludes the on-screen keyboard on iOS), so
+  // the field grows only within the area still visible above the keyboard rather
+  // than expanding behind it.
+  const vh = window.visualViewport?.height ?? window.innerHeight
+  const cap = composing.value ? Math.max(120, Math.round(vh * 0.8) - 96) : 120
   el.style.maxHeight = `${cap}px`
   el.style.height = 'auto'
   el.style.height = `${Math.min(el.scrollHeight, cap)}px`
