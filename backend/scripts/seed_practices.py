@@ -280,6 +280,32 @@ def expand_schedule(
     return out
 
 
+def expand_boundary(
+    boundary_templates: list[dict], schedule: dict, now: datetime,
+) -> list[dict]:
+    """Разворачивает boundary_practices относительно МОМЕНТА СЕВА (now).
+
+    В отличие от слот-генератора (expand_schedule), привязка не к фикс-слотам, а
+    к now + offset_minutes — чтобы граничные состояния (окно check-in / live /
+    окно feedback / no_show / начавшаяся) гарантированно существовали сразу после
+    сева, независимо от часа запуска. status берётся явно из шаблона; boundary_role
+    управляет тем, как бронь вешается на тест-юзеров (seed_one_test_user, шаг 7).
+    key стабилен (v2-boundary-*) -> идемпотентно; пересев формы — через --reset.
+    """
+    tz = ZoneInfo(schedule["timezone"])
+    tzname = schedule["timezone"]
+    out: list[dict] = []
+    for t in boundary_templates:
+        start = (now + timedelta(minutes=int(t["offset_minutes"]))).astimezone(tz)
+        out.append({
+            **t,
+            "scheduled_at": start.isoformat(),
+            "timezone": tzname,
+            "boundary_role": t["role"],
+        })
+    return out
+
+
 def load_source() -> dict:
     if not JSON_PATH.exists():
         raise FileNotFoundError(f"Источник не найден: {JSON_PATH}")
@@ -292,9 +318,14 @@ def load_source() -> dict:
     # Расписание генерируется из шаблонов: practice_templates + schedule ->
     # конкретные практики (со scheduled_at/status). Кладём под ключ "practices",
     # чтобы остальной конвейер (cmd_seed, dry-run, тест-юзеры) работал без правок.
+    # Граничные демо-практики (boundary_practices) добавляются в тот же список,
+    # привязанные к now (см. expand_boundary). Один момент now на оба генератора.
+    now = datetime.now(timezone.utc)
     data["practices"] = expand_schedule(
-        data["practice_templates"], data["schedule"],
-        datetime.now(timezone.utc),
+        data["practice_templates"], data["schedule"], now,
+    )
+    data["practices"] += expand_boundary(
+        data.get("boundary_practices", []), data["schedule"], now,
     )
     for p in data["practices"]:
         p["description"] = _join_lines(p.get("description"))
@@ -630,6 +661,10 @@ async def cmd_seed(
     # scheduled-практики).
     completed_practices: list[Practice] = []
     scheduled_practices: list[Practice] = []
+    # Граничные практики (boundary_role) идут в отдельную мапу — у них своя,
+    # ролевая логика броней (шаг 7 в seed_one_test_user), они НЕ попадают в общие
+    # пулы attended/upcoming/cancelled.
+    boundary_by_role: dict[str, Practice] = {}
     for p in source["practices"]:
         master_user = masters_by_key.get(p["master"])
         if master_user is None:
@@ -646,7 +681,10 @@ async def cmd_seed(
         marker = {"created": "+", "existing": "·", "would-create": "?"}[action]
         print(f"  {marker} {p['key']}")
         if practice is not None:
-            if p.get("status") == "completed":
+            role = p.get("boundary_role")
+            if role:
+                boundary_by_role[role] = practice
+            elif p.get("status") == "completed":
                 completed_practices.append(practice)
             elif p.get("status") == "scheduled":
                 scheduled_practices.append(practice)
@@ -662,6 +700,12 @@ async def cmd_seed(
         src_scheduled = sum(
             1 for p in source["practices"] if p.get("status") == "scheduled"
         )
+        # Бронируемые граничные роли (live_unbooked не в счёт — её не бронируем).
+        _bookable_roles = {"checkin", "feedback", "live", "noshow"}
+        src_boundary = sum(
+            1 for p in source["practices"]
+            if p.get("boundary_role") in _bookable_roles
+        )
         pools = {
             "diary": source.get("diary_templates", []),
             "checkin": source.get("checkin_comments", []),
@@ -675,8 +719,10 @@ async def cmd_seed(
             batch_iso,
             dry_run,
             pools,
+            boundary_by_role,
             src_completed=src_completed,
             src_scheduled=src_scheduled,
+            src_boundary=src_boundary,
         )
 
     if not dry_run:
@@ -929,6 +975,7 @@ async def seed_one_test_user(
     scheduled: list[Practice],
     batch_iso: str,
     pools: dict,
+    boundary: dict,
 ) -> dict:
     """Наполняет одного тест-юзера. Возвращает счётчики для лога."""
     n_attended = min(cfg["attended_bookings"], len(completed))
@@ -940,7 +987,7 @@ async def seed_one_test_user(
     n_cancelled = min(cfg["cancelled_bookings"], len(cancel_pool))
 
     stats = {"diary": 0, "attended": 0, "checkins": 0,
-             "feedbacks": 0, "upcoming": 0, "cancelled": 0}
+             "feedbacks": 0, "upcoming": 0, "cancelled": 0, "boundary": 0}
     touched_practice_ids: set = set()
 
     # 1. Исторические attended-брони (+ confirmed/outcome события) на completed.
@@ -1010,6 +1057,39 @@ async def seed_one_test_user(
         touched_practice_ids.add(practice.id)
         stats["cancelled"] += 1
 
+    # 4.5. Граничные брони (boundary, привязаны к now). create_seed_booking сам
+    # выставляет статус по статусу практики: scheduled→confirmed, live→confirmed
+    # +joined, completed→attended. Баннеры check-in/feedback показываются только
+    # если действие НЕ преднаполнено — поэтому чек-ин/отзыв тут НЕ сеем.
+    boundary_specs = [
+        # (role, outcome_status для project_seed_booking_events, флип-в-no_show)
+        ("checkin", None, False),    # confirmed-бронь, без чек-ина → «Пора на check-in!»
+        ("feedback", "attended", False),  # attended-бронь, без отзыва → «Оставьте feedback!»
+        ("live", None, False),       # confirmed+joined → экран эфира / бейдж «В эфире»
+        ("noshow", "no_show", True), # attended → флип no_show → бейдж «Неявка»
+    ]
+    for role, outcome, to_noshow in boundary_specs:
+        practice = boundary.get(role)
+        if practice is None:
+            continue
+        if await _has_any_booking(session, user.id, practice.id):
+            continue  # идемпотентность
+        booking = await create_seed_booking(session, user, practice)
+        if booking is None:
+            continue
+        if to_noshow:
+            booking.status = BookingStatus.NO_SHOW.value
+            booking.joined_at = None
+            booking.left_at = None
+            await session.flush()
+        await project_seed_booking_events(
+            session, booking, practice, outcome_status=outcome,
+        )
+        touched_practice_ids.add(practice.id)
+        stats["boundary"] += 1
+    # role "live_unbooked" намеренно НЕ бронируется (демо backend-гварда
+    # «нельзя записаться в начавшуюся»).
+
     # 5. Личные записи дневника.
     stats["diary"] = await create_v2_diary_entries(
         session, user, cfg["diary_entries"], batch_iso, pools["diary"],
@@ -1030,9 +1110,11 @@ async def cmd_seed_test_users(
     batch_iso: str,
     dry_run: bool,
     pools: dict,
+    boundary: dict,
     *,
     src_completed: int = 0,
     src_scheduled: int = 0,
+    src_boundary: int = 0,
 ) -> None:
     prefix = "[DRY-RUN] " if dry_run else ""
     print(f"\n{prefix}Тест-юзеры (пользовательские данные):")
@@ -1065,16 +1147,19 @@ async def cmd_seed_test_users(
                   f"дневник≈{min(cfg['diary_entries'], len(pools['diary']))}, "
                   f"attended≈{n_att}, чек-ины≈{min(cfg['checkins'], n_att)}, "
                   f"отзывы≈{min(cfg['feedbacks'], n_att)}, "
-                  f"будущие≈{n_up}, отменённые≈{n_can}")
+                  f"будущие≈{n_up}, отменённые≈{n_can}, "
+                  f"граничные≈{src_boundary}")
             continue
 
         stats = await seed_one_test_user(
             session, user, cfg, completed, scheduled, batch_iso, pools,
+            boundary,
         )
         print(f"  {marker} {label:<14s} TID {tu['telegram_id']}  → "
               f"дневник={stats['diary']}, attended={stats['attended']}, "
               f"чек-ины={stats['checkins']}, отзывы={stats['feedbacks']}, "
-              f"будущие={stats['upcoming']}, отменённые={stats['cancelled']}")
+              f"будущие={stats['upcoming']}, отменённые={stats['cancelled']}, "
+              f"граничные={stats['boundary']}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
