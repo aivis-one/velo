@@ -1,68 +1,76 @@
 <!--
   VELO Frontend -- PracticePlaceholder (shared)
 
-  Themed 336x199 placeholder used in place of a real video stream on the
-  practice screens (PracticeLiveView) and anywhere we need a "video would
-  be here" visual that hints at the practice direction.
+  Themed banner shown in place of a real video stream on the practice screens
+  (PracticeLiveView). One finished card per practice direction (the designer's
+  SVGs: solid #627A9C card, a centred white ring + direction glyph, the SAME
+  glyph as a faint half-tone motif on the right, white glow). The card is
+  selected by the practice's top-level `direction` tag.
 
-  Layout: glass-blue card with one large centered direction icon (white,
-  ~80px), DS-aligned border + glow shadow. Picks the icon via the same
-  DIRECTION_ICON map used by PracticeHeroCard / PracticeListCard so a
-  single Icon{Direction}.vue component drives every surface.
+  The 10 SVGs in @/assets/practice-cards are used verbatim (not re-derived), so
+  the banner is 1:1 with the design — the half-tone background is baked into the
+  artwork. Unknown / missing direction falls back to the meditation card.
 
   Props:
-    direction -- PracticeDirection key. When undefined / unknown, falls back
-                 to the neutral IconDots glyph (same as DIRECTION_ICON_FALLBACK).
-    title     -- optional title for PracticeSummary callers that don't carry
-                 direction yet (handoff §9 B-1) — title heuristic mirrors
-                 displayHelpers.practiceIconFor.
+    direction -- PracticeDirection key (meditation … movement).
+    title     -- optional practice title, used as the image alt text.
 
   Usage:
-    <PracticePlaceholder :direction="practice?.direction" />
+    <PracticePlaceholder :direction="practice?.direction" :title="practice?.title" />
 -->
 
 <template>
-  <div class="ph">
-    <component :is="iconComponent" class="ph__icon" :size="80" />
-  </div>
+  <img class="ph" :src="art" :alt="title ?? 'Практика'" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { practiceIconFor } from '@/utils/displayHelpers'
 import type { PracticeDirection } from '@/api/types'
+import meditation from '@/assets/practice-cards/meditation.svg'
+import yoga from '@/assets/practice-cards/yoga.svg'
+import breathwork from '@/assets/practice-cards/breathwork.svg'
+import somatic from '@/assets/practice-cards/somatic.svg'
+import tantra from '@/assets/practice-cards/tantra.svg'
+import circles from '@/assets/practice-cards/circles.svg'
+import soundHealing from '@/assets/practice-cards/sound_healing.svg'
+import artwork from '@/assets/practice-cards/art.svg'
+import narrative from '@/assets/practice-cards/narrative.svg'
+import movement from '@/assets/practice-cards/movement.svg'
 
 const props = withDefaults(
   defineProps<{
     direction?: PracticeDirection | string | null
     title?: string | null
   }>(),
-  {
-    direction: null,
-    title: null,
-  },
+  { direction: null, title: null },
 )
 
-const iconComponent = computed(() =>
-  practiceIconFor({ direction: props.direction ?? null, title: props.title ?? null }),
-)
+// One finished card per top-level direction tag (keys match PracticeDirection).
+const ART: Record<string, string> = {
+  meditation,
+  yoga,
+  breathwork,
+  somatic,
+  tantra,
+  circles,
+  sound_healing: soundHealing,
+  art: artwork,
+  narrative,
+  movement,
+}
+
+const art = computed(() => ART[props.direction ?? ''] ?? ART.meditation)
 </script>
 
 <style scoped>
+/* The SVG art is 392x255 and already carries the card, the centred glyph, the
+   faint half-tone motif and the white glow. We only size it; the visible card
+   (336x199) sits inside with the glow margin, matching the design. */
 .ph {
-  width: 336px;
-  max-width: 100%;
-  aspect-ratio: 336 / 199;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--velo-glass-blue-60);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  box-shadow: var(--velo-shadow-glow);
-}
-
-.ph__icon {
-  color: #ffffff;
+  display: block;
+  width: 100%;
+  max-width: 392px;
+  height: auto;
+  margin-inline: auto;
 }
 </style>
