@@ -1,32 +1,58 @@
 <!--
   VELO Frontend -- DiaryComposer (Diary redesign)
 
-  Bottom "pill" composer for the diary feed. Creates a note (entry_type=note)
-  via the store. The mic button is a visual stub in this iteration (tapping
-  shows a "coming soon" toast); dream entries have no UI input yet (created
-  via backend only). Search is not handled here.
+  Bottom composer for the diary feed. Creates a diary entry via the store; the
+  target entry_type ('note' for Дневник, 'dream' for Сонник) is decided by the
+  parent from the active filter and passed in as `entryType`.
 
-  Visual: frosted pill (glass-blue bg, backdrop-blur, white border, white glow
-  shadow) matching Figma screen 40. Mic + send sit at the right; the send
-  button is enabled only when there is non-empty text.
+  Behaviour:
+  - Idle: a borderless "rail" field (translucent white outline + soft glow,
+    matches the floating-glass chrome). Left: keyboard-collapse button (⌄);
+    right: mic (stub) + send.
+  - Compose (field focused): the parent dims the feed; here the field LIFTS to
+    its own full-width row above the buttons, text turns white, and the ⌄ button
+    inverts to white (mirrors the top white back-pill). Emits `composingChange`
+    so the parent can toggle its dim scrim.
+  - Collapsed with a draft: when blurred with unsent text, the field shows the
+    START of that text + ellipsis (single line) instead of the placeholder, so
+    the frame does not stay expanded. Tapping it re-opens compose.
+  - Enter inserts a newline (send is the ↑ button only).
+  - The unsent draft is mirrored to localStorage (keyed by entryType) on every
+    keystroke, so it survives keyboard collapse / accidental navigation on iOS.
 
-  Emits `created` after a successful note creation so the parent can react
-  (the store already refreshes the feed; this is just a hook).
+  Emits `created` after a successful entry so the parent can react.
 -->
 
 <template>
-  <div class="composer">
-    <textarea
-      ref="inputEl"
-      v-model="text"
-      class="composer__input"
-      :placeholder="placeholder"
-      rows="1"
-      :maxlength="MAX_LEN"
+  <div class="composer" :class="{ 'composer--composing': composing }">
+    <button
+      type="button"
+      class="composer__btn composer__btn--kb"
+      aria-label="Свернуть клавиатуру"
       :disabled="submitting"
-      @input="autogrow"
-      @keydown="onKeydown"
-    />
+      @click="toggleKeyboard"
+    >
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="composer__kb-glyph">
+        <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+
+    <div class="composer__field" @click="openCompose">
+      <textarea
+        v-show="!showPreview"
+        ref="inputEl"
+        v-model="text"
+        class="composer__input"
+        :placeholder="placeholder"
+        rows="1"
+        :maxlength="MAX_LEN"
+        :disabled="submitting"
+        @input="autogrow"
+        @focus="onFocus"
+        @blur="onBlur"
+      />
+      <span v-if="showPreview" class="composer__preview">{{ previewText }}</span>
+    </div>
 
     <div class="composer__actions">
       <button
@@ -52,24 +78,104 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { IconMic, IconSend } from '@/components/icons'
 import { useDiaryStore } from '@/stores/diary'
 import { useToast } from '@/composables/useToast'
 
 const MAX_LEN = 10000
-const placeholder = 'Начните писать...'
+
+const props = withDefaults(
+  defineProps<{
+    /** Target diary entry type, decided by the parent from the active filter. */
+    entryType?: 'note' | 'dream'
+  }>(),
+  { entryType: 'note' },
+)
+
+const emit = defineEmits<{
+  created: []
+  /** Field focused / blurred -- the parent toggles its dim scrim. */
+  composingChange: [composing: boolean]
+}>()
 
 const diaryStore = useDiaryStore()
 const toast = useToast()
 
-const emit = defineEmits<{ created: [] }>()
-
 const text = ref('')
 const submitting = ref(false)
+const composing = ref(false)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 
+const placeholder = computed(() =>
+  props.entryType === 'dream' ? 'Запишите сон...' : 'Начните писать...',
+)
 const canSend = computed(() => text.value.trim().length > 0)
+
+// Collapsed-with-draft preview: when not composing but there is unsent text,
+// show its start (+ CSS ellipsis) instead of the empty placeholder.
+const showPreview = computed(() => !composing.value && text.value.trim().length > 0)
+const previewText = computed(() => text.value.replace(/\s*\n\s*/g, ' ').trim())
+
+// -- Draft persistence (localStorage, keyed by target) -----------------------
+// Survives keyboard collapse / navigation (iOS loses in-memory state); cleared
+// on a successful send.
+const draftKey = computed(() => `velo:diary:draft:${props.entryType}`)
+
+function loadDraft(): void {
+  try {
+    text.value = localStorage.getItem(draftKey.value) ?? ''
+  } catch {
+    text.value = ''
+  }
+  void nextTick(autogrow)
+}
+
+watch(text, (val) => {
+  try {
+    if (val) localStorage.setItem(draftKey.value, val)
+    else localStorage.removeItem(draftKey.value)
+  } catch {
+    /* storage unavailable (private mode / quota) -- ignore, draft is best-effort */
+  }
+})
+
+// Switching Дневник <-> Сонник swaps to that target's own draft.
+watch(() => props.entryType, loadDraft)
+
+onMounted(loadDraft)
+
+// -- Compose focus state -----------------------------------------------------
+
+function setComposing(on: boolean): void {
+  if (composing.value === on) return
+  composing.value = on
+  emit('composingChange', on)
+}
+
+function onFocus(): void {
+  setComposing(true)
+}
+
+function onBlur(): void {
+  setComposing(false)
+}
+
+// Open compose from a tap on the (possibly collapsed-preview) field: show the
+// textarea first, then focus it (a display:none textarea can't be focused).
+function openCompose(): void {
+  if (composing.value) return
+  setComposing(true)
+  void nextTick(() => inputEl.value?.focus())
+}
+
+// Keyboard button: toggles. Tap when idle -> open + focus; tap when composing
+// -> blur (collapses the keyboard, keeps the draft). On iOS blur() dismisses the
+// keyboard; on Android it mirrors the system behaviour harmlessly.
+function toggleKeyboard(): void {
+  if (composing.value) inputEl.value?.blur()
+  else openCompose()
+}
 
 // Grow the textarea with content up to a cap, then scroll internally.
 function autogrow(): void {
@@ -77,14 +183,6 @@ function autogrow(): void {
   if (!el) return
   el.style.height = 'auto'
   el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-}
-
-// Enter sends; Shift+Enter inserts a newline.
-function onKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    void onSend()
-  }
 }
 
 function onMic(): void {
@@ -98,10 +196,10 @@ async function onSend(): Promise<void> {
   try {
     const result = await diaryStore.createEntry({
       content: text.value.trim(),
-      entry_type: 'note',
+      entry_type: props.entryType,
     })
     if (result.ok) {
-      text.value = ''
+      text.value = '' // watch() clears the stored draft
       await nextTick()
       autogrow()
       emit('created')
@@ -115,17 +213,17 @@ async function onSend(): Promise<void> {
 </script>
 
 <style scoped>
-/* Transparent flex container — the three islands float on it; nothing opaque
+/* Transparent flex container -- the field + buttons float on it; nothing opaque
    here so the feed shows through the gaps between them. */
 .composer {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  max-width: var(--velo-content-width);
 }
 
-/* Island 1: the glass input pill (the ONLY glass element in the composer). */
+/* The "rail" field: borderless, translucent white outline + soft glow (matches
+   the floating-glass chrome). No solid fill -- keeps the airy look. */
 .composer__field {
   flex: 1;
   min-width: 0;
@@ -134,12 +232,14 @@ async function onSend(): Promise<void> {
   min-height: 50px;
   padding: var(--space-2) var(--space-4);
   box-sizing: border-box;
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1.26px solid #ffffff;
+  border: 1.26px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--radius-full);
-  box-shadow: var(--velo-shadow-glow);
+  box-shadow: 0 0 14px 2px rgba(255, 255, 255, 0.4);
+  cursor: text;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .composer__input {
@@ -156,11 +256,26 @@ async function onSend(): Promise<void> {
   color: var(--velo-text-primary);
   max-height: 120px;
   overflow-y: auto;
+  transition: color var(--transition-fast);
 }
 
 .composer__input::placeholder {
   color: var(--velo-text-primary);
   opacity: 0.6;
+}
+
+/* Collapsed-with-draft single-line preview (start of text + ellipsis). */
+.composer__preview {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-body);
+  font-size: 16px;
+  letter-spacing: 0.32px;
+  color: var(--velo-text-primary);
+  opacity: 0.85;
 }
 
 .composer__actions {
@@ -170,8 +285,8 @@ async function onSend(): Promise<void> {
   flex-shrink: 0;
 }
 
-/* Islands 2 & 3: SOLID round buttons (mic, send) — #627A9C, no glass; the icon
-   stays readable on any backdrop. 44px circles (Figma Group 2545, r=20 ≈ 40-44). */
+/* SOLID round buttons (kb, mic, send) -- #627A9C, no glass; icon stays readable
+   on any backdrop. 44px circles (Figma Group 2545). */
 .composer__btn {
   display: inline-flex;
   align-items: center;
@@ -184,7 +299,15 @@ async function onSend(): Promise<void> {
   cursor: pointer;
   background: var(--velo-nav-active-bg);
   color: #ffffff;
-  transition: opacity var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.composer__kb-glyph {
+  width: 22px;
+  height: 22px;
 }
 
 .composer__btn:disabled {
@@ -194,5 +317,47 @@ async function onSend(): Promise<void> {
 
 .composer__btn:not(:disabled):hover {
   opacity: 0.85;
+}
+
+/* -- Compose mode: field lifts to a full-width row ABOVE the buttons; the kb
+   button inverts to white (mirrors the top white back-pill); text turns white
+   on the parent's dim scrim. -- */
+.composer--composing {
+  flex-wrap: wrap;
+  row-gap: var(--space-3);
+  align-items: center;
+}
+
+.composer--composing .composer__field {
+  order: -1;
+  flex: 0 0 100%;
+  width: 100%;
+  min-height: 54px;
+  align-items: flex-start;
+  padding: 13px 18px;
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+}
+
+.composer--composing .composer__input {
+  color: #ffffff;
+}
+
+.composer--composing .composer__input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+  opacity: 1;
+}
+
+/* keep mic/send on the right of the second row; the kb button stays left */
+.composer--composing .composer__actions {
+  margin-left: auto;
+}
+
+/* kb button inverts: white circle + primary glyph (supports the top back-pill) */
+.composer--composing .composer__btn--kb {
+  background: #ffffff;
+  color: var(--velo-text-primary);
 }
 </style>

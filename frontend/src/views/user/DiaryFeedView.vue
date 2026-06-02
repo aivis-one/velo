@@ -205,6 +205,14 @@
       </template>
     </div>
 
+    <!-- Compose dim scrim: dims the feed while writing; the header islands and
+         composer stay bright above it. -->
+    <div
+      class="diary-feed__scrim"
+      :class="{ 'diary-feed__scrim--on': composing }"
+      aria-hidden="true"
+    />
+
     <!-- Undo bar: shown after deleting an entry (Figma screen 58) -->
     <div v-if="deletedEntryId" class="diary-feed__undo">
       <span class="diary-feed__undo-text">Запись удалена</span>
@@ -218,9 +226,15 @@
       </button>
     </div>
 
-    <!-- Composer -->
+    <!-- Composer. Hidden on read-only filters (practices / checkins / feedbacks);
+         entry routes to Дневник (note) or Сонник (dream) per the active filter. -->
     <div class="diary-feed__composer">
-      <DiaryComposer @created="onComposerCreated" />
+      <DiaryComposer
+        v-if="writeTarget"
+        :entry-type="writeTarget"
+        @created="onComposerCreated"
+        @composing-change="composing = $event"
+      />
     </div>
 
     <!-- Category filter (screen 42), opened from the "..." menu -->
@@ -348,6 +362,28 @@ function exitDiary(): void {
 const activeCategories = computed<DiaryFeedCategory[]>(
   () => feedFilters.value.categories ?? [],
 )
+
+// Compose dim state (DiaryComposer emits on focus/blur of its field).
+const composing = ref(false)
+
+// T5 -- where a new entry goes, derived from the active filter. Writing is
+// allowed ONLY for Дневник (entries) and Сонник (dreams); the read-only
+// categories block input entirely (composer hidden, keyboard never opens):
+//   none / entries / entries+dreams -> 'note'   (default target = Дневник)
+//   dreams only                     -> 'dream'  (Сонник)
+//   any of practices/checkins/feedbacks selected -> null (blocked)
+const WRITE_BLOCKED: DiaryFeedCategory[] = ['practices', 'checkins', 'feedbacks']
+const writeTarget = computed<'note' | 'dream' | null>(() => {
+  const cats = activeCategories.value
+  if (cats.some((c) => WRITE_BLOCKED.includes(c))) return null
+  if (cats.length === 1 && cats[0] === 'dreams') return 'dream'
+  return 'note'
+})
+
+// Composer unmounts on blocked filters -- drop any lingering dim scrim.
+watch(writeTarget, (target) => {
+  if (!target) composing.value = false
+})
 
 function openFilter(): void {
   showFilter.value = true
@@ -607,7 +643,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-8);
+  padding: var(--space-3) var(--velo-rail-pad-x);
   /* Container is click-through; only the islands inside catch taps. */
   pointer-events: none;
 }
@@ -713,24 +749,32 @@ onBeforeUnmount(() => {
   inset: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 40px var(--space-8) 80px;
+  padding: 100px var(--velo-rail-pad-x) 120px;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  /* Soft fade so cards dissolve under the top island / composer instead of a
-     hard cut at the scroll edges (edge-to-edge "under glass" look). The fade
-     zones (40 top / 80 bottom) match the padding above. */
+  /* 4-zone fog (operator spec 40 / 60 / 60 / 60), top -> bottom:
+       40  hard transparent (behind the title island)
+       60  fade  -- the feed emerges from full transparency
+       ..  fully visible content
+       60  fade  -- dissolves as it slides under the composer
+       60  hard transparent (behind the composer island)
+     Top padding 100 = 40+60, bottom padding 120 = 60+60. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 40px,
-    #000 calc(100% - 80px),
+    transparent 40px,
+    #000 100px,
+    #000 calc(100% - 120px),
+    transparent calc(100% - 60px),
     transparent 100%
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 40px,
-    #000 calc(100% - 80px),
+    transparent 40px,
+    #000 100px,
+    #000 calc(100% - 120px),
+    transparent calc(100% - 60px),
     transparent 100%
   );
   /* Chat-mode: a flex column so the thread wrapper can pin a short feed to the
@@ -769,9 +813,9 @@ onBeforeUnmount(() => {
    Floats just above the composer island in the overlay layout. */
 .diary-feed__undo {
   position: absolute;
-  left: var(--space-8);
-  right: var(--space-8);
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  left: var(--velo-rail-pad-x);
+  right: var(--velo-rail-pad-x);
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   z-index: var(--z-sticky, 10);
   display: flex;
   align-items: center;
@@ -827,11 +871,27 @@ onBeforeUnmount(() => {
   z-index: var(--z-sticky, 10);
   display: flex;
   justify-content: center;
-  padding: var(--space-3) var(--space-8)
+  padding: var(--space-3) var(--velo-rail-pad-x)
     calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
   pointer-events: none;
 }
 .diary-feed__composer > * {
   pointer-events: auto;
+}
+
+/* -- Compose dim scrim --
+   Above the feed (z 1) but BELOW the sticky header/composer islands (z-sticky),
+   so the feed dims while writing and the chrome stays bright. */
+.diary-feed__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--velo-scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+.diary-feed__scrim--on {
+  opacity: 1;
 }
 </style>
