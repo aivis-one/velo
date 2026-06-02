@@ -716,6 +716,23 @@ onBeforeUnmount(() => {
   padding: 40px var(--space-8) 80px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Soft fade so cards dissolve under the top island / composer instead of a
+     hard cut at the scroll edges (edge-to-edge "under glass" look). The fade
+     zones (40 top / 80 bottom) match the padding above. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 40px,
+    #000 calc(100% - 80px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 40px,
+    #000 calc(100% - 80px),
+    transparent 100%
+  );
   /* Chat-mode: a flex column so the thread wrapper can pin a short feed to the
      bottom (next to the composer). When the feed overflows, this has no effect
      and the area scrolls normally. */
