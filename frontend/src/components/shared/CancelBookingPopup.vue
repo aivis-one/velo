@@ -3,9 +3,9 @@
 
   Confirmation popup for cancelling a booking. Built on VModal.
 
-  Dynamic refund warning:
-    - If practice starts in > 24h: green "Средства вернутся на баланс"
-    - If practice starts in <= 24h: red "Средства НЕ будут возвращены"
+  Money theme temporarily removed: the "Вы уверены…" subtitle and the refund
+  warning (green "Средства вернутся" / red "Средства НЕ будут возвращены") are
+  gone for now. TODO: re-add the actual refund texts later.
 
   F5 review fix:
     W-22: Added loading prop + disabled state on confirm button
@@ -24,26 +24,9 @@
 <template>
   <VModal :open="open" @close="onClose">
     <h2 class="cancel__title">Отменить бронирование?</h2>
-
-    <p class="cancel__text">
-      Вы уверены, что хотите отменить бронирование на
-      <strong>{{ booking.practice.title }}</strong>?
-    </p>
-
-    <!-- Dynamic refund warning -->
-    <div
-      class="cancel__warning"
-      :class="willRefund ? 'cancel__warning--safe' : 'cancel__warning--danger'"
-    >
-      <p class="cancel__warning-text">
-        <template v-if="willRefund">
-          Средства вернутся на баланс
-        </template>
-        <template v-else>
-          Средства НЕ будут возвращены (до начала практики менее 24 часов)
-        </template>
-      </p>
-    </div>
+    <!-- The "Вы уверены…" subtitle (redundant with the title) and the refund /
+         money warning were removed — the money theme is temporarily out.
+         TODO: re-add the actual refund texts later. -->
 
     <!-- Actions — side-by-side, safe action ЛЕВЕЕ и primary-вариант
          (Figma cancel-reservation.svg + DS-паттерн для destructive-confirm:
@@ -71,10 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { VModal, VButton } from '@/components/ui'
-
-const REFUND_DEADLINE_HOURS = 24
 
 // Structural minimum: works with both BookingWithPracticeResponse (list)
 // and BookingDetailResponse (detail) -- the popup only needs the practice
@@ -106,17 +86,6 @@ function onClose(): void {
   if (props.loading) return
   emit('close')
 }
-
-/**
- * True if the practice starts more than 24 hours from now
- * (user will receive a refund on cancellation).
- */
-const willRefund = computed(() => {
-  const scheduledAt = new Date(props.booking.practice.scheduled_at).getTime()
-  const now = Date.now()
-  const hoursUntilStart = (scheduledAt - now) / (1000 * 60 * 60)
-  return hoursUntilStart > REFUND_DEADLINE_HOURS
-})
 </script>
 
 <style scoped>
@@ -129,46 +98,10 @@ const willRefund = computed(() => {
   margin: 0 0 var(--space-3);
 }
 
-.cancel__text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  line-height: 1.5;
-  margin: 0 0 var(--space-4);
-}
-
-/* Warning box */
-.cancel__warning {
-  border-radius: var(--radius-sm);
-  padding: var(--space-3);
+/* Title needs a little breathing room before the actions now that the
+   subtitle + warning are gone. */
+.cancel__title {
   margin-bottom: var(--space-5);
-}
-
-.cancel__warning--danger {
-  background: var(--velo-glass-peach-40);
-  border: 1px solid var(--velo-warning);
-}
-
-.cancel__warning--safe {
-  background: var(--velo-glass-teal-30);
-  border: 1px solid var(--velo-success);
-}
-
-.cancel__warning-text {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.cancel__warning--danger .cancel__warning-text {
-  color: var(--velo-warning-text);
-}
-
-.cancel__warning--safe .cancel__warning-text {
-  color: var(--velo-success-text);
 }
 
 /* Actions: side-by-side (F-5.3 sync с Figma cancel-reservation.svg).
