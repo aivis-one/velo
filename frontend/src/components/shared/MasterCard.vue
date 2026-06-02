@@ -104,8 +104,10 @@ function onMore(): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  /* Figma: card height ровно 104. avatar xl=80 + padding-y 12+12 = 104. */
-  height: var(--velo-card-height-list);
+  /* Figma: base card height 104 (avatar xl=80 + padding-y 12+12). min-height
+   * (not fixed height) so many wrapped method tags grow the card instead of
+   * spilling out of it; with the usual 3-4 tags it stays at 104. */
+  min-height: var(--velo-card-height-list);
   padding: 12px var(--space-3);
   display: flex;
   align-items: center;
