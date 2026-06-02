@@ -24,22 +24,8 @@
 <template>
   <VModal :open="open" @close="$emit('close')">
     <div class="diary-search">
-      <div class="diary-search__header">
-        <span class="diary-search__header-icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="none">
-            <circle cx="9" cy="9" r="5.5" stroke="currentColor" stroke-width="1.8" />
-            <path
-              d="M17 17l-4-4"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-            />
-          </svg>
-        </span>
-        <h2 class="diary-search__heading">Поиск</h2>
-      </div>
-
-      <!-- Search field + magnifier -->
+      <!-- Search field + magnifier (the modal's own ✕ handles close; no extra
+           title row, per operator 2026-06-03). -->
       <div class="diary-search__field">
         <div class="diary-search__input">
           <VInput
@@ -173,37 +159,6 @@ function submit(term: string): void {
   gap: var(--space-5);
 }
 
-.diary-search__header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.diary-search__header-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--velo-primary);
-  color: #ffffff;
-}
-
-.diary-search__header-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.diary-search__heading {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  margin: 0;
-}
-
 /* -- Field + magnifier -- */
 .diary-search__field {
   display: flex;
@@ -215,6 +170,13 @@ function submit(term: string): void {
 .diary-search__input {
   flex: 1;
   min-width: 0;
+}
+
+/* Drop VInput's default 16px bottom margin: it made the input wrapper taller
+   than the field, so align-items:center pushed the 44px magnifier button below
+   the 40px input. With it gone the button centers on the field row. */
+.diary-search__input :deep(.v-input) {
+  margin-bottom: 0;
 }
 
 .diary-search__go {
