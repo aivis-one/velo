@@ -615,9 +615,12 @@ onUnmounted(() => {
 
 .dashboard__stat-label {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
+  /* Slightly below --text-xs (14px) and no-wrap so the longest label
+     ("Практик пройдено") stays on ONE line — uniform across both cards. */
+  font-size: 13px;
   font-weight: 400;
   color: var(--velo-text-secondary);
+  white-space: nowrap;
 }
 
 /* ===== AI summary ===== */
