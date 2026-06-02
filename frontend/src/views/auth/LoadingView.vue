@@ -2,16 +2,18 @@
   VELO Frontend -- Loading View (DS-6)
 
   Displayed while auth initialization is in progress.
-  Shows VELΘ mandala logo with subtle loading spinner.
-  Matches 04_OAuth.png mockup style.
+  Uses the SAME white mandala as WelcomeView (logo-white.svg, large) so the
+  loading -> welcome transition is seamless: no blue-mandala flash before the
+  white one (the default `logo.svg` is the colored/blue variant). The white
+  logo already contains the VELΘ wordmark, so there is no separate title.
+  Spinner stays as the loading cue.
 -->
 
 <template>
   <div class="loading">
     <div class="loading__logo">
-      <VeloLogo :size="120" />
+      <VeloLogo variant="white" :size="440" />
     </div>
-    <h1 class="loading__title">VELΘ</h1>
     <div class="loading__spinner" />
   </div>
 </template>
@@ -30,19 +32,15 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   min-height: 100dvh;
   background: transparent;
   gap: var(--space-4);
+  /* The white logo is intentionally larger than the viewport (Figma bleed,
+     same as WelcomeView). Clip horizontal overflow so it bleeds symmetrically
+     instead of producing a horizontal scrollbar. */
+  overflow-x: hidden;
 }
 
 .loading__logo {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-.loading__title {
-  font-family: var(--font-body);
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
+  /* Match WelcomeView: let the oversized logo bleed without being squeezed. */
+  flex-shrink: 0;
 }
 
 .loading__spinner {
@@ -58,15 +56,6 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
 @keyframes spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
   }
 }
 </style>
