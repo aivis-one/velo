@@ -24,11 +24,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps<{
-  title: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    title: string
+    /** Start expanded instead of collapsed (default: collapsed). */
+    defaultOpen?: boolean
+  }>(),
+  { defaultOpen: false },
+)
 
-const open = ref(false)
+const open = ref(props.defaultOpen)
 </script>
 
 <style scoped>

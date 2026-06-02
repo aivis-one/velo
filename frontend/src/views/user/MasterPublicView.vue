@@ -84,9 +84,12 @@
         </div>
       </VAccordion>
 
-      <!-- Upcoming practices -->
-      <section v-if="upcoming.length" class="master-public__section">
-        <h3 class="master-public__section-title">Ближайшие практики</h3>
+      <!-- Upcoming practices (white accordion plate, expanded by default) -->
+      <VAccordion
+        v-if="upcoming.length"
+        title="Ближайшие практики"
+        :default-open="true"
+      >
         <div class="master-public__practices">
           <PracticeCard
             v-for="p in upcoming"
@@ -95,7 +98,7 @@
             @click="goToPractice"
           />
         </div>
-      </section>
+      </VAccordion>
 
       <!-- Ask a question (frame 6 -- not built yet) -->
       <div class="master-public__actions">
@@ -272,21 +275,24 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
+/* Compact: value + label on one baseline row (was a tall card with a 50px
+   number). Significantly smaller per design feedback. */
 .master-public__stat {
   flex: 1;
   background: var(--velo-bg-card-solid);
   border: 1px solid #ffffff;
   border-radius: var(--radius-md);
-  padding: var(--space-4);
+  padding: var(--space-3);
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--space-2);
 }
 
 .master-public__stat-value {
   font-family: var(--font-body);
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
 }
@@ -304,14 +310,6 @@ onMounted(async () => {
   gap: var(--space-1);
 }
 
-.master-public__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  margin-bottom: var(--space-2);
-}
-
 .master-public__practices {
   display: flex;
   flex-direction: column;
@@ -320,5 +318,30 @@ onMounted(async () => {
 
 .master-public__actions {
   margin-top: var(--space-2);
+}
+
+/* Методы + Ближайшие практики: white card plate (same treatment as the
+   PracticeDetailView accordions, kept local — no shared VAccordion change). */
+:deep(.v-accordion) {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
+  border-radius: var(--radius-md);
+  border-bottom: none;
+  overflow: hidden;
+}
+
+:deep(.v-accordion__header) {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+:deep(.v-accordion__body) {
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+:deep(.v-accordion__arrow) {
+  font-size: 20px;
+  color: var(--velo-text-primary);
 }
 </style>
