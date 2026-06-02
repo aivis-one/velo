@@ -232,3 +232,13 @@ export function stylesForDirection(direction: PracticeDirection | undefined | nu
 export function directionHasStyles(direction: PracticeDirection | undefined | null): boolean {
   return stylesForDirection(direction).length > 0
 }
+
+/** Flat style value -> Russian label, derived from STYLE_OPTIONS_BY_DIRECTION
+ *  (single source of truth). Use anywhere a style is held only as its raw
+ *  value (e.g. a backend filter value) so it never renders untranslated.
+ *  Falls back to the raw value for unknown keys at the call site. */
+export const STYLE_LABEL: Record<string, string> = Object.fromEntries(
+  Object.values(STYLE_OPTIONS_BY_DIRECTION)
+    .flat()
+    .map((opt) => [opt.value, opt.label]),
+)

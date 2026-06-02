@@ -241,11 +241,10 @@ const activeChips = computed<ActiveChip[]>(() => {
       label: TIME_OF_DAY_LABEL[f.time_of_day],
     })
   }
-  // F-8: style теперь array — рендерим chip на каждый выбранный стиль
-  // (как direction/difficulty), удаление снимает только один.
-  for (const v of f.style ?? []) {
-    chips.push({ key: `sty:${v}`, kind: 'style', value: v, label: v })
-  }
+  // Style chips are intentionally NOT shown in the active-filter row: the
+  // direction chip already represents the selection, and listing every style
+  // (often 3-5, in transliterated names) is visual clutter. Styles stay
+  // editable inside the filter modal. Removing the direction clears them.
 
   return chips
 })
@@ -265,7 +264,12 @@ function removeChip(chip: ActiveChip): void {
   switch (chip.kind) {
     case 'direction':
       next.direction = (next.direction ?? []).filter((v) => v !== chip.value)
-      if (next.direction.length === 0) next.direction = undefined
+      if (next.direction.length === 0) {
+        next.direction = undefined
+        // Styles belong to a direction; with no direction left they would be
+        // orphaned (a style filter without its direction). Clear them too.
+        next.style = undefined
+      }
       break
     case 'difficulty':
       next.difficulty = (next.difficulty ?? []).filter((v) => v !== chip.value)
