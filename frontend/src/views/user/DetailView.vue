@@ -26,14 +26,7 @@
   <div class="detail">
     <!-- Header: arrow-only back-pill (63×35) + left-aligned title (Figma "View entry") -->
     <header class="detail__header">
-      <button
-        type="button"
-        class="detail__back-pill"
-        aria-label="Назад"
-        @click="goBack"
-      >
-        <IconArrowRight :size="18" class="detail__back-glyph" />
-      </button>
+      <VBackButton aria-label="Назад" @click="goBack" />
       <h1 class="detail__title-bar">Запись</h1>
     </header>
 
@@ -100,10 +93,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
-  IconArrowRight,
   IconCalendar,
   IconClock,
   IconMoodLow,
@@ -274,30 +266,6 @@ function goBack(): void {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-5) var(--space-8) var(--space-3);
-}
-
-.detail__back-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 63px;
-  height: 35px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-card-solid);
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.detail__back-pill:hover {
-  opacity: 0.85;
-}
-
-/* The only "back" glyph available is a right arrow -- mirror it. */
-.detail__back-glyph {
-  transform: scaleX(-1);
 }
 
 .detail__title-bar {

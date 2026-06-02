@@ -18,15 +18,11 @@
 <template>
   <header class="v-header">
     <div class="v-header__left">
-      <button
+      <VBackButton
         v-if="showBack"
-        :class="['v-header__back', { 'v-header__back--icon': !!title }]"
-        :aria-label="title ? 'Назад' : undefined"
+        :aria-label="title ? 'Назад' : backLabel"
         @click="$emit('back')"
-      >
-        <IconArrowRight :size="18" class="v-header__back-arrow" />
-        <template v-if="!title">{{ backLabel }}</template>
-      </button>
+      />
       <h1 v-if="title" class="v-header__title">{{ title }}</h1>
       <span v-if="badge" class="v-header__badge">{{ badge }}</span>
     </div>
@@ -37,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { IconArrowRight } from '@/components/icons'
+import { VBackButton } from '@/components/ui'
 
 withDefaults(
   defineProps<{
@@ -77,50 +73,6 @@ defineEmits<{
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
-}
-
-/* Pill-shaped back button — glassmorphism. With text by default. */
-.v-header__back {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 36px;
-  padding: 0 var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-full);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-/* Arrow-only mode — compact pill 63×35, white background (per Figma 4816:132). */
-.v-header__back--icon {
-  width: 63px;
-  height: 35px;
-  padding: 0;
-  justify-content: center;
-  background: #ffffff;
-  font-size: 18px;
-  line-height: 1;
-}
-
-/* Mirror IconArrowRight to make it a back-arrow.
- * Same pattern as EntryView/DetailView (`.entry__back-glyph`). */
-.v-header__back-arrow {
-  transform: scaleX(-1);
-  flex-shrink: 0;
-}
-
-.v-header__back:active {
-  opacity: 0.7;
 }
 
 .v-header__title {

@@ -24,14 +24,11 @@
            approved design). The reset-filter cross appears only while a filter
            is active. -->
       <div class="diary-feed__left">
-        <button
-          type="button"
+        <VBackButton
           class="diary-feed__back"
           aria-label="Выйти из дневника"
           @click="exitDiary"
-        >
-          <IconArrowRight :size="18" class="diary-feed__back-glyph" />
-        </button>
+        />
         <h1 class="diary-feed__title">{{ feedTitle }}</h1>
         <button
           v-if="filterActive"
@@ -262,8 +259,8 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VMenu, VMenuItem } from '@/components/ui'
-import { IconClose, IconArrowRight } from '@/components/icons'
+import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem } from '@/components/ui'
+import { IconClose } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryList from '@/components/shared/DiaryList.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
@@ -670,31 +667,10 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Exit back button (white). Height matched to the round chrome buttons (40px)
-   so its rounded ends share their radius and it doesn't read as an odd pill. */
+/* The shared VBackButton sits inside the click-through left group, so re-enable
+   taps on it (the rest of the group stays click-through). */
 .diary-feed__back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 63px;
-  height: 40px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-card-solid);
-  color: var(--velo-text-primary);
-  cursor: pointer;
   pointer-events: auto;
-  transition: opacity var(--transition-fast);
-}
-
-.diary-feed__back:hover {
-  opacity: 0.85;
-}
-
-/* The only "back" glyph is a right arrow -- mirror it (matches EntryView). */
-.diary-feed__back-glyph {
-  transform: scaleX(-1);
 }
 
 /* "..." trigger glyph: vertical dots that rotate to horizontal while the menu

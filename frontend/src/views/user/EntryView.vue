@@ -32,14 +32,7 @@
   <div class="entry">
     <!-- Header -->
     <header class="entry__header">
-      <button
-        type="button"
-        class="entry__back-pill"
-        aria-label="Назад"
-        @click="goBack"
-      >
-        <IconArrowRight :size="18" class="entry__back-glyph" />
-      </button>
+      <VBackButton aria-label="Назад" @click="goBack" />
       <h1 class="entry__title-bar">Запись</h1>
 
       <!-- "..." menu (view mode only): edit + delete. -->
@@ -155,10 +148,9 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
-  IconArrowRight,
   IconPen,
   IconCalendar,
   IconClock,
@@ -338,31 +330,7 @@ function goBack(): void {
   padding: var(--space-5) var(--space-8) var(--space-3);
 }
 
-.entry__back-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 63px;
-  height: 35px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-card-solid);
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.entry__back-pill:hover {
-  opacity: 0.85;
-}
-
-/* The only "back" glyph available is a right arrow -- mirror it. */
-.entry__back-glyph {
-  transform: scaleX(-1);
-}
-
-/* Title left-aligned next to the pill; flex:1 pushes the "..." menu right. */
+/* Title left-aligned next to the back button; flex:1 pushes the "..." menu right. */
 .entry__title-bar {
   flex: 1;
   text-align: left;
