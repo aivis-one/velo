@@ -269,6 +269,7 @@ import DiarySearchModal from '@/components/shared/DiarySearchModal.vue'
 import { useDiaryStore } from '@/stores/diary'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { diaryWriteTarget } from '@/utils/diaryComposeTarget'
 import type { DiaryFeedItem, DiaryFeedCategory } from '@/api/types'
 
 const router = useRouter()
@@ -363,19 +364,10 @@ const activeCategories = computed<DiaryFeedCategory[]>(
 // Compose dim state (DiaryComposer emits on focus/blur of its field).
 const composing = ref(false)
 
-// T5 -- where a new entry goes, derived from the active filter. Writing is
-// allowed ONLY for Дневник (entries) and Сонник (dreams); the read-only
-// categories block input entirely (composer hidden, keyboard never opens):
-//   none / entries / entries+dreams -> 'note'   (default target = Дневник)
-//   dreams only                     -> 'dream'  (Сонник)
-//   any of practices/checkins/feedbacks selected -> null (blocked)
-const WRITE_BLOCKED: DiaryFeedCategory[] = ['practices', 'checkins', 'feedbacks']
-const writeTarget = computed<'note' | 'dream' | null>(() => {
-  const cats = activeCategories.value
-  if (cats.some((c) => WRITE_BLOCKED.includes(c))) return null
-  if (cats.length === 1 && cats[0] === 'dreams') return 'dream'
-  return 'note'
-})
+// T5 -- where a new entry goes, from the active filter (pure fn, unit tested in
+// utils/diaryComposeTarget.test.ts). null = a read-only filter is active, so the
+// composer is hidden and the keyboard never opens.
+const writeTarget = computed(() => diaryWriteTarget(activeCategories.value))
 
 // Composer unmounts on blocked filters -- drop any lingering dim scrim.
 watch(writeTarget, (target) => {
