@@ -57,16 +57,7 @@
           :direction="practice.direction"
           :difficulty-dots="difficultyDots"
           :difficulty-label="difficultyLabel"
-        >
-          <template #badge>
-            <VBadge v-if="booked && myBooking?.purchase_id" variant="success">
-              <IconCheck :size="12" /> Оплачено
-            </VBadge>
-            <VBadge v-else-if="practice.status === 'live'" variant="success">
-              LIVE
-            </VBadge>
-          </template>
-        </PracticeHeroCard>
+        />
       </div>
 
       <!-- Body -->
