@@ -18,7 +18,7 @@
     v-model:comment="comment"
     :submitting="diaryStore.checkinSubmitting"
     :submit-disabled="windowClosed"
-    :disabled-hint="windowClosed ? 'Чек-ин закрыт — практика уже началась' : ''"
+    :disabled-hint="windowClosed ? 'Check-in закрыт — практика уже началась' : ''"
     submit-label="Отправить"
     :show-skip="true"
     :submitted="submitted"
