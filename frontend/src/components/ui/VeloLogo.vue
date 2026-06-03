@@ -27,7 +27,7 @@
     <div class="velo-logo__intro">
       <div class="velo-logo__steady">
         <img
-          class="velo-logo__layer"
+          class="velo-logo__layer velo-logo__mandala"
           src="/icons/mandala-white.png"
           alt=""
           aria-hidden="true"
@@ -87,8 +87,19 @@ const logoSrc = computed(() =>
   display: block;
 }
 
+/* Operator-calibrated layer offsets (see .handoff preview, calibrated at size 440).
+   Expressed as % of the layer (= % of `size`) so they scale with any size.
+   The mandala offset sits on the IMG inside the spinning wrappers, so it rotates
+   rigidly with the ring -- this places the mandala's visual centre on the rotation
+   axis, keeping it spinning in place (px@440: x +8, y -3). */
+.velo-logo__mandala {
+  transform: translate(1.818%, -0.682%);
+}
+
 .velo-logo__word {
   z-index: 2;
+  /* px@440: x +1, y -7 */
+  transform: translate(0.227%, -1.591%);
 }
 
 .velo-logo__intro,

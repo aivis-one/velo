@@ -14,7 +14,11 @@
     <div class="loading__logo">
       <VeloLogo variant="white" :size="440" spin />
     </div>
-    <div class="loading__spinner" />
+    <!-- Fixed-height area below the logo, mirroring WelcomeView's, so the centered
+         logo sits at the SAME Y and does not jump on the loading -> welcome swap. -->
+    <div class="loading__below">
+      <div class="loading__spinner" />
+    </div>
   </div>
 </template>
 
@@ -32,7 +36,6 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
      app-wide). A fresh 100dvh here double-applies and makes the logo jump. */
   min-height: 100%;
   background: transparent;
-  gap: var(--space-4);
   /* The white logo is intentionally larger than the viewport (Figma bleed,
      same as WelcomeView). Clip horizontal overflow so it bleeds symmetrically
      instead of producing a horizontal scrollbar. */
@@ -40,8 +43,19 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
 }
 
 .loading__logo {
-  /* Match WelcomeView: let the oversized logo bleed without being squeezed. */
+  /* Match WelcomeView: let the oversized logo bleed without being squeezed, and
+     use the same gap to the area below so the logo Y matches WelcomeView. */
   flex-shrink: 0;
+  margin-bottom: var(--space-4);
+}
+
+.loading__below {
+  /* Same fixed height as WelcomeView's .welcome__below -> identical logo Y, no jump. */
+  min-height: 137px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .loading__spinner {
@@ -51,7 +65,6 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   border-top-color: var(--velo-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-  margin-top: var(--space-4);
 }
 
 @keyframes spin {

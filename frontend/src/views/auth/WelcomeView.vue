@@ -32,6 +32,10 @@
            The logo already contains the VELO wordmark, so no text heading. -->
       <VeloLogo variant="white" :size="440" spin />
     </div>
+    <!-- Fixed-height area below the logo (mirrors LoadingView's), so the
+         centered logo lands at the SAME vertical position on both screens and
+         does not jump on the loading -> welcome transition. -->
+    <div class="welcome__below">
     <p class="welcome__message">
       Пространство для практики<br />и внутреннего развития
     </p>
@@ -54,6 +58,7 @@
       >
         Создать аккаунт
       </button>
+    </div>
     </div>
   </div>
 </template>
@@ -97,6 +102,21 @@ const { isStandalone } = useAuth()
   margin-bottom: var(--space-4);
   /* Allow the logo to exceed content width without being squeezed by flex. */
   flex-shrink: 0;
+}
+
+.welcome__below {
+  /* Fixed-height region below the logo, IDENTICAL on WelcomeView and LoadingView,
+     so the vertically-centered logo lands at the same Y on both -> no jump on the
+     loading -> welcome transition. 137px = message (2 lines @ line-height 1.5 = 54)
+     + margin-bottom (33) + primary button (50); all CSS-fixed values, so the height
+     is font-independent as long as the message stays two lines.
+     The optional standalone "Создать аккаунт" button can exceed this; min-height
+     lets it grow there (standalone has no LoadingView jump to worry about). */
+  min-height: 137px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .welcome__message {
