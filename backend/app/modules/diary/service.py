@@ -2,11 +2,14 @@
 # VELO Backend -- Diary Service (Phase 8.1-8.4)
 # =============================================================================
 #
-# UPSERT CHECKIN (8.1):
-#   Find confirmed booking → validate window → insert or update.
+# CREATE CHECKIN (8.1):
+#   Find confirmed booking -> validate window -> insert (once, immutable).
+#   A check-in is a recorded data point: submitted once, never changed. A
+#   repeat submission is rejected with ConflictError, never overwritten.
 #
-# UPSERT FEEDBACK (8.2):
-#   Find attended booking → validate completed + window → insert or update.
+# CREATE FEEDBACK (8.2):
+#   Find attended booking -> validate completed + window -> insert (once,
+#   immutable). Same one-and-only-once rule as check-in.
 #
 # DIARY ENTRY CRUD (8.3):
 #   Create / get / update / delete / list.
@@ -31,11 +34,12 @@ from uuid import UUID
 
 import structlog
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.config import settings
-from app.core.exceptions import BadRequestError, NotFoundError
+from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.diary.models import (
     CheckType,
@@ -71,7 +75,11 @@ async def upsert_checkin(
     *,
     comment: str | None = None,
 ) -> tuple[Checkin, bool]:
-    """Create or update a pre-practice check-in.
+    """Create a pre-practice check-in (immutable, once only).
+
+    A check-in is a recorded data point and can never be changed. If a PRE
+    check-in already exists for this booking, the request is rejected with
+    ConflictError -- the original row is never overwritten.
 
     Args:
         user: Authenticated user.
@@ -81,11 +89,13 @@ async def upsert_checkin(
         comment: Optional text (max length validated in schema).
 
     Returns:
-        Tuple of (checkin, is_new). is_new=True if created, False if updated.
+        Tuple of (checkin, is_new). is_new is always True (create-only);
+        the tuple shape is kept for backward compatibility with callers.
 
     Raises:
         NotFoundError: No confirmed booking for this practice.
         BadRequestError: Outside check-in window.
+        ConflictError: A check-in already exists (resubmission is forbidden).
     """
     # 1. Find confirmed booking for this user + practice.
     booking_stmt = (
@@ -122,7 +132,7 @@ async def upsert_checkin(
     if now >= practice.scheduled_at:
         raise BadRequestError("Check-in window has closed")
 
-    # 3. Upsert.
+    # 3. Reject resubmission -- a check-in is immutable once recorded.
     existing_stmt = (
         select(Checkin)
         .where(
@@ -134,38 +144,10 @@ async def upsert_checkin(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        # Update.
-        existing.mood = mood
-        existing.comment = comment
-        await session.flush()
-
-        await record_audit(
-            event="checkin_updated",
-            actor_id=user.id,
-            actor_type="user",
-            target_type="checkin",
-            target_id=existing.id,
-            data={"mood": mood, "practice_id": str(practice_id)},
-            session=session,
+        # A check-in is a recorded data point: submitted once, never changed.
+        raise ConflictError(
+            "Check-in already submitted and cannot be changed"
         )
-
-        logger.info(
-            "checkin_updated",
-            checkin_id=str(existing.id),
-            user_id=str(user.id),
-            practice_id=str(practice_id),
-            mood=mood,
-        )
-
-        # Diary feed: refresh the timeline event for this check-in.
-        master_name = await get_master_display_name(practice.master_id, session)
-        await upsert_checkin_event(
-            session,
-            checkin=existing,
-            practice=practice,
-            master_name=master_name,
-        )
-        return existing, False
 
     # Create new checkin.
     checkin = Checkin(
@@ -176,8 +158,20 @@ async def upsert_checkin(
         comment=comment,
         check_type=CheckType.PRE.value,
     )
-    session.add(checkin)
-    await session.flush()
+
+    # P-05: guard the concurrent first-submit race. Two parallel requests can
+    # both pass the SELECT above with existing=None; the unique constraint
+    # uq_checkin_booking_type then rejects the loser. try/except OUTSIDE
+    # begin_nested (ERR-05) so the savepoint rolls back cleanly and the outer
+    # transaction survives; convert to the same ConflictError as resubmission.
+    try:
+        async with session.begin_nested():
+            session.add(checkin)
+            await session.flush()
+    except IntegrityError:
+        raise ConflictError(
+            "Check-in already submitted and cannot be changed"
+        ) from None
 
     await record_audit(
         event="checkin_created",
@@ -337,7 +331,11 @@ async def upsert_feedback(
     *,
     comment: str | None = None,
 ) -> tuple[Feedback, bool]:
-    """Create or update a post-practice feedback.
+    """Create a post-practice feedback (immutable, once only).
+
+    Feedback is a recorded data point and can never be changed. If feedback
+    already exists for this (practice, user), the request is rejected with
+    ConflictError -- the original row is never overwritten.
 
     Args:
         user: Authenticated user.
@@ -347,11 +345,13 @@ async def upsert_feedback(
         comment: Optional text (max length validated in schema).
 
     Returns:
-        Tuple of (feedback, is_new).
+        Tuple of (feedback, is_new). is_new is always True (create-only);
+        the tuple shape is kept for backward compatibility with callers.
 
     Raises:
         NotFoundError: No attended booking for this practice.
         BadRequestError: Practice not completed or outside feedback window.
+        ConflictError: Feedback already exists (resubmission is forbidden).
     """
     # 1. Find attended booking.
     booking_stmt = (
@@ -387,7 +387,7 @@ async def upsert_feedback(
     if now > window_close:
         raise BadRequestError("Feedback window has closed")
 
-    # 3. Upsert.
+    # 3. Reject resubmission -- feedback is immutable once recorded.
     existing_stmt = (
         select(Feedback)
         .where(
@@ -399,37 +399,10 @@ async def upsert_feedback(
     existing = result.scalar_one_or_none()
 
     if existing is not None:
-        existing.rating = rating
-        existing.comment = comment
-        await session.flush()
-
-        await record_audit(
-            event="feedback_updated",
-            actor_id=user.id,
-            actor_type="user",
-            target_type="feedback",
-            target_id=existing.id,
-            data={"rating": rating, "practice_id": str(practice_id)},
-            session=session,
+        # Feedback is a recorded data point: submitted once, never changed.
+        raise ConflictError(
+            "Feedback already submitted and cannot be changed"
         )
-
-        logger.info(
-            "feedback_updated",
-            feedback_id=str(existing.id),
-            user_id=str(user.id),
-            practice_id=str(practice_id),
-            rating=rating,
-        )
-
-        # Diary feed: refresh the timeline event for this feedback.
-        master_name = await get_master_display_name(practice.master_id, session)
-        await upsert_feedback_event(
-            session,
-            feedback=existing,
-            practice=practice,
-            master_name=master_name,
-        )
-        return existing, False
 
     # Create new feedback.
     feedback = Feedback(
@@ -439,8 +412,20 @@ async def upsert_feedback(
         rating=rating,
         comment=comment,
     )
-    session.add(feedback)
-    await session.flush()
+
+    # P-05: guard the concurrent first-submit race. Two parallel requests can
+    # both pass the SELECT above with existing=None; the unique constraint
+    # uq_feedback_practice_user then rejects the loser. try/except OUTSIDE
+    # begin_nested (ERR-05) so the savepoint rolls back cleanly and the outer
+    # transaction survives; convert to the same ConflictError as resubmission.
+    try:
+        async with session.begin_nested():
+            session.add(feedback)
+            await session.flush()
+    except IntegrityError:
+        raise ConflictError(
+            "Feedback already submitted and cannot be changed"
+        ) from None
 
     await record_audit(
         event="feedback_created",

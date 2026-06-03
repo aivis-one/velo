@@ -113,21 +113,18 @@ async def upsert_checkin_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> CheckinResponse:
-    """Create or update a pre-practice check-in.
+    """Create a pre-practice check-in (immutable, once only).
 
-    Returns 200 for both create and update (upsert semantics).
+    A check-in cannot be changed once submitted; a repeat submission returns
+    409 Conflict. Returns 200 on successful create.
     """
-    checkin, is_new = await upsert_checkin(
+    checkin, _is_new = await upsert_checkin(
         user,
         practice_id,
         mood=body.mood,
         session=session,
         comment=body.comment,
     )
-    # CRITICAL-6 fix: refresh only on update to fetch server-side updated_at.
-    if not is_new:
-        await session.refresh(checkin)
-
     return CheckinResponse.model_validate(checkin)
 
 
@@ -195,21 +192,18 @@ async def upsert_feedback_endpoint(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> FeedbackResponse:
-    """Create or update a post-practice feedback.
+    """Create a post-practice feedback (immutable, once only).
 
-    Returns 200 for both create and update (upsert semantics).
+    Feedback cannot be changed once submitted; a repeat submission returns
+    409 Conflict. Returns 200 on successful create.
     """
-    feedback, is_new = await upsert_feedback(
+    feedback, _is_new = await upsert_feedback(
         user,
         practice_id,
         rating=body.rating,
         session=session,
         comment=body.comment,
     )
-    # CRITICAL-6 fix: refresh only on update to fetch server-side updated_at.
-    if not is_new:
-        await session.refresh(feedback)
-
     return FeedbackResponse.model_validate(feedback)
 
 

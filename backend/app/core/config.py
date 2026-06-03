@@ -271,7 +271,9 @@ class Settings(BaseSettings):
 
     # -- Diary (Phase 8) --
     # Hours before practice.scheduled_at when check-in window opens.
-    checkin_window_hours: int = 3
+    # Changed 3 -> 24 (customer request 2026-06-03): the window now opens a
+    # full day ahead so users can check in well before the practice.
+    checkin_window_hours: int = 24
     # Hours after practice completion when feedback window closes.
     feedback_window_hours: int = 72
     # Max length of comment in check-ins and feedbacks.

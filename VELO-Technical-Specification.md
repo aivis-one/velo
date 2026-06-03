@@ -2442,8 +2442,8 @@ backend/tests/
 - [x] 13 тестов (test_checkins.py, telegram_id range 85000-85999)
 
 **Решения, принятые при реализации:**
-- Upsert паттерн: один чекин на booking, повторный POST перезаписывает mood/comment
-- Окно: scheduled_at - checkin_window_hours (3ч) .. scheduled_at
+- Insert-once: один чекин на booking, **неизменяемо** — повторный POST отклоняется `409 Conflict`, перезаписи нет (гонка закрыта P-05). Ранее повторный POST перезаписывал mood/comment — это уничтожало исходную точку данных, устранено (см. Бэковый Кодекс v1.8)
+- Окно: scheduled_at - checkin_window_hours (24ч) .. scheduled_at (3ч -> 24ч, запрос заказчика 2026-06-03)
 - Условие: booking.status == confirmed (только подтверждённые)
 - CheckType enum (PRE/POST) — розетка для будущего post-check-in (Phase 9+)
 - UniqueConstraint(booking_id, check_type) — один PRE и один POST на booking
@@ -2469,7 +2469,7 @@ backend/tests/
 - [x] 15 тестов (test_feedbacks.py, telegram_id range 86000-86999)
 
 **Решения, принятые при реализации:**
-- Upsert паттерн: один feedback на (practice, user), повторный POST перезаписывает
+- Insert-once: один feedback на (practice, user), **неизменяемо** — повторный POST отклоняется `409 Conflict`, перезаписи нет (гонка закрыта P-05). Ранее повторный POST перезаписывал rating/comment — устранено (см. Бэковый Кодекс v1.8)
 - Окно: scheduled_at + duration_minutes .. + feedback_window_hours (72ч)
 - Условие: booking.status == attended (только реально пришедшие, не confirmed/no_show/cancelled)
 - practice.status == completed (обязательно)

@@ -14,8 +14,14 @@
 // Used by: UserDashboardView, PracticeDetailView
 // ---------------------------------------------------------------------------
 
-/** Hours before scheduled_at during which check-in is allowed. */
-export const CHECKIN_WINDOW_H = 3
+/**
+ * Hours before scheduled_at during which check-in is allowed.
+ * Mirrors backend config.py checkin_window_hours (24). Changed 3 -> 24
+ * (customer request 2026-06-03). NB: this equals PRACTICE_MAX_DURATION_H by
+ * coincidence -- they are different settings (window-open vs finished-ceiling),
+ * do not merge them.
+ */
+export const CHECKIN_WINDOW_H = 24
 
 /** Hours after practice ends during which feedback is allowed. */
 export const FEEDBACK_WINDOW_H = 72

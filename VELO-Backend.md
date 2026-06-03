@@ -1,9 +1,24 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.7
-**Дата:** 2 июня 2026
+**Версия:** 1.8
+**Дата:** 3 июня 2026
 **Статус:** Active
 **Тесты:** 481 passed, 12 skipped  
+
+> **v1.8 (Check-in / feedback неизменяемы, 3 июня 2026):** чек-ин и фидбэк —
+> зафиксированные точки данных для анализа; создаются один раз и не меняются.
+> Ранее повторный `POST /practices/{id}/checkin` (и `/feedback`) шёл в
+> update-ветку `upsert_checkin` / `upsert_feedback` и **перезаписывал**
+> `mood`/`comment` (`rating`/`comment`) — это уничтожало исходную запись.
+> Update-ветка удалена: при уже существующей записи сервис возвращает
+> **`409 Conflict`**, перезаписи нет. Гонка двух одновременных первых POST
+> закрыта паттерном **P-05** (`try/except IntegrityError` снаружи
+> `begin_nested`, ERR-05) — проигравший unique-constraint получает тот же
+> `409`, а не `500`. Первый POST в окне по-прежнему создаёт запись (`200`).
+> Записи дневника (`note`/`dream`, `PATCH /diary/{id}`) остаются
+> редактируемыми. Изменены `diary/{service,router,models}.py`; тесты
+> `test_checkin_upsert_update` / `test_feedback_upsert_update` заменены на
+> `test_*_resubmission_rejected`. Детали — §2 (Diary).
 
 > **v1.7 (Attendance enrichment для master prep, 2 июня 2026):** `GET
 > /api/v1/practices/{id}/attendance` (master-only) обогащён под экран
@@ -135,8 +150,8 @@ DELETE /api/v1/practices/{id}                   -- Удалить чернови
 POST   /api/v1/practices/{id}/cancel            -- Отменить практику + возврат всем
 POST   /api/v1/practices/{id}/finalize          -- Завершить практику (мастер)
 GET    /api/v1/practices/{id}/attendance        -- Список посещаемости (мастер)
-POST   /api/v1/practices/{id}/checkin           -- Создать/обновить check-in (юзер)
-POST   /api/v1/practices/{id}/feedback          -- Создать/обновить feedback (юзер)
+POST   /api/v1/practices/{id}/checkin           -- Создать check-in (юзер; один раз, неизменяемо)
+POST   /api/v1/practices/{id}/feedback          -- Создать feedback (юзер; один раз, неизменяемо)
 GET    /api/v1/practices/{id}/insights          -- Агрегированные insights (мастер)
 GET    /api/v1/practices/{id}/ai-summary        -- AI-саммари (розетка, Phase 9)
 ```
@@ -258,6 +273,20 @@ PATCH  /api/v1/diary/{id}           -- Обновить запись
 DELETE /api/v1/diary/{id}           -- Удалить запись (soft-delete)
 GET    /api/v1/diary/feed           -- Единая лента дневника (cursor pagination)
 ```
+
+**Check-in / feedback неизменяемы (one-and-only-once).** Чек-ин и фидбэк — это
+зафиксированные точки данных для анализа: создаются **один раз и не меняются
+никогда**. `upsert_checkin` / `upsert_feedback` (`diary/service.py`) при уже
+существующей записи (`Checkin` по `booking_id`+`check_type='pre'`; `Feedback` по
+`practice_id`+`user_id`) возвращают **`409 Conflict`** — перезаписи нет. Гонка
+двух одновременных первых POST закрыта паттерном **P-05** (`try/except
+IntegrityError` СНАРУЖИ `begin_nested`, ERR-05): проигравший unique-constraint
+(`uq_checkin_booking_type` / `uq_feedback_practice_user`) получает тот же `409`,
+а не `500`. Первый POST в окне создаёт запись (`200`). NB: записи **дневника**
+(`note`/`dream`, `PATCH /diary/{id}`) остаются редактируемыми — неизменяемость
+касается только чек-ина и фидбэка. История правки контракта: ранее повторный
+POST перезаписывал `mood`/`comment` (`rating`/`comment`) — это уничтожало
+исходную точку данных и устранено.
 
 **Diary redesign (журнал событий + единая лента).** Поверх неизменных
 таблиц-источников (Booking, Practice, Checkin, Feedback, DiaryEntry) работает
@@ -790,7 +819,7 @@ Safe default — в production флаг включён.
 | `MIN_WITHDRAWAL_CENTS` | `5000` | Минимальный вывод (€50.00) |
 | `WITHDRAWAL_FEE_CENTS` | `200` | Комиссия за вывод (€2.00) |
 | `CANCELLATION_DEADLINE_HOURS` | `24` | Дедлайн бесплатной отмены |
-| `CHECKIN_WINDOW_HOURS` | `3` | За сколько часов до открывается check-in |
+| `CHECKIN_WINDOW_HOURS` | `24` | За сколько часов до открывается check-in (3 -> 24, запрос заказчика 2026-06-03) |
 | `FEEDBACK_WINDOW_HOURS` | `72` | Сколько часов после практики открыт feedback |
 | `SESSION_TTL_DAYS` | `30` | Срок жизни сессии Redis |
 | `LOG_LEVEL` | `INFO` | Уровень логирования |
@@ -897,6 +926,7 @@ velo lint          # ruff check
 | **TD-TGID-56XXX** | ✅ | `tests/test_master_public.py` | Диапазон `telegram_id` 56xxx пересекался между master_public (был 56000-56999) и admin_masters (56001-56010, 56900-56907); оба чистили весь 56xxx — зелено только из-за cleanup между модулями, хрупко | ЗАКРЫТО (24 мая): master_public перенесён в 56500-56599 (мастер 56501, вьюеры 565xx, админ 56590) и чистит только свой поддиапазон. admin_masters не тронут |
 | **TD-NOTIF-RACE** | 🧪 | `tests/test_notifications.py`, `notifications/processor.py` | Рецидив `CAL-FLAKE` после ввода второго live-воркера (авто-финализатор, см. блок-цитату ниже). Постоянный `app`-контейнер крутит lifespan-`run_processor`; тесты `exec`-аются в ТОТ ЖЕ контейнер. Стейдж-тесты зовут ГЛОБАЛЬНЫЕ `_stage_resolve/_stage_deliver/_stage_rollup` (без scope — селектят по всей таблице через `FOR UPDATE SKIP LOCKED`), live-процессор гоняется с ними → нотификация застревает в `processing` или `resolved=0`. Флаг `notification_processor_enabled` НЕ помогает: conftest гасит воркер в pytest-процессе, а не в live-uvicorn того же контейнера. Изолированный прогон `pytest tests/test_notifications.py` всегда зелёный | Временно: 3 класса под `@pytest.mark.skip` — `TestStageResolve`, `TestStageDeliver`, `TestRollup` (единственные, кто зовёт глобальные `_stage_*`). Постоянно: опциональный параметр `scope` стадиям (трогает `processor.py`) — тест дёргает стадию только по своему диапазону; ЛИБО одноразовый тест-контейнер без live-воркеров. Прочие классы нотификаций (`TestCreateNotification/TestTargetResolution/TestTemplateEngine/TestTelegramFormatter`) не тронуты |
 | **TD-LOCK-AUTOGEN** | 🧪 | Инфра, `install_velo.sh` (секция `update`) | `package-lock.json` синхронизируется с `package.json` вручную. Сервер эфемерный (сносится по плану), `npm ci` в `frontend/Dockerfile` требует синхронный lock из репозитория — рассинхрон валит сборку фронта при пересоздании сервера | Автогенерировать и пушить `package-lock.json` в репозиторий при смене зависимостей — ровно как `generated.ts` (`velo update` его регенерирует и коммитит, «Types are in sync»). Хук — рядом с генерацией типов в секции `update`: при изменении `package.json` → `npm install --package-lock-only` → commit/push lock |
+| **TD-CONFIG-FE-MIRROR** | 🧪 | `core/config.py`, `frontend/src/utils/constants.ts` | Числовые настройки, нужные и бэку, и фронту (`checkin_window_hours`/`CHECKIN_WINDOW_H`, `feedback_window_hours`/`FEEDBACK_WINDOW_H`, лимиты вывода), зеркалируются во фронт ВРУЧНУЮ — фронт собирается в статику и не читает `settings` в рантайме. При смене значения легко забыть обновить вторую сторону → расхождение окон UI vs бэк. Значения меняются крайне редко (окно чек-ина 3→24 за всё время — единственная смена), поэтому ручное зеркало пока приемлемо | Устранимо только инфраструктурой, не уборкой: либо рантайм-эндпоинт `GET /api/v1/config` (фронт тянет значения на старте; +сетевой запрос на крит. пути загрузки, +состояние «ещё не загружено»), либо расширить кодогенерацию (`generate_ts_types.py`) на числовые константы из конфига в `generated.ts` (правка генератора; значения уедут в автоген, который «MUST NOT edit by hand»). Делать как отдельную задачу с проектированием, НЕ заодно. Низкий приоритет (значения статичны) |
 
 > **Источник AUDIT-0520-*:** полный аудит ветки main от 2026-05-20.
 > Отчёт: `docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW/2026-05-20-full-audit.md` (оценка 7/10).

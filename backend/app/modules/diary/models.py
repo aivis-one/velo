@@ -11,13 +11,14 @@
 #   Window opens: scheduled_at - checkin_window_hours (config).
 #   Window closes: scheduled_at.
 #   Condition: booking.status == confirmed.
-#   Upsert: one checkin per booking, updatable within window.
+#   Insert-once: one checkin per booking, immutable. Resubmission rejected.
 #
 # FEEDBACK LIFECYCLE:
 #   Window opens: practice.status == completed.
 #   Window closes: scheduled_at + duration_minutes + feedback_window_hours.
 #   Condition: booking.status == attended.
-#   Upsert: one feedback per (practice, user), updatable within window.
+#   Insert-once: one feedback per (practice, user), immutable. Resubmission
+#   rejected.
 #
 # DIARY ENTRY:
 #   No time window. User can create/edit/delete anytime.
@@ -179,8 +180,9 @@ class DiaryEventSourceType(enum.StrEnum):
 class Checkin(UUIDMixin, TimestampMixin, Base):
     """User's mood check-in linked to a booking.
 
-    One pre-check-in per booking. Updatable within the time window
-    (scheduled_at - checkin_window_hours .. scheduled_at).
+    One pre-check-in per booking. Immutable once submitted: created only
+    within the window (scheduled_at - checkin_window_hours .. scheduled_at).
+    A resubmission is rejected (409) -- the recorded data point never changes.
     """
 
     __tablename__ = "checkins"
@@ -250,8 +252,9 @@ class Checkin(UUIDMixin, TimestampMixin, Base):
 class Feedback(UUIDMixin, TimestampMixin, Base):
     """User's feedback after a completed practice.
 
-    One feedback per user per practice. Updatable within the window
-    (practice end .. practice end + feedback_window_hours).
+    One feedback per user per practice. Immutable once submitted: created
+    only within the window (practice end .. practice end +
+    feedback_window_hours). A resubmission is rejected (409).
     """
 
     __tablename__ = "feedbacks"

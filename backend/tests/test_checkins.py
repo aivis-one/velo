@@ -172,16 +172,20 @@ async def test_checkin_create_success(
 
 
 # ===================================================================
-# POST /practices/{id}/checkin -- upsert (update existing)
+# POST /practices/{id}/checkin -- resubmission forbidden (immutable)
 # ===================================================================
 
 
 @pytest.mark.asyncio
-async def test_checkin_upsert_update(
+async def test_checkin_resubmission_rejected(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Second POST updates existing check-in, same id."""
+    """A second check-in for the same booking is rejected (409).
+
+    A check-in is a recorded data point: it can never be overwritten. The
+    original mood/comment must remain exactly as first submitted.
+    """
     master_auth = await _make_verified_master(
         client, db_session, telegram_id=85902,
     )
@@ -198,22 +202,30 @@ async def test_checkin_upsert_update(
     url = CHECKIN_URL.format(practice_id=practice.id)
     headers = auth_headers(auth["session_token"])
 
-    # First check-in.
+    # First check-in -- recorded.
     resp1 = await client.post(
-        url, json={"mood": 2}, headers=headers,
+        url, json={"mood": 2, "comment": "first and only"},
+        headers=headers,
     )
     assert resp1.status_code == 200
     checkin_id = resp1.json()["id"]
 
-    # Update check-in.
+    # Second check-in -- must be rejected, original untouched.
     resp2 = await client.post(
-        url, json={"mood": 9, "comment": "Changed my mind"},
+        url, json={"mood": 9, "comment": "tampered"},
         headers=headers,
     )
-    assert resp2.status_code == 200
-    assert resp2.json()["id"] == checkin_id  # Same record.
-    assert resp2.json()["mood"] == 9
-    assert resp2.json()["comment"] == "Changed my mind"
+    assert resp2.status_code == 409
+
+    # Verify the stored row is still the first one, unchanged.
+    detail = await client.get(
+        f"{MY_CHECKINS_URL}/{checkin_id}", headers=headers,
+    )
+    assert detail.status_code == 200
+    data = detail.json()
+    assert data["id"] == checkin_id
+    assert data["mood"] == 2
+    assert data["comment"] == "first and only"
 
 
 # ===================================================================

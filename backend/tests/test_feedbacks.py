@@ -177,16 +177,20 @@ async def test_feedback_create_success(
 
 
 # ===================================================================
-# POST /practices/{id}/feedback -- upsert (update existing)
+# POST /practices/{id}/feedback -- resubmission forbidden (immutable)
 # ===================================================================
 
 
 @pytest.mark.asyncio
-async def test_feedback_upsert_update(
+async def test_feedback_resubmission_rejected(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Second POST updates existing feedback, same id."""
+    """A second feedback for the same (practice, user) is rejected (409).
+
+    Feedback is a recorded data point: it can never be overwritten. The
+    original rating/comment must remain exactly as first submitted.
+    """
     master_auth = await _make_verified_master(
         client, db_session, telegram_id=86902,
     )
@@ -203,23 +207,31 @@ async def test_feedback_upsert_update(
     url = FEEDBACK_URL.format(practice_id=practice.id)
     headers = auth_headers(auth["session_token"])
 
-    # First feedback.
+    # First feedback -- recorded.
     resp1 = await client.post(
-        url, json={"rating": 6}, headers=headers,
+        url, json={"rating": 6, "comment": "first and only"},
+        headers=headers,
     )
     assert resp1.status_code == 200
     feedback_id = resp1.json()["id"]
 
-    # Update feedback.
+    # Second feedback -- must be rejected, original untouched.
     resp2 = await client.post(
         url,
-        json={"rating": 9, "comment": "Changed my mind"},
+        json={"rating": 9, "comment": "tampered"},
         headers=headers,
     )
-    assert resp2.status_code == 200
-    assert resp2.json()["id"] == feedback_id  # Same record.
-    assert resp2.json()["rating"] == 9
-    assert resp2.json()["comment"] == "Changed my mind"
+    assert resp2.status_code == 409
+
+    # Verify the stored row is still the first one, unchanged.
+    detail = await client.get(
+        f"{MY_FEEDBACKS_URL}/{feedback_id}", headers=headers,
+    )
+    assert detail.status_code == 200
+    data = detail.json()
+    assert data["id"] == feedback_id
+    assert data["rating"] == 6
+    assert data["comment"] == "first and only"
 
 
 # ===================================================================
