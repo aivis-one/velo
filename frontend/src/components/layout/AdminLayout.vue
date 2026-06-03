@@ -50,12 +50,20 @@ defineEmits<{
   min-height: 100dvh;
   min-height: 100vh;
   background: transparent;
+  /* Anchor for the floating (position:absolute) VTabBar. Without this the bar
+     resolves its bottom:0 against an ancestor further up the tree and "flies
+     off". MobileLayout already does this; AdminLayout was missed when the tab
+     bar switched from sticky to absolute. */
+  position: relative;
 }
 
 .admin-layout__main {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-4);
+  /* Bottom padding clears the floating tab bar so admin content scrolls fully
+     into view instead of hiding under it. */
+  padding: var(--space-4) var(--space-4)
+    calc(112px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }
 </style>
