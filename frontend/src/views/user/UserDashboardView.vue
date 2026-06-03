@@ -25,8 +25,12 @@
   <div class="dashboard">
 
     <!-- Greeting: floats as an island above the fog (G-1) so the feed scrolls
-         under it. Teleports into MobileLayout's island layer when present. -->
-    <Teleport to=".mobile-layout__island" :disabled="!floating">
+         under it. Teleports into MobileLayout's island layer when present.
+         `defer` resolves the teleport target AFTER the current render flush, so
+         it works even on the FIRST mount (the island is rendered by the parent
+         layout) — without it Vue logs "Invalid Teleport target on mount: null",
+         the greeting silently fails to render, and a follow-up patch crashes. -->
+    <Teleport defer to=".mobile-layout__island" :disabled="!floating">
       <div
         class="dashboard__greeting"
         :class="{ 'dashboard__greeting--floating': floating }"

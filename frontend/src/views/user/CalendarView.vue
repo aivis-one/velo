@@ -21,8 +21,11 @@
 <template>
   <div class="calendar">
     <!-- Title + week strip float as an island above the fog (G-1); the practice
-         list scrolls under it so the date nav is always in place. -->
-    <Teleport to=".mobile-layout__island" :disabled="!floating">
+         list scrolls under it so the date nav is always in place.
+         `defer` lets the teleport find the layout's island even on first mount
+         (target is rendered by the parent) — avoids the "Invalid Teleport target
+         on mount: null" crash that blanked the heading + broke the screen. -->
+    <Teleport defer to=".mobile-layout__island" :disabled="!floating">
       <div
         class="calendar__island"
         :class="{ 'calendar__island--floating': floating }"

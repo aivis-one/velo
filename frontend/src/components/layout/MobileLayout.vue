@@ -14,6 +14,18 @@
     :class="{ 'mobile-layout--fill': fill }"
   >
     <slot name="header" />
+    <!-- Floating header island (G-1): VHeader (and tab-screen headings) teleport
+         themselves here so they sit ABOVE the masked feed instead of being eaten
+         by the fog. MUST be rendered BEFORE <main> so the teleport target exists
+         in the DOM before the slotted view (which teleports into it) mounts.
+         The views also use <Teleport defer> as a second safeguard, but keeping
+         the target first in source order makes the dependency explicit and
+         avoids the first-mount "Invalid Teleport target" crash. The layer is
+         absolutely positioned, so its DOM order does not change where it paints.
+         Empty until a screen's header mounts; click-through, the header's own
+         interactive bits re-enable taps. Its measured height drives the feed's
+         top clearance (see mainStyle). -->
+    <div ref="islandEl" class="mobile-layout__island" />
     <main
       class="mobile-layout__main"
       :class="{ 'mobile-layout__main--fill': fill }"
@@ -21,12 +33,6 @@
     >
       <slot />
     </main>
-    <!-- Floating header island (G-1): VHeader (and tab-screen headings) teleport
-         themselves here so they sit ABOVE the masked feed instead of being eaten
-         by the fog. Empty until a screen's header mounts; the layer is
-         click-through, the header's own interactive bits re-enable taps. Its
-         measured height drives the feed's top clearance (see mainStyle). -->
-    <div ref="islandEl" class="mobile-layout__island" />
     <VTabBar
       v-if="!hideTabBar"
       :items="tabs"

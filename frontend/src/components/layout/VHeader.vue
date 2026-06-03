@@ -20,7 +20,7 @@
        teleport the header into that island so it floats ABOVE the masked feed
        instead of being eaten by the fog (G-1). Elsewhere (shell-less screens,
        admin) `floating` is false and it renders inline exactly as before. -->
-  <Teleport to=".mobile-layout__island" :disabled="!floating">
+  <Teleport defer to=".mobile-layout__island" :disabled="!floating">
     <header class="v-header" :class="{ 'v-header--floating': floating }">
       <div class="v-header__left">
         <VBackButton
