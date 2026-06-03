@@ -309,7 +309,9 @@ onMounted(() => {
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
+  /* White field standard (was glass-blue, which read as transparent). Blue border
+     kept: this is the active "custom amount" field. */
+  background: var(--velo-bg-card-solid);
   border: 2px solid var(--velo-border-input-focus);
   border-radius: 5px;
 }
