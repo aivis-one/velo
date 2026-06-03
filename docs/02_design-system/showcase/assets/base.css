@@ -58,6 +58,9 @@ body {
   background: var(--velo-nav-inactive-bg);
 }
 
+/* Global focus ring (A-04 / QG-10) — visible, >=3:1 vs white */
+:focus-visible{ outline:none; box-shadow:var(--velo-effect-focus); border-radius:var(--radius-sm); }
+
 /* Skip-to-content (a11y) — first focusable on each page */
 .ds-skip{
   position:absolute; left:var(--space-2); top:-48px; z-index:var(--z-toast);

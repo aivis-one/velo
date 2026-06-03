@@ -210,7 +210,7 @@
   --velo-effect-elevation-2: none;
   --velo-effect-elevation-3: none;
   --velo-effect-glow:  var(--velo-shadow-glow);
-  --velo-effect-focus: 0 0 0 2px var(--velo-blue-200);  /* NO SOURCE (skill A-01) */
+  --velo-effect-focus: 0 0 0 2px var(--velo-blue-500);  /* NO SOURCE (skill A-01); blue-500 = 4.39:1 vs white (>=3, QG-10) */
 
   /* =========================================================================
    * §3 — COMPONENT / LAYOUT (Layer 3) — earned: card + banner define multiple
