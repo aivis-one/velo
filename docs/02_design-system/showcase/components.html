@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VELO DS — Components</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  .matrix{display:flex;gap:var(--space-3);flex-wrap:wrap;align-items:center;margin:var(--space-3) 0}
+  .col{display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-start}
+  .lab{font-size:var(--text-xs);color:var(--velo-text-secondary);font-family:monospace}
+  .src{font-size:var(--text-xs);padding:2px 8px;border-radius:var(--radius-xl);background:var(--velo-glass-teal-30);color:var(--velo-teal-600)}
+  .nosrc{background:var(--velo-glass-peach-40);color:var(--velo-peach-700)}
+  dl.desc{display:grid;grid-template-columns:max-content 1fr;gap:4px var(--space-4);margin-top:var(--space-3);font-size:var(--text-sm)}
+  dl.desc dt{color:var(--velo-text-secondary);font-family:monospace}
+  section[data-component]{border-top:1px solid var(--velo-border-light);padding-top:var(--space-5);margin-top:var(--space-5)}
+
+  /* ---- VButton (real: pill, white border, glow, blur) ---- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);
+    font-family:var(--font-body);font-weight:400;border:1px solid #fff;cursor:pointer;
+    transition:all var(--transition-base);border-radius:var(--radius-full);
+    backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);box-shadow:var(--velo-shadow-glow)}
+  .btn-sm{padding:8px 16px;font-size:var(--text-xs);min-height:36px}
+  .btn-md{padding:12px 24px;font-size:var(--text-sm);min-height:50px}
+  .btn-primary{background:var(--velo-primary);color:#fff}
+  .btn-secondary{background:var(--velo-glass-blue-60);color:var(--velo-text-primary)}
+  .btn-danger{background:var(--velo-pink-300);color:#fff}
+  .btn-ghost{background:var(--velo-glass-white-01);color:var(--velo-text-primary)}
+  .btn:focus-visible{outline:none;box-shadow:var(--velo-effect-focus)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  /* ---- Link ---- */
+  a.lnk{color:var(--velo-primary);text-underline-offset:3px}
+  a.lnk:hover{color:var(--velo-primary-dark)}
+  a.lnk:focus-visible{outline:2px solid var(--velo-border-input-focus);border-radius:4px}
+  /* ---- Input / field (white form standard) ---- */
+  .field{display:flex;flex-direction:column;gap:6px;max-width:300px}
+  .field label{font-size:var(--text-base);color:var(--velo-text-primary)}
+  .field .ctl{background:var(--velo-bg-card-solid);border:1px solid var(--velo-border-light);
+    border-radius:var(--radius-md);padding:12px 14px;font:inherit;color:var(--velo-text-primary)}
+  .field .ctl:focus{outline:none;border-color:var(--velo-border-input-focus)}
+  .field .ctl.err{border-color:var(--velo-error)}
+  .field .help{font-size:var(--text-xs);color:var(--velo-text-secondary)}
+  .field .emsg{font-size:var(--text-xs);color:var(--velo-pink-700)}
+  /* ---- Checkbox / Radio ---- */
+  .chk{width:22px;height:22px;border:1px solid var(--velo-border);border-radius:6px;display:inline-flex;align-items:center;justify-content:center;background:#fff}
+  .chk.on{background:var(--velo-primary);border-color:var(--velo-primary);color:#fff}
+  .rad{width:22px;height:22px;border:1px solid var(--velo-border);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#fff}
+  .rad.on::after{content:"";width:11px;height:11px;border-radius:50%;background:var(--velo-primary)}
+  /* ---- Switch (real VSwitch) ---- */
+  .sw{position:relative;width:42px;height:25px;border-radius:var(--radius-full);background:var(--velo-border);display:inline-block}
+  .sw.on{background:var(--velo-primary)}
+  .sw::after{content:"";position:absolute;top:2.5px;left:2.5px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform var(--transition-base)}
+  .sw.on::after{transform:translateX(17px)}
+  .sw.dis{opacity:.5}
+  /* ---- Select ---- */
+  .sel{display:inline-flex;align-items:center;gap:var(--space-4);justify-content:space-between;background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-md);padding:12px 14px;min-width:200px;color:var(--velo-text-primary)}
+  .sel .cv{color:var(--velo-text-secondary)}
+  /* ---- Card (white canon) ---- */
+  .card{background:var(--velo-bg-card-solid);border:1px solid #fff;border-radius:var(--radius-md);padding:var(--space-4);min-width:200px;color:var(--velo-text-primary);box-shadow:var(--velo-effect-glow)}
+  .card.outlined{border:1px solid var(--velo-border-light);box-shadow:none}
+  /* ---- Badge / Tag (real) ---- */
+  .badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;font-size:var(--text-xs);border-radius:var(--radius-full)}
+  .b-success{background:var(--velo-glass-teal-30);color:var(--velo-teal-600)}
+  .b-warning{background:var(--velo-glass-peach-40);color:var(--velo-peach-700)}
+  .b-error{background:var(--velo-pink-100);color:var(--velo-pink-300)}
+  .b-info{background:var(--velo-glass-teal-30);color:var(--velo-teal-600)}
+  .tag{display:inline-flex;padding:4px 12px;font-size:var(--text-xs);border-radius:var(--radius-full)}
+  .t-blue{background:var(--velo-blue-100);color:var(--velo-primary)}
+  .t-pink{background:var(--velo-pink-100);color:var(--velo-pink-300)}
+  .t-sand{background:var(--velo-sand-100);color:var(--velo-peach-700)}
+  /* ---- Banner (colored alert) ---- */
+  .banner{display:flex;gap:var(--velo-banner-gap-icon-text);align-items:flex-start;padding:var(--velo-banner-padding);
+    border-radius:var(--radius-md);border:var(--velo-banner-border-width) solid;min-height:var(--velo-banner-min-height);max-width:420px;font-size:var(--text-sm)}
+  .a-info{background:var(--velo-info-bg);border-color:var(--velo-info);color:var(--velo-info-text)}
+  .a-success{background:var(--velo-success-bg);border-color:var(--velo-success);color:var(--velo-success-text)}
+  .a-warning{background:var(--velo-warning-bg);border-color:var(--velo-warning-border);color:var(--velo-warning-text)}
+  .a-error{background:var(--velo-error-bg);border-color:var(--velo-error-border);color:var(--velo-pink-700)}
+  /* ---- Modal ---- */
+  .modal{background:var(--velo-bg-card-solid);border:1px solid #fff;border-radius:var(--radius-md);padding:var(--space-5);max-width:340px;box-shadow:var(--velo-effect-glow)}
+  .scrim{background:linear-gradient(135deg,var(--velo-glass-blue-15),var(--velo-glass-teal-30));padding:var(--space-5);border-radius:var(--radius-md)}
+  /* ---- Tabs (bottom nav style) ---- */
+  .tabs{display:inline-flex;gap:var(--space-2);background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-full);padding:6px}
+  .tab{padding:8px 16px;border-radius:var(--radius-full);color:var(--velo-text-secondary);font-size:var(--text-sm)}
+  .tab.act{background:var(--velo-nav-active-bg-glass);color:#fff}
+  /* ---- Avatar ---- */
+  .av{border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--velo-blue-100);color:var(--velo-primary-dark);font-weight:400;overflow:hidden}
+  .av-xs{width:24px;height:24px;font-size:11px}.av-sm{width:32px;height:32px;font-size:13px}
+  .av-md{width:44px;height:44px;font-size:16px}.av-lg{width:64px;height:64px;font-size:22px}
+  .av-xl{width:88px;height:88px;font-size:30px}
+</style>
+</head>
+<body>
+<a href="#main" class="ds-skip">К содержимому</a>
+<nav class="ds-nav" aria-label="Разделы дизайн-системы">
+ <a href="index.html">Cover</a><a href="foundations.html">Foundations</a>
+ <a href="icons.html">Icons</a><a href="components.html" aria-current="page">Components</a>
+ <a href="patterns.html">Patterns</a><a href="playground.html">Playground</a>
+</nav>
+<main id="main" class="ds-shell">
+<header><h1>Components — Tier 1</h1>
+<p class="ds-muted">14 базовых компонентов. <span class="src">источник VELO</span> = извлечено 1:1;
+<span class="src nosrc">нет источника</span> = дефолт скилла в наших токенах. Все значения — <code>--velo-*</code>.
+A11Y по контракту A-01..A-10. (Tier-2 + Patterns — на отдельных страницах.)</p></header>
+
+<!-- T1-1 Button -->
+<section data-component="Button" data-tier="1">
+  <h2>T1-1 · Button <span class="src">источник: VButton</span></h2>
+  <div class="matrix">
+    <div class="col"><span class="lab">primary</span>
+      <div data-variant="Variant=primary;Size=md;State=default"><button class="btn btn-md btn-primary">Записаться</button></div>
+      <div data-variant="Variant=primary;Size=sm;State=default"><button class="btn btn-sm btn-primary">Записаться</button></div>
+      <div data-variant="Variant=primary;Size=md;State=disabled"><button class="btn btn-md btn-primary" disabled>Записаться</button></div>
+    </div>
+    <div class="col"><span class="lab">secondary</span>
+      <div data-variant="Variant=secondary;Size=md;State=default"><button class="btn btn-md btn-secondary">Подробнее</button></div>
+      <div data-variant="Variant=secondary;Size=sm;State=default"><button class="btn btn-sm btn-secondary">Подробнее</button></div>
+    </div>
+    <div class="col"><span class="lab">danger</span>
+      <div data-variant="Variant=danger;Size=md;State=default"><button class="btn btn-md btn-danger">Отменить</button></div>
+    </div>
+    <div class="col"><span class="lab">ghost</span>
+      <div data-variant="Variant=ghost;Size=md;State=default"><button class="btn btn-md btn-ghost">Назад</button></div>
+    </div>
+  </div>
+  <dl class="desc">
+    <dt>PURPOSE</dt><dd>Действия. Пилюля (radius-full), бел. рамка, glow, лёгкий blur — фирменный стиль VELO.</dd>
+    <dt>VARIANTS</dt><dd>primary / secondary / danger / ghost (+ outline в коде) × sm/md × default/hover/focus/disabled.</dd>
+    <dt>A11Y</dt><dd>A-03 клавиатура (нативный &lt;button&gt;); A-04 focus-ring (effect-focus); A-06 контраст (primary 4.39:1 UI).</dd>
+  </dl>
+</section>
+
+<!-- T1-2 Link -->
+<section data-component="Link" data-tier="1">
+  <h2>T1-2 · Link <span class="src nosrc">нет отд. компонента</span></h2>
+  <div class="matrix">
+    <div data-variant="Variant=inline;State=default">Текст со <a class="lnk" href="#">ссылкой</a> внутри.</div>
+    <div data-variant="Variant=standalone;State=default"><a class="lnk" href="#">Все практики →</a></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Навигационные/inline-ссылки. Цвет primary, focus-ring.</dd>
+  <dt>A11Y</dt><dd>A-03 нативный &lt;a&gt;; A-04 focus visible; underline-offset для читаемости.</dd></dl>
+</section>
+
+<!-- T1-3 Form Field -->
+<section data-component="Form Field" data-tier="1">
+  <h2>T1-3 · Form Field <span class="src">источник: VInput/VTextarea</span></h2>
+  <div class="matrix">
+    <div class="field" data-variant="State=default;Size=md">
+      <label for="f1">Имя</label><input id="f1" class="ctl" placeholder="Введите имя">
+      <span class="help">Как к вам обращаться</span>
+    </div>
+    <div class="field" data-variant="State=error;Size=md">
+      <label for="f2">Email</label><input id="f2" class="ctl err" value="bad@">
+      <span class="emsg">Неверный формат</span>
+    </div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Обёртка лейбл+контрол+подсказка+ошибка. Белая плашка, лейбл Marmelad 18.</dd>
+  <dt>A11Y</dt><dd>A-02 &lt;label for&gt; связан; A-04 focus border; ошибка текстом, не только цветом.</dd></dl>
+</section>
+
+<!-- T1-4 Input -->
+<section data-component="Input" data-tier="1">
+  <h2>T1-4 · Input / Text Field <span class="src">источник: VInput</span></h2>
+  <div class="matrix">
+    <div data-variant="State=default;Size=md"><input class="ctl" placeholder="default"></div>
+    <div data-variant="State=focus;Size=md"><input class="ctl" style="border-color:var(--velo-border-input-focus)" value="focus"></div>
+    <div data-variant="State=error;Size=md"><input class="ctl err" value="error"></div>
+    <div data-variant="State=disabled;Size=md"><input class="ctl" value="disabled" disabled style="opacity:.5"></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Однострочное поле. Белый канон, focus = border-input-focus.</dd>
+  <dt>A11Y</dt><dd>A-02 label; A-04 focus visible; placeholder не заменяет label.</dd></dl>
+</section>
+
+<!-- T1-5 Checkbox -->
+<section data-component="Checkbox" data-tier="1">
+  <h2>T1-5 · Checkbox <span class="src">источник: VCheckbox</span></h2>
+  <div class="matrix">
+    <div data-variant="State=unchecked"><span class="chk"></span></div>
+    <div data-variant="State=checked"><span class="chk on">✓</span></div>
+    <div data-variant="State=indeterminate"><span class="chk on">–</span></div>
+    <div data-variant="State=disabled"><span class="chk" style="opacity:.5"></span></div>
+  </div>
+  <dl class="desc"><dt>A11Y</dt><dd>A-03 пробел переключает; A-04 focus-ring; role=checkbox + aria-checked.</dd></dl>
+</section>
+
+<!-- T1-6 Radio -->
+<section data-component="Radio" data-tier="1">
+  <h2>T1-6 · Radio <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix">
+    <div data-variant="State=unselected"><span class="rad"></span></div>
+    <div data-variant="State=selected"><span class="rad on"></span></div>
+    <div data-variant="State=disabled"><span class="rad" style="opacity:.5"></span></div>
+  </div>
+  <dl class="desc"><dt>A11Y</dt><dd>A-03 стрелки внутри группы; role=radiogroup/radio; aria-checked.</dd></dl>
+</section>
+
+<!-- T1-7 Switch -->
+<section data-component="Toggle" data-tier="1">
+  <h2>T1-7 · Toggle / Switch <span class="src">источник: VSwitch</span></h2>
+  <div class="matrix">
+    <div data-variant="State=off"><span class="sw"></span></div>
+    <div data-variant="State=on"><span class="sw on"></span></div>
+    <div data-variant="State=disabled"><span class="sw dis"></span></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>42×25 пилюля, knob 20px, on = primary.</dd>
+  <dt>A11Y</dt><dd>A-03 пробел/enter; role=switch + aria-checked; A-04 focus.</dd></dl>
+</section>
+
+<!-- T1-8 Select -->
+<section data-component="Select" data-tier="1">
+  <h2>T1-8 · Select / Dropdown <span class="src">источник: VSelect</span></h2>
+  <div class="matrix">
+    <div data-variant="State=closed;Size=md"><div class="sel"><span>Направление</span><span class="cv">▾</span></div></div>
+    <div data-variant="State=open;Size=md"><div class="sel" style="border-color:var(--velo-border-input-focus)"><span>Йога</span><span class="cv">▴</span></div></div>
+  </div>
+  <dl class="desc"><dt>A11Y</dt><dd>A-03 клавиатура (стрелки/enter/esc); aria-expanded; listbox/option роли.</dd></dl>
+</section>
+
+<!-- T1-9 Card -->
+<section data-component="Card" data-tier="1">
+  <h2>T1-9 · Card <span class="src">источник: VCard (белый канон)</span></h2>
+  <div class="matrix">
+    <div data-variant="Variant=flat;Padding=md"><div class="card outlined">Flat / outlined<br><span class="ds-muted" style="font-size:var(--text-sm)">border-light, без тени</span></div></div>
+    <div data-variant="Variant=elevated;Padding=md"><div class="card">Elevated<br><span class="ds-muted" style="font-size:var(--text-sm)">#fff + glow</span></div></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Контейнер-поверхность. Белый канон: #fff, рамка #fff, radius-md, glow.</dd>
+  <dt>NOTES</dt><dd>«Elevated» = glow (VELO плоский, drop-shadow не используем).</dd></dl>
+</section>
+
+<!-- T1-10 Badge -->
+<section data-component="Badge" data-tier="1">
+  <h2>T1-10 · Badge <span class="src">источник: VBadge (+ VTag)</span></h2>
+  <div class="matrix">
+    <div data-variant="Variant=success;Size=sm"><span class="badge b-success">подтверждено</span></div>
+    <div data-variant="Variant=warning;Size=sm"><span class="badge b-warning">ожидание</span></div>
+    <div data-variant="Variant=error;Size=sm"><span class="badge b-error">отменено</span></div>
+    <div data-variant="Variant=info;Size=sm"><span class="badge b-info">новое</span></div>
+  </div>
+  <div class="matrix">
+    <div data-variant="Variant=blue;Size=sm"><span class="tag t-blue">йога</span></div>
+    <div data-variant="Variant=pink;Size=sm"><span class="tag t-pink">тантра</span></div>
+    <div data-variant="Variant=sand;Size=sm"><span class="tag t-sand">somatic</span></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Статусы (VBadge) и теги-чипы (VTag). Пилюли, мягкие тинты.</dd>
+  <dt>A11Y</dt><dd>A-06 контраст текста ≥ AA; статус дублируется текстом, не только цветом.</dd></dl>
+</section>
+
+<!-- T1-11 Banner -->
+<section data-component="Banner" data-tier="1">
+  <h2>T1-11 · Alert / Banner <span class="src">источник: Banner</span></h2>
+  <div class="col">
+    <div data-variant="Severity=info;Dismissible=no"><div class="banner a-info">Ваша практика начнётся через 15 минут.</div></div>
+    <div data-variant="Severity=success;Dismissible=no"><div class="banner a-success">Бронирование подтверждено.</div></div>
+    <div data-variant="Severity=warning;Dismissible=yes"><div class="banner a-warning">Заполните профиль, чтобы записаться. ✕</div></div>
+    <div data-variant="Severity=error;Dismissible=no"><div class="banner a-error">Не удалось оплатить. Попробуйте снова.</div></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Цветной алерт (по Figma). Тинты warning/success/info/error из токенов.</dd>
+  <dt>A11Y</dt><dd>role=status/alert; иконка + текст; кнопка закрытия с aria-label.</dd></dl>
+</section>
+
+<!-- T1-12 Modal -->
+<section data-component="Modal" data-tier="1">
+  <h2>T1-12 · Modal / Dialog <span class="src">источник: VModal</span></h2>
+  <div class="matrix">
+    <div data-variant="Size=md"><div class="scrim"><div class="modal"><h3 style="margin:0 0 8px">Отменить запись?</h3>
+      <p class="ds-muted" style="font-size:var(--text-sm);margin:0 0 16px">Место освободится для других участников.</p>
+      <div style="display:flex;gap:8px"><button class="btn btn-sm btn-ghost">Назад</button><button class="btn btn-sm btn-danger">Отменить</button></div>
+    </div></div></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Bottom-sheet / centered. Белая панель + glow, scrim — стеклянный градиент.</dd>
+  <dt>A11Y</dt><dd>A-03/A-05 фокус-трап; Esc закрывает; role=dialog + aria-modal; возврат фокуса.</dd></dl>
+</section>
+
+<!-- T1-13 Tabs -->
+<section data-component="Tabs" data-tier="1">
+  <h2>T1-13 · Tabs <span class="src nosrc">из таб-бара (частично)</span></h2>
+  <div class="matrix">
+    <div data-variant="Orientation=h;State=active"><div class="tabs"><span class="tab act">Календарь</span><span class="tab">Дневник</span><span class="tab">Профиль</span></div></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Переключение разделов. Активный = nav-active-bg-glass.</dd>
+  <dt>A11Y</dt><dd>A-03 стрелки между табами; role=tablist/tab/tabpanel; aria-selected.</dd></dl>
+</section>
+
+<!-- T1-14 Avatar -->
+<section data-component="Avatar" data-tier="1">
+  <h2>T1-14 · Avatar <span class="src">источник: VAvatar</span></h2>
+  <div class="matrix">
+    <div data-variant="Size=xs;Type=initials"><span class="av av-xs">АП</span></div>
+    <div data-variant="Size=sm;Type=initials"><span class="av av-sm">АП</span></div>
+    <div data-variant="Size=md;Type=initials"><span class="av av-md">АП</span></div>
+    <div data-variant="Size=lg;Type=initials"><span class="av av-lg">АП</span></div>
+    <div data-variant="Size=xl;Type=initials"><span class="av av-xl">АП</span></div>
+  </div>
+  <dl class="desc"><dt>PURPOSE</dt><dd>Аватар мастера/юзера. Круг, blue-100 фон, инициалы/фото/иконка.</dd>
+  <dt>A11Y</dt><dd>alt для фото; инициалы — aria-label с полным именем.</dd></dl>
+</section>
+
+<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Components Tier-1 (14) · 2026-06-04</footer>
+</main>
+</body></html>
