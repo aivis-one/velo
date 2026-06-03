@@ -295,6 +295,83 @@ A11Y по контракту A-01..A-10. (Tier-2 + Patterns — на отдел�
   <dt>A11Y</dt><dd>alt для фото; инициалы — aria-label с полным именем.</dd></dl>
 </section>
 
-<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Components Tier-1 (14) · 2026-06-04</footer>
+<h1 style="margin-top:var(--space-10)">Components — Tier 2</h1>
+<p class="ds-muted">12 рекомендованных. Те же правила источника.</p>
+<style>
+  .tip{display:inline-block;background:var(--velo-primary-dark);color:#fff;font-size:var(--text-xs);padding:6px 10px;border-radius:var(--radius-md)}
+  .pop{background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-md);box-shadow:var(--velo-effect-glow);padding:var(--space-3);max-width:220px;font-size:var(--text-sm)}
+  .menu{background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-md);box-shadow:var(--velo-effect-glow);min-width:180px;overflow:hidden}
+  .menu .mi{padding:10px 14px;font-size:var(--text-sm);color:var(--velo-text-primary)}
+  .menu .mi:hover{background:var(--velo-nav-inactive-bg)}
+  .pager{display:inline-flex;gap:6px}
+  .pager .pg{min-width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-full);font-size:var(--text-sm);color:var(--velo-text-secondary);border:1px solid var(--velo-border-light)}
+  .pager .pg.act{background:var(--velo-primary);color:#fff;border-color:var(--velo-primary)}
+  .crumb{font-size:var(--text-sm);color:var(--velo-text-secondary)}.crumb a{color:var(--velo-primary)}
+  .prog{width:220px;height:8px;border-radius:var(--radius-full);background:var(--velo-nav-inactive-bg);overflow:hidden}
+  .prog .fill{height:100%;background:var(--velo-primary);border-radius:var(--radius-full)}
+  .spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--velo-nav-inactive-bg);border-top-color:var(--velo-primary);animation:spin var(--velo-duration-slower) linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .slider{width:220px;height:6px;border-radius:var(--radius-full);background:var(--velo-nav-inactive-bg);position:relative}
+  .slider .fl{position:absolute;left:0;top:0;height:100%;width:55%;background:var(--velo-primary);border-radius:var(--radius-full)}
+  .slider .th{position:absolute;left:calc(55% - 9px);top:-6px;width:18px;height:18px;border-radius:50%;background:#fff;border:1px solid var(--velo-border);box-shadow:var(--velo-effect-glow)}
+  .acc{max-width:340px;border:1px solid var(--velo-border-light);border-radius:var(--radius-md);overflow:hidden;background:#fff}
+  .acc .hd{padding:12px 14px;display:flex;justify-content:space-between;color:var(--velo-text-primary)}
+  .acc .bd{padding:0 14px 12px;font-size:var(--text-sm);color:var(--velo-text-secondary)}
+  .toast{display:inline-flex;align-items:center;gap:var(--space-2);background:#fff;border:1px solid #fff;border-radius:var(--radius-full);box-shadow:var(--velo-effect-glow);padding:10px 16px;font-size:var(--text-sm);color:var(--velo-text-primary)}
+  .skel{border-radius:var(--radius-md);background:linear-gradient(90deg,var(--velo-blue-100),var(--velo-glass-white-25),var(--velo-blue-100));background-size:200% 100%;animation:sh 1.4s infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .divider{height:1px;background:var(--velo-border-light);width:240px}
+</style>
+
+<section data-component="Tooltip" data-tier="2"><h2>T2-1 · Tooltip <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix"><div data-variant="Position=top"><span class="tip">Свободно 3 места</span></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>aria-describedby; появляется по focus и hover; Esc скрывает.</dd></dl></section>
+
+<section data-component="Popover" data-tier="2"><h2>T2-2 · Popover <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix"><div data-variant="Position=bottom;Size=md"><div class="pop"><b>Фильтр</b><br><span class="ds-muted">Направление, стиль, время</span></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>фокус-трап опц.; Esc; aria-expanded на триггере.</dd></dl></section>
+
+<section data-component="Menu" data-tier="2"><h2>T2-3 · Menu <span class="src">источник: VMenu</span></h2>
+  <div class="matrix"><div data-variant="State=open"><div class="menu"><div class="mi">Редактировать</div><div class="mi">Поделиться</div><div class="mi">Удалить</div></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>A-03 стрелки/Enter/Esc; role=menu/menuitem; возврат фокуса на триггер.</dd></dl></section>
+
+<section data-component="Pagination" data-tier="2"><h2>T2-4 · Pagination <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix"><div data-variant="Variant=numeric"><div class="pager"><span class="pg">‹</span><span class="pg act">1</span><span class="pg">2</span><span class="pg">3</span><span class="pg">›</span></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>nav[aria-label]; aria-current=page на активной.</dd></dl></section>
+
+<section data-component="Breadcrumb" data-tier="2"><h2>T2-5 · Breadcrumb <span class="src nosrc">нет источника (есть VBackButton)</span></h2>
+  <div class="matrix"><div data-variant="Length=3"><div class="crumb"><a href="#">Практики</a> / <a href="#">Йога</a> / Хатха</div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>nav[aria-label=breadcrumb]; aria-current на последней.</dd></dl></section>
+
+<section data-component="Progress" data-tier="2"><h2>T2-6 · Progress bar <span class="src">источник: VProgressBar</span></h2>
+  <div class="matrix"><div data-variant="Variant=determinate;Size=md"><div class="prog"><div class="fill" style="width:62%"></div></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>role=progressbar; aria-valuenow/min/max.</dd></dl></section>
+
+<section data-component="Spinner" data-tier="2"><h2>T2-7 · Spinner <span class="src">источник: VLoader</span></h2>
+  <div class="matrix"><div data-variant="Size=md;Color=primary"><span class="spin"></span></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>role=status + aria-label «Загрузка»; A-08 reduced-motion останавливает.</dd></dl></section>
+
+<section data-component="Slider" data-tier="2"><h2>T2-8 · Slider <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix"><div data-variant="Variant=single;State=default"><div class="slider"><div class="fl"></div><div class="th"></div></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>role=slider; стрелки меняют; aria-valuenow/min/max.</dd></dl></section>
+
+<section data-component="Accordion" data-tier="2"><h2>T2-9 · Accordion <span class="src">источник: VAccordion</span></h2>
+  <div class="matrix"><div data-variant="State=expanded"><div class="acc"><div class="hd">Что взять с собой <span>▴</span></div><div class="bd">Коврик, удобную одежду, воду.</div></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>A-03 Enter/Space; aria-expanded; button-заголовок.</dd></dl></section>
+
+<section data-component="Toast" data-tier="2"><h2>T2-10 · Toast <span class="src">источник: VToast/VNotification</span></h2>
+  <div class="matrix"><div data-variant="Severity=success;Position=bottom"><div class="toast">✓ Запись сохранена</div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>role=status (aria-live=polite); авто-скрытие с паузой по hover/focus.</dd></dl></section>
+
+<section data-component="Skeleton" data-tier="2"><h2>T2-11 · Skeleton <span class="src nosrc">нет источника</span></h2>
+  <div class="matrix"><div data-variant="Shape=card"><div style="display:flex;flex-direction:column;gap:8px;width:240px">
+    <div class="skel" style="height:80px"></div><div class="skel" style="height:14px;width:70%"></div><div class="skel" style="height:14px;width:50%"></div></div></div></div>
+  <dl class="desc"><dt>A11Y</dt><dd>aria-hidden; реальный контент с aria-busy на контейнере.</dd></dl></section>
+
+<section data-component="Divider" data-tier="2"><h2>T2-12 · Divider <span class="src">источник: VDivider</span></h2>
+  <div class="matrix"><div data-variant="Orientation=horizontal"><div class="divider"></div></div></div>
+  <dl class="desc"><dt>NOTES</dt><dd>border-light 1px; декоративный (role=separator при семантике).</dd></dl></section>
+
+<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Components Tier-1 (14) + Tier-2 (12) · 2026-06-04</footer>
 </main>
 </body></html>

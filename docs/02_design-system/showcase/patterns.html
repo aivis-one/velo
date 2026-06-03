@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VELO DS — Patterns</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* component looks reused from the catalog (canonicalized into components.css at EXPORT) */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);font-weight:400;border:1px solid #fff;
+    border-radius:var(--radius-full);box-shadow:var(--velo-shadow-glow);cursor:pointer;padding:12px 24px;font-size:var(--text-sm)}
+  .btn.sm{padding:8px 16px;font-size:var(--text-xs)}
+  .btn.primary{background:var(--velo-primary);color:#fff}.btn.ghost{background:var(--velo-glass-white-01);color:var(--velo-text-primary)}
+  .btn.danger{background:var(--velo-pink-300);color:#fff}
+  .card{background:var(--velo-bg-card-solid);border:1px solid #fff;border-radius:var(--radius-md);padding:var(--space-4);box-shadow:var(--velo-effect-glow)}
+  .av{width:46px;height:46px;border-radius:50%;background:var(--velo-blue-100);color:var(--velo-primary-dark);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+  .badge{display:inline-flex;padding:4px 10px;font-size:var(--text-xs);border-radius:var(--radius-full)}
+  .b-success{background:var(--velo-glass-teal-30);color:var(--velo-teal-600)}
+  .b-warning{background:var(--velo-glass-peach-40);color:var(--velo-peach-700)}
+  .tag{display:inline-flex;padding:4px 12px;font-size:var(--text-xs);border-radius:var(--radius-full);background:var(--velo-blue-100);color:var(--velo-primary)}
+  .banner{display:flex;gap:14px;align-items:center;padding:15px;border-radius:var(--radius-md);border:2px solid;min-height:64px;font-size:var(--text-sm)}
+  .a-success{background:var(--velo-success-bg);border-color:var(--velo-success);color:var(--velo-success-text)}
+  .tabs{display:inline-flex;gap:var(--space-2);background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-full);padding:6px}
+  .tab{padding:8px 16px;border-radius:var(--radius-full);color:var(--velo-text-secondary);font-size:var(--text-sm)}
+  .tab.act{background:var(--velo-nav-active-bg-glass);color:#fff}
+  .pager{display:inline-flex;gap:6px}.pg{min-width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-full);font-size:var(--text-sm);color:var(--velo-text-secondary);border:1px solid var(--velo-border-light)}
+  .pg.act{background:var(--velo-primary);color:#fff;border-color:var(--velo-primary)}
+  .field{display:flex;flex-direction:column;gap:6px}.field label{font-size:var(--text-base)}
+  .ctl{background:#fff;border:1px solid var(--velo-border-light);border-radius:var(--radius-md);padding:12px 14px;font:inherit;color:var(--velo-text-primary)}
+  .pat{border:1px solid var(--velo-border-light);border-radius:var(--radius-md);padding:var(--space-5);background:var(--velo-bg-subtle);max-width:420px}
+  .pid{font-family:monospace;font-size:var(--text-xs);color:var(--velo-text-secondary);margin-bottom:var(--space-3)}
+  .row{display:flex;gap:var(--space-3);align-items:center}
+  .listcard{display:flex;gap:var(--space-3);align-items:center;background:#fff;border:1px solid #fff;border-radius:var(--radius-md);padding:13px 15px;box-shadow:var(--velo-effect-glow)}
+  .grow{flex:1;min-width:0}
+</style>
+</head>
+<body>
+<a href="#main" class="ds-skip">К содержимому</a>
+<nav class="ds-nav" aria-label="Разделы дизайн-системы">
+ <a href="index.html">Cover</a><a href="foundations.html">Foundations</a>
+ <a href="icons.html">Icons</a><a href="components.html">Components</a>
+ <a href="patterns.html" aria-current="page">Patterns</a><a href="playground.html">Playground</a>
+</nav>
+<main id="main" class="ds-shell">
+<header><h1>Patterns</h1>
+<p class="ds-muted">Композиции из компонентов Tier-1/2 (Layer-3). Только ссылки на компоненты — никаких новых примитивов.</p></header>
+
+<section class="ds-section"><h2>P-001 · Карточка практики</h2>
+  <div class="pat"><div class="pid">P-001 — Avatar + текст + Badge + Button</div>
+    <div class="listcard">
+      <span class="av">ЙА</span>
+      <div class="grow"><div style="color:var(--velo-text-primary)">Хатха-йога утром</div>
+        <div class="ds-muted" style="font-size:var(--text-sm)">Анна · 09:00 · 60 мин</div></div>
+      <span class="badge b-success">3 места</span>
+      <button class="btn sm primary">Записаться</button>
+    </div>
+  </div>
+</section>
+
+<section class="ds-section"><h2>P-002 · Подтверждение брони</h2>
+  <div class="pat"><div class="pid">P-002 — Banner + Card + Buttons</div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+      <div class="banner a-success">Бронирование подтверждено</div>
+      <div class="card">
+        <div style="color:var(--velo-text-primary);margin-bottom:6px">Дыхательная практика</div>
+        <div class="ds-muted" style="font-size:var(--text-sm)">Завтра · 19:00 · студия «Воздух»</div>
+        <div class="row" style="margin-top:var(--space-4)">
+          <span class="tag">breathwork</span><span class="badge b-warning">оплата при входе</span>
+        </div>
+      </div>
+      <div class="row"><button class="btn ghost sm">В календарь</button><button class="btn danger sm">Отменить</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="ds-section"><h2>P-003 · Список с фильтром</h2>
+  <div class="pat"><div class="pid">P-003 — Tabs + Cards + Pagination</div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+      <div class="tabs"><span class="tab act">Сегодня</span><span class="tab">Неделя</span><span class="tab">Все</span></div>
+      <div class="listcard"><span class="av">МЕ</span><div class="grow"><div>Медитация</div><div class="ds-muted" style="font-size:var(--text-sm)">18:00</div></div><span class="badge b-success">свободно</span></div>
+      <div class="listcard"><span class="av">ЗВ</span><div class="grow"><div>Звукотерапия</div><div class="ds-muted" style="font-size:var(--text-sm)">20:00</div></div><span class="badge b-warning">1 место</span></div>
+      <div class="row" style="justify-content:center"><div class="pager"><span class="pg">‹</span><span class="pg act">1</span><span class="pg">2</span><span class="pg">›</span></div></div>
+    </div>
+  </div>
+</section>
+
+<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Patterns · 2026-06-04</footer>
+</main>
+</body></html>
