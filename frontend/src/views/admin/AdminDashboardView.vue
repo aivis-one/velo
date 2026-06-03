@@ -18,24 +18,17 @@
       </div>
 
       <template v-else-if="stats">
-        <!-- Alert banner: pending verifications -->
-        <div
+        <!-- Alert banner: pending verifications (shared Banner — was a hand-built tile) -->
+        <Banner
           v-if="stats.pending_verifications > 0"
-          class="admin-dashboard__alert"
-          role="button"
-          tabindex="0"
+          variant="warning"
+          :title="`${stats.pending_verifications} заявк${pendingSuffix} на верификацию`"
+          body="Нажмите, чтобы перейти"
+          clickable
           @click="router.push({ name: 'admin-masters' })"
-          @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
         >
-          <span class="admin-dashboard__alert-icon">⚠️</span>
-          <div class="admin-dashboard__alert-body">
-            <div class="admin-dashboard__alert-title">
-              {{ stats.pending_verifications }} заявк{{ pendingSuffix }} на верификацию
-            </div>
-            <div class="admin-dashboard__alert-sub">Нажмите, чтобы перейти</div>
-          </div>
-          <span class="admin-dashboard__alert-arrow">→</span>
-        </div>
+          <template #icon><IconWarning :size="28" /></template>
+        </Banner>
 
         <!-- Stats grid -->
         <div class="admin-dashboard__grid">
@@ -66,36 +59,30 @@
         <!-- Quick actions -->
         <div class="admin-dashboard__section-title">Быстрые действия</div>
         <div class="admin-dashboard__actions">
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
+          <VCard
+            clickable
+            class="admin-dashboard__action"
             @click="router.push({ name: 'admin-masters' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-masters' })"
           >
             <span class="admin-dashboard__action-icon">👥</span>
             <div class="admin-dashboard__action-label">Мастера</div>
-          </div>
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
+          </VCard>
+          <VCard
+            clickable
+            class="admin-dashboard__action"
             @click="router.push({ name: 'admin-reports' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-reports' })"
           >
             <span class="admin-dashboard__action-icon">⚠️</span>
             <div class="admin-dashboard__action-label">Жалобы</div>
-          </div>
-          <div
-            class="admin-dashboard__action-card"
-            role="button"
-            tabindex="0"
+          </VCard>
+          <VCard
+            clickable
+            class="admin-dashboard__action"
             @click="router.push({ name: 'admin-consistency' })"
-            @keydown.enter.space.prevent="router.push({ name: 'admin-consistency' })"
           >
             <span class="admin-dashboard__action-icon">🔍</span>
             <div class="admin-dashboard__action-label">Семафоры</div>
-          </div>
+          </VCard>
         </div>
       </template>
 
@@ -118,7 +105,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VStatCard, VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VEmptyState, VButton } from '@/components/ui'
+import Banner from '@/components/shared/Banner.vue'
+import { IconWarning } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getAdminStats } from '@/api/admin'
 import type { AdminStatsResponse } from '@/api/admin'
@@ -165,50 +154,6 @@ onMounted(loadStats)
   gap: var(--space-4);
 }
 
-/* -- Alert banner -- */
-.admin-dashboard__alert {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  background: var(--velo-warning-bg);
-  border: 1px solid var(--velo-warning-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3) var(--space-4);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.admin-dashboard__alert:hover {
-  background: var(--velo-warning-bg-hover);
-}
-
-.admin-dashboard__alert-icon {
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.admin-dashboard__alert-body {
-  flex: 1;
-}
-
-.admin-dashboard__alert-title {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-warning-text);
-}
-
-.admin-dashboard__alert-sub {
-  font-size: var(--text-xs);
-  color: var(--velo-warning-text-light);
-  margin-top: 2px;
-}
-
-.admin-dashboard__alert-arrow {
-  color: var(--velo-warning-text);
-  font-weight: 400;
-  flex-shrink: 0;
-}
-
 /* -- Stats grid -- */
 .admin-dashboard__grid {
   display: grid;
@@ -231,22 +176,17 @@ onMounted(loadStats)
   gap: var(--space-3);
 }
 
-.admin-dashboard__action-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+/* Quick-action tile = white VCard primitive (surface/border/radius/clickable from
+   VCard); here only the inner centred layout + horizontal padding tweak. */
+.admin-dashboard__action {
   padding: var(--space-4) var(--space-2);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
-.admin-dashboard__action-card:active {
+.admin-dashboard__action:active {
   opacity: 0.8;
 }
 

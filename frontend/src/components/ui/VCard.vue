@@ -16,7 +16,10 @@
       'v-card--clickable': clickable,
       'v-card--no-padding': !padding,
     }"
+    :role="clickable ? 'button' : undefined"
+    :tabindex="clickable ? 0 : undefined"
     @click="clickable ? $emit('click', $event) : undefined"
+    @keydown.enter.space.prevent="clickable ? $emit('click', $event) : undefined"
   >
     <slot />
   </div>
@@ -35,7 +38,7 @@ withDefaults(
 )
 
 defineEmits<{
-  click: [event: MouseEvent]
+  click: [event: MouseEvent | KeyboardEvent]
 }>()
 </script>
 
