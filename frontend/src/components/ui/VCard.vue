@@ -41,8 +41,11 @@ defineEmits<{
 
 <style scoped>
 .v-card {
-  background: var(--velo-bg-card, white);
-  border: 1px solid var(--velo-border);
+  /* White surface standard (Figma 2026-06): opaque white fill + 1px white
+     border + radius-md. Replaces the old glass fill (--velo-bg-card) + blue
+     border (--velo-border), which no longer match the design. */
+  background: var(--velo-bg-card-solid);
+  border: 1px solid #ffffff;
   border-radius: var(--radius-md);
   padding: var(--space-4);
   transition: all var(--transition-base);
