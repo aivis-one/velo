@@ -1,16 +1,31 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>VELO Design System — Cover</title>
-  <!-- fonts.css self-hosts Marmelad; tokens.css (P1) primitives+semantic; base.css chrome -->
   <link rel="stylesheet" href="assets/fonts.css" />
   <link rel="stylesheet" href="assets/tokens.css" />
   <link rel="stylesheet" href="assets/base.css" />
+  <style>
+    .cover{
+      min-height:62vh; border-radius:var(--radius-md); margin:var(--space-4) 0 var(--space-8);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+      padding:var(--space-10) var(--space-5); color:var(--velo-white);
+      /* multi-stop brand gradient (>=3 stops) */
+      background:linear-gradient(135deg,
+        var(--velo-blue-700) 0%, var(--velo-blue-500) 48%, var(--velo-teal-400) 100%);
+    }
+    .cover img{width:170px; height:auto; filter:drop-shadow(var(--velo-shadow-glow))}
+    .cover h1{font-family:var(--font-heading); font-size:var(--text-2xl); margin:var(--space-5) 0 var(--space-2); letter-spacing:1px}
+    .cover p{font-size:var(--text-lg); opacity:.92; margin:0}
+    .cover .stamp{margin-top:var(--space-5); font-size:var(--text-sm); opacity:.8}
+    .cover .stamp code{background:var(--velo-glass-white-25); color:var(--velo-white)}
+  </style>
 </head>
 <body>
-  <nav class="ds-nav" aria-label="Design system sections">
+  <a href="#main" class="ds-skip">К содержимому</a>
+  <nav class="ds-nav" aria-label="Разделы дизайн-системы">
     <a href="index.html" aria-current="page">Cover</a>
     <a href="foundations.html">Foundations</a>
     <a href="icons.html">Icons</a>
@@ -19,13 +34,23 @@
     <a href="playground.html">Playground</a>
   </nav>
 
-  <main class="ds-shell">
-    <!-- P0 STUB. Cover content (gradient, logomark, version+date) is built in P3. -->
-    <header class="ds-section">
+  <main id="main" class="ds-shell">
+    <section class="cover">
+      <img src="assets/motif/logo-white.svg" alt="VELΘ" />
       <h1>VELO Design System</h1>
-      <p class="ds-muted">v1.0.0 &middot; 2026-06-03 &middot; light-only &middot; built on design-system v1.1.0</p>
-      <p class="ds-muted">Scaffold (P0). Foundations &amp; tokens land in P1–P2.</p>
-    </header>
+      <p>Стеклянно-белая система для wellness-практик в Telegram</p>
+      <div class="stamp">v1.0.0 &middot; 2026-06-04 &middot; light-only &middot; <code>design-system v1.1.0</code></div>
+    </section>
+
+    <section class="ds-section">
+      <h2>О системе</h2>
+      <p class="ds-muted">Единый источник правды для визуала VELO: слоистые токены
+      (Primitives → Semantic → Component), бренд-мотив (мандала + знак Θ), шрифт Marmelad,
+      каталог компонентов и паттернов. Цвета/размеры берём только из токенов
+      (<code>--velo-*</code>), без хардкода. Шесть разделов — см. навигацию выше.</p>
+    </section>
+
+    <footer class="ds-foot ds-muted">VELO DS v1.0.0 · 2026-06-04 · собрано по навыку design-system v1.1.0</footer>
   </main>
 </body>
 </html>

@@ -58,6 +58,19 @@ body {
   background: var(--velo-nav-inactive-bg);
 }
 
+/* Skip-to-content (a11y) — first focusable on each page */
+.ds-skip{
+  position:absolute; left:var(--space-2); top:-48px; z-index:var(--z-toast);
+  background:var(--velo-bg-card-solid); color:var(--velo-text-primary);
+  padding:var(--space-2) var(--space-4); border-radius:var(--radius-md);
+  border:1px solid var(--velo-border); transition:var(--transition-base);
+}
+.ds-skip:focus{ top:var(--space-2); }
+
+/* Footer */
+.ds-foot{ margin-top:var(--space-10); padding-top:var(--space-4);
+  border-top:1px solid var(--velo-border-light); font-size:var(--text-sm); }
+
 /* Section heading rhythm */
 .ds-section { margin-block: var(--space-8); }
 .ds-section > h2 {
