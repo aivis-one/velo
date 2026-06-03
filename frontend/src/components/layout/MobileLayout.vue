@@ -28,7 +28,10 @@
     <div ref="islandEl" class="mobile-layout__island" />
     <main
       class="mobile-layout__main"
-      :class="{ 'mobile-layout__main--fill': fill }"
+      :class="{
+        'mobile-layout__main--fill': fill,
+        'mobile-layout__main--fog': fog && !fill,
+      }"
       :style="fill ? undefined : mainStyle"
     >
       <slot />
@@ -43,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
 import { provideFloatingHeader } from '@/components/layout/useFloatingHeader'
 
@@ -51,43 +54,72 @@ import { provideFloatingHeader } from '@/components/layout/useFloatingHeader'
 provideFloatingHeader()
 
 // Measure the island so the feed clears EXACTLY its height -- any header content
-// (a short greeting or a tall title+weekstrip) gets the right fog clearance with
+// (a short greeting or a tall title+weekstrip) gets the right top clearance with
 // no hardcoded per-screen numbers.
+//
+// We watch the island with BOTH a ResizeObserver (size changes) AND a
+// MutationObserver (children added/removed). Screen headers arrive via <Teleport>
+// AFTER mount, so the island grows from 0 -> content height as a child insertion;
+// a ResizeObserver alone can miss/throttle that (e.g. a backgrounded tab), which
+// left the feed underlapping the header. The MutationObserver catches the teleport
+// insertion reliably, and we also measure once on nextTick after mount.
 const islandEl = ref<HTMLElement | null>(null)
 const islandH = ref(0)
 let ro: ResizeObserver | null = null
+let mo: MutationObserver | null = null
+function measureIsland(): void {
+  islandH.value = islandEl.value?.offsetHeight ?? 0
+}
 onMounted(() => {
   if (!islandEl.value) return
-  ro = new ResizeObserver(() => {
-    islandH.value = islandEl.value?.offsetHeight ?? 0
-  })
+  ro = new ResizeObserver(measureIsland)
   ro.observe(islandEl.value)
+  mo = new MutationObserver(measureIsland)
+  mo.observe(islandEl.value, { childList: true, subtree: true, characterData: true })
+  void nextTick(measureIsland)
 })
 onBeforeUnmount(() => {
   ro?.disconnect()
+  mo?.disconnect()
   ro = null
+  mo = null
 })
 
-// Island present (height > 0) -> override the top fog so content fades in just
-// below it. Otherwise the default global fog table (variables.css) applies.
-const mainStyle = computed(() => {
-  if (islandH.value <= 0) return {}
-  const hard = 40
-  const fade = Math.max(0, islandH.value + 16 - hard)
-  return {
-    '--fog-top-hard': `${hard}px`,
-    '--fog-top-fade': `${fade}px`,
-  }
-})
-
-defineProps<{
+const props = defineProps<{
   tabs: TabItem[]
   activeTab?: string
   fill?: boolean
   /** Hide the bottom tab bar (e.g. the diary is an immersive full-screen mode
    *  that has its own exit in the "..." menu instead of tab navigation). */
   hideTabBar?: boolean
+  /** Edge-to-edge fog mask: content dissolves at the top/bottom edges. ONLY for
+   *  long scrolling lists/feeds (dashboard, calendar, bookings, ...). Detail
+   *  screens, forms and the profile opt OUT — their footers/actions must stay
+   *  crisp, not fade into the mask. Clearance (top island + bottom tab bar) is
+   *  applied regardless of fog; this flag only toggles the fade mask. */
+  fog?: boolean
 }>()
+
+// Vertical padding + fog zones for __main. CLEARANCE is always applied so the
+// content never hides under the floating header island (top) or the floating
+// tab bar (bottom); the FADE MASK is layered on top only when `fog` is set
+// (see .mobile-layout__main--fog). Horizontal rail padding lives in the CSS.
+//
+//   top    -> measured island height + gap (floating header), else a small base
+//   bottom -> clear the floating tab bar when present, else a small base
+//   fog-*  -> mask fade zones, aligned to the clearances (used only with --fog)
+const mainStyle = computed(() => {
+  const top = islandH.value > 0 ? islandH.value + 16 : (props.fog ? 60 : 16)
+  const bottom = props.hideTabBar ? 24 : 160
+  return {
+    paddingTop: `${top}px`,
+    paddingBottom: `${bottom}px`,
+    '--fog-top-hard': '40px',
+    '--fog-top-fade': `${Math.max(0, top - 40)}px`,
+    '--fog-bot-fade': '70px',
+    '--fog-bot-hard': '90px',
+  }
+})
 
 defineEmits<{
   navigate: [to: string]
@@ -115,17 +147,19 @@ defineEmits<{
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* Diary-standard: 24px rail + 4-zone fog. Content dissolves at the top and
-     under the floating tab bar. The 4 zone sizes come from the --velo-fog-*
-     table in variables.css; aliased locally so a screen with an island can
-     override the top two via mainStyle (measured island height -> clearance).
-     Padding clears the fade zones (top hard+fade, bottom fade+hard). */
-  --fog-top-hard: var(--velo-fog-z1);
-  --fog-top-fade: var(--velo-fog-z2);
-  --fog-bot-fade: var(--velo-fog-z3);
-  --fog-bot-hard: var(--velo-fog-z4);
-  padding: calc(var(--fog-top-hard) + var(--fog-top-fade)) var(--velo-rail-pad-x)
-    calc(var(--fog-bot-fade) + var(--fog-bot-hard));
+  /* 24px content rail on both sides (Figma). Vertical padding (top island
+     clearance + bottom tab-bar clearance) comes from mainStyle inline so it can
+     react to the measured island height. */
+  padding-left: var(--velo-rail-pad-x);
+  padding-right: var(--velo-rail-pad-x);
+}
+
+/* Edge-to-edge fog: top/bottom fade mask for long scrolling lists ONLY. Opt-in
+   via the `fog` prop. The fade zones (--fog-*) are set by mainStyle and aligned
+   to the clearance padding, so content dissolves exactly at the padded edges.
+   Detail screens, forms and the profile do NOT get this class -- their footers
+   and actions stay fully opaque. */
+.mobile-layout__main--fog {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,

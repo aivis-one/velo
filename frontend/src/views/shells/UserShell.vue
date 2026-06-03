@@ -12,6 +12,7 @@
     :active-tab="activeTab"
     :fill="isFillRoute"
     :hide-tab-bar="isDiaryRoute || isFormRoute"
+    :fog="isFogRoute"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -56,5 +57,18 @@ const isDiaryRoute = computed(() =>
 const FORM_ROUTES = ['user-checkin', 'user-feedback']
 const isFormRoute = computed(() =>
   FORM_ROUTES.includes(route.name as string),
+)
+
+// Edge-to-edge fog mask: ONLY the long scrolling lists/feeds. Detail screens,
+// forms and the profile opt out (their footers/actions must stay crisp). The
+// diary owns its own fog via fill mode, so it is not listed here.
+const FOG_ROUTES = [
+  'user-dashboard',
+  'user-calendar',
+  'user-bookings',
+  'user-master-public',
+]
+const isFogRoute = computed(() =>
+  FOG_ROUTES.includes(route.name as string),
 )
 </script>
