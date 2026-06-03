@@ -28,8 +28,9 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill AppFrame's content area (it owns viewport height + safe-area once,
+     app-wide). A fresh 100dvh here double-applies and makes the logo jump. */
+  min-height: 100%;
   background: transparent;
   gap: var(--space-4);
   /* The white logo is intentionally larger than the viewport (Figma bleed,

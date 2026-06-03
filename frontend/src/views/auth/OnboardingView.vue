@@ -279,8 +279,9 @@ async function finish(): Promise<void> {
 .onboarding {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill AppFrame's content area (it owns viewport height + safe-area once,
+     app-wide). A fresh 100dvh here double-applies and makes content jump. */
+  min-height: 100%;
   padding: var(--space-6);
   background: transparent;
 }

@@ -78,14 +78,13 @@ const { isStandalone } = useAuth()
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  /* Top padding includes the Telegram content safe-area inset so the content
-     clears Telegram's own controls in fullscreen (inset 46px) while staying
-     unchanged in chat mode (inset 0px). box-sizing:border-box (global reset)
-     keeps this padding INSIDE min-height, so 100dvh never overflows. */
-  padding: calc(var(--space-6) + var(--tg-content-safe-area-inset-top, 0px))
-    var(--space-6) var(--space-6);
+  /* Fill the height AppFrame gives us, NOT a fresh 100dvh. AppFrame already
+     owns the viewport height AND the Telegram safe-area inset (applied once,
+     app-wide). Re-declaring 100dvh + the inset here double-applied both and made
+     the centered logo jump when dvh resolved / the inset arrived after paint.
+     Mirror MobileLayout: height 100%, no own safe-area. */
+  min-height: 100%;
+  padding: var(--space-6);
   background: transparent;
   text-align: center;
   /* Logo is intentionally larger than the viewport (matches Figma bleed).

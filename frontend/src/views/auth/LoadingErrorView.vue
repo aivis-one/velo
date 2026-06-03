@@ -51,8 +51,9 @@ function onRetry(): void {
 
 <style scoped>
 .auth-error {
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Fill AppFrame's content area (it owns viewport height + safe-area once,
+     app-wide). A fresh 100dvh here double-applies and makes content jump. */
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;

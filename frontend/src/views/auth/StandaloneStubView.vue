@@ -36,8 +36,9 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill AppFrame's content area (it owns viewport height + safe-area once,
+     app-wide). A fresh 100dvh here double-applies and makes content jump. */
+  min-height: 100%;
   padding: var(--space-6);
   background: transparent;
   text-align: center;
