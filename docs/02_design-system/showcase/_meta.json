@@ -58,10 +58,38 @@
   },
 
   "brand_motif_spec": {
-    "status": "deferred-to-next-session",
-    "motif": "mandala / sacred-geometry ring (welcome screen spin)",
-    "planned_roles": "hero (>=160px, source SVG) / tile (40-140px, structural reduction) / icon (<40px, flat glyph)",
-    "blocker": "needs mandala source SVG + Figma refs from operator"
+    "status": "approved 2026-06-04",
+    "principle": "Everything vector + token-recolorable, except the mandala (raster PNG, deliberate). Marmelad font is for UI TEXT only, NOT for the logo/marks — the wordmark is custom-drawn vector, not the font (operator-confirmed: font 'O' does not match the approved vector glyph).",
+    "roles": {
+      "hero": {
+        "size": ">=160px",
+        "impl": "vector lockup logo.svg (blue #4c6589) / logo-white.svg (white); OR mandala PNG for decoration",
+        "assets": "assets/motif/logo.svg, assets/motif/logo-white.svg"
+      },
+      "tile": {
+        "size": "40-140px",
+        "impl": "mandala raster (light: blue, dark: white)",
+        "assets": "assets/motif/mandala-blue.png (491x492, 63KB), assets/motif/mandala-white.png (492x492, 49KB)"
+      },
+      "icon": {
+        "size": "<40px",
+        "impl": "the brand Theta glyph (Stroke O = O-with-bar) — operator-confirmed THIS IS THE BRAND LOGO used in place of the full 'VELO' wordmark. Vector, token-recolorable via CSS mask / currentColor, in an optional circle.",
+        "asset": "assets/motif/letters/letter-theta.svg"
+      }
+    },
+    "brand_letters": {
+      "note": "VELΘ = exactly 4 custom vector glyphs (V, E, L, Θ). Operator sent all 4 as separate SVGs ('Stroke V/E/L/O'). Filled paths (no stroke). Re-saved with fill=currentColor for token recoloring. No further letters needed — body text uses the Marmelad font.",
+      "assets": "assets/motif/letters/letter-{v,e,l,theta}.svg",
+      "source": "operator Figma export (Desktop 'Stroke {V,E,L,O}.svg')"
+    },
+    "font": {
+      "family": "Marmelad (Google Fonts v19, OFL), single weight 400",
+      "role": "UI/body text only (--font-body / --font-heading)",
+      "embed": "self-hosted in DS: assets/fonts/marmelad.ttf + assets/fonts.css @font-face (no external Google link dependency)",
+      "glyph_note": "no Greek theta U+0398 in Marmelad; brand Theta is the custom vector glyph, not a font character",
+      "followup": "ttf ~139KB; woff2 conversion is a size-optimization follow-up (no converter in env)"
+    },
+    "app_home_todo": "Motif assets currently live in the DS deliverable only (docs/.../showcase/assets/). When the app first consumes the new blue mandala / letter glyphs, copy to frontend/public/icons/ (mandala-white.png already there)."
   },
 
   "source_parse": {

@@ -1,0 +1,23 @@
+/* =============================================================================
+ * VELO Design System — fonts.css
+ * -----------------------------------------------------------------------------
+ * Self-hosted brand typeface. Marmelad is VELO's single UI font (--font-body /
+ * --font-heading in tokens.css). Embedded here so the DS owns it and renders
+ * identically offline, instead of depending on an external Google Fonts <link>.
+ *
+ * Source: Google Fonts Marmelad v19 (OFL). Single weight (400 regular) — the
+ * family ships regular only; do not request bold (it synthesizes).
+ * NOTE: shipped as .ttf (~139KB). woff2 conversion is a size-optimization
+ * follow-up (no converter in this env).
+ *
+ * Glyph note: Marmelad has NO Greek theta (U+0398). The VELΘ mark uses the
+ * Cyrillic "fita" Ѳ (U+0472), which IS in the font and is the real glyph.
+ * =========================================================================== */
+
+@font-face {
+  font-family: 'Marmelad';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/marmelad.ttf') format('truetype');
+}
