@@ -1,0 +1,259 @@
+/* =============================================================================
+ * VELO Design System — tokens.css
+ * -----------------------------------------------------------------------------
+ * Layered token graph per design-system v1.1.0 (tokens.md):
+ *     LAYER 1  Primitives  — raw values, no role in the name (this file, §1)
+ *     LAYER 2  Semantic    — roles, each aliases exactly one primitive (§2, P2)
+ *    [LAYER 3  Component]   — earned component/layout tokens (§3, P2)
+ *
+ * Namespace: --velo-*  (VELO-native, see _meta.json dev-namespace). Light only.
+ * Parity contract: every value mirrors frontend/src/styles/variables.css 1:1;
+ *   the frozen diary glass world (--velo-glass-*, write-frost) is verbatim.
+ *
+ * "NO SOURCE" = value added per skill default (VELO had no source); kept catalog-
+ *   only where adopting it would change current behavior (see motion note).
+ * =========================================================================== */
+
+:root {
+
+  /* =========================================================================
+   * §1 — PRIMITIVES (Layer 1) — raw values only (T-03: no role in the name)
+   * ========================================================================= */
+
+  /* --- Neutral ----------------------------------------------------------- */
+  --velo-white: #ffffff;
+  /* VELO has no pure black; "dark" is the blue-grey ramp (blue-700). NO SOURCE
+     for neutral-1000 — intentionally absent. */
+
+  /* --- Blue / brand ramp (lightest -> darkest) --------------------------- */
+  --velo-blue-100: #e2f0fd;   /* light blue surface */
+  --velo-blue-200: #abbfda;   /* border / focus */
+  --velo-blue-500: #627a9c;   /* brand main (was --velo-primary) */
+  --velo-blue-700: #4c6589;   /* brand dark / ink (was --velo-primary-dark) */
+
+  /* --- Teal ramp --------------------------------------------------------- */
+  --velo-teal-400: #76dde6;
+  --velo-teal-600: #2f9ea8;
+  --velo-teal-700: #26767d;
+
+  /* --- Peach / amber ramp ------------------------------------------------ */
+  --velo-peach-100: #fde68a;  /* NO SOURCE name (admin warning-bg-hover one-off), value real */
+  --velo-peach-300: #fbc088;
+  --velo-peach-500: #d4863c;
+  --velo-peach-700: #a16124;
+  --velo-peach-800: #b45309;  /* NO SOURCE name (admin warning-text-light one-off), value real */
+
+  /* --- Pink / rose ramp -------------------------------------------------- */
+  --velo-pink-50:  #fff5f5;   /* NO SOURCE name (admin error-bg-subtle one-off), value real */
+  --velo-pink-100: #fde2e2;
+  --velo-pink-300: #f795a2;
+  --velo-pink-500: #d66674;   /* NO SOURCE name (feedback rating-good one-off), value real */
+  --velo-pink-700: #ad3444;
+
+  /* --- Sand -------------------------------------------------------------- */
+  --velo-sand-100: #fdf3e2;
+
+  /* --- Glass primitives — FROZEN diary world (verbatim, do not touch) ----- */
+  --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
+  --velo-glass-blue-60: rgba(171, 191, 218, 0.60);
+  --velo-glass-teal-30: rgba(118, 221, 230, 0.30);
+  --velo-glass-teal-40: rgba(118, 221, 230, 0.40);
+  --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
+  --velo-glass-pink-40: rgba(247, 149, 162, 0.4);
+  --velo-glass-white-01: rgba(255, 255, 255, 0.01);
+  --velo-glass-white-25: rgba(255, 255, 255, 0.25);
+  --velo-write-frost: rgba(255, 255, 255, 0.30);
+
+  /* --- Raw shadow primitive ---------------------------------------------- */
+  --velo-shadow-glow: 0px 0px 20.9px 7px #ffffff;  /* sole depth cue (welcome) */
+
+  /* --- Typography primitives --------------------------------------------- */
+  --font-body: 'Marmelad', 'Noto Sans', sans-serif;
+  --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
+
+  --text-xs: 14px;
+  --text-sm: 15px;
+  --text-base: 18px;
+  --text-lg: 20px;
+  --text-xl: 32px;
+  --text-2xl: 50px;
+  --text-3xl: 32px;   /* parity: equals text-xl in source */
+
+  /* --- Spacing primitives (px scale; 5==6==24, 7/9 absent in source) ------ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 14px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 24px;
+  --space-8: 33px;
+  --space-10: 48px;
+
+  /* --- Radius primitives -------------------------------------------------- */
+  --radius-sm: 15px;
+  --radius-md: 15px;
+  --radius-lg: 15px;
+  --radius-xl: 100px;
+  --radius-full: 9999px;
+
+  /* --- Motion primitives --------------------------------------------------
+   * Durations: fast/base/slow have a VELO source (= 0.15/0.2/0.3s transitions).
+   * instant/slower + ALL cubic-bezier easings are NO SOURCE (skill defaults).
+   * NOTE (parity): the in-use --transition-* tokens (§2) keep plain `ease`
+   * verbatim. These cubic-bezier easings are CATALOG-ONLY until a deliberate
+   * future adoption — wiring them now would change motion feel app-wide. */
+  --velo-duration-instant: 100ms;   /* NO SOURCE (skill default) */
+  --velo-duration-fast:    150ms;   /* = --transition-fast 0.15s */
+  --velo-duration-base:    200ms;   /* = --transition-base 0.2s */
+  --velo-duration-slow:    300ms;   /* = --transition-slow 0.3s */
+  --velo-duration-slower:  500ms;   /* NO SOURCE (skill default) */
+
+  --velo-ease-standard:   cubic-bezier(0.2, 0, 0, 1);    /* NO SOURCE (skill default) */
+  --velo-ease-out:        cubic-bezier(0, 0, 0.2, 1);    /* NO SOURCE (skill default) */
+  --velo-ease-in:         cubic-bezier(0.4, 0, 1, 1);    /* NO SOURCE (skill default) */
+  --velo-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);  /* NO SOURCE (skill default) */
+
+  /* --- Z-index primitives ------------------------------------------------ */
+  --z-background: -1;
+  --z-content: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-popup: 400;
+  --z-toast: 500;
+
+  /* =========================================================================
+   * §2 — SEMANTIC (Layer 2) — roles; each aliases exactly one primitive (T-04).
+   *   Alpha tints are kept as literal rgba (= primitive @ N%) for strict parity
+   *   with variables.css; color-mix is avoided to prevent rounding drift.
+   * ========================================================================= */
+
+  /* --- Brand roles ------------------------------------------------------- */
+  --velo-primary:       var(--velo-blue-500);
+  --velo-primary-light: var(--velo-blue-500);   /* parity: == primary in source */
+  --velo-primary-dark:  var(--velo-blue-700);
+
+  /* --- Background -------------------------------------------------------- */
+  --velo-bg-start:      var(--velo-white);
+  --velo-bg-end:        var(--velo-white);
+  --velo-bg-subtle:     rgba(98, 122, 156, 0.06);   /* = blue-500 @ 6% */
+  --velo-bg-card-solid: var(--velo-white);          /* opaque white content card */
+
+  /* --- Text -------------------------------------------------------------- */
+  --velo-text-primary:   var(--velo-blue-700);
+  --velo-text-secondary: rgba(76, 101, 137, 0.70);  /* = blue-700 @ 70% */
+  --velo-text-muted:     rgba(76, 101, 137, 0.50);  /* = blue-700 @ 50% */
+
+  /* --- Border ------------------------------------------------------------ */
+  --velo-border:             var(--velo-blue-200);
+  --velo-border-light:       rgba(171, 191, 218, 0.30);  /* = blue-200 @ 30% */
+  --velo-border-input-focus: var(--velo-blue-200);
+
+  /* --- Feedback (base) --------------------------------------------------- */
+  --velo-success: var(--velo-teal-400);
+  --velo-warning: var(--velo-peach-300);
+  --velo-error:   var(--velo-pink-300);
+  --velo-info:    var(--velo-teal-400);
+
+  /* --- Feedback (tints — admin banners / semaphore / status) ------------- */
+  --velo-warning-bg:         rgba(251, 192, 136, 0.40);  /* = peach-300 @ 40% */
+  --velo-warning-bg-hover:   var(--velo-peach-100);
+  --velo-warning-border:     var(--velo-peach-300);
+  --velo-warning-text:       var(--velo-peach-700);
+  --velo-warning-text-light: var(--velo-peach-800);
+  --velo-error-bg:           rgba(253, 226, 226, 0.40); /* = pink-100 @ 40% */
+  --velo-error-bg-subtle:    var(--velo-pink-50);
+  --velo-error-border:       var(--velo-pink-300);
+  --velo-error-text:         var(--velo-peach-700);      /* parity: source error-text = #a16124 = peach-700 */
+  --velo-success-bg:         rgba(118, 221, 230, 0.40); /* = teal-400 @ 40% */
+  --velo-success-text:       var(--velo-teal-700);
+  --velo-info-bg:            rgba(118, 221, 230, 0.40); /* = teal-400 @ 40% */
+  --velo-info-text:          var(--velo-teal-600);
+
+  /* --- Mood (diary) ------------------------------------------------------ */
+  --velo-mood-low:  var(--velo-pink-300);
+  --velo-mood-mid:  var(--velo-peach-300);
+  --velo-mood-high: var(--velo-teal-400);
+
+  /* --- Rating icon accents (feedback screen) ----------------------------- */
+  --velo-rating-confused: var(--velo-primary-dark);  /* resolves blue-700 */
+  --velo-rating-good:     var(--velo-pink-500);       /* #d66674 */
+  --velo-rating-fire:     var(--velo-peach-500);
+
+  /* --- Navigation -------------------------------------------------------- */
+  --velo-nav-active-bg:       var(--velo-blue-500);
+  --velo-nav-active-bg-glass: rgba(98, 122, 156, 0.60);  /* = blue-500 @ 60% */
+  --velo-nav-inactive-bg:     rgba(98, 122, 156, 0.15);  /* = blue-500 @ 15% */
+
+  /* --- Transitions — IN USE, verbatim ------------------------------------
+   * Parity: plain `ease`, NOT the §1 cubic-bezier easings. Do not rebind
+   * without a deliberate motion-adoption decision (would change app-wide feel). */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* --- Semantic motion pairs (catalog; map to §1 duration primitives) ----- */
+  --velo-motion-micro:      var(--velo-duration-instant);
+  --velo-motion-quick:      var(--velo-duration-fast);
+  --velo-motion-moderate:   var(--velo-duration-base);
+  --velo-motion-deliberate: var(--velo-duration-slow);
+
+  /* --- Effects — FLAT (dev-elevation-flat) -------------------------------
+   * VELO is deliberately flat: all elevations resolve to none. The sole real
+   * depth cue is the glow (welcome). Focus ring is a skill-a11y addition
+   * (NO SOURCE: VELO today focuses via border-color, not a ring) — catalog. */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --velo-effect-elevation-1: none;
+  --velo-effect-elevation-2: none;
+  --velo-effect-elevation-3: none;
+  --velo-effect-glow:  var(--velo-shadow-glow);
+  --velo-effect-focus: 0 0 0 2px var(--velo-blue-200);  /* NO SOURCE (skill A-01) */
+
+  /* =========================================================================
+   * §3 — COMPONENT / LAYOUT (Layer 3) — earned: card + banner define multiple
+   *   shared dimensions; layout/fog/nav/size are screen-frame constants.
+   *   Dimension values are raw (off the spacing scale by design); no parity
+   *   alias available, kept verbatim.
+   * ========================================================================= */
+
+  /* --- Layout frame ------------------------------------------------------ */
+  --velo-content-width:   336px;
+  --velo-screen-width:    402px;
+  --velo-screen-padding:  33px;
+  --velo-rail-pad-x:      24px;
+
+  /* --- Fog "table" (diary-standard dissolve for list screens) ------------ */
+  --velo-fog-z1: 20px;
+  --velo-fog-z2: 40px;
+  --velo-fog-z3: 70px;
+  --velo-fog-z4: 90px;
+
+  /* --- Card (PracticeListCard / MasterCard / PracticeHeroCard) ----------- */
+  --velo-card-padding-y:           13px;
+  --velo-card-padding-x:           15px;
+  --velo-card-height-list:         104px;
+  --velo-card-height-hero:         142px;
+  --velo-card-height-hero-full:    161px;
+  --velo-card-gap-icon-title:      5px;
+  --velo-card-gap-title-meta:      16px;
+  --velo-card-gap-meta-footer:     19px;
+  --velo-card-meta-row-gap:        10px;
+  --velo-card-letter-spacing-title: 0.36px;
+  --velo-card-letter-spacing-meta:  0.28px;
+  --velo-card-content-indent:      70px;
+
+  /* --- Banner ------------------------------------------------------------ */
+  --velo-banner-padding:        15px;
+  --velo-banner-border-width:   2px;
+  --velo-banner-min-height:     64px;
+  --velo-banner-gap-icon-text:  14px;
+
+  /* --- Component sizes --------------------------------------------------- */
+  --size-success-icon:   80px;   /* success screen emoji */
+  --size-practice-emoji: 56px;   /* practice type emoji in form screens */
+  --size-option-btn-min: 90px;   /* mood/rating button minimum width */
+
+}
