@@ -12,7 +12,7 @@
 <template>
   <div class="loading">
     <div class="loading__logo">
-      <VeloLogo variant="white" :size="440" />
+      <VeloLogo variant="white" :size="440" spin />
     </div>
     <div class="loading__spinner" />
   </div>

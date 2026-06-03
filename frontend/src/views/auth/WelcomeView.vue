@@ -30,7 +30,7 @@
     <div class="welcome__logo">
       <!-- White mandala variant, large -- matches Figma 01_Welcome.
            The logo already contains the VELO wordmark, so no text heading. -->
-      <VeloLogo variant="white" :size="440" />
+      <VeloLogo variant="white" :size="440" spin />
     </div>
     <p class="welcome__message">
       Пространство для практики<br />и внутреннего развития
