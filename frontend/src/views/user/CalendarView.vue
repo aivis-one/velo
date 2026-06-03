@@ -20,19 +20,28 @@
 
 <template>
   <div class="calendar">
-    <h1 class="calendar__heading">Календарь</h1>
+    <!-- Title + week strip float as an island above the fog (G-1); the practice
+         list scrolls under it so the date nav is always in place. -->
+    <Teleport to=".mobile-layout__island" :disabled="!floating">
+      <div
+        class="calendar__island"
+        :class="{ 'calendar__island--floating': floating }"
+      >
+        <h1 class="calendar__heading">Календарь</h1>
 
-    <!-- Week selector -->
-    <WeekStrip
-      :days="store.days"
-      :selected-date="store.selectedDate"
-      :days-with-practices="store.daysWithPractices"
-      :local-date-key="store.localDateKey"
-      :can-go-prev="store.canGoPrev"
-      @select-day="store.selectDay"
-      @prev-week="store.prevWeek"
-      @next-week="store.nextWeek"
-    />
+        <!-- Week selector -->
+        <WeekStrip
+          :days="store.days"
+          :selected-date="store.selectedDate"
+          :days-with-practices="store.daysWithPractices"
+          :local-date-key="store.localDateKey"
+          :can-go-prev="store.canGoPrev"
+          @select-day="store.selectDay"
+          @prev-week="store.prevWeek"
+          @next-week="store.nextWeek"
+        />
+      </div>
+    </Teleport>
 
     <!-- "Выбрать практики" control -->
     <div class="calendar__selector">
@@ -161,6 +170,7 @@ import { useRouter } from 'vue-router'
 import { useCalendarStore } from '@/stores/calendar'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import WeekStrip from '@/components/shared/WeekStrip.vue'
+import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
 import CalendarFilterModal from '@/components/shared/CalendarFilterModal.vue'
 import { IconCheck, IconClock } from '@/components/icons'
@@ -176,6 +186,10 @@ import type { CalendarFacetFilters } from '@/stores/calendar'
 
 const router = useRouter()
 const store = useCalendarStore()
+
+// Title + week strip float as an island (G-1): the date nav stays in place while
+// the practice list scrolls under it.
+const floating = useFloatingHeader()
 
 const expanded = ref(false)
 const showFilter = ref(false)
@@ -319,6 +333,22 @@ onMounted(() => {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0;
+}
+
+/* Title + week strip wrapper. */
+.calendar__island {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Floating island variant (G-1): teleported into MobileLayout's island layer.
+   Rail-aligned with the +20px top offset; the date-nav cluster (title + week
+   strip) catches taps as a unit while the practice list scrolls under it. */
+.calendar__island--floating {
+  gap: var(--space-3);
+  padding: calc(var(--space-3) + 20px) var(--velo-rail-pad-x) var(--space-3);
+  pointer-events: auto;
 }
 
 /* -- Selector -- */

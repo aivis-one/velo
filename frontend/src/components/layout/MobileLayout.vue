@@ -16,18 +16,17 @@
     <slot name="header" />
     <main
       class="mobile-layout__main"
-      :class="{
-        'mobile-layout__main--fill': fill,
-        'mobile-layout__main--has-header': !fill && headerCount > 0,
-      }"
+      :class="{ 'mobile-layout__main--fill': fill }"
+      :style="fill ? undefined : mainStyle"
     >
       <slot />
     </main>
-    <!-- Floating header island (G-1): VHeader teleports itself here so it sits
-         ABOVE the masked feed instead of being eaten by the fog. Empty until a
-         screen's VHeader mounts; the layer is click-through, the header's own
-         interactive bits re-enable taps. -->
-    <div class="mobile-layout__island" />
+    <!-- Floating header island (G-1): VHeader (and tab-screen headings) teleport
+         themselves here so they sit ABOVE the masked feed instead of being eaten
+         by the fog. Empty until a screen's header mounts; the layer is
+         click-through, the header's own interactive bits re-enable taps. Its
+         measured height drives the feed's top clearance (see mainStyle). -->
+    <div ref="islandEl" class="mobile-layout__island" />
     <VTabBar
       v-if="!hideTabBar"
       :items="tabs"
@@ -38,12 +37,42 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
 import { provideFloatingHeader } from '@/components/layout/useFloatingHeader'
 
-// Headers (VHeader) teleport into __island and register here; while one is
-// mounted the main gets extra top clearance under the island.
-const headerCount = provideFloatingHeader()
+// Host the floating-header island; headers teleport into it (see useFloatingHeader).
+provideFloatingHeader()
+
+// Measure the island so the feed clears EXACTLY its height -- any header content
+// (a short greeting or a tall title+weekstrip) gets the right fog clearance with
+// no hardcoded per-screen numbers.
+const islandEl = ref<HTMLElement | null>(null)
+const islandH = ref(0)
+let ro: ResizeObserver | null = null
+onMounted(() => {
+  if (!islandEl.value) return
+  ro = new ResizeObserver(() => {
+    islandH.value = islandEl.value?.offsetHeight ?? 0
+  })
+  ro.observe(islandEl.value)
+})
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  ro = null
+})
+
+// Island present (height > 0) -> override the top fog so content fades in just
+// below it. Otherwise the default global fog table (variables.css) applies.
+const mainStyle = computed(() => {
+  if (islandH.value <= 0) return {}
+  const hard = 40
+  const fade = Math.max(0, islandH.value + 16 - hard)
+  return {
+    '--fog-top-hard': `${hard}px`,
+    '--fog-top-fade': `${fade}px`,
+  }
+})
 
 defineProps<{
   tabs: TabItem[]
@@ -82,8 +111,8 @@ defineEmits<{
   -webkit-overflow-scrolling: touch;
   /* Diary-standard: 24px rail + 4-zone fog. Content dissolves at the top and
      under the floating tab bar. The 4 zone sizes come from the --velo-fog-*
-     table in variables.css; we alias them locally so the --has-header modifier
-     can swap only the top two (bigger clearance under the header island).
+     table in variables.css; aliased locally so a screen with an island can
+     override the top two via mainStyle (measured island height -> clearance).
      Padding clears the fade zones (top hard+fade, bottom fade+hard). */
   --fog-top-hard: var(--velo-fog-z1);
   --fog-top-fade: var(--velo-fog-z2);
@@ -109,13 +138,6 @@ defineEmits<{
     transparent calc(100% - var(--fog-bot-hard)),
     transparent 100%
   );
-}
-
-/* Screens with a floating VHeader island: bigger top clearance/fade so the feed
-   emerges from under the island instead of colliding with the header (G-1). */
-.mobile-layout__main--has-header {
-  --fog-top-hard: var(--velo-fog-header-z1);
-  --fog-top-fade: var(--velo-fog-header-z2);
 }
 
 /* Floating header island layer: pinned to the top of the (padded) frame,

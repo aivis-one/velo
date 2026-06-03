@@ -24,11 +24,17 @@
 <template>
   <div class="dashboard">
 
-    <!-- Greeting -->
-    <div class="dashboard__greeting">
-      <p class="dashboard__greeting-text">{{ greetingText }}</p>
-      <h2 class="dashboard__greeting-name">{{ userName }}</h2>
-    </div>
+    <!-- Greeting: floats as an island above the fog (G-1) so the feed scrolls
+         under it. Teleports into MobileLayout's island layer when present. -->
+    <Teleport to=".mobile-layout__island" :disabled="!floating">
+      <div
+        class="dashboard__greeting"
+        :class="{ 'dashboard__greeting--floating': floating }"
+      >
+        <p class="dashboard__greeting-text">{{ greetingText }}</p>
+        <h2 class="dashboard__greeting-name">{{ userName }}</h2>
+      </div>
+    </Teleport>
 
     <!-- Check-in alert banner (shared Banner) -->
     <Banner
@@ -209,6 +215,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
 import { usePracticesStore } from '@/stores/practices'
@@ -237,6 +244,9 @@ import type { BookingWithPracticeResponse } from '@/api/types'
 void CHECKIN_WINDOW_H
 
 const router = useRouter()
+
+// Greeting floats as an island when inside MobileLayout (G-1).
+const floating = useFloatingHeader()
 const authStore = useAuthStore()
 const bookingsStore = useBookingsStore()
 const practicesStore = usePracticesStore()
@@ -501,6 +511,14 @@ onUnmounted(() => {
 /* ===== Greeting ===== */
 .dashboard__greeting {
   margin-bottom: var(--space-6);
+}
+
+/* Floating island variant (G-1): teleported into MobileLayout's island layer.
+   Rail-aligned with the diary's +20px top offset; no in-flow margin (it no
+   longer sits in the feed). Click-through (text only). */
+.dashboard__greeting--floating {
+  margin-bottom: 0;
+  padding: calc(var(--space-3) + 20px) var(--velo-rail-pad-x) var(--space-3);
 }
 
 .dashboard__greeting-text {
