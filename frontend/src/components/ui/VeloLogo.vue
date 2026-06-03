@@ -28,7 +28,7 @@
       <div class="velo-logo__steady">
         <img
           class="velo-logo__layer"
-          src="/icons/mandala-white.svg"
+          src="/icons/mandala-white.png"
           alt=""
           aria-hidden="true"
         />
