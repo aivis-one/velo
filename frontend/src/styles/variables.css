@@ -221,4 +221,47 @@
   --velo-banner-border-width: 2px;
   --velo-banner-min-height: 64px;
   --velo-banner-gap-icon-text: 14px;
+
+  /* =========================================================================
+   * Design System v1.0 — additive token layer (EXPORT css-vars from
+   * docs/02_design-system/showcase). ADDITIVE ONLY: the 124 tokens above are
+   * unchanged (values identical, parity verified 124/124). These add the
+   * missing primitive ramp steps + the full motion scale + effect tokens that
+   * the DS canon defines. "NO SOURCE" = skill default in our tokens (VELO had
+   * no source); motion easings are CATALOG (in-use --transition-* keep `ease`).
+   * ========================================================================= */
+
+  /* Primitive ramp steps (extend-not-duplicate; values mirror existing roles) */
+  --velo-white: #ffffff;          /* = bg/card-solid; explicit neutral primitive */
+  --velo-blue-500: #627a9c;       /* = --velo-primary */
+  --velo-blue-700: #4c6589;       /* = --velo-primary-dark / text-primary */
+  --velo-peach-100: #fde68a;      /* NO SOURCE name (= warning-bg-hover) */
+  --velo-peach-800: #b45309;      /* NO SOURCE name (= warning-text-light) */
+  --velo-pink-50:  #fff5f5;       /* NO SOURCE name (= error-bg-subtle) */
+  --velo-pink-500: #d66674;       /* NO SOURCE name (= rating-good) */
+
+  /* Motion primitives — fast/base/slow have source (= --transition-* durations);
+     instant/slower + all easings NO SOURCE (catalog; --transition-* keep `ease`) */
+  --velo-duration-instant: 100ms; /* NO SOURCE */
+  --velo-duration-fast:    150ms;
+  --velo-duration-base:    200ms;
+  --velo-duration-slow:    300ms;
+  --velo-duration-slower:  500ms; /* NO SOURCE */
+  --velo-ease-standard:   cubic-bezier(0.2, 0, 0, 1);   /* NO SOURCE */
+  --velo-ease-out:        cubic-bezier(0, 0, 0.2, 1);   /* NO SOURCE */
+  --velo-ease-in:         cubic-bezier(0.4, 0, 1, 1);   /* NO SOURCE */
+  --velo-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2); /* NO SOURCE */
+
+  /* Semantic motion pairs (catalog) */
+  --velo-motion-micro:      var(--velo-duration-instant);
+  --velo-motion-quick:      var(--velo-duration-fast);
+  --velo-motion-moderate:   var(--velo-duration-base);
+  --velo-motion-deliberate: var(--velo-duration-slow);
+
+  /* Effects — flat (elevation→none; depth = glow); focus ring NO SOURCE */
+  --velo-effect-elevation-1: none;
+  --velo-effect-elevation-2: none;
+  --velo-effect-elevation-3: none;
+  --velo-effect-glow:  var(--velo-shadow-glow);
+  --velo-effect-focus: 0 0 0 2px var(--velo-blue-500); /* NO SOURCE; 4.39:1 vs white */
 }
