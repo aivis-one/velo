@@ -45,10 +45,14 @@
 #       practice_rescheduled, practice_cancelled_by_master, practice_outcome)
 #       are immutable facts: each occurrence is its own row. A booking that is
 #       made then cancelled leaves TWO rows -- honest chronology.
-#     - Per-object kinds (checkin, feedback, note, dream) map 1:1 to a source
-#       object that the user can edit. On edit we UPDATE the existing event
-#       (refresh snapshot + text_search) instead of appending -- the feed card
-#       shows the current state. On soft-delete we set is_deleted=True.
+#     - Per-object kinds map 1:1 to a source object:
+#       * checkin / feedback are append-once -- the source is immutable
+#         (resubmission rejected), so the event is created once and never
+#         refreshed.
+#       * note / dream map to an editable source. On edit we UPDATE the
+#         existing event (refresh snapshot + text_search) instead of
+#         appending -- the feed card shows the current state.
+#       On soft-delete (note/dream) we set is_deleted=True.
 #
 #   snapshot (JSONB): a point-in-time copy of the fields needed to render the
 #     feed card WITHOUT joins (practice title, master name, scheduled_at as it
@@ -144,11 +148,12 @@ class DiaryEventKind(enum.StrEnum):
       PRACTICE_CANCELLED_BY_MASTER -- master cancelled the practice.
       PRACTICE_OUTCOME           -- practice finalized (attended / no_show).
 
-    Per-object (upsert, one row per source object, refreshed on edit):
-      CHECKIN   -- mood check-in.
-      FEEDBACK  -- post-practice feedback.
-      NOTE      -- free-form diary entry.
-      DREAM     -- dream diary entry.
+    Per-object, one row per source object:
+      CHECKIN   -- mood check-in. Append-once: the source is immutable
+                   (resubmission rejected), so this event is never refreshed.
+      FEEDBACK  -- post-practice feedback. Append-once, same as CHECKIN.
+      NOTE      -- free-form diary entry. Refreshed on edit (source editable).
+      DREAM     -- dream diary entry. Refreshed on edit (source editable).
     """
 
     BOOKING_CONFIRMED = "booking_confirmed"
@@ -478,7 +483,8 @@ class DiaryEvent(JSONBMixin, UUIDMixin, TimestampMixin, Base):
             "occurred_at",
         ),
         # Per-object upsert/lookup: find the event for a given source object
-        # (e.g. refresh the checkin/feedback/entry event on edit).
+        # (refresh the note/dream event on edit; checkin/feedback are looked
+        # up once at creation -- they are immutable, never refreshed).
         Index(
             "ix_diary_events_source",
             "source_type",

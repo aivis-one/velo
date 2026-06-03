@@ -10,7 +10,7 @@
 # Coverage:
 #   - Projection on booking create  -> booking_confirmed event in feed
 #   - Projection on booking cancel  -> booking_cancelled_by_user event
-#   - Projection on check-in        -> checkin event (upsert refresh)
+#   - Projection on check-in        -> checkin event (append-once, immutable)
 #   - Projection on diary entry      -> note/dream event
 #   - Soft-delete entry             -> event drops out of feed
 #   - Projection on finalize         -> practice_outcome events (attended/no_show)
@@ -222,16 +222,17 @@ async def test_cancel_booking_appends_event(
 
 
 # ===================================================================
-# Projection: check-in (upsert refresh)
+# Projection: check-in (append-once, immutable)
 # ===================================================================
 
 
 @pytest.mark.asyncio
-async def test_checkin_creates_and_refreshes_event(
+async def test_checkin_projects_event_and_is_immutable(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Check-in projects one event; re-check-in refreshes (no duplicate)."""
+    """Check-in projects exactly one event; a resubmission is rejected (409)
+    and the projected event keeps the original mood (no overwrite)."""
     master = await _make_verified_master(client, db_session)
     pid = await _create_scheduled_practice(client, master)
     booker = await _book(client, pid, telegram_id=90003)
@@ -245,7 +246,7 @@ async def test_checkin_creates_and_refreshes_event(
     )
     await db_session.commit()
 
-    # First check-in.
+    # First check-in -- recorded, projects one event.
     resp = await client.post(
         CHECKIN_URL.format(practice_id=pid),
         json={"mood": 2, "comment": "tired"},
@@ -253,19 +254,19 @@ async def test_checkin_creates_and_refreshes_event(
     )
     assert resp.status_code == 200, resp.text
 
-    # Re-check-in (upsert) with a new mood.
+    # Resubmission -- rejected; the recorded data point cannot be changed.
     resp = await client.post(
         CHECKIN_URL.format(practice_id=pid),
         json={"mood": 9, "comment": "better now"},
         headers=auth_headers(token),
     )
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 409, resp.text
 
     body = await _feed(client, token, category="checkins")
     checkin_events = [i for i in body["items"] if i["kind"] == "checkin"]
-    # Upsert: exactly one checkin event, reflecting the latest mood.
+    # Exactly one checkin event, still reflecting the original mood.
     assert len(checkin_events) == 1
-    assert checkin_events[0]["snapshot"]["mood"] == 9
+    assert checkin_events[0]["snapshot"]["mood"] == 2
 
 
 # ===================================================================
