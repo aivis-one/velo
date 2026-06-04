@@ -165,16 +165,23 @@ const emit = defineEmits<{
 </script>
 
 <style scoped>
-/* ===== Success screen ===== */
+/* ===== Success screen =====
+ * Edge-to-edge solid white: break out of MobileLayout's rail padding and cover
+ * the whole app frame (absolute over the position:relative mobile-layout) so no
+ * mandala background shows at the edges (design: full-white success). Horizontal
+ * padding = --velo-screen-padding (33) so the 32px title fits one line. */
 .form-shell-success {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100%;
-  padding: var(--space-6);
+  padding: var(--space-6) var(--velo-screen-padding);
   text-align: center;
-  background: #ffffff;
+  background: var(--velo-bg-card-solid);
+  overflow-y: auto;
 }
 
 .form-shell-success__icon {
@@ -205,7 +212,7 @@ const emit = defineEmits<{
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
-  max-width: 320px;
+  max-width: var(--velo-content-width);
 }
 
 /* ===== Form screen ===== */
