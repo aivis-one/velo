@@ -23,6 +23,7 @@ import {
   IconRatingConfused,
   IconPen,
   IconDreamBook,
+  IconDiaryBook,
 } from '@/components/icons'
 import {
   FEED_KIND_TITLE,
@@ -189,7 +190,7 @@ export function useDiaryCardModel(
           IconRatingGood
         )
       case 'note':
-        return IconPen
+        return IconDiaryBook
       case 'dream':
         return IconDreamBook
       default:

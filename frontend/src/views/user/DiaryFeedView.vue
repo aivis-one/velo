@@ -90,9 +90,12 @@
               />
             </svg>
           </VMenuItem>
-          <!-- View toggle (list <-> thread map). Glyph + aria reflect the
+          <!-- View toggle (list <-> thread map). ВРЕМЕННО СКРЫТО флагом
+               SHOW_VIEW_TOGGLE: thread-вид сырой, прячем кнопку (и тем самым
+               вход в режим) до доработки. Код цел. Glyph + aria reflect the
                TARGET view (what tapping switches to). -->
           <VMenuItem
+            v-if="SHOW_VIEW_TOGGLE"
             :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
             @click="toggleView(); close()"
           >
@@ -341,6 +344,12 @@ const showSearch = ref(false)
 // 'map' is the alternating thread (DiaryTimeline). Resets per mount (no
 // persistence yet — add to the store later if cross-navigation memory is wanted).
 const viewMode = ref<'list' | 'map'>('list')
+
+// ВРЕМЕННО СКРЫТО (operator 2026-06-04): компактный thread-вид ('map' /
+// DiaryTimeline) выглядит сыро. Прячем переключатель в «···»-меню — без кнопки
+// режим недоступен пользователю, viewMode остаётся 'list'. КОД НЕ УДАЛЁН —
+// вернёмся к доработке thread-вида позже (см. .handoff дорожную карту).
+const SHOW_VIEW_TOGGLE = false
 
 async function toggleView(): Promise<void> {
   viewMode.value = viewMode.value === 'list' ? 'map' : 'list'
