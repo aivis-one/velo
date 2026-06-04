@@ -147,11 +147,23 @@ defineEmits<{
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Hide the scrollbar (same as the diary feed — "scrollbar hidden app-wide").
+     Otherwise the scrollbar gutter (global.css thin 4px) insets the SCROLLING
+     content on the right, while the floating header island and the tab bar live
+     in non-scrolling absolute layers at the true rail — so cards/selectors drift
+     ~scrollbar-width to the right of the chrome. Hiding it keeps every element on
+     the single --velo-rail-pad-x rail. */
+  scrollbar-width: none;       /* Firefox / standard */
+  -ms-overflow-style: none;    /* legacy Edge */
   /* 24px content rail on both sides (Figma). Vertical padding (top island
      clearance + bottom tab-bar clearance) comes from mainStyle inline so it can
      react to the measured island height. */
   padding-left: var(--velo-rail-pad-x);
   padding-right: var(--velo-rail-pad-x);
+}
+
+.mobile-layout__main::-webkit-scrollbar {
+  display: none;               /* WebKit / Blink (Telegram webview) */
 }
 
 /* Edge-to-edge fog: top/bottom fade mask for long scrolling lists ONLY. Opt-in
