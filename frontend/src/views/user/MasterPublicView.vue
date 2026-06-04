@@ -84,20 +84,23 @@
         </div>
       </VAccordion>
 
-      <!-- Upcoming practices (white accordion plate). Collapsed by default so the
-           "Задать вопрос" button stays visible without scrolling (operator
-           2026-06-03). Cards use the SAME CalendarPracticeCard as the calendar
-           list for a consistent, icon-based look (not the emoji PracticeCard). -->
-      <VAccordion v-if="upcoming.length" title="Ближайшие практики">
+      <!-- Ближайшие практики: секция (лейбл + отдельные карточки на фоне), как
+           список календаря. Раньше был белый аккордеон → карточки сливались
+           бело-на-белом в «слитный» блок. Теперь каждая практика — свой
+           прямоугольник на фоне. show-date: практики идут в разные дни, поэтому
+           показываем дату+время, а не только время (operator 2026-06-04). -->
+      <section v-if="upcoming.length" class="master-public__section">
+        <h3 class="master-public__section-title">Ближайшие практики</h3>
         <div class="master-public__practices">
           <CalendarPracticeCard
             v-for="p in upcoming"
             :key="p.id"
             :practice="p"
+            show-date
             @click="goToPractice"
           />
         </div>
-      </VAccordion>
+      </section>
 
       <!-- Ask a question (frame 6 -- not built yet) -->
       <div class="master-public__actions">
@@ -211,13 +214,16 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
+  /* Горизонтальный отступ раздаёт шелл (--velo-rail-pad-x=24), как на всех
+   * экранах; локально только vertical — иначе был двойной padding и контент
+   * у́же других экранов (operator 2026-06-04). */
+  padding: var(--space-4) 0;
 }
 
 /* Hero */
 .master-public__hero {
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
@@ -279,7 +285,7 @@ onMounted(async () => {
 .master-public__stat {
   flex: 1;
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
@@ -309,6 +315,22 @@ onMounted(async () => {
   gap: var(--space-1);
 }
 
+/* Секция «Ближайшие практики» = лейбл над карточками на фоне (тот же DS-паттерн,
+ * что «Мастер»/«ZOOM» на экране практики). Карточки — отдельные прямоугольники. */
+.master-public__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.master-public__section-title {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-text-secondary);
+  letter-spacing: var(--velo-card-letter-spacing-meta);
+  margin-bottom: var(--space-2);
+}
+
 .master-public__practices {
   display: flex;
   flex-direction: column;
@@ -319,11 +341,11 @@ onMounted(async () => {
   margin-top: var(--space-2);
 }
 
-/* Методы + Ближайшие практики: white card plate (same treatment as the
-   PracticeDetailView accordions, kept local — no shared VAccordion change). */
+/* Аккордеон «Методы»: белая card-плашка (тот же приём, что аккордеоны на
+   экране практики; локально, без правки общего VAccordion). */
 :deep(.v-accordion) {
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   border-bottom: none;
   overflow: hidden;
@@ -340,7 +362,7 @@ onMounted(async () => {
 }
 
 :deep(.v-accordion__arrow) {
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: var(--velo-text-primary);
 }
 </style>

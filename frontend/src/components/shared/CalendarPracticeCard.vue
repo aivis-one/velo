@@ -31,15 +31,22 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatTime, formatDuration, formatMoney } from '@/utils/format'
+import { formatDate, formatTime, formatDuration, formatMoney } from '@/utils/format'
 import { IconCheck, IconCalendar, IconClock } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeResponse } from '@/api/types'
 
-const props = defineProps<{
-  practice: PracticeResponse
-}>()
+const props = withDefaults(
+  defineProps<{
+    practice: PracticeResponse
+    /** Показать дату+время вместо только времени. Календарь группирует по дню,
+     *  поэтому там дата не нужна (default). На странице мастера практики идут
+     *  в разные дни — там показываем дату (showDate). */
+    showDate?: boolean
+  }>(),
+  { showDate: false },
+)
 
 defineEmits<{
   click: [id: string]
@@ -48,8 +55,11 @@ defineEmits<{
 // F5: render the time in the viewer's own profile timezone (the profile decides).
 const viewerTz = useViewerTimezone()
 
+// Первая мета-строка: дата+время (showDate) или только время (календарь).
 const time = computed(() =>
-  formatTime(props.practice.scheduled_at, viewerTz.value),
+  props.showDate
+    ? formatDate(props.practice.scheduled_at, viewerTz.value)
+    : formatTime(props.practice.scheduled_at, viewerTz.value),
 )
 
 const duration = computed(() => formatDuration(props.practice.duration_minutes))
