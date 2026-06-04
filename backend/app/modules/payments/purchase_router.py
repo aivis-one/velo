@@ -192,6 +192,19 @@ async def list_my_purchases_endpoint(
         offset=offset,
     )
 
+    # Resolve master display names for this page. The embedded PracticeSummary
+    # has no ORM source for master_name (it lives on a different row), so
+    # model_validate leaves it None -> list cards showed a "Мастер" fallback.
+    # Fill it here with the same helper the single-booking/detail responses use.
+    # Dedup by master_id so a master repeated across the page is looked up once.
+    from app.modules.masters.service import get_master_display_name
+
+    master_names: dict[UUID, str] = {}
+    for row in items:
+        mid = row[1].master_id
+        if mid not in master_names:
+            master_names[mid] = await get_master_display_name(mid, session)
+
     return PaginatedPurchasesResponse(
         items=[
             PurchaseWithPracticeResponse(
@@ -209,7 +222,9 @@ async def list_my_purchases_endpoint(
                 completed_at=p.completed_at,
                 created_at=p.created_at,
                 updated_at=p.updated_at,
-                practice=PracticeSummary.model_validate(practice),
+                practice=PracticeSummary.model_validate(practice).model_copy(
+                    update={"master_name": master_names[practice.master_id]},
+                ),
             )
             for p, practice in items
         ],
