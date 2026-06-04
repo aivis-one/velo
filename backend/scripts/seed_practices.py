@@ -68,7 +68,7 @@ for _p in (_HERE, _BACKEND):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import AuditLog
@@ -889,6 +889,38 @@ async def _has_any_booking(
     return (await session.execute(stmt)).scalar_one_or_none() is not None
 
 
+# Статусы брони, занимающие место (для клэмпа вместимости при посеве).
+# Бэкенд при бронировании режет по active-статусам, а current_participants
+# (то, что показывает «N/M мест») считает CONFIRMED+ATTENDED — берём
+# объединение «занимающих» статусов. cancelled/no_show место не держат.
+_SEAT_BOOKING_STATUSES = (
+    BookingStatus.PENDING.value,
+    BookingStatus.CONFIRMED.value,
+    BookingStatus.ATTENDED.value,
+)
+
+
+async def _practice_has_room(
+    session: AsyncSession, practice: Practice,
+) -> bool:
+    """True, если у практики есть свободное место (или вместимость безлимитна).
+
+    Считает ЖИВЫМ COUNT по занимающим место броням (поле
+    practice.current_participants во время сева ещё не пересчитано — оно
+    обновляется в самом конце). Не даёт посеву навесить активных броней сверх
+    max_participants: иначе на индивидуальных сессиях (1 место) получался
+    артефакт вида «6/1 мест». Живой пользователь так переполнить не может —
+    это страховка именно для прямой вставки сидом мимо API."""
+    if practice.max_participants is None:
+        return True
+    stmt = select(func.count(Booking.id)).where(
+        Booking.practice_id == practice.id,
+        Booking.status.in_(_SEAT_BOOKING_STATUSES),
+    )
+    taken = (await session.execute(stmt)).scalar_one()
+    return taken < practice.max_participants
+
+
 async def ensure_test_user(
     session: AsyncSession, tu: dict, dry_run: bool,
 ) -> tuple[User | None, str]:
@@ -1097,6 +1129,8 @@ async def seed_one_test_user(
     # 1. Исторические attended-брони (+ confirmed/outcome события) на completed.
     attended_bookings: list[tuple[Practice, Booking]] = []
     for practice in completed[:n_attended]:
+        if not await _practice_has_room(session, practice):
+            continue  # вместимость исчерпана — не переполняем места
         booking = await create_seed_booking(session, user, practice)
         if booking is None:
             continue  # уже существует (идемпотентность) либо юзер == мастер
@@ -1121,6 +1155,8 @@ async def seed_one_test_user(
 
     # 3. Будущие confirmed-брони на scheduled-практики.
     for practice in scheduled[:n_upcoming]:
+        if not await _practice_has_room(session, practice):
+            continue  # вместимость исчерпана — не переполняем места
         booking = await create_seed_booking(session, user, practice)
         if booking is None:
             continue
@@ -1174,6 +1210,8 @@ async def seed_one_test_user(
         for practice in practices:
             if await _has_any_booking(session, user.id, practice.id):
                 continue  # идемпотентность
+            if not await _practice_has_room(session, practice):
+                continue  # вместимость исчерпана — не переполняем места
             booking = await create_seed_booking(session, user, practice)
             if booking is None:
                 continue
