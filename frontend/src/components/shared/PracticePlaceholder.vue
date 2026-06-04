@@ -63,14 +63,17 @@ const art = computed(() => ART[props.direction ?? ''] ?? ART.meditation)
 </script>
 
 <style scoped>
-/* The SVG art is 392x255 and already carries the card, the centred glyph, the
-   faint half-tone motif and the white glow. We only size it; the visible card
-   (336x199) sits inside with the glow margin, matching the design. */
+/* The SVG art is the 336x199 card (centred ring + direction glyph + faint
+   half-tone motif). The white glow is NO LONGER baked into the SVG — it comes
+   from the --velo-shadow-glow DS token here, so the glow is controlled centrally
+   (one token -> all cards). Rounded to --radius-md so the glow hugs the corners. */
 .ph {
   display: block;
   width: 100%;
-  max-width: 392px;
+  max-width: var(--velo-content-width);
   height: auto;
   margin-inline: auto;
+  border-radius: var(--radius-md);
+  box-shadow: var(--velo-shadow-glow);
 }
 </style>
