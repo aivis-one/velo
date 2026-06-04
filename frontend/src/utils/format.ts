@@ -181,3 +181,15 @@ export function isFull(current: number, max: number | null): boolean {
   if (max === null) return false
   return current >= max
 }
+
+/**
+ * Strip a trailing " (эфир)" marker from a practice title.
+ *
+ * Some seeded / manually created practices append "(эфир)" to the title (see
+ * seed.py). Live practices already show a "В эфире" badge, so the suffix is
+ * redundant noise in the title itself. Single source of truth for cleaning it
+ * (FormShell check-in/feedback header; dashboard nearest-practice card).
+ */
+export function cleanPracticeTitle(title: string): string {
+  return title.replace(/\s*\(эфир\)\s*$/i, '')
+}

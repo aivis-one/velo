@@ -31,7 +31,9 @@
       <span class="form-shell__practice-meta-cell">
         с {{ practice?.master_name ?? 'Мастером' }}
       </span>
-      <span class="form-shell__practice-meta-cell">Завершена</span>
+      <span class="form-shell__practice-meta-cell">
+        <IconCalendar :size="14" /> Завершена
+      </span>
     </template>
 
     <!-- Rating slider -->
@@ -78,6 +80,7 @@ import {
   IconRatingGood,
   IconRatingFire,
   IconHeart,
+  IconCalendar,
 } from '@/components/icons'
 import FormShell from '@/components/shared/FormShell.vue'
 import MoodSlider from '@/components/shared/MoodSlider.vue'

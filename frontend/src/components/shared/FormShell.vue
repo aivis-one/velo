@@ -66,7 +66,7 @@
       <PracticeHeroCard
         v-if="practice"
         variant="form"
-        :title="practice.title"
+        :title="cleanTitle"
         :direction="practice.direction"
       >
         <template #meta>
@@ -131,12 +131,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
+import { cleanPracticeTitle } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
-defineProps<{
+const props = defineProps<{
   backLabel: string
   practice: PracticeResponse | null
   practiceLoading: boolean
@@ -162,6 +164,13 @@ const emit = defineEmits<{
   skip: []
   'update:comment': [value: string]
 }>()
+
+// Заголовок без суффикса «(эфир)» — единый хелпер (live-практику и так
+// маркирует бейдж «В эфире»; в названии скобки не нужны). Покрывает оба
+// экрана на FormShell: check-in и feedback.
+const cleanTitle = computed(() =>
+  props.practice ? cleanPracticeTitle(props.practice.title) : '',
+)
 </script>
 
 <style scoped>
