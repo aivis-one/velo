@@ -142,8 +142,21 @@ const normalizedSize = computed(() =>
 }
 
 .v-btn:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Disabled (non-loading): one clear neutral state for EVERY variant — muted
+   glass fill + muted text, flat (no glow / no blur). Replaces the old
+   opacity:0.5 that just washed the variant colour and read as "broken".
+   DS-wide: applies to all VButton usages. Loading keeps its variant colour +
+   spinner (excluded via :not(.v-btn--loading)). */
+.v-btn:disabled:not(.v-btn--loading) {
+  background: var(--velo-nav-inactive-bg);
+  color: var(--velo-text-muted);
+  border-color: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* -- Loading -- */
