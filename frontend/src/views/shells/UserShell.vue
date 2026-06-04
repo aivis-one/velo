@@ -11,7 +11,7 @@
     :tabs="USER_TABS"
     :active-tab="activeTab"
     :fill="isFillRoute"
-    :hide-tab-bar="isDiaryRoute || isFormRoute"
+    :hide-tab-bar="isDiaryRoute || isFormRoute || keyboardOpen"
     :fog="isFogRoute"
     @navigate="router.push($event)"
   >
@@ -24,9 +24,14 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MobileLayout } from '@/components/layout'
 import { USER_TABS } from '@/router/tabs'
+import { useKeyboardOpen } from '@/composables/useKeyboardOpen'
 
 const route = useRoute()
 const router = useRouter()
+
+// Hide the floating tab bar while the soft keyboard is open, so it does not ride
+// up over a focused input (e.g. the "запрос мастеру" field on booking-confirmed).
+const { keyboardOpen } = useKeyboardOpen()
 
 // Active tab: a route may pin one via meta.activeTab (e.g. the post-booking
 // screen lights up Calendar). Otherwise match the path to the closest tab
