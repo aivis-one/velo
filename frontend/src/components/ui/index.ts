@@ -7,6 +7,7 @@
 
 export { default as VButton } from './VButton.vue'
 export { default as VBackButton } from './VBackButton.vue'
+export { default as VMoreLink } from './VMoreLink.vue'
 export { default as VInput } from './VInput.vue'
 export { default as VTextarea } from './VTextarea.vue'
 export { default as VSelect } from './VSelect.vue'

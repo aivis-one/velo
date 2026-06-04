@@ -189,13 +189,10 @@
         </div>
       </div>
 
-      <!-- "Подробнее" link -> AI-summary screen (16). -->
-      <div
-        class="dashboard__ai-more"
-        @click="router.push({ name: 'user-ai-summary' })"
-      >
-        <IconArrowRight :size="20" class="dashboard__ai-more-icon" />
-        <span class="dashboard__ai-more-label">Подробнее</span>
+      <!-- "Подробнее" → AI-summary screen (16). Единый VMoreLink (слово +
+           белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
+      <div class="dashboard__ai-more">
+        <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
       </div>
     </section>
 
@@ -209,7 +206,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
-import { VLoader, VButton, VBadge } from '@/components/ui'
+import { VLoader, VButton, VBadge, VMoreLink } from '@/components/ui'
 import {
   IconClock,
   IconCalendar,
@@ -659,28 +656,9 @@ onUnmounted(() => {
   color: var(--velo-text-muted);
 }
 
-/* "Подробнее" link row -> AI-summary screen (16). */
+/* "Подробнее" → AI-summary screen (16). Сам контрол — общий VMoreLink;
+ * здесь только отступ от карточки AI-саммари над ним. */
 .dashboard__ai-more {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
   margin-top: var(--space-4);
-  color: var(--velo-text-primary);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.dashboard__ai-more:hover {
-  opacity: 0.8;
-}
-
-.dashboard__ai-more-icon {
-  color: var(--velo-text-primary);
-}
-
-.dashboard__ai-more-label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
 }
 </style>

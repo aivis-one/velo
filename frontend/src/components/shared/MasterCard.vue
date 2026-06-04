@@ -38,23 +38,14 @@
         </div>
       </div>
     </div>
-    <button
-      class="master-card__more"
-      aria-label="Профиль мастера"
-      @click="onMore"
-    >
-      <span class="master-card__more-text">Подробнее</span>
-      <span class="master-card__more-pill">
-        <IconArrowRight :size="18" />
-      </span>
-    </button>
+    <VMoreLink @click="onMore" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { VTag, VAvatar } from '@/components/ui'
-import { IconCheck, IconArrowRight } from '@/components/icons'
+import { VTag, VAvatar, VMoreLink } from '@/components/ui'
+import { IconCheck } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 
 const props = withDefaults(
@@ -155,44 +146,6 @@ function onMore(): void {
   margin-top: var(--space-1);
 }
 
-/* Footer-кнопка «Подробнее» — отдельным row под card (text label + pill
- * со стрелкой, right-aligned). */
-.master-card__more {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  /* Figma: text ends x=259, pill starts x=272.5 → gap 13. */
-  gap: 13px;
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.master-card__more:hover {
-  opacity: 0.8;
-}
-
-.master-card__more-text {
-  font-family: var(--font-body);
-  font-size: 14px;
-  letter-spacing: 0.28px;
-  color: var(--velo-text-primary);
-}
-
-/* «Подробнее» = тот же белый pill, что VBackButton (63×40, без рамки,
- * фон --velo-bg-card-solid, радиус full) — единая «понятная» кнопка-стрелка
- * на весь проект (operator 2026-06-04). Стрелка вправо = вперёд (в профиль). */
-.master-card__more-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 63px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--velo-bg-card-solid);
-  border: none;
-  color: var(--velo-text-primary);
-}
+/* «Подробнее» — общий компонент VMoreLink (слово + белый pill со стрелкой).
+ * Стили живут в нём; здесь только отступ карточка↔ссылка (master-card-wrapper). */
 </style>
