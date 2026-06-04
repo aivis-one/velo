@@ -30,9 +30,9 @@
 
 <template>
   <div class="live">
-    <!-- Back arrow -> dashboard. Using router.back() returned the user into
-         the check-in success/form screen, creating a check-in <-> live loop. -->
-    <VHeader show-back @back="goBack" />
+    <!-- Back -> dashboard (router.back() looped check-in <-> live). Uses the
+         shared DS back button (arrow-only pill, same as the diary). -->
+    <VBackButton class="live__back" @click="goBack" />
 
     <!-- Themed direction placeholder in place of a real video stream
          (no real video in MVP; Zoom is external). -->
@@ -74,9 +74,7 @@
         :disabled="alreadyCheckedIn"
         @click="onCheckin"
       >
-        <template v-if="alreadyCheckedIn">
-          <IconCheck :size="16" /> Check-in сделан
-        </template>
+        <template v-if="alreadyCheckedIn">Check-in сделан</template>
         <template v-else>Check-in</template>
       </VButton>
 
@@ -100,9 +98,7 @@ import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
-import { VButton } from '@/components/ui'
-import { VHeader } from '@/components/layout'
-import { IconCheck } from '@/components/icons'
+import { VButton, VBackButton } from '@/components/ui'
 import PracticePlaceholder from '@/components/shared/PracticePlaceholder.vue'
 
 const route = useRoute()
@@ -209,8 +205,15 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: var(--space-6) var(--space-4);
+  /* Horizontal rail comes from MobileLayout (--velo-rail-pad-x); only vertical
+     padding here so content sits on the single 24px rail (no double inset). */
+  padding: var(--space-6) 0;
   min-height: 100%;
+}
+
+/* Back button: arrow-only DS pill, top-left (not stretched by the flex column). */
+.live__back {
+  align-self: flex-start;
 }
 
 /* Direction placeholder: PracticePlaceholder already carries the
