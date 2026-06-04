@@ -608,7 +608,7 @@ onUnmounted(() => {
 
 /* Override VAccordion: white card style matching design */
 :deep(.v-accordion) {
-  background: #ffffff;
+  background: var(--velo-bg-card-solid);
   border-radius: var(--radius-md);
   border-bottom: none;
   overflow: hidden;
@@ -627,7 +627,7 @@ onUnmounted(() => {
 }
 
 :deep(.v-accordion__arrow) {
-  font-size: 20px;
+  font-size: var(--text-lg);
   color: var(--velo-text-primary);
 }
 
