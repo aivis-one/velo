@@ -55,6 +55,16 @@ export const useBookingsStore = defineStore('bookings', () => {
   const selectedLoading = ref(false)
   const selectedError = ref('')
 
+  // Practices whose check-in the user SKIPPED this session — used to hide the
+  // dashboard "Пора на check-in" banner immediately. Session-only: there is no
+  // backend skip state yet (logged as a backend task), so it is lost on reload.
+  const dismissedCheckins = ref<string[]>([])
+  function dismissCheckin(practiceId: string): void {
+    if (!dismissedCheckins.value.includes(practiceId)) {
+      dismissedCheckins.value.push(practiceId)
+    }
+  }
+
   /**
    * Fetch a single booking with full practice details (screen 18).
    * Always refetches -- detail data (status, zoom) may change.
@@ -172,5 +182,9 @@ export const useBookingsStore = defineStore('bookings', () => {
     cancelBooking,
     joinBooking,
     leaveBooking,
+
+    // Session-only check-in skip tracking
+    dismissedCheckins,
+    dismissCheckin,
   }
 })

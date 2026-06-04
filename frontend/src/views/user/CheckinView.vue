@@ -168,6 +168,9 @@ async function onSubmit(): Promise<void> {
 }
 
 function onSkip(): void {
+  // Session-only: hide the dashboard "Пора на check-in" banner for this practice
+  // (no backend skip state yet).
+  bookingsStore.dismissCheckin(practiceId)
   toast.info('Check-in пропущен')
   router.push({ name: 'user-dashboard' })
 }

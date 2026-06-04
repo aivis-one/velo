@@ -24,21 +24,7 @@
 <template>
   <div class="dashboard">
 
-    <!-- Greeting: floats as an island above the fog (G-1) so the feed scrolls
-         under it. Teleports into MobileLayout's island layer when present.
-         `defer` resolves the teleport target AFTER the current render flush, so
-         it works even on the FIRST mount (the island is rendered by the parent
-         layout) — without it Vue logs "Invalid Teleport target on mount: null",
-         the greeting silently fails to render, and a follow-up patch crashes. -->
-    <Teleport defer to=".mobile-layout__island" :disabled="!floating">
-      <div
-        class="dashboard__greeting"
-        :class="{ 'dashboard__greeting--floating': floating }"
-      >
-        <p class="dashboard__greeting-text">{{ greetingText }}</p>
-        <h2 class="dashboard__greeting-name">{{ userName }}</h2>
-      </div>
-    </Teleport>
+    <!-- Greeting removed (static, low-value, took space — operator 2026-06-04). -->
 
     <!-- Check-in alert banner (shared Banner) -->
     <Banner
@@ -219,8 +205,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
-import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
 import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
@@ -249,9 +233,6 @@ void CHECKIN_WINDOW_H
 
 const router = useRouter()
 
-// Greeting floats as an island when inside MobileLayout (G-1).
-const floating = useFloatingHeader()
-const authStore = useAuthStore()
 const bookingsStore = useBookingsStore()
 const practicesStore = usePracticesStore()
 const toast = useToast()
@@ -264,20 +245,6 @@ let clockInterval: ReturnType<typeof setInterval> | null = null
 const aiPeriod = ref<'week' | 'month'>('week')
 
 // =========================================================================
-// Greeting
-// =========================================================================
-
-const userName = computed(() => authStore.user?.first_name ?? 'Друг')
-
-const greetingText = computed((): string => {
-  const hour = new Date().getHours()
-  if (hour < 6)  return 'Доброй ночи,'
-  if (hour < 12) return 'Доброе утро,'
-  if (hour < 18) return 'Добрый день,'
-  return 'Добрый вечер,'
-})
-
-// =========================================================================
 // Alert banners
 // =========================================================================
 
@@ -288,6 +255,8 @@ const checkinAlert = computed((): BookingWithPracticeResponse | null => {
       if (b.status !== 'confirmed') return false
       // Hide once the user has already checked in (no re-submit via banner).
       if (b.has_checkin) return false
+      // Hide if the user skipped this practice's check-in this session.
+      if (bookingsStore.dismissedCheckins.includes(b.practice_id)) return false
       const scheduledMs = new Date(b.practice.scheduled_at).getTime()
       return isInCheckinWindow(scheduledMs, now.value)
     }) ?? null
@@ -512,36 +481,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ===== Greeting ===== */
-.dashboard__greeting {
-  margin-bottom: var(--space-6);
-}
-
-/* Floating island variant (G-1): teleported into MobileLayout's island layer.
-   Rail-aligned with the diary's +20px top offset; no in-flow margin (it no
-   longer sits in the feed). Click-through (text only). */
-.dashboard__greeting--floating {
-  margin-bottom: 0;
-  padding: calc(var(--space-3) + 20px) var(--velo-rail-pad-x) var(--space-3);
-}
-
-.dashboard__greeting-text {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  margin: 0 0 var(--space-1);
-}
-
-.dashboard__greeting-name {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
 /* ===== Alert banner (shared Banner) — only spacing here ===== */
 .dashboard__alert {
   margin-bottom: var(--space-4);
