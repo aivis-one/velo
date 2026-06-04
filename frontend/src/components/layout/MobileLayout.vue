@@ -27,6 +27,7 @@
          top clearance (see mainStyle). -->
     <div ref="islandEl" class="mobile-layout__island" />
     <main
+      ref="mainEl"
       class="mobile-layout__main"
       :class="{
         'mobile-layout__main--fill': fill,
@@ -46,7 +47,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import VTabBar, { type TabItem } from '@/components/layout/VTabBar.vue'
 import { provideFloatingHeader } from '@/components/layout/useFloatingHeader'
 
@@ -65,6 +67,16 @@ provideFloatingHeader()
 // insertion reliably, and we also measure once on nextTick after mount.
 const islandEl = ref<HTMLElement | null>(null)
 const islandH = ref(0)
+
+// The scrollable feed. __main persists across child-route changes (the shell
+// stays mounted), so without an explicit reset a new screen opens at the previous
+// screen's scroll position (e.g. returning to the dashboard after check-in landed
+// mid-feed). Reset to the top on every route change.
+const mainEl = ref<HTMLElement | null>(null)
+const route = useRoute()
+watch(() => route.fullPath, () => {
+  void nextTick(() => { mainEl.value?.scrollTo({ top: 0 }) })
+})
 let ro: ResizeObserver | null = null
 let mo: MutationObserver | null = null
 function measureIsland(): void {
