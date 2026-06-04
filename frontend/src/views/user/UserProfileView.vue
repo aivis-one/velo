@@ -149,12 +149,7 @@ import {
   IconArrowRight,
 } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { platform } from '@/platform'
 import { getMyStats } from '@/api/bookings'
-
-// MVP support contact: opens this Telegram chat directly (no dedicated screen
-// yet). TODO: replace with the permanent support account when it's ready.
-const SUPPORT_URL = 'https://t.me/Alx_Chantal'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -197,8 +192,10 @@ function onLanguageTimezone(): void {
 }
 
 function onSupport(): void {
-  // MVP: open the support Telegram chat directly (no dedicated screen yet).
-  platform.openLink(SUPPORT_URL)
+  // Техподдержки пока нет (бот не готов, тест на малой выборке) — кнопка
+  // никуда не ведёт, показываем заглушку (operator 2026-06-04). Когда сервис
+  // появится — впишем сюда переход на бота/общий чат.
+  toast.info('Техподдержка пока недоступна')
 }
 
 function onShare(): void {
@@ -248,11 +245,16 @@ onMounted(async () => {
   text-align: center;
   padding: var(--space-6) var(--space-4) var(--space-5);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
 }
 
 .profile__avatar {
+  /* Центрируем аватар: VAvatar — блочный flex-контейнер фикс-ширины, поэтому
+   * text-align родителя его не центрит. flex-center гарантирует центр
+   * (operator 2026-06-04). */
+  display: flex;
+  justify-content: center;
   margin-bottom: var(--space-3);
 }
 
@@ -282,7 +284,7 @@ onMounted(async () => {
   gap: var(--space-1);
   padding: var(--space-4);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
 }
 
@@ -336,7 +338,7 @@ onMounted(async () => {
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity var(--transition-fast);

@@ -63,24 +63,6 @@
         :disabled="true"
       />
 
-      <!-- Phone -->
-      <VInput
-        v-model="form.phone"
-        label="Телефон"
-        type="tel"
-        placeholder="+7 (___) ___-__-__"
-      />
-      <p v-if="phoneError" class="edit-profile__field-error">{{ phoneError }}</p>
-
-      <!-- About -->
-      <VTextarea
-        v-model="form.bio"
-        label="О себе"
-        :rows="4"
-        placeholder="Расскажите немного о себе"
-        :error="bioError"
-      />
-
       <!-- Save -->
       <VButton
         variant="primary"
@@ -132,7 +114,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VInput, VTextarea, VButton, VAvatar, VModal } from '@/components/ui'
+import { VInput, VButton, VAvatar, VModal } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { deleteMe } from '@/api/users'
@@ -155,33 +137,11 @@ const displayName = computed(() => {
 // E-mail is a disabled stub -- bound to a constant, never edited or sent.
 const emailStub = ref('')
 
-// Editable form, initialised from the current profile.
+// Editable form, initialised from the current profile. Phone + bio убраны из
+// формы (operator 2026-06-04) — редактируется только имя; e-mail заглушка.
 const form = reactive({
   firstName: user.value?.first_name ?? '',
-  phone: user.value?.phone ?? '',
-  bio: user.value?.bio ?? '',
 })
-
-// -- Validation (mirrors backend soft rules) --------------------------------
-const PHONE_ALLOWED = /^[0-9 +()-]*$/
-
-const phoneError = computed((): string => {
-  const v = form.phone.trim()
-  if (v === '') return '' // empty = clear, allowed
-  if (!PHONE_ALLOWED.test(v)) {
-    return 'Телефон может содержать только цифры, пробелы и + ( ) -'
-  }
-  const digits = (v.match(/\d/g) ?? []).length
-  if (digits < 5) return 'Введите корректный номер телефона'
-  if (v.length > 20) return 'Слишком длинный номер'
-  return ''
-})
-
-const bioError = computed((): string =>
-  form.bio.length > 2000 ? 'Не более 2000 символов' : '',
-)
-
-const hasErrors = computed(() => !!phoneError.value || !!bioError.value)
 
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
@@ -192,26 +152,13 @@ const saving = ref(false)
 
 async function onSave(): Promise<void> {
   if (saving.value) return
-  if (hasErrors.value) {
-    toast.error('Проверьте правильность заполнения полей')
-    return
-  }
 
-  // Build a partial update with only the fields that actually changed.
-  // phone/bio: send "" to clear (backend variant b). first_name: only send a
-  // non-empty value (empty name is rejected by the backend min_length).
+  // Only the name is editable now. Send first_name only if it actually changed
+  // and is non-empty (backend rejects an empty name via min_length).
   const body: UserUpdate = {}
   const nextName = form.firstName.trim()
   if (nextName && nextName !== (user.value?.first_name ?? '')) {
     body.first_name = nextName
-  }
-  const nextPhone = form.phone.trim()
-  if (nextPhone !== (user.value?.phone ?? '')) {
-    body.phone = nextPhone
-  }
-  const nextBio = form.bio.trimEnd()
-  if (nextBio !== (user.value?.bio ?? '')) {
-    body.bio = nextBio
   }
 
   if (Object.keys(body).length === 0) {
@@ -286,12 +233,6 @@ async function onConfirmDelete(): Promise<void> {
   font-size: var(--text-sm);
   color: var(--velo-primary);
   cursor: pointer;
-}
-
-.edit-profile__field-error {
-  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--velo-error);
 }
 
 .edit-profile__delete {
