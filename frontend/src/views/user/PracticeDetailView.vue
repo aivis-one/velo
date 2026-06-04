@@ -194,6 +194,15 @@
       :open="showBookingPopup"
       @close="showBookingPopup = false"
       @purchased="onPurchased"
+      @sold-out="onSoldOut"
+    />
+
+    <!-- Полноэкранный стейт «Места закончились» (гонка: места кончились,
+         пока юзер читал/бронировал). Поверх кадра, как .form-shell-success. -->
+    <PracticeSoldOut
+      v-if="soldOut"
+      @find-other="onFindOther"
+      @close="soldOut = false"
     />
   </div>
 </template>
@@ -208,6 +217,7 @@ import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import BookingPopup from '@/components/shared/BookingPopup.vue'
+import PracticeSoldOut from '@/components/shared/PracticeSoldOut.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import MasterCard from '@/components/shared/MasterCard.vue'
 import Banner from '@/components/shared/Banner.vue'
@@ -247,6 +257,8 @@ const difficultyLabel = computed<string>(() => {
 
 // -- Booking state --
 const showBookingPopup = ref(false)
+// Полноэкранный стейт «Места закончились» (гонка practice_full при бронировании).
+const soldOut = ref(false)
 const authStore = useAuthStore()
 const toast = useToast()
 
@@ -501,6 +513,23 @@ function onPurchased(): void {
   bookingsStore.refreshBookings()
   // Frame 5: go to the dedicated booking-confirmed screen.
   router.push({ name: 'user-booking-confirmed', params: { practiceId: id } })
+}
+
+/**
+ * Места кончились в гонке (BookingPopup поймал practice_full): поднимаем
+ * полноэкранный стейт «Места закончились» и обновляем практику/брони, чтобы
+ * экран под оверлеем уже отражал заполненность (кнопка → «Мест нет»).
+ */
+function onSoldOut(): void {
+  soldOut.value = true
+  store.fetchPractice(route.params.id as string)
+  bookingsStore.refreshBookings()
+}
+
+/** «Найти другую практику» → в Календарь (витрина записи). */
+function onFindOther(): void {
+  soldOut.value = false
+  router.push({ name: 'user-calendar' })
 }
 
 function onCheckin(): void {

@@ -126,6 +126,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   purchased: []
+  /** Гонка: места кончились пока юзер читал/бронировал (backend practice_full).
+   *  Родитель показывает полноэкранный стейт «Места закончились». */
+  soldOut: []
 }>()
 
 const router = useRouter()
@@ -256,7 +259,11 @@ async function onPurchase(): Promise<void> {
       if (e.code === 'insufficient_balance') {
         toast.error('Недостаточно средств на балансе')
       } else if (e.code === 'practice_full') {
-        toast.error('Мест больше нет')
+        // Места кончились в гонке — закрываем попап и поднимаем полноэкранный
+        // стейт «Места закончились» (вместо тоста). Решение оператора 2026-06-04.
+        resetState()
+        emit('close')
+        emit('soldOut')
       } else if (e.status === 409) {
         toast.error('Вы уже записаны на эту практику')
       } else {
