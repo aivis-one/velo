@@ -18,7 +18,6 @@
         :class="`v-toast--${toast.variant}`"
         @click="dismiss(toast.id)"
       >
-        <span class="v-toast__icon">{{ icon(toast.variant) }}</span>
         <span class="v-toast__message">{{ toast.message }}</span>
       </div>
     </TransitionGroup>
@@ -26,17 +25,9 @@
 </template>
 
 <script setup lang="ts">
-import { useToast, type ToastVariant } from '@/composables/useToast'
+import { useToast } from '@/composables/useToast'
 
 const { toasts, dismiss } = useToast()
-
-function icon(variant: ToastVariant): string {
-  switch (variant) {
-    case 'success': return '✓'
-    case 'error': return '✕'
-    case 'info': return 'ℹ'
-  }
-}
 </script>
 
 <style scoped>
@@ -81,11 +72,6 @@ function icon(variant: ToastVariant): string {
 .v-toast--info {
   background: var(--velo-text-primary);
   color: white;
-}
-
-.v-toast__icon {
-  font-size: var(--text-base);
-  flex-shrink: 0;
 }
 
 /* -- Transition -- */
