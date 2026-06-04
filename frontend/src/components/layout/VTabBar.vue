@@ -12,7 +12,7 @@
       156,0.60)) with a white icon. Per Figma the only difference
       between states is the fill alpha (.15 -> .60); border, blur and
       shape stay the same. Do NOT use --velo-nav-active-bg here — that
-      token is opaque #627a9c, used by VToggle/VMenu/VMenuItem.
+      token is opaque #627a9c, used by VMenu/VMenuItem.
     - No text labels under icons. aria-label preserved for screen readers.
     - The bar sits ~25px above the screen edge (space-8 padding-bottom)
       so it doesn't visually stick to the bottom.

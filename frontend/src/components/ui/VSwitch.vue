@@ -2,8 +2,7 @@
   VELO Frontend -- VSwitch Component (Profile redesign Screen E)
 
   Boolean on/off switch (pill track + sliding knob), matching the Figma
-  notifications toggles. Distinct from VToggle (a segmented tab control) and
-  VCheckbox (a square check). Reusable primitive: any future on/off setting
+  notifications toggles. Reusable primitive: any future on/off setting
   should use this.
 
   Usage:

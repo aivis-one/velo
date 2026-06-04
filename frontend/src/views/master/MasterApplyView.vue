@@ -15,8 +15,9 @@
   Back button on step 1 -> router.back() (returns to previous page,
   typically /user/profile). Steps 2-3 -> go to previous step.
 
-  Note on checkboxes: uses custom native-checkbox markup (.apply-view__checkbox-item),
-  NOT the VCheckbox component -- VCheckbox is intentionally NOT imported here.
+  Note on checkboxes: uses custom native-checkbox markup (.apply-view__checkbox-item)
+  — multi-select list with an "Other + free text" variant the DS Checkbox spec
+  doesn't cover. When the DS Checkbox is adopted here, keep the "Other" custom.
 -->
 
 <template>
@@ -80,7 +81,7 @@
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Methods checkboxes (custom native markup -- not VCheckbox) -->
+        <!-- Methods checkboxes (custom native markup; DS Checkbox spec in showcase) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
           <div class="apply-view__checkbox-list">
