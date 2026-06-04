@@ -24,21 +24,15 @@
            approved design). The reset-filter cross appears only while a filter
            is active. -->
       <div class="diary-feed__left">
+        <!-- Back контекстный (operator 2026-06-04): если активен фильтр/поиск —
+             стрелка СБРАСЫВАЕТ фильтр (возврат в полную ленту), иначе выходит из
+             дневника. Отдельный «✕» убран. -->
         <VBackButton
           class="diary-feed__back"
-          aria-label="Выйти из дневника"
-          @click="exitDiary"
+          :aria-label="filterActive ? 'Сбросить фильтр' : 'Выйти из дневника'"
+          @click="onBack"
         />
         <h1 class="diary-feed__title">{{ feedTitle }}</h1>
-        <button
-          v-if="filterActive"
-          type="button"
-          class="diary-feed__filter-clear"
-          aria-label="Сбросить фильтр"
-          @click="clearFilter"
-        >
-          <IconClose :size="16" />
-        </button>
       </div>
       <VMenu>
         <!-- Trigger glyph: vertical dots that rotate to horizontal while the
@@ -172,10 +166,11 @@
       <!-- Empty -->
       <VEmptyState
         v-else-if="items.length === 0"
-        icon="📔"
         title="Дневник пуст"
         description="Здесь появятся ваши записи, практики, check-ins и отзывы"
-      />
+      >
+        <template #icon><IconDiaryBook :size="64" /></template>
+      </VEmptyState>
 
       <!-- Thread (chat-mode: oldest at top, newest at bottom) -->
       <template v-else>
@@ -187,8 +182,13 @@
         </div>
 
         <!-- Wrapper pins a short feed to the bottom (margin-top:auto) so few
-             entries sit next to the composer, chat-style. -->
-        <div class="diary-feed__thread">
+             entries sit next to the composer, chat-style. При активном
+             фильтре/поиске прижатие отключается (--top) — результаты идут
+             СВЕРХУ, а не уезжают в середину/низ (operator 2026-06-04). -->
+        <div
+          class="diary-feed__thread"
+          :class="{ 'diary-feed__thread--top': filterActive }"
+        >
           <DiaryList
             v-if="viewMode === 'list'"
             :items="items"
@@ -263,7 +263,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem } from '@/components/ui'
-import { IconClose } from '@/components/icons'
+import { IconDiaryBook } from '@/components/icons'
 import DiaryTimeline from '@/components/shared/DiaryTimeline.vue'
 import DiaryList from '@/components/shared/DiaryList.vue'
 import DiaryComposer from '@/components/shared/DiaryComposer.vue'
@@ -365,6 +365,16 @@ function exitDiary(): void {
   void router.push('/user/dashboard')
 }
 
+// Back контекстный (operator 2026-06-04): активен фильтр/поиск → сбрасываем
+// (возврат в полную ленту), иначе выходим из дневника на дашборд.
+function onBack(): void {
+  if (filterActive.value) {
+    void clearFilter()
+  } else {
+    exitDiary()
+  }
+}
+
 // Current categories from the store, used to seed the filter modal's draft.
 const activeCategories = computed<DiaryFeedCategory[]>(
   () => feedFilters.value.categories ?? [],
@@ -403,8 +413,9 @@ async function onApplyFilter(payload: {
     date_to: payload.date_to,
   })
   await nextTick()
-  // Chat-mode: jump to the newest matching entry (bottom) after refiltering.
-  scrollToBottom()
+  // Результаты фильтра идут СВЕРХУ (top-align), а полная лента — чат-низ.
+  if (filterActive.value) scrollToTop()
+  else scrollToBottom()
 }
 
 async function onApplySearch(query: string): Promise<void> {
@@ -412,7 +423,8 @@ async function onApplySearch(query: string): Promise<void> {
   // feed from the first page.
   await diaryStore.runFeedSearch(query)
   await nextTick()
-  scrollToBottom()
+  if (filterActive.value) scrollToTop()
+  else scrollToBottom()
 }
 
 // -- Active-filter header + reset (minimal indicator) ------------------------
@@ -554,6 +566,14 @@ function scrollToBottom(): void {
   if (el) el.scrollTop = el.scrollHeight
 }
 
+// Top-align: результаты фильтра/поиска показываем СВЕРХУ (с top-align враппера),
+// чтобы они не уезжали в середину/низ экрана (operator 2026-06-04).
+function scrollToTop(): void {
+  diaryStore.feedScrollTop = 0
+  const el = scrollEl.value
+  if (el) el.scrollTop = 0
+}
+
 // Composer just created a note: the store refreshed the feed to the newest
 // page, so jump to the bottom to reveal it.
 async function onComposerCreated(): Promise<void> {
@@ -685,26 +705,6 @@ onBeforeUnmount(() => {
   transform: rotate(-90deg);
 }
 
-.diary-feed__filter-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  color: var(--velo-text-secondary);
-  cursor: pointer;
-  pointer-events: auto;
-  transition: opacity var(--transition-fast);
-}
-
-.diary-feed__filter-clear:hover {
-  opacity: 0.8;
-}
-
 /* Glyphs for the filter / search items inside the "..." menu (VMenu). The
    round button + popover styles now live in VMenu / VMenuItem. */
 .diary-feed__menu-glyph {
@@ -777,6 +777,12 @@ onBeforeUnmount(() => {
    collapses once content fills the column). */
 .diary-feed__thread {
   margin-top: auto;
+}
+
+/* При активном фильтре/поиске отключаем прижатие к низу — результаты идут
+   сверху (иначе мало записей уезжает в середину/низ экрана). */
+.diary-feed__thread--top {
+  margin-top: 0;
 }
 
 .diary-feed__state {

@@ -59,9 +59,13 @@
     </div>
 
     <div class="feed-card__practice-bottom">
-      <span class="feed-card__practice-date">
-        <IconCalendar :size="14" class="feed-card__date-icon" />
-        {{ practiceTime }}<template v-if="practiceDuration"> · {{ practiceDuration }}</template>
+      <span class="feed-card__practice-meta">
+        <span class="feed-card__practice-cell">
+          <IconCalendar :size="14" /> {{ practiceTime }}
+        </span>
+        <span v-if="practiceDuration" class="feed-card__practice-cell">
+          <IconClock :size="14" /> {{ practiceDuration }}
+        </span>
       </span>
       <!-- Attended shows just a check (no "Done" text); a miss keeps its label. -->
       <span
@@ -73,10 +77,11 @@
       </span>
     </div>
 
-    <!-- Practice direction glyph, top-left. -->
+    <!-- Practice direction glyph, top-left. 46px — единый размер иконки
+         практики по DS (как в карточках дашборда/календаря). -->
     <component
       :is="directionIcon"
-      :size="32"
+      :size="46"
       class="feed-card__practice-icon"
     />
   </div>
@@ -103,7 +108,7 @@
 
 <script setup lang="ts">
 import { useDiaryCardModel } from '@/composables/useDiaryCardModel'
-import { IconCheck, IconCalendar } from '@/components/icons'
+import { IconCheck, IconCalendar, IconClock } from '@/components/icons'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -226,7 +231,7 @@ function onTap(): void {
    * длине titles левый край плавал ±7px по горизонтали. */
   text-align: left;
   letter-spacing: 0.32px;
-  margin-left: calc(var(--space-4) + 32px + 9px);
+  margin-left: calc(var(--space-4) + 46px + 9px);
   padding-right: var(--space-4);
   white-space: nowrap;
   overflow: hidden;
@@ -240,7 +245,7 @@ function onTap(): void {
    * center — master row плавал ±27px при разной длине имени мастера. */
   justify-content: flex-start;
   gap: var(--space-1);
-  margin-left: calc(var(--space-4) + 32px + 9px);
+  margin-left: calc(var(--space-4) + 46px + 9px);
 }
 
 .feed-card__avatar {
@@ -273,16 +278,20 @@ function onTap(): void {
   justify-content: space-between;
 }
 
-.feed-card__practice-date {
+/* Мета-строка карточки практики: дата+время и часы+длительность —
+   двумя ячейками с иконками (как в карточках календаря). */
+.feed-card__practice-meta {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-3);
   font-size: 12px;
   color: var(--velo-text-secondary);
 }
 
-.feed-card__date-icon {
-  color: var(--velo-text-secondary);
+.feed-card__practice-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .feed-card__outcome {
