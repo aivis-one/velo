@@ -45,7 +45,7 @@
     >
       <span class="master-card__more-text">Подробнее</span>
       <span class="master-card__more-pill">
-        <IconArrowRight :size="20" />
+        <IconArrowRight :size="18" />
       </span>
     </button>
   </div>
@@ -97,12 +97,14 @@ function onMore(): void {
 .master-card-wrapper {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  /* Воздух между карточкой мастера и строкой «Подробнее» (operator 2026-06-04:
+   * было space-1=4px, стрелка прилипала). --space-3 = 14px. */
+  gap: var(--space-3);
 }
 
 .master-card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   /* Figma: base card height 104 (avatar xl=80 + padding-y 12+12). min-height
    * (not fixed height) so many wrapped method tags grow the card instead of
@@ -153,9 +155,8 @@ function onMore(): void {
   margin-top: var(--space-1);
 }
 
-/* Footer-кнопка «Подробнее» — отдельным row под card (Figma: text label
- * + pill 63×35 со стрелкой, right-aligned). Заменяет старую round 36×36
- * absolute bottom-right inside card. */
+/* Footer-кнопка «Подробнее» — отдельным row под card (text label + pill
+ * со стрелкой, right-aligned). */
 .master-card__more {
   display: flex;
   align-items: center;
@@ -180,16 +181,18 @@ function onMore(): void {
   color: var(--velo-text-primary);
 }
 
+/* «Подробнее» = тот же белый pill, что VBackButton (63×40, без рамки,
+ * фон --velo-bg-card-solid, радиус full) — единая «понятная» кнопка-стрелка
+ * на весь проект (operator 2026-06-04). Стрелка вправо = вперёд (в профиль). */
 .master-card__more-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Figma: pill 63×35 rx=17.5 (capsule). */
   width: 63px;
-  height: 35px;
+  height: 40px;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: none;
   color: var(--velo-text-primary);
 }
 </style>

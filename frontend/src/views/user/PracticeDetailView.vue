@@ -45,9 +45,9 @@
     <!-- Back button header (contextual: catalog vs booked) -->
     <VHeader :title="hasAnyBooking ? 'Моя практика' : 'Практика'" show-back @back="router.back()" />
 
-    <!-- Scrollable area: hero + body -->
-    <div class="detail__scrollable">
-      <!-- Hero card (shared component) -->
+    <!-- Single unified scroll: the whole screen scrolls in MobileLayout's
+         __main (no nested scroll/pinned footer). Hero + body + actions flow. -->
+    <!-- Hero card (shared component) -->
       <div class="detail__hero">
         <PracticeHeroCard
           :title="practice.title"
@@ -115,9 +115,8 @@
         </Banner>
 
       </div>
-    </div>
 
-    <!-- Footer: price + action (static, not fixed) -->
+    <!-- Footer: price + action (flows at the end of the unified scroll) -->
     <div class="detail__actions">
       <!-- Price row: only for the catalog (not-booked) view. In the booked
            "Моя практика" view (Figma 15) the practice is already paid for,
@@ -154,20 +153,9 @@
         Оставить feedback
       </VButton>
 
-      <!-- Already booked, no active window. Visually solid primary (per
-           Figma booked-practice.svg) but non-interactive: keep `disabled`
-           for screen-reader semantics; opacity override below restores
-           full color. -->
-      <VButton
-        v-else-if="booked"
-        variant="primary"
-        size="lg"
-        block
-        disabled
-        class="detail__booked-btn"
-      >
-        Вы записаны
-      </VButton>
+      <!-- Booked but no active window: NO CTA here. The "записан" state is
+           shown in the status row ("Вы записаны"); the old disabled button was
+           dead weight and ate vertical space (operator, 2026-06-04). -->
 
       <!-- Not booked: book button. Hidden for the practice owner, for a
            finished booking (attended/no_show — no re-booking), and once the
@@ -176,7 +164,7 @@
            on a not-yet-started practice still may re-book. When hidden for a
            started practice we simply show no CTA. -->
       <VButton
-        v-else-if="!isMaster && !isPastBooking && !practiceStarted"
+        v-else-if="!booked && !isMaster && !isPastBooking && !practiceStarted"
         variant="primary"
         size="lg"
         block
@@ -360,9 +348,12 @@ const practiceStarted = computed((): boolean => {
 })
 
 // -- Status row (ported from BookingDetailView; driven by myAnyBooking) --
+// NB: confirmed → «Вы записаны» ТОЛЬКО на этом экране (status row заменяет
+// бывшую disabled-кнопку). Глобальный лейбл «Подтверждена» (Мои записи и пр.)
+// живёт в своих местах и не трогается.
 const STATUS_LABEL: Record<BookingStatus, string> = {
   pending: 'Ожидает',
-  confirmed: 'Подтверждена',
+  confirmed: 'Вы записаны',
   attended: 'Завершена',
   no_show: 'Неявка',
   cancelled: 'Отменена',
@@ -581,18 +572,12 @@ onUnmounted(() => {
   min-height: 40vh;
 }
 
-/* Outer container: flex column filling the shell's scroll area */
+/* Outer container: a plain block — the whole screen scrolls in MobileLayout's
+ * single __main scroll. No nested scroll / no pinned footer (operator fix:
+ * "скролл на блоке, а не общий"). Hero + body + actions flow top-to-bottom. */
 .detail {
   display: flex;
   flex-direction: column;
-  height: 100%;
-}
-
-/* Scrollable region: grows to fill available space */
-.detail__scrollable {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 /* ===== Hero (shared PracticeHeroCard wrapper) =====
@@ -654,9 +639,10 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: var(--space-2);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-4);
+  /* Match the accordion cards' padding for one cohesive card language. */
+  padding: var(--space-3) var(--space-4);
 }
 
 .detail__status-label {
@@ -668,7 +654,7 @@ onUnmounted(() => {
 /* ===== Zoom card (Batch 6: ported from BookingDetailView) ===== */
 .detail__zoom-card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   font-family: var(--font-body);
@@ -677,13 +663,12 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
+/* Section = label («Мастер» / «ZOOM») над карточкой. Разделительные линии
+ * убраны — в белой DS они инородны; единый карточный язык + gap из __body
+ * (operator: «навести красоту через DS», 2026-06-04). */
 .detail__section {
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
-}
-
-.detail__section:last-child {
-  border-bottom: none;
+  display: flex;
+  flex-direction: column;
 }
 
 .detail__section-title {
@@ -691,8 +676,8 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-text-secondary);
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-3);
+  letter-spacing: var(--velo-card-letter-spacing-meta);
+  margin-bottom: var(--space-2);
 }
 
 /* ===== Contraindications banner (shared Banner) =====
@@ -705,18 +690,17 @@ onUnmounted(() => {
  * Figma booked-practice.svg: кнопки сидят прямо на mandala-фоне экрана,
  * никакой стеклянной подложки. Убран background/backdrop-filter/border-top. */
 .detail__actions {
-  flex-shrink: 0;
-  padding: var(--space-4) 0;
+  padding: var(--space-4) 0 0;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: var(--space-3);
 }
 
 .detail__price-row {
   /* F-5.4 sync: в Figma practice-booked.svg price-row — белая card 336×48
    * rx=15 (стиль как у accordion и status-row), не голый flex-row. */
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-white);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;
@@ -740,12 +724,5 @@ onUnmounted(() => {
 
 .detail__price-value--free {
   color: var(--velo-success-text);
-}
-
-/* "Вы записаны" — visually solid primary, semantically disabled.
- * Restore full opacity and use default cursor so it doesn't look broken. */
-.detail__actions :deep(.detail__booked-btn):disabled {
-  opacity: 1;
-  cursor: default;
 }
 </style>
