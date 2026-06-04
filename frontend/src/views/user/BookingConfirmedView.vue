@@ -52,25 +52,18 @@
 
       <!-- Ask-master request (VISUAL ONLY, TD-ASK-MASTER) -->
       <div class="booking-confirmed__ask">
-        <label class="booking-confirmed__ask-label" for="master-request">
-          Ваш запрос мастеру (по желанию)
-        </label>
-        <textarea
-          id="master-request"
+        <VTextarea
           v-model="masterRequest"
-          class="booking-confirmed__ask-input"
+          label="Ваш запрос мастеру (по желанию)"
           placeholder="Концентрация, настрой на работу"
-          rows="2"
+          :rows="2"
         />
-        <div class="booking-confirmed__ask-banner">
-          <span class="booking-confirmed__ask-banner-icon">
-            <IconSupport :size="20" />
-          </span>
-          <span class="booking-confirmed__ask-banner-text">
-            Оставляя запрос, вы помогаете мастеру подготовить практику
-            с учётом ваших пожеланий
-          </span>
-        </div>
+        <Banner
+          variant="info"
+          body="Оставляя запрос, вы помогаете мастеру подготовить практику с учётом ваших пожеланий"
+        >
+          <template #icon><IconSupport :size="28" /></template>
+        </Banner>
         <VButton variant="secondary" size="lg" block @click="onSendRequest">
           Отправить запрос
         </VButton>
@@ -84,7 +77,8 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VTextarea } from '@/components/ui'
+import Banner from '@/components/shared/Banner.vue'
 import { IconSuccess, IconSupport } from '@/components/icons'
 
 const route = useRoute()
@@ -132,7 +126,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-4);
+  /* Horizontal rail comes from MobileLayout (--velo-rail-pad-x); vertical only
+     here so content sits on the single 24px rail (no double inset). */
+  padding: var(--space-4) 0;
 }
 
 /* Success card */
@@ -182,53 +178,5 @@ onMounted(() => {
   gap: var(--space-3);
 }
 
-.booking-confirmed__ask-label {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.booking-confirmed__ask-input {
-  width: 100%;
-  box-sizing: border-box;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  resize: vertical;
-}
-
-.booking-confirmed__ask-input::placeholder {
-  color: var(--velo-text-secondary);
-}
-
-
-.booking-confirmed__ask-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  background: var(--velo-glass-teal-30);
-  border: 1px solid var(--velo-teal-600);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-}
-
-.booking-confirmed__ask-banner-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--velo-teal-600);
-  flex-shrink: 0;
-}
-
-.booking-confirmed__ask-banner-text {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  line-height: 1.5;
-}
+/* Field + info banner are now the DS VTextarea + Banner components (own styles). */
 </style>
