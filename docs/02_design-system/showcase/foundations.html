@@ -232,6 +232,31 @@
       </table>
     </section>
 
+    <!-- ============ PRACTICE CARDS (brand decorations, Tier-S) ============ -->
+    <section class="ds-section"><h2>Карточки направлений практик <span class="ds-muted" style="font-size:var(--text-sm)">(брендовые декорации · Tier-S)</span></h2>
+      <p class="ds-muted">10 баннеров-карточек (по одному на направление практики), подаются компонентом
+      <code>PracticePlaceholder</code> (см. Components). SVG — чистый вектор 336×199 (без запечённого
+      фильтра); <b>glow приходит из токена</b> <code>--velo-shadow-glow</code> + <code>--radius-md</code>
+      (управляется централизованно, не зашит в файлы).</p>
+      <style>
+        .pcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:var(--space-4);margin-top:var(--space-3)}
+        .pcard img{width:100%;height:auto;display:block;border-radius:var(--radius-md);box-shadow:var(--velo-shadow-glow)}
+        .pcard .nm{font-size:var(--text-xs);color:var(--velo-text-secondary);font-family:monospace;text-align:center;margin-top:var(--space-2)}
+      </style>
+      <div class="pcards">
+        <div class="pcard"><img src="assets/practice-cards/meditation.svg" alt="meditation"><div class="nm">meditation</div></div>
+        <div class="pcard"><img src="assets/practice-cards/yoga.svg" alt="yoga"><div class="nm">yoga</div></div>
+        <div class="pcard"><img src="assets/practice-cards/breathwork.svg" alt="breathwork"><div class="nm">breathwork</div></div>
+        <div class="pcard"><img src="assets/practice-cards/somatic.svg" alt="somatic"><div class="nm">somatic</div></div>
+        <div class="pcard"><img src="assets/practice-cards/tantra.svg" alt="tantra"><div class="nm">tantra</div></div>
+        <div class="pcard"><img src="assets/practice-cards/circles.svg" alt="circles"><div class="nm">circles</div></div>
+        <div class="pcard"><img src="assets/practice-cards/sound_healing.svg" alt="sound_healing"><div class="nm">sound_healing</div></div>
+        <div class="pcard"><img src="assets/practice-cards/art.svg" alt="art"><div class="nm">art</div></div>
+        <div class="pcard"><img src="assets/practice-cards/narrative.svg" alt="narrative"><div class="nm">narrative</div></div>
+        <div class="pcard"><img src="assets/practice-cards/movement.svg" alt="movement"><div class="nm">movement</div></div>
+      </div>
+    </section>
+
     <footer class="ds-foot ds-muted">VELO DS v1.0.0 · Foundations · 2026-06-04</footer>
   </main>
 </body>

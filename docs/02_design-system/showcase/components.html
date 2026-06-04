@@ -372,6 +372,22 @@ A11Y по контракту A-01..A-10. (Tier-2 + Patterns — на отдел�
   <div class="matrix"><div data-variant="Orientation=horizontal"><div class="divider"></div></div></div>
   <dl class="desc"><dt>NOTES</dt><dd>border-light 1px; декоративный (role=separator при семантике).</dd></dl></section>
 
-<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Components Tier-1 (14) + Tier-2 (12) · 2026-06-04</footer>
+<h1 style="margin-top:var(--space-10)">VELO-специфичные компоненты</h1>
+<p class="ds-muted">Вне общего каталога скилла — компоненты под доменные нужды VELO.</p>
+
+<section data-component="PracticePlaceholder" data-tier="2">
+  <h2>PracticePlaceholder <span class="src">источник: VELO</span></h2>
+  <div class="matrix">
+    <div data-variant="direction=narrative"><img src="assets/practice-cards/narrative.svg" alt="narrative" style="width:240px;display:block;border-radius:var(--radius-md);box-shadow:var(--velo-shadow-glow)"></div>
+    <div data-variant="direction=meditation"><img src="assets/practice-cards/meditation.svg" alt="meditation" style="width:160px;display:block;border-radius:var(--radius-md);box-shadow:var(--velo-shadow-glow)"></div>
+  </div>
+  <dl class="desc">
+    <dt>PURPOSE</dt><dd>Баннер практики 336×199 (экраны live / деталей) — карточка направления по <code>practice.direction</code>. 10 SVG-ассетов (Foundations → «Карточки направлений»).</dd>
+    <dt>NOTES</dt><dd>SVG — чистый вектор без запечённого фильтра; <b>glow вешает сам компонент через</b> <code>box-shadow: var(--velo-shadow-glow)</code> + <code>--radius-md</code> → управляется одним токеном. Fallback на meditation при неизвестном direction.</dd>
+    <dt>A11Y</dt><dd>alt = название практики.</dd>
+  </dl>
+</section>
+
+<footer class="ds-foot ds-muted">VELO DS v1.0.0 · Components: Tier-1 (14) + Tier-2 (12) + VELO (PracticePlaceholder) · 2026-06-04</footer>
 </main>
 </body></html>
