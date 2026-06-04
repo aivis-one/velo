@@ -113,8 +113,10 @@ onUnmounted(() => {
      sheet. The actual scrolling happens on .v-modal__scroll inside. */
   overflow: hidden;
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--velo-white);
+  /* Плавающая шторка (overlay даёт отступ со всех сторон) → скругляем ВСЕ
+     углы. Радиус из DS-токена (--radius-md=15), а не сырой 20px. */
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);
 }
 
@@ -181,7 +183,7 @@ onUnmounted(() => {
   }
 
   .v-modal__container {
-    border-radius: 20px;
+    border-radius: var(--radius-md);
   }
 
   .v-modal-enter-from .v-modal__container {
