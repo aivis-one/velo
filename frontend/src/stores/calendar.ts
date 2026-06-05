@@ -115,6 +115,12 @@ export const useCalendarStore = defineStore('calendar', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  // First-entry guard: init() snaps the window to today only the FIRST time the
+  // Calendar is opened in a session. On re-entry (e.g. returning from a practice
+  // detail, or re-tapping the tab) the user's selected day/week is preserved —
+  // only the data is refreshed. Reset on a fresh app launch (store recreated).
+  const initialized = ref(false)
+
   // Ticks each minute so the selected-day list drops a practice the moment it
   // starts (a started practice can no longer be booked). The backend feed
   // already excludes started practices on fetch; this keeps the open calendar
@@ -255,11 +261,19 @@ export const useCalendarStore = defineStore('calendar', () => {
     await loadWeek()
   }
 
-  /** First load for the screen: snap the window to today and fetch it. */
+  /**
+   * Open the Calendar. On the FIRST entry of a session, snap the window to
+   * today. On re-entry (returning from a practice detail, re-tapping the tab)
+   * keep the user's selected day/week — only refresh the data — so leaving and
+   * coming back lands on the same day the user was viewing.
+   */
   async function init(): Promise<void> {
-    const today = todayMidnight()
-    weekAnchor.value = today
-    selectedDate.value = localDateKey(today)
+    if (!initialized.value) {
+      const today = todayMidnight()
+      weekAnchor.value = today
+      selectedDate.value = localDateKey(today)
+      initialized.value = true
+    }
     await loadWeek()
   }
 
