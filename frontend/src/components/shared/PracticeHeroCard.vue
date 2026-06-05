@@ -105,7 +105,7 @@ const iconComponent = computed(
 <style scoped>
 .hero-card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
@@ -166,7 +166,7 @@ const iconComponent = computed(
 .hero-card__difficulty-dots {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .hero-card__difficulty-dot {
@@ -181,7 +181,9 @@ const iconComponent = computed(
 }
 
 /* ===== Form variant — practice-header в Check-in / Feedback (F-3) =====
- * Числа сверены 1:1 с прежним инлайн-блоком .form-shell__practice. */
+ * 19px (padding-top) и 5px (icon margin) — разовая пиксельная подгонка этого
+ * варианта, точного --space-* токена под них нет; оставлены сырыми сознательно
+ * (снап на ближайший токен сломал бы выверенный 1:1). */
 .hero-card--form {
   padding: 19px var(--space-4) var(--space-5);
   gap: 0;
@@ -193,16 +195,17 @@ const iconComponent = computed(
 
 .hero-card--form .hero-card__title {
   font-size: var(--text-base);
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 
-/* Meta как 2-колоночный грид: мастер слева, дата/статус справа.
+/* Meta — один центрированный ряд: мастер · дата/статус собраны по центру с
+ * фиксированным gap (вместо двух 1fr-половин, дававших дыру в центре).
  * Сами ячейки (#meta слот) стилизуются в FormShell (:slotted .form-shell__practice-meta-cell). */
 .hero-card--form .hero-card__meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   align-items: center;
-  gap: 0;
+  justify-content: center;
+  gap: var(--space-5);
   width: 100%;
 }
 </style>
