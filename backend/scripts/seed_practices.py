@@ -120,7 +120,7 @@ from seed import create_seed_booking, project_seed_booking_events  # noqa: E402
 
 SEED_SOURCE = "seed_practices_v2"
 TID_MIN = 10001
-TID_MAX = 10011
+TID_MAX = 10012
 
 # ── База-библиотека + сценарии ───────────────────────────────────────────────
 # Контент (мастера/practice_templates/пулы текстов) — единый источник правды в
@@ -341,6 +341,59 @@ def expand_boundary(
     return out
 
 
+def expand_fixed_schedule(
+    templates: list[dict], fixed: list[dict], now: datetime,
+    default_zoom: str | None = None,
+) -> list[dict]:
+    """Разворачивает fixed_schedule — практики с АБСОЛЮТНОЙ датой/временем.
+
+    В отличие от schedule (слот-генератор, относительно «сегодня») и
+    boundary_practices (offset_minutes от now), эта секция привязывает практику к
+    КОНКРЕТНОЙ дате/времени — для воспроизведения реального расписания продакта.
+
+    Каждая запись ссылается на practice_templates по ключу (template), задаёт
+    date (YYYY-MM-DD) + time (HH:MM) в своей timezone (по умолчанию
+    Europe/Moscow) и опционально zoom_link (иначе default_zoom — общий на все).
+    Длительность/направление/описание/теги берутся из шаблона как есть. Статус —
+    от now (completed/live/scheduled). key стабилен:
+    product-{date}-{HHMM}-{template_key} -> идемпотентно при повторном прогоне.
+    """
+    by_key = {t["key"]: t for t in templates}
+    out: list[dict] = []
+    for entry in fixed:
+        tkey = entry["template"]
+        tmpl = by_key.get(tkey)
+        if tmpl is None:
+            raise ValueError(
+                f"fixed_schedule: неизвестный template '{tkey}' "
+                f"(нет в practice_templates после masters_select)",
+            )
+        tzname = entry.get("timezone", "Europe/Moscow")
+        tz = ZoneInfo(tzname)
+        y, m, d = (int(x) for x in entry["date"].split("-"))
+        hh, mm = (int(x) for x in entry["time"].split(":"))
+        start = datetime(y, m, d, hh, mm, tzinfo=tz)
+        dur = int(tmpl.get("duration_minutes", 60))
+        end = start + timedelta(minutes=dur)
+        if end <= now:
+            status = "completed"
+        elif start <= now < end:
+            status = "live"
+        else:
+            status = "scheduled"
+        key = f"product-{entry['date']}-{entry['time'].replace(':', '')}-{tkey}"
+        out.append({
+            **tmpl,
+            "key": key,
+            "template_key": tkey,
+            "scheduled_at": start.isoformat(),
+            "timezone": tzname,
+            "status": status,
+            "zoom_link": entry.get("zoom_link", default_zoom),
+        })
+    return out
+
+
 def _read_json(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"Файл не найден: {path}")
@@ -373,6 +426,8 @@ def resolve_source(scenario: str, explicit_source: str | None = None) -> dict:
         "feedback_comments": scen.get("feedback_comments", base.get("feedback_comments", [])),
         "schedule": scen.get("schedule") or base.get("schedule"),
         "boundary_practices": scen.get("boundary_practices", []),
+        "fixed_schedule": scen.get("fixed_schedule", []),
+        "fixed_zoom_link": scen.get("fixed_zoom_link"),
         "test_users": scen.get("test_users", []),
         "_scenario": scenario if not explicit_source else scen_path.name,
     }
@@ -429,6 +484,10 @@ def load_source(scenario: str = DEFAULT_SCENARIO,
     )
     data["practices"] += expand_boundary(
         data.get("boundary_practices", []), data["schedule"], now,
+    )
+    data["practices"] += expand_fixed_schedule(
+        data["practice_templates"], data.get("fixed_schedule", []), now,
+        default_zoom=data.get("fixed_zoom_link"),
     )
     for p in data["practices"]:
         p["description"] = _join_lines(p.get("description"))

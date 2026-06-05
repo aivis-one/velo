@@ -170,6 +170,20 @@
       "bio": [
         "17 лет практики: даосские медитации, кундалини-йога, каббала."
       ]
+    },
+    {
+      "key": "esther",
+      "telegram_id": 10012,
+      "first_name": "Эстер",
+      "last_name": null,
+      "display_name": "Эстер",
+      "methods": [
+        "meditation"
+      ],
+      "bio": [
+        "Соединяет предпринимательство, глубину внутреннего поиска и умение создавать живые системы для роста людей и идей.",
+        "Практикует медитацию около 20 лет, а сам внутренний поиск начался ещё в детстве, примерно с восьми лет."
+      ]
     }
   ],
   "practice_templates": [
@@ -661,6 +675,43 @@
       ],
       "what_to_prepare": "Свободная одежда, пространство для движения, наушники",
       "contraindications": "Острые травмы, серьёзные проблемы с сердцем"
+    },
+    {
+      "key": "esther-meditation",
+      "master": "esther",
+      "title": "Медитация с Эстер",
+      "practice_type": "live",
+      "direction": "meditation",
+      "difficulty": "medium",
+      "style": "presence",
+      "duration_minutes": 60,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 100,
+      "zoom_link": null,
+      "description": [
+        "Мой подход вырос на пересечении древних дзен-практик, учений Гурджиева и современного взгляда нейронауки на сознание и внимание.",
+        "Для меня медитация — это не только про тишину или расслабление, а про присутствие, осознанность, внутреннюю честность и более глубокий контакт с собой."
+      ],
+      "what_to_prepare": "Удобное положение для сидения, тишина",
+      "contraindications": null
+    },
+    {
+      "key": "misha-qigong-daoist",
+      "master": "misha-vikhman",
+      "title": "Цигун / даосская медитация",
+      "practice_type": "live",
+      "direction": "meditation",
+      "difficulty": "medium",
+      "style": null,
+      "duration_minutes": 60,
+      "is_free": true,
+      "price_cents": 0,
+      "max_participants": 100,
+      "zoom_link": null,
+      "description": null,
+      "what_to_prepare": null,
+      "contraindications": null
     }
   ],
   "_diary_comment": "Личные записи дневника (note=Дневник / dream=Сонник) для тест-юзеров. mood — целое 1..10 или null (под score-схему миграции d5e6f7a8b9c0). content — массив строк (склейка через '\\n'). offset_days — на сколько дней назад backdate'ить запись (раскидано по ~25 дням). key — стабильный slug для маркера. Идемпотентность сидера — по (user, title, entry_type).",
