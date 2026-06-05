@@ -41,14 +41,8 @@
 
     <!-- Stats: practices + hours -->
     <div class="profile__stats">
-      <div class="profile__stat-card">
-        <div class="profile__stat-value">{{ practicesAttended }}</div>
-        <div class="profile__stat-label">Практик</div>
-      </div>
-      <div class="profile__stat-card">
-        <div class="profile__stat-value">{{ hoursLabel }}</div>
-        <div class="profile__stat-label">Часов</div>
-      </div>
+      <VStatCard class="profile__stat" :value="practicesAttended" label="Практик" />
+      <VStatCard class="profile__stat" :value="hoursLabel" label="Часов" />
     </div>
 
     <!-- Menu sections -->
@@ -137,7 +131,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { VAvatar } from '@/components/ui'
+import { VAvatar, VStatCard } from '@/components/ui'
 import {
   IconEdit,
   IconBookings,
@@ -269,38 +263,14 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* Stats: two white cards */
+/* Stats: two white cards (shared VStatCard); each fills half the row. */
 .profile__stats {
   display: flex;
   gap: var(--space-4);
 }
 
-.profile__stat-card {
+.profile__stat {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
-  border-radius: var(--radius-md);
-}
-
-.profile__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-3xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-}
-
-.profile__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
 }
 
 /* Menu sections */

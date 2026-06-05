@@ -126,14 +126,8 @@
     <section class="dashboard__section">
       <h3 class="dashboard__section-title">Ваш прогресс</h3>
       <div class="dashboard__stats-grid">
-        <div class="dashboard__stat-card">
-          <div class="dashboard__stat-value">{{ attendedCount }}</div>
-          <div class="dashboard__stat-label">Практик пройдено</div>
-        </div>
-        <div class="dashboard__stat-card">
-          <div class="dashboard__stat-value">{{ practiceHours }}</div>
-          <div class="dashboard__stat-label">Часов в практике</div>
-        </div>
+        <VStatCard class="dashboard__stat" :value="attendedCount" label="Практик пройдено" />
+        <VStatCard class="dashboard__stat" :value="practiceHours" label="Часов в практике" />
       </div>
     </section>
 
@@ -200,7 +194,7 @@ import { useBookingsStore } from '@/stores/bookings'
 import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
-import { VLoader, VButton, VBadge, VMoreLink } from '@/components/ui'
+import { VLoader, VButton, VBadge, VMoreLink, VStatCard } from '@/components/ui'
 import {
   IconClock,
   IconFeedback,
@@ -547,36 +541,10 @@ onUnmounted(() => {
   gap: var(--space-4);
 }
 
-.dashboard__stat-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
+/* Fixed card height (Figma 2266:452 — 160×104); the rest of the look comes
+   from the shared VStatCard component. */
+.dashboard__stat {
   height: 104px;
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 9px;
-}
-
-.dashboard__stat-value {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.64px;
-  line-height: 1.1;
-}
-
-.dashboard__stat-label {
-  font-family: var(--font-body);
-  /* Slightly below --text-xs (14px) and no-wrap so the longest label
-     ("Практик пройдено") stays on ONE line — uniform across both cards. */
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  white-space: nowrap;
 }
 
 /* ===== AI summary ===== */

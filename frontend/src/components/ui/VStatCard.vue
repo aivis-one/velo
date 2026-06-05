@@ -49,7 +49,7 @@ defineEmits<{
      stat cards: opaque white + 1px white border + radius-md, content centred.
      Replaces the old glass fill + blue border + radius-lg. */
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
