@@ -25,19 +25,19 @@
   "test_users": [],
   "fixed_zoom_link": "https://us06web.zoom.us/j/89139233861?pwd=YbRoUjKDgnKSpqG9DbkLueXrBf0x0k.1",
   "fixed_schedule": [
-    { "template": "ira-somatic-morning",   "date": "2026-06-08", "time": "08:00" },
-    { "template": "dima-shamenkov-silence", "date": "2026-06-08", "time": "11:00" },
-    { "template": "georgy-tantra",          "date": "2026-06-09", "time": "08:00" },
-    { "template": "igor-meditation",        "date": "2026-06-09", "time": "10:00" },
-    { "template": "misha-qigong-daoist",    "date": "2026-06-10", "time": "08:00" },
-    { "template": "statefirst-breath-med",  "date": "2026-06-10", "time": "10:00" },
-    { "template": "dasha-chen-breath",      "date": "2026-06-11", "time": "08:00" },
-    { "template": "esther-meditation",      "date": "2026-06-11", "time": "10:00" },
-    { "template": "soundmagic-immersive",   "date": "2026-06-12", "time": "08:00" },
-    { "template": "ira-womens-circle",      "date": "2026-06-12", "time": "10:00" },
-    { "template": "darya-vinyasa",          "date": "2026-06-13", "time": "08:00" },
-    { "template": "sasha-adam-breath",      "date": "2026-06-13", "time": "10:00" },
-    { "template": "misha-kundalini",        "date": "2026-06-14", "time": "08:00" },
-    { "template": "statefirst-breath-med",  "date": "2026-06-14", "time": "10:00" }
+    { "template": "ira-somatic-morning",   "date": "2026-06-08", "time": "08:00", "title": "Телесная + дыхательная практика" },
+    { "template": "dima-shamenkov-silence", "date": "2026-06-08", "time": "11:00", "title": "Медитация" },
+    { "template": "georgy-tantra",          "date": "2026-06-09", "time": "08:00", "title": "Тантра / медитация" },
+    { "template": "igor-meditation",        "date": "2026-06-09", "time": "10:00", "title": "Медитация" },
+    { "template": "misha-qigong-daoist",    "date": "2026-06-10", "time": "08:00", "title": "Цигун / даосская медитация" },
+    { "template": "statefirst-breath-med",  "date": "2026-06-10", "time": "10:00", "title": "Дыхание + медитация" },
+    { "template": "dasha-chen-breath",      "date": "2026-06-11", "time": "08:00", "title": "Дыхательная практика" },
+    { "template": "esther-meditation",      "date": "2026-06-11", "time": "10:00", "title": "Медитация" },
+    { "template": "soundmagic-immersive",   "date": "2026-06-12", "time": "08:00", "title": "Телесная практика + медитация" },
+    { "template": "ira-womens-circle",      "date": "2026-06-12", "time": "10:00", "title": "Женский круг" },
+    { "template": "darya-vinyasa",          "date": "2026-06-13", "time": "08:00", "title": "Йога" },
+    { "template": "sasha-adam-breath",      "date": "2026-06-13", "time": "10:00", "title": "Дыхательная практика" },
+    { "template": "misha-kundalini",        "date": "2026-06-14", "time": "08:00", "title": "Кундалини-йога / даосская медитация" },
+    { "template": "statefirst-breath-med",  "date": "2026-06-14", "time": "10:00", "title": "Дыхание + медитация" }
   ]
 }

@@ -386,6 +386,10 @@ def expand_fixed_schedule(
             **tmpl,
             "key": key,
             "template_key": tkey,
+            # Optional per-entry title override: the product scenario names its
+            # practices by the operator's exact genre labels, while the library
+            # template keeps its own "marketed" title for other scenarios.
+            "title": entry.get("title", tmpl.get("title")),
             "scheduled_at": start.isoformat(),
             "timezone": tzname,
             "status": status,
