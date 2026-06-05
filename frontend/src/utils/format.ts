@@ -100,6 +100,33 @@ export function formatDateShort(
 }
 
 /**
+ * Format an ISO datetime into a compact card date: "9 июня" / "12 сент.".
+ *
+ * Months follow the agreed VELO short-date table: a month whose genitive form
+ * is <= 4 letters is written in full with NO period (мая / июня / июля); longer
+ * ones are abbreviated to <= 4 letters + a period (янв. / февр. / мар. / апр. /
+ * авг. / сент. / окт. / нояб. / дек.). Day + month only (no year, no time).
+ * Timezone-safe (Intl with timeZone, no Date mutation).
+ */
+const VELO_SHORT_MONTHS = [
+  'янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июня',
+  'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.',
+] as const
+
+export function formatShortDate(isoString: string, timezone = 'UTC'): string {
+  const date = new Date(isoString)
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    day: 'numeric',
+    month: 'numeric',
+    timeZone: timezone,
+  }).formatToParts(date)
+  const day = parts.find((p) => p.type === 'day')?.value ?? ''
+  const monthNum = Number(parts.find((p) => p.type === 'month')?.value ?? '1')
+  const month = VELO_SHORT_MONTHS[monthNum - 1] ?? ''
+  return `${day} ${month}`.trim()
+}
+
+/**
  * Format an ISO datetime string into time only: "07:00".
  */
 export function formatTime(

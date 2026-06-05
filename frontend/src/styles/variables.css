@@ -107,6 +107,7 @@
   --radius-lg: 15px;
   --radius-xl: 100px;
   --radius-full: 9999px;
+  --velo-radius-badge: 5px;          /* единый радиус карточных бейджей-статусов (rect) */
 
   /* === Shadows === */
   --shadow-sm: none;
@@ -215,6 +216,8 @@
    * Title и master выровнены по этой линии (text-align: left) — иначе
    * при разной длине строк текст «прыгал» по горизонтали (фикс 2026-05-29). */
   --velo-card-content-indent: 70px;
+  /* Единый бордер карточек (заменяет хардкод #fff / --velo-white в карточках). */
+  --velo-border-card: #ffffff;
 
   /* === VELΘ: Banner DS tokens === */
   --velo-banner-padding: 15px;
