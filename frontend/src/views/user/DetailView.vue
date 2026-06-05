@@ -293,6 +293,7 @@ function goBack(): void {
   align-items: center;
   gap: var(--space-3);
   background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
 }
@@ -314,6 +315,7 @@ function goBack(): void {
 /* -- Detail card (date + full comment) -- */
 .detail__card {
   background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;

@@ -93,16 +93,18 @@
     class="feed-card feed-card--standard"
     @click="onTap"
   >
-    <p class="feed-card__date">{{ dateLine }}</p>
-    <div class="feed-card__body">
+    <!-- Left column: icon + time UNDER it, centred — unified card language with
+         PracticeListCard (time under the icon, not a top line). -->
+    <span class="feed-card__iconcol">
       <span class="feed-card__icon" :class="`feed-card__icon--${item.kind}`">
         <component :is="standardIcon" :size="standardIconSize" />
       </span>
-      <span class="feed-card__text">
-        <span class="feed-card__title">{{ title }}</span>
-        <span v-if="preview" class="feed-card__preview">{{ preview }}</span>
-      </span>
-    </div>
+      <span class="feed-card__date">{{ dateLine }}</span>
+    </span>
+    <span class="feed-card__text">
+      <span class="feed-card__title">{{ title }}</span>
+      <span v-if="preview" class="feed-card__preview">{{ preview }}</span>
+    </span>
   </button>
 </template>
 
@@ -217,6 +219,7 @@ function onTap(): void {
   width: 290px;
   margin-left: auto;
   background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;
@@ -299,7 +302,7 @@ function onTap(): void {
   align-items: center;
   gap: var(--space-1);
   padding: 3px var(--space-2);
-  border-radius: 4.325px;
+  border-radius: var(--velo-radius-badge);
   font-size: 12px;
 }
 
@@ -325,29 +328,31 @@ function onTap(): void {
 
 .feed-card--standard {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: center;
+  gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   text-align: left;
-  border: none;
   cursor: pointer;
+}
+
+/* Left column: icon + time UNDER it, centred — unified with PracticeListCard
+   (time lives under the icon, not as a top line). */
+.feed-card__iconcol {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .feed-card__date {
   font-size: 12.375px;
   letter-spacing: 0.2475px;
   opacity: 0.6;
-}
-
-.feed-card__body {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  /* Allow the text column to shrink below its content width so long
-     previews clamp instead of pushing the card wider. */
-  min-width: 0;
+  white-space: nowrap;
 }
 
 .feed-card__icon {

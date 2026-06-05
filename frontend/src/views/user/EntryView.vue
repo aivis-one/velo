@@ -353,6 +353,7 @@ function goBack(): void {
 /* -- Entry card -- */
 .entry__card {
   background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
