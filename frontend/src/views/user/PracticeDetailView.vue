@@ -668,7 +668,7 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: var(--space-2);
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   /* Match the accordion cards' padding for one cohesive card language. */
   padding: var(--space-3) var(--space-4);
@@ -683,7 +683,7 @@ onUnmounted(() => {
 /* ===== Zoom card (Batch 6: ported from BookingDetailView) ===== */
 .detail__zoom-card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   font-family: var(--font-body);
@@ -729,7 +729,7 @@ onUnmounted(() => {
   /* F-5.4 sync: в Figma practice-booked.svg price-row — белая card 336×48
    * rx=15 (стиль как у accordion и status-row), не голый flex-row. */
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;

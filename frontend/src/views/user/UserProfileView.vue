@@ -239,7 +239,7 @@ onMounted(async () => {
   text-align: center;
   padding: var(--space-6) var(--space-4) var(--space-5);
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
 }
 
@@ -308,7 +308,7 @@ onMounted(async () => {
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity var(--transition-fast);
