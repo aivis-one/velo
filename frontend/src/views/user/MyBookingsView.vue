@@ -91,8 +91,26 @@ const store = useBookingsStore()
 /** Active bookings the user is going to (or might still go to). */
 const UPCOMING_STATUSES = ['confirmed', 'pending'] as const
 
+/**
+ * True once the practice has ENDED (scheduled_at + duration < now).
+ *
+ * A booking whose practice is over belongs in "Прошедшие" even while its status
+ * is still confirmed/pending: the backend deliberately keeps that status until
+ * the practice is finalized (manually by the master, or by the +24h
+ * auto-finalizer) — a settlement grace window, NOT a signal the practice is
+ * still upcoming. So "upcoming vs past" is a TIME question here, decided on the
+ * client; the booking status drives only the past-section badge.
+ */
+function hasEnded(b: BookingWithPracticeResponse): boolean {
+  const start = new Date(b.practice.scheduled_at).getTime()
+  const end = start + (b.practice.duration_minutes ?? 0) * 60_000
+  return end < Date.now()
+}
+
 function isUpcoming(b: BookingWithPracticeResponse): boolean {
-  return (UPCOMING_STATUSES as readonly string[]).includes(b.status)
+  return (
+    (UPCOMING_STATUSES as readonly string[]).includes(b.status) && !hasEnded(b)
+  )
 }
 
 /** True if the practice is in progress (status live). */
@@ -171,6 +189,10 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
   if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
+  // Confirmed/pending but the practice is already over (awaiting backend
+  // finalize): it sits in "Прошедшие" with NO upcoming badge — no misleading
+  // "Сегодня" / "В эфире" on a practice that has ended.
+  if (hasEnded(b)) return null
   // Upcoming -> live takes priority, then today / tomorrow; later dates none.
   if (isLive(b)) return { label: 'В эфире', variant: 'live' }
   if (isToday(b.practice.scheduled_at, b.practice.timezone)) {
