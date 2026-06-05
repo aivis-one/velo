@@ -135,8 +135,8 @@
   --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
   --velo-glass-white-01: rgba(255, 255, 255, 0.01);
   --velo-glass-white-25: rgba(255, 255, 255, 0.25);  /* frosted modal panel (Figma 648:1861) */
-  --velo-write-frost: rgba(255, 255, 255, 0.15);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim); 15% — lighter wash so the feed underneath stays visible while typing */
-  --velo-write-blur: 12px;                           /* diary write-mode glass blur (scrim + composer field) */
+  --velo-write-frost: rgba(255, 255, 255, 0.20);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim); operator-tuned 2026-06-05 */
+  --velo-write-blur: 10px;                           /* diary write-mode glass blur (scrim + composer field) */
 
   /* === VELΘ: Primitive palette === */
   --velo-teal-400: #76dde6;

@@ -902,9 +902,9 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* Feed content fades slightly (90%) while writing, so it reads as background
-   behind the frosted writing surface. */
+/* Feed content fades (70%) while writing, so it reads as background behind the
+   frosted writing surface (operator-tuned 2026-06-05). */
 .diary-feed--composing .diary-feed__body {
-  opacity: 0.90;
+  opacity: 0.70;
 }
 </style>
