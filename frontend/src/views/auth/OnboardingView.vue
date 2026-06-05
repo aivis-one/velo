@@ -135,7 +135,7 @@ const SLIDES = [
   {
     image: '/onboarding/onboarding-practice.svg',
     title: 'Найдите свою практику',
-    text: 'Выбирайте из медитаций, breathwork и других практик с лучшими мастерами',
+    text: 'Выбирайте из медитаций, дыхательных и других практик с лучшими мастерами',
   },
   {
     image: '/onboarding/onboarding-diary.svg',
