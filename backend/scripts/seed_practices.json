@@ -542,11 +542,7 @@
       "price_cents": 0,
       "max_participants": 100,
       "zoom_link": null,
-      "description": [
-        "Кундалини-йога и даосская медитация с Мишей Вихманом.",
-        "",
-        "Сочетание динамичных крий, дыхания и медитации для пробуждения энергии и ясности."
-      ],
+      "description": null,
       "what_to_prepare": "Удобная одежда, коврик",
       "contraindications": null
     },
