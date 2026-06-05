@@ -127,6 +127,22 @@ export function formatShortDate(isoString: string, timezone = 'UTC'): string {
 }
 
 /**
+ * Whether the given ISO datetime falls on the current calendar day in the
+ * target timezone. Used e.g. on the dashboard: a practice today shows its time,
+ * any other day shows the date.
+ */
+export function isToday(isoString: string, timezone = 'UTC'): boolean {
+  const calendarDay = (d: Date) =>
+    new Intl.DateTimeFormat('en-CA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      timeZone: timezone,
+    }).format(d)
+  return calendarDay(new Date(isoString)) === calendarDay(new Date())
+}
+
+/**
  * Format an ISO datetime string into time only: "07:00".
  */
 export function formatTime(

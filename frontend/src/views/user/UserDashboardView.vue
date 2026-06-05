@@ -211,7 +211,7 @@ import {
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { formatShortDate, formatDuration } from '@/utils/format'
+import { formatShortDate, formatTime, formatDuration, isToday } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
@@ -410,9 +410,14 @@ function openNearest(): void {
  */
 const viewerTz = useViewerTimezone()
 
+// Dashboard "Ближайшая практика": today → time (it's clearly today), any other
+// day → the short date — one value, so the user instantly knows when it is.
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
-  return formatShortDate(nearestBooking.value.practice.scheduled_at, viewerTz.value)
+  const iso = nearestBooking.value.practice.scheduled_at
+  return isToday(iso, viewerTz.value)
+    ? formatTime(iso, viewerTz.value)
+    : formatShortDate(iso, viewerTz.value)
 })
 
 const nearestPracticeDuration = computed((): string => {
