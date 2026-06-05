@@ -59,21 +59,21 @@
     </div>
 
     <div class="feed-card__practice-bottom">
-      <span class="feed-card__practice-meta">
-        <span class="feed-card__practice-cell">
-          <IconCalendar :size="14" /> {{ practiceTime }}
-        </span>
+      <!-- Time centred UNDER the icon (PracticeListCard canon), no leading glyph. -->
+      <span class="feed-card__practice-when">{{ practiceTime }}</span>
+      <span class="feed-card__practice-rest">
         <span v-if="practiceDuration" class="feed-card__practice-cell">
           <IconClock :size="14" /> {{ practiceDuration }}
         </span>
-      </span>
-      <!-- Attended shows just a check (no "Done" text); a miss keeps its label. -->
-      <span
-        class="feed-card__outcome"
-        :class="`feed-card__outcome--${outcomeStatus}`"
-      >
-        <IconCheck v-if="outcomeStatus === 'attended'" :size="12" />
-        <template v-else>{{ outcomeLabel }}</template>
+        <span v-else class="feed-card__practice-dur-empty" />
+        <!-- Attended shows just a check (no "Done" text); a miss keeps its label. -->
+        <span
+          class="feed-card__outcome"
+          :class="`feed-card__outcome--${outcomeStatus}`"
+        >
+          <IconCheck v-if="outcomeStatus === 'attended'" :size="12" />
+          <template v-else>{{ outcomeLabel }}</template>
+        </span>
       </span>
     </div>
 
@@ -110,7 +110,7 @@
 
 <script setup lang="ts">
 import { useDiaryCardModel } from '@/composables/useDiaryCardModel'
-import { IconCheck, IconCalendar, IconClock } from '@/components/icons'
+import { IconCheck, IconClock } from '@/components/icons'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -275,26 +275,39 @@ function onTap(): void {
   color: var(--velo-teal-400);
 }
 
+/* Bottom meta — unified with PracticeListCard: time centred UNDER the icon (its
+   own 46px column), duration + outcome in the rest, aligned under the title. */
 .feed-card__practice-bottom {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
-/* Мета-строка карточки практики: дата+время и часы+длительность —
-   двумя ячейками с иконками (как в карточках календаря). */
-.feed-card__practice-meta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
+.feed-card__practice-when {
+  width: 46px;
+  flex-shrink: 0;
+  text-align: center;
   font-size: 12px;
   color: var(--velo-text-secondary);
+  white-space: nowrap;
+}
+
+.feed-card__practice-rest {
+  flex: 1;
+  min-width: 0;
+  /* Same left offset as the title (icon 46 + gap) so the duration lines up under it. */
+  margin-left: calc(var(--space-4) + 9px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .feed-card__practice-cell {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  font-size: 12px;
+  color: var(--velo-text-secondary);
 }
 
 .feed-card__outcome {

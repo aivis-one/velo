@@ -17,6 +17,7 @@
   <PracticeListCard
     :practice="booking.practice"
     :when="formattedDate"
+    :duration="timeAndDuration"
     :clickable="clickable"
     @click="$emit('click')"
   >
@@ -36,7 +37,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatShortDate } from '@/utils/format'
+import { formatShortDate, formatTime, formatDuration } from '@/utils/format'
 import { IconCheck, IconClock, IconClose } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -82,6 +83,15 @@ const viewerTz = useViewerTimezone()
 const formattedDate = computed(() =>
   formatShortDate(props.booking.practice.scheduled_at, viewerTz.value),
 )
+
+// Дата под иконкой — короткая (список идёт по разным дням), поэтому время суток
+// складываем в мета-ячейку рядом с длительностью: «13:00 · 45 мин» (тот же
+// приём, что на странице мастера). Иначе на карточке брони не видно времени.
+const timeAndDuration = computed(() => {
+  const time = formatTime(props.booking.practice.scheduled_at, viewerTz.value)
+  const dur = formatDuration(props.booking.practice.duration_minutes)
+  return `${time} · ${dur}`
+})
 </script>
 
 <style scoped>
