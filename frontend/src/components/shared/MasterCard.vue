@@ -95,7 +95,7 @@ function onMore(): void {
 
 .master-card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   /* Figma: base card height 104 (avatar xl=80 + padding-y 12+12). min-height
    * (not fixed height) so many wrapped method tags grow the card instead of
