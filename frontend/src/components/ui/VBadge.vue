@@ -35,7 +35,7 @@ withDefaults(
   padding: 4px 10px;
   font-size: var(--text-xs);
   font-weight: 400;
-  border-radius: var(--radius-full);
+  border-radius: var(--velo-radius-badge);
   white-space: nowrap;
 }
 
