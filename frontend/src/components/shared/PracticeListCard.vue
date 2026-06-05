@@ -1,46 +1,31 @@
 <!--
-  VELO Frontend -- PracticeListCard (DS, 2026-05)
+  VELO Frontend -- PracticeListCard (DS, unified 2026-06)
 
   Shared list-item card for a practice. Used in:
     - UserDashboardView "Ближайшая практика"
-    - CalendarPracticeCard (calendar day list)
+    - CalendarPracticeCard (calendar day list / master public upcoming)
     - BookingCard (my reservations list)
-    - Booking Detail (embedded practice info)
+    - DetailView / EntryView (diary linked-practice header)
 
-  Visual spec (Figma SVGs dashboard / calendar-list / my-reservations):
-    - Card 336×104, padding 13/15, white background, 1px white border, radius 15
-    - Icon position: absolute left 15, top 13, size 46×46 (icon itself carries
-      the circle outline — wrapper is just a slot for color)
-    - Title text-align LEFT (2026-05-29 fix: ранее center, но при разной
-      длине строк левый край title плавал ±6px относительно линии иконки —
-      зрительно текст «прыгал»). Начало колонки: 70px от левого края card
-      (= padding-x 15 + icon 46 + 9 gap) — токен --velo-card-content-indent.
-      font-size 18, letter-spacing 0.36px, line-height 1, ellipsis-truncated.
-    - Master row LEFT по той же линии, что title (выровнено с заголовком).
-      font-size 14, gap 10, letter-spacing 0.28px, margin-bottom 19.
-    - Footer: flex space-between (meta cluster left + badge slot right)
+  Layout (unified canon, approved 2026-06):
+    - White card, --velo-border-card, --radius-md, adaptive min-height 104.
+    - Left column (--velo-card-iconcol-w): direction icon on top, and the
+      date/time (`when`) centered UNDER it on the bottom meta line — no leading
+      calendar icon. Short date via formatShortDate ("9 июня" / "12 сент.").
+    - Content column (icon col + space-3): title (ellipsis) + master row.
+    - Bottom meta line (one row): `when` (under the icon) · duration with clock
+      icon (under the title) · #badge slot (status, right edge, symmetric padding).
 
-  Slots:
-    #meta-left -- left content of the footer (e.g. date + duration with icons).
-                  When empty, footer is hidden entirely.
-    #badge     -- right content of the footer (e.g. VBadge "Оплачено").
+  Props:
+    practice     -- icon/title/master source.
+    title?       -- override title (e.g. cleaned of "(эфир)").
+    when         -- pre-formatted date OR time string shown under the icon.
+    duration?    -- pre-formatted duration ("45 мин"); omitted = no duration cell.
+    showVerified -- show the teal verified check next to the master (default true).
+    clickable    -- whole card is a button emitting @click (default true).
 
-  Title is taken from the prop `title` (override) or from `practice.title`.
-  Master name from `practice.master_name`; falls back to "Мастер".
-
-  Usage:
-    <PracticeListCard
-      :practice="bookingData.practice"
-      @click="openPractice"
-    >
-      <template #meta-left>
-        <span class="cell"><IconCalendar :size="14" /> {{ date }}</span>
-        <span class="cell"><IconClock :size="14" /> {{ duration }}</span>
-      </template>
-      <template #badge>
-        <VBadge variant="success">Оплачено</VBadge>
-      </template>
-    </PracticeListCard>
+  Slot:
+    #badge -- status badge on the right of the meta line (e.g. <VBadge>).
 -->
 
 <template>
@@ -51,26 +36,32 @@
     :class="{ 'practice-list-card--clickable': clickable }"
     @click="clickable ? $emit('click') : null"
   >
-    <span class="practice-list-card__icon">
-      <component :is="icon" :size="46" />
-    </span>
-
-    <h4 class="practice-list-card__title">{{ titleText }}</h4>
-
-    <p class="practice-list-card__master">
-      <span class="practice-list-card__master-avatar">{{ masterInitial }}</span>
-      <span class="practice-list-card__master-name">{{ masterName }}</span>
-      <span v-if="showVerified" class="practice-list-card__verified">
-        <IconCheck :size="11" />
+    <div class="practice-list-card__top">
+      <span class="practice-list-card__iconcol">
+        <component :is="icon" :size="46" />
       </span>
-    </p>
+      <div class="practice-list-card__content">
+        <h4 class="practice-list-card__title">{{ titleText }}</h4>
+        <p class="practice-list-card__master">
+          <span class="practice-list-card__master-avatar">{{ masterInitial }}</span>
+          <span class="practice-list-card__master-name">{{ masterName }}</span>
+          <span v-if="showVerified" class="practice-list-card__verified">
+            <IconCheck :size="11" />
+          </span>
+        </p>
+      </div>
+    </div>
 
-    <div v-if="$slots['meta-left'] || $slots.badge" class="practice-list-card__footer">
-      <span class="practice-list-card__meta-left">
-        <slot name="meta-left" />
-      </span>
-      <span class="practice-list-card__badge-slot">
-        <slot name="badge" />
+    <div class="practice-list-card__meta">
+      <span class="practice-list-card__when">{{ when }}</span>
+      <span class="practice-list-card__rest">
+        <span v-if="duration" class="practice-list-card__dur">
+          <IconClock :size="14" /> {{ duration }}
+        </span>
+        <span v-else class="practice-list-card__dur-empty" />
+        <span class="practice-list-card__badge">
+          <slot name="badge" />
+        </span>
       </span>
     </div>
   </component>
@@ -78,7 +69,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconCheck } from '@/components/icons'
+import { IconCheck, IconClock } from '@/components/icons'
 import { practiceIconFor } from '@/utils/displayHelpers'
 
 interface PracticeLike {
@@ -95,6 +86,10 @@ const props = withDefaults(
     practice: PracticeLike
     /** Override title (e.g. cleaned of "(эфир)"). Defaults to practice.title. */
     title?: string
+    /** Pre-formatted date or time shown under the icon (e.g. "9 июня" / "19:00"). */
+    when?: string
+    /** Pre-formatted duration ("45 мин"); omitted = no duration cell. */
+    duration?: string
     /** Show the teal-circle "verified" check next to the master name. Default true. */
     showVerified?: boolean
     /** When true (default), the whole card is a button and emits @click. */
@@ -102,6 +97,8 @@ const props = withDefaults(
   }>(),
   {
     title: undefined,
+    when: '',
+    duration: undefined,
     showVerified: true,
     clickable: true,
   },
@@ -127,12 +124,13 @@ const masterInitial = computed(() => {
 
 <style scoped>
 .practice-list-card {
-  position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   width: 100%;
-  height: var(--velo-card-height-list);
+  min-height: var(--velo-card-height-list);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
   text-align: left;
@@ -149,32 +147,34 @@ const masterInitial = computed(() => {
   opacity: 0.85;
 }
 
-.practice-list-card__icon {
-  position: absolute;
-  left: var(--velo-card-padding-x);
-  top: var(--velo-card-padding-y);
-  width: 46px;
-  height: 46px;
+/* Top: icon column + content (title/master) */
+.practice-list-card__top {
   display: flex;
-  align-items: center;
+  gap: var(--space-3);
+}
+
+.practice-list-card__iconcol {
+  width: var(--velo-card-iconcol-w);
+  flex-shrink: 0;
+  display: flex;
   justify-content: center;
-  /* Иконка сама несёт circle-обводку (см. IconMeditation/Breathwork) —
-   * подложки/border-radius на обёртке не нужны. */
+  /* Иконка сама несёт circle-обводку — подложки на обёртке не нужны. */
   color: var(--velo-text-primary);
 }
 
+.practice-list-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--velo-card-gap-icon-title);
+}
+
 .practice-list-card__title {
-  /* 2026-05-29: text-align LEFT, фиксированный левый край (--velo-card-content-indent).
-   * Раньше был center — при разной длине titles текст «прыгал» ±6px
-   * по горизонтали относительно иконки. */
-  text-align: left;
   font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-primary);
   letter-spacing: var(--velo-card-letter-spacing-title);
-  line-height: 1;
-  margin: 0 var(--velo-card-padding-x) var(--velo-card-gap-icon-title)
-          var(--velo-card-content-indent);
+  line-height: 1.05;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -183,15 +183,10 @@ const masterInitial = computed(() => {
 .practice-list-card__master {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
   gap: var(--velo-card-meta-row-gap);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: var(--velo-card-letter-spacing-meta);
-  /* Левая колонка выровнена с title (--velo-card-content-indent),
-   * правая граница как у title (padding-x). */
-  margin: 0 var(--velo-card-padding-x) var(--velo-card-gap-meta-footer)
-          var(--velo-card-content-indent);
 }
 
 .practice-list-card__master-avatar {
@@ -226,32 +221,44 @@ const masterInitial = computed(() => {
   flex-shrink: 0;
 }
 
-.practice-list-card__footer {
+/* Bottom meta line: when (under icon) · duration (under title) · badge (right) */
+.practice-list-card__meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  margin-top: auto;
+}
+
+.practice-list-card__when {
+  width: var(--velo-card-iconcol-w);
+  flex-shrink: 0;
+  text-align: center;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: var(--velo-card-letter-spacing-meta);
+}
+
+.practice-list-card__rest {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
 }
 
-.practice-list-card__meta-left {
+.practice-list-card__dur {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
 }
 
-.practice-list-card__badge-slot {
+.practice-list-card__badge {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-}
-
-/* Helper class for items inside #meta-left (so views don't need to duplicate
- * inline-flex styles). Visible to slot content via :slotted(). */
-:slotted(.plc-meta-item) {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 </style>

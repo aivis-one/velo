@@ -11,15 +11,12 @@
 -->
 
 <template>
-  <PracticeListCard :practice="practice" @click="$emit('click', practice.id)">
-    <template #meta-left>
-      <span class="plc-meta-item">
-        <IconCalendar :size="14" /> {{ time }}
-      </span>
-      <span class="plc-meta-item">
-        <IconClock :size="14" /> {{ duration }}
-      </span>
-    </template>
+  <PracticeListCard
+    :practice="practice"
+    :when="time"
+    :duration="duration"
+    @click="$emit('click', practice.id)"
+  >
     <template #badge>
       <span class="cal-card__badge" :class="`cal-card__badge--${badge.variant}`">
         <IconCheck v-if="badge.variant === 'paid'" :size="12" />
@@ -31,8 +28,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatDate, formatTime, formatDuration, formatMoney } from '@/utils/format'
-import { IconCheck, IconCalendar, IconClock } from '@/components/icons'
+import { formatShortDate, formatTime, formatDuration, formatMoney } from '@/utils/format'
+import { IconCheck } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeResponse } from '@/api/types'
@@ -58,7 +55,7 @@ const viewerTz = useViewerTimezone()
 // Первая мета-строка: дата+время (showDate) или только время (календарь).
 const time = computed(() =>
   props.showDate
-    ? formatDate(props.practice.scheduled_at, viewerTz.value)
+    ? formatShortDate(props.practice.scheduled_at, viewerTz.value)
     : formatTime(props.practice.scheduled_at, viewerTz.value),
 )
 

@@ -16,12 +16,10 @@
 <template>
   <PracticeListCard
     :practice="booking.practice"
+    :when="formattedDate"
     :clickable="clickable"
     @click="$emit('click')"
   >
-    <template #meta-left>
-      <span class="plc-meta-item">{{ formattedDate }}</span>
-    </template>
     <template #badge>
       <span
         v-if="badge"
@@ -38,7 +36,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatDate } from '@/utils/format'
+import { formatShortDate } from '@/utils/format'
 import { IconCheck, IconClock, IconClose } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -82,7 +80,7 @@ const badgeIcon = computed(() => {
 const viewerTz = useViewerTimezone()
 
 const formattedDate = computed(() =>
-  formatDate(props.booking.practice.scheduled_at, viewerTz.value),
+  formatShortDate(props.booking.practice.scheduled_at, viewerTz.value),
 )
 </script>
 

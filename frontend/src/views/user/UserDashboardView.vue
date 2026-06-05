@@ -83,16 +83,10 @@
         v-else-if="nearestBooking"
         :practice="nearestBooking.practice"
         :title="nearestPracticeTitle"
+        :when="nearestPracticeDate"
+        :duration="nearestPracticeDuration"
         @click="openNearest"
       >
-        <template #meta-left>
-          <span class="plc-meta-item">
-            <IconCalendar :size="14" /> {{ nearestPracticeDate }}
-          </span>
-          <span class="plc-meta-item">
-            <IconClock :size="14" /> {{ nearestPracticeDuration }}
-          </span>
-        </template>
         <template #badge>
           <VBadge v-if="nearestIsLive" variant="success">
             · В эфире
@@ -209,7 +203,6 @@ import { platform } from '@/platform'
 import { VLoader, VButton, VBadge, VMoreLink } from '@/components/ui'
 import {
   IconClock,
-  IconCalendar,
   IconFeedback,
   IconCheck,
   IconArrowRight,
@@ -218,7 +211,7 @@ import {
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
+import { formatShortDate, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
@@ -419,8 +412,7 @@ const viewerTz = useViewerTimezone()
 
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
-  const iso = nearestBooking.value.practice.scheduled_at
-  return `${formatDateShort(iso, viewerTz.value)}, ${formatTime(iso, viewerTz.value)}`
+  return formatShortDate(nearestBooking.value.practice.scheduled_at, viewerTz.value)
 })
 
 const nearestPracticeDuration = computed((): string => {

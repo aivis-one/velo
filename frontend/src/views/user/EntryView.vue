@@ -77,17 +77,11 @@
         <PracticeListCard
           v-if="practice"
           :practice="practice"
+          :when="practiceTime"
+          :duration="practiceDuration"
           :clickable="false"
           :show-verified="false"
         >
-          <template #meta-left>
-            <span class="plc-meta-item">
-              <IconCalendar :size="14" /> {{ practiceTime }}
-            </span>
-            <span class="plc-meta-item">
-              <IconClock :size="14" /> {{ practiceDuration }}
-            </span>
-          </template>
           <template v-if="practiceDone" #badge>
             <VBadge variant="success">Состоялась</VBadge>
           </template>
@@ -150,11 +144,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
-import {
-  IconPen,
-  IconCalendar,
-  IconClock,
-} from '@/components/icons'
+import { IconPen } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
 // file directly (same pattern as other ad-hoc icon imports in the project).
 import IconTrash from '@/components/icons/IconTrash.vue'
