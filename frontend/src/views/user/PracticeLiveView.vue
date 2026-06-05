@@ -154,7 +154,10 @@ async function onEnter(): Promise<void> {
       }
     }
     try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
-    platform.openLink(practice.value.zoom_link)
+    // Zoom intentionally disabled for now (not ready for the public test): the
+    // check-in above still records, but we show "unavailable" instead of opening
+    // the link. Re-enable when Zoom delivery is live.
+    toast.info('Zoom пока недоступен')
   } finally {
     joining.value = false
   }

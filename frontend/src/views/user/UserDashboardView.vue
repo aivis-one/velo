@@ -191,9 +191,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
-import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
-import { platform } from '@/platform'
 import { VLoader, VButton, VBadge, VMoreLink, VStatCard } from '@/components/ui'
 import {
   IconClock,
@@ -218,7 +216,6 @@ void CHECKIN_WINDOW_H
 const router = useRouter()
 
 const bookingsStore = useBookingsStore()
-const practicesStore = usePracticesStore()
 const toast = useToast()
 
 // -- Reactive clock: updated every 60s so alert computeds re-evaluate --
@@ -357,23 +354,11 @@ const nearestPracticeTitle = computed((): string => {
  * a toast — we deliberately do NOT navigate to the practice screen, since the
  * whole point of this button is to skip that screen.
  */
-async function onZoomClick(): Promise<void> {
-  const booking = nearestBooking.value
-  if (!booking) return
-
-  // Fetch the full practice if it's not already the currently-selected one.
-  if (practicesStore.selected?.id !== booking.practice_id) {
-    await practicesStore.fetchPractice(booking.practice_id)
-  }
-
-  const zoomLink = practicesStore.selected?.zoom_link
-  if (!zoomLink || !zoomLink.startsWith('https://')) {
-    toast.error('Ссылка на Zoom ещё не указана')
-    return
-  }
-
-  try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
-  platform.openLink(zoomLink)
+function onZoomClick(): void {
+  // Zoom is intentionally disabled for now (not ready for the public test):
+  // show "unavailable" instead of opening a link. The same applies to the live
+  // screen's "Войти". Re-enable when Zoom delivery is live.
+  toast.info('Zoom пока недоступен')
 }
 
 /**
