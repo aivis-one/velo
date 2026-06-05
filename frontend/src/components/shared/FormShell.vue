@@ -44,17 +44,11 @@
 -->
 
 <template>
-  <!-- ===== SUCCESS SCREEN ===== -->
-  <div v-if="submitted" class="form-shell-success">
-    <div class="form-shell-success__icon">
-      <slot name="success-icon">{{ successIcon }}</slot>
-    </div>
-    <h1 class="form-shell-success__title">{{ successTitle }}</h1>
-    <p class="form-shell-success__text">{{ successText }}</p>
-    <div class="form-shell-success__actions">
-      <slot name="success-actions" />
-    </div>
-  </div>
+  <!-- ===== SUCCESS SCREEN (shared full-bleed white takeover) ===== -->
+  <ResultScreen v-if="submitted" :title="successTitle" :text="successText">
+    <template #icon><slot name="success-icon">{{ successIcon }}</slot></template>
+    <template #actions><slot name="success-actions" /></template>
+  </ResultScreen>
 
   <!-- ===== FORM SCREEN ===== -->
   <div v-else class="form-shell">
@@ -135,6 +129,7 @@ import { computed } from 'vue'
 import { VButton, VLoader } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
+import ResultScreen from '@/components/shared/ResultScreen.vue'
 import { cleanPracticeTitle } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
@@ -174,55 +169,8 @@ const cleanTitle = computed(() =>
 </script>
 
 <style scoped>
-/* ===== Success screen =====
- * Edge-to-edge solid white: break out of MobileLayout's rail padding and cover
- * the whole app frame (absolute over the position:relative mobile-layout) so no
- * mandala background shows at the edges (design: full-white success). Horizontal
- * padding = --velo-screen-padding (33) so the 32px title fits one line. */
-.form-shell-success {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-modal);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6) var(--velo-screen-padding);
-  text-align: center;
-  background: var(--velo-bg-card-solid);
-  overflow-y: auto;
-}
-
-.form-shell-success__icon {
-  font-size: var(--size-success-icon);
-  margin-bottom: var(--space-6);
-}
-
-.form-shell-success__title {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-3);
-}
-
-.form-shell-success__text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-8);
-  max-width: 280px;
-}
-
-.form-shell-success__actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: 100%;
-  max-width: var(--velo-content-width);
-}
+/* Success screen is the shared <ResultScreen> (full-bleed white takeover) —
+   styles live there now. */
 
 /* ===== Form screen ===== */
 .form-shell {
