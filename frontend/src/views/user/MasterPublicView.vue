@@ -84,23 +84,25 @@
         </div>
       </VAccordion>
 
-      <!-- Ближайшие практики: секция (лейбл + отдельные карточки на фоне), как
-           список календаря. Раньше был белый аккордеон → карточки сливались
-           бело-на-белом в «слитный» блок. Теперь каждая практика — свой
-           прямоугольник на фоне. show-date: практики идут в разные дни, поэтому
-           показываем дату+время, а не только время (operator 2026-06-04). -->
-      <section v-if="upcoming.length" class="master-public__section">
-        <h3 class="master-public__section-title">Ближайшие практики</h3>
-        <div class="master-public__practices">
-          <CalendarPracticeCard
-            v-for="p in upcoming"
-            :key="p.id"
-            :practice="p"
-            show-date
-            @click="goToPractice"
-          />
-        </div>
-      </section>
+      <!-- Ближайшие практики: СВЁРНУТЫЙ по умолчанию аккордеон (operator
+           2026-06-05) — чтобы кнопка «Задать вопрос» была сразу видна, без
+           скролла мимо всех практик. Заголовок = белая плашка (консистентно с
+           «Методы»); тело прозрачное → карточки лежат отдельными прямоугольниками
+           на фоне (не сливаются бело-на-белом). show-date: практики идут в разные
+           дни — карточка показывает дату под иконкой + время в мета-линии. -->
+      <div v-if="upcoming.length" class="master-public__upcoming">
+        <VAccordion title="Ближайшие практики">
+          <div class="master-public__practices">
+            <CalendarPracticeCard
+              v-for="p in upcoming"
+              :key="p.id"
+              :practice="p"
+              show-date
+              @click="goToPractice"
+            />
+          </div>
+        </VAccordion>
+      </div>
 
       <!-- Ask a question (frame 6 -- not built yet) -->
       <div class="master-public__actions">
@@ -315,20 +317,24 @@ onMounted(async () => {
   gap: var(--space-1);
 }
 
-/* Секция «Ближайшие практики» = лейбл над карточками на фоне (тот же DS-паттерн,
- * что «Мастер»/«ZOOM» на экране практики). Карточки — отдельные прямоугольники. */
-.master-public__section {
-  display: flex;
-  flex-direction: column;
+/* «Ближайшие практики» — свёрнутый аккордеон. Контейнер прозрачный (чтобы тело
+ * не было белой плашкой), заголовок = белая плашка как «Методы», тело прозрачное
+ * → карточки лежат на фоне отдельными прямоугольниками (без «слитности»). */
+.master-public__upcoming :deep(.v-accordion) {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
-.master-public__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  letter-spacing: var(--velo-card-letter-spacing-meta);
-  margin-bottom: var(--space-2);
+.master-public__upcoming :deep(.v-accordion__header) {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+}
+
+.master-public__upcoming :deep(.v-accordion__body) {
+  padding: var(--space-2) 0 0;
 }
 
 .master-public__practices {

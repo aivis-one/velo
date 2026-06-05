@@ -52,14 +52,23 @@ defineEmits<{
 // F5: render the time in the viewer's own profile timezone (the profile decides).
 const viewerTz = useViewerTimezone()
 
-// Первая мета-строка: дата+время (showDate) или только время (календарь).
+// Под иконкой (when): короткая дата (showDate, страница мастера — практики идут
+// в разные дни) либо только время (календарь — уже сгруппирован по дню).
 const time = computed(() =>
   props.showDate
     ? formatShortDate(props.practice.scheduled_at, viewerTz.value)
     : formatTime(props.practice.scheduled_at, viewerTz.value),
 )
 
-const duration = computed(() => formatDuration(props.practice.duration_minutes))
+// Мета-ячейка длительности. На странице мастера (showDate) под иконкой стоит
+// ДАТА, поэтому время суток складываем сюда: «09:00 · 1 ч 15 мин» — иначе
+// практики одного дня в разное время были бы неразличимы. В календаре время
+// уже под иконкой, поэтому остаётся только длительность.
+const duration = computed(() => {
+  const dur = formatDuration(props.practice.duration_minutes)
+  if (!props.showDate) return dur
+  return `${formatTime(props.practice.scheduled_at, viewerTz.value)} · ${dur}`
+})
 
 // Badge: paid (teal) > free (blue) > price (blue).
 interface Badge {
