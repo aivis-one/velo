@@ -369,8 +369,8 @@ async function onSend(): Promise<void> {
   border-color: var(--velo-nav-active-bg);
   box-shadow: none;
   background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(var(--velo-write-blur));
+  backdrop-filter: blur(var(--velo-write-blur));
   border-radius: 20px;
 }
 

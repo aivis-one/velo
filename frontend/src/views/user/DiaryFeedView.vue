@@ -888,8 +888,8 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 1;
   background: var(--velo-write-frost);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(var(--velo-write-blur));
+  backdrop-filter: blur(var(--velo-write-blur));
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.28s ease;
@@ -902,9 +902,9 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* Feed content fades slightly (85%) while writing, so it reads as background
+/* Feed content fades slightly (90%) while writing, so it reads as background
    behind the frosted writing surface. */
 .diary-feed--composing .diary-feed__body {
-  opacity: 0.85;
+  opacity: 0.90;
 }
 </style>
