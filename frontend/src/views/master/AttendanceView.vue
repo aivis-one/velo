@@ -157,38 +157,15 @@
         />
       </div>
 
-      <!-- Confirm dialog -->
-      <Teleport to="body">
-        <!--
-          W-5: @click.self guarded by !finalizing.
-          Without the guard, clicking the overlay while the request is in-flight
-          sets confirmVisible=false, so the loading spinner disappears and the
-          user thinks the action was cancelled -- but it actually still runs.
-        -->
-        <div
-          v-if="confirmVisible"
-          class="attendance__overlay"
-          @click.self="!finalizing && (confirmVisible = false)"
-        >
-          <div class="attendance__dialog">
-            <p class="attendance__dialog-text">
-              Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены.
-            </p>
-            <div class="attendance__dialog-actions">
-              <VButton
-                variant="ghost"
-                :disabled="finalizing"
-                @click="confirmVisible = false"
-              >
-                Отмена
-              </VButton>
-              <VButton variant="primary" :loading="finalizing" @click="finalize">
-                Финализировать
-              </VButton>
-            </div>
-          </div>
-        </div>
-      </Teleport>
+      <!-- Confirm dialog (W-5: cancel/overlay blocked while finalizing) -->
+      <VConfirmDialog
+        :open="confirmVisible"
+        message="Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены."
+        confirm-label="Финализировать"
+        :loading="finalizing"
+        @confirm="finalize"
+        @cancel="confirmVisible = false"
+      />
     </template>
   </div>
 </template>
@@ -197,7 +174,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
@@ -500,40 +477,5 @@ async function finalize(): Promise<void> {
 }
 
 /* -- Confirm overlay -- */
-.attendance__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: var(--z-modal, 400);
-  padding: var(--space-4);
-}
-
-.attendance__dialog {
-  width: 100%;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.attendance__dialog-text {
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.attendance__dialog-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.attendance__dialog-actions > * {
-  flex: 1;
-}
+/* (confirm dialog now provided by <VConfirmDialog>) */
 </style>

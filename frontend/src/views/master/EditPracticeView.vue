@@ -320,37 +320,16 @@
         </div>
       </div>
 
-      <!-- ================================================================
-           CONFIRM DIALOG
-           W-5: overlay click blocked while confirmDialog.loading is true
-           ================================================================ -->
-      <Teleport to="body">
-        <div
-          v-if="confirmDialog.visible"
-          class="edit-practice__overlay"
-          @click.self="!confirmDialog.loading && (confirmDialog.visible = false)"
-        >
-          <div class="edit-practice__dialog">
-            <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
-            <div class="edit-practice__dialog-actions">
-              <VButton
-                variant="ghost"
-                :disabled="confirmDialog.loading"
-                @click="confirmDialog.visible = false"
-              >
-                Отмена
-              </VButton>
-              <VButton
-                :variant="confirmDialog.danger ? 'danger' : 'primary'"
-                :loading="confirmDialog.loading"
-                @click="confirmDialog.onConfirm"
-              >
-                {{ confirmDialog.confirmLabel }}
-              </VButton>
-            </div>
-          </div>
-        </div>
-      </Teleport>
+      <!-- W-5: cancel/overlay blocked while confirmDialog.loading is true (VConfirmDialog) -->
+      <VConfirmDialog
+        :open="confirmDialog.visible"
+        :message="confirmDialog.message"
+        :confirm-label="confirmDialog.confirmLabel"
+        :danger="confirmDialog.danger"
+        :loading="confirmDialog.loading"
+        @confirm="confirmDialog.onConfirm"
+        @cancel="confirmDialog.visible = false"
+      />
     </template>
   </div>
 </template>
@@ -360,7 +339,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard, VSegment } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard, VSegment, VConfirmDialog } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -888,43 +867,5 @@ async function remove(): Promise<void> {
   border-top: 1px solid var(--velo-border-light);
 }
 
-/* -- Confirm overlay + dialog -- */
-.edit-practice__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: var(--z-modal, 400);
-  padding: var(--space-4);
-}
-
-.edit-practice__dialog {
-  width: 100%;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.edit-practice__dialog-text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.edit-practice__dialog-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.edit-practice__dialog-actions > * {
-  flex: 1;
-}
+/* (confirm dialog now provided by <VConfirmDialog>) */
 </style>
