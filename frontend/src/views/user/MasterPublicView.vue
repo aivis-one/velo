@@ -61,14 +61,16 @@
 
       <!-- Stats -->
       <div class="master-public__stats">
-        <div class="master-public__stat">
-          <div class="master-public__stat-value">{{ profile.practices_count }}</div>
-          <div class="master-public__stat-label">{{ pluralPractices(profile.practices_count) }}</div>
-        </div>
-        <div class="master-public__stat">
-          <div class="master-public__stat-value">{{ profile.reviews_count }}</div>
-          <div class="master-public__stat-label">{{ pluralReviews(profile.reviews_count) }}</div>
-        </div>
+        <VStatCard
+          layout="row"
+          :value="profile.practices_count"
+          :label="pluralPractices(profile.practices_count)"
+        />
+        <VStatCard
+          layout="row"
+          :value="profile.reviews_count"
+          :label="pluralReviews(profile.reviews_count)"
+        />
       </div>
 
       <!-- Methods accordion -->
@@ -117,7 +119,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar, VStatCard } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { IconCheck } from '@/components/icons'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -276,38 +278,14 @@ onMounted(async () => {
   margin: var(--space-1) 0 0;
 }
 
-/* Stats */
+/* Stats — two compact baseline-row VStatCards (layout="row"), each flexes equally. */
 .master-public__stats {
   display: flex;
   gap: var(--space-3);
 }
 
-/* Compact: value + label on one baseline row (was a tall card with a 50px
-   number). Significantly smaller per design feedback. */
-.master-public__stat {
+.master-public__stats > * {
   flex: 1;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.master-public__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.master-public__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* Sections */

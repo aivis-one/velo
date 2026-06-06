@@ -12,7 +12,7 @@
 <template>
   <div
     class="v-stat"
-    :class="{ 'v-stat--clickable': clickable }"
+    :class="[`v-stat--${layout}`, { 'v-stat--clickable': clickable }]"
     :role="clickable ? 'button' : undefined"
     :tabindex="clickable ? 0 : undefined"
     @click="clickable ? $emit('click') : undefined"
@@ -31,10 +31,13 @@ withDefaults(
     label: string
     icon?: string
     clickable?: boolean
+    /** 'column' (default, stacked value/label) or 'row' (compact baseline row). */
+    layout?: 'column' | 'row'
   }>(),
   {
     icon: '',
     clickable: false,
+    layout: 'column',
   },
 )
 
@@ -68,6 +71,23 @@ defineEmits<{
 .v-stat--clickable:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* Row layout: compact baseline row (value + label inline). Used on the master
+   public profile stats (migrated from a hand-rolled pattern, U3 2026-06-06). */
+.v-stat--row {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.v-stat--row .v-stat__value {
+  letter-spacing: normal;
+}
+
+.v-stat--row .v-stat__label {
+  font-size: var(--text-xs);
 }
 
 .v-stat__icon {
