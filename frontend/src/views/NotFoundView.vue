@@ -53,7 +53,7 @@ const router = useRouter()
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-sm);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);

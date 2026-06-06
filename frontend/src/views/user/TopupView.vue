@@ -215,7 +215,7 @@ onMounted(() => {
   text-align: center;
   padding: var(--space-6);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -257,7 +257,7 @@ onMounted(() => {
 .topup__preset {
   padding: var(--space-4);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-lg);

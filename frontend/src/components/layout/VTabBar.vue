@@ -104,7 +104,7 @@ defineEmits<{
   /* Inactive (default): glass bubble. Component-specific border-width and
      blur radius come straight from Figma spec -- not reusable elsewhere. */
   background: var(--velo-nav-inactive-bg);
-  border: 1.26px solid #ffffff;
+  border: 1.26px solid var(--velo-glass-border);
   backdrop-filter: blur(2.52px);
   -webkit-backdrop-filter: blur(2.52px);
   transition:

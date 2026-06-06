@@ -389,7 +389,7 @@ async function finish(): Promise<void> {
   font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-primary);
   color: white;
   backdrop-filter: blur(2px);

@@ -148,7 +148,7 @@ const { isStandalone } = useAuth()
   font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   box-shadow: var(--velo-shadow-glow);

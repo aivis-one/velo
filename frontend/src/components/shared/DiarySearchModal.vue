@@ -228,7 +228,7 @@ function submit(term: string): void {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-glass-blue-15);
   border-radius: var(--radius-full);
   font-family: var(--font-body);

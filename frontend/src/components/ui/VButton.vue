@@ -74,7 +74,7 @@ const normalizedSize = computed(() =>
   gap: var(--space-2);
   font-family: var(--font-body);
   font-weight: 400;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   cursor: pointer;
   transition: all var(--transition-base);
   text-decoration: none;

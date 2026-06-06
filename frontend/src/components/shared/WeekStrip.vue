@@ -149,9 +149,9 @@ const cells = computed<Cell[]>(() =>
   gap: var(--space-1);
   /* Figma: 44x71 rounded-15 white pill (not a full-round circle). */
   padding: var(--space-3) 0;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: #ffffff;
-  border-radius: 15px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -214,7 +214,7 @@ const cells = computed<Cell[]>(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-bg-card-solid);
   border-radius: var(--radius-full);
   color: var(--velo-text-primary);

@@ -401,7 +401,7 @@ function onReset(): void {
 
 .cal-filter__chip {
   padding: var(--space-2) var(--space-4);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-glass-blue-15);
   border-radius: var(--radius-full);
   font-family: var(--font-body);

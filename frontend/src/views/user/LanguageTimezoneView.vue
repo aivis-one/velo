@@ -208,7 +208,7 @@ async function onTimezoneChange(value: string): Promise<void> {
 
 .lang-tz__list {
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);

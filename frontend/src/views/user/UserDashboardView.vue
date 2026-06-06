@@ -548,7 +548,7 @@ onUnmounted(() => {
   display: flex;
   gap: 2px;
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
   padding: 2px;
 }

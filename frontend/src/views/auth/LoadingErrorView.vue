@@ -70,7 +70,7 @@ function onRetry(): void {
   gap: var(--space-5);
   padding: var(--space-8);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);

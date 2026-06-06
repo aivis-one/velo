@@ -118,7 +118,7 @@ async function handleLogout(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   cursor: pointer;
   backdrop-filter: blur(2px);

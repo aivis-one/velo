@@ -368,7 +368,7 @@ onMounted(() => {
   height: 50px;
   padding: 0 var(--space-5);
   background: var(--velo-primary);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: opacity var(--transition-fast);
