@@ -79,7 +79,7 @@ function toggle(): void {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--velo-white);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   transition: transform var(--transition-base);
 }

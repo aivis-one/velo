@@ -198,7 +198,7 @@ function submit(term: string): void {
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }

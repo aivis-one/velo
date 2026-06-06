@@ -381,14 +381,14 @@ onMounted(() => {
 .calendar__select-label {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__funnel {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__expanded {
@@ -429,7 +429,7 @@ onMounted(() => {
 
 .calendar__chip--on {
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__chip--all {

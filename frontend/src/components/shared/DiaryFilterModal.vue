@@ -434,7 +434,7 @@ function onReset(): void {
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .diary-filter__header-icon svg {
@@ -483,7 +483,7 @@ function onReset(): void {
 .diary-filter__chip--on {
   background: var(--velo-primary);
   border-color: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 /* -- Date range (screen 43) -- */
@@ -498,7 +498,7 @@ function onReset(): void {
   border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
 }
 
@@ -604,7 +604,7 @@ function onReset(): void {
 /* Range ends: solid primary. */
 .diary-filter__cal-day--edge {
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .diary-filter__date-clear {

@@ -120,7 +120,7 @@ defineEmits<{
  */
 .v-tabbar__item--active {
   background: var(--velo-nav-active-bg-glass);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .v-tabbar__item:focus-visible {

@@ -150,7 +150,7 @@ const cells = computed<Cell[]>(() =>
   /* Figma: 44x71 rounded-15 white pill (not a full-round circle). */
   padding: var(--space-3) 0;
   border: 1px solid var(--velo-glass-border);
-  background: #ffffff;
+  background: var(--velo-white);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -184,7 +184,7 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__day--active .week-strip__weekday,
 .week-strip__day--active .week-strip__num {
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 /* Dot marker: reserves space always; visible only when day has practices. */
@@ -200,7 +200,7 @@ const cells = computed<Cell[]>(() =>
 }
 
 .week-strip__day--active .week-strip__dot--visible {
-  background: #ffffff;
+  background: var(--velo-white);
 }
 
 .week-strip__nav {

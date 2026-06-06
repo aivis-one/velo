@@ -568,7 +568,7 @@ onUnmounted(() => {
 
 .dashboard__period-btn--active {
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .dashboard__ai-card {

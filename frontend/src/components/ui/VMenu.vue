@@ -113,7 +113,7 @@ defineExpose({ close })
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-nav-active-bg);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }

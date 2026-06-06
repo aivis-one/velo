@@ -420,7 +420,7 @@ function onReset(): void {
 .cal-filter__chip--on {
   background: var(--velo-primary);
   border-color: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .cal-filter__actions {

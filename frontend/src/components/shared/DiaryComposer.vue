@@ -326,7 +326,7 @@ async function onSend(): Promise<void> {
   border-radius: var(--radius-full);
   cursor: pointer;
   background: var(--velo-nav-active-bg);
-  color: #ffffff;
+  color: var(--velo-white);
   transition:
     opacity var(--transition-fast),
     background var(--transition-fast),
