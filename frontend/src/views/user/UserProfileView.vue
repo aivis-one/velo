@@ -51,16 +51,12 @@
       <div class="profile__menu-section">
         <div class="profile__menu-title">Аккаунт</div>
         <div class="profile__menu-list">
-          <div class="profile__menu-item" @click="onEditProfile">
-            <span class="profile__menu-icon"><IconEdit :size="20" /></span>
-            <span class="profile__menu-text">Редактировать профиль</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
-          <div class="profile__menu-item" @click="router.push({ name: 'user-bookings' })">
-            <span class="profile__menu-icon"><IconBookings :size="20" /></span>
-            <span class="profile__menu-text">Мои бронирования</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
+          <VMenuRow label="Редактировать профиль" @click="onEditProfile">
+            <template #icon><IconEdit :size="20" /></template>
+          </VMenuRow>
+          <VMenuRow label="Мои бронирования" @click="router.push({ name: 'user-bookings' })">
+            <template #icon><IconBookings :size="20" /></template>
+          </VMenuRow>
         </div>
       </div>
 
@@ -68,16 +64,12 @@
       <div class="profile__menu-section">
         <div class="profile__menu-title">Настройки</div>
         <div class="profile__menu-list">
-          <div class="profile__menu-item" @click="onNotifications">
-            <span class="profile__menu-icon"><IconBell :size="20" /></span>
-            <span class="profile__menu-text">Уведомления</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
-          <div class="profile__menu-item" @click="onLanguageTimezone">
-            <span class="profile__menu-icon"><IconGlobe :size="20" /></span>
-            <span class="profile__menu-text">Язык / Часовой пояс</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
+          <VMenuRow label="Уведомления" @click="onNotifications">
+            <template #icon><IconBell :size="20" /></template>
+          </VMenuRow>
+          <VMenuRow label="Язык / Часовой пояс" @click="onLanguageTimezone">
+            <template #icon><IconGlobe :size="20" /></template>
+          </VMenuRow>
         </div>
       </div>
 
@@ -85,16 +77,12 @@
       <div class="profile__menu-section">
         <div class="profile__menu-title">Помощь</div>
         <div class="profile__menu-list">
-          <div class="profile__menu-item" @click="onSupport">
-            <span class="profile__menu-icon"><IconSupport :size="20" /></span>
-            <span class="profile__menu-text">Поддержка</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
-          <div class="profile__menu-item" @click="onShare">
-            <span class="profile__menu-icon"><IconShare :size="20" /></span>
-            <span class="profile__menu-text">Поделиться</span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
+          <VMenuRow label="Поддержка" @click="onSupport">
+            <template #icon><IconSupport :size="20" /></template>
+          </VMenuRow>
+          <VMenuRow label="Поделиться" @click="onShare">
+            <template #icon><IconShare :size="20" /></template>
+          </VMenuRow>
         </div>
       </div>
 
@@ -104,22 +92,20 @@
         class="profile__menu-section"
       >
         <div class="profile__menu-list">
-          <div class="profile__menu-item profile__menu-item--switch" @click="returnToNativeMode">
-            <span class="profile__menu-text">
-              {{ authStore.role === 'admin' ? 'Вернуться в режим администратора' : 'Вернуться в режим мастера' }}
-            </span>
-            <span class="profile__menu-arrow"><IconArrowRight :size="16" /></span>
-          </div>
+          <VMenuRow
+            variant="primary"
+            :label="authStore.role === 'admin' ? 'Вернуться в режим администратора' : 'Вернуться в режим мастера'"
+            @click="returnToNativeMode"
+          />
         </div>
       </div>
 
       <!-- Logout -->
       <div class="profile__menu-section">
         <div class="profile__menu-list">
-          <div class="profile__menu-item profile__menu-item--danger" @click="onLogout">
-            <span class="profile__menu-icon"><IconLogout :size="20" /></span>
-            <span class="profile__menu-text">Выйти</span>
-          </div>
+          <VMenuRow label="Выйти" variant="danger" :show-arrow="false" @click="onLogout">
+            <template #icon><IconLogout :size="20" /></template>
+          </VMenuRow>
         </div>
       </div>
     </div>
@@ -131,7 +117,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { VAvatar, VStatCard, VCard } from '@/components/ui'
+import { VAvatar, VStatCard, VCard, VMenuRow } from '@/components/ui'
 import {
   IconEdit,
   IconBookings,
@@ -140,7 +126,6 @@ import {
   IconSupport,
   IconShare,
   IconLogout,
-  IconArrowRight,
 } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getMyStats } from '@/api/bookings'
@@ -299,50 +284,5 @@ onMounted(async () => {
   gap: var(--space-2);
 }
 
-.profile__menu-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.profile__menu-item:active {
-  opacity: 0.85;
-}
-
-.profile__menu-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--velo-primary);
-  flex-shrink: 0;
-}
-
-.profile__menu-text {
-  flex: 1;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.profile__menu-arrow {
-  display: inline-flex;
-  align-items: center;
-  color: var(--velo-text-muted);
-}
-
-.profile__menu-item--danger .profile__menu-icon,
-.profile__menu-item--danger .profile__menu-text {
-  color: var(--velo-error-text);
-}
-
-.profile__menu-item--switch .profile__menu-text {
-  color: var(--velo-primary);
-}
+/* (menu rows now provided by <VMenuRow>) */
 </style>
