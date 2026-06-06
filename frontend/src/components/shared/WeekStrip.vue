@@ -167,7 +167,7 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__weekday {
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--text-10);
   font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;

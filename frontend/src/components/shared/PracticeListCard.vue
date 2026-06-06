@@ -198,7 +198,7 @@ const masterInitial = computed(() => {
   border-radius: var(--radius-full);
   background: var(--velo-glass-blue-15);
   color: var(--velo-text-secondary);
-  font-size: 9px;
+  font-size: var(--text-8);
   flex-shrink: 0;
 }
 
