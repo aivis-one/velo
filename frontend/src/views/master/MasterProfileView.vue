@@ -487,11 +487,9 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__header-info {
@@ -511,12 +509,10 @@ onMounted(async () => {
 
 /* -- Generic section -- */
 .master-profile__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__section-title {
@@ -550,8 +546,8 @@ onMounted(async () => {
 .master-profile__chip {
   padding: var(--space-1) var(--space-3);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-primary);
@@ -559,7 +555,7 @@ onMounted(async () => {
 
 /* -- Payout section -- */
 .master-profile__payout-section {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
 }
 
 .master-profile__payout-empty {
@@ -616,14 +612,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   gap: var(--space-3);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__finance-link:active {

@@ -235,11 +235,9 @@ async function refreshStatus(): Promise<void> {
 .pending-view__info-card {
   width: 100%;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .pending-view__info-text {

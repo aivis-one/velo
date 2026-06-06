@@ -359,7 +359,7 @@ onMounted(async () => {
   font-weight: 400;
   color: var(--velo-primary);
   padding: var(--space-1) var(--space-2);
-  border-radius: 100px;
+  border-radius: var(--radius-xl);
   background: var(--velo-glass-blue-15);
   transition: opacity var(--transition-fast);
 }
@@ -383,12 +383,10 @@ onMounted(async () => {
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__ai-header {
@@ -416,14 +414,12 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__practice-card:active {
@@ -487,13 +483,11 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   transition: opacity var(--transition-fast);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__action-btn:hover {

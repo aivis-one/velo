@@ -512,15 +512,13 @@ async function finalize(): Promise<void> {
 
 .attendance__dialog {
   width: 100%;
-  background: var(--velo-glass-blue-60);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .attendance__dialog-text {

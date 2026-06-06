@@ -200,7 +200,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 100px;
+  border-radius: var(--radius-xl);
   background: var(--velo-glass-blue-15);
   transition: opacity var(--transition-fast);
 }
@@ -225,8 +225,8 @@ onMounted(async () => {
   font-weight: 400;
   color: var(--velo-text-muted);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   transition: all var(--transition-fast);

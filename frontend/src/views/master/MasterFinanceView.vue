@@ -445,12 +445,10 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .finance-view__section-title {
@@ -464,7 +462,7 @@ onMounted(async () => {
 
 /* -- Withdraw form -- */
 .finance-view__withdraw-section {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
 }
 
 .finance-view__warning {
@@ -507,7 +505,7 @@ onMounted(async () => {
   color: var(--velo-text-primary);
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: border-color var(--transition-base);
 }
 
@@ -524,8 +522,8 @@ onMounted(async () => {
 .finance-view__all-btn {
   padding: 0 var(--space-4);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-primary);

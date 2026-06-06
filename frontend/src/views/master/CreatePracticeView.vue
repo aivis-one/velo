@@ -527,7 +527,7 @@ async function submit(): Promise<void> {
   padding: 12px var(--space-3);
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: 400;
@@ -559,7 +559,7 @@ async function submit(): Promise<void> {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-body);
@@ -594,8 +594,8 @@ async function submit(): Promise<void> {
 
 /* -- Price calc preview -- */
 .create-practice__price-calc {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
