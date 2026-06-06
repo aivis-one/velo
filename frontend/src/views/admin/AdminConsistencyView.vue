@@ -266,8 +266,8 @@ onMounted(loadData)
 }
 
 .consistency__item--ok {
-  background: var(--velo-glass-blue-15);
-  border-color: #ffffff;
+  background: var(--velo-bg-card-solid);
+  border-color: var(--velo-border-card);
 }
 
 .consistency__item--alert {
