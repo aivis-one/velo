@@ -11,7 +11,28 @@
 <template>
   <div class="v-input" :class="{ 'v-input--error': !!error }">
     <label v-if="label" class="v-input__label">{{ label }}</label>
+
+    <!-- Affix path: prefix/suffix slots (€ amount, inline action, …). The box
+         carries the border/bg; the input goes bare inside. -->
+    <div v-if="$slots.prefix || $slots.suffix" class="v-input__box">
+      <span v-if="$slots.prefix" class="v-input__affix"><slot name="prefix" /></span>
+      <input
+        ref="inputEl"
+        class="v-input__field v-input__field--bare"
+        :type="type"
+        :value="modelValue"
+        :placeholder="placeholder"
+        :disabled="disabled"
+        v-bind="$attrs"
+        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      />
+      <span v-if="$slots.suffix" class="v-input__affix"><slot name="suffix" /></span>
+    </div>
+
+    <!-- Plain path (default) — unchanged for every existing usage. -->
     <input
+      v-else
+      ref="inputEl"
       class="v-input__field"
       :type="type"
       :value="modelValue"
@@ -25,6 +46,8 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
 // inheritAttrs:false — forward native attrs (min/max/step/inputmode/…) onto the
 // inner <input>, not the wrapper div. Keeps VInput at parity with VSelect/VTextarea.
 defineOptions({ inheritAttrs: false })
@@ -51,6 +74,11 @@ withDefaults(
 defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+// Expose focus() so callers can programmatically focus the field
+// (e.g. autofocus on reveal). Works for both the plain and affix paths.
+const inputEl = ref<HTMLInputElement | null>(null)
+defineExpose({ focus: () => inputEl.value?.focus() })
 </script>
 
 <style scoped>
@@ -99,6 +127,47 @@ defineEmits<{
 
 .v-input--error .v-input__field {
   border-color: var(--velo-error);
+}
+
+/* -- Affix box (prefix/suffix slots) -- */
+.v-input__box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 40px;
+  padding: 0 var(--space-4);
+  background: var(--velo-bg-card-solid);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  transition: border-color var(--transition-base);
+}
+
+.v-input__box:focus-within {
+  border-color: var(--velo-border-input-focus);
+}
+
+.v-input--error .v-input__box {
+  border-color: var(--velo-error);
+}
+
+.v-input__affix {
+  flex-shrink: 0;
+  font-size: var(--text-base);
+  color: var(--velo-text-muted);
+}
+
+.v-input__field--bare {
+  height: auto;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.v-input__field--bare:disabled {
+  background: transparent;
 }
 
 .v-input__error {
