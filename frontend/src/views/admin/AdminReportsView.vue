@@ -248,8 +248,8 @@ onMounted(loadInitial)
 }
 
 .admin-reports__card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
@@ -257,8 +257,6 @@ onMounted(loadInitial)
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-reports__card:active {

@@ -92,11 +92,9 @@ async function onLogout(): Promise<void> {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-profile__header-info {
@@ -118,12 +116,10 @@ async function onLogout(): Promise<void> {
 
 /* Sections */
 .admin-profile__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
