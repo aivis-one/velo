@@ -65,9 +65,10 @@ defineEmits<{
 
 .v-select__label {
   display: block;
-  font-size: var(--text-sm);
+  /* Figma form spec: label Marmelad 18, primary — unified with VInput/VTextarea. */
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-primary);
   margin-bottom: var(--space-2);
 }
 
