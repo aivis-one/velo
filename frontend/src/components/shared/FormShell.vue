@@ -87,16 +87,13 @@
       </div>
 
       <!-- Comment textarea -->
-      <div class="form-shell__comment">
-        <textarea
-          :value="comment"
-          class="form-shell__textarea"
-          placeholder="Добавьте комментарий..."
-          maxlength="1000"
-          rows="3"
-          @input="emit('update:comment', ($event.target as HTMLTextAreaElement).value)"
-        />
-      </div>
+      <VTextarea
+        :model-value="comment"
+        placeholder="Добавьте комментарий..."
+        :rows="3"
+        maxlength="1000"
+        @update:model-value="emit('update:comment', $event)"
+      />
 
       <!-- Actions -->
       <div class="form-shell__actions">
@@ -126,7 +123,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { VButton, VLoader } from '@/components/ui'
+import { VButton, VLoader, VTextarea } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import ResultScreen from '@/components/shared/ResultScreen.vue'
@@ -237,33 +234,6 @@ const cleanTitle = computed(() =>
 .form-shell__selection {
   display: flex;
   justify-content: center;
-}
-
-/* Comment */
-.form-shell__textarea {
-  width: 100%;
-  min-height: 129px;
-  padding: var(--space-4);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  resize: none;
-  background: var(--velo-bg-card-solid);
-  transition: border-color var(--transition-fast);
-  box-sizing: border-box;
-}
-
-.form-shell__textarea::placeholder {
-  color: var(--velo-text-muted);
-  font-size: var(--text-base);
-}
-
-.form-shell__textarea:focus {
-  outline: none;
-  border-color: var(--velo-border-input-focus);
 }
 
 /* Actions */

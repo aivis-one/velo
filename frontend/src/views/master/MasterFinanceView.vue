@@ -86,21 +86,16 @@
         <div class="finance-view__amount-group">
           <label class="finance-view__label">Сумма вывода (EUR)</label>
           <div class="finance-view__amount-row">
-            <input
+            <VInput
               v-model="amountInput"
               type="number"
-              class="finance-view__amount-input"
               :min="MIN_WITHDRAWAL_EUROS"
               step="0.01"
               placeholder="0.00"
             />
-            <button
-              class="finance-view__all-btn"
-              type="button"
-              @click="fillMaxAmount"
-            >
+            <VButton variant="secondary" size="sm" @click="fillMaxAmount">
               Всё
-            </button>
+            </VButton>
           </div>
           <p class="finance-view__hint">
             Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
@@ -191,7 +186,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
+import { VButton, VBadge, VLoader, VCard, VInput } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
@@ -492,45 +487,13 @@ onMounted(async () => {
 .finance-view__amount-row {
   display: flex;
   gap: var(--space-2);
+  align-items: stretch;
 }
 
-.finance-view__amount-input {
+/* VInput grows to fill the row; drop its default bottom margin (hint/error sit below). */
+.finance-view__amount-row :deep(.v-input) {
   flex: 1;
-  padding: 12px var(--space-4);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: var(--velo-radius-badge);
-  transition: border-color var(--transition-base);
-}
-
-.finance-view__amount-input:focus {
-  outline: none;
-  border-color: var(--velo-border-input-focus);
-}
-
-.finance-view__amount-input::-webkit-inner-spin-button,
-.finance-view__amount-input::-webkit-outer-spin-button {
-  opacity: 1;
-}
-
-.finance-view__all-btn {
-  padding: 0 var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-primary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity var(--transition-fast);
-}
-
-.finance-view__all-btn:active {
-  opacity: 0.8;
+  margin-bottom: 0;
 }
 
 .finance-view__hint {
