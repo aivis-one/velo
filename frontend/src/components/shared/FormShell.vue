@@ -185,8 +185,8 @@ const cleanTitle = computed(() =>
   flex-direction: column;
   /* Horizontal screen-padding теперь раздаётся MobileLayout-ом (--velo-screen-padding).
    * Здесь добавляем только vertical, чтобы не было двойного отступа по бокам. */
-  padding: var(--space-6) 0;
-  gap: var(--space-6);
+  padding: var(--space-5) 0;
+  gap: var(--space-5);
 }
 
 /* Meta-cell для слота #practice-meta (контент от CheckinView / FeedbackView).

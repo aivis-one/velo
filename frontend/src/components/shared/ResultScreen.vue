@@ -61,7 +61,7 @@ defineProps<{
   align-items: center;
   justify-content: center;
   /* Horizontal padding = --velo-screen-padding (33) so the 32px title fits one line. */
-  padding: var(--space-6) var(--velo-screen-padding);
+  padding: var(--space-5) var(--velo-screen-padding);
   text-align: center;
   background: var(--velo-bg-card-solid);
   overflow-y: auto;
@@ -70,7 +70,7 @@ defineProps<{
 .result-screen__icon {
   /* font-size sizes an emoji fallback; an SVG slot sizes itself. */
   font-size: var(--size-success-icon);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .result-screen__title {

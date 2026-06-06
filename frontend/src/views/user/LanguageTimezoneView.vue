@@ -194,7 +194,7 @@ async function onTimezoneChange(value: string): Promise<void> {
 }
 
 .lang-tz__section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .lang-tz__section-title {

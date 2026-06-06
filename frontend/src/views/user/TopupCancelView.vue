@@ -49,7 +49,7 @@ const router = useRouter()
   justify-content: center;
   min-height: 60vh;
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .topup-result__icon {

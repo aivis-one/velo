@@ -62,7 +62,7 @@ function goToDashboard(): void {
   justify-content: center;
   text-align: center;
   gap: var(--space-4);
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .ai-summary__icon {

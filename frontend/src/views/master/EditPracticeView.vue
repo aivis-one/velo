@@ -984,7 +984,7 @@ async function remove(): Promise<void> {
   width: 100%;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;

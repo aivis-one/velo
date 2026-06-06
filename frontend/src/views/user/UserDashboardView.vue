@@ -461,7 +461,7 @@ onUnmounted(() => {
 
 /* ===== Sections ===== */
 .dashboard__section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .dashboard__section-title {
@@ -506,7 +506,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
   text-align: center;
 }
 

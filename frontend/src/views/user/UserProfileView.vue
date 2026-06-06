@@ -237,7 +237,7 @@ onMounted(async () => {
 /* Header: white profile card */
 .profile__header {
   text-align: center;
-  padding: var(--space-6) var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-4) var(--space-5);
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);

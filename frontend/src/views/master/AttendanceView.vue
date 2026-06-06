@@ -372,7 +372,7 @@ async function finalize(): Promise<void> {
 
 .attendance__stat-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
 }
@@ -514,7 +514,7 @@ async function finalize(): Promise<void> {
   width: 100%;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;

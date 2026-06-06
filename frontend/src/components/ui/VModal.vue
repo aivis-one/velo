@@ -125,7 +125,7 @@ onUnmounted(() => {
 .v-modal__scroll {
   max-height: 85vh;
   overflow-y: auto;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .v-modal__close {

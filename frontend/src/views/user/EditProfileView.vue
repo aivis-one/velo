@@ -223,7 +223,7 @@ async function onConfirmDelete(): Promise<void> {
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-4) 0 var(--space-6);
+  padding: var(--space-4) 0 var(--space-5);
 }
 
 .edit-profile__change-photo {
@@ -265,7 +265,7 @@ async function onConfirmDelete(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-secondary);
-  margin: 0 0 var(--space-6);
+  margin: 0 0 var(--space-5);
 }
 
 .edit-profile__modal-actions {

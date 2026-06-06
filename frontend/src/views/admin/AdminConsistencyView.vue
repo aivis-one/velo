@@ -197,7 +197,7 @@ onMounted(loadData)
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   border: 1px solid;
 }

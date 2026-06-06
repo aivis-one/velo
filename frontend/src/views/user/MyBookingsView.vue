@@ -233,7 +233,7 @@ onMounted(() => {
 .bookings__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
   /* F-5 sync: horizontal padding снят — MobileLayout уже даёт
    * var(--velo-screen-padding) (=33). Раньше тут было var(--space-4) (16),
    * cards рендерились 304 wide вместо Figma 336.

@@ -12,7 +12,6 @@
 :root {
   /* === Colors: Primary === */
   --velo-primary: #627a9c;
-  --velo-primary-light: #627a9c;
   --velo-primary-dark: #4c6589;
 
   /* === Colors: Background === */
@@ -83,21 +82,20 @@
   --font-body: 'Marmelad', 'Noto Sans', sans-serif;
   --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
 
+  /* Легаси семантическая шкала. --text-3xl удалён 2026-06-06 (был дубль
+     --text-xl = 32px). */
   --text-xs: 14px;
   --text-sm: 15px;
   --text-base: 18px;
   --text-lg: 20px;
   --text-xl: 32px;
   --text-2xl: 50px;
-  --text-3xl: 32px;
 
-  /* Чётная типо-шкала (U4a 2026-06-06): явные целые кегли для дневника и мелкой
-     меты. --text-14 == легаси --text-xs (14px); легаси xs/sm/base/lg/xl/2xl/3xl
-     НЕ тронуты. */
+  /* Чётная мелкая типо-шкала (дневник/мета): 8/10/12/16. 14px = --text-xs
+     (переиспользуем, отдельного --text-14 нет — без дублей). */
   --text-8: 8px;
   --text-10: 10px;
   --text-12: 12px;
-  --text-14: 14px;
   --text-16: 16px;
 
   /* === Spacing === */
@@ -106,14 +104,12 @@
   --space-3: 14px;
   --space-4: 16px;
   --space-5: 24px;
-  --space-6: 24px;
   --space-8: 33px;
   --space-10: 48px;
 
   /* === Borders === */
-  --radius-sm: 15px;
+  /* --radius-sm/lg удалены 2026-06-06 (были дубли --radius-md = 15px). */
   --radius-md: 15px;
-  --radius-lg: 15px;
   --radius-xl: 100px;
   --radius-full: 9999px;
   --velo-radius-badge: 5px;          /* единый радиус карточных бейджей-статусов (rect) */

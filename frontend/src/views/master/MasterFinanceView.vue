@@ -422,7 +422,7 @@ onMounted(async () => {
 
 .finance-view__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   letter-spacing: -0.5px;
 }
@@ -553,11 +553,11 @@ onMounted(async () => {
 .finance-view__loader {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
 }
 
 .finance-view__empty {
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
   text-align: center;
 }
 

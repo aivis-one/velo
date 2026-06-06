@@ -63,7 +63,7 @@ onMounted(async () => {
   justify-content: center;
   min-height: 60vh;
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .topup-result__icon {
@@ -90,7 +90,7 @@ onMounted(async () => {
 
 .topup-result__balance {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-primary);
   margin-bottom: var(--space-8);

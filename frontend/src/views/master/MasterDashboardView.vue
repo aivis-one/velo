@@ -293,7 +293,7 @@ onMounted(async () => {
   position: relative;
   background: var(--velo-primary);
   color: white;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
   transition: opacity var(--transition-fast);
@@ -315,7 +315,7 @@ onMounted(async () => {
 
 .master-dashboard__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   letter-spacing: 0.02em;
 }

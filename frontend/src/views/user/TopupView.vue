@@ -213,7 +213,7 @@ onMounted(() => {
 /* Balance */
 .topup__balance {
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
@@ -232,7 +232,7 @@ onMounted(() => {
 
 .topup__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-primary);
 }

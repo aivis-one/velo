@@ -57,7 +57,7 @@ function onRetry(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: transparent;
 }
 

@@ -600,7 +600,7 @@ onMounted(async () => {
 .analytics__loader {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
 }
 
 .analytics__practice-list {

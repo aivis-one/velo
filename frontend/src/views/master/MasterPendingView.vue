@@ -179,7 +179,7 @@ async function refreshStatus(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-8) var(--space-4) var(--space-6);
+  padding: var(--space-8) var(--space-4) var(--space-5);
   gap: var(--space-4);
 }
 
