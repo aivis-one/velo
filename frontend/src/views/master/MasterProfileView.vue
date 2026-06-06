@@ -65,13 +65,7 @@
       <VCard v-if="methods.length > 0" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">НАПРАВЛЕНИЯ</div>
         <div class="master-profile__chips">
-          <span
-            v-for="method in methods"
-            :key="method"
-            class="master-profile__chip"
-          >
-            {{ method }}
-          </span>
+          <VChip v-for="method in methods" :key="method">{{ method }}</VChip>
         </div>
       </VCard>
 
@@ -225,7 +219,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard } from '@/components/ui'
+import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard, VChip } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
@@ -539,15 +533,7 @@ onMounted(async () => {
   gap: var(--space-2);
 }
 
-.master-profile__chip {
-  padding: var(--space-1) var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-primary);
-}
+/* (method chips now provided by <VChip>) */
 
 /* -- Payout section -- */
 .master-profile__payout-section {
