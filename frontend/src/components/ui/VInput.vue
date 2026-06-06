@@ -9,7 +9,7 @@
 -->
 
 <template>
-  <div class="v-input">
+  <div class="v-input" :class="{ 'v-input--error': !!error }">
     <label v-if="label" class="v-input__label">{{ label }}</label>
     <input
       class="v-input__field"
@@ -17,18 +17,25 @@
       :value="modelValue"
       :placeholder="placeholder"
       :disabled="disabled"
+      v-bind="$attrs"
       @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
+    <span v-if="error" class="v-input__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+// inheritAttrs:false — forward native attrs (min/max/step/inputmode/…) onto the
+// inner <input>, not the wrapper div. Keeps VInput at parity with VSelect/VTextarea.
+defineOptions({ inheritAttrs: false })
+
 withDefaults(
   defineProps<{
     modelValue?: string
     label?: string
     placeholder?: string
     type?: string
+    error?: string
     disabled?: boolean
   }>(),
   {
@@ -36,6 +43,7 @@ withDefaults(
     label: '',
     placeholder: '',
     type: 'text',
+    error: '',
     disabled: false,
   },
 )
@@ -87,5 +95,16 @@ defineEmits<{
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--velo-bg-subtle);
+}
+
+.v-input--error .v-input__field {
+  border-color: var(--velo-error);
+}
+
+.v-input__error {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--velo-error);
+  margin-top: var(--space-1);
 }
 </style>

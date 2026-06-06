@@ -117,26 +117,20 @@
             <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
 
             <!-- W-8: min attribute prevents setting past dates -->
-            <div class="edit-practice__field">
-              <label class="edit-practice__label">Дата</label>
-              <input
-                v-model="form.date"
-                type="date"
-                class="edit-practice__date-input"
-                :min="todayDate"
-                :disabled="isTerminal"
-              />
-            </div>
+            <VInput
+              v-model="form.date"
+              label="Дата"
+              type="date"
+              :min="todayDate"
+              :disabled="isTerminal"
+            />
 
-            <div class="edit-practice__field">
-              <label class="edit-practice__label">Время</label>
-              <input
-                v-model="form.time"
-                type="time"
-                class="edit-practice__date-input"
-                :disabled="isTerminal"
-              />
-            </div>
+            <VInput
+              v-model="form.time"
+              label="Время"
+              type="time"
+              :disabled="isTerminal"
+            />
 
             <VSelect
               v-model="form.duration_minutes"
@@ -865,25 +859,6 @@ async function remove(): Promise<void> {
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
   border-radius: var(--velo-radius-badge);
-}
-
-/* -- Date/time inputs -- */
-.edit-practice__date-input {
-  width: 100%;
-  padding: 12px var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: var(--velo-radius-badge);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.edit-practice__date-input:focus {
-  border-color: var(--velo-border-input-focus);
 }
 
 /* -- Payment toggle -- */

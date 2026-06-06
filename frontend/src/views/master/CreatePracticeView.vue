@@ -89,27 +89,21 @@
       <div class="create-practice__section">
         <div class="create-practice__section-title">📅 РАСПИСАНИЕ</div>
 
-        <div class="create-practice__field">
-          <label class="create-practice__label">Дата *</label>
-          <!-- W-7: todayDate is computed -- never stale after midnight -->
-          <input
-            v-model="form.date"
-            type="date"
-            class="create-practice__date-input"
-            :min="todayDate"
-          />
-          <p v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</p>
-        </div>
+        <!-- W-7: todayDate is computed -- never stale after midnight -->
+        <VInput
+          v-model="form.date"
+          label="Дата *"
+          type="date"
+          :min="todayDate"
+          :error="errors.date"
+        />
 
-        <div class="create-practice__field">
-          <label class="create-practice__label">Время *</label>
-          <input
-            v-model="form.time"
-            type="time"
-            class="create-practice__date-input"
-          />
-          <p v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</p>
-        </div>
+        <VInput
+          v-model="form.time"
+          label="Время *"
+          type="time"
+          :error="errors.time"
+        />
 
         <VSelect
           v-model="form.duration_minutes"
@@ -506,45 +500,6 @@ async function submit(): Promise<void> {
   letter-spacing: 0.02em;
   padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--velo-border-light);
-}
-
-/* -- Native date/time inputs -- */
-.create-practice__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.create-practice__label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-.create-practice__date-input {
-  width: 100%;
-  padding: 12px var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: var(--velo-radius-badge);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.create-practice__date-input:focus {
-  border-color: var(--velo-border-input-focus);
-}
-
-.create-practice__field-error {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-error);
 }
 
 /* -- Payment toggle -- */
