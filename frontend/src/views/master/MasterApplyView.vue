@@ -84,7 +84,7 @@
         <!-- Methods checkboxes (custom native markup; DS Checkbox spec in showcase) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-          <div class="apply-view__checkbox-list">
+          <VCard class="apply-view__checkbox-list" padding="none">
             <label
               v-for="method in AVAILABLE_METHODS"
               :key="method"
@@ -118,7 +118,7 @@
               v-model="otherMethodText"
               placeholder="Укажите направление..."
             />
-          </div>
+          </VCard>
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
 
@@ -170,7 +170,7 @@
         </div>
 
         <!-- Terms checkbox (custom native markup) -->
-        <div class="apply-view__terms">
+        <VCard class="apply-view__terms" padding="none">
           <label class="apply-view__checkbox-item" @click="form.termsAccepted = !form.termsAccepted">
             <span
               class="apply-view__checkbox-mark"
@@ -183,7 +183,7 @@
             </span>
           </label>
           <p v-if="errors.terms" class="apply-view__field-error">{{ errors.terms }}</p>
-        </div>
+        </VCard>
 
         <VButton
           variant="primary"
@@ -204,7 +204,7 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -441,9 +441,6 @@ async function submit(): Promise<void> {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
 }
 
 .apply-view__checkbox-item {
@@ -531,9 +528,6 @@ async function submit(): Promise<void> {
 /* -- Terms -- */
 .apply-view__terms {
   padding: var(--space-3);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

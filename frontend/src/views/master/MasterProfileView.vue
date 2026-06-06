@@ -45,7 +45,7 @@
       <!-- ==================================================================
            SECTION 1: PROFILE HEADER
            ================================================================== -->
-      <div class="master-profile__header">
+      <VCard class="master-profile__header" padding="none">
         <VAvatar :name="displayName" size="xl" />
 
         <div class="master-profile__header-info">
@@ -53,16 +53,16 @@
           <VBadge v-if="isVerified" variant="success">✓ Верифицирован</VBadge>
           <VBadge v-else variant="warning">На рассмотрении</VBadge>
         </div>
-      </div>
+      </VCard>
 
       <!-- Bio -->
-      <div v-if="bio" class="master-profile__section">
+      <VCard v-if="bio" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">О СЕБЕ</div>
         <p class="master-profile__bio">{{ bio }}</p>
-      </div>
+      </VCard>
 
       <!-- Methods chips -->
-      <div v-if="methods.length > 0" class="master-profile__section">
+      <VCard v-if="methods.length > 0" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">НАПРАВЛЕНИЯ</div>
         <div class="master-profile__chips">
           <span
@@ -73,20 +73,20 @@
             {{ method }}
           </span>
         </div>
-      </div>
+      </VCard>
 
       <!-- Experience -->
-      <div v-if="experienceYears != null" class="master-profile__section">
+      <VCard v-if="experienceYears != null" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">ОПЫТ</div>
         <p class="master-profile__experience">
           {{ experienceYears }} {{ pluralYears(experienceYears) }}
         </p>
-      </div>
+      </VCard>
 
       <!-- ==================================================================
            SECTION 2: PAYOUT SETTINGS
            ================================================================== -->
-      <div class="master-profile__section master-profile__payout-section">
+      <VCard class="master-profile__section master-profile__payout-section" padding="none">
         <div class="master-profile__section-title">💳 РЕКВИЗИТЫ ВЫПЛАТ</div>
 
         <!-- Current state (not editing) -->
@@ -183,13 +183,15 @@
             </VButton>
           </div>
         </div>
-      </div>
+      </VCard>
 
       <!-- ==================================================================
            SECTION 3: FINANCE LINK
            ================================================================== -->
-      <div
+      <VCard
         class="master-profile__finance-link"
+        padding="none"
+        clickable
         @click="router.push({ name: 'master-finance' })"
       >
         <div class="master-profile__finance-link-left">
@@ -202,7 +204,7 @@
           </div>
         </div>
         <span class="master-profile__finance-link-arrow">→</span>
-      </div>
+      </VCard>
 
       <!-- ==================================================================
            SECTION 4: SWITCH TO USER MODE (TD-FE-ROLE-SWITCH)
@@ -223,7 +225,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader } from '@/components/ui'
+import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
@@ -487,9 +489,6 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
 }
 
 .master-profile__header-info {
@@ -509,9 +508,6 @@ onMounted(async () => {
 
 /* -- Generic section -- */
 .master-profile__section {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
 }
 
@@ -612,9 +608,6 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   gap: var(--space-3);

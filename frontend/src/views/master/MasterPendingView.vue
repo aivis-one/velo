@@ -61,12 +61,12 @@
       </div>
 
       <!-- Info card -->
-      <div class="pending-view__info-card">
+      <VCard class="pending-view__info-card" padding="none">
         <p class="pending-view__info-text">
           Когда ваша заявка будет рассмотрена, вы получите
           уведомление в Telegram.
         </p>
-      </div>
+      </VCard>
 
       <!-- Refresh button -->
       <VButton
@@ -94,7 +94,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VBadge, VLoader } from '@/components/ui'
+import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -235,9 +235,6 @@ async function refreshStatus(): Promise<void> {
 .pending-view__info-card {
   width: 100%;
   padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
 }
 
 .pending-view__info-text {

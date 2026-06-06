@@ -81,13 +81,13 @@
       <!-- ================================================================
            AI SUMMARY (placeholder — F9)
            ================================================================ -->
-      <div class="master-dashboard__ai-card">
+      <VCard class="master-dashboard__ai-card" padding="none">
         <div class="master-dashboard__ai-header">🧠 Саммари недели</div>
         <div class="master-dashboard__ai-content">
           Аналитика по итогам практик появится здесь после проведения
           первых занятий.
         </div>
-      </div>
+      </VCard>
 
       <div class="master-dashboard__divider" />
 
@@ -103,8 +103,10 @@
       </template>
 
       <template v-else-if="nearestPractice">
-        <div
+        <VCard
           class="master-dashboard__practice-card"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practice-edit', params: { id: nearestPractice.id } })"
         >
           <div class="master-dashboard__practice-header">
@@ -124,7 +126,7 @@
             {{ formatParticipants(nearestPractice.current_participants, nearestPractice.max_participants) }}
             · {{ formatMoney(nearestPractice.price_cents, nearestPractice.currency) }}
           </div>
-        </div>
+        </VCard>
       </template>
 
       <template v-else>
@@ -182,7 +184,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard } from '@/components/ui'
+import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
@@ -383,9 +385,6 @@ onMounted(async () => {
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
 }
 
@@ -414,9 +413,6 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);

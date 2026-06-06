@@ -128,7 +128,7 @@
     <!-- ====================================================================
          WITHDRAWALS HISTORY
          ==================================================================== -->
-    <div class="finance-view__section">
+    <VCard class="finance-view__section" padding="none">
       <div class="finance-view__section-title">📋 ИСТОРИЯ ВЫВОДОВ</div>
 
       <!-- Loading state -->
@@ -184,14 +184,14 @@
       >
         Показать ещё
       </VButton>
-    </div>
+    </VCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VLoader } from '@/components/ui'
+import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
@@ -445,9 +445,6 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
 }
 

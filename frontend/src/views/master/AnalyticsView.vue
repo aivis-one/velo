@@ -65,7 +65,7 @@
         class="analytics__section"
       >
         <div class="analytics__section-title">💬 Общая статистика</div>
-        <div class="analytics__rating-bars">
+        <VCard class="analytics__rating-bars" padding="none">
           <div
             v-for="bar in ratingBars"
             :key="bar.key"
@@ -80,7 +80,7 @@
             </div>
             <span class="analytics__rating-meta">{{ bar.pct }}% ({{ bar.count }})</span>
           </div>
-        </div>
+        </VCard>
       </div>
 
       <div class="analytics__divider" />
@@ -251,7 +251,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VEmptyState, VButton, VStatCard } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VStatCard, VCard } from '@/components/ui'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
@@ -542,9 +542,6 @@ onMounted(async () => {
 
 /* ===== Rating bars ===== */
 .analytics__rating-bars {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;

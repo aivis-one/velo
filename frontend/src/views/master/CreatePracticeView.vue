@@ -176,7 +176,7 @@
             :error="errors.price_cents"
           />
           <!-- W-9: commission calc via COMMISSION_RATE constant -->
-          <div v-if="priceCents > 0" class="create-practice__price-calc">
+          <VCard v-if="priceCents > 0" class="create-practice__price-calc" padding="none">
             <div class="create-practice__price-row">
               <span>Комиссия {{ commissionPct }}%</span>
               <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
@@ -185,7 +185,7 @@
               <span>Вы получите</span>
               <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
             </div>
-          </div>
+          </VCard>
         </template>
       </div>
 
@@ -252,7 +252,7 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -594,9 +594,6 @@ async function submit(): Promise<void> {
 
 /* -- Price calc preview -- */
 .create-practice__price-calc {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
