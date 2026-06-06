@@ -42,13 +42,17 @@
       </span>
       <div class="practice-list-card__content">
         <h4 class="practice-list-card__title">{{ titleText }}</h4>
-        <p class="practice-list-card__master">
-          <span class="practice-list-card__master-avatar">{{ masterInitial }}</span>
-          <span class="practice-list-card__master-name">{{ masterName }}</span>
-          <span v-if="showVerified" class="practice-list-card__verified">
-            <IconCheck :size="11" />
-          </span>
-        </p>
+        <!-- Subtitle: master row by default; override for other contexts
+             (e.g. master's own practice → participants · price). -->
+        <slot name="subtitle">
+          <p class="practice-list-card__master">
+            <span class="practice-list-card__master-avatar">{{ masterInitial }}</span>
+            <span class="practice-list-card__master-name">{{ masterName }}</span>
+            <span v-if="showVerified" class="practice-list-card__verified">
+              <IconCheck :size="11" />
+            </span>
+          </p>
+        </slot>
       </div>
     </div>
 
@@ -63,6 +67,12 @@
           <slot name="badge" />
         </span>
       </span>
+    </div>
+
+    <!-- Optional action row (e.g. master "Явка"). @click.stop so action
+         buttons don't trigger the card/parent click. -->
+    <div v-if="$slots.action" class="practice-list-card__actions" @click.stop>
+      <slot name="action" />
     </div>
   </component>
 </template>
@@ -260,5 +270,13 @@ const masterInitial = computed(() => {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+/* Optional action row (master "Явка" etc.) */
+.practice-list-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--velo-border-light);
 }
 </style>

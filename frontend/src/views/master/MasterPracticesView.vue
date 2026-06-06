@@ -70,7 +70,22 @@
             class="master-practices__card"
             @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
           >
-            <PracticeListItem :practice="practice" />
+            <PracticeListCard
+              :practice="practice"
+              :clickable="false"
+              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
+              :duration="formatDuration(practice.duration_minutes)"
+            >
+              <template #subtitle>
+                <span class="master-practices__details">
+                  <span>👥 {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
+                </span>
+              </template>
+              <template #badge>
+                <VBadge :variant="statusVariant(practice.status)">{{ statusLabel(practice.status) }}</VBadge>
+              </template>
+            </PracticeListCard>
           </div>
         </template>
         <VEmptyState
@@ -98,7 +113,21 @@
             class="master-practices__card"
             @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
           >
-            <PracticeListItem :practice="practice">
+            <PracticeListCard
+              :practice="practice"
+              :clickable="false"
+              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
+              :duration="formatDuration(practice.duration_minutes)"
+            >
+              <template #subtitle>
+                <span class="master-practices__details">
+                  <span>👥 {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
+                </span>
+              </template>
+              <template #badge>
+                <VBadge :variant="statusVariant(practice.status)">{{ statusLabel(practice.status) }}</VBadge>
+              </template>
               <!-- Attendance button for completed practices -->
               <template v-if="practice.status === 'completed'" #action>
                 <VButton
@@ -109,7 +138,7 @@
                   Явка
                 </VButton>
               </template>
-            </PracticeListItem>
+            </PracticeListCard>
           </div>
         </template>
         <VEmptyState
@@ -139,10 +168,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VSegment } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VSegment, VBadge } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
-import PracticeListItem from '@/components/master/PracticeListItem.vue'
-import type { PracticeResponse } from '@/api/types'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import { formatShortDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
+import type { PracticeResponse, PracticeStatus } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -167,6 +197,33 @@ const tabOptions = computed(() => [
   { value: 'upcoming', label: 'Предстоящие', badge: upcomingPractices.value.length || undefined },
   { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
 ])
+
+// -- Status badge (was inside PracticeListItem; now provided to PracticeListCard #badge) --
+const STATUS_LABEL: Record<PracticeStatus, string> = {
+  draft: 'Черновик',
+  scheduled: 'Запланирована',
+  live: 'В эфире',
+  completed: 'Завершена',
+  cancelled: 'Отменена',
+  deleted: 'Удалена',
+}
+function statusLabel(s: PracticeStatus): string {
+  return STATUS_LABEL[s] ?? s
+}
+function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
+  switch (s) {
+    case 'live':
+      return 'success'
+    case 'scheduled':
+      return 'info'
+    case 'draft':
+      return 'warning'
+    case 'completed':
+      return 'info'
+    default:
+      return 'error'
+  }
+}
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()
@@ -224,6 +281,14 @@ onMounted(async () => {
 
 .master-practices__card {
   cursor: pointer;
+}
+
+/* Subtitle override for master's own practice: participants · price */
+.master-practices__details {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
 .master-practices__load-more {
