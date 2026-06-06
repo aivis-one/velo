@@ -34,26 +34,11 @@
 
     <!-- Tabs -->
     <div class="master-practices__tabs">
-      <button
-        class="master-practices__tab"
-        :class="{ 'master-practices__tab--active': activeTab === 'upcoming' }"
-        @click="activeTab = 'upcoming'"
-      >
-        Предстоящие
-        <span v-if="upcomingPractices.length" class="master-practices__tab-count">
-          {{ upcomingPractices.length }}
-        </span>
-      </button>
-      <button
-        class="master-practices__tab"
-        :class="{ 'master-practices__tab--active': activeTab === 'past' }"
-        @click="activeTab = 'past'"
-      >
-        Прошедшие
-        <span v-if="pastPractices.length" class="master-practices__tab-count">
-          {{ pastPractices.length }}
-        </span>
-      </button>
+      <VSegment
+        :model-value="activeTab"
+        :options="tabOptions"
+        @update:model-value="activeTab = $event as 'upcoming' | 'past'"
+      />
     </div>
 
     <!-- Loading -->
@@ -154,7 +139,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VSegment } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import PracticeListItem from '@/components/master/PracticeListItem.vue'
 import type { PracticeResponse } from '@/api/types'
@@ -177,6 +162,11 @@ const pastPractices = computed((): PracticeResponse[] =>
     .filter((p) => p.status === 'completed' || p.status === 'cancelled')
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
 )
+
+const tabOptions = computed(() => [
+  { value: 'upcoming', label: 'Предстоящие', badge: upcomingPractices.value.length || undefined },
+  { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
+])
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()
@@ -211,45 +201,11 @@ onMounted(async () => {
 
 /* -- Tabs -- */
 .master-practices__tabs {
-  display: flex;
-  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: transparent;
 }
 
-.master-practices__tab {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.master-practices__tab--active {
-  color: white;
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-}
-
-.master-practices__tab-count {
-  background: rgba(255, 255, 255, 0.3);
-  color: inherit;
-  font-size: var(--text-xs);
-  font-weight: 400;
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-}
+/* (tab buttons + count badge now provided by <VSegment>) */
 
 /* -- Content -- */
 .master-practices__loader {

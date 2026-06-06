@@ -140,25 +140,12 @@
       <div class="create-practice__section">
         <div class="create-practice__section-title">💰 ЦЕНА</div>
 
-        <!-- Free / Paid radio toggle -->
-        <div class="create-practice__payment-options">
-          <label
-            class="create-practice__payment-option"
-            :class="{ 'create-practice__payment-option--active': form.is_free }"
-            @click="form.is_free = true"
-          >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': form.is_free }" />
-            <span>Бесплатно</span>
-          </label>
-          <label
-            class="create-practice__payment-option"
-            :class="{ 'create-practice__payment-option--active': !form.is_free }"
-            @click="form.is_free = false"
-          >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': !form.is_free }" />
-            <span>Платно</span>
-          </label>
-        </div>
+        <!-- Free / Paid segment -->
+        <VSegment
+          :model-value="form.is_free ? 'free' : 'paid'"
+          :options="PAYMENT_OPTIONS"
+          @update:model-value="form.is_free = $event === 'free'"
+        />
 
         <!-- Price fields (visible only if paid) -->
         <template v-if="!form.is_free">
@@ -246,7 +233,7 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard, VSegment } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -277,6 +264,11 @@ const PRACTICE_TYPE_OPTIONS: { label: string; value: string }[] = [
   { label: 'Серия занятий (series)',  value: 'series' },
   { label: 'Индивидуально (1-on-1)', value: 'one_on_one' },
   { label: 'Запись (replay)',         value: 'replay' },
+]
+
+const PAYMENT_OPTIONS = [
+  { value: 'free', label: 'Бесплатно' },
+  { value: 'paid', label: 'Платно' },
 ]
 
 // W-7: computed so todayDate is never stale after midnight
@@ -500,51 +492,6 @@ async function submit(): Promise<void> {
   letter-spacing: 0.02em;
   padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--velo-border-light);
-}
-
-/* -- Payment toggle -- */
-.create-practice__payment-options {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.create-practice__payment-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-}
-
-.create-practice__payment-option--active {
-  border-color: var(--velo-primary);
-  color: white;
-  background: var(--velo-primary);
-}
-
-.create-practice__radio {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--velo-border-light);
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-
-.create-practice__radio--active {
-  border-color: white;
-  background: var(--velo-glass-blue-60);
 }
 
 /* -- Price calc preview -- */

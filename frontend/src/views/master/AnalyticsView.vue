@@ -29,20 +29,11 @@
 
     <!-- Tabs -->
     <div class="analytics__tabs">
-      <button
-        class="analytics__tab"
-        :class="{ 'analytics__tab--active': activeTab === 'reviews' }"
-        @click="activeTab = 'reviews'"
-      >
-        Отзывы
-      </button>
-      <button
-        class="analytics__tab"
-        :class="{ 'analytics__tab--active': activeTab === 'payments' }"
-        @click="activeTab = 'payments'"
-      >
-        Платежи
-      </button>
+      <VSegment
+        :model-value="activeTab"
+        :options="TAB_OPTIONS"
+        @update:model-value="activeTab = $event as 'reviews' | 'payments'"
+      />
     </div>
 
     <!-- ================================================================
@@ -251,7 +242,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VEmptyState, VButton, VStatCard, VCard } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
@@ -269,6 +260,10 @@ const insightsError    = diaryStore.insightsErrorMap
 // =========================================================================
 
 const activeTab = ref<'reviews' | 'payments'>('reviews')
+const TAB_OPTIONS = [
+  { value: 'reviews', label: 'Отзывы' },
+  { value: 'payments', label: 'Платежи' },
+]
 
 // =========================================================================
 // Past practices (completed, sorted desc)
@@ -475,35 +470,11 @@ onMounted(async () => {
 
 /* ===== Tabs ===== */
 .analytics__tabs {
-  display: flex;
-  gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   background: transparent;
 }
 
-.analytics__tab {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.analytics__tab--active {
-  color: white;
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-}
+/* (tab buttons now provided by <VSegment>) */
 
 /* ===== Body ===== */
 .analytics__body {

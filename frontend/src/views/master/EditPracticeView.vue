@@ -157,24 +157,11 @@
 
           <div class="edit-practice__section">
             <div class="edit-practice__section-title">💰 ЦЕНА</div>
-            <div class="edit-practice__payment-options">
-              <label
-                class="edit-practice__payment-option"
-                :class="{ 'edit-practice__payment-option--active': form.is_free }"
-                @click="!isTerminal && (form.is_free = true)"
-              >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': form.is_free }" />
-                <span>Бесплатно</span>
-              </label>
-              <label
-                class="edit-practice__payment-option"
-                :class="{ 'edit-practice__payment-option--active': !form.is_free }"
-                @click="!isTerminal && (form.is_free = false)"
-              >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': !form.is_free }" />
-                <span>Платно</span>
-              </label>
-            </div>
+            <VSegment
+              :model-value="form.is_free ? 'free' : 'paid'"
+              :options="PAYMENT_OPTIONS"
+              @update:model-value="form.is_free = $event === 'free'"
+            />
             <template v-if="!form.is_free">
               <VInput
                 v-model="form.price_eur_raw"
@@ -373,7 +360,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard, VSegment } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -432,6 +419,11 @@ const confirmDialog = reactive({
 
 // W-9: human-readable commission percentage for template
 const commissionPct = Math.round(COMMISSION_RATE * 100)
+
+const PAYMENT_OPTIONS = [
+  { value: 'free', label: 'Бесплатно' },
+  { value: 'paid', label: 'Платно' },
+]
 
 // W-8: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
@@ -859,51 +851,6 @@ async function remove(): Promise<void> {
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
   border-radius: var(--velo-radius-badge);
-}
-
-/* -- Payment toggle -- */
-.edit-practice__payment-options {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.edit-practice__payment-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-}
-
-.edit-practice__payment-option--active {
-  border-color: var(--velo-primary);
-  color: white;
-  background: var(--velo-primary);
-}
-
-.edit-practice__radio {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--velo-border-light);
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-
-.edit-practice__radio--active {
-  border-color: white;
-  background: var(--velo-glass-blue-60);
 }
 
 /* -- Price calc -- */
