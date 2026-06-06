@@ -58,7 +58,7 @@ function toggle(): void {
   padding: 0;
   border: none;
   border-radius: var(--radius-full);
-  background: var(--velo-border, #c4cdda);
+  background: var(--velo-border);
   cursor: pointer;
   transition: background-color var(--transition-base);
 }

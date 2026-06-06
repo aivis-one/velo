@@ -437,7 +437,7 @@ async function finalize(): Promise<void> {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-text-primary);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .attendance__row-meta {

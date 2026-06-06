@@ -131,8 +131,8 @@ async function onToggle(key: NotificationKey, value: boolean): Promise<void> {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  background: var(--velo-bg-card-solid, #ffffff);
-  border-radius: var(--radius-md, 15px);
+  background: var(--velo-bg-card-solid);
+  border-radius: var(--radius-md);
 }
 
 .notifications__label {

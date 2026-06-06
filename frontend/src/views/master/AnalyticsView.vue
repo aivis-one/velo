@@ -661,7 +661,7 @@ onMounted(async () => {
 
 .analytics__insights-error {
   font-size: var(--text-sm);
-  color: var(--velo-error, #DC2626);
+  color: var(--velo-error);
   display: flex;
   align-items: center;
   gap: var(--space-3);

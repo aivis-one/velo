@@ -100,7 +100,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--velo-scrim);
   padding: var(--space-4);
 }
 

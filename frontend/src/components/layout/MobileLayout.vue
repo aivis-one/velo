@@ -212,7 +212,7 @@ defineEmits<{
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-sticky, 200);
+  z-index: var(--z-sticky);
   pointer-events: none;
 }
 

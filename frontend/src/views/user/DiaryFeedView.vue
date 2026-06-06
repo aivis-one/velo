@@ -657,7 +657,7 @@ onBeforeUnmount(() => {
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-sticky, 10);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -806,7 +806,7 @@ onBeforeUnmount(() => {
   left: var(--velo-rail-pad-x);
   right: var(--velo-rail-pad-x);
   bottom: calc(110px + env(safe-area-inset-bottom, 0px));
-  z-index: var(--z-sticky, 10);
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -858,7 +858,7 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: var(--z-sticky, 10);
+  z-index: var(--z-sticky);
   display: flex;
   justify-content: center;
   /* +20px bottom so the composer buttons clear the screen edge / Telegram chrome. */

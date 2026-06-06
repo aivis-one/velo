@@ -40,7 +40,7 @@ const { toasts, dismiss } = useToast()
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  z-index: var(--z-toast, 500);
+  z-index: var(--z-toast);
   pointer-events: none;
 }
 

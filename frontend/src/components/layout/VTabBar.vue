@@ -87,7 +87,7 @@ defineEmits<{
      the very bottom on Android. */
   padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
   background: transparent;
-  z-index: var(--z-sticky, 200);
+  z-index: var(--z-sticky);
 }
 
 .v-tabbar__item {
