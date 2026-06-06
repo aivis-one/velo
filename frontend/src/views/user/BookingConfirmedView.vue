@@ -134,7 +134,7 @@ onMounted(() => {
 /* Success card */
 .booking-confirmed__card {
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-6) var(--space-4);
   display: flex;

@@ -225,7 +225,7 @@ onMounted(async () => {
 /* Hero */
 .master-public__hero {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
@@ -287,7 +287,7 @@ onMounted(async () => {
 .master-public__stat {
   flex: 1;
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
@@ -351,7 +351,7 @@ onMounted(async () => {
    экране практики; локально, без правки общего VAccordion). */
 :deep(.v-accordion) {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   border-bottom: none;
   overflow: hidden;

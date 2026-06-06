@@ -96,7 +96,7 @@ const badge = computed<Badge>(() => {
   align-items: center;
   gap: var(--space-1);
   padding: 4px 10px;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   white-space: nowrap;

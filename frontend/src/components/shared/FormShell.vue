@@ -212,7 +212,7 @@ const cleanTitle = computed(() =>
 .form-shell__question {
   text-align: center;
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: 20px var(--space-4) 22px;
 }
@@ -244,7 +244,7 @@ const cleanTitle = computed(() =>
   width: 100%;
   min-height: 129px;
   padding: var(--space-4);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-base);

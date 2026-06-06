@@ -234,7 +234,7 @@ onMounted(() => {
   text-align: center;
   gap: var(--space-2);
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
 }

@@ -396,8 +396,8 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  background: #ffffff;
-  border: 1px solid #ffffff;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3);
 }

@@ -48,7 +48,7 @@ defineEmits<{
      border + radius-md. Replaces the old glass fill (--velo-bg-card) + blue
      border (--velo-border), which no longer match the design. */
   background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   transition: all var(--transition-base);
