@@ -307,7 +307,7 @@ function goBack(): void {
 }
 
 .detail__pill-title {
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
 }
@@ -324,7 +324,7 @@ function goBack(): void {
 }
 
 .detail__date {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   color: var(--velo-text-primary);
@@ -340,7 +340,7 @@ function goBack(): void {
 
 /* Muted context line linking the entry to its practice. */
 .detail__context {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   color: var(--velo-text-secondary);
 }

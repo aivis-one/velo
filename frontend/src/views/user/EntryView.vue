@@ -362,7 +362,7 @@ function goBack(): void {
 }
 
 .entry__date {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   color: var(--velo-text-primary);
@@ -370,7 +370,7 @@ function goBack(): void {
 
 .entry__heading {
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
 }
@@ -385,7 +385,7 @@ function goBack(): void {
 
 /* Muted context line linking the note to its practice. */
 .entry__context {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   color: var(--velo-text-secondary);
 }
@@ -397,7 +397,7 @@ function goBack(): void {
   background: transparent;
   padding: var(--space-1) 0;
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
   outline: none;

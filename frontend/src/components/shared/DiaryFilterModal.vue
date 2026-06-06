@@ -568,7 +568,7 @@ function onReset(): void {
 .diary-filter__cal-weekday {
   text-align: center;
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--text-10);
   color: var(--velo-text-secondary);
   padding-bottom: var(--space-1);
 }

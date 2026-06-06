@@ -91,6 +91,15 @@
   --text-2xl: 50px;
   --text-3xl: 32px;
 
+  /* Чётная типо-шкала (U4a 2026-06-06): явные целые кегли для дневника и мелкой
+     меты. --text-14 == легаси --text-xs (14px); легаси xs/sm/base/lg/xl/2xl/3xl
+     НЕ тронуты. */
+  --text-8: 8px;
+  --text-10: 10px;
+  --text-12: 12px;
+  --text-14: 14px;
+  --text-16: 16px;
+
   /* === Spacing === */
   --space-1: 4px;
   --space-2: 8px;

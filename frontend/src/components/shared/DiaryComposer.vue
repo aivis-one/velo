@@ -278,7 +278,7 @@ async function onSend(): Promise<void> {
   resize: none;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   line-height: 1.3;
   color: var(--velo-text-primary);
@@ -300,7 +300,7 @@ async function onSend(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
   opacity: 0.85;
