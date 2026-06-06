@@ -40,7 +40,7 @@
     <!-- Content -->
     <div v-else class="booking-confirmed__content">
       <!-- Success card -->
-      <div class="booking-confirmed__card">
+      <VCard class="booking-confirmed__card" padding="none">
         <span class="booking-confirmed__icon">
           <IconSuccess :size="56" />
         </span>
@@ -48,7 +48,7 @@
         <p class="booking-confirmed__text">
           Ссылка на Zoom появится за 10 минут до начала.
         </p>
-      </div>
+      </VCard>
 
       <!-- Ask-master request (VISUAL ONLY, TD-ASK-MASTER) -->
       <div class="booking-confirmed__ask">
@@ -77,7 +77,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VEmptyState, VButton, VTextarea } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VTextarea, VCard } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconSuccess, IconSupport } from '@/components/icons'
 
@@ -133,9 +133,6 @@ onMounted(() => {
 
 /* Success card */
 .booking-confirmed__card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;

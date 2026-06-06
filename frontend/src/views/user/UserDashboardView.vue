@@ -155,7 +155,7 @@
         </div>
       </div>
 
-      <div class="dashboard__ai-card">
+      <VCard>
         <p class="dashboard__ai-text">
           <template v-if="aiPeriod === 'week'">
             На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик
@@ -175,7 +175,7 @@
           <IconMoodHigh :size="40" />
           <span class="dashboard__ai-mood-label">до</span>
         </div>
-      </div>
+      </VCard>
 
       <!-- "Подробнее" → AI-summary screen (16). Единый VMoreLink (слово +
            белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
@@ -192,7 +192,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VButton, VBadge, VMoreLink, VStatCard } from '@/components/ui'
+import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/components/ui'
 import {
   IconClock,
   IconFeedback,
@@ -569,13 +569,6 @@ onUnmounted(() => {
 .dashboard__period-btn--active {
   background: var(--velo-primary);
   color: var(--velo-white);
-}
-
-.dashboard__ai-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
 }
 
 .dashboard__ai-text {
