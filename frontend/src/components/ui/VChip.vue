@@ -59,6 +59,7 @@ defineEmits<{
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--velo-primary);
+  white-space: nowrap;
 }
 
 .v-chip--md {
@@ -66,6 +67,8 @@ defineEmits<{
 }
 
 .v-chip--clickable {
+  /* Selectable (filter) chips read as muted until active. */
+  color: var(--velo-text-secondary);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
