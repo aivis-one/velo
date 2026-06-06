@@ -52,18 +52,9 @@
 
       <!-- Stats grid (aggregate from all cached insights) -->
       <div class="analytics__stats-grid">
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateCheckinPct }}</div>
-          <div class="analytics__stat-label">Check-in</div>
-        </div>
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateFeedbackPct }}</div>
-          <div class="analytics__stat-label">Feedback</div>
-        </div>
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateTotalFeedbacks }}</div>
-          <div class="analytics__stat-label">отзывов</div>
-        </div>
+        <VStatCard :value="aggregateCheckinPct" label="Check-in" />
+        <VStatCard :value="aggregateFeedbackPct" label="Feedback" />
+        <VStatCard :value="aggregateTotalFeedbacks" label="отзывов" />
       </div>
 
       <div class="analytics__divider" />
@@ -260,7 +251,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VStatCard } from '@/components/ui'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
@@ -528,28 +519,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
-}
-
-.analytics__stat-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-3);
-  text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.analytics__stat-value {
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  color: var(--velo-primary);
-  margin-bottom: var(--space-1);
-}
-
-.analytics__stat-label {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* ===== Divider ===== */

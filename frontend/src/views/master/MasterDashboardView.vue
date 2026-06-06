@@ -71,18 +71,9 @@
       </div>
 
       <div class="master-dashboard__stats-grid">
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">практик</div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">участников</div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">доход</div>
-        </div>
+        <VStatCard value="—" label="практик" />
+        <VStatCard value="—" label="участников" />
+        <VStatCard value="—" label="доход" />
       </div>
 
       <div class="master-dashboard__divider" />
@@ -191,7 +182,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard } from '@/components/ui'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
@@ -382,31 +373,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
-}
-
-.master-dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.master-dashboard__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.master-dashboard__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  margin-top: 2px;
 }
 
 /* -- Divider -- */
