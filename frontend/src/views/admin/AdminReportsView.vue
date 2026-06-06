@@ -50,14 +50,13 @@
 
         <!-- List -->
         <div class="admin-reports__list">
-          <div
+          <VCard
             v-for="item in items"
             :key="item.id"
             class="admin-reports__card"
-            role="button"
-            tabindex="0"
+            clickable
+            padding="none"
             @click="openDetail(item)"
-            @keydown.enter.space.prevent="openDetail(item)"
           >
             <div class="admin-reports__card-header">
               <VBadge :variant="reportStatusVariant(item.status)">
@@ -71,7 +70,7 @@
             <div class="admin-reports__card-date">
               {{ formatShortDate(item.created_at) }}
             </div>
-          </div>
+          </VCard>
         </div>
 
         <!-- Load more -->
@@ -94,7 +93,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VLoader, VEmptyState, VSelect } from '@/components/ui'
+import { VBadge, VButton, VLoader, VEmptyState, VSelect, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getReports } from '@/api/admin'
 import type { ReportResponse, ReportStatusFilter, ReportTargetTypeFilter } from '@/api/admin'
@@ -248,9 +247,6 @@ onMounted(loadInitial)
 }
 
 .admin-reports__card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);

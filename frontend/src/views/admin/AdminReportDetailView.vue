@@ -32,13 +32,13 @@
         <!-- Report content -->
         <div class="report-detail__section">
           <div class="report-detail__section-title">Текст жалобы</div>
-          <div class="report-detail__reason">{{ report.reason }}</div>
+          <VCard class="report-detail__reason">{{ report.reason }}</VCard>
         </div>
 
         <!-- Meta -->
         <div class="report-detail__section">
           <div class="report-detail__section-title">Детали</div>
-          <div class="report-detail__meta-list">
+          <VCard class="report-detail__meta-list" padding="none">
             <div class="report-detail__meta-row">
               <span class="report-detail__meta-key">Тип цели</span>
               <span class="report-detail__meta-val">{{ report.target_type }}</span>
@@ -69,7 +69,7 @@
                 <span class="report-detail__meta-note">{{ report.resolution_note }}</span>
               </div>
             </template>
-          </div>
+          </VCard>
         </div>
 
         <!-- Actions: only for pending -->
@@ -119,10 +119,10 @@
         </template>
 
         <!-- Already processed -->
-        <div v-else class="report-detail__processed">
+        <VCard v-else class="report-detail__processed">
           Жалоба уже обработана — статус:
           <strong>{{ reportStatusLabel(currentStatus) }}</strong>
-        </div>
+        </VCard>
       </template>
 
       <!-- Not found -->
@@ -142,7 +142,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VTextarea, VEmptyState, VLoader } from '@/components/ui'
+import { VBadge, VButton, VTextarea, VEmptyState, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getReportById, resolveReport, dismissReport } from '@/api/admin'
 import type { ReportResponse } from '@/api/admin'
@@ -272,19 +272,12 @@ onMounted(loadReport)
 }
 
 .report-detail__reason {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   font-size: var(--text-sm);
   color: var(--velo-text-primary);
   line-height: 1.6;
 }
 
 .report-detail__meta-list {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -341,10 +334,6 @@ onMounted(loadReport)
   text-align: center;
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
-  padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
 }
 
 .report-detail__not-found {

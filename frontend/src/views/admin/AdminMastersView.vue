@@ -46,14 +46,13 @@
 
         <!-- List -->
         <div class="admin-masters__list">
-          <div
+          <VCard
             v-for="item in items"
             :key="item.id"
             class="admin-masters__card"
-            role="button"
-            tabindex="0"
+            clickable
+            padding="none"
             @click="openReview(item)"
-            @keydown.enter.space.prevent="openReview(item)"
           >
             <VAvatar
               :name="masterDisplayName(item)"
@@ -69,7 +68,7 @@
               </div>
             </div>
             <span class="admin-masters__card-arrow">→</span>
-          </div>
+          </VCard>
         </div>
 
         <!-- Load more -->
@@ -92,7 +91,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VAvatar, VBadge, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VAvatar, VBadge, VButton, VLoader, VEmptyState, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getPendingMasters } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
@@ -191,9 +190,6 @@ onMounted(loadInitial)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
