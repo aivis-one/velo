@@ -39,7 +39,7 @@
     <!-- Content -->
     <div v-else class="master-public__content">
       <!-- Hero -->
-      <div class="master-public__hero">
+      <VCard class="master-public__hero" padding="none">
         <VAvatar :url="profile.avatar_url ?? ''" :name="displayName" size="xl" />
 
         <h1 class="master-public__name">{{ displayName }}</h1>
@@ -57,7 +57,7 @@
         </div>
 
         <p v-if="profile.bio" class="master-public__bio">{{ profile.bio }}</p>
-      </div>
+      </VCard>
 
       <!-- Stats -->
       <div class="master-public__stats">
@@ -119,7 +119,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar, VStatCard } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar, VStatCard, VCard } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { IconCheck } from '@/components/icons'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -226,9 +226,6 @@ onMounted(async () => {
 
 /* Hero */
 .master-public__hero {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;

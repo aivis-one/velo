@@ -88,7 +88,7 @@
         </PracticeListCard>
 
         <!-- The entry card -->
-        <div class="entry__card">
+        <VCard class="entry__card">
           <p class="entry__date">{{ entryDate }}</p>
 
           <!-- View mode -->
@@ -118,7 +118,7 @@
               @input="autogrow"
             />
           </template>
-        </div>
+        </VCard>
       </template>
     </div>
 
@@ -142,7 +142,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge, VCard } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { IconPen } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
@@ -352,10 +352,6 @@ function goBack(): void {
 
 /* -- Entry card -- */
 .entry__card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

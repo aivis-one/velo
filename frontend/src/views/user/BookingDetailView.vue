@@ -49,13 +49,13 @@
 
         <div class="bdetail__body">
           <!-- Status row -->
-          <div class="bdetail__status-row">
+          <VCard class="bdetail__status-row" padding="none">
             <span class="bdetail__status-label">Статус</span>
             <VBadge :variant="statusVariant">
               <component :is="statusIcon" v-if="statusIcon" :size="12" />
               {{ statusLabel }}
             </VBadge>
-          </div>
+          </VCard>
 
           <!-- Master -->
           <section class="bdetail__section">
@@ -69,9 +69,9 @@
           <!-- Zoom -->
           <section class="bdetail__section">
             <h3 class="bdetail__section-title">ZOOM</h3>
-            <div class="bdetail__zoom-card">
+            <VCard class="bdetail__zoom-card">
               Ссылка будет отправлена за 10 минут до начала практики
-            </div>
+            </VCard>
           </section>
         </div>
       </div>
@@ -104,7 +104,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBadge, VCard } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
@@ -242,9 +242,6 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-4);
 }
 
@@ -266,10 +263,6 @@ onMounted(() => {
 
 /* Zoom card */
 .bdetail__zoom-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);

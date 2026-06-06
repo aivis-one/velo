@@ -28,7 +28,7 @@
 <template>
   <div class="profile">
     <!-- Header -->
-    <div class="profile__header">
+    <VCard class="profile__header" padding="none">
       <div class="profile__avatar">
         <VAvatar
           :name="displayName"
@@ -37,7 +37,7 @@
         />
       </div>
       <h1 class="profile__name">{{ displayName }}</h1>
-    </div>
+    </VCard>
 
     <!-- Stats: practices + hours -->
     <div class="profile__stats">
@@ -131,7 +131,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
-import { VAvatar, VStatCard } from '@/components/ui'
+import { VAvatar, VStatCard, VCard } from '@/components/ui'
 import {
   IconEdit,
   IconBookings,
@@ -238,9 +238,6 @@ onMounted(async () => {
 .profile__header {
   text-align: center;
   padding: var(--space-5) var(--space-4) var(--space-5);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
 }
 
 .profile__avatar {

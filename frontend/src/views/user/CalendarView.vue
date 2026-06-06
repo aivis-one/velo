@@ -69,7 +69,7 @@
       </button>
 
       <!-- Expanded: active-filter chips + collapse -->
-      <div v-else class="calendar__expanded">
+      <VCard v-else class="calendar__expanded" padding="sm">
         <div class="calendar__chips">
           <button
             type="button"
@@ -119,7 +119,7 @@
             />
           </svg>
         </button>
-      </div>
+      </VCard>
     </div>
 
     <!-- Loading (initial) -->
@@ -171,7 +171,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCalendarStore } from '@/stores/calendar'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VCard } from '@/components/ui'
 import WeekStrip from '@/components/shared/WeekStrip.vue'
 import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -396,10 +396,6 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
 }
 
 .calendar__chips {
