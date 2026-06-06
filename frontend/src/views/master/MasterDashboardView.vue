@@ -148,34 +148,42 @@
            ================================================================ -->
       <div class="master-dashboard__section-title">⚡ Быстрые действия</div>
       <div class="master-dashboard__actions-grid">
-        <button
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practice-new' })"
         >
           <span class="master-dashboard__action-icon">➕</span>
           <span class="master-dashboard__action-label">Создать практику</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practices' })"
         >
           <span class="master-dashboard__action-icon">📋</span>
           <span class="master-dashboard__action-label">Мои практики</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-analytics' })"
         >
           <span class="master-dashboard__action-icon">📈</span>
           <span class="master-dashboard__action-label">Аналитика</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-finance' })"
         >
           <span class="master-dashboard__action-icon">💰</span>
           <span class="master-dashboard__action-label">Финансы</span>
-        </button>
+        </VCard>
       </div>
     </template>
   </div>
@@ -479,9 +487,6 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   transition: opacity var(--transition-fast);
   cursor: pointer;
 }

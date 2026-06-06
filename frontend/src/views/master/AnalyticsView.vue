@@ -95,10 +95,11 @@
 
         <!-- Practice rows -->
         <div v-else class="analytics__practice-list">
-          <div
+          <VCard
             v-for="practice in pastPractices"
             :key="practice.id"
             class="analytics__practice-card"
+            padding="none"
           >
             <!-- Row header (always visible) -->
             <div
@@ -197,7 +198,7 @@
                 </template>
               </div>
             </Transition>
-          </div>
+          </VCard>
 
           <!-- Load more past practices -->
           <div v-if="masterStore.practicesHasMore" class="analytics__load-more">
@@ -577,13 +578,9 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
+/* surface (bg/border/radius) now from <VCard padding="none">; overflow clips the expand panel */
 .analytics__practice-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .analytics__practice-row {
