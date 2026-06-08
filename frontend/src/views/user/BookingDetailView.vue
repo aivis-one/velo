@@ -28,7 +28,7 @@
     <!-- Error -->
     <VEmptyState
       v-else-if="store.selectedError || !booking"
-      icon="⚠️"
+      icon="warning"
       title="Бронирование не найдено"
       :description="store.selectedError"
     >

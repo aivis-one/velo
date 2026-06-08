@@ -130,7 +130,7 @@
     <!-- Error -->
     <VEmptyState
       v-else-if="store.error"
-      icon="⚠️"
+      icon="warning"
       title="Не удалось загрузить"
       :description="store.error"
     >

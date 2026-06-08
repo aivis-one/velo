@@ -53,7 +53,7 @@
 
     <!-- Error / not found -->
     <div v-else-if="!practice" class="edit-practice__content">
-      <VEmptyState icon="⚠️" title="Практика не найдена">
+      <VEmptyState icon="warning" title="Практика не найдена">
         <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practices' })">
           Назад
         </VButton>

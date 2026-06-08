@@ -49,7 +49,7 @@
     <!-- Error -->
     <div v-else-if="masterStore.practicesError" class="master-practices__content">
       <VEmptyState
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить практики"
         :description="masterStore.practicesError"
       >
@@ -90,7 +90,7 @@
         </template>
         <VEmptyState
           v-else
-          icon="📅"
+          icon="calendar"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
@@ -143,7 +143,7 @@
         </template>
         <VEmptyState
           v-else
-          icon="📋"
+          icon="list"
           title="Нет прошедших практик"
           description="Здесь появятся завершённые и отменённые практики"
         />

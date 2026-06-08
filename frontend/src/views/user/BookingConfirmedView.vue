@@ -30,7 +30,7 @@
     <!-- Error / not found -->
     <VEmptyState
       v-else-if="store.selectedError || !practice"
-      icon="⚠️"
+      icon="warning"
       title="Практика не найдена"
       :description="store.selectedError ?? 'Не удалось загрузить практику'"
     >

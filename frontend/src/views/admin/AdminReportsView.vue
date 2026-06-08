@@ -37,7 +37,7 @@
       <!-- Empty state -->
       <VEmptyState
         v-else-if="!loading && items.length === 0"
-        icon="✅"
+        icon="success"
         title="Жалоб нет"
         description="По выбранным фильтрам ничего не найдено"
       />

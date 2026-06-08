@@ -128,7 +128,7 @@
       <!-- Not found -->
       <VEmptyState
         v-else
-        icon="❓"
+        icon="notfound"
         title="Заявка не найдена"
         description="Возможно, она была удалена или уже обработана"
       />

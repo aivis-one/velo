@@ -29,7 +29,7 @@
     <!-- Error / not found -->
     <VEmptyState
       v-else-if="error || !profile"
-      icon="⚠️"
+      icon="warning"
       title="Мастер не найден"
       :description="error ?? 'Профиль недоступен'"
     >

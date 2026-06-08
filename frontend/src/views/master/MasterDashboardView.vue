@@ -131,7 +131,7 @@
 
       <template v-else>
         <VEmptyState
-          icon="📅"
+          icon="calendar"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >

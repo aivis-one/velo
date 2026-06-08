@@ -88,7 +88,7 @@
         <!-- Empty -->
         <VEmptyState
           v-else-if="!masterStore.practicesLoading && pastPractices.length === 0"
-          icon="📋"
+          icon="list"
           title="Нет завершённых практик"
           description="Здесь появятся данные после первой практики"
         />

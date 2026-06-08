@@ -95,7 +95,7 @@
       <!-- Error -->
       <VEmptyState
         v-else
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить данные"
         description="Проверьте соединение и попробуйте ещё раз"
       >

@@ -1,15 +1,17 @@
 <!--
-  VELO Frontend -- VEmptyState Component (Phase F2.1)
+  VELO Frontend -- VEmptyState Component (Phase F2.1; F-9 icons 2026-06)
 
   Empty state placeholder. Matches mockup .empty-state styles.
 
+  The `icon` prop takes a SEMANTIC KEY (not an emoji) — the DS picks the glyph:
+    warning | notfound | calendar | list | group | success | empty
   Usage:
-    <VEmptyState icon="📅" title="Нет практик" description="Создайте первую практику" />
-    <VEmptyState icon="📭" title="Пусто">
+    <VEmptyState icon="calendar" title="Нет практик" description="Создайте первую практику" />
+    <VEmptyState icon="warning" title="Ошибка">
       <VButton size="sm" @click="reload">Обновить</VButton>
     </VEmptyState>
 
-  Custom icon via slot (e.g. a DS icon component instead of an emoji):
+  Custom icon via slot (any DS icon component, overrides the key):
     <VEmptyState title="Нет практик">
       <template #icon><IconClock :size="48" /></template>
     </VEmptyState>
@@ -18,7 +20,7 @@
 <template>
   <div class="v-empty">
     <span class="v-empty__icon">
-      <slot name="icon">{{ icon }}</slot>
+      <slot name="icon"><component :is="resolvedIcon" v-if="resolvedIcon" :size="48" /></slot>
     </span>
     <p class="v-empty__title">{{ title }}</p>
     <p v-if="description" class="v-empty__desc">{{ description }}</p>
@@ -29,17 +31,35 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed, type Component } from 'vue'
+import {
+  IconWarning, IconCalendar, IconList, IconGroup, IconSuccess, IconFile,
+} from '@/components/icons'
+
+const props = withDefaults(
   defineProps<{
+    /** Semantic key → DS glyph (see ICON_MAP). Not an emoji. */
     icon?: string
     title: string
     description?: string
   }>(),
   {
-    icon: '📭',
+    icon: 'empty',
     description: '',
   },
 )
+
+const ICON_MAP: Record<string, Component> = {
+  warning: IconWarning,
+  notfound: IconWarning,
+  calendar: IconCalendar,
+  list: IconList,
+  group: IconGroup,
+  success: IconSuccess,
+  empty: IconFile,
+}
+
+const resolvedIcon = computed<Component | null>(() => ICON_MAP[props.icon] ?? null)
 </script>
 
 <style scoped>
@@ -55,6 +75,8 @@ withDefaults(
   font-size: 48px;
   line-height: 1;
   margin-bottom: var(--space-3);
+  /* Vector DS icon (resolved from the semantic key) inherits this as currentColor. */
+  color: var(--velo-text-muted);
 }
 
 .v-empty__title {

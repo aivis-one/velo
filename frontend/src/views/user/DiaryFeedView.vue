@@ -154,7 +154,7 @@
       <!-- Error (only when nothing loaded yet) -->
       <VEmptyState
         v-else-if="feedError && items.length === 0"
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить дневник"
         description="Проверьте соединение и попробуйте ещё раз"
       >

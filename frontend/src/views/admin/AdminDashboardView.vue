@@ -84,7 +84,7 @@
       <!-- Error state -->
       <VEmptyState
         v-else
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить статистику"
         description="Проверьте соединение и попробуйте ещё раз"
       >

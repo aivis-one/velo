@@ -21,7 +21,7 @@
       <!-- Fetch error -->
       <VEmptyState
         v-else-if="error"
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить заявки"
         description="Проверьте соединение и попробуйте ещё раз"
       >
@@ -33,7 +33,7 @@
       <!-- Empty state (genuine) -->
       <VEmptyState
         v-else-if="items.length === 0"
-        icon="✅"
+        icon="success"
         title="Новых заявок нет"
         description="Все заявки обработаны"
       />

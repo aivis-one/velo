@@ -40,7 +40,7 @@
       <!-- Error -->
       <VEmptyState
         v-else-if="loadError"
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить запись"
         :description="loadError"
       >

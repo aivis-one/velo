@@ -37,7 +37,7 @@
 
     <!-- Error -->
     <div v-else-if="error" class="attendance__content">
-      <VEmptyState icon="⚠️" title="Не удалось загрузить посещаемость" :description="error">
+      <VEmptyState icon="warning" title="Не удалось загрузить посещаемость" :description="error">
         <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
       </VEmptyState>
     </div>
@@ -151,7 +151,7 @@
         <!-- Empty state -->
         <VEmptyState
           v-if="attendance.total === 0"
-          icon="👥"
+          icon="group"
           title="Нет записавшихся"
           description="На эту практику ещё никто не записался"
         />

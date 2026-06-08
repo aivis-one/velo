@@ -128,7 +128,7 @@
       <!-- Not found -->
       <div v-else class="report-detail__not-found">
         <VEmptyState
-          icon="❓"
+          icon="notfound"
           title="Жалоба не найдена"
           description="Вернитесь к списку жалоб"
         />
