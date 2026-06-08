@@ -10,7 +10,7 @@
         - VHeader with back button
         - Practice info (emoji + name + meta)
         - Question (title + subtitle)
-        - #selection slot  ← mood buttons / rating buttons
+        - #selection slot  <- mood buttons / rating buttons
         - Comment textarea (v-model)
         - Actions (submit + optional skip)
 

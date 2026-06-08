@@ -43,7 +43,7 @@
       <div class="practice-list-card__content">
         <h4 class="practice-list-card__title">{{ titleText }}</h4>
         <!-- Subtitle: master row by default; override for other contexts
-             (e.g. master's own practice → participants · price). -->
+             (e.g. master's own practice -> participants · price). -->
         <slot name="subtitle">
           <p class="practice-list-card__master">
             <span class="practice-list-card__master-avatar">{{ masterInitial }}</span>

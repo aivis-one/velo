@@ -83,7 +83,7 @@ function onMore(): void {
 
 <style scoped>
 /* F-4 sync: wrapper держит карточку + footer-кнопку «Подробнее» под ней.
- * Figma master-card.svg (336×145 canvas): card 336×104 → gap 5.5 → pill
+ * Figma master-card.svg (336×145 canvas): card 336×104 -> gap 5.5 -> pill
  * 63×35 справа. Round to space-1=4 для gap (acceptable visual noise). */
 .master-card-wrapper {
   display: flex;
@@ -118,7 +118,7 @@ function onMore(): void {
 .master-card__name {
   display: flex;
   align-items: center;
-  /* Figma: gap name→verified ≈ 12 (233-221). Round до space-2=8. */
+  /* Figma: gap name->verified ≈ 12 (233-221). Round до space-2=8. */
   gap: var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -131,7 +131,7 @@ function onMore(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Figma: verified circle r=13 → 26×26 (был 18). */
+  /* Figma: verified circle r=13 -> 26×26 (был 18). */
   width: 26px;
   height: 26px;
   border-radius: var(--radius-full);
@@ -147,5 +147,5 @@ function onMore(): void {
 }
 
 /* «Подробнее» — общий компонент VMoreLink (слово + белый pill со стрелкой).
- * Стили живут в нём; здесь только отступ карточка↔ссылка (master-card-wrapper). */
+ * Стили живут в нём; здесь только отступ карточка<->ссылка (master-card-wrapper). */
 </style>

@@ -3,8 +3,8 @@
 
   Primary action element. VELΘ pill-shaped glass design.
 
-  Variants: primary | secondary | danger | ghost | outline (alias → secondary)
-  Sizes:    sm | md (default) | lg (alias → md)
+  Variants: primary | secondary | danger | ghost | outline (alias -> secondary)
+  Sizes:    sm | md (default) | lg (alias -> md)
   States:   disabled, loading (shows spinner + prevents clicks)
 
   Usage:

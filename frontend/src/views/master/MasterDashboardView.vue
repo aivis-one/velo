@@ -66,7 +66,7 @@
       <div class="master-dashboard__section-header">
         <span class="master-dashboard__section-title">Моя статистика</span>
         <button class="master-dashboard__period-toggle" aria-label="Переключить период" @click="togglePeriod">
-          {{ period === 'week' ? 'Неделя ▼' : 'Месяц ▼' }}
+          {{ period === 'week' ? 'Неделя' : 'Месяц' }}
         </button>
       </div>
 

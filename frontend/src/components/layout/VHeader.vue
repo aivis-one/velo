@@ -6,7 +6,7 @@
   Two back-button modes (per Figma DS, 2026-05-28):
     1. With separate title -> arrow-only compact pill (63×35), title sits next to it.
        Example: PracticeDetailView ("Моя практика" / "Практика").
-    2. Without title -> arrow + backLabel inside the pill (e.g. "← Check-in").
+    2. Without title -> arrow + backLabel inside the pill (e.g. "<- Check-in").
        Example: CheckinView / FeedbackView.
 
   Usage:

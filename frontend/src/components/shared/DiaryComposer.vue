@@ -16,7 +16,7 @@
   - Collapsed with a draft: when blurred with unsent text, the field shows the
     START of that text + ellipsis (single line) instead of the placeholder, so
     the frame does not stay expanded. Tapping it re-opens compose.
-  - Enter inserts a newline (send is the ↑ button only).
+  - Enter inserts a newline (send is the up button only).
   - The unsent draft is mirrored to localStorage (keyed by entryType) on every
     keystroke, so it survives keyboard collapse / accidental navigation on iOS.
 

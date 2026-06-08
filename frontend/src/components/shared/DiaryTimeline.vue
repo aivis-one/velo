@@ -207,7 +207,7 @@ const dayGroups = computed<DayGroup[]>(() => {
   color: var(--velo-text-primary);
 }
 .timeline__connector {
-  /* date node → first card (Group 2429): ~4px above, ~11px below per export */
+  /* date node -> first card (Group 2429): ~4px above, ~11px below per export */
   padding: 4px 0 11px;
 }
 .timeline__dot {

@@ -157,7 +157,7 @@ function onTap(): void {
 <style scoped>
 /* All colors/spacing via design tokens (variables.css) -- no hardcoded hex
    (P1 audit) and no ad-hoc px for padding/margin/gap (P3 audit). Font sizes
-   use the even type scale (--text-16 / --text-12); legacy 12.375px → --text-12
+   use the even type scale (--text-16 / --text-12); legacy 12.375px -> --text-12
    (U4a 2026-06-06). */
 
 .feed-card {

@@ -149,7 +149,7 @@ export function useDiaryCardModel(
       const oldAt = snapStr('old_scheduled_at')
       const newAt = snapStr('new_scheduled_at') ?? snapStr('scheduled_at')
       if (oldAt && newAt) {
-        return `${formatDate(oldAt, tz.value)} → ${formatDate(newAt, tz.value)}`
+        return `${formatDate(oldAt, tz.value)} – ${formatDate(newAt, tz.value)}`
       }
       return snapStr('practice_title')
     }

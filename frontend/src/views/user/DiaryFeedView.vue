@@ -26,7 +26,7 @@
       <div class="diary-feed__left">
         <!-- Back контекстный (operator 2026-06-04): если активен фильтр/поиск —
              стрелка СБРАСЫВАЕТ фильтр (возврат в полную ленту), иначе выходит из
-             дневника. Отдельный «✕» убран. -->
+             дневника. Отдельный «x» убран. -->
         <VBackButton
           class="diary-feed__back"
           :aria-label="filterActive ? 'Сбросить фильтр' : 'Выйти из дневника'"
@@ -365,7 +365,7 @@ function exitDiary(): void {
   void router.push('/user/dashboard')
 }
 
-// Back контекстный (operator 2026-06-04): активен фильтр/поиск → сбрасываем
+// Back контекстный (operator 2026-06-04): активен фильтр/поиск -> сбрасываем
 // (возврат в полную ленту), иначе выходим из дневника на дашборд.
 function onBack(): void {
   if (filterActive.value) {

@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- IconAxisConnector (Diary map: date-node → first card link)
+  VELO Frontend -- IconAxisConnector (Diary map: date-node -> first card link)
 
   The vertical bead-link that sits on the thread axis between a date node and
   the first card of that day (Figma Group 2429): a top ring (r=2.5) + a thin

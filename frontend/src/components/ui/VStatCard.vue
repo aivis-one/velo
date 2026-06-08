@@ -5,7 +5,9 @@
   Used in dashboards (user stats, admin stats, master analytics).
 
   Usage:
-    <VStatCard value="156" label="участников" icon="👥" />
+    <VStatCard value="156" label="участников">
+      <template #icon><IconGroup :size="24" /></template>
+    </VStatCard>
     <VStatCard value="€1,280" label="доход" />
 -->
 

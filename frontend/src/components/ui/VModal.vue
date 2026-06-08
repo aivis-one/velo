@@ -115,7 +115,7 @@ onUnmounted(() => {
   overflow: hidden;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
-  /* Плавающая шторка (overlay даёт отступ со всех сторон) → скругляем ВСЕ
+  /* Плавающая шторка (overlay даёт отступ со всех сторон) -> скругляем ВСЕ
      углы. Радиус из DS-токена (--radius-md=15), а не сырой 20px. */
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);

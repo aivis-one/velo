@@ -1,7 +1,7 @@
 <!--
   VELO Frontend -- MasterProfileView (Phase F7, updated TD-FE-ROLE-SWITCH)
 
-  Master profile screen. Route: /master/profile (tab "👤 Я").
+  Master profile screen. Route: /master/profile (tab "Я").
   No masterStatusGuard -- accessible even while pending (so master sees their info).
 
   Sections:
@@ -9,13 +9,13 @@
        Data from masterStore.profile (lazy fetch on mount).
 
     2. Payout settings -- inline form (v-show).
-       - payout === null  → "Не настроено" banner + кнопка "Добавить реквизиты"
-       - payout !== null  → method label + masked details + кнопка "Изменить"
+       - payout === null  -> "Не настроено" banner + кнопка "Добавить реквизиты"
+       - payout !== null  -> method label + masked details + кнопка "Изменить"
        - Form: VSelect method + dynamic fields by method:
-           bank_transfer → iban (required), account_holder (optional), swift (optional)
-           paypal        → email (required)
-           revolut       → tag (required)
-       - PATCH /me/payout → masterStore.profile.payout updated in-place + toast.success
+           bank_transfer -> iban (required), account_holder (optional), swift (optional)
+           paypal        -> email (required)
+           revolut       -> tag (required)
+       - PATCH /me/payout -> masterStore.profile.payout updated in-place + toast.success
        - Client-side validation before submit (iban not empty, email has @, tag not empty)
        - Double-submit guard
 

@@ -24,7 +24,7 @@
 <template>
   <VModal :open="open" @close="$emit('close')">
     <div class="diary-search">
-      <!-- Search field + magnifier (the modal's own ✕ handles close; no extra
+      <!-- Search field + magnifier (the modal's own x handles close; no extra
            title row, per operator 2026-06-03). -->
       <div class="diary-search__field">
         <div class="diary-search__input">

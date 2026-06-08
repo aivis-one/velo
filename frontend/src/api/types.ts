@@ -136,7 +136,7 @@ export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'del
 // (meditation/yoga/breathwork/somatic/tantra/womens_circle/mens_circle/
 // kundalini); see handoff §9 task B-2 for the matching backend rollout
 // (extend practice_allowed_directions, migrate womens_circle/mens_circle
-// → circles + style, migrate kundalini → yoga + style=kundalini). The
+// -> circles + style, migrate kundalini -> yoga + style=kundalini). The
 // frontend commit MUST wait for the backend deploy.
 export type PracticeDirection =
   | 'meditation'

@@ -4,7 +4,7 @@
   Full practice detail screen. Matches design Dashboard 2 / booked-practice layout:
     - Hero: white card with IconMeditation SVG + title + meta + "Оплачено" badge
     - Accordions: "О практике" (description), "Что подготовить" (what_to_prepare)
-    - Master card: avatar + name + ✓ + methods tags (VTag) + arrow
+    - Master card: avatar + name + check + methods tags (VTag) + arrow
     - Contraindications banner (if practice.contraindications)
     - Sticky footer: price + action button + cancel booking
 
@@ -360,7 +360,7 @@ const practiceStarted = computed((): boolean => {
 })
 
 // -- Status row (ported from BookingDetailView; driven by myAnyBooking) --
-// NB: confirmed → «Вы записаны» ТОЛЬКО на этом экране (status row заменяет
+// NB: confirmed -> «Вы записаны» ТОЛЬКО на этом экране (status row заменяет
 // бывшую disabled-кнопку). Глобальный лейбл «Подтверждена» (Мои записи и пр.)
 // живёт в своих местах и не трогается.
 const STATUS_LABEL: Record<BookingStatus, string> = {
@@ -518,7 +518,7 @@ function onPurchased(): void {
 /**
  * Места кончились в гонке (BookingPopup поймал practice_full): поднимаем
  * полноэкранный стейт «Места закончились» и обновляем практику/брони, чтобы
- * экран под оверлеем уже отражал заполненность (кнопка → «Мест нет»).
+ * экран под оверлеем уже отражал заполненность (кнопка -> «Мест нет»).
  */
 function onSoldOut(): void {
   soldOut.value = true
@@ -526,7 +526,7 @@ function onSoldOut(): void {
   bookingsStore.refreshBookings()
 }
 
-/** «Найти другую практику» → в Календарь (витрина записи). */
+/** «Найти другую практику» -> в Календарь (витрина записи). */
 function onFindOther(): void {
   soldOut.value = false
   router.push({ name: 'user-calendar' })

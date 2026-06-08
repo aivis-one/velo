@@ -16,7 +16,7 @@
       verified flag.
 
   Modes:
-    view  -- header "← Запись ⋯", optional practice header, date, title,
+    view  -- header "<- Запись ⋯", optional practice header, date, title,
              full content.
     menu  -- the "⋯" popover: pencil (edit) + trash (delete).
     edit  -- editable title + autogrow textarea + "Сохранить".

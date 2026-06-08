@@ -177,7 +177,7 @@
         </div>
       </VCard>
 
-      <!-- "Подробнее" → AI-summary screen (16). Единый VMoreLink (слово +
+      <!-- "Подробнее" -> AI-summary screen (16). Единый VMoreLink (слово +
            белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
       <div class="dashboard__ai-more">
         <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
@@ -389,8 +389,8 @@ function openNearest(): void {
  */
 const viewerTz = useViewerTimezone()
 
-// Dashboard "Ближайшая практика": today → time (it's clearly today), any other
-// day → the short date — one value, so the user instantly knows when it is.
+// Dashboard "Ближайшая практика": today -> time (it's clearly today), any other
+// day -> the short date — one value, so the user instantly knows when it is.
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
@@ -519,7 +519,7 @@ onUnmounted(() => {
 
 /* ===== Progress stats =====
  * Figma 2266:452 — 2 карточки 160×104, gap 16 (--space-4),
- * контент flex-центрирован по обеим осям, gap value→label 9. */
+ * контент flex-центрирован по обеим осям, gap value->label 9. */
 .dashboard__stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -599,7 +599,7 @@ onUnmounted(() => {
   color: var(--velo-text-muted);
 }
 
-/* "Подробнее" → AI-summary screen (16). Сам контрол — общий VMoreLink;
+/* "Подробнее" -> AI-summary screen (16). Сам контрол — общий VMoreLink;
  * здесь только отступ от карточки AI-саммари над ним. */
 .dashboard__ai-more {
   margin-top: var(--space-4);
