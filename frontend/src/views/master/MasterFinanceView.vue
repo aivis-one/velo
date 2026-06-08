@@ -387,7 +387,9 @@ onMounted(async () => {
 
 <style scoped>
 .finance-view {
-  padding: var(--space-4);
+  /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
+     screen rail. Vertical kept. Matches the User zone. */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

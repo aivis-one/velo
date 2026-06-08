@@ -264,7 +264,10 @@ onMounted(async () => {
 
 <style scoped>
 .master-dashboard {
-  padding: var(--space-4);
+  /* F-5 rail sync: horizontal padding removed — MobileLayout already supplies
+     the 24px screen rail (--velo-rail-pad-x). Vertical kept for header/tab-bar
+     breathing room. Matches the User zone (see MyBookingsView). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

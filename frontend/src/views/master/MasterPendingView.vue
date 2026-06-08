@@ -180,7 +180,8 @@ async function refreshStatus(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-8) var(--space-4) var(--space-5);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-8) 0 var(--space-5);
   gap: var(--space-4);
 }
 

@@ -768,7 +768,8 @@ async function remove(): Promise<void> {
 /* -- Content -- */
 .edit-practice__content {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
