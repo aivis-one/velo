@@ -122,6 +122,17 @@ SEED_SOURCE = "seed_practices_v2"
 TID_MIN = 10001
 TID_MAX = 10012
 
+# Marker for MasterProfiles attached to role-switch TESTERS (real accounts that
+# may switch into the master role). MUST differ from SEED_SOURCE: cmd_clean
+# deletes the User of every MasterProfile whose data.seed.source == SEED_SOURCE,
+# and these profiles hang off REAL tester accounts we must NEVER delete. With a
+# distinct source they are invisible to _collect_our_ids, so clean/reset leave
+# the tester accounts (and these profiles) intact.
+SEED_SOURCE_TESTER = "seed_role_switch_tester"
+
+# Valid role strings for the role-switch allow-list (mirrors UserRole).
+_VALID_ROLE_VALUES = {r.value for r in UserRole}
+
 # ── База-библиотека + сценарии ───────────────────────────────────────────────
 # Контент (мастера/practice_templates/пулы текстов) — единый источник правды в
 # базе-библиотеке. Сценарии (seed_scenarios/*.json) подключают её через ключ
@@ -984,20 +995,108 @@ async def _practice_has_room(
     return taken < practice.max_participants
 
 
+def _tester_allowed_roles(tu: dict) -> list[str] | None:
+    """Normalize a test user's role-switch allow-list from JSON.
+
+    Reads tu["allowed_roles"], keeps only valid role strings (user/master/
+    admin) preserving order, drops duplicates. Returns None when the field is
+    absent or yields nothing — meaning "ordinary test user, no role switch".
+    """
+    raw = tu.get("allowed_roles")
+    if not isinstance(raw, list):
+        return None
+    roles: list[str] = []
+    for r in raw:
+        if r in _VALID_ROLE_VALUES and r not in roles:
+            roles.append(r)
+    return roles or None
+
+
+def _build_tester_master_profile_data(tu: dict) -> dict:
+    """MasterProfile.data for a role-switch TESTER (verified, minimal).
+
+    Distinct seed marker (SEED_SOURCE_TESTER) so cmd_clean never mistakes the
+    tester for a service master and deletes their real account.
+    """
+    name = tu.get("first_name") or f"Tester {tu['telegram_id']}"
+    return {
+        "account": {
+            "status": "verified",
+            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "verification": None,
+            "rejections": [],
+        },
+        "profile": {
+            "display_name": name,
+            "email": None,
+            "phone": None,
+            "bio": None,
+            "methods": [],
+            "experience_years": None,
+            "certifications": [],
+        },
+        "documents": [],
+        "availability": {"is_accepting": True, "note": None},
+        "settings": {
+            "auto_confirm_bookings": True,
+            "max_participants_default": 20,
+        },
+        "stats": {
+            "total_practices": 0,
+            "total_participants": 0,
+            "avg_rating": None,
+        },
+        "seed": {
+            "source": SEED_SOURCE_TESTER,
+            "test_user_key": tu.get("key"),
+        },
+    }
+
+
+async def _ensure_tester_master_profile(
+    session: AsyncSession, user: User, tu: dict,
+) -> bool:
+    """Ensure a tester who may switch into master has a verified profile.
+
+    Idempotent: skips if any MasterProfile already exists for the user.
+    Returns True if a profile was created.
+    """
+    existing = (await session.execute(
+        select(MasterProfile).where(MasterProfile.user_id == user.id),
+    )).scalar_one_or_none()
+    if existing:
+        return False
+    profile = MasterProfile(user_id=user.id)
+    profile.set_jsonb("data", _build_tester_master_profile_data(tu))
+    session.add(profile)
+    await session.flush()
+    return True
+
+
 async def ensure_test_user(
     session: AsyncSession, tu: dict, dry_run: bool,
 ) -> tuple[User | None, str]:
     """find-or-create тест-юзера по telegram_id.
 
-    Если юзер уже есть — НЕ меняем роль и НЕ перетираем его данные; только
-    добавляем ключ credentials.seed (маркер «наш тест-юзер»). Если нет —
-    создаём с role=USER. Возвращает (user, action) где
-    action ∈ {created, existing, marked, would-create}.
+    Обычный тест-юзер: если уже есть — НЕ меняем роль и НЕ перетираем данные,
+    только добавляем маркер credentials.seed; если нет — создаём с role=USER.
+
+    Role-switch ТЕСТЕР (в JSON задан allowed_roles): дополнительно прописываем
+    credentials.role_switch.allowed_roles, держим базовую роль = USER (свитч
+    идёт вверх от неё), и если в наборе есть master — создаём ему verified
+    MasterProfile (с отдельным маркером SEED_SOURCE_TESTER, чтобы clean не
+    удалил реальный аккаунт). Изменение роли допускаем ТОЛЬКО для наших
+    тестеров (allowed_roles задан) — чужие аккаунты не трогаем.
+
+    Возвращает (user, action), action ∈ {created, existing, marked, would-create}.
     """
+    allowed_roles = _tester_allowed_roles(tu)
     existing = await _find_user_by_tid(session, tu["telegram_id"])
+
     if existing:
         if dry_run:
             return existing, "existing"
+        changed = False
         creds = dict(existing.credentials or {})
         if creds.get("seed", {}).get("source") != SEED_SOURCE:
             creds["seed"] = {
@@ -1005,13 +1104,40 @@ async def ensure_test_user(
                 "test_user_key": tu.get("key"),
                 "first_seeded_at": _now().isoformat(),
             }
+            changed = True
+        if allowed_roles is not None and (
+            creds.get("role_switch", {}).get("allowed_roles") != allowed_roles
+        ):
+            creds["role_switch"] = {"allowed_roles": allowed_roles}
+            changed = True
+        if changed:
             existing.set_jsonb("credentials", creds)
+        # Testers get a deterministic base role = USER on (re)seed; switch up
+        # from there. Only OUR testers (allowed_roles set) — never touch others.
+        if allowed_roles is not None and existing.role != UserRole.USER:
+            existing.role = UserRole.USER
+            changed = True
+        if allowed_roles and "master" in allowed_roles:
+            if await _ensure_tester_master_profile(session, existing, tu):
+                changed = True
+        if changed:
             await session.flush()
             return existing, "marked"
         return existing, "existing"
 
     if dry_run:
         return None, "would-create"
+
+    creds = {
+        "onboarding_completed": True,
+        "seed": {
+            "source": SEED_SOURCE,
+            "test_user_key": tu.get("key"),
+            "first_seeded_at": _now().isoformat(),
+        },
+    }
+    if allowed_roles is not None:
+        creds["role_switch"] = {"allowed_roles": allowed_roles}
 
     user = User(
         telegram_id=tu["telegram_id"],
@@ -1020,20 +1146,17 @@ async def ensure_test_user(
         role=UserRole.USER,
         is_active=True,
     )
-    user.set_jsonb("credentials", {
-        "onboarding_completed": True,
-        "seed": {
-            "source": SEED_SOURCE,
-            "test_user_key": tu.get("key"),
-            "first_seeded_at": _now().isoformat(),
-        },
-    })
+    user.set_jsonb("credentials", creds)
     if tu.get("language"):
         # language — опциональное поле; ставим только если модель его принимает.
         if hasattr(user, "language"):
             user.language = tu["language"]
     session.add(user)
     await session.flush()
+
+    if allowed_roles and "master" in allowed_roles:
+        await _ensure_tester_master_profile(session, user, tu)
+
     return user, "created"
 
 
