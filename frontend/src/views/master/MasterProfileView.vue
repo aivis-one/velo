@@ -212,6 +212,9 @@
           Перейти в интерфейс пользователя<IconArrowRight :size="18" class="master-profile__btn-arrow" />
         </VButton>
       </div>
+
+      <!-- Role switch (TEST-ONLY tester tool; renders nothing for normal masters) -->
+      <RoleSwitchSection />
     </template>
   </div>
 </template>
@@ -220,6 +223,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard, VChip } from '@/components/ui'
+import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import { IconCheck, IconFinance, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'

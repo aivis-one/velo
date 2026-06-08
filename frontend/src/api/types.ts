@@ -104,6 +104,19 @@ export type {
 // Frontend-only types (no backend counterpart)
 // =============================================================================
 
+// -- Role switch (TEST-ONLY tester tool) -------------------------------------
+// Mirrors the backend UserResponse.role_switch block, surfaced only when the
+// server has the feature flag on. Kept here (not relying on generated.ts)
+// because the frontend must typecheck locally BEFORE the server regenerates
+// generated.ts on the next `velo update`. After regen the generated field is
+// read structurally — no conflict, since this is a separate named type.
+import type { UserRole } from './generated'
+
+export interface RoleSwitchInfo {
+  /** Roles this tester may switch their own account into. */
+  allowed_roles: UserRole[]
+}
+
 // -- API error shape (matches VeloError + Pydantic 422 formats) --------------
 
 export interface ApiError {

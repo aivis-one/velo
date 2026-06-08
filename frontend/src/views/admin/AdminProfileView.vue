@@ -32,6 +32,9 @@
       </VButton>
     </VCard>
 
+    <!-- Role switch (TEST-ONLY tester tool; renders nothing for normal admins) -->
+    <RoleSwitchSection />
+
     <!-- Logout -->
     <VCard class="admin-profile__section">
       <VButton variant="ghost" :loading="loggingOut" @click="onLogout">
@@ -45,6 +48,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VAvatar, VBadge, VButton, VCard } from '@/components/ui'
+import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import { IconArrowRight } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'

@@ -100,6 +100,9 @@
         </div>
       </div>
 
+      <!-- Role switch (TEST-ONLY tester tool; renders nothing for normal users) -->
+      <RoleSwitchSection />
+
       <!-- Logout -->
       <div class="profile__menu-section">
         <div class="profile__menu-list">
@@ -118,6 +121,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { VAvatar, VStatCard, VCard, VMenuRow } from '@/components/ui'
+import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import {
   IconEdit,
   IconBookings,
