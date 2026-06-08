@@ -62,7 +62,7 @@
             :key="bar.key"
             class="analytics__rating-row"
           >
-            <span class="analytics__rating-label">{{ bar.emoji }} {{ bar.label }}</span>
+            <span class="analytics__rating-label"><component :is="bar.icon" :size="18" :style="{ color: bar.color, verticalAlign: 'middle' }" /> {{ bar.label }}</span>
             <div class="analytics__rating-track">
               <div
                 class="analytics__rating-fill"
@@ -119,9 +119,9 @@
 
               <!-- Mini rating badges (shown if cached) -->
               <div v-if="insightsCache.has(practice.id)" class="analytics__practice-badges">
-                <span>🔥 {{ ratingPct(practice.id, 'fire') }}%</span>
-                <span>👍 {{ ratingPct(practice.id, 'good') }}%</span>
-                <span>❓ {{ ratingPct(practice.id, 'confused') }}%</span>
+                <span><IconRatingFire :size="14" :style="{ color: 'var(--velo-error-text)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'fire') }}%</span>
+                <span><IconRatingGood :size="14" :style="{ color: 'var(--velo-success)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'good') }}%</span>
+                <span><IconRatingConfused :size="14" :style="{ color: 'var(--velo-warning)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'confused') }}%</span>
               </div>
 
               <!-- Expand chevron -->
@@ -144,7 +144,7 @@
 
                 <!-- Error -->
                 <div v-else-if="insightsError.has(practice.id)" class="analytics__insights-error">
-                  ⚠️ {{ insightsError.get(practice.id) }}
+                  <IconWarning :size="16" :style="{ color: 'var(--velo-warning-text)', verticalAlign: 'middle' }" /> {{ insightsError.get(practice.id) }}
                   <button class="analytics__retry-btn" @click="diaryStore.loadInsights(practice.id)">
                     Повторить
                   </button>
@@ -177,7 +177,7 @@
                       :key="bar.key"
                       class="analytics__rating-row analytics__rating-row--compact"
                     >
-                      <span class="analytics__rating-label">{{ bar.emoji }}</span>
+                      <span class="analytics__rating-label"><component :is="bar.icon" :size="16" :style="{ color: bar.color, verticalAlign: 'middle' }" /></span>
                       <div class="analytics__rating-track">
                         <div
                           class="analytics__rating-fill"
@@ -193,7 +193,7 @@
                   </div>
 
                   <div v-if="insightsCache.get(practice.id)!.comments_count > 0" class="analytics__insights-comments">
-                    💬 {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
+                    <IconMessages :size="16" :style="{ verticalAlign: 'middle' }" /> {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
                   </div>
                 </template>
               </div>
@@ -239,12 +239,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
-import { IconArrowRight } from '@/components/icons'
+import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconWarning, IconMessages } from '@/components/icons'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
@@ -343,7 +343,7 @@ const aggregateFeedbackPct = computed((): string => {
 
 interface RatingBar {
   key: string
-  emoji: string
+  icon: Component
   label: string
   count: number
   pct: number
@@ -352,10 +352,10 @@ interface RatingBar {
 
 // RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
 // Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: string; label: string; color: string }> = [
-  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--velo-error-text)' },
-  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--velo-success)' },
-  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--velo-warning)' },
+const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string; color: string }> = [
+  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!',       color: 'var(--velo-error-text)' },
+  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо',       color: 'var(--velo-success)' },
+  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы', color: 'var(--velo-warning)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
