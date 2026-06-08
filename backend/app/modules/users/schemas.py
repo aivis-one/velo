@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
+from app.core.config import settings
 from app.modules.users.models import UserRole
 
 # Notification preference keys and their defaults (all ON).
@@ -63,6 +64,18 @@ class NotificationSettingsUpdate(BaseModel):
     practice_reminders: bool | None = None
     master_messages: bool | None = None
     support_messages: bool | None = None
+
+
+class RoleSwitchInfo(BaseModel):
+    """Tester role-switch capability (TEST-ONLY).
+
+    Present in GET /users/me ONLY when settings.role_switch_enabled is True
+    AND the user was seeded with credentials.role_switch.allowed_roles. The
+    list is the set of roles this tester may switch their own account to via
+    POST /users/me/role. Absent (null) for everyone else and on production.
+    """
+
+    allowed_roles: list[UserRole]
 
 
 class UserResponse(BaseModel):
@@ -154,6 +167,35 @@ class UserResponse(BaseModel):
                 if isinstance(stored.get(key), bool):
                     merged[key] = stored[key]
         return NotificationSettings(**merged)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def role_switch(self) -> RoleSwitchInfo | None:
+        """Tester role-switch capability, or None when unavailable.
+
+        Gated by settings.role_switch_enabled (TEST-only feature flag): on
+        production the flag is False, so this is always None and the block
+        never ships. When enabled, reads the seeded set under
+        credentials.role_switch.allowed_roles; a missing/empty/invalid value
+        yields None so non-tester accounts get no block. Order is preserved
+        and duplicates / unknown role strings are dropped.
+        """
+        if not settings.role_switch_enabled:
+            return None
+        raw = self.credentials_in.get("role_switch")
+        if not isinstance(raw, dict):
+            return None
+        stored = raw.get("allowed_roles")
+        if not isinstance(stored, list):
+            return None
+        valid_values = {r.value for r in UserRole}
+        allowed: list[UserRole] = []
+        for item in stored:
+            if item in valid_values and UserRole(item) not in allowed:
+                allowed.append(UserRole(item))
+        if not allowed:
+            return None
+        return RoleSwitchInfo(allowed_roles=allowed)
 
     model_config = {"from_attributes": True, "populate_by_name": True}
 
@@ -254,3 +296,14 @@ class UserUpdate(BaseModel):
                 "Examples: 'UTC', 'Europe/Moscow', 'America/New_York'"
             ) from None
         return v
+
+
+class RoleSwitchRequest(BaseModel):
+    """POST /api/v1/users/me/role — target role to switch into (TEST-only).
+
+    Pydantic validates `role` against UserRole (user/master/admin); anything
+    else is a 422. Whether the caller may actually switch to it is enforced in
+    the service against their seeded allowed_roles set.
+    """
+
+    role: UserRole

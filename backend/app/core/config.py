@@ -43,6 +43,22 @@ class Settings(BaseSettings):
     # -- Application --
     app_env: str = "development"
 
+    # -- Role switch (TEST-ONLY tester tool) --
+    # When True, exposes POST /users/me/role and the role_switch block in
+    # GET /users/me, letting whitelisted testers (those seeded with
+    # credentials.role_switch.allowed_roles) switch their OWN account's role
+    # among the allowed set, to exercise user/master/admin screens end-to-end.
+    #
+    # Default False: the feature is dead unless a server's .env explicitly opts
+    # in. NEVER set this in the PRODUCTION .env -- prod must leave it False so
+    # the endpoint 404s and the /me block is absent.
+    #
+    # Why a dedicated flag and not app_env: app_env is binary
+    # (development vs prod-grade) and the TEST server runs prod-grade to enforce
+    # real secrets, so app_env cannot tell TEST apart from PROD. This flag is
+    # the explicit, security-neutral test/prod discriminator for this feature.
+    role_switch_enabled: bool = False
+
     # -- Database --
     # Full async connection string for SQLAlchemy.
     # Port 5433: Docker dev setup (5432 reserved for native postgres).
