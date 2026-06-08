@@ -8,6 +8,11 @@
     <VBadge variant="warning">Ожидание</VBadge>
     <VBadge variant="error">Отменено</VBadge>
     <VBadge variant="info">Новое</VBadge>
+    <VBadge variant="blue">Бесплатно</VBadge>
+
+  `blue` is the calm price/free tone (blue-100 / primary), shared by the
+  practice-card "Бесплатно"/price badges so they no longer hand-roll their own
+  span. Same 4×10 / radius-badge shape as every other variant.
 -->
 
 <template>
@@ -19,7 +24,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'success' | 'warning' | 'error' | 'info'
+    variant?: 'success' | 'warning' | 'error' | 'info' | 'blue'
   }>(),
   {
     variant: 'info',
@@ -57,5 +62,11 @@ withDefaults(
 .v-badge--info {
   background: var(--velo-glass-teal-30);
   color: var(--velo-teal-600);
+}
+
+/* Blue -- calm price / "free" tone (matches VTag blue colours) */
+.v-badge--blue {
+  background: var(--velo-blue-100);
+  color: var(--velo-primary);
 }
 </style>

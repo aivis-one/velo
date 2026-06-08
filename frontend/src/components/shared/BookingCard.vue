@@ -22,15 +22,11 @@
     @click="$emit('click')"
   >
     <template #badge>
-      <span
-        v-if="badge"
-        class="booking-card__badge"
-        :class="`booking-card__badge--${badge.variant}`"
-      >
+      <VBadge v-if="badge" :variant="vbadgeVariant">
         <span v-if="badge.variant === 'live'" class="booking-card__live-dot" />
         <component :is="badgeIcon" v-else-if="badgeIcon" :size="12" />
         {{ badge.label }}
-      </span>
+      </VBadge>
     </template>
   </PracticeListCard>
 </template>
@@ -39,6 +35,7 @@
 import { computed } from 'vue'
 import { formatShortDate, formatTime, formatDuration } from '@/utils/format'
 import { IconCheck, IconClock, IconClose } from '@/components/icons'
+import { VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { BookingWithPracticeResponse } from '@/api/types'
@@ -77,6 +74,18 @@ const badgeIcon = computed(() => {
   }
 })
 
+// Map the booking status to a DS VBadge variant (no hand-rolled badge styling).
+// live / today / done -> success (teal), tomorrow -> warning (peach),
+// cancelled / no_show -> error (pink). teal aligns to the DS canon (teal-600).
+const vbadgeVariant = computed<'success' | 'warning' | 'error'>(() => {
+  switch (props.badge?.variant) {
+    case 'tomorrow':  return 'warning'
+    case 'cancelled':
+    case 'no_show':   return 'error'
+    default:          return 'success'
+  }
+})
+
 // F5: render the date in the viewer's own profile timezone (the profile decides).
 const viewerTz = useViewerTimezone()
 
@@ -95,53 +104,13 @@ const timeAndDuration = computed(() => {
 </script>
 
 <style scoped>
-.booking-card__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 4px 10px;
-  border-radius: var(--velo-radius-badge);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-
-/* Live -- teal, with a dot (practice in progress) */
-.booking-card__badge--live {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-700);
-}
-
+/* Only the "live" pulse dot is bespoke — the badge shell itself is the DS VBadge
+   (success/warning/error). The dot lives inside the badge slot. */
 .booking-card__live-dot {
   width: 7px;
   height: 7px;
   border-radius: var(--radius-full);
   background: var(--velo-teal-600);
   flex-shrink: 0;
-}
-
-/* Today -- teal (most urgent, happening today) */
-.booking-card__badge--today {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-700);
-}
-
-/* Tomorrow -- peach */
-.booking-card__badge--tomorrow {
-  background: var(--velo-glass-peach-40);
-  color: var(--velo-peach-700);
-}
-
-/* Done -- teal */
-.booking-card__badge--done {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-700);
-}
-
-/* Cancelled / no-show -- pink */
-.booking-card__badge--cancelled,
-.booking-card__badge--no_show {
-  background: var(--velo-pink-100);
-  color: var(--velo-pink-300);
 }
 </style>
