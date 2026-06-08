@@ -42,7 +42,7 @@
           <div class="finance-view__balance-label">Доступно к выводу</div>
           <div class="finance-view__balance-value">{{ formattedAvailable }}</div>
         </div>
-        <span class="finance-view__balance-icon">💰</span>
+        <IconFinance :size="28" class="finance-view__balance-icon" />
       </div>
 
       <div v-if="frozenCents > 0" class="finance-view__frozen-row">
@@ -65,7 +65,7 @@
          WITHDRAW FORM
          ==================================================================== -->
     <div v-show="showWithdrawForm" class="finance-view__section finance-view__withdraw-section">
-      <div class="finance-view__section-title">💸 ЗАПРОС ВЫВОДА</div>
+      <div class="finance-view__section-title">ЗАПРОС ВЫВОДА</div>
 
       <!-- No payout configured warning -->
       <div v-if="!hasPayout" class="finance-view__warning">
@@ -77,7 +77,7 @@
           size="sm"
           @click="router.push({ name: 'master-profile' })"
         >
-          Перейти в профиль →
+          Перейти в профиль<IconArrowRight :size="16" class="finance-view__btn-arrow" />
         </VButton>
       </div>
 
@@ -124,7 +124,7 @@
          WITHDRAWALS HISTORY
          ==================================================================== -->
     <VCard class="finance-view__section" padding="none">
-      <div class="finance-view__section-title">📋 ИСТОРИЯ ВЫВОДОВ</div>
+      <div class="finance-view__section-title">ИСТОРИЯ ВЫВОДОВ</div>
 
       <!-- Loading state -->
       <div v-if="historyLoading && withdrawals.length === 0" class="finance-view__loader">
@@ -187,6 +187,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VLoader, VCard, VInput } from '@/components/ui'
+import { IconFinance, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
@@ -423,8 +424,14 @@ onMounted(async () => {
 }
 
 .finance-view__balance-icon {
-  font-size: 28px;
   opacity: 0.8;
+  /* Vector IconFinance inherits white (currentColor) from the primary card. */
+}
+
+/* Forward arrow on the "Перейти в профиль" button. */
+.finance-view__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .finance-view__frozen-row {

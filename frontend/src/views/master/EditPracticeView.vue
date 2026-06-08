@@ -78,7 +78,7 @@
         <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОСНОВНОЕ</div>
+            <div class="edit-practice__section-title">ОСНОВНОЕ</div>
             <VInput
               v-model="form.title"
               label="Название *"
@@ -114,7 +114,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
+            <div class="edit-practice__section-title">РАСПИСАНИЕ</div>
 
             <!-- W-8: min attribute prevents setting past dates -->
             <VInput
@@ -146,7 +146,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">👥 УЧАСТНИКИ</div>
+            <div class="edit-practice__section-title">УЧАСТНИКИ</div>
             <VInput
               v-model="form.max_participants_raw"
               label="Максимум (пусто = без ограничений)"
@@ -156,7 +156,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">💰 ЦЕНА</div>
+            <div class="edit-practice__section-title">ЦЕНА</div>
             <VSegment
               :model-value="form.is_free ? 'free' : 'paid'"
               :options="PAYMENT_OPTIONS"
@@ -184,7 +184,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОПИСАНИЕ</div>
+            <div class="edit-practice__section-title">ОПИСАНИЕ</div>
             <VTextarea
               v-model="form.description"
               label="Описание"
@@ -205,7 +205,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+            <div class="edit-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
             <VInput
               v-model="form.zoom_link"
               label="Zoom ссылка"
@@ -234,7 +234,7 @@
              save + publish / save + cancel / save + delete etc.
              ================================================================ -->
         <div v-if="!isTerminal" class="edit-practice__actions">
-          <div class="edit-practice__section-title">⚡ ДЕЙСТВИЯ</div>
+          <div class="edit-practice__section-title">ДЕЙСТВИЯ</div>
 
           <!-- draft -> scheduled -->
           <VButton
@@ -245,7 +245,7 @@
             :disabled="anyLoading"
             @click="publish"
           >
-            ▶️ Опубликовать практику
+            Опубликовать практику
           </VButton>
 
           <!-- scheduled -> live -->
@@ -257,7 +257,7 @@
             :disabled="anyLoading"
             @click="startLive"
           >
-            🎬 Начать эфир
+            Начать эфир
           </VButton>
 
           <!-- live -> completed (finalize) -->
@@ -269,7 +269,7 @@
             :disabled="anyLoading"
             @click="confirmFinalize"
           >
-            ✅ Завершить практику
+            Завершить практику
           </VButton>
 
           <!-- scheduled / live -> attendance -->
@@ -280,7 +280,7 @@
             :disabled="anyLoading"
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
 
           <!-- draft -> deleted -->
@@ -292,7 +292,7 @@
             :disabled="anyLoading"
             @click="confirmDelete"
           >
-            🗑 Удалить черновик
+            Удалить черновик
           </VButton>
 
           <!-- scheduled / live -> cancelled -->
@@ -304,7 +304,7 @@
             :disabled="anyLoading"
             @click="confirmCancel"
           >
-            ❌ Отменить практику
+            Отменить практику
           </VButton>
         </div>
 
@@ -315,7 +315,7 @@
             block
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
         </div>
       </div>

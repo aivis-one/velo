@@ -5,12 +5,12 @@
   Standalone within MasterShell (back button -> master-practices).
 
   Sections (matching mockup screen-practice-create):
-    📝 ОСНОВНОЕ    -- title (required), practice_type (required)
-    📅 РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
-    👥 УЧАСТНИКИ   -- max_participants (null = unlimited)
-    💰 ЦЕНА        -- is_free toggle; if paid: price_cents
-    📝 ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
-    🔗 ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
+    ОСНОВНОЕ    -- title (required), practice_type (required)
+    РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
+    УЧАСТНИКИ   -- max_participants (null = unlimited)
+    ЦЕНА        -- is_free toggle; if paid: price_cents
+    ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
+    ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
 
   Submit: POST /api/v1/practices (status defaults to 'draft' in backend).
   On success -> show toast + navigate to master-practices + refreshMyPractices().
@@ -41,10 +41,10 @@
 
     <div class="create-practice__content">
       <!-- ================================================================
-           📝 ОСНОВНОЕ
+           ОСНОВНОЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОСНОВНОЕ</div>
+        <div class="create-practice__section-title">ОСНОВНОЕ</div>
 
         <VInput
           v-model="form.title"
@@ -84,10 +84,10 @@
       </div>
 
       <!-- ================================================================
-           📅 РАСПИСАНИЕ
+           РАСПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📅 РАСПИСАНИЕ</div>
+        <div class="create-practice__section-title">РАСПИСАНИЕ</div>
 
         <!-- W-7: todayDate is computed -- never stale after midnight -->
         <VInput
@@ -120,10 +120,10 @@
       </div>
 
       <!-- ================================================================
-           👥 УЧАСТНИКИ
+           УЧАСТНИКИ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">👥 УЧАСТНИКИ</div>
+        <div class="create-practice__section-title">УЧАСТНИКИ</div>
 
         <VInput
           v-model="form.max_participants_raw"
@@ -135,10 +135,10 @@
       </div>
 
       <!-- ================================================================
-           💰 ЦЕНА
+           ЦЕНА
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">💰 ЦЕНА</div>
+        <div class="create-practice__section-title">ЦЕНА</div>
 
         <!-- Free / Paid segment -->
         <VSegment
@@ -171,10 +171,10 @@
       </div>
 
       <!-- ================================================================
-           📝 ОПИСАНИЕ
+           ОПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОПИСАНИЕ</div>
+        <div class="create-practice__section-title">ОПИСАНИЕ</div>
 
         <VTextarea
           v-model="form.description"
@@ -199,10 +199,10 @@
       </div>
 
       <!-- ================================================================
-           🔗 ПОДКЛЮЧЕНИЕ
+           ПОДКЛЮЧЕНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+        <div class="create-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
 
         <VInput
           v-model="form.zoom_link"
