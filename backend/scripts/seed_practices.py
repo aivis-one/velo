@@ -133,6 +133,23 @@ SEED_SOURCE_TESTER = "seed_role_switch_tester"
 # Valid role strings for the role-switch allow-list (mirrors UserRole).
 _VALID_ROLE_VALUES = {r.value for r in UserRole}
 
+# Synthetic participant pool (fake accounts) for master-side seeding: they book
+# onto tester-owned practices so attendance/analytics have data. Fake range, so
+# clean/reset DELETES these accounts entirely (unlike the real testers).
+SYNTH_TID_MIN = 10101
+SYNTH_TID_MAX = 10199
+
+# Defaults for the per-tester "as_master" block (when as_master == true).
+# Counts are clamped to the available participant pool at seed time.
+TESTER_MASTER_DEFAULTS = {
+    "practices": 10,            # own practices spread over ±2 weeks
+    "participants_completed": 6,  # attendees per completed practice
+    "noshow_completed": 1,        # of which marked no_show
+    "checkins_completed": 4,      # attendees leaving a check-in (mood)
+    "feedbacks_completed": 4,     # attendees leaving a feedback (rating)
+    "participants_scheduled": 4,  # confirmed bookings per scheduled practice
+}
+
 # ── База-библиотека + сценарии ───────────────────────────────────────────────
 # Контент (мастера/practice_templates/пулы текстов) — единый источник правды в
 # базе-библиотеке. Сценарии (seed_scenarios/*.json) подключают её через ключ
@@ -444,6 +461,7 @@ def resolve_source(scenario: str, explicit_source: str | None = None) -> dict:
         "fixed_schedule": scen.get("fixed_schedule", []),
         "fixed_zoom_link": scen.get("fixed_zoom_link"),
         "test_users": scen.get("test_users", []),
+        "participant_pool": scen.get("participant_pool", []),
         "_scenario": scenario if not explicit_source else scen_path.name,
     }
     if not data["schedule"]:
@@ -715,7 +733,16 @@ async def ensure_practice(
     p_yaml: dict,
     dry_run: bool,
     batch_iso: str,
+    *,
+    force_orm: bool = False,
 ) -> tuple[Practice | None, str]:
+    """Create-or-return a practice owned by master_user.
+
+    force_orm=True forces the direct ORM-insert path for BOTH past and future
+    practices (with manual validation), bypassing the service. Used for
+    tester-owned practices: the testers' base role is USER (they switch up),
+    so the master-only service path must not be taken for their future practices.
+    """
     existing = await _find_practice_by_key(session, p_yaml["key"])
     if existing:
         return existing, "existing"
@@ -727,7 +754,7 @@ async def ensure_practice(
     scheduled_at = datetime.fromisoformat(scheduled_at_str)
     if scheduled_at.tzinfo is None:
         scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
-    is_future = scheduled_at > datetime.now(timezone.utc)
+    is_future = scheduled_at > datetime.now(timezone.utc) and not force_orm
 
     target_status = p_yaml.get("status", "scheduled")
     target_status_valid = {s.value for s in PracticeStatus}
@@ -902,6 +929,40 @@ async def cmd_seed(
             src_scheduled=src_scheduled,
             src_boundary=src_boundary,
         )
+
+    # ── Мастер-сторона: тестеры — владельцы своих практик (as_master) ────────
+    master_testers = [tu for tu in test_users if tu.get("as_master")]
+    if master_testers:
+        now_m = datetime.now(timezone.utc)
+        templates_m = source.get("practice_templates", [])
+        m_pools = {
+            "checkin": source.get("checkin_comments", []),
+            "feedback": source.get("feedback_comments", []),
+        }
+        print(f"\n{prefix}Тестеры-мастера (свои практики + участники):")
+        participants = await ensure_participant_pool(
+            session, source.get("participant_pool", []), dry_run,
+        )
+        for tu in master_testers:
+            tester = await _find_user_by_tid(session, tu["telegram_id"])
+            if tester is None:
+                print(f"  ? {tu.get('key', tu['telegram_id'])} (как мастер; "
+                      f"аккаунт ещё не создан)")
+                continue
+            am = tu.get("as_master")
+            overrides = am if isinstance(am, dict) else {}
+            cfg_m = {**TESTER_MASTER_DEFAULTS, **overrides}
+            mstats = await seed_tester_as_master(
+                session, tester, cfg_m, participants, templates_m,
+                m_pools, batch_iso, now_m, dry_run,
+            )
+            print(
+                f"  + {tu.get('key', tu['telegram_id'])}: "
+                f"практик={mstats['practices']}, "
+                f"участников={mstats['participants']}, "
+                f"чек-ины={mstats['checkins']}, отзывы={mstats['feedbacks']}, "
+                f"no_show={mstats['noshow']}"
+            )
 
     if not dry_run:
         await session.commit()
@@ -1424,6 +1485,191 @@ async def seed_one_test_user(
     return stats
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MASTER-SIDE SEEDING — тестеры-владельцы практик + синтетические участники
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def ensure_participant_pool(
+    session: AsyncSession, pool_yaml: list[dict], dry_run: bool,
+) -> list[User]:
+    """find-or-create синтетических участников (фейк-аккаунты, TID 10101+).
+
+    Маркер credentials.seed = {source, synthetic: True}. synthetic:True отличает
+    их от реальных тест-юзеров: при clean/reset эти аккаунты УДАЛЯЮТСЯ целиком
+    (каскад по user_id снесёт их брони/чек-ины/фидбеки/события), тогда как
+    реальные тестеры сохраняются.
+    """
+    users: list[User] = []
+    for p in pool_yaml:
+        tid = p["telegram_id"]
+        existing = await _find_user_by_tid(session, tid)
+        if existing:
+            users.append(existing)
+            continue
+        if dry_run:
+            continue
+        user = User(
+            telegram_id=tid,
+            first_name=p.get("first_name") or f"Participant {tid}",
+            last_name=p.get("last_name"),
+            role=UserRole.USER,
+            is_active=True,
+        )
+        user.set_jsonb("credentials", {
+            "onboarding_completed": True,
+            "seed": {
+                "source": SEED_SOURCE,
+                "synthetic": True,
+                "participant_key": p.get("key"),
+            },
+        })
+        session.add(user)
+        await session.flush()
+        users.append(user)
+    return users
+
+
+def _build_tester_practice_dicts(
+    tester: User, templates: list[dict], now: datetime, count: int,
+) -> list[dict]:
+    """Строит practice-dict'ы, принадлежащие тестеру, на ±2 недели.
+
+    Микс completed (прошлое) + один live (now-10м) + scheduled (будущее). Контент
+    из practice_templates (round-robin, сдвиг по TID -> у тестеров разные наборы).
+    Статус по времени. key стабилен (mt-{tid}-{date}-{HHMM}-{tkey}) -> идемпотентно.
+    """
+    tz = ZoneInfo("Europe/Moscow")
+    # Дни относительно сегодня: половина в прошлом (completed), половина в будущем.
+    day_offsets = [-12, -10, -8, -6, -4, -2, 3, 6, 9, 12, 14]
+    slot_hours = [10, 18]
+    rr = (tester.telegram_id or 0)
+    out: list[dict] = []
+
+    def _mk(tmpl: dict, start: datetime, status: str, key: str) -> dict:
+        return {
+            **tmpl,
+            "key": key,
+            "template_key": tmpl["key"],
+            "scheduled_at": start.isoformat(),
+            "timezone": "Europe/Moscow",
+            "status": status,
+            "description": _join_lines(tmpl.get("description")),
+            "what_to_prepare": _join_lines(tmpl.get("what_to_prepare")),
+            "contraindications": _join_lines(tmpl.get("contraindications")),
+        }
+
+    # Одна live-практика (now - 10 минут) — всегда первой.
+    live_tmpl = templates[rr % len(templates)]
+    live_start = (now - timedelta(minutes=10)).astimezone(tz)
+    out.append(_mk(
+        live_tmpl, live_start, "live",
+        f"mt-{tester.telegram_id}-live-{live_tmpl['key']}",
+    ))
+
+    for i, doff in enumerate(day_offsets[: max(0, count - 1)]):
+        tmpl = templates[(rr + i + 1) % len(templates)]
+        day = (now.astimezone(tz) + timedelta(days=doff)).date()
+        hh = slot_hours[i % len(slot_hours)]
+        start = datetime(day.year, day.month, day.day, hh, 0, tzinfo=tz)
+        dur = int(tmpl.get("duration_minutes", 60))
+        end = start + timedelta(minutes=dur)
+        if end <= now:
+            status = "completed"
+        elif start <= now < end:
+            status = "live"
+        else:
+            status = "scheduled"
+        key = f"mt-{tester.telegram_id}-{day.isoformat()}-{hh:02d}00-{tmpl['key']}"
+        out.append(_mk(tmpl, start, status, key))
+    return out
+
+
+async def seed_tester_as_master(
+    session: AsyncSession,
+    tester: User,
+    cfg_m: dict,
+    participants: list[User],
+    templates: list[dict],
+    pools: dict,
+    batch_iso: str,
+    now: datetime,
+    dry_run: bool,
+) -> dict:
+    """Сеет практики, принадлежащие тестеру (мастер-сторона), + участников.
+
+    completed -> участники attended (часть no_show) + чек-ины/фидбеки (для
+    Аналитики/Посещаемости); scheduled/live -> участники confirmed. Брони делают
+    СИНТЕТИКИ (project_seed_booking_events для них НЕ зовём — их фид не нужен;
+    мастеру важны строки Booking/Checkin/Feedback). recalculate_participants в
+    конце по каждой практике.
+    """
+    stats = {"practices": 0, "participants": 0, "checkins": 0,
+             "feedbacks": 0, "noshow": 0}
+    if dry_run:
+        stats["practices"] = cfg_m["practices"]
+        return stats
+    if not templates:
+        return stats
+
+    p_dicts = _build_tester_practice_dicts(
+        tester, templates, now, cfg_m["practices"],
+    )
+    for p_yaml in p_dicts:
+        practice, _action = await ensure_practice(
+            session, tester, p_yaml, dry_run, batch_iso, force_orm=True,
+        )
+        if practice is None:
+            continue
+        stats["practices"] += 1
+        status = p_yaml["status"]
+
+        if status == "completed":
+            n_part = min(cfg_m["participants_completed"], len(participants))
+            n_noshow = min(cfg_m["noshow_completed"], n_part)
+            master_name = await get_master_display_name(practice.master_id, session)
+            attended: list[tuple[User, Booking]] = []
+            for j, part in enumerate(participants[:n_part]):
+                if not await _practice_has_room(session, practice):
+                    break
+                booking = await create_seed_booking(session, part, practice)
+                if booking is None:
+                    continue
+                stats["participants"] += 1
+                if j < n_noshow:
+                    booking.status = BookingStatus.NO_SHOW.value
+                    booking.joined_at = None
+                    booking.left_at = None
+                    await session.flush()
+                    stats["noshow"] += 1
+                else:
+                    attended.append((part, booking))
+            for k, (part, booking) in enumerate(attended):
+                if k < cfg_m["checkins_completed"]:
+                    if await _seed_checkin(session, part, practice, booking,
+                                           master_name, batch_iso, k,
+                                           pools["checkin"]):
+                        stats["checkins"] += 1
+                if k < cfg_m["feedbacks_completed"]:
+                    if await _seed_feedback(session, part, practice, booking,
+                                            master_name, batch_iso, k,
+                                            pools["feedback"]):
+                        stats["feedbacks"] += 1
+        else:
+            # scheduled / live -> confirmed-брони участников.
+            n_part = min(cfg_m["participants_scheduled"], len(participants))
+            for part in participants[:n_part]:
+                if not await _practice_has_room(session, practice):
+                    break
+                booking = await create_seed_booking(session, part, practice)
+                if booking is None:
+                    continue
+                stats["participants"] += 1
+
+        await recalculate_participants(practice.id, session)
+
+    return stats
+
+
 async def cmd_seed_test_users(
     session: AsyncSession,
     test_users: list[dict],
@@ -1506,23 +1752,28 @@ async def _collect_our_ids(
     )
     master_ids = [row[0] for row in master_ids_q.all()]
 
-    if not master_ids:
-        return [], [], [], []
-
+    # Практики собираем по МАРКЕРУ seed.source — это ловит и практики служебных
+    # мастеров, и практики тестеров-мастеров (master_id = реальный тестер, его
+    # MasterProfile помечен SEED_SOURCE_TESTER и в master_ids НЕ попадает).
     practice_ids_q = await session.execute(
-        select(Practice.id).where(Practice.master_id.in_(master_ids)),
+        select(Practice.id).where(
+            Practice.data["seed"]["source"].astext == SEED_SOURCE,
+        ),
     )
     practice_ids = [row[0] for row in practice_ids_q.all()]
 
-    purchase_ids_q = await session.execute(
-        select(Purchase.id).where(Purchase.user_id.in_(master_ids)),
-    )
-    purchase_ids = [row[0] for row in purchase_ids_q.all()]
+    if not master_ids and not practice_ids:
+        return [], [], [], []
 
-    withdrawal_ids_q = await session.execute(
-        select(Withdrawal.id).where(Withdrawal.user_id.in_(master_ids)),
-    )
-    withdrawal_ids = [row[0] for row in withdrawal_ids_q.all()]
+    purchase_ids: list = []
+    withdrawal_ids: list = []
+    if master_ids:
+        purchase_ids = [row[0] for row in (await session.execute(
+            select(Purchase.id).where(Purchase.user_id.in_(master_ids)),
+        )).all()]
+        withdrawal_ids = [row[0] for row in (await session.execute(
+            select(Withdrawal.id).where(Withdrawal.user_id.in_(master_ids)),
+        )).all()]
 
     return master_ids, practice_ids, purchase_ids, withdrawal_ids
 
@@ -1532,13 +1783,75 @@ async def _collect_our_ids(
 
 async def _collect_test_user_ids(session: AsyncSession) -> list:
     """ID тест-юзеров по маркеру credentials.seed.source. Это первичный способ
-    их найти (JSON со списком может быть не передан в clean-режиме)."""
+    их найти (JSON со списком может быть не передан в clean-режиме).
+
+    ВКЛЮЧАЕТ синтетических участников (у них тот же source). Вызывающий код
+    отделяет их через _collect_synthetic_ids: реальные тестеры сохраняются,
+    синтетики удаляются целиком."""
     q = await session.execute(
         select(User.id).where(
             User.credentials["seed"]["source"].astext == SEED_SOURCE,
         ),
     )
     return [row[0] for row in q.all()]
+
+
+async def _collect_synthetic_ids(session: AsyncSession) -> list:
+    """ID синтетических участников (credentials.seed.synthetic == true) —
+    фейк-аккаунты, удаляемые при clean целиком."""
+    q = await session.execute(
+        select(User.id).where(
+            User.credentials["seed"]["synthetic"].astext == "true",
+        ),
+    )
+    return [row[0] for row in q.all()]
+
+
+async def _purge_synthetic_participants(
+    session: AsyncSession, synthetic_ids: list,
+) -> None:
+    """Полностью удаляет синтетических участников: сперва RESTRICT-ссылки
+    (purchases / *_ledger / payments по user_id), затем сами аккаунты — их
+    bookings/checkins/feedbacks/diary_events уходят каскадом по user_id."""
+    if not synthetic_ids:
+        return
+    synth_purchase_ids = [r[0] for r in (await session.execute(
+        select(Purchase.id).where(Purchase.user_id.in_(synthetic_ids)),
+    )).all()]
+    if synth_purchase_ids:
+        await session.execute(delete(CompanyLedger).where(
+            CompanyLedger.reference_id.in_([str(p) for p in synth_purchase_ids]),
+        ))
+        await session.execute(delete(AuditLog).where(
+            AuditLog.target_id.in_(synth_purchase_ids),
+        ))
+    await session.execute(delete(Purchase).where(
+        Purchase.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(MasterLedger).where(
+        MasterLedger.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(UserLedger).where(
+        UserLedger.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(Payment).where(
+        Payment.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(User).where(User.id.in_(synthetic_ids)))
+
+
+async def _purge_tester_master_ledger(
+    session: AsyncSession, tester_ids: list,
+) -> None:
+    """Удаляет seed-проводки master_ledger у тестеров-мастеров (sale-кредиты от
+    броней синтетиков на их практики). Не-seed проводки (без префикса 'seed:')
+    не трогаются; сами аккаунты тестеров сохраняются."""
+    if not tester_ids:
+        return
+    await session.execute(delete(MasterLedger).where(
+        MasterLedger.user_id.in_(tester_ids),
+        MasterLedger.reason.like("seed:%"),
+    ))
 
 
 async def _collect_test_user_data_ids(
@@ -1696,13 +2009,20 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
         await _collect_our_ids(session)
     test_user_ids = await _collect_test_user_ids(session)
 
-    if not master_ids and not test_user_ids:
+    # Синтетических участников отделяем: реальные тестеры сохраняются, синтетики
+    # удаляются целиком (ЭТАП C).
+    synthetic_ids = await _collect_synthetic_ids(session)
+    synthetic_set = set(synthetic_ids)
+    real_test_user_ids = [i for i in test_user_ids if i not in synthetic_set]
+
+    if not master_ids and not test_user_ids and not practice_ids:
         print("  Нет данных для удаления.")
         return
 
-    # Пользовательские sub-ID собираем ДО любого DELETE.
+    # Пользовательские sub-ID собираем ДО любого DELETE (только реальные тестеры;
+    # данные синтетиков снесёт ЭТАП C каскадом по аккаунту).
     tu_ids = await _collect_test_user_data_ids(
-        session, test_user_ids, practice_ids,
+        session, real_test_user_ids, practice_ids,
     )
 
     # Строковые версии UUID для company_ledger.reference_id и Notification JSONB
@@ -1730,7 +2050,8 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
         print(f"  Purchases на наши практики (любых юзеров): {len(purchases_on_ours)}")
         print(f"  Purchases у наших мастеров (нетипично):    {len(purchase_ids)}")
         print(f"  Withdrawals у наших мастеров:              {len(withdrawal_ids)}")
-        print(f"  ── Тест-юзеры (по маркеру credentials.seed): {len(test_user_ids)}")
+        print(f"  ── Тест-юзеры (реальные, сохраняются): {len(real_test_user_ids)}")
+        print(f"  ── Синтетики (удаляются целиком):       {len(synthetic_ids)}")
         print(f"     Их bookings на наши практики:   {len(tu_ids['booking_ids'])}")
         print(f"     Их checkins на наши практики:   {len(tu_ids['checkin_ids'])}")
         print(f"     Их feedbacks на наши практики:  {len(tu_ids['feedback_ids'])}")
@@ -1752,11 +2073,12 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
 
     # ── Реальное удаление ─────────────────────────────────────────────────────
 
-    # ЭТАП A: пользовательские данные тест-юзеров (ДО удаления практик, т.к.
-    # их purchases имеют RESTRICT на practice_id).
-    if test_user_ids:
+    # ЭТАП A: пользовательские данные РЕАЛЬНЫХ тест-юзеров (ДО удаления практик,
+    # т.к. их purchases имеют RESTRICT на practice_id). Аккаунты сохраняются.
+    if real_test_user_ids:
         await _clean_test_user_data(
-            session, test_user_ids, practice_ids, tu_ids, unmark_users=False,
+            session, real_test_user_ids, practice_ids, tu_ids,
+            unmark_users=False,
         )
 
     # ЭТАП B: данные служебных мастеров (FK-safe порядок, как было).
@@ -1884,9 +2206,17 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
             User.id.in_(master_ids),
         ))
 
+    # ЭТАП C: мастер-сторона тестеров. Их практики уже удалены (ЭТАП B по
+    # маркеру), брони/purchases синтетиков на них — тоже (FK safety-net). Здесь:
+    # seed-проводки master_ledger тестеров (sale-кредиты) + полное удаление
+    # синтетических участников (ledger по user_id, затем аккаунт → каскад).
+    await _purge_tester_master_ledger(session, real_test_user_ids)
+    await _purge_synthetic_participants(session, synthetic_ids)
+
     await session.commit()
     print(f"Clean завершён: мастеров {len(master_ids)}, практик "
-          f"{len(practice_ids)}; тест-юзеров затронуто {len(test_user_ids)} "
+          f"{len(practice_ids)}; синтетиков удалено {len(synthetic_ids)}; "
+          f"реальных тест-юзеров затронуто {len(real_test_user_ids)} "
           f"(bookings {len(tu_ids['booking_ids'])}, checkins "
           f"{len(tu_ids['checkin_ids'])}, feedbacks {len(tu_ids['feedback_ids'])}, "
           f"личных записей {len(tu_ids['diary_entry_ids'])}). "
