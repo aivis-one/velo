@@ -9,7 +9,6 @@
 // =============================================================================
 
 import type {
-  PracticeType,
   Mood,
   FeedbackRating,
   PracticeDirection,
@@ -33,15 +32,9 @@ import {
 } from '@/components/icons'
 
 // ---------------------------------------------------------------------------
-// Practice type
+// Practice type — emoji map removed (F-9 2026-06): practice cards use the
+// vector direction icon via practiceIconFor() instead.
 // ---------------------------------------------------------------------------
-
-export const PRACTICE_TYPE_EMOJI: Record<PracticeType, string> = {
-  live:       '🧘',
-  series:     '🔄',
-  one_on_one: '👤',
-  replay:     '📹',
-}
 
 // ---------------------------------------------------------------------------
 // Mood (check-in)

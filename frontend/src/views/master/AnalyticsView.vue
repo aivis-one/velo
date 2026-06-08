@@ -107,7 +107,7 @@
               @click="togglePractice(practice.id)"
             >
               <div class="analytics__practice-left">
-                <span class="analytics__practice-emoji">{{ typeEmoji(practice.practice_type) }}</span>
+                <component :is="practiceIconFor(practice)" :size="28" class="analytics__practice-emoji" />
                 <div class="analytics__practice-info">
                   <div class="analytics__practice-title">{{ practice.title }}</div>
                   <div class="analytics__practice-meta">
@@ -245,8 +245,7 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
 import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconWarning, IconMessages } from '@/components/icons'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType } from '@/api/types'
+import { practiceIconFor } from '@/utils/displayHelpers'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -414,9 +413,6 @@ function insightRatingBars(practiceId: string): RatingBar[] {
 // Type emoji -- imported from displayHelpers
 // =========================================================================
 
-function typeEmoji(t: PracticeType): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
-}
 
 // =========================================================================
 // Date / text helpers
@@ -606,8 +602,9 @@ onMounted(async () => {
 }
 
 .analytics__practice-emoji {
-  font-size: 28px;
   flex-shrink: 0;
+  /* Vector direction icon (was a 28px emoji). */
+  color: var(--velo-text-primary);
 }
 
 .analytics__practice-info {

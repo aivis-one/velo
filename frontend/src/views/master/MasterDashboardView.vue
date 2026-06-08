@@ -110,7 +110,7 @@
           @click="router.push({ name: 'master-practice-edit', params: { id: nearestPractice.id } })"
         >
           <div class="master-dashboard__practice-header">
-            <span class="master-dashboard__practice-icon">{{ typeEmoji(nearestPractice.practice_type) }}</span>
+            <component :is="practiceIconFor(nearestPractice)" :size="24" class="master-dashboard__practice-icon" />
             <div class="master-dashboard__practice-info">
               <div class="master-dashboard__practice-title">{{ nearestPractice.title }}</div>
               <div class="master-dashboard__practice-meta">
@@ -196,8 +196,8 @@ import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from
 import { IconCheck, IconArrowRight, IconPlus, IconList, IconAnalytics, IconFinance } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType, PracticeStatus } from '@/api/types'
+import { practiceIconFor } from '@/utils/displayHelpers'
+import type { PracticeStatus } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -232,11 +232,6 @@ const nearestPractice = computed(() => {
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
   return upcoming[0] ?? null
 })
-
-// -- Practice type emoji -- imported from displayHelpers
-function typeEmoji(t: PracticeType): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
-}
 
 // -- Practice status badge helpers --
 const STATUS_LABEL: Partial<Record<PracticeStatus, string>> = {
@@ -439,9 +434,9 @@ onMounted(async () => {
 }
 
 .master-dashboard__practice-icon {
-  font-size: 24px;
   flex-shrink: 0;
-  line-height: 1;
+  /* Vector direction icon (was a 24px emoji). */
+  color: var(--velo-text-primary);
 }
 
 .master-dashboard__practice-info {
