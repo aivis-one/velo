@@ -28,7 +28,7 @@
 
     <div class="pending-view__content">
       <!-- Submitted icon -->
-      <div class="pending-view__icon">✓</div>
+      <div class="pending-view__icon"><IconCheck :size="40" /></div>
 
       <h2 class="pending-view__title">Заявка отправлена!</h2>
 
@@ -95,6 +95,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
+import { IconCheck } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'

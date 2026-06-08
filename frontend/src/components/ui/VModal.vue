@@ -31,7 +31,7 @@
             aria-label="Закрыть"
             @click="$emit('close')"
           >
-            ✕
+            <IconClose :size="16" />
           </button>
           <div class="v-modal__scroll">
             <slot />
@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
+import { IconClose } from '@/components/icons'
 
 const props = withDefaults(
   defineProps<{

@@ -24,7 +24,7 @@
 <template>
   <div class="master-practices">
     <!-- Header -->
-    <VHeader title="📅 Практики" :badge="masterStore.practicesTotal || undefined">
+    <VHeader title="Практики" :badge="masterStore.practicesTotal || undefined">
       <template #action>
         <button class="master-practices__add-btn" aria-label="Создать практику" @click="router.push({ name: 'master-practice-new' })">
           +
@@ -78,7 +78,7 @@
             >
               <template #subtitle>
                 <span class="master-practices__details">
-                  <span>👥 {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
                   <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
                 </span>
               </template>
@@ -121,7 +121,7 @@
             >
               <template #subtitle>
                 <span class="master-practices__details">
-                  <span>👥 {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
                   <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
                 </span>
               </template>
@@ -169,6 +169,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VSegment, VBadge } from '@/components/ui'
+import { IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { formatShortDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
