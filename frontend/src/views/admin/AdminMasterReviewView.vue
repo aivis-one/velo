@@ -76,7 +76,7 @@
             :disabled="anyLoading"
             @click="onVerify"
           >
-            ✅ Верифицировать
+            Верифицировать
           </VButton>
 
           <div v-if="!showRejectForm" class="review__reject-toggle">
@@ -86,7 +86,7 @@
               :disabled="anyLoading"
               @click="showRejectForm = true"
             >
-              ❌ Отклонить
+              Отклонить
             </VButton>
           </div>
 

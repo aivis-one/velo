@@ -67,7 +67,7 @@
                 </VBadge>
               </div>
             </div>
-            <span class="admin-masters__card-arrow">→</span>
+            <IconArrowRight :size="18" class="admin-masters__card-arrow" />
           </VCard>
         </div>
 
@@ -92,6 +92,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VAvatar, VBadge, VButton, VLoader, VEmptyState, VCard } from '@/components/ui'
+import { IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getPendingMasters } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'

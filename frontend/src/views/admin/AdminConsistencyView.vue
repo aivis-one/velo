@@ -27,7 +27,8 @@
         >
           <div class="consistency__summary-left">
             <span class="consistency__summary-icon">
-              {{ data.alert_count > 0 ? '🔴' : '✅' }}
+              <IconWarning v-if="data.alert_count > 0" :size="20" :style="{ color: 'var(--velo-error)' }" />
+              <IconCheck v-else :size="20" :style="{ color: 'var(--velo-success-text)' }" />
             </span>
             <div>
               <div class="consistency__summary-title">
@@ -42,7 +43,7 @@
           </div>
           <!-- S-3: rerunning ref -- only button spins, results stay visible. -->
           <VButton variant="outline" size="sm" :loading="rerunning" @click="rerun">
-            ↺
+            <IconRepeat :size="18" />
           </VButton>
         </div>
 
@@ -69,7 +70,8 @@
             >
               <div class="consistency__item-header">
                 <span class="consistency__item-icon">
-                  {{ item.status === 'ALERT' ? '🔴' : '✅' }}
+                  <IconWarning v-if="item.status === 'ALERT'" :size="16" :style="{ color: 'var(--velo-error)' }" />
+                  <IconCheck v-else :size="16" :style="{ color: 'var(--velo-success-text)' }" />
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
                 <VBadge
@@ -111,6 +113,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { VHeader } from '@/components/layout'
 import { VBadge, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { IconWarning, IconCheck, IconRepeat } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getConsistency } from '@/api/admin'
 import type { ConsistencyResponse, SemaphoreResult } from '@/api/admin'

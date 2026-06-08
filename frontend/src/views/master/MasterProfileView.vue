@@ -50,7 +50,7 @@
 
         <div class="master-profile__header-info">
           <h1 class="master-profile__name">{{ displayName }}</h1>
-          <VBadge v-if="isVerified" variant="success">✓ Верифицирован</VBadge>
+          <VBadge v-if="isVerified" variant="success"><IconCheck :size="13" />Верифицирован</VBadge>
           <VBadge v-else variant="warning">На рассмотрении</VBadge>
         </div>
       </VCard>
@@ -81,7 +81,7 @@
            SECTION 2: PAYOUT SETTINGS
            ================================================================== -->
       <VCard class="master-profile__section master-profile__payout-section" padding="none">
-        <div class="master-profile__section-title">💳 РЕКВИЗИТЫ ВЫПЛАТ</div>
+        <div class="master-profile__section-title">РЕКВИЗИТЫ ВЫПЛАТ</div>
 
         <!-- Current state (not editing) -->
         <template v-if="!showPayoutForm">
@@ -189,7 +189,7 @@
         @click="router.push({ name: 'master-finance' })"
       >
         <div class="master-profile__finance-link-left">
-          <span class="master-profile__finance-link-icon">💰</span>
+          <IconFinance :size="28" class="master-profile__finance-link-icon" />
           <div>
             <div class="master-profile__finance-link-title">Финансы и выводы</div>
             <div class="master-profile__finance-link-sub">
@@ -197,7 +197,7 @@
             </div>
           </div>
         </div>
-        <span class="master-profile__finance-link-arrow">→</span>
+        <IconArrowRight :size="20" class="master-profile__finance-link-arrow" />
       </VCard>
 
       <!-- ==================================================================
@@ -209,7 +209,7 @@
           Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
         </p>
         <VButton variant="secondary" @click="switchToUserMode">
-          Перейти в интерфейс пользователя →
+          Перейти в интерфейс пользователя<IconArrowRight :size="18" class="master-profile__btn-arrow" />
         </VButton>
       </div>
     </template>
@@ -220,6 +220,7 @@
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard, VChip } from '@/components/ui'
+import { IconCheck, IconFinance, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
@@ -610,8 +611,13 @@ onMounted(async () => {
 }
 
 .master-profile__finance-link-icon {
-  font-size: 28px;
   flex-shrink: 0;
+  color: var(--velo-text-primary);
+}
+
+.master-profile__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .master-profile__finance-link-title {

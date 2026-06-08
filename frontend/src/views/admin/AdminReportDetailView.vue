@@ -91,7 +91,7 @@
                 :disabled="anyLoading"
                 @click="onResolve"
               >
-                ✅ Решить
+                Решить
               </VButton>
             </div>
           </div>
@@ -112,7 +112,7 @@
                 :disabled="anyLoading"
                 @click="onDismiss"
               >
-                ❌ Отклонить
+                Отклонить
               </VButton>
             </div>
           </div>

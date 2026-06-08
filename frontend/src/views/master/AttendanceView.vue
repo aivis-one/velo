@@ -10,7 +10,7 @@
   Layout (matching mockup screen-attendance):
     - Practice title + date (from masterStore cache or fetched)
     - Aggregate stats: присутствовало / не пришли / ожидают
-    - Sections: ✅ Присутствовали / ❌ Не пришли / ⏳ Ожидают
+    - Sections: Присутствовали / Не пришли / Ожидают
     - Each row: initials avatar, user_id (short), status icon, time
     - "Финализировать" button if practice status is live or scheduled
 
@@ -80,15 +80,15 @@
           :loading="finalizing"
           @click="confirmFinalize"
         >
-          ✅ Финализировать практику
+          Финализировать практику
         </VButton>
 
         <!-- ================================================================
-             ✅ ATTENDED
+             ATTENDED
              ================================================================ -->
         <template v-if="attendedItems.length > 0">
           <div class="attendance__section-title attendance__section-title--present">
-            ✅ Присутствовали ({{ attendedItems.length }})
+            Присутствовали ({{ attendedItems.length }})
           </div>
           <div
             v-for="item in attendedItems"
@@ -102,16 +102,16 @@
                 Зашёл: {{ formatTime(item.joined_at) }}
               </div>
             </div>
-            <span class="attendance__row-badge attendance__row-badge--present">✓</span>
+            <span class="attendance__row-badge attendance__row-badge--present"><IconCheck :size="16" /></span>
           </div>
         </template>
 
         <!-- ================================================================
-             ❌ NO_SHOW
+             NO_SHOW
              ================================================================ -->
         <template v-if="noShowItems.length > 0">
           <div class="attendance__section-title attendance__section-title--absent">
-            ❌ Не пришли ({{ noShowItems.length }})
+            Не пришли ({{ noShowItems.length }})
           </div>
           <div
             v-for="item in noShowItems"
@@ -123,7 +123,7 @@
               <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
               <div class="attendance__row-meta">Не отметился</div>
             </div>
-            <span class="attendance__row-badge attendance__row-badge--absent">✗</span>
+            <span class="attendance__row-badge attendance__row-badge--absent"><IconClose :size="16" /></span>
           </div>
         </template>
 
@@ -132,7 +132,7 @@
              ================================================================ -->
         <template v-if="pendingItems.length > 0">
           <div class="attendance__section-title">
-            ⏳ Ожидают ({{ pendingItems.length }})
+            Ожидают ({{ pendingItems.length }})
           </div>
           <div
             v-for="item in pendingItems"
@@ -175,6 +175,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
+import { IconCheck, IconClose } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
