@@ -145,7 +145,9 @@ const props = defineProps<{
   submitLabel: string
   showSkip?: boolean
   submitted: boolean
-  successIcon: string
+  /** Optional: emoji string for the success screen. Prefer the #success-icon
+   *  slot with a DS icon component (F-9). */
+  successIcon?: string
   successTitle: string
   successText: string
 }>()
