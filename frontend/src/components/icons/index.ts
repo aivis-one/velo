@@ -68,6 +68,7 @@ export { default as IconLogout } from './IconLogout.vue'
 
 // -- F-9 canonical icon set (2026-06): new functional icons (single-tone currentColor) --
 export { default as IconAnalytics } from './IconAnalytics.vue'
+export { default as IconPlus } from './IconPlus.vue'
 export { default as IconCheckin } from './IconCheckin.vue'
 export { default as IconDecor } from './IconDecor.vue'
 export { default as IconDecor2 } from './IconDecor2.vue'

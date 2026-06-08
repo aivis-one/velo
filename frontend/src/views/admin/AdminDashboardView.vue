@@ -32,28 +32,23 @@
 
         <!-- Stats grid -->
         <div class="admin-dashboard__grid">
-          <VStatCard
-            :value="stats.users_count"
-            label="пользователей"
-            icon="👥"
-          />
-          <VStatCard
-            :value="stats.masters_count"
-            label="мастеров"
-            icon="🧘"
-          />
-          <VStatCard
-            :value="stats.practices_count"
-            label="практик"
-            icon="📅"
-          />
+          <VStatCard :value="stats.users_count" label="пользователей">
+            <template #icon><IconGroup :size="24" /></template>
+          </VStatCard>
+          <VStatCard :value="stats.masters_count" label="мастеров">
+            <template #icon><IconProfile :size="24" /></template>
+          </VStatCard>
+          <VStatCard :value="stats.practices_count" label="практик">
+            <template #icon><IconCalendar :size="24" /></template>
+          </VStatCard>
           <VStatCard
             :value="stats.pending_verifications"
             label="ожидают верификации"
-            icon="🕐"
             :clickable="stats.pending_verifications > 0"
             @click="stats.pending_verifications > 0 && router.push({ name: 'admin-masters' })"
-          />
+          >
+            <template #icon><IconClock :size="24" /></template>
+          </VStatCard>
         </div>
 
         <!-- Quick actions -->
@@ -64,7 +59,7 @@
             class="admin-dashboard__action"
             @click="router.push({ name: 'admin-masters' })"
           >
-            <span class="admin-dashboard__action-icon">👥</span>
+            <IconGroup :size="24" class="admin-dashboard__action-icon" />
             <div class="admin-dashboard__action-label">Мастера</div>
           </VCard>
           <VCard
@@ -72,7 +67,7 @@
             class="admin-dashboard__action"
             @click="router.push({ name: 'admin-reports' })"
           >
-            <span class="admin-dashboard__action-icon">⚠️</span>
+            <IconWarning :size="24" class="admin-dashboard__action-icon" />
             <div class="admin-dashboard__action-label">Жалобы</div>
           </VCard>
           <VCard
@@ -80,7 +75,7 @@
             class="admin-dashboard__action"
             @click="router.push({ name: 'admin-consistency' })"
           >
-            <span class="admin-dashboard__action-icon">🔍</span>
+            <IconSearch :size="24" class="admin-dashboard__action-icon" />
             <div class="admin-dashboard__action-label">Семафоры</div>
           </VCard>
         </div>
@@ -107,7 +102,7 @@ import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VStatCard, VCard, VLoader, VEmptyState, VButton } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
-import { IconWarning } from '@/components/icons'
+import { IconWarning, IconGroup, IconProfile, IconCalendar, IconClock, IconSearch } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { getAdminStats } from '@/api/admin'
 import type { AdminStatsResponse } from '@/api/admin'
@@ -191,7 +186,8 @@ onMounted(loadStats)
 }
 
 .admin-dashboard__action-icon {
-  font-size: 24px;
+  /* Vector DS icon inherits this as currentColor (was a 24px emoji glyph). */
+  color: var(--velo-text-primary);
 }
 
 .admin-dashboard__action-label {

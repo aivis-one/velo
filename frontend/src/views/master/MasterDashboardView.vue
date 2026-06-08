@@ -40,9 +40,9 @@
       <div class="master-dashboard__greeting">
         <div>
           <h2 class="master-dashboard__greeting-name">
-            Привет, {{ displayName }}! 👋
+            Привет, {{ displayName }}!
           </h2>
-          <VBadge variant="success">✓ Верифицирован</VBadge>
+          <VBadge variant="success"><IconCheck :size="13" />Верифицирован</VBadge>
         </div>
         <VAvatar :name="displayName" size="md" />
       </div>
@@ -56,7 +56,7 @@
         <div v-if="frozenCents > 0" class="master-dashboard__balance-frozen">
           Заморожено: {{ formattedFrozen }}
         </div>
-        <span class="master-dashboard__balance-arrow">→</span>
+        <IconArrowRight :size="22" class="master-dashboard__balance-arrow" />
       </div>
 
       <!-- ================================================================
@@ -64,7 +64,7 @@
            F7/F9: real data. For now shows "—" placeholders.
            ================================================================ -->
       <div class="master-dashboard__section-header">
-        <span class="master-dashboard__section-title">📊 Моя статистика</span>
+        <span class="master-dashboard__section-title">Моя статистика</span>
         <button class="master-dashboard__period-toggle" aria-label="Переключить период" @click="togglePeriod">
           {{ period === 'week' ? 'Неделя ▼' : 'Месяц ▼' }}
         </button>
@@ -82,7 +82,7 @@
            AI SUMMARY (placeholder — F9)
            ================================================================ -->
       <VCard class="master-dashboard__ai-card" padding="none">
-        <div class="master-dashboard__ai-header">🧠 Саммари недели</div>
+        <div class="master-dashboard__ai-header">Саммари недели</div>
         <div class="master-dashboard__ai-content">
           Аналитика по итогам практик появится здесь после проведения
           первых занятий.
@@ -94,7 +94,7 @@
       <!-- ================================================================
            NEAREST PRACTICE
            ================================================================ -->
-      <div class="master-dashboard__section-title">📅 Ближайшая практика</div>
+      <div class="master-dashboard__section-title">Ближайшая практика</div>
 
       <template v-if="masterStore.practicesLoading">
         <div class="master-dashboard__loading-row">
@@ -146,7 +146,7 @@
       <!-- ================================================================
            QUICK ACTIONS
            ================================================================ -->
-      <div class="master-dashboard__section-title">⚡ Быстрые действия</div>
+      <div class="master-dashboard__section-title">Быстрые действия</div>
       <div class="master-dashboard__actions-grid">
         <VCard
           class="master-dashboard__action-btn"
@@ -154,7 +154,7 @@
           clickable
           @click="router.push({ name: 'master-practice-new' })"
         >
-          <span class="master-dashboard__action-icon">➕</span>
+          <IconPlus :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Создать практику</span>
         </VCard>
         <VCard
@@ -163,7 +163,7 @@
           clickable
           @click="router.push({ name: 'master-practices' })"
         >
-          <span class="master-dashboard__action-icon">📋</span>
+          <IconList :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Мои практики</span>
         </VCard>
         <VCard
@@ -172,7 +172,7 @@
           clickable
           @click="router.push({ name: 'master-analytics' })"
         >
-          <span class="master-dashboard__action-icon">📈</span>
+          <IconAnalytics :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Аналитика</span>
         </VCard>
         <VCard
@@ -181,7 +181,7 @@
           clickable
           @click="router.push({ name: 'master-finance' })"
         >
-          <span class="master-dashboard__action-icon">💰</span>
+          <IconFinance :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Финансы</span>
         </VCard>
       </div>
@@ -193,6 +193,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from '@/components/ui'
+import { IconCheck, IconArrowRight, IconPlus, IconList, IconAnalytics, IconFinance } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
@@ -500,8 +501,8 @@ onMounted(async () => {
 }
 
 .master-dashboard__action-icon {
-  font-size: 28px;
-  line-height: 1;
+  /* Vector DS icon inherits this as currentColor (was a 28px emoji glyph). */
+  color: var(--velo-text-primary);
 }
 
 .master-dashboard__action-label {

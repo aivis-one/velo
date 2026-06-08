@@ -24,7 +24,7 @@
   <div class="analytics">
     <!-- Header -->
     <header class="analytics__header">
-      <h1 class="analytics__header-title">📈 Аналитика</h1>
+      <h1 class="analytics__header-title">Аналитика</h1>
     </header>
 
     <!-- Tabs -->
@@ -55,7 +55,7 @@
         v-if="aggregateTotalFeedbacks > 0"
         class="analytics__section"
       >
-        <div class="analytics__section-title">💬 Общая статистика</div>
+        <div class="analytics__section-title">Общая статистика</div>
         <VCard class="analytics__rating-bars" padding="none">
           <div
             v-for="bar in ratingBars"
@@ -78,7 +78,7 @@
 
       <!-- Past practices list -->
       <div class="analytics__section">
-        <div class="analytics__section-title">📅 Прошедшие практики</div>
+        <div class="analytics__section-title">Прошедшие практики</div>
 
         <!-- Practices loading -->
         <div v-if="masterStore.practicesLoading && pastPractices.length === 0" class="analytics__loader">
@@ -220,7 +220,7 @@
          ================================================================ -->
     <div v-show="activeTab === 'payments'" class="analytics__body">
       <div class="analytics__section">
-        <div class="analytics__section-title">💰 Финансы и выплаты</div>
+        <div class="analytics__section-title">Финансы и выплаты</div>
         <p class="analytics__payments-hint">
           История транзакций, заработок и запрос на вывод средств доступны
           в разделе Финансы.
@@ -231,7 +231,7 @@
           size="lg"
           @click="router.push({ name: 'master-finance' })"
         >
-          Перейти в Финансы →
+          Перейти в Финансы<IconArrowRight :size="18" class="analytics__btn-arrow" />
         </VButton>
       </div>
     </div>
@@ -244,6 +244,7 @@ import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
+import { IconArrowRight } from '@/components/icons'
 import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
 import type { PracticeType } from '@/api/types'
 
@@ -732,6 +733,12 @@ onMounted(async () => {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
   line-height: 1.6;
+}
+
+/* Forward arrow on the "Перейти в Финансы" button (currentColor = white). */
+.analytics__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 /* ===== Expand transition ===== */

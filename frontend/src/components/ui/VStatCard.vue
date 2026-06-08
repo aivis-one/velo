@@ -18,7 +18,9 @@
     @click="clickable ? $emit('click') : undefined"
     @keydown.enter.space.prevent="clickable ? $emit('click') : undefined"
   >
-    <span v-if="icon" class="v-stat__icon">{{ icon }}</span>
+    <span v-if="$slots.icon || icon" class="v-stat__icon">
+      <slot name="icon">{{ icon }}</slot>
+    </span>
     <div class="v-stat__value">{{ value }}</div>
     <div class="v-stat__label">{{ label }}</div>
   </div>
@@ -93,6 +95,8 @@ defineEmits<{
 .v-stat__icon {
   display: block;
   font-size: 24px;
+  /* Vector DS icons inside the slot inherit this as currentColor. */
+  color: var(--velo-text-primary);
 }
 
 .v-stat__value {
