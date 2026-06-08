@@ -133,9 +133,9 @@ const statusOptions = [
 
 const targetTypeOptions = [
   { value: '', label: 'Все типы' },
-  { value: 'user', label: '👤 Юзер' },
-  { value: 'master', label: '🧘 Мастер' },
-  { value: 'practice', label: '📅 Практика' },
+  { value: 'user', label: 'Юзер' },
+  { value: 'master', label: 'Мастер' },
+  { value: 'practice', label: 'Практика' },
 ]
 
 async function loadInitial(): Promise<void> {

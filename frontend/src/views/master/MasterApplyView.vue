@@ -71,7 +71,7 @@
         />
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
-          Далее →
+          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
         </VButton>
       </template>
 
@@ -97,7 +97,7 @@
                 @change="toggleMethod(method)"
               />
               <span class="apply-view__checkbox-mark">
-                {{ form.methods.includes(method) ? '✓' : '' }}
+                <IconCheck v-if="form.methods.includes(method)" :size="14" />
               </span>
               <span class="apply-view__checkbox-label">{{ method }}</span>
             </label>
@@ -109,7 +109,7 @@
                 @change="toggleOtherMethod"
               />
               <span class="apply-view__checkbox-mark">
-                {{ otherMethodEnabled ? '✓' : '' }}
+                <IconCheck v-if="otherMethodEnabled" :size="14" />
               </span>
               <span class="apply-view__checkbox-label">Другое</span>
             </label>
@@ -139,7 +139,7 @@
         />
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
-          Далее →
+          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
         </VButton>
       </template>
 
@@ -153,7 +153,7 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <IconFile :size="28" class="apply-view__upload-icon" />
             <p class="apply-view__upload-text">+ Загрузить документ</p>
           </div>
           <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
@@ -163,7 +163,7 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Сертификаты</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <IconFile :size="28" class="apply-view__upload-icon" />
             <p class="apply-view__upload-text">+ Добавить сертификат</p>
           </div>
           <p class="apply-view__hint">Можно загрузить несколько файлов.</p>
@@ -176,7 +176,7 @@
               class="apply-view__checkbox-mark"
               :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
             >
-              {{ form.termsAccepted ? '✓' : '' }}
+              <IconCheck v-if="form.termsAccepted" :size="14" />
             </span>
             <span class="apply-view__checkbox-label">
               Я соглашаюсь с условиями использования
@@ -205,6 +205,7 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
+import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -512,7 +513,14 @@ async function submit(): Promise<void> {
 }
 
 .apply-view__upload-icon {
-  font-size: 28px;
+  /* Vector IconFile (was a 28px emoji). */
+  color: var(--velo-text-muted);
+}
+
+/* Forward arrow on the "Далее" step buttons (currentColor = white). */
+.apply-view__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .apply-view__upload-text {
