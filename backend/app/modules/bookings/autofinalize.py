@@ -9,13 +9,15 @@
 #   A master finalizes a practice by hand ("Закрыть"). If they forget, the
 #   practice would stay scheduled/live forever: its confirmed bookings never
 #   resolve to attended/no_show, the master's money stays frozen, and the
-#   practice keeps haunting the catalog / dashboard. This worker enforces a
-#   hard ceiling: any practice that started more than
-#   settings.practice_max_duration_hours ago is closed automatically.
+#   practice keeps haunting the catalog / dashboard. This worker closes any
+#   practice whose scheduled END (+ a small buffer) has passed, so completion /
+#   settlement / feedback happen ~at the end without the master pressing
+#   «Завершить» (role-status unification 2026-06-09).
 #
 # HOW:
 #   Poll practices WHERE status IN (scheduled, live) AND
-#   scheduled_at <= now - ceiling. For each, run the SAME settlement core as
+#   scheduled_at + duration_minutes + buffer <= now. For each, run the SAME
+#   settlement core as
 #   the manual path via bookings.service.auto_finalize_practice (attendance +
 #   ledger unfreeze/commission + diary projection), acting as the system.
 #
@@ -42,10 +44,10 @@
 # =============================================================================
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
@@ -83,7 +85,7 @@ async def run_autofinalizer() -> None:
         "practice_autofinalizer_started",
         poll_interval=base_interval,
         max_backoff=max_backoff,
-        max_duration_hours=settings.practice_max_duration_hours,
+        buffer_minutes=settings.practice_autofinalize_buffer_minutes,
     )
 
     while True:
@@ -140,17 +142,18 @@ async def _poll_cycle() -> bool:
 
 
 async def _claim_overdue_ids() -> list:
-    """Return ids of practices past the auto-finalization ceiling.
+    """Return ids of practices past their scheduled end (+ buffer).
 
-    A practice is overdue when it is still scheduled/live and its scheduled_at
-    is more than practice_max_duration_hours in the past. FOR UPDATE SKIP
-    LOCKED means rows currently locked by a manual finalize are skipped this
-    tick (picked up next cycle), preventing double finalize and deadlocks.
+    A practice is overdue when it is still scheduled/live and its scheduled END
+    plus practice_autofinalize_buffer_minutes (scheduled_at + duration_minutes +
+    buffer) is in the past — so completion / settlement / feedback happen ~at the
+    end, not +24h, without the master pressing «Завершить». FOR UPDATE SKIP LOCKED
+    means rows currently locked by a manual finalize are skipped this tick (picked
+    up next cycle), preventing double finalize and deadlocks.
     """
     factory = get_session_factory()
-    cutoff = datetime.now(UTC) - timedelta(
-        hours=settings.practice_max_duration_hours,
-    )
+    now = datetime.now(UTC)
+    buffer_min = settings.practice_autofinalize_buffer_minutes
     batch_size = settings.practice_autofinalize_batch_size
 
     try:
@@ -159,7 +162,15 @@ async def _claim_overdue_ids() -> list:
                 select(Practice.id)
                 .where(
                     Practice.status.in_(_FINALIZABLE_PRACTICE_STATUSES),
-                    Practice.scheduled_at <= cutoff,
+                    # Overdue = scheduled END (+ buffer) has passed:
+                    # scheduled_at + duration_minutes + buffer <= now. Per-practice
+                    # (duration is a column), so make_interval, not a fixed cutoff.
+                    Practice.scheduled_at
+                    + func.make_interval(
+                        0, 0, 0, 0, 0,
+                        Practice.duration_minutes + buffer_min,
+                    )
+                    <= now,
                 )
                 .order_by(Practice.scheduled_at.asc())
                 .limit(batch_size)

@@ -265,9 +265,17 @@ class Settings(BaseSettings):
     # finalization core as the manual path (attendance + ledger settlement +
     # diary projection) from the system actor.
     #
-    # Hard ceiling after scheduled_at past which a practice auto-finalizes,
-    # regardless of its own duration_minutes. 24h per product decision.
+    # Legacy hard ceiling (scheduled_at + this). SUPERSEDED 2026-06-09 by the
+    # per-practice end+buffer auto-finalize below; end+buffer always fires first
+    # (max practice duration is 8h). Kept for reference / extreme fallback.
     practice_max_duration_hours: int = 24
+    # Auto-finalize a practice this many minutes after its scheduled END
+    # (scheduled_at + duration_minutes + buffer). Role-status unification: the
+    # master no longer has to press «Завершить» — completion / settlement /
+    # feedback push happen on time. WARNING FINANCIAL TIMING: purchase unfreeze +
+    # commission now settle ~at the practice end, not +24h — review with Zod
+    # before deploying.
+    practice_autofinalize_buffer_minutes: int = 15
     # Worker polling interval in seconds (resets on work found, backs off when
     # idle). Mirrors notification_poll_interval_seconds.
     practice_autofinalize_poll_interval_seconds: int = 300
