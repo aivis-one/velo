@@ -110,6 +110,18 @@ const props = defineProps<{
    *  crisp, not fade into the mask. Clearance (top island + bottom tab bar) is
    *  applied regardless of fog; this flag only toggles the fade mask. */
   fog?: boolean
+  /** Per-screen fog tuning. All optional — omitting any keeps the app-wide
+   *  default below, so every existing fog screen is byte-identical. Only the
+   *  practice-detail screen overrides these (operator-tuned 2026-06-09) so its
+   *  hero lands softer under the header and the CTA stays crisp over the tabbar.
+   *    topGap     — px added below the measured header island (clearance). 16.
+   *    fogTopHard — fully-transparent top zone (px). 40.
+   *    fogBotFade — bottom fade zone (px). 70.
+   *    fogBotHard — fully-transparent bottom zone under the tab bar (px). 90. */
+  topGap?: number
+  fogTopHard?: number
+  fogBotFade?: number
+  fogBotHard?: number
 }>()
 
 // Vertical padding + fog zones for __main. CLEARANCE is always applied so the
@@ -121,15 +133,19 @@ const props = defineProps<{
 //   bottom -> clear the floating tab bar when present, else a small base
 //   fog-*  -> mask fade zones, aligned to the clearances (used only with --fog)
 const mainStyle = computed(() => {
-  const top = islandH.value > 0 ? islandH.value + 16 : (props.fog ? 60 : 16)
+  const topGap = props.topGap ?? 16
+  const topHard = props.fogTopHard ?? 40
+  const botFade = props.fogBotFade ?? 70
+  const botHard = props.fogBotHard ?? 90
+  const top = islandH.value > 0 ? islandH.value + topGap : (props.fog ? 60 : 16)
   const bottom = props.hideTabBar ? 24 : 160
   return {
     paddingTop: `${top}px`,
     paddingBottom: `${bottom}px`,
-    '--fog-top-hard': '40px',
-    '--fog-top-fade': `${Math.max(0, top - 40)}px`,
-    '--fog-bot-fade': '70px',
-    '--fog-bot-hard': '90px',
+    '--fog-top-hard': `${topHard}px`,
+    '--fog-top-fade': `${Math.max(0, top - topHard)}px`,
+    '--fog-bot-fade': `${botFade}px`,
+    '--fog-bot-hard': `${botHard}px`,
   }
 })
 
