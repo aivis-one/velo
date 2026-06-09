@@ -7,7 +7,7 @@
       falls back to a default glyph when direction is absent/unknown.
     - Title
     - Meta row: date, duration, optional participants
-    - Optional difficulty dots ("Сложность ●●○") -- shown only when
+    - Optional difficulty dots ("Сложность **o") -- shown only when
       difficultyDots > 0 (Calendar frame 4). Word level is intentionally
       NOT shown (matches the mockup: label + dots only).
     - Optional #badge slot (e.g. "Оплачено", "LIVE" -- screen 15)

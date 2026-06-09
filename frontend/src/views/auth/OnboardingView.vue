@@ -282,7 +282,7 @@ async function finish(): Promise<void> {
   /* Fill AppFrame's content area (it owns viewport height + safe-area once,
      app-wide). A fresh 100dvh here double-applies and makes content jump. */
   min-height: 100%;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: transparent;
 }
 
@@ -389,7 +389,7 @@ async function finish(): Promise<void> {
   font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-primary);
   color: white;
   backdrop-filter: blur(2px);

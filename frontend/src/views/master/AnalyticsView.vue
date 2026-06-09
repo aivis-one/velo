@@ -24,25 +24,16 @@
   <div class="analytics">
     <!-- Header -->
     <header class="analytics__header">
-      <h1 class="analytics__header-title">📈 Аналитика</h1>
+      <h1 class="analytics__header-title">Аналитика</h1>
     </header>
 
     <!-- Tabs -->
     <div class="analytics__tabs">
-      <button
-        class="analytics__tab"
-        :class="{ 'analytics__tab--active': activeTab === 'reviews' }"
-        @click="activeTab = 'reviews'"
-      >
-        Отзывы
-      </button>
-      <button
-        class="analytics__tab"
-        :class="{ 'analytics__tab--active': activeTab === 'payments' }"
-        @click="activeTab = 'payments'"
-      >
-        Платежи
-      </button>
+      <VSegment
+        :model-value="activeTab"
+        :options="TAB_OPTIONS"
+        @update:model-value="activeTab = $event as 'reviews' | 'payments'"
+      />
     </div>
 
     <!-- ================================================================
@@ -52,18 +43,9 @@
 
       <!-- Stats grid (aggregate from all cached insights) -->
       <div class="analytics__stats-grid">
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateCheckinPct }}</div>
-          <div class="analytics__stat-label">Check-in</div>
-        </div>
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateFeedbackPct }}</div>
-          <div class="analytics__stat-label">Feedback</div>
-        </div>
-        <div class="analytics__stat-card">
-          <div class="analytics__stat-value">{{ aggregateTotalFeedbacks }}</div>
-          <div class="analytics__stat-label">отзывов</div>
-        </div>
+        <VStatCard :value="aggregateCheckinPct" label="Check-in" />
+        <VStatCard :value="aggregateFeedbackPct" label="Feedback" />
+        <VStatCard :value="aggregateTotalFeedbacks" label="отзывов" />
       </div>
 
       <div class="analytics__divider" />
@@ -73,14 +55,14 @@
         v-if="aggregateTotalFeedbacks > 0"
         class="analytics__section"
       >
-        <div class="analytics__section-title">💬 Общая статистика</div>
-        <div class="analytics__rating-bars">
+        <div class="analytics__section-title">Общая статистика</div>
+        <VCard class="analytics__rating-bars" padding="none">
           <div
             v-for="bar in ratingBars"
             :key="bar.key"
             class="analytics__rating-row"
           >
-            <span class="analytics__rating-label">{{ bar.emoji }} {{ bar.label }}</span>
+            <span class="analytics__rating-label"><component :is="bar.icon" :size="18" :style="{ color: bar.color, verticalAlign: 'middle' }" /> {{ bar.label }}</span>
             <div class="analytics__rating-track">
               <div
                 class="analytics__rating-fill"
@@ -89,14 +71,14 @@
             </div>
             <span class="analytics__rating-meta">{{ bar.pct }}% ({{ bar.count }})</span>
           </div>
-        </div>
+        </VCard>
       </div>
 
       <div class="analytics__divider" />
 
       <!-- Past practices list -->
       <div class="analytics__section">
-        <div class="analytics__section-title">📅 Прошедшие практики</div>
+        <div class="analytics__section-title">Прошедшие практики</div>
 
         <!-- Practices loading -->
         <div v-if="masterStore.practicesLoading && pastPractices.length === 0" class="analytics__loader">
@@ -106,17 +88,18 @@
         <!-- Empty -->
         <VEmptyState
           v-else-if="!masterStore.practicesLoading && pastPractices.length === 0"
-          icon="📋"
+          icon="list"
           title="Нет завершённых практик"
           description="Здесь появятся данные после первой практики"
         />
 
         <!-- Practice rows -->
         <div v-else class="analytics__practice-list">
-          <div
+          <VCard
             v-for="practice in pastPractices"
             :key="practice.id"
             class="analytics__practice-card"
+            padding="none"
           >
             <!-- Row header (always visible) -->
             <div
@@ -124,7 +107,7 @@
               @click="togglePractice(practice.id)"
             >
               <div class="analytics__practice-left">
-                <span class="analytics__practice-emoji">{{ typeEmoji(practice.practice_type) }}</span>
+                <component :is="practiceIconFor(practice)" :size="28" class="analytics__practice-emoji" />
                 <div class="analytics__practice-info">
                   <div class="analytics__practice-title">{{ practice.title }}</div>
                   <div class="analytics__practice-meta">
@@ -136,9 +119,9 @@
 
               <!-- Mini rating badges (shown if cached) -->
               <div v-if="insightsCache.has(practice.id)" class="analytics__practice-badges">
-                <span>🔥 {{ ratingPct(practice.id, 'fire') }}%</span>
-                <span>👍 {{ ratingPct(practice.id, 'good') }}%</span>
-                <span>❓ {{ ratingPct(practice.id, 'confused') }}%</span>
+                <span><IconRatingFire :size="14" :style="{ color: 'var(--velo-error-text)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'fire') }}%</span>
+                <span><IconRatingGood :size="14" :style="{ color: 'var(--velo-success)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'good') }}%</span>
+                <span><IconRatingConfused :size="14" :style="{ color: 'var(--velo-warning)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'confused') }}%</span>
               </div>
 
               <!-- Expand chevron -->
@@ -161,7 +144,7 @@
 
                 <!-- Error -->
                 <div v-else-if="insightsError.has(practice.id)" class="analytics__insights-error">
-                  ⚠️ {{ insightsError.get(practice.id) }}
+                  <IconWarning :size="16" :style="{ color: 'var(--velo-warning-text)', verticalAlign: 'middle' }" /> {{ insightsError.get(practice.id) }}
                   <button class="analytics__retry-btn" @click="diaryStore.loadInsights(practice.id)">
                     Повторить
                   </button>
@@ -194,7 +177,7 @@
                       :key="bar.key"
                       class="analytics__rating-row analytics__rating-row--compact"
                     >
-                      <span class="analytics__rating-label">{{ bar.emoji }}</span>
+                      <span class="analytics__rating-label"><component :is="bar.icon" :size="16" :style="{ color: bar.color, verticalAlign: 'middle' }" /></span>
                       <div class="analytics__rating-track">
                         <div
                           class="analytics__rating-fill"
@@ -210,12 +193,12 @@
                   </div>
 
                   <div v-if="insightsCache.get(practice.id)!.comments_count > 0" class="analytics__insights-comments">
-                    💬 {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
+                    <IconMessages :size="16" :style="{ verticalAlign: 'middle' }" /> {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
                   </div>
                 </template>
               </div>
             </Transition>
-          </div>
+          </VCard>
 
           <!-- Load more past practices -->
           <div v-if="masterStore.practicesHasMore" class="analytics__load-more">
@@ -237,7 +220,7 @@
          ================================================================ -->
     <div v-show="activeTab === 'payments'" class="analytics__body">
       <div class="analytics__section">
-        <div class="analytics__section-title">💰 Финансы и выплаты</div>
+        <div class="analytics__section-title">Финансы и выплаты</div>
         <p class="analytics__payments-hint">
           История транзакций, заработок и запрос на вывод средств доступны
           в разделе Финансы.
@@ -248,7 +231,7 @@
           size="lg"
           @click="router.push({ name: 'master-finance' })"
         >
-          Перейти в Финансы →
+          Перейти в Финансы<IconArrowRight :size="18" class="analytics__btn-arrow" />
         </VButton>
       </div>
     </div>
@@ -256,13 +239,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType } from '@/api/types'
+import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
+import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconWarning, IconMessages } from '@/components/icons'
+import { practiceIconFor } from '@/utils/displayHelpers'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -278,6 +261,10 @@ const insightsError    = diaryStore.insightsErrorMap
 // =========================================================================
 
 const activeTab = ref<'reviews' | 'payments'>('reviews')
+const TAB_OPTIONS = [
+  { value: 'reviews', label: 'Отзывы' },
+  { value: 'payments', label: 'Платежи' },
+]
 
 // =========================================================================
 // Past practices (completed, sorted desc)
@@ -355,7 +342,7 @@ const aggregateFeedbackPct = computed((): string => {
 
 interface RatingBar {
   key: string
-  emoji: string
+  icon: Component
   label: string
   count: number
   pct: number
@@ -364,10 +351,10 @@ interface RatingBar {
 
 // RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
 // Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; emoji: string; label: string; color: string }> = [
-  { key: 'fire',     emoji: '🔥', label: 'Огонь!',       color: 'var(--velo-error-text)' },
-  { key: 'good',     emoji: '👍', label: 'Хорошо',       color: 'var(--velo-success)' },
-  { key: 'confused', emoji: '❓', label: 'Есть вопросы', color: 'var(--velo-warning)' },
+const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string; color: string }> = [
+  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!',       color: 'var(--velo-error-text)' },
+  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо',       color: 'var(--velo-success)' },
+  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы', color: 'var(--velo-warning)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
@@ -426,9 +413,6 @@ function insightRatingBars(practiceId: string): RatingBar[] {
 // Type emoji -- imported from displayHelpers
 // =========================================================================
 
-function typeEmoji(t: PracticeType): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
-}
 
 // =========================================================================
 // Date / text helpers
@@ -471,7 +455,8 @@ onMounted(async () => {
 
 /* ===== Header ===== */
 .analytics__header {
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   border-bottom: 1px solid var(--velo-border-light);
 }
 
@@ -484,40 +469,18 @@ onMounted(async () => {
 
 /* ===== Tabs ===== */
 .analytics__tabs {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-3) 0;
   background: transparent;
 }
 
-.analytics__tab {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.analytics__tab--active {
-  color: white;
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-}
+/* (tab buttons now provided by <VSegment>) */
 
 /* ===== Body ===== */
 .analytics__body {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -528,28 +491,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
-}
-
-.analytics__stat-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-3);
-  text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.analytics__stat-value {
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  color: var(--velo-primary);
-  margin-bottom: var(--space-1);
-}
-
-.analytics__stat-label {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* ===== Divider ===== */
@@ -573,9 +514,6 @@ onMounted(async () => {
 
 /* ===== Rating bars ===== */
 .analytics__rating-bars {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
   flex-direction: column;
@@ -631,7 +569,7 @@ onMounted(async () => {
 .analytics__loader {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
 }
 
 .analytics__practice-list {
@@ -640,13 +578,9 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
+/* surface (bg/border/radius) now from <VCard padding="none">; overflow clips the expand panel */
 .analytics__practice-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .analytics__practice-row {
@@ -671,8 +605,9 @@ onMounted(async () => {
 }
 
 .analytics__practice-emoji {
-  font-size: 28px;
   flex-shrink: 0;
+  /* Vector direction icon (was a 28px emoji). */
+  color: var(--velo-text-primary);
 }
 
 .analytics__practice-info {
@@ -727,7 +662,7 @@ onMounted(async () => {
 
 .analytics__insights-error {
   font-size: var(--text-sm);
-  color: var(--velo-error, #DC2626);
+  color: var(--velo-error);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -798,6 +733,12 @@ onMounted(async () => {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
   line-height: 1.6;
+}
+
+/* Forward arrow on the "Перейти в Финансы" button (currentColor = white). */
+.analytics__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 /* ===== Expand transition ===== */

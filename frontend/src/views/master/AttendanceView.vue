@@ -10,7 +10,7 @@
   Layout (matching mockup screen-attendance):
     - Practice title + date (from masterStore cache or fetched)
     - Aggregate stats: присутствовало / не пришли / ожидают
-    - Sections: ✅ Присутствовали / ❌ Не пришли / ⏳ Ожидают
+    - Sections: Присутствовали / Не пришли / Ожидают
     - Each row: initials avatar, user_id (short), status icon, time
     - "Финализировать" button if practice status is live or scheduled
 
@@ -37,7 +37,7 @@
 
     <!-- Error -->
     <div v-else-if="error" class="attendance__content">
-      <VEmptyState icon="⚠️" title="Не удалось загрузить посещаемость" :description="error">
+      <VEmptyState icon="warning" title="Не удалось загрузить посещаемость" :description="error">
         <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
       </VEmptyState>
     </div>
@@ -80,15 +80,15 @@
           :loading="finalizing"
           @click="confirmFinalize"
         >
-          ✅ Финализировать практику
+          Финализировать практику
         </VButton>
 
         <!-- ================================================================
-             ✅ ATTENDED
+             ATTENDED
              ================================================================ -->
         <template v-if="attendedItems.length > 0">
           <div class="attendance__section-title attendance__section-title--present">
-            ✅ Присутствовали ({{ attendedItems.length }})
+            Присутствовали ({{ attendedItems.length }})
           </div>
           <div
             v-for="item in attendedItems"
@@ -102,16 +102,16 @@
                 Зашёл: {{ formatTime(item.joined_at) }}
               </div>
             </div>
-            <span class="attendance__row-badge attendance__row-badge--present">✓</span>
+            <span class="attendance__row-badge attendance__row-badge--present"><IconCheck :size="16" /></span>
           </div>
         </template>
 
         <!-- ================================================================
-             ❌ NO_SHOW
+             NO_SHOW
              ================================================================ -->
         <template v-if="noShowItems.length > 0">
           <div class="attendance__section-title attendance__section-title--absent">
-            ❌ Не пришли ({{ noShowItems.length }})
+            Не пришли ({{ noShowItems.length }})
           </div>
           <div
             v-for="item in noShowItems"
@@ -123,7 +123,7 @@
               <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
               <div class="attendance__row-meta">Не отметился</div>
             </div>
-            <span class="attendance__row-badge attendance__row-badge--absent">✗</span>
+            <span class="attendance__row-badge attendance__row-badge--absent"><IconClose :size="16" /></span>
           </div>
         </template>
 
@@ -132,7 +132,7 @@
              ================================================================ -->
         <template v-if="pendingItems.length > 0">
           <div class="attendance__section-title">
-            ⏳ Ожидают ({{ pendingItems.length }})
+            Ожидают ({{ pendingItems.length }})
           </div>
           <div
             v-for="item in pendingItems"
@@ -151,44 +151,21 @@
         <!-- Empty state -->
         <VEmptyState
           v-if="attendance.total === 0"
-          icon="👥"
+          icon="group"
           title="Нет записавшихся"
           description="На эту практику ещё никто не записался"
         />
       </div>
 
-      <!-- Confirm dialog -->
-      <Teleport to="body">
-        <!--
-          W-5: @click.self guarded by !finalizing.
-          Without the guard, clicking the overlay while the request is in-flight
-          sets confirmVisible=false, so the loading spinner disappears and the
-          user thinks the action was cancelled -- but it actually still runs.
-        -->
-        <div
-          v-if="confirmVisible"
-          class="attendance__overlay"
-          @click.self="!finalizing && (confirmVisible = false)"
-        >
-          <div class="attendance__dialog">
-            <p class="attendance__dialog-text">
-              Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены.
-            </p>
-            <div class="attendance__dialog-actions">
-              <VButton
-                variant="ghost"
-                :disabled="finalizing"
-                @click="confirmVisible = false"
-              >
-                Отмена
-              </VButton>
-              <VButton variant="primary" :loading="finalizing" @click="finalize">
-                Финализировать
-              </VButton>
-            </div>
-          </div>
-        </div>
-      </Teleport>
+      <!-- Confirm dialog (W-5: cancel/overlay blocked while finalizing) -->
+      <VConfirmDialog
+        :open="confirmVisible"
+        message="Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены."
+        confirm-label="Финализировать"
+        :loading="finalizing"
+        @confirm="finalize"
+        @cancel="confirmVisible = false"
+      />
     </template>
   </div>
 </template>
@@ -197,7 +174,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
+import { IconCheck, IconClose } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
@@ -342,7 +320,8 @@ async function finalize(): Promise<void> {
 
 .attendance__content {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -372,7 +351,7 @@ async function finalize(): Promise<void> {
 
 .attendance__stat-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-text-primary);
 }
@@ -460,7 +439,7 @@ async function finalize(): Promise<void> {
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-text-primary);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .attendance__row-meta {
@@ -500,42 +479,5 @@ async function finalize(): Promise<void> {
 }
 
 /* -- Confirm overlay -- */
-.attendance__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: var(--z-modal, 400);
-  padding: var(--space-4);
-}
-
-.attendance__dialog {
-  width: 100%;
-  background: var(--velo-glass-blue-60);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.attendance__dialog-text {
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.attendance__dialog-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.attendance__dialog-actions > * {
-  flex: 1;
-}
+/* (confirm dialog now provided by <VConfirmDialog>) */
 </style>

@@ -20,7 +20,7 @@
 
       <template v-else-if="master">
         <!-- Profile card -->
-        <div class="review__profile">
+        <VCard class="review__profile">
           <VAvatar
             :name="masterDisplayName(master)"
             :url="master.avatar_url ?? undefined"
@@ -32,12 +32,12 @@
               {{ masterStatusLabel(master.master_status) }}
             </VBadge>
           </div>
-        </div>
+        </VCard>
 
         <!-- Meta info -->
         <div class="review__section">
           <div class="review__section-title">Информация</div>
-          <div class="review__meta-list">
+          <VCard class="review__meta-list" padding="none">
             <div class="review__meta-row">
               <span class="review__meta-key">Telegram ID</span>
               <span class="review__meta-val">{{ master.telegram_id ?? '—' }}</span>
@@ -58,14 +58,14 @@
                 {{ masterStatusLabel(master.master_status) }}
               </span>
             </div>
-          </div>
+          </VCard>
         </div>
 
         <!-- Note: limited data -->
-        <div class="review__note">
+        <VCard class="review__note" padding="sm">
           ℹ️ Детали профиля (методы, опыт, биография) доступны только после
           открытия полного профиля мастера.
-        </div>
+        </VCard>
 
         <!-- Actions: only for pending applications -->
         <template v-if="master.master_status === 'pending'">
@@ -76,7 +76,7 @@
             :disabled="anyLoading"
             @click="onVerify"
           >
-            ✅ Верифицировать
+            Верифицировать
           </VButton>
 
           <div v-if="!showRejectForm" class="review__reject-toggle">
@@ -86,11 +86,11 @@
               :disabled="anyLoading"
               @click="showRejectForm = true"
             >
-              ❌ Отклонить
+              Отклонить
             </VButton>
           </div>
 
-          <div v-else class="review__reject-form">
+          <VCard v-else class="review__reject-form">
             <VTextarea
               v-model="rejectReason"
               label="Причина отказа *"
@@ -115,20 +115,20 @@
                 Отмена
               </VButton>
             </div>
-          </div>
+          </VCard>
         </template>
 
         <!-- Already processed -->
-        <div v-else class="review__processed">
+        <VCard v-else class="review__processed">
           Заявка уже обработана — статус:
           <strong>{{ masterStatusLabel(master.master_status) }}</strong>
-        </div>
+        </VCard>
       </template>
 
       <!-- Not found -->
       <VEmptyState
         v-else
-        icon="❓"
+        icon="notfound"
         title="Заявка не найдена"
         description="Возможно, она была удалена или уже обработана"
       />
@@ -147,6 +147,7 @@ import {
   VTextarea,
   VLoader,
   VEmptyState,
+  VCard,
 } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
@@ -254,12 +255,6 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__profile-name {
@@ -279,12 +274,7 @@ onMounted(loadMaster)
 }
 
 .review__meta-list {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   overflow: hidden;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__meta-row {
@@ -313,10 +303,6 @@ onMounted(loadMaster)
 .review__note {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
   line-height: 1.5;
 }
 
@@ -324,12 +310,6 @@ onMounted(loadMaster)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .review__reject-actions {
@@ -341,8 +321,5 @@ onMounted(loadMaster)
   text-align: center;
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
-  padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-md);
 }
 </style>

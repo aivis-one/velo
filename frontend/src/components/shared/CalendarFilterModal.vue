@@ -41,24 +41,19 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Направление практики</h3>
         <div class="cal-filter__chips">
-          <button
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': selectedDirection === undefined }"
-            @click="clearDirection"
-          >
+          <VChip size="md" clickable :active="selectedDirection === undefined" @click="clearDirection">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in DIRECTION_CHIPS"
             :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': selectedDirection === opt.value }"
+            size="md"
+            clickable
+            :active="selectedDirection === opt.value"
             @click="setDirection(opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -66,24 +61,19 @@
       <section v-if="styleOptions.length > 0" class="cal-filter__group">
         <h3 class="cal-filter__label">Вид практики</h3>
         <div class="cal-filter__chips">
-          <button
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.style.length === 0 }"
-            @click="clearStyle"
-          >
+          <VChip size="md" clickable :active="draft.style.length === 0" @click="clearStyle">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in styleOptions"
             :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.style.includes(opt.value) }"
+            size="md"
+            clickable
+            :active="draft.style.includes(opt.value)"
             @click="toggleStyle(opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -91,24 +81,19 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Сложность</h3>
         <div class="cal-filter__chips">
-          <button
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.difficulty.length === 0 }"
-            @click="clearDifficulty"
-          >
+          <VChip size="md" clickable :active="draft.difficulty.length === 0" @click="clearDifficulty">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in DIFFICULTY_CHIPS"
             :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.difficulty.includes(opt.value) }"
+            size="md"
+            clickable
+            :active="draft.difficulty.includes(opt.value)"
             @click="toggleDifficulty(opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -116,24 +101,19 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Длительность</h3>
         <div class="cal-filter__chips">
-          <button
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.duration_bucket === undefined }"
-            @click="clearSingle('duration_bucket')"
-          >
+          <VChip size="md" clickable :active="draft.duration_bucket === undefined" @click="clearSingle('duration_bucket')">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in DURATION_CHIPS"
             :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.duration_bucket === opt.value }"
+            size="md"
+            clickable
+            :active="draft.duration_bucket === opt.value"
             @click="toggleSingle('duration_bucket', opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -141,24 +121,19 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Время</h3>
         <div class="cal-filter__chips">
-          <button
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.time_of_day === undefined }"
-            @click="clearSingle('time_of_day')"
-          >
+          <VChip size="md" clickable :active="draft.time_of_day === undefined" @click="clearSingle('time_of_day')">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in TIME_CHIPS"
             :key="opt.value"
-            type="button"
-            class="cal-filter__chip"
-            :class="{ 'cal-filter__chip--on': draft.time_of_day === opt.value }"
+            size="md"
+            clickable
+            :active="draft.time_of_day === opt.value"
             @click="toggleSingle('time_of_day', opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -173,7 +148,7 @@
 
 <script setup lang="ts">
 import { reactive, watch, computed } from 'vue'
-import { VModal, VButton } from '@/components/ui'
+import { VModal, VButton, VChip } from '@/components/ui'
 import {
   DIRECTION_LABEL,
   DIFFICULTY_LABEL,
@@ -399,29 +374,7 @@ function onReset(): void {
   gap: var(--space-2);
 }
 
-.cal-filter__chip {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.cal-filter__chip:hover {
-  opacity: 0.85;
-}
-
-.cal-filter__chip--on {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-  color: #ffffff;
-}
+/* (filter chips now provided by <VChip size="md" clickable>) */
 
 .cal-filter__actions {
   display: flex;

@@ -4,7 +4,7 @@
 
 <template>
   <div class="not-found">
-    <span class="not-found__icon">🔍</span>
+    <IconSearch :size="64" class="not-found__icon" />
     <h1 class="not-found__title">404</h1>
     <p class="not-found__text">Страница не найдена</p>
     <button class="not-found__btn" @click="router.push('/')">
@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { IconSearch } from '@/components/icons'
 const router = useRouter()
 </script>
 
@@ -27,10 +28,10 @@ const router = useRouter()
   min-height: 100vh;
   min-height: 100dvh;
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: transparent;
 }
-.not-found__icon { font-size: 64px; margin-bottom: var(--space-4); }
+.not-found__icon { margin-bottom: var(--space-4); color: var(--velo-text-muted); }
 .not-found__title {
   font-family: var(--font-body);
   font-size: var(--text-2xl);
@@ -44,16 +45,16 @@ const router = useRouter()
   font-size: var(--text-lg);
   font-weight: 400;
   color: var(--velo-text-muted);
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 .not-found__btn {
-  padding: var(--space-3) var(--space-6);
+  padding: var(--space-3) var(--space-5);
   background: var(--velo-primary);
   color: white;
   font-family: var(--font-body);
   font-weight: 400;
   font-size: var(--text-sm);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);

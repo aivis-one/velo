@@ -15,9 +15,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api, setAuthToken, setOnUnauthorized, ApiResponseError } from '@/api/client'
-import { getMe, updateMe } from '@/api/users'
+import { getMe, updateMe, switchRole as apiSwitchRole } from '@/api/users'
 import { platform } from '@/platform'
-import type { AuthResponse, UserResponse, UserUpdate } from '@/api/types'
+import type { AuthResponse, RoleSwitchInfo, UserResponse, UserRole, UserUpdate } from '@/api/types'
 
 const TOKEN_KEY = 'velo_token'
 
@@ -31,6 +31,17 @@ export const useAuthStore = defineStore('auth', () => {
   // QW-4: null for unauthenticated users, not 'user'. Prevents false
   // positives in v-if="role === 'user'" guards for anonymous visitors.
   const role = computed(() => user.value?.role ?? null)
+
+  // TEST-ONLY role switch: the roles this account may switch into, surfaced by
+  // the backend in UserResponse.role_switch only when the server flag is on.
+  // Read structurally (generated.ts may not carry the field locally yet); empty
+  // for normal users and on production. The settings UI shows a switch button
+  // per allowed role except the current one.
+  const allowedRoles = computed<UserRole[]>(() => {
+    const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)
+      ?.role_switch
+    return rs?.allowed_roles ?? []
+  })
 
   function _setToken(newToken: string | null): void {
     token.value = newToken
@@ -118,6 +129,17 @@ export const useAuthStore = defineStore('auth', () => {
     return updated
   }
 
+  /**
+   * Switch the current account's role (TEST-ONLY tester tool) and store the
+   * fresh profile. Throws on failure so the caller can show an error and stay
+   * put. Navigation to the new role's dashboard is the caller's job.
+   */
+  async function switchRole(target: UserRole): Promise<UserResponse> {
+    const updated = await apiSwitchRole(target)
+    _setUser(updated)
+    return updated
+  }
+
   async function logout(): Promise<void> {
     // W-1: reset master store before clearing session to prevent stale
     // profile/practices data leaking to the next user session.
@@ -160,7 +182,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user, token, loading,
-    isAuthenticated, role,
-    loginViaTelegram, restoreSession, fetchMe, updateProfile, logout,
+    isAuthenticated, role, allowedRoles,
+    loginViaTelegram, restoreSession, fetchMe, updateProfile, switchRole, logout,
   }
 })

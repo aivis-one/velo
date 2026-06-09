@@ -16,7 +16,7 @@
       verified flag.
 
   Modes:
-    view  -- header "← Запись ⋯", optional practice header, date, title,
+    view  -- header "<- Запись ⋯", optional practice header, date, title,
              full content.
     menu  -- the "⋯" popover: pencil (edit) + trash (delete).
     edit  -- editable title + autogrow textarea + "Сохранить".
@@ -62,7 +62,7 @@
       <!-- Error -->
       <VEmptyState
         v-else-if="loadError"
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить запись"
         :description="loadError"
       >
@@ -88,7 +88,7 @@
         </PracticeListCard>
 
         <!-- The entry card -->
-        <div class="entry__card">
+        <VCard class="entry__card">
           <p class="entry__date">{{ entryDate }}</p>
 
           <!-- View mode -->
@@ -118,7 +118,7 @@
               @input="autogrow"
             />
           </template>
-        </div>
+        </VCard>
       </template>
     </div>
 
@@ -142,7 +142,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge, VCard } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { IconPen } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
@@ -352,17 +352,13 @@ function goBack(): void {
 
 /* -- Entry card -- */
 .entry__card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
 .entry__date {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   color: var(--velo-text-primary);
@@ -370,7 +366,7 @@ function goBack(): void {
 
 .entry__heading {
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
 }
@@ -385,7 +381,7 @@ function goBack(): void {
 
 /* Muted context line linking the note to its practice. */
 .entry__context {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   color: var(--velo-text-secondary);
 }
@@ -397,7 +393,7 @@ function goBack(): void {
   background: transparent;
   padding: var(--space-1) 0;
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
   outline: none;

@@ -42,7 +42,7 @@
           <div class="finance-view__balance-label">Доступно к выводу</div>
           <div class="finance-view__balance-value">{{ formattedAvailable }}</div>
         </div>
-        <span class="finance-view__balance-icon">💰</span>
+        <IconFinance :size="28" class="finance-view__balance-icon" />
       </div>
 
       <div v-if="frozenCents > 0" class="finance-view__frozen-row">
@@ -65,7 +65,7 @@
          WITHDRAW FORM
          ==================================================================== -->
     <div v-show="showWithdrawForm" class="finance-view__section finance-view__withdraw-section">
-      <div class="finance-view__section-title">💸 ЗАПРОС ВЫВОДА</div>
+      <div class="finance-view__section-title">ЗАПРОС ВЫВОДА</div>
 
       <!-- No payout configured warning -->
       <div v-if="!hasPayout" class="finance-view__warning">
@@ -77,7 +77,7 @@
           size="sm"
           @click="router.push({ name: 'master-profile' })"
         >
-          Перейти в профиль →
+          Перейти в профиль<IconArrowRight :size="16" class="finance-view__btn-arrow" />
         </VButton>
       </div>
 
@@ -86,21 +86,16 @@
         <div class="finance-view__amount-group">
           <label class="finance-view__label">Сумма вывода (EUR)</label>
           <div class="finance-view__amount-row">
-            <input
+            <VInput
               v-model="amountInput"
               type="number"
-              class="finance-view__amount-input"
               :min="MIN_WITHDRAWAL_EUROS"
               step="0.01"
               placeholder="0.00"
             />
-            <button
-              class="finance-view__all-btn"
-              type="button"
-              @click="fillMaxAmount"
-            >
+            <VButton variant="secondary" size="sm" @click="fillMaxAmount">
               Всё
-            </button>
+            </VButton>
           </div>
           <p class="finance-view__hint">
             Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
@@ -128,8 +123,8 @@
     <!-- ====================================================================
          WITHDRAWALS HISTORY
          ==================================================================== -->
-    <div class="finance-view__section">
-      <div class="finance-view__section-title">📋 ИСТОРИЯ ВЫВОДОВ</div>
+    <VCard class="finance-view__section" padding="none">
+      <div class="finance-view__section-title">ИСТОРИЯ ВЫВОДОВ</div>
 
       <!-- Loading state -->
       <div v-if="historyLoading && withdrawals.length === 0" class="finance-view__loader">
@@ -184,14 +179,15 @@
       >
         Показать ещё
       </VButton>
-    </div>
+    </VCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VLoader } from '@/components/ui'
+import { VButton, VBadge, VLoader, VCard, VInput } from '@/components/ui'
+import { IconFinance, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
@@ -391,7 +387,9 @@ onMounted(async () => {
 
 <style scoped>
 .finance-view {
-  padding: var(--space-4);
+  /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
+     screen rail. Vertical kept. Matches the User zone. */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -422,14 +420,20 @@ onMounted(async () => {
 
 .finance-view__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   letter-spacing: -0.5px;
 }
 
 .finance-view__balance-icon {
-  font-size: 28px;
   opacity: 0.8;
+  /* Vector IconFinance inherits white (currentColor) from the primary card. */
+}
+
+/* Forward arrow on the "Перейти в профиль" button. */
+.finance-view__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .finance-view__frozen-row {
@@ -445,12 +449,7 @@ onMounted(async () => {
 
 /* -- Section -- */
 .finance-view__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .finance-view__section-title {
@@ -464,7 +463,7 @@ onMounted(async () => {
 
 /* -- Withdraw form -- */
 .finance-view__withdraw-section {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
 }
 
 .finance-view__warning {
@@ -497,45 +496,13 @@ onMounted(async () => {
 .finance-view__amount-row {
   display: flex;
   gap: var(--space-2);
+  align-items: stretch;
 }
 
-.finance-view__amount-input {
+/* VInput grows to fill the row; drop its default bottom margin (hint/error sit below). */
+.finance-view__amount-row :deep(.v-input) {
   flex: 1;
-  padding: 12px var(--space-4);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: 5px;
-  transition: border-color var(--transition-base);
-}
-
-.finance-view__amount-input:focus {
-  outline: none;
-  border-color: var(--velo-border-input-focus);
-}
-
-.finance-view__amount-input::-webkit-inner-spin-button,
-.finance-view__amount-input::-webkit-outer-spin-button {
-  opacity: 1;
-}
-
-.finance-view__all-btn {
-  padding: 0 var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-primary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity var(--transition-fast);
-}
-
-.finance-view__all-btn:active {
-  opacity: 0.8;
+  margin-bottom: 0;
 }
 
 .finance-view__hint {
@@ -555,11 +522,11 @@ onMounted(async () => {
 .finance-view__loader {
   display: flex;
   justify-content: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
 }
 
 .finance-view__empty {
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
   text-align: center;
 }
 

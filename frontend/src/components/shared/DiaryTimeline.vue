@@ -20,29 +20,28 @@
 <template>
   <div class="timeline">
     <template v-for="group in dayGroups" :key="group.dayKey">
-      <!-- Date node: a flourish on each side of the label (Figma Group 2355,
-           ±57px from the axis). -->
+      <!-- Day separator: big decor link above the date node (Декор 2 / big). -->
+      <div class="timeline__link">
+        <IconDecor2 part="big" :size="30" />
+      </div>
+
+      <!-- Date node: a decor flourish on each side of the label (Декор). -->
       <div class="timeline__date-node">
-        <IconDateOrnament class="timeline__flourish" :size="28" />
+        <IconDecor part="left" :size="39" />
         <span class="timeline__date-label">{{ group.label }}</span>
-        <IconDateOrnament
-          class="timeline__flourish timeline__flourish--right"
-          :size="28"
-        />
+        <IconDecor part="right" :size="39" />
       </div>
 
-      <!-- Axis link from the date node down to the day's first card
-           (Figma Group 2429). -->
-      <div class="timeline__connector">
-        <IconAxisConnector :size="31" />
+      <!-- Big decor link from the date node down to the day's first card. -->
+      <div class="timeline__link">
+        <IconDecor2 part="big" :size="30" />
       </div>
 
-      <!-- Cards of this day, centered on the axis, joined by the between-cards
-           axis dot (Figma Vector 110) — shown between cards, not before the
-           first one. -->
+      <!-- Cards of this day, centered, joined by the small decor link (Декор 2
+           / small) — shown between cards, not before the first one. -->
       <template v-for="(item, i) in group.items" :key="item.id">
-        <div v-if="i > 0" class="timeline__dot">
-          <IconAxisDot :size="18" />
+        <div v-if="i > 0" class="timeline__link">
+          <IconDecor2 part="small" :size="18" />
         </div>
         <div class="timeline__row">
           <DiaryThreadCard
@@ -59,11 +58,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import DiaryThreadCard from '@/components/shared/DiaryThreadCard.vue'
-import {
-  IconDateOrnament,
-  IconAxisConnector,
-  IconAxisDot,
-} from '@/components/icons'
+import { IconDecor, IconDecor2 } from '@/components/icons'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -138,57 +133,25 @@ const dayGroups = computed<DayGroup[]>(() => {
 
 <style scoped>
 .timeline {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0;
   width: 100%;
   padding: var(--space-3) 0;
 }
 
-/* Central vertical axis behind the beads. */
-.timeline::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 2px;
-  transform: translateX(-50%);
-  background: var(--velo-border-light);
-  z-index: var(--z-background);
-}
-
-/* -- Date node: flourish + label + flourish (Figma Group 2355). The flourishes
-   sit ±57px from the axis (label centered on the axis). No beads here — the
-   bead links live on the axis BETWEEN rows (see __connector / __dot). -- */
+/* Date node: decor flourish + label + decor flourish. No axis line — the
+   decor links carry the thread (operator decision 2026-06-08). */
 .timeline__date-node {
-  position: relative;
-  z-index: var(--z-content);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-5);
-  margin: var(--space-2) 0;
+  gap: var(--space-3);
   color: var(--velo-text-primary);
-}
-
-/* Side flourishes (decorative vector, Group 2355, 28×34). Left as-is, right
-   mirrored. */
-.timeline__flourish {
-  flex-shrink: 0;
-  color: var(--velo-text-primary);
-}
-.timeline__flourish--right {
-  transform: scaleX(-1);
 }
 
 .timeline__date-label {
-  /* opaque-ish backdrop blends with the app background and masks the axis
-     stroke behind the text (so the line doesn't run through the label). */
-  background: var(--velo-bg-start);
-  padding: 0 var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
   letter-spacing: 0.36px;
@@ -196,29 +159,17 @@ const dayGroups = computed<DayGroup[]>(() => {
   white-space: nowrap;
 }
 
-/* Axis links on the central thread, with small breathing room around them
-   (Figma: the link floats between elements, not flush). */
-.timeline__connector,
-.timeline__dot {
-  position: relative;
-  z-index: var(--z-content);
+/* Decor links on the thread: big = day separator (above & below the date),
+   small = between cards within a day. Tight breathing room around them. */
+.timeline__link {
   display: flex;
   justify-content: center;
   color: var(--velo-text-primary);
-}
-.timeline__connector {
-  /* date node → first card (Group 2429): ~4px above, ~11px below per export */
-  padding: 4px 0 11px;
-}
-.timeline__dot {
-  /* between cards (Vector 110): symmetric breathing room */
-  padding: 6px 0;
+  padding: 1px 0;
 }
 
-/* -- Card rows (all centered on the axis) -- */
+/* -- Card rows (all centered) -- */
 .timeline__row {
-  position: relative;
-  z-index: var(--z-content);
   display: flex;
   justify-content: center;
   width: 100%;

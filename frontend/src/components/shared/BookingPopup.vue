@@ -360,7 +360,7 @@ async function onPurchase(): Promise<void> {
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-4);
   background: var(--velo-glass-teal-30);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .popup__discount-label {
@@ -407,7 +407,7 @@ async function onPurchase(): Promise<void> {
   margin-bottom: var(--space-4);
   background: var(--velo-glass-peach-40);
   border: 1px solid var(--velo-warning);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;

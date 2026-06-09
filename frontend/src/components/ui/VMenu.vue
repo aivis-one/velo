@@ -113,7 +113,7 @@ defineExpose({ close })
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-nav-active-bg);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -128,7 +128,7 @@ defineExpose({ close })
   position: absolute;
   top: calc(100% + var(--space-2));
   right: 0;
-  z-index: var(--z-sticky, 10);
+  z-index: var(--z-sticky);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

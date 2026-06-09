@@ -31,7 +31,7 @@
             aria-label="Закрыть"
             @click="$emit('close')"
           >
-            ✕
+            <IconClose :size="16" />
           </button>
           <div class="v-modal__scroll">
             <slot />
@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
+import { IconClose } from '@/components/icons'
 
 const props = withDefaults(
   defineProps<{
@@ -100,7 +101,7 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--velo-scrim);
   padding: var(--space-4);
 }
 
@@ -113,8 +114,8 @@ onUnmounted(() => {
      sheet. The actual scrolling happens on .v-modal__scroll inside. */
   overflow: hidden;
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
-  /* Плавающая шторка (overlay даёт отступ со всех сторон) → скругляем ВСЕ
+  border: 1px solid var(--velo-border-card);
+  /* Плавающая шторка (overlay даёт отступ со всех сторон) -> скругляем ВСЕ
      углы. Радиус из DS-токена (--radius-md=15), а не сырой 20px. */
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);
@@ -125,7 +126,7 @@ onUnmounted(() => {
 .v-modal__scroll {
   max-height: 85vh;
   overflow-y: auto;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .v-modal__close {

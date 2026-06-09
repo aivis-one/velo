@@ -53,7 +53,7 @@ async function handleLogout(): Promise<void> {
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: var(--space-6);
+  padding: var(--space-5);
   text-align: center;
   background: transparent;
 }
@@ -67,12 +67,12 @@ async function handleLogout(): Promise<void> {
   font-size: var(--text-2xl);
   font-weight: 400;
   color: var(--velo-text-primary);
-  margin: 0 0 var(--space-6) 0;
+  margin: 0 0 var(--space-5) 0;
   letter-spacing: 0.02em;
 }
 
 .home__user {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .home__greeting {
@@ -108,7 +108,7 @@ async function handleLogout(): Promise<void> {
 .home__version {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  margin: 0 0 var(--space-6) 0;
+  margin: 0 0 var(--space-5) 0;
 }
 
 .home__logout {
@@ -118,7 +118,7 @@ async function handleLogout(): Promise<void> {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 400;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   cursor: pointer;
   backdrop-filter: blur(2px);

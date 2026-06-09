@@ -14,10 +14,15 @@ from uuid import UUID
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.diary.models import CheckType, Checkin
+from app.modules.notifications.models import (
+    Notification,
+    NotificationType,
+    TargetType,
+)
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
@@ -394,6 +399,69 @@ async def test_finalize_practice_success(
     assert data["attended"] == 1
     assert data["no_show"] == 1
     assert data["pending"] == 0
+
+
+async def _feedback_notifs(
+    session: AsyncSession, pid: str,
+) -> list[Notification]:
+    """LEAVE_FEEDBACK notifications enqueued for this practice."""
+    result = await session.execute(
+        select(Notification).where(
+            Notification.type == NotificationType.LEAVE_FEEDBACK.value,
+            Notification.target_value == str(pid),
+        )
+    )
+    return list(result.scalars().all())
+
+
+@pytest.mark.asyncio
+async def test_finalize_creates_feedback_notification(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Finalizing a practice with >=1 attendee enqueues a single
+    LEAVE_FEEDBACK notification targeting the practice (the processor resolves
+    the audience to confirmed/attended bookings)."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user_a = await _book_user(client, pid, telegram_id=63110)
+    await client.post(
+        f"{BOOKINGS_URL}/{user_a['booking_id']}/join",
+        headers=auth_headers(user_a["session_token"]),
+    )
+
+    resp = await client.post(
+        f"{PRACTICES_URL}/{pid}/finalize",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+
+    notifs = await _feedback_notifs(db_session, pid)
+    assert len(notifs) == 1
+    assert notifs[0].target_type == TargetType.PRACTICE.value
+
+
+@pytest.mark.asyncio
+async def test_finalize_no_attendees_no_feedback_notification(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """No attendee (booked but never joined -> no_show) -> no LEAVE_FEEDBACK
+    notification (the attended_count > 0 guard)."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+    # Booked but never joins -> resolves to no_show on finalize.
+    await _book_user(client, pid, telegram_id=63111)
+
+    resp = await client.post(
+        f"{PRACTICES_URL}/{pid}/finalize",
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+
+    notifs = await _feedback_notifs(db_session, pid)
+    assert len(notifs) == 0
 
 
 @pytest.mark.asyncio

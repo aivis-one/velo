@@ -149,9 +149,9 @@ const cells = computed<Cell[]>(() =>
   gap: var(--space-1);
   /* Figma: 44x71 rounded-15 white pill (not a full-round circle). */
   padding: var(--space-3) 0;
-  border: 1px solid #ffffff;
-  background: #ffffff;
-  border-radius: 15px;
+  border: 1px solid var(--velo-glass-border);
+  background: var(--velo-white);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -167,7 +167,7 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__weekday {
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--text-10);
   font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
@@ -184,7 +184,7 @@ const cells = computed<Cell[]>(() =>
 
 .week-strip__day--active .week-strip__weekday,
 .week-strip__day--active .week-strip__num {
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 /* Dot marker: reserves space always; visible only when day has practices. */
@@ -200,7 +200,7 @@ const cells = computed<Cell[]>(() =>
 }
 
 .week-strip__day--active .week-strip__dot--visible {
-  background: #ffffff;
+  background: var(--velo-white);
 }
 
 .week-strip__nav {
@@ -214,7 +214,7 @@ const cells = computed<Cell[]>(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-bg-card-solid);
   border-radius: var(--radius-full);
   color: var(--velo-text-primary);

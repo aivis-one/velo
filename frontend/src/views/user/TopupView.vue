@@ -45,21 +45,20 @@
       >
         Другая сумма
       </div>
-      <div v-if="customMode" class="topup__custom-input-wrap">
-        <span class="topup__custom-currency">€</span>
-        <input
-          ref="customInput"
-          v-model="customValue"
-          type="number"
-          class="topup__custom-input"
-          placeholder="1 — 500"
-          min="1"
-          max="500"
-          step="1"
-          inputmode="numeric"
-          @input="onCustomInput"
-        />
-      </div>
+      <VInput
+        v-if="customMode"
+        ref="customInput"
+        v-model="customValue"
+        type="number"
+        placeholder="1 — 500"
+        :min="1"
+        :max="500"
+        step="1"
+        inputmode="numeric"
+        @update:model-value="onCustomInput"
+      >
+        <template #prefix>€</template>
+      </VInput>
     </div>
 
     <!-- Error -->
@@ -85,7 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
-import { VButton } from '@/components/ui'
+import { VButton, VInput } from '@/components/ui'
 import { useBalanceStore } from '@/stores/balance'
 import { useToast } from '@/composables/useToast'
 import { createTopup } from '@/api/payments'
@@ -112,7 +111,7 @@ const selectedCents = ref(1000) // default EUR 10
 const customMode = ref(false)
 const customValue = ref('')
 const loading = ref(false)
-const customInput = ref<HTMLInputElement | null>(null)
+const customInput = ref<{ focus: () => void } | null>(null)
 
 // -- Computed --
 // FP-03: eurStringToCents() avoids IEEE-754 float precision trap.
@@ -213,9 +212,9 @@ onMounted(() => {
 /* Balance */
 .topup__balance {
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -232,7 +231,7 @@ onMounted(() => {
 
 .topup__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-primary);
 }
@@ -257,7 +256,7 @@ onMounted(() => {
 .topup__preset {
   padding: var(--space-4);
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-lg);
@@ -301,53 +300,6 @@ onMounted(() => {
 .topup__custom-toggle--active {
   border-color: var(--velo-primary);
   background: var(--velo-glass-blue-15);
-}
-
-.topup__custom-input-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  /* White field standard (was glass-blue, which read as transparent). Blue border
-     kept: this is the active "custom amount" field. */
-  background: var(--velo-bg-card-solid);
-  border: 2px solid var(--velo-border-input-focus);
-  border-radius: 5px;
-}
-
-.topup__custom-currency {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-}
-
-.topup__custom-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  background: transparent;
-}
-
-.topup__custom-input::placeholder {
-  color: var(--velo-text-muted);
-  font-weight: 400;
-}
-
-/* Hide number input spinners */
-.topup__custom-input::-webkit-outer-spin-button,
-.topup__custom-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.topup__custom-input[type='number'] {
-  -moz-appearance: textfield;
 }
 
 /* Error */

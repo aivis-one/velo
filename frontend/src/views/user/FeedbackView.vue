@@ -192,6 +192,6 @@ onMounted(() => {
 .feedback__success-link:focus-visible {
   outline: 2px solid var(--velo-primary);
   outline-offset: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 </style>

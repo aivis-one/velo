@@ -24,7 +24,7 @@
 <template>
   <VModal :open="open" @close="$emit('close')">
     <div class="diary-search">
-      <!-- Search field + magnifier (the modal's own ✕ handles close; no extra
+      <!-- Search field + magnifier (the modal's own x handles close; no extra
            title row, per operator 2026-06-03). -->
       <div class="diary-search__field">
         <div class="diary-search__input">
@@ -198,7 +198,7 @@ function submit(term: string): void {
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -228,7 +228,7 @@ function submit(term: string): void {
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   background: var(--velo-glass-blue-15);
   border-radius: var(--radius-full);
   font-family: var(--font-body);

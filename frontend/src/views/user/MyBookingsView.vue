@@ -26,7 +26,7 @@
     <!-- Error -->
     <VEmptyState
       v-else-if="store.error && store.bookings.length === 0"
-      icon="⚠️"
+      icon="warning"
       title="Ошибка загрузки"
       :description="store.error"
     >
@@ -36,7 +36,7 @@
     <!-- Empty (no bookings at all) -->
     <VEmptyState
       v-else-if="upcoming.length === 0 && past.length === 0"
-      icon="📋"
+      icon="list"
       title="Бронирований нет"
       description="Здесь появятся ваши бронирования после записи на практику"
     />
@@ -81,6 +81,7 @@ import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
 import BookingCard, { type BookingBadge } from '@/components/shared/BookingCard.vue'
+import { isLiveNow, hasEnded as endedByClock } from '@/utils/bookingStatus'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 const router = useRouter()
@@ -102,9 +103,7 @@ const UPCOMING_STATUSES = ['confirmed', 'pending'] as const
  * client; the booking status drives only the past-section badge.
  */
 function hasEnded(b: BookingWithPracticeResponse): boolean {
-  const start = new Date(b.practice.scheduled_at).getTime()
-  const end = start + (b.practice.duration_minutes ?? 0) * 60_000
-  return end < Date.now()
+  return endedByClock(b, Date.now())
 }
 
 function isUpcoming(b: BookingWithPracticeResponse): boolean {
@@ -113,9 +112,13 @@ function isUpcoming(b: BookingWithPracticeResponse): boolean {
   )
 }
 
-/** True if the practice is in progress (status live). */
+/**
+ * True if the practice is in progress — by CLIENT TIME (start ≤ now < end) via
+ * the shared isLiveNow, in sync with the dashboard «Ближайшая практика» card.
+ * (Was practice.status==='live', which depended on the master's manual flip.)
+ */
 function isLive(b: BookingWithPracticeResponse): boolean {
-  return b.practice.status === 'live'
+  return isLiveNow(b, Date.now())
 }
 
 /**
@@ -188,7 +191,7 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   // Past statuses -> status badge.
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
-  if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
+  if (b.status === 'no_show') return { label: 'Не состоялась', variant: 'no_show' }
   // Confirmed/pending but the practice is already over (awaiting backend
   // finalize): it sits in "Прошедшие" with NO upcoming badge — no misleading
   // "Сегодня" / "В эфире" on a practice that has ended.
@@ -233,12 +236,12 @@ onMounted(() => {
 .bookings__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
   /* F-5 sync: horizontal padding снят — MobileLayout уже даёт
    * var(--velo-screen-padding) (=33). Раньше тут было var(--space-4) (16),
    * cards рендерились 304 wide вместо Figma 336.
    * Vertical паддинг top/bottom 16 оставляем (визуальный отступ от header
-   * и от tab-bar; Figma my-reservations.svg gap header→title ≈ 28, у нас
+   * и от tab-bar; Figma my-reservations.svg gap header->title ≈ 28, у нас
    * MobileLayout 16 + 14 (section-title margin) = 30, расхождение 2px). */
   padding: var(--space-4) 0;
 }

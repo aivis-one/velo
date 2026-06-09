@@ -22,7 +22,6 @@
     submit-label="Отправить"
     :show-skip="true"
     :submitted="submitted"
-    success-icon="✅"
     success-title="Check-in отправлен"
     success-text="Ваше состояние записано, хорошей практики!"
     @back="onBack"

@@ -73,7 +73,7 @@ export const usePracticesStore = defineStore('practices', () => {
   /**
    * Fetch a single practice by ID for the detail view.
    * Tries to find it in the already-loaded catalog first (avoids
-   * extra API call when navigating from list → detail).
+   * extra API call when navigating from list -> detail).
    *
    * F-01: race condition guard -- if a newer fetchPractice() call was
    * made while this one was in-flight, the stale result is discarded.

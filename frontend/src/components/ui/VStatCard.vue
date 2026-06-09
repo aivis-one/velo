@@ -5,20 +5,24 @@
   Used in dashboards (user stats, admin stats, master analytics).
 
   Usage:
-    <VStatCard value="156" label="участников" icon="👥" />
+    <VStatCard value="156" label="участников">
+      <template #icon><IconGroup :size="24" /></template>
+    </VStatCard>
     <VStatCard value="€1,280" label="доход" />
 -->
 
 <template>
   <div
     class="v-stat"
-    :class="{ 'v-stat--clickable': clickable }"
+    :class="[`v-stat--${layout}`, { 'v-stat--clickable': clickable }]"
     :role="clickable ? 'button' : undefined"
     :tabindex="clickable ? 0 : undefined"
     @click="clickable ? $emit('click') : undefined"
     @keydown.enter.space.prevent="clickable ? $emit('click') : undefined"
   >
-    <span v-if="icon" class="v-stat__icon">{{ icon }}</span>
+    <span v-if="$slots.icon || icon" class="v-stat__icon">
+      <slot name="icon">{{ icon }}</slot>
+    </span>
     <div class="v-stat__value">{{ value }}</div>
     <div class="v-stat__label">{{ label }}</div>
   </div>
@@ -31,10 +35,13 @@ withDefaults(
     label: string
     icon?: string
     clickable?: boolean
+    /** 'column' (default, stacked value/label) or 'row' (compact baseline row). */
+    layout?: 'column' | 'row'
   }>(),
   {
     icon: '',
     clickable: false,
+    layout: 'column',
   },
 )
 
@@ -70,9 +77,28 @@ defineEmits<{
   box-shadow: var(--shadow-md);
 }
 
+/* Row layout: compact baseline row (value + label inline). Used on the master
+   public profile stats (migrated from a hand-rolled pattern, U3 2026-06-06). */
+.v-stat--row {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.v-stat--row .v-stat__value {
+  letter-spacing: normal;
+}
+
+.v-stat--row .v-stat__label {
+  font-size: var(--text-xs);
+}
+
 .v-stat__icon {
   display: block;
   font-size: 24px;
+  /* Vector DS icons inside the slot inherit this as currentColor. */
+  color: var(--velo-text-primary);
 }
 
 .v-stat__value {

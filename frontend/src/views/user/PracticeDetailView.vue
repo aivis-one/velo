@@ -4,7 +4,7 @@
   Full practice detail screen. Matches design Dashboard 2 / booked-practice layout:
     - Hero: white card with IconMeditation SVG + title + meta + "Оплачено" badge
     - Accordions: "О практике" (description), "Что подготовить" (what_to_prepare)
-    - Master card: avatar + name + ✓ + methods tags (VTag) + arrow
+    - Master card: avatar + name + check + methods tags (VTag) + arrow
     - Contraindications banner (if practice.contraindications)
     - Sticky footer: price + action button + cancel booking
 
@@ -32,7 +32,7 @@
   <!-- Error -->
   <VEmptyState
     v-else-if="store.selectedError"
-    icon="⚠️"
+    icon="warning"
     title="Практика не найдена"
     :description="store.selectedError"
   >
@@ -65,13 +65,13 @@
 
         <!-- Status row (Batch 6: ported from BookingDetailView). Shown when
              the viewer holds a booking for this practice in any status. -->
-        <div v-if="myAnyBooking" class="detail__status-row">
+        <VCard v-if="myAnyBooking" class="detail__status-row" padding="none">
           <span class="detail__status-label">Статус</span>
           <VBadge :variant="statusVariant">
             <component :is="statusIcon" v-if="statusIcon" :size="12" />
             {{ statusLabel }}
           </VBadge>
-        </div>
+        </VCard>
 
         <!-- О практике accordion -->
         <VAccordion v-if="practice.description" title="О практике">
@@ -98,9 +98,9 @@
              booking is active -- a past/cancelled booking has no live link. -->
         <section v-if="showZoom" class="detail__section">
           <h3 class="detail__section-title">ZOOM</h3>
-          <div class="detail__zoom-card">
+          <VCard class="detail__zoom-card">
             Ссылка будет отправлена за 10 минут до начала практики
-          </div>
+          </VCard>
         </section>
 
         <!-- Contraindications (shared Banner) -->
@@ -121,7 +121,7 @@
       <!-- Price row: only for the catalog (not-booked) view. In the booked
            "Моя практика" view (Figma 15) the practice is already paid for,
            so the price row is hidden. -->
-      <div v-if="!booked" class="detail__price-row">
+      <VCard v-if="!booked" class="detail__price-row" padding="none">
         <span class="detail__price-label">Стоимость</span>
         <span
           class="detail__price-value"
@@ -129,7 +129,7 @@
         >
           {{ formattedPrice }}
         </span>
-      </div>
+      </VCard>
 
       <!-- F9.1: Check-in button (confirmed booking in check-in window) -->
       <VButton
@@ -212,7 +212,7 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
-import { VLoader, VEmptyState, VButton, VBadge, VAccordion } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBadge, VAccordion, VCard } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -360,7 +360,7 @@ const practiceStarted = computed((): boolean => {
 })
 
 // -- Status row (ported from BookingDetailView; driven by myAnyBooking) --
-// NB: confirmed → «Вы записаны» ТОЛЬКО на этом экране (status row заменяет
+// NB: confirmed -> «Вы записаны» ТОЛЬКО на этом экране (status row заменяет
 // бывшую disabled-кнопку). Глобальный лейбл «Подтверждена» (Мои записи и пр.)
 // живёт в своих местах и не трогается.
 const STATUS_LABEL: Record<BookingStatus, string> = {
@@ -518,7 +518,7 @@ function onPurchased(): void {
 /**
  * Места кончились в гонке (BookingPopup поймал practice_full): поднимаем
  * полноэкранный стейт «Места закончились» и обновляем практику/брони, чтобы
- * экран под оверлеем уже отражал заполненность (кнопка → «Мест нет»).
+ * экран под оверлеем уже отражал заполненность (кнопка -> «Мест нет»).
  */
 function onSoldOut(): void {
   soldOut.value = true
@@ -526,7 +526,7 @@ function onSoldOut(): void {
   bookingsStore.refreshBookings()
 }
 
-/** «Найти другую практику» → в Календарь (витрина записи). */
+/** «Найти другую практику» -> в Календарь (витрина записи). */
 function onFindOther(): void {
   soldOut.value = false
   router.push({ name: 'user-calendar' })
@@ -667,9 +667,6 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   /* Match the accordion cards' padding for one cohesive card language. */
   padding: var(--space-3) var(--space-4);
 }
@@ -682,10 +679,6 @@ onUnmounted(() => {
 
 /* ===== Zoom card (Batch 6: ported from BookingDetailView) ===== */
 .detail__zoom-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
@@ -728,9 +721,6 @@ onUnmounted(() => {
 .detail__price-row {
   /* F-5.4 sync: в Figma practice-booked.svg price-row — белая card 336×48
    * rx=15 (стиль как у accordion и status-row), не голый flex-row. */
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;
   justify-content: space-between;

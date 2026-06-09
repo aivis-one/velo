@@ -18,10 +18,10 @@
     @click="$emit('click', practice.id)"
   >
     <template #badge>
-      <span class="cal-card__badge" :class="`cal-card__badge--${badge.variant}`">
-        <IconCheck v-if="badge.variant === 'paid'" :size="12" />
+      <VBadge :variant="badge.variant">
+        <IconCheck v-if="badge.paid" :size="12" />
         {{ badge.label }}
-      </span>
+      </VBadge>
     </template>
   </PracticeListCard>
 </template>
@@ -30,6 +30,7 @@
 import { computed } from 'vue'
 import { formatShortDate, formatTime, formatDuration, formatMoney } from '@/utils/format'
 import { IconCheck } from '@/components/icons'
+import { VBadge } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { PracticeResponse } from '@/api/types'
@@ -70,47 +71,25 @@ const duration = computed(() => {
   return `${formatTime(props.practice.scheduled_at, viewerTz.value)} · ${dur}`
 })
 
-// Badge: paid (teal) > free (blue) > price (blue).
+// Badge: paid (VBadge success/teal) > free / price (VBadge blue). Rendered via
+// the DS VBadge component — no hand-rolled badge styling (DS source of truth).
 interface Badge {
   label: string
-  variant: 'paid' | 'free'
+  variant: 'success' | 'blue'
+  paid: boolean
 }
 
 const badge = computed<Badge>(() => {
   if (props.practice.is_paid) {
-    return { label: 'Оплачено', variant: 'paid' }
+    return { label: 'Оплачено', variant: 'success', paid: true }
   }
   if (props.practice.is_free) {
-    return { label: 'Бесплатно', variant: 'free' }
+    return { label: 'Бесплатно', variant: 'blue', paid: false }
   }
   return {
     label: formatMoney(props.practice.price_cents, props.practice.currency),
-    variant: 'free',
+    variant: 'blue',
+    paid: false,
   }
 })
 </script>
-
-<style scoped>
-.cal-card__badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 4px 10px;
-  border-radius: 5px;
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-
-/* Paid -- teal (matches the "done"/"today" tone elsewhere) */
-.cal-card__badge--paid {
-  background: var(--velo-glass-teal-30);
-  color: var(--velo-teal-700);
-}
-
-/* Free / price -- blue */
-.cal-card__badge--free {
-  background: var(--velo-blue-100);
-  color: var(--velo-primary);
-}
-</style>

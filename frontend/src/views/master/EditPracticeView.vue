@@ -53,7 +53,7 @@
 
     <!-- Error / not found -->
     <div v-else-if="!practice" class="edit-practice__content">
-      <VEmptyState icon="⚠️" title="Практика не найдена">
+      <VEmptyState icon="warning" title="Практика не найдена">
         <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practices' })">
           Назад
         </VButton>
@@ -65,8 +65,8 @@
            READONLY BANNER for terminal statuses
            ================================================================ -->
       <div v-if="isTerminal" class="edit-practice__readonly-banner">
-        <VBadge :variant="statusVariant(practice.status)">
-          {{ statusLabel(practice.status) }}
+        <VBadge v-if="masterPracticeBadge(practice.status)" :variant="masterPracticeBadge(practice.status)!.variant">
+          {{ masterPracticeBadge(practice.status)!.label }}
         </VBadge>
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
       </div>
@@ -78,7 +78,7 @@
         <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОСНОВНОЕ</div>
+            <div class="edit-practice__section-title">ОСНОВНОЕ</div>
             <VInput
               v-model="form.title"
               label="Название *"
@@ -114,29 +114,23 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📅 РАСПИСАНИЕ</div>
+            <div class="edit-practice__section-title">РАСПИСАНИЕ</div>
 
             <!-- W-8: min attribute prevents setting past dates -->
-            <div class="edit-practice__field">
-              <label class="edit-practice__label">Дата</label>
-              <input
-                v-model="form.date"
-                type="date"
-                class="edit-practice__date-input"
-                :min="todayDate"
-                :disabled="isTerminal"
-              />
-            </div>
+            <VInput
+              v-model="form.date"
+              label="Дата"
+              type="date"
+              :min="todayDate"
+              :disabled="isTerminal"
+            />
 
-            <div class="edit-practice__field">
-              <label class="edit-practice__label">Время</label>
-              <input
-                v-model="form.time"
-                type="time"
-                class="edit-practice__date-input"
-                :disabled="isTerminal"
-              />
-            </div>
+            <VInput
+              v-model="form.time"
+              label="Время"
+              type="time"
+              :disabled="isTerminal"
+            />
 
             <VSelect
               v-model="form.duration_minutes"
@@ -152,7 +146,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">👥 УЧАСТНИКИ</div>
+            <div class="edit-practice__section-title">УЧАСТНИКИ</div>
             <VInput
               v-model="form.max_participants_raw"
               label="Максимум (пусто = без ограничений)"
@@ -162,25 +156,12 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">💰 ЦЕНА</div>
-            <div class="edit-practice__payment-options">
-              <label
-                class="edit-practice__payment-option"
-                :class="{ 'edit-practice__payment-option--active': form.is_free }"
-                @click="!isTerminal && (form.is_free = true)"
-              >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': form.is_free }" />
-                <span>Бесплатно</span>
-              </label>
-              <label
-                class="edit-practice__payment-option"
-                :class="{ 'edit-practice__payment-option--active': !form.is_free }"
-                @click="!isTerminal && (form.is_free = false)"
-              >
-                <span class="edit-practice__radio" :class="{ 'edit-practice__radio--active': !form.is_free }" />
-                <span>Платно</span>
-              </label>
-            </div>
+            <div class="edit-practice__section-title">ЦЕНА</div>
+            <VSegment
+              :model-value="form.is_free ? 'free' : 'paid'"
+              :options="PAYMENT_OPTIONS"
+              @update:model-value="form.is_free = $event === 'free'"
+            />
             <template v-if="!form.is_free">
               <VInput
                 v-model="form.price_eur_raw"
@@ -189,7 +170,7 @@
                 :error="errors.price_cents"
               />
               <!-- W-9: commission calc via COMMISSION_RATE constant -->
-              <div v-if="priceCents > 0" class="edit-practice__price-calc">
+              <VCard v-if="priceCents > 0" class="edit-practice__price-calc" padding="none">
                 <div class="edit-practice__price-row">
                   <span>Комиссия {{ commissionPct }}%</span>
                   <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
@@ -198,12 +179,12 @@
                   <span>Вы получите</span>
                   <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
                 </div>
-              </div>
+              </VCard>
             </template>
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">📝 ОПИСАНИЕ</div>
+            <div class="edit-practice__section-title">ОПИСАНИЕ</div>
             <VTextarea
               v-model="form.description"
               label="Описание"
@@ -224,7 +205,7 @@
           </div>
 
           <div class="edit-practice__section">
-            <div class="edit-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+            <div class="edit-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
             <VInput
               v-model="form.zoom_link"
               label="Zoom ссылка"
@@ -253,7 +234,7 @@
              save + publish / save + cancel / save + delete etc.
              ================================================================ -->
         <div v-if="!isTerminal" class="edit-practice__actions">
-          <div class="edit-practice__section-title">⚡ ДЕЙСТВИЯ</div>
+          <div class="edit-practice__section-title">ДЕЙСТВИЯ</div>
 
           <!-- draft -> scheduled -->
           <VButton
@@ -264,7 +245,7 @@
             :disabled="anyLoading"
             @click="publish"
           >
-            ▶️ Опубликовать практику
+            Опубликовать практику
           </VButton>
 
           <!-- scheduled -> live -->
@@ -276,7 +257,7 @@
             :disabled="anyLoading"
             @click="startLive"
           >
-            🎬 Начать эфир
+            Начать эфир
           </VButton>
 
           <!-- live -> completed (finalize) -->
@@ -288,7 +269,7 @@
             :disabled="anyLoading"
             @click="confirmFinalize"
           >
-            ✅ Завершить практику
+            Завершить практику
           </VButton>
 
           <!-- scheduled / live -> attendance -->
@@ -299,7 +280,7 @@
             :disabled="anyLoading"
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
 
           <!-- draft -> deleted -->
@@ -311,7 +292,7 @@
             :disabled="anyLoading"
             @click="confirmDelete"
           >
-            🗑 Удалить черновик
+            Удалить черновик
           </VButton>
 
           <!-- scheduled / live -> cancelled -->
@@ -323,7 +304,7 @@
             :disabled="anyLoading"
             @click="confirmCancel"
           >
-            ❌ Отменить практику
+            Отменить практику
           </VButton>
         </div>
 
@@ -334,42 +315,21 @@
             block
             @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
           >
-            👥 Посещаемость
+            Посещаемость
           </VButton>
         </div>
       </div>
 
-      <!-- ================================================================
-           CONFIRM DIALOG
-           W-5: overlay click blocked while confirmDialog.loading is true
-           ================================================================ -->
-      <Teleport to="body">
-        <div
-          v-if="confirmDialog.visible"
-          class="edit-practice__overlay"
-          @click.self="!confirmDialog.loading && (confirmDialog.visible = false)"
-        >
-          <div class="edit-practice__dialog">
-            <p class="edit-practice__dialog-text">{{ confirmDialog.message }}</p>
-            <div class="edit-practice__dialog-actions">
-              <VButton
-                variant="ghost"
-                :disabled="confirmDialog.loading"
-                @click="confirmDialog.visible = false"
-              >
-                Отмена
-              </VButton>
-              <VButton
-                :variant="confirmDialog.danger ? 'danger' : 'primary'"
-                :loading="confirmDialog.loading"
-                @click="confirmDialog.onConfirm"
-              >
-                {{ confirmDialog.confirmLabel }}
-              </VButton>
-            </div>
-          </div>
-        </div>
-      </Teleport>
+      <!-- W-5: cancel/overlay blocked while confirmDialog.loading is true (VConfirmDialog) -->
+      <VConfirmDialog
+        :open="confirmDialog.visible"
+        :message="confirmDialog.message"
+        :confirm-label="confirmDialog.confirmLabel"
+        :danger="confirmDialog.danger"
+        :loading="confirmDialog.loading"
+        @confirm="confirmDialog.onConfirm"
+        @cancel="confirmDialog.visible = false"
+      />
     </template>
   </div>
 </template>
@@ -379,7 +339,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard, VSegment, VConfirmDialog } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -390,6 +350,7 @@ import {
   finalizePractice,
 } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
+import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
 import {
   DURATION_OPTIONS,
@@ -400,7 +361,7 @@ import {
 } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { PracticeResponse, PracticeType, PracticeStatus, PracticeDirection } from '@/api/types'
+import type { PracticeResponse, PracticeType, PracticeDirection } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -438,6 +399,11 @@ const confirmDialog = reactive({
 
 // W-9: human-readable commission percentage for template
 const commissionPct = Math.round(COMMISSION_RATE * 100)
+
+const PAYMENT_OPTIONS = [
+  { value: 'free', label: 'Бесплатно' },
+  { value: 'paid', label: 'Платно' },
+]
 
 // W-8: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
@@ -489,18 +455,6 @@ function practiceTypeLabel(t: PracticeType): string {
   return PRACTICE_TYPE_LABELS[t] ?? t
 }
 
-const STATUS_LABELS: Record<PracticeStatus, string> = {
-  draft: 'Черновик',
-  scheduled: 'Запланирована',
-  live: 'В эфире',
-  completed: 'Завершена',
-  cancelled: 'Отменена',
-  deleted: 'Удалена',
-}
-function statusLabel(s: PracticeStatus): string {
-  return STATUS_LABELS[s] ?? s
-}
-
 // Direction-conditional style options (mirror of CreatePracticeView).
 const styleOptionsForForm = computed(() =>
   stylesForDirection(form.direction as PracticeDirection),
@@ -516,15 +470,6 @@ function onDirectionChange(): void {
   form.style = ''
 }
 
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
-  switch (s) {
-    case 'live':      return 'success'
-    case 'scheduled': return 'info'
-    case 'draft':     return 'warning'
-    case 'completed': return 'info'
-    default:          return 'error'
-  }
-}
 
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {
@@ -803,7 +748,8 @@ async function remove(): Promise<void> {
 /* -- Content -- */
 .edit-practice__content {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -864,78 +810,11 @@ async function remove(): Promise<void> {
   padding: 10px var(--space-3);
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
-  border-radius: 5px;
-}
-
-/* -- Date/time inputs -- */
-.edit-practice__date-input {
-  width: 100%;
-  padding: 12px var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: 5px;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.edit-practice__date-input:focus {
-  border-color: var(--velo-border-input-focus);
-}
-
-/* -- Payment toggle -- */
-.edit-practice__payment-options {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.edit-practice__payment-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-}
-
-.edit-practice__payment-option--active {
-  border-color: var(--velo-primary);
-  color: white;
-  background: var(--velo-primary);
-}
-
-.edit-practice__radio {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--velo-border-light);
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-
-.edit-practice__radio--active {
-  border-color: white;
-  background: var(--velo-glass-blue-60);
+  border-radius: var(--velo-radius-badge);
 }
 
 /* -- Price calc -- */
 .edit-practice__price-calc {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -969,45 +848,5 @@ async function remove(): Promise<void> {
   border-top: 1px solid var(--velo-border-light);
 }
 
-/* -- Confirm overlay + dialog -- */
-.edit-practice__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
-  z-index: var(--z-modal, 400);
-  padding: var(--space-4);
-}
-
-.edit-practice__dialog {
-  width: 100%;
-  background: var(--velo-glass-blue-60);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.edit-practice__dialog-text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  text-align: center;
-  line-height: 1.5;
-}
-
-.edit-practice__dialog-actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.edit-practice__dialog-actions > * {
-  flex: 1;
-}
+/* (confirm dialog now provided by <VConfirmDialog>) */
 </style>

@@ -7,44 +7,48 @@
       from the name otherwise -- the project-wide avatar pattern).
     - Name + verified check
     - Method tags (VTag, cycling blue / pink / sand)
-    - "Подробнее" arrow -> master public profile (/user/masters/:id)
+
+  The WHOLE card is the tap target -> master public profile (/user/masters/:id).
+  (operator 2026-06-09: the separate "Подробнее" arrow link was removed; tapping
+  anywhere on the card opens the master.) Same button pattern as PracticeListCard.
 
   Extracted from PracticeDetailView so screens 15 / 18 / frame 4 share one card.
 -->
 
 <template>
-  <div class="master-card-wrapper">
-    <div class="master-card">
-      <VAvatar
-        :url="avatarUrl ?? ''"
-        :name="masterName ?? 'Мастер'"
-        size="xl"
-      />
-      <div class="master-card__info">
-        <div class="master-card__name">
-          {{ masterName ?? 'Мастер' }}
-          <span class="master-card__verified">
-            <IconCheck :size="14" />
-          </span>
-        </div>
-        <div v-if="methods?.length" class="master-card__tags">
-          <VTag
-            v-for="(method, i) in methods"
-            :key="method"
-            :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
-          >
-            {{ method }}
-          </VTag>
-        </div>
+  <button
+    type="button"
+    class="master-card master-card--clickable"
+    @click="onMore"
+  >
+    <VAvatar
+      :url="avatarUrl ?? ''"
+      :name="masterName ?? 'Мастер'"
+      size="xl"
+    />
+    <div class="master-card__info">
+      <div class="master-card__name">
+        {{ masterName ?? 'Мастер' }}
+        <span class="master-card__verified">
+          <IconCheck :size="14" />
+        </span>
+      </div>
+      <div v-if="methods?.length" class="master-card__tags">
+        <VTag
+          v-for="(method, i) in methods"
+          :key="method"
+          :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
+        >
+          {{ method }}
+        </VTag>
       </div>
     </div>
-    <VMoreLink @click="onMore" />
-  </div>
+  </button>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { VTag, VAvatar, VMoreLink } from '@/components/ui'
+import { VTag, VAvatar } from '@/components/ui'
 import { IconCheck } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 
@@ -54,7 +58,7 @@ const props = withDefaults(
     methods?: string[] | null
     /** Master avatar URL (User.avatar_url). Null -> placeholder glyph. */
     avatarUrl?: string | null
-    /** Master user id -- target of the "Подробнее" public profile link. */
+    /** Master user id -- target of the public-profile link. */
     masterId?: string | null
   }>(),
   {
@@ -82,18 +86,8 @@ function onMore(): void {
 </script>
 
 <style scoped>
-/* F-4 sync: wrapper держит карточку + footer-кнопку «Подробнее» под ней.
- * Figma master-card.svg (336×145 canvas): card 336×104 → gap 5.5 → pill
- * 63×35 справа. Round to space-1=4 для gap (acceptable visual noise). */
-.master-card-wrapper {
-  display: flex;
-  flex-direction: column;
-  /* Воздух между карточкой мастера и строкой «Подробнее» (operator 2026-06-04:
-   * было space-1=4px, стрелка прилипала). --space-3 = 14px. */
-  gap: var(--space-3);
-}
-
 .master-card {
+  width: 100%;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
@@ -108,6 +102,19 @@ function onMore(): void {
    * Round 17 до space-4=16 — расхождение 1px. */
   gap: var(--space-4);
   box-sizing: border-box;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--velo-text-primary);
+}
+
+/* Whole card is the tap target (same pattern as PracticeListCard). */
+.master-card--clickable {
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.master-card--clickable:active {
+  opacity: 0.85;
 }
 
 .master-card__info {
@@ -118,7 +125,7 @@ function onMore(): void {
 .master-card__name {
   display: flex;
   align-items: center;
-  /* Figma: gap name→verified ≈ 12 (233-221). Round до space-2=8. */
+  /* Figma: gap name->verified ≈ 12 (233-221). Round до space-2=8. */
   gap: var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -131,7 +138,7 @@ function onMore(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  /* Figma: verified circle r=13 → 26×26 (был 18). */
+  /* Figma: verified circle r=13 -> 26×26 (был 18). */
   width: 26px;
   height: 26px;
   border-radius: var(--radius-full);
@@ -145,7 +152,4 @@ function onMore(): void {
   gap: var(--space-1);
   margin-top: var(--space-1);
 }
-
-/* «Подробнее» — общий компонент VMoreLink (слово + белый pill со стрелкой).
- * Стили живут в нём; здесь только отступ карточка↔ссылка (master-card-wrapper). */
 </style>

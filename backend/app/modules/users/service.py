@@ -24,9 +24,12 @@
 # =============================================================================
 
 import structlog
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.users.models import User
+from app.core.exceptions import ConflictError, ForbiddenError
+from app.modules.masters.models import MasterProfile
+from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import UserUpdate
 
 logger = structlog.get_logger()
@@ -137,6 +140,65 @@ async def update_user(
         "user_profile_updated",
         user_id=str(user.id),
         fields=list(updates.keys()),
+    )
+
+    return user
+
+
+async def switch_user_role(
+    user: User,
+    target_role: UserRole,
+    session: AsyncSession,
+) -> User:
+    """Switch a tester's own role in place (TEST-ONLY tester tool).
+
+    The feature flag gate (settings.role_switch_enabled) is enforced in the
+    router; this function assumes the feature is on and enforces the per-user
+    authorization:
+
+      1. target_role must be in the caller's seeded allow-list
+         (credentials.role_switch.allowed_roles) -> else 403.
+      2. Switching to MASTER requires a verified MasterProfile, otherwise the
+         master role guard (get_current_master) would 403 on every subsequent
+         request -> ConflictError (409) if absent/unverified.
+
+    The role is rewritten directly on the User row (same mechanism as
+    admin master-verify), so all existing role guards keep working unchanged.
+    Switching to the current role is a harmless no-op as long as it is allowed.
+
+    The user object must already be bound to the provided write session
+    (ensured by get_current_user_write in the router).
+    """
+    role_switch = (user.credentials or {}).get("role_switch") or {}
+    stored = role_switch.get("allowed_roles")
+    allowed = {str(r) for r in stored} if isinstance(stored, list) else set()
+
+    if target_role.value not in allowed:
+        raise ForbiddenError(
+            "Role not allowed for this account",
+            code="role_not_allowed",
+        )
+
+    if target_role == UserRole.MASTER:
+        stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
+        result = await session.execute(stmt)
+        profile = result.scalar_one_or_none()
+        profile_status = (
+            profile.data.get("account", {}).get("status") if profile else None
+        )
+        if profile_status != "verified":
+            raise ConflictError(
+                "No verified master profile to switch into",
+                code="master_profile_required",
+            )
+
+    user.role = target_role
+    await session.flush()
+
+    logger.info(
+        "user_role_switched",
+        user_id=str(user.id),
+        new_role=target_role.value,
     )
 
     return user

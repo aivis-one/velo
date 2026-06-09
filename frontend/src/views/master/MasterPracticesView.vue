@@ -24,7 +24,7 @@
 <template>
   <div class="master-practices">
     <!-- Header -->
-    <VHeader title="📅 Практики" :badge="masterStore.practicesTotal || undefined">
+    <VHeader title="Практики" :badge="masterStore.practicesTotal || undefined">
       <template #action>
         <button class="master-practices__add-btn" aria-label="Создать практику" @click="router.push({ name: 'master-practice-new' })">
           +
@@ -34,26 +34,11 @@
 
     <!-- Tabs -->
     <div class="master-practices__tabs">
-      <button
-        class="master-practices__tab"
-        :class="{ 'master-practices__tab--active': activeTab === 'upcoming' }"
-        @click="activeTab = 'upcoming'"
-      >
-        Предстоящие
-        <span v-if="upcomingPractices.length" class="master-practices__tab-count">
-          {{ upcomingPractices.length }}
-        </span>
-      </button>
-      <button
-        class="master-practices__tab"
-        :class="{ 'master-practices__tab--active': activeTab === 'past' }"
-        @click="activeTab = 'past'"
-      >
-        Прошедшие
-        <span v-if="pastPractices.length" class="master-practices__tab-count">
-          {{ pastPractices.length }}
-        </span>
-      </button>
+      <VSegment
+        :model-value="activeTab"
+        :options="tabOptions"
+        @update:model-value="activeTab = $event as 'upcoming' | 'past'"
+      />
     </div>
 
     <!-- Loading -->
@@ -64,7 +49,7 @@
     <!-- Error -->
     <div v-else-if="masterStore.practicesError" class="master-practices__content">
       <VEmptyState
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить практики"
         :description="masterStore.practicesError"
       >
@@ -85,12 +70,27 @@
             class="master-practices__card"
             @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
           >
-            <PracticeListItem :practice="practice" />
+            <PracticeListCard
+              :practice="practice"
+              :clickable="false"
+              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
+              :duration="formatDuration(practice.duration_minutes)"
+            >
+              <template #subtitle>
+                <span class="master-practices__details">
+                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
+                </span>
+              </template>
+              <template v-if="masterPracticeBadge(practice.status)" #badge>
+                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
+              </template>
+            </PracticeListCard>
           </div>
         </template>
         <VEmptyState
           v-else
-          icon="📅"
+          icon="calendar"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
@@ -113,7 +113,21 @@
             class="master-practices__card"
             @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
           >
-            <PracticeListItem :practice="practice">
+            <PracticeListCard
+              :practice="practice"
+              :clickable="false"
+              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
+              :duration="formatDuration(practice.duration_minutes)"
+            >
+              <template #subtitle>
+                <span class="master-practices__details">
+                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
+                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
+                </span>
+              </template>
+              <template v-if="masterPracticeBadge(practice.status)" #badge>
+                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
+              </template>
               <!-- Attendance button for completed practices -->
               <template v-if="practice.status === 'completed'" #action>
                 <VButton
@@ -124,12 +138,12 @@
                   Явка
                 </VButton>
               </template>
-            </PracticeListItem>
+            </PracticeListCard>
           </div>
         </template>
         <VEmptyState
           v-else
-          icon="📋"
+          icon="list"
           title="Нет прошедших практик"
           description="Здесь появятся завершённые и отменённые практики"
         />
@@ -154,9 +168,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VSegment, VBadge } from '@/components/ui'
+import { IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
-import PracticeListItem from '@/components/master/PracticeListItem.vue'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import { formatShortDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
+import { masterPracticeBadge } from '@/utils/practiceStatus'
 import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
@@ -177,6 +194,14 @@ const pastPractices = computed((): PracticeResponse[] =>
     .filter((p) => p.status === 'completed' || p.status === 'cancelled')
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
 )
+
+const tabOptions = computed(() => [
+  { value: 'upcoming', label: 'Предстоящие', badge: upcomingPractices.value.length || undefined },
+  { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
+])
+
+// Status badge → shared masterPracticeBadge (only draft/completed/cancelled get
+// a badge; scheduled/live/deleted → null = no badge).
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()
@@ -200,7 +225,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 100px;
+  border-radius: var(--radius-xl);
   background: var(--velo-glass-blue-15);
   transition: opacity var(--transition-fast);
 }
@@ -211,45 +236,12 @@ onMounted(async () => {
 
 /* -- Tabs -- */
 .master-practices__tabs {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-3) 0;
   background: transparent;
 }
 
-.master-practices__tab {
-  flex: 1;
-  padding: var(--space-2) var(--space-3);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.master-practices__tab--active {
-  color: white;
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-}
-
-.master-practices__tab-count {
-  background: rgba(255, 255, 255, 0.3);
-  color: inherit;
-  font-size: var(--text-xs);
-  font-weight: 400;
-  padding: 1px 6px;
-  border-radius: var(--radius-full);
-}
+/* (tab buttons + count badge now provided by <VSegment>) */
 
 /* -- Content -- */
 .master-practices__loader {
@@ -260,7 +252,8 @@ onMounted(async () => {
 
 .master-practices__content {
   flex: 1;
-  padding: var(--space-3) var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-3) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -268,6 +261,14 @@ onMounted(async () => {
 
 .master-practices__card {
   cursor: pointer;
+}
+
+/* Subtitle override for master's own practice: participants · price */
+.master-practices__details {
+  display: flex;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
 .master-practices__load-more {

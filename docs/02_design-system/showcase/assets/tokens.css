@@ -70,6 +70,7 @@
   /* --- Typography primitives --------------------------------------------- */
   --font-body: 'Marmelad', 'Noto Sans', sans-serif;
   --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Roboto Mono', monospace;  /* code/id display (AttendanceView) */
 
   --text-xs: 14px;
   --text-sm: 15px;
@@ -138,6 +139,7 @@
   --velo-bg-end:        var(--velo-white);
   --velo-bg-subtle:     rgba(98, 122, 156, 0.06);   /* = blue-500 @ 6% */
   --velo-bg-card-solid: var(--velo-white);          /* opaque white content card */
+  --velo-scrim:         rgba(0, 0, 0, 0.5);         /* modal/sheet backdrop (VModal) — sole black usage, overlay only */
 
   /* --- Text -------------------------------------------------------------- */
   --velo-text-primary:   var(--velo-blue-700);

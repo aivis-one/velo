@@ -37,7 +37,7 @@
       <!-- Empty state -->
       <VEmptyState
         v-else-if="!loading && items.length === 0"
-        icon="✅"
+        icon="success"
         title="Жалоб нет"
         description="По выбранным фильтрам ничего не найдено"
       />
@@ -50,14 +50,13 @@
 
         <!-- List -->
         <div class="admin-reports__list">
-          <div
+          <VCard
             v-for="item in items"
             :key="item.id"
             class="admin-reports__card"
-            role="button"
-            tabindex="0"
+            clickable
+            padding="none"
             @click="openDetail(item)"
-            @keydown.enter.space.prevent="openDetail(item)"
           >
             <div class="admin-reports__card-header">
               <VBadge :variant="reportStatusVariant(item.status)">
@@ -71,7 +70,7 @@
             <div class="admin-reports__card-date">
               {{ formatShortDate(item.created_at) }}
             </div>
-          </div>
+          </VCard>
         </div>
 
         <!-- Load more -->
@@ -94,7 +93,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VBadge, VButton, VLoader, VEmptyState, VSelect } from '@/components/ui'
+import { VBadge, VButton, VLoader, VEmptyState, VSelect, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getReports } from '@/api/admin'
 import type { ReportResponse, ReportStatusFilter, ReportTargetTypeFilter } from '@/api/admin'
@@ -134,9 +133,9 @@ const statusOptions = [
 
 const targetTypeOptions = [
   { value: '', label: 'Все типы' },
-  { value: 'user', label: '👤 Юзер' },
-  { value: 'master', label: '🧘 Мастер' },
-  { value: 'practice', label: '📅 Практика' },
+  { value: 'user', label: 'Юзер' },
+  { value: 'master', label: 'Мастер' },
+  { value: 'practice', label: 'Практика' },
 ]
 
 async function loadInitial(): Promise<void> {
@@ -248,17 +247,12 @@ onMounted(loadInitial)
 }
 
 .admin-reports__card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-reports__card:active {

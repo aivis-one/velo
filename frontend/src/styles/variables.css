@@ -12,7 +12,6 @@
 :root {
   /* === Colors: Primary === */
   --velo-primary: #627a9c;
-  --velo-primary-light: #627a9c;
   --velo-primary-dark: #4c6589;
 
   /* === Colors: Background === */
@@ -22,6 +21,7 @@
   /* --velo-bg-card (glass blue) removed 2026-06-03 — legacy, 0 uses; white cards
      use --velo-bg-card-solid; glass surfaces use --velo-glass-*. */
   --velo-bg-card-solid: #ffffff;  /* opaque white content card (Figma dashboard 10/11, flow screens) */
+  --velo-scrim: rgba(0, 0, 0, 0.5);  /* dark backdrop behind modals/sheets (VModal) */
 
   /* === Colors: Text === */
   --velo-text-primary: #4c6589;
@@ -82,14 +82,23 @@
   /* === Typography === */
   --font-body: 'Marmelad', 'Noto Sans', sans-serif;
   --font-heading: 'Marmelad', 'Noto Sans', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
 
+  /* Легаси семантическая шкала. --text-3xl удалён 2026-06-06 (был дубль
+     --text-xl = 32px). */
   --text-xs: 14px;
   --text-sm: 15px;
   --text-base: 18px;
   --text-lg: 20px;
   --text-xl: 32px;
   --text-2xl: 50px;
-  --text-3xl: 32px;
+
+  /* Чётная мелкая типо-шкала (дневник/мета): 8/10/12/16. 14px = --text-xs
+     (переиспользуем, отдельного --text-14 нет — без дублей). */
+  --text-8: 8px;
+  --text-10: 10px;
+  --text-12: 12px;
+  --text-16: 16px;
 
   /* === Spacing === */
   --space-1: 4px;
@@ -97,14 +106,12 @@
   --space-3: 14px;
   --space-4: 16px;
   --space-5: 24px;
-  --space-6: 24px;
   --space-8: 33px;
   --space-10: 48px;
 
   /* === Borders === */
-  --radius-sm: 15px;
+  /* --radius-sm/lg удалены 2026-06-06 (были дубли --radius-md = 15px). */
   --radius-md: 15px;
-  --radius-lg: 15px;
   --radius-xl: 100px;
   --radius-full: 9999px;
   --velo-radius-badge: 5px;          /* единый радиус карточных бейджей-статусов (rect) */
@@ -174,6 +181,20 @@
   --velo-fog-z2: 40px;
   --velo-fog-z3: 70px;
   --velo-fog-z4: 90px;
+  /* practice-detail fog override (operator-tuned 2026-06-09): softer top dissolve
+     under the header + tighter bottom so the «Записаться бесплатно» CTA stays crisp
+     над таб-баром. Read by UserShell → passed to MobileLayout (values flow through
+     JS, hence tokens declared here as the single reusable source).
+       pd-top-gap  — px added below the measured header island (clearance)
+       pd-top-hard — fully-transparent top zone
+       pd-bot-fade — bottom fade zone
+       pd-bot-hard — fully-transparent bottom zone under the tab bar
+     TODO(roadmap): migrate the default fog (z1..z4 vs the literals hardcoded in
+     MobileLayout) + this set onto one token scheme when the master screens close. */
+  --velo-fog-pd-top-gap: 25px;
+  --velo-fog-pd-top-hard: 60px;
+  --velo-fog-pd-bot-fade: 50px;
+  --velo-fog-pd-bot-hard: 90px;
   /* Header-island clearance (G-1) is no longer a fixed token pair: MobileLayout
      MEASURES the floating island's height (ResizeObserver) and clears exactly
      that much, so any island (short greeting or tall title+weekstrip) gets the
@@ -223,6 +244,11 @@
   --velo-card-iconcol-w: 58px;
   /* Единый бордер карточек (заменяет хардкод #fff / --velo-white в карточках). */
   --velo-border-card: #ffffff;
+  /* Белый рим НЕ-карточных поверхностей: стекло, кнопки, пилюли, чипы, nav.
+     Значение совпадает с --velo-border-card (#fff), но роль другая —
+     «рим стекла» vs «бордер карты». Разделены, чтобы правка одного не задевала
+     другое (напр. сделать стекло полупрозрачным одной строкой). */
+  --velo-glass-border: #ffffff;
 
   /* === VELΘ: Banner DS tokens === */
   --velo-banner-padding: 15px;

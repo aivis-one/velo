@@ -71,7 +71,7 @@
         />
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
-          Далее →
+          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
         </VButton>
       </template>
 
@@ -84,7 +84,7 @@
         <!-- Methods checkboxes (custom native markup; DS Checkbox spec in showcase) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-          <div class="apply-view__checkbox-list">
+          <VCard class="apply-view__checkbox-list" padding="none">
             <label
               v-for="method in AVAILABLE_METHODS"
               :key="method"
@@ -97,7 +97,7 @@
                 @change="toggleMethod(method)"
               />
               <span class="apply-view__checkbox-mark">
-                {{ form.methods.includes(method) ? '✓' : '' }}
+                <IconCheck v-if="form.methods.includes(method)" :size="14" />
               </span>
               <span class="apply-view__checkbox-label">{{ method }}</span>
             </label>
@@ -109,7 +109,7 @@
                 @change="toggleOtherMethod"
               />
               <span class="apply-view__checkbox-mark">
-                {{ otherMethodEnabled ? '✓' : '' }}
+                <IconCheck v-if="otherMethodEnabled" :size="14" />
               </span>
               <span class="apply-view__checkbox-label">Другое</span>
             </label>
@@ -118,7 +118,7 @@
               v-model="otherMethodText"
               placeholder="Укажите направление..."
             />
-          </div>
+          </VCard>
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
 
@@ -139,7 +139,7 @@
         />
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
-          Далее →
+          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
         </VButton>
       </template>
 
@@ -153,7 +153,7 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <IconFile :size="28" class="apply-view__upload-icon" />
             <p class="apply-view__upload-text">+ Загрузить документ</p>
           </div>
           <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
@@ -163,27 +163,27 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Сертификаты</label>
           <div class="apply-view__upload-area">
-            <span class="apply-view__upload-icon">📄</span>
+            <IconFile :size="28" class="apply-view__upload-icon" />
             <p class="apply-view__upload-text">+ Добавить сертификат</p>
           </div>
           <p class="apply-view__hint">Можно загрузить несколько файлов.</p>
         </div>
 
         <!-- Terms checkbox (custom native markup) -->
-        <div class="apply-view__terms">
+        <VCard class="apply-view__terms" padding="none">
           <label class="apply-view__checkbox-item" @click="form.termsAccepted = !form.termsAccepted">
             <span
               class="apply-view__checkbox-mark"
               :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
             >
-              {{ form.termsAccepted ? '✓' : '' }}
+              <IconCheck v-if="form.termsAccepted" :size="14" />
             </span>
             <span class="apply-view__checkbox-label">
               Я соглашаюсь с условиями использования
             </span>
           </label>
           <p v-if="errors.terms" class="apply-view__field-error">{{ errors.terms }}</p>
-        </div>
+        </VCard>
 
         <VButton
           variant="primary"
@@ -204,7 +204,8 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
+import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -389,8 +390,6 @@ async function submit(): Promise<void> {
   padding: var(--space-3) var(--space-4);
   background: var(--velo-glass-blue-15);
   border-bottom: 1px solid var(--velo-border-light);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__progress-step {
@@ -412,7 +411,8 @@ async function submit(): Promise<void> {
 /* -- Content area -- */
 .apply-view__content {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -443,11 +443,6 @@ async function submit(): Promise<void> {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__checkbox-item {
@@ -473,7 +468,7 @@ async function submit(): Promise<void> {
   width: 22px;
   height: 22px;
   border: 2px solid var(--velo-border-light);
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--velo-primary);
@@ -519,7 +514,14 @@ async function submit(): Promise<void> {
 }
 
 .apply-view__upload-icon {
-  font-size: 28px;
+  /* Vector IconFile (was a 28px emoji). */
+  color: var(--velo-text-muted);
+}
+
+/* Forward arrow on the "Далее" step buttons (currentColor = white). */
+.apply-view__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .apply-view__upload-text {
@@ -535,14 +537,9 @@ async function submit(): Promise<void> {
 /* -- Terms -- */
 .apply-view__terms {
   padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .apply-view__next {

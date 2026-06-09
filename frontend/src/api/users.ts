@@ -18,7 +18,7 @@
 // =============================================================================
 
 import { api } from '@/api/client'
-import type { UserResponse, UserUpdate } from '@/api/types'
+import type { UserResponse, UserUpdate, UserRole } from '@/api/types'
 
 /**
  * Fetch the authenticated user's profile.
@@ -48,4 +48,15 @@ export function updateMe(body: UserUpdate): Promise<UserResponse> {
  */
 export function deleteMe(): Promise<void> {
   return api.delete('/api/v1/users/me')
+}
+
+/**
+ * Switch the authenticated user's own role (TEST-ONLY tester tool).
+ *
+ * Backend: POST /api/v1/users/me/role. Only works when the server has
+ * ROLE_SWITCH_ENABLED on (404 otherwise) and `role` is in the caller's
+ * seeded allow-list (403 otherwise). Returns the updated profile.
+ */
+export function switchRole(role: UserRole): Promise<UserResponse> {
+  return api.post<UserResponse>('/api/v1/users/me/role', { role })
 }

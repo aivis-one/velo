@@ -16,6 +16,7 @@
       :placeholder="placeholder"
       :rows="rows"
       :disabled="disabled"
+      v-bind="$attrs"
       @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
     />
     <span v-if="error" class="v-textarea__error">{{ error }}</span>
@@ -23,6 +24,10 @@
 </template>
 
 <script setup lang="ts">
+// inheritAttrs:false — forward native attrs (maxlength/inputmode/…) onto the
+// inner <textarea>, not the wrapper div. Parity with VInput/VSelect.
+defineOptions({ inheritAttrs: false })
+
 withDefaults(
   defineProps<{
     modelValue?: string

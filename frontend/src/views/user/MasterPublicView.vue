@@ -3,7 +3,7 @@
 
   Public master profile shown to users who tap "Подробнее" on a practice's
   master card (frame 4). Figma node 541:2065:
-    - Hero card: avatar, name, "✓ Верифицирован" badge + "N лет опыта" pill, bio
+    - Hero card: avatar, name, "check Верифицирован" badge + "N лет опыта" pill, bio
     - Two stat cards: practices_count "Практик" / reviews_count "Отзывов"
     - "Методы" accordion (method chips)
     - "Ближайшие практики": upcoming practices by this master (reuses
@@ -29,7 +29,7 @@
     <!-- Error / not found -->
     <VEmptyState
       v-else-if="error || !profile"
-      icon="⚠️"
+      icon="warning"
       title="Мастер не найден"
       :description="error ?? 'Профиль недоступен'"
     >
@@ -39,7 +39,7 @@
     <!-- Content -->
     <div v-else class="master-public__content">
       <!-- Hero -->
-      <div class="master-public__hero">
+      <VCard class="master-public__hero" padding="none">
         <VAvatar :url="profile.avatar_url ?? ''" :name="displayName" size="xl" />
 
         <h1 class="master-public__name">{{ displayName }}</h1>
@@ -57,18 +57,20 @@
         </div>
 
         <p v-if="profile.bio" class="master-public__bio">{{ profile.bio }}</p>
-      </div>
+      </VCard>
 
       <!-- Stats -->
       <div class="master-public__stats">
-        <div class="master-public__stat">
-          <div class="master-public__stat-value">{{ profile.practices_count }}</div>
-          <div class="master-public__stat-label">{{ pluralPractices(profile.practices_count) }}</div>
-        </div>
-        <div class="master-public__stat">
-          <div class="master-public__stat-value">{{ profile.reviews_count }}</div>
-          <div class="master-public__stat-label">{{ pluralReviews(profile.reviews_count) }}</div>
-        </div>
+        <VStatCard
+          layout="row"
+          :value="profile.practices_count"
+          :label="pluralPractices(profile.practices_count)"
+        />
+        <VStatCard
+          layout="row"
+          :value="profile.reviews_count"
+          :label="pluralReviews(profile.reviews_count)"
+        />
       </div>
 
       <!-- Methods accordion -->
@@ -87,7 +89,7 @@
       <!-- Ближайшие практики: СВЁРНУТЫЙ по умолчанию аккордеон (operator
            2026-06-05) — чтобы кнопка «Задать вопрос» была сразу видна, без
            скролла мимо всех практик. Заголовок = белая плашка (консистентно с
-           «Методы»); тело прозрачное → карточки лежат отдельными прямоугольниками
+           «Методы»); тело прозрачное -> карточки лежат отдельными прямоугольниками
            на фоне (не сливаются бело-на-белом). show-date: практики идут в разные
            дни — карточка показывает дату под иконкой + время в мета-линии. -->
       <div v-if="upcoming.length" class="master-public__upcoming">
@@ -117,7 +119,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar, VStatCard, VCard } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { IconCheck } from '@/components/icons'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -224,9 +226,6 @@ onMounted(async () => {
 
 /* Hero */
 .master-public__hero {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
-  border-radius: var(--radius-md);
   padding: var(--space-5) var(--space-4);
   display: flex;
   flex-direction: column;
@@ -276,38 +275,14 @@ onMounted(async () => {
   margin: var(--space-1) 0 0;
 }
 
-/* Stats */
+/* Stats — two compact baseline-row VStatCards (layout="row"), each flexes equally. */
 .master-public__stats {
   display: flex;
   gap: var(--space-3);
 }
 
-/* Compact: value + label on one baseline row (was a tall card with a 50px
-   number). Significantly smaller per design feedback. */
-.master-public__stat {
+.master-public__stats > * {
   flex: 1;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
-.master-public__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.master-public__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* Sections */
@@ -319,7 +294,7 @@ onMounted(async () => {
 
 /* «Ближайшие практики» — свёрнутый аккордеон. Контейнер прозрачный (чтобы тело
  * не было белой плашкой), заголовок = белая плашка как «Методы», тело прозрачное
- * → карточки лежат на фоне отдельными прямоугольниками (без «слитности»). */
+ * -> карточки лежат на фоне отдельными прямоугольниками (без «слитности»). */
 .master-public__upcoming :deep(.v-accordion) {
   background: transparent;
   border: none;
@@ -351,7 +326,7 @@ onMounted(async () => {
    экране практики; локально, без правки общего VAccordion). */
 :deep(.v-accordion) {
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-white);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   border-bottom: none;
   overflow: hidden;

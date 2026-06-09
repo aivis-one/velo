@@ -1,7 +1,7 @@
 <!--
   VELO Frontend -- MasterProfileView (Phase F7, updated TD-FE-ROLE-SWITCH)
 
-  Master profile screen. Route: /master/profile (tab "👤 Я").
+  Master profile screen. Route: /master/profile (tab "Я").
   No masterStatusGuard -- accessible even while pending (so master sees their info).
 
   Sections:
@@ -9,13 +9,13 @@
        Data from masterStore.profile (lazy fetch on mount).
 
     2. Payout settings -- inline form (v-show).
-       - payout === null  → "Не настроено" banner + кнопка "Добавить реквизиты"
-       - payout !== null  → method label + masked details + кнопка "Изменить"
+       - payout === null  -> "Не настроено" banner + кнопка "Добавить реквизиты"
+       - payout !== null  -> method label + masked details + кнопка "Изменить"
        - Form: VSelect method + dynamic fields by method:
-           bank_transfer → iban (required), account_holder (optional), swift (optional)
-           paypal        → email (required)
-           revolut       → tag (required)
-       - PATCH /me/payout → masterStore.profile.payout updated in-place + toast.success
+           bank_transfer -> iban (required), account_holder (optional), swift (optional)
+           paypal        -> email (required)
+           revolut       -> tag (required)
+       - PATCH /me/payout -> masterStore.profile.payout updated in-place + toast.success
        - Client-side validation before submit (iban not empty, email has @, tag not empty)
        - Double-submit guard
 
@@ -45,49 +45,43 @@
       <!-- ==================================================================
            SECTION 1: PROFILE HEADER
            ================================================================== -->
-      <div class="master-profile__header">
+      <VCard class="master-profile__header" padding="none">
         <VAvatar :name="displayName" size="xl" />
 
         <div class="master-profile__header-info">
           <h1 class="master-profile__name">{{ displayName }}</h1>
-          <VBadge v-if="isVerified" variant="success">✓ Верифицирован</VBadge>
+          <VBadge v-if="isVerified" variant="success"><IconCheck :size="13" />Верифицирован</VBadge>
           <VBadge v-else variant="warning">На рассмотрении</VBadge>
         </div>
-      </div>
+      </VCard>
 
       <!-- Bio -->
-      <div v-if="bio" class="master-profile__section">
+      <VCard v-if="bio" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">О СЕБЕ</div>
         <p class="master-profile__bio">{{ bio }}</p>
-      </div>
+      </VCard>
 
       <!-- Methods chips -->
-      <div v-if="methods.length > 0" class="master-profile__section">
+      <VCard v-if="methods.length > 0" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">НАПРАВЛЕНИЯ</div>
         <div class="master-profile__chips">
-          <span
-            v-for="method in methods"
-            :key="method"
-            class="master-profile__chip"
-          >
-            {{ method }}
-          </span>
+          <VChip v-for="method in methods" :key="method">{{ method }}</VChip>
         </div>
-      </div>
+      </VCard>
 
       <!-- Experience -->
-      <div v-if="experienceYears != null" class="master-profile__section">
+      <VCard v-if="experienceYears != null" class="master-profile__section" padding="none">
         <div class="master-profile__section-title">ОПЫТ</div>
         <p class="master-profile__experience">
           {{ experienceYears }} {{ pluralYears(experienceYears) }}
         </p>
-      </div>
+      </VCard>
 
       <!-- ==================================================================
            SECTION 2: PAYOUT SETTINGS
            ================================================================== -->
-      <div class="master-profile__section master-profile__payout-section">
-        <div class="master-profile__section-title">💳 РЕКВИЗИТЫ ВЫПЛАТ</div>
+      <VCard class="master-profile__section master-profile__payout-section" padding="none">
+        <div class="master-profile__section-title">РЕКВИЗИТЫ ВЫПЛАТ</div>
 
         <!-- Current state (not editing) -->
         <template v-if="!showPayoutForm">
@@ -183,17 +177,19 @@
             </VButton>
           </div>
         </div>
-      </div>
+      </VCard>
 
       <!-- ==================================================================
            SECTION 3: FINANCE LINK
            ================================================================== -->
-      <div
+      <VCard
         class="master-profile__finance-link"
+        padding="none"
+        clickable
         @click="router.push({ name: 'master-finance' })"
       >
         <div class="master-profile__finance-link-left">
-          <span class="master-profile__finance-link-icon">💰</span>
+          <IconFinance :size="28" class="master-profile__finance-link-icon" />
           <div>
             <div class="master-profile__finance-link-title">Финансы и выводы</div>
             <div class="master-profile__finance-link-sub">
@@ -201,8 +197,8 @@
             </div>
           </div>
         </div>
-        <span class="master-profile__finance-link-arrow">→</span>
-      </div>
+        <IconArrowRight :size="20" class="master-profile__finance-link-arrow" />
+      </VCard>
 
       <!-- ==================================================================
            SECTION 4: SWITCH TO USER MODE (TD-FE-ROLE-SWITCH)
@@ -213,9 +209,12 @@
           Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
         </p>
         <VButton variant="secondary" @click="switchToUserMode">
-          Перейти в интерфейс пользователя →
+          Перейти в интерфейс пользователя<IconArrowRight :size="18" class="master-profile__btn-arrow" />
         </VButton>
       </div>
+
+      <!-- Role switch (TEST-ONLY tester tool; renders nothing for normal masters) -->
+      <RoleSwitchSection />
     </template>
   </div>
 </template>
@@ -223,7 +222,9 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader } from '@/components/ui'
+import { VButton, VBadge, VAvatar, VInput, VSelect, VLoader, VCard, VChip } from '@/components/ui'
+import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
+import { IconCheck, IconFinance, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
@@ -469,7 +470,9 @@ onMounted(async () => {
 
 <style scoped>
 .master-profile {
-  padding: var(--space-4);
+  /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
+     screen rail. Vertical kept. Matches the User zone. */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -487,11 +490,6 @@ onMounted(async () => {
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__header-info {
@@ -511,12 +509,7 @@ onMounted(async () => {
 
 /* -- Generic section -- */
 .master-profile__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__section-title {
@@ -547,19 +540,11 @@ onMounted(async () => {
   gap: var(--space-2);
 }
 
-.master-profile__chip {
-  padding: var(--space-1) var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: 100px;
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-primary);
-}
+/* (method chips now provided by <VChip>) */
 
 /* -- Payout section -- */
 .master-profile__payout-section {
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-border-card);
 }
 
 .master-profile__payout-empty {
@@ -616,14 +601,9 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   cursor: pointer;
   transition: opacity var(--transition-fast);
   gap: var(--space-3);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-profile__finance-link:active {
@@ -637,8 +617,13 @@ onMounted(async () => {
 }
 
 .master-profile__finance-link-icon {
-  font-size: 28px;
   flex-shrink: 0;
+  color: var(--velo-text-primary);
+}
+
+.master-profile__btn-arrow {
+  margin-left: var(--space-2);
+  vertical-align: middle;
 }
 
 .master-profile__finance-link-title {

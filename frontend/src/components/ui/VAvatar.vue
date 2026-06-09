@@ -58,7 +58,7 @@ const initials = computed(() => {
 .v-avatar--sm {
   width: 32px;
   height: 32px;
-  font-size: 12px;
+  font-size: var(--text-12);
 }
 
 .v-avatar--md {

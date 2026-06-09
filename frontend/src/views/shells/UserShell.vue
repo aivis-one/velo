@@ -13,6 +13,7 @@
     :fill="isFillRoute"
     :hide-tab-bar="isDiaryRoute || isFormRoute || keyboardOpen"
     :fog="isFogRoute"
+    v-bind="fogTuning"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -64,16 +65,47 @@ const isFormRoute = computed(() =>
   FORM_ROUTES.includes(route.name as string),
 )
 
-// Edge-to-edge fog mask: ONLY the long scrolling lists/feeds. Detail screens,
-// forms and the profile opt out (their footers/actions must stay crisp). The
-// diary owns its own fog via fill mode, so it is not listed here.
+// Edge-to-edge fog mask: the long scrolling lists/feeds + the practice-detail
+// screen (operator 2026-06-09: dissolve its hero under the header and its CTA
+// over the tabbar instead of a hard collision). Forms and the profile still
+// opt out (their footers/actions must stay crisp). The diary owns its own fog
+// via fill mode, so it is not listed here.
 const FOG_ROUTES = [
   'user-dashboard',
   'user-calendar',
   'user-bookings',
   'user-master-public',
+  'practice-detail',
 ]
 const isFogRoute = computed(() =>
   FOG_ROUTES.includes(route.name as string),
+)
+
+// Per-screen fog tuning. The list feeds keep MobileLayout's defaults
+// (16/40/70/90 — omitted = unchanged). practice-detail uses a softer top
+// dissolve + tighter bottom so the «Записаться бесплатно» CTA stays crisp above
+// the tab bar. The four numbers live as --velo-fog-pd-* tokens (variables.css,
+// single reusable source); read once here since the values flow through JS into
+// MobileLayout. Confirmed on the .tmp preview 2026-06-09.
+let pdFogCache: {
+  topGap: number; fogTopHard: number; fogBotFade: number; fogBotHard: number
+} | null = null
+function practiceDetailFog() {
+  if (pdFogCache) return pdFogCache
+  const cs = getComputedStyle(document.documentElement)
+  const tok = (name: string, fallback: number): number => {
+    const n = parseInt(cs.getPropertyValue(`--velo-fog-pd-${name}`), 10)
+    return Number.isFinite(n) ? n : fallback
+  }
+  pdFogCache = {
+    topGap: tok('top-gap', 25),
+    fogTopHard: tok('top-hard', 60),
+    fogBotFade: tok('bot-fade', 50),
+    fogBotHard: tok('bot-hard', 90),
+  }
+  return pdFogCache
+}
+const fogTuning = computed(() =>
+  route.name === 'practice-detail' ? practiceDetailFog() : {},
 )
 </script>

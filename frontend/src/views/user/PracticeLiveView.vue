@@ -43,14 +43,14 @@
     />
 
     <!-- Info card -->
-    <div class="live__info">
+    <VCard class="live__info">
       <h2 class="live__title">{{ practice?.title ?? 'Практика' }}</h2>
       <p class="live__master">с {{ practice?.master_name ?? 'Мастером' }}</p>
       <span class="live__badge">
         <span class="live__badge-dot" />
         В эфире
       </span>
-    </div>
+    </VCard>
 
     <!-- Actions -->
     <div class="live__actions">
@@ -98,7 +98,7 @@ import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
 import { platform } from '@/platform'
-import { VButton, VBackButton } from '@/components/ui'
+import { VButton, VBackButton, VCard } from '@/components/ui'
 import PracticePlaceholder from '@/components/shared/PracticePlaceholder.vue'
 
 const route = useRoute()
@@ -207,10 +207,10 @@ onMounted(() => {
 .live {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
   /* Horizontal rail comes from MobileLayout (--velo-rail-pad-x); only vertical
      padding here so content sits on the single 24px rail (no double inset). */
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
   min-height: 100%;
 }
 
@@ -233,10 +233,6 @@ onMounted(() => {
   align-items: center;
   text-align: center;
   gap: var(--space-2);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
 }
 
 .live__title {

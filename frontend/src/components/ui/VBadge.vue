@@ -8,6 +8,18 @@
     <VBadge variant="warning">Ожидание</VBadge>
     <VBadge variant="error">Отменено</VBadge>
     <VBadge variant="info">Новое</VBadge>
+    <VBadge variant="blue">Бесплатно</VBadge>
+    <VBadge variant="muted">Не состоялась</VBadge>
+
+  `blue` is the calm price/free tone (blue-100 / primary), shared by the
+  practice-card "Бесплатно"/price badges so they no longer hand-roll their own
+  span. `muted` is the low-key blue-grey tone (glass-blue-15 / text-secondary)
+  for non-alarming "didn't happen" states (no_show → «Не состоялась»); VELO has
+  no pure grey, so it reuses existing DS tokens rather than a new colour. Same
+  4×10 / radius-badge shape as every other variant.
+
+  NOTE: `info` is a duplicate of `success` (same teal) — prefer `success`/`blue`;
+  `info` is kept only for backward compatibility.
 -->
 
 <template>
@@ -19,7 +31,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'success' | 'warning' | 'error' | 'info'
+    variant?: 'success' | 'warning' | 'error' | 'info' | 'blue' | 'muted'
   }>(),
   {
     variant: 'info',
@@ -57,5 +69,18 @@ withDefaults(
 .v-badge--info {
   background: var(--velo-glass-teal-30);
   color: var(--velo-teal-600);
+}
+
+/* Blue -- calm price / "free" tone (matches VTag blue colours) */
+.v-badge--blue {
+  background: var(--velo-blue-100);
+  color: var(--velo-primary);
+}
+
+/* Muted -- low-key blue-grey for non-alarming "didn't happen" (no_show).
+   Reuses existing DS tokens (no pure-grey in the palette). */
+.v-badge--muted {
+  background: var(--velo-glass-blue-15);
+  color: var(--velo-text-secondary);
 }
 </style>

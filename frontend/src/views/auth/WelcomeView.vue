@@ -89,7 +89,7 @@ const { isStandalone } = useAuth()
      the centered logo jump when dvh resolved / the inset arrived after paint.
      Mirror MobileLayout: height 100%, no own safe-area. */
   min-height: 100%;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: transparent;
   text-align: center;
   /* Logo is intentionally larger than the viewport (matches Figma bleed).
@@ -148,7 +148,7 @@ const { isStandalone } = useAuth()
   font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   box-shadow: var(--velo-shadow-glow);

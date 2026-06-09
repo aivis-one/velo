@@ -28,7 +28,7 @@
 
     <div class="pending-view__content">
       <!-- Submitted icon -->
-      <div class="pending-view__icon">✓</div>
+      <div class="pending-view__icon"><IconCheck :size="40" /></div>
 
       <h2 class="pending-view__title">Заявка отправлена!</h2>
 
@@ -61,12 +61,12 @@
       </div>
 
       <!-- Info card -->
-      <div class="pending-view__info-card">
+      <VCard class="pending-view__info-card" padding="none">
         <p class="pending-view__info-text">
           Когда ваша заявка будет рассмотрена, вы получите
           уведомление в Telegram.
         </p>
-      </div>
+      </VCard>
 
       <!-- Refresh button -->
       <VButton
@@ -94,7 +94,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VBadge, VLoader } from '@/components/ui'
+import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
+import { IconCheck } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -179,7 +180,8 @@ async function refreshStatus(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-8) var(--space-4) var(--space-6);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-8) 0 var(--space-5);
   gap: var(--space-4);
 }
 
@@ -235,11 +237,6 @@ async function refreshStatus(): Promise<void> {
 .pending-view__info-card {
   width: 100%;
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .pending-view__info-text {

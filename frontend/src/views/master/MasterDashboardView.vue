@@ -40,9 +40,9 @@
       <div class="master-dashboard__greeting">
         <div>
           <h2 class="master-dashboard__greeting-name">
-            Привет, {{ displayName }}! 👋
+            Привет, {{ displayName }}!
           </h2>
-          <VBadge variant="success">✓ Верифицирован</VBadge>
+          <VBadge variant="success"><IconCheck :size="13" />Верифицирован</VBadge>
         </div>
         <VAvatar :name="displayName" size="md" />
       </div>
@@ -56,7 +56,7 @@
         <div v-if="frozenCents > 0" class="master-dashboard__balance-frozen">
           Заморожено: {{ formattedFrozen }}
         </div>
-        <span class="master-dashboard__balance-arrow">→</span>
+        <IconArrowRight :size="22" class="master-dashboard__balance-arrow" />
       </div>
 
       <!-- ================================================================
@@ -64,25 +64,16 @@
            F7/F9: real data. For now shows "—" placeholders.
            ================================================================ -->
       <div class="master-dashboard__section-header">
-        <span class="master-dashboard__section-title">📊 Моя статистика</span>
+        <span class="master-dashboard__section-title">Моя статистика</span>
         <button class="master-dashboard__period-toggle" aria-label="Переключить период" @click="togglePeriod">
-          {{ period === 'week' ? 'Неделя ▼' : 'Месяц ▼' }}
+          {{ period === 'week' ? 'Неделя' : 'Месяц' }}
         </button>
       </div>
 
       <div class="master-dashboard__stats-grid">
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">практик</div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">участников</div>
-        </div>
-        <div class="master-dashboard__stat-card">
-          <div class="master-dashboard__stat-value">—</div>
-          <div class="master-dashboard__stat-label">доход</div>
-        </div>
+        <VStatCard value="—" label="практик" />
+        <VStatCard value="—" label="участников" />
+        <VStatCard value="—" label="доход" />
       </div>
 
       <div class="master-dashboard__divider" />
@@ -90,20 +81,20 @@
       <!-- ================================================================
            AI SUMMARY (placeholder — F9)
            ================================================================ -->
-      <div class="master-dashboard__ai-card">
-        <div class="master-dashboard__ai-header">🧠 Саммари недели</div>
+      <VCard class="master-dashboard__ai-card" padding="none">
+        <div class="master-dashboard__ai-header">Саммари недели</div>
         <div class="master-dashboard__ai-content">
           Аналитика по итогам практик появится здесь после проведения
           первых занятий.
         </div>
-      </div>
+      </VCard>
 
       <div class="master-dashboard__divider" />
 
       <!-- ================================================================
            NEAREST PRACTICE
            ================================================================ -->
-      <div class="master-dashboard__section-title">📅 Ближайшая практика</div>
+      <div class="master-dashboard__section-title">Ближайшая практика</div>
 
       <template v-if="masterStore.practicesLoading">
         <div class="master-dashboard__loading-row">
@@ -112,12 +103,14 @@
       </template>
 
       <template v-else-if="nearestPractice">
-        <div
+        <VCard
           class="master-dashboard__practice-card"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practice-edit', params: { id: nearestPractice.id } })"
         >
           <div class="master-dashboard__practice-header">
-            <span class="master-dashboard__practice-icon">{{ typeEmoji(nearestPractice.practice_type) }}</span>
+            <component :is="practiceIconFor(nearestPractice)" :size="24" class="master-dashboard__practice-icon" />
             <div class="master-dashboard__practice-info">
               <div class="master-dashboard__practice-title">{{ nearestPractice.title }}</div>
               <div class="master-dashboard__practice-meta">
@@ -125,20 +118,17 @@
                 · {{ formatDuration(nearestPractice.duration_minutes) }}
               </div>
             </div>
-            <VBadge :variant="statusVariant(nearestPractice.status)">
-              {{ statusLabel(nearestPractice.status) }}
-            </VBadge>
           </div>
           <div class="master-dashboard__practice-participants">
             {{ formatParticipants(nearestPractice.current_participants, nearestPractice.max_participants) }}
             · {{ formatMoney(nearestPractice.price_cents, nearestPractice.currency) }}
           </div>
-        </div>
+        </VCard>
       </template>
 
       <template v-else>
         <VEmptyState
-          icon="📅"
+          icon="calendar"
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
@@ -153,49 +143,58 @@
       <!-- ================================================================
            QUICK ACTIONS
            ================================================================ -->
-      <div class="master-dashboard__section-title">⚡ Быстрые действия</div>
+      <div class="master-dashboard__section-title">Быстрые действия</div>
       <div class="master-dashboard__actions-grid">
-        <button
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practice-new' })"
         >
-          <span class="master-dashboard__action-icon">➕</span>
+          <IconPlus :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Создать практику</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-practices' })"
         >
-          <span class="master-dashboard__action-icon">📋</span>
+          <IconList :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Мои практики</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-analytics' })"
         >
-          <span class="master-dashboard__action-icon">📈</span>
+          <IconAnalytics :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Аналитика</span>
-        </button>
-        <button
+        </VCard>
+        <VCard
           class="master-dashboard__action-btn"
+          padding="none"
+          clickable
           @click="router.push({ name: 'master-finance' })"
         >
-          <span class="master-dashboard__action-icon">💰</span>
+          <IconFinance :size="28" class="master-dashboard__action-icon" />
           <span class="master-dashboard__action-label">Финансы</span>
-        </button>
+        </VCard>
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBadge, VAvatar, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from '@/components/ui'
+import { IconCheck, IconArrowRight, IconPlus, IconList, IconAnalytics, IconFinance } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import { PRACTICE_TYPE_EMOJI } from '@/utils/displayHelpers'
-import type { PracticeType, PracticeStatus } from '@/api/types'
+import { practiceIconFor } from '@/utils/displayHelpers'
+import { practiceHasEnded } from '@/utils/practiceStatus'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -222,52 +221,40 @@ const formattedFrozen = computed(() =>
   formatMoney(frozenCents.value, 'EUR', 'ru', true),
 )
 
+// Reactive clock (60s) so the nearest card drops off exactly when the practice
+// ends — symmetric with the user dashboard.
+const now = ref(Date.now())
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
 // -- Nearest upcoming / live practice --
-// Sorted ascending by scheduled_at; picks first scheduled or live.
+// Scheduled/live AND not yet ended (now < end); soonest first. At the practice's
+// end the card leaves the dashboard → it lives on in «Практики / прошедшие».
 const nearestPractice = computed(() => {
   const upcoming = masterStore.practices
-    .filter((p) => p.status === 'scheduled' || p.status === 'live')
+    .filter((p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value))
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
   return upcoming[0] ?? null
 })
 
-// -- Practice type emoji -- imported from displayHelpers
-function typeEmoji(t: PracticeType): string {
-  return PRACTICE_TYPE_EMOJI[t] ?? '🧘'
-}
-
-// -- Practice status badge helpers --
-const STATUS_LABEL: Partial<Record<PracticeStatus, string>> = {
-  draft: 'Черновик',
-  scheduled: 'Запланирована',
-  live: 'В эфире',
-  completed: 'Завершена',
-  cancelled: 'Отменена',
-}
-function statusLabel(s: PracticeStatus): string {
-  return STATUS_LABEL[s] ?? s
-}
-
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
-  switch (s) {
-    case 'live':      return 'success'
-    case 'scheduled': return 'info'
-    case 'draft':     return 'warning'
-    default:          return 'error'
-  }
-}
-
 // -- Load data on mount --
 onMounted(async () => {
+  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
 })
 </script>
 
 <style scoped>
 .master-dashboard {
-  padding: var(--space-4);
+  /* F-5 rail sync: horizontal padding removed — MobileLayout already supplies
+     the 24px screen rail (--velo-rail-pad-x). Vertical kept for header/tab-bar
+     breathing room. Matches the User zone (see MyBookingsView). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -302,7 +289,7 @@ onMounted(async () => {
   position: relative;
   background: var(--velo-primary);
   color: white;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
   transition: opacity var(--transition-fast);
@@ -324,7 +311,7 @@ onMounted(async () => {
 
 .master-dashboard__balance-value {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   letter-spacing: 0.02em;
 }
@@ -368,7 +355,7 @@ onMounted(async () => {
   font-weight: 400;
   color: var(--velo-primary);
   padding: var(--space-1) var(--space-2);
-  border-radius: 100px;
+  border-radius: var(--radius-xl);
   background: var(--velo-glass-blue-15);
   transition: opacity var(--transition-fast);
 }
@@ -384,31 +371,6 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-.master-dashboard__stat-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  text-align: center;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.master-dashboard__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.master-dashboard__stat-label {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  margin-top: 2px;
-}
-
 /* -- Divider -- */
 .master-dashboard__divider {
   height: 1px;
@@ -417,12 +379,7 @@ onMounted(async () => {
 
 /* -- AI summary card -- */
 .master-dashboard__ai-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__ai-header {
@@ -450,14 +407,9 @@ onMounted(async () => {
 
 /* -- Nearest practice card -- */
 .master-dashboard__practice-card {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__practice-card:active {
@@ -472,9 +424,9 @@ onMounted(async () => {
 }
 
 .master-dashboard__practice-icon {
-  font-size: 24px;
   flex-shrink: 0;
-  line-height: 1;
+  /* Vector direction icon (was a 24px emoji). */
+  color: var(--velo-text-primary);
 }
 
 .master-dashboard__practice-info {
@@ -521,13 +473,8 @@ onMounted(async () => {
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   transition: opacity var(--transition-fast);
   cursor: pointer;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .master-dashboard__action-btn:hover {
@@ -539,8 +486,8 @@ onMounted(async () => {
 }
 
 .master-dashboard__action-icon {
-  font-size: 28px;
-  line-height: 1;
+  /* Vector DS icon inherits this as currentColor (was a 28px emoji glyph). */
+  color: var(--velo-text-primary);
 }
 
 .master-dashboard__action-label {

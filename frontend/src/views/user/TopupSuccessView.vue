@@ -9,7 +9,7 @@
 
 <template>
   <div class="topup-result">
-    <div class="topup-result__icon">✅</div>
+    <IconSuccess :size="64" class="topup-result__icon" />
     <h1 class="topup-result__title">Баланс пополнен!</h1>
     <p class="topup-result__text">
       Ваш текущий баланс:
@@ -42,6 +42,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VLoader } from '@/components/ui'
+import { IconSuccess } from '@/components/icons'
 import { useBalanceStore } from '@/stores/balance'
 
 const router = useRouter()
@@ -63,12 +64,12 @@ onMounted(async () => {
   justify-content: center;
   min-height: 60vh;
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .topup-result__icon {
-  font-size: 64px;
   margin-bottom: var(--space-4);
+  color: var(--velo-teal-700);
 }
 
 .topup-result__title {
@@ -90,7 +91,7 @@ onMounted(async () => {
 
 .topup-result__balance {
   font-family: var(--font-body);
-  font-size: var(--text-3xl);
+  font-size: var(--text-xl);
   font-weight: 400;
   color: var(--velo-primary);
   margin-bottom: var(--space-8);

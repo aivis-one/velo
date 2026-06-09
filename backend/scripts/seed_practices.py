@@ -24,6 +24,10 @@ seed_practices.py
   seed (по умолчанию)  -- досев. Существующее не трогает, недостающее создаёт.
   --reset              -- снос своих данных + пересев из JSON.
   --clean              -- только снос своих данных.
+  promote-master       -- хирургически выдать ОДНОМУ реальному юзеру роль master
+                          + verified-профиль из сценария promote_master (НЕ сеет
+                          практики, НЕ сносит; маркер manual_master_grant вне
+                          clean/reset). Идемпотентно/перезаписываемо.
   --dry-run            -- флаг к любому режиму. Показывает план без записи в БД.
   --yes                -- пропустить интерактивное подтверждение (для скриптинга).
 
@@ -33,6 +37,10 @@ seed_practices.py
   docker compose exec app python scripts/seed_practices.py --clean
   docker compose exec app python scripts/seed_practices.py --reset --dry-run
   docker compose exec app python scripts/seed_practices.py --reset --yes
+  docker compose exec app python scripts/seed_practices.py promote-master \
+      --scenario 8457062539 --dry-run
+  docker compose exec app python scripts/seed_practices.py promote-master \
+      --scenario 8457062539 --yes
 
 Источник данных: scripts/seed_practices.json (рядом с этим файлом).
 Маркеры своих данных:
@@ -52,6 +60,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import json
 import sys
 from datetime import datetime, timedelta, timezone
@@ -121,6 +130,40 @@ from seed import create_seed_booking, project_seed_booking_events  # noqa: E402
 SEED_SOURCE = "seed_practices_v2"
 TID_MIN = 10001
 TID_MAX = 10012
+
+# Marker for MasterProfiles attached to role-switch TESTERS (real accounts that
+# may switch into the master role). MUST differ from SEED_SOURCE: cmd_clean
+# deletes the User of every MasterProfile whose data.seed.source == SEED_SOURCE,
+# and these profiles hang off REAL tester accounts we must NEVER delete. With a
+# distinct source they are invisible to _collect_our_ids, so clean/reset leave
+# the tester accounts (and these profiles) intact.
+SEED_SOURCE_TESTER = "seed_role_switch_tester"
+
+# Marker for MasterProfiles created by the `promote-master` command — a manual,
+# surgical grant of the master role to ONE real account (e.g. the project owner).
+# Distinct from SEED_SOURCE / SEED_SOURCE_TESTER so cmd_clean/_collect_our_ids
+# NEVER sweep this live account on a reset/clean.
+MANUAL_GRANT_SOURCE = "manual_master_grant"
+
+# Valid role strings for the role-switch allow-list (mirrors UserRole).
+_VALID_ROLE_VALUES = {r.value for r in UserRole}
+
+# Synthetic participant pool (fake accounts) for master-side seeding: they book
+# onto tester-owned practices so attendance/analytics have data. Fake range, so
+# clean/reset DELETES these accounts entirely (unlike the real testers).
+SYNTH_TID_MIN = 10101
+SYNTH_TID_MAX = 10199
+
+# Defaults for the per-tester "as_master" block (when as_master == true).
+# Counts are clamped to the available participant pool at seed time.
+TESTER_MASTER_DEFAULTS = {
+    "practices": 10,            # own practices spread over ±2 weeks
+    "participants_completed": 6,  # attendees per completed practice
+    "noshow_completed": 1,        # of which marked no_show
+    "checkins_completed": 4,      # attendees leaving a check-in (mood)
+    "feedbacks_completed": 4,     # attendees leaving a feedback (rating)
+    "participants_scheduled": 4,  # confirmed bookings per scheduled practice
+}
 
 # ── База-библиотека + сценарии ───────────────────────────────────────────────
 # Контент (мастера/practice_templates/пулы текстов) — единый источник правды в
@@ -208,8 +251,8 @@ def parse_args() -> argparse.Namespace:
         "command",
         nargs="?",
         default="seed",
-        choices=("seed", "reset", "clean"),
-        help="seed (default) | reset | clean",
+        choices=("seed", "reset", "clean", "promote-master"),
+        help="seed (default) | reset | clean | promote-master",
     )
     p.add_argument(
         "--reset", action="store_true",
@@ -433,6 +476,7 @@ def resolve_source(scenario: str, explicit_source: str | None = None) -> dict:
         "fixed_schedule": scen.get("fixed_schedule", []),
         "fixed_zoom_link": scen.get("fixed_zoom_link"),
         "test_users": scen.get("test_users", []),
+        "participant_pool": scen.get("participant_pool", []),
         "_scenario": scenario if not explicit_source else scen_path.name,
     }
     if not data["schedule"]:
@@ -704,7 +748,16 @@ async def ensure_practice(
     p_yaml: dict,
     dry_run: bool,
     batch_iso: str,
+    *,
+    force_orm: bool = False,
 ) -> tuple[Practice | None, str]:
+    """Create-or-return a practice owned by master_user.
+
+    force_orm=True forces the direct ORM-insert path for BOTH past and future
+    practices (with manual validation), bypassing the service. Used for
+    tester-owned practices: the testers' base role is USER (they switch up),
+    so the master-only service path must not be taken for their future practices.
+    """
     existing = await _find_practice_by_key(session, p_yaml["key"])
     if existing:
         return existing, "existing"
@@ -716,7 +769,7 @@ async def ensure_practice(
     scheduled_at = datetime.fromisoformat(scheduled_at_str)
     if scheduled_at.tzinfo is None:
         scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
-    is_future = scheduled_at > datetime.now(timezone.utc)
+    is_future = scheduled_at > datetime.now(timezone.utc) and not force_orm
 
     target_status = p_yaml.get("status", "scheduled")
     target_status_valid = {s.value for s in PracticeStatus}
@@ -892,6 +945,40 @@ async def cmd_seed(
             src_boundary=src_boundary,
         )
 
+    # ── Мастер-сторона: тестеры — владельцы своих практик (as_master) ────────
+    master_testers = [tu for tu in test_users if tu.get("as_master")]
+    if master_testers:
+        now_m = datetime.now(timezone.utc)
+        templates_m = source.get("practice_templates", [])
+        m_pools = {
+            "checkin": source.get("checkin_comments", []),
+            "feedback": source.get("feedback_comments", []),
+        }
+        print(f"\n{prefix}Тестеры-мастера (свои практики + участники):")
+        participants = await ensure_participant_pool(
+            session, source.get("participant_pool", []), dry_run,
+        )
+        for tu in master_testers:
+            tester = await _find_user_by_tid(session, tu["telegram_id"])
+            if tester is None:
+                print(f"  ? {tu.get('key', tu['telegram_id'])} (как мастер; "
+                      f"аккаунт ещё не создан)")
+                continue
+            am = tu.get("as_master")
+            overrides = am if isinstance(am, dict) else {}
+            cfg_m = {**TESTER_MASTER_DEFAULTS, **overrides}
+            mstats = await seed_tester_as_master(
+                session, tester, cfg_m, participants, templates_m,
+                m_pools, batch_iso, now_m, dry_run,
+            )
+            print(
+                f"  + {tu.get('key', tu['telegram_id'])}: "
+                f"практик={mstats['practices']}, "
+                f"участников={mstats['participants']}, "
+                f"чек-ины={mstats['checkins']}, отзывы={mstats['feedbacks']}, "
+                f"no_show={mstats['noshow']}"
+            )
+
     if not dry_run:
         await session.commit()
         print("\nSeed завершён, изменения зафиксированы.")
@@ -984,20 +1071,108 @@ async def _practice_has_room(
     return taken < practice.max_participants
 
 
+def _tester_allowed_roles(tu: dict) -> list[str] | None:
+    """Normalize a test user's role-switch allow-list from JSON.
+
+    Reads tu["allowed_roles"], keeps only valid role strings (user/master/
+    admin) preserving order, drops duplicates. Returns None when the field is
+    absent or yields nothing — meaning "ordinary test user, no role switch".
+    """
+    raw = tu.get("allowed_roles")
+    if not isinstance(raw, list):
+        return None
+    roles: list[str] = []
+    for r in raw:
+        if r in _VALID_ROLE_VALUES and r not in roles:
+            roles.append(r)
+    return roles or None
+
+
+def _build_tester_master_profile_data(tu: dict) -> dict:
+    """MasterProfile.data for a role-switch TESTER (verified, minimal).
+
+    Distinct seed marker (SEED_SOURCE_TESTER) so cmd_clean never mistakes the
+    tester for a service master and deletes their real account.
+    """
+    name = tu.get("first_name") or f"Tester {tu['telegram_id']}"
+    return {
+        "account": {
+            "status": "verified",
+            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "verification": None,
+            "rejections": [],
+        },
+        "profile": {
+            "display_name": name,
+            "email": None,
+            "phone": None,
+            "bio": None,
+            "methods": [],
+            "experience_years": None,
+            "certifications": [],
+        },
+        "documents": [],
+        "availability": {"is_accepting": True, "note": None},
+        "settings": {
+            "auto_confirm_bookings": True,
+            "max_participants_default": 20,
+        },
+        "stats": {
+            "total_practices": 0,
+            "total_participants": 0,
+            "avg_rating": None,
+        },
+        "seed": {
+            "source": SEED_SOURCE_TESTER,
+            "test_user_key": tu.get("key"),
+        },
+    }
+
+
+async def _ensure_tester_master_profile(
+    session: AsyncSession, user: User, tu: dict,
+) -> bool:
+    """Ensure a tester who may switch into master has a verified profile.
+
+    Idempotent: skips if any MasterProfile already exists for the user.
+    Returns True if a profile was created.
+    """
+    existing = (await session.execute(
+        select(MasterProfile).where(MasterProfile.user_id == user.id),
+    )).scalar_one_or_none()
+    if existing:
+        return False
+    profile = MasterProfile(user_id=user.id)
+    profile.set_jsonb("data", _build_tester_master_profile_data(tu))
+    session.add(profile)
+    await session.flush()
+    return True
+
+
 async def ensure_test_user(
     session: AsyncSession, tu: dict, dry_run: bool,
 ) -> tuple[User | None, str]:
     """find-or-create тест-юзера по telegram_id.
 
-    Если юзер уже есть — НЕ меняем роль и НЕ перетираем его данные; только
-    добавляем ключ credentials.seed (маркер «наш тест-юзер»). Если нет —
-    создаём с role=USER. Возвращает (user, action) где
-    action ∈ {created, existing, marked, would-create}.
+    Обычный тест-юзер: если уже есть — НЕ меняем роль и НЕ перетираем данные,
+    только добавляем маркер credentials.seed; если нет — создаём с role=USER.
+
+    Role-switch ТЕСТЕР (в JSON задан allowed_roles): дополнительно прописываем
+    credentials.role_switch.allowed_roles, держим базовую роль = USER (свитч
+    идёт вверх от неё), и если в наборе есть master — создаём ему verified
+    MasterProfile (с отдельным маркером SEED_SOURCE_TESTER, чтобы clean не
+    удалил реальный аккаунт). Изменение роли допускаем ТОЛЬКО для наших
+    тестеров (allowed_roles задан) — чужие аккаунты не трогаем.
+
+    Возвращает (user, action), action ∈ {created, existing, marked, would-create}.
     """
+    allowed_roles = _tester_allowed_roles(tu)
     existing = await _find_user_by_tid(session, tu["telegram_id"])
+
     if existing:
         if dry_run:
             return existing, "existing"
+        changed = False
         creds = dict(existing.credentials or {})
         if creds.get("seed", {}).get("source") != SEED_SOURCE:
             creds["seed"] = {
@@ -1005,13 +1180,40 @@ async def ensure_test_user(
                 "test_user_key": tu.get("key"),
                 "first_seeded_at": _now().isoformat(),
             }
+            changed = True
+        if allowed_roles is not None and (
+            creds.get("role_switch", {}).get("allowed_roles") != allowed_roles
+        ):
+            creds["role_switch"] = {"allowed_roles": allowed_roles}
+            changed = True
+        if changed:
             existing.set_jsonb("credentials", creds)
+        # Testers get a deterministic base role = USER on (re)seed; switch up
+        # from there. Only OUR testers (allowed_roles set) — never touch others.
+        if allowed_roles is not None and existing.role != UserRole.USER:
+            existing.role = UserRole.USER
+            changed = True
+        if allowed_roles and "master" in allowed_roles:
+            if await _ensure_tester_master_profile(session, existing, tu):
+                changed = True
+        if changed:
             await session.flush()
             return existing, "marked"
         return existing, "existing"
 
     if dry_run:
         return None, "would-create"
+
+    creds = {
+        "onboarding_completed": True,
+        "seed": {
+            "source": SEED_SOURCE,
+            "test_user_key": tu.get("key"),
+            "first_seeded_at": _now().isoformat(),
+        },
+    }
+    if allowed_roles is not None:
+        creds["role_switch"] = {"allowed_roles": allowed_roles}
 
     user = User(
         telegram_id=tu["telegram_id"],
@@ -1020,20 +1222,17 @@ async def ensure_test_user(
         role=UserRole.USER,
         is_active=True,
     )
-    user.set_jsonb("credentials", {
-        "onboarding_completed": True,
-        "seed": {
-            "source": SEED_SOURCE,
-            "test_user_key": tu.get("key"),
-            "first_seeded_at": _now().isoformat(),
-        },
-    })
+    user.set_jsonb("credentials", creds)
     if tu.get("language"):
         # language — опциональное поле; ставим только если модель его принимает.
         if hasattr(user, "language"):
             user.language = tu["language"]
     session.add(user)
     await session.flush()
+
+    if allowed_roles and "master" in allowed_roles:
+        await _ensure_tester_master_profile(session, user, tu)
+
     return user, "created"
 
 
@@ -1301,6 +1500,191 @@ async def seed_one_test_user(
     return stats
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# MASTER-SIDE SEEDING — тестеры-владельцы практик + синтетические участники
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def ensure_participant_pool(
+    session: AsyncSession, pool_yaml: list[dict], dry_run: bool,
+) -> list[User]:
+    """find-or-create синтетических участников (фейк-аккаунты, TID 10101+).
+
+    Маркер credentials.seed = {source, synthetic: True}. synthetic:True отличает
+    их от реальных тест-юзеров: при clean/reset эти аккаунты УДАЛЯЮТСЯ целиком
+    (каскад по user_id снесёт их брони/чек-ины/фидбеки/события), тогда как
+    реальные тестеры сохраняются.
+    """
+    users: list[User] = []
+    for p in pool_yaml:
+        tid = p["telegram_id"]
+        existing = await _find_user_by_tid(session, tid)
+        if existing:
+            users.append(existing)
+            continue
+        if dry_run:
+            continue
+        user = User(
+            telegram_id=tid,
+            first_name=p.get("first_name") or f"Participant {tid}",
+            last_name=p.get("last_name"),
+            role=UserRole.USER,
+            is_active=True,
+        )
+        user.set_jsonb("credentials", {
+            "onboarding_completed": True,
+            "seed": {
+                "source": SEED_SOURCE,
+                "synthetic": True,
+                "participant_key": p.get("key"),
+            },
+        })
+        session.add(user)
+        await session.flush()
+        users.append(user)
+    return users
+
+
+def _build_tester_practice_dicts(
+    tester: User, templates: list[dict], now: datetime, count: int,
+) -> list[dict]:
+    """Строит practice-dict'ы, принадлежащие тестеру, на ±2 недели.
+
+    Микс completed (прошлое) + один live (now-10м) + scheduled (будущее). Контент
+    из practice_templates (round-robin, сдвиг по TID -> у тестеров разные наборы).
+    Статус по времени. key стабилен (mt-{tid}-{date}-{HHMM}-{tkey}) -> идемпотентно.
+    """
+    tz = ZoneInfo("Europe/Moscow")
+    # Дни относительно сегодня: половина в прошлом (completed), половина в будущем.
+    day_offsets = [-12, -10, -8, -6, -4, -2, 3, 6, 9, 12, 14]
+    slot_hours = [10, 18]
+    rr = (tester.telegram_id or 0)
+    out: list[dict] = []
+
+    def _mk(tmpl: dict, start: datetime, status: str, key: str) -> dict:
+        return {
+            **tmpl,
+            "key": key,
+            "template_key": tmpl["key"],
+            "scheduled_at": start.isoformat(),
+            "timezone": "Europe/Moscow",
+            "status": status,
+            "description": _join_lines(tmpl.get("description")),
+            "what_to_prepare": _join_lines(tmpl.get("what_to_prepare")),
+            "contraindications": _join_lines(tmpl.get("contraindications")),
+        }
+
+    # Одна live-практика (now - 10 минут) — всегда первой.
+    live_tmpl = templates[rr % len(templates)]
+    live_start = (now - timedelta(minutes=10)).astimezone(tz)
+    out.append(_mk(
+        live_tmpl, live_start, "live",
+        f"mt-{tester.telegram_id}-live-{live_tmpl['key']}",
+    ))
+
+    for i, doff in enumerate(day_offsets[: max(0, count - 1)]):
+        tmpl = templates[(rr + i + 1) % len(templates)]
+        day = (now.astimezone(tz) + timedelta(days=doff)).date()
+        hh = slot_hours[i % len(slot_hours)]
+        start = datetime(day.year, day.month, day.day, hh, 0, tzinfo=tz)
+        dur = int(tmpl.get("duration_minutes", 60))
+        end = start + timedelta(minutes=dur)
+        if end <= now:
+            status = "completed"
+        elif start <= now < end:
+            status = "live"
+        else:
+            status = "scheduled"
+        key = f"mt-{tester.telegram_id}-{day.isoformat()}-{hh:02d}00-{tmpl['key']}"
+        out.append(_mk(tmpl, start, status, key))
+    return out
+
+
+async def seed_tester_as_master(
+    session: AsyncSession,
+    tester: User,
+    cfg_m: dict,
+    participants: list[User],
+    templates: list[dict],
+    pools: dict,
+    batch_iso: str,
+    now: datetime,
+    dry_run: bool,
+) -> dict:
+    """Сеет практики, принадлежащие тестеру (мастер-сторона), + участников.
+
+    completed -> участники attended (часть no_show) + чек-ины/фидбеки (для
+    Аналитики/Посещаемости); scheduled/live -> участники confirmed. Брони делают
+    СИНТЕТИКИ (project_seed_booking_events для них НЕ зовём — их фид не нужен;
+    мастеру важны строки Booking/Checkin/Feedback). recalculate_participants в
+    конце по каждой практике.
+    """
+    stats = {"practices": 0, "participants": 0, "checkins": 0,
+             "feedbacks": 0, "noshow": 0}
+    if dry_run:
+        stats["practices"] = cfg_m["practices"]
+        return stats
+    if not templates:
+        return stats
+
+    p_dicts = _build_tester_practice_dicts(
+        tester, templates, now, cfg_m["practices"],
+    )
+    for p_yaml in p_dicts:
+        practice, _action = await ensure_practice(
+            session, tester, p_yaml, dry_run, batch_iso, force_orm=True,
+        )
+        if practice is None:
+            continue
+        stats["practices"] += 1
+        status = p_yaml["status"]
+
+        if status == "completed":
+            n_part = min(cfg_m["participants_completed"], len(participants))
+            n_noshow = min(cfg_m["noshow_completed"], n_part)
+            master_name = await get_master_display_name(practice.master_id, session)
+            attended: list[tuple[User, Booking]] = []
+            for j, part in enumerate(participants[:n_part]):
+                if not await _practice_has_room(session, practice):
+                    break
+                booking = await create_seed_booking(session, part, practice)
+                if booking is None:
+                    continue
+                stats["participants"] += 1
+                if j < n_noshow:
+                    booking.status = BookingStatus.NO_SHOW.value
+                    booking.joined_at = None
+                    booking.left_at = None
+                    await session.flush()
+                    stats["noshow"] += 1
+                else:
+                    attended.append((part, booking))
+            for k, (part, booking) in enumerate(attended):
+                if k < cfg_m["checkins_completed"]:
+                    if await _seed_checkin(session, part, practice, booking,
+                                           master_name, batch_iso, k,
+                                           pools["checkin"]):
+                        stats["checkins"] += 1
+                if k < cfg_m["feedbacks_completed"]:
+                    if await _seed_feedback(session, part, practice, booking,
+                                            master_name, batch_iso, k,
+                                            pools["feedback"]):
+                        stats["feedbacks"] += 1
+        else:
+            # scheduled / live -> confirmed-брони участников.
+            n_part = min(cfg_m["participants_scheduled"], len(participants))
+            for part in participants[:n_part]:
+                if not await _practice_has_room(session, practice):
+                    break
+                booking = await create_seed_booking(session, part, practice)
+                if booking is None:
+                    continue
+                stats["participants"] += 1
+
+        await recalculate_participants(practice.id, session)
+
+    return stats
+
+
 async def cmd_seed_test_users(
     session: AsyncSession,
     test_users: list[dict],
@@ -1383,23 +1767,28 @@ async def _collect_our_ids(
     )
     master_ids = [row[0] for row in master_ids_q.all()]
 
-    if not master_ids:
-        return [], [], [], []
-
+    # Практики собираем по МАРКЕРУ seed.source — это ловит и практики служебных
+    # мастеров, и практики тестеров-мастеров (master_id = реальный тестер, его
+    # MasterProfile помечен SEED_SOURCE_TESTER и в master_ids НЕ попадает).
     practice_ids_q = await session.execute(
-        select(Practice.id).where(Practice.master_id.in_(master_ids)),
+        select(Practice.id).where(
+            Practice.data["seed"]["source"].astext == SEED_SOURCE,
+        ),
     )
     practice_ids = [row[0] for row in practice_ids_q.all()]
 
-    purchase_ids_q = await session.execute(
-        select(Purchase.id).where(Purchase.user_id.in_(master_ids)),
-    )
-    purchase_ids = [row[0] for row in purchase_ids_q.all()]
+    if not master_ids and not practice_ids:
+        return [], [], [], []
 
-    withdrawal_ids_q = await session.execute(
-        select(Withdrawal.id).where(Withdrawal.user_id.in_(master_ids)),
-    )
-    withdrawal_ids = [row[0] for row in withdrawal_ids_q.all()]
+    purchase_ids: list = []
+    withdrawal_ids: list = []
+    if master_ids:
+        purchase_ids = [row[0] for row in (await session.execute(
+            select(Purchase.id).where(Purchase.user_id.in_(master_ids)),
+        )).all()]
+        withdrawal_ids = [row[0] for row in (await session.execute(
+            select(Withdrawal.id).where(Withdrawal.user_id.in_(master_ids)),
+        )).all()]
 
     return master_ids, practice_ids, purchase_ids, withdrawal_ids
 
@@ -1409,13 +1798,75 @@ async def _collect_our_ids(
 
 async def _collect_test_user_ids(session: AsyncSession) -> list:
     """ID тест-юзеров по маркеру credentials.seed.source. Это первичный способ
-    их найти (JSON со списком может быть не передан в clean-режиме)."""
+    их найти (JSON со списком может быть не передан в clean-режиме).
+
+    ВКЛЮЧАЕТ синтетических участников (у них тот же source). Вызывающий код
+    отделяет их через _collect_synthetic_ids: реальные тестеры сохраняются,
+    синтетики удаляются целиком."""
     q = await session.execute(
         select(User.id).where(
             User.credentials["seed"]["source"].astext == SEED_SOURCE,
         ),
     )
     return [row[0] for row in q.all()]
+
+
+async def _collect_synthetic_ids(session: AsyncSession) -> list:
+    """ID синтетических участников (credentials.seed.synthetic == true) —
+    фейк-аккаунты, удаляемые при clean целиком."""
+    q = await session.execute(
+        select(User.id).where(
+            User.credentials["seed"]["synthetic"].astext == "true",
+        ),
+    )
+    return [row[0] for row in q.all()]
+
+
+async def _purge_synthetic_participants(
+    session: AsyncSession, synthetic_ids: list,
+) -> None:
+    """Полностью удаляет синтетических участников: сперва RESTRICT-ссылки
+    (purchases / *_ledger / payments по user_id), затем сами аккаунты — их
+    bookings/checkins/feedbacks/diary_events уходят каскадом по user_id."""
+    if not synthetic_ids:
+        return
+    synth_purchase_ids = [r[0] for r in (await session.execute(
+        select(Purchase.id).where(Purchase.user_id.in_(synthetic_ids)),
+    )).all()]
+    if synth_purchase_ids:
+        await session.execute(delete(CompanyLedger).where(
+            CompanyLedger.reference_id.in_([str(p) for p in synth_purchase_ids]),
+        ))
+        await session.execute(delete(AuditLog).where(
+            AuditLog.target_id.in_(synth_purchase_ids),
+        ))
+    await session.execute(delete(Purchase).where(
+        Purchase.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(MasterLedger).where(
+        MasterLedger.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(UserLedger).where(
+        UserLedger.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(Payment).where(
+        Payment.user_id.in_(synthetic_ids),
+    ))
+    await session.execute(delete(User).where(User.id.in_(synthetic_ids)))
+
+
+async def _purge_tester_master_ledger(
+    session: AsyncSession, tester_ids: list,
+) -> None:
+    """Удаляет seed-проводки master_ledger у тестеров-мастеров (sale-кредиты от
+    броней синтетиков на их практики). Не-seed проводки (без префикса 'seed:')
+    не трогаются; сами аккаунты тестеров сохраняются."""
+    if not tester_ids:
+        return
+    await session.execute(delete(MasterLedger).where(
+        MasterLedger.user_id.in_(tester_ids),
+        MasterLedger.reason.like("seed:%"),
+    ))
 
 
 async def _collect_test_user_data_ids(
@@ -1573,13 +2024,20 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
         await _collect_our_ids(session)
     test_user_ids = await _collect_test_user_ids(session)
 
-    if not master_ids and not test_user_ids:
+    # Синтетических участников отделяем: реальные тестеры сохраняются, синтетики
+    # удаляются целиком (ЭТАП C).
+    synthetic_ids = await _collect_synthetic_ids(session)
+    synthetic_set = set(synthetic_ids)
+    real_test_user_ids = [i for i in test_user_ids if i not in synthetic_set]
+
+    if not master_ids and not test_user_ids and not practice_ids:
         print("  Нет данных для удаления.")
         return
 
-    # Пользовательские sub-ID собираем ДО любого DELETE.
+    # Пользовательские sub-ID собираем ДО любого DELETE (только реальные тестеры;
+    # данные синтетиков снесёт ЭТАП C каскадом по аккаунту).
     tu_ids = await _collect_test_user_data_ids(
-        session, test_user_ids, practice_ids,
+        session, real_test_user_ids, practice_ids,
     )
 
     # Строковые версии UUID для company_ledger.reference_id и Notification JSONB
@@ -1607,7 +2065,8 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
         print(f"  Purchases на наши практики (любых юзеров): {len(purchases_on_ours)}")
         print(f"  Purchases у наших мастеров (нетипично):    {len(purchase_ids)}")
         print(f"  Withdrawals у наших мастеров:              {len(withdrawal_ids)}")
-        print(f"  ── Тест-юзеры (по маркеру credentials.seed): {len(test_user_ids)}")
+        print(f"  ── Тест-юзеры (реальные, сохраняются): {len(real_test_user_ids)}")
+        print(f"  ── Синтетики (удаляются целиком):       {len(synthetic_ids)}")
         print(f"     Их bookings на наши практики:   {len(tu_ids['booking_ids'])}")
         print(f"     Их checkins на наши практики:   {len(tu_ids['checkin_ids'])}")
         print(f"     Их feedbacks на наши практики:  {len(tu_ids['feedback_ids'])}")
@@ -1629,11 +2088,12 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
 
     # ── Реальное удаление ─────────────────────────────────────────────────────
 
-    # ЭТАП A: пользовательские данные тест-юзеров (ДО удаления практик, т.к.
-    # их purchases имеют RESTRICT на practice_id).
-    if test_user_ids:
+    # ЭТАП A: пользовательские данные РЕАЛЬНЫХ тест-юзеров (ДО удаления практик,
+    # т.к. их purchases имеют RESTRICT на practice_id). Аккаунты сохраняются.
+    if real_test_user_ids:
         await _clean_test_user_data(
-            session, test_user_ids, practice_ids, tu_ids, unmark_users=False,
+            session, real_test_user_ids, practice_ids, tu_ids,
+            unmark_users=False,
         )
 
     # ЭТАП B: данные служебных мастеров (FK-safe порядок, как было).
@@ -1761,13 +2221,185 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
             User.id.in_(master_ids),
         ))
 
+    # ЭТАП C: мастер-сторона тестеров. Их практики уже удалены (ЭТАП B по
+    # маркеру), брони/purchases синтетиков на них — тоже (FK safety-net). Здесь:
+    # seed-проводки master_ledger тестеров (sale-кредиты) + полное удаление
+    # синтетических участников (ledger по user_id, затем аккаунт → каскад).
+    await _purge_tester_master_ledger(session, real_test_user_ids)
+    await _purge_synthetic_participants(session, synthetic_ids)
+
     await session.commit()
     print(f"Clean завершён: мастеров {len(master_ids)}, практик "
-          f"{len(practice_ids)}; тест-юзеров затронуто {len(test_user_ids)} "
+          f"{len(practice_ids)}; синтетиков удалено {len(synthetic_ids)}; "
+          f"реальных тест-юзеров затронуто {len(real_test_user_ids)} "
           f"(bookings {len(tu_ids['booking_ids'])}, checkins "
           f"{len(tu_ids['checkin_ids'])}, feedbacks {len(tu_ids['feedback_ids'])}, "
           f"личных записей {len(tu_ids['diary_entry_ids'])}). "
           f"Сами аккаунты тест-юзеров НЕ удалялись.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# promote-master — выдать ОДНОМУ реальному юзеру роль master + verified-профиль
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Зачем отдельно от seed: штатный seed-путь сеет практики/мастеров из schedule и
+# НЕ делает персистентного master (тестеры держатся на role=user + роль-свитч,
+# который на проде выключен). Эта команда хирургическая: трогает РОВНО одного
+# юзера (по telegram_id), синхронно ставит User.role=master И verified
+# MasterProfile (инвариант консистентности 1.3 остаётся зелёным), ничего больше
+# не добавляет и не сносит.
+#
+# Маркер профиля — отдельный MANUAL_GRANT_SOURCE (НЕ SEED_SOURCE), поэтому
+# clean/reset НИКОГДА не заденут этот живой аккаунт.
+#
+# Идемпотентна и ПЕРЕЗАПИСЫВАЕМА: повторный запуск с обновлённым JSON
+# перезаписывает profile.display_name/methods/bio (account/verification/payout/
+# stats/баланс сохраняются). Сценарий — seed_scenarios/<name>.json с секцией
+# promote_master. НЕ требует schedule/extends (мимо resolve_source).
+
+def load_promote_scenario(scenario: str, explicit_source: str | None) -> dict:
+    """Читает JSON-сценарий и возвращает блок promote_master.
+
+    Путь: --source PATH (приоритет) либо seed_scenarios/<scenario>.json.
+    """
+    path = (
+        Path(explicit_source)
+        if explicit_source
+        else SCENARIOS_DIR / f"{scenario}.json"
+    )
+    if not path.exists():
+        raise FileNotFoundError(f"Сценарий не найден: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    cfg = data.get("promote_master")
+    if not isinstance(cfg, dict):
+        raise ValueError(f"{path.name}: нет секции 'promote_master'")
+    if not cfg.get("telegram_id"):
+        raise ValueError(f"{path.name}: promote_master.telegram_id обязателен")
+    return cfg
+
+
+def _build_manual_master_data(
+    user: User,
+    display_name: str | None,
+    methods: list[str],
+    bio: str | None,
+    existing: dict | None,
+) -> dict:
+    """MasterProfile.data для ручной выдачи мастера (всегда verified).
+
+    Мержим поверх существующего data (re-run сохраняет payout/stats/verification),
+    перезаписывая публичные поля профиля из JSON. display_name пуст -> фолбэк на
+    User.first_name (как в get_master_display_name).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    data = copy.deepcopy(existing) if existing else {}
+
+    acct = data.setdefault("account", {})
+    acct["status"] = "verified"
+    acct.setdefault("applied_at", now_iso)
+    acct.setdefault(
+        "verification",
+        {
+            "verified_at": now_iso,
+            "verified_by": "manual_grant",
+            "notes": "manual master grant via seed_practices promote-master",
+        },
+    )
+    acct.setdefault("rejections", [])
+
+    prof = data.setdefault("profile", {})
+    prof["display_name"] = display_name or prof.get("display_name") or user.first_name
+    if methods:
+        prof["methods"] = methods
+    else:
+        prof.setdefault("methods", [])
+    if bio is not None:
+        prof["bio"] = bio
+    else:
+        prof.setdefault("bio", None)
+    prof.setdefault("email", None)
+    prof.setdefault("phone", None)
+    prof.setdefault("experience_years", None)
+    prof.setdefault("certifications", [])
+
+    data.setdefault("documents", [])
+    data.setdefault("availability", {"is_accepting": True, "note": None})
+    data.setdefault(
+        "settings",
+        {"auto_confirm_bookings": True, "max_participants_default": 20},
+    )
+    data.setdefault(
+        "stats",
+        {"total_practices": 0, "total_participants": 0, "avg_rating": None},
+    )
+    data["seed"] = {
+        "source": MANUAL_GRANT_SOURCE,
+        "telegram_id": user.telegram_id,
+        "granted_at": now_iso,
+    }
+    return data
+
+
+async def cmd_promote_master(
+    session: AsyncSession, cfg: dict, dry_run: bool,
+) -> None:
+    tid = int(cfg["telegram_id"])
+    display_name = cfg.get("display_name")
+    methods = list(cfg.get("methods") or [])
+    bio = cfg.get("bio")
+    prefix = "[DRY-RUN] " if dry_run else ""
+
+    print("\n=== PROMOTE-MASTER ===")
+    print(f"{prefix}telegram_id: {tid}")
+
+    user = await _find_user_by_tid(session, tid)
+    if user is None:
+        raise RuntimeError(
+            f"Юзер с telegram_id={tid} не найден в БД. Этот аккаунт должен хоть "
+            f"раз открыть бота (создать строку User), затем повтори команду."
+        )
+
+    existing_profile = await session.get(MasterProfile, user.id)
+    new_data = _build_manual_master_data(
+        user,
+        display_name,
+        methods,
+        bio,
+        existing_profile.data if existing_profile else None,
+    )
+    resolved_name = new_data["profile"]["display_name"]
+    resolved_methods = new_data["profile"]["methods"]
+    # user.role is a plain str on load (column is String(20), not an Enum type),
+    # so format it directly — `.value` would AttributeError. The == below still
+    # works: UserRole is a StrEnum, equal to its string value.
+    role_note = (
+        "уже master"
+        if user.role == UserRole.MASTER
+        else f"{user.role} -> master"
+    )
+    prof_note = "обновим" if existing_profile else "создадим"
+
+    print(f"  user.id={user.id}  role: {role_note}")
+    print(
+        f"  профиль ({prof_note}, verified): "
+        f"display_name={resolved_name!r}, methods={resolved_methods}"
+    )
+
+    if dry_run:
+        print(f"\n{prefix}Ничего не записано.")
+        return
+
+    if existing_profile:
+        existing_profile.set_jsonb("data", new_data)
+    else:
+        profile = MasterProfile(user_id=user.id)
+        profile.set_jsonb("data", new_data)
+        session.add(profile)
+    user.role = UserRole.MASTER
+
+    await session.flush()
+    await session.commit()
+    print("\nГотово, изменения зафиксированы (role=master + verified-профиль).")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1783,6 +2415,18 @@ async def main() -> int:
             print("Отменено.")
             return 1
 
+    # promote-master не деструктивна, но меняет роль реального аккаунта —
+    # лёгкое подтверждение (если не --yes/--dry-run).
+    if args.command == "promote-master" and not args.yes and not args.dry_run:
+        print()
+        print(
+            f"!! PROMOTE-MASTER: выдать роль master по сценарию "
+            f"'{args.source or args.scenario}'."
+        )
+        if input('   Введите "yes" для подтверждения: ').strip().lower() != "yes":
+            print("Отменено.")
+            return 1
+
     source = (
         load_source(args.scenario, args.source)
         if args.command in ("seed", "reset") else None
@@ -1793,6 +2437,10 @@ async def main() -> int:
         if args.command == "seed":
             async with session_factory() as session:
                 await cmd_seed(session, source, args.dry_run)
+        elif args.command == "promote-master":
+            cfg = load_promote_scenario(args.scenario, args.source)
+            async with session_factory() as session:
+                await cmd_promote_master(session, cfg, args.dry_run)
         elif args.command == "clean":
             async with session_factory() as session:
                 await cmd_clean(session, args.dry_run)

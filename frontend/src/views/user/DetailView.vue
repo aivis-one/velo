@@ -40,7 +40,7 @@
       <!-- Error -->
       <VEmptyState
         v-else-if="loadError"
-        icon="⚠️"
+        icon="warning"
         title="Не удалось загрузить запись"
         :description="loadError"
       >
@@ -65,20 +65,20 @@
         </PracticeListCard>
 
         <!-- The check-in / feedback pill -->
-        <div class="detail__pill">
+        <VCard class="detail__pill" padding="none">
           <span class="detail__pill-icon">
             <component :is="leadIcon" :size="32" />
           </span>
           <span class="detail__pill-title">{{ pillTitle }}</span>
-        </div>
+        </VCard>
 
         <!-- The detail card -->
-        <div class="detail__card">
+        <VCard class="detail__card">
           <p class="detail__date">{{ dateLine }}</p>
           <p v-if="comment" class="detail__content">{{ comment }}</p>
           <p v-else class="detail__empty">Без комментария</p>
           <p v-if="contextLine" class="detail__context">{{ contextLine }}</p>
-        </div>
+        </VCard>
       </template>
     </div>
   </div>
@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VBackButton, VBadge } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VBadge, VCard } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconMoodLow,
@@ -292,9 +292,6 @@ function goBack(): void {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
 }
 
@@ -307,24 +304,20 @@ function goBack(): void {
 }
 
 .detail__pill-title {
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
 }
 
 /* -- Detail card (date + full comment) -- */
 .detail__card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
 .detail__date {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   color: var(--velo-text-primary);
@@ -340,7 +333,7 @@ function goBack(): void {
 
 /* Muted context line linking the entry to its practice. */
 .detail__context {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   color: var(--velo-text-secondary);
 }

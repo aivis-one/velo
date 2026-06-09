@@ -69,7 +69,7 @@
       </button>
 
       <!-- Expanded: active-filter chips + collapse -->
-      <div v-else class="calendar__expanded">
+      <VCard v-else class="calendar__expanded" padding="sm">
         <div class="calendar__chips">
           <button
             type="button"
@@ -119,7 +119,7 @@
             />
           </svg>
         </button>
-      </div>
+      </VCard>
     </div>
 
     <!-- Loading (initial) -->
@@ -130,7 +130,7 @@
     <!-- Error -->
     <VEmptyState
       v-else-if="store.error"
-      icon="⚠️"
+      icon="warning"
       title="Не удалось загрузить"
       :description="store.error"
     >
@@ -171,7 +171,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCalendarStore } from '@/stores/calendar'
-import { VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VCard } from '@/components/ui'
 import WeekStrip from '@/components/shared/WeekStrip.vue'
 import { useFloatingHeader } from '@/components/layout/useFloatingHeader'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -368,7 +368,7 @@ onMounted(() => {
   height: 50px;
   padding: 0 var(--space-5);
   background: var(--velo-primary);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);
   cursor: pointer;
   transition: opacity var(--transition-fast);
@@ -381,14 +381,14 @@ onMounted(() => {
 .calendar__select-label {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__funnel {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__expanded {
@@ -396,10 +396,6 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  background: #ffffff;
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
 }
 
 .calendar__chips {
@@ -429,7 +425,7 @@ onMounted(() => {
 
 .calendar__chip--on {
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .calendar__chip--all {

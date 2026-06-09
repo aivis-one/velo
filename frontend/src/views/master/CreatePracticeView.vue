@@ -5,12 +5,12 @@
   Standalone within MasterShell (back button -> master-practices).
 
   Sections (matching mockup screen-practice-create):
-    📝 ОСНОВНОЕ    -- title (required), practice_type (required)
-    📅 РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
-    👥 УЧАСТНИКИ   -- max_participants (null = unlimited)
-    💰 ЦЕНА        -- is_free toggle; if paid: price_cents
-    📝 ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
-    🔗 ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
+    ОСНОВНОЕ    -- title (required), practice_type (required)
+    РАСПИСАНИЕ  -- date, time (combined -> scheduled_at UTC), duration, timezone
+    УЧАСТНИКИ   -- max_participants (null = unlimited)
+    ЦЕНА        -- is_free toggle; if paid: price_cents
+    ОПИСАНИЕ    -- description, what_to_prepare, contraindications (optional)
+    ПОДКЛЮЧЕНИЕ -- zoom_link (optional)
 
   Submit: POST /api/v1/practices (status defaults to 'draft' in backend).
   On success -> show toast + navigate to master-practices + refreshMyPractices().
@@ -41,10 +41,10 @@
 
     <div class="create-practice__content">
       <!-- ================================================================
-           📝 ОСНОВНОЕ
+           ОСНОВНОЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОСНОВНОЕ</div>
+        <div class="create-practice__section-title">ОСНОВНОЕ</div>
 
         <VInput
           v-model="form.title"
@@ -84,32 +84,26 @@
       </div>
 
       <!-- ================================================================
-           📅 РАСПИСАНИЕ
+           РАСПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📅 РАСПИСАНИЕ</div>
+        <div class="create-practice__section-title">РАСПИСАНИЕ</div>
 
-        <div class="create-practice__field">
-          <label class="create-practice__label">Дата *</label>
-          <!-- W-7: todayDate is computed -- never stale after midnight -->
-          <input
-            v-model="form.date"
-            type="date"
-            class="create-practice__date-input"
-            :min="todayDate"
-          />
-          <p v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</p>
-        </div>
+        <!-- W-7: todayDate is computed -- never stale after midnight -->
+        <VInput
+          v-model="form.date"
+          label="Дата *"
+          type="date"
+          :min="todayDate"
+          :error="errors.date"
+        />
 
-        <div class="create-practice__field">
-          <label class="create-practice__label">Время *</label>
-          <input
-            v-model="form.time"
-            type="time"
-            class="create-practice__date-input"
-          />
-          <p v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</p>
-        </div>
+        <VInput
+          v-model="form.time"
+          label="Время *"
+          type="time"
+          :error="errors.time"
+        />
 
         <VSelect
           v-model="form.duration_minutes"
@@ -126,10 +120,10 @@
       </div>
 
       <!-- ================================================================
-           👥 УЧАСТНИКИ
+           УЧАСТНИКИ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">👥 УЧАСТНИКИ</div>
+        <div class="create-practice__section-title">УЧАСТНИКИ</div>
 
         <VInput
           v-model="form.max_participants_raw"
@@ -141,30 +135,17 @@
       </div>
 
       <!-- ================================================================
-           💰 ЦЕНА
+           ЦЕНА
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">💰 ЦЕНА</div>
+        <div class="create-practice__section-title">ЦЕНА</div>
 
-        <!-- Free / Paid radio toggle -->
-        <div class="create-practice__payment-options">
-          <label
-            class="create-practice__payment-option"
-            :class="{ 'create-practice__payment-option--active': form.is_free }"
-            @click="form.is_free = true"
-          >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': form.is_free }" />
-            <span>Бесплатно</span>
-          </label>
-          <label
-            class="create-practice__payment-option"
-            :class="{ 'create-practice__payment-option--active': !form.is_free }"
-            @click="form.is_free = false"
-          >
-            <span class="create-practice__radio" :class="{ 'create-practice__radio--active': !form.is_free }" />
-            <span>Платно</span>
-          </label>
-        </div>
+        <!-- Free / Paid segment -->
+        <VSegment
+          :model-value="form.is_free ? 'free' : 'paid'"
+          :options="PAYMENT_OPTIONS"
+          @update:model-value="form.is_free = $event === 'free'"
+        />
 
         <!-- Price fields (visible only if paid) -->
         <template v-if="!form.is_free">
@@ -176,7 +157,7 @@
             :error="errors.price_cents"
           />
           <!-- W-9: commission calc via COMMISSION_RATE constant -->
-          <div v-if="priceCents > 0" class="create-practice__price-calc">
+          <VCard v-if="priceCents > 0" class="create-practice__price-calc" padding="none">
             <div class="create-practice__price-row">
               <span>Комиссия {{ commissionPct }}%</span>
               <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
@@ -185,15 +166,15 @@
               <span>Вы получите</span>
               <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
             </div>
-          </div>
+          </VCard>
         </template>
       </div>
 
       <!-- ================================================================
-           📝 ОПИСАНИЕ
+           ОПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">📝 ОПИСАНИЕ</div>
+        <div class="create-practice__section-title">ОПИСАНИЕ</div>
 
         <VTextarea
           v-model="form.description"
@@ -218,10 +199,10 @@
       </div>
 
       <!-- ================================================================
-           🔗 ПОДКЛЮЧЕНИЕ
+           ПОДКЛЮЧЕНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">🔗 ПОДКЛЮЧЕНИЕ</div>
+        <div class="create-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
 
         <VInput
           v-model="form.zoom_link"
@@ -252,7 +233,7 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard, VSegment } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -283,6 +264,11 @@ const PRACTICE_TYPE_OPTIONS: { label: string; value: string }[] = [
   { label: 'Серия занятий (series)',  value: 'series' },
   { label: 'Индивидуально (1-on-1)', value: 'one_on_one' },
   { label: 'Запись (replay)',         value: 'replay' },
+]
+
+const PAYMENT_OPTIONS = [
+  { value: 'free', label: 'Бесплатно' },
+  { value: 'paid', label: 'Платно' },
 ]
 
 // W-7: computed so todayDate is never stale after midnight
@@ -484,7 +470,8 @@ async function submit(): Promise<void> {
 
 .create-practice__content {
   flex: 1;
-  padding: var(--space-4);
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
+  padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -508,95 +495,8 @@ async function submit(): Promise<void> {
   border-bottom: 1px solid var(--velo-border-light);
 }
 
-/* -- Native date/time inputs -- */
-.create-practice__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.create-practice__label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-.create-practice__date-input {
-  width: 100%;
-  padding: 12px var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: 5px;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-
-.create-practice__date-input:focus {
-  border-color: var(--velo-border-input-focus);
-}
-
-.create-practice__field-error {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-error);
-}
-
-/* -- Payment toggle -- */
-.create-practice__payment-options {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.create-practice__payment-option {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  background: var(--velo-glass-blue-15);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  transition: all var(--transition-fast);
-}
-
-.create-practice__payment-option--active {
-  border-color: var(--velo-primary);
-  color: white;
-  background: var(--velo-primary);
-}
-
-.create-practice__radio {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid var(--velo-border-light);
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-
-.create-practice__radio--active {
-  border-color: white;
-  background: var(--velo-glass-blue-60);
-}
-
 /* -- Price calc preview -- */
 .create-practice__price-calc {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;

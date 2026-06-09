@@ -157,8 +157,8 @@ function onTap(): void {
 <style scoped>
 /* All colors/spacing via design tokens (variables.css) -- no hardcoded hex
    (P1 audit) and no ad-hoc px for padding/margin/gap (P3 audit). Font sizes
-   use the exact Figma values (16 / 12.375px); the type scale has no 16px
-   token and the audit does not gate font-size. */
+   use the even type scale (--text-16 / --text-12); legacy 12.375px -> --text-12
+   (U4a 2026-06-06). */
 
 .feed-card {
   width: 100%;
@@ -198,12 +198,12 @@ function onTap(): void {
 }
 
 .feed-card__banner-title {
-  font-size: 12px;
+  font-size: var(--text-12);
   letter-spacing: 0.24px;
 }
 
 .feed-card__banner-subtitle {
-  font-size: 12px;
+  font-size: var(--text-12);
   letter-spacing: 0.24px;
   opacity: 0.85;
 }
@@ -228,7 +228,7 @@ function onTap(): void {
 }
 
 .feed-card__practice-title {
-  font-size: 16px;
+  font-size: var(--text-16);
   /* 2026-05-29: text-align LEFT, anchored at icon right edge (V3 fix, см.
    * аналогичную правку в PracticeListCard). Раньше center — при разной
    * длине titles левый край плавал ±7px по горизонтали. */
@@ -267,7 +267,7 @@ function onTap(): void {
 }
 
 .feed-card__master-name {
-  font-size: 12px;
+  font-size: var(--text-12);
   color: var(--velo-text-secondary);
 }
 
@@ -286,7 +286,7 @@ function onTap(): void {
   width: 46px;
   flex-shrink: 0;
   text-align: center;
-  font-size: 12px;
+  font-size: var(--text-12);
   color: var(--velo-text-secondary);
   white-space: nowrap;
 }
@@ -306,7 +306,7 @@ function onTap(): void {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 12px;
+  font-size: var(--text-12);
   color: var(--velo-text-secondary);
 }
 
@@ -316,7 +316,7 @@ function onTap(): void {
   gap: var(--space-1);
   padding: 3px var(--space-2);
   border-radius: var(--velo-radius-badge);
-  font-size: 12px;
+  font-size: var(--text-12);
 }
 
 .feed-card__outcome--attended {
@@ -362,7 +362,7 @@ function onTap(): void {
 }
 
 .feed-card__date {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   white-space: nowrap;
@@ -401,7 +401,7 @@ function onTap(): void {
 }
 
 .feed-card__title {
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -409,7 +409,7 @@ function onTap(): void {
 }
 
 .feed-card__preview {
-  font-size: 12.375px;
+  font-size: var(--text-12);
   letter-spacing: 0.2475px;
   opacity: 0.6;
   /* Two-line teaser; the full text opens on tap (Variant B). line-clamp

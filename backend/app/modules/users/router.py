@@ -16,11 +16,17 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db_session
+from app.core.exceptions import NotFoundError
 from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
-from app.modules.users.schemas import UserResponse, UserUpdate
-from app.modules.users.service import reset_user_to_onboarding, update_user
+from app.modules.users.schemas import RoleSwitchRequest, UserResponse, UserUpdate
+from app.modules.users.service import (
+    reset_user_to_onboarding,
+    switch_user_role,
+    update_user,
+)
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 
@@ -52,6 +58,30 @@ async def update_me(
     Only fields present in the request body are updated.
     """
     updated = await update_user(user, body, session)
+    return UserResponse.model_validate(updated)
+
+
+@router.post("/me/role", response_model=UserResponse)
+async def switch_my_role(
+    body: RoleSwitchRequest,
+    user: User = Depends(get_current_user_write),
+    session: AsyncSession = Depends(get_db_session),
+) -> UserResponse:
+    """Switch the caller's own role (TEST-ONLY tester tool).
+
+    Gated by settings.role_switch_enabled: when off (always so on production)
+    the endpoint returns 404, hiding its existence. When on, the caller may
+    switch to any role in their seeded credentials.role_switch.allowed_roles
+    set (else 403); switching to master requires a verified MasterProfile
+    (else 409). The role is rewritten on the User row in place, so every
+    existing role guard keeps working unchanged on subsequent requests.
+
+    get_current_user_write + Depends(get_db_session) share one session
+    (TD-029), so the mutation and the user load use the same connection.
+    """
+    if not settings.role_switch_enabled:
+        raise NotFoundError()
+    updated = await switch_user_role(user, body.role, session)
     return UserResponse.model_validate(updated)
 
 

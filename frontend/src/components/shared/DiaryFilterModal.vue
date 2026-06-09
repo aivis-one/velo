@@ -127,24 +127,19 @@
       <section class="diary-filter__group">
         <div class="diary-filter__chips">
           <!-- "Все" -- active when nothing else is selected. -->
-          <button
-            type="button"
-            class="diary-filter__chip"
-            :class="{ 'diary-filter__chip--on': draft.length === 0 }"
-            @click="selectAll"
-          >
+          <VChip size="md" clickable :active="draft.length === 0" @click="selectAll">
             Все
-          </button>
-          <button
+          </VChip>
+          <VChip
             v-for="opt in CATEGORY_CHIPS"
             :key="opt.value"
-            type="button"
-            class="diary-filter__chip"
-            :class="{ 'diary-filter__chip--on': draft.includes(opt.value) }"
+            size="md"
+            clickable
+            :active="draft.includes(opt.value)"
             @click="toggle(opt.value)"
           >
             {{ opt.label }}
-          </button>
+          </VChip>
         </div>
       </section>
 
@@ -158,7 +153,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { VModal, VButton } from '@/components/ui'
+import { VModal, VButton, VChip } from '@/components/ui'
 import { IconArrowRight } from '@/components/icons'
 import type { DiaryFeedCategory } from '@/api/types'
 
@@ -434,7 +429,7 @@ function onReset(): void {
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .diary-filter__header-icon svg {
@@ -462,29 +457,7 @@ function onReset(): void {
   gap: var(--space-2);
 }
 
-.diary-filter__chip {
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid #ffffff;
-  background: var(--velo-glass-blue-15);
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-
-.diary-filter__chip:hover {
-  opacity: 0.85;
-}
-
-.diary-filter__chip--on {
-  background: var(--velo-primary);
-  border-color: var(--velo-primary);
-  color: #ffffff;
-}
+/* (filter chips now provided by <VChip size="md" clickable>) */
 
 /* -- Date range (screen 43) -- */
 .diary-filter__date-toggle {
@@ -498,7 +471,7 @@ function onReset(): void {
   border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: #ffffff;
+  color: var(--velo-white);
   cursor: pointer;
 }
 
@@ -568,7 +541,7 @@ function onReset(): void {
 .diary-filter__cal-weekday {
   text-align: center;
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: var(--text-10);
   color: var(--velo-text-secondary);
   padding-bottom: var(--space-1);
 }
@@ -604,7 +577,7 @@ function onReset(): void {
 /* Range ends: solid primary. */
 .diary-filter__cal-day--edge {
   background: var(--velo-primary);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .diary-filter__date-clear {

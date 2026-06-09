@@ -89,9 +89,12 @@
       >
         <template #badge>
           <VBadge v-if="nearestIsLive" variant="success">
-            · В эфире
+            <span class="dashboard__live-dot" /> В эфире
           </VBadge>
-          <VBadge v-else-if="nearestBooking.purchase_id" variant="success">
+          <VBadge v-else-if="nearestIsFree" variant="blue">
+            Бесплатно
+          </VBadge>
+          <VBadge v-else variant="blue">
             <IconCheck :size="12" /> Оплачено
           </VBadge>
         </template>
@@ -155,7 +158,7 @@
         </div>
       </div>
 
-      <div class="dashboard__ai-card">
+      <VCard>
         <p class="dashboard__ai-text">
           <template v-if="aiPeriod === 'week'">
             На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик
@@ -175,9 +178,9 @@
           <IconMoodHigh :size="40" />
           <span class="dashboard__ai-mood-label">до</span>
         </div>
-      </div>
+      </VCard>
 
-      <!-- "Подробнее" → AI-summary screen (16). Единый VMoreLink (слово +
+      <!-- "Подробнее" -> AI-summary screen (16). Единый VMoreLink (слово +
            белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
       <div class="dashboard__ai-more">
         <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
@@ -192,7 +195,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VButton, VBadge, VMoreLink, VStatCard } from '@/components/ui'
+import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/components/ui'
 import {
   IconClock,
   IconFeedback,
@@ -205,6 +208,7 @@ import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { formatShortDate, formatTime, formatDuration, isToday } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
+import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
@@ -320,9 +324,19 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
   return candidates.sort((a, b) => startMs(a) - startMs(b))[0] ?? null
 })
 
-/** True when the nearest practice is currently live (status from PracticeSummary). */
+/**
+ * True when the nearest practice is happening right now — decided by CLIENT TIME
+ * (start ≤ now < end) via the shared isLiveNow, NOT by the master's manual
+ * status='live' flip. Keeps the «В эфире» badge in sync with «Мои бронирования»
+ * and makes it appear/disappear exactly on schedule, no backend/cron dependency.
+ */
 const nearestIsLive = computed((): boolean =>
-  nearestBooking.value?.practice.status === 'live',
+  nearestBooking.value ? isLiveNow(nearestBooking.value, now.value) : false,
+)
+
+/** True when the nearest practice is free (badge «Бесплатно» vs «Оплачено»). */
+const nearestIsFree = computed((): boolean =>
+  nearestBooking.value ? isFree(nearestBooking.value) : false,
 )
 
 /**
@@ -362,13 +376,14 @@ function onZoomClick(): void {
 }
 
 /**
- * Open the nearest practice. A live practice goes to the Practice-Live
- * screen (Zoom entry); otherwise to the practice detail. status is now
- * available on PracticeSummary (backend), so no extra fetch is needed.
+ * Open the nearest practice. Routing uses the BACKEND status='live' (an actually
+ * running session the master started → Practice-Live / Zoom entry); otherwise
+ * the practice detail. (The «В эфире» BADGE is client-time, so it can show while
+ * routing still points to detail until the master starts the live session.)
  */
 function openNearest(): void {
   if (!nearestBooking.value) return
-  if (nearestIsLive.value) {
+  if (nearestBooking.value.practice.status === 'live') {
     router.push({
       name: 'practice-live',
       params: { practiceId: nearestBooking.value.practice_id },
@@ -389,8 +404,8 @@ function openNearest(): void {
  */
 const viewerTz = useViewerTimezone()
 
-// Dashboard "Ближайшая практика": today → time (it's clearly today), any other
-// day → the short date — one value, so the user instantly knows when it is.
+// Dashboard "Ближайшая практика": today -> time (it's clearly today), any other
+// day -> the short date — one value, so the user instantly knows when it is.
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
   const iso = nearestBooking.value.practice.scheduled_at
@@ -461,7 +476,7 @@ onUnmounted(() => {
 
 /* ===== Sections ===== */
 .dashboard__section {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 
 .dashboard__section-title {
@@ -479,6 +494,15 @@ onUnmounted(() => {
  * Карточка ближайшей практики — shared PracticeListCard (см.
  * components/shared/PracticeListCard.vue). Все card-стили перенесены туда,
  * здесь остаётся только spacing вокруг actions row под карточкой. */
+
+/* Live pulse dot inside the «В эфире» badge (matches BookingCard's live dot). */
+.dashboard__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--velo-teal-600);
+  flex-shrink: 0;
+}
 
 .dashboard__practice-actions {
   display: grid;
@@ -506,7 +530,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-6) 0;
+  padding: var(--space-5) 0;
   text-align: center;
 }
 
@@ -519,7 +543,7 @@ onUnmounted(() => {
 
 /* ===== Progress stats =====
  * Figma 2266:452 — 2 карточки 160×104, gap 16 (--space-4),
- * контент flex-центрирован по обеим осям, gap value→label 9. */
+ * контент flex-центрирован по обеим осям, gap value->label 9. */
 .dashboard__stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -548,7 +572,7 @@ onUnmounted(() => {
   display: flex;
   gap: 2px;
   background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
   padding: 2px;
 }
@@ -568,14 +592,7 @@ onUnmounted(() => {
 
 .dashboard__period-btn--active {
   background: var(--velo-primary);
-  color: #ffffff;
-}
-
-.dashboard__ai-card {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
+  color: var(--velo-white);
 }
 
 .dashboard__ai-text {
@@ -606,7 +623,7 @@ onUnmounted(() => {
   color: var(--velo-text-muted);
 }
 
-/* "Подробнее" → AI-summary screen (16). Сам контрол — общий VMoreLink;
+/* "Подробнее" -> AI-summary screen (16). Сам контрол — общий VMoreLink;
  * здесь только отступ от карточки AI-саммари над ним. */
 .dashboard__ai-more {
   margin-top: var(--space-4);

@@ -39,7 +39,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   /* Fill AppFrame's content area (it owns viewport height + safe-area once,
      app-wide). A fresh 100dvh here double-applies and makes content jump. */
   min-height: 100%;
-  padding: var(--space-6);
+  padding: var(--space-5);
   background: transparent;
   text-align: center;
 }
@@ -79,7 +79,7 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   font-weight: 400;
   text-decoration: none;
   border-radius: var(--radius-full);
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   box-shadow: var(--velo-shadow-glow);

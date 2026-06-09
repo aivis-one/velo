@@ -591,6 +591,9 @@ export interface PracticeSummary {
   master_id: string
   master_name?: string | null
   direction?: string | null
+  is_free: boolean
+  price_cents: number
+  currency: string
 }
 
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */
@@ -707,6 +710,16 @@ export interface ResolveReportRequest {
   resolution_note: string
 }
 
+/** Tester role-switch capability (TEST-ONLY). Present in GET /users/me ONLY when settings.role_switch_enabled is True AND the user was seeded with credentials.role_switch.allowed_roles. The list is the set of roles this tester may switch their own account to via POST /users/me/role. Absent (null) for everyone else and on production. */
+export interface RoleSwitchInfo {
+  allowed_roles: UserRole[]
+}
+
+/** POST /api/v1/users/me/role — target role to switch into (TEST-only). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service against their seeded allowed_roles set. */
+export interface RoleSwitchRequest {
+  role: UserRole
+}
+
 /** Single semaphore check result. name: machine-readable identifier (e.g. "1.1_bookings_eq_purchases"). category: one of 5 categories from VELO-Data-Consistency-Semaphores.md. status: OK if expected == actual, ALERT otherwise. expected: what the check expects (human-readable string or number). actual: what was found. details: optional dict with extra context (e.g. mismatched IDs). criticality: how severe an ALERT is. */
 export interface SemaphoreResult {
   name: string
@@ -795,6 +808,7 @@ export interface UserResponse {
   phone: string | null
   bio: string | null
   notifications: NotificationSettings
+  role_switch: RoleSwitchInfo | null
 }
 
 /** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */

@@ -16,7 +16,7 @@
   - Collapsed with a draft: when blurred with unsent text, the field shows the
     START of that text + ellipsis (single line) instead of the placeholder, so
     the frame does not stay expanded. Tapping it re-opens compose.
-  - Enter inserts a newline (send is the ↑ button only).
+  - Enter inserts a newline (send is the up button only).
   - The unsent draft is mirrored to localStorage (keyed by entryType) on every
     keystroke, so it survives keyboard collapse / accidental navigation on iOS.
 
@@ -278,7 +278,7 @@ async function onSend(): Promise<void> {
   resize: none;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   line-height: 1.3;
   color: var(--velo-text-primary);
@@ -300,7 +300,7 @@ async function onSend(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--text-16);
   letter-spacing: 0.32px;
   color: var(--velo-text-primary);
   opacity: 0.85;
@@ -326,7 +326,7 @@ async function onSend(): Promise<void> {
   border-radius: var(--radius-full);
   cursor: pointer;
   background: var(--velo-nav-active-bg);
-  color: #ffffff;
+  color: var(--velo-white);
   transition:
     opacity var(--transition-fast),
     background var(--transition-fast),

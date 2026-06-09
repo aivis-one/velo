@@ -3,8 +3,8 @@
 
   Primary action element. VELΘ pill-shaped glass design.
 
-  Variants: primary | secondary | danger | ghost | outline (alias → secondary)
-  Sizes:    sm | md (default) | lg (alias → md)
+  Variants: primary | secondary | danger | ghost | outline (alias -> secondary)
+  Sizes:    sm | md (default) | lg (alias -> md)
   States:   disabled, loading (shows spinner + prevents clicks)
 
   Usage:
@@ -74,7 +74,7 @@ const normalizedSize = computed(() =>
   gap: var(--space-2);
   font-family: var(--font-body);
   font-weight: 400;
-  border: 1px solid #ffffff;
+  border: 1px solid var(--velo-glass-border);
   cursor: pointer;
   transition: all var(--transition-base);
   text-decoration: none;

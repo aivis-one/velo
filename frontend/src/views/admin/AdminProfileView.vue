@@ -13,38 +13,43 @@
 <template>
   <div class="admin-profile">
     <!-- Header -->
-    <div class="admin-profile__header">
+    <VCard class="admin-profile__header">
       <VAvatar :name="displayName" size="xl" />
       <div class="admin-profile__header-info">
         <h1 class="admin-profile__name">{{ displayName }}</h1>
         <VBadge variant="info">Администратор</VBadge>
       </div>
-    </div>
+    </VCard>
 
     <!-- Switch to user mode -->
-    <div class="admin-profile__section">
+    <VCard class="admin-profile__section">
       <div class="admin-profile__section-title">РЕЖИМ ПРОСМОТРА</div>
       <p class="admin-profile__section-desc">
         Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
       </p>
       <VButton variant="secondary" @click="switchToUserMode">
-        Перейти в интерфейс пользователя →
+        Перейти в интерфейс пользователя<IconArrowRight :size="18" :style="{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }" />
       </VButton>
-    </div>
+    </VCard>
+
+    <!-- Role switch (TEST-ONLY tester tool; renders nothing for normal admins) -->
+    <RoleSwitchSection />
 
     <!-- Logout -->
-    <div class="admin-profile__section">
+    <VCard class="admin-profile__section">
       <VButton variant="ghost" :loading="loggingOut" @click="onLogout">
-        🚪 Выйти
+        Выйти
       </VButton>
-    </div>
+    </VCard>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { VAvatar, VBadge, VButton } from '@/components/ui'
+import { VAvatar, VBadge, VButton, VCard } from '@/components/ui'
+import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
+import { IconArrowRight } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
@@ -91,12 +96,6 @@ async function onLogout(): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .admin-profile__header-info {
@@ -118,12 +117,6 @@ async function onLogout(): Promise<void> {
 
 /* Sections */
 .admin-profile__section {
-  background: var(--velo-glass-blue-15);
-  border: 1px solid #ffffff;
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

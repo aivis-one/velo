@@ -9,8 +9,6 @@
 // =============================================================================
 
 import type {
-  PracticeType,
-  Mood,
   FeedbackRating,
   PracticeDirection,
   PracticeDifficulty,
@@ -33,36 +31,15 @@ import {
 } from '@/components/icons'
 
 // ---------------------------------------------------------------------------
-// Practice type
+// Practice type — emoji map removed (F-9 2026-06): practice cards use the
+// vector direction icon via practiceIconFor() instead.
 // ---------------------------------------------------------------------------
-
-export const PRACTICE_TYPE_EMOJI: Record<PracticeType, string> = {
-  live:       '🧘',
-  series:     '🔄',
-  one_on_one: '👤',
-  replay:     '📹',
-}
 
 // ---------------------------------------------------------------------------
 // Mood (check-in)
 // ---------------------------------------------------------------------------
 
-/** Ordered array -- use for rendering mood buttons in CheckinView.
- *  `score` is the 1..10 value submitted to the backend; the three discrete
- *  buttons map to the middle of each range (1-3 / 4-7 / 8-10). */
-export const MOOD_OPTIONS: Array<{ value: Mood; score: number; emoji: string; label: string }> = [
-  { value: 'low',  score: 2, emoji: '😔', label: 'Не очень' },
-  { value: 'mid',  score: 6, emoji: '😐', label: 'Нормально' },
-  { value: 'high', score: 9, emoji: '😊', label: 'Хорошо' },
-]
-
-/** Map form -- use for lookups in DiaryView / DiaryStore. */
-export const MOOD_EMOJI: Record<string, string> = {
-  low:  '😔',
-  mid:  '😐',
-  high: '😊',
-}
-
+/** Mood label by zone. Mood buttons render via vector IconMood* (CheckinView). */
 export const MOOD_LABEL: Record<string, string> = {
   low:  'Не очень',
   mid:  'Нормально',
@@ -73,22 +50,7 @@ export const MOOD_LABEL: Record<string, string> = {
 // Feedback rating
 // ---------------------------------------------------------------------------
 
-/** Ordered array -- use for rendering rating buttons in FeedbackView.
- *  `score` is the 1..10 value submitted to the backend; the three discrete
- *  buttons map to the middle of each range (1-3 / 4-7 / 8-10). */
-export const RATING_OPTIONS: Array<{ value: FeedbackRating; score: number; emoji: string; label: string }> = [
-  { value: 'confused', score: 2, emoji: '❓', label: 'Есть вопросы' },
-  { value: 'good',     score: 6, emoji: '👍', label: 'Хорошо' },
-  { value: 'fire',     score: 9, emoji: '🔥', label: 'Огонь!' },
-]
-
-/** Map form -- use for lookups in DiaryView / AnalyticsView. */
-export const RATING_EMOJI: Record<string, string> = {
-  fire:     '🔥',
-  good:     '👍',
-  confused: '❓',
-}
-
+/** Rating label by zone. Rating buttons render via vector IconRating* (FeedbackView). */
 export const RATING_LABEL: Record<string, string> = {
   fire:     'Огонь!',
   good:     'Хорошо',
@@ -206,7 +168,7 @@ export const DIRECTION_ICON_FALLBACK: Component = IconDots
  * Works for both PracticeResponse and PracticeSummary — backend B-1 added
  * `direction` to PracticeSummary on 2026-05-28, so the title-heuristic
  * fallback that used to live here is no longer needed (removed 2026-05-29).
- * Unknown direction → neutral IconDots fallback.
+ * Unknown direction -> neutral IconDots fallback.
  *
  * `title` prop kept in the signature for call-site compatibility (some
  * legacy callers pass it); ignored internally.
@@ -233,7 +195,7 @@ export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
 
 /**
  * Filled-dot count for the difficulty indicator (PracticeDetailView):
- * beginner ●○○ / medium ●●○ / high ●●●.
+ * beginner *oo / medium **o / high ***.
  */
 export const DIFFICULTY_DOTS: Record<PracticeDifficulty, number> = {
   beginner: 1,

@@ -87,7 +87,7 @@ defineEmits<{
      the very bottom on Android. */
   padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
   background: transparent;
-  z-index: var(--z-sticky, 200);
+  z-index: var(--z-sticky);
 }
 
 .v-tabbar__item {
@@ -104,7 +104,7 @@ defineEmits<{
   /* Inactive (default): glass bubble. Component-specific border-width and
      blur radius come straight from Figma spec -- not reusable elsewhere. */
   background: var(--velo-nav-inactive-bg);
-  border: 1.26px solid #ffffff;
+  border: 1.26px solid var(--velo-glass-border);
   backdrop-filter: blur(2.52px);
   -webkit-backdrop-filter: blur(2.52px);
   transition:
@@ -120,7 +120,7 @@ defineEmits<{
  */
 .v-tabbar__item--active {
   background: var(--velo-nav-active-bg-glass);
-  color: #ffffff;
+  color: var(--velo-white);
 }
 
 .v-tabbar__item:focus-visible {

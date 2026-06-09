@@ -9,7 +9,7 @@
 
 <template>
   <div class="topup-result">
-    <div class="topup-result__icon">😕</div>
+    <IconClose :size="64" class="topup-result__icon" />
     <h1 class="topup-result__title">Оплата отменена</h1>
     <p class="topup-result__text">
       Ваш баланс не изменился. Вы можете попробовать снова.
@@ -37,6 +37,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { VButton } from '@/components/ui'
+import { IconClose } from '@/components/icons'
 
 const router = useRouter()
 </script>
@@ -49,12 +50,12 @@ const router = useRouter()
   justify-content: center;
   min-height: 60vh;
   text-align: center;
-  padding: var(--space-6);
+  padding: var(--space-5);
 }
 
 .topup-result__icon {
-  font-size: 64px;
   margin-bottom: var(--space-4);
+  color: var(--velo-text-muted);
 }
 
 .topup-result__title {
