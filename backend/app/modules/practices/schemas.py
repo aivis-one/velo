@@ -550,5 +550,13 @@ class PracticeSummary(BaseModel):
     # separate GET /practices/{id}. Lives in JSONB data.taxonomy → picked up
     # via from_attributes through the Practice ORM property.
     direction: str | None = None
+    # Free/paid signal for list-view cards (dashboard "nearest", my bookings).
+    # purchase_id can't distinguish free from paid — create_booking always opens
+    # a Purchase, even for free practices — so surface the practice's own price
+    # flags. ORM-backed NOT NULL columns, picked up via from_attributes; no
+    # population code needed.
+    is_free: bool
+    price_cents: int
+    currency: str
 
     model_config = {"from_attributes": True}

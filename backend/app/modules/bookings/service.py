@@ -646,6 +646,36 @@ async def _finalize_practice_core(
         occurred_at=datetime.now(timezone.utc),
     )
 
+    # Post-practice feedback nudge: enqueue a "leave feedback" push for the
+    # attendees. Hooked here so the audience is exactly the just-resolved
+    # attendees — target=practice resolves to confirmed/attended bookings, and
+    # after this finalize the no_show/cancelled ones are excluded, leaving the
+    # attended ones. Fires for BOTH the manual master finalize and the +24h
+    # auto-finalize. Skipped when nobody attended (no audience). The notification
+    # processor (lifespan worker) delivers it via Telegram; session commit is
+    # the caller's (P-01: no commit here).
+    if attended_count > 0:
+        from app.modules.notifications.models import (
+            NotificationType,
+            TargetType,
+        )
+        from app.modules.notifications.service import create_notification
+
+        await create_notification(
+            type=NotificationType.LEAVE_FEEDBACK.value,
+            title="Как прошла практика?",
+            body=f"Поделитесь впечатлением о практике «{practice.title}».",
+            target_type=TargetType.PRACTICE.value,
+            target_value=str(practice_id),
+            session=session,
+            action_data={
+                "action": "open_feedback",
+                "params": {"practice_id": str(practice_id)},
+                "practice_title": practice.title,
+            },
+            priority=5,
+        )
+
     return practice
 
 
