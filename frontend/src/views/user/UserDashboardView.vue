@@ -94,7 +94,7 @@
           <VBadge v-else-if="nearestIsFree" variant="blue">
             Бесплатно
           </VBadge>
-          <VBadge v-else variant="success">
+          <VBadge v-else variant="blue">
             <IconCheck :size="12" /> Оплачено
           </VBadge>
         </template>

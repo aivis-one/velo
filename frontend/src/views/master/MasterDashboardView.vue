@@ -118,9 +118,6 @@
                 · {{ formatDuration(nearestPractice.duration_minutes) }}
               </div>
             </div>
-            <VBadge :variant="statusVariant(nearestPractice.status)">
-              {{ statusLabel(nearestPractice.status) }}
-            </VBadge>
           </div>
           <div class="master-dashboard__practice-participants">
             {{ formatParticipants(nearestPractice.current_participants, nearestPractice.max_participants) }}
@@ -190,14 +187,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from '@/components/ui'
 import { IconCheck, IconArrowRight, IconPlus, IconList, IconAnalytics, IconFinance } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
-import type { PracticeStatus } from '@/api/types'
+import { practiceHasEnded } from '@/utils/practiceStatus'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -224,41 +221,31 @@ const formattedFrozen = computed(() =>
   formatMoney(frozenCents.value, 'EUR', 'ru', true),
 )
 
+// Reactive clock (60s) so the nearest card drops off exactly when the practice
+// ends — symmetric with the user dashboard.
+const now = ref(Date.now())
+let clockInterval: ReturnType<typeof setInterval> | null = null
+
 // -- Nearest upcoming / live practice --
-// Sorted ascending by scheduled_at; picks first scheduled or live.
+// Scheduled/live AND not yet ended (now < end); soonest first. At the practice's
+// end the card leaves the dashboard → it lives on in «Практики / прошедшие».
 const nearestPractice = computed(() => {
   const upcoming = masterStore.practices
-    .filter((p) => p.status === 'scheduled' || p.status === 'live')
+    .filter((p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value))
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
   return upcoming[0] ?? null
 })
 
-// -- Practice status badge helpers --
-const STATUS_LABEL: Partial<Record<PracticeStatus, string>> = {
-  draft: 'Черновик',
-  scheduled: 'Запланирована',
-  live: 'В эфире',
-  completed: 'Завершена',
-  cancelled: 'Отменена',
-}
-function statusLabel(s: PracticeStatus): string {
-  return STATUS_LABEL[s] ?? s
-}
-
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
-  switch (s) {
-    case 'live':      return 'success'
-    case 'scheduled': return 'info'
-    case 'draft':     return 'warning'
-    default:          return 'error'
-  }
-}
-
 // -- Load data on mount --
 onMounted(async () => {
+  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
+})
+
+onUnmounted(() => {
+  if (clockInterval) clearInterval(clockInterval)
 })
 </script>
 

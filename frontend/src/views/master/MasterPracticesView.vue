@@ -82,8 +82,8 @@
                   <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
                 </span>
               </template>
-              <template #badge>
-                <VBadge :variant="statusVariant(practice.status)">{{ statusLabel(practice.status) }}</VBadge>
+              <template v-if="masterPracticeBadge(practice.status)" #badge>
+                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
               </template>
             </PracticeListCard>
           </div>
@@ -125,8 +125,8 @@
                   <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
                 </span>
               </template>
-              <template #badge>
-                <VBadge :variant="statusVariant(practice.status)">{{ statusLabel(practice.status) }}</VBadge>
+              <template v-if="masterPracticeBadge(practice.status)" #badge>
+                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
               </template>
               <!-- Attendance button for completed practices -->
               <template v-if="practice.status === 'completed'" #action>
@@ -173,7 +173,8 @@ import { IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { formatShortDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import type { PracticeResponse, PracticeStatus } from '@/api/types'
+import { masterPracticeBadge } from '@/utils/practiceStatus'
+import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -199,32 +200,8 @@ const tabOptions = computed(() => [
   { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
 ])
 
-// -- Status badge (was inside PracticeListItem; now provided to PracticeListCard #badge) --
-const STATUS_LABEL: Record<PracticeStatus, string> = {
-  draft: 'Черновик',
-  scheduled: 'Запланирована',
-  live: 'В эфире',
-  completed: 'Завершена',
-  cancelled: 'Отменена',
-  deleted: 'Удалена',
-}
-function statusLabel(s: PracticeStatus): string {
-  return STATUS_LABEL[s] ?? s
-}
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
-  switch (s) {
-    case 'live':
-      return 'success'
-    case 'scheduled':
-      return 'info'
-    case 'draft':
-      return 'warning'
-    case 'completed':
-      return 'info'
-    default:
-      return 'error'
-  }
-}
+// Status badge → shared masterPracticeBadge (only draft/completed/cancelled get
+// a badge; scheduled/live/deleted → null = no badge).
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()

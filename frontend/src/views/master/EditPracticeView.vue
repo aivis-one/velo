@@ -65,8 +65,8 @@
            READONLY BANNER for terminal statuses
            ================================================================ -->
       <div v-if="isTerminal" class="edit-practice__readonly-banner">
-        <VBadge :variant="statusVariant(practice.status)">
-          {{ statusLabel(practice.status) }}
+        <VBadge v-if="masterPracticeBadge(practice.status)" :variant="masterPracticeBadge(practice.status)!.variant">
+          {{ masterPracticeBadge(practice.status)!.label }}
         </VBadge>
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
       </div>
@@ -350,6 +350,7 @@ import {
   finalizePractice,
 } from '@/api/practices'
 import { formatMoney } from '@/utils/format'
+import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
 import {
   DURATION_OPTIONS,
@@ -360,7 +361,7 @@ import {
 } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { PracticeResponse, PracticeType, PracticeStatus, PracticeDirection } from '@/api/types'
+import type { PracticeResponse, PracticeType, PracticeDirection } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -454,18 +455,6 @@ function practiceTypeLabel(t: PracticeType): string {
   return PRACTICE_TYPE_LABELS[t] ?? t
 }
 
-const STATUS_LABELS: Record<PracticeStatus, string> = {
-  draft: 'Черновик',
-  scheduled: 'Запланирована',
-  live: 'В эфире',
-  completed: 'Завершена',
-  cancelled: 'Отменена',
-  deleted: 'Удалена',
-}
-function statusLabel(s: PracticeStatus): string {
-  return STATUS_LABELS[s] ?? s
-}
-
 // Direction-conditional style options (mirror of CreatePracticeView).
 const styleOptionsForForm = computed(() =>
   stylesForDirection(form.direction as PracticeDirection),
@@ -481,15 +470,6 @@ function onDirectionChange(): void {
   form.style = ''
 }
 
-function statusVariant(s: PracticeStatus): 'success' | 'warning' | 'error' | 'info' {
-  switch (s) {
-    case 'live':      return 'success'
-    case 'scheduled': return 'info'
-    case 'draft':     return 'warning'
-    case 'completed': return 'info'
-    default:          return 'error'
-  }
-}
 
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {

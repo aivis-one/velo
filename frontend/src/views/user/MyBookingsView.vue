@@ -191,7 +191,7 @@ function badgeFor(b: BookingWithPracticeResponse): BookingBadge | null {
   // Past statuses -> status badge.
   if (b.status === 'attended') return { label: 'Завершена', variant: 'done' }
   if (b.status === 'cancelled') return { label: 'Отменена', variant: 'cancelled' }
-  if (b.status === 'no_show') return { label: 'Неявка', variant: 'no_show' }
+  if (b.status === 'no_show') return { label: 'Не состоялась', variant: 'no_show' }
   // Confirmed/pending but the practice is already over (awaiting backend
   // finalize): it sits in "Прошедшие" with NO upcoming badge — no misleading
   // "Сегодня" / "В эфире" on a practice that has ended.

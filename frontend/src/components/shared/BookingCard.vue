@@ -69,19 +69,18 @@ const badgeIcon = computed(() => {
     case 'tomorrow':  return IconClock
     case 'done':      return IconCheck
     case 'cancelled': return IconClose
-    case 'no_show':   return IconClose
-    default:          return null
+    default:          return null   // no_show («Не состоялась») / live → no icon
   }
 })
 
 // Map the booking status to a DS VBadge variant (no hand-rolled badge styling).
 // live / today / done -> success (teal), tomorrow -> warning (peach),
 // cancelled / no_show -> error (pink). teal aligns to the DS canon (teal-600).
-const vbadgeVariant = computed<'success' | 'warning' | 'error'>(() => {
+const vbadgeVariant = computed<'success' | 'warning' | 'error' | 'muted'>(() => {
   switch (props.badge?.variant) {
     case 'tomorrow':  return 'warning'
-    case 'cancelled':
-    case 'no_show':   return 'error'
+    case 'cancelled': return 'error'
+    case 'no_show':   return 'muted'   // «Не состоялась» — low-key blue-grey, no drama
     default:          return 'success'
   }
 })
