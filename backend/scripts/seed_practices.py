@@ -24,6 +24,10 @@ seed_practices.py
   seed (по умолчанию)  -- досев. Существующее не трогает, недостающее создаёт.
   --reset              -- снос своих данных + пересев из JSON.
   --clean              -- только снос своих данных.
+  promote-master       -- хирургически выдать ОДНОМУ реальному юзеру роль master
+                          + verified-профиль из сценария promote_master (НЕ сеет
+                          практики, НЕ сносит; маркер manual_master_grant вне
+                          clean/reset). Идемпотентно/перезаписываемо.
   --dry-run            -- флаг к любому режиму. Показывает план без записи в БД.
   --yes                -- пропустить интерактивное подтверждение (для скриптинга).
 
@@ -33,6 +37,10 @@ seed_practices.py
   docker compose exec app python scripts/seed_practices.py --clean
   docker compose exec app python scripts/seed_practices.py --reset --dry-run
   docker compose exec app python scripts/seed_practices.py --reset --yes
+  docker compose exec app python scripts/seed_practices.py promote-master \
+      --scenario 8457062539 --dry-run
+  docker compose exec app python scripts/seed_practices.py promote-master \
+      --scenario 8457062539 --yes
 
 Источник данных: scripts/seed_practices.json (рядом с этим файлом).
 Маркеры своих данных:
@@ -52,6 +60,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import copy
 import json
 import sys
 from datetime import datetime, timedelta, timezone
@@ -129,6 +138,12 @@ TID_MAX = 10012
 # distinct source they are invisible to _collect_our_ids, so clean/reset leave
 # the tester accounts (and these profiles) intact.
 SEED_SOURCE_TESTER = "seed_role_switch_tester"
+
+# Marker for MasterProfiles created by the `promote-master` command — a manual,
+# surgical grant of the master role to ONE real account (e.g. the project owner).
+# Distinct from SEED_SOURCE / SEED_SOURCE_TESTER so cmd_clean/_collect_our_ids
+# NEVER sweep this live account on a reset/clean.
+MANUAL_GRANT_SOURCE = "manual_master_grant"
 
 # Valid role strings for the role-switch allow-list (mirrors UserRole).
 _VALID_ROLE_VALUES = {r.value for r in UserRole}
@@ -236,8 +251,8 @@ def parse_args() -> argparse.Namespace:
         "command",
         nargs="?",
         default="seed",
-        choices=("seed", "reset", "clean"),
-        help="seed (default) | reset | clean",
+        choices=("seed", "reset", "clean", "promote-master"),
+        help="seed (default) | reset | clean | promote-master",
     )
     p.add_argument(
         "--reset", action="store_true",
@@ -2224,6 +2239,167 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# promote-master — выдать ОДНОМУ реальному юзеру роль master + verified-профиль
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Зачем отдельно от seed: штатный seed-путь сеет практики/мастеров из schedule и
+# НЕ делает персистентного master (тестеры держатся на role=user + роль-свитч,
+# который на проде выключен). Эта команда хирургическая: трогает РОВНО одного
+# юзера (по telegram_id), синхронно ставит User.role=master И verified
+# MasterProfile (инвариант консистентности 1.3 остаётся зелёным), ничего больше
+# не добавляет и не сносит.
+#
+# Маркер профиля — отдельный MANUAL_GRANT_SOURCE (НЕ SEED_SOURCE), поэтому
+# clean/reset НИКОГДА не заденут этот живой аккаунт.
+#
+# Идемпотентна и ПЕРЕЗАПИСЫВАЕМА: повторный запуск с обновлённым JSON
+# перезаписывает profile.display_name/methods/bio (account/verification/payout/
+# stats/баланс сохраняются). Сценарий — seed_scenarios/<name>.json с секцией
+# promote_master. НЕ требует schedule/extends (мимо resolve_source).
+
+def load_promote_scenario(scenario: str, explicit_source: str | None) -> dict:
+    """Читает JSON-сценарий и возвращает блок promote_master.
+
+    Путь: --source PATH (приоритет) либо seed_scenarios/<scenario>.json.
+    """
+    path = (
+        Path(explicit_source)
+        if explicit_source
+        else SCENARIOS_DIR / f"{scenario}.json"
+    )
+    if not path.exists():
+        raise FileNotFoundError(f"Сценарий не найден: {path}")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    cfg = data.get("promote_master")
+    if not isinstance(cfg, dict):
+        raise ValueError(f"{path.name}: нет секции 'promote_master'")
+    if not cfg.get("telegram_id"):
+        raise ValueError(f"{path.name}: promote_master.telegram_id обязателен")
+    return cfg
+
+
+def _build_manual_master_data(
+    user: User,
+    display_name: str | None,
+    methods: list[str],
+    bio: str | None,
+    existing: dict | None,
+) -> dict:
+    """MasterProfile.data для ручной выдачи мастера (всегда verified).
+
+    Мержим поверх существующего data (re-run сохраняет payout/stats/verification),
+    перезаписывая публичные поля профиля из JSON. display_name пуст -> фолбэк на
+    User.first_name (как в get_master_display_name).
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    data = copy.deepcopy(existing) if existing else {}
+
+    acct = data.setdefault("account", {})
+    acct["status"] = "verified"
+    acct.setdefault("applied_at", now_iso)
+    acct.setdefault(
+        "verification",
+        {
+            "verified_at": now_iso,
+            "verified_by": "manual_grant",
+            "notes": "manual master grant via seed_practices promote-master",
+        },
+    )
+    acct.setdefault("rejections", [])
+
+    prof = data.setdefault("profile", {})
+    prof["display_name"] = display_name or prof.get("display_name") or user.first_name
+    if methods:
+        prof["methods"] = methods
+    else:
+        prof.setdefault("methods", [])
+    if bio is not None:
+        prof["bio"] = bio
+    else:
+        prof.setdefault("bio", None)
+    prof.setdefault("email", None)
+    prof.setdefault("phone", None)
+    prof.setdefault("experience_years", None)
+    prof.setdefault("certifications", [])
+
+    data.setdefault("documents", [])
+    data.setdefault("availability", {"is_accepting": True, "note": None})
+    data.setdefault(
+        "settings",
+        {"auto_confirm_bookings": True, "max_participants_default": 20},
+    )
+    data.setdefault(
+        "stats",
+        {"total_practices": 0, "total_participants": 0, "avg_rating": None},
+    )
+    data["seed"] = {
+        "source": MANUAL_GRANT_SOURCE,
+        "telegram_id": user.telegram_id,
+        "granted_at": now_iso,
+    }
+    return data
+
+
+async def cmd_promote_master(
+    session: AsyncSession, cfg: dict, dry_run: bool,
+) -> None:
+    tid = int(cfg["telegram_id"])
+    display_name = cfg.get("display_name")
+    methods = list(cfg.get("methods") or [])
+    bio = cfg.get("bio")
+    prefix = "[DRY-RUN] " if dry_run else ""
+
+    print("\n=== PROMOTE-MASTER ===")
+    print(f"{prefix}telegram_id: {tid}")
+
+    user = await _find_user_by_tid(session, tid)
+    if user is None:
+        raise RuntimeError(
+            f"Юзер с telegram_id={tid} не найден в БД. Этот аккаунт должен хоть "
+            f"раз открыть бота (создать строку User), затем повтори команду."
+        )
+
+    existing_profile = await session.get(MasterProfile, user.id)
+    new_data = _build_manual_master_data(
+        user,
+        display_name,
+        methods,
+        bio,
+        existing_profile.data if existing_profile else None,
+    )
+    resolved_name = new_data["profile"]["display_name"]
+    resolved_methods = new_data["profile"]["methods"]
+    role_note = (
+        "уже master"
+        if user.role == UserRole.MASTER
+        else f"{user.role.value} -> master"
+    )
+    prof_note = "обновим" if existing_profile else "создадим"
+
+    print(f"  user.id={user.id}  role: {role_note}")
+    print(
+        f"  профиль ({prof_note}, verified): "
+        f"display_name={resolved_name!r}, methods={resolved_methods}"
+    )
+
+    if dry_run:
+        print(f"\n{prefix}Ничего не записано.")
+        return
+
+    if existing_profile:
+        existing_profile.set_jsonb("data", new_data)
+    else:
+        profile = MasterProfile(user_id=user.id)
+        profile.set_jsonb("data", new_data)
+        session.add(profile)
+    user.role = UserRole.MASTER
+
+    await session.flush()
+    await session.commit()
+    print("\nГотово, изменения зафиксированы (role=master + verified-профиль).")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -2233,6 +2409,18 @@ async def main() -> int:
     # Деструктивные операции требуют подтверждения (если не --yes и не --dry-run).
     if args.command in ("reset", "clean") and not args.yes and not args.dry_run:
         if not confirm_destructive(args.command):
+            print("Отменено.")
+            return 1
+
+    # promote-master не деструктивна, но меняет роль реального аккаунта —
+    # лёгкое подтверждение (если не --yes/--dry-run).
+    if args.command == "promote-master" and not args.yes and not args.dry_run:
+        print()
+        print(
+            f"!! PROMOTE-MASTER: выдать роль master по сценарию "
+            f"'{args.source or args.scenario}'."
+        )
+        if input('   Введите "yes" для подтверждения: ').strip().lower() != "yes":
             print("Отменено.")
             return 1
 
@@ -2246,6 +2434,10 @@ async def main() -> int:
         if args.command == "seed":
             async with session_factory() as session:
                 await cmd_seed(session, source, args.dry_run)
+        elif args.command == "promote-master":
+            cfg = load_promote_scenario(args.scenario, args.source)
+            async with session_factory() as session:
+                await cmd_promote_master(session, cfg, args.dry_run)
         elif args.command == "clean":
             async with session_factory() as session:
                 await cmd_clean(session, args.dry_run)
