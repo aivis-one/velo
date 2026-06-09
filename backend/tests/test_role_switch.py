@@ -71,8 +71,16 @@ async def _seed_role_switch(
 # ---------------------------------------------------------------------------
 
 
-async def test_switch_role_404_when_feature_disabled(client: AsyncClient) -> None:
+async def test_switch_role_404_when_feature_disabled(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """With the flag off (default, i.e. production), the endpoint 404s."""
+    # Force the flag OFF instead of relying on the ambient default: the TEST
+    # server runs with ROLE_SWITCH_ENABLED=true in its .env, which pytest in the
+    # container inherits — without this the "disabled" assertion fails there.
+    # (Zod: test-isolation hardening, mirrors the enabled tests' monkeypatch.)
+    monkeypatch.setattr(settings, "role_switch_enabled", False)
     data = await login_user(client, telegram_id=88200, first_name="Off")
     token = data["session_token"]
 
@@ -274,8 +282,12 @@ async def test_me_exposes_role_switch_when_enabled(
 async def test_me_hides_role_switch_when_disabled(
     client: AsyncClient,
     db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """With the flag off, role_switch is null even for a seeded user."""
+    # Force the flag OFF (see note in test_switch_role_404_when_feature_disabled):
+    # the TEST server's .env enables it, so we must not rely on the ambient default.
+    monkeypatch.setattr(settings, "role_switch_enabled", False)
     data = await login_user(client, telegram_id=88209, first_name="Hidden")
     token = data["session_token"]
     await _seed_role_switch(db_session, 88209, ["user", "master", "admin"])
