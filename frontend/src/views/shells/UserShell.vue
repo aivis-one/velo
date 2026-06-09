@@ -84,10 +84,28 @@ const isFogRoute = computed(() =>
 // Per-screen fog tuning. The list feeds keep MobileLayout's defaults
 // (16/40/70/90 — omitted = unchanged). practice-detail uses a softer top
 // dissolve + tighter bottom so the «Записаться бесплатно» CTA stays crisp above
-// the tab bar (operator-tuned values, confirmed on the .tmp preview 2026-06-09).
+// the tab bar. The four numbers live as --velo-fog-pd-* tokens (variables.css,
+// single reusable source); read once here since the values flow through JS into
+// MobileLayout. Confirmed on the .tmp preview 2026-06-09.
+let pdFogCache: {
+  topGap: number; fogTopHard: number; fogBotFade: number; fogBotHard: number
+} | null = null
+function practiceDetailFog() {
+  if (pdFogCache) return pdFogCache
+  const cs = getComputedStyle(document.documentElement)
+  const tok = (name: string, fallback: number): number => {
+    const n = parseInt(cs.getPropertyValue(`--velo-fog-pd-${name}`), 10)
+    return Number.isFinite(n) ? n : fallback
+  }
+  pdFogCache = {
+    topGap: tok('top-gap', 25),
+    fogTopHard: tok('top-hard', 60),
+    fogBotFade: tok('bot-fade', 50),
+    fogBotHard: tok('bot-hard', 90),
+  }
+  return pdFogCache
+}
 const fogTuning = computed(() =>
-  route.name === 'practice-detail'
-    ? { topGap: 25, fogTopHard: 60, fogBotFade: 50, fogBotHard: 90 }
-    : {},
+  route.name === 'practice-detail' ? practiceDetailFog() : {},
 )
 </script>

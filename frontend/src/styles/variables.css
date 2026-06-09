@@ -181,6 +181,20 @@
   --velo-fog-z2: 40px;
   --velo-fog-z3: 70px;
   --velo-fog-z4: 90px;
+  /* practice-detail fog override (operator-tuned 2026-06-09): softer top dissolve
+     under the header + tighter bottom so the «Записаться бесплатно» CTA stays crisp
+     над таб-баром. Read by UserShell → passed to MobileLayout (values flow through
+     JS, hence tokens declared here as the single reusable source).
+       pd-top-gap  — px added below the measured header island (clearance)
+       pd-top-hard — fully-transparent top zone
+       pd-bot-fade — bottom fade zone
+       pd-bot-hard — fully-transparent bottom zone under the tab bar
+     TODO(roadmap): migrate the default fog (z1..z4 vs the literals hardcoded in
+     MobileLayout) + this set onto one token scheme when the master screens close. */
+  --velo-fog-pd-top-gap: 25px;
+  --velo-fog-pd-top-hard: 60px;
+  --velo-fog-pd-bot-fade: 50px;
+  --velo-fog-pd-bot-hard: 90px;
   /* Header-island clearance (G-1) is no longer a fixed token pair: MobileLayout
      MEASURES the floating island's height (ResizeObserver) and clears exactly
      that much, so any island (short greeting or tall title+weekstrip) gets the
