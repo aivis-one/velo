@@ -81,6 +81,7 @@ import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
 import BookingCard, { type BookingBadge } from '@/components/shared/BookingCard.vue'
+import { isLiveNow, hasEnded as endedByClock } from '@/utils/bookingStatus'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 const router = useRouter()
@@ -102,9 +103,7 @@ const UPCOMING_STATUSES = ['confirmed', 'pending'] as const
  * client; the booking status drives only the past-section badge.
  */
 function hasEnded(b: BookingWithPracticeResponse): boolean {
-  const start = new Date(b.practice.scheduled_at).getTime()
-  const end = start + (b.practice.duration_minutes ?? 0) * 60_000
-  return end < Date.now()
+  return endedByClock(b, Date.now())
 }
 
 function isUpcoming(b: BookingWithPracticeResponse): boolean {
@@ -113,9 +112,13 @@ function isUpcoming(b: BookingWithPracticeResponse): boolean {
   )
 }
 
-/** True if the practice is in progress (status live). */
+/**
+ * True if the practice is in progress — by CLIENT TIME (start ≤ now < end) via
+ * the shared isLiveNow, in sync with the dashboard «Ближайшая практика» card.
+ * (Was practice.status==='live', which depended on the master's manual flip.)
+ */
 function isLive(b: BookingWithPracticeResponse): boolean {
-  return b.practice.status === 'live'
+  return isLiveNow(b, Date.now())
 }
 
 /**

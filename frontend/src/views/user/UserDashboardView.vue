@@ -89,9 +89,12 @@
       >
         <template #badge>
           <VBadge v-if="nearestIsLive" variant="success">
-            · В эфире
+            <span class="dashboard__live-dot" /> В эфире
           </VBadge>
-          <VBadge v-else-if="nearestBooking.purchase_id" variant="success">
+          <VBadge v-else-if="nearestIsFree" variant="blue">
+            Бесплатно
+          </VBadge>
+          <VBadge v-else variant="success">
             <IconCheck :size="12" /> Оплачено
           </VBadge>
         </template>
@@ -205,6 +208,7 @@ import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { formatShortDate, formatTime, formatDuration, isToday } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
+import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse } from '@/api/types'
@@ -320,9 +324,19 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
   return candidates.sort((a, b) => startMs(a) - startMs(b))[0] ?? null
 })
 
-/** True when the nearest practice is currently live (status from PracticeSummary). */
+/**
+ * True when the nearest practice is happening right now — decided by CLIENT TIME
+ * (start ≤ now < end) via the shared isLiveNow, NOT by the master's manual
+ * status='live' flip. Keeps the «В эфире» badge in sync with «Мои бронирования»
+ * and makes it appear/disappear exactly on schedule, no backend/cron dependency.
+ */
 const nearestIsLive = computed((): boolean =>
-  nearestBooking.value?.practice.status === 'live',
+  nearestBooking.value ? isLiveNow(nearestBooking.value, now.value) : false,
+)
+
+/** True when the nearest practice is free (badge «Бесплатно» vs «Оплачено»). */
+const nearestIsFree = computed((): boolean =>
+  nearestBooking.value ? isFree(nearestBooking.value) : false,
 )
 
 /**
@@ -362,13 +376,14 @@ function onZoomClick(): void {
 }
 
 /**
- * Open the nearest practice. A live practice goes to the Practice-Live
- * screen (Zoom entry); otherwise to the practice detail. status is now
- * available on PracticeSummary (backend), so no extra fetch is needed.
+ * Open the nearest practice. Routing uses the BACKEND status='live' (an actually
+ * running session the master started → Practice-Live / Zoom entry); otherwise
+ * the practice detail. (The «В эфире» BADGE is client-time, so it can show while
+ * routing still points to detail until the master starts the live session.)
  */
 function openNearest(): void {
   if (!nearestBooking.value) return
-  if (nearestIsLive.value) {
+  if (nearestBooking.value.practice.status === 'live') {
     router.push({
       name: 'practice-live',
       params: { practiceId: nearestBooking.value.practice_id },
@@ -479,6 +494,15 @@ onUnmounted(() => {
  * Карточка ближайшей практики — shared PracticeListCard (см.
  * components/shared/PracticeListCard.vue). Все card-стили перенесены туда,
  * здесь остаётся только spacing вокруг actions row под карточкой. */
+
+/* Live pulse dot inside the «В эфире» badge (matches BookingCard's live dot). */
+.dashboard__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--velo-teal-600);
+  flex-shrink: 0;
+}
 
 .dashboard__practice-actions {
   display: grid;

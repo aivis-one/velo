@@ -591,6 +591,9 @@ export interface PracticeSummary {
   master_id: string
   master_name?: string | null
   direction?: string | null
+  is_free: boolean
+  price_cents: number
+  currency: string
 }
 
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */
