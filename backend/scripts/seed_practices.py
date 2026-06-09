@@ -2369,10 +2369,13 @@ async def cmd_promote_master(
     )
     resolved_name = new_data["profile"]["display_name"]
     resolved_methods = new_data["profile"]["methods"]
+    # user.role is a plain str on load (column is String(20), not an Enum type),
+    # so format it directly — `.value` would AttributeError. The == below still
+    # works: UserRole is a StrEnum, equal to its string value.
     role_note = (
         "уже master"
         if user.role == UserRole.MASTER
-        else f"{user.role.value} -> master"
+        else f"{user.role} -> master"
     )
     prof_note = "обновим" if existing_profile else "создадим"
 
