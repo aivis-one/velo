@@ -59,10 +59,9 @@
         Укажите ваш часовой пояс, чтобы мы правильно показывали время практик
       </p>
       <div class="onboarding__field">
-        <VSelect
-          v-model="selectedTimezone"
-          label="Часовой пояс"
-          :options="timezoneSelectOptions"
+        <TimezoneCityPicker
+          :model-value="selectedTimezone"
+          @update:modelValue="onPickTimezone"
         />
       </div>
     </div>
@@ -81,7 +80,7 @@
       <button
         type="button"
         class="onboarding__button"
-        :disabled="submitting"
+        :disabled="submitting || (isTimezoneStep && !timezoneChosen)"
         @click="onPrimaryAction"
       >
         {{ isTimezoneStep ? 'Готово' : 'Далее' }}
@@ -92,11 +91,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { VSelect } from '@/components/ui'
+import TimezoneCityPicker from '@/components/shared/TimezoneCityPicker.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiResponseError } from '@/api/client'
-import { TIMEZONE_OPTIONS, makeTimezoneOption } from '@/utils/practiceOptions'
 
 const emit = defineEmits<{
   /** Onboarding finished (completed or skipped); flag is already persisted. */
@@ -197,15 +195,14 @@ function detectDefaultTimezone(): string {
 
 const selectedTimezone = ref(detectDefaultTimezone())
 
-// Options shown in the picker: the curated list, plus an extra entry for the
-// selected zone when it is not already in the list (an exotic auto-detected /
-// profile zone). Keeps the user's real zone visible and selectable instead of
-// being silently dropped by the curated set.
-const timezoneSelectOptions = computed(() => {
-  const inList = TIMEZONE_OPTIONS.some((opt) => opt.value === selectedTimezone.value)
-  if (inList) return TIMEZONE_OPTIONS
-  return [makeTimezoneOption(selectedTimezone.value), ...TIMEZONE_OPTIONS]
-})
+// Explicit-selection gate: the onboarding "Готово" button stays disabled until
+// the user actually taps a city (operator 2026-06-09), even though a default
+// zone is auto-detected above for persistence.
+const timezoneChosen = ref(false)
+function onPickTimezone(iana: string): void {
+  selectedTimezone.value = iana
+  timezoneChosen.value = true
+}
 
 // -- Navigation --------------------------------------------------------------
 

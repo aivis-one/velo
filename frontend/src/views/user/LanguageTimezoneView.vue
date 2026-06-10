@@ -66,10 +66,8 @@
       <!-- Timezone (reuses onboarding picker) -->
       <section class="lang-tz__section">
         <h2 class="lang-tz__section-title">Часовой пояс</h2>
-        <VSelect
+        <TimezoneCityPicker
           v-model="selectedTimezone"
-          :options="timezoneSelectOptions"
-          :disabled="saving"
           @update:modelValue="onTimezoneChange"
         />
         <p class="lang-tz__hint">
@@ -84,12 +82,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VSelect } from '@/components/ui'
 import { IconCheck } from '@/components/icons'
+import TimezoneCityPicker from '@/components/shared/TimezoneCityPicker.vue'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { ApiResponseError } from '@/api/client'
-import { TIMEZONE_OPTIONS, makeTimezoneOption } from '@/utils/practiceOptions'
 
 const router = useRouter()
 const toast = useToast()
@@ -145,18 +142,6 @@ const profileTz = authStore.user?.timezone
 const initialTimezone =
   profileTz && isValidIana(profileTz) ? profileTz : FALLBACK_TIMEZONE
 const selectedTimezone = ref(initialTimezone)
-
-// Options: curated list, plus the profile zone injected as an extra option if
-// it is valid but not already present (so it shows instead of being dropped).
-const timezoneSelectOptions = (() => {
-  const base = TIMEZONE_OPTIONS
-  const current = selectedTimezone.value
-  const inList = base.some((o) => o.value === current)
-  if (!inList && isValidIana(current)) {
-    return [makeTimezoneOption(current), ...base]
-  }
-  return base
-})()
 
 const saving = ref(false)
 
