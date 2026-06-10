@@ -108,6 +108,9 @@
             : 'Сводка появится после проведения практик' }}
         </p>
       </VCard>
+      <div v-if="!isNewMaster" class="master-dashboard__summary-more">
+        <VMoreLink @click="router.push({ name: 'master-summary' })" />
+      </div>
 
       <!-- ================================================================
            БЛИЖАЙШИЕ ПРАКТИКИ (up to 3)
@@ -182,7 +185,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VLoader, VStatCard, VCard, VMenuRow } from '@/components/ui'
+import { VButton, VLoader, VStatCard, VCard, VMenuRow, VMoreLink } from '@/components/ui'
 import { IconBell, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useToast } from '@/composables/useToast'
@@ -253,7 +256,7 @@ function onBell(): void {
   toast.info('Уведомления пока недоступны')
 }
 function onStudents(): void {
-  toast.info('Раздел «Ученики» пока недоступен')
+  router.push({ name: 'master-students' })
 }
 
 // -- Load data on mount --

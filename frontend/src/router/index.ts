@@ -220,6 +220,24 @@ const router = createRouter({
           component: () => import('@/views/master/MasterFinanceView.vue'),
         },
         {
+          path: 'students',
+          name: 'master-students',
+          beforeEnter: masterStatusGuard,
+          component: () => import('@/views/master/MasterStudentsView.vue'),
+        },
+        {
+          path: 'students/:id',
+          name: 'master-student-profile',
+          beforeEnter: masterStatusGuard,
+          component: () => import('@/views/master/MasterStudentProfileView.vue'),
+        },
+        {
+          path: 'summary',
+          name: 'master-summary',
+          beforeEnter: masterStatusGuard,
+          component: () => import('@/views/master/MasterSummaryView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'master-dashboard' },
         },
