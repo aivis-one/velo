@@ -257,7 +257,7 @@ const masterInitial = computed(() => {
 
 /* Separator between the optional time and the duration ("06:00 · 1 ч"). */
 .practice-list-card__dur-sep {
-  opacity: 0.55;
+  color: var(--velo-text-muted);
 }
 
 .practice-list-card__rest {
