@@ -25,6 +25,7 @@
     </span>
     <div class="v-stat__value">{{ value }}</div>
     <div class="v-stat__label">{{ label }}</div>
+    <div v-if="delta" class="v-stat__delta" :class="`v-stat__delta--${deltaTone}`">{{ delta }}</div>
   </div>
 </template>
 
@@ -37,11 +38,17 @@ withDefaults(
     clickable?: boolean
     /** 'column' (default, stacked value/label) or 'row' (compact baseline row). */
     layout?: 'column' | 'row'
+    /** Optional trend line under the label (e.g. "+3", "+12%"). Empty = hidden. */
+    delta?: string
+    /** Delta tone: 'up' (teal, positive trend, default) or 'muted' (placeholder). */
+    deltaTone?: 'up' | 'muted'
   }>(),
   {
     icon: '',
     clickable: false,
     layout: 'column',
+    delta: '',
+    deltaTone: 'up',
   },
 )
 
@@ -116,5 +123,19 @@ defineEmits<{
   font-size: 13px;
   color: var(--velo-text-secondary);
   white-space: nowrap;
+}
+
+/* Optional trend line (master dashboard stats: "+3" / "+12%"). */
+.v-stat__delta {
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+.v-stat__delta--up {
+  color: var(--velo-teal-600);
+}
+
+.v-stat__delta--muted {
+  color: var(--velo-text-muted);
 }
 </style>

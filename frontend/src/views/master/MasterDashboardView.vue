@@ -1,27 +1,25 @@
 <!--
-  VELO Frontend -- MasterDashboardView (Phase F6.2)
+  VELO Frontend -- MasterDashboardView (Master DS rebuild 2026-06-11)
 
-  Master dashboard. Rendered inside MasterShell (with tab bar).
+  Master dashboard, rebuilt to the approved design (operator SVG: zero / week /
+  month / scroll). Rendered inside MasterShell (fog + tab bar from the shell).
 
-  Real data (from stores):
-    - display_name, status (masterStore.profile)
-    - available_cents balance (masterStore.profile.available_cents)
-    - nearest upcoming practice (derived from masterStore.practices)
+  Structure (DS-first — every value is a --velo-* token / DS component):
+    - Greeting + notification bell (badge only when unread > 0).
+    - Stats: label + period toggle (Неделя / Месяц) + 3 VStatCard with optional
+      delta trend. Period toggle = the user-dashboard pattern (NOT VSegment).
+    - "Мои ученики" row (VMenuRow).
+    - Zero state only: "Создать первую практику" (VButton) -> create.
+    - "Саммари недели" (VCard placeholder).
+    - "Ближайшие практики": up to 3 upcoming practice cards, each with
+      "Изменить" -> edit and "Check-ins" -> attendance.
 
-  Placeholder data (no API in F6, future F7/F9):
-    - Stats grid (practices count, participants, income) -- shows "—"
-    - AI summary card -- static placeholder text
-    - Period toggle (Неделя / Месяц) -- visual only, no data change
-
-  On mount:
-    - fetchMyProfile (lazy, skips if loaded by masterStatusGuard)
-    - fetchMyPractices (lazy, skips if already loaded)
-
-  Quick actions:
-    - "Создать практику" -> /master/practices/new
-    - "Мои практики"    -> /master/practices
-    - "Аналитика"       -> /master/analytics
-    - "Финансы"         -> /master/finance
+  STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
+    - Stats: only the practices total is real; participants/income + all deltas
+      and the Неделя/Месяц period scoping have no API -> "—", toggle visual-only.
+    - Notification bell (no feed), "Мои ученики" (no screen), AI summary
+      "Подробнее" (no master-AI), practice checkin-count + recurrence meta
+      (no fields) -> rendered only when the data exists (v-if), absent for now.
 -->
 
 <template>
@@ -35,153 +33,148 @@
 
     <template v-else>
       <!-- ================================================================
-           GREETING + STATUS
+           GREETING + NOTIFICATION BELL
            ================================================================ -->
       <div class="master-dashboard__greeting">
-        <div>
-          <h2 class="master-dashboard__greeting-name">
-            Привет, {{ displayName }}!
-          </h2>
-          <VBadge variant="success"><IconCheck :size="13" />Верифицирован</VBadge>
-        </div>
-        <VAvatar :name="displayName" size="md" />
-      </div>
-
-      <!-- ================================================================
-           BALANCE CARD
-           ================================================================ -->
-      <div class="master-dashboard__balance-card" @click="router.push({ name: 'master-finance' })">
-        <div class="master-dashboard__balance-label">Доступно к выводу</div>
-        <div class="master-dashboard__balance-value">{{ formattedAvailable }}</div>
-        <div v-if="frozenCents > 0" class="master-dashboard__balance-frozen">
-          Заморожено: {{ formattedFrozen }}
-        </div>
-        <IconArrowRight :size="22" class="master-dashboard__balance-arrow" />
-      </div>
-
-      <!-- ================================================================
-           STATS GRID (with period toggle)
-           F7/F9: real data. For now shows "—" placeholders.
-           ================================================================ -->
-      <div class="master-dashboard__section-header">
-        <span class="master-dashboard__section-title">Моя статистика</span>
-        <button class="master-dashboard__period-toggle" aria-label="Переключить период" @click="togglePeriod">
-          {{ period === 'week' ? 'Неделя' : 'Месяц' }}
+        <h2 class="master-dashboard__greeting-name">Привет, {{ displayName }}!</h2>
+        <button
+          class="master-dashboard__bell"
+          aria-label="Уведомления"
+          @click="onBell"
+        >
+          <IconBell :size="21" />
+          <span v-if="unreadCount > 0" class="master-dashboard__bell-badge">{{ unreadCount }}</span>
         </button>
       </div>
 
-      <div class="master-dashboard__stats-grid">
-        <VStatCard value="—" label="практик" />
-        <VStatCard value="—" label="участников" />
-        <VStatCard value="—" label="доход" />
+      <!-- ================================================================
+           STATS (period toggle + 3 cards)
+           ================================================================ -->
+      <div class="master-dashboard__section-header">
+        <span class="master-dashboard__stats-title">
+          {{ isNewMaster ? 'Моя статистика' : 'Статистика' }}
+        </span>
+        <div class="master-dashboard__period-toggle" role="tablist" aria-label="Период статистики">
+          <button
+            class="master-dashboard__period-btn"
+            :class="{ 'master-dashboard__period-btn--active': period === 'week' }"
+            @click="period = 'week'"
+          >
+            Неделя
+          </button>
+          <button
+            class="master-dashboard__period-btn"
+            :class="{ 'master-dashboard__period-btn--active': period === 'month' }"
+            @click="period = 'month'"
+          >
+            Месяц
+          </button>
+        </div>
       </div>
 
-      <div class="master-dashboard__divider" />
+      <div class="master-dashboard__stats-grid">
+        <VStatCard :value="practicesStat" label="Практик" :delta="practicesDelta" />
+        <VStatCard :value="participantsStat" label="Участников" :delta="participantsDelta" />
+        <VStatCard :value="incomeStat" label="Доход" :delta="incomeDelta" />
+      </div>
 
       <!-- ================================================================
-           AI SUMMARY (placeholder — F9)
+           МОИ УЧЕНИКИ (stub — no screen yet)
            ================================================================ -->
-      <VCard class="master-dashboard__ai-card" padding="none">
-        <div class="master-dashboard__ai-header">Саммари недели</div>
-        <div class="master-dashboard__ai-content">
-          Аналитика по итогам практик появится здесь после проведения
-          первых занятий.
-        </div>
+      <VMenuRow label="Мои ученики" @click="onStudents">
+        <template #icon><IconGroup :size="24" /></template>
+      </VMenuRow>
+
+      <!-- ================================================================
+           ZERO-STATE CTA
+           ================================================================ -->
+      <VButton
+        v-if="isNewMaster"
+        variant="primary"
+        block
+        @click="router.push({ name: 'master-practice-new' })"
+      >
+        Создать первую практику
+      </VButton>
+
+      <!-- ================================================================
+           САММАРИ НЕДЕЛИ (placeholder — no master-AI backend yet)
+           ================================================================ -->
+      <h3 class="master-dashboard__section-title">Саммари недели</h3>
+      <VCard>
+        <p class="master-dashboard__empty-text">
+          {{ isNewMaster
+            ? 'Данных пока нет — создайте первую практику'
+            : 'Сводка появится после проведения практик' }}
+        </p>
       </VCard>
 
-      <div class="master-dashboard__divider" />
-
       <!-- ================================================================
-           NEAREST PRACTICE
+           БЛИЖАЙШИЕ ПРАКТИКИ (up to 3)
            ================================================================ -->
-      <div class="master-dashboard__section-title">Ближайшая практика</div>
+      <h3 class="master-dashboard__section-title">
+        {{ nearestPractices.length > 1 ? 'Ближайшие практики' : 'Ближайшая практика' }}
+      </h3>
 
-      <template v-if="masterStore.practicesLoading">
+      <template v-if="masterStore.practicesLoading && nearestPractices.length === 0">
         <div class="master-dashboard__loading-row">
           <VLoader size="sm" />
         </div>
       </template>
 
-      <template v-else-if="nearestPractice">
-        <VCard
-          class="master-dashboard__practice-card"
-          padding="none"
-          clickable
-          @click="router.push({ name: 'master-practice-edit', params: { id: nearestPractice.id } })"
+      <template v-else-if="nearestPractices.length > 0">
+        <div
+          v-for="practice in nearestPractices"
+          :key="practice.id"
+          class="master-dashboard__practice-block"
         >
-          <div class="master-dashboard__practice-header">
-            <component :is="practiceIconFor(nearestPractice)" :size="24" class="master-dashboard__practice-icon" />
-            <div class="master-dashboard__practice-info">
-              <div class="master-dashboard__practice-title">{{ nearestPractice.title }}</div>
-              <div class="master-dashboard__practice-meta">
-                {{ formatDate(nearestPractice.scheduled_at, nearestPractice.timezone) }}
-                · {{ formatDuration(nearestPractice.duration_minutes) }}
+          <article class="master-dashboard__practice-card">
+            <div class="master-dashboard__practice-top">
+              <span class="master-dashboard__practice-icon">
+                <component :is="practiceIconFor(practice)" :size="46" />
+              </span>
+              <div class="master-dashboard__practice-info">
+                <div class="master-dashboard__practice-title">{{ practice.title }}</div>
+                <div class="master-dashboard__practice-sub">{{ practiceWhen(practice) }}</div>
+                <div class="master-dashboard__practice-meta">
+                  <span class="master-dashboard__meta-item">
+                    <IconGroup :size="15" />
+                    {{ formatParticipants(practice.current_participants, practice.max_participants) }}
+                  </span>
+                  <!-- checkin-count + recurrence meta render once the backend
+                       provides the fields (roadmap for Zod). -->
+                </div>
               </div>
             </div>
+          </article>
+          <div class="master-dashboard__practice-actions">
+            <VButton
+              variant="secondary"
+              block
+              @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
+            >
+              Изменить
+            </VButton>
+            <VButton
+              variant="primary"
+              block
+              @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
+            >
+              Check-ins
+            </VButton>
           </div>
-          <div class="master-dashboard__practice-participants">
-            {{ formatParticipants(nearestPractice.current_participants, nearestPractice.max_participants) }}
-            · {{ formatMoney(nearestPractice.price_cents, nearestPractice.currency) }}
-          </div>
-        </VCard>
+        </div>
       </template>
 
       <template v-else>
-        <VEmptyState
-          icon="calendar"
-          title="Нет предстоящих практик"
-          description="Создайте первую практику"
-        >
-          <VButton size="sm" variant="outline" @click="router.push({ name: 'master-practice-new' })">
-            Создать
-          </VButton>
-        </VEmptyState>
+        <VCard>
+          <p class="master-dashboard__empty-text">
+            {{ isNewMaster
+              ? 'Данных пока нет — создайте первую практику'
+              : 'Нет предстоящих практик' }}
+          </p>
+        </VCard>
       </template>
-
-      <div class="master-dashboard__divider" />
-
-      <!-- ================================================================
-           QUICK ACTIONS
-           ================================================================ -->
-      <div class="master-dashboard__section-title">Быстрые действия</div>
-      <div class="master-dashboard__actions-grid">
-        <VCard
-          class="master-dashboard__action-btn"
-          padding="none"
-          clickable
-          @click="router.push({ name: 'master-practice-new' })"
-        >
-          <IconPlus :size="28" class="master-dashboard__action-icon" />
-          <span class="master-dashboard__action-label">Создать практику</span>
-        </VCard>
-        <VCard
-          class="master-dashboard__action-btn"
-          padding="none"
-          clickable
-          @click="router.push({ name: 'master-practices' })"
-        >
-          <IconList :size="28" class="master-dashboard__action-icon" />
-          <span class="master-dashboard__action-label">Мои практики</span>
-        </VCard>
-        <VCard
-          class="master-dashboard__action-btn"
-          padding="none"
-          clickable
-          @click="router.push({ name: 'master-analytics' })"
-        >
-          <IconAnalytics :size="28" class="master-dashboard__action-icon" />
-          <span class="master-dashboard__action-label">Аналитика</span>
-        </VCard>
-        <VCard
-          class="master-dashboard__action-btn"
-          padding="none"
-          clickable
-          @click="router.push({ name: 'master-finance' })"
-        >
-          <IconFinance :size="28" class="master-dashboard__action-icon" />
-          <span class="master-dashboard__action-label">Финансы</span>
-        </VCard>
-      </div>
     </template>
   </div>
 </template>
@@ -189,52 +182,79 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBadge, VAvatar, VButton, VLoader, VEmptyState, VStatCard, VCard } from '@/components/ui'
-import { IconCheck, IconArrowRight, IconPlus, IconList, IconAnalytics, IconFinance } from '@/components/icons'
+import { VButton, VLoader, VStatCard, VCard, VMenuRow } from '@/components/ui'
+import { IconBell, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
-import { formatDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
+import { useToast } from '@/composables/useToast'
+import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
+import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
+const toast = useToast()
 
-// -- Period toggle (visual only -- no real data until F9) --
+// -- Period toggle. Visual-only until a period-scoped stats API exists (roadmap). --
 const period = ref<'week' | 'month'>('week')
-function togglePeriod(): void {
-  period.value = period.value === 'week' ? 'month' : 'week'
-}
 
 // -- Display name fallback --
 const displayName = computed((): string =>
   masterStore.profile?.display_name ?? 'Мастер',
 )
 
-// -- Balance values --
-const frozenCents = computed(() => masterStore.profile?.frozen_cents ?? 0)
-
-const formattedAvailable = computed(() =>
-  formatMoney(masterStore.profile?.available_cents ?? 0, 'EUR', 'ru', true),
+// True for a brand-new master with no practices at all (zero state).
+const isNewMaster = computed((): boolean =>
+  (masterStore.practicesTotal ?? masterStore.practices.length) === 0,
 )
 
-const formattedFrozen = computed(() =>
-  formatMoney(frozenCents.value, 'EUR', 'ru', true),
+// =========================================================================
+// Stats. Only the practices total is real; participants/income + all deltas
+// + the period scoping have no backend yet → "—" / no delta (roadmap for Zod).
+// Bound through computeds so wiring the future API is a one-line change.
+// =========================================================================
+const practicesStat = computed((): string =>
+  String(masterStore.practicesTotal ?? masterStore.practices.length),
 )
+const participantsStat = computed((): string => '—')
+const incomeStat = computed((): string => '—')
+const practicesDelta = computed((): string => '')
+const participantsDelta = computed((): string => '')
+const incomeDelta = computed((): string => '')
 
-// Reactive clock (60s) so the nearest card drops off exactly when the practice
-// ends — symmetric with the user dashboard.
+// Notifications feed not built yet → no unread count (roadmap for Zod).
+const unreadCount = computed((): number => 0)
+
+// =========================================================================
+// Nearest upcoming practices (up to 3). Scheduled/live AND not yet ended;
+// soonest first. Symmetric with the user dashboard's reactive 60s clock so a
+// card drops off exactly when its practice ends.
+// =========================================================================
 const now = ref(Date.now())
 let clockInterval: ReturnType<typeof setInterval> | null = null
 
-// -- Nearest upcoming / live practice --
-// Scheduled/live AND not yet ended (now < end); soonest first. At the practice's
-// end the card leaves the dashboard → it lives on in «Практики / прошедшие».
-const nearestPractice = computed(() => {
-  const upcoming = masterStore.practices
+const nearestPractices = computed((): PracticeResponse[] =>
+  masterStore.practices
     .filter((p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value))
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-  return upcoming[0] ?? null
-})
+    .slice(0, 3),
+)
+
+// "Завтра, 07:00 • 45 мин" — rendered in the practice's own timezone (the master
+// set it), matching MasterPracticesView.
+function practiceWhen(p: PracticeResponse): string {
+  const day = formatDateShort(p.scheduled_at, p.timezone)
+  const time = formatTime(p.scheduled_at, p.timezone)
+  return `${day}, ${time} • ${formatDuration(p.duration_minutes)}`
+}
+
+// -- Stub actions (no backend) --
+function onBell(): void {
+  toast.info('Уведомления пока недоступны')
+}
+function onStudents(): void {
+  toast.info('Раздел «Ученики» пока недоступен')
+}
 
 // -- Load data on mount --
 onMounted(async () => {
@@ -251,117 +271,116 @@ onUnmounted(() => {
 
 <style scoped>
 .master-dashboard {
-  /* F-5 rail sync: horizontal padding removed — MobileLayout already supplies
-     the 24px screen rail (--velo-rail-pad-x). Vertical kept for header/tab-bar
-     breathing room. Matches the User zone (see MyBookingsView). */
+  /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
+     screen rail (--velo-rail-pad-x). Vertical kept for breathing room. */
   padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* -- Skeleton / loader -- */
+/* -- Skeleton -- */
 .master-dashboard__skeleton {
   display: flex;
   justify-content: center;
-  padding: var(--space-12) 0;
+  padding: var(--space-10) 0;
 }
 
-/* -- Greeting -- */
+/* -- Greeting + bell -- */
 .master-dashboard__greeting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
+}
+
+.master-dashboard__greeting-name {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.master-dashboard__bell {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
+  color: var(--velo-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.master-dashboard__bell:active {
+  opacity: 0.85;
+}
+
+.master-dashboard__bell-badge {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-xl);
+  background: var(--velo-pink-300);
+  color: var(--velo-white);
+  font-size: var(--text-10);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* -- Stats header + period toggle (user-dashboard pattern) -- */
+.master-dashboard__section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
 
-.master-dashboard__greeting-name {
+.master-dashboard__stats-title {
   font-family: var(--font-body);
-  font-size: var(--text-xl);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin-bottom: var(--space-2);
-}
-
-/* -- Balance card -- */
-.master-dashboard__balance-card {
-  position: relative;
-  background: var(--velo-primary);
-  color: white;
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-5);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.master-dashboard__balance-card:active {
-  opacity: 0.9;
-}
-
-.master-dashboard__balance-label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  opacity: 0.8;
-  margin-bottom: var(--space-1);
-}
-
-.master-dashboard__balance-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  letter-spacing: 0.02em;
-}
-
-.master-dashboard__balance-frozen {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  opacity: 0.7;
-  margin-top: var(--space-1);
-}
-
-.master-dashboard__balance-arrow {
-  position: absolute;
-  top: 50%;
-  right: var(--space-5);
-  transform: translateY(-50%);
-  font-size: var(--text-xl);
-  opacity: 0.8;
-}
-
-/* -- Section header with period toggle -- */
-.master-dashboard__section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.master-dashboard__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
 .master-dashboard__period-toggle {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-primary);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-xl);
+  display: flex;
+  gap: 2px;
   background: var(--velo-glass-blue-15);
-  transition: opacity var(--transition-fast);
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
+  padding: 2px;
 }
 
-.master-dashboard__period-toggle:hover {
-  opacity: 0.9;
+.master-dashboard__period-btn {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xl);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.master-dashboard__period-btn--active {
+  background: var(--velo-primary);
+  color: var(--velo-white);
 }
 
 /* -- Stats grid -- */
@@ -371,31 +390,24 @@ onUnmounted(() => {
   gap: var(--space-3);
 }
 
-/* -- Divider -- */
-.master-dashboard__divider {
-  height: 1px;
-  background: var(--velo-border-light);
-}
-
-/* -- AI summary card -- */
-.master-dashboard__ai-card {
-  padding: var(--space-4);
-}
-
-.master-dashboard__ai-header {
+/* -- Section title -- */
+.master-dashboard__section-title {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-secondary);
-  margin-bottom: var(--space-2);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
-.master-dashboard__ai-content {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
+/* -- Empty/placeholder card text -- */
+.master-dashboard__empty-text {
+  margin: 0;
+  text-align: center;
   color: var(--velo-text-muted);
-  line-height: 1.6;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  padding: var(--space-1) var(--space-2);
 }
 
 /* -- Loading row -- */
@@ -405,96 +417,79 @@ onUnmounted(() => {
   padding: var(--space-4) 0;
 }
 
-/* -- Nearest practice card -- */
-.master-dashboard__practice-card {
-  padding: var(--space-4);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.master-dashboard__practice-card:active {
-  opacity: 0.8;
-}
-
-.master-dashboard__practice-header {
+/* -- Practice block (card + actions row) -- */
+.master-dashboard__practice-block {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
+}
+
+.master-dashboard__practice-card {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
+}
+
+.master-dashboard__practice-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .master-dashboard__practice-icon {
   flex-shrink: 0;
-  /* Vector direction icon (was a 24px emoji). */
   color: var(--velo-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .master-dashboard__practice-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--velo-card-gap-icon-title);
 }
 
 .master-dashboard__practice-title {
   font-family: var(--font-body);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
-  font-size: var(--text-base);
+  letter-spacing: var(--velo-card-letter-spacing-title);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.master-dashboard__practice-meta {
+.master-dashboard__practice-sub {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: var(--velo-card-letter-spacing-meta);
+}
+
+.master-dashboard__practice-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--velo-card-meta-row-gap);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: var(--velo-card-letter-spacing-meta);
   margin-top: 2px;
 }
 
-.master-dashboard__practice-participants {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-/* -- Quick actions grid -- */
-.master-dashboard__actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-.master-dashboard__action-btn {
-  display: flex;
-  flex-direction: column;
+.master-dashboard__meta-item {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  transition: opacity var(--transition-fast);
-  cursor: pointer;
+  gap: 5px;
 }
 
-.master-dashboard__action-btn:hover {
-  opacity: 0.9;
-}
-
-.master-dashboard__action-btn:active {
-  opacity: 0.8;
-}
-
-.master-dashboard__action-icon {
-  /* Vector DS icon inherits this as currentColor (was a 28px emoji glyph). */
-  color: var(--velo-text-primary);
-}
-
-.master-dashboard__action-label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  text-align: center;
+.master-dashboard__practice-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
 }
 </style>
