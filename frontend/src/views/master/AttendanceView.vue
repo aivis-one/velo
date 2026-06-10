@@ -1,78 +1,88 @@
 <!--
-  VELO Frontend -- AttendanceView (Phase F6.3, fixed W-5)
+  VELO Frontend -- AttendanceView (Master DS rebuild 2026-06-11, "Check-ins")
 
-  Attendance list and aggregates for a specific practice.
+  Per-practice check-ins for the master, rebuilt to the approved design.
   Protected by masterStatusGuard. Rendered inside MasterShell.
 
-  Data: GET /api/v1/practices/:id/attendance
-  Returns: { total, attended, no_show, pending, items[] }
+  Data: GET /api/v1/practices/:id/attendance -> AttendanceResponse.
+  Each item (AttendanceItemResponse) is enriched for the master's prep view:
+    - user_display_name / user_avatar_url identify the participant
+    - checkin = their PRE check-in for this practice (mood 1..10 + comment), or null
+    - status (attended / no_show / pending / confirmed)
 
-  Layout (matching mockup screen-attendance):
-    - Practice title + date (from masterStore cache or fetched)
-    - Aggregate stats: присутствовало / не пришли / ожидают
-    - Sections: Присутствовали / Не пришли / Ожидают
-    - Each row: initials avatar, user_id (short), status icon, time
-    - "Финализировать" button if practice status is live or scheduled
+  Layout:
+    - Header "Check-ins" + count badge (checked-in / total).
+    - Practice card (icon + title + when).
+    - One card per participant: mood face (from checkin.mood) + name + comment;
+      no-show -> muted × avatar; not-yet-checked-in -> muted initials.
+    - Finalize button (kept — functionally required; the design omits it).
 
-  Note on names: AttendanceItemResponse contains only user_id (UUID),
-  not user display names. MVP shows first 8 chars of UUID as identifier.
-  Full names require an additional endpoint (not in scope for F6).
-
-  Fix W-5: overlay @click.self now guarded by !finalizing to prevent
-  accidental dismiss while the finalize request is in-flight.
+  Note: the design's secondary "message" bubble is a future master↔participant
+  messaging feature (no backend) — not rendered here; only the real pre-check-in
+  comment is shown.
 -->
 
 <template>
-  <div class="attendance">
+  <div class="checkins">
     <VHeader
-      title="Посещаемость"
+      title="Check-ins"
       show-back
-      @back="router.push({ name: 'master-practice-edit', params: { id: practiceId } })"
+      :badge="attendance ? checkinBadge : undefined"
+      @back="goBack"
     />
 
     <!-- Loading -->
-    <div v-if="loading" class="attendance__loader">
+    <div v-if="loading" class="checkins__loader">
       <VLoader size="lg" />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="attendance__content">
-      <VEmptyState icon="warning" title="Не удалось загрузить посещаемость" :description="error">
+    <div v-else-if="error" class="checkins__content">
+      <VEmptyState icon="warning" title="Не удалось загрузить check-ins" :description="error">
         <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
       </VEmptyState>
     </div>
 
     <template v-else-if="attendance">
-      <div class="attendance__content">
-
-        <!-- Practice subtitle -->
-        <p v-if="practiceSubtitle" class="attendance__subtitle">
-          {{ practiceSubtitle }}
-        </p>
-
-        <!-- ================================================================
-             AGGREGATE STATS
-             ================================================================ -->
-        <div class="attendance__stats">
-          <div class="attendance__stat attendance__stat--present">
-            <div class="attendance__stat-value">{{ attendance.attended }}</div>
-            <div class="attendance__stat-label">присутствовало</div>
+      <div class="checkins__content">
+        <!-- Practice card -->
+        <VCard v-if="practice" class="checkins__practice">
+          <component :is="practiceIcon" :size="44" class="checkins__practice-ico" />
+          <div class="checkins__practice-info">
+            <div class="checkins__practice-title">{{ practice.title }}</div>
+            <div v-if="practiceWhen" class="checkins__practice-sub">{{ practiceWhen }}</div>
           </div>
-          <div class="attendance__stat attendance__stat--absent">
-            <div class="attendance__stat-value">{{ attendance.no_show }}</div>
-            <div class="attendance__stat-label">не пришли</div>
-          </div>
-          <div class="attendance__stat">
-            <div class="attendance__stat-value">{{ attendance.pending }}</div>
-            <div class="attendance__stat-label">ожидают</div>
+        </VCard>
+
+        <!-- Empty -->
+        <VEmptyState
+          v-if="attendance.total === 0"
+          icon="group"
+          title="Нет записавшихся"
+          description="На эту практику ещё никто не записался"
+        />
+
+        <!-- Participants -->
+        <div
+          v-for="item in sortedItems"
+          :key="item.booking_id"
+          class="checkins__item"
+        >
+          <MoodAvatar v-if="item.checkin" :mood="item.checkin.mood" :size="46" />
+          <span v-else-if="item.status === 'no_show'" class="checkins__face checkins__face--noshow">
+            <IconClose :size="20" />
+          </span>
+          <span v-else class="checkins__face checkins__face--pending">{{ initials(item) }}</span>
+
+          <div class="checkins__body">
+            <div class="checkins__name">{{ displayName(item) }}</div>
+            <div v-if="item.checkin?.comment" class="checkins__comment">{{ item.checkin.comment }}</div>
+            <div v-else-if="item.status === 'no_show'" class="checkins__meta">Не пришёл</div>
+            <div v-else class="checkins__meta">Ожидает check-in</div>
           </div>
         </div>
 
-        <div class="attendance__divider" />
-
-        <!-- ================================================================
-             FINALIZE BUTTON (live / scheduled -> completed)
-             ================================================================ -->
+        <!-- Finalize (kept: required for the master flow; design omits it) -->
         <VButton
           v-if="canFinalize"
           variant="primary"
@@ -82,82 +92,9 @@
         >
           Финализировать практику
         </VButton>
-
-        <!-- ================================================================
-             ATTENDED
-             ================================================================ -->
-        <template v-if="attendedItems.length > 0">
-          <div class="attendance__section-title attendance__section-title--present">
-            Присутствовали ({{ attendedItems.length }})
-          </div>
-          <div
-            v-for="item in attendedItems"
-            :key="item.booking_id"
-            class="attendance__row"
-          >
-            <div class="attendance__avatar">{{ initials(item.user_id) }}</div>
-            <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div v-if="item.joined_at" class="attendance__row-meta">
-                Зашёл: {{ formatTime(item.joined_at) }}
-              </div>
-            </div>
-            <span class="attendance__row-badge attendance__row-badge--present"><IconCheck :size="16" /></span>
-          </div>
-        </template>
-
-        <!-- ================================================================
-             NO_SHOW
-             ================================================================ -->
-        <template v-if="noShowItems.length > 0">
-          <div class="attendance__section-title attendance__section-title--absent">
-            Не пришли ({{ noShowItems.length }})
-          </div>
-          <div
-            v-for="item in noShowItems"
-            :key="item.booking_id"
-            class="attendance__row"
-          >
-            <div class="attendance__avatar attendance__avatar--absent">{{ initials(item.user_id) }}</div>
-            <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div class="attendance__row-meta">Не отметился</div>
-            </div>
-            <span class="attendance__row-badge attendance__row-badge--absent"><IconClose :size="16" /></span>
-          </div>
-        </template>
-
-        <!-- ================================================================
-             ⏳ PENDING (confirmed but not yet resolved)
-             ================================================================ -->
-        <template v-if="pendingItems.length > 0">
-          <div class="attendance__section-title">
-            Ожидают ({{ pendingItems.length }})
-          </div>
-          <div
-            v-for="item in pendingItems"
-            :key="item.booking_id"
-            class="attendance__row"
-          >
-            <div class="attendance__avatar attendance__avatar--pending">{{ initials(item.user_id) }}</div>
-            <div class="attendance__row-info">
-              <div class="attendance__row-name">{{ shortId(item.user_id) }}</div>
-              <div class="attendance__row-meta">Ожидает отметки</div>
-            </div>
-            <span class="attendance__row-badge attendance__row-badge--pending">⏳</span>
-          </div>
-        </template>
-
-        <!-- Empty state -->
-        <VEmptyState
-          v-if="attendance.total === 0"
-          icon="group"
-          title="Нет записавшихся"
-          description="На эту практику ещё никто не записался"
-        />
       </div>
 
-      <!-- Confirm dialog (W-5: cancel/overlay blocked while finalizing) -->
+      <!-- Confirm dialog (cancel/overlay blocked while finalizing) -->
       <VConfirmDialog
         :open="confirmVisible"
         message="Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены."
@@ -174,12 +111,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
-import { IconCheck, IconClose } from '@/components/icons'
+import { VButton, VLoader, VEmptyState, VConfirmDialog, VCard } from '@/components/ui'
+import { IconClose } from '@/components/icons'
+import MoodAvatar from '@/components/shared/MoodAvatar.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
-import { formatTime } from '@/utils/format'
+import { formatDateShort, formatTime } from '@/utils/format'
+import { practiceIconFor } from '@/utils/displayHelpers'
 import { ApiResponseError } from '@/api/client'
 import type { AttendanceResponse, AttendanceItemResponse, PracticeResponse } from '@/api/types'
 
@@ -200,16 +139,32 @@ const error = ref<string | null>(null)
 const finalizing = ref(false)
 const confirmVisible = ref(false)
 
-// -- Practice subtitle (title + date) from cache or fetched --
-const practiceSubtitle = computed((): string => {
+// -- Header count badge: how many left a pre-check-in, of the total booked. --
+const checkinBadge = computed((): string => {
+  const items = attendance.value?.items ?? []
+  const checkedIn = items.filter((i) => i.checkin).length
+  return `${checkedIn}/${attendance.value?.total ?? items.length}`
+})
+
+// -- Practice card --
+const practiceIcon = computed(() =>
+  practice.value ? practiceIconFor(practice.value) : null,
+)
+const practiceWhen = computed((): string => {
   if (!practice.value) return ''
-  const dt = new Date(practice.value.scheduled_at)
-  const dateStr = dt.toLocaleDateString('ru', {
-    day: 'numeric',
-    month: 'short',
-    timeZone: practice.value.timezone,
-  })
-  return `${practice.value.title} · ${dateStr}`
+  const day = formatDateShort(practice.value.scheduled_at, practice.value.timezone)
+  const time = formatTime(practice.value.scheduled_at, practice.value.timezone)
+  return `${day}, ${time}`
+})
+
+// -- Items: checked-in first, then awaiting, then no-shows. --
+const sortedItems = computed((): AttendanceItemResponse[] => {
+  const rank = (i: AttendanceItemResponse): number => {
+    if (i.checkin) return 0
+    if (i.status === 'no_show') return 2
+    return 1
+  }
+  return [...(attendance.value?.items ?? [])].sort((a, b) => rank(a) - rank(b))
 })
 
 // -- Can finalize (practice is live or scheduled and not yet completed) --
@@ -218,30 +173,17 @@ const canFinalize = computed((): boolean => {
   return s === 'live' || s === 'scheduled'
 })
 
-// -- Filtered item lists --
-const attendedItems = computed((): AttendanceItemResponse[] =>
-  attendance.value?.items.filter((i) => i.status === 'attended') ?? [],
-)
-
-const noShowItems = computed((): AttendanceItemResponse[] =>
-  attendance.value?.items.filter((i) => i.status === 'no_show') ?? [],
-)
-
-const pendingItems = computed((): AttendanceItemResponse[] =>
-  attendance.value?.items.filter(
-    (i) => i.status === 'pending' || i.status === 'confirmed',
-  ) ?? [],
-)
-
 // -- Display helpers --
-// UUID first 2 chars as initials (no real names in AttendanceItemResponse)
-function initials(userId: string): string {
-  return userId.slice(0, 2).toUpperCase()
+function displayName(item: AttendanceItemResponse): string {
+  return item.user_display_name || `#${item.user_id.slice(0, 8)}`
+}
+function initials(item: AttendanceItemResponse): string {
+  const name = (item.user_display_name || item.user_id).trim()
+  return (name.charAt(0) || '?').toUpperCase()
 }
 
-// Short UUID prefix for display
-function shortId(userId: string): string {
-  return `#${userId.slice(0, 8)}`
+function goBack(): void {
+  router.push({ name: 'master-practice-edit', params: { id: practiceId } })
 }
 
 // -- Load attendance + practice --
@@ -249,7 +191,6 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    // Load in parallel: attendance data + practice info for subtitle/canFinalize
     const [attendanceData] = await Promise.all([
       getAttendance(practiceId),
       loadPractice(),
@@ -263,7 +204,6 @@ async function load(): Promise<void> {
 }
 
 async function loadPractice(): Promise<void> {
-  // Try store cache first
   const cached = masterStore.practices.find((p) => p.id === practiceId)
   if (cached) {
     practice.value = cached
@@ -272,18 +212,17 @@ async function loadPractice(): Promise<void> {
   try {
     practice.value = await getPractice(practiceId)
   } catch {
-    // Non-critical: subtitle and finalize button just won't show
+    // Non-critical: the practice card and finalize button just won't show.
   }
 }
 
 onMounted(load)
 
-// -- Confirm finalize --
+// -- Finalize --
 function confirmFinalize(): void {
   confirmVisible.value = true
 }
 
-// -- Finalize --
 async function finalize(): Promise<void> {
   if (finalizing.value) return
   finalizing.value = true
@@ -293,9 +232,7 @@ async function finalize(): Promise<void> {
     confirmVisible.value = false
     toast.success('Практика завершена!')
     await masterStore.refreshMyPractices()
-    // Reload attendance to reflect resolved statuses
-    const fresh = await getAttendance(practiceId)
-    attendance.value = fresh
+    attendance.value = await getAttendance(practiceId)
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось финализировать')
   } finally {
@@ -305,179 +242,107 @@ async function finalize(): Promise<void> {
 </script>
 
 <style scoped>
-.attendance {
+.checkins {
   min-height: 100%;
-  background: transparent;
   display: flex;
   flex-direction: column;
 }
 
-.attendance__loader {
+.checkins__loader {
   display: flex;
   justify-content: center;
-  padding: var(--space-12) 0;
+  padding: var(--space-10) 0;
 }
 
-.attendance__content {
+.checkins__content {
   flex: 1;
   /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
   padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-/* -- Subtitle -- */
-.attendance__subtitle {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-}
-
-/* -- Aggregate stats (matches mockup .attendance-stats) -- */
-.attendance__stats {
-  display: flex;
-  gap: var(--space-4);
-  justify-content: center;
-  padding: var(--space-4) 0;
-}
-
-.attendance__stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  flex: 1;
-}
-
-.attendance__stat-value {
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-}
-
-.attendance__stat--present .attendance__stat-value {
-  color: var(--velo-success);
-}
-
-.attendance__stat--absent .attendance__stat-value {
-  color: var(--velo-error);
-}
-
-.attendance__stat-label {
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-  text-align: center;
-}
-
-/* -- Divider -- */
-.attendance__divider {
-  height: 1px;
-  background: var(--velo-border-light);
-}
-
-/* -- Section titles -- */
-.attendance__section-title {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  padding: var(--space-2) 0 var(--space-1);
-}
-
-.attendance__section-title--present {
-  color: var(--velo-success);
-}
-
-.attendance__section-title--absent {
-  color: var(--velo-error);
-}
-
-/* -- Row (matches mockup .attendee-item / .detail-list-item) -- */
-.attendance__row {
+/* -- Practice card -- */
+.checkins__practice {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
 }
 
-.attendance__row:last-child {
-  border-bottom: none;
-}
-
-/* -- Avatar (initials) -- */
-.attendance__avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--velo-primary);
-  color: white;
-  font-size: var(--text-sm);
-  font-weight: 400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.checkins__practice-ico {
   flex-shrink: 0;
+  color: var(--velo-text-primary);
 }
 
-.attendance__avatar--absent {
-  background: var(--velo-error);
-  opacity: 0.7;
-}
-
-.attendance__avatar--pending {
-  background: var(--velo-text-muted);
-}
-
-/* -- Row info -- */
-.attendance__row-info {
-  flex: 1;
+.checkins__practice-info {
   min-width: 0;
 }
 
-.attendance__row-name {
-  font-size: var(--text-sm);
+.checkins__practice-title {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
-  font-family: var(--font-mono);
 }
 
-.attendance__row-meta {
+.checkins__practice-sub {
+  font-family: var(--font-body);
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--velo-text-secondary);
   margin-top: 2px;
 }
 
-/* -- Status badge -- */
-.attendance__row-badge {
-  font-size: var(--text-base);
+/* -- Participant card -- */
+.checkins__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+/* Non-mood avatars (no-show ×, awaiting initials): muted blue-grey circle. */
+.checkins__face {
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
-  width: 24px;
-  height: 24px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  background: var(--velo-glass-blue-60);
+  color: var(--velo-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
 }
 
-.attendance__row-badge--present {
-  background: var(--velo-success);
-  color: white;
-  font-size: var(--text-xs);
-  font-weight: 400;
+.checkins__body {
+  flex: 1;
+  min-width: 0;
+  /* Center the single name line against the 46px avatar. */
+  align-self: center;
 }
 
-.attendance__row-badge--absent {
-  background: var(--velo-error);
-  color: white;
-  font-size: var(--text-xs);
-  font-weight: 400;
-}
-
-.attendance__row-badge--pending {
+.checkins__name {
+  font-family: var(--font-body);
   font-size: var(--text-sm);
+  color: var(--velo-text-primary);
 }
 
-/* -- Confirm overlay -- */
-/* (confirm dialog now provided by <VConfirmDialog>) */
+.checkins__comment {
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  color: var(--velo-text-secondary);
+  margin-top: 3px;
+}
+
+.checkins__meta {
+  font-family: var(--font-body);
+  font-size: var(--text-12);
+  color: var(--velo-text-muted);
+  margin-top: 3px;
+}
 </style>
