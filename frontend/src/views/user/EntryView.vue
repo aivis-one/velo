@@ -81,11 +81,7 @@
           :duration="practiceDuration"
           :clickable="false"
           :show-verified="false"
-        >
-          <template v-if="practiceDone" #badge>
-            <VBadge variant="success">Состоялась</VBadge>
-          </template>
-        </PracticeListCard>
+        />
 
         <!-- The entry card -->
         <VCard class="entry__card">
@@ -142,7 +138,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VBadge, VCard } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VCard } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { IconPen } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
@@ -187,13 +183,6 @@ const practiceTime = computed(() =>
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
-)
-// "Состоялась" badge only for a past practice (a note linked to an upcoming
-// practice must not claim it already happened).
-const practiceDone = computed(
-  () =>
-    !!practice.value &&
-    new Date(practice.value.scheduled_at).getTime() < Date.now(),
 )
 
 // Muted context line linking the note to its practice (if any).

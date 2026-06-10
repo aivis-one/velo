@@ -58,11 +58,7 @@
           :duration="practiceDuration"
           :clickable="false"
           :show-verified="false"
-        >
-          <template v-if="practiceDone" #badge>
-            <VBadge variant="success">Состоялась</VBadge>
-          </template>
-        </PracticeListCard>
+        />
 
         <!-- The check-in / feedback pill -->
         <VCard class="detail__pill" padding="none">
@@ -87,7 +83,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VBackButton, VBadge, VCard } from '@/components/ui'
+import { VLoader, VEmptyState, VButton, VBackButton, VCard } from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import {
   IconMoodLow,
@@ -180,13 +176,6 @@ const practiceTime = computed(() =>
 )
 const practiceDuration = computed(() =>
   practice.value ? formatDuration(practice.value.duration_minutes) : '',
-)
-// "Состоялась" badge only for a practice already in the past — a check-in
-// before an upcoming practice must not claim it already happened.
-const practiceDone = computed(
-  () =>
-    !!practice.value &&
-    new Date(practice.value.scheduled_at).getTime() < Date.now(),
 )
 
 // Context line under the comment: relates this check-in / feedback to the
