@@ -257,8 +257,9 @@
   --velo-banner-gap-icon-text: 14px;
 
   /* =========================================================================
-   * Design System v1.0 — additive token layer (EXPORT css-vars from
-   * docs/02_design-system/showcase). ADDITIVE ONLY: the 124 tokens above are
+   * Design System v1.0 — additive token layer (originally exported from the DS
+   * showcase; showcase retired 2026-06-10 — variables.css is now the sole token
+   * canon). ADDITIVE ONLY: the 124 tokens above are
    * unchanged (values identical, parity verified 124/124). These add the
    * missing primitive ramp steps + the full motion scale + effect tokens that
    * the DS canon defines. "NO SOURCE" = skill default in our tokens (VELO had
