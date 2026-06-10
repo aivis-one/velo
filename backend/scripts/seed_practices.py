@@ -1793,9 +1793,6 @@ async def _collect_our_ids(
     return master_ids, practice_ids, purchase_ids, withdrawal_ids
 
 
-    return master_ids, practice_ids, purchase_ids, withdrawal_ids
-
-
 async def _collect_test_user_ids(session: AsyncSession) -> list:
     """ID тест-юзеров по маркеру credentials.seed.source. Это первичный способ
     их найти (JSON со списком может быть не передан в clean-режиме).
@@ -2113,7 +2110,7 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
                 ),
             ))
 
-        # 3. checkins: FK -> users.id (CASCADE), practices.id (SET NULL)
+        # 3. checkins: FK -> users.id (CASCADE), practices.id (CASCADE)
         # 4. feedbacks: то же
         await session.execute(delete(Checkin).where(
             Checkin.user_id.in_(master_ids),
@@ -2173,6 +2170,13 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
             Promo.master_id.in_(master_ids),
         ))
 
+    # ЭТАП B2: practice-scoped очистка. Вынесена из-под `if master_ids:` —
+    # удаление практик и связанных строк зависит ТОЛЬКО от practice_ids. Ловит
+    # сценарии, где практики есть, а служебных мастеров нет (master_id = реальный
+    # тестер-мастер: его MasterProfile помечен SEED_SOURCE_TESTER и в master_ids
+    # НЕ попадает). Для master-test поведение идентично прежнему — служебные
+    # мастера всегда есть, оба списка непусты, порядок DELETE тот же.
+    if practice_ids:
         # 12b. FK safety-net: снести ЛЮБЫЕ оставшиеся строки, ссылающиеся на наши
         #      seed-практики, до удаления самих практик (purchases/bookings имеют
         #      RESTRICT на practice_id). Покрывает «чужие» purchases/bookings — напр.
@@ -2182,35 +2186,36 @@ async def cmd_clean(session: AsyncSession, dry_run: bool) -> None:
         #      практики), поэтому НЕ-seed практики и их данные не трогаются. Без
         #      этого --reset падал на FK и требовал полного wipe БД. Порядок: audit/
         #      ledger по purchase -> purchases -> waitlist -> bookings (как в шагах 10-11).
-        if practice_ids:
-            leftover_purchase_ids = [r[0] for r in (await session.execute(
-                select(Purchase.id).where(Purchase.practice_id.in_(practice_ids)),
-            )).all()]
-            if leftover_purchase_ids:
-                lp_str = [str(p) for p in leftover_purchase_ids]
-                await session.execute(delete(AuditLog).where(
-                    AuditLog.target_id.in_(leftover_purchase_ids),
-                ))
-                await session.execute(delete(CompanyLedger).where(
-                    CompanyLedger.reference_id.in_(lp_str),
-                ))
-                await session.execute(delete(Purchase).where(
-                    Purchase.id.in_(leftover_purchase_ids),
-                ))
-            await session.execute(delete(Waitlist).where(
-                Waitlist.practice_id.in_(practice_ids),
+        leftover_purchase_ids = [r[0] for r in (await session.execute(
+            select(Purchase.id).where(Purchase.practice_id.in_(practice_ids)),
+        )).all()]
+        if leftover_purchase_ids:
+            lp_str = [str(p) for p in leftover_purchase_ids]
+            await session.execute(delete(AuditLog).where(
+                AuditLog.target_id.in_(leftover_purchase_ids),
             ))
-            await session.execute(delete(Booking).where(
-                Booking.practice_id.in_(practice_ids),
+            await session.execute(delete(CompanyLedger).where(
+                CompanyLedger.reference_id.in_(lp_str),
             ))
+            await session.execute(delete(Purchase).where(
+                Purchase.id.in_(leftover_purchase_ids),
+            ))
+        await session.execute(delete(Waitlist).where(
+            Waitlist.practice_id.in_(practice_ids),
+        ))
+        await session.execute(delete(Booking).where(
+            Booking.practice_id.in_(practice_ids),
+        ))
 
         # 13. practices (наши) — к этому моменту ни test-user, ни master, ни
         #     «чужие» purchases/bookings их уже не держат.
-        if practice_ids:
-            await session.execute(delete(Practice).where(
-                Practice.id.in_(practice_ids),
-            ))
+        await session.execute(delete(Practice).where(
+            Practice.id.in_(practice_ids),
+        ))
 
+    # ЭТАП B3: учётки служебных мастеров. Снова под master_ids; их практики уже
+    # удалены в ЭТАПе B2, поэтому FK-safe.
+    if master_ids:
         # 14. master_profiles
         await session.execute(delete(MasterProfile).where(
             MasterProfile.user_id.in_(master_ids),
