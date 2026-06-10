@@ -11,6 +11,7 @@
 //   DELETE /api/v1/bookings/{id}                   -- cancel booking
 //   POST /api/v1/bookings/{id}/join                -- check-in (Phase 5.4)
 //   POST /api/v1/bookings/{id}/leave               -- check-out (Phase 5.4)
+//   POST /api/v1/bookings/{id}/skip-checkin        -- persist PRE check-in skip (B2)
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -127,4 +128,15 @@ export function joinBooking(bookingId: string): Promise<BookingResponse> {
  */
 export function leaveBooking(bookingId: string): Promise<BookingResponse> {
   return api.post<BookingResponse>(`/api/v1/bookings/${bookingId}/leave`)
+}
+
+/**
+ * Persist the user's choice to skip their PRE check-in for a booking (B2).
+ *
+ * Owner-only (404 otherwise). Idempotent. Sets booking.checkin_skipped so the
+ * dashboard banner / check-in prompt stays hidden across sessions (was
+ * client-only before).
+ */
+export function skipCheckin(bookingId: string): Promise<BookingResponse> {
+  return api.post<BookingResponse>(`/api/v1/bookings/${bookingId}/skip-checkin`)
 }

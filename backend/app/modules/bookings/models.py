@@ -119,6 +119,15 @@ class Booking(UUIDMixin, TimestampMixin, Base):
         DateTime(timezone=True), default=None,
     )
 
+    # -- PRE check-in skip (B2) --
+    # The user persistently chose to skip their PRE check-in for this booking.
+    # Was client-only before; persisting it keeps the dashboard banner / check-in
+    # prompt hidden across sessions and devices. NOT NULL, defaults false.
+    checkin_skipped: Mapped[bool] = mapped_column(
+        default=False,
+        server_default=text("false"),
+    )
+
     __table_args__ = (
         # H-02: prevents duplicate active bookings, allows re-booking
         # after cancellation.

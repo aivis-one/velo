@@ -18,6 +18,7 @@ import {
   cancelBooking as apiCancelBooking,
   joinBooking as apiJoinBooking,
   leaveBooking as apiLeaveBooking,
+  skipCheckin as apiSkipCheckin,
 } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
@@ -157,6 +158,22 @@ export const useBookingsStore = defineStore('bookings', () => {
     }
   }
 
+  /**
+   * Persist the user's choice to skip their PRE check-in for a booking (B2).
+   * Refreshes the list so the persisted `checkin_skipped` flag is reflected,
+   * keeping the dashboard banner hidden across reloads (not just this session).
+   */
+  async function skipCheckin(bookingId: string): Promise<ActionResult> {
+    try {
+      await apiSkipCheckin(bookingId)
+      await pagination.refresh()
+      return { ok: true, error: '' }
+    } catch (e) {
+      const message = extractApiError(e, 'Не удалось пропустить check-in')
+      return { ok: false, error: message }
+    }
+  }
+
   return {
     // List
     bookings: pagination.items,
@@ -182,6 +199,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     cancelBooking,
     joinBooking,
     leaveBooking,
+    skipCheckin,
 
     // Session-only check-in skip tracking
     dismissedCheckins,

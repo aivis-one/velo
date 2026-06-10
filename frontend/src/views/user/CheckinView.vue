@@ -167,9 +167,17 @@ async function onSubmit(): Promise<void> {
 }
 
 function onSkip(): void {
-  // Session-only: hide the dashboard "Пора на check-in" banner for this practice
-  // (no backend skip state yet).
+  // Optimistic: hide the dashboard "Пора на check-in" banner instantly this
+  // session, so navigation feels immediate.
   bookingsStore.dismissCheckin(practiceId)
+  // Persist the skip (B2) so the prompt stays hidden across sessions/devices.
+  // Fire-and-forget: the booking is in the store (loaded for has_checkin); if
+  // it is missing or the request fails, the session dismiss above still hides
+  // the banner this session.
+  const booking = bookingsStore.bookings.find((b) => b.practice_id === practiceId)
+  if (booking) {
+    void bookingsStore.skipCheckin(booking.id)
+  }
   toast.info('Check-in пропущен')
   router.push({ name: 'user-dashboard' })
 }

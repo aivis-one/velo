@@ -74,6 +74,7 @@ class BookingResponse(BaseModel):
     cancellation_reason: str | None
     joined_at: datetime | None
     left_at: datetime | None
+    checkin_skipped: bool
     created_at: datetime
     updated_at: datetime | None
 
@@ -99,6 +100,7 @@ class BookingWithPracticeResponse(BaseModel):
     cancellation_reason: str | None
     joined_at: datetime | None
     left_at: datetime | None
+    checkin_skipped: bool
     created_at: datetime
     updated_at: datetime | None
     # Diary state for the dashboard banners: whether the current user has

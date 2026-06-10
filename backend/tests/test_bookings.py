@@ -568,3 +568,112 @@ async def test_cancel_already_cancelled(
         f"{BOOKINGS_URL}/{bid}", headers=headers,
     )
     assert resp2.status_code == 400
+
+
+# ===================================================================
+# POST /bookings/{id}/skip-checkin -- persist PRE check-in skip (B2)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_skip_checkin_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Owner skips their PRE check-in: 200, checkin_skipped True + persisted."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await login_user(
+        client, telegram_id=61120, first_name="User",
+    )
+    headers = auth_headers(user["session_token"])
+
+    create_resp = await client.post(
+        BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+    bid = create_resp.json()["id"]
+    # Default: not skipped.
+    assert create_resp.json()["checkin_skipped"] is False
+
+    resp = await client.post(
+        f"{BOOKINGS_URL}/{bid}/skip-checkin", headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["checkin_skipped"] is True
+
+    # Persisted: GET /me reflects the flag (not just this session).
+    me_resp = await client.get(
+        f"{BOOKINGS_URL}/me", headers=headers,
+    )
+    assert me_resp.status_code == 200
+    item = next(
+        b for b in me_resp.json()["items"] if b["id"] == bid
+    )
+    assert item["checkin_skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_skip_checkin_not_owner(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A non-owner cannot skip someone else's booking: 404 (P-08)."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    owner = await login_user(
+        client, telegram_id=61121, first_name="Owner",
+    )
+    create_resp = await client.post(
+        BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=auth_headers(owner["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    bid = create_resp.json()["id"]
+
+    intruder = await login_user(
+        client, telegram_id=61122, first_name="Intruder",
+    )
+    resp = await client.post(
+        f"{BOOKINGS_URL}/{bid}/skip-checkin",
+        headers=auth_headers(intruder["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_skip_checkin_idempotent(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Skipping twice is a no-op: still 200, checkin_skipped True."""
+    master = await _make_verified_master(client, db_session)
+    pid = await _create_scheduled_practice(client, master)
+
+    user = await login_user(
+        client, telegram_id=61123, first_name="User",
+    )
+    headers = auth_headers(user["session_token"])
+
+    create_resp = await client.post(
+        BOOKINGS_URL,
+        json={"practice_id": pid},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+    bid = create_resp.json()["id"]
+
+    first = await client.post(
+        f"{BOOKINGS_URL}/{bid}/skip-checkin", headers=headers,
+    )
+    assert first.status_code == 200
+    second = await client.post(
+        f"{BOOKINGS_URL}/{bid}/skip-checkin", headers=headers,
+    )
+    assert second.status_code == 200
+    assert second.json()["checkin_skipped"] is True

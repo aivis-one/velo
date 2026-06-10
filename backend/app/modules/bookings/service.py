@@ -302,6 +302,32 @@ async def create_booking(
     return booking
 
 
+async def skip_checkin(
+    booking_id: UUID,
+    user: User,
+    session: AsyncSession,
+) -> Booking:
+    """Persist the user's choice to skip their PRE check-in for this booking.
+
+    Sets booking.checkin_skipped = True so the dashboard banner / check-in
+    prompt stays hidden across sessions and devices (was client-only before).
+    Owner-only (P-08: 404 not 403 to avoid revealing booking existence).
+    Idempotent: re-skipping an already-skipped booking is a no-op.
+    """
+    stmt = select(Booking).where(Booking.id == booking_id)
+    booking = (await session.execute(stmt)).scalar_one_or_none()
+
+    if not booking:
+        raise NotFoundError("Booking not found")
+
+    # P-08: 404 not 403 to avoid revealing booking existence.
+    if booking.user_id != user.id:
+        raise NotFoundError("Booking not found")
+
+    booking.checkin_skipped = True
+    return booking
+
+
 async def cancel_booking(
     booking_id: UUID,
     user: User,

@@ -241,6 +241,8 @@ const checkinAlert = computed((): BookingWithPracticeResponse | null => {
       if (b.status !== 'confirmed') return false
       // Hide once the user has already checked in (no re-submit via banner).
       if (b.has_checkin) return false
+      // Hide if the user persistently skipped this booking's check-in (B2).
+      if (b.checkin_skipped) return false
       // Hide if the user skipped this practice's check-in this session.
       if (bookingsStore.dismissedCheckins.includes(b.practice_id)) return false
       const scheduledMs = new Date(b.practice.scheduled_at).getTime()

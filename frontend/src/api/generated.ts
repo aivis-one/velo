@@ -146,6 +146,7 @@ export interface BookingResponse {
   cancellation_reason: string | null
   joined_at: string | null
   left_at: string | null
+  checkin_skipped: boolean
   created_at: string
   updated_at: string | null
 }
@@ -161,6 +162,7 @@ export interface BookingWithPracticeResponse {
   cancellation_reason: string | null
   joined_at: string | null
   left_at: string | null
+  checkin_skipped: boolean
   created_at: string
   updated_at: string | null
   has_feedback: boolean

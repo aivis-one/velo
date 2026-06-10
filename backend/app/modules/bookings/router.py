@@ -59,6 +59,7 @@ from app.modules.bookings.service import (
     join_booking,
     leave_booking,
     list_user_bookings,
+    skip_checkin,
 )
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
@@ -187,6 +188,7 @@ async def list_my_bookings_endpoint(
                 cancellation_reason=booking.cancellation_reason,
                 joined_at=booking.joined_at,
                 left_at=booking.left_at,
+                checkin_skipped=booking.checkin_skipped,
                 created_at=booking.created_at,
                 updated_at=booking.updated_at,
                 has_feedback=has_feedback,
@@ -324,6 +326,26 @@ async def leave_booking_endpoint(
 ) -> BookingResponse:
     """Check out from a practice (sets left_at)."""
     booking = await leave_booking(booking_id, user, session)
+    await session.flush()
+    await session.refresh(booking)
+    return BookingResponse.model_validate(booking)
+
+
+@router.post(
+    "/{booking_id}/skip-checkin",
+    response_model=BookingResponse,
+)
+async def skip_checkin_endpoint(
+    booking_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> BookingResponse:
+    """Persist the current user's choice to skip their PRE check-in.
+
+    Owner-only (404 otherwise). Idempotent. Keeps the dashboard banner /
+    check-in prompt hidden across sessions (was client-only before).
+    """
+    booking = await skip_checkin(booking_id, user, session)
     await session.flush()
     await session.refresh(booking)
     return BookingResponse.model_validate(booking)
