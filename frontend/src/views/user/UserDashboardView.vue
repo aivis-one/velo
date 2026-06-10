@@ -84,6 +84,7 @@
         :practice="nearestBooking.practice"
         :title="nearestPracticeTitle"
         :when="nearestPracticeDate"
+        :when-time="nearestPracticeTime"
         :duration="nearestPracticeDuration"
         @click="openNearest"
       >
@@ -206,7 +207,7 @@ import {
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { formatShortDate, formatTime, formatDuration, isToday } from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -404,14 +405,16 @@ function openNearest(): void {
  */
 const viewerTz = useViewerTimezone()
 
-// Dashboard "Ближайшая практика": today -> time (it's clearly today), any other
-// day -> the short date — one value, so the user instantly knows when it is.
+// Dashboard "Ближайшая практика": show BOTH the day (relative «Сегодня»/«Завтра»
+// or the date «10 июня») AND the time, stacked as two lines in the card — so the
+// time is never lost on a future-day card (operator 2026-06-09).
 const nearestPracticeDate = computed((): string => {
   if (!nearestBooking.value) return ''
-  const iso = nearestBooking.value.practice.scheduled_at
-  return isToday(iso, viewerTz.value)
-    ? formatTime(iso, viewerTz.value)
-    : formatShortDate(iso, viewerTz.value)
+  return formatDateShort(nearestBooking.value.practice.scheduled_at, viewerTz.value)
+})
+const nearestPracticeTime = computed((): string => {
+  if (!nearestBooking.value) return ''
+  return formatTime(nearestBooking.value.practice.scheduled_at, viewerTz.value)
 })
 
 const nearestPracticeDuration = computed((): string => {

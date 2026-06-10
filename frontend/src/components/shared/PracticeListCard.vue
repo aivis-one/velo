@@ -59,8 +59,11 @@
     <div class="practice-list-card__meta">
       <span class="practice-list-card__when">{{ when }}</span>
       <span class="practice-list-card__rest">
-        <span v-if="duration" class="practice-list-card__dur">
-          <IconClock :size="14" /> {{ duration }}
+        <span v-if="whenTime || duration" class="practice-list-card__dur">
+          <span v-if="whenTime">{{ whenTime }}</span>
+          <span v-if="whenTime && duration" class="practice-list-card__dur-sep">·</span>
+          <IconClock v-if="duration" :size="14" />
+          <span v-if="duration">{{ duration }}</span>
         </span>
         <span v-else class="practice-list-card__dur-empty" />
         <span class="practice-list-card__badge">
@@ -102,6 +105,9 @@ const props = withDefaults(
     duration?: string
     /** Show the teal-circle "verified" check next to the master name. Default true. */
     showVerified?: boolean
+    /** Optional second line shown UNDER `when` (e.g. the time on the dashboard
+     *  nearest-practice card, so date + time are both visible). Omit = single line. */
+    whenTime?: string
     /** When true (default), the whole card is a button and emits @click. */
     clickable?: boolean
   }>(),
@@ -109,6 +115,7 @@ const props = withDefaults(
     title: undefined,
     when: '',
     duration: undefined,
+    whenTime: undefined,
     showVerified: true,
     clickable: true,
   },
@@ -246,6 +253,11 @@ const masterInitial = computed(() => {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: var(--velo-card-letter-spacing-meta);
+}
+
+/* Separator between the optional time and the duration ("06:00 · 1 ч"). */
+.practice-list-card__dur-sep {
+  opacity: 0.55;
 }
 
 .practice-list-card__rest {
