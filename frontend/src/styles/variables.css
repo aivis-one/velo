@@ -158,6 +158,7 @@
   --velo-glass-pink-40: rgba(247, 149, 162, 0.4); /* pink-300 @ 0.4 — undo bar fill */
   --velo-blue-100: #e2f0fd;
   --velo-blue-200: #abbfda;
+  --velo-blue-400: #619cd2;       /* analytics rating-bar "Есть вопросы"; operator SVG 2026-06-11 (no prior token) */
   --velo-sand-100: #fdf3e2;
 
   /* === VELΘ: Glow shadow === */

@@ -90,13 +90,15 @@ export function ratingLabelFromScore(score: number): string {
 }
 
 /**
- * CSS variable references for rating progress bar fills (AnalyticsView).
- * Values reference tokens from variables.css -- no hardcoded hex.
+ * Rating progress-bar FILL colours (analytics / per-practice reviews).
+ * Canon from the operator SVGs (2026-06-11): fire = peach, good = pink/rose,
+ * confused = blue. A DIFFERENT palette from RATING_ICON_COLOR (the icon accents)
+ * on purpose -- bars are the lighter fills, icons are the saturated accents.
  */
-export const RATING_COLOR: Record<string, string> = {
-  fire:     'var(--velo-error-text)',  // #DC2626
-  good:     'var(--velo-success)',     // #22C55E
-  confused: 'var(--velo-warning)',     // #F59E0B
+export const RATING_COLOR: Record<FeedbackRating, string> = {
+  fire:     'var(--velo-peach-300)',  // #fbc088
+  good:     'var(--velo-pink-300)',   // #f795a2
+  confused: 'var(--velo-blue-400)',   // #619cd2
 }
 
 /**

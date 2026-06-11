@@ -91,11 +91,11 @@
         <VCard class="analytics__rating">
           <div v-for="bar in ratingBars" :key="bar.key" class="analytics__rrow">
             <span class="analytics__rrow-head">
-              <component :is="bar.icon" :size="22" :style="{ color: bar.color }" />
+              <component :is="bar.icon" :size="22" :style="{ color: bar.iconColor }" />
               {{ bar.label }}
             </span>
             <div class="analytics__rtrack">
-              <div class="analytics__rfill" :style="{ width: `${bar.pct}%`, background: bar.color }" />
+              <div class="analytics__rfill" :style="{ width: `${bar.pct}%`, background: bar.barColor }" />
             </div>
             <span class="analytics__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
           </div>
@@ -144,10 +144,12 @@
         </div>
 
         <template v-else>
-          <article
+          <button
             v-for="p in pastPractices"
             :key="p.id"
+            type="button"
             class="analytics__pcard"
+            @click="openReviews(p.id)"
           >
             <div class="analytics__pcard-top">
               <span class="analytics__pcard-icon">
@@ -176,7 +178,7 @@
                 <IconRatingConfused :size="14" />{{ ratingPct(p.id, 'confused') }}%
               </span>
             </div>
-          </article>
+          </button>
 
           <div v-if="masterStore.practicesHasMore" class="analytics__more">
             <VButton
@@ -236,7 +238,7 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VButton, VStatCard, VCard } from '@/components/ui'
 import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconProfile } from '@/components/icons'
-import { practiceIconFor } from '@/utils/displayHelpers'
+import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
@@ -318,15 +320,16 @@ interface RatingBar {
   label: string
   count: number
   pct: number
-  color: string
+  iconColor: string
+  barColor: string
 }
 
-// Colours on the DS rating tokens (fire = orange, good = rose, confused = blue) --
-// matches the operator design; replaces the previous error-text/success/warning drift.
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string; color: string }> = [
-  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!',       color: 'var(--velo-rating-fire)' },
-  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо',       color: 'var(--velo-rating-good)' },
-  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы', color: 'var(--velo-rating-confused)' },
+// Bar fill = RATING_COLOR (peach-300 / pink-300 / blue-400); icon accent =
+// RATING_ICON_COLOR (--velo-rating-*). Two palettes on purpose (see displayHelpers).
+const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string }> = [
+  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!' },
+  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо' },
+  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
@@ -339,6 +342,8 @@ const ratingBars = computed((): RatingBar[] => {
   const total = totals.fire + totals.good + totals.confused
   return RATING_BARS_CONFIG.map((cfg) => ({
     ...cfg,
+    iconColor: RATING_ICON_COLOR[cfg.key],
+    barColor:  RATING_COLOR[cfg.key],
     count: totals[cfg.key],
     pct:   total > 0 ? Math.round((totals[cfg.key] / total) * 100) : 0,
   }))
@@ -413,6 +418,11 @@ function loadVisibleInsights(): Promise<void[]> {
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
   await loadVisibleInsights()
+}
+
+/** Open the per-practice reviews detail (Г2: closes the card-tap from Г4). */
+function openReviews(practiceId: string): void {
+  router.push({ name: 'master-practice-reviews', params: { id: practiceId } })
 }
 
 // =========================================================================
@@ -641,6 +651,10 @@ onMounted(async () => {
 
 /* ===== Practice card (PracticeListCard canon padding + inline badges) ===== */
 .analytics__pcard {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
@@ -648,6 +662,11 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: opacity var(--transition-fast);
+}
+
+.analytics__pcard:active {
+  opacity: 0.85;
 }
 
 .analytics__pcard-top {
