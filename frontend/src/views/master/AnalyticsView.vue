@@ -1,239 +1,230 @@
 <!--
-  VELO Frontend -- AnalyticsView (Phase F9.2)
+  VELO Frontend -- AnalyticsView (Phase-3 Master DS rebuild)
 
   Master analytics hub. Route: /master/analytics (inside MasterShell).
 
-  Two tabs (mockup M10):
-    1. Отзывы   -- aggregated stats grid + rating progress bars
-                   + past practices list with expandable insights
-    2. Платежи  -- redirect card to MasterFinanceView
+  Two tabs (operator design 2026-06-11), each under a shared period toggle:
+    1. Отзывы  -- aggregate stats (Check-in / Feedback / Отзывов) + overall
+                  rating distribution bars + "Требуют внимания" + past-practice
+                  cards with inline rating badges.
+    2. Платежи -- period income + transactions list + link to full Finance.
 
-  Insights per practice are lazy-loaded when the user expands a row.
-  They are cached locally (Map<practiceId, PracticeInsightsResponse>)
-  to avoid repeated requests within the session.
+  Controls are the track+thumb pattern (single glass track, active fill pill) --
+  the same shape as the master-dashboard period toggle, NOT the two-pill VSegment
+  (operator design; VSegment<->track+thumb unification is a SHELL task).
 
-  Aggregate stats grid at the top is computed from all cached insights.
-  On mount we load insights for the first completed practice automatically
-  so the grid is not empty on first open.
-
-  Practices list comes from masterStore (already loaded by shell).
-  Only 'completed' status practices are shown.
+  Data reality (decisions locked with operator 2026-06-11):
+    REAL: past completed practices (masterStore) + per-practice insights
+          (GET /practices/{id}/insights -> anonymous rating/mood distributions).
+          Insights are eager-loaded for the visible page so the inline badges and
+          the aggregate are populated without a tap.
+    STUB (no backend yet -> master-ds-zod-roadmap.md):
+      - Период «Неделя/Месяц»: no period-scoped API -> toggle is visual-only.
+      - «Требуют внимания»: insights are anonymous (no names / comment texts), so
+        the de-anonymised attention feed has no source. Section is scaffolded and
+        renders its empty state until Zod adds a NON-anonymous endpoint.
+      - «Платежи»: no income-by-period and no transactions/ledger endpoints. Income
+        shows "—", transactions show the empty state. Currency canon stays EUR
+        (₽ vs € is a cross-screen SHELL decision). Full finance (balance, payout,
+        withdrawals) lives on /master/finance -> "Открыть Финансы" link.
 -->
 
 <template>
   <div class="analytics">
     <!-- Header -->
     <header class="analytics__header">
-      <h1 class="analytics__header-title">Аналитика</h1>
+      <h1 class="analytics__title">Аналитика</h1>
     </header>
 
-    <!-- Tabs -->
-    <div class="analytics__tabs">
-      <VSegment
-        :model-value="activeTab"
-        :options="TAB_OPTIONS"
-        @update:model-value="activeTab = $event as 'reviews' | 'payments'"
-      />
+    <!-- Tab segment (track+thumb) -->
+    <div class="analytics__seg" role="tablist">
+      <button
+        v-for="tab in TAB_OPTIONS"
+        :key="tab.value"
+        type="button"
+        role="tab"
+        :aria-selected="activeTab === tab.value"
+        class="analytics__seg-btn"
+        :class="{ 'analytics__seg-btn--active': activeTab === tab.value }"
+        @click="activeTab = tab.value"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <!-- Period toggle -- visual-only until a period-scoped analytics API exists. -->
+    <div class="analytics__period-row">
+      <div class="analytics__period" role="tablist" aria-label="Период статистики">
+        <button
+          type="button"
+          class="analytics__period-btn"
+          :class="{ 'analytics__period-btn--active': period === 'week' }"
+          @click="period = 'week'"
+        >
+          Неделя
+        </button>
+        <button
+          type="button"
+          class="analytics__period-btn"
+          :class="{ 'analytics__period-btn--active': period === 'month' }"
+          @click="period = 'month'"
+        >
+          Месяц
+        </button>
+      </div>
     </div>
 
     <!-- ================================================================
          TAB: ОТЗЫВЫ
          ================================================================ -->
     <div v-show="activeTab === 'reviews'" class="analytics__body">
-
-      <!-- Stats grid (aggregate from all cached insights) -->
-      <div class="analytics__stats-grid">
+      <!-- Aggregate stats (over loaded insights; period scoping has no API). -->
+      <div class="analytics__stats">
         <VStatCard :value="aggregateCheckinPct" label="Check-in" />
         <VStatCard :value="aggregateFeedbackPct" label="Feedback" />
-        <VStatCard :value="aggregateTotalFeedbacks" label="отзывов" />
+        <VStatCard :value="aggregateTotalFeedbacks" label="Отзывов" />
       </div>
 
-      <div class="analytics__divider" />
-
-      <!-- Overall rating distribution (from all cached insights) -->
-      <div
-        v-if="aggregateTotalFeedbacks > 0"
-        class="analytics__section"
-      >
-        <div class="analytics__section-title">Общая статистика</div>
-        <VCard class="analytics__rating-bars" padding="none">
-          <div
-            v-for="bar in ratingBars"
-            :key="bar.key"
-            class="analytics__rating-row"
-          >
-            <span class="analytics__rating-label"><component :is="bar.icon" :size="18" :style="{ color: bar.color, verticalAlign: 'middle' }" /> {{ bar.label }}</span>
-            <div class="analytics__rating-track">
-              <div
-                class="analytics__rating-fill"
-                :style="{ width: `${bar.pct}%`, background: bar.color }"
-              />
+      <!-- Общая статистика -->
+      <section class="analytics__section">
+        <h2 class="analytics__section-title">Общая статистика</h2>
+        <VCard class="analytics__rating">
+          <div v-for="bar in ratingBars" :key="bar.key" class="analytics__rrow">
+            <span class="analytics__rrow-head">
+              <component :is="bar.icon" :size="22" :style="{ color: bar.color }" />
+              {{ bar.label }}
+            </span>
+            <div class="analytics__rtrack">
+              <div class="analytics__rfill" :style="{ width: `${bar.pct}%`, background: bar.color }" />
             </div>
-            <span class="analytics__rating-meta">{{ bar.pct }}% ({{ bar.count }})</span>
+            <span class="analytics__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
           </div>
         </VCard>
-      </div>
+      </section>
 
-      <div class="analytics__divider" />
+      <!-- Требуют внимания (scaffold: empty until a non-anonymous endpoint lands). -->
+      <section class="analytics__section">
+        <h2 class="analytics__section-title">Требуют внимания</h2>
+        <template v-if="attentionItems.length > 0">
+          <VCard
+            v-for="(item, i) in attentionItems"
+            :key="i"
+            class="analytics__attention"
+          >
+            <span class="analytics__attention-av"><IconProfile :size="26" /></span>
+            <div class="analytics__attention-body">
+              <div class="analytics__attention-name">{{ item.name }}</div>
+              <div class="analytics__attention-rate">
+                <IconRatingConfused :size="16" :style="{ color: 'var(--velo-rating-confused)' }" />
+                {{ item.rating }}
+                <span class="analytics__attention-pr">• {{ item.practice }}</span>
+              </div>
+              <div class="analytics__attention-quote">«{{ item.comment }}»</div>
+            </div>
+          </VCard>
+        </template>
+        <div v-else class="analytics__empty">
+          Данных пока нет — создайте первую практику
+        </div>
+      </section>
 
-      <!-- Past practices list -->
-      <div class="analytics__section">
-        <div class="analytics__section-title">Прошедшие практики</div>
+      <!-- Прошедшие практики -->
+      <section class="analytics__section">
+        <h2 class="analytics__section-title">Прошедшие практики</h2>
 
-        <!-- Practices loading -->
-        <div v-if="masterStore.practicesLoading && pastPractices.length === 0" class="analytics__loader">
+        <div
+          v-if="masterStore.practicesLoading && pastPractices.length === 0"
+          class="analytics__loader"
+        >
           <VLoader />
         </div>
 
-        <!-- Empty -->
-        <VEmptyState
-          v-else-if="!masterStore.practicesLoading && pastPractices.length === 0"
-          icon="list"
-          title="Нет завершённых практик"
-          description="Здесь появятся данные после первой практики"
-        />
+        <div v-else-if="pastPractices.length === 0" class="analytics__empty">
+          Данных пока нет — создайте первую практику
+        </div>
 
-        <!-- Practice rows -->
-        <div v-else class="analytics__practice-list">
-          <VCard
-            v-for="practice in pastPractices"
-            :key="practice.id"
-            class="analytics__practice-card"
-            padding="none"
+        <template v-else>
+          <article
+            v-for="p in pastPractices"
+            :key="p.id"
+            class="analytics__pcard"
           >
-            <!-- Row header (always visible) -->
-            <div
-              class="analytics__practice-row"
-              @click="togglePractice(practice.id)"
-            >
-              <div class="analytics__practice-left">
-                <component :is="practiceIconFor(practice)" :size="28" class="analytics__practice-emoji" />
-                <div class="analytics__practice-info">
-                  <div class="analytics__practice-title">{{ practice.title }}</div>
-                  <div class="analytics__practice-meta">
-                    {{ formatShortDate(practice.scheduled_at) }}
-                    · {{ practice.current_participants }} участников
-                  </div>
+            <div class="analytics__pcard-top">
+              <span class="analytics__pcard-icon">
+                <component :is="practiceIconFor(p)" :size="46" />
+              </span>
+              <div class="analytics__pcard-info">
+                <div class="analytics__pcard-title">{{ p.title }}</div>
+                <div class="analytics__pcard-meta">
+                  {{ formatShortDate(p.scheduled_at) }} · {{ p.current_participants }} участников
                 </div>
               </div>
-
-              <!-- Mini rating badges (shown if cached) -->
-              <div v-if="insightsCache.has(practice.id)" class="analytics__practice-badges">
-                <span><IconRatingFire :size="14" :style="{ color: 'var(--velo-error-text)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'fire') }}%</span>
-                <span><IconRatingGood :size="14" :style="{ color: 'var(--velo-success)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'good') }}%</span>
-                <span><IconRatingConfused :size="14" :style="{ color: 'var(--velo-warning)', verticalAlign: 'middle' }" /> {{ ratingPct(practice.id, 'confused') }}%</span>
-              </div>
-
-              <!-- Expand chevron -->
-              <span
-                class="analytics__practice-chevron"
-                :class="{ 'analytics__practice-chevron--open': expandedId === practice.id }"
-              >›</span>
             </div>
 
-            <!-- Expanded insights panel -->
-            <Transition name="expand">
-              <div
-                v-if="expandedId === practice.id"
-                class="analytics__insights"
-              >
-                <!-- Loading insights -->
-                <div v-if="loadingInsights.has(practice.id)" class="analytics__insights-loader">
-                  <VLoader size="sm" />
-                </div>
+            <!-- Inline rating badges (insights eager-loaded for the page). -->
+            <div
+              v-if="insightsCache.has(p.id) && totalFeedbacks(p.id) > 0"
+              class="analytics__pcard-badges"
+            >
+              <span class="analytics__rbadge analytics__rbadge--fire">
+                <IconRatingFire :size="14" />{{ ratingPct(p.id, 'fire') }}%
+              </span>
+              <span class="analytics__rbadge analytics__rbadge--good">
+                <IconRatingGood :size="14" />{{ ratingPct(p.id, 'good') }}%
+              </span>
+              <span class="analytics__rbadge analytics__rbadge--confused">
+                <IconRatingConfused :size="14" />{{ ratingPct(p.id, 'confused') }}%
+              </span>
+            </div>
+          </article>
 
-                <!-- Error -->
-                <div v-else-if="insightsError.has(practice.id)" class="analytics__insights-error">
-                  <IconWarning :size="16" :style="{ color: 'var(--velo-warning-text)', verticalAlign: 'middle' }" /> {{ insightsError.get(practice.id) }}
-                  <button class="analytics__retry-btn" @click="diaryStore.loadInsights(practice.id)">
-                    Повторить
-                  </button>
-                </div>
-
-                <!-- Insights data -->
-                <template v-else-if="insightsCache.has(practice.id)">
-                  <div class="analytics__insights-stats">
-                    <div class="analytics__insights-stat">
-                      <span class="analytics__insights-stat-val">{{ insightsCache.get(practice.id)!.participants }}</span>
-                      <span class="analytics__insights-stat-lbl">участников</span>
-                    </div>
-                    <div class="analytics__insights-stat">
-                      <span class="analytics__insights-stat-val">{{ totalCheckins(practice.id) }}</span>
-                      <span class="analytics__insights-stat-lbl">check-ins</span>
-                    </div>
-                    <div class="analytics__insights-stat">
-                      <span class="analytics__insights-stat-val">{{ totalFeedbacks(practice.id) }}</span>
-                      <span class="analytics__insights-stat-lbl">отзывов</span>
-                    </div>
-                  </div>
-
-                  <!-- Feedback bars for this practice -->
-                  <div
-                    v-if="totalFeedbacks(practice.id) > 0"
-                    class="analytics__insights-bars"
-                  >
-                    <div
-                      v-for="bar in insightRatingBars(practice.id)"
-                      :key="bar.key"
-                      class="analytics__rating-row analytics__rating-row--compact"
-                    >
-                      <span class="analytics__rating-label"><component :is="bar.icon" :size="16" :style="{ color: bar.color, verticalAlign: 'middle' }" /></span>
-                      <div class="analytics__rating-track">
-                        <div
-                          class="analytics__rating-fill"
-                          :style="{ width: `${bar.pct}%`, background: bar.color }"
-                        />
-                      </div>
-                      <span class="analytics__rating-meta">{{ bar.pct }}%</span>
-                    </div>
-                  </div>
-
-                  <div v-else class="analytics__insights-empty">
-                    Отзывов пока нет
-                  </div>
-
-                  <div v-if="insightsCache.get(practice.id)!.comments_count > 0" class="analytics__insights-comments">
-                    <IconMessages :size="16" :style="{ verticalAlign: 'middle' }" /> {{ insightsCache.get(practice.id)!.comments_count }} {{ pluralComments(insightsCache.get(practice.id)!.comments_count) }}
-                  </div>
-                </template>
-              </div>
-            </Transition>
-          </VCard>
-
-          <!-- Load more past practices -->
-          <div v-if="masterStore.practicesHasMore" class="analytics__load-more">
+          <div v-if="masterStore.practicesHasMore" class="analytics__more">
             <VButton
               variant="ghost"
-              block
               :loading="masterStore.practicesLoading"
-              @click="masterStore.loadMorePractices()"
+              @click="onLoadMore"
             >
               Показать ещё
             </VButton>
           </div>
-        </div>
-      </div>
+        </template>
+      </section>
     </div>
 
     <!-- ================================================================
          TAB: ПЛАТЕЖИ
          ================================================================ -->
     <div v-show="activeTab === 'payments'" class="analytics__body">
-      <div class="analytics__section">
-        <div class="analytics__section-title">Финансы и выплаты</div>
-        <p class="analytics__payments-hint">
-          История транзакций, заработок и запрос на вывод средств доступны
-          в разделе Финансы.
-        </p>
-        <VButton
-          variant="primary"
-          block
-          size="lg"
-          @click="router.push({ name: 'master-finance' })"
-        >
-          Перейти в Финансы<IconArrowRight :size="18" class="analytics__btn-arrow" />
-        </VButton>
+      <!-- Income — no income-by-period API yet -> "—" (roadmap Zod). -->
+      <div class="analytics__income">
+        <div class="analytics__income-value">{{ income }}</div>
+        <div class="analytics__income-label">Доход за период</div>
       </div>
+
+      <!-- Транзакции — no ledger-list API yet -> empty (roadmap Zod). -->
+      <section class="analytics__section">
+        <h2 class="analytics__section-title">Транзакции</h2>
+        <div v-if="transactions.length > 0" class="analytics__txns">
+          <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
+            <div class="analytics__txn-info">
+              <div class="analytics__txn-title">{{ t.title }}</div>
+              <div class="analytics__txn-meta">{{ t.date }} · {{ t.counterparty }}</div>
+            </div>
+            <div
+              class="analytics__txn-amt"
+              :class="t.amountCents >= 0 ? 'analytics__txn-amt--in' : 'analytics__txn-amt--out'"
+            >
+              {{ formatTxnAmount(t.amountCents) }}
+            </div>
+          </div>
+        </div>
+        <div v-else class="analytics__empty">Данных пока нет</div>
+      </section>
+
+      <!-- Full finance (balance / payout / withdrawals) lives on /master/finance. -->
+      <button type="button" class="analytics__finance-link" @click="router.push({ name: 'master-finance' })">
+        Открыть Финансы<IconArrowRight :size="16" class="analytics__finance-arrow" />
+      </button>
     </div>
   </div>
 </template>
@@ -243,31 +234,34 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VEmptyState, VButton, VStatCard, VCard, VSegment } from '@/components/ui'
-import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconWarning, IconMessages } from '@/components/icons'
+import { VLoader, VButton, VStatCard, VCard } from '@/components/ui'
+import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconProfile } from '@/components/icons'
 import { practiceIconFor } from '@/utils/displayHelpers'
+import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
 const masterStore = useMasterStore()
 const diaryStore = useDiaryStore()
 
-// Convenience aliases so templates don't change at all.
-const insightsCache    = diaryStore.insightsCache
-const loadingInsights  = diaryStore.insightsLoadingSet
-const insightsError    = diaryStore.insightsErrorMap
+// Reactive Map<practiceId, insights> -- computeds below track additions.
+const insightsCache = diaryStore.insightsCache
 
 // =========================================================================
-// Tabs
+// Tabs (track+thumb segment) + period toggle (visual-only)
 // =========================================================================
 
 const activeTab = ref<'reviews' | 'payments'>('reviews')
-const TAB_OPTIONS = [
+const TAB_OPTIONS: Array<{ value: 'reviews' | 'payments'; label: string }> = [
   { value: 'reviews', label: 'Отзывы' },
   { value: 'payments', label: 'Платежи' },
 ]
 
+// Period scoping has no backend yet -> the toggle only moves the active pill
+// (mirrors the master-dashboard pattern). Roadmap: period-scoped summary API.
+const period = ref<'week' | 'month'>('week')
+
 // =========================================================================
-// Past practices (completed, sorted desc)
+// Past practices (completed, newest first)
 // =========================================================================
 
 const pastPractices = computed(() =>
@@ -277,29 +271,9 @@ const pastPractices = computed(() =>
 )
 
 // =========================================================================
-// Insights -- delegated to diaryStore (S-4)
+// Aggregate stats (over all loaded insights)
 // =========================================================================
 
-// insightsCache / loadingInsights / insightsError are aliased above.
-// loadInsights() is the store action -- cache persists across nav sessions.
-
-const expandedId = ref<string | null>(null)
-
-function togglePractice(practiceId: string): void {
-  if (expandedId.value === practiceId) {
-    expandedId.value = null
-    return
-  }
-  expandedId.value = practiceId
-  // Lazy-load if not already cached.
-  diaryStore.loadInsights(practiceId)
-}
-
-// =========================================================================
-// Aggregate stats (over all cached insights)
-// =========================================================================
-
-/** Sum of all feedback counts across cached insights. */
 const aggregateTotalFeedbacks = computed((): number => {
   let total = 0
   insightsCache.forEach((ins) => {
@@ -322,26 +296,24 @@ const aggregateTotalParticipants = computed((): number => {
   return total
 })
 
-/** Check-in rate: checkins / participants across all cached. */
+/** Check-in rate over loaded insights. "—" when there is no data yet. */
 const aggregateCheckinPct = computed((): string => {
   if (aggregateTotalParticipants.value === 0) return '—'
-  const pct = Math.round((aggregateTotalCheckins.value / aggregateTotalParticipants.value) * 100)
-  return `${pct}%`
+  return `${Math.round((aggregateTotalCheckins.value / aggregateTotalParticipants.value) * 100)}%`
 })
 
-/** Feedback rate: feedbacks / participants across all cached. */
+/** Feedback rate over loaded insights. "—" when there is no data yet. */
 const aggregateFeedbackPct = computed((): string => {
   if (aggregateTotalParticipants.value === 0) return '—'
-  const pct = Math.round((aggregateTotalFeedbacks.value / aggregateTotalParticipants.value) * 100)
-  return `${pct}%`
+  return `${Math.round((aggregateTotalFeedbacks.value / aggregateTotalParticipants.value) * 100)}%`
 })
 
 // =========================================================================
-// Aggregate rating progress bars
+// Overall rating distribution bars (Общая статистика)
 // =========================================================================
 
 interface RatingBar {
-  key: string
+  key: 'fire' | 'good' | 'confused'
   icon: Component
   label: string
   count: number
@@ -349,12 +321,12 @@ interface RatingBar {
   color: string
 }
 
-// RATING_BARS_CONFIG drives both aggregate bars and per-practice bars.
-// Values are inlined (not looked up from Record maps) to satisfy TS strict typing.
+// Colours on the DS rating tokens (fire = orange, good = rose, confused = blue) --
+// matches the operator design; replaces the previous error-text/success/warning drift.
 const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string; color: string }> = [
-  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!',       color: 'var(--velo-error-text)' },
-  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо',       color: 'var(--velo-success)' },
-  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы', color: 'var(--velo-warning)' },
+  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!',       color: 'var(--velo-rating-fire)' },
+  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо',       color: 'var(--velo-rating-good)' },
+  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы', color: 'var(--velo-rating-confused)' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
@@ -365,7 +337,6 @@ const ratingBars = computed((): RatingBar[] => {
     totals.confused += ins.feedbacks.confused
   })
   const total = totals.fire + totals.good + totals.confused
-
   return RATING_BARS_CONFIG.map((cfg) => ({
     ...cfg,
     count: totals[cfg.key],
@@ -374,14 +345,8 @@ const ratingBars = computed((): RatingBar[] => {
 })
 
 // =========================================================================
-// Per-practice helpers
+// Per-practice rating (inline badges)
 // =========================================================================
-
-function totalCheckins(practiceId: string): number {
-  const ins = insightsCache.get(practiceId)
-  if (!ins) return 0
-  return ins.checkins.high + ins.checkins.mid + ins.checkins.low
-}
 
 function totalFeedbacks(practiceId: string): number {
   const ins = insightsCache.get(practiceId)
@@ -389,43 +354,65 @@ function totalFeedbacks(practiceId: string): number {
   return ins.feedbacks.fire + ins.feedbacks.good + ins.feedbacks.confused
 }
 
-/** Percentage of a specific rating for a practice. */
 function ratingPct(practiceId: string, rating: 'fire' | 'good' | 'confused'): number {
   const total = totalFeedbacks(practiceId)
   if (total === 0) return 0
-  const ins = insightsCache.get(practiceId)!
-  return Math.round((ins.feedbacks[rating] / total) * 100)
-}
-
-function insightRatingBars(practiceId: string): RatingBar[] {
-  const total = totalFeedbacks(practiceId)
-  return RATING_BARS_CONFIG.map((cfg) => {
-    const count = insightsCache.get(practiceId)?.feedbacks[cfg.key] ?? 0
-    return {
-      ...cfg,
-      count,
-      pct: total > 0 ? Math.round((count / total) * 100) : 0,
-    }
-  })
+  return Math.round((insightsCache.get(practiceId)!.feedbacks[rating] / total) * 100)
 }
 
 // =========================================================================
-// Type emoji -- imported from displayHelpers
+// Требуют внимания -- scaffold (no backend source: insights are anonymous)
 // =========================================================================
 
+// Needs a NON-anonymous endpoint (negative/«есть вопросы» feedback with the
+// participant name + comment text + practice). Until Zod adds it the array stays
+// empty and the section shows its empty state; the v-for is wiring-ready.
+interface AttentionItem {
+  name: string
+  rating: string
+  practice: string
+  comment: string
+}
+const attentionItems = ref<AttentionItem[]>([])
 
 // =========================================================================
-// Date / text helpers
+// Платежи -- scaffold (no income-by-period / transactions endpoints yet)
+// =========================================================================
+
+// Income: "—" until an income-by-period API exists. Currency canon = EUR.
+const income = '—'
+
+interface Transaction {
+  title: string
+  date: string
+  counterparty: string
+  amountCents: number
+}
+const transactions = ref<Transaction[]>([])
+
+function formatTxnAmount(cents: number): string {
+  const sign = cents >= 0 ? '+' : '−'
+  return `${sign}${formatMoney(Math.abs(cents), 'EUR', 'ru', true)}`
+}
+
+// =========================================================================
+// Helpers
 // =========================================================================
 
 function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
-function pluralComments(n: number): string {
-  if (n % 10 === 1 && n % 100 !== 11) return 'комментарий'
-  if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'комментария'
-  return 'комментариев'
+// Eager-load insights for the visible page -- feeds both the aggregate stats and
+// the inline practice-card badges. loadInsights() skips already-cached ids, so
+// this is idempotent across re-runs and load-more.
+function loadVisibleInsights(): Promise<void[]> {
+  return Promise.all(pastPractices.value.map((p) => diaryStore.loadInsights(p.id)))
+}
+
+async function onLoadMore(): Promise<void> {
+  await masterStore.loadMorePractices()
+  await loadVisibleInsights()
 }
 
 // =========================================================================
@@ -433,16 +420,8 @@ function pluralComments(n: number): string {
 // =========================================================================
 
 onMounted(async () => {
-  // Ensure practices are loaded (they usually are via masterStatusGuard /
-  // MasterPracticesView but be safe).
   await masterStore.fetchMyPractices()
-
-  // Pre-load insights for the most recent completed practice so the
-  // stats grid is not empty on first open.
-  const first = pastPractices.value[0]
-  if (first) {
-    await diaryStore.loadInsights(first.id)
-  }
+  await loadVisibleInsights()
 })
 </script>
 
@@ -453,33 +432,84 @@ onMounted(async () => {
   min-height: 100%;
 }
 
-/* ===== Header ===== */
+/* ===== Header (F-5 rail sync: ride MobileLayout's 24px rail) ===== */
 .analytics__header {
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--velo-border-light);
+  padding: var(--space-4) 0 var(--space-3);
 }
 
-.analytics__header-title {
-  font-size: var(--text-lg);
+.analytics__title {
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
   margin: 0;
 }
 
-/* ===== Tabs ===== */
-.analytics__tabs {
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-3) 0;
-  background: transparent;
+/* ===== Controls: track+thumb (segment + period toggle) ===== */
+.analytics__seg {
+  display: flex;
+  gap: 2px;
+  background: var(--velo-glass-blue-15);
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
+  padding: 3px;
 }
 
-/* (tab buttons now provided by <VSegment>) */
+.analytics__seg-btn {
+  flex: 1;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--velo-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.analytics__seg-btn--active {
+  background: var(--velo-primary);
+  color: var(--velo-white);
+}
+
+.analytics__period-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.analytics__period {
+  display: flex;
+  gap: 2px;
+  background: var(--velo-glass-blue-15);
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
+  padding: 2px;
+}
+
+.analytics__period-btn {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.analytics__period-btn--active {
+  background: var(--velo-primary);
+  color: var(--velo-white);
+}
 
 /* ===== Body ===== */
 .analytics__body {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
   padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
@@ -487,16 +517,10 @@ onMounted(async () => {
 }
 
 /* ===== Stats grid ===== */
-.analytics__stats-grid {
+.analytics__stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
-}
-
-/* ===== Divider ===== */
-.analytics__divider {
-  height: 1px;
-  background: var(--velo-border-light);
 }
 
 /* ===== Section ===== */
@@ -507,256 +531,293 @@ onMounted(async () => {
 }
 
 .analytics__section-title {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
 }
 
-/* ===== Rating bars ===== */
-.analytics__rating-bars {
-  padding: var(--space-4);
+/* ===== Rating distribution (Общая статистика) ===== */
+.analytics__rating {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
-.analytics__rating-row {
+.analytics__rrow {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.analytics__rating-row--compact {
+  flex-direction: column;
   gap: var(--space-2);
 }
 
-.analytics__rating-label {
-  font-size: var(--text-sm);
+.analytics__rrow-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
   color: var(--velo-text-primary);
-  min-width: 100px;
-  flex-shrink: 0;
 }
 
-.analytics__rating-row--compact .analytics__rating-label {
-  min-width: 24px;
-}
-
-.analytics__rating-track {
-  flex: 1;
-  height: 8px;
-  background: var(--velo-border-light);
+.analytics__rtrack {
+  height: 10px;
   border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
   overflow: hidden;
 }
 
-.analytics__rating-fill {
+.analytics__rfill {
   height: 100%;
   border-radius: var(--radius-full);
   transition: width 0.4s ease;
 }
 
-.analytics__rating-meta {
+.analytics__rmeta {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  min-width: 60px;
-  text-align: right;
+}
+
+/* ===== Требуют внимания ===== */
+.analytics__attention {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.analytics__attention-av {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+  color: var(--velo-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
-/* ===== Practice list ===== */
+.analytics__attention-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.analytics__attention-name {
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+.analytics__attention-rate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+}
+
+.analytics__attention-pr {
+  color: var(--velo-text-secondary);
+}
+
+.analytics__attention-quote {
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  font-style: italic;
+}
+
+/* ===== Empty card ===== */
+.analytics__empty {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--velo-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* ===== Practice card (PracticeListCard canon padding + inline badges) ===== */
+.analytics__pcard {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analytics__pcard-top {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.analytics__pcard-icon {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  color: var(--velo-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.analytics__pcard-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.analytics__pcard-title {
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.analytics__pcard-meta {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: 0.28px;
+}
+
+.analytics__pcard-badges {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* Rating badges -- analytics-local tints from DS tokens. Promote to a VBadge
+   rating variant if reused elsewhere (SHELL). */
+.analytics__rbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--velo-radius-badge);
+  font-size: var(--text-xs);
+}
+
+.analytics__rbadge--fire {
+  background: var(--velo-sand-100);
+  color: var(--velo-rating-fire);
+}
+
+.analytics__rbadge--good {
+  background: var(--velo-pink-100);
+  color: var(--velo-rating-good);
+}
+
+.analytics__rbadge--confused {
+  background: var(--velo-blue-100);
+  color: var(--velo-rating-confused);
+}
+
+/* ===== Load more ===== */
+.analytics__more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
 .analytics__loader {
   display: flex;
   justify-content: center;
   padding: var(--space-5) 0;
 }
 
-.analytics__practice-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* surface (bg/border/radius) now from <VCard padding="none">; overflow clips the expand panel */
-.analytics__practice-card {
-  overflow: hidden;
-}
-
-.analytics__practice-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.analytics__practice-row:active {
-  opacity: 0.8;
-}
-
-.analytics__practice-left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex: 1;
-  min-width: 0;
-}
-
-.analytics__practice-emoji {
-  flex-shrink: 0;
-  /* Vector direction icon (was a 28px emoji). */
-  color: var(--velo-text-primary);
-}
-
-.analytics__practice-info {
-  min-width: 0;
-}
-
-.analytics__practice-title {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.analytics__practice-meta {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.analytics__practice-badges {
-  display: flex;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  flex-shrink: 0;
-}
-
-.analytics__practice-chevron {
-  font-size: 20px;
-  color: var(--velo-text-secondary);
-  transition: transform var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.analytics__practice-chevron--open {
-  transform: rotate(90deg);
-}
-
-/* ===== Insights panel ===== */
-.analytics__insights {
-  border-top: 1px solid var(--velo-border-light);
-  padding: var(--space-4);
-  background: var(--velo-glass-blue-15);
-}
-
-.analytics__insights-loader {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-3) 0;
-}
-
-.analytics__insights-error {
-  font-size: var(--text-sm);
-  color: var(--velo-error);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.analytics__retry-btn {
-  background: transparent;
-  border: 1px solid currentColor;
+/* ===== Платежи ===== */
+.analytics__income {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  padding: 2px var(--space-2);
-  cursor: pointer;
-  color: inherit;
-}
-
-.analytics__insights-stats {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
-}
-
-.analytics__insights-stat {
+  padding: var(--space-5);
+  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  gap: 6px;
 }
 
-.analytics__insights-stat-val {
+.analytics__income-value {
+  font-family: var(--font-heading);
   font-size: var(--text-xl);
   font-weight: 400;
-  color: var(--velo-primary);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.5px;
 }
 
-.analytics__insights-stat-lbl {
-  font-size: var(--text-xs);
+.analytics__income-label {
+  font-size: var(--text-sm);
   color: var(--velo-text-secondary);
 }
 
-.analytics__insights-bars {
+.analytics__txns {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-4);
+}
+
+.analytics__txn {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--velo-border-light);
 }
 
-.analytics__insights-empty {
+.analytics__txn:last-child {
+  border-bottom: none;
+}
+
+.analytics__txn-info {
+  min-width: 0;
+}
+
+.analytics__txn-title {
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+.analytics__txn-meta {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+}
+
+.analytics__txn-amt {
+  font-size: var(--text-base);
+  white-space: nowrap;
+}
+
+.analytics__txn-amt--in {
+  color: var(--velo-teal-600);
+}
+
+.analytics__txn-amt--out {
+  color: var(--velo-pink-300);
+}
+
+.analytics__finance-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  padding: var(--space-2) 0;
+  color: var(--velo-text-primary);
+  background: transparent;
+  border: none;
+  padding: var(--space-2);
+  cursor: pointer;
 }
 
-.analytics__insights-comments {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  border-top: 1px solid var(--velo-border-light);
-  padding-top: var(--space-3);
-  margin-top: var(--space-1);
-}
-
-/* ===== Load more ===== */
-.analytics__load-more {
-  padding-top: var(--space-2);
-}
-
-/* ===== Payments tab ===== */
-.analytics__payments-hint {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  line-height: 1.6;
-}
-
-/* Forward arrow on the "Перейти в Финансы" button (currentColor = white). */
-.analytics__btn-arrow {
-  margin-left: var(--space-2);
+.analytics__finance-arrow {
   vertical-align: middle;
-}
-
-/* ===== Expand transition ===== */
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.25s ease;
-  overflow: hidden;
-}
-
-.expand-enter-from,
-.expand-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-.expand-enter-to,
-.expand-leave-from {
-  max-height: 400px;
-  opacity: 1;
 }
 </style>
