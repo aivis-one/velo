@@ -152,9 +152,10 @@
       </div>
 
       <!-- ================================================================
-           Повторение  (Q2=А: тогл «Сделать регулярной» → practice_type
-           series/live — РЕАЛЬНО; период повтора пока без бэка, captured-only,
-           см. master-ds-zod-roadmap.md)
+           Повторение  (Q1=А: полная секция — период + дни недели + «Завершить»
+           + счётчик. РЕАЛЬНО только series/live из чекбокса-гейта; период/дни/
+           условие/счётчик — captured-only (нет бэка), см. master-ds-zod-roadmap.
+           Печати обязательности — Q2=В: на полях повтора, когда «регулярная» вкл.)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="create-practice__section-title">Повторение</h2>
@@ -163,105 +164,116 @@
           <VCheckbox v-model="form.is_recurring" label="Сделать регулярной" />
         </VCard>
 
-        <VCard v-if="form.is_recurring" class="create-practice__repeat" padding="none">
-          <div class="create-practice__repeat-title">Повтор:</div>
-          <VRadioGroup v-model="form.recurrence" :options="RECURRENCE_OPTIONS" />
-        </VCard>
+        <template v-if="form.is_recurring">
+          <!-- Повтор: период -->
+          <div class="create-practice__seal-row">
+            <VCard class="create-practice__repeat create-practice__grow" padding="none">
+              <div class="create-practice__repeat-title">Повтор:</div>
+              <VRadioGroup v-model="form.recurrence" :options="RECURRENCE_OPTIONS" />
+            </VCard>
+            <IconRequired class="create-practice__seal-card" :size="22" />
+          </div>
+
+          <!-- Дни недели (captured-only; view-local чипы на токенах --velo-*) -->
+          <div class="create-practice__seal-row">
+            <div class="create-practice__days create-practice__grow">
+              <button
+                v-for="d in WEEKDAYS"
+                :key="d.value"
+                type="button"
+                class="create-practice__day"
+                :class="{ 'create-practice__day--on': form.recurrence_days.includes(d.value) }"
+                @click="toggleDay(d.value)"
+              >
+                {{ d.label }}
+              </button>
+            </div>
+            <IconRequired class="create-practice__seal-card" :size="22" />
+          </div>
+
+          <!-- Завершить -->
+          <div class="create-practice__seal-row">
+            <VCard class="create-practice__repeat create-practice__grow" padding="none">
+              <div class="create-practice__repeat-title">Завершить:</div>
+              <VRadioGroup v-model="form.recurrence_end" :options="RECURRENCE_END_OPTIONS" />
+              <span v-if="form.recurrence_end === 'after_count'" class="create-practice__count-pill">
+                {{ form.recurrence_count }} практик
+              </span>
+            </VCard>
+            <IconRequired class="create-practice__seal-card" :size="22" />
+          </div>
+        </template>
       </div>
 
       <!-- ================================================================
-           УЧАСТНИКИ
+           Участники  (опционально → без печати; имя поля = плейсхолдер)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="create-practice__section-title">Участники</h2>
 
         <VInput
           v-model="form.max_participants_raw"
-          label="Максимум участников (пусто = без ограничений)"
           type="number"
-          placeholder="20"
+          placeholder="Максимум мест"
           :error="errors.max_participants"
         />
       </div>
 
       <!-- ================================================================
-           ЦЕНА
+           Оплата  (radio-карта Бесплатно/Платно; цена при «Платно» — с печатью)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Цена</h2>
+        <h2 class="create-practice__section-title">Оплата</h2>
 
-        <!-- Free / Paid segment -->
-        <VSegment
-          :model-value="form.is_free ? 'free' : 'paid'"
-          :options="PAYMENT_OPTIONS"
-          @update:model-value="form.is_free = $event === 'free'"
-        />
-
-        <!-- Price fields (visible only if paid) -->
-        <template v-if="!form.is_free">
-          <VInput
-            v-model="form.price_eur_raw"
-            label="Цена (EUR) *"
-            type="number"
-            placeholder="15"
-            :error="errors.price_cents"
+        <VCard class="create-practice__repeat" padding="none">
+          <VRadioGroup
+            :model-value="form.is_free ? 'free' : 'paid'"
+            :options="PAYMENT_OPTIONS"
+            @update:model-value="form.is_free = $event === 'free'"
           />
-          <!-- W-9: commission calc via COMMISSION_RATE constant -->
-          <VCard v-if="priceCents > 0" class="create-practice__price-calc" padding="none">
-            <div class="create-practice__price-row">
-              <span>Комиссия {{ commissionPct }}%</span>
-              <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
-            </div>
-            <div class="create-practice__price-row create-practice__price-row--total">
-              <span>Вы получите</span>
-              <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
-            </div>
-          </VCard>
-        </template>
+        </VCard>
+
+        <!-- Цена видна только для платной; печать обязательности (Q2=В). -->
+        <VInput
+          v-if="!form.is_free"
+          v-model="form.price_eur_raw"
+          type="number"
+          placeholder="Цена"
+          :error="errors.price_cents"
+          required
+        />
       </div>
 
       <!-- ================================================================
-           ОПИСАНИЕ
+           Описание  (textarea + 2 однострочных; опциональны → без печати)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="create-practice__section-title">Описание</h2>
 
         <VTextarea
           v-model="form.description"
-          label="Описание"
-          placeholder="Мягкая утренняя практика для начала дня с ясностью..."
+          placeholder="Расскажите подробее о вашей практике"
           :rows="4"
         />
 
-        <VTextarea
-          v-model="form.what_to_prepare"
-          label="Что подготовить"
-          placeholder="Коврик, удобная одежда, вода..."
-          :rows="2"
-        />
+        <VInput v-model="form.contraindications" placeholder="Противопоказания" />
 
-        <VTextarea
-          v-model="form.contraindications"
-          label="Противопоказания"
-          placeholder="Беременность, заболевания позвоночника..."
-          :rows="2"
-        />
+        <VInput v-model="form.what_to_prepare" placeholder="Что подготовить" />
       </div>
 
       <!-- ================================================================
-           ПОДКЛЮЧЕНИЕ
+           Подключение  (инфо-карта авто-ссылки; zoom на создании НЕ вводится —
+           zoom_link=null; ручной ввод остаётся в Edit; авто-генерация → Зоду)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="create-practice__section-title">Подключение</h2>
 
-        <VInput
-          v-model="form.zoom_link"
-          label="Zoom ссылка"
-          type="url"
-          placeholder="https://zoom.us/j/..."
-          :error="errors.zoom_link"
-        />
-        <p class="create-practice__hint">Участники получат ссылку за 10 минут до начала</p>
+        <VCard class="create-practice__connect" padding="none">
+          <span class="create-practice__connect-ico"><IconBroadcast :size="88" /></span>
+          <p class="create-practice__connect-text">
+            Ссылка будет создана платформой и придет участникам за 10 минут до начала
+          </p>
+        </VCard>
       </div>
 
       <!-- Submit -->
@@ -298,13 +310,13 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCard, VSegment, VCheckbox, VRadioGroup } from '@/components/ui'
-import { IconRequired } from '@/components/icons'
+import { VButton, VInput, VTextarea, VSelect, VCard, VCheckbox, VRadioGroup } from '@/components/ui'
+import { IconRequired, IconBroadcast } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { createPractice } from '@/api/practices'
-import { formatMoney, formatShortDate } from '@/utils/format'
+import { formatShortDate } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import { ApiResponseError } from '@/api/client'
@@ -315,7 +327,6 @@ import {
   DIFFICULTY_OPTIONS,
   stylesForDirection,
 } from '@/utils/practiceOptions'
-import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents } from '@/utils/currency'
 import type { PracticeDirection } from '@/api/types'
 
@@ -345,6 +356,24 @@ const RECURRENCE_OPTIONS = [
   { label: 'Раз в две недели', value: 'biweekly' },
 ]
 
+// Завершение серии (captured-only — нет бэка; см. master-ds-zod-roadmap).
+const RECURRENCE_END_OPTIONS = [
+  { label: 'Никогда',                value: 'never' },
+  { label: 'Выбрать дату',           value: 'until_date' },
+  { label: 'После числа повторений', value: 'after_count' },
+]
+
+// Дни недели для повтора (captured-only).
+const WEEKDAYS = [
+  { label: 'ПН', value: 'mon' },
+  { label: 'ВТ', value: 'tue' },
+  { label: 'СР', value: 'wed' },
+  { label: 'ЧТ', value: 'thu' },
+  { label: 'ПТ', value: 'fri' },
+  { label: 'СБ', value: 'sat' },
+  { label: 'ВС', value: 'sun' },
+]
+
 const PAYMENT_OPTIONS = [
   { value: 'free', label: 'Бесплатно' },
   { value: 'paid', label: 'Платно' },
@@ -353,19 +382,20 @@ const PAYMENT_OPTIONS = [
 // W-7: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
-// W-9: human-readable commission percentage for template
-const commissionPct = Math.round(COMMISSION_RATE * 100)
-
 // -- Form state --
 const form = reactive({
   title: '',
   direction: 'meditation',
   difficulty: 'beginner',
   style: '',
-  // Повторение: is_recurring drives practice_type (series/live) on submit;
-  // recurrence (period) is captured but not yet persisted (no backend field).
+  // Повторение: is_recurring drives practice_type (series/live) on submit — REAL.
+  // Period / days / end-condition / count are captured-only (no backend field yet,
+  // see master-ds-zod-roadmap); NOT sent on submit.
   is_recurring: false,
   recurrence: 'weekly',
+  recurrence_days: [] as string[],
+  recurrence_end: 'never',
+  recurrence_count: 40,
   date: '',
   time: '',
   duration_minutes: '60',
@@ -376,7 +406,7 @@ const form = reactive({
   description: '',
   what_to_prepare: '',
   contraindications: '',
-  zoom_link: '',
+  // zoom_link removed — «Подключение» = инфо-карта авто-ссылки (zoom_link=null on submit).
 })
 
 // -- Validation errors --
@@ -389,7 +419,6 @@ const errors = reactive({
   duration_minutes: '',
   max_participants: '',
   price_cents: '',
-  zoom_link: '',
 })
 
 // W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
@@ -409,6 +438,13 @@ const styleSelectOptions = computed(() => [
  *  invalid for the new direction. */
 function onDirectionChange(): void {
   form.style = ''
+}
+
+/** Toggle a weekday in the captured-only recurrence_days set. */
+function toggleDay(value: string): void {
+  const i = form.recurrence_days.indexOf(value)
+  if (i === -1) form.recurrence_days.push(value)
+  else form.recurrence_days.splice(i, 1)
 }
 
 // -- Validation --
@@ -472,11 +508,6 @@ function validate(): boolean {
       ok = false
     }
   }
-  if (form.zoom_link && !form.zoom_link.startsWith('https://')) {
-    errors.zoom_link = 'Ссылка должна начинаться с https://'
-    ok = false
-  }
-
   return ok
 }
 
@@ -521,7 +552,8 @@ async function submit(): Promise<void> {
       max_participants: form.max_participants_raw
         ? parseInt(form.max_participants_raw, 10)
         : null,
-      zoom_link: form.zoom_link.trim() || null,
+      // «Подключение» — авто-ссылка платформы (стаб → Зоду); не вводится на создании.
+      zoom_link: null,
       is_free: form.is_free,
       price_cents: form.is_free ? 0 : priceCents.value,
       currency: 'eur',
@@ -659,37 +691,91 @@ async function submit(): Promise<void> {
   margin-top: var(--space-1);
 }
 
-/* -- Price calc preview -- */
-.create-practice__price-calc {
-  padding: var(--space-3);
+/* -- Повторение: карточка повтора (grow) + печать обязательности справа (Q2=В). -- */
+.create-practice__seal-row {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
-.create-practice__price-row {
+.create-practice__grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.create-practice__seal-card {
+  flex-shrink: 0;
+  color: var(--velo-error);
+  margin-top: var(--space-2);
+}
+
+/* -- Дни недели: круглые тогл-чипы (view-local control, токены --velo-*). -- */
+.create-practice__days {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
+  gap: 6px;
+  background: var(--velo-bg-card-solid);
+  border-radius: var(--radius-md);
+  padding: 13px 14px;
 }
 
-.create-practice__price-row--total {
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
-}
-
-/* -- Hint -- */
-.create-practice__hint {
+.create-practice__day {
+  width: 35px;
+  height: 35px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--velo-primary);
+  background: transparent;
+  color: var(--velo-primary);
   font-family: var(--font-body);
   font-size: var(--text-xs);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.create-practice__day--on {
+  background: var(--velo-primary);
+  color: var(--velo-white);
+}
+
+/* -- «После числа повторений»: счётчик-пилюля (captured-only). -- */
+.create-practice__count-pill {
+  align-self: flex-start;
+  background: var(--velo-primary);
+  color: var(--velo-white);
+  border-radius: var(--radius-full);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-base);
+}
+
+/* -- Подключение: инфо-карта авто-ссылки (круг blue-100 + глиф blue-400). -- */
+.create-practice__connect {
+  padding: var(--space-5) var(--space-4) 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  text-align: center;
+}
+
+.create-practice__connect-ico {
+  width: 129px;
+  height: 129px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--velo-blue-100);
+  color: var(--velo-blue-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-practice__connect-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-muted);
+  color: var(--velo-text-primary);
+  line-height: 1.5;
+  margin: 0;
 }
 </style>
