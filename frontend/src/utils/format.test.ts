@@ -2,7 +2,7 @@
 // VELO Frontend -- format.ts Unit Tests (updated F5 review)
 // =============================================================================
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import {
   formatMoney,
   formatDuration,
@@ -88,6 +88,18 @@ describe('formatDuration', () => {
 // formatDateShort
 // -----------------------------------------------------------------------
 describe('formatDateShort', () => {
+  // Clock-stable: the «Сегодня»/«Завтра» cases compare against `new Date()`, which
+  // is flaky near local midnight (local-tomorrow can resolve to a UTC date +2 days).
+  // Pin "now" to a mid-day, mid-month instant so they're deterministic.
+  // formatDateShort itself is unchanged.
+  beforeAll(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-15T12:00:00Z'))
+  })
+  afterAll(() => {
+    vi.useRealTimers()
+  })
+
   it('returns "Сегодня" for today', () => {
     const now = new Date()
     const result = formatDateShort(now.toISOString(), 'UTC')
