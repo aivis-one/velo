@@ -35,7 +35,7 @@
     <VHeader
       title="Редактировать профиль"
       show-back
-      @back="router.push({ name: 'user-profile' })"
+      @back="router.back()"
     />
 
     <div class="edit-profile__content">
@@ -170,7 +170,7 @@ async function onSave(): Promise<void> {
   try {
     await authStore.updateProfile(body)
     toast.info('Профиль сохранён')
-    router.push({ name: 'user-profile' })
+    router.back()
   } catch (error) {
     const message =
       error instanceof ApiResponseError

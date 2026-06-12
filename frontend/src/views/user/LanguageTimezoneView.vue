@@ -31,7 +31,7 @@
     <VHeader
       title="Язык/Часовой пояс"
       show-back
-      @back="router.push({ name: 'user-profile' })"
+      @back="router.back()"
     />
 
     <div class="lang-tz__content">

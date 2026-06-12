@@ -23,7 +23,7 @@
     <VHeader
       title="Уведомления"
       show-back
-      @back="router.push({ name: 'user-profile' })"
+      @back="router.back()"
     />
 
     <div class="notifications__content">

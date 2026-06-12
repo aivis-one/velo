@@ -233,6 +233,24 @@ const router = createRouter({
           name: 'master-profile',
           component: () => import('@/views/master/MasterProfileView.vue'),
         },
+        // Master profile sub-screens reuse the role-agnostic user settings views
+        // (they edit the current user's own profile/settings). Reachable from the
+        // master profile hub; back-nav uses router.back() so it returns here.
+        {
+          path: 'profile/edit',
+          name: 'master-edit-profile',
+          component: () => import('@/views/user/EditProfileView.vue'),
+        },
+        {
+          path: 'profile/notifications',
+          name: 'master-notifications',
+          component: () => import('@/views/user/NotificationsView.vue'),
+        },
+        {
+          path: 'profile/language-timezone',
+          name: 'master-language-timezone',
+          component: () => import('@/views/user/LanguageTimezoneView.vue'),
+        },
         {
           path: 'finance',
           name: 'master-finance',
