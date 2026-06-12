@@ -93,19 +93,43 @@
       <!-- Logout -->
       <div class="master-profile__menu-section">
         <div class="master-profile__menu-list">
-          <VMenuRow label="Выйти" variant="danger" :show-arrow="false" @click="onLogout">
+          <VMenuRow
+            label="Выйти"
+            variant="danger"
+            :show-arrow="false"
+            @click="showLogoutModal = true"
+          >
             <template #icon><IconLogout :size="20" /></template>
           </VMenuRow>
         </div>
       </div>
     </div>
+
+    <!-- Log out confirmation (design «Log out») -->
+    <VModal :open="showLogoutModal" @close="showLogoutModal = false">
+      <div class="master-profile__logout-modal">
+        <h2 class="master-profile__logout-title">Выйти из аккаунта?</h2>
+        <div class="master-profile__logout-actions">
+          <button type="button" class="master-profile__logout-btn" @click="onLogout">
+            Да
+          </button>
+          <button
+            type="button"
+            class="master-profile__logout-btn"
+            @click="showLogoutModal = false"
+          >
+            Нет
+          </button>
+        </div>
+      </div>
+    </VModal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { VAvatar, VCard, VMenuRow } from '@/components/ui'
+import { VAvatar, VCard, VMenuRow, VModal } from '@/components/ui'
 import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import {
   IconEdit,
@@ -165,6 +189,8 @@ function onLanguageTimezone(): void {
 function onSupport(): void {
   toast.info('Техподдержка пока недоступна')
 }
+const showLogoutModal = ref(false)
+
 async function onLogout(): Promise<void> {
   await authStore.logout()
   router.replace({ path: '/' })
@@ -247,5 +273,38 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* -- Log out confirmation modal (design «Log out») -- */
+.master-profile__logout-modal {
+  text-align: center;
+}
+
+.master-profile__logout-title {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  margin: 0 0 var(--space-4);
+}
+
+.master-profile__logout-actions {
+  display: flex;
+  border-top: 1px solid var(--velo-glass-blue-30);
+}
+
+.master-profile__logout-btn {
+  flex: 1;
+  padding: var(--space-3);
+  background: transparent;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+}
+
+.master-profile__logout-btn:first-child {
+  border-right: 1px solid var(--velo-glass-blue-30);
 }
 </style>
