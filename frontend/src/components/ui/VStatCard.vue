@@ -23,7 +23,7 @@
     <span v-if="$slots.icon || icon" class="v-stat__icon">
       <slot name="icon">{{ icon }}</slot>
     </span>
-    <div class="v-stat__value">{{ value }}</div>
+    <div class="v-stat__value" :class="valueTone !== 'default' ? `v-stat__value--${valueTone}` : null">{{ value }}</div>
     <div class="v-stat__label">{{ label }}</div>
     <div v-if="delta" class="v-stat__delta" :class="`v-stat__delta--${deltaTone}`">{{ delta }}</div>
   </div>
@@ -42,6 +42,9 @@ withDefaults(
     delta?: string
     /** Delta tone: 'up' (teal, positive trend, default) or 'muted' (placeholder). */
     deltaTone?: 'up' | 'muted'
+    /** Value colour: 'default' (primary) / 'teal' (attended) / 'rose' (no-show).
+     *  Used by the practice-detail + attendance-roster stat cards. */
+    valueTone?: 'default' | 'teal' | 'rose'
   }>(),
   {
     icon: '',
@@ -49,6 +52,7 @@ withDefaults(
     layout: 'column',
     delta: '',
     deltaTone: 'up',
+    valueTone: 'default',
   },
 )
 
@@ -116,6 +120,15 @@ defineEmits<{
   color: var(--velo-text-primary);
   letter-spacing: 0.64px;
   line-height: 1.1;
+}
+
+/* Optional value tones (practice-detail / attendance-roster stat cards). */
+.v-stat__value--teal {
+  color: var(--velo-teal-600);
+}
+
+.v-stat__value--rose {
+  color: var(--velo-pink-500);
 }
 
 .v-stat__label {

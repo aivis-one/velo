@@ -204,6 +204,18 @@ const router = createRouter({
           component: () => import('@/views/master/AttendanceView.vue'),
         },
         {
+          path: 'practices/:id/detail',
+          name: 'master-practice-detail',
+          beforeEnter: masterStatusGuard,
+          component: () => import('@/views/master/MasterPracticeDetailView.vue'),
+        },
+        {
+          path: 'practices/:id/roster',
+          name: 'master-attendance-roster',
+          beforeEnter: masterStatusGuard,
+          component: () => import('@/views/master/AttendanceRosterView.vue'),
+        },
+        {
           path: 'analytics',
           name: 'master-analytics',
           component: () => import('@/views/master/AnalyticsView.vue'),

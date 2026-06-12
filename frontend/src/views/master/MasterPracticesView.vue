@@ -108,7 +108,15 @@
       <!-- ===================== Past ===================== -->
       <template v-else>
         <template v-if="pastPractices.length > 0">
-          <article v-for="p in pastPractices" :key="p.id" class="mp-card">
+          <article
+            v-for="p in pastPractices"
+            :key="p.id"
+            class="mp-card mp-card--clickable"
+            role="button"
+            :tabindex="0"
+            @click="goDetail(p.id)"
+            @keydown.enter.space.prevent="goDetail(p.id)"
+          >
             <div class="mp-card__head">
               <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
               <div class="mp-card__titles">
@@ -266,6 +274,9 @@ function goEdit(id: string): void {
 function goCheckins(id: string): void {
   router.push({ name: 'master-attendance', params: { id } })
 }
+function goDetail(id: string): void {
+  router.push({ name: 'master-practice-detail', params: { id } })
+}
 
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
@@ -348,6 +359,16 @@ onMounted(async () => {
   padding: 13px 15px;
   display: flex;
   flex-direction: column;
+}
+
+/* Past cards are tappable → practice detail (Р1=А). */
+.mp-card--clickable {
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.mp-card--clickable:active {
+  transform: scale(0.99);
 }
 
 .mp-card__head {
