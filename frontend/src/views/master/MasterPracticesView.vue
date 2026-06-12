@@ -1,33 +1,39 @@
 <!--
-  VELO Frontend -- MasterPracticesView (Phase F6.2)
+  VELO Frontend -- MasterPracticesView (Phase-3 Master DS)
 
-  Master's own practice list. Protected by masterStatusGuard.
-  Rendered inside MasterShell (with tab bar).
+  Master's own practice list. masterStatusGuard; rendered inside MasterShell.
 
-  Tabs:
-    - "Предстоящие" -- draft + scheduled + live (sorted asc by scheduled_at)
-    - "Прошедшие"   -- completed + cancelled    (sorted desc by scheduled_at)
+  Tabs (VSegment):
+    - "Предстоящие" -- draft + scheduled + live  (asc by scheduled_at)
+    - "Прошедшие"   -- completed + cancelled     (desc by scheduled_at)
 
-  Data source: masterStore.practices (populated by fetchMyPractices).
-  Lazy-load on mount; force-refresh after returning from create/edit.
+  Card (operator SVG 2026-06-11):
+    - direction icon + title + "когда, время • N мин"
+    - meta row: участники / check-ins / «Регулярная» (series)
+    - upcoming: «Изменить» + «Check-ins» buttons BELOW the card
+    - past: ✓/✗ attendance + rating-distribution badges INSIDE the card
 
-  Each card:
-    - Type emoji, title, date/time, duration
-    - Participants count + price
-    - Status badge
-    - "Явка" button (completed only) -> master-attendance
-
-  "+" header button -> master-practice-new
-  Tap card -> master-practice-edit
+  Data reality (Q4=А):
+    REAL  -- participants, date/time/duration, practice icon; check-in count
+             (insights.checkins / max) + rating distribution (insights.feedbacks,
+             reused from diaryStore cache like AnalyticsView).
+    STUB  -- attended/no-show counts (no aggregate field) → «—»; recurrence days
+             («Регулярная» shown for series, exact days TBD); «осталось N из M»
+             omitted (no series-session field). All recorded in
+             master-ds-zod-roadmap.md.
 -->
 
 <template>
   <div class="master-practices">
     <!-- Header -->
-    <VHeader title="Практики" :badge="masterStore.practicesTotal || undefined">
+    <VHeader title="Практики">
       <template #action>
-        <button class="master-practices__add-btn" aria-label="Создать практику" @click="router.push({ name: 'master-practice-new' })">
-          +
+        <button
+          class="master-practices__add-btn"
+          aria-label="Создать практику"
+          @click="goNew"
+        >
+          <IconPlus :size="22" />
         </button>
       </template>
     </VHeader>
@@ -61,31 +67,32 @@
 
     <!-- List -->
     <div v-else class="master-practices__content">
-      <!-- Upcoming tab -->
+      <!-- ===================== Upcoming ===================== -->
       <template v-if="activeTab === 'upcoming'">
         <template v-if="upcomingPractices.length > 0">
-          <div
-            v-for="practice in upcomingPractices"
-            :key="practice.id"
-            class="master-practices__card"
-            @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
-          >
-            <PracticeListCard
-              :practice="practice"
-              :clickable="false"
-              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
-              :duration="formatDuration(practice.duration_minutes)"
-            >
-              <template #subtitle>
-                <span class="master-practices__details">
-                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
-                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
-                </span>
-              </template>
-              <template v-if="masterPracticeBadge(practice.status)" #badge>
-                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
-              </template>
-            </PracticeListCard>
+          <div v-for="p in upcomingPractices" :key="p.id" class="master-practices__row">
+            <article class="mp-card">
+              <div class="mp-card__head">
+                <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
+                <div class="mp-card__titles">
+                  <div class="mp-card__title">{{ p.title }}</div>
+                  <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
+                </div>
+              </div>
+              <div class="mp-card__meta">
+                <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
+                <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
+                <span v-if="p.practice_type === 'series'" class="mp-stat"><IconRepeat :size="16" /> Регулярная</span>
+              </div>
+            </article>
+            <div class="mp-card__actions">
+              <div class="mp-card__act">
+                <VButton variant="outline" block @click="goEdit(p.id)">Изменить</VButton>
+              </div>
+              <div class="mp-card__act mp-card__act--wide">
+                <VButton variant="primary" block @click="goCheckins(p.id)">Check-ins</VButton>
+              </div>
+            </div>
           </div>
         </template>
         <VEmptyState
@@ -94,52 +101,34 @@
           title="Нет предстоящих практик"
           description="Создайте первую практику"
         >
-          <VButton
-            size="sm"
-            variant="outline"
-            @click="router.push({ name: 'master-practice-new' })"
-          >
-            Создать
-          </VButton>
+          <VButton size="sm" variant="outline" @click="goNew">Создать</VButton>
         </VEmptyState>
       </template>
 
-      <!-- Past tab -->
+      <!-- ===================== Past ===================== -->
       <template v-else>
         <template v-if="pastPractices.length > 0">
-          <div
-            v-for="practice in pastPractices"
-            :key="practice.id"
-            class="master-practices__card"
-            @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
-          >
-            <PracticeListCard
-              :practice="practice"
-              :clickable="false"
-              :when="formatShortDate(practice.scheduled_at, practice.timezone)"
-              :duration="formatDuration(practice.duration_minutes)"
-            >
-              <template #subtitle>
-                <span class="master-practices__details">
-                  <span><IconGroup :size="14" :style="{ verticalAlign: 'middle' }" /> {{ formatParticipants(practice.current_participants, practice.max_participants) }}</span>
-                  <span>{{ formatMoney(practice.price_cents, practice.currency) }}</span>
-                </span>
-              </template>
-              <template v-if="masterPracticeBadge(practice.status)" #badge>
-                <VBadge :variant="masterPracticeBadge(practice.status)!.variant">{{ masterPracticeBadge(practice.status)!.label }}</VBadge>
-              </template>
-              <!-- Attendance button for completed practices -->
-              <template v-if="practice.status === 'completed'" #action>
-                <VButton
-                  size="sm"
-                  variant="outline"
-                  @click.stop="router.push({ name: 'master-attendance', params: { id: practice.id } })"
-                >
-                  Явка
-                </VButton>
-              </template>
-            </PracticeListCard>
-          </div>
+          <article v-for="p in pastPractices" :key="p.id" class="mp-card">
+            <div class="mp-card__head">
+              <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
+              <div class="mp-card__titles">
+                <div class="mp-card__title">{{ p.title }}</div>
+                <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
+              </div>
+            </div>
+            <div class="mp-card__meta">
+              <span class="mp-stat"><IconGroup :size="16" /> {{ p.current_participants }}</span>
+              <!-- attended / no-show: no aggregate field yet (→ Zod), shown as «—». -->
+              <span class="mp-stat mp-stat--ok"><IconCheck :size="16" /> —</span>
+              <span class="mp-stat mp-stat--no"><IconClose :size="16" /> —</span>
+            </div>
+            <!-- Rating distribution (REAL, anonymous insights — eager-loaded). -->
+            <div v-if="hasRating(p.id)" class="mp-card__rbadges">
+              <span class="mp-rbadge mp-rbadge--fire"><IconRatingFire :size="14" /> {{ ratingPct(p.id, 'fire') }}%</span>
+              <span class="mp-rbadge mp-rbadge--good"><IconRatingGood :size="14" /> {{ ratingPct(p.id, 'good') }}%</span>
+              <span class="mp-rbadge mp-rbadge--conf"><IconRatingConfused :size="14" /> {{ ratingPct(p.id, 'confused') }}%</span>
+            </div>
+          </article>
         </template>
         <VEmptyState
           v-else
@@ -155,7 +144,7 @@
           variant="ghost"
           block
           :loading="masterStore.practicesLoading"
-          @click="masterStore.loadMorePractices()"
+          @click="onLoadMore"
         >
           Показать ещё
         </VButton>
@@ -165,30 +154,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VSegment, VBadge } from '@/components/ui'
-import { IconGroup } from '@/components/icons'
+import { VButton, VLoader, VEmptyState, VSegment } from '@/components/ui'
+import {
+  IconPlus,
+  IconGroup,
+  IconCheckin,
+  IconRepeat,
+  IconCheck,
+  IconClose,
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+} from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
-import PracticeListCard from '@/components/shared/PracticeListCard.vue'
-import { formatShortDate, formatDuration, formatMoney, formatParticipants } from '@/utils/format'
-import { masterPracticeBadge } from '@/utils/practiceStatus'
+import { useDiaryStore } from '@/stores/diary'
+import { practiceIconFor } from '@/utils/displayHelpers'
+import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
+const diaryStore = useDiaryStore()
+
+// Reactive insights cache (shared with Analytics / PracticeReviews — often warm).
+const insightsCache = diaryStore.insightsCache
 
 const activeTab = ref<'upcoming' | 'past'>('upcoming')
 
-// -- Upcoming: draft + scheduled + live, sorted ascending --
+// -- Upcoming: draft + scheduled + live, ascending --
 const upcomingPractices = computed((): PracticeResponse[] =>
   masterStore.practices
     .filter((p) => p.status === 'draft' || p.status === 'scheduled' || p.status === 'live')
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
 )
 
-// -- Past: completed + cancelled, sorted descending (newest first) --
+// -- Past: completed + cancelled, descending (newest first) --
 const pastPractices = computed((): PracticeResponse[] =>
   masterStore.practices
     .filter((p) => p.status === 'completed' || p.status === 'cancelled')
@@ -200,11 +203,82 @@ const tabOptions = computed(() => [
   { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
 ])
 
-// Status badge → shared masterPracticeBadge (only draft/completed/cancelled get
-// a badge; scheduled/live/deleted → null = no badge).
+// -- Card subtitle helpers --------------------------------------------------
+
+/** Relative "Сегодня"/"Завтра", else compact "25 янв." (timezone-safe). */
+function whenLabel(p: PracticeResponse): string {
+  const rel = formatDateShort(p.scheduled_at, p.timezone)
+  return rel === 'Сегодня' || rel === 'Завтра'
+    ? rel
+    : formatShortDate(p.scheduled_at, p.timezone)
+}
+
+function participantsLabel(p: PracticeResponse): string {
+  return p.max_participants != null
+    ? `${p.current_participants}/${p.max_participants}`
+    : `${p.current_participants}`
+}
+
+// -- Insights-derived (REAL) ------------------------------------------------
+
+function totalCheckins(id: string): number {
+  const i = insightsCache.get(id)
+  return i ? i.checkins.high + i.checkins.mid + i.checkins.low : 0
+}
+
+function totalFeedbacks(id: string): number {
+  const i = insightsCache.get(id)
+  return i ? i.feedbacks.fire + i.feedbacks.good + i.feedbacks.confused : 0
+}
+
+/** Check-in count "10/20" (submitted check-ins / capacity). "—" until loaded. */
+function checkinLabel(p: PracticeResponse): string {
+  if (!insightsCache.has(p.id)) return '—'
+  const denom = p.max_participants ?? p.current_participants
+  return `${totalCheckins(p.id)}/${denom}`
+}
+
+function hasRating(id: string): boolean {
+  return insightsCache.has(id) && totalFeedbacks(id) > 0
+}
+
+function ratingPct(id: string, key: 'fire' | 'good' | 'confused'): number {
+  const i = insightsCache.get(id)
+  if (!i) return 0
+  const total = totalFeedbacks(id)
+  return total > 0 ? Math.round((i.feedbacks[key] / total) * 100) : 0
+}
+
+/** Eager-load insights for the visible tab (idempotent: cached ids are skipped). */
+function loadTabInsights(): Promise<void[]> {
+  const list = activeTab.value === 'upcoming' ? upcomingPractices.value : pastPractices.value
+  return Promise.all(list.map((p) => diaryStore.loadInsights(p.id)))
+}
+
+// -- Navigation -------------------------------------------------------------
+
+function goNew(): void {
+  router.push({ name: 'master-practice-new' })
+}
+function goEdit(id: string): void {
+  router.push({ name: 'master-practice-edit', params: { id } })
+}
+function goCheckins(id: string): void {
+  router.push({ name: 'master-attendance', params: { id } })
+}
+
+async function onLoadMore(): Promise<void> {
+  await masterStore.loadMorePractices()
+  await loadTabInsights()
+}
+
+watch(activeTab, () => {
+  loadTabInsights()
+})
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()
+  await loadTabInsights()
 })
 </script>
 
@@ -215,33 +289,30 @@ onMounted(async () => {
   min-height: 100%;
 }
 
-/* -- "+" add button in header -- */
+/* -- "+" add button (filled primary circle + white plus, operator SVG) -- */
 .master-practices__add-btn {
-  width: 32px;
-  height: 32px;
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--velo-primary);
+  width: 46px;
+  height: 46px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-xl);
-  background: var(--velo-glass-blue-15);
-  transition: opacity var(--transition-fast);
+  color: var(--velo-white);
+  background: var(--velo-primary);
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--velo-shadow-glow);
+  transition: background-color var(--transition-fast);
 }
 
 .master-practices__add-btn:hover {
-  opacity: 0.9;
+  background: var(--velo-primary-dark);
 }
 
-/* -- Tabs -- */
+/* -- Tabs (F-5 rail sync: ride MobileLayout's 24px rail, no local h-padding) -- */
 .master-practices__tabs {
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
   padding: var(--space-3) 0;
   background: transparent;
 }
-
-/* (tab buttons + count badge now provided by <VSegment>) */
 
 /* -- Content -- */
 .master-practices__loader {
@@ -252,26 +323,127 @@ onMounted(async () => {
 
 .master-practices__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
   padding: var(--space-3) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
 
-.master-practices__card {
-  cursor: pointer;
-}
-
-/* Subtitle override for master's own practice: participants · price */
-.master-practices__details {
+/* Upcoming row = card + its action buttons below. */
+.master-practices__row {
   display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 .master-practices__load-more {
   padding-top: var(--space-2);
+}
+
+/* ===== Practice card ===== */
+.mp-card {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mp-card__icon {
+  flex-shrink: 0;
+  color: var(--velo-text-primary);
+  display: flex;
+}
+
+.mp-card__title {
+  font-size: var(--text-lg);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.3px;
+}
+
+.mp-card__sub {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  margin-top: 3px;
+}
+
+.mp-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 13px;
+  font-size: var(--text-xs);
+  color: var(--velo-text-primary);
+}
+
+.mp-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mp-stat :deep(svg) {
+  opacity: 0.8;
+}
+
+.mp-stat--ok {
+  color: var(--velo-success);
+}
+
+.mp-stat--no {
+  color: var(--velo-error);
+}
+
+/* Rating-distribution badges (sand/pink/blue-100 tints; confused = blue-400
+   per operator SVG 2026-06-11). */
+.mp-card__rbadges {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: 13px;
+}
+
+.mp-rbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: var(--velo-radius-badge);
+  font-size: var(--text-xs);
+}
+
+.mp-rbadge--fire {
+  background: var(--velo-sand-100);
+  color: var(--velo-rating-fire);
+}
+
+.mp-rbadge--good {
+  background: var(--velo-pink-100);
+  color: var(--velo-rating-good);
+}
+
+.mp-rbadge--conf {
+  background: var(--velo-blue-100);
+  color: var(--velo-blue-400);
+}
+
+/* ===== Action buttons (below the upcoming card) ===== */
+.mp-card__actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mp-card__act {
+  flex: 1;
+}
+
+.mp-card__act--wide {
+  flex: 1.3;
 }
 </style>
