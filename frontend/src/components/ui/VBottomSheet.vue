@@ -1,0 +1,173 @@
+<!--
+  VELO Frontend -- VBottomSheet Component (Phase-3 master DS)
+
+  Flush bottom sheet (operator SVG 2026-06-11): grab handle, big title, content,
+  optional primary "save" footer. Differs from VModal (a floating, all-corners
+  dialog with an X): this is flush to the bottom edge, rounded top only, NO close
+  button — dismissed by tapping the scrim. Reuses VModal's teleport + slide
+  transition + scroll-lock + Escape pattern.
+
+  Usage:
+    <VBottomSheet :open="open" title="Дата практики" save-label="Сохранить"
+                  @save="commit" @close="open = false">
+      ...content...
+    </VBottomSheet>
+-->
+
+<template>
+  <Teleport to="body">
+    <Transition name="v-sheet">
+      <div v-if="open" class="v-sheet__overlay" @click.self="onOverlay">
+        <div class="v-sheet__panel" role="dialog" aria-modal="true">
+          <div class="v-sheet__handle" aria-hidden="true" />
+          <h2 v-if="title" class="v-sheet__title">{{ title }}</h2>
+          <div class="v-sheet__body">
+            <slot />
+          </div>
+          <button
+            v-if="saveLabel"
+            type="button"
+            class="v-sheet__save"
+            @click="$emit('save')"
+          >
+            {{ saveLabel }}
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
+
+<script setup lang="ts">
+import { watch, onMounted, onUnmounted } from 'vue'
+
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    title?: string
+    saveLabel?: string
+    closeOnOverlay?: boolean
+  }>(),
+  {
+    title: '',
+    saveLabel: '',
+    closeOnOverlay: true,
+  },
+)
+
+const emit = defineEmits<{
+  close: []
+  save: []
+}>()
+
+function onOverlay(): void {
+  if (props.closeOnOverlay) emit('close')
+}
+
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && props.open) emit('close')
+}
+
+// Lock body scroll while open.
+watch(
+  () => props.open,
+  (isOpen) => {
+    document.body.style.overflow = isOpen ? 'hidden' : ''
+  },
+)
+
+onMounted(() => document.addEventListener('keydown', onKeydown))
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
+  document.body.style.overflow = ''
+})
+</script>
+
+<style scoped>
+.v-sheet__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--velo-scrim);
+}
+
+.v-sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: var(--velo-screen-width);
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--velo-bg-card-solid);
+  /* Flush to the bottom edge -> round the TOP corners only. */
+  border-radius: 30px 30px 0 0;
+  padding: 8px var(--velo-rail-pad-x) 22px;
+}
+
+.v-sheet__handle {
+  width: 126px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 3.5px;
+  background: rgba(98, 122, 156, 0.3);
+  margin: 0 auto 14px;
+}
+
+.v-sheet__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 6px 0 18px;
+}
+
+.v-sheet__body {
+  flex: 1;
+}
+
+.v-sheet__save {
+  flex-shrink: 0;
+  height: 49px;
+  margin-top: 18px;
+  border-radius: 24.5px;
+  background: var(--velo-primary);
+  color: var(--velo-white);
+  border: 1px solid var(--velo-glass-border);
+  box-shadow: var(--velo-shadow-glow);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.v-sheet__save:hover {
+  background: var(--velo-primary-dark);
+}
+
+/* -- Slide-up transition (mirrors VModal) -- */
+.v-sheet-enter-active,
+.v-sheet-leave-active {
+  transition: opacity var(--transition-base);
+}
+
+.v-sheet-enter-active .v-sheet__panel,
+.v-sheet-leave-active .v-sheet__panel {
+  transition: transform var(--transition-base);
+}
+
+.v-sheet-enter-from,
+.v-sheet-leave-to {
+  opacity: 0;
+}
+
+.v-sheet-enter-from .v-sheet__panel,
+.v-sheet-leave-to .v-sheet__panel {
+  transform: translateY(100%);
+}
+</style>

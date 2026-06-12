@@ -95,23 +95,45 @@
       <div class="create-practice__section">
         <h2 class="create-practice__section-title">Расписание</h2>
 
-        <!-- W-7: todayDate is computed -- never stale after midnight -->
-        <VInput
-          v-model="form.date"
-          label="Дата"
-          type="date"
-          :min="todayDate"
-          :error="errors.date"
-          required
-        />
+        <!-- Дата: открывает DatePickerSheet (нативный input заменён на DS-пикер). -->
+        <div class="create-practice__field">
+          <label class="create-practice__field-label">Дата</label>
+          <div class="create-practice__field-row">
+            <button
+              type="button"
+              class="create-practice__picker"
+              :class="{
+                'create-practice__picker--empty': !form.date,
+                'create-practice__picker--error': !!errors.date,
+              }"
+              @click="showDate = true"
+            >
+              {{ form.date ? dateDisplay : 'Выберите дату' }}
+            </button>
+            <IconRequired class="create-practice__seal" :size="22" />
+          </div>
+          <span v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</span>
+        </div>
 
-        <VInput
-          v-model="form.time"
-          label="Время"
-          type="time"
-          :error="errors.time"
-          required
-        />
+        <!-- Время: открывает TimePickerSheet (24ч). -->
+        <div class="create-practice__field">
+          <label class="create-practice__field-label">Время</label>
+          <div class="create-practice__field-row">
+            <button
+              type="button"
+              class="create-practice__picker"
+              :class="{
+                'create-practice__picker--empty': !form.time,
+                'create-practice__picker--error': !!errors.time,
+              }"
+              @click="showTime = true"
+            >
+              {{ form.time || 'Выберите время' }}
+            </button>
+            <IconRequired class="create-practice__seal" :size="22" />
+          </div>
+          <span v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</span>
+        </div>
 
         <VSelect
           v-model="form.duration_minutes"
@@ -252,6 +274,21 @@
       >
         Создать практику
       </VButton>
+
+      <!-- Picker sheets (teleport to body; open on field tap). -->
+      <DatePickerSheet
+        :open="showDate"
+        :model-value="form.date"
+        :min="todayDate"
+        @update:model-value="form.date = $event"
+        @close="showDate = false"
+      />
+      <TimePickerSheet
+        :open="showTime"
+        :model-value="form.time"
+        @update:model-value="form.time = $event"
+        @close="showTime = false"
+      />
     </div>
   </div>
 </template>
@@ -267,7 +304,9 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { createPractice } from '@/api/practices'
-import { formatMoney } from '@/utils/format'
+import { formatMoney, formatShortDate } from '@/utils/format'
+import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
+import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import { ApiResponseError } from '@/api/client'
 import {
   DURATION_OPTIONS,
@@ -286,6 +325,15 @@ const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
 const submitting = ref(false)
+
+// Date/time picker sheets.
+const showDate = ref(false)
+const showTime = ref(false)
+
+// Friendly date for the trigger field, e.g. "25 янв. 2026".
+const dateDisplay = computed((): string =>
+  form.date ? `${formatShortDate(`${form.date}T12:00:00`)} ${form.date.slice(0, 4)}` : '',
+)
 
 // -- Recurrence period options (Повторение). The on/off toggle IS real — it
 // drives practice_type (series/live) on submit. The daily/weekly/biweekly value
@@ -556,6 +604,59 @@ async function submit(): Promise<void> {
   font-size: var(--text-base);
   font-weight: 400;
   color: var(--velo-text-primary);
+}
+
+/* -- Date/time picker trigger field (mirrors the white VInput plate) -- */
+.create-practice__field {
+  margin-bottom: var(--space-4);
+}
+
+.create-practice__field-label {
+  display: block;
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.create-practice__field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.create-practice__picker {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  text-align: left;
+  padding: 0 var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  background: var(--velo-bg-card-solid);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.create-practice__picker--empty {
+  color: var(--velo-text-muted);
+}
+
+.create-practice__picker--error {
+  border-color: var(--velo-error);
+}
+
+.create-practice__seal {
+  flex-shrink: 0;
+  color: var(--velo-error);
+}
+
+.create-practice__field-error {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--velo-error);
+  margin-top: var(--space-1);
 }
 
 /* -- Price calc preview -- */
