@@ -172,10 +172,10 @@ function onEditProfile(): void {
   router.push({ name: 'master-edit-profile' })
 }
 function onMessages(): void {
-  toast.info('Сообщения пока недоступны')
+  router.push({ name: 'master-messages' })
 }
 function onPromocodes(): void {
-  toast.info('Промокоды пока недоступны')
+  router.push({ name: 'master-promocodes' })
 }
 function onWithdraw(): void {
   router.push({ name: 'master-finance' })

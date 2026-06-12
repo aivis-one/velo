@@ -252,6 +252,28 @@ const router = createRouter({
           component: () => import('@/views/user/LanguageTimezoneView.vue'),
         },
         {
+          path: 'messages',
+          name: 'master-messages',
+          component: () => import('@/views/master/MasterMessagesView.vue'),
+        },
+        {
+          path: 'messages/:id',
+          name: 'master-chat',
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterChatView.vue'),
+        },
+        {
+          path: 'promocodes',
+          name: 'master-promocodes',
+          component: () => import('@/views/master/MasterPromocodesView.vue'),
+        },
+        {
+          path: 'promocodes/new',
+          name: 'master-promocode-new',
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterNewPromocodeView.vue'),
+        },
+        {
           path: 'finance',
           name: 'master-finance',
           beforeEnter: masterStatusGuard,
