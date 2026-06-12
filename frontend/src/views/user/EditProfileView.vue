@@ -97,30 +97,44 @@
       </button>
     </div>
 
-    <!-- ===== Screen D: delete confirmation modal ===== -->
-    <VModal :open="showDeleteModal" @close="showDeleteModal = false">
-      <div class="edit-profile__modal">
-        <h2 class="edit-profile__modal-title">Удалить аккаунт?</h2>
-        <p class="edit-profile__modal-text">
-          Аккаунт вернётся к начальному состоянию — при следующем входе
-          вы пройдёте настройку заново. Ваши данные и бронирования сохранятся.
-        </p>
-        <div class="edit-profile__modal-actions">
-          <VButton
-            variant="danger"
-            block
-            :loading="deleting"
-            @click="onConfirmDelete"
-          >
-            Да, удалить
+    <!-- ===== Screen D: delete account modal (design «Delete account») ===== -->
+    <VModal :open="showDeleteModal" @close="closeDeleteModal">
+      <div class="edit-profile__del">
+        <h2 class="edit-profile__del-title">Удалить аккаунт?</h2>
+
+        <div class="edit-profile__del-warning">
+          <IconWarning :size="20" />
+          <span>Это действие необратимо!</span>
+        </div>
+
+        <p class="edit-profile__del-intro">При удалении:</p>
+        <ul class="edit-profile__del-list">
+          <li>Все ваши практики будут отменены</li>
+          <li>История будет удалена</li>
+          <li>Доступ к статистике будет потерян</li>
+        </ul>
+
+        <template v-if="hasBalance">
+          <div class="edit-profile__del-balance">На вашем балансе {{ formattedBalance }}</div>
+          <VButton variant="primary" block @click="onWithdrawFirst">
+            Сначала вывести средства
           </VButton>
-          <VButton
-            variant="ghost"
-            block
-            :disabled="deleting"
-            @click="showDeleteModal = false"
-          >
-            Нет, оставить
+          <VCheckbox
+            v-model="delConsent"
+            label="Согласен на списание остатка"
+            class="edit-profile__del-consent"
+          />
+        </template>
+
+        <template v-if="!hasBalance || delConsent">
+          <p class="edit-profile__del-confirm-hint">Введите «УДАЛИТЬ» для подтверждения</p>
+          <VInput v-model="delConfirmText" placeholder="УДАЛИТЬ" />
+        </template>
+
+        <div class="edit-profile__del-actions">
+          <VButton variant="secondary" @click="closeDeleteModal">Отмена</VButton>
+          <VButton variant="danger" :disabled="!canDelete" @click="onConfirmDelete">
+            Удалить навсегда
           </VButton>
         </div>
       </div>
@@ -129,21 +143,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VInput, VTextarea, VButton, VAvatar, VModal } from '@/components/ui'
+import { VInput, VTextarea, VButton, VAvatar, VModal, VCheckbox } from '@/components/ui'
+import { IconWarning } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
-import { deleteMe } from '@/api/users'
+import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
+import { formatMoney } from '@/utils/format'
 import type { UserUpdate } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
+const masterStore = useMasterStore()
 
 const user = computed(() => authStore.user)
+
+// Load the master profile so the delete modal can show the balance to forfeit.
+onMounted(() => {
+  if (authStore.role === 'master') {
+    void masterStore.fetchMyProfile()
+  }
+})
 
 const displayName = computed(() => {
   const u = user.value
@@ -236,28 +260,40 @@ async function onSave(): Promise<void> {
   }
 }
 
-// -- Delete (Screen D) ------------------------------------------------------
+// -- Delete account (design «Delete account») -------------------------------
+// Full design built now; the real "delete forever + forfeit balance" backend
+// isn't wired (the MVP deleteMe only resets onboarding), so «Удалить навсегда»
+// is a stub-toast per the operator rule. -> Zod: real account-deletion + balance
+// forfeiture endpoint; a user-side balance source for this modal.
 const showDeleteModal = ref(false)
-const deleting = ref(false)
+const delConsent = ref(false)
+const delConfirmText = ref('')
 
-async function onConfirmDelete(): Promise<void> {
-  if (deleting.value) return
-  deleting.value = true
-  try {
-    await deleteMe()
-    // Reuse the standard logout flow: closes the Mini App in Telegram /
-    // clears the session in standalone. On next login the user re-onboards.
-    await authStore.logout()
-    router.replace({ path: '/' })
-  } catch (error) {
-    deleting.value = false
-    showDeleteModal.value = false
-    const message =
-      error instanceof ApiResponseError
-        ? error.detail || 'Не удалось удалить аккаунт'
-        : 'Не удалось удалить аккаунт'
-    toast.error(message)
-  }
+// Balance to forfeit -- master earnings (0 / section hidden for plain users).
+const balanceCents = computed(() => masterStore.profile?.available_cents ?? 0)
+const hasBalance = computed(() => balanceCents.value > 0)
+const formattedBalance = computed(() => formatMoney(balanceCents.value, 'EUR', 'ru', true))
+
+// «Удалить навсегда» unlocks once any balance is consented to and the user
+// typed the confirmation word.
+const canDelete = computed(
+  () => (!hasBalance.value || delConsent.value) && delConfirmText.value.trim() === 'УДАЛИТЬ',
+)
+
+function closeDeleteModal(): void {
+  showDeleteModal.value = false
+  delConsent.value = false
+  delConfirmText.value = ''
+}
+
+function onWithdrawFirst(): void {
+  closeDeleteModal()
+  router.push({ name: 'master-finance' })
+}
+
+function onConfirmDelete(): void {
+  // Stub per the operator rule -- real deletion isn't implemented (see note).
+  toast.info('Удаление аккаунта пока недоступно, добавим позже')
 }
 </script>
 
@@ -308,29 +344,69 @@ async function onConfirmDelete(): Promise<void> {
   cursor: pointer;
 }
 
-/* -- Delete modal -- */
-.edit-profile__modal {
-  text-align: center;
-}
-
-.edit-profile__modal-title {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
+/* -- Delete account modal (design «Delete account») -- */
+.edit-profile__del-title {
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--velo-text-primary);
-  margin: 0 0 var(--space-3);
+  text-align: center;
+  margin: 0 0 var(--space-4);
 }
 
-.edit-profile__modal-text {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-text-secondary);
-  margin: 0 0 var(--space-5);
-}
-
-.edit-profile__modal-actions {
+.edit-profile__del-warning {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--velo-error-bg);
+  color: var(--velo-danger-text);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+}
+
+.edit-profile__del-intro {
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  margin: 0 0 var(--space-2);
+}
+
+.edit-profile__del-list {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  line-height: 1.7;
+}
+
+.edit-profile__del-balance {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--velo-warning-bg);
+  color: var(--velo-warning-text-light);
+  font-size: var(--text-base);
+  text-align: center;
+  margin-bottom: var(--space-3);
+}
+
+.edit-profile__del-consent {
+  margin: var(--space-4) 0;
+}
+
+.edit-profile__del-confirm-hint {
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.edit-profile__del-actions {
+  display: flex;
   gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.edit-profile__del-actions > * {
+  flex: 1;
 }
 </style>
