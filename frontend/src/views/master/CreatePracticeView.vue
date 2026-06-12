@@ -40,78 +40,88 @@
     />
 
     <div class="create-practice__content">
+      <!-- Required-fields legend (DS banner, Phase-3). -->
+      <div class="create-practice__legend">
+        <IconRequired class="create-practice__legend-seal" :size="22" />
+        <span>— поля, обязательные для заполнения</span>
+      </div>
+
       <!-- ================================================================
-           ОСНОВНОЕ
+           Основное  (Q2=А: 3 поля — Направление / Вид=style / Уровень=difficulty;
+           practice_type не показываем, выводим из «Повторения»)
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">ОСНОВНОЕ</div>
+        <h2 class="create-practice__section-title">Основное</h2>
 
         <VInput
           v-model="form.title"
-          label="Название *"
+          label="Название"
           placeholder="Утренняя медитация"
           :error="errors.title"
+          required
         />
 
-        <VSelect
-          v-model="form.practice_type"
-          label="Тип практики *"
-          :options="PRACTICE_TYPE_OPTIONS"
-          :error="errors.practice_type"
-        />
-
+        <!-- Направление = дисциплина (meditation/yoga/…). -->
         <VSelect
           v-model="form.direction"
-          label="Направление *"
+          label="Направление практики"
           :options="DIRECTION_OPTIONS"
           :error="errors.direction"
+          required
           @update:modelValue="onDirectionChange"
         />
 
+        <!-- Вид практики = style (зависит от направления; «Без вида», если стилей нет). -->
         <VSelect
-          v-model="form.difficulty"
-          label="Сложность *"
-          :options="DIFFICULTY_OPTIONS"
-          :error="errors.difficulty"
-        />
-
-        <VSelect
-          v-if="styleOptionsForForm.length > 0"
           v-model="form.style"
           label="Вид практики"
           :options="styleSelectOptions"
+          required
+        />
+
+        <!-- Уровень = difficulty. -->
+        <VSelect
+          v-model="form.difficulty"
+          label="Уровень"
+          :options="DIFFICULTY_OPTIONS"
+          :error="errors.difficulty"
+          required
         />
       </div>
 
       <!-- ================================================================
-           РАСПИСАНИЕ
+           Расписание
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">РАСПИСАНИЕ</div>
+        <h2 class="create-practice__section-title">Расписание</h2>
 
         <!-- W-7: todayDate is computed -- never stale after midnight -->
         <VInput
           v-model="form.date"
-          label="Дата *"
+          label="Дата"
           type="date"
           :min="todayDate"
           :error="errors.date"
+          required
         />
 
         <VInput
           v-model="form.time"
-          label="Время *"
+          label="Время"
           type="time"
           :error="errors.time"
+          required
         />
 
         <VSelect
           v-model="form.duration_minutes"
-          label="Длительность *"
+          label="Длительность"
           :options="DURATION_OPTIONS"
           :error="errors.duration_minutes"
+          required
         />
 
+        <!-- Часовой пояс: дефолт из профиля мастера, не обязательное (Q1). -->
         <VSelect
           v-model="form.timezone"
           label="Часовой пояс"
@@ -120,10 +130,28 @@
       </div>
 
       <!-- ================================================================
+           Повторение  (Q2=А: тогл «Сделать регулярной» → practice_type
+           series/live — РЕАЛЬНО; период повтора пока без бэка, captured-only,
+           см. master-ds-zod-roadmap.md)
+           ================================================================ -->
+      <div class="create-practice__section">
+        <h2 class="create-practice__section-title">Повторение</h2>
+
+        <VCard class="create-practice__repeat" padding="none">
+          <VCheckbox v-model="form.is_recurring" label="Сделать регулярной" />
+        </VCard>
+
+        <VCard v-if="form.is_recurring" class="create-practice__repeat" padding="none">
+          <div class="create-practice__repeat-title">Повтор:</div>
+          <VRadioGroup v-model="form.recurrence" :options="RECURRENCE_OPTIONS" />
+        </VCard>
+      </div>
+
+      <!-- ================================================================
            УЧАСТНИКИ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">УЧАСТНИКИ</div>
+        <h2 class="create-practice__section-title">Участники</h2>
 
         <VInput
           v-model="form.max_participants_raw"
@@ -138,7 +166,7 @@
            ЦЕНА
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">ЦЕНА</div>
+        <h2 class="create-practice__section-title">Цена</h2>
 
         <!-- Free / Paid segment -->
         <VSegment
@@ -174,7 +202,7 @@
            ОПИСАНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">ОПИСАНИЕ</div>
+        <h2 class="create-practice__section-title">Описание</h2>
 
         <VTextarea
           v-model="form.description"
@@ -202,7 +230,7 @@
            ПОДКЛЮЧЕНИЕ
            ================================================================ -->
       <div class="create-practice__section">
-        <div class="create-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
+        <h2 class="create-practice__section-title">Подключение</h2>
 
         <VInput
           v-model="form.zoom_link"
@@ -233,7 +261,8 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCard, VSegment } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VCard, VSegment, VCheckbox, VRadioGroup } from '@/components/ui'
+import { IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -249,7 +278,7 @@ import {
 } from '@/utils/practiceOptions'
 import { COMMISSION_RATE } from '@/utils/commission'
 import { eurStringToCents } from '@/utils/currency'
-import type { PracticeType, PracticeDirection } from '@/api/types'
+import type { PracticeDirection } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -258,12 +287,14 @@ const masterStore = useMasterStore()
 
 const submitting = ref(false)
 
-// -- Practice type options --
-const PRACTICE_TYPE_OPTIONS: { label: string; value: string }[] = [
-  { label: 'Живая группа (live)',     value: 'live' },
-  { label: 'Серия занятий (series)',  value: 'series' },
-  { label: 'Индивидуально (1-on-1)', value: 'one_on_one' },
-  { label: 'Запись (replay)',         value: 'replay' },
+// -- Recurrence period options (Повторение). The on/off toggle IS real — it
+// drives practice_type (series/live) on submit. The daily/weekly/biweekly value
+// is captured in form state but NOT yet a backend field (see
+// master-ds-zod-roadmap.md "recurrence period + series engine"). --
+const RECURRENCE_OPTIONS = [
+  { label: 'Каждый день',      value: 'daily' },
+  { label: 'Каждую неделю',    value: 'weekly' },
+  { label: 'Раз в две недели', value: 'biweekly' },
 ]
 
 const PAYMENT_OPTIONS = [
@@ -280,10 +311,13 @@ const commissionPct = Math.round(COMMISSION_RATE * 100)
 // -- Form state --
 const form = reactive({
   title: '',
-  practice_type: 'live',
   direction: 'meditation',
   difficulty: 'beginner',
   style: '',
+  // Повторение: is_recurring drives practice_type (series/live) on submit;
+  // recurrence (period) is captured but not yet persisted (no backend field).
+  is_recurring: false,
+  recurrence: 'weekly',
   date: '',
   time: '',
   duration_minutes: '60',
@@ -300,7 +334,6 @@ const form = reactive({
 // -- Validation errors --
 const errors = reactive({
   title: '',
-  practice_type: '',
   direction: '',
   difficulty: '',
   date: '',
@@ -341,10 +374,6 @@ function validate(): boolean {
 
   if (!form.title.trim()) {
     errors.title = 'Введите название'
-    ok = false
-  }
-  if (!form.practice_type) {
-    errors.practice_type = 'Выберите тип практики'
     ok = false
   }
   if (!form.direction) {
@@ -428,7 +457,9 @@ async function submit(): Promise<void> {
     }
 
     await createPractice({
-      practice_type: form.practice_type as PracticeType,
+      // Q2=А: practice_type derived from the recurrence toggle (series/live);
+      // one_on_one/replay are not creatable from this form (roadmap: advanced mode).
+      practice_type: form.is_recurring ? 'series' : 'live',
       direction: form.direction,
       difficulty: form.difficulty,
       style: form.style.trim() || null,
@@ -485,14 +516,46 @@ async function submit(): Promise<void> {
 }
 
 .create-practice__section-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+/* Required-fields legend banner (DS, Phase-3) — pink glass plate, rose seal. */
+.create-practice__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--velo-banner-gap-icon-text);
+  background: var(--velo-glass-pink-40);
+  border: 1px solid var(--velo-pink-300);
+  border-radius: 12px;
+  padding: 10px var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-xs);
+  color: var(--velo-pink-700);
+}
+
+.create-practice__legend-seal {
+  flex-shrink: 0;
+  color: var(--velo-rating-good);
+}
+
+/* Повторение cards (white plates). */
+.create-practice__repeat {
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.create-practice__repeat-title {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
   font-weight: 400;
-  color: var(--velo-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--velo-border-light);
+  color: var(--velo-text-primary);
 }
 
 /* -- Price calc preview -- */

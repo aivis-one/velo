@@ -2,23 +2,42 @@
   VELO Frontend -- VInput Component (Phase F2.1)
 
   Text input with label. VELΘ minimal style: no border at rest, focus ring.
+  `required` (Phase-3 master DS) -> renders the pink IconRequired seal in the
+  right gutter, paired with the legend banner on the form. Replaces the inline
+  "*"-asterisk pattern; old `label="… *"` usages keep working until migrated.
 
   Usage:
     <VInput v-model="email" label="Email" type="email" placeholder="you@example.com" />
-    <VInput v-model="name" label="Имя" />
+    <VInput v-model="name" label="Название" required />
 -->
 
 <template>
   <div class="v-input" :class="{ 'v-input--error': !!error }">
     <label v-if="label" class="v-input__label">{{ label }}</label>
 
-    <!-- Affix path: prefix/suffix slots (€ amount, inline action, …). The box
-         carries the border/bg; the input goes bare inside. -->
-    <div v-if="$slots.prefix || $slots.suffix" class="v-input__box">
-      <span v-if="$slots.prefix" class="v-input__affix"><slot name="prefix" /></span>
+    <div class="v-input__row">
+      <!-- Affix path: prefix/suffix slots (€ amount, inline action, …). The box
+           carries the border/bg; the input goes bare inside. -->
+      <div v-if="$slots.prefix || $slots.suffix" class="v-input__box">
+        <span v-if="$slots.prefix" class="v-input__affix"><slot name="prefix" /></span>
+        <input
+          ref="inputEl"
+          class="v-input__field v-input__field--bare"
+          :type="type"
+          :value="modelValue"
+          :placeholder="placeholder"
+          :disabled="disabled"
+          v-bind="$attrs"
+          @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        />
+        <span v-if="$slots.suffix" class="v-input__affix"><slot name="suffix" /></span>
+      </div>
+
+      <!-- Plain path (default) — unchanged for every existing usage. -->
       <input
+        v-else
         ref="inputEl"
-        class="v-input__field v-input__field--bare"
+        class="v-input__field"
         :type="type"
         :value="modelValue"
         :placeholder="placeholder"
@@ -26,27 +45,18 @@
         v-bind="$attrs"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
-      <span v-if="$slots.suffix" class="v-input__affix"><slot name="suffix" /></span>
+
+      <!-- Required marker (DS pattern): pink seal in the right gutter. -->
+      <IconRequired v-if="required" class="v-input__seal" :size="22" />
     </div>
 
-    <!-- Plain path (default) — unchanged for every existing usage. -->
-    <input
-      v-else
-      ref="inputEl"
-      class="v-input__field"
-      :type="type"
-      :value="modelValue"
-      :placeholder="placeholder"
-      :disabled="disabled"
-      v-bind="$attrs"
-      @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-    />
     <span v-if="error" class="v-input__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { IconRequired } from '@/components/icons'
 
 // inheritAttrs:false — forward native attrs (min/max/step/inputmode/…) onto the
 // inner <input>, not the wrapper div. Keeps VInput at parity with VSelect/VTextarea.
@@ -60,6 +70,8 @@ withDefaults(
     type?: string
     error?: string
     disabled?: boolean
+    /** Show the pink IconRequired seal in the right gutter (DS required marker). */
+    required?: boolean
   }>(),
   {
     modelValue: '',
@@ -68,6 +80,7 @@ withDefaults(
     type: 'text',
     error: '',
     disabled: false,
+    required: false,
   },
 )
 
@@ -95,8 +108,16 @@ defineExpose({ focus: () => inputEl.value?.focus() })
   margin-bottom: var(--space-2);
 }
 
+/* Row = field (flex:1) + optional required seal in the right gutter. */
+.v-input__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .v-input__field {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   height: 40px;
   padding: 0 var(--space-4);
   font-family: var(--font-body);
@@ -131,6 +152,8 @@ defineExpose({ focus: () => inputEl.value?.focus() })
 
 /* -- Affix box (prefix/suffix slots) -- */
 .v-input__box {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -168,6 +191,13 @@ defineExpose({ focus: () => inputEl.value?.focus() })
 
 .v-input__field--bare:disabled {
   background: transparent;
+}
+
+/* Required seal — pink (--velo-error), sits beside the field, never shrinks. */
+.v-input__seal {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--velo-error);
 }
 
 .v-input__error {
