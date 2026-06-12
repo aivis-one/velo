@@ -2,14 +2,22 @@
   VELO Frontend -- VeloLogo Component (DS-6)
 
   Uses the actual VELΘ mandala logo from Design_prototype.
-  Two variants: default (colored) and white.
-  Logo SVGs are in public/icons/ (too large for inline).
+  Variants: default (colored/blue) and white.
+
+  - default (colored): layered light composition -- mandala-blue.png ring +
+    velo-word-blue.svg wordmark (#4C6589) on top, the word scaled 1.8x
+    (operator-calibrated) so it matches the old lockup. Replaces the heavy
+    logo.svg vector (191KB -> ~67KB) per operator 2026-06-12. logo.svg is kept
+    as a file for non-component brand uses but is no longer referenced here.
+    Future auth/onboarding screens that use VeloLogo inherit this automatically.
+  - white: logo-white.svg, or a spinning ring (mandala-white.png + wordmark)
+    when `spin` is set.
 
   Props:
     size    — width/height in px (default 64)
     variant — 'default' | 'white' (default 'default')
     spin    — white only: rotate the mandala ring slowly while the VELΘ wordmark
-              stays static. Layers two sliced assets (mandala-white.svg +
+              stays static. Layers two sliced assets (mandala-white.png +
               velo-word-filled.svg) so the ring spins and the word does not.
               Motion (operator-tuned): still 0.5s -> ease-in ramp ~4s -> steady
               120s/rev. Respects prefers-reduced-motion.
@@ -40,9 +48,30 @@
       alt="VELΘ"
     />
   </div>
+  <!-- Colored/blue logo: layered light composition (PNG ring + dark wordmark on
+       top). Mirrors the spin layering, static, with the word scaled to match the
+       old logo.svg lockup. -->
+  <div
+    v-else-if="variant === 'default'"
+    class="velo-logo velo-logo--blue"
+    :style="{ width: size + 'px', height: size + 'px' }"
+  >
+    <img
+      class="velo-logo__layer velo-logo__mandala"
+      src="/icons/mandala-blue.png"
+      alt=""
+      aria-hidden="true"
+    />
+    <img
+      class="velo-logo__layer velo-logo__word velo-logo__word--blue"
+      src="/icons/velo-word-blue.svg"
+      alt="VELΘ"
+    />
+  </div>
+  <!-- White static logo. -->
   <img
     v-else
-    :src="logoSrc"
+    src="/icons/logo-white.svg"
     :width="size"
     :height="size"
     alt="VELΘ"
@@ -51,9 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-
-const props = withDefaults(
+withDefaults(
   defineProps<{
     size?: number
     variant?: 'default' | 'white'
@@ -61,10 +88,6 @@ const props = withDefaults(
     spin?: boolean
   }>(),
   { size: 64, variant: 'default', spin: false },
-)
-
-const logoSrc = computed(() =>
-  props.variant === 'white' ? '/icons/logo-white.svg' : '/icons/logo.svg',
 )
 </script>
 
@@ -74,7 +97,8 @@ const logoSrc = computed(() =>
   object-fit: contain;
 }
 
-.velo-logo--spin {
+.velo-logo--spin,
+.velo-logo--blue {
   position: relative;
 }
 
@@ -100,6 +124,13 @@ const logoSrc = computed(() =>
   z-index: 2;
   /* px@440: x +1, y -7 */
   transform: translate(0.227%, -1.591%);
+}
+
+/* Blue (default) wordmark: same centring as the white word, scaled 1.8x so the
+   "VELΘ" lockup matches the old logo.svg proportions (operator 2026-06-12). */
+.velo-logo__word--blue {
+  transform-origin: 50% 50%;
+  transform: translate(0.227%, -1.591%) scale(1.8);
 }
 
 .velo-logo__intro,
