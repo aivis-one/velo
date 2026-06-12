@@ -734,7 +734,7 @@ onMounted(async () => {
 
 .analytics__rbadge--confused {
   background: var(--velo-blue-100);
-  color: var(--velo-rating-confused);
+  color: var(--velo-blue-400);
 }
 
 /* ===== Load more ===== */
