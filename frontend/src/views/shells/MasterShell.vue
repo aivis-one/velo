@@ -10,6 +10,7 @@
     :tabs="MASTER_TABS"
     :active-tab="activeTab"
     :fog="isFogRoute"
+    :hide-tab-bar="hideTabBar"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -34,4 +35,9 @@ const activeTab = computed(() => {
 // Edge-to-edge fog only on the long practices list; detail/forms stay crisp.
 const FOG_ROUTES = ['master-practices']
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
+
+// Hide the bottom tab bar on detail routes that opt in via `meta.hideTabBar`
+// (the design omits the tab bar on master detail screens). Opt-in per route —
+// the remaining master detail screens migrate later in the SHELL pass.
+const hideTabBar = computed(() => route.meta.hideTabBar === true)
 </script>

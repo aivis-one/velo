@@ -207,12 +207,14 @@ const router = createRouter({
           path: 'practices/:id/detail',
           name: 'master-practice-detail',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterPracticeDetailView.vue'),
         },
         {
           path: 'practices/:id/roster',
           name: 'master-attendance-roster',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/AttendanceRosterView.vue'),
         },
         {
