@@ -62,6 +62,100 @@
     </div>
 
     <!-- ====================================================================
+         PAYOUT REQUISITES (moved here from the profile hub)
+         ==================================================================== -->
+    <VCard class="finance-view__section finance-view__payout-section" padding="none">
+      <div class="finance-view__section-title">РЕКВИЗИТЫ ВЫПЛАТ</div>
+
+      <template v-if="!showPayoutForm">
+        <div v-if="!hasPayout" class="finance-view__payout-empty">
+          <p class="finance-view__payout-empty-text">
+            Реквизиты не настроены. Укажите их, чтобы выводить средства.
+          </p>
+          <VButton variant="secondary" size="sm" @click="openPayoutForm(false)">
+            + Добавить реквизиты
+          </VButton>
+        </div>
+
+        <div v-else class="finance-view__payout-configured">
+          <div class="finance-view__payout-row">
+            <span class="finance-view__payout-method">
+              {{ methodLabel(masterStore.profile!.payout!.method) }}
+            </span>
+            <VBadge variant="success">Настроено</VBadge>
+          </div>
+          <p class="finance-view__payout-details-text">
+            {{ maskedDetails(masterStore.profile!.payout!) }}
+          </p>
+          <VButton variant="outline" size="sm" @click="openPayoutForm(true)">
+            Изменить
+          </VButton>
+        </div>
+      </template>
+
+      <div v-show="showPayoutForm" class="finance-view__payout-form">
+        <VSelect
+          v-model="payoutForm.method"
+          label="Способ выплаты"
+          :options="METHOD_OPTIONS"
+          @update:model-value="onMethodChange"
+        />
+
+        <template v-if="payoutForm.method === 'bank_transfer'">
+          <VInput
+            v-model="payoutForm.iban"
+            label="IBAN *"
+            placeholder="DE89 3704 0044 0532 0130 00"
+            :error="formErrors.iban"
+          />
+          <VInput
+            v-model="payoutForm.accountHolder"
+            label="Имя владельца счёта"
+            placeholder="Ivan Ivanov"
+          />
+          <VInput
+            v-model="payoutForm.swift"
+            label="BIC / SWIFT (необязательно)"
+            placeholder="COBADEFFXXX"
+          />
+        </template>
+
+        <template v-else-if="payoutForm.method === 'paypal'">
+          <VInput
+            v-model="payoutForm.email"
+            label="PayPal Email *"
+            type="email"
+            placeholder="you@example.com"
+            :error="formErrors.email"
+          />
+        </template>
+
+        <template v-else-if="payoutForm.method === 'revolut'">
+          <VInput
+            v-model="payoutForm.tag"
+            label="Revolut Tag или телефон *"
+            placeholder="@username или +49123456789"
+            :error="formErrors.tag"
+          />
+        </template>
+
+        <div class="finance-view__payout-form-actions">
+          <VButton
+            variant="primary"
+            :loading="savingPayout"
+            :disabled="savingPayout"
+            @click="savePayout"
+          >
+            Сохранить
+          </VButton>
+          <VButton variant="ghost" :disabled="savingPayout" @click="closePayoutForm">
+            Отмена
+          </VButton>
+        </div>
+      </div>
+    </VCard>
+
+    <!-- ====================================================================
          WITHDRAW FORM
          ==================================================================== -->
     <div v-show="showWithdrawForm" class="finance-view__section finance-view__withdraw-section">
@@ -70,14 +164,10 @@
       <!-- No payout configured warning -->
       <div v-if="!hasPayout" class="finance-view__warning">
         <p class="finance-view__warning-text">
-          Сначала укажите реквизиты для выплат в настройках профиля.
+          Сначала укажите реквизиты в разделе «Реквизиты выплат» выше.
         </p>
-        <VButton
-          variant="secondary"
-          size="sm"
-          @click="router.push({ name: 'master-profile' })"
-        >
-          Перейти в профиль<IconArrowRight :size="16" class="finance-view__btn-arrow" />
+        <VButton variant="secondary" size="sm" @click="openPayoutForm(false)">
+          + Добавить реквизиты
         </VButton>
       </div>
 
@@ -184,17 +274,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { VButton, VBadge, VLoader, VCard, VInput } from '@/components/ui'
-import { IconFinance, IconArrowRight } from '@/components/icons'
+import { ref, computed, reactive, onMounted } from 'vue'
+import { VButton, VBadge, VLoader, VCard, VInput, VSelect } from '@/components/ui'
+import { IconFinance } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
-import { getMyWithdrawals, createWithdrawal } from '@/api/masters'
+import { getMyWithdrawals, createWithdrawal, updatePayoutDetails } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney, formatDateShort } from '@/utils/format'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { WithdrawalResponse, WithdrawalStatus } from '@/api/types'
+import type { WithdrawalResponse, WithdrawalStatus, PayoutDetails } from '@/api/types'
 
 // TD-FE-W6: imported from utils/constants -- mirrors backend config.py.
 // min_withdrawal_cents=5000, withdrawal_fee_cents=200.
@@ -207,7 +296,6 @@ const LIMIT = 20
 // Router + stores
 // ---------------------------------------------------------------------------
 
-const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
 
@@ -226,6 +314,139 @@ const formattedAvailable = computed(() =>
 const formattedFrozen = computed(() =>
   formatMoney(frozenCents.value, 'EUR', 'ru', true),
 )
+
+// ---------------------------------------------------------------------------
+// Payout requisites (moved here from the profile hub)
+// ---------------------------------------------------------------------------
+
+const METHOD_OPTIONS = [
+  { value: 'bank_transfer', label: 'Банковский перевод (IBAN)' },
+  { value: 'paypal', label: 'PayPal' },
+  { value: 'revolut', label: 'Revolut' },
+]
+
+const showPayoutForm = ref(false)
+const savingPayout = ref(false)
+
+const payoutForm = reactive({
+  method: 'bank_transfer',
+  iban: '',
+  accountHolder: '',
+  swift: '',
+  email: '',
+  tag: '',
+})
+
+const formErrors = reactive({ iban: '', email: '', tag: '' })
+
+function clearFormErrors(): void {
+  formErrors.iban = ''
+  formErrors.email = ''
+  formErrors.tag = ''
+}
+
+/** Open the payout form, pre-filling from the existing payout when editing. */
+function openPayoutForm(editing: boolean): void {
+  clearFormErrors()
+  if (editing && masterStore.profile?.payout) {
+    const p = masterStore.profile.payout
+    payoutForm.method = p.method
+    const d = p.details as Record<string, string>
+    payoutForm.iban = d['iban'] ?? ''
+    payoutForm.accountHolder = d['account_holder'] ?? ''
+    payoutForm.swift = d['swift'] ?? ''
+    payoutForm.email = d['email'] ?? ''
+    payoutForm.tag = d['tag'] ?? d['phone'] ?? ''
+  } else {
+    payoutForm.method = 'bank_transfer'
+    payoutForm.iban = ''
+    payoutForm.accountHolder = ''
+    payoutForm.swift = ''
+    payoutForm.email = ''
+    payoutForm.tag = ''
+  }
+  showPayoutForm.value = true
+}
+
+function closePayoutForm(): void {
+  showPayoutForm.value = false
+  clearFormErrors()
+}
+
+function onMethodChange(): void {
+  clearFormErrors()
+}
+
+/** Build the PayoutDetails body from the flat form, validating required fields. */
+function buildPayoutBody(): PayoutDetails | null {
+  clearFormErrors()
+  if (payoutForm.method === 'bank_transfer') {
+    if (!payoutForm.iban.trim()) {
+      formErrors.iban = 'IBAN обязателен'
+      return null
+    }
+    const details: Record<string, string> = { iban: payoutForm.iban.trim() }
+    if (payoutForm.accountHolder.trim()) details['account_holder'] = payoutForm.accountHolder.trim()
+    if (payoutForm.swift.trim()) details['swift'] = payoutForm.swift.trim()
+    return { method: 'bank_transfer', details }
+  }
+  if (payoutForm.method === 'paypal') {
+    if (!payoutForm.email.trim() || !payoutForm.email.includes('@')) {
+      formErrors.email = 'Введите корректный email'
+      return null
+    }
+    return { method: 'paypal', details: { email: payoutForm.email.trim() } }
+  }
+  if (payoutForm.method === 'revolut') {
+    if (!payoutForm.tag.trim()) {
+      formErrors.tag = 'Укажите Revolut tag или телефон'
+      return null
+    }
+    const value = payoutForm.tag.trim()
+    const key = value.startsWith('+') ? 'phone' : 'tag'
+    return { method: 'revolut', details: { [key]: value } }
+  }
+  return null
+}
+
+async function savePayout(): Promise<void> {
+  if (savingPayout.value) return
+  const body = buildPayoutBody()
+  if (!body) return
+  savingPayout.value = true
+  try {
+    const result = await updatePayoutDetails(body)
+    if (masterStore.profile) masterStore.profile.payout = result
+    showPayoutForm.value = false
+    toast.success('Реквизиты сохранены')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить реквизиты'
+    toast.error(msg)
+  } finally {
+    savingPayout.value = false
+  }
+}
+
+/** Masked summary of the configured payout details. */
+function maskedDetails(payout: PayoutDetails): string {
+  const d = payout.details as Record<string, string>
+  switch (payout.method) {
+    case 'bank_transfer': {
+      const iban = (d['iban'] ?? '').replace(/\s/g, '')
+      const last4 = iban.slice(-4)
+      return last4 ? `IBAN ···· ${last4}` : 'IBAN настроен'
+    }
+    case 'paypal': {
+      const email = d['email'] ?? ''
+      const at = email.indexOf('@')
+      return at > 1 ? email[0] + '···' + email.slice(at) : email || 'Email настроен'
+    }
+    case 'revolut':
+      return d['tag'] ?? d['phone'] ?? 'Настроено'
+    default:
+      return 'Настроено'
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Withdraw form state
@@ -479,6 +700,53 @@ onMounted(async () => {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
   line-height: 1.5;
+}
+
+/* -- Payout requisites (moved from the profile hub) -- */
+.finance-view__payout-section {
+  border: 1px solid var(--velo-border-card);
+}
+
+.finance-view__payout-empty,
+.finance-view__payout-configured {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.finance-view__payout-empty-text {
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  line-height: 1.5;
+}
+
+.finance-view__payout-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.finance-view__payout-method {
+  font-weight: 400;
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+.finance-view__payout-details-text {
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  font-family: monospace;
+  letter-spacing: 0.03em;
+}
+
+.finance-view__payout-form {
+  margin-top: var(--space-2);
+}
+
+.finance-view__payout-form-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .finance-view__amount-group {
