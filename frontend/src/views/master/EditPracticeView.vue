@@ -77,164 +77,109 @@
              ================================================================ -->
         <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">ОСНОВНОЕ</div>
-            <VInput
-              v-model="form.title"
-              label="Название *"
-              :error="errors.title"
-            />
-            <!-- practice_type is immutable after creation -->
-            <div class="edit-practice__field">
-              <label class="edit-practice__label">Тип практики</label>
-              <span class="edit-practice__readonly-value">
-                {{ practiceTypeLabel(practice.practice_type) }}
-              </span>
-            </div>
+          <!-- Реш. В (2026-06-12): поля по SVG Edit (label-above, белая плашка),
+               БЕЗ секций-заголовков. Намеренно опущены направление/уровень/вид/
+               таймзона/цена — они задаются на создании и блокируются после (хранятся
+               в form, уходят на submit неизменными, данные не теряем). Дата и Zoom
+               возвращены по логике (см. комментарии ниже). -->
+          <VInput
+            v-model="form.title"
+            label="Название"
+            :error="errors.title"
+          />
 
-            <VSelect
-              v-model="form.direction"
-              label="Направление *"
-              :options="DIRECTION_OPTIONS"
-              @update:modelValue="onDirectionChange"
-            />
-
-            <VSelect
-              v-model="form.difficulty"
-              label="Сложность *"
-              :options="DIFFICULTY_OPTIONS"
-            />
-
-            <VSelect
-              v-if="styleOptionsForForm.length > 0"
-              v-model="form.style"
-              label="Вид практики"
-              :options="styleSelectOptions"
-            />
+          <!-- Дата — DS-пикер (реш. В: возвращена по логике — перенос практики
+               норм. операция; нативный type=date заменён на брендовый пикер). -->
+          <div class="edit-practice__field">
+            <label class="edit-practice__field-label">Дата</label>
+            <button
+              type="button"
+              class="edit-practice__picker"
+              :class="{ 'edit-practice__picker--empty': !form.date }"
+              @click="showDate = true"
+            >
+              {{ form.date ? dateDisplay : 'Выберите дату' }}
+            </button>
           </div>
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">РАСПИСАНИЕ</div>
-
-            <!-- W-8: min attribute prevents setting past dates -->
-            <VInput
-              v-model="form.date"
-              label="Дата"
-              type="date"
-              :min="todayDate"
-              :disabled="isTerminal"
-            />
-
-            <VInput
-              v-model="form.time"
-              label="Время"
-              type="time"
-              :disabled="isTerminal"
-            />
-
-            <VSelect
-              v-model="form.duration_minutes"
-              label="Длительность"
-              :options="DURATION_OPTIONS"
-            />
-
-            <VSelect
-              v-model="form.timezone"
-              label="Часовой пояс"
-              :options="TIMEZONE_OPTIONS"
-            />
+          <!-- Время — DS-пикер (24ч, шаг 5 мин). -->
+          <div class="edit-practice__field">
+            <label class="edit-practice__field-label">Время</label>
+            <button
+              type="button"
+              class="edit-practice__picker"
+              :class="{ 'edit-practice__picker--empty': !form.time }"
+              @click="showTime = true"
+            >
+              {{ form.time || 'Выберите время' }}
+            </button>
           </div>
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">УЧАСТНИКИ</div>
-            <VInput
-              v-model="form.max_participants_raw"
-              label="Максимум (пусто = без ограничений)"
-              type="number"
-              :error="errors.max_participants"
-            />
-          </div>
+          <VSelect
+            v-model="form.duration_minutes"
+            label="Длительность"
+            :options="DURATION_OPTIONS"
+          />
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">ЦЕНА</div>
-            <VSegment
-              :model-value="form.is_free ? 'free' : 'paid'"
-              :options="PAYMENT_OPTIONS"
-              @update:model-value="form.is_free = $event === 'free'"
-            />
-            <template v-if="!form.is_free">
-              <VInput
-                v-model="form.price_eur_raw"
-                label="Цена (EUR)"
-                type="number"
-                :error="errors.price_cents"
-              />
-              <!-- W-9: commission calc via COMMISSION_RATE constant -->
-              <VCard v-if="priceCents > 0" class="edit-practice__price-calc" padding="none">
-                <div class="edit-practice__price-row">
-                  <span>Комиссия {{ commissionPct }}%</span>
-                  <span>{{ formatMoney(Math.round(priceCents * COMMISSION_RATE), 'EUR') }}</span>
-                </div>
-                <div class="edit-practice__price-row edit-practice__price-row--total">
-                  <span>Вы получите</span>
-                  <span>{{ formatMoney(Math.round(priceCents * (1 - COMMISSION_RATE)), 'EUR') }}</span>
-                </div>
-              </VCard>
-            </template>
-          </div>
+          <VInput
+            v-model="form.max_participants_raw"
+            label="Максимум мест"
+            type="number"
+            :error="errors.max_participants"
+          />
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">ОПИСАНИЕ</div>
-            <VTextarea
-              v-model="form.description"
-              label="Описание"
-              :rows="4"
-            />
-            <VTextarea
-              v-model="form.what_to_prepare"
-              label="Что подготовить"
-              placeholder="Коврик, удобная одежда, вода..."
-              :rows="2"
-            />
-            <VTextarea
-              v-model="form.contraindications"
-              label="Противопоказания"
-              placeholder="Беременность, заболевания позвоночника..."
-              :rows="2"
-            />
-          </div>
+          <VTextarea
+            v-model="form.description"
+            label="Описание"
+            :rows="4"
+          />
 
-          <div class="edit-practice__section">
-            <div class="edit-practice__section-title">ПОДКЛЮЧЕНИЕ</div>
-            <VInput
-              v-model="form.zoom_link"
-              label="Zoom ссылка"
-              type="url"
-              :error="errors.zoom_link"
-            />
-          </div>
+          <VTextarea
+            v-model="form.contraindications"
+            label="Противопоказания"
+            placeholder="Беременность, сердечно-сосудистые заболевания"
+            :rows="2"
+          />
 
-          <!-- Save button (not shown for terminal statuses) -->
-          <!-- W-3: :disabled="anyLoading" prevents Save while action is running -->
+          <VInput
+            v-model="form.what_to_prepare"
+            label="Что подготовить"
+            placeholder="Коврик, плед, вода"
+          />
+
+          <!-- Zoom (реш. В: сохранена по ЛОГИКЕ — авто-ссылки-бэка ещё нет, и Edit
+               сейчас единственное место задать ссылку подключения; в SVG её нет). -->
+          <VInput
+            v-model="form.zoom_link"
+            label="Zoom ссылка"
+            type="url"
+            :error="errors.zoom_link"
+          />
+
+          <!-- W-3: :disabled="anyLoading" prevents Save while an action runs. -->
           <VButton
             v-if="!isTerminal"
-            variant="secondary"
+            variant="primary"
             block
             :loading="saving"
             :disabled="anyLoading"
             @click="save"
           >
-            Сохранить изменения
+            Сохранить
           </VButton>
         </fieldset>
 
         <!-- ================================================================
              STATE MACHINE ACTIONS
+             Q2=А (2026-06-12): лайфсайкл-переходы СОХРАНЕНЫ ВРЕМЕННО (в SVG Edit
+             их нет) — пока хаб Practice-detail (WI-B) их не заберёт. Выкинуть
+             сейчас = оставить мастера без публикации/завершения вовсе (в макете
+             хаба их тоже нет). При сборке WI-B этот блок мигрирует туда.
              W-3: all buttons :disabled="anyLoading" -- prevents concurrent
              save + publish / save + cancel / save + delete etc.
              ================================================================ -->
         <div v-if="!isTerminal" class="edit-practice__actions">
-          <div class="edit-practice__section-title">ДЕЙСТВИЯ</div>
+          <div class="edit-practice__section-title">Действия</div>
 
           <!-- draft -> scheduled -->
           <VButton
@@ -330,6 +275,32 @@
         @confirm="confirmDialog.onConfirm"
         @cancel="confirmDialog.visible = false"
       />
+
+      <!-- Branded cancel-practice modal (replaces the generic confirm for cancel;
+           operator SVG «Abolish the practice»). cancelPractice = real refund;
+           series-scope radio inside is captured-only (→ Zod). -->
+      <CancelPracticeDialog
+        :open="cancelModalOpen"
+        :practice="practice"
+        :loading="cancelling"
+        @confirm="cancel"
+        @cancel="cancelModalOpen = false"
+      />
+
+      <!-- Date/time picker sheets (teleport to body; open on field tap). -->
+      <DatePickerSheet
+        :open="showDate"
+        :model-value="form.date"
+        :min="todayDate"
+        @update:model-value="form.date = $event"
+        @close="showDate = false"
+      />
+      <TimePickerSheet
+        :open="showTime"
+        :model-value="form.time"
+        @update:model-value="form.time = $event"
+        @close="showTime = false"
+      />
     </template>
   </div>
 </template>
@@ -339,7 +310,10 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VCard, VSegment, VConfirmDialog } from '@/components/ui'
+import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
+import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
+import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
+import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import {
@@ -349,19 +323,12 @@ import {
   cancelPractice,
   finalizePractice,
 } from '@/api/practices'
-import { formatMoney } from '@/utils/format'
+import { formatShortDate } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
-import {
-  DURATION_OPTIONS,
-  TIMEZONE_OPTIONS,
-  DIRECTION_OPTIONS,
-  DIFFICULTY_OPTIONS,
-  stylesForDirection,
-} from '@/utils/practiceOptions'
-import { COMMISSION_RATE } from '@/utils/commission'
+import { DURATION_OPTIONS } from '@/utils/practiceOptions'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
-import type { PracticeResponse, PracticeType, PracticeDirection } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -380,6 +347,11 @@ const transitioning = ref(false)
 const cancelling = ref(false)
 const deleting = ref(false)
 
+// Date/time picker sheets + branded cancel modal (Q1=В / Q3=А, 2026-06-12).
+const showDate = ref(false)
+const showTime = ref(false)
+const cancelModalOpen = ref(false)
+
 // W-3: single guard covering all mutually exclusive actions.
 // Every action button and the Save button use :disabled="anyLoading".
 // Prevents concurrent save + publish, save + cancel, etc.
@@ -397,16 +369,13 @@ const confirmDialog = reactive({
   onConfirm: (): void => { /* filled per use */ },
 })
 
-// W-9: human-readable commission percentage for template
-const commissionPct = Math.round(COMMISSION_RATE * 100)
-
-const PAYMENT_OPTIONS = [
-  { value: 'free', label: 'Бесплатно' },
-  { value: 'paid', label: 'Платно' },
-]
-
 // W-8: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
+
+// Friendly date for the picker trigger, e.g. "25 янв. 2026" (mirrors Create).
+const dateDisplay = computed((): string =>
+  form.date ? `${formatShortDate(`${form.date}T12:00:00`)} ${form.date.slice(0, 4)}` : '',
+)
 
 // -- Form state (populated from practice on load) --
 const form = reactive({
@@ -430,7 +399,6 @@ const form = reactive({
 const errors = reactive({
   title: '',
   max_participants: '',
-  price_cents: '',
   zoom_link: '',
 })
 
@@ -443,33 +411,6 @@ const isTerminal = computed((): boolean =>
 
 // W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
 const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
-
-// -- Label helpers --
-const PRACTICE_TYPE_LABELS: Record<PracticeType, string> = {
-  live: 'Живая группа',
-  series: 'Серия занятий',
-  one_on_one: 'Индивидуально',
-  replay: 'Запись',
-}
-function practiceTypeLabel(t: PracticeType): string {
-  return PRACTICE_TYPE_LABELS[t] ?? t
-}
-
-// Direction-conditional style options (mirror of CreatePracticeView).
-const styleOptionsForForm = computed(() =>
-  stylesForDirection(form.direction as PracticeDirection),
-)
-const styleSelectOptions = computed(() => [
-  { value: '', label: 'Без вида' },
-  ...styleOptionsForForm.value,
-])
-
-/** Reset style when direction changes — the previous value is likely
- *  invalid for the new direction. */
-function onDirectionChange(): void {
-  form.style = ''
-}
-
 
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {
@@ -525,7 +466,6 @@ function validate(): boolean {
   let ok = true
   errors.title = ''
   errors.max_participants = ''
-  errors.price_cents = ''
   errors.zoom_link = ''
 
   if (!form.title.trim()) {
@@ -538,10 +478,6 @@ function validate(): boolean {
       errors.max_participants = 'Введите положительное число или оставьте пустым'
       ok = false
     }
-  }
-  if (!form.is_free && priceCents.value < 100) {
-    errors.price_cents = 'Минимальная цена — €1,00'
-    ok = false
   }
   if (form.zoom_link && !form.zoom_link.startsWith('https://')) {
     errors.zoom_link = 'Ссылка должна начинаться с https://'
@@ -659,30 +595,27 @@ async function finalize(): Promise<void> {
   }
 }
 
-// -- Confirm cancel --
+// -- Confirm cancel: open the branded modal (CancelPracticeDialog). --
 function confirmCancel(): void {
-  confirmDialog.message = 'Отменить практику? Все участники получат полный возврат средств.'
-  confirmDialog.confirmLabel = 'Отменить практику'
-  confirmDialog.danger = true
-  confirmDialog.visible = true
-  confirmDialog.onConfirm = cancel
+  cancelModalOpen.value = true
 }
 
-// -- Cancel: scheduled/live -> cancelled --
+// -- Cancel: scheduled/live -> cancelled (full refund). Driven by the branded
+//    modal; uses the `cancelling` flag (modal :loading). --
 async function cancel(): Promise<void> {
-  if (confirmDialog.loading) return
-  confirmDialog.loading = true
+  if (cancelling.value) return
+  cancelling.value = true
   try {
     const updated = await cancelPractice(practiceId)
     practice.value = updated
-    confirmDialog.visible = false
+    cancelModalOpen.value = false
     toast.success('Практика отменена, возвраты выполнены')
     await masterStore.refreshMyPractices()
     router.push({ name: 'master-practices' })
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось отменить')
   } finally {
-    confirmDialog.loading = false
+    cancelling.value = false
   }
 }
 
@@ -755,26 +688,20 @@ async function remove(): Promise<void> {
   gap: var(--space-5);
 }
 
-/* -- Fieldset reset -- */
+/* -- Fieldset reset -- (flat field list; spacing via each field's own
+   margin-bottom, so gap is 0 to avoid double spacing). -- */
 .edit-practice__fieldset {
   border: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: 0;
 }
 
 .edit-practice__fieldset:disabled {
   opacity: 0.6;
   pointer-events: none;
-}
-
-/* -- Section -- */
-.edit-practice__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
 }
 
 .edit-practice__section-title {
@@ -788,55 +715,36 @@ async function remove(): Promise<void> {
   border-bottom: 1px solid var(--velo-border-light);
 }
 
-/* -- Readonly value (practice_type) -- */
+/* -- Date/time picker trigger field (mirrors the white VInput plate). -- */
 .edit-practice__field {
+  margin-bottom: var(--space-4);
+}
+
+.edit-practice__field-label {
+  display: block;
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.edit-practice__picker {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.edit-practice__label {
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-.edit-practice__readonly-value {
+  align-items: center;
+  width: 100%;
+  height: 40px;
+  text-align: left;
+  padding: 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  padding: 10px var(--space-3);
-  background: var(--velo-glass-blue-15);
-  border: 2px solid transparent;
-  border-radius: var(--velo-radius-badge);
-}
-
-/* -- Price calc -- */
-.edit-practice__price-calc {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.edit-practice__price-row {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-}
-
-.edit-practice__price-row--total {
-  font-weight: 400;
   color: var(--velo-text-primary);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
+  background: var(--velo-bg-card-solid);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.edit-practice__picker--empty {
+  color: var(--velo-text-muted);
 }
 
 /* -- Actions section -- */
