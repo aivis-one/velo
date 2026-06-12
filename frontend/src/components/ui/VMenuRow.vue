@@ -24,6 +24,7 @@
   >
     <span v-if="$slots.icon" class="v-menu-row__icon"><slot name="icon" /></span>
     <span class="v-menu-row__text">{{ label }}</span>
+    <span v-if="badge != null && badge !== ''" class="v-menu-row__badge">{{ badge }}</span>
     <span v-if="showArrow" class="v-menu-row__arrow"><IconArrowRight :size="16" /></span>
   </div>
 </template>
@@ -36,6 +37,7 @@ withDefaults(
     label: string
     variant?: 'default' | 'primary' | 'danger'
     showArrow?: boolean
+    badge?: string | number
   }>(),
   {
     variant: 'default',
@@ -94,6 +96,20 @@ defineEmits<{
 
 .v-menu-row--danger .v-menu-row__icon,
 .v-menu-row--danger .v-menu-row__text {
-  color: var(--velo-error-text);
+  color: var(--velo-danger-text);
+}
+
+.v-menu-row__badge {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: var(--velo-error);
+  color: white;
+  font-size: var(--text-xs);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

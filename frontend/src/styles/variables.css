@@ -55,6 +55,9 @@
   --velo-error-bg-subtle: #FFF5F5;
   --velo-error-border: #f795a2;
   --velo-error-text: #a16124;
+  /* Destructive-action text/icon (Выйти, Удалить) — stronger red than the soft
+     error-text above; from the profile / delete-account designs. */
+  --velo-danger-text: #AD3444;
 
   /* Success (green) */
   --velo-success-bg: rgba(118,221,230,0.40);
