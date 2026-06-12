@@ -136,6 +136,7 @@
 
   /* === VELΘ: Glass colors === */
   --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
+  --velo-glass-blue-30: rgba(98, 122, 156, 0.30);  /* VBottomSheet grab handle */
   --velo-glass-blue-60: rgba(171, 191, 218, 0.60);
   --velo-glass-teal-30: rgba(118, 221, 230, 0.30);
   --velo-glass-teal-40: rgba(118, 221, 230, 0.40);

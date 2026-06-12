@@ -113,7 +113,7 @@ onUnmounted(() => {
   height: 7px;
   flex-shrink: 0;
   border-radius: 3.5px;
-  background: rgba(98, 122, 156, 0.3);
+  background: var(--velo-glass-blue-30);
   margin: 0 auto 14px;
 }
 
