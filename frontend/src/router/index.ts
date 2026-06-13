@@ -368,6 +368,26 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminProfileView.vue'),
         },
         {
+          path: 'metrics/check-in',
+          name: 'admin-checkin-rate',
+          component: () => import('@/views/admin/AdminCheckinRateView.vue'),
+        },
+        {
+          path: 'metrics/feedback',
+          name: 'admin-feedback-rate',
+          component: () => import('@/views/admin/AdminFeedbackRateView.vue'),
+        },
+        {
+          path: 'metrics/return',
+          name: 'admin-return-rate',
+          component: () => import('@/views/admin/AdminReturnRateView.vue'),
+        },
+        {
+          path: 'revenue',
+          name: 'admin-revenue',
+          component: () => import('@/views/admin/AdminRevenueView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'admin-dashboard' },
         },

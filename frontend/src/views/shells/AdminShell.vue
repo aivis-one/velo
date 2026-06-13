@@ -3,8 +3,9 @@
 
   Layout wrapper for all /admin/* routes. AdminLayout provides the scrollable
   content + the admin tab bar (VAdminTabBar). The shell injects live badge counts
-  (masters awaiting verification + reports awaiting moderation) and turns the fog
-  feed on for the dashboard.
+  (masters awaiting verification + reports awaiting moderation), turns the fog feed
+  on for the dashboard, and hides the tab bar on the focused metric/revenue detail
+  screens.
 -->
 
 <template>
@@ -13,6 +14,7 @@
     :tab-items="tabItems"
     :active-tab="activeTab"
     :fog="isFogRoute"
+    :hide-tab-bar="isDetailRoute"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -49,9 +51,17 @@ const tabItems = computed<TabItem[]>(() =>
   }),
 )
 
-// Fog feed only on the dashboard for now; other admin screens keep plain padding
-// until they are rebuilt to the new design.
+// Fog feed only on the dashboard for now; other admin screens keep plain padding.
 const isFogRoute = computed(() => route.name === 'admin-dashboard')
+
+// Focused metric/revenue detail screens hide the tab bar (back-button navigation).
+const DETAIL_ROUTES = [
+  'admin-checkin-rate',
+  'admin-feedback-rate',
+  'admin-return-rate',
+  'admin-revenue',
+]
+const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))
 
 onMounted(() => {
   void adminStore.fetchDashboard()

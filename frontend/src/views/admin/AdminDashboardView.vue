@@ -107,7 +107,7 @@
         <div class="admin-dashboard__revenue-amount">{{ revenueValue }}</div>
         <div v-if="revenueDelta" class="admin-dashboard__revenue-delta">{{ revenueDelta }}</div>
       </VCard>
-      <button class="admin-dashboard__morelink" @click="stub">
+      <button class="admin-dashboard__morelink" @click="router.push({ name: 'admin-revenue' })">
         <span>Баланс по мастерам</span>
         <IconArrowRight :size="20" />
       </button>
@@ -117,9 +117,9 @@
         <span class="admin-dashboard__section-title">Engagement</span>
       </div>
       <VCard class="admin-dashboard__engagement">
-        <VProgressRow label="Check-in rate" :value="checkinRate" clickable @click="stub" />
-        <VProgressRow label="Feedback rate" :value="feedbackRate" clickable @click="stub" />
-        <VProgressRow label="Return rate" :value="returnRate" clickable @click="stub" />
+        <VProgressRow label="Check-in rate" :value="checkinRate" clickable @click="router.push({ name: 'admin-checkin-rate' })" />
+        <VProgressRow label="Feedback rate" :value="feedbackRate" clickable @click="router.push({ name: 'admin-feedback-rate' })" />
+        <VProgressRow label="Return rate" :value="returnRate" clickable @click="router.push({ name: 'admin-return-rate' })" />
       </VCard>
     </template>
   </div>
