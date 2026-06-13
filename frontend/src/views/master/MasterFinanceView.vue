@@ -1,99 +1,80 @@
 <!--
-  VELO Frontend -- MasterFinanceView (Phase F7, fixed W-1/W-2/W-3)
+  VELO Frontend -- MasterFinanceView (Phase-3 redesign «8 Withdrawal», 2026-06-13)
 
-  Master finance screen. Route: /master/finance (inside MasterShell).
+  Master withdrawal screen. Route: /master/finance (inside MasterShell).
   Guard: masterStatusGuard (verified masters only).
 
-  Sections:
-    1. Balance card -- available_cents + frozen_cents from masterStore.profile.
-       Profile is already loaded by masterStatusGuard (lazy fetch on mount).
+  Rebuilt to the operator SVG «8 Withdrawal» + «8 Withdrawal (add card)».
+  Decision Б (operator 2026-06-13): the WORKING payout backend is KEPT — the
+  «saved card» is the configured payout method (IBAN/PayPal/Revolut) shown as a
+  card, «+ Добавить новую карту» opens the EXISTING method form (not literal card
+  fields, which have no backend), so «Запросить вывод» stays real. Currency € (В2=А;
+  ₽ on the mockup is illustrative).
 
-    2. Withdraw form (v-show) -- shown when master clicks "Вывести средства".
-       - Amount input (euros, converted to cents for API call).
-       - "Вывести всё" button -- fills input with available_cents / 100.
-       - If payout not configured: warning banner with link to /master/profile.
-       - On success: toast + refresh profile (balances) + reload withdrawals.
+  Sections: balance · «Сохранённая карта» (method-as-card + add) · «Сумма вывода»
+  (always visible — the toggle was removed) · «История выводов» (status icons).
 
-    3. Withdrawals history -- GET /masters/me/withdrawals, paginated.
-       "Показать ещё" loads next page (offset += LIMIT).
+  Stub → Zod (roadmap Screen 17): X removes the saved method — no delete-payout
+  endpoint (only update) → toasts «later»; literal cards (number + holder, multiple
+  cards) = card storage + card payouts; ₽ currency if wanted; per-period income /
+  ledger (still «—», same gap as Screens 7/12).
 
-  Key patterns:
-    - Double-submit guard: if (submitting.value) return
-    - masterStore.fetchMyProfile(true) after withdrawal to refresh balances.
-    - ApiResponseError.detail for user-facing error messages.
-    - formatMoney(cents, 'EUR', 'ru', true) for all monetary values.
-    - MIN_WITHDRAWAL_EUROS = 50 (mirrors backend min_withdrawal_cents=5000).
-    - WITHDRAWAL_FEE_EUROS = 2 (mirrors backend withdrawal_fee_cents=200).
-
-  Fixes (W-1/W-2/W-3 from F7 review):
-    W-1: amountCents uses eurStringToCents() -- no parseFloat * 100 float trap.
-    W-2: fillMaxAmount uses centsToEurString() -- consistent utility usage.
-    W-3: "Вы получите" hint hidden when amountCents === 0 (empty/invalid input).
+  Money: formatMoney(cents, 'EUR', 'ru', true). MIN_WITHDRAWAL_EUROS=50,
+  WITHDRAWAL_FEE_EUROS=2 (mirror backend config).
 -->
 
 <template>
   <div class="finance-view">
-    <!-- ====================================================================
-         BALANCE CARD
-         ==================================================================== -->
-    <div class="finance-view__balance-card">
-      <div class="finance-view__balance-row">
-        <div>
-          <div class="finance-view__balance-label">Доступно к выводу</div>
-          <div class="finance-view__balance-value">{{ formattedAvailable }}</div>
-        </div>
-        <IconFinance :size="28" class="finance-view__balance-icon" />
+    <!-- ===================== BALANCE ===================== -->
+    <div class="finance-view__balance">
+      <div class="finance-view__balance-label">Доступно к выводу</div>
+      <div class="finance-view__balance-value">{{ formattedAvailable }}</div>
+      <!-- frozen kept beyond the SVG: real «in review» money the master should see -->
+      <div v-if="frozenCents > 0" class="finance-view__balance-frozen">
+        На рассмотрении: {{ formattedFrozen }}
       </div>
-
-      <div v-if="frozenCents > 0" class="finance-view__frozen-row">
-        <span class="finance-view__frozen-label">На рассмотрении:</span>
-        <span class="finance-view__frozen-value">{{ formattedFrozen }}</span>
-      </div>
-
-      <VButton
-        variant="primary"
-        block
-        class="finance-view__withdraw-btn"
-        :disabled="availableCents === 0"
-        @click="toggleWithdrawForm"
-      >
-        {{ showWithdrawForm ? 'Скрыть форму' : 'Вывести средства' }}
-      </VButton>
     </div>
 
-    <!-- ====================================================================
-         PAYOUT REQUISITES (moved here from the profile hub)
-         ==================================================================== -->
-    <VCard class="finance-view__section finance-view__payout-section" padding="none">
-      <div class="finance-view__section-title">РЕКВИЗИТЫ ВЫПЛАТ</div>
+    <!-- ===================== SAVED CARD (= configured payout, Б) ===================== -->
+    <section class="finance-view__section">
+      <h2 class="finance-view__title">Сохранённая карта</h2>
 
       <template v-if="!showPayoutForm">
-        <div v-if="!hasPayout" class="finance-view__payout-empty">
-          <p class="finance-view__payout-empty-text">
-            Реквизиты не настроены. Укажите их, чтобы выводить средства.
-          </p>
-          <VButton variant="secondary" size="sm" @click="openPayoutForm(false)">
-            + Добавить реквизиты
-          </VButton>
-        </div>
-
-        <div v-else class="finance-view__payout-configured">
-          <div class="finance-view__payout-row">
-            <span class="finance-view__payout-method">
-              {{ methodLabel(masterStore.profile!.payout!.method) }}
+        <div v-if="hasPayout" class="finance-view__card">
+          <div class="finance-view__card-text">
+            <span class="finance-view__card-num">
+              {{ maskedDetails(masterStore.profile!.payout!) }}
             </span>
-            <VBadge variant="success">Настроено</VBadge>
+            <span
+              v-if="payoutHolder(masterStore.profile!.payout!)"
+              class="finance-view__card-name"
+            >
+              {{ payoutHolder(masterStore.profile!.payout!) }}
+            </span>
           </div>
-          <p class="finance-view__payout-details-text">
-            {{ maskedDetails(masterStore.profile!.payout!) }}
-          </p>
-          <VButton variant="outline" size="sm" @click="openPayoutForm(true)">
-            Изменить
-          </VButton>
+          <button
+            type="button"
+            class="finance-view__card-x"
+            aria-label="Удалить способ выплаты"
+            @click="removePayout"
+          >
+            <IconClose :size="16" />
+          </button>
         </div>
+        <p v-else class="finance-view__hint">
+          Способ выплаты не настроен. Добавьте карту, чтобы выводить средства.
+        </p>
+
+        <VButton
+          variant="outline"
+          class="finance-view__add"
+          @click="openPayoutForm(hasPayout)"
+        >
+          + Добавить новую карту
+        </VButton>
       </template>
 
-      <div v-show="showPayoutForm" class="finance-view__payout-form">
+      <div v-else class="finance-view__payout-form">
         <VSelect
           v-model="payoutForm.method"
           label="Способ выплаты"
@@ -139,7 +120,7 @@
           />
         </template>
 
-        <div class="finance-view__payout-form-actions">
+        <div class="finance-view__form-actions">
           <VButton
             variant="primary"
             :loading="savingPayout"
@@ -153,112 +134,99 @@
           </VButton>
         </div>
       </div>
-    </VCard>
+    </section>
 
-    <!-- ====================================================================
-         WITHDRAW FORM
-         ==================================================================== -->
-    <div v-show="showWithdrawForm" class="finance-view__section finance-view__withdraw-section">
-      <div class="finance-view__section-title">ЗАПРОС ВЫВОДА</div>
+    <!-- ===================== WITHDRAW AMOUNT (always visible) ===================== -->
+    <section class="finance-view__section">
+      <h2 class="finance-view__title">Сумма вывода</h2>
+      <p class="finance-view__hint">
+        Срок зачисления: 1-3 рабочих дня. Комиссия платёжного провайдера будет
+        удержана из суммы вывода.
+      </p>
 
-      <!-- No payout configured warning -->
-      <div v-if="!hasPayout" class="finance-view__warning">
-        <p class="finance-view__warning-text">
-          Сначала укажите реквизиты в разделе «Реквизиты выплат» выше.
-        </p>
-        <VButton variant="secondary" size="sm" @click="openPayoutForm(false)">
-          + Добавить реквизиты
-        </VButton>
-      </div>
-
-      <!-- Withdraw form (shown when payout is configured) -->
-      <template v-else>
-        <div class="finance-view__amount-group">
-          <label class="finance-view__label">Сумма вывода (EUR)</label>
-          <div class="finance-view__amount-row">
-            <VInput
-              v-model="amountInput"
-              type="number"
-              :min="MIN_WITHDRAWAL_EUROS"
-              step="0.01"
-              placeholder="0.00"
-            />
-            <VButton variant="secondary" size="sm" @click="fillMaxAmount">
-              Всё
-            </VButton>
-          </div>
-          <p class="finance-view__hint">
-            Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
-            Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }}
-            <!-- W-3: show net amount only when input is valid (amountCents > 0) -->
-            <template v-if="amountCents > 0">
-              · Вы получите {{ formattedNetAmount }}
-            </template>
-          </p>
-          <p v-if="amountError" class="finance-view__error">{{ amountError }}</p>
+      <template v-if="hasPayout">
+        <div class="finance-view__amount-row">
+          <VInput
+            v-model="amountInput"
+            type="number"
+            :min="MIN_WITHDRAWAL_EUROS"
+            step="0.01"
+            placeholder="0.00"
+          />
+          <IconRequired :size="22" class="finance-view__amount-seal" />
         </div>
+        <p v-if="amountError" class="finance-view__error">{{ amountError }}</p>
+        <p v-else-if="amountCents > 0" class="finance-view__hint">
+          Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
+          Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }} ·
+          Вы получите {{ formattedNetAmount }}
+        </p>
+
+        <VButton
+          variant="outline"
+          size="sm"
+          class="finance-view__all"
+          @click="fillMaxAmount"
+        >
+          Вывести все
+        </VButton>
 
         <VButton
           variant="primary"
           block
           :loading="submitting"
           :disabled="submitting || !!amountError || !amountInput"
+          class="finance-view__cta"
           @click="submitWithdrawal"
         >
           Запросить вывод
         </VButton>
       </template>
-    </div>
 
-    <!-- ====================================================================
-         WITHDRAWALS HISTORY
-         ==================================================================== -->
-    <VCard class="finance-view__section" padding="none">
-      <div class="finance-view__section-title">ИСТОРИЯ ВЫВОДОВ</div>
+      <p v-else class="finance-view__warning-text">
+        Сначала добавьте способ выплаты в разделе «Сохранённая карта» выше.
+      </p>
+    </section>
 
-      <!-- Loading state -->
+    <!-- ===================== HISTORY ===================== -->
+    <section class="finance-view__section">
+      <h2 class="finance-view__title">История выводов</h2>
+
       <div v-if="historyLoading && withdrawals.length === 0" class="finance-view__loader">
         <VLoader size="md" />
       </div>
 
-      <!-- Empty state -->
-      <div
+      <p
         v-else-if="!historyLoading && withdrawals.length === 0"
-        class="finance-view__empty"
+        class="finance-view__empty-text"
       >
-        <p class="finance-view__empty-text">Выводов ещё не было</p>
-      </div>
+        Выводов ещё не было
+      </p>
 
-      <!-- List -->
-      <div v-else class="finance-view__history-list">
+      <div v-else class="finance-view__history">
         <div
           v-for="w in withdrawals"
           :key="w.id"
-          class="finance-view__history-item"
+          class="finance-view__hitem"
         >
-          <!-- Left: amount + method -->
-          <div class="finance-view__history-left">
-            <div class="finance-view__history-amount">
+          <span
+            class="finance-view__hicon"
+            :class="`finance-view__hicon--${w.status}`"
+            :title="statusLabel(w.status)"
+          >
+            <component :is="statusIcon(w.status)" :size="24" />
+          </span>
+          <div class="finance-view__htext">
+            <span class="finance-view__hamt">
               {{ formatMoney(w.amount_cents, 'EUR', 'ru', true) }}
-            </div>
-            <div class="finance-view__history-meta">
-              {{ methodLabel(w.payout_details.method) }} ·
-              {{ withdrawalDate(w) }}
-            </div>
-            <div v-if="w.fee_cents > 0" class="finance-view__history-fee">
-              Комиссия {{ formatMoney(w.fee_cents, 'EUR', 'ru', true) }} ·
-              Вы получите {{ formatMoney(w.amount_cents - w.fee_cents, 'EUR', 'ru', true) }}
-            </div>
+            </span>
+            <span class="finance-view__hmeta">
+              {{ withdrawalDate(w) }} • {{ maskedDetails(w.payout_details) }}
+            </span>
           </div>
-
-          <!-- Right: status badge -->
-          <VBadge :variant="statusVariant(w.status)">
-            {{ statusLabel(w.status) }}
-          </VBadge>
         </div>
       </div>
 
-      <!-- Load more -->
       <VButton
         v-if="hasMore"
         variant="ghost"
@@ -269,14 +237,14 @@
       >
         Показать ещё
       </VButton>
-    </VCard>
+    </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
-import { VButton, VBadge, VLoader, VCard, VInput, VSelect } from '@/components/ui'
-import { IconFinance } from '@/components/icons'
+import { ref, computed, reactive, onMounted, type Component } from 'vue'
+import { VButton, VLoader, VInput, VSelect } from '@/components/ui'
+import { IconCheck, IconClose, IconPending, IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { useMasterStore } from '@/stores/master'
@@ -292,10 +260,6 @@ import { MIN_WITHDRAWAL_EUROS, WITHDRAWAL_FEE_EUROS } from '@/utils/constants'
 
 /** Items per history page. */
 const LIMIT = 20
-
-// ---------------------------------------------------------------------------
-// Router + stores
-// ---------------------------------------------------------------------------
 
 const toast = useToast()
 const masterStore = useMasterStore()
@@ -318,7 +282,7 @@ const formattedFrozen = computed(() =>
 )
 
 // ---------------------------------------------------------------------------
-// Payout requisites (moved here from the profile hub)
+// Payout method ("saved card" = configured payout, Б — working backend kept)
 // ---------------------------------------------------------------------------
 
 const METHOD_OPTIONS = [
@@ -429,7 +393,7 @@ async function savePayout(): Promise<void> {
   }
 }
 
-/** Masked summary of the configured payout details. */
+/** Masked summary of the configured payout details (shown as the «card number»). */
 function maskedDetails(payout: PayoutDetails): string {
   const d = payout.details as Record<string, string>
   switch (payout.method) {
@@ -450,20 +414,24 @@ function maskedDetails(payout: PayoutDetails): string {
   }
 }
 
+/** Account-holder name shown under the masked number (bank transfers only). */
+function payoutHolder(payout: PayoutDetails): string {
+  const d = payout.details as Record<string, string>
+  return d['account_holder'] ?? ''
+}
+
+/** Remove the saved method (X on the card). No delete-payout endpoint exists
+ *  (only update) — don't fake a removal. Stub → Zod (roadmap Screen 17). */
+function removePayout(): void {
+  toast.info('Удаление способа выплаты появится позже')
+}
+
 // ---------------------------------------------------------------------------
-// Withdraw form state
+// Withdraw amount
 // ---------------------------------------------------------------------------
 
-const showWithdrawForm = ref(false)
 const amountInput = ref<string>('')
 const submitting = ref(false)
-
-function toggleWithdrawForm(): void {
-  showWithdrawForm.value = !showWithdrawForm.value
-  if (!showWithdrawForm.value) {
-    amountInput.value = ''
-  }
-}
 
 /** Fill amount input with full available balance in euros.
  * W-2: centsToEurString() uses integer division + toFixed(2) -- no float issues.
@@ -473,8 +441,6 @@ function fillMaxAmount(): void {
 }
 
 // W-1: eurStringToCents() avoids IEEE-754 float precision trap.
-// parseFloat('14.57') * 100 = 1456.9999... -- unreliable.
-// eurStringToCents parses integer + fractional parts as integers.
 const amountCents = computed((): number => eurStringToCents(amountInput.value))
 
 /** Inline validation message for amount input. */
@@ -509,7 +475,6 @@ async function submitWithdrawal(): Promise<void> {
     await createWithdrawal(amountCents.value)
     toast.success('Запрос на вывод отправлен. Ожидайте решения администратора.')
     amountInput.value = ''
-    showWithdrawForm.value = false
     // Refresh profile to update available/frozen balances.
     await masterStore.fetchMyProfile(true)
     // Reload withdrawal history from start.
@@ -531,9 +496,7 @@ const historyTotal = ref(0)
 const historyOffset = ref(0)
 const historyLoading = ref(false)
 
-const hasMore = computed(
-  () => withdrawals.value.length < historyTotal.value,
-)
+const hasMore = computed(() => withdrawals.value.length < historyTotal.value)
 
 async function reloadHistory(): Promise<void> {
   historyLoading.value = true
@@ -566,7 +529,7 @@ async function loadMoreWithdrawals(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Status helpers
+// Status helpers (history: colored icon + accessible title)
 // ---------------------------------------------------------------------------
 
 const STATUS_LABEL: Record<WithdrawalStatus, string> = {
@@ -579,22 +542,14 @@ function statusLabel(s: WithdrawalStatus): string {
   return STATUS_LABEL[s] ?? s
 }
 
-function statusVariant(s: WithdrawalStatus): 'warning' | 'success' | 'error' {
-  switch (s) {
-    case 'pending': return 'warning'
-    case 'approved': return 'success'
-    case 'rejected': return 'error'
-  }
+const STATUS_ICON: Record<WithdrawalStatus, Component> = {
+  pending: IconPending,
+  approved: IconCheck,
+  rejected: IconClose,
 }
 
-const METHOD_LABEL: Record<string, string> = {
-  bank_transfer: 'Банк. перевод',
-  paypal: 'PayPal',
-  revolut: 'Revolut',
-}
-
-function methodLabel(method: string): string {
-  return METHOD_LABEL[method] ?? method
+function statusIcon(s: WithdrawalStatus): Component {
+  return STATUS_ICON[s]
 }
 
 /** Withdrawal creation date, shown in the master's own profile timezone. */
@@ -616,34 +571,28 @@ onMounted(async () => {
 <style scoped>
 .finance-view {
   /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
-     screen rail. Vertical kept. Matches the User zone. */
+     screen rail. Vertical kept. */
   padding: var(--space-4) 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 
-/* -- Balance card -- */
-.finance-view__balance-card {
+/* -- Balance card (centered, per SVG) -- */
+.finance-view__balance {
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
   border-radius: var(--radius-md);
-  padding: var(--space-5);
+  padding: var(--space-4) var(--space-5);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.finance-view__balance-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .finance-view__balance-label {
-  font-size: var(--text-sm);
-  opacity: 0.8;
-  margin-bottom: var(--space-1);
+  font-size: var(--text-xs);
+  opacity: 0.9;
 }
 
 .finance-view__balance-value {
@@ -653,144 +602,134 @@ onMounted(async () => {
   letter-spacing: -0.5px;
 }
 
-.finance-view__balance-icon {
-  opacity: 0.8;
-  /* Vector IconFinance inherits white (currentColor) from the primary card. */
-}
-
-/* Forward arrow on the "Перейти в профиль" button. */
-.finance-view__btn-arrow {
-  margin-left: var(--space-2);
-  vertical-align: middle;
-}
-
-.finance-view__frozen-row {
-  display: flex;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
-  opacity: 0.8;
-}
-
-.finance-view__withdraw-btn {
-  margin-top: var(--space-1);
-}
-
-/* -- Section -- */
-.finance-view__section {
-  padding: var(--space-4);
-}
-
-.finance-view__section-title {
+.finance-view__balance-frozen {
   font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  margin-bottom: var(--space-4);
+  opacity: 0.8;
 }
 
-/* -- Withdraw form -- */
-.finance-view__withdraw-section {
-  border: 1px solid var(--velo-border-card);
-}
-
-.finance-view__warning {
+/* -- Section (title on the fog bg + content) -- */
+.finance-view__section {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+}
+
+.finance-view__title {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
+  -webkit-text-stroke: 0.3px currentColor;
+}
+
+.finance-view__hint {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* -- Saved method-as-card -- */
+.finance-view__card {
+  display: flex;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3);
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
+  padding: 14px 18px;
+}
+
+.finance-view__card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.finance-view__card-num {
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.04em;
+}
+
+.finance-view__card-name {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.finance-view__card-x {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--velo-error);
+  background: transparent;
+  color: var(--velo-error);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.finance-view__add {
+  align-self: center;
+}
+
+/* -- Payout form -- */
+.finance-view__payout-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.finance-view__form-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* -- Withdraw amount -- */
+.finance-view__amount-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* VInput grows; drop its default bottom margin (hint/error sit below). */
+.finance-view__amount-row :deep(.v-input) {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.finance-view__amount-seal {
+  flex-shrink: 0;
+  color: var(--velo-error);
+}
+
+.finance-view__error {
+  font-size: var(--text-xs);
+  color: var(--velo-error);
+  margin: 0;
+}
+
+.finance-view__all {
+  align-self: flex-start;
+}
+
+.finance-view__cta {
+  margin-top: var(--space-1);
 }
 
 .finance-view__warning-text {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
   line-height: 1.5;
-}
-
-/* -- Payout requisites (moved from the profile hub) -- */
-.finance-view__payout-section {
-  border: 1px solid var(--velo-border-card);
-}
-
-.finance-view__payout-empty,
-.finance-view__payout-configured {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.finance-view__payout-empty-text {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  line-height: 1.5;
-}
-
-.finance-view__payout-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.finance-view__payout-method {
-  font-weight: 400;
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-}
-
-.finance-view__payout-details-text {
-  font-size: var(--text-sm);
-  color: var(--velo-text-muted);
-  font-family: monospace;
-  letter-spacing: 0.03em;
-}
-
-.finance-view__payout-form {
-  margin-top: var(--space-2);
-}
-
-.finance-view__payout-form-actions {
-  display: flex;
-  gap: var(--space-3);
-  margin-top: var(--space-2);
-}
-
-.finance-view__amount-group {
-  margin-bottom: var(--space-4);
-}
-
-.finance-view__label {
-  display: block;
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
-  margin-bottom: var(--space-2);
-}
-
-.finance-view__amount-row {
-  display: flex;
-  gap: var(--space-2);
-  align-items: stretch;
-}
-
-/* VInput grows to fill the row; drop its default bottom margin (hint/error sit below). */
-.finance-view__amount-row :deep(.v-input) {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.finance-view__hint {
-  margin-top: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-  line-height: 1.5;
-}
-
-.finance-view__error {
-  margin-top: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--velo-error);
+  margin: 0;
 }
 
 /* -- History -- */
@@ -800,56 +739,65 @@ onMounted(async () => {
   padding: var(--space-5) 0;
 }
 
-.finance-view__empty {
-  padding: var(--space-5) 0;
-  text-align: center;
-}
-
 .finance-view__empty-text {
   font-size: var(--text-sm);
   color: var(--velo-text-muted);
+  text-align: center;
+  padding: var(--space-5) 0;
+  margin: 0;
 }
 
-.finance-view__history-list {
+.finance-view__history {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
 }
 
-.finance-view__history-item {
+.finance-view__hitem {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--velo-border-light);
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) 18px;
 }
 
-.finance-view__history-item:last-child {
-  border-bottom: none;
+.finance-view__hitem + .finance-view__hitem {
+  margin-top: 10px;
 }
 
-.finance-view__history-left {
+.finance-view__hicon {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.finance-view__hicon--pending {
+  color: var(--velo-warning);
+}
+
+.finance-view__hicon--approved {
+  color: var(--velo-success);
+}
+
+.finance-view__hicon--rejected {
+  color: var(--velo-error);
+}
+
+.finance-view__htext {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   min-width: 0;
 }
 
-.finance-view__history-amount {
-  font-weight: 400;
+.finance-view__hamt {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
 }
 
-.finance-view__history-meta {
+.finance-view__hmeta {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-}
-
-.finance-view__history-fee {
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  color: var(--velo-text-secondary);
 }
 
 .finance-view__load-more {
