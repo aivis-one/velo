@@ -398,6 +398,11 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminPracticesView.vue'),
         },
         {
+          path: 'practices/:id',
+          name: 'admin-practice-detail',
+          component: () => import('@/views/admin/AdminPracticeDetailView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'admin-dashboard' },
         },

@@ -1,15 +1,20 @@
 <!--
-  VELO Frontend -- AdminPracticesView (Admin DS, 2026-06-14, operator SVG "2 Practices")
+  VELO Frontend -- AdminPracticesView (Admin DS, 2026-06-14, operator SVGs "2 Practices" + upcoming/past)
 
   Global practices list (all platform practices, across masters). Reached from the
   dashboard «Практик» stat card. Header (back + count badge) + VSegment filter
-  (Все / Предстоящие / Прошедшие) + practice cards.
+  (Все / Предстоящие / Прошедшие) + PracticeListCard rows. Tapping a card opens the
+  admin practice detail (admin-practice-detail), handing the practice via router state.
 
-  STUB (operator Q2=А — honest skeleton): there is no admin practices API yet -> the
-  list is empty ("Данных пока нет"); the header count + the «Все» badge show the
-  real total from /admin/stats (practices_count). The card design (direction icon +
-  master + date/duration/capacity + status) is built and ready for data. Roadmap for
-  Zod: GET /admin/practices (filters upcoming/past, counts, capacity + status).
+  Card = the canonical PracticeListCard (operator reconciliation п.1=А): direction
+  icon + title + master (+verified) + bottom meta (date under the icon · duration ·
+  capacity in the #badge slot, rose when full). No status badge — capacity took its
+  slot in the newer SVGs.
+
+  STUB (operator Q2=А — honest skeleton): no admin practices API yet -> the list is
+  empty ("Данных пока нет"); the header count + the «Все» badge show the real total
+  from /admin/stats (practices_count). Roadmap for Zod: GET /admin/practices (filters
+  upcoming/past, counts, capacity + status) + GET /admin/practices/:id (detail).
 -->
 
 <template>
@@ -23,32 +28,20 @@
     <VSegment v-model="filter" :options="segOptions" />
 
     <div v-if="practices.length" class="admin-list__items">
-      <div v-for="p in practices" :key="p.id" class="pcard">
-        <div class="pcard__top">
-          <span class="pcard__icon"><component :is="iconFor(p)" :size="46" /></span>
-          <div class="pcard__head">
-            <h4 class="pcard__title">{{ p.title }}</h4>
-            <p class="pcard__master">
-              <span class="pcard__pic">{{ masterInitial(p) }}</span>
-              <span class="pcard__master-name">{{ p.master_name }}</span>
-            </p>
-          </div>
-        </div>
-
-        <div class="pcard__meta">
-          <span class="pcard__cell"><IconCalendar :size="14" />{{ p.when_label }}</span>
-          <span class="pcard__cell"><IconClock :size="14" />{{ p.duration_label }}</span>
-          <span class="pcard__cell" :class="{ 'pcard__cell--full': p.booked >= p.capacity }">
+      <PracticeListCard
+        v-for="p in practices"
+        :key="p.id"
+        :practice="p"
+        :when="p.when_label"
+        :duration="p.duration_label"
+        @click="openDetail(p)"
+      >
+        <template #badge>
+          <span class="admin-cap" :class="{ 'admin-cap--full': p.booked >= p.capacity }">
             <IconGroup :size="14" />{{ p.booked }}/{{ p.capacity }}
           </span>
-        </div>
-
-        <div class="pcard__badge">
-          <VBadge :variant="p.status === 'past' ? 'muted' : 'blue'">
-            {{ p.status === 'past' ? 'Завершена' : 'Скоро' }}
-          </VBadge>
-        </div>
-      </div>
+        </template>
+      </PracticeListCard>
     </div>
 
     <VCard v-else>
@@ -60,10 +53,10 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBackButton, VSegment, VBadge, VCard } from '@/components/ui'
+import { VBackButton, VSegment, VCard } from '@/components/ui'
 import type { SegmentOption } from '@/components/ui/VSegment.vue'
-import { IconCalendar, IconClock, IconGroup } from '@/components/icons'
-import { practiceIconFor } from '@/utils/displayHelpers'
+import PracticeListCard from '@/components/shared/PracticeListCard.vue'
+import { IconGroup } from '@/components/icons'
 import { useAdminStore } from '@/stores/admin'
 
 interface AdminPractice {
@@ -71,9 +64,7 @@ interface AdminPractice {
   title: string
   direction?: string | null
   master_name: string
-  /** Pre-formatted "Завтра, 07:00" / "22 янв, 07:00". */
   when_label: string
-  /** Pre-formatted "45 мин". */
   duration_label: string
   booked: number
   capacity: number
@@ -101,13 +92,14 @@ const segOptions = computed<SegmentOption[]>(() => [
   { value: 'past', label: 'Прошедшие' },
 ])
 
-// Direction icon (carries its own circle ring) — same canon as PracticeListCard.
-function iconFor(p: AdminPractice): ReturnType<typeof practiceIconFor> {
-  return practiceIconFor({ direction: p.direction, title: p.title })
-}
-
-function masterInitial(p: AdminPractice): string {
-  return (p.master_name.trim().charAt(0) || 'М').toUpperCase()
+// Tap a card -> admin practice detail; hand the practice via router state (the list
+// API isn't wired yet, so the detail reads what it was given).
+function openDetail(p: AdminPractice): void {
+  router.push({
+    name: 'admin-practice-detail',
+    params: { id: p.id },
+    state: { practice: JSON.parse(JSON.stringify(p)) },
+  })
 }
 </script>
 
@@ -164,102 +156,16 @@ function masterInitial(p: AdminPractice): string {
   padding: var(--space-4) var(--space-2);
 }
 
-/* -- Practice card -- */
-.pcard {
-  width: 100%;
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  text-align: left;
-  font-family: var(--font-body);
-}
-
-.pcard__top {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.pcard__icon {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--velo-text-primary);
-}
-
-.pcard__head {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.pcard__title {
-  margin: 0;
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pcard__master {
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.pcard__pic {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--velo-blue-300);
-  color: var(--velo-white);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-8);
-  letter-spacing: 0.02em;
-}
-
-.pcard__master-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pcard__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) 18px;
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.pcard__cell {
+/* Capacity cell in the PracticeListCard #badge slot (rose when full). */
+.admin-cap {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
-.pcard__cell--full {
+.admin-cap--full {
   color: var(--velo-pink-500);
-}
-
-.pcard__badge {
-  display: flex;
 }
 </style>
