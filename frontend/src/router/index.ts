@@ -233,9 +233,10 @@ const router = createRouter({
           name: 'master-profile',
           component: () => import('@/views/master/MasterProfileView.vue'),
         },
-        // Master profile sub-screens reuse the role-agnostic user settings views
-        // (they edit the current user's own profile/settings). Reachable from the
-        // master profile hub; back-nav uses router.back() so it returns here.
+        // Master profile sub-screens reached from the master profile hub; back-nav
+        // uses router.back() so it returns here. Edit + language-timezone reuse the
+        // role-agnostic user settings views; notifications has its own master view
+        // (richer master-only design, operator В1=Б 2026-06-13).
         {
           path: 'profile/edit',
           name: 'master-edit-profile',
@@ -244,7 +245,8 @@ const router = createRouter({
         {
           path: 'profile/notifications',
           name: 'master-notifications',
-          component: () => import('@/views/user/NotificationsView.vue'),
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterNotificationsView.vue'),
         },
         {
           path: 'profile/language-timezone',
