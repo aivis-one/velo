@@ -20,6 +20,9 @@
                --velo-text-primary (icon+title) / --velo-text-secondary (body)
     error   -> --velo-error-bg / --velo-error-border /
                --velo-error-text / --velo-error-text
+    alert   -> --velo-glass-pink-40 / --velo-pink-300 /
+               --velo-danger-text (icon + title + body) -- stronger red than
+               `error`; admin "обращения на модерации" banner.
 
   Slots:
     #icon (optional) — left-aligned icon. If empty, no icon column.
@@ -51,7 +54,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    variant?: 'warning' | 'success' | 'info' | 'error'
+    variant?: 'warning' | 'success' | 'info' | 'error' | 'alert'
     title?: string
     body?: string
     clickable?: boolean
@@ -168,5 +171,15 @@ defineEmits<{ click: [] }>()
 .banner--error .banner__title,
 .banner--error .banner__body {
   color: var(--velo-error-text);
+}
+
+.banner--alert {
+  background: var(--velo-glass-pink-40);
+  border-color: var(--velo-pink-300);
+}
+.banner--alert .banner__icon,
+.banner--alert .banner__title,
+.banner--alert .banner__body {
+  color: var(--velo-danger-text);
 }
 </style>

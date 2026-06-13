@@ -1,200 +1,257 @@
 <!--
-  VELO Frontend -- AdminDashboardView (Phase F8.1, updated F8-fix W-4)
+  VELO Frontend -- AdminDashboardView (Admin DS rebuild 2026-06-14)
 
-  Admin dashboard: 4 stat cards + alert banner when pending_verifications > 0.
-  W-4: replaced hardcoded hex colors with CSS semantic tint variables.
+  Admin dashboard, rebuilt to the operator's design (SVG: ПАНЕЛЬ / 1 Dashboard).
+  Rendered inside AdminShell -> AdminLayout (fog feed + 24px rail + VAdminTabBar).
 
-  Data: GET /api/v1/admin/stats
+  Structure (DS-first — every value is a --velo-* token / DS component):
+    - Header: "Admin" + an eye/observe button (stub until its target screen lands).
+    - Alert banners: masters awaiting verification (warning) + reports awaiting
+      moderation (alert) — shown only when their count > 0.
+    - Статистика: title + period toggle (Неделя / Месяц, user/master pattern) +
+      3 VStatCard + a week stepper.
+    - Выручка: amount card + "Баланс по мастерам" link.
+    - Engagement: 3 VProgressRow (Check-in / Feedback / Return rate).
+
+  STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
+    - Real: practices/masters/users counts + pending verification/moderation
+      counts (the 3 stat cards + both banners + both tab badges).
+    - Stub: stat deltas, revenue, engagement rates, the Неделя/Месяц period scoping
+      + week stepper, the eye button, "Баланс по мастерам". Rendered, but "—" /
+      visual-only / toast on tap.
 -->
 
 <template>
   <div class="admin-dashboard">
-    <VHeader title="Панель управления" />
+    <!-- Header (scrolls within the fog feed, like the master greeting) -->
+    <div class="admin-dashboard__header">
+      <h1 class="admin-dashboard__title">Admin</h1>
+      <button class="admin-dashboard__eye" aria-label="Просмотр" @click="stub">
+        <IconView :size="22" />
+      </button>
+    </div>
 
-    <div class="admin-dashboard__content">
-      <!-- Loading -->
-      <div v-if="loading" class="admin-dashboard__loader">
-        <VLoader size="lg" />
+    <!-- Loading -->
+    <div v-if="loading" class="admin-dashboard__loader">
+      <VLoader size="lg" />
+    </div>
+
+    <template v-else>
+      <!-- Alert banners -->
+      <Banner
+        v-if="pendingVerifications > 0"
+        variant="warning"
+        :title="verificationTitle"
+        clickable
+        @click="router.push({ name: 'admin-masters' })"
+      >
+        <template #icon><IconPending :size="28" /></template>
+      </Banner>
+      <Banner
+        v-if="pendingModeration > 0"
+        variant="alert"
+        :title="moderationTitle"
+        clickable
+        @click="router.push({ name: 'admin-reports' })"
+      >
+        <template #icon><IconWarning :size="28" /></template>
+      </Banner>
+
+      <!-- Статистика: title + period toggle -->
+      <div class="admin-dashboard__section">
+        <span class="admin-dashboard__section-title">Статистика</span>
+        <div class="admin-dashboard__period" role="tablist" aria-label="Период статистики">
+          <button
+            class="admin-dashboard__period-btn"
+            :class="{ 'admin-dashboard__period-btn--active': period === 'week' }"
+            @click="period = 'week'"
+          >
+            Неделя
+          </button>
+          <button
+            class="admin-dashboard__period-btn"
+            :class="{ 'admin-dashboard__period-btn--active': period === 'month' }"
+            @click="period = 'month'"
+          >
+            Месяц
+          </button>
+        </div>
       </div>
 
-      <template v-else-if="stats">
-        <!-- Alert banner: pending verifications (shared Banner — was a hand-built tile) -->
-        <Banner
-          v-if="stats.pending_verifications > 0"
-          variant="warning"
-          :title="`${stats.pending_verifications} заявк${pendingSuffix} на верификацию`"
-          body="Нажмите, чтобы перейти"
-          clickable
-          @click="router.push({ name: 'admin-masters' })"
+      <div class="admin-dashboard__stats">
+        <VStatCard :value="practicesValue" label="Практик" :delta="practicesDelta" />
+        <VStatCard :value="mastersValue" label="Мастеров" :delta="mastersDelta" />
+        <VStatCard :value="participantsValue" label="Участников" :delta="participantsDelta" />
+      </div>
+
+      <!-- Week stepper (visual-only until a period-scoped stats API exists) -->
+      <div class="admin-dashboard__week">
+        <button
+          class="admin-dashboard__week-nav admin-dashboard__week-nav--prev"
+          aria-label="Предыдущая неделя"
+          @click="stub"
         >
-          <template #icon><IconWarning :size="28" /></template>
-        </Banner>
+          <IconArrowRight :size="20" />
+        </button>
+        <span class="admin-dashboard__week-range">{{ weekRange }}</span>
+        <button class="admin-dashboard__week-nav" aria-label="Следующая неделя" @click="stub">
+          <IconArrowRight :size="20" />
+        </button>
+      </div>
 
-        <!-- Stats grid -->
-        <div class="admin-dashboard__grid">
-          <VStatCard :value="stats.users_count" label="пользователей">
-            <template #icon><IconGroup :size="24" /></template>
-          </VStatCard>
-          <VStatCard :value="stats.masters_count" label="мастеров">
-            <template #icon><IconProfile :size="24" /></template>
-          </VStatCard>
-          <VStatCard :value="stats.practices_count" label="практик">
-            <template #icon><IconCalendar :size="24" /></template>
-          </VStatCard>
-          <VStatCard
-            :value="stats.pending_verifications"
-            label="ожидают верификации"
-            :clickable="stats.pending_verifications > 0"
-            @click="stats.pending_verifications > 0 && router.push({ name: 'admin-masters' })"
-          >
-            <template #icon><IconClock :size="24" /></template>
-          </VStatCard>
-        </div>
+      <!-- Выручка -->
+      <div class="admin-dashboard__section">
+        <span class="admin-dashboard__section-title">Выручка</span>
+      </div>
+      <VCard class="admin-dashboard__revenue">
+        <div class="admin-dashboard__revenue-amount">{{ revenueValue }}</div>
+        <div v-if="revenueDelta" class="admin-dashboard__revenue-delta">{{ revenueDelta }}</div>
+      </VCard>
+      <button class="admin-dashboard__morelink" @click="stub">
+        <span>Баланс по мастерам</span>
+        <IconArrowRight :size="20" />
+      </button>
 
-        <!-- Quick actions -->
-        <div class="admin-dashboard__section-title">Быстрые действия</div>
-        <div class="admin-dashboard__actions">
-          <VCard
-            clickable
-            class="admin-dashboard__action"
-            @click="router.push({ name: 'admin-masters' })"
-          >
-            <IconGroup :size="24" class="admin-dashboard__action-icon" />
-            <div class="admin-dashboard__action-label">Мастера</div>
-          </VCard>
-          <VCard
-            clickable
-            class="admin-dashboard__action"
-            @click="router.push({ name: 'admin-reports' })"
-          >
-            <IconWarning :size="24" class="admin-dashboard__action-icon" />
-            <div class="admin-dashboard__action-label">Жалобы</div>
-          </VCard>
-          <VCard
-            clickable
-            class="admin-dashboard__action"
-            @click="router.push({ name: 'admin-consistency' })"
-          >
-            <IconSearch :size="24" class="admin-dashboard__action-icon" />
-            <div class="admin-dashboard__action-label">Семафоры</div>
-          </VCard>
-        </div>
-      </template>
-
-      <!-- Error state -->
-      <VEmptyState
-        v-else
-        icon="warning"
-        title="Не удалось загрузить статистику"
-        description="Проверьте соединение и попробуйте ещё раз"
-      >
-        <template #action>
-          <VButton variant="primary" @click="loadStats">Повторить</VButton>
-        </template>
-      </VEmptyState>
-    </div>
+      <!-- Engagement -->
+      <div class="admin-dashboard__section">
+        <span class="admin-dashboard__section-title">Engagement</span>
+      </div>
+      <VCard class="admin-dashboard__engagement">
+        <VProgressRow label="Check-in rate" :value="checkinRate" clickable @click="stub" />
+        <VProgressRow label="Feedback rate" :value="feedbackRate" clickable @click="stub" />
+        <VProgressRow label="Return rate" :value="returnRate" clickable @click="stub" />
+      </VCard>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VStatCard, VCard, VLoader, VEmptyState, VButton } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
-import { IconWarning, IconGroup, IconProfile, IconCalendar, IconClock, IconSearch } from '@/components/icons'
+import { IconView, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { getAdminStats } from '@/api/admin'
-import type { AdminStatsResponse } from '@/api/admin'
-import { ApiResponseError } from '@/api/client'
+import { useAdminStore } from '@/stores/admin'
 
 const router = useRouter()
 const toast = useToast()
+const adminStore = useAdminStore()
 
-const stats = ref<AdminStatsResponse | null>(null)
-const loading = ref(false)
+// Period toggle. Visual-only until a period-scoped stats API exists (roadmap).
+const period = ref<'week' | 'month'>('week')
 
-// Russian suffix for "заявк(а/и/...)" based on count
-const pendingSuffix = computed(() => {
-  const n = stats.value?.pending_verifications ?? 0
-  if (n % 10 === 1 && n % 100 !== 11) return 'а'
-  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'и'
-  return ''
-})
+const loading = computed((): boolean => adminStore.loading && !adminStore.stats)
 
-async function loadStats(): Promise<void> {
-  loading.value = true
-  try {
-    stats.value = await getAdminStats()
-  } catch (e) {
-    const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки статистики'
-    toast.error(msg)
-  } finally {
-    loading.value = false
-  }
+const pendingVerifications = computed((): number => adminStore.pendingVerifications)
+const pendingModeration = computed((): number => adminStore.pendingModeration)
+
+// Russian plural picker: [one, few, many].
+function plural(n: number, forms: [string, string, string]): string {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return forms[0]
+  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return forms[1]
+  return forms[2]
 }
 
-onMounted(loadStats)
+const verificationTitle = computed(
+  (): string =>
+    `${pendingVerifications.value} ${plural(pendingVerifications.value, ['мастер', 'мастера', 'мастеров'])} на верификации`,
+)
+const moderationTitle = computed(
+  (): string =>
+    `${pendingModeration.value} ${plural(pendingModeration.value, ['обращение', 'обращения', 'обращений'])} на модерации`,
+)
+
+// =========================================================================
+// Stats. The 3 counts are real (GET /admin/stats). Deltas have no backend yet
+// -> empty (VStatCard hides the trend line when delta is empty). Roadmap: Zod.
+// =========================================================================
+const practicesValue = computed((): string => String(adminStore.stats?.practices_count ?? '—'))
+const mastersValue = computed((): string => String(adminStore.stats?.masters_count ?? '—'))
+const participantsValue = computed((): string => String(adminStore.stats?.users_count ?? '—'))
+const practicesDelta = computed((): string => '')
+const mastersDelta = computed((): string => '')
+const participantsDelta = computed((): string => '')
+
+// Revenue + engagement: no API yet -> stub. Revenue "—"; engagement rows render an
+// empty track + "—". Bound through computeds so wiring the future API is one line.
+const revenueValue = computed((): string => '—')
+const revenueDelta = computed((): string => '')
+const checkinRate = computed<number | null>((): number | null => null)
+const feedbackRate = computed<number | null>((): number | null => null)
+const returnRate = computed<number | null>((): number | null => null)
+
+// Current ISO week range (Mon–Sun), client-side. The period toggle + week steps
+// are visual-only until a period-scoped stats API exists (roadmap for Zod).
+const weekRange = computed((): string => {
+  const now = new Date()
+  const dow = (now.getDay() + 6) % 7 // Mon = 0
+  const mon = new Date(now)
+  mon.setDate(now.getDate() - dow)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  const fmt = (d: Date): string =>
+    d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
+  return `${fmt(mon)} - ${fmt(sun)}`
+})
+
+// Stub taps (no backend / no target screen yet -> toast; build-full-design).
+function stub(): void {
+  toast.info('Раздел пока недоступен')
+}
+
+onMounted(() => {
+  void adminStore.fetchDashboard()
+})
 </script>
 
 <style scoped>
 .admin-dashboard {
-  min-height: 100dvh;
-}
-
-.admin-dashboard__content {
-  padding: var(--space-4);
+  /* Horizontal rail comes from AdminLayout's fog mode (--velo-rail-pad-x); the
+     top/bottom clearance (under the header fade + over the tab bar) is the
+     layout's too. Only the vertical rhythm between blocks lives here. */
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-/* -- Stats grid -- */
-.admin-dashboard__grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-}
-
-/* -- Quick actions -- */
-.admin-dashboard__section-title {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.admin-dashboard__actions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-3);
-}
-
-/* Quick-action tile = white VCard primitive (surface/border/radius/clickable from
-   VCard); here only the inner centred layout + horizontal padding tweak. */
-.admin-dashboard__action {
-  padding: var(--space-4) var(--space-2);
+/* -- Header -- */
+.admin-dashboard__header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 44px;
 }
 
-.admin-dashboard__action:active {
-  opacity: 0.8;
-}
-
-.admin-dashboard__action-icon {
-  /* Vector DS icon inherits this as currentColor (was a 24px emoji glyph). */
-  color: var(--velo-text-primary);
-}
-
-.admin-dashboard__action-label {
-  font-size: var(--text-xs);
+.admin-dashboard__title {
+  font-family: var(--font-heading);
+  font-size: var(--text-lg);
   font-weight: 400;
-  color: var(--velo-text-secondary);
-  text-align: center;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.admin-dashboard__eye {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
+  color: var(--velo-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.admin-dashboard__eye:active {
+  opacity: 0.85;
 }
 
 /* -- Loader -- */
@@ -202,5 +259,142 @@ onMounted(loadStats)
   display: flex;
   justify-content: center;
   padding: var(--space-8) 0;
+}
+
+/* -- Section header (+ optional period toggle) -- */
+.admin-dashboard__section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.admin-dashboard__section-title {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+}
+
+/* -- Period toggle (user/master dashboard pattern) -- */
+.admin-dashboard__period {
+  display: flex;
+  gap: 2px;
+  background: var(--velo-glass-blue-15);
+  border: 1px solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
+  padding: 2px;
+}
+
+.admin-dashboard__period-btn {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-primary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-xl);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.admin-dashboard__period-btn--active {
+  background: var(--velo-primary);
+  color: var(--velo-white);
+}
+
+/* -- Stats grid -- */
+.admin-dashboard__stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+/* -- Week stepper -- */
+.admin-dashboard__week {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-1);
+}
+
+.admin-dashboard__week-nav {
+  width: 60px;
+  height: 35px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-xl);
+  background: var(--velo-white);
+  color: var(--velo-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.admin-dashboard__week-nav:active {
+  opacity: 0.8;
+}
+
+/* Reuse the single arrow glyph, mirrored for "previous". */
+.admin-dashboard__week-nav--prev {
+  transform: scaleX(-1);
+}
+
+.admin-dashboard__week-range {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+}
+
+/* -- Revenue -- */
+.admin-dashboard__revenue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.admin-dashboard__revenue-amount {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--velo-text-primary);
+  letter-spacing: 0.64px;
+  line-height: 1.1;
+}
+
+.admin-dashboard__revenue-delta {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-teal-600);
+}
+
+.admin-dashboard__morelink {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  padding: 0;
+}
+
+.admin-dashboard__morelink:active {
+  opacity: 0.8;
+}
+
+/* -- Engagement -- */
+.admin-dashboard__engagement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 </style>
