@@ -55,6 +55,7 @@ const tabItems = computed<TabItem[]>(() =>
 // SVG shows the mandala feed behind them); other admin screens keep plain padding.
 const FOG_ROUTES = [
   'admin-dashboard',
+  'admin-masters',
   'admin-participants',
   'admin-practices',
   'admin-practice-detail',
