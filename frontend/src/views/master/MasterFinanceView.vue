@@ -243,7 +243,7 @@
             </div>
             <div class="finance-view__history-meta">
               {{ methodLabel(w.payout_details.method) }} ·
-              {{ formatDateShort(w.created_at) }}
+              {{ withdrawalDate(w) }}
             </div>
             <div v-if="w.fee_cents > 0" class="finance-view__history-fee">
               Комиссия {{ formatMoney(w.fee_cents, 'EUR', 'ru', true) }} ·
@@ -278,6 +278,7 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { VButton, VBadge, VLoader, VCard, VInput, VSelect } from '@/components/ui'
 import { IconFinance } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
+import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { useMasterStore } from '@/stores/master'
 import { getMyWithdrawals, createWithdrawal, updatePayoutDetails } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -298,6 +299,7 @@ const LIMIT = 20
 
 const toast = useToast()
 const masterStore = useMasterStore()
+const viewerTz = useViewerTimezone()
 
 // ---------------------------------------------------------------------------
 // Balance (derived from master store profile)
@@ -593,6 +595,11 @@ const METHOD_LABEL: Record<string, string> = {
 
 function methodLabel(method: string): string {
   return METHOD_LABEL[method] ?? method
+}
+
+/** Withdrawal creation date, shown in the master's own profile timezone. */
+function withdrawalDate(w: WithdrawalResponse): string {
+  return formatDateShort(w.created_at, viewerTz.value)
 }
 
 // ---------------------------------------------------------------------------

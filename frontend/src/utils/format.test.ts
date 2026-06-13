@@ -91,7 +91,9 @@ describe('formatDateShort', () => {
   // Clock-stable: the «Сегодня»/«Завтра» cases compare against `new Date()`, which
   // is flaky near local midnight (local-tomorrow can resolve to a UTC date +2 days).
   // Pin "now" to a mid-day, mid-month instant so they're deterministic.
-  // formatDateShort itself is unchanged.
+  // formatDateShort itself is unchanged. The flake was a test-construction
+  // artifact (dates built in the local runtime tz, then formatted as UTC), not
+  // a formatDateShort bug.
   beforeAll(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-15T12:00:00Z'))
