@@ -16,7 +16,7 @@
   Backend gaps (built per design, stubbed, recorded for Zod):
     - user.email -> shown when the backend returns it; hidden until then.
     - «Сообщения» unread count (badge) -> 0 until the messages module lands.
-    - «Сообщения» / «Мои промокоды» / «Поддержка» screens -> toast stubs.
+    - «Сообщения» / «Мои промокоды» / «Поддержка» open dedicated screens.
 -->
 
 <template>
@@ -142,13 +142,11 @@ import {
   IconUserMode,
   IconLogout,
 } from '@/components/icons'
-import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
-const toast = useToast()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
@@ -187,7 +185,7 @@ function onLanguageTimezone(): void {
   router.push({ name: 'master-language-timezone' })
 }
 function onSupport(): void {
-  toast.info('Техподдержка пока недоступна')
+  router.push({ name: 'master-support' })
 }
 const showLogoutModal = ref(false)
 

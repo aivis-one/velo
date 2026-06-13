@@ -254,6 +254,12 @@ const router = createRouter({
           component: () => import('@/views/user/LanguageTimezoneView.vue'),
         },
         {
+          path: 'support',
+          name: 'master-support',
+          meta: { hideTabBar: true },
+          component: () => import('@/views/master/MasterSupportView.vue'),
+        },
+        {
           path: 'messages',
           name: 'master-messages',
           component: () => import('@/views/master/MasterMessagesView.vue'),
