@@ -79,9 +79,21 @@
       </div>
 
       <div class="admin-dashboard__stats">
-        <VStatCard :value="practicesValue" label="Практик" :delta="practicesDelta" />
+        <VStatCard
+          :value="practicesValue"
+          label="Практик"
+          :delta="practicesDelta"
+          clickable
+          @click="router.push({ name: 'admin-practices' })"
+        />
         <VStatCard :value="mastersValue" label="Мастеров" :delta="mastersDelta" />
-        <VStatCard :value="participantsValue" label="Участников" :delta="participantsDelta" />
+        <VStatCard
+          :value="participantsValue"
+          label="Участников"
+          :delta="participantsDelta"
+          clickable
+          @click="router.push({ name: 'admin-participants' })"
+        />
       </div>
 
       <!-- Week stepper (visual-only until a period-scoped stats API exists) -->

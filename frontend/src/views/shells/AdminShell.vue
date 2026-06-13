@@ -51,15 +51,20 @@ const tabItems = computed<TabItem[]>(() =>
   }),
 )
 
-// Fog feed only on the dashboard for now; other admin screens keep plain padding.
-const isFogRoute = computed(() => route.name === 'admin-dashboard')
+// Fog feed on the dashboard + the global participants/practices lists (operator
+// SVG shows the mandala feed behind them); other admin screens keep plain padding.
+const FOG_ROUTES = ['admin-dashboard', 'admin-participants', 'admin-practices']
+const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
-// Focused metric/revenue detail screens hide the tab bar (back-button navigation).
+// Focused back-button screens hide the tab bar: the metric/revenue drill-ins plus
+// the participants/practices lists (reached from the dashboard stat cards).
 const DETAIL_ROUTES = [
   'admin-checkin-rate',
   'admin-feedback-rate',
   'admin-return-rate',
   'admin-revenue',
+  'admin-participants',
+  'admin-practices',
 ]
 const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))
 

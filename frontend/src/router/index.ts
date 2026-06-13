@@ -388,6 +388,16 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminRevenueView.vue'),
         },
         {
+          path: 'participants',
+          name: 'admin-participants',
+          component: () => import('@/views/admin/AdminParticipantsView.vue'),
+        },
+        {
+          path: 'practices',
+          name: 'admin-practices',
+          component: () => import('@/views/admin/AdminPracticesView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'admin-dashboard' },
         },
