@@ -183,7 +183,7 @@ function initials(item: AttendanceItemResponse): string {
 }
 
 function goBack(): void {
-  router.push({ name: 'master-practice-edit', params: { id: practiceId } })
+  router.back()
 }
 
 // -- Load attendance + practice --

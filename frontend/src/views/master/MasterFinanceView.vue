@@ -25,6 +25,8 @@
 
 <template>
   <div class="finance-view">
+    <VHeader title="Вывод средств" show-back @back="router.back()" />
+
     <!-- ===================== BALANCE ===================== -->
     <div class="finance-view__balance">
       <div class="finance-view__balance-label">Доступно к выводу</div>
@@ -243,6 +245,8 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, type Component } from 'vue'
+import { useRouter } from 'vue-router'
+import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VInput, VSelect } from '@/components/ui'
 import { IconCheck, IconClose, IconPending, IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
@@ -261,6 +265,7 @@ import { MIN_WITHDRAWAL_EUROS, WITHDRAWAL_FEE_EUROS } from '@/utils/constants'
 /** Items per history page. */
 const LIMIT = 20
 
+const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
 const viewerTz = useViewerTimezone()
