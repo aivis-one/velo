@@ -72,6 +72,7 @@ const DETAIL_ROUTES = [
   'admin-participants',
   'admin-practices',
   'admin-practice-detail',
+  'admin-master-review',
 ]
 const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))
 
