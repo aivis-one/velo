@@ -110,19 +110,46 @@ const props = defineProps<{
    *  crisp, not fade into the mask. Clearance (top island + bottom tab bar) is
    *  applied regardless of fog; this flag only toggles the fade mask. */
   fog?: boolean
-  /** Per-screen fog tuning. All optional — omitting any keeps the app-wide
-   *  default below, so every existing fog screen is byte-identical. Only the
-   *  practice-detail screen overrides these (operator-tuned 2026-06-09) so its
-   *  hero lands softer under the header and the CTA stays crisp over the tabbar.
-   *    topGap     — px added below the measured header island (clearance). 16.
-   *    fogTopHard — fully-transparent top zone (px). 40.
-   *    fogBotFade — bottom fade zone (px). 70.
-   *    fogBotHard — fully-transparent bottom zone under the tab bar (px). 90. */
+  /** Per-screen fog tuning. All optional — omitting any falls back to the token
+   *  defaults (--velo-fog-z1..z4, read below), so every existing fog screen is
+   *  byte-identical. Only the practice-detail screen overrides these
+   *  (operator-tuned 2026-06-09) so its hero lands softer under the header and
+   *  the CTA stays crisp over the tabbar.
+   *    topGap     — px added below the measured header island (clearance). --velo-fog-z1.
+   *    fogTopHard — fully-transparent top zone (px). --velo-fog-z2.
+   *    fogBotFade — bottom fade zone (px). --velo-fog-z3.
+   *    fogBotHard — fully-transparent bottom zone under the tab bar (px). --velo-fog-z4. */
   topGap?: number
   fogTopHard?: number
   fogBotFade?: number
   fogBotHard?: number
 }>()
+
+// Default fog tuning lives in --velo-fog-z1..z4 (variables.css) — the single
+// tuning source, mirroring the per-screen --velo-fog-pd-* override that UserShell
+// reads. Read once + memoized. Fallbacks equal the token values so the fog is
+// byte-identical if the custom props are unavailable (e.g. the unit-test DOM).
+let fogDefaultsCache: {
+  topGap: number
+  topHard: number
+  botFade: number
+  botHard: number
+} | null = null
+function fogDefaults() {
+  if (fogDefaultsCache) return fogDefaultsCache
+  const cs = getComputedStyle(document.documentElement)
+  const tok = (name: string, fallback: number): number => {
+    const v = parseInt(cs.getPropertyValue(name), 10)
+    return Number.isFinite(v) ? v : fallback
+  }
+  fogDefaultsCache = {
+    topGap: tok('--velo-fog-z1', 16),
+    topHard: tok('--velo-fog-z2', 40),
+    botFade: tok('--velo-fog-z3', 70),
+    botHard: tok('--velo-fog-z4', 90),
+  }
+  return fogDefaultsCache
+}
 
 // Vertical padding + fog zones for __main. CLEARANCE is always applied so the
 // content never hides under the floating header island (top) or the floating
@@ -133,10 +160,11 @@ const props = defineProps<{
 //   bottom -> clear the floating tab bar when present, else a small base
 //   fog-*  -> mask fade zones, aligned to the clearances (used only with --fog)
 const mainStyle = computed(() => {
-  const topGap = props.topGap ?? 16
-  const topHard = props.fogTopHard ?? 40
-  const botFade = props.fogBotFade ?? 70
-  const botHard = props.fogBotHard ?? 90
+  const d = fogDefaults()
+  const topGap = props.topGap ?? d.topGap
+  const topHard = props.fogTopHard ?? d.topHard
+  const botFade = props.fogBotFade ?? d.botFade
+  const botHard = props.fogBotHard ?? d.botHard
   const top = islandH.value > 0 ? islandH.value + topGap : (props.fog ? 60 : 16)
   const bottom = props.hideTabBar ? 24 : 160
   return {

@@ -179,11 +179,17 @@
      consistent margin without stretching. The cross-app cap+center variant is
      revisited when the rail rolls out to every screen. */
   --velo-rail-pad-x: 24px;
-  /* === Fog "table" (T6) — diary-standard dissolve for list screens ===
-     Edit these 4 numbers to tune the fog everywhere (MobileLayout):
-       z1 = top hard (fully transparent), z2 = top fade,
-       z3 = bottom fade,                  z4 = bottom hard (under the tab bar). */
-  --velo-fog-z1: 20px;
+  /* === Default fog tuning (read by MobileLayout via getComputedStyle) ===
+     Diary-standard dissolve for list screens. The SINGLE source for the four fog
+     numbers — edit here to tune the fog on every default fog screen. Same four
+     roles as the per-screen --velo-fog-pd-* override below:
+       z1 = top gap     — clearance below the measured header island
+       z2 = top hard    — fully-transparent top zone
+       z3 = bottom fade — bottom fade zone
+       z4 = bottom hard — fully-transparent zone under the tab bar
+     Values are MobileLayout's former hardcoded defaults (z1 fixed 20→16 to match
+     the live gap), so wiring these in is appearance-preserving. */
+  --velo-fog-z1: 16px;
   --velo-fog-z2: 40px;
   --velo-fog-z3: 70px;
   --velo-fog-z4: 90px;
@@ -195,8 +201,9 @@
        pd-top-hard — fully-transparent top zone
        pd-bot-fade — bottom fade zone
        pd-bot-hard — fully-transparent bottom zone under the tab bar
-     TODO(roadmap): migrate the default fog (z1..z4 vs the literals hardcoded in
-     MobileLayout) + this set onto one token scheme when the master screens close. */
+     Both the default set (--velo-fog-z1..z4) and this override are read via
+     getComputedStyle (MobileLayout / UserShell) — one --velo-fog-* scheme, no
+     hardcoded fog literals. */
   --velo-fog-pd-top-gap: 25px;
   --velo-fog-pd-top-hard: 60px;
   --velo-fog-pd-bot-fade: 50px;
