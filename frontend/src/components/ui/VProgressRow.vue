@@ -10,7 +10,7 @@
 
   Usage:
     <VProgressRow label="Check-in rate" :value="78" clickable @click="open()" />
-    <VProgressRow label="Return rate" :value="null" />   <!-- stub: empty + "—" -->
+    <VProgressRow label="Return rate" :value="null" />   (stub: empty + "—")
 -->
 
 <template>
