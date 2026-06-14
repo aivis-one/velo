@@ -12,6 +12,8 @@
 
 <template>
   <div class="admin-profile">
+    <VHeader title="Профиль" show-back @back="router.back()" />
+
     <!-- Header -->
     <VCard class="admin-profile__header">
       <VAvatar :name="displayName" size="xl" />
@@ -28,7 +30,7 @@
         Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
       </p>
       <VButton variant="secondary" @click="switchToUserMode">
-        Перейти в интерфейс пользователя<IconArrowRight :size="18" :style="{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }" />
+        Открыть как пользователь<IconArrowRight :size="18" :style="{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }" />
       </VButton>
     </VCard>
 
@@ -48,6 +50,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VAvatar, VBadge, VButton, VCard } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import { IconArrowRight } from '@/components/icons'
 import { useAuthStore } from '@/stores/auth'

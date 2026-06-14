@@ -43,9 +43,9 @@ const uiStore = useUiStore()
 const toast = useToast()
 
 const ROLE_LABEL: Record<UserRole, string> = {
-  user: 'Перейти в режим пользователя',
-  master: 'Перейти в режим мастера',
-  admin: 'Перейти в режим администратора',
+  user: 'Режим пользователя',
+  master: 'Режим мастера',
+  admin: 'Режим администратора',
 }
 
 const ROLE_DASHBOARD: Record<UserRole, string> = {

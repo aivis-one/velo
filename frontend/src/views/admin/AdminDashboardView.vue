@@ -26,8 +26,8 @@
     <!-- Header (scrolls within the fog feed, like the master greeting) -->
     <div class="admin-dashboard__header">
       <h1 class="admin-dashboard__title">Admin</h1>
-      <button class="admin-dashboard__eye" aria-label="Просмотр" @click="stub">
-        <IconView :size="22" />
+      <button class="admin-dashboard__eye" aria-label="Профиль" @click="router.push({ name: 'admin-profile' })">
+        <IconProfile :size="22" />
       </button>
     </div>
 
@@ -163,7 +163,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VStatCard, VCard, VLoader, VProgressRow, VListRow } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
-import { IconView, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
+import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
 

@@ -79,7 +79,7 @@
         <div class="master-profile__menu-list">
           <VMenuRow
             variant="primary"
-            label="Перейти в интерфейс пользователя"
+            label="Открыть как пользователь"
             @click="switchToUserMode"
           >
             <template #icon><IconUserMode :size="20" /></template>
