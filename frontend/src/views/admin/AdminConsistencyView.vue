@@ -9,7 +9,7 @@
 
 <template>
   <div class="consistency">
-    <VHeader title="Семафоры" />
+    <VHeader title="Семафоры" show-back @back="router.back()" />
 
     <div class="consistency__content">
       <!-- Initial loading -->
@@ -111,6 +111,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VBadge, VButton, VLoader, VEmptyState } from '@/components/ui'
 import { IconWarning, IconCheck, IconRepeat } from '@/components/icons'
@@ -120,6 +121,7 @@ import type { ConsistencyResponse, SemaphoreResult } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { formatDateTime } from '@/utils/adminHelpers'
 
+const router = useRouter()
 const toast = useToast()
 
 const data = ref<ConsistencyResponse | null>(null)

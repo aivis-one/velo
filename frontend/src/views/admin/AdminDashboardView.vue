@@ -133,6 +133,19 @@
         <VProgressRow label="Feedback rate" :value="feedbackRate" clickable @click="router.push({ name: 'admin-feedback-rate' })" />
         <VProgressRow label="Return rate" :value="returnRate" clickable @click="router.push({ name: 'admin-return-rate' })" />
       </VCard>
+
+      <!-- Система: восстановленный вход в «Семафоры» (data-consistency, audit O-2) -->
+      <div class="admin-dashboard__section">
+        <span class="admin-dashboard__section-title">Система</span>
+      </div>
+      <VListRow
+        title="Семафоры"
+        subtitle="21 проверка целостности данных"
+        clickable
+        @click="router.push({ name: 'admin-consistency' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
     </template>
   </div>
 </template>
@@ -140,7 +153,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VStatCard, VCard, VLoader, VProgressRow } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow, VListRow } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconView, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
