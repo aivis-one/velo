@@ -59,6 +59,7 @@ const FOG_ROUTES = [
   'admin-participants',
   'admin-practices',
   'admin-practice-detail',
+  'admin-reports',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 

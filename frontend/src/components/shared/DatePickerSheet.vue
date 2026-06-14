@@ -15,7 +15,7 @@
 <template>
   <VBottomSheet
     :open="open"
-    title="Дата практики"
+    :title="title"
     save-label="Сохранить"
     @save="save"
     @close="$emit('close')"
@@ -28,10 +28,20 @@
           <svg class="dps__chev dps__chev--sm" viewBox="0 0 9 14"><path d="M2 2L7 7L2 12" /></svg>
         </button>
         <div class="dps__nav">
-          <button type="button" class="dps__navbtn" aria-label="Предыдущий месяц" @click="shiftMonth(-1)">
+          <button
+            type="button"
+            class="dps__navbtn"
+            aria-label="Предыдущий месяц"
+            @click="shiftMonth(-1)"
+          >
             <svg class="dps__chev" viewBox="0 0 14 22"><path d="M11 2L3 11L11 20" /></svg>
           </button>
-          <button type="button" class="dps__navbtn" aria-label="Следующий месяц" @click="shiftMonth(1)">
+          <button
+            type="button"
+            class="dps__navbtn"
+            aria-label="Следующий месяц"
+            @click="shiftMonth(1)"
+          >
             <svg class="dps__chev" viewBox="0 0 14 22"><path d="M3 2L11 11L3 20" /></svg>
           </button>
         </div>
@@ -89,8 +99,10 @@ const props = withDefaults(
     modelValue?: string
     /** Optional ISO 'YYYY-MM-DD' lower bound; earlier days are disabled. */
     min?: string
+    /** Sheet title (default «Дата практики»; reused as «Дата заявки» in admin). */
+    title?: string
   }>(),
-  { modelValue: '', min: '' },
+  { modelValue: '', min: '', title: 'Дата практики' },
 )
 
 const emit = defineEmits<{
@@ -99,8 +111,18 @@ const emit = defineEmits<{
 }>()
 
 const MONTHS = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+  'Январь',
+  'Февраль',
+  'Март',
+  'Апрель',
+  'Май',
+  'Июнь',
+  'Июль',
+  'Август',
+  'Сентябрь',
+  'Октябрь',
+  'Ноябрь',
+  'Декабрь',
 ]
 const WEEKDAYS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС']
 
@@ -181,7 +203,10 @@ function shiftMonth(delta: number): void {
   viewYear.value = d.getFullYear()
   viewMonth.value = d.getMonth()
   // Keep the selected day only if it still belongs to the new month view.
-  if (selDay.value !== null && selDay.value > new Date(viewYear.value, viewMonth.value + 1, 0).getDate()) {
+  if (
+    selDay.value !== null &&
+    selDay.value > new Date(viewYear.value, viewMonth.value + 1, 0).getDate()
+  ) {
     selDay.value = null
   }
 }

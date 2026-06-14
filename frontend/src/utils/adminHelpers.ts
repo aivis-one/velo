@@ -30,9 +30,7 @@ export function masterDisplayName(
 /**
  * Map master_status to VBadge variant.
  */
-export function masterStatusVariant(
-  status: string,
-): 'warning' | 'success' | 'error' | 'info' {
+export function masterStatusVariant(status: string): 'warning' | 'success' | 'error' | 'info' {
   if (status === 'pending') return 'warning'
   if (status === 'verified') return 'success'
   if (status === 'rejected') return 'error'
@@ -56,9 +54,7 @@ export function masterStatusLabel(status: string): string {
 /**
  * Map report status to VBadge variant.
  */
-export function reportStatusVariant(
-  status: string,
-): 'warning' | 'success' | 'error' | 'info' {
+export function reportStatusVariant(status: string): 'warning' | 'success' | 'error' | 'info' {
   if (status === 'pending') return 'warning'
   if (status === 'resolved') return 'success'
   if (status === 'dismissed') return 'info'
@@ -111,4 +107,28 @@ export function formatDateTime(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+/**
+ * Relative "time ago" label for report/moderation cards (operator SVG
+ * «1 Moderation»): «только что» / «N мин назад» / «N ч назад» / «Вчера», then
+ * the absolute «DD MMM» for older items. Abbreviated units sidestep Russian
+ * plural forms while staying readable.
+ */
+export function formatRelative(iso: string): string {
+  const then = new Date(iso).getTime()
+  const diffMin = Math.floor((Date.now() - then) / 60000)
+  if (diffMin < 1) return 'только что'
+  if (diffMin < 60) return `${diffMin} мин назад`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24) return `${diffH} ч назад`
+  const d = new Date(iso)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const sameDay = (a: Date, b: Date): boolean =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  if (sameDay(d, yesterday)) return 'Вчера'
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
