@@ -403,6 +403,11 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminPracticeDetailView.vue'),
         },
         {
+          path: 'withdrawals',
+          name: 'admin-withdrawals',
+          component: () => import('@/views/admin/AdminWithdrawalsView.vue'),
+        },
+        {
           path: 'withdrawals/:id',
           name: 'admin-withdrawal-detail',
           component: () => import('@/views/admin/AdminWithdrawalDetailView.vue'),

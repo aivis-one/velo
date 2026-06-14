@@ -123,6 +123,14 @@
         <span>Баланс по мастерам</span>
         <IconArrowRight :size="20" />
       </button>
+      <VListRow
+        title="Выплаты"
+        subtitle="Запросы мастеров на вывод"
+        clickable
+        @click="router.push({ name: 'admin-withdrawals' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
 
       <!-- Engagement -->
       <div class="admin-dashboard__section">

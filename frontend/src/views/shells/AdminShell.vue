@@ -60,6 +60,7 @@ const FOG_ROUTES = [
   'admin-practices',
   'admin-practice-detail',
   'admin-reports',
+  'admin-withdrawals',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
@@ -75,6 +76,7 @@ const DETAIL_ROUTES = [
   'admin-practice-detail',
   'admin-master-review',
   'admin-withdrawal-detail',
+  'admin-withdrawals',
 ]
 const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))
 
