@@ -24,13 +24,13 @@
       <span class="admin-reports__count">{{ headerCount }}</span>
     </header>
 
-    <!-- Filter trigger -->
+    <!-- Filter trigger (label echoes the active category, operator variants) -->
     <button type="button" class="admin-reports__filter" @click="showFilter = true">
-      <span>Фильтр</span>
+      <span>{{ pillLabel }}</span>
       <IconFilter :size="22" />
     </button>
 
-    <div class="admin-reports__active">{{ categoryLabel }}</div>
+    <div v-if="!filter.categories.length" class="admin-reports__active">Все</div>
 
     <!-- Loading: initial -->
     <div v-if="loading && items.length === 0" class="admin-reports__loader">
@@ -67,7 +67,18 @@
           padding="none"
           @click="openDetail(item)"
         >
-          <span class="rcard__icon"><IconWarning :size="34" /></span>
+          <span v-if="isPayments" class="rcard__icon rcard__icon--pay">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.9" />
+              <path
+                d="M12 6.5v11M14.6 9c-.5-.8-1.5-1.3-2.6-1.3-1.5 0-2.6.8-2.6 2s1 1.7 2.6 2 2.6.8 2.6 2-1.1 2-2.6 2c-1.1 0-2.1-.5-2.6-1.3"
+                stroke="currentColor"
+                stroke-width="1.7"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span v-else class="rcard__icon"><IconWarning :size="34" /></span>
           <div class="rcard__text">
             <div class="rcard__title">{{ item.reason }}</div>
             <div class="rcard__sub">{{ formatRelative(item.created_at) }}</div>
@@ -139,6 +150,13 @@ const categoryLabel = computed<string>(() => {
   if (cats.length === 0) return 'Все'
   return cats.map((c) => CATEGORY_LABELS[c] ?? c).join(', ')
 })
+
+// The filter pill echoes the active category (operator «payments»/«complaints»
+// variants); the «Платежи» selection swaps the card glyph to the payment $.
+const pillLabel = computed<string>(() =>
+  filter.value.categories.length ? categoryLabel.value : 'Фильтр',
+)
+const isPayments = computed<boolean>(() => filter.value.categories.includes('payments'))
 
 // Only «Статус» maps to the backend (Открытая → pending, Закрытая → resolved). Both or
 // none selected = no status filter (all). The rest of the filter is a Zod stub.
@@ -305,6 +323,10 @@ onMounted(loadInitial)
   display: inline-flex;
   flex-shrink: 0;
   color: var(--velo-pink-300);
+}
+
+.rcard__icon--pay {
+  color: var(--velo-peach-300);
 }
 
 .rcard__text {

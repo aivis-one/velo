@@ -31,6 +31,9 @@ import type {
   ReportStatusFilter,
   ReportTargetTypeFilter,
   ConsistencyResponse,
+  AdminWithdrawalResponse,
+  PaginatedAdminWithdrawalsResponse,
+  WithdrawalStatus,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -45,6 +48,10 @@ export type {
   ReportTargetTypeFilter,
   ConsistencyResponse,
   SemaphoreResult,
+  AdminWithdrawalResponse,
+  PaginatedAdminWithdrawalsResponse,
+  WithdrawalStatus,
+  PayoutDetails,
 } from '@/api/types'
 
 // ============================================================================
@@ -59,10 +66,7 @@ export function getAdminStats(): Promise<AdminStatsResponse> {
 // Masters
 // ============================================================================
 
-export function getPendingMasters(
-  limit = 20,
-  offset = 0,
-): Promise<PaginatedMastersResponse> {
+export function getPendingMasters(limit = 20, offset = 0): Promise<PaginatedMastersResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedMastersResponse>(`/api/v1/admin/masters/pending${query}`)
 }
@@ -85,20 +89,11 @@ export function getMasterById(userId: string): Promise<AdminMasterListItem> {
 }
 
 export function verifyMaster(userId: string): Promise<AdminMasterActionResponse> {
-  return api.post<AdminMasterActionResponse>(
-    `/api/v1/admin/masters/${userId}/verify`,
-    {},
-  )
+  return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/verify`, {})
 }
 
-export function rejectMaster(
-  userId: string,
-  reason: string,
-): Promise<AdminMasterActionResponse> {
-  return api.post<AdminMasterActionResponse>(
-    `/api/v1/admin/masters/${userId}/reject`,
-    { reason },
-  )
+export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {
+  return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/reject`, { reason })
 }
 
 // ============================================================================
@@ -123,19 +118,13 @@ export function getReportById(reportId: string): Promise<ReportResponse> {
   return api.get<ReportResponse>(`/api/v1/admin/reports/${reportId}`)
 }
 
-export function resolveReport(
-  reportId: string,
-  resolutionNote: string,
-): Promise<ReportResponse> {
+export function resolveReport(reportId: string, resolutionNote: string): Promise<ReportResponse> {
   return api.post<ReportResponse>(`/api/v1/admin/reports/${reportId}/resolve`, {
     resolution_note: resolutionNote,
   })
 }
 
-export function dismissReport(
-  reportId: string,
-  resolutionNote?: string,
-): Promise<ReportResponse> {
+export function dismissReport(reportId: string, resolutionNote?: string): Promise<ReportResponse> {
   return api.post<ReportResponse>(`/api/v1/admin/reports/${reportId}/dismiss`, {
     resolution_note: resolutionNote ?? null,
   })
@@ -147,4 +136,35 @@ export function dismissReport(
 
 export function getConsistency(): Promise<ConsistencyResponse> {
   return api.get<ConsistencyResponse>('/api/v1/admin/consistency')
+}
+
+// ============================================================================
+// Withdrawals (payout approval)
+// ============================================================================
+
+export function getAdminWithdrawals(
+  status?: WithdrawalStatus,
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedAdminWithdrawalsResponse> {
+  const query = buildQuery({ limit, offset, status })
+  return api.get<PaginatedAdminWithdrawalsResponse>(`/api/v1/admin/withdrawals${query}`)
+}
+
+export function approveWithdrawal(
+  withdrawalId: string,
+  note?: string,
+): Promise<AdminWithdrawalResponse> {
+  return api.post<AdminWithdrawalResponse>(`/api/v1/admin/withdrawals/${withdrawalId}/approve`, {
+    note: note ?? null,
+  })
+}
+
+export function rejectWithdrawal(
+  withdrawalId: string,
+  note: string,
+): Promise<AdminWithdrawalResponse> {
+  return api.post<AdminWithdrawalResponse>(`/api/v1/admin/withdrawals/${withdrawalId}/reject`, {
+    note,
+  })
 }

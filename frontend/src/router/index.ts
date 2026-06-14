@@ -403,6 +403,11 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminPracticeDetailView.vue'),
         },
         {
+          path: 'withdrawals/:id',
+          name: 'admin-withdrawal-detail',
+          component: () => import('@/views/admin/AdminWithdrawalDetailView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'admin-dashboard' },
         },
@@ -451,9 +456,7 @@ router.beforeEach(async (to) => {
     const uiStore = useUiStore()
     if (uiStore.uiMode === 'user') return true
 
-    return auth.role === 'admin'
-      ? { path: '/admin/dashboard' }
-      : { path: '/master/dashboard' }
+    return auth.role === 'admin' ? { path: '/admin/dashboard' } : { path: '/master/dashboard' }
   }
 
   return true
