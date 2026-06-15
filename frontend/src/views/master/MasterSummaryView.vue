@@ -23,11 +23,7 @@
 
       <!-- Key feedbacks -->
       <h3 class="summary__section-title">Ключевые отзывы</h3>
-      <div
-        v-for="fb in keyFeedbacks"
-        :key="fb.id"
-        class="summary__fb"
-      >
+      <div v-for="fb in keyFeedbacks" :key="fb.id" class="summary__fb">
         <span class="summary__fb-ic" :class="`summary__fb-ic--${fb.rating}`">
           <component :is="fb.rating === 'fire' ? IconRatingFire : IconRatingConfused" :size="30" />
         </span>
@@ -39,17 +35,11 @@
 
       <!-- Needs attention -->
       <h3 class="summary__section-title">Требуют внимания</h3>
-      <div
-        v-for="item in needsAttention"
-        :key="item.id"
-        class="summary__attn"
-      >
+      <div v-for="item in needsAttention" :key="item.id" class="summary__attn">
         <VAvatar :name="item.name" size="md" />
         <div class="summary__attn-body">
           <div class="summary__attn-name">{{ item.name }}</div>
-          <div class="summary__attn-reason">
-            <IconRatingConfused :size="14" />{{ item.reason }}
-          </div>
+          <div class="summary__attn-reason"><IconRatingConfused :size="14" />{{ item.reason }}</div>
         </div>
         <button
           class="summary__msg"
@@ -78,10 +68,12 @@ const router = useRouter()
 // -- STUB data (no master-AI / feedback-aggregation backend → roadmap for Zod). --
 const insight = ref(
   '«На этой неделе вы провели 12 практик для 89 участников. 85% отметили хорошее ' +
-  'или отличное состояние после занятий. Анна П. оставила запрос на индивидуальную ' +
-  'консультацию — рекомендую связаться с ней.»',
+    'или отличное состояние после занятий. Анна П. оставила запрос на индивидуальную ' +
+    'консультацию — рекомендую связаться с ней.»',
 )
-const keyFeedbacks = ref<Array<{ id: number; rating: 'fire' | 'confused'; name: string; comment: string }>>([
+const keyFeedbacks = ref<
+  Array<{ id: number; rating: 'fire' | 'confused'; name: string; comment: string }>
+>([
   { id: 1, rating: 'fire', name: 'Мария К.', comment: '«Лучшая практика за месяц!»' },
   { id: 2, rating: 'confused', name: 'Анна П.', comment: '«Хотела бы индивидуальную практику»' },
 ])
@@ -147,10 +139,17 @@ function openMessage(name: string): void {
   align-items: center;
 }
 
-.summary__fb-ic--fire { color: var(--velo-peach-500); }
-.summary__fb-ic--confused { color: var(--velo-text-primary); }
+.summary__fb-ic--fire {
+  color: var(--velo-peach-500);
+}
+.summary__fb-ic--confused {
+  color: var(--velo-text-primary);
+}
 
-.summary__fb-body { flex: 1; min-width: 0; }
+.summary__fb-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .summary__fb-name {
   font-family: var(--font-body);
@@ -176,7 +175,10 @@ function openMessage(name: string): void {
   padding: 13px var(--space-4);
 }
 
-.summary__attn-body { flex: 1; min-width: 0; }
+.summary__attn-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .summary__attn-name {
   font-family: var(--font-body);
@@ -209,5 +211,7 @@ function openMessage(name: string): void {
   transition: opacity var(--transition-fast);
 }
 
-.summary__msg:active { opacity: 0.85; }
+.summary__msg:active {
+  opacity: 0.85;
+}
 </style>

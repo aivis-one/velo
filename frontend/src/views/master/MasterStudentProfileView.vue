@@ -36,11 +36,7 @@
 
       <!-- Recent check-ins -->
       <h3 class="profile__section-title">Последние check-ins</h3>
-      <div
-        v-for="(ci, i) in checkins"
-        :key="i"
-        class="profile__ci"
-      >
+      <div v-for="(ci, i) in checkins" :key="i" class="profile__ci">
         <MoodAvatar :mood="ci.mood" :size="46" />
         <div class="profile__ci-body">
           <div class="profile__ci-text">{{ ci.comment || moodLabelFromScore(ci.mood) }}</div>
@@ -50,11 +46,7 @@
 
       <!-- Feedbacks -->
       <h3 class="profile__section-title">Feedbacks</h3>
-      <div
-        v-for="(fb, i) in feedbacks"
-        :key="`fb-${i}`"
-        class="profile__fb"
-      >
+      <div v-for="(fb, i) in feedbacks" :key="`fb-${i}`" class="profile__fb">
         <span class="profile__fb-ic"><IconRatingFire :size="30" /></span>
         <div class="profile__fb-body">
           <div class="profile__fb-row">
@@ -177,8 +169,12 @@ const msgOpen = ref(false)
   gap: var(--space-1);
 }
 
-.profile__ic-heart { color: var(--velo-pink-500); }
-.profile__ic-fire { color: var(--velo-peach-500); }
+.profile__ic-heart {
+  color: var(--velo-pink-500);
+}
+.profile__ic-fire {
+  color: var(--velo-peach-500);
+}
 
 /* -- Section title -- */
 .profile__section-title {
@@ -201,7 +197,10 @@ const msgOpen = ref(false)
   padding: var(--space-3) var(--space-4);
 }
 
-.profile__ci-body { flex: 1; min-width: 0; }
+.profile__ci-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .profile__ci-text {
   font-family: var(--font-body);
@@ -234,7 +233,10 @@ const msgOpen = ref(false)
   align-items: center;
 }
 
-.profile__fb-body { flex: 1; min-width: 0; }
+.profile__fb-body {
+  flex: 1;
+  min-width: 0;
+}
 
 .profile__fb-row {
   display: flex;

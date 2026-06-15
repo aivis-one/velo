@@ -42,11 +42,7 @@
         />
       </div>
     </div>
-    <img
-      class="velo-logo__layer velo-logo__word"
-      src="/icons/velo-word-filled.svg"
-      alt="VELΘ"
-    />
+    <img class="velo-logo__layer velo-logo__word" src="/icons/velo-word-filled.svg" alt="VELΘ" />
   </div>
   <!-- Colored/blue logo: layered light composition (PNG ring + dark wordmark on
        top). Mirrors the spin layering, static, with the word scaled to match the

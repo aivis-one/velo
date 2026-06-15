@@ -38,10 +38,25 @@
         <VMenu aria-label="Меню">
           <template #default="{ close }">
             <div class="pd-menu">
-              <button class="pd-menu__row" @click="() => { goEdit(); close() }">Изменить</button>
+              <button
+                class="pd-menu__row"
+                @click="
+                  () => {
+                    goEdit()
+                    close()
+                  }
+                "
+              >
+                Изменить
+              </button>
               <button
                 class="pd-menu__row pd-menu__row--danger"
-                @click="() => { openDestructive(); close() }"
+                @click="
+                  () => {
+                    openDestructive()
+                    close()
+                  }
+                "
               >
                 {{ destructiveLabel }}
               </button>
@@ -90,7 +105,12 @@
           <h2 class="practice-detail__section-title">Записались</h2>
           <div v-for="item in rosterItems" :key="item.booking_id" class="pd-prow">
             <span class="pd-prow__ava">
-              <img v-if="item.user_avatar_url" :src="item.user_avatar_url" alt="" class="pd-prow__ava-img" />
+              <img
+                v-if="item.user_avatar_url"
+                :src="item.user_avatar_url"
+                alt=""
+                class="pd-prow__ava-img"
+              />
               <template v-else>{{ initials(item) }}</template>
             </span>
             <span class="pd-prow__name">{{ displayName(item) }}</span>
@@ -165,7 +185,11 @@
           <template v-if="reviews.length > 0">
             <div v-for="(r, i) in reviews" :key="i" class="practice-detail__review">
               <div class="practice-detail__review-top">
-                <component :is="RATING_ICON[r.rating]" :size="22" :style="{ color: RATING_ICON_COLOR[r.rating] }" />
+                <component
+                  :is="RATING_ICON[r.rating]"
+                  :size="22"
+                  :style="{ color: RATING_ICON_COLOR[r.rating] }"
+                />
                 <span class="practice-detail__review-name">{{ r.name }}</span>
               </div>
               <div class="practice-detail__review-quote">«{{ r.comment }}»</div>
@@ -218,17 +242,19 @@
     />
 
     <!-- Cancel a reservation (per participant) — FORK1: stub, no endpoint → toast. -->
-    <VModal :open="showCancelRes" :show-close="false" :close-on-overlay="true" @close="showCancelRes = false">
+    <VModal
+      :open="showCancelRes"
+      :show-close="false"
+      :close-on-overlay="true"
+      @close="showCancelRes = false"
+    >
       <div class="pd-cres">
         <h2 class="pd-cres__title">Отменить запись?</h2>
         <div class="pd-cres__pcard">
           <span class="pd-cres__ava">{{ resInitials }}</span>
           <span class="pd-cres__name">{{ resName }}</span>
         </div>
-        <Banner
-          variant="warning"
-          body="Участнику вернётся оплата и придёт уведомление об отмене."
-        >
+        <Banner variant="warning" body="Участнику вернётся оплата и придёт уведомление об отмене.">
           <template #icon><IconWarning :size="28" /></template>
         </Banner>
         <div class="pd-cres__actions">
@@ -245,18 +271,52 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
 import { useMasterStore } from '@/stores/master'
-import { getPractice, getAttendance, updatePractice, deletePractice, cancelPractice } from '@/api/practices'
+import {
+  getPractice,
+  getAttendance,
+  updatePractice,
+  deletePractice,
+  cancelPractice,
+} from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
-import { VStatCard, VButton, VLoader, VEmptyState, VModal, VConfirmDialog, VAccordion, VMenu } from '@/components/ui'
+import {
+  VStatCard,
+  VButton,
+  VLoader,
+  VEmptyState,
+  VModal,
+  VConfirmDialog,
+  VAccordion,
+  VMenu,
+} from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { IconCalendar, IconClock, IconClose, IconWarning, IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
-import { practiceIconFor, RATING_ICON_COLOR, DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
+import {
+  IconCalendar,
+  IconClock,
+  IconClose,
+  IconWarning,
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+} from '@/components/icons'
+import {
+  practiceIconFor,
+  RATING_ICON_COLOR,
+  DIFFICULTY_DOTS,
+  DIFFICULTY_LABEL,
+} from '@/utils/displayHelpers'
 import { formatDateShort, formatTime, formatMoney } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
-import type { PracticeResponse, AttendanceResponse, AttendanceItemResponse, FeedbackRating, PracticeDifficulty } from '@/api/types'
+import type {
+  PracticeResponse,
+  AttendanceResponse,
+  AttendanceItemResponse,
+  FeedbackRating,
+  PracticeDifficulty,
+} from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -320,7 +380,9 @@ const difficultyLabel = computed((): string => {
 })
 
 // -- Upcoming stat cards --
-const enrolledStat = computed((): string | number => (attendance.value ? attendance.value.total : '—'))
+const enrolledStat = computed((): string | number =>
+  attendance.value ? attendance.value.total : '—',
+)
 const capacityStat = computed((): string | number => {
   const cap = practice.value?.max_participants
   return cap != null ? cap : '∞'
@@ -357,10 +419,18 @@ function ratingPct(key: 'fire' | 'good' | 'confused'): number {
 }
 
 // -- Past: stats + finance (REAL via getAttendance; "—" until loaded) --
-const attendedValue = computed((): string | number => (attendance.value ? attendance.value.attended : '—'))
-const noShowValue = computed((): string | number => (attendance.value ? attendance.value.no_show : '—'))
-const enrolledLabel = computed((): string => (attendance.value ? `${attendance.value.total} чел.` : '—'))
-const attendedPeopleLabel = computed((): string => (attendance.value ? `${attendance.value.attended} чел.` : '—'))
+const attendedValue = computed((): string | number =>
+  attendance.value ? attendance.value.attended : '—',
+)
+const noShowValue = computed((): string | number =>
+  attendance.value ? attendance.value.no_show : '—',
+)
+const enrolledLabel = computed((): string =>
+  attendance.value ? `${attendance.value.total} чел.` : '—',
+)
+const attendedPeopleLabel = computed((): string =>
+  attendance.value ? `${attendance.value.attended} чел.` : '—',
+)
 // STUB → Zod: no income/ledger API yet (currency canon ₽ vs € also deferred).
 const incomeLabel = '—'
 

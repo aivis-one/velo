@@ -164,15 +164,14 @@ export const useCalendarStore = defineStore('calendar', () => {
   // -- Derived: practices on the selected day (client-side slice) --
   const selectedDayPractices = computed<PracticeResponse[]>(() => {
     const tz = viewerTz.value ?? 'UTC'
-    return weekPractices.value
-      .filter((p) => calendarDateInTz(p.scheduled_at, tz) === selectedDate.value)
-      // Hide already-started practices (can't be booked anymore). Comparison is
-      // in epoch ms (tz-independent); for future days every practice passes.
-      .filter((p) => new Date(p.scheduled_at).getTime() > now.value)
-      .sort(
-        (a, b) =>
-          new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
-      )
+    return (
+      weekPractices.value
+        .filter((p) => calendarDateInTz(p.scheduled_at, tz) === selectedDate.value)
+        // Hide already-started practices (can't be booked anymore). Comparison is
+        // in epoch ms (tz-independent); for future days every practice passes.
+        .filter((p) => new Date(p.scheduled_at).getTime() > now.value)
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    )
   })
 
   // -- Actions --

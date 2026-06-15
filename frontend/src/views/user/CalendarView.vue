@@ -26,10 +26,7 @@
          (target is rendered by the parent) — avoids the "Invalid Teleport target
          on mount: null" crash that blanked the heading + broke the screen. -->
     <Teleport defer to=".mobile-layout__island" :disabled="!floating">
-      <div
-        class="calendar__island"
-        :class="{ 'calendar__island--floating': floating }"
-      >
+      <div class="calendar__island" :class="{ 'calendar__island--floating': floating }">
         <h1 class="calendar__heading">Календарь</h1>
 
         <!-- Week selector -->
@@ -49,12 +46,7 @@
     <!-- "Выбрать практики" control -->
     <div class="calendar__selector">
       <!-- Collapsed: pill + funnel -->
-      <button
-        v-if="!expanded"
-        type="button"
-        class="calendar__select-pill"
-        @click="expanded = true"
-      >
+      <button v-if="!expanded" type="button" class="calendar__select-pill" @click="expanded = true">
         <span class="calendar__select-label">Выбрать практики</span>
         <span class="calendar__funnel" @click.stop="showFilter = true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -71,11 +63,7 @@
       <!-- Expanded: active-filter chips + collapse -->
       <VCard v-else class="calendar__expanded" padding="sm">
         <div class="calendar__chips">
-          <button
-            type="button"
-            class="calendar__chip calendar__chip--all"
-            @click="openFilter"
-          >
+          <button type="button" class="calendar__chip calendar__chip--all" @click="openFilter">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <path
                 d="M3 5h18l-7 8v6l-4 2v-8L3 5z"
@@ -214,7 +202,13 @@ const dayLabel = computed<string>(() => {
 })
 
 // -- Active filter chips (display + removal) --
-type ChipKind = 'direction' | 'difficulty' | 'practice_type' | 'duration_bucket' | 'time_of_day' | 'style'
+type ChipKind =
+  | 'direction'
+  | 'difficulty'
+  | 'practice_type'
+  | 'duration_bucket'
+  | 'time_of_day'
+  | 'style'
 interface ActiveChip {
   key: string
   kind: ChipKind

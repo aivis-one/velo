@@ -54,7 +54,10 @@
             {{ bar.label }}
           </span>
           <div class="practice-reviews__rtrack">
-            <div class="practice-reviews__rfill" :style="{ width: `${bar.pct}%`, background: bar.barColor }" />
+            <div
+              class="practice-reviews__rfill"
+              :style="{ width: `${bar.pct}%`, background: bar.barColor }"
+            />
           </div>
           <span class="practice-reviews__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
         </div>
@@ -65,13 +68,13 @@
     <section class="practice-reviews__section">
       <h2 class="practice-reviews__section-title">Отзывы</h2>
       <template v-if="reviews.length > 0">
-        <VCard
-          v-for="(r, i) in reviews"
-          :key="i"
-          class="practice-reviews__review"
-        >
+        <VCard v-for="(r, i) in reviews" :key="i" class="practice-reviews__review">
           <div class="practice-reviews__review-top">
-            <component :is="RATING_ICON[r.rating]" :size="22" :style="{ color: RATING_ICON_COLOR[r.rating] }" />
+            <component
+              :is="RATING_ICON[r.rating]"
+              :size="22"
+              :style="{ color: RATING_ICON_COLOR[r.rating] }"
+            />
             <span class="practice-reviews__review-name">{{ r.name }}</span>
           </div>
           <div class="practice-reviews__review-quote">«{{ r.comment }}»</div>
@@ -92,7 +95,13 @@ import { useDiaryStore } from '@/stores/diary'
 import { getPractice } from '@/api/practices'
 import { VStatCard, VCard, VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
-import { IconCalendar, IconGroup, IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
+import {
+  IconCalendar,
+  IconGroup,
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+} from '@/components/icons'
 import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import type { PracticeResponse, FeedbackRating } from '@/api/types'
 
@@ -168,9 +177,13 @@ interface RatingBar {
   barColor: string
 }
 
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string }> = [
-  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!' },
-  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо' },
+const RATING_BARS_CONFIG: Array<{
+  key: 'fire' | 'good' | 'confused'
+  icon: Component
+  label: string
+}> = [
+  { key: 'fire', icon: IconRatingFire, label: 'Огонь!' },
+  { key: 'good', icon: IconRatingGood, label: 'Хорошо' },
   { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы' },
 ]
 
@@ -180,9 +193,9 @@ const ratingBars = computed((): RatingBar[] => {
   return RATING_BARS_CONFIG.map((cfg) => ({
     ...cfg,
     iconColor: RATING_ICON_COLOR[cfg.key],
-    barColor:  RATING_COLOR[cfg.key],
+    barColor: RATING_COLOR[cfg.key],
     count: f[cfg.key],
-    pct:   total > 0 ? Math.round((f[cfg.key] / total) * 100) : 0,
+    pct: total > 0 ? Math.round((f[cfg.key] / total) * 100) : 0,
   }))
 })
 
@@ -199,8 +212,8 @@ const reviews = ref<Review[]>([])
 const hasMoreReviews = ref(false)
 
 const RATING_ICON: Record<FeedbackRating, Component> = {
-  fire:     IconRatingFire,
-  good:     IconRatingGood,
+  fire: IconRatingFire,
+  good: IconRatingGood,
   confused: IconRatingConfused,
 }
 

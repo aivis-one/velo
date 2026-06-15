@@ -37,10 +37,7 @@ export function purchasePractice(
   promoCode?: string,
 ): Promise<PurchaseResponse> {
   const body = promoCode ? { promo_code: promoCode } : undefined
-  return api.post<PurchaseResponse>(
-    `/api/v1/practices/${practiceId}/purchase`,
-    body,
-  )
+  return api.post<PurchaseResponse>(`/api/v1/practices/${practiceId}/purchase`, body)
 }
 
 /**
@@ -54,10 +51,7 @@ export function previewPurchase(
   promoCode?: string,
 ): Promise<PreviewPurchaseResponse> {
   const body = promoCode ? { promo_code: promoCode } : undefined
-  return api.post<PreviewPurchaseResponse>(
-    `/api/v1/practices/${practiceId}/preview-purchase`,
-    body,
-  )
+  return api.post<PreviewPurchaseResponse>(`/api/v1/practices/${practiceId}/preview-purchase`, body)
 }
 
 /**

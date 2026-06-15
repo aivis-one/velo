@@ -54,14 +54,8 @@ import type {
  * Requires booking.status == confirmed.
  * Repeated calls overwrite mood/comment.
  */
-export function upsertCheckin(
-  practiceId: string,
-  body: CheckinRequest,
-): Promise<CheckinResponse> {
-  return api.post<CheckinResponse>(
-    `/api/v1/practices/${practiceId}/checkin`,
-    body,
-  )
+export function upsertCheckin(practiceId: string, body: CheckinRequest): Promise<CheckinResponse> {
+  return api.post<CheckinResponse>(`/api/v1/practices/${practiceId}/checkin`, body)
 }
 
 export interface ListCheckinsParams {
@@ -110,10 +104,7 @@ export function upsertFeedback(
   practiceId: string,
   body: FeedbackRequest,
 ): Promise<FeedbackResponse> {
-  return api.post<FeedbackResponse>(
-    `/api/v1/practices/${practiceId}/feedback`,
-    body,
-  )
+  return api.post<FeedbackResponse>(`/api/v1/practices/${practiceId}/feedback`, body)
 }
 
 export interface ListFeedbacksParams {
@@ -159,9 +150,7 @@ export function getFeedback(id: string): Promise<FeedbackResponse> {
  * content is required (1-10000 chars).
  * title, mood, practice_id are optional.
  */
-export function createDiaryEntry(
-  body: CreateDiaryEntryRequest,
-): Promise<DiaryEntryResponse> {
+export function createDiaryEntry(body: CreateDiaryEntryRequest): Promise<DiaryEntryResponse> {
   return api.post<DiaryEntryResponse>('/api/v1/diary', body)
 }
 
@@ -213,9 +202,7 @@ export interface ListDiaryFeedParams extends DiaryFeedFilters {
  * `next_cursor` to load the next page. `next_cursor === null` means the
  * end of the feed.
  */
-export function listDiaryFeed(
-  params: ListDiaryFeedParams = {},
-): Promise<DiaryFeedResponse> {
+export function listDiaryFeed(params: ListDiaryFeedParams = {}): Promise<DiaryFeedResponse> {
   const query = buildQuery({
     // categories[] -> repeated `category` query params (FastAPI list[...]).
     category: params.categories,
@@ -274,10 +261,6 @@ export function restoreDiaryEntry(id: string): Promise<DiaryEntryResponse> {
  * Returns mood distribution, rating distribution, participant count,
  * and feedback comments count. No individual user data exposed.
  */
-export function getPracticeInsights(
-  practiceId: string,
-): Promise<PracticeInsightsResponse> {
-  return api.get<PracticeInsightsResponse>(
-    `/api/v1/practices/${practiceId}/insights`,
-  )
+export function getPracticeInsights(practiceId: string): Promise<PracticeInsightsResponse> {
+  return api.get<PracticeInsightsResponse>(`/api/v1/practices/${practiceId}/insights`)
 }

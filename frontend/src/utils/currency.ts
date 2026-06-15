@@ -39,7 +39,10 @@ export function eurStringToCents(raw: string): number {
   } else {
     intPart = trimmed.slice(0, dotIndex)
     // Pad to 2 digits, truncate anything beyond 2 decimal places
-    fracPart = trimmed.slice(dotIndex + 1).padEnd(2, '0').slice(0, 2)
+    fracPart = trimmed
+      .slice(dotIndex + 1)
+      .padEnd(2, '0')
+      .slice(0, 2)
   }
 
   const euros = parseInt(intPart || '0', 10)

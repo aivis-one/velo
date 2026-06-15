@@ -39,20 +39,12 @@
   </div>
 
   <!-- ===================== PRACTICE ===================== -->
-  <div
-    v-else-if="form === 'practice'"
-    class="feed-card feed-card--practice"
-  >
+  <div v-else-if="form === 'practice'" class="feed-card feed-card--practice">
     <p class="feed-card__practice-title">{{ practiceTitle }}</p>
 
     <div class="feed-card__practice-master">
       <span class="feed-card__avatar" aria-hidden="true">
-        <img
-          v-if="masterAvatarUrl"
-          :src="masterAvatarUrl"
-          alt=""
-          class="feed-card__avatar-img"
-        />
+        <img v-if="masterAvatarUrl" :src="masterAvatarUrl" alt="" class="feed-card__avatar-img" />
       </span>
       <span class="feed-card__master-name">{{ masterName }}</span>
       <IconCheck v-if="masterVerified" :size="14" class="feed-card__verified" />
@@ -67,10 +59,7 @@
         </span>
         <span v-else class="feed-card__practice-dur-empty" />
         <!-- Attended shows just a check (no "Done" text); a miss keeps its label. -->
-        <span
-          class="feed-card__outcome"
-          :class="`feed-card__outcome--${outcomeStatus}`"
-        >
+        <span class="feed-card__outcome" :class="`feed-card__outcome--${outcomeStatus}`">
           <IconCheck v-if="outcomeStatus === 'attended'" :size="12" />
           <template v-else>{{ outcomeLabel }}</template>
         </span>
@@ -79,20 +68,11 @@
 
     <!-- Practice direction glyph, top-left. 46px — единый размер иконки
          практики по DS (как в карточках дашборда/календаря). -->
-    <component
-      :is="directionIcon"
-      :size="46"
-      class="feed-card__practice-icon"
-    />
+    <component :is="directionIcon" :size="46" class="feed-card__practice-icon" />
   </div>
 
   <!-- ===================== STANDARD ===================== -->
-  <button
-    v-else
-    type="button"
-    class="feed-card feed-card--standard"
-    @click="onTap"
-  >
+  <button v-else type="button" class="feed-card feed-card--standard" @click="onTap">
     <!-- Left column: icon + time UNDER it, centred — unified card language with
          PracticeListCard (time under the icon, not a top line). -->
     <span class="feed-card__iconcol">

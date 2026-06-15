@@ -56,7 +56,15 @@
         <template #default="{ close }">
           <!-- Filter (funnel) + Search (magnifier). "Связи" (Relationships)
                is an AI feature outside the MVP and is intentionally omitted. -->
-          <VMenuItem ariaLabel="Фильтр" @click="() => { openFilter(); close() }">
+          <VMenuItem
+            ariaLabel="Фильтр"
+            @click="
+              () => {
+                openFilter()
+                close()
+              }
+            "
+          >
             <svg
               class="diary-feed__menu-glyph"
               viewBox="0 0 20 20"
@@ -70,7 +78,15 @@
               />
             </svg>
           </VMenuItem>
-          <VMenuItem ariaLabel="Поиск" @click="() => { openSearch(); close() }">
+          <VMenuItem
+            ariaLabel="Поиск"
+            @click="
+              () => {
+                openSearch()
+                close()
+              }
+            "
+          >
             <svg
               class="diary-feed__menu-glyph diary-feed__menu-glyph--magnifier"
               viewBox="0 0 13.6562 22.999"
@@ -91,7 +107,12 @@
           <VMenuItem
             v-if="SHOW_VIEW_TOGGLE"
             :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
-            @click="() => { toggleView(); close() }"
+            @click="
+              () => {
+                toggleView()
+                close()
+              }
+            "
           >
             <!-- Glyph reflects the TARGET view (what tapping switches to).
                  On map -> show the "list" glyph (Group 2506: three dots in a
@@ -132,12 +153,7 @@
                 stroke="currentColor"
                 stroke-width="1.8"
               />
-              <path
-                d="M5.5 16h9"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-              />
+              <path d="M5.5 16h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
             </svg>
           </VMenuItem>
         </template>
@@ -185,22 +201,9 @@
              entries sit next to the composer, chat-style. При активном
              фильтре/поиске прижатие отключается (--top) — результаты идут
              СВЕРХУ, а не уезжают в середину/низ (operator 2026-06-04). -->
-        <div
-          class="diary-feed__thread"
-          :class="{ 'diary-feed__thread--top': filterActive }"
-        >
-          <DiaryList
-            v-if="viewMode === 'list'"
-            :items="items"
-            :timezone="timezone"
-            @tap="onTap"
-          />
-          <DiaryTimeline
-            v-else
-            :items="items"
-            :timezone="timezone"
-            @tap="onTap"
-          />
+        <div class="diary-feed__thread" :class="{ 'diary-feed__thread--top': filterActive }">
+          <DiaryList v-if="viewMode === 'list'" :items="items" :timezone="timezone" @tap="onTap" />
+          <DiaryTimeline v-else :items="items" :timezone="timezone" @tap="onTap" />
         </div>
       </template>
     </div>
@@ -216,12 +219,7 @@
     <!-- Undo bar: shown after deleting an entry (Figma screen 58) -->
     <div v-if="deletedEntryId" class="diary-feed__undo">
       <span class="diary-feed__undo-text">Запись удалена</span>
-      <button
-        type="button"
-        class="diary-feed__undo-btn"
-        :disabled="undoing"
-        @click="onUndoDelete"
-      >
+      <button type="button" class="diary-feed__undo-btn" :disabled="undoing" @click="onUndoDelete">
         Отменить
       </button>
     </div>
@@ -281,19 +279,14 @@ const diaryStore = useDiaryStore()
 const authStore = useAuthStore()
 const toast = useToast()
 
-const { feedItems, feedLoading, feedError, feedHasMore, feedFilters } =
-  storeToRefs(diaryStore)
+const { feedItems, feedLoading, feedError, feedHasMore, feedFilters } = storeToRefs(diaryStore)
 
 const items = computed<DiaryFeedItem[]>(() => feedItems.value)
 const timezone = computed(() => authStore.user?.timezone ?? 'UTC')
 
 // Loading split: first page (full-screen loader) vs subsequent pages (inline).
-const initialLoading = computed(
-  () => feedLoading.value && items.value.length === 0,
-)
-const loadingMore = computed(
-  () => feedLoading.value && items.value.length > 0,
-)
+const initialLoading = computed(() => feedLoading.value && items.value.length === 0)
+const loadingMore = computed(() => feedLoading.value && items.value.length > 0)
 
 // -- Tap handling ------------------------------------------------------------
 
@@ -376,9 +369,7 @@ function onBack(): void {
 }
 
 // Current categories from the store, used to seed the filter modal's draft.
-const activeCategories = computed<DiaryFeedCategory[]>(
-  () => feedFilters.value.categories ?? [],
-)
+const activeCategories = computed<DiaryFeedCategory[]>(() => feedFilters.value.categories ?? [])
 
 // Compose dim state (DiaryComposer emits on focus/blur of its field).
 const composing = ref(false)
@@ -592,11 +583,7 @@ function setupObserver(): void {
   observer = new IntersectionObserver(
     (entries) => {
       const entry = entries[0]
-      if (
-        entry?.isIntersecting &&
-        feedHasMore.value &&
-        !feedLoading.value
-      ) {
+      if (entry?.isIntersecting && feedHasMore.value && !feedLoading.value) {
         void onLoadMore()
       }
     },
@@ -905,6 +892,6 @@ onBeforeUnmount(() => {
 /* Feed content fades (70%) while writing, so it reads as background behind the
    frosted writing surface (operator-tuned 2026-06-05). */
 .diary-feed--composing .diary-feed__body {
-  opacity: 0.70;
+  opacity: 0.7;
 }
 </style>

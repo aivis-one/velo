@@ -99,19 +99,15 @@ import { getCheckin, getFeedback } from '@/api/diary'
 import { getPractice } from '@/api/practices'
 import { formatFeedDateTime, formatDuration, formatTime } from '@/utils/format'
 import { MOOD_LABEL, RATING_LABEL } from '@/utils/displayHelpers'
-import type {
-  CheckinResponse,
-  FeedbackResponse,
-  PracticeResponse,
-} from '@/api/types'
+import type { CheckinResponse, FeedbackResponse, PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
 const tz = computed(() => authStore.user?.timezone ?? 'UTC')
-const detailType = computed<'checkin' | 'feedback'>(
-  () => (route.params.type === 'feedback' ? 'feedback' : 'checkin'),
+const detailType = computed<'checkin' | 'feedback'>(() =>
+  route.params.type === 'feedback' ? 'feedback' : 'checkin',
 )
 const detailId = computed(() => String(route.params.id))
 
@@ -123,9 +119,7 @@ const practice = ref<PracticeResponse | null>(null)
 
 const loading = ref(false)
 const loadError = ref<string | null>(null)
-const loaded = computed(
-  () => checkin.value !== null || feedback.value !== null,
-)
+const loaded = computed(() => checkin.value !== null || feedback.value !== null)
 
 // -- icon / label maps (kind|mood|rating -> component; .vue can't live in
 //    displayHelpers, mirrors DiaryFeedCard) ----------------------------------
@@ -150,21 +144,17 @@ const leadIcon = computed<Component>(() => {
 const pillTitle = computed(() => {
   if (detailType.value === 'checkin') {
     const mood = checkin.value?.mood
-    const label = mood ? MOOD_LABEL[mood] ?? '' : ''
+    const label = mood ? (MOOD_LABEL[mood] ?? '') : ''
     return label ? `Check-in: ${label}` : 'Check-in'
   }
   const rating = feedback.value?.rating
-  const label = rating ? RATING_LABEL[rating] ?? '' : ''
+  const label = rating ? (RATING_LABEL[rating] ?? '') : ''
   return label ? `Feedback: ${label}` : 'Feedback'
 })
 
-const comment = computed(
-  () => checkin.value?.comment ?? feedback.value?.comment ?? null,
-)
+const comment = computed(() => checkin.value?.comment ?? feedback.value?.comment ?? null)
 
-const createdAt = computed(
-  () => checkin.value?.created_at ?? feedback.value?.created_at ?? null,
-)
+const createdAt = computed(() => checkin.value?.created_at ?? feedback.value?.created_at ?? null)
 const dateLine = computed(() =>
   createdAt.value ? formatFeedDateTime(createdAt.value, tz.value) : '',
 )

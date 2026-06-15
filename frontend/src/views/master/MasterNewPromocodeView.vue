@@ -23,24 +23,9 @@
         placeholder="Латиница, цифры, дефис"
         required
       />
-      <VSelect
-        v-model="form.discount"
-        label="Скидка"
-        :options="DISCOUNT_OPTIONS"
-        required
-      />
-      <VInput
-        v-model="form.until"
-        label="Действует до"
-        type="date"
-        required
-      />
-      <VInput
-        v-model="form.limit"
-        label="Лимит использований"
-        type="number"
-        placeholder="10"
-      />
+      <VSelect v-model="form.discount" label="Скидка" :options="DISCOUNT_OPTIONS" required />
+      <VInput v-model="form.until" label="Действует до" type="date" required />
+      <VInput v-model="form.limit" label="Лимит использований" type="number" placeholder="10" />
 
       <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
         Создать промокод

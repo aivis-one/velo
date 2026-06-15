@@ -162,15 +162,12 @@ const schedule = reactive<{ from: string; to: string; days: string[] }>({
 })
 
 // Half-hour options 00:00…23:30 (value === label).
-const TIME_OPTIONS: { value: string; label: string }[] = Array.from(
-  { length: 48 },
-  (_, i) => {
-    const h = String(Math.floor(i / 2)).padStart(2, '0')
-    const m = i % 2 === 0 ? '00' : '30'
-    const t = `${h}:${m}`
-    return { value: t, label: t }
-  },
-)
+const TIME_OPTIONS: { value: string; label: string }[] = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0')
+  const m = i % 2 === 0 ? '00' : '30'
+  const t = `${h}:${m}`
+  return { value: t, label: t }
+})
 
 // --- Handlers --------------------------------------------------------------
 // Local-only until the backend contract is extended (see file header). We do NOT

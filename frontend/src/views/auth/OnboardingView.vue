@@ -43,11 +43,7 @@
 
     <!-- ================= INTRO STEPS (0-2) ================= -->
     <div v-if="!isTimezoneStep" class="onboarding__body">
-      <img
-        :src="currentSlide.image"
-        :alt="currentSlide.title"
-        class="onboarding__illustration"
-      />
+      <img :src="currentSlide.image" :alt="currentSlide.title" class="onboarding__illustration" />
       <h2 class="onboarding__title">{{ currentSlide.title }}</h2>
       <p class="onboarding__text">{{ currentSlide.text }}</p>
     </div>
@@ -59,10 +55,7 @@
         Укажите ваш часовой пояс, чтобы мы правильно показывали время практик
       </p>
       <div class="onboarding__field">
-        <TimezoneCityPicker
-          :model-value="selectedTimezone"
-          @update:modelValue="onPickTimezone"
-        />
+        <TimezoneCityPicker :model-value="selectedTimezone" @update:modelValue="onPickTimezone" />
       </div>
     </div>
 
@@ -262,9 +255,7 @@ async function finish(): Promise<void> {
     emit('done')
   } catch (error) {
     const message =
-      error instanceof ApiResponseError
-        ? error.detail
-        : 'Не удалось сохранить. Попробуйте ещё раз.'
+      error instanceof ApiResponseError ? error.detail : 'Не удалось сохранить. Попробуйте ещё раз.'
     toast.error(message)
   } finally {
     submitting.value = false
@@ -365,7 +356,9 @@ async function finish(): Promise<void> {
   height: 7px;
   border-radius: 50%;
   background: rgba(76, 101, 137, 0.6);
-  transition: width var(--transition-fast), background var(--transition-fast);
+  transition:
+    width var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .onboarding__dot--active {

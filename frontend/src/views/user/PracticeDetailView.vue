@@ -41,80 +41,77 @@
 
   <!-- Content -->
   <div v-else-if="practice" class="detail">
-
     <!-- Back button header (contextual: catalog vs booked) -->
     <VHeader :title="hasAnyBooking ? 'Моя практика' : 'Практика'" show-back @back="router.back()" />
 
     <!-- Single unified scroll: the whole screen scrolls in MobileLayout's
          __main (no nested scroll/pinned footer). Hero + body + actions flow. -->
     <!-- Hero card (shared component) -->
-      <div class="detail__hero">
-        <PracticeHeroCard
-          :title="practice.title"
-          :date="formattedDate"
-          :duration="formattedDuration"
-          :participants="!booked ? formattedParticipants : null"
-          :direction="practice.direction"
-          :difficulty-dots="difficultyDots"
-          :difficulty-label="difficultyLabel"
-        />
-      </div>
+    <div class="detail__hero">
+      <PracticeHeroCard
+        :title="practice.title"
+        :date="formattedDate"
+        :duration="formattedDuration"
+        :participants="!booked ? formattedParticipants : null"
+        :direction="practice.direction"
+        :difficulty-dots="difficultyDots"
+        :difficulty-label="difficultyLabel"
+      />
+    </div>
 
-      <!-- Body -->
-      <div class="detail__body">
-
-        <!-- Status row (Batch 6: ported from BookingDetailView). Shown when
+    <!-- Body -->
+    <div class="detail__body">
+      <!-- Status row (Batch 6: ported from BookingDetailView). Shown when
              the viewer holds a booking for this practice in any status. -->
-        <VCard v-if="myAnyBooking" class="detail__status-row" padding="none">
-          <span class="detail__status-label">Статус</span>
-          <VBadge :variant="statusVariant">
-            <component :is="statusIcon" v-if="statusIcon" :size="12" />
-            {{ statusLabel }}
-          </VBadge>
-        </VCard>
+      <VCard v-if="myAnyBooking" class="detail__status-row" padding="none">
+        <span class="detail__status-label">Статус</span>
+        <VBadge :variant="statusVariant">
+          <component :is="statusIcon" v-if="statusIcon" :size="12" />
+          {{ statusLabel }}
+        </VBadge>
+      </VCard>
 
-        <!-- О практике accordion -->
-        <VAccordion v-if="practice.description" title="О практике">
-          <p class="detail__accordion-text">{{ practice.description }}</p>
-        </VAccordion>
+      <!-- О практике accordion -->
+      <VAccordion v-if="practice.description" title="О практике">
+        <p class="detail__accordion-text">{{ practice.description }}</p>
+      </VAccordion>
 
-        <!-- Что подготовить accordion -->
-        <VAccordion v-if="practice.what_to_prepare" title="Что подготовить">
-          <p class="detail__accordion-text">{{ practice.what_to_prepare }}</p>
-        </VAccordion>
+      <!-- Что подготовить accordion -->
+      <VAccordion v-if="practice.what_to_prepare" title="Что подготовить">
+        <p class="detail__accordion-text">{{ practice.what_to_prepare }}</p>
+      </VAccordion>
 
-        <!-- Master card (shared component) -->
-        <section class="detail__section">
-          <h3 class="detail__section-title">Мастер</h3>
-          <MasterCard
-            :master-name="practice.master_name"
-            :methods="practice.master_methods"
-            :avatar-url="practice.master_avatar_url"
-            :master-id="practice.master_id"
-          />
-        </section>
+      <!-- Master card (shared component) -->
+      <section class="detail__section">
+        <h3 class="detail__section-title">Мастер</h3>
+        <MasterCard
+          :master-name="practice.master_name"
+          :methods="practice.master_methods"
+          :avatar-url="practice.master_avatar_url"
+          :master-id="practice.master_id"
+        />
+      </section>
 
-        <!-- Zoom (Batch 6: ported from BookingDetailView). Only while the
+      <!-- Zoom (Batch 6: ported from BookingDetailView). Only while the
              booking is active -- a past/cancelled booking has no live link. -->
-        <section v-if="showZoom" class="detail__section">
-          <h3 class="detail__section-title">ZOOM</h3>
-          <VCard class="detail__zoom-card">
-            Ссылка будет отправлена за 10 минут до начала практики
-          </VCard>
-        </section>
+      <section v-if="showZoom" class="detail__section">
+        <h3 class="detail__section-title">ZOOM</h3>
+        <VCard class="detail__zoom-card">
+          Ссылка будет отправлена за 10 минут до начала практики
+        </VCard>
+      </section>
 
-        <!-- Contraindications (shared Banner) -->
-        <Banner
-          v-if="practice.contraindications"
-          variant="warning"
-          title="ПРОТИВОПОКАЗАНИЯ"
-          :body="practice.contraindications"
-          class="detail__contraindications"
-        >
-          <template #icon><IconWarning :size="22" /></template>
-        </Banner>
-
-      </div>
+      <!-- Contraindications (shared Banner) -->
+      <Banner
+        v-if="practice.contraindications"
+        variant="warning"
+        title="ПРОТИВОПОКАЗАНИЯ"
+        :body="practice.contraindications"
+        class="detail__contraindications"
+      >
+        <template #icon><IconWarning :size="22" /></template>
+      </Banner>
+    </div>
 
     <!-- Footer: price + action (flows at the end of the unified scroll) -->
     <div class="detail__actions">
@@ -199,11 +196,7 @@
 
     <!-- Полноэкранный стейт «Места закончились» (гонка: места кончились,
          пока юзер читал/бронировал). Поверх кадра, как .form-shell-success. -->
-    <PracticeSoldOut
-      v-if="soldOut"
-      @find-other="onFindOther"
-      @close="soldOut = false"
-    />
+    <PracticeSoldOut v-if="soldOut" @find-other="onFindOther" @close="soldOut = false" />
   </div>
 </template>
 
@@ -221,21 +214,11 @@ import PracticeSoldOut from '@/components/shared/PracticeSoldOut.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import MasterCard from '@/components/shared/MasterCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import {
-  formatDate,
-  formatDuration,
-  formatMoney,
-  formatParticipants,
-  isFull,
-} from '@/utils/format'
+import { formatDate, formatDuration, formatMoney, formatParticipants, isFull } from '@/utils/format'
 import { IconCheck, IconClose, IconWarning } from '@/components/icons'
 import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
-import type {
-  BookingStatus,
-  BookingWithPracticeResponse,
-  PracticeDifficulty,
-} from '@/api/types'
+import type { BookingStatus, BookingWithPracticeResponse, PracticeDifficulty } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -264,9 +247,7 @@ const toast = useToast()
 
 // Prevent master from booking their own practice (backend also enforces this,
 // but we hide the button entirely to avoid a pointless UX dead-end).
-const isMaster = computed(() =>
-  !!practice.value && practice.value.master_id === authStore.user?.id,
-)
+const isMaster = computed(() => !!practice.value && practice.value.master_id === authStore.user?.id)
 
 // W-21: Derive booked state from bookingsStore (survives navigation).
 // Falls back to local flag for immediate feedback after purchase.
@@ -299,11 +280,7 @@ const now = ref(Date.now())
  */
 const myBooking = computed(() => {
   if (!practice.value) return null
-  return (
-    bookingsStore.bookings.find(
-      (b) => b.practice_id === practice.value!.id,
-    ) ?? null
-  )
+  return bookingsStore.bookings.find((b) => b.practice_id === practice.value!.id) ?? null
 })
 
 // =========================================================================
@@ -325,16 +302,17 @@ const myAnyBooking = computed((): BookingWithPracticeResponse | null => {
   const pid = practice.value.id
   const mine = bookingsStore.bookings.filter((b) => b.practice_id === pid)
   if (mine.length === 0) return null
-  const active = mine.find(
-    (b) => (_ACTIVE_BOOKING_STATUSES as readonly string[]).includes(b.status),
+  const active = mine.find((b) =>
+    (_ACTIVE_BOOKING_STATUSES as readonly string[]).includes(b.status),
   )
   if (active) return active
   // No active booking -> the most recent one (cancelled / no_show history).
   // `?? null` satisfies noUncheckedIndexedAccess; mine is non-empty here.
-  return [...mine].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )[0] ?? null
+  return (
+    [...mine].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )[0] ?? null
+  )
 })
 
 /** Any booking exists (any status) -> show the "Моя практика" framing. */
@@ -371,10 +349,7 @@ const STATUS_LABEL: Record<BookingStatus, string> = {
   cancelled: 'Отменена',
 }
 
-const STATUS_VARIANT: Record<
-  BookingStatus,
-  'success' | 'warning' | 'error' | 'info'
-> = {
+const STATUS_VARIANT: Record<BookingStatus, 'success' | 'warning' | 'error' | 'info'> = {
   pending: 'warning',
   confirmed: 'success',
   attended: 'success',
@@ -407,11 +382,7 @@ const statusIcon = computed(() => {
  *  "link will be sent 10 min before" note is meaningless — hide it. */
 const showZoom = computed((): boolean => {
   const b = myAnyBooking.value
-  return (
-    !!b &&
-    (b.status === 'confirmed' || b.status === 'pending') &&
-    !practiceStarted.value
-  )
+  return !!b && (b.status === 'confirmed' || b.status === 'pending') && !practiceStarted.value
 })
 
 /**
@@ -457,10 +428,7 @@ const formattedDuration = computed(() => {
 
 const formattedParticipants = computed(() => {
   if (!practice.value) return ''
-  return formatParticipants(
-    practice.value.current_participants,
-    practice.value.max_participants,
-  )
+  return formatParticipants(practice.value.current_participants, practice.value.max_participants)
 })
 
 const formattedPrice = computed(() => {
@@ -468,13 +436,9 @@ const formattedPrice = computed(() => {
   return formatMoney(practice.value.price_cents, practice.value.currency)
 })
 
-
 const full = computed(() => {
   if (!practice.value) return false
-  return isFull(
-    practice.value.current_participants,
-    practice.value.max_participants,
-  )
+  return isFull(practice.value.current_participants, practice.value.max_participants)
 })
 
 const bookButtonText = computed(() => {

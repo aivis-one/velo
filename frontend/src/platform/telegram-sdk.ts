@@ -23,8 +23,8 @@ import { init, viewport } from '@tma.js/sdk-vue'
 
 /** True when running inside a real Telegram client (launch params present). */
 function isTelegramEnv(): boolean {
-  const wa = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })
-    .Telegram?.WebApp
+  const wa = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram
+    ?.WebApp
   return !!wa?.initData
 }
 

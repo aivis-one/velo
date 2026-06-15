@@ -40,11 +40,7 @@
 
 <template>
   <div class="edit-practice">
-    <VHeader
-      title="Редактировать"
-      show-back
-      @back="router.push({ name: 'master-practices' })"
-    />
+    <VHeader title="Редактировать" show-back @back="router.push({ name: 'master-practices' })" />
 
     <!-- Loading -->
     <div v-if="loading" class="edit-practice__loader">
@@ -65,7 +61,10 @@
            READONLY BANNER for terminal statuses
            ================================================================ -->
       <div v-if="isTerminal" class="edit-practice__readonly-banner">
-        <VBadge v-if="masterPracticeBadge(practice.status)" :variant="masterPracticeBadge(practice.status)!.variant">
+        <VBadge
+          v-if="masterPracticeBadge(practice.status)"
+          :variant="masterPracticeBadge(practice.status)!.variant"
+        >
           {{ masterPracticeBadge(practice.status)!.label }}
         </VBadge>
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
@@ -76,17 +75,12 @@
              FORM (editable for draft / scheduled only)
              ================================================================ -->
         <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
-
           <!-- Реш. В (2026-06-12): поля по SVG Edit (label-above, белая плашка),
                БЕЗ секций-заголовков. Намеренно опущены направление/уровень/вид/
                таймзона/цена — они задаются на создании и блокируются после (хранятся
                в form, уходят на submit неизменными, данные не теряем). Дата и Zoom
                возвращены по логике (см. комментарии ниже). -->
-          <VInput
-            v-model="form.title"
-            label="Название"
-            :error="errors.title"
-          />
+          <VInput v-model="form.title" label="Название" :error="errors.title" />
 
           <!-- Дата — DS-пикер (реш. В: возвращена по логике — перенос практики
                норм. операция; нативный type=date заменён на брендовый пикер). -->
@@ -128,11 +122,7 @@
             :error="errors.max_participants"
           />
 
-          <VTextarea
-            v-model="form.description"
-            label="Описание"
-            :rows="4"
-          />
+          <VTextarea v-model="form.description" label="Описание" :rows="4" />
 
           <VTextarea
             v-model="form.contraindications"
@@ -310,7 +300,16 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VBadge, VLoader, VEmptyState, VConfirmDialog } from '@/components/ui'
+import {
+  VButton,
+  VInput,
+  VTextarea,
+  VSelect,
+  VBadge,
+  VLoader,
+  VEmptyState,
+  VConfirmDialog,
+} from '@/components/ui'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
@@ -366,7 +365,9 @@ const confirmDialog = reactive({
   confirmLabel: 'Подтвердить',
   danger: false,
   loading: false,
-  onConfirm: (): void => { /* filled per use */ },
+  onConfirm: (): void => {
+    /* filled per use */
+  },
 })
 
 // W-8: computed so todayDate is never stale after midnight
@@ -403,10 +404,11 @@ const errors = reactive({
 })
 
 // -- Derived --
-const isTerminal = computed((): boolean =>
-  practice.value?.status === 'completed' ||
-  practice.value?.status === 'cancelled' ||
-  practice.value?.status === 'deleted',
+const isTerminal = computed(
+  (): boolean =>
+    practice.value?.status === 'completed' ||
+    practice.value?.status === 'cancelled' ||
+    practice.value?.status === 'deleted',
 )
 
 // W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
@@ -424,9 +426,7 @@ function populateForm(p: PracticeResponse): void {
   // Render the stored UTC instant as wall-clock date + time in the practice's
   // OWN timezone (the one the master created it in), so the form shows the
   // same values the master originally entered -- not the editor's browser tz.
-  const scheduledDt = DateTime.fromISO(p.scheduled_at, { zone: 'utc' }).setZone(
-    p.timezone,
-  )
+  const scheduledDt = DateTime.fromISO(p.scheduled_at, { zone: 'utc' }).setZone(p.timezone)
   form.date = scheduledDt.toFormat('yyyy-MM-dd')
   form.time = scheduledDt.toFormat('HH:mm')
   form.duration_minutes = String(p.duration_minutes)
@@ -518,9 +518,7 @@ async function save(): Promise<void> {
       scheduled_at: scheduledAt ?? null,
       duration_minutes: parseInt(form.duration_minutes, 10),
       timezone: form.timezone,
-      max_participants: form.max_participants_raw
-        ? parseInt(form.max_participants_raw, 10)
-        : null,
+      max_participants: form.max_participants_raw ? parseInt(form.max_participants_raw, 10) : null,
       zoom_link: form.zoom_link.trim() || null,
       is_free: form.is_free,
       price_cents: form.is_free ? 0 : priceCents.value,

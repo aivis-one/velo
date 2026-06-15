@@ -18,10 +18,7 @@ import { CHECKIN_WINDOW_H, FEEDBACK_WINDOW_H } from '@/utils/constants'
  * Returns true if `now` is within the check-in window for a practice.
  * Window: [scheduledAt - CHECKIN_WINDOW_H hours, scheduledAt]
  */
-export function isInCheckinWindow(
-  scheduledAtMs: number,
-  nowMs: number,
-): boolean {
+export function isInCheckinWindow(scheduledAtMs: number, nowMs: number): boolean {
   const windowStartMs = scheduledAtMs - CHECKIN_WINDOW_H * 60 * 60 * 1000
   return nowMs >= windowStartMs && nowMs <= scheduledAtMs
 }

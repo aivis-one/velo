@@ -12,12 +12,7 @@
 -->
 
 <template>
-  <button
-    type="button"
-    class="v-back"
-    :aria-label="ariaLabel"
-    @click="$emit('click')"
-  >
+  <button type="button" class="v-back" :aria-label="ariaLabel" @click="$emit('click')">
     <IconArrowRight :size="18" class="v-back__arrow" />
   </button>
 </template>

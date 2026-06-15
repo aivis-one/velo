@@ -61,9 +61,7 @@ defineEmits<{
 const normalizedVariant = computed(() =>
   props.variant === 'outline' ? 'secondary' : props.variant,
 )
-const normalizedSize = computed(() =>
-  props.size === 'lg' ? 'md' : props.size,
-)
+const normalizedSize = computed(() => (props.size === 'lg' ? 'md' : props.size))
 </script>
 
 <style scoped>

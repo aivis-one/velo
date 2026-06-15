@@ -29,12 +29,8 @@
     <div class="hero-card__meta">
       <!-- #meta переопределяет встроенный icon-row (form-вариант: Check-in / Feedback). -->
       <slot name="meta">
-        <span class="hero-card__meta-item">
-          <IconCalendar :size="14" /> {{ date }}
-        </span>
-        <span class="hero-card__meta-item">
-          <IconClock :size="14" /> {{ duration }}
-        </span>
+        <span class="hero-card__meta-item"> <IconCalendar :size="14" /> {{ date }} </span>
+        <span class="hero-card__meta-item"> <IconClock :size="14" /> {{ duration }} </span>
         <span v-if="participants" class="hero-card__meta-item">
           <IconGroup :size="14" /> {{ participants }}
         </span>

@@ -37,11 +37,7 @@
            ================================================================ -->
       <div class="master-dashboard__greeting">
         <h2 class="master-dashboard__greeting-name">Привет, {{ displayName }}!</h2>
-        <button
-          class="master-dashboard__bell"
-          aria-label="Уведомления"
-          @click="onBell"
-        >
+        <button class="master-dashboard__bell" aria-label="Уведомления" @click="onBell">
           <IconBell :size="21" />
           <span v-if="unreadCount > 0" class="master-dashboard__bell-badge">{{ unreadCount }}</span>
         </button>
@@ -103,9 +99,11 @@
       <h3 class="master-dashboard__section-title">Саммари недели</h3>
       <VCard>
         <p class="master-dashboard__empty-text">
-          {{ isNewMaster
-            ? 'Данных пока нет — создайте первую практику'
-            : 'Сводка появится после проведения практик' }}
+          {{
+            isNewMaster
+              ? 'Данных пока нет — создайте первую практику'
+              : 'Сводка появится после проведения практик'
+          }}
         </p>
       </VCard>
       <div v-if="!isNewMaster" class="master-dashboard__summary-more">
@@ -142,7 +140,9 @@
                 <div class="master-dashboard__practice-meta">
                   <span class="master-dashboard__meta-item">
                     <IconGroup :size="15" />
-                    {{ formatParticipants(practice.current_participants, practice.max_participants) }}
+                    {{
+                      formatParticipants(practice.current_participants, practice.max_participants)
+                    }}
                   </span>
                   <!-- checkin-count + recurrence meta render once the backend
                        provides the fields (roadmap for Zod). -->
@@ -172,9 +172,9 @@
       <template v-else>
         <VCard>
           <p class="master-dashboard__empty-text">
-            {{ isNewMaster
-              ? 'Данных пока нет — создайте первую практику'
-              : 'Нет предстоящих практик' }}
+            {{
+              isNewMaster ? 'Данных пока нет — создайте первую практику' : 'Нет предстоящих практик'
+            }}
           </p>
         </VCard>
       </template>
@@ -202,13 +202,11 @@ const toast = useToast()
 const period = ref<'week' | 'month'>('week')
 
 // -- Display name fallback --
-const displayName = computed((): string =>
-  masterStore.profile?.display_name ?? 'Мастер',
-)
+const displayName = computed((): string => masterStore.profile?.display_name ?? 'Мастер')
 
 // True for a brand-new master with no practices at all (zero state).
-const isNewMaster = computed((): boolean =>
-  (masterStore.practicesTotal ?? masterStore.practices.length) === 0,
+const isNewMaster = computed(
+  (): boolean => (masterStore.practicesTotal ?? masterStore.practices.length) === 0,
 )
 
 // =========================================================================
@@ -238,7 +236,9 @@ let clockInterval: ReturnType<typeof setInterval> | null = null
 
 const nearestPractices = computed((): PracticeResponse[] =>
   masterStore.practices
-    .filter((p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value))
+    .filter(
+      (p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value),
+    )
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
     .slice(0, 3),
 )
@@ -261,7 +261,9 @@ function onStudents(): void {
 
 // -- Load data on mount --
 onMounted(async () => {
-  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
+  clockInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 60_000)
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()

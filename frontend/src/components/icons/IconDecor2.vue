@@ -34,10 +34,10 @@ import { computed } from 'vue'
 
 type Decor2Part = 'both' | 'big' | 'small'
 
-const props = withDefaults(
-  defineProps<{ size?: number; part?: Decor2Part }>(),
-  { size: 24, part: 'both' },
-)
+const props = withDefaults(defineProps<{ size?: number; part?: Decor2Part }>(), {
+  size: 24,
+  part: 'both',
+})
 
 const VIEWBOX: Record<Decor2Part, string> = {
   both: '39.13 -23.87 265.74 445.57',

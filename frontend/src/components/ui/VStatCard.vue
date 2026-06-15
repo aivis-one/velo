@@ -23,7 +23,12 @@
     <span v-if="$slots.icon || icon" class="v-stat__icon">
       <slot name="icon">{{ icon }}</slot>
     </span>
-    <div class="v-stat__value" :class="valueTone !== 'default' ? `v-stat__value--${valueTone}` : null">{{ value }}</div>
+    <div
+      class="v-stat__value"
+      :class="valueTone !== 'default' ? `v-stat__value--${valueTone}` : null"
+    >
+      {{ value }}
+    </div>
     <div class="v-stat__label">{{ label }}</div>
     <div v-if="delta" class="v-stat__delta" :class="`v-stat__delta--${deltaTone}`">{{ delta }}</div>
   </div>

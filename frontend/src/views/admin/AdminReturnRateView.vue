@@ -27,12 +27,7 @@
 
     <h3 class="admin-detail__section">Топ лояльных юзеров</h3>
     <template v-if="loyalUsers.length">
-      <VListRow
-        v-for="u in loyalUsers"
-        :key="u.id"
-        :title="u.title"
-        :subtitle="u.subtitle"
-      />
+      <VListRow v-for="u in loyalUsers" :key="u.id" :title="u.title" :subtitle="u.subtitle" />
     </template>
     <VCard v-else><p class="admin-detail__empty">Данных пока нет</p></VCard>
   </div>

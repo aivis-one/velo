@@ -9,10 +9,7 @@
 -->
 
 <template>
-  <div
-    class="mobile-layout"
-    :class="{ 'mobile-layout--fill': fill }"
-  >
+  <div class="mobile-layout" :class="{ 'mobile-layout--fill': fill }">
     <slot name="header" />
     <!-- Floating header island (G-1): VHeader (and tab-screen headings) teleport
          themselves here so they sit ABOVE the masked feed instead of being eaten
@@ -74,9 +71,14 @@ const islandH = ref(0)
 // mid-feed). Reset to the top on every route change.
 const mainEl = ref<HTMLElement | null>(null)
 const route = useRoute()
-watch(() => route.fullPath, () => {
-  void nextTick(() => { mainEl.value?.scrollTo({ top: 0 }) })
-})
+watch(
+  () => route.fullPath,
+  () => {
+    void nextTick(() => {
+      mainEl.value?.scrollTo({ top: 0 })
+    })
+  },
+)
 let ro: ResizeObserver | null = null
 let mo: MutationObserver | null = null
 function measureIsland(): void {
@@ -165,7 +167,7 @@ const mainStyle = computed(() => {
   const topHard = props.fogTopHard ?? d.topHard
   const botFade = props.fogBotFade ?? d.botFade
   const botHard = props.fogBotHard ?? d.botHard
-  const top = islandH.value > 0 ? islandH.value + topGap : (props.fog ? 60 : 16)
+  const top = islandH.value > 0 ? islandH.value + topGap : props.fog ? 60 : 16
   const bottom = props.hideTabBar ? 24 : 160
   return {
     paddingTop: `${top}px`,
@@ -209,8 +211,8 @@ defineEmits<{
      in non-scrolling absolute layers at the true rail — so cards/selectors drift
      ~scrollbar-width to the right of the chrome. Hiding it keeps every element on
      the single --velo-rail-pad-x rail. */
-  scrollbar-width: none;       /* Firefox / standard */
-  -ms-overflow-style: none;    /* legacy Edge */
+  scrollbar-width: none; /* Firefox / standard */
+  -ms-overflow-style: none; /* legacy Edge */
   /* 24px content rail on both sides (Figma). Vertical padding (top island
      clearance + bottom tab-bar clearance) comes from mainStyle inline so it can
      react to the measured island height. */
@@ -219,7 +221,7 @@ defineEmits<{
 }
 
 .mobile-layout__main::-webkit-scrollbar {
-  display: none;               /* WebKit / Blink (Telegram webview) */
+  display: none; /* WebKit / Blink (Telegram webview) */
 }
 
 /* Edge-to-edge fog: top/bottom fade mask for long scrolling lists ONLY. Opt-in

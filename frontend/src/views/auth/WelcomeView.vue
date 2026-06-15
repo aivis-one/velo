@@ -36,29 +36,27 @@
          centered logo lands at the SAME vertical position on both screens and
          does not jump on the loading -> welcome transition. -->
     <div class="welcome__below">
-    <p class="welcome__message">
-      Пространство для практики<br />и внутреннего развития
-    </p>
+      <p class="welcome__message">Пространство для практики<br />и внутреннего развития</p>
 
-    <div class="welcome__actions">
-      <button
-        type="button"
-        class="welcome__button welcome__button--primary"
-        @click="$emit('enter')"
-      >
-        Войти
-      </button>
+      <div class="welcome__actions">
+        <button
+          type="button"
+          class="welcome__button welcome__button--primary"
+          @click="$emit('enter')"
+        >
+          Войти
+        </button>
 
-      <!-- Standalone/browser only: account creation has no meaning in Telegram. -->
-      <button
-        v-if="isStandalone"
-        type="button"
-        class="welcome__button welcome__button--glass"
-        @click="$emit('create-account')"
-      >
-        Создать аккаунт
-      </button>
-    </div>
+        <!-- Standalone/browser only: account creation has no meaning in Telegram. -->
+        <button
+          v-if="isStandalone"
+          type="button"
+          class="welcome__button welcome__button--glass"
+          @click="$emit('create-account')"
+        >
+          Создать аккаунт
+        </button>
+      </div>
     </div>
   </div>
 </template>

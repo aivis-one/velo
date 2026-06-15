@@ -27,9 +27,7 @@ export interface PracticeStatusBadge {
  * Master card badge for a practice status. Returns null for the active phase
  * (scheduled / live / deleted) — those get no badge.
  */
-export function masterPracticeBadge(
-  status: PracticeStatus,
-): PracticeStatusBadge | null {
+export function masterPracticeBadge(status: PracticeStatus): PracticeStatusBadge | null {
   switch (status) {
     case 'draft':
       return { label: 'Черновик', variant: 'warning' }
@@ -44,10 +42,7 @@ export function masterPracticeBadge(
 }
 
 /** Practice end (start + duration) as epoch ms. Mirrors bookingStatus. */
-export function practiceEndMs(p: {
-  scheduled_at: string
-  duration_minutes: number
-}): number {
+export function practiceEndMs(p: { scheduled_at: string; duration_minutes: number }): number {
   return new Date(p.scheduled_at).getTime() + (p.duration_minutes ?? 0) * 60_000
 }
 

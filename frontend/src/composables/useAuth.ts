@@ -65,7 +65,9 @@ const READY_TIMEOUT_MS = 10_000
  * Supported formats:
  *   open_practice__{uuid} -> { name: 'practice-detail', params: { id: uuid } }
  */
-function parseStartParam(startParam: string | null): { name: string; params?: Record<string, string> } | null {
+function parseStartParam(
+  startParam: string | null,
+): { name: string; params?: Record<string, string> } | null {
   if (!startParam) return null
 
   const practiceMatch = startParam.match(/^open_practice__([0-9a-f-]{36})$/)

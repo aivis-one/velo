@@ -46,11 +46,7 @@ export function formatMoney(
  *   formatDate('2026-02-28T07:00:00Z') -> "28 февраля, 10:00" (in Europe/Moscow)
  *   formatDate('2026-02-28T07:00:00Z', 'UTC') -> "28 февраля, 07:00"
  */
-export function formatDate(
-  isoString: string,
-  timezone = 'UTC',
-  locale = 'ru',
-): string {
+export function formatDate(isoString: string, timezone = 'UTC', locale = 'ru'): string {
   const date = new Date(isoString)
   return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
@@ -66,11 +62,7 @@ export function formatDate(
  *
  * Returns relative labels for today/tomorrow, otherwise "28 февраля".
  */
-export function formatDateShort(
-  isoString: string,
-  timezone = 'UTC',
-  locale = 'ru',
-): string {
+export function formatDateShort(isoString: string, timezone = 'UTC', locale = 'ru'): string {
   const date = new Date(isoString)
   const now = new Date()
 
@@ -109,8 +101,18 @@ export function formatDateShort(
  * Timezone-safe (Intl with timeZone, no Date mutation).
  */
 const VELO_SHORT_MONTHS = [
-  'янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июня',
-  'июля', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.',
+  'янв.',
+  'февр.',
+  'мар.',
+  'апр.',
+  'мая',
+  'июня',
+  'июля',
+  'авг.',
+  'сент.',
+  'окт.',
+  'нояб.',
+  'дек.',
 ] as const
 
 export function formatShortDate(isoString: string, timezone = 'UTC'): string {
@@ -145,11 +147,7 @@ export function isToday(isoString: string, timezone = 'UTC'): boolean {
 /**
  * Format an ISO datetime string into time only: "07:00".
  */
-export function formatTime(
-  isoString: string,
-  timezone = 'UTC',
-  locale = 'ru',
-): string {
+export function formatTime(isoString: string, timezone = 'UTC', locale = 'ru'): string {
   const date = new Date(isoString)
   return new Intl.DateTimeFormat(locale, {
     hour: '2-digit',
@@ -165,11 +163,7 @@ export function formatTime(
  * Used by DiaryFeedCard. Defaults to the user's timezone (the diary is a
  * personal timeline -- "when it happened in my time").
  */
-export function formatFeedDateTime(
-  isoString: string,
-  timezone = 'UTC',
-  locale = 'ru',
-): string {
+export function formatFeedDateTime(isoString: string, timezone = 'UTC', locale = 'ru'): string {
   const date = new Date(isoString)
   const dayMonth = new Intl.DateTimeFormat(locale, {
     day: 'numeric',
@@ -209,10 +203,7 @@ export function formatDuration(minutes: number): string {
 /**
  * Format participants count: "5/20 мест" or "∞" when unlimited.
  */
-export function formatParticipants(
-  current: number,
-  max: number | null,
-): string {
+export function formatParticipants(current: number, max: number | null): string {
   if (max === null) return `${current} участн.`
   return `${current}/${max} мест`
 }

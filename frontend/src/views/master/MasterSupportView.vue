@@ -61,11 +61,7 @@
       <!-- Message -->
       <section class="support__section">
         <h2 class="support__title">Сообщение</h2>
-        <VTextarea
-          v-model="message"
-          :rows="5"
-          placeholder="Опишите вашу проблему или вопрос..."
-        />
+        <VTextarea v-model="message" :rows="5" placeholder="Опишите вашу проблему или вопрос..." />
       </section>
 
       <!-- Attachments (UI built; files captured locally, NOT uploaded — stub) -->
@@ -119,13 +115,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VRadioGroup, VTextarea } from '@/components/ui'
-import {
-  IconSupport,
-  IconCheck,
-  IconFile,
-  IconClose,
-  IconArrowRight,
-} from '@/components/icons'
+import { IconSupport, IconCheck, IconFile, IconClose, IconArrowRight } from '@/components/icons'
 
 const router = useRouter()
 

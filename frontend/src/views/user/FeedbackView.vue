@@ -31,9 +31,7 @@
       <span class="form-shell__practice-meta-cell">
         с {{ practice?.master_name ?? 'Мастером' }}
       </span>
-      <span class="form-shell__practice-meta-cell">
-        <IconCalendar :size="14" /> Завершена
-      </span>
+      <span class="form-shell__practice-meta-cell"> <IconCalendar :size="14" /> Завершена </span>
     </template>
 
     <!-- Rating slider -->
@@ -56,9 +54,7 @@
 
     <!-- Success actions: primary "В дневник" + text link "На главную" (Figma 2266:2296) -->
     <template #success-actions>
-      <VButton variant="primary" size="lg" block @click="goToDiary">
-        В дневник
-      </VButton>
+      <VButton variant="primary" size="lg" block @click="goToDiary"> В дневник </VButton>
       <button type="button" class="feedback__success-link" @click="goToDashboard">
         На главную
       </button>
@@ -91,8 +87,8 @@ import { RATING_ICON_COLOR } from '@/utils/displayHelpers'
 // (confused = brand blue, good = rose, fire = peach) via --velo-rating-*.
 const RATING_ZONES = [
   { icon: IconRatingConfused, label: 'Есть вопросы', color: RATING_ICON_COLOR.confused },
-  { icon: IconRatingGood,     label: 'Хорошо',       color: RATING_ICON_COLOR.good },
-  { icon: IconRatingFire,     label: 'Огонь!',       color: RATING_ICON_COLOR.fire },
+  { icon: IconRatingGood, label: 'Хорошо', color: RATING_ICON_COLOR.good },
+  { icon: IconRatingFire, label: 'Огонь!', color: RATING_ICON_COLOR.fire },
 ]
 
 const route = useRoute()
@@ -120,7 +116,11 @@ async function onSubmit(): Promise<void> {
   })
 
   if (result.ok) {
-    try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
+    try {
+      platform.hapticFeedback('medium')
+    } catch {
+      /* silent fallback */
+    }
     submitted.value = true
     // Refresh bookings so `has_feedback` is up to date this session -- the
     // dashboard feedback banner and the practice-detail button read it.

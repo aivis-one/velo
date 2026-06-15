@@ -18,12 +18,7 @@
 -->
 
 <template>
-  <VModal
-    :open="open"
-    :show-close="false"
-    :close-on-overlay="!loading"
-    @close="$emit('cancel')"
-  >
+  <VModal :open="open" :show-close="false" :close-on-overlay="!loading" @close="$emit('cancel')">
     <p class="v-confirm__text">{{ message }}</p>
     <div class="v-confirm__actions">
       <VButton variant="ghost" :disabled="loading" @click="$emit('cancel')">

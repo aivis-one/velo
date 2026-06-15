@@ -27,6 +27,4 @@ const isRunningInTelegram = !!window.Telegram?.WebApp?.initData
  * Singleton platform instance.
  * Telegram if launched from bot, standalone otherwise.
  */
-export const platform: Platform = isRunningInTelegram
-  ? telegramPlatform
-  : standalonePlatform
+export const platform: Platform = isRunningInTelegram ? telegramPlatform : standalonePlatform

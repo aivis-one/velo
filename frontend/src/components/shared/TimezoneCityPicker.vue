@@ -72,9 +72,7 @@ const query = ref('')
 const filtered = computed(() => {
   const t = query.value.trim().toLowerCase()
   if (!t) return TIMEZONE_CITIES
-  return TIMEZONE_CITIES.filter(
-    (c) => c.city.toLowerCase().includes(t) || c.q.includes(t),
-  )
+  return TIMEZONE_CITIES.filter((c) => c.city.toLowerCase().includes(t) || c.q.includes(t))
 })
 
 /** Current local time in the given zone ("14:35"), live + DST-aware. */

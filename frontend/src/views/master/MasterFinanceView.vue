@@ -47,10 +47,7 @@
             <span class="finance-view__card-num">
               {{ maskedDetails(masterStore.profile!.payout!) }}
             </span>
-            <span
-              v-if="payoutHolder(masterStore.profile!.payout!)"
-              class="finance-view__card-name"
-            >
+            <span v-if="payoutHolder(masterStore.profile!.payout!)" class="finance-view__card-name">
               {{ payoutHolder(masterStore.profile!.payout!) }}
             </span>
           </div>
@@ -67,11 +64,7 @@
           Способ выплаты не настроен. Добавьте карту, чтобы выводить средства.
         </p>
 
-        <VButton
-          variant="outline"
-          class="finance-view__add"
-          @click="openPayoutForm(hasPayout)"
-        >
+        <VButton variant="outline" class="finance-view__add" @click="openPayoutForm(hasPayout)">
           + Добавить новую карту
         </VButton>
       </template>
@@ -142,8 +135,8 @@
     <section class="finance-view__section">
       <h2 class="finance-view__title">Сумма вывода</h2>
       <p class="finance-view__hint">
-        Срок зачисления: 1-3 рабочих дня. Комиссия платёжного провайдера будет
-        удержана из суммы вывода.
+        Срок зачисления: 1-3 рабочих дня. Комиссия платёжного провайдера будет удержана из суммы
+        вывода.
       </p>
 
       <template v-if="hasPayout">
@@ -159,17 +152,12 @@
         </div>
         <p v-if="amountError" class="finance-view__error">{{ amountError }}</p>
         <p v-else-if="amountCents > 0" class="finance-view__hint">
-          Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} ·
-          Комиссия {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }} ·
-          Вы получите {{ formattedNetAmount }}
+          Минимум {{ formatMoney(MIN_WITHDRAWAL_EUROS * 100, 'EUR', 'ru', true) }} · Комиссия
+          {{ formatMoney(WITHDRAWAL_FEE_EUROS * 100, 'EUR', 'ru', true) }} · Вы получите
+          {{ formattedNetAmount }}
         </p>
 
-        <VButton
-          variant="outline"
-          size="sm"
-          class="finance-view__all"
-          @click="fillMaxAmount"
-        >
+        <VButton variant="outline" size="sm" class="finance-view__all" @click="fillMaxAmount">
           Вывести все
         </VButton>
 
@@ -198,19 +186,12 @@
         <VLoader size="md" />
       </div>
 
-      <p
-        v-else-if="!historyLoading && withdrawals.length === 0"
-        class="finance-view__empty-text"
-      >
+      <p v-else-if="!historyLoading && withdrawals.length === 0" class="finance-view__empty-text">
         Выводов ещё не было
       </p>
 
       <div v-else class="finance-view__history">
-        <div
-          v-for="w in withdrawals"
-          :key="w.id"
-          class="finance-view__hitem"
-        >
+        <div v-for="w in withdrawals" :key="w.id" class="finance-view__hitem">
           <span
             class="finance-view__hicon"
             :class="`finance-view__hicon--${w.status}`"
@@ -278,13 +259,9 @@ const availableCents = computed(() => masterStore.profile?.available_cents ?? 0)
 const frozenCents = computed(() => masterStore.profile?.frozen_cents ?? 0)
 const hasPayout = computed(() => masterStore.profile?.payout != null)
 
-const formattedAvailable = computed(() =>
-  formatMoney(availableCents.value, 'EUR', 'ru', true),
-)
+const formattedAvailable = computed(() => formatMoney(availableCents.value, 'EUR', 'ru', true))
 
-const formattedFrozen = computed(() =>
-  formatMoney(frozenCents.value, 'EUR', 'ru', true),
-)
+const formattedFrozen = computed(() => formatMoney(frozenCents.value, 'EUR', 'ru', true))
 
 // ---------------------------------------------------------------------------
 // Payout method ("saved card" = configured payout, Б — working backend kept)

@@ -23,12 +23,7 @@
     </div>
 
     <div class="chat__compose">
-      <input
-        v-model="draft"
-        type="text"
-        class="chat__input"
-        placeholder="Написать сообщение…"
-      />
+      <input v-model="draft" type="text" class="chat__input" placeholder="Написать сообщение…" />
       <button type="button" class="chat__send" aria-label="Отправить" @click="onSend">
         <IconSend :size="20" />
       </button>

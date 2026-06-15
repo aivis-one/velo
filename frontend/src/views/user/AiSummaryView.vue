@@ -24,12 +24,9 @@
       </span>
       <h1 class="ai-summary__title">Этот раздел в разработке</h1>
       <p class="ai-summary__text">
-        Скоро здесь появится ваше персональное саммари недели
-        с рекомендациями.
+        Скоро здесь появится ваше персональное саммари недели с рекомендациями.
       </p>
-      <VButton variant="primary" size="lg" @click="goToDashboard">
-        На главную
-      </VButton>
+      <VButton variant="primary" size="lg" @click="goToDashboard"> На главную </VButton>
     </div>
   </div>
 </template>

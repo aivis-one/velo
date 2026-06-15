@@ -20,18 +20,10 @@
 
 <template>
   <div class="notifications">
-    <VHeader
-      title="Уведомления"
-      show-back
-      @back="router.back()"
-    />
+    <VHeader title="Уведомления" show-back @back="router.back()" />
 
     <div class="notifications__content">
-      <div
-        v-for="row in ROWS"
-        :key="row.key"
-        class="notifications__row"
-      >
+      <div v-for="row in ROWS" :key="row.key" class="notifications__row">
         <span class="notifications__label">{{ row.label }}</span>
         <VSwitch
           :model-value="settings[row.key]"
@@ -58,11 +50,7 @@ const toast = useToast()
 const authStore = useAuthStore()
 
 // Keys must match the backend NotificationSettings shape.
-type NotificationKey =
-  | 'push'
-  | 'practice_reminders'
-  | 'master_messages'
-  | 'support_messages'
+type NotificationKey = 'push' | 'practice_reminders' | 'master_messages' | 'support_messages'
 
 interface Row {
   key: NotificationKey

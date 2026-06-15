@@ -46,7 +46,9 @@
 <template>
   <!-- ===== SUCCESS SCREEN (shared full-bleed white takeover) ===== -->
   <ResultScreen v-if="submitted" :title="successTitle" :text="successText">
-    <template #icon><slot name="success-icon">{{ successIcon }}</slot></template>
+    <template #icon
+      ><slot name="success-icon">{{ successIcon }}</slot></template
+    >
     <template #actions><slot name="success-actions" /></template>
   </ResultScreen>
 
@@ -107,15 +109,10 @@
         >
           {{ submitLabel }}
         </VButton>
-        <p
-          v-if="submitDisabled && disabledHint"
-          class="form-shell__disabled-hint"
-        >
+        <p v-if="submitDisabled && disabledHint" class="form-shell__disabled-hint">
           {{ disabledHint }}
         </p>
-        <VButton v-if="showSkip" variant="ghost" block @click="emit('skip')">
-          Пропустить
-        </VButton>
+        <VButton v-if="showSkip" variant="ghost" block @click="emit('skip')"> Пропустить </VButton>
       </div>
     </div>
   </div>
@@ -162,9 +159,7 @@ const emit = defineEmits<{
 // Заголовок без суффикса «(эфир)» — единый хелпер (live-практику и так
 // маркирует бейдж «В эфире»; в названии скобки не нужны). Покрывает оба
 // экрана на FormShell: check-in и feedback.
-const cleanTitle = computed(() =>
-  props.practice ? cleanPracticeTitle(props.practice.title) : '',
-)
+const cleanTitle = computed(() => (props.practice ? cleanPracticeTitle(props.practice.title) : ''))
 </script>
 
 <style scoped>

@@ -63,9 +63,7 @@
       <VButton variant="primary" size="lg" block @click="goToPracticeLive">
         Начать практику
       </VButton>
-      <VButton variant="ghost" block @click="goToDashboard">
-        На главную
-      </VButton>
+      <VButton variant="ghost" block @click="goToDashboard"> На главную </VButton>
     </template>
   </FormShell>
 </template>
@@ -81,21 +79,15 @@ import { platform } from '@/platform'
 import { VButton } from '@/components/ui'
 import FormShell from '@/components/shared/FormShell.vue'
 import MoodSlider from '@/components/shared/MoodSlider.vue'
-import {
-  IconCalendar,
-  IconCheck,
-  IconMoodLow,
-  IconMoodMid,
-  IconMoodHigh,
-} from '@/components/icons'
+import { IconCalendar, IconCheck, IconMoodLow, IconMoodMid, IconMoodHigh } from '@/components/icons'
 import { formatDate } from '@/utils/format'
 
 // Three slider zones (low -> high), passed to MoodSlider. Icons are .vue
 // components, so this stays in the view (not in the utils layer). Labels
 // mirror the old discrete buttons (Не очень / Нормально / Хорошо).
 const MOOD_ZONES = [
-  { icon: IconMoodLow,  label: 'Не очень' },
-  { icon: IconMoodMid,  label: 'Нормально' },
+  { icon: IconMoodLow, label: 'Не очень' },
+  { icon: IconMoodMid, label: 'Нормально' },
   { icon: IconMoodHigh, label: 'Хорошо' },
 ]
 
@@ -134,15 +126,11 @@ const windowClosed = computed<boolean>(() => {
 // `has_checkin`, so we read it from there instead of an extra request.
 // When true, the form is replaced by the success screen and submit is blocked.
 const alreadyCheckedIn = computed<boolean>(() =>
-  bookingsStore.bookings.some(
-    (b) => b.practice_id === practiceId && b.has_checkin,
-  ),
+  bookingsStore.bookings.some((b) => b.practice_id === practiceId && b.has_checkin),
 )
 
 const formattedDate = computed(() =>
-  practice.value
-    ? formatDate(practice.value.scheduled_at, practice.value.timezone)
-    : '',
+  practice.value ? formatDate(practice.value.scheduled_at, practice.value.timezone) : '',
 )
 
 async function onSubmit(): Promise<void> {
@@ -154,7 +142,11 @@ async function onSubmit(): Promise<void> {
   })
 
   if (result.ok) {
-    try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
+    try {
+      platform.hapticFeedback('medium')
+    } catch {
+      /* silent fallback */
+    }
     submitted.value = true
     // Refresh bookings so `has_checkin` is up to date this session: the
     // dashboard banner, the dashboard "Check-in" button and the practice-detail
@@ -216,7 +208,9 @@ onMounted(async () => {
   if (alreadyCheckedIn.value) {
     submitted.value = true
   }
-  tickHandle = setInterval(() => { nowMs.value = Date.now() }, 60_000)
+  tickHandle = setInterval(() => {
+    nowMs.value = Date.now()
+  }, 60_000)
 })
 
 onBeforeUnmount(() => {

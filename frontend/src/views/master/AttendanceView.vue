@@ -63,11 +63,7 @@
         />
 
         <!-- Participants -->
-        <div
-          v-for="item in sortedItems"
-          :key="item.booking_id"
-          class="checkins__item"
-        >
+        <div v-for="item in sortedItems" :key="item.booking_id" class="checkins__item">
           <MoodAvatar v-if="item.checkin" :mood="item.checkin.mood" :size="46" />
           <span v-else-if="item.status === 'no_show'" class="checkins__face checkins__face--noshow">
             <IconClose :size="20" />
@@ -76,7 +72,9 @@
 
           <div class="checkins__body">
             <div class="checkins__name">{{ displayName(item) }}</div>
-            <div v-if="item.checkin?.comment" class="checkins__comment">{{ item.checkin.comment }}</div>
+            <div v-if="item.checkin?.comment" class="checkins__comment">
+              {{ item.checkin.comment }}
+            </div>
             <div v-else-if="item.status === 'no_show'" class="checkins__meta">Не пришёл</div>
             <div v-else class="checkins__meta">Ожидает check-in</div>
           </div>
@@ -147,9 +145,7 @@ const checkinBadge = computed((): string => {
 })
 
 // -- Practice card --
-const practiceIcon = computed(() =>
-  practice.value ? practiceIconFor(practice.value) : null,
-)
+const practiceIcon = computed(() => (practice.value ? practiceIconFor(practice.value) : null))
 const practiceWhen = computed((): string => {
   if (!practice.value) return ''
   const day = formatDateShort(practice.value.scheduled_at, practice.value.timezone)
@@ -191,10 +187,7 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    const [attendanceData] = await Promise.all([
-      getAttendance(practiceId),
-      loadPractice(),
-    ])
+    const [attendanceData] = await Promise.all([getAttendance(practiceId), loadPractice()])
     attendance.value = attendanceData
   } catch (e) {
     error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'

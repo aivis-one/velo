@@ -31,43 +31,43 @@ export const DURATION_OPTIONS: { label: string; value: string }[] = [
 // Reference city per offset. Order here is irrelevant -- TIMEZONE_OPTIONS is
 // sorted by the real computed offset below.
 const TIMEZONE_CITIES: { iana: string; city: string }[] = [
-  { iana: 'Pacific/Pago_Pago',     city: 'Pago Pago' },          // -11:00
-  { iana: 'Pacific/Honolulu',      city: 'Honolulu' },           // -10:00
-  { iana: 'Pacific/Marquesas',     city: 'Marquesas' },          // -09:30
-  { iana: 'America/Anchorage',     city: 'Anchorage' },          // -09:00
-  { iana: 'America/Los_Angeles',   city: 'Los Angeles' },        // -08:00
-  { iana: 'America/Denver',        city: 'Denver' },             // -07:00
-  { iana: 'America/Chicago',       city: 'Chicago' },            // -06:00
-  { iana: 'America/New_York',      city: 'New York' },           // -05:00
-  { iana: 'America/Halifax',       city: 'Halifax' },            // -04:00
-  { iana: 'America/St_Johns',      city: "St. John's" },         // -03:30
-  { iana: 'America/Sao_Paulo',     city: 'Sao Paulo' },          // -03:00
-  { iana: 'America/Noronha',       city: 'Fernando de Noronha' }, // -02:00
-  { iana: 'Atlantic/Azores',       city: 'Azores' },             // -01:00
-  { iana: 'Europe/London',         city: 'London' },             // +00:00
-  { iana: 'Europe/Berlin',         city: 'Berlin' },             // +01:00
-  { iana: 'Europe/Kyiv',           city: 'Kyiv' },               // +02:00
-  { iana: 'Europe/Moscow',         city: 'Moscow' },             // +03:00
-  { iana: 'Asia/Tehran',           city: 'Tehran' },             // +03:30
-  { iana: 'Asia/Dubai',            city: 'Dubai' },              // +04:00
-  { iana: 'Asia/Kabul',            city: 'Kabul' },              // +04:30
-  { iana: 'Asia/Karachi',          city: 'Karachi' },            // +05:00
-  { iana: 'Asia/Kolkata',          city: 'Mumbai' },             // +05:30
-  { iana: 'Asia/Kathmandu',        city: 'Kathmandu' },          // +05:45
-  { iana: 'Asia/Almaty',           city: 'Almaty' },             // +06:00
-  { iana: 'Asia/Yangon',           city: 'Yangon' },             // +06:30
-  { iana: 'Asia/Bangkok',          city: 'Bangkok' },            // +07:00
-  { iana: 'Asia/Shanghai',         city: 'Shanghai' },           // +08:00
-  { iana: 'Australia/Eucla',       city: 'Eucla' },              // +08:45
-  { iana: 'Asia/Tokyo',            city: 'Tokyo' },              // +09:00
-  { iana: 'Australia/Darwin',      city: 'Darwin' },             // +09:30
-  { iana: 'Australia/Sydney',      city: 'Sydney' },             // +10:00
-  { iana: 'Australia/Lord_Howe',   city: 'Lord Howe' },          // +10:30
-  { iana: 'Pacific/Guadalcanal',   city: 'Honiara' },            // +11:00
-  { iana: 'Pacific/Auckland',      city: 'Auckland' },           // +12:00
-  { iana: 'Pacific/Chatham',       city: 'Chatham' },            // +12:45
-  { iana: 'Pacific/Tongatapu',     city: "Nuku'alofa" },         // +13:00
-  { iana: 'Pacific/Kiritimati',    city: 'Kiritimati' },         // +14:00
+  { iana: 'Pacific/Pago_Pago', city: 'Pago Pago' }, // -11:00
+  { iana: 'Pacific/Honolulu', city: 'Honolulu' }, // -10:00
+  { iana: 'Pacific/Marquesas', city: 'Marquesas' }, // -09:30
+  { iana: 'America/Anchorage', city: 'Anchorage' }, // -09:00
+  { iana: 'America/Los_Angeles', city: 'Los Angeles' }, // -08:00
+  { iana: 'America/Denver', city: 'Denver' }, // -07:00
+  { iana: 'America/Chicago', city: 'Chicago' }, // -06:00
+  { iana: 'America/New_York', city: 'New York' }, // -05:00
+  { iana: 'America/Halifax', city: 'Halifax' }, // -04:00
+  { iana: 'America/St_Johns', city: "St. John's" }, // -03:30
+  { iana: 'America/Sao_Paulo', city: 'Sao Paulo' }, // -03:00
+  { iana: 'America/Noronha', city: 'Fernando de Noronha' }, // -02:00
+  { iana: 'Atlantic/Azores', city: 'Azores' }, // -01:00
+  { iana: 'Europe/London', city: 'London' }, // +00:00
+  { iana: 'Europe/Berlin', city: 'Berlin' }, // +01:00
+  { iana: 'Europe/Kyiv', city: 'Kyiv' }, // +02:00
+  { iana: 'Europe/Moscow', city: 'Moscow' }, // +03:00
+  { iana: 'Asia/Tehran', city: 'Tehran' }, // +03:30
+  { iana: 'Asia/Dubai', city: 'Dubai' }, // +04:00
+  { iana: 'Asia/Kabul', city: 'Kabul' }, // +04:30
+  { iana: 'Asia/Karachi', city: 'Karachi' }, // +05:00
+  { iana: 'Asia/Kolkata', city: 'Mumbai' }, // +05:30
+  { iana: 'Asia/Kathmandu', city: 'Kathmandu' }, // +05:45
+  { iana: 'Asia/Almaty', city: 'Almaty' }, // +06:00
+  { iana: 'Asia/Yangon', city: 'Yangon' }, // +06:30
+  { iana: 'Asia/Bangkok', city: 'Bangkok' }, // +07:00
+  { iana: 'Asia/Shanghai', city: 'Shanghai' }, // +08:00
+  { iana: 'Australia/Eucla', city: 'Eucla' }, // +08:45
+  { iana: 'Asia/Tokyo', city: 'Tokyo' }, // +09:00
+  { iana: 'Australia/Darwin', city: 'Darwin' }, // +09:30
+  { iana: 'Australia/Sydney', city: 'Sydney' }, // +10:00
+  { iana: 'Australia/Lord_Howe', city: 'Lord Howe' }, // +10:30
+  { iana: 'Pacific/Guadalcanal', city: 'Honiara' }, // +11:00
+  { iana: 'Pacific/Auckland', city: 'Auckland' }, // +12:00
+  { iana: 'Pacific/Chatham', city: 'Chatham' }, // +12:45
+  { iana: 'Pacific/Tongatapu', city: "Nuku'alofa" }, // +13:00
+  { iana: 'Pacific/Kiritimati', city: 'Kiritimati' }, // +14:00
 ]
 
 /**
@@ -147,12 +147,11 @@ export function makeTimezoneOption(iana: string): { label: string; value: string
 
 // Curated options, computed once at module load, sorted by real offset
 // (UTC-11 -> UTC+14). Same { label, value }[] shape as before.
-export const TIMEZONE_OPTIONS: { label: string; value: string }[] = TIMEZONE_CITIES
-  .map((z) => ({
-    label: buildTimezoneLabel(z.iana, z.city),
-    value: z.iana,
-    _offset: getOffsetMinutes(z.iana) ?? 0,
-  }))
+export const TIMEZONE_OPTIONS: { label: string; value: string }[] = TIMEZONE_CITIES.map((z) => ({
+  label: buildTimezoneLabel(z.iana, z.city),
+  value: z.iana,
+  _offset: getOffsetMinutes(z.iana) ?? 0,
+}))
   .sort((a, b) => a._offset - b._offset)
   .map(({ label, value }) => ({ label, value }))
 
@@ -169,22 +168,22 @@ export interface DirectionOption {
 }
 
 export const DIRECTION_OPTIONS: DirectionOption[] = [
-  { label: 'Медитация',            value: 'meditation' },
-  { label: 'Йога',                 value: 'yoga' },
+  { label: 'Медитация', value: 'meditation' },
+  { label: 'Йога', value: 'yoga' },
   { label: 'Дыхательные практики', value: 'breathwork' },
-  { label: 'Соматика',             value: 'somatic' },
-  { label: 'Тантра',               value: 'tantra' },
-  { label: 'Круги',                value: 'circles' },
-  { label: 'Саундхиллинг',         value: 'sound_healing' },
-  { label: 'Арт-практики',         value: 'art' },
+  { label: 'Соматика', value: 'somatic' },
+  { label: 'Тантра', value: 'tantra' },
+  { label: 'Круги', value: 'circles' },
+  { label: 'Саундхиллинг', value: 'sound_healing' },
+  { label: 'Арт-практики', value: 'art' },
   { label: 'Нарративные практики', value: 'narrative' },
-  { label: 'Движение',             value: 'movement' },
+  { label: 'Движение', value: 'movement' },
 ]
 
 export const DIFFICULTY_OPTIONS: { label: string; value: string }[] = [
   { label: 'Начальная', value: 'beginner' },
-  { label: 'Средняя',   value: 'medium' },
-  { label: 'Высокая',   value: 'high' },
+  { label: 'Средняя', value: 'medium' },
+  { label: 'Высокая', value: 'high' },
 ]
 
 export interface StyleOption {
@@ -200,18 +199,18 @@ export interface StyleOption {
 // (handoff §9 B-2).
 export const STYLE_OPTIONS_BY_DIRECTION: Partial<Record<PracticeDirection, StyleOption[]>> = {
   meditation: [
-    { label: 'Медитация молчания',    value: 'silence' },
+    { label: 'Медитация молчания', value: 'silence' },
     { label: 'Медитация присутствия', value: 'presence' },
-    { label: 'Звуковая медитация',    value: 'sound' },
-    { label: 'Даосская медитация',    value: 'taoist' },
+    { label: 'Звуковая медитация', value: 'sound' },
+    { label: 'Даосская медитация', value: 'taoist' },
   ],
   yoga: [
-    { label: 'Йога-нидра',     value: 'nidra' },
-    { label: 'Инь-йога',       value: 'yin' },
-    { label: 'Хатха-йога',     value: 'hatha' },
-    { label: 'Виньяса',        value: 'vinyasa' },
+    { label: 'Йога-нидра', value: 'nidra' },
+    { label: 'Инь-йога', value: 'yin' },
+    { label: 'Хатха-йога', value: 'hatha' },
+    { label: 'Виньяса', value: 'vinyasa' },
     { label: 'Кундалини-йога', value: 'kundalini' },
-    { label: 'Аштанга-йога',   value: 'ashtanga' },
+    { label: 'Аштанга-йога', value: 'ashtanga' },
   ],
   circles: [
     { label: 'Женский круг', value: 'womens' },

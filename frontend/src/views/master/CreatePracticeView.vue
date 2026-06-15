@@ -33,11 +33,7 @@
 <template>
   <div class="create-practice">
     <!-- Header -->
-    <VHeader
-      title="Новая практика"
-      show-back
-      @back="router.push({ name: 'master-practices' })"
-    />
+    <VHeader title="Новая практика" show-back @back="router.push({ name: 'master-practices' })" />
 
     <div class="create-practice__content">
       <!-- Required-fields legend (DS banner, Phase-3). -->
@@ -72,12 +68,7 @@
         />
 
         <!-- Вид практики = style (зависит от направления; «Без вида», если стилей нет). -->
-        <VSelect
-          v-model="form.style"
-          label="Вид практики"
-          :options="styleSelectOptions"
-          required
-        />
+        <VSelect v-model="form.style" label="Вид практики" :options="styleSelectOptions" required />
 
         <!-- Уровень = difficulty. -->
         <VSelect
@@ -144,11 +135,7 @@
         />
 
         <!-- Часовой пояс: дефолт из профиля мастера, не обязательное (Q1). -->
-        <VSelect
-          v-model="form.timezone"
-          label="Часовой пояс"
-          :options="TIMEZONE_OPTIONS"
-        />
+        <VSelect v-model="form.timezone" label="Часовой пояс" :options="TIMEZONE_OPTIONS" />
       </div>
 
       <!-- ================================================================
@@ -196,7 +183,10 @@
             <VCard class="create-practice__repeat create-practice__grow" padding="none">
               <div class="create-practice__repeat-title">Завершить:</div>
               <VRadioGroup v-model="form.recurrence_end" :options="RECURRENCE_END_OPTIONS" />
-              <span v-if="form.recurrence_end === 'after_count'" class="create-practice__count-pill">
+              <span
+                v-if="form.recurrence_end === 'after_count'"
+                class="create-practice__count-pill"
+              >
                 {{ form.recurrence_count }} практик
               </span>
             </VCard>
@@ -277,13 +267,7 @@
       </div>
 
       <!-- Submit -->
-      <VButton
-        variant="primary"
-        block
-        size="lg"
-        :loading="submitting"
-        @click="submit"
-      >
+      <VButton variant="primary" block size="lg" :loading="submitting" @click="submit">
         Создать практику
       </VButton>
 
@@ -351,15 +335,15 @@ const dateDisplay = computed((): string =>
 // is captured in form state but NOT yet a backend field (see
 // master-ds-zod-roadmap.md "recurrence period + series engine"). --
 const RECURRENCE_OPTIONS = [
-  { label: 'Каждый день',      value: 'daily' },
-  { label: 'Каждую неделю',    value: 'weekly' },
+  { label: 'Каждый день', value: 'daily' },
+  { label: 'Каждую неделю', value: 'weekly' },
   { label: 'Раз в две недели', value: 'biweekly' },
 ]
 
 // Завершение серии (captured-only — нет бэка; см. master-ds-zod-roadmap).
 const RECURRENCE_END_OPTIONS = [
-  { label: 'Никогда',                value: 'never' },
-  { label: 'Выбрать дату',           value: 'until_date' },
+  { label: 'Никогда', value: 'never' },
+  { label: 'Выбрать дату', value: 'until_date' },
   { label: 'После числа повторений', value: 'after_count' },
 ]
 
@@ -400,9 +384,9 @@ const form = reactive({
   time: '',
   duration_minutes: '60',
   timezone: authStore.user?.timezone ?? 'Europe/Moscow',
-  max_participants_raw: '',  // string input, parsed to int|null on submit
+  max_participants_raw: '', // string input, parsed to int|null on submit
   is_free: false,
-  price_eur_raw: '',          // string input, converted to cents on submit
+  price_eur_raw: '', // string input, converted to cents on submit
   description: '',
   what_to_prepare: '',
   contraindications: '',
@@ -426,9 +410,7 @@ const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
-const styleOptionsForForm = computed(() =>
-  stylesForDirection(form.direction as PracticeDirection),
-)
+const styleOptionsForForm = computed(() => stylesForDirection(form.direction as PracticeDirection))
 const styleSelectOptions = computed(() => [
   { value: '', label: 'Без вида' },
   ...styleOptionsForForm.value,
@@ -549,9 +531,7 @@ async function submit(): Promise<void> {
       scheduled_at: scheduledAt,
       duration_minutes: parseInt(form.duration_minutes, 10),
       timezone: form.timezone,
-      max_participants: form.max_participants_raw
-        ? parseInt(form.max_participants_raw, 10)
-        : null,
+      max_participants: form.max_participants_raw ? parseInt(form.max_participants_raw, 10) : null,
       // «Подключение» — авто-ссылка платформы (стаб → Зоду); не вводится на создании.
       zoom_link: null,
       is_free: form.is_free,

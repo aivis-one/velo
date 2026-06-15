@@ -44,11 +44,7 @@
           <IconDecor2 part="small" :size="18" />
         </div>
         <div class="timeline__row">
-          <DiaryThreadCard
-            :item="item"
-            :timezone="timezone"
-            @tap="(p) => emit('tap', p)"
-          />
+          <DiaryThreadCard :item="item" :timezone="timezone" @tap="(p) => emit('tap', p)" />
         </div>
       </template>
     </template>

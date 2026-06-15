@@ -24,12 +24,7 @@
           <div class="v-sheet__body">
             <slot />
           </div>
-          <button
-            v-if="saveLabel"
-            type="button"
-            class="v-sheet__save"
-            @click="$emit('save')"
-          >
+          <button v-if="saveLabel" type="button" class="v-sheet__save" @click="$emit('save')">
             {{ saveLabel }}
           </button>
         </div>

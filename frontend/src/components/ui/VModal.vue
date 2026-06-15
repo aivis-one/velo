@@ -19,11 +19,7 @@
 <template>
   <Teleport to="body">
     <Transition name="v-modal">
-      <div
-        v-if="open"
-        class="v-modal__overlay"
-        @click.self="onOverlayClick"
-      >
+      <div v-if="open" class="v-modal__overlay" @click.self="onOverlayClick">
         <div class="v-modal__container" role="dialog" aria-modal="true">
           <button
             v-if="showClose"

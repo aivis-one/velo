@@ -13,12 +13,7 @@
     :style="mirrored ? 'transform: scaleX(-1)' : undefined"
   >
     <!-- stem -->
-    <path
-      d="M5 19c4-1 7-4 9-8"
-      stroke="currentColor"
-      stroke-width="1.4"
-      stroke-linecap="round"
-    />
+    <path d="M5 19c4-1 7-4 9-8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
     <!-- upper leaf -->
     <path
       d="M14 11c1.2-2.4 3.4-3.6 5.8-3.4-.2 2.4-1.6 4.4-3.8 5.2-.9.3-1.6.1-2-.4-.4-.5-.4-1 0-1.4Z"
@@ -34,8 +29,8 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
-  defineProps<{ size?: number | string; mirrored?: boolean }>(),
-  { size: 24, mirrored: false },
-)
+withDefaults(defineProps<{ size?: number | string; mirrored?: boolean }>(), {
+  size: 24,
+  mirrored: false,
+})
 </script>

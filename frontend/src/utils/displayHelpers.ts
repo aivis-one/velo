@@ -41,8 +41,8 @@ import {
 
 /** Mood label by zone. Mood buttons render via vector IconMood* (CheckinView). */
 export const MOOD_LABEL: Record<string, string> = {
-  low:  'Не очень',
-  mid:  'Нормально',
+  low: 'Не очень',
+  mid: 'Нормально',
   high: 'Хорошо',
 }
 
@@ -52,8 +52,8 @@ export const MOOD_LABEL: Record<string, string> = {
 
 /** Rating label by zone. Rating buttons render via vector IconRating* (FeedbackView). */
 export const RATING_LABEL: Record<string, string> = {
-  fire:     'Огонь!',
-  good:     'Хорошо',
+  fire: 'Огонь!',
+  good: 'Хорошо',
   confused: 'Есть вопросы',
 }
 
@@ -96,9 +96,9 @@ export function ratingLabelFromScore(score: number): string {
  * on purpose -- bars are the lighter fills, icons are the saturated accents.
  */
 export const RATING_COLOR: Record<FeedbackRating, string> = {
-  fire:     'var(--velo-peach-300)',  // #fbc088
-  good:     'var(--velo-pink-300)',   // #f795a2
-  confused: 'var(--velo-blue-400)',   // #619cd2
+  fire: 'var(--velo-peach-300)', // #fbc088
+  good: 'var(--velo-pink-300)', // #f795a2
+  confused: 'var(--velo-blue-400)', // #619cd2
 }
 
 /**
@@ -109,8 +109,8 @@ export const RATING_COLOR: Record<FeedbackRating, string> = {
  */
 export const RATING_ICON_COLOR: Record<FeedbackRating, string> = {
   confused: 'var(--velo-rating-confused)',
-  good:     'var(--velo-rating-good)',
-  fire:     'var(--velo-rating-fire)',
+  good: 'var(--velo-rating-good)',
+  fire: 'var(--velo-rating-fire)',
 }
 
 // ---------------------------------------------------------------------------
@@ -122,16 +122,16 @@ export const RATING_ICON_COLOR: Record<FeedbackRating, string> = {
 // do not duplicate these strings in components.
 
 export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
-  meditation:    'Медитация',
-  yoga:          'Йога',
-  breathwork:    'Дыхательные практики',
-  somatic:       'Соматика',
-  tantra:        'Тантра',
-  circles:       'Круги',
+  meditation: 'Медитация',
+  yoga: 'Йога',
+  breathwork: 'Дыхательные практики',
+  somatic: 'Соматика',
+  tantra: 'Тантра',
+  circles: 'Круги',
   sound_healing: 'Саундхиллинг',
-  art:           'Арт-практики',
-  narrative:     'Нарративные практики',
-  movement:      'Движение',
+  art: 'Арт-практики',
+  narrative: 'Нарративные практики',
+  movement: 'Движение',
 }
 
 // Direction -> icon component for the practice hero card.
@@ -141,16 +141,16 @@ export const DIRECTION_LABEL: Record<PracticeDirection, string> = {
 // A new direction added here without its own icon would fall through to
 // DIRECTION_ICON_FALLBACK instead of failing vue-tsc.
 export const DIRECTION_ICON: Partial<Record<PracticeDirection, Component>> = {
-  meditation:    IconMeditation,
-  yoga:          IconYoga,
-  breathwork:    IconBreathwork,
-  somatic:       IconSomatic,
-  tantra:        IconTantra,
-  circles:       IconCircles,
+  meditation: IconMeditation,
+  yoga: IconYoga,
+  breathwork: IconBreathwork,
+  somatic: IconSomatic,
+  tantra: IconTantra,
+  circles: IconCircles,
   sound_healing: IconSoundHealing,
-  art:           IconArt,
-  narrative:     IconNarrative,
-  movement:      IconMovement,
+  art: IconArt,
+  narrative: IconNarrative,
+  movement: IconMovement,
 }
 
 /** Neutral fallback glyph. After F-1 closed (2026-05-28) all 10 directions
@@ -191,8 +191,8 @@ export function practiceIconFor(p: {
 
 export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
   beginner: 'Начальная',
-  medium:   'Средняя',
-  high:     'Высокая',
+  medium: 'Средняя',
+  high: 'Высокая',
 }
 
 /**
@@ -201,19 +201,19 @@ export const DIFFICULTY_LABEL: Record<PracticeDifficulty, string> = {
  */
 export const DIFFICULTY_DOTS: Record<PracticeDifficulty, number> = {
   beginner: 1,
-  medium:   2,
-  high:     3,
+  medium: 2,
+  high: 3,
 }
 
 export const DURATION_BUCKET_LABEL: Record<DurationBucket, string> = {
   short: 'До 1 часа',
-  long:  '1 час и больше',
+  long: '1 час и больше',
 }
 
 export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
-  night:   'Ночь',
+  night: 'Ночь',
   morning: 'Утро',
-  day:     'День',
+  day: 'День',
   evening: 'Вечер',
 }
 
@@ -230,15 +230,15 @@ export const TIME_OF_DAY_LABEL: Record<TimeOfDay, string> = {
 import type { DiaryEventKind } from '@/api/types'
 
 export const FEED_KIND_TITLE: Record<DiaryEventKind, string> = {
-  booking_confirmed:            'Вы записались',
-  booking_cancelled_by_user:    'Вы отменили запись',
-  practice_rescheduled:         'Мастер перенёс практику',
+  booking_confirmed: 'Вы записались',
+  booking_cancelled_by_user: 'Вы отменили запись',
+  practice_rescheduled: 'Мастер перенёс практику',
   practice_cancelled_by_master: 'Практика отменена',
-  practice_outcome:             '',          // uses practice_title from snapshot
-  checkin:                      'Check-in',  // + ": " + mood label
-  feedback:                     'Feedback',  // + ": " + rating label
-  note:                         'Дневник',
-  dream:                        'Сонник',
+  practice_outcome: '', // uses practice_title from snapshot
+  checkin: 'Check-in', // + ": " + mood label
+  feedback: 'Feedback', // + ": " + rating label
+  note: 'Дневник',
+  dream: 'Сонник',
 }
 
 /**
@@ -247,7 +247,7 @@ export const FEED_KIND_TITLE: Record<DiaryEventKind, string> = {
  */
 export const OUTCOME_LABEL: Record<string, string> = {
   attended: 'Done',
-  no_show:  'Не состоялась',
+  no_show: 'Не состоялась',
 }
 
 // ---------------------------------------------------------------------------
@@ -260,7 +260,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
  */
 export function formatShortDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ru-RU', {
-    day:   'numeric',
+    day: 'numeric',
     month: 'short',
   })
 }

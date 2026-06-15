@@ -48,10 +48,7 @@
           <span class="master-public__pill master-public__pill--verified">
             <IconCheck :size="14" /> Верифицирован
           </span>
-          <span
-            v-if="profile.experience_years != null"
-            class="master-public__pill"
-          >
+          <span v-if="profile.experience_years != null" class="master-public__pill">
             {{ profile.experience_years }} {{ pluralYears(profile.experience_years) }} опыта
           </span>
         </div>
@@ -77,7 +74,7 @@
       <VAccordion v-if="profile.methods?.length" title="Методы">
         <div class="master-public__chips">
           <VTag
-            v-for="(method, i) in (profile.methods || [])"
+            v-for="(method, i) in profile.methods || []"
             :key="method"
             :variant="TAG_VARIANTS[i % TAG_VARIANTS.length]"
           >
@@ -108,9 +105,7 @@
 
       <!-- Ask a question (frame 6 -- not built yet) -->
       <div class="master-public__actions">
-        <VButton variant="primary" size="lg" block @click="onAsk">
-          Задать вопрос
-        </VButton>
+        <VButton variant="primary" size="lg" block @click="onAsk"> Задать вопрос </VButton>
       </div>
     </div>
   </div>
@@ -119,7 +114,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { VLoader, VEmptyState, VButton, VAccordion, VTag, VAvatar, VStatCard, VCard } from '@/components/ui'
+import {
+  VLoader,
+  VEmptyState,
+  VButton,
+  VAccordion,
+  VTag,
+  VAvatar,
+  VStatCard,
+  VCard,
+} from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { IconCheck } from '@/components/icons'
 import CalendarPracticeCard from '@/components/shared/CalendarPracticeCard.vue'
@@ -183,7 +187,12 @@ onMounted(async () => {
     // master_id filter + scheduled status. One small page is enough.
     try {
       const res = await getPractices(
-        { master_id: masterId.value, status: 'scheduled', sort_by: 'scheduled_at', sort_order: 'asc' },
+        {
+          master_id: masterId.value,
+          status: 'scheduled',
+          sort_by: 'scheduled_at',
+          sort_order: 'asc',
+        },
         10,
         0,
       )

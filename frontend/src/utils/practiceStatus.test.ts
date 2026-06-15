@@ -3,11 +3,7 @@
 // =============================================================================
 
 import { describe, it, expect } from 'vitest'
-import {
-  masterPracticeBadge,
-  practiceEndMs,
-  practiceHasEnded,
-} from '@/utils/practiceStatus'
+import { masterPracticeBadge, practiceEndMs, practiceHasEnded } from '@/utils/practiceStatus'
 
 describe('masterPracticeBadge', () => {
   it('draft → Черновик / warning', () => {

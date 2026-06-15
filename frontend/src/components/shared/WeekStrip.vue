@@ -36,10 +36,7 @@
       >
         <span class="week-strip__weekday">{{ cell.weekday }}</span>
         <span class="week-strip__num">{{ cell.num }}</span>
-        <span
-          class="week-strip__dot"
-          :class="{ 'week-strip__dot--visible': cell.hasPractices }"
-        />
+        <span class="week-strip__dot" :class="{ 'week-strip__dot--visible': cell.hasPractices }" />
       </button>
     </div>
 

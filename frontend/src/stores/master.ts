@@ -56,8 +56,8 @@ export const useMasterStore = defineStore('master', () => {
   // Practices (paginated)
   // =========================================================================
 
-  const pagination = usePagination<PracticeResponse>(
-    (limit, offset) => getMyPractices(limit, offset),
+  const pagination = usePagination<PracticeResponse>((limit, offset) =>
+    getMyPractices(limit, offset),
   )
 
   // W-4: separate flag instead of items.length > 0 check.

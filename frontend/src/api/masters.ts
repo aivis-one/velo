@@ -57,10 +57,7 @@ export function getPublicMaster(userId: string): Promise<MasterPublicResponse> {
  * Fetch paginated list of practices owned by the current master.
  * Only callable by users with role='master'.
  */
-export function getMyPractices(
-  limit = 20,
-  offset = 0,
-): Promise<PaginatedPracticesResponse> {
+export function getMyPractices(limit = 20, offset = 0): Promise<PaginatedPracticesResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedPracticesResponse>(`/api/v1/masters/me/practices${query}`)
 }
@@ -98,10 +95,7 @@ export function createWithdrawal(amount_cents: number): Promise<WithdrawalRespon
  * Fetch paginated list of my withdrawal requests (newest first).
  * Only callable by users with role='master'.
  */
-export function getMyWithdrawals(
-  limit = 20,
-  offset = 0,
-): Promise<PaginatedWithdrawalsResponse> {
+export function getMyWithdrawals(limit = 20, offset = 0): Promise<PaginatedWithdrawalsResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedWithdrawalsResponse>(`/api/v1/masters/me/withdrawals${query}`)
 }

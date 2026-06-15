@@ -32,9 +32,7 @@
 
       <h2 class="pending-view__title">Заявка отправлена!</h2>
 
-      <p class="pending-view__subtitle">
-        Рассмотрим в течение 24-48 часов
-      </p>
+      <p class="pending-view__subtitle">Рассмотрим в течение 24-48 часов</p>
 
       <!-- Status badge (real data for role='master', static for role='user') -->
       <div class="pending-view__status">
@@ -63,27 +61,17 @@
       <!-- Info card -->
       <VCard class="pending-view__info-card" padding="none">
         <p class="pending-view__info-text">
-          Когда ваша заявка будет рассмотрена, вы получите
-          уведомление в Telegram.
+          Когда ваша заявка будет рассмотрена, вы получите уведомление в Telegram.
         </p>
       </VCard>
 
       <!-- Refresh button -->
-      <VButton
-        variant="primary"
-        block
-        :loading="refreshing"
-        @click="refreshStatus"
-      >
+      <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
         Обновить статус
       </VButton>
 
       <!-- Back to catalog -->
-      <VButton
-        variant="ghost"
-        block
-        @click="router.push({ name: 'user-dashboard' })"
-      >
+      <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
         Вернуться к каталогу
       </VButton>
     </div>
@@ -134,10 +122,7 @@ onMounted(async () => {
 
 // -- Redirect if already verified --
 function checkIfVerified(): void {
-  if (
-    authStore.role === 'master' &&
-    masterStore.profile?.status === 'verified'
-  ) {
+  if (authStore.role === 'master' && masterStore.profile?.status === 'verified') {
     router.replace({ name: 'master-dashboard' })
   }
 }

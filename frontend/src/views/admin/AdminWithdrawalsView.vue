@@ -37,7 +37,9 @@
       title="Не удалось загрузить"
       description="Проверьте соединение и попробуйте ещё раз"
     >
-      <template #action><VButton variant="primary" @click="loadInitial">Повторить</VButton></template>
+      <template #action
+        ><VButton variant="primary" @click="loadInitial">Повторить</VButton></template
+      >
     </VEmptyState>
 
     <!-- Empty -->

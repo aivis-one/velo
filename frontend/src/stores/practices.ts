@@ -20,10 +20,7 @@ import { ref, reactive, watch } from 'vue'
 import { getPractices, getPractice } from '@/api/practices'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
-import type {
-  PracticeResponse,
-  PracticeFilters,
-} from '@/api/types'
+import type { PracticeResponse, PracticeFilters } from '@/api/types'
 
 export const usePracticesStore = defineStore('practices', () => {
   // -- Filters --
@@ -33,8 +30,8 @@ export const usePracticesStore = defineStore('practices', () => {
   })
 
   // -- Paginated catalog --
-  const pagination = usePagination<PracticeResponse>(
-    (limit, offset) => getPractices(filters, limit, offset),
+  const pagination = usePagination<PracticeResponse>((limit, offset) =>
+    getPractices(filters, limit, offset),
   )
 
   /**

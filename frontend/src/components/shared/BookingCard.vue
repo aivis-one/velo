@@ -65,11 +65,16 @@ defineEmits<{
 const badgeIcon = computed(() => {
   if (!props.badge) return null
   switch (props.badge.variant) {
-    case 'today':     return IconClock
-    case 'tomorrow':  return IconClock
-    case 'done':      return IconCheck
-    case 'cancelled': return IconClose
-    default:          return null   // no_show («Не состоялась») / live → no icon
+    case 'today':
+      return IconClock
+    case 'tomorrow':
+      return IconClock
+    case 'done':
+      return IconCheck
+    case 'cancelled':
+      return IconClose
+    default:
+      return null // no_show («Не состоялась») / live → no icon
   }
 })
 
@@ -78,10 +83,14 @@ const badgeIcon = computed(() => {
 // cancelled / no_show -> error (pink). teal aligns to the DS canon (teal-600).
 const vbadgeVariant = computed<'success' | 'warning' | 'error' | 'muted'>(() => {
   switch (props.badge?.variant) {
-    case 'tomorrow':  return 'warning'
-    case 'cancelled': return 'error'
-    case 'no_show':   return 'muted'   // «Не состоялась» — low-key blue-grey, no drama
-    default:          return 'success'
+    case 'tomorrow':
+      return 'warning'
+    case 'cancelled':
+      return 'error'
+    case 'no_show':
+      return 'muted' // «Не состоялась» — low-key blue-grey, no drama
+    default:
+      return 'success'
   }
 })
 

@@ -44,7 +44,13 @@ const router = useRouter()
 
 // STUB sample (no messaging backend) -> Zod.
 const conversations = [
-  { id: '1', name: 'Мария К.', preview: 'Спасибо за практику! Чувствую себя…', time: '5 мин', unread: 1 },
+  {
+    id: '1',
+    name: 'Мария К.',
+    preview: 'Спасибо за практику! Чувствую себя…',
+    time: '5 мин',
+    unread: 1,
+  },
   { id: '2', name: 'Анна П.', preview: 'Подскажите, как правильно…', time: '1 час', unread: 1 },
   { id: '3', name: 'Дмитрий С.', preview: 'Понял, спасибо!', time: 'Вт', unread: 0 },
   { id: '4', name: 'Поддержка VELΘ', preview: 'Ваш запрос обработан…', time: '19.01', unread: 0 },

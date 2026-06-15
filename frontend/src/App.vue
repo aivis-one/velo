@@ -40,10 +40,7 @@
         @enter="onWelcomeEnter"
         @create-account="onCreateAccount"
       />
-      <OnboardingView
-        v-else-if="stage === 'onboarding'"
-        @done="stage = 'app'"
-      />
+      <OnboardingView v-else-if="stage === 'onboarding'" @done="stage = 'app'" />
       <RouterView v-else />
     </template>
   </AppFrame>

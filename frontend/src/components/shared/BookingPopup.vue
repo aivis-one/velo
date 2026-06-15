@@ -67,9 +67,7 @@
     <!-- Promo result -->
     <div v-if="PROMO_ENABLED && promoApplied" class="popup__discount">
       <span class="popup__discount-label">Скидка {{ discountPercent }}%</span>
-      <span class="popup__discount-value">
-        −{{ formattedDiscount }}
-      </span>
+      <span class="popup__discount-value"> −{{ formattedDiscount }} </span>
     </div>
 
     <!-- Total -->
@@ -95,14 +93,7 @@
       >
         {{ purchaseButtonText }}
       </VButton>
-      <VButton
-        variant="ghost"
-        block
-        :disabled="purchasing"
-        @click="onClose"
-      >
-        Отмена
-      </VButton>
+      <VButton variant="ghost" block :disabled="purchasing" @click="onClose"> Отмена </VButton>
     </div>
   </VModal>
 </template>
@@ -160,13 +151,9 @@ const formattedDate = computed(() =>
   formatDate(props.practice.scheduled_at, props.practice.timezone),
 )
 
-const promoApplied = computed(() =>
-  preview.value !== null && preview.value.discount_cents > 0,
-)
+const promoApplied = computed(() => preview.value !== null && preview.value.discount_cents > 0)
 
-const discountPercent = computed(() =>
-  preview.value?.discount_percent ?? 0,
-)
+const discountPercent = computed(() => preview.value?.discount_percent ?? 0)
 
 const formattedDiscount = computed(() => {
   if (!preview.value) return ''
@@ -174,20 +161,14 @@ const formattedDiscount = computed(() => {
 })
 
 /** Final price to pay (after promo discount if applied). */
-const totalCents = computed(() =>
-  preview.value?.paid_cents ?? props.practice.price_cents,
-)
+const totalCents = computed(() => preview.value?.paid_cents ?? props.practice.price_cents)
 
-const totalCurrency = computed(() =>
-  preview.value?.currency ?? props.practice.currency,
-)
+const totalCurrency = computed(() => preview.value?.currency ?? props.practice.currency)
 
-const formattedTotal = computed(() =>
-  formatMoney(totalCents.value, totalCurrency.value),
-)
+const formattedTotal = computed(() => formatMoney(totalCents.value, totalCurrency.value))
 
-const insufficientBalance = computed(() =>
-  !props.practice.is_free && !balanceStore.hasEnough(totalCents.value),
+const insufficientBalance = computed(
+  () => !props.practice.is_free && !balanceStore.hasEnough(totalCents.value),
 )
 
 const purchaseButtonText = computed(() => {
@@ -216,10 +197,7 @@ async function onApplyPromo(): Promise<void> {
 
   previewing.value = true
   try {
-    preview.value = await previewPurchase(
-      props.practice.id,
-      promoCode.value,
-    )
+    preview.value = await previewPurchase(props.practice.id, promoCode.value)
   } catch (e) {
     preview.value = null
     if (e instanceof ApiResponseError) {

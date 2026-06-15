@@ -7,9 +7,7 @@
     <IconSearch :size="64" class="not-found__icon" />
     <h1 class="not-found__title">404</h1>
     <p class="not-found__text">Страница не найдена</p>
-    <button class="not-found__btn" @click="router.push('/')">
-      На главную
-    </button>
+    <button class="not-found__btn" @click="router.push('/')">На главную</button>
   </div>
 </template>
 
@@ -31,7 +29,10 @@ const router = useRouter()
   padding: var(--space-5);
   background: transparent;
 }
-.not-found__icon { margin-bottom: var(--space-4); color: var(--velo-text-muted); }
+.not-found__icon {
+  margin-bottom: var(--space-4);
+  color: var(--velo-text-muted);
+}
 .not-found__title {
   font-family: var(--font-body);
   font-size: var(--text-2xl);

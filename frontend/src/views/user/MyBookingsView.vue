@@ -107,9 +107,7 @@ function hasEnded(b: BookingWithPracticeResponse): boolean {
 }
 
 function isUpcoming(b: BookingWithPracticeResponse): boolean {
-  return (
-    (UPCOMING_STATUSES as readonly string[]).includes(b.status) && !hasEnded(b)
-  )
+  return (UPCOMING_STATUSES as readonly string[]).includes(b.status) && !hasEnded(b)
 }
 
 /**
@@ -169,10 +167,7 @@ const upcoming = computed(() => {
   return [...list].sort((a, b) => {
     const rankDiff = upcomingRank(a) - upcomingRank(b)
     if (rankDiff !== 0) return rankDiff
-    return (
-      new Date(a.practice.scheduled_at).getTime() -
-      new Date(b.practice.scheduled_at).getTime()
-    )
+    return new Date(a.practice.scheduled_at).getTime() - new Date(b.practice.scheduled_at).getTime()
   })
 })
 
@@ -181,8 +176,7 @@ const past = computed(() => {
   const list = store.bookings.filter((b) => !isUpcoming(b))
   return [...list].sort(
     (a, b) =>
-      new Date(b.practice.scheduled_at).getTime() -
-      new Date(a.practice.scheduled_at).getTime(),
+      new Date(b.practice.scheduled_at).getTime() - new Date(a.practice.scheduled_at).getTime(),
   )
 })
 

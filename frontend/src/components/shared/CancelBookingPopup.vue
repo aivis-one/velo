@@ -32,12 +32,7 @@
          (Figma cancel-reservation.svg + DS-паттерн для destructive-confirm:
          prominent = safe, subtle/destructive = pink). -->
     <div class="cancel__actions">
-      <VButton
-        variant="primary"
-        block
-        :disabled="loading"
-        @click="onClose"
-      >
+      <VButton variant="primary" block :disabled="loading" @click="onClose">
         Нет, оставить
       </VButton>
       <VButton

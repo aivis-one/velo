@@ -22,7 +22,9 @@
     <span class="v-checkbox__box" :class="{ 'v-checkbox__box--on': modelValue }">
       <IconCheck v-if="modelValue" class="v-checkbox__check" :size="14" />
     </span>
-    <span v-if="label || $slots.default" class="v-checkbox__label"><slot>{{ label }}</slot></span>
+    <span v-if="label || $slots.default" class="v-checkbox__label"
+      ><slot>{{ label }}</slot></span
+    >
   </button>
 </template>
 

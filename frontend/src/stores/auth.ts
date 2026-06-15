@@ -38,8 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
   // for normal users and on production. The settings UI shows a switch button
   // per allowed role except the current one.
   const allowedRoles = computed<UserRole[]>(() => {
-    const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)
-      ?.role_switch
+    const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)?.role_switch
     return rs?.allowed_roles ?? []
   })
 
@@ -69,10 +68,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function loginViaTelegram(initData: string): Promise<boolean> {
     loading.value = true
     try {
-      const response = await api.post<AuthResponse>(
-        '/api/v1/auth/telegram',
-        { init_data: initData },
-      )
+      const response = await api.post<AuthResponse>('/api/v1/auth/telegram', {
+        init_data: initData,
+      })
       _setToken(response.session_token)
       _setUser(response.user)
       return true
@@ -181,8 +179,17 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    user, token, loading,
-    isAuthenticated, role, allowedRoles,
-    loginViaTelegram, restoreSession, fetchMe, updateProfile, switchRole, logout,
+    user,
+    token,
+    loading,
+    isAuthenticated,
+    role,
+    allowedRoles,
+    loginViaTelegram,
+    restoreSession,
+    fetchMe,
+    updateProfile,
+    switchRole,
+    logout,
   }
 })

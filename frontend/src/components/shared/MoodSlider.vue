@@ -39,10 +39,7 @@
          drag / tap / keyboard all work and stay accessible. -->
     <div class="mood-slider__track-wrap">
       <div class="mood-slider__track" />
-      <div
-        class="mood-slider__thumb"
-        :style="{ left: `${thumbPercent}%` }"
-      />
+      <div class="mood-slider__thumb" :style="{ left: `${thumbPercent}%` }" />
       <input
         class="mood-slider__input"
         type="range"

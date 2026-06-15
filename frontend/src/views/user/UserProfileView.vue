@@ -30,11 +30,7 @@
     <!-- Header -->
     <VCard class="profile__header" padding="none">
       <div class="profile__avatar">
-        <VAvatar
-          :name="displayName"
-          :url="user?.avatar_url ?? undefined"
-          size="lg"
-        />
+        <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" size="lg" />
       </div>
       <h1 class="profile__name">{{ displayName }}</h1>
     </VCard>
@@ -94,7 +90,11 @@
         <div class="profile__menu-list">
           <VMenuRow
             variant="primary"
-            :label="authStore.role === 'admin' ? 'Вернуться в режим администратора' : 'Вернуться в режим мастера'"
+            :label="
+              authStore.role === 'admin'
+                ? 'Вернуться в режим администратора'
+                : 'Вернуться в режим мастера'
+            "
             @click="returnToNativeMode"
           />
         </div>

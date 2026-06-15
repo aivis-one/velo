@@ -24,7 +24,9 @@
           <div class="cpd__ptitle">{{ practice.title }}</div>
           <div class="cpd__pmeta">
             <span>{{ practiceWhen }}</span>
-            <span class="cpd__pcount"><IconGroup :size="15" /> {{ practice.current_participants }} участников</span>
+            <span class="cpd__pcount"
+              ><IconGroup :size="15" /> {{ practice.current_participants }} участников</span
+            >
           </div>
         </div>
       </div>
@@ -45,7 +47,9 @@
       </template>
 
       <div class="cpd__actions">
-        <VButton variant="primary" :disabled="loading" @click="$emit('cancel')">Не отменять</VButton>
+        <VButton variant="primary" :disabled="loading" @click="$emit('cancel')"
+          >Не отменять</VButton
+        >
         <VButton variant="danger" :loading="loading" @click="$emit('confirm')">Отменить</VButton>
       </div>
     </div>
@@ -83,9 +87,7 @@ const SCOPE_OPTIONS = [
   { value: 'future', label: 'Эту и будущие' },
 ]
 
-const practiceIcon = computed(() =>
-  props.practice ? practiceIconFor(props.practice) : null,
-)
+const practiceIcon = computed(() => (props.practice ? practiceIconFor(props.practice) : null))
 
 const practiceWhen = computed((): string => {
   if (!props.practice) return ''

@@ -97,10 +97,7 @@ export function createPractice(body: CreatePracticeRequest): Promise<PracticeRes
  * "cancelled" is NOT reachable here -- use cancelPractice() instead.
  * "deleted"   -> use deletePractice() (soft-delete, draft only).
  */
-export function updatePractice(
-  id: string,
-  body: UpdatePracticeRequest,
-): Promise<PracticeResponse> {
+export function updatePractice(id: string, body: UpdatePracticeRequest): Promise<PracticeResponse> {
   return api.patch<PracticeResponse>(`/api/v1/practices/${id}`, body)
 }
 

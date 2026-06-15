@@ -67,24 +67,12 @@
 
       <!-- One check-in per practice: once done, the button locks and shows
            why (so it does not read as a random disabled control). -->
-      <VButton
-        variant="secondary"
-        size="lg"
-        block
-        :disabled="alreadyCheckedIn"
-        @click="onCheckin"
-      >
+      <VButton variant="secondary" size="lg" block :disabled="alreadyCheckedIn" @click="onCheckin">
         <template v-if="alreadyCheckedIn">Check-in сделан</template>
         <template v-else>Check-in</template>
       </VButton>
 
-      <VButton
-        variant="danger"
-        size="lg"
-        block
-        :loading="leaving"
-        @click="onLeave"
-      >
+      <VButton variant="danger" size="lg" block :loading="leaving" @click="onLeave">
         Покинуть практику
       </VButton>
     </div>
@@ -116,18 +104,14 @@ const practice = computed(() => practicesStore.selected)
 
 /** The current user's booking for this practice (any active-ish status). */
 const myBooking = computed(() =>
-  bookingsStore.bookings.find(
-    (b) => b.practice_id === practiceId && b.status !== 'cancelled',
-  ),
+  bookingsStore.bookings.find((b) => b.practice_id === practiceId && b.status !== 'cancelled'),
 )
 
 /** One check-in per practice: once the booking has it, the button locks. */
 const alreadyCheckedIn = computed(() => !!myBooking.value?.has_checkin)
 
 /** A Zoom link is usable only if it is an https URL (AUDIT-0520-02). */
-const hasValidZoom = computed(
-  () => !!practice.value?.zoom_link?.startsWith('https://'),
-)
+const hasValidZoom = computed(() => !!practice.value?.zoom_link?.startsWith('https://'))
 
 /** "Войти" is enabled only with a booking and a valid Zoom link. */
 const canJoin = computed(() => !!myBooking.value && hasValidZoom.value)
@@ -153,7 +137,11 @@ async function onEnter(): Promise<void> {
         toast.error(result.error)
       }
     }
-    try { platform.hapticFeedback('medium') } catch { /* silent fallback */ }
+    try {
+      platform.hapticFeedback('medium')
+    } catch {
+      /* silent fallback */
+    }
     // Zoom intentionally disabled for now (not ready for the public test): the
     // check-in above still records, but we show "unavailable" instead of opening
     // the link. Re-enable when Zoom delivery is live.

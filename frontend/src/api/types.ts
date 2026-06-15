@@ -202,12 +202,7 @@ export type DiaryEventKind =
 
 // Filter chips on the feed. Map 1:1 onto backend \`category\` query values
 // (settings.diary_feed_categories). Omitting category = "Все".
-export type DiaryFeedCategory =
-  | 'entries'
-  | 'dreams'
-  | 'feedbacks'
-  | 'checkins'
-  | 'practices'
+export type DiaryFeedCategory = 'entries' | 'dreams' | 'feedbacks' | 'checkins' | 'practices'
 
 // Query params for GET /api/v1/diary/feed (cursor pagination).
 export interface DiaryFeedFilters {

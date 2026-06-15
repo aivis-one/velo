@@ -97,8 +97,8 @@ const toast = useToast()
 
 // -- Constants --
 const PRESETS = [500, 1000, 2000, 5000] // cents: EUR 5, 10, 20, 50
-const MIN_CENTS = 100    // EUR 1.00 (from backend config)
-const MAX_CENTS = 50000  // EUR 500.00 (from backend config)
+const MIN_CENTS = 100 // EUR 1.00 (from backend config)
+const MAX_CENTS = 50000 // EUR 500.00 (from backend config)
 
 // C-1: Allowed URL prefixes for checkout redirect.
 const ALLOWED_REDIRECT_PREFIXES = [
@@ -118,9 +118,7 @@ const customInput = ref<{ focus: () => void } | null>(null)
 // parseFloat('0.575') * 100 = 57.499... -> rounds to 57, not 58.
 const customCents = computed(() => eurStringToCents(customValue.value))
 
-const effectiveCents = computed(() =>
-  customMode.value ? customCents.value : selectedCents.value,
-)
+const effectiveCents = computed(() => (customMode.value ? customCents.value : selectedCents.value))
 
 const validationError = computed(() => {
   if (!customMode.value) return ''
@@ -130,11 +128,12 @@ const validationError = computed(() => {
   return ''
 })
 
-const canSubmit = computed(() =>
-  effectiveCents.value >= MIN_CENTS &&
-  effectiveCents.value <= MAX_CENTS &&
-  !validationError.value &&
-  !loading.value,
+const canSubmit = computed(
+  () =>
+    effectiveCents.value >= MIN_CENTS &&
+    effectiveCents.value <= MAX_CENTS &&
+    !validationError.value &&
+    !loading.value,
 )
 
 const selectedLabel = computed(() => {

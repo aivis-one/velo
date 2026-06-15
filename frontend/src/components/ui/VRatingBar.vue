@@ -19,7 +19,9 @@
 <template>
   <div class="v-rating-bar">
     <div class="v-rating-bar__head">
-      <span class="v-rating-bar__icon" :style="{ color: iconColor || barColor }"><slot name="icon" /></span>
+      <span class="v-rating-bar__icon" :style="{ color: iconColor || barColor }"
+        ><slot name="icon"
+      /></span>
       <span class="v-rating-bar__label">{{ label }}</span>
     </div>
     <span class="v-rating-bar__track">

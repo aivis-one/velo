@@ -23,7 +23,6 @@
 
 <template>
   <div class="dashboard">
-
     <!-- Greeting removed (static, low-value, took space — operator 2026-06-04). -->
 
     <!-- Check-in alert banner (shared Banner) -->
@@ -64,16 +63,9 @@
       </div>
 
       <!-- Empty -->
-      <div
-        v-else-if="!bookingsStore.loading && !nearestBooking"
-        class="dashboard__empty"
-      >
+      <div v-else-if="!bookingsStore.loading && !nearestBooking" class="dashboard__empty">
         <p class="dashboard__empty-text">Нет предстоящих практик</p>
-        <VButton
-          size="sm"
-          variant="outline"
-          @click="router.push({ name: 'user-calendar' })"
-        >
+        <VButton size="sm" variant="outline" @click="router.push({ name: 'user-calendar' })">
           Найти практику
         </VButton>
       </div>
@@ -92,27 +84,14 @@
           <VBadge v-if="nearestIsLive" variant="success">
             <span class="dashboard__live-dot" /> В эфире
           </VBadge>
-          <VBadge v-else-if="nearestIsFree" variant="blue">
-            Бесплатно
-          </VBadge>
-          <VBadge v-else variant="blue">
-            <IconCheck :size="12" /> Оплачено
-          </VBadge>
+          <VBadge v-else-if="nearestIsFree" variant="blue"> Бесплатно </VBadge>
+          <VBadge v-else variant="blue"> <IconCheck :size="12" /> Оплачено </VBadge>
         </template>
       </PracticeListCard>
 
       <!-- Action buttons (outside the card, per Figma) -->
-      <div
-        v-if="nearestBooking"
-        class="dashboard__practice-actions"
-      >
-        <VButton
-          variant="secondary"
-          block
-          @click="onZoomClick"
-        >
-          Zoom
-        </VButton>
+      <div v-if="nearestBooking" class="dashboard__practice-actions">
+        <VButton variant="secondary" block @click="onZoomClick"> Zoom </VButton>
         <VButton
           variant="primary"
           block
@@ -162,12 +141,12 @@
       <VCard>
         <p class="dashboard__ai-text">
           <template v-if="aiPeriod === 'week'">
-            На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик
-            и провели в практике <strong>{{ practiceHours }}</strong> часов.
+            На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
+            практике <strong>{{ practiceHours }}</strong> часов.
           </template>
           <template v-else>
-            В этом месяце вы посетили <strong>{{ attendedCount }}</strong> практик
-            и провели в практике <strong>{{ practiceHours }}</strong> часов.
+            В этом месяце вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
+            практике <strong>{{ practiceHours }}</strong> часов.
           </template>
         </p>
 
@@ -187,7 +166,6 @@
         <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
       </div>
     </section>
-
   </div>
 </template>
 
@@ -256,8 +234,8 @@ const checkinAlertTime = computed((): string => {
   if (!checkinAlert.value) return ''
   const diffMs = new Date(checkinAlert.value.practice.scheduled_at).getTime() - now.value
   const diffMinutes = Math.round(diffMs / 60_000)
-  if (diffMinutes <= 0)  return ' • Сейчас'
-  if (diffMinutes < 60)  return ` • через ${diffMinutes} мин`
+  if (diffMinutes <= 0) return ' • Сейчас'
+  if (diffMinutes < 60) return ` • через ${diffMinutes} мин`
   const hours = Math.floor(diffMinutes / 60)
   return ` • через ${hours} ч`
 })
@@ -311,8 +289,7 @@ const nearestBooking = computed((): BookingWithPracticeResponse | null => {
 
   if (candidates.length === 0) return null
 
-  const startMs = (b: BookingWithPracticeResponse) =>
-    new Date(b.practice.scheduled_at).getTime()
+  const startMs = (b: BookingWithPracticeResponse) => new Date(b.practice.scheduled_at).getTime()
 
   // In-progress = already started (start <= now) and not past the ceiling.
   const inProgress = candidates.filter((b) => startMs(b) <= current)
@@ -347,9 +324,7 @@ const nearestIsFree = computed((): boolean =>
  * "Check-in" action button (one check-in per booking) -- mirrors the banner,
  * which hides itself on has_checkin.
  */
-const nearestCheckedIn = computed((): boolean =>
-  nearestBooking.value?.has_checkin ?? false,
-)
+const nearestCheckedIn = computed((): boolean => nearestBooking.value?.has_checkin ?? false)
 
 /**
  * Practice title without a trailing " (эфир)" marker. Some seeded / manually
@@ -465,7 +440,9 @@ function goToFeedback(practiceId: string): void {
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
-  clockInterval = setInterval(() => { now.value = Date.now() }, 60_000)
+  clockInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 60_000)
 })
 
 onUnmounted(() => {

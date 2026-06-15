@@ -45,9 +45,7 @@
           <IconSuccess :size="56" />
         </span>
         <h1 class="booking-confirmed__title">Практика забронирована!</h1>
-        <p class="booking-confirmed__text">
-          Ссылка на Zoom появится за 10 минут до начала.
-        </p>
+        <p class="booking-confirmed__text">Ссылка на Zoom появится за 10 минут до начала.</p>
       </VCard>
 
       <!-- Ask-master request (VISUAL ONLY, TD-ASK-MASTER) -->

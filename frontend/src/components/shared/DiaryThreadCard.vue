@@ -18,22 +18,13 @@
 
 <template>
   <!-- ===================== BANNER (centered) ===================== -->
-  <div
-    v-if="form === 'banner'"
-    class="tcard tcard--banner"
-    :class="`tcard--banner-${bannerTone}`"
-  >
+  <div v-if="form === 'banner'" class="tcard tcard--banner" :class="`tcard--banner-${bannerTone}`">
     <p class="tcard__banner-title">{{ title }}</p>
     <p v-if="bannerSubtitle" class="tcard__banner-subtitle">{{ bannerSubtitle }}</p>
   </div>
 
   <!-- ===================== CHECK-IN (compact glyph + label) ===================== -->
-  <button
-    v-else-if="kind === 'checkin'"
-    type="button"
-    class="tcard tcard--checkin"
-    @click="onTap"
-  >
+  <button v-else-if="kind === 'checkin'" type="button" class="tcard tcard--checkin" @click="onTap">
     <span class="tcard__gico"><component :is="standardIcon" :size="34" /></span>
     <span class="tcard__lbl">{{ title }}</span>
   </button>

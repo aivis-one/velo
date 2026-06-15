@@ -11,7 +11,12 @@
     <rect width="40" height="40" rx="20" :fill="`url(#${gid})`" />
     <circle cx="13" cy="19" r="2" fill="#4C6589" />
     <circle cx="27" cy="19" r="2" fill="#4C6589" />
-    <path d="M14.3987 23.2002H25.5987" stroke="#4C6589" stroke-width="1.24101" stroke-linecap="round" />
+    <path
+      d="M14.3987 23.2002H25.5987"
+      stroke="#4C6589"
+      stroke-width="1.24101"
+      stroke-linecap="round"
+    />
     <defs>
       <linearGradient :id="gid" x1="0" y1="20" x2="40" y2="20" gradientUnits="userSpaceOnUse">
         <stop stop-color="#BDECF1" />

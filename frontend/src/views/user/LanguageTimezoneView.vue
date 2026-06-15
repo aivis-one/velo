@@ -24,11 +24,7 @@
 -->
 <template>
   <div class="lang-tz">
-    <VHeader
-      title="Язык/Часовой пояс"
-      show-back
-      @back="router.back()"
-    />
+    <VHeader title="Язык/Часовой пояс" show-back @back="router.back()" />
 
     <div class="lang-tz__content">
       <!-- Language: Русский (real) + English (stub, toasts «later») -->
@@ -57,10 +53,7 @@
       <!-- Timezone (UNCHANGED — existing onboarding picker, shared with the user) -->
       <section class="lang-tz__section">
         <h2 class="lang-tz__section-title">Часовой пояс</h2>
-        <TimezoneCityPicker
-          v-model="selectedTimezone"
-          @update:modelValue="onTimezoneChange"
-        />
+        <TimezoneCityPicker v-model="selectedTimezone" @update:modelValue="onTimezoneChange" />
         <p class="lang-tz__hint">
           Часовой пояс используется, чтобы правильно показывать время практик.
         </p>
@@ -69,10 +62,7 @@
       <!-- Date format (captured-only — see header / Zod task) -->
       <section class="lang-tz__section">
         <h2 class="lang-tz__section-title">Формат даты</h2>
-        <VSelect
-          v-model="selectedDateFormat"
-          :options="DATE_FORMAT_OPTIONS"
-        />
+        <VSelect v-model="selectedDateFormat" :options="DATE_FORMAT_OPTIONS" />
       </section>
     </div>
   </div>
@@ -108,8 +98,7 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
 
 // Current language: the stored value if it is a real (available) option, else ru.
 const selectedLanguage = ref(
-  LANGUAGE_OPTIONS.find((o) => o.value === authStore.user?.language && o.available)
-    ?.value ?? 'ru',
+  LANGUAGE_OPTIONS.find((o) => o.value === authStore.user?.language && o.available)?.value ?? 'ru',
 )
 
 function onSelectLanguage(opt: LanguageOption): void {
@@ -148,8 +137,7 @@ function isValidIana(zone: string): boolean {
 // Initial timezone: the user's profile zone (kept as-is when valid, even if it is
 // outside the curated list), else fallback.
 const profileTz = authStore.user?.timezone
-const initialTimezone =
-  profileTz && isValidIana(profileTz) ? profileTz : FALLBACK_TIMEZONE
+const initialTimezone = profileTz && isValidIana(profileTz) ? profileTz : FALLBACK_TIMEZONE
 const selectedTimezone = ref(initialTimezone)
 
 const saving = ref(false)

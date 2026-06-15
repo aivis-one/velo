@@ -11,23 +11,12 @@
   <div class="topup-result">
     <IconClose :size="64" class="topup-result__icon" />
     <h1 class="topup-result__title">Оплата отменена</h1>
-    <p class="topup-result__text">
-      Ваш баланс не изменился. Вы можете попробовать снова.
-    </p>
+    <p class="topup-result__text">Ваш баланс не изменился. Вы можете попробовать снова.</p>
     <div class="topup-result__actions">
-      <VButton
-        variant="primary"
-        size="lg"
-        block
-        @click="router.push({ name: 'user-topup' })"
-      >
+      <VButton variant="primary" size="lg" block @click="router.push({ name: 'user-topup' })">
         Попробовать снова
       </VButton>
-      <VButton
-        variant="ghost"
-        block
-        @click="router.push({ name: 'user-dashboard' })"
-      >
+      <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
         На главную
       </VButton>
     </div>

@@ -85,11 +85,9 @@
 
           <!-- Weekday header -->
           <div class="diary-filter__cal-grid">
-            <span
-              v-for="wd in WEEKDAY_LABELS"
-              :key="wd"
-              class="diary-filter__cal-weekday"
-            >{{ wd }}</span>
+            <span v-for="wd in WEEKDAY_LABELS" :key="wd" class="diary-filter__cal-weekday">{{
+              wd
+            }}</span>
           </div>
 
           <!-- Day cells -->
@@ -102,8 +100,7 @@
                 class="diary-filter__cal-day"
                 :class="{
                   'diary-filter__cal-day--in': isInRange(cell.key),
-                  'diary-filter__cal-day--edge':
-                    isRangeStart(cell.key) || isRangeEnd(cell.key),
+                  'diary-filter__cal-day--edge': isRangeStart(cell.key) || isRangeEnd(cell.key),
                 }"
                 @click="onDayTap(cell.key)"
               >
@@ -127,9 +124,7 @@
       <section class="diary-filter__group">
         <div class="diary-filter__chips">
           <!-- "Все" -- active when nothing else is selected. -->
-          <VChip size="md" clickable :active="draft.length === 0" @click="selectAll">
-            Все
-          </VChip>
+          <VChip size="md" clickable :active="draft.length === 0" @click="selectAll"> Все </VChip>
           <VChip
             v-for="opt in CATEGORY_CHIPS"
             :key="opt.value"
@@ -234,8 +229,12 @@ function startOfDayUtcMs(dayKey: string, tz: string): number {
   const guess = Date.UTC(y, m - 1, d, 0, 0, 0, 0)
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: false,
   })
     .formatToParts(new Date(guess))
@@ -247,8 +246,12 @@ function startOfDayUtcMs(dayKey: string, tz: string): number {
   let h = Number(parts.hour)
   if (h === 24) h = 0
   const tzClock = Date.UTC(
-    Number(parts.year), Number(parts.month) - 1, Number(parts.day),
-    h, Number(parts.minute), Number(parts.second),
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    h,
+    Number(parts.minute),
+    Number(parts.second),
   )
   return guess - (tzClock - guess)
 }
@@ -262,8 +265,18 @@ function nextDayKey(dayKey: string): string {
 }
 
 const MONTH_LABELS = [
-  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+  'Январь',
+  'Февраль',
+  'Март',
+  'Апрель',
+  'Май',
+  'Июнь',
+  'Июль',
+  'Август',
+  'Сентябрь',
+  'Октябрь',
+  'Ноябрь',
+  'Декабрь',
 ]
 const WEEKDAY_LABELS = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС']
 
@@ -296,18 +309,10 @@ const monthCells = computed<Cell[]>(() => {
 })
 
 function prevMonth(): void {
-  viewMonth.value = new Date(
-    viewMonth.value.getFullYear(),
-    viewMonth.value.getMonth() - 1,
-    1,
-  )
+  viewMonth.value = new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth() - 1, 1)
 }
 function nextMonth(): void {
-  viewMonth.value = new Date(
-    viewMonth.value.getFullYear(),
-    viewMonth.value.getMonth() + 1,
-    1,
-  )
+  viewMonth.value = new Date(viewMonth.value.getFullYear(), viewMonth.value.getMonth() + 1, 1)
 }
 
 function onDayTap(key: string): void {
@@ -358,9 +363,7 @@ watch(
     draftFrom.value = props.dateFrom ? extractDatePart(props.dateFrom) : null
     draftTo.value = props.dateTo ? extractDatePart(props.dateTo) : null
     // Open the grid on the selected from-date's month, else current month.
-    viewMonth.value = startOfMonth(
-      draftFrom.value ? new Date(draftFrom.value) : new Date(),
-    )
+    viewMonth.value = startOfMonth(draftFrom.value ? new Date(draftFrom.value) : new Date())
     dateExpanded.value = false
   },
   { immediate: true },
@@ -387,9 +390,7 @@ function onApply(): void {
     : undefined
   // Single-day range (only `from` tapped) covers that whole day.
   const toKey = draftTo.value ?? draftFrom.value
-  const to = toKey
-    ? new Date(startOfDayUtcMs(nextDayKey(toKey), tz) - 1).toISOString()
-    : undefined
+  const to = toKey ? new Date(startOfDayUtcMs(nextDayKey(toKey), tz) - 1).toISOString() : undefined
   emit('apply', {
     categories: [...draft.value],
     date_from: from,

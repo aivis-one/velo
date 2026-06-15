@@ -14,12 +14,7 @@
 -->
 
 <template>
-  <div
-    ref="scrollEl"
-    class="v-wheel"
-    :style="{ '--ih': itemHeight + 'px' }"
-    @scroll="onScroll"
-  >
+  <div ref="scrollEl" class="v-wheel" :style="{ '--ih': itemHeight + 'px' }" @scroll="onScroll">
     <div class="v-wheel__pad" aria-hidden="true" />
     <button
       v-for="(opt, i) in options"
@@ -121,7 +116,13 @@ onMounted(() => {
   scrollbar-width: none;
   -ms-overflow-style: none;
   /* Soft top/bottom fade so the wheel reads as a cylinder. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 38%, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 38%,
+    #000 62%,
+    transparent 100%
+  );
   mask-image: linear-gradient(to bottom, transparent 0, #000 38%, #000 62%, transparent 100%);
 }
 

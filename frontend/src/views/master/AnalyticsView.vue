@@ -95,7 +95,10 @@
               {{ bar.label }}
             </span>
             <div class="analytics__rtrack">
-              <div class="analytics__rfill" :style="{ width: `${bar.pct}%`, background: bar.barColor }" />
+              <div
+                class="analytics__rfill"
+                :style="{ width: `${bar.pct}%`, background: bar.barColor }"
+              />
             </div>
             <span class="analytics__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
           </div>
@@ -106,11 +109,7 @@
       <section class="analytics__section">
         <h2 class="analytics__section-title">Требуют внимания</h2>
         <template v-if="attentionItems.length > 0">
-          <VCard
-            v-for="(item, i) in attentionItems"
-            :key="i"
-            class="analytics__attention"
-          >
+          <VCard v-for="(item, i) in attentionItems" :key="i" class="analytics__attention">
             <span class="analytics__attention-av"><IconProfile :size="26" /></span>
             <div class="analytics__attention-body">
               <div class="analytics__attention-name">{{ item.name }}</div>
@@ -123,9 +122,7 @@
             </div>
           </VCard>
         </template>
-        <div v-else class="analytics__empty">
-          Данных пока нет — создайте первую практику
-        </div>
+        <div v-else class="analytics__empty">Данных пока нет — создайте первую практику</div>
       </section>
 
       <!-- Прошедшие практики -->
@@ -181,11 +178,7 @@
           </button>
 
           <div v-if="masterStore.practicesHasMore" class="analytics__more">
-            <VButton
-              variant="ghost"
-              :loading="masterStore.practicesLoading"
-              @click="onLoadMore"
-            >
+            <VButton variant="ghost" :loading="masterStore.practicesLoading" @click="onLoadMore">
               Показать ещё
             </VButton>
           </div>
@@ -224,7 +217,11 @@
       </section>
 
       <!-- Full finance (balance / payout / withdrawals) lives on /master/finance. -->
-      <button type="button" class="analytics__finance-link" @click="router.push({ name: 'master-finance' })">
+      <button
+        type="button"
+        class="analytics__finance-link"
+        @click="router.push({ name: 'master-finance' })"
+      >
         Открыть Финансы<IconArrowRight :size="16" class="analytics__finance-arrow" />
       </button>
     </div>
@@ -237,7 +234,13 @@ import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VButton, VStatCard, VCard } from '@/components/ui'
-import { IconArrowRight, IconRatingFire, IconRatingGood, IconRatingConfused, IconProfile } from '@/components/icons'
+import {
+  IconArrowRight,
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+  IconProfile,
+} from '@/components/icons'
 import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 
@@ -294,7 +297,9 @@ const aggregateTotalCheckins = computed((): number => {
 
 const aggregateTotalParticipants = computed((): number => {
   let total = 0
-  insightsCache.forEach((ins) => { total += ins.participants })
+  insightsCache.forEach((ins) => {
+    total += ins.participants
+  })
   return total
 })
 
@@ -326,26 +331,30 @@ interface RatingBar {
 
 // Bar fill = RATING_COLOR (peach-300 / pink-300 / blue-400); icon accent =
 // RATING_ICON_COLOR (--velo-rating-*). Two palettes on purpose (see displayHelpers).
-const RATING_BARS_CONFIG: Array<{ key: 'fire' | 'good' | 'confused'; icon: Component; label: string }> = [
-  { key: 'fire',     icon: IconRatingFire,     label: 'Огонь!' },
-  { key: 'good',     icon: IconRatingGood,     label: 'Хорошо' },
+const RATING_BARS_CONFIG: Array<{
+  key: 'fire' | 'good' | 'confused'
+  icon: Component
+  label: string
+}> = [
+  { key: 'fire', icon: IconRatingFire, label: 'Огонь!' },
+  { key: 'good', icon: IconRatingGood, label: 'Хорошо' },
   { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы' },
 ]
 
 const ratingBars = computed((): RatingBar[] => {
   const totals = { fire: 0, good: 0, confused: 0 }
   insightsCache.forEach((ins) => {
-    totals.fire     += ins.feedbacks.fire
-    totals.good     += ins.feedbacks.good
+    totals.fire += ins.feedbacks.fire
+    totals.good += ins.feedbacks.good
     totals.confused += ins.feedbacks.confused
   })
   const total = totals.fire + totals.good + totals.confused
   return RATING_BARS_CONFIG.map((cfg) => ({
     ...cfg,
     iconColor: RATING_ICON_COLOR[cfg.key],
-    barColor:  RATING_COLOR[cfg.key],
+    barColor: RATING_COLOR[cfg.key],
     count: totals[cfg.key],
-    pct:   total > 0 ? Math.round((totals[cfg.key] / total) * 100) : 0,
+    pct: total > 0 ? Math.round((totals[cfg.key] / total) * 100) : 0,
   }))
 })
 

@@ -20,18 +20,10 @@
       <h1 class="auth-error__title">Не удалось загрузить</h1>
 
       <p class="auth-error__body">
-        Соединение заняло слишком много времени.
-        Проверьте интернет и попробуйте снова.
+        Соединение заняло слишком много времени. Проверьте интернет и попробуйте снова.
       </p>
 
-      <VButton
-        variant="primary"
-        size="lg"
-        block
-        @click="onRetry"
-      >
-        Попробовать снова
-      </VButton>
+      <VButton variant="primary" size="lg" block @click="onRetry"> Попробовать снова </VButton>
     </div>
   </div>
 </template>

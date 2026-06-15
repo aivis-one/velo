@@ -28,11 +28,7 @@
     <!-- Header -->
     <VHeader title="Практики">
       <template #action>
-        <button
-          class="master-practices__add-btn"
-          aria-label="Создать практику"
-          @click="goNew"
-        >
+        <button class="master-practices__add-btn" aria-label="Создать практику" @click="goNew">
           <IconPlus :size="22" />
         </button>
       </template>
@@ -48,7 +44,10 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="masterStore.practicesLoading && masterStore.practices.length === 0" class="master-practices__loader">
+    <div
+      v-if="masterStore.practicesLoading && masterStore.practices.length === 0"
+      class="master-practices__loader"
+    >
       <VLoader size="lg" />
     </div>
 
@@ -83,13 +82,18 @@
               <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
               <div class="mp-card__titles">
                 <div class="mp-card__title">{{ p.title }}</div>
-                <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
+                <div class="mp-card__sub">
+                  {{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} •
+                  {{ p.duration_minutes }} мин
+                </div>
               </div>
             </div>
             <div class="mp-card__meta">
               <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
               <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
-              <span v-if="p.practice_type === 'series'" class="mp-stat"><IconRepeat :size="16" /> Регулярная</span>
+              <span v-if="p.practice_type === 'series'" class="mp-stat"
+                ><IconRepeat :size="16" /> Регулярная</span
+              >
             </div>
           </article>
         </template>
@@ -119,7 +123,10 @@
               <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
               <div class="mp-card__titles">
                 <div class="mp-card__title">{{ p.title }}</div>
-                <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
+                <div class="mp-card__sub">
+                  {{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} •
+                  {{ p.duration_minutes }} мин
+                </div>
               </div>
             </div>
             <div class="mp-card__meta">
@@ -130,9 +137,15 @@
             </div>
             <!-- Rating distribution (REAL, anonymous insights — eager-loaded). -->
             <div v-if="hasRating(p.id)" class="mp-card__rbadges">
-              <span class="mp-rbadge mp-rbadge--fire"><IconRatingFire :size="14" /> {{ ratingPct(p.id, 'fire') }}%</span>
-              <span class="mp-rbadge mp-rbadge--good"><IconRatingGood :size="14" /> {{ ratingPct(p.id, 'good') }}%</span>
-              <span class="mp-rbadge mp-rbadge--conf"><IconRatingConfused :size="14" /> {{ ratingPct(p.id, 'confused') }}%</span>
+              <span class="mp-rbadge mp-rbadge--fire"
+                ><IconRatingFire :size="14" /> {{ ratingPct(p.id, 'fire') }}%</span
+              >
+              <span class="mp-rbadge mp-rbadge--good"
+                ><IconRatingGood :size="14" /> {{ ratingPct(p.id, 'good') }}%</span
+              >
+              <span class="mp-rbadge mp-rbadge--conf"
+                ><IconRatingConfused :size="14" /> {{ ratingPct(p.id, 'confused') }}%</span
+              >
             </div>
           </article>
         </template>
@@ -146,12 +159,7 @@
 
       <!-- Load more -->
       <div v-if="masterStore.practicesHasMore" class="master-practices__load-more">
-        <VButton
-          variant="ghost"
-          block
-          :loading="masterStore.practicesLoading"
-          @click="onLoadMore"
-        >
+        <VButton variant="ghost" block :loading="masterStore.practicesLoading" @click="onLoadMore">
           Показать ещё
         </VButton>
       </div>
@@ -214,9 +222,7 @@ const tabOptions = computed(() => [
 /** Relative "Сегодня"/"Завтра", else compact "25 янв." (timezone-safe). */
 function whenLabel(p: PracticeResponse): string {
   const rel = formatDateShort(p.scheduled_at, p.timezone)
-  return rel === 'Сегодня' || rel === 'Завтра'
-    ? rel
-    : formatShortDate(p.scheduled_at, p.timezone)
+  return rel === 'Сегодня' || rel === 'Завтра' ? rel : formatShortDate(p.scheduled_at, p.timezone)
 }
 
 function participantsLabel(p: PracticeResponse): string {

@@ -53,17 +53,13 @@ const isFillRoute = computed(() => route.name === 'user-diary')
 // the entry view and the check-in/feedback detail all hide it). Exit is via
 // the "..." menu inside the diary, not tab navigation.
 const DIARY_ROUTES = ['user-diary', 'user-diary-entry', 'user-diary-detail']
-const isDiaryRoute = computed(() =>
-  DIARY_ROUTES.includes(route.name as string),
-)
+const isDiaryRoute = computed(() => DIARY_ROUTES.includes(route.name as string))
 
 // Focused full-screen form flows (check-in / feedback) hide the tab bar too:
 // they have their own "Close" + submit/skip actions, and an in-flow tab bar
 // rides up over the textarea when the keyboard opens.
 const FORM_ROUTES = ['user-checkin', 'user-feedback']
-const isFormRoute = computed(() =>
-  FORM_ROUTES.includes(route.name as string),
-)
+const isFormRoute = computed(() => FORM_ROUTES.includes(route.name as string))
 
 // Edge-to-edge fog mask: the long scrolling lists/feeds + the practice-detail
 // screen (operator 2026-06-09: dissolve its hero under the header and its CTA
@@ -77,9 +73,7 @@ const FOG_ROUTES = [
   'user-master-public',
   'practice-detail',
 ]
-const isFogRoute = computed(() =>
-  FOG_ROUTES.includes(route.name as string),
-)
+const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
 // Per-screen fog tuning. The list feeds keep MobileLayout's defaults
 // (16/40/70/90 — omitted = unchanged). practice-detail uses a softer top
@@ -88,7 +82,10 @@ const isFogRoute = computed(() =>
 // single reusable source); read once here since the values flow through JS into
 // MobileLayout. Confirmed on the .tmp preview 2026-06-09.
 let pdFogCache: {
-  topGap: number; fogTopHard: number; fogBotFade: number; fogBotHard: number
+  topGap: number
+  fogTopHard: number
+  fogBotFade: number
+  fogBotHard: number
 } | null = null
 function practiceDetailFog() {
   if (pdFogCache) return pdFogCache
@@ -105,7 +102,5 @@ function practiceDetailFog() {
   }
   return pdFogCache
 }
-const fogTuning = computed(() =>
-  route.name === 'practice-detail' ? practiceDetailFog() : {},
-)
+const fogTuning = computed(() => (route.name === 'practice-detail' ? practiceDetailFog() : {}))
 </script>

@@ -18,9 +18,7 @@
       </div>
     </div>
     <p class="home__version">v0.1.0</p>
-    <button v-if="user" class="home__logout" @click="handleLogout">
-      Выйти
-    </button>
+    <button v-if="user" class="home__logout" @click="handleLogout">Выйти</button>
   </div>
 </template>
 

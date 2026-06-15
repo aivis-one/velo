@@ -17,20 +17,20 @@
   /* === Colors: Background === */
   --velo-bg-start: #ffffff;
   --velo-bg-end: #ffffff;
-  --velo-bg-subtle: rgba(98,122,156,0.06);
+  --velo-bg-subtle: rgba(98, 122, 156, 0.06);
   /* --velo-bg-card (glass blue) removed 2026-06-03 — legacy, 0 uses; white cards
      use --velo-bg-card-solid; glass surfaces use --velo-glass-*. */
-  --velo-bg-card-solid: #ffffff;  /* opaque white content card (Figma dashboard 10/11, flow screens) */
-  --velo-scrim: rgba(0, 0, 0, 0.5);  /* dark backdrop behind modals/sheets (VModal) */
+  --velo-bg-card-solid: #ffffff; /* opaque white content card (Figma dashboard 10/11, flow screens) */
+  --velo-scrim: rgba(0, 0, 0, 0.5); /* dark backdrop behind modals/sheets (VModal) */
 
   /* === Colors: Text === */
   --velo-text-primary: #4c6589;
-  --velo-text-secondary: rgba(76,101,137,0.70);
-  --velo-text-muted: rgba(76,101,137,0.50);
+  --velo-text-secondary: rgba(76, 101, 137, 0.7);
+  --velo-text-muted: rgba(76, 101, 137, 0.5);
 
   /* === Colors: Borders === */
   --velo-border: #abbfda;
-  --velo-border-light: rgba(171,191,218,0.30);
+  --velo-border-light: rgba(171, 191, 218, 0.3);
 
   /* === Colors: Semantic base === */
   --velo-success: #76dde6;
@@ -44,27 +44,27 @@
    */
 
   /* Warning (amber) */
-  --velo-warning-bg: rgba(251,192,136,0.40);
-  --velo-warning-bg-hover: #FDE68A;
+  --velo-warning-bg: rgba(251, 192, 136, 0.4);
+  --velo-warning-bg-hover: #fde68a;
   --velo-warning-border: #fbc088;
   --velo-warning-text: #a16124;
-  --velo-warning-text-light: #B45309;
+  --velo-warning-text-light: #b45309;
 
   /* Error / Alert (red) */
-  --velo-error-bg: rgba(253,226,226,0.40);
-  --velo-error-bg-subtle: #FFF5F5;
+  --velo-error-bg: rgba(253, 226, 226, 0.4);
+  --velo-error-bg-subtle: #fff5f5;
   --velo-error-border: #f795a2;
   --velo-error-text: #a16124;
   /* Destructive-action text/icon (Выйти, Удалить) — stronger red than the soft
      error-text above; from the profile / delete-account designs. */
-  --velo-danger-text: #AD3444;
+  --velo-danger-text: #ad3444;
 
   /* Success (green) */
-  --velo-success-bg: rgba(118,221,230,0.40);
+  --velo-success-bg: rgba(118, 221, 230, 0.4);
   --velo-success-text: #26767d;
 
   /* Info (blue) */
-  --velo-info-bg: rgba(118,221,230,0.40);
+  --velo-info-bg: rgba(118, 221, 230, 0.4);
   --velo-info-text: #2f9ea8;
 
   /* === Colors: Mood (Phase F9) === */
@@ -78,9 +78,9 @@
    * Kept separate from RATING_COLOR (analytics bar fills) on purpose --
    * these are the icon accents on the feedback form, not the analytics bars.
    */
-  --velo-rating-confused: var(--velo-primary-dark);  /* #4c6589 */
-  --velo-rating-good: #d66674;                        /* new */
-  --velo-rating-fire: var(--velo-peach-500);          /* #d4863c */
+  --velo-rating-confused: var(--velo-primary-dark); /* #4c6589 */
+  --velo-rating-good: #d66674; /* new */
+  --velo-rating-fire: var(--velo-peach-500); /* #d4863c */
 
   /* === Typography === */
   --font-body: 'Marmelad', 'Noto Sans', sans-serif;
@@ -117,7 +117,7 @@
   --radius-md: 15px;
   --radius-xl: 100px;
   --radius-full: 9999px;
-  --velo-radius-badge: 5px;          /* единый радиус карточных бейджей-статусов (rect) */
+  --velo-radius-badge: 5px; /* единый радиус карточных бейджей-статусов (rect) */
 
   /* === Shadows === */
   --shadow-sm: none;
@@ -139,15 +139,20 @@
 
   /* === VELΘ: Glass colors === */
   --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
-  --velo-glass-blue-30: rgba(98, 122, 156, 0.30);  /* VBottomSheet grab handle */
-  --velo-glass-blue-60: rgba(171, 191, 218, 0.60);
-  --velo-glass-teal-30: rgba(118, 221, 230, 0.30);
-  --velo-glass-teal-40: rgba(118, 221, 230, 0.40);
-  --velo-glass-peach-40: rgba(251, 192, 136, 0.40);
+  --velo-glass-blue-30: rgba(98, 122, 156, 0.3); /* VBottomSheet grab handle */
+  --velo-glass-blue-60: rgba(171, 191, 218, 0.6);
+  --velo-glass-teal-30: rgba(118, 221, 230, 0.3);
+  --velo-glass-teal-40: rgba(118, 221, 230, 0.4);
+  --velo-glass-peach-40: rgba(251, 192, 136, 0.4);
   --velo-glass-white-01: rgba(255, 255, 255, 0.01);
-  --velo-glass-white-25: rgba(255, 255, 255, 0.25);  /* frosted modal panel (Figma 648:1861) */
-  --velo-write-frost: rgba(255, 255, 255, 0.20);     /* diary write-mode: whitened frosted glass over the feed (not a dark dim); operator-tuned 2026-06-05 */
-  --velo-write-blur: 10px;                           /* diary write-mode glass blur (scrim + composer field) */
+  --velo-glass-white-25: rgba(255, 255, 255, 0.25); /* frosted modal panel (Figma 648:1861) */
+  --velo-write-frost: rgba(
+    255,
+    255,
+    255,
+    0.2
+  ); /* diary write-mode: whitened frosted glass over the feed (not a dark dim); operator-tuned 2026-06-05 */
+  --velo-write-blur: 10px; /* diary write-mode glass blur (scrim + composer field) */
 
   /* === VELΘ: Primitive palette === */
   --velo-teal-400: #76dde6;
@@ -158,12 +163,12 @@
   --velo-peach-700: #a16124;
   --velo-pink-300: #f795a2;
   --velo-pink-100: #fde2e2;
-  --velo-pink-700: #ad3444;                       /* rose text — delete/undo bar */
+  --velo-pink-700: #ad3444; /* rose text — delete/undo bar */
   --velo-glass-pink-40: rgba(247, 149, 162, 0.4); /* pink-300 @ 0.4 — undo bar fill */
   --velo-blue-100: #e2f0fd;
   --velo-blue-200: #abbfda;
-  --velo-blue-300: #91a2ba;       /* mid blue-grey — admin check-in bar chart (light bars) + list avatars; operator SVG 2026-06-14 */
-  --velo-blue-400: #619cd2;       /* analytics rating-bar "Есть вопросы"; operator SVG 2026-06-11 (no prior token) */
+  --velo-blue-300: #91a2ba; /* mid blue-grey — admin check-in bar chart (light bars) + list avatars; operator SVG 2026-06-14 */
+  --velo-blue-400: #619cd2; /* analytics rating-bar "Есть вопросы"; operator SVG 2026-06-11 (no prior token) */
   --velo-sand-100: #fdf3e2;
 
   /* === VELΘ: Glow shadow === */
@@ -215,7 +220,12 @@
 
   /* === VELΘ: Navigation === */
   --velo-nav-active-bg: #627a9c;
-  --velo-nav-active-bg-glass: rgba(98, 122, 156, 0.60); /* Tab bar active circle (Figma 2212:390): primary with 60% alpha, gives a soft blue-grey on light bg, NOT a saturated solid colour. Distinct from --velo-nav-active-bg (used by VToggle/VMenu/VMenuItem/DiaryComposer) which is opaque. */
+  --velo-nav-active-bg-glass: rgba(
+    98,
+    122,
+    156,
+    0.6
+  ); /* Tab bar active circle (Figma 2212:390): primary with 60% alpha, gives a soft blue-grey on light bg, NOT a saturated solid colour. Distinct from --velo-nav-active-bg (used by VToggle/VMenu/VMenuItem/DiaryComposer) which is opaque. */
   --velo-nav-inactive-bg: rgba(98, 122, 156, 0.15);
 
   /* === VELΘ: Border === */
@@ -226,7 +236,7 @@
   --z-content: 1;
 
   /* === VELΘ: Component sizes === */
-  --size-success-icon: 80px;   /* success screen emoji */
+  --size-success-icon: 80px; /* success screen emoji */
   --size-practice-emoji: 56px; /* practice type emoji in form screens */
   --size-option-btn-min: 90px; /* mood/rating button minimum width */
 
@@ -237,9 +247,9 @@
    */
   --velo-card-padding-y: 13px;
   --velo-card-padding-x: 15px;
-  --velo-card-height-list: 104px;       /* PracticeListCard, MasterCard */
-  --velo-card-height-hero: 142px;       /* PracticeHeroCard без difficulty */
-  --velo-card-height-hero-full: 161px;  /* PracticeHeroCard c difficulty */
+  --velo-card-height-list: 104px; /* PracticeListCard, MasterCard */
+  --velo-card-height-hero: 142px; /* PracticeHeroCard без difficulty */
+  --velo-card-height-hero-full: 161px; /* PracticeHeroCard c difficulty */
   --velo-card-gap-icon-title: 5px;
   --velo-card-gap-title-meta: 16px;
   --velo-card-gap-meta-footer: 19px;
@@ -280,36 +290,36 @@
    * ========================================================================= */
 
   /* Primitive ramp steps (extend-not-duplicate; values mirror existing roles) */
-  --velo-white: #ffffff;          /* = bg/card-solid; explicit neutral primitive */
-  --velo-blue-500: #627a9c;       /* = --velo-primary */
-  --velo-blue-700: #4c6589;       /* = --velo-primary-dark / text-primary */
-  --velo-peach-100: #fde68a;      /* NO SOURCE name (= warning-bg-hover) */
-  --velo-peach-800: #b45309;      /* NO SOURCE name (= warning-text-light) */
-  --velo-pink-50:  #fff5f5;       /* NO SOURCE name (= error-bg-subtle) */
-  --velo-pink-500: #d66674;       /* NO SOURCE name (= rating-good) */
+  --velo-white: #ffffff; /* = bg/card-solid; explicit neutral primitive */
+  --velo-blue-500: #627a9c; /* = --velo-primary */
+  --velo-blue-700: #4c6589; /* = --velo-primary-dark / text-primary */
+  --velo-peach-100: #fde68a; /* NO SOURCE name (= warning-bg-hover) */
+  --velo-peach-800: #b45309; /* NO SOURCE name (= warning-text-light) */
+  --velo-pink-50: #fff5f5; /* NO SOURCE name (= error-bg-subtle) */
+  --velo-pink-500: #d66674; /* NO SOURCE name (= rating-good) */
 
   /* Motion primitives — fast/base/slow have source (= --transition-* durations);
      instant/slower + all easings NO SOURCE (catalog; --transition-* keep `ease`) */
   --velo-duration-instant: 100ms; /* NO SOURCE */
-  --velo-duration-fast:    150ms;
-  --velo-duration-base:    200ms;
-  --velo-duration-slow:    300ms;
-  --velo-duration-slower:  500ms; /* NO SOURCE */
-  --velo-ease-standard:   cubic-bezier(0.2, 0, 0, 1);   /* NO SOURCE */
-  --velo-ease-out:        cubic-bezier(0, 0, 0.2, 1);   /* NO SOURCE */
-  --velo-ease-in:         cubic-bezier(0.4, 0, 1, 1);   /* NO SOURCE */
+  --velo-duration-fast: 150ms;
+  --velo-duration-base: 200ms;
+  --velo-duration-slow: 300ms;
+  --velo-duration-slower: 500ms; /* NO SOURCE */
+  --velo-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* NO SOURCE */
+  --velo-ease-out: cubic-bezier(0, 0, 0.2, 1); /* NO SOURCE */
+  --velo-ease-in: cubic-bezier(0.4, 0, 1, 1); /* NO SOURCE */
   --velo-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2); /* NO SOURCE */
 
   /* Semantic motion pairs (catalog) */
-  --velo-motion-micro:      var(--velo-duration-instant);
-  --velo-motion-quick:      var(--velo-duration-fast);
-  --velo-motion-moderate:   var(--velo-duration-base);
+  --velo-motion-micro: var(--velo-duration-instant);
+  --velo-motion-quick: var(--velo-duration-fast);
+  --velo-motion-moderate: var(--velo-duration-base);
   --velo-motion-deliberate: var(--velo-duration-slow);
 
   /* Effects — flat (elevation→none; depth = glow); focus ring NO SOURCE */
   --velo-effect-elevation-1: none;
   --velo-effect-elevation-2: none;
   --velo-effect-elevation-3: none;
-  --velo-effect-glow:  var(--velo-shadow-glow);
+  --velo-effect-glow: var(--velo-shadow-glow);
   --velo-effect-focus: 0 0 0 2px var(--velo-blue-500); /* NO SOURCE; 4.39:1 vs white */
 }

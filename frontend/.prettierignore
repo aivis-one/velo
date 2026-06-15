@@ -1,0 +1,3 @@
+# Auto-generated from OpenAPI schema by backend/scripts/generate_ts_types.py
+# Regenerated via `make gen-types` — never hand-format or it will drift on regen.
+src/api/generated.ts

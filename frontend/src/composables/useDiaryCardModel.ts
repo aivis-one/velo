@@ -121,28 +121,20 @@ export function useDiaryCardModel(
     }
     if (kind.value === 'feedback') {
       const rating = snapNum('rating')
-      return rating !== null
-        ? `${base}: ${ratingLabelFromScore(rating)}`.trim()
-        : base
+      return rating !== null ? `${base}: ${ratingLabelFromScore(rating)}`.trim() : base
     }
     return base
   })
 
   const preview = computed(
-    () =>
-      snapStr('content_preview') ??
-      snapStr('comment_preview') ??
-      snapStr('comment'),
+    () => snapStr('content_preview') ?? snapStr('comment_preview') ?? snapStr('comment'),
   )
 
   const bannerTone = computed<'teal' | 'neutral'>(() =>
     kind.value === 'booking_confirmed' ? 'teal' : 'neutral',
   )
   const bannerSubtitle = computed(() => {
-    if (
-      kind.value === 'booking_confirmed' ||
-      kind.value === 'practice_cancelled_by_master'
-    ) {
+    if (kind.value === 'booking_confirmed' || kind.value === 'practice_cancelled_by_master') {
       return snapStr('practice_title')
     }
     if (kind.value === 'practice_rescheduled') {
@@ -185,10 +177,7 @@ export function useDiaryCardModel(
       case 'checkin':
         return MOOD_ICON[moodZoneFromScore(snapNum('mood') ?? 6)] ?? IconMoodMid
       case 'feedback':
-        return (
-          RATING_ICON[ratingZoneFromScore(snapNum('rating') ?? 6)] ??
-          IconRatingGood
-        )
+        return RATING_ICON[ratingZoneFromScore(snapNum('rating') ?? 6)] ?? IconRatingGood
       case 'note':
         return IconDiaryBook
       case 'dream':
@@ -208,13 +197,9 @@ export function useDiaryCardModel(
 
   // Time only ("23:07"): the day + weekday live in the timeline's day
   // separator, so the per-card line stays minimal (operator feedback, item 3).
-  const dateLine = computed(() =>
-    formatTime(item.value.occurred_at, tz.value),
-  )
+  const dateLine = computed(() => formatTime(item.value.occurred_at, tz.value))
 
-  const editable = computed(
-    () => kind.value === 'note' || kind.value === 'dream',
-  )
+  const editable = computed(() => kind.value === 'note' || kind.value === 'dream')
 
   return {
     kind,

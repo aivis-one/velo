@@ -10,11 +10,7 @@
   slot-prop that VMenu exposes so the popover dismisses.
 -->
 <template>
-  <button
-    type="button"
-    class="v-menu-item"
-    :aria-label="ariaLabel"
-  >
+  <button type="button" class="v-menu-item" :aria-label="ariaLabel">
     <component :is="icon" v-if="icon" :size="iconSize" />
     <slot v-else />
   </button>

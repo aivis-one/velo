@@ -35,7 +35,12 @@ const toast = useToast()
 const text = ref('')
 
 // Reset the field each time the sheet opens.
-watch(() => props.open, (isOpen) => { if (isOpen) text.value = '' })
+watch(
+  () => props.open,
+  (isOpen) => {
+    if (isOpen) text.value = ''
+  },
+)
 
 function onSend(): void {
   // Messaging backend not built yet (roadmap for Zod).

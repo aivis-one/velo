@@ -11,27 +11,16 @@
   <div class="topup-result">
     <IconSuccess :size="64" class="topup-result__icon" />
     <h1 class="topup-result__title">Баланс пополнен!</h1>
-    <p class="topup-result__text">
-      Ваш текущий баланс:
-    </p>
+    <p class="topup-result__text">Ваш текущий баланс:</p>
     <div class="topup-result__balance">
       <VLoader v-if="loading" size="sm" />
       <span v-else>{{ balanceStore.formattedBalance }}</span>
     </div>
     <div class="topup-result__actions">
-      <VButton
-        variant="primary"
-        size="lg"
-        block
-        @click="router.push({ name: 'user-dashboard' })"
-      >
+      <VButton variant="primary" size="lg" block @click="router.push({ name: 'user-dashboard' })">
         На главную
       </VButton>
-      <VButton
-        variant="ghost"
-        block
-        @click="router.push({ name: 'user-topup' })"
-      >
+      <VButton variant="ghost" block @click="router.push({ name: 'user-topup' })">
         Пополнить ещё
       </VButton>
     </div>

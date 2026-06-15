@@ -25,10 +25,7 @@ export interface PaginatedResult<T> {
 
 type FetchFn<T> = (limit: number, offset: number) => Promise<PaginatedResult<T>>
 
-export function usePagination<T>(
-  fetchFn: FetchFn<T>,
-  pageSize = 20,
-) {
+export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
   const items = ref<T[]>([]) as Ref<T[]>
   const total = ref(0)
   const offset = ref(0)

@@ -28,26 +28,16 @@
            title row, per operator 2026-06-03). -->
       <div class="diary-search__field">
         <div class="diary-search__input">
-          <VInput
-            v-model="query"
-            placeholder="Искать..."
-            @keydown.enter="submit(query)"
-          />
+          <VInput v-model="query" placeholder="Искать..." @keydown.enter="submit(query)" />
         </div>
-        <button
-          type="button"
-          class="diary-search__go"
-          aria-label="Искать"
-          @click="submit(query)"
-        >
+        <button type="button" class="diary-search__go" aria-label="Искать" @click="submit(query)">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle
-              cx="11" cy="11" r="7"
-              stroke="currentColor" stroke-width="2"
-            />
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" />
             <path
               d="M20 20l-3.5-3.5"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
             />
           </svg>
         </button>
@@ -66,12 +56,17 @@
           <span class="diary-search__recent-text">{{ term }}</span>
           <svg
             class="diary-search__recent-arrow"
-            width="16" height="16" viewBox="0 0 24 24" fill="none"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
           >
             <path
               d="M7 17L17 7M17 7H9M17 7v8"
-              stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
             />
           </svg>
         </button>

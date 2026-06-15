@@ -77,8 +77,7 @@ defineEmits<{
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* Legacy default (pre-rebuild admin screens): 16px box, clears the tab bar. */
-  padding: var(--space-4) var(--space-4)
-    calc(112px + env(safe-area-inset-bottom, 0px));
+  padding: var(--space-4) var(--space-4) calc(112px + env(safe-area-inset-bottom, 0px));
 }
 
 /* New-design screens ride the 24px content rail (matches user/master). */

@@ -12,15 +12,11 @@
       <VeloLogo :size="120" />
     </div>
     <h1 class="stub__title">VELΘ</h1>
-    <p class="stub__message">
-      Пространство для практики<br />и внутреннего развития
-    </p>
+    <p class="stub__message">Пространство для практики<br />и внутреннего развития</p>
     <a :href="botUrl" class="stub__button stub__button--primary" target="_blank" rel="noopener">
       Открыть в Telegram
     </a>
-    <p class="stub__hint">
-      Нажмите кнопку «Открыть VELO» в чате с ботом
-    </p>
+    <p class="stub__hint">Нажмите кнопку «Открыть VELO» в чате с ботом</p>
   </div>
 </template>
 

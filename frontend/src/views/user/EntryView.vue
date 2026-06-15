@@ -41,12 +41,22 @@
           <VMenuItem
             :icon="IconPen"
             ariaLabel="Редактировать"
-            @click="() => { startEdit(); close() }"
+            @click="
+              () => {
+                startEdit()
+                close()
+              }
+            "
           />
           <VMenuItem
             :icon="IconTrash"
             ariaLabel="Удалить"
-            @click="() => { onDelete(); close() }"
+            @click="
+              () => {
+                onDelete()
+                close()
+              }
+            "
           />
         </template>
       </VMenu>
@@ -138,7 +148,15 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { VLoader, VEmptyState, VButton, VBackButton, VMenu, VMenuItem, VCard } from '@/components/ui'
+import {
+  VLoader,
+  VEmptyState,
+  VButton,
+  VBackButton,
+  VMenu,
+  VMenuItem,
+  VCard,
+} from '@/components/ui'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { IconPen } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
@@ -160,8 +178,7 @@ const diaryStore = useDiaryStore()
 const authStore = useAuthStore()
 const toast = useToast()
 
-const { selectedEntry, selectedEntryLoading, selectedEntryError } =
-  storeToRefs(diaryStore)
+const { selectedEntry, selectedEntryLoading, selectedEntryError } = storeToRefs(diaryStore)
 
 const entry = computed(() => selectedEntry.value)
 const loading = computed(() => selectedEntryLoading.value)

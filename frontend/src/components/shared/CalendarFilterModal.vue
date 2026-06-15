@@ -41,7 +41,12 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Направление практики</h3>
         <div class="cal-filter__chips">
-          <VChip size="md" clickable :active="selectedDirection === undefined" @click="clearDirection">
+          <VChip
+            size="md"
+            clickable
+            :active="selectedDirection === undefined"
+            @click="clearDirection"
+          >
             Все
           </VChip>
           <VChip
@@ -81,7 +86,12 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Сложность</h3>
         <div class="cal-filter__chips">
-          <VChip size="md" clickable :active="draft.difficulty.length === 0" @click="clearDifficulty">
+          <VChip
+            size="md"
+            clickable
+            :active="draft.difficulty.length === 0"
+            @click="clearDifficulty"
+          >
             Все
           </VChip>
           <VChip
@@ -101,7 +111,12 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Длительность</h3>
         <div class="cal-filter__chips">
-          <VChip size="md" clickable :active="draft.duration_bucket === undefined" @click="clearSingle('duration_bucket')">
+          <VChip
+            size="md"
+            clickable
+            :active="draft.duration_bucket === undefined"
+            @click="clearSingle('duration_bucket')"
+          >
             Все
           </VChip>
           <VChip
@@ -121,7 +136,12 @@
       <section class="cal-filter__group">
         <h3 class="cal-filter__label">Время</h3>
         <div class="cal-filter__chips">
-          <VChip size="md" clickable :active="draft.time_of_day === undefined" @click="clearSingle('time_of_day')">
+          <VChip
+            size="md"
+            clickable
+            :active="draft.time_of_day === undefined"
+            @click="clearSingle('time_of_day')"
+          >
             Все
           </VChip>
           <VChip
@@ -149,19 +169,10 @@
 <script setup lang="ts">
 import { reactive, watch, computed } from 'vue'
 import { VModal, VButton, VChip } from '@/components/ui'
-import {
-  DIRECTION_LABEL,
-  DIFFICULTY_LABEL,
-  TIME_OF_DAY_LABEL,
-} from '@/utils/displayHelpers'
+import { DIRECTION_LABEL, DIFFICULTY_LABEL, TIME_OF_DAY_LABEL } from '@/utils/displayHelpers'
 import { stylesForDirection } from '@/utils/practiceOptions'
 import type { CalendarFacetFilters } from '@/stores/calendar'
-import type {
-  PracticeDirection,
-  PracticeDifficulty,
-  DurationBucket,
-  TimeOfDay,
-} from '@/api/types'
+import type { PracticeDirection, PracticeDifficulty, DurationBucket, TimeOfDay } from '@/api/types'
 
 const props = defineProps<{
   open: boolean
@@ -224,9 +235,7 @@ const draft = reactive<Draft>({
 })
 
 /** Convenience accessor: the single selected direction, or undefined for "Все". */
-const selectedDirection = computed<PracticeDirection | undefined>(() =>
-  draft.direction[0],
-)
+const selectedDirection = computed<PracticeDirection | undefined>(() => draft.direction[0])
 
 /** Style options for the currently selected direction (empty when "Все"
  *  or when the direction has no styles). */

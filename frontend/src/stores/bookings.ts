@@ -25,11 +25,7 @@ import { extractApiError } from '@/composables/useApiError'
 // Lazy cross-store use (called only inside actions) -- mirrors diary.ts using
 // useBookingsStore(); avoids a top-level circular evaluation.
 import { useDiaryStore } from '@/stores/diary'
-import type {
-  BookingWithPracticeResponse,
-  BookingDetailResponse,
-  BookingStatus,
-} from '@/api/types'
+import type { BookingWithPracticeResponse, BookingDetailResponse, BookingStatus } from '@/api/types'
 
 export interface CancelResult {
   ok: boolean
@@ -47,8 +43,8 @@ export const useBookingsStore = defineStore('bookings', () => {
   const statusFilter = ref<BookingStatus | undefined>(undefined)
 
   // -- Paginated list --
-  const pagination = usePagination<BookingWithPracticeResponse>(
-    (limit, offset) => getMyBookings(statusFilter.value, limit, offset),
+  const pagination = usePagination<BookingWithPracticeResponse>((limit, offset) =>
+    getMyBookings(statusFilter.value, limit, offset),
   )
 
   // -- Single booking detail (screen 18) --

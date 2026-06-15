@@ -30,7 +30,10 @@
         Перейдите в интерфейс пользователя, чтобы просматривать каталог и бронировать практики.
       </p>
       <VButton variant="secondary" @click="switchToUserMode">
-        Открыть как пользователь<IconArrowRight :size="18" :style="{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }" />
+        Открыть как пользователь<IconArrowRight
+          :size="18"
+          :style="{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }"
+        />
       </VButton>
     </VCard>
 
@@ -39,9 +42,7 @@
 
     <!-- Logout -->
     <VCard class="admin-profile__section">
-      <VButton variant="ghost" :loading="loggingOut" @click="onLogout">
-        Выйти
-      </VButton>
+      <VButton variant="ghost" :loading="loggingOut" @click="onLogout"> Выйти </VButton>
     </VCard>
   </div>
 </template>

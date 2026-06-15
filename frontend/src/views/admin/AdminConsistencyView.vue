@@ -21,24 +21,26 @@
         <!-- Summary bar -->
         <div
           class="consistency__summary"
-          :class="data.alert_count > 0
-            ? 'consistency__summary--alert'
-            : 'consistency__summary--ok'"
+          :class="data.alert_count > 0 ? 'consistency__summary--alert' : 'consistency__summary--ok'"
         >
           <div class="consistency__summary-left">
             <span class="consistency__summary-icon">
-              <IconWarning v-if="data.alert_count > 0" :size="20" :style="{ color: 'var(--velo-error)' }" />
+              <IconWarning
+                v-if="data.alert_count > 0"
+                :size="20"
+                :style="{ color: 'var(--velo-error)' }"
+              />
               <IconCheck v-else :size="20" :style="{ color: 'var(--velo-success-text)' }" />
             </span>
             <div>
               <div class="consistency__summary-title">
-                {{ data.alert_count > 0
-                  ? `${data.alert_count} проблем обнаружено`
-                  : 'Все проверки пройдены' }}
+                {{
+                  data.alert_count > 0
+                    ? `${data.alert_count} проблем обнаружено`
+                    : 'Все проверки пройдены'
+                }}
               </div>
-              <div class="consistency__summary-sub">
-                {{ data.ok_count }} / {{ data.total }} OK
-              </div>
+              <div class="consistency__summary-sub">{{ data.ok_count }} / {{ data.total }} OK</div>
             </div>
           </div>
           <!-- S-3: rerunning ref -- only button spins, results stay visible. -->
@@ -48,29 +50,27 @@
         </div>
 
         <!-- Run timestamp -->
-        <div class="consistency__run-at">
-          Проверено: {{ formatDateTime(data.run_at) }}
-        </div>
+        <div class="consistency__run-at">Проверено: {{ formatDateTime(data.run_at) }}</div>
 
         <!-- Groups -->
-        <div
-          v-for="[category, group] in groupedItems"
-          :key="category"
-          class="consistency__group"
-        >
+        <div v-for="[category, group] in groupedItems" :key="category" class="consistency__group">
           <div class="consistency__group-title">{{ category }}</div>
           <div class="consistency__group-list">
             <div
               v-for="item in group"
               :key="item.name"
               class="consistency__item"
-              :class="item.status === 'ALERT'
-                ? 'consistency__item--alert'
-                : 'consistency__item--ok'"
+              :class="
+                item.status === 'ALERT' ? 'consistency__item--alert' : 'consistency__item--ok'
+              "
             >
               <div class="consistency__item-header">
                 <span class="consistency__item-icon">
-                  <IconWarning v-if="item.status === 'ALERT'" :size="16" :style="{ color: 'var(--velo-error)' }" />
+                  <IconWarning
+                    v-if="item.status === 'ALERT'"
+                    :size="16"
+                    :style="{ color: 'var(--velo-error)' }"
+                  />
                   <IconCheck v-else :size="16" :style="{ color: 'var(--velo-success-text)' }" />
                 </span>
                 <span class="consistency__item-name">{{ item.name }}</span>
@@ -82,12 +82,8 @@
                 </VBadge>
               </div>
               <div v-if="item.status === 'ALERT'" class="consistency__item-detail">
-                <span class="consistency__item-expected">
-                  ожидалось: {{ item.expected }}
-                </span>
-                <span class="consistency__item-actual">
-                  фактически: {{ item.actual }}
-                </span>
+                <span class="consistency__item-expected"> ожидалось: {{ item.expected }} </span>
+                <span class="consistency__item-actual"> фактически: {{ item.actual }} </span>
               </div>
             </div>
           </div>

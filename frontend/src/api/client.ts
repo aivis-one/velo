@@ -96,11 +96,7 @@ export function resetClientState(): void {
 
 // -- Core request --
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
 
   if (_token) {
@@ -166,11 +162,7 @@ async function request<T>(
 
   // VeloError format: { error, message }
   if (typeof errorData?.message === 'string') {
-    throw new ApiResponseError(
-      response.status,
-      errorData.message,
-      errorData.error ?? 'unknown',
-    )
+    throw new ApiResponseError(response.status, errorData.message, errorData.error ?? 'unknown')
   }
 
   // Pydantic 422 format: { detail: string | Array<...> }

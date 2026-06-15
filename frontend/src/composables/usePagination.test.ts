@@ -27,12 +27,10 @@ function createMockFetch(totalItems: number) {
     name: `Item ${i + 1}`,
   }))
 
-  return vi.fn(
-    async (limit: number, offset: number): Promise<PaginatedResult<Item>> => {
-      const items = pool.slice(offset, offset + limit)
-      return { items, total: totalItems, limit, offset }
-    },
-  )
+  return vi.fn(async (limit: number, offset: number): Promise<PaginatedResult<Item>> => {
+    const items = pool.slice(offset, offset + limit)
+    return { items, total: totalItems, limit, offset }
+  })
 }
 
 // -----------------------------------------------------------------------

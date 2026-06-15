@@ -32,11 +32,7 @@
 
 <template>
   <div class="edit-profile">
-    <VHeader
-      title="Редактировать профиль"
-      show-back
-      @back="router.back()"
-    />
+    <VHeader title="Редактировать профиль" show-back @back="router.back()" />
 
     <div class="edit-profile__content">
       <!-- Avatar + change photo (stub) -->
@@ -48,11 +44,7 @@
       </div>
 
       <!-- Name -->
-      <VInput
-        v-model="form.firstName"
-        label="Имя"
-        placeholder="Ваше имя"
-      />
+      <VInput v-model="form.firstName" label="Имя" placeholder="Ваше имя" />
 
       <!-- E-mail (disabled stub) -->
       <VInput
@@ -64,12 +56,7 @@
       />
 
       <!-- Phone -->
-      <VInput
-        v-model="form.phone"
-        label="Телефон"
-        type="tel"
-        placeholder="+7 (___) ___-__-__"
-      />
+      <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (___) ___-__-__" />
       <p v-if="phoneError" class="edit-profile__field-error">{{ phoneError }}</p>
 
       <!-- About -->
@@ -82,14 +69,7 @@
       />
 
       <!-- Save -->
-      <VButton
-        variant="primary"
-        block
-        :loading="saving"
-        @click="onSave"
-      >
-        Сохранить
-      </VButton>
+      <VButton variant="primary" block :loading="saving" @click="onSave"> Сохранить </VButton>
 
       <!-- Delete account (opens modal D) -->
       <button type="button" class="edit-profile__delete" @click="showDeleteModal = true">
@@ -202,9 +182,7 @@ const phoneError = computed((): string => {
   return ''
 })
 
-const bioError = computed((): string =>
-  form.bio.length > 2000 ? 'Не более 2000 символов' : '',
-)
+const bioError = computed((): string => (form.bio.length > 2000 ? 'Не более 2000 символов' : ''))
 
 const hasErrors = computed(() => !!phoneError.value || !!bioError.value)
 

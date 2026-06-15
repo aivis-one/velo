@@ -23,11 +23,7 @@
 <template>
   <div class="apply-view">
     <!-- Header -->
-    <VHeader
-      title="Заявка"
-      show-back
-      @back="onBack"
-    />
+    <VHeader title="Заявка" show-back @back="onBack" />
 
     <!-- Progress bar -->
     <div class="apply-view__progress">
@@ -56,19 +52,9 @@
           :error="errors.display_name"
         />
 
-        <VInput
-          v-model="form.email"
-          label="Email"
-          type="email"
-          placeholder="alex@example.com"
-        />
+        <VInput v-model="form.email" label="Email" type="email" placeholder="alex@example.com" />
 
-        <VInput
-          v-model="form.phone"
-          label="Телефон"
-          type="tel"
-          placeholder="+7 (999) 123-45-67"
-        />
+        <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (999) 123-45-67" />
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
           Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
@@ -103,11 +89,7 @@
             </label>
             <!-- "Other" with text input -->
             <label class="apply-view__checkbox-item">
-              <input
-                type="checkbox"
-                :checked="otherMethodEnabled"
-                @change="toggleOtherMethod"
-              />
+              <input type="checkbox" :checked="otherMethodEnabled" @change="toggleOtherMethod" />
               <span class="apply-view__checkbox-mark">
                 <IconCheck v-if="otherMethodEnabled" :size="14" />
               </span>
@@ -171,16 +153,17 @@
 
         <!-- Terms checkbox (custom native markup) -->
         <VCard class="apply-view__terms" padding="none">
-          <label class="apply-view__checkbox-item" @click="form.termsAccepted = !form.termsAccepted">
+          <label
+            class="apply-view__checkbox-item"
+            @click="form.termsAccepted = !form.termsAccepted"
+          >
             <span
               class="apply-view__checkbox-mark"
               :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
             >
               <IconCheck v-if="form.termsAccepted" :size="14" />
             </span>
-            <span class="apply-view__checkbox-label">
-              Я соглашаюсь с условиями использования
-            </span>
+            <span class="apply-view__checkbox-label"> Я соглашаюсь с условиями использования </span>
           </label>
           <p v-if="errors.terms" class="apply-view__field-error">{{ errors.terms }}</p>
         </VCard>
@@ -230,9 +213,9 @@ const AVAILABLE_METHODS = [
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [
   { label: 'Менее 1 года', value: '0' },
-  { label: '1-3 года',     value: '2' },
-  { label: '3-5 лет',      value: '4' },
-  { label: '5-10 лет',     value: '7' },
+  { label: '1-3 года', value: '2' },
+  { label: '3-5 лет', value: '4' },
+  { label: '5-10 лет', value: '7' },
   { label: 'Более 10 лет', value: '11' },
 ]
 
@@ -365,8 +348,7 @@ async function submit(): Promise<void> {
     toast.success('Заявка отправлена!')
     router.push({ name: 'master-pending' })
   } catch (e) {
-    const message =
-      e instanceof ApiResponseError ? e.detail : 'Не удалось отправить заявку'
+    const message = e instanceof ApiResponseError ? e.detail : 'Не удалось отправить заявку'
     toast.error(message)
   } finally {
     submitting.value = false

@@ -26,7 +26,11 @@
     <!-- Header (scrolls within the fog feed, like the master greeting) -->
     <div class="admin-dashboard__header">
       <h1 class="admin-dashboard__title">Admin</h1>
-      <button class="admin-dashboard__eye" aria-label="Профиль" @click="router.push({ name: 'admin-profile' })">
+      <button
+        class="admin-dashboard__eye"
+        aria-label="Профиль"
+        @click="router.push({ name: 'admin-profile' })"
+      >
         <IconProfile :size="22" />
       </button>
     </div>
@@ -137,9 +141,24 @@
         <span class="admin-dashboard__section-title">Engagement</span>
       </div>
       <VCard class="admin-dashboard__engagement">
-        <VProgressRow label="Check-in rate" :value="checkinRate" clickable @click="router.push({ name: 'admin-checkin-rate' })" />
-        <VProgressRow label="Feedback rate" :value="feedbackRate" clickable @click="router.push({ name: 'admin-feedback-rate' })" />
-        <VProgressRow label="Return rate" :value="returnRate" clickable @click="router.push({ name: 'admin-return-rate' })" />
+        <VProgressRow
+          label="Check-in rate"
+          :value="checkinRate"
+          clickable
+          @click="router.push({ name: 'admin-checkin-rate' })"
+        />
+        <VProgressRow
+          label="Feedback rate"
+          :value="feedbackRate"
+          clickable
+          @click="router.push({ name: 'admin-feedback-rate' })"
+        />
+        <VProgressRow
+          label="Return rate"
+          :value="returnRate"
+          clickable
+          @click="router.push({ name: 'admin-return-rate' })"
+        />
       </VCard>
 
       <!-- Система: восстановленный вход в «Семафоры» (data-consistency, audit O-2) -->

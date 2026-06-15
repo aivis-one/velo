@@ -33,7 +33,12 @@
 <script setup lang="ts">
 import { computed, type Component } from 'vue'
 import {
-  IconWarning, IconCalendar, IconList, IconGroup, IconSuccess, IconFile,
+  IconWarning,
+  IconCalendar,
+  IconList,
+  IconGroup,
+  IconSuccess,
+  IconFile,
 } from '@/components/icons'
 
 const props = withDefaults(

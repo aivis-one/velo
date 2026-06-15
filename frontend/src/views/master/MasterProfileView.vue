@@ -77,11 +77,7 @@
       <!-- Switch to user mode (TD-FE-ROLE-SWITCH) -->
       <div class="master-profile__menu-section">
         <div class="master-profile__menu-list">
-          <VMenuRow
-            variant="primary"
-            label="Открыть как пользователь"
-            @click="switchToUserMode"
-          >
+          <VMenuRow variant="primary" label="Открыть как пользователь" @click="switchToUserMode">
             <template #icon><IconUserMode :size="20" /></template>
           </VMenuRow>
         </div>
@@ -110,14 +106,8 @@
       <div class="master-profile__logout-modal">
         <h2 class="master-profile__logout-title">Выйти из аккаунта?</h2>
         <div class="master-profile__logout-actions">
-          <button type="button" class="master-profile__logout-btn" @click="onLogout">
-            Да
-          </button>
-          <button
-            type="button"
-            class="master-profile__logout-btn"
-            @click="showLogoutModal = false"
-          >
+          <button type="button" class="master-profile__logout-btn" @click="onLogout">Да</button>
+          <button type="button" class="master-profile__logout-btn" @click="showLogoutModal = false">
             Нет
           </button>
         </div>

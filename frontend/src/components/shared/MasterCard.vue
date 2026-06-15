@@ -16,16 +16,8 @@
 -->
 
 <template>
-  <button
-    type="button"
-    class="master-card master-card--clickable"
-    @click="onMore"
-  >
-    <VAvatar
-      :url="avatarUrl ?? ''"
-      :name="masterName ?? 'Мастер'"
-      size="xl"
-    />
+  <button type="button" class="master-card master-card--clickable" @click="onMore">
+    <VAvatar :url="avatarUrl ?? ''" :name="masterName ?? 'Мастер'" size="xl" />
     <div class="master-card__info">
       <div class="master-card__name">
         {{ masterName ?? 'Мастер' }}

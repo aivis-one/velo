@@ -29,15 +29,9 @@ export interface CursorResult<T> {
 
 // fetchFn receives the current cursor (null on the first page) and the page
 // size, and returns one page plus the cursor for the following page.
-type CursorFetchFn<T> = (
-  cursor: string | null,
-  limit: number,
-) => Promise<CursorResult<T>>
+type CursorFetchFn<T> = (cursor: string | null, limit: number) => Promise<CursorResult<T>>
 
-export function useCursorPagination<T>(
-  fetchFn: CursorFetchFn<T>,
-  pageSize = 20,
-) {
+export function useCursorPagination<T>(fetchFn: CursorFetchFn<T>, pageSize = 20) {
   const items = ref<T[]>([]) as Ref<T[]>
   const cursor = ref<string | null>(null)
   const loading = ref(false)

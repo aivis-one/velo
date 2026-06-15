@@ -24,19 +24,13 @@ import type { DiaryFeedCategory } from '@/api/types'
 export type DiaryWriteTarget = 'note' | 'dream' | null
 
 /** Categories you cannot author from the diary composer (read-only feeds). */
-export const DIARY_WRITE_BLOCKED: DiaryFeedCategory[] = [
-  'practices',
-  'checkins',
-  'feedbacks',
-]
+export const DIARY_WRITE_BLOCKED: DiaryFeedCategory[] = ['practices', 'checkins', 'feedbacks']
 
 /**
  * Resolve the diary entry_type for the active filter, or `null` when writing is
  * blocked (a read-only category is selected). `null` hides the composer.
  */
-export function diaryWriteTarget(
-  categories: DiaryFeedCategory[],
-): DiaryWriteTarget {
+export function diaryWriteTarget(categories: DiaryFeedCategory[]): DiaryWriteTarget {
   if (categories.some((c) => DIARY_WRITE_BLOCKED.includes(c))) return null
   if (categories.length === 1 && categories[0] === 'dreams') return 'dream'
   return 'note'

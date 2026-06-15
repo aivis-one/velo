@@ -67,10 +67,7 @@ export const useDiaryStore = defineStore('diary', () => {
    * Submit a check-in for a practice.
    * Returns { ok, error } so the view can show a toast on failure.
    */
-  async function submitCheckin(
-    practiceId: string,
-    body: CheckinRequest,
-  ): Promise<SubmitResult> {
+  async function submitCheckin(practiceId: string, body: CheckinRequest): Promise<SubmitResult> {
     if (checkinSubmitting.value) return { ok: false, error: '' }
     checkinSubmitting.value = true
     try {
@@ -97,10 +94,7 @@ export const useDiaryStore = defineStore('diary', () => {
    * Submit a feedback for a practice.
    * Returns { ok, error } so the view can show a toast on failure.
    */
-  async function submitFeedback(
-    practiceId: string,
-    body: FeedbackRequest,
-  ): Promise<SubmitResult> {
+  async function submitFeedback(practiceId: string, body: FeedbackRequest): Promise<SubmitResult> {
     if (feedbackSubmitting.value) return { ok: false, error: '' }
     feedbackSubmitting.value = true
     try {
@@ -132,16 +126,15 @@ export const useDiaryStore = defineStore('diary', () => {
     search: undefined,
   })
 
-  const feed = useCursorPagination<DiaryFeedItem>(
-    (cursor, limit) =>
-      listDiaryFeed({
-        categories: feedFilters.categories,
-        date_from: feedFilters.date_from,
-        date_to: feedFilters.date_to,
-        search: feedFilters.search,
-        cursor: cursor ?? undefined,
-        limit,
-      }),
+  const feed = useCursorPagination<DiaryFeedItem>((cursor, limit) =>
+    listDiaryFeed({
+      categories: feedFilters.categories,
+      date_from: feedFilters.date_from,
+      date_to: feedFilters.date_to,
+      search: feedFilters.search,
+      cursor: cursor ?? undefined,
+      limit,
+    }),
   )
 
   // Saved feed scroll offset, so returning from an entry/detail restores the
@@ -160,9 +153,7 @@ export const useDiaryStore = defineStore('diary', () => {
    * Apply new filters (merge) and reload the feed from the first page.
    * Pass a fresh categories array / dates / search; omitted keys are kept.
    */
-  async function setFeedFilters(
-    patch: Partial<DiaryFeedFilters>,
-  ): Promise<void> {
+  async function setFeedFilters(patch: Partial<DiaryFeedFilters>): Promise<void> {
     Object.assign(feedFilters, patch)
     await feed.refresh()
   }
@@ -197,10 +188,7 @@ export const useDiaryStore = defineStore('diary', () => {
    * fresh (the views read straight from it on navigation).
    */
   async function refreshAfterDiaryMutation(): Promise<void> {
-    await Promise.allSettled([
-      feed.refresh(),
-      useBookingsStore().refreshBookings(),
-    ])
+    await Promise.allSettled([feed.refresh(), useBookingsStore().refreshBookings()])
   }
 
   // ===========================================================================
@@ -317,9 +305,9 @@ export const useDiaryStore = defineStore('diary', () => {
   // re-visit unless $reset() is called (logout).
   // ===========================================================================
 
-  const insightsCache      = reactive(new Map<string, PracticeInsightsResponse>())
+  const insightsCache = reactive(new Map<string, PracticeInsightsResponse>())
   const insightsLoadingSet = reactive(new Set<string>())
-  const insightsErrorMap   = reactive(new Map<string, string>())
+  const insightsErrorMap = reactive(new Map<string, string>())
 
   /** NEW-6: max entries in insightsCache to prevent unbounded memory growth. */
   const MAX_INSIGHTS_CACHE = 100
@@ -341,10 +329,7 @@ export const useDiaryStore = defineStore('diary', () => {
       }
       insightsCache.set(practiceId, data)
     } catch (e) {
-      insightsErrorMap.set(
-        practiceId,
-        extractApiError(e, 'Не удалось загрузить аналитику'),
-      )
+      insightsErrorMap.set(practiceId, extractApiError(e, 'Не удалось загрузить аналитику'))
     } finally {
       insightsLoadingSet.delete(practiceId)
     }

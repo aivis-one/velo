@@ -29,12 +29,7 @@
 
     <h3 class="admin-detail__section">Низкий check-in (практики)</h3>
     <template v-if="lowPractices.length">
-      <VListRow
-        v-for="p in lowPractices"
-        :key="p.id"
-        :title="p.title"
-        :subtitle="p.subtitle"
-      />
+      <VListRow v-for="p in lowPractices" :key="p.id" :title="p.title" :subtitle="p.subtitle" />
     </template>
     <VCard v-else><p class="admin-detail__empty">Данных пока нет</p></VCard>
   </div>
