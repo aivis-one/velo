@@ -190,6 +190,10 @@ async def refund_booking(
         is_frozen=True,
         practice_id=practice.id,
         session=session,
+        # E2: surface as a master-facing transaction -- the booking the master
+        # saw as "+ Оплата за практику" was refunded; net for this practice = 0.
+        title="Возврат",
+        counterparty_id=booking.user_id,
     )
 
     # Step 2: Refund user (what they actually paid).
@@ -338,6 +342,10 @@ async def early_finalize_booking(
     )
 
     # Step 3: Deduct commission (double-entry with company).
+    # Steps 1 & 2 above (frozen reversal + available credit) are internal
+    # plumbing -- they net to the sale already shown at booking time, so they
+    # stay untitled and out of the feed. Only the commission is a new
+    # master-facing transaction.
     await record_master_ledger(
         user_id=practice.master_id,
         amount_cents=-commission,
@@ -345,6 +353,7 @@ async def early_finalize_booking(
         is_frozen=False,
         practice_id=practice.id,
         session=session,
+        title="Комиссия",
     )
     await record_company_ledger(
         amount_cents=commission,

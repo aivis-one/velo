@@ -162,6 +162,9 @@ async def create_purchase_for_booking(
         is_frozen=True,
         practice_id=practice.id,
         session=session,
+        # E2: surface this as a master-facing transaction (the buyer paid).
+        title="Оплата за практику",
+        counterparty_id=user.id,
     )
 
     # Company promo: company pays the discount from marketing budget.
@@ -301,6 +304,8 @@ async def finalize_purchases(
             is_frozen=False,
             practice_id=practice_id,
             session=session,
+            # E2: surface as a master-facing transaction (platform fee).
+            title="Комиссия",
         )
         await record_company_ledger(
             amount_cents=commission,

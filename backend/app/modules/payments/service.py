@@ -117,6 +117,8 @@ async def record_master_ledger(
     practice_id: UUID | None = None,
     status: str = LedgerStatus.DONE.value,
     notes: str | None = None,
+    title: str | None = None,
+    counterparty_id: UUID | None = None,
 ) -> MasterLedger:
     """Record a master ledger entry and recalculate cached balances.
 
@@ -129,6 +131,13 @@ async def record_master_ledger(
         practice_id: Associated practice (for frozen tracking).
         status: Ledger status (default: "done").
         notes: Optional human-readable notes.
+        title: Human-readable label for the master's transaction feed (E2).
+            Pass it ONLY for movements that should appear as a master-facing
+            transaction (sale, commission, refund). Leave None for internal
+            plumbing (frozen<->available reversals, withdrawal holds) so they
+            stay out of the feed and the income sum.
+        counterparty_id: The other party to the movement (the paying student
+            for a sale/refund); None for platform-side rows (commission).
 
     Returns:
         The created MasterLedger entry.
@@ -146,6 +155,8 @@ async def record_master_ledger(
         reason=reason,
         practice_id=practice_id,
         notes=notes,
+        title=title,
+        counterparty_id=counterparty_id,
     )
     session.add(entry)
     await session.flush()

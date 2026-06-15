@@ -233,6 +233,21 @@ class MasterLedger(UUIDMixin, Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, default=None)
 
+    # -- Master-facing transaction projection (E2) --
+    # title is the human-readable label shown in the master's transaction
+    # feed. ONLY rows the master should see as a "transaction" carry a title;
+    # internal plumbing (frozen<->available reversals, withdrawal holds) leaves
+    # it NULL and is filtered out of both the feed and the income sum.
+    # counterparty_id is the other party to the movement (the paying student
+    # for a sale/refund); NULL for platform-side rows such as commission.
+    # SET NULL: the audit amount stays even if the counterparty user is gone.
+    title: Mapped[str | None] = mapped_column(String(200), default=None)
+    counterparty_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        index=True,
+        default=None,
+    )
+
     # -- Timestamp (immutable, no updated_at) --
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -31,6 +31,9 @@ from app.core.redis import close_redis, get_redis, init_redis
 from app.modules.admin.router import router as admin_router
 from app.modules.auth.router import router as auth_router
 from app.modules.masters.router import router as masters_router
+from app.modules.masters.finance_router import (                  # E2
+    router as masters_finance_router,
+)
 from app.modules.users.router import router as users_router
 from app.modules.reports.router import router as reports_router
 from app.modules.practices.router import router as practices_router
@@ -170,6 +173,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(masters_router)
+app.include_router(masters_finance_router)        # E2
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(practices_router)
