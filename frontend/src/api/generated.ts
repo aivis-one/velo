@@ -496,6 +496,14 @@ export interface PaginatedReportsResponse {
   offset: number
 }
 
+/** GET /api/v1/practices/{id}/reviews -- paginated named reviews. */
+export interface PaginatedReviewsResponse {
+  items: ReviewItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
 /** GET /api/v1/reports/me -- paginated list of user's own reports. */
 export interface PaginatedUserReportsResponse {
   items: ReportResponse[]
@@ -710,6 +718,15 @@ export interface ReportResponse {
 /** Admin resolves a report. */
 export interface ResolveReportRequest {
   resolution_note: string
+}
+
+/** One named review (GET /api/v1/practices/{id}/reviews). The de-anonymised counterpart to RatingDistribution: where insights expose only numeric buckets, this carries the reviewer's name, avatar and comment text. `rating` is the stored 1..10 score mapped to the three UI buckets (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same rating icons it already renders for the anonymous distribution. */
+export interface ReviewItem {
+  reviewer_name: string
+  avatar_url: string | null
+  rating: 'fire' | 'good' | 'confused'
+  comment: string | null
+  created_at: string
 }
 
 /** Tester role-switch capability (TEST-ONLY). Present in GET /users/me ONLY when settings.role_switch_enabled is True AND the user was seeded with credentials.role_switch.allowed_roles. The list is the set of roles this tester may switch their own account to via POST /users/me/role. Absent (null) for everyone else and on production. */
