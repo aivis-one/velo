@@ -334,6 +334,13 @@ export interface FeedbackResponse {
   updated_at: string | null
 }
 
+/** GET /api/v1/masters/me/income?period=week|month. income_cents -- net of title-tagged movements in the current calendar period (sale - commission - refund). prev_income_cents -- same sum for the previous calendar period. delta_pct -- signed percent change vs the previous period, or null when there is no previous activity (no division by 0). */
+export interface IncomeResponse {
+  income_cents: number
+  prev_income_cents: number
+  delta_pct: number | null
+}
+
 /** Step 2 of master application -- professional background. */
 export interface MasterApplyExperience {
   methods: string[]
@@ -391,6 +398,14 @@ export interface MasterPublicResponse {
   avatar_url?: string | null
   practices_count: number
   reviews_count: number
+}
+
+/** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). */
+export interface MasterTransactionItem {
+  title: string
+  created_at: string
+  counterparty_name: string | null
+  amount_cents: number
 }
 
 /** Check-in mood counts for a practice, bucketed by score range. mood is a 1..10 score; counts are grouped into three buckets: low = scores 1-3 mid = scores 4-7 high = scores 8-10 CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. */
@@ -499,6 +514,14 @@ export interface PaginatedReportsResponse {
 /** GET /api/v1/practices/{id}/reviews -- paginated named reviews. */
 export interface PaginatedReviewsResponse {
   items: ReviewItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /api/v1/masters/me/transactions -- paginated transaction feed. */
+export interface PaginatedTransactionsResponse {
+  items: MasterTransactionItem[]
   total: number
   limit: number
   offset: number
