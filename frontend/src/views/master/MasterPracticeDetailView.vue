@@ -38,10 +38,10 @@
         <VMenu aria-label="Меню">
           <template #default="{ close }">
             <div class="pd-menu">
-              <button class="pd-menu__row" @click="goEdit(); close()">Изменить</button>
+              <button class="pd-menu__row" @click="() => { goEdit(); close() }">Изменить</button>
               <button
                 class="pd-menu__row pd-menu__row--danger"
-                @click="openDestructive(); close()"
+                @click="() => { openDestructive(); close() }"
               >
                 {{ destructiveLabel }}
               </button>

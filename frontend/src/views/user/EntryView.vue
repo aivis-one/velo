@@ -41,12 +41,12 @@
           <VMenuItem
             :icon="IconPen"
             ariaLabel="Редактировать"
-            @click="startEdit(); close()"
+            @click="() => { startEdit(); close() }"
           />
           <VMenuItem
             :icon="IconTrash"
             ariaLabel="Удалить"
-            @click="onDelete(); close()"
+            @click="() => { onDelete(); close() }"
           />
         </template>
       </VMenu>

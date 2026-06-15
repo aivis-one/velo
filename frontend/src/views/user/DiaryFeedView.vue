@@ -56,7 +56,7 @@
         <template #default="{ close }">
           <!-- Filter (funnel) + Search (magnifier). "Связи" (Relationships)
                is an AI feature outside the MVP and is intentionally omitted. -->
-          <VMenuItem ariaLabel="Фильтр" @click="openFilter(); close()">
+          <VMenuItem ariaLabel="Фильтр" @click="() => { openFilter(); close() }">
             <svg
               class="diary-feed__menu-glyph"
               viewBox="0 0 20 20"
@@ -70,7 +70,7 @@
               />
             </svg>
           </VMenuItem>
-          <VMenuItem ariaLabel="Поиск" @click="openSearch(); close()">
+          <VMenuItem ariaLabel="Поиск" @click="() => { openSearch(); close() }">
             <svg
               class="diary-feed__menu-glyph diary-feed__menu-glyph--magnifier"
               viewBox="0 0 13.6562 22.999"
@@ -91,7 +91,7 @@
           <VMenuItem
             v-if="SHOW_VIEW_TOGGLE"
             :ariaLabel="viewMode === 'list' ? 'Показать картой' : 'Показать списком'"
-            @click="toggleView(); close()"
+            @click="() => { toggleView(); close() }"
           >
             <!-- Glyph reflects the TARGET view (what tapping switches to).
                  On map -> show the "list" glyph (Group 2506: three dots in a
