@@ -1129,3 +1129,125 @@ async def get_practice_insights(
         },
         "comments_count": comments_count,
     }
+
+
+# ===================================================================
+# Practice reviews (E1, master-facing, NON-anonymous)
+# ===================================================================
+
+# A review with rating in this range is "negative" -- the confused bucket
+# (1-3). attention=True narrows the feed to exactly these for the dashboard
+# "needs attention" block.
+_ATTENTION_RATING_MAX = 3
+
+
+def _rating_bucket(score: int) -> str:
+    """Map a 1..10 feedback rating to its UI bucket name.
+
+    Same ranges as _score_bucket (1-3 / 4-7 / 8-10), but renamed to the
+    feedback vocabulary (confused / good / fire) so the frontend reuses the
+    rating icons it already renders for the anonymous distribution.
+    """
+    return {"low": "confused", "mid": "good", "high": "fire"}[
+        _score_bucket(score)
+    ]
+
+
+def _reviewer_name(author: User) -> str:
+    """Display name for a review author: first + last, else a neutral label.
+
+    Deliberately never falls back to a raw id -- this is a user-facing name,
+    and leaking an identifier here would undo the point of a named-but-safe
+    projection. An author with no name renders as a generic participant label.
+    """
+    name = " ".join(
+        part for part in (author.first_name, author.last_name) if part
+    ).strip()
+    return name or "Участник"
+
+
+async def list_practice_reviews(
+    user: User,
+    practice_id: UUID,
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+    attention: bool = False,
+) -> tuple[list[dict], int]:
+    """List named (de-anonymised) reviews for a completed practice.
+
+    Master-facing counterpart to get_practice_insights: identical ownership
+    and completed-practice guards (P-08: 404 to a non-owner so the practice's
+    existence is not revealed), but returns the reviewer's name, avatar and
+    comment text instead of anonymous counts.
+
+    All feedbacks are included -- a missing comment is allowed and the rating
+    always exists -- ordered newest-first. When attention=True, the page is
+    narrowed to the negative bucket (rating 1-3) for the dashboard
+    "needs attention" feed; the same endpoint otherwise serves the full
+    per-practice list.
+
+    Args:
+        user: Authenticated user (must be the practice owner).
+        practice_id: Target practice UUID.
+        session: Read session.
+        limit: Page size.
+        offset: Page offset.
+        attention: When True, return only negative reviews (rating 1-3).
+
+    Returns:
+        Tuple of (items, total_count). Each item is a dict ready for ReviewItem.
+
+    Raises:
+        NotFoundError: Practice not found or user is not the owner (P-08).
+        BadRequestError: Practice is not completed.
+    """
+    # 1. Load practice and verify ownership (mirror get_practice_insights).
+    practice = await session.get(Practice, practice_id)
+
+    if practice is None or practice.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if practice.status != PracticeStatus.COMPLETED.value:
+        raise BadRequestError(
+            "Reviews are only available for completed practices"
+        )
+
+    # 2. Base query: each feedback joined to its author for name + avatar.
+    base = (
+        select(Feedback, User)
+        .join(User, Feedback.user_id == User.id)
+        .where(Feedback.practice_id == practice_id)
+    )
+    if attention:
+        base = base.where(Feedback.rating <= _ATTENTION_RATING_MAX)
+
+    # 3. Total derived from the base query (11.1 pattern -- filters once).
+    total = (
+        await session.execute(
+            select(func.count()).select_from(base.subquery())
+        )
+    ).scalar_one()
+
+    # 4. Newest-first page.
+    rows = (
+        await session.execute(
+            base.order_by(Feedback.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    items = [
+        {
+            "reviewer_name": _reviewer_name(author),
+            "avatar_url": author.avatar_url,
+            "rating": _rating_bucket(feedback.rating),
+            "comment": feedback.comment,
+            "created_at": feedback.created_at,
+        }
+        for feedback, author in rows
+    ]
+
+    return items, total

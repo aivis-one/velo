@@ -32,6 +32,7 @@
 # =============================================================================
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -334,6 +335,39 @@ class PracticeInsightsResponse(BaseModel):
     checkins: MoodDistribution
     feedbacks: RatingDistribution
     comments_count: int
+
+
+# ===================================================================
+# Practice reviews schemas (E1, master-facing, NON-anonymous)
+# ===================================================================
+
+
+class ReviewItem(BaseModel):
+    """One named review (GET /api/v1/practices/{id}/reviews).
+
+    The de-anonymised counterpart to RatingDistribution: where insights expose
+    only numeric buckets, this carries the reviewer's name, avatar and comment
+    text. `rating` is the stored 1..10 score mapped to the three UI buckets
+    (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same
+    rating icons it already renders for the anonymous distribution.
+    """
+
+    reviewer_name: str
+    avatar_url: str | None
+    rating: Literal["fire", "good", "confused"]
+    comment: str | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaginatedReviewsResponse(BaseModel):
+    """GET /api/v1/practices/{id}/reviews -- paginated named reviews."""
+
+    items: list[ReviewItem]
+    total: int
+    limit: int
+    offset: int
 
 
 # ===================================================================

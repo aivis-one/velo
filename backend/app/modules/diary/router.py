@@ -43,7 +43,9 @@ from app.modules.diary.schemas import (
     PaginatedCheckinsResponse,
     PaginatedDiaryEntriesResponse,
     PaginatedFeedbacksResponse,
+    PaginatedReviewsResponse,
     PracticeInsightsResponse,
+    ReviewItem,
     UpdateDiaryEntryRequest,
 )
 from app.modules.diary.service import (
@@ -54,6 +56,7 @@ from app.modules.diary.service import (
     get_feedback,
     get_practice_insights,
     list_diary_feed,
+    list_practice_reviews,
     list_user_checkins,
     list_user_diary_entries,
     list_user_feedbacks,
@@ -493,3 +496,51 @@ async def get_practice_insights_endpoint(
     """
     data = await get_practice_insights(user, practice_id, session)
     return PracticeInsightsResponse(**data)
+
+
+# ===================================================================
+# Practice reviews endpoint (E1, master-facing, NON-anonymous)
+# ===================================================================
+
+
+@practices_insights_router.get(
+    "/{practice_id}/reviews",
+    response_model=PaginatedReviewsResponse,
+)
+async def list_practice_reviews_endpoint(
+    practice_id: UUID,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    attention: bool = Query(
+        default=False,
+        description=(
+            "When true, return only negative reviews (rating 1-3, the "
+            "'confused' bucket) -- the dashboard 'needs attention' feed."
+        ),
+    ),
+) -> PaginatedReviewsResponse:
+    """Master-only: named reviews for a completed practice.
+
+    The de-anonymised counterpart to /insights: same ownership and
+    completed-practice guards (404 to a non-owner), but exposes who left each
+    review and what they wrote (name + avatar + comment). Serves both the full
+    per-practice list and, with attention=true, the dashboard
+    "needs attention" feed.
+    """
+    items, total = await list_practice_reviews(
+        user,
+        practice_id,
+        session,
+        limit=limit,
+        offset=offset,
+        attention=attention,
+    )
+
+    return PaginatedReviewsResponse(
+        items=[ReviewItem(**row) for row in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
