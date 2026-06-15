@@ -16,9 +16,9 @@
 # migration needed.
 # =============================================================================
 
-"""add_title_counterparty_to_master_ledger
+"""ledger_tx_fields
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 9f1e2d3c4b5a
 Revises: f7a8b9c0d1e2
 Create Date: 2026-06-15
 """
@@ -28,7 +28,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "a1b2c3d4e5f6"
+revision: str = "9f1e2d3c4b5a"
 down_revision: str | None = "f7a8b9c0d1e2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
