@@ -70,30 +70,28 @@
       <!-- ===================== Upcoming ===================== -->
       <template v-if="activeTab === 'upcoming'">
         <template v-if="upcomingPractices.length > 0">
-          <div v-for="p in upcomingPractices" :key="p.id" class="master-practices__row">
-            <article class="mp-card">
-              <div class="mp-card__head">
-                <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
-                <div class="mp-card__titles">
-                  <div class="mp-card__title">{{ p.title }}</div>
-                  <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
-                </div>
-              </div>
-              <div class="mp-card__meta">
-                <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
-                <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
-                <span v-if="p.practice_type === 'series'" class="mp-stat"><IconRepeat :size="16" /> Регулярная</span>
-              </div>
-            </article>
-            <div class="mp-card__actions">
-              <div class="mp-card__act">
-                <VButton variant="outline" block @click="goEdit(p.id)">Изменить</VButton>
-              </div>
-              <div class="mp-card__act mp-card__act--wide">
-                <VButton variant="primary" block @click="goCheckins(p.id)">Check-ins</VButton>
+          <article
+            v-for="p in upcomingPractices"
+            :key="p.id"
+            class="mp-card mp-card--clickable"
+            role="button"
+            :tabindex="0"
+            @click="goDetail(p.id)"
+            @keydown.enter.space.prevent="goDetail(p.id)"
+          >
+            <div class="mp-card__head">
+              <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
+              <div class="mp-card__titles">
+                <div class="mp-card__title">{{ p.title }}</div>
+                <div class="mp-card__sub">{{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} • {{ p.duration_minutes }} мин</div>
               </div>
             </div>
-          </div>
+            <div class="mp-card__meta">
+              <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
+              <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
+              <span v-if="p.practice_type === 'series'" class="mp-stat"><IconRepeat :size="16" /> Регулярная</span>
+            </div>
+          </article>
         </template>
         <VEmptyState
           v-else
@@ -268,12 +266,6 @@ function loadTabInsights(): Promise<void[]> {
 function goNew(): void {
   router.push({ name: 'master-practice-new' })
 }
-function goEdit(id: string): void {
-  router.push({ name: 'master-practice-edit', params: { id } })
-}
-function goCheckins(id: string): void {
-  router.push({ name: 'master-attendance', params: { id } })
-}
 function goDetail(id: string): void {
   router.push({ name: 'master-practice-detail', params: { id } })
 }
@@ -335,13 +327,6 @@ onMounted(async () => {
 .master-practices__content {
   flex: 1;
   padding: var(--space-3) 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-/* Upcoming row = card + its action buttons below. */
-.master-practices__row {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -452,19 +437,5 @@ onMounted(async () => {
 .mp-rbadge--conf {
   background: var(--velo-blue-100);
   color: var(--velo-blue-400);
-}
-
-/* ===== Action buttons (below the upcoming card) ===== */
-.mp-card__actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.mp-card__act {
-  flex: 1;
-}
-
-.mp-card__act--wide {
-  flex: 1.3;
 }
 </style>
