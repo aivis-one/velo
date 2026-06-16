@@ -12,13 +12,11 @@
     - «Распределение»: rating bars (fill = RATING_COLOR, icon = RATING_ICON_COLOR).
     - «Отзывы»: individual reviews list.
 
-  Data reality (decision Г1, 2026-06-11):
+  Data reality (E1 wired, 2026-06-16):
     REAL: practice header (getPractice) + stats/distribution (getPracticeInsights,
           reused from diaryStore cache — eager-loaded by AnalyticsView).
-    STUB: the «Отзывы» list (name + comment + rating per reviewer). Insights are
-          anonymous (no names / comment texts), so this needs the SAME
-          non-anonymous endpoint as the dashboard «Требуют внимания». Until then
-          the section renders its empty state; the list is wiring-ready.
+    REAL: the «Отзывы» list — getPracticeReviews (E1 named reviews, paginated).
+          `rating` arrives pre-bucketed ('fire'|'good'|'confused') from the backend.
 -->
 
 <template>
@@ -64,20 +62,33 @@
       </VCard>
     </section>
 
-    <!-- Отзывы (scaffold: empty until a non-anonymous endpoint lands) -->
+    <!-- Отзывы (E1 named reviews) -->
     <section class="practice-reviews__section">
       <h2 class="velo-section-title">Отзывы</h2>
-      <template v-if="reviews.length > 0">
+      <div v-if="reviewsLoading && reviews.length === 0" class="practice-reviews__rloader">
+        <VLoader size="lg" />
+      </div>
+      <VEmptyState v-else-if="reviewsError" icon="warning" title="Не удалось загрузить отзывы">
+        <VButton size="sm" variant="outline" @click="loadReviews">Повторить</VButton>
+      </VEmptyState>
+      <template v-else-if="reviews.length > 0">
         <VCard v-for="(r, i) in reviews" :key="i" class="practice-reviews__review">
           <div class="practice-reviews__review-top">
-            <component
-              :is="RATING_ICON[r.rating]"
-              :size="22"
-              :style="{ color: RATING_ICON_COLOR[r.rating] }"
-            />
-            <span class="practice-reviews__review-name">{{ r.name }}</span>
+            <VAvatar :name="r.reviewer_name" :url="r.avatar_url ?? ''" size="sm" />
+            <div class="practice-reviews__review-id">
+              <span class="practice-reviews__review-name">{{ r.reviewer_name }}</span>
+              <span class="practice-reviews__review-date">{{ formatShortDate(r.created_at) }}</span>
+            </div>
+            <span class="practice-reviews__review-rating">
+              <component
+                :is="RATING_ICON[r.rating]"
+                :size="22"
+                :style="{ color: RATING_ICON_COLOR[r.rating] }"
+              />
+              {{ RATING_LABEL[r.rating] }}
+            </span>
           </div>
-          <div class="practice-reviews__review-quote">«{{ r.comment }}»</div>
+          <div v-if="r.comment" class="practice-reviews__review-quote">«{{ r.comment }}»</div>
         </VCard>
         <div v-if="hasMoreReviews" class="practice-reviews__more">
           <VButton variant="ghost" @click="loadMoreReviews">Показать ещё</VButton>
@@ -92,8 +103,8 @@
 import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
-import { getPractice } from '@/api/practices'
-import { VStatCard, VCard, VButton } from '@/components/ui'
+import { getPractice, getPracticeReviews } from '@/api/practices'
+import { VStatCard, VCard, VButton, VLoader, VEmptyState, VAvatar } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import {
   IconCalendar,
@@ -102,8 +113,13 @@ import {
   IconRatingGood,
   IconRatingConfused,
 } from '@/components/icons'
-import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
-import type { PracticeResponse, FeedbackRating } from '@/api/types'
+import {
+  practiceIconFor,
+  RATING_COLOR,
+  RATING_ICON_COLOR,
+  RATING_LABEL,
+} from '@/utils/displayHelpers'
+import type { PracticeResponse, FeedbackRating, ReviewItem } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -200,16 +216,16 @@ const ratingBars = computed((): RatingBar[] => {
 })
 
 // =========================================================================
-// Отзывы -- scaffold (no backend source: insights are anonymous)
+// Отзывы (E1 named reviews — GET /practices/{id}/reviews, paginated)
 // =========================================================================
 
-interface Review {
-  name: string
-  rating: FeedbackRating
-  comment: string
-}
-const reviews = ref<Review[]>([])
-const hasMoreReviews = ref(false)
+const REVIEWS_PAGE = 20
+
+const reviews = ref<ReviewItem[]>([])
+const reviewsTotal = ref(0)
+const reviewsLoading = ref(false)
+const reviewsError = ref(false)
+const hasMoreReviews = computed((): boolean => reviews.value.length < reviewsTotal.value)
 
 const RATING_ICON: Record<FeedbackRating, Component> = {
   fire: IconRatingFire,
@@ -217,8 +233,32 @@ const RATING_ICON: Record<FeedbackRating, Component> = {
   confused: IconRatingConfused,
 }
 
-function loadMoreReviews(): void {
-  // Wired when the non-anonymous reviews endpoint + pagination land (roadmap Zod).
+async function loadReviews(): Promise<void> {
+  reviewsLoading.value = true
+  reviewsError.value = false
+  try {
+    const res = await getPracticeReviews(practiceId.value, REVIEWS_PAGE, 0)
+    reviews.value = res.items
+    reviewsTotal.value = res.total
+  } catch {
+    reviewsError.value = true
+  } finally {
+    reviewsLoading.value = false
+  }
+}
+
+async function loadMoreReviews(): Promise<void> {
+  if (reviewsLoading.value || !hasMoreReviews.value) return
+  reviewsLoading.value = true
+  try {
+    const res = await getPracticeReviews(practiceId.value, REVIEWS_PAGE, reviews.value.length)
+    reviews.value = [...reviews.value, ...res.items]
+    reviewsTotal.value = res.total
+  } catch {
+    // Keep the loaded page; the «Показать ещё» button stays for a retry.
+  } finally {
+    reviewsLoading.value = false
+  }
 }
 
 // =========================================================================
@@ -237,6 +277,7 @@ onMounted(async () => {
   // Insights are usually already cached (AnalyticsView eager-loads the page);
   // loadInsights skips a cached id, otherwise fetches.
   await diaryStore.loadInsights(practiceId.value)
+  void loadReviews()
   try {
     practice.value = await getPractice(practiceId.value)
   } catch {
@@ -363,17 +404,44 @@ onMounted(async () => {
   gap: 10px;
 }
 
+.practice-reviews__review-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .practice-reviews__review-name {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
+.practice-reviews__review-date {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+}
+
+.practice-reviews__review-rating {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  white-space: nowrap;
+}
+
 .practice-reviews__review-quote {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   line-height: 1.45;
-  padding-left: 32px;
+}
+
+.practice-reviews__rloader {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
 }
 
 /* ===== Load more ===== */

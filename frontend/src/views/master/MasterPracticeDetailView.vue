@@ -179,20 +179,35 @@
           <VStatCard :value="noShowValue" label="Не пришли" value-tone="rose" />
         </div>
 
-        <!-- Отзывы участников (stub: empty until a non-anonymous endpoint lands) -->
+        <!-- Отзывы участников (E1 named reviews — getPracticeReviews) -->
         <section class="practice-detail__section">
           <h2 class="velo-section-title">Отзывы участников</h2>
-          <template v-if="reviews.length > 0">
+          <div v-if="reviewsLoading && reviews.length === 0" class="practice-detail__rloader">
+            <VLoader />
+          </div>
+          <template v-else-if="reviews.length > 0">
             <div v-for="(r, i) in reviews" :key="i" class="practice-detail__review">
               <div class="practice-detail__review-top">
-                <component
-                  :is="RATING_ICON[r.rating]"
-                  :size="22"
-                  :style="{ color: RATING_ICON_COLOR[r.rating] }"
-                />
-                <span class="practice-detail__review-name">{{ r.name }}</span>
+                <VAvatar :name="r.reviewer_name" :url="r.avatar_url ?? ''" size="sm" />
+                <div class="practice-detail__review-id">
+                  <span class="practice-detail__review-name">{{ r.reviewer_name }}</span>
+                  <span class="practice-detail__review-date">{{
+                    formatDateShort(r.created_at)
+                  }}</span>
+                </div>
+                <span class="practice-detail__review-rating">
+                  <component
+                    :is="RATING_ICON[r.rating]"
+                    :size="22"
+                    :style="{ color: RATING_ICON_COLOR[r.rating] }"
+                  />
+                  {{ RATING_LABEL[r.rating] }}
+                </span>
               </div>
-              <div class="practice-detail__review-quote">«{{ r.comment }}»</div>
+              <div v-if="r.comment" class="practice-detail__review-quote">«{{ r.comment }}»</div>
+            </div>
+            <div v-if="hasMoreReviews" class="practice-detail__more">
+              <VButton variant="ghost" @click="loadMoreReviews">Показать ещё</VButton>
             </div>
           </template>
           <div v-else class="practice-detail__empty">Отзывов пока нет</div>
@@ -277,6 +292,7 @@ import {
   updatePractice,
   deletePractice,
   cancelPractice,
+  getPracticeReviews,
 } from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
 import {
@@ -288,6 +304,7 @@ import {
   VConfirmDialog,
   VAccordion,
   VMenu,
+  VAvatar,
 } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
@@ -305,6 +322,7 @@ import {
 import {
   practiceIconFor,
   RATING_ICON_COLOR,
+  RATING_LABEL,
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
 } from '@/utils/displayHelpers'
@@ -316,6 +334,7 @@ import type {
   AttendanceItemResponse,
   FeedbackRating,
   PracticeDifficulty,
+  ReviewItem,
 } from '@/api/types'
 
 const route = useRoute()
@@ -434,17 +453,43 @@ const attendedPeopleLabel = computed((): string =>
 // STUB → Zod: no income/ledger API yet (currency canon ₽ vs € also deferred).
 const incomeLabel = '—'
 
-// -- Past: Отзывы участников scaffold (no backend source — insights are anonymous) --
-interface Review {
-  name: string
-  rating: FeedbackRating
-  comment: string
-}
-const reviews = ref<Review[]>([])
+// -- Past: Отзывы участников (E1 named reviews — getPracticeReviews, paginated) --
+const REVIEWS_PAGE = 20
+const reviews = ref<ReviewItem[]>([])
+const reviewsTotal = ref(0)
+const reviewsLoading = ref(false)
+const hasMoreReviews = computed((): boolean => reviews.value.length < reviewsTotal.value)
 const RATING_ICON: Record<FeedbackRating, Component> = {
   fire: IconRatingFire,
   good: IconRatingGood,
   confused: IconRatingConfused,
+}
+
+async function loadReviews(): Promise<void> {
+  reviewsLoading.value = true
+  try {
+    const res = await getPracticeReviews(practiceId, REVIEWS_PAGE, 0)
+    reviews.value = res.items
+    reviewsTotal.value = res.total
+  } catch {
+    // Non-fatal: the rest of the detail view stays usable; the section shows empty.
+  } finally {
+    reviewsLoading.value = false
+  }
+}
+
+async function loadMoreReviews(): Promise<void> {
+  if (reviewsLoading.value || !hasMoreReviews.value) return
+  reviewsLoading.value = true
+  try {
+    const res = await getPracticeReviews(practiceId, REVIEWS_PAGE, reviews.value.length)
+    reviews.value = [...reviews.value, ...res.items]
+    reviewsTotal.value = res.total
+  } catch {
+    // Keep the loaded page; the «Показать ещё» button stays for a retry.
+  } finally {
+    reviewsLoading.value = false
+  }
 }
 
 // -- Navigation --
@@ -548,6 +593,9 @@ async function load(): Promise<void> {
       isPast.value ? diaryStore.loadInsights(practiceId) : Promise.resolve(),
     ])
     attendance.value = attendanceData
+
+    // Named reviews only exist for finished practices; non-fatal alongside the load.
+    if (isPast.value) void loadReviews()
   } catch (e) {
     error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
   } finally {
@@ -755,17 +803,50 @@ onMounted(load)
   gap: 10px;
 }
 
+.practice-detail__review-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .practice-detail__review-name {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
+.practice-detail__review-date {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+}
+
+.practice-detail__review-rating {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  white-space: nowrap;
+}
+
 .practice-detail__review-quote {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   line-height: 1.45;
-  padding-left: 32px;
+}
+
+.practice-detail__rloader {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+.practice-detail__more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
 }
 
 /* ===== Empty ===== */

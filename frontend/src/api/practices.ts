@@ -15,9 +15,11 @@
 //   POST   /api/v1/practices/{id}/cancel  -- cancel with full refund
 //   POST   /api/v1/practices/{id}/finalize -- resolve attendance (live/scheduled -> completed)
 //   GET    /api/v1/practices/{id}/attendance -- attendance list + aggregates
+//   GET    /api/v1/practices/{id}/reviews    -- paginated named reviews (E1)
 //
 // F4.1: buildQuery extracted to @/api/utils (shared with bookings.ts).
 // F6:   master CRUD methods added.
+// E1:   getPracticeReviews -- de-anonymised named reviews.
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -29,6 +31,7 @@ import type {
   CreatePracticeRequest,
   UpdatePracticeRequest,
   AttendanceResponse,
+  PaginatedReviewsResponse,
 } from '@/api/types'
 
 // ============================================================================
@@ -136,4 +139,22 @@ export function finalizePractice(id: string): Promise<PracticeResponse> {
  */
 export function getAttendance(id: string): Promise<AttendanceResponse> {
   return api.get<AttendanceResponse>(`/api/v1/practices/${id}/attendance`)
+}
+
+/**
+ * Fetch paginated named reviews for a practice (E1).
+ *
+ * The de-anonymised counterpart to the anonymous rating distribution: each
+ * item carries the reviewer's name, avatar and comment. `rating` arrives
+ * pre-mapped to the three UI buckets ('fire' | 'good' | 'confused') by the
+ * backend, so the frontend reuses the same rating icons/labels it already
+ * renders for the anonymous distribution.
+ */
+export function getPracticeReviews(
+  id: string,
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedReviewsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedReviewsResponse>(`/api/v1/practices/${id}/reviews${query}`)
 }
