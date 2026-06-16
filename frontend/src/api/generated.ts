@@ -55,6 +55,36 @@ export interface AdminMasterListItem {
   master_status: string
 }
 
+/** GET /api/v1/admin/practices/{id} -- detail + attendance + roster. */
+export interface AdminPracticeDetailResponse {
+  id: string
+  title: string
+  direction: string | null
+  master_name: string
+  master_verified: boolean
+  scheduled_at: string
+  duration_minutes: number
+  booked: number
+  capacity: number | null
+  status: string
+  attended: number
+  roster: AdminRosterEntry[]
+}
+
+/** One practice in the global admin list. */
+export interface AdminPracticeListItem {
+  id: string
+  title: string
+  direction: string | null
+  master_name: string
+  master_verified: boolean
+  scheduled_at: string
+  duration_minutes: number
+  booked: number
+  capacity: number | null
+  status: string
+}
+
 /** One master's earnings + payouts within the period. */
 export interface AdminRevenuePerMaster {
   master_id: string
@@ -69,6 +99,14 @@ export interface AdminRevenueResponse {
   commission_cents: number
   payout_cents: number
   per_master: AdminRevenuePerMaster[]
+}
+
+/** One participant in a practice's roster (non-cancelled booking). */
+export interface AdminRosterEntry {
+  user_id: string
+  name: string
+  avatar_url: string | null
+  status: string
 }
 
 /** GET /api/v1/admin/stats -- response body. */
@@ -477,6 +515,14 @@ export interface NotificationSettingsUpdate {
   practice_reminders?: boolean | null
   master_messages?: boolean | null
   support_messages?: boolean | null
+}
+
+/** GET /api/v1/admin/practices -- paginated, scope-filtered list. */
+export interface PaginatedAdminPracticesResponse {
+  items: AdminPracticeListItem[]
+  total: number
+  limit: number
+  offset: number
 }
 
 /** Paginated list of withdrawals for admin. */
