@@ -1,5 +1,5 @@
 # =============================================================================
-# VELO Backend -- Admin Router (Phase 3.1, updated Phase 7.3 + E9/4a + E9/4b)
+# VELO Backend -- Admin Router (Phase 3.1, updated 7.3 + E9/4a + 4b + 4c)
 # =============================================================================
 #
 # Main router for all admin endpoints. Includes sub-routers:
@@ -12,6 +12,7 @@
 #   - consistency/  -- data consistency semaphores (Phase 6.8)
 #   - metrics/      -- engagement metrics drill-ins (E9/4a)
 #   - revenue/      -- platform revenue drill-in (E9/4b)
+#   - practices/    -- global practices oversight (E9/4c)
 #
 # Direct endpoints on this router:
 #   - POST /templates/reload -- reload notification templates (Phase 7.3)
@@ -27,6 +28,7 @@ from fastapi import APIRouter, Depends
 from app.modules.admin.consistency.router import router as consistency_router
 from app.modules.admin.masters.router import router as masters_router
 from app.modules.admin.metrics.router import router as metrics_router
+from app.modules.admin.practices.router import router as practices_router
 from app.modules.admin.revenue.router import router as revenue_router
 from app.modules.admin.promos.router import router as promos_router
 from app.modules.admin.reports.router import router as reports_router
@@ -53,6 +55,7 @@ router.include_router(promos_router)
 router.include_router(consistency_router)
 router.include_router(metrics_router)        # E9/4a
 router.include_router(revenue_router)        # E9/4b
+router.include_router(practices_router)      # E9/4c
 
 
 # ---------------------------------------------------------------------------
