@@ -38,7 +38,7 @@ from app.modules.admin.metrics.schemas import (
     CheckinMetricResponse,
     FeedbackMetricResponse,
     LowCheckinPractice,
-    RatingDistribution,
+    FeedbackRatingDistribution,
     ReturnMetricResponse,
     SeriesPoint,
     TopUser,
@@ -241,7 +241,7 @@ async def get_feedback_metric(
         rate_pct=_pct(left_review, visited),
         visited=visited,
         left_review=left_review,
-        distribution=RatingDistribution(
+        distribution=FeedbackRatingDistribution(
             fire=fire, good=good, confused=confused,
         ),
     )

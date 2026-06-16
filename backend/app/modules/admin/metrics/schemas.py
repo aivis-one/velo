@@ -52,8 +52,13 @@ class CheckinMetricResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # feedback
 # ---------------------------------------------------------------------------
-class RatingDistribution(BaseModel):
-    """Feedback counts by bucket (confused 1-3 / good 4-7 / fire 8-10)."""
+class FeedbackRatingDistribution(BaseModel):
+    """Feedback counts by bucket (confused 1-3 / good 4-7 / fire 8-10).
+
+    Named distinctly from diary.schemas.RatingDistribution to avoid an
+    OpenAPI component-name collision (both would otherwise be emitted under
+    module-qualified names, breaking the frontend's flat re-export).
+    """
 
     fire: int
     good: int
@@ -66,7 +71,7 @@ class FeedbackMetricResponse(BaseModel):
     rate_pct: int
     visited: int
     left_review: int
-    distribution: RatingDistribution
+    distribution: FeedbackRatingDistribution
 
 
 # ---------------------------------------------------------------------------
