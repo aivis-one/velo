@@ -24,6 +24,8 @@ import type {
   PayoutDetails,
   PaginatedWithdrawalsResponse,
   WithdrawalResponse,
+  PaginatedStudentsResponse,
+  StudentDetailResponse,
 } from '@/api/types'
 
 /**
@@ -98,4 +100,29 @@ export function createWithdrawal(amount_cents: number): Promise<WithdrawalRespon
 export function getMyWithdrawals(limit = 20, offset = 0): Promise<PaginatedWithdrawalsResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedWithdrawalsResponse>(`/api/v1/masters/me/withdrawals${query}`)
+}
+
+// =============================================================================
+// E5: Students / CRM endpoints
+//   GET /api/v1/masters/me/students       -- paginated list (needs_attention)
+//   GET /api/v1/masters/me/students/{id}  -- per-student aggregate
+// =============================================================================
+
+/**
+ * Fetch the master's students — everyone who attended their practices.
+ * Paginated; search is applied client-side over the loaded page.
+ * Only callable by users with role='master'.
+ */
+export function getStudents(limit = 50, offset = 0): Promise<PaginatedStudentsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedStudentsResponse>(`/api/v1/masters/me/students${query}`)
+}
+
+/**
+ * Fetch one student's aggregate (practices_count, hours, satisfaction_pct,
+ * recent check-ins and feedbacks) over THIS master's practices.
+ * Note: the response carries no name/avatar — the calling list passes those.
+ */
+export function getStudent(id: string): Promise<StudentDetailResponse> {
+  return api.get<StudentDetailResponse>(`/api/v1/masters/me/students/${id}`)
 }

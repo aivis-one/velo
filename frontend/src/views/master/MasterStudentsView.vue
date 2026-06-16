@@ -17,51 +17,75 @@
     <VHeader title="Мои ученики" show-back @back="router.push({ name: 'master-dashboard' })" />
 
     <div class="students__content">
-      <!-- Search (glass pill; client-side filter over the loaded list) -->
-      <div class="students__search">
-        <input
-          v-model="query"
-          class="students__search-input"
-          type="text"
-          placeholder="Искать…"
-          aria-label="Искать ученика"
-        />
-        <span class="students__search-btn" aria-hidden="true"><IconSearch :size="18" /></span>
+      <!-- Loading -->
+      <div v-if="loading" class="students__state">
+        <VLoader size="lg" />
       </div>
 
-      <!-- List -->
-      <div
-        v-for="student in filtered"
-        :key="student.id"
-        class="students__row"
-        role="button"
-        tabindex="0"
-        @click="openProfile(student.id)"
-        @keydown.enter.space.prevent="openProfile(student.id)"
-      >
-        <VAvatar :name="student.name" size="md" />
-        <div class="students__body">
-          <div class="students__name">{{ student.name }}</div>
-          <div class="students__meta">Практик: {{ student.practices_count }}</div>
-          <span v-if="student.needs_attention" class="students__attn">
-            <IconWarning :size="14" />Требует внимания
-          </span>
-        </div>
-        <button
-          class="students__msg"
-          aria-label="Написать сообщение"
-          @click.stop="openMessage(student.name)"
-        >
-          <IconMessages :size="22" />
-        </button>
-      </div>
-
+      <!-- Error -->
       <VEmptyState
-        v-if="filtered.length === 0"
-        icon="group"
-        title="Никого не найдено"
-        description="Попробуйте изменить запрос"
-      />
+        v-else-if="error"
+        icon="warning"
+        title="Не удалось загрузить учеников"
+        :description="error"
+      >
+        <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+      </VEmptyState>
+
+      <template v-else>
+        <!-- Search (glass pill; client-side filter over the loaded list) -->
+        <div class="students__search">
+          <input
+            v-model="query"
+            class="students__search-input"
+            type="text"
+            placeholder="Искать…"
+            aria-label="Искать ученика"
+          />
+          <span class="students__search-btn" aria-hidden="true"><IconSearch :size="18" /></span>
+        </div>
+
+        <!-- List -->
+        <div
+          v-for="student in filtered"
+          :key="student.id"
+          class="students__row"
+          role="button"
+          tabindex="0"
+          @click="openProfile(student)"
+          @keydown.enter.space.prevent="openProfile(student)"
+        >
+          <VAvatar :name="student.name" size="md" />
+          <div class="students__body">
+            <div class="students__name">{{ student.name }}</div>
+            <div class="students__meta">Практик: {{ student.practices_count }}</div>
+            <span v-if="student.needs_attention" class="students__attn">
+              <IconWarning :size="14" />Требует внимания
+            </span>
+          </div>
+          <button
+            class="students__msg"
+            aria-label="Написать сообщение"
+            @click.stop="openMessage(student.name)"
+          >
+            <IconMessages :size="22" />
+          </button>
+        </div>
+
+        <!-- Empty: no students at all vs no search match -->
+        <VEmptyState
+          v-if="students.length === 0"
+          icon="group"
+          title="Учеников пока нет"
+          description="Они появятся после первых практик"
+        />
+        <VEmptyState
+          v-else-if="filtered.length === 0"
+          icon="group"
+          title="Никого не найдено"
+          description="Попробуйте изменить запрос"
+        />
+      </template>
     </div>
 
     <SendMessageModal :open="msgOpen" :name="msgName" @close="msgOpen = false" />
@@ -69,41 +93,54 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VAvatar, VEmptyState } from '@/components/ui'
+import { VAvatar, VEmptyState, VLoader, VButton } from '@/components/ui'
 import { IconSearch, IconWarning, IconMessages } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
+import { getStudents } from '@/api/masters'
+import type { StudentListItem } from '@/api/types'
 
 const router = useRouter()
 
-// -- STUB data (no students/CRM backend yet → roadmap for Zod). --
-interface Student {
-  id: string
-  name: string
-  practices_count: number
-  needs_attention: boolean
+// -- Students (E5: GET /masters/me/students). Search filters the loaded page
+//    client-side; needs_attention drives the inline warning badge. --
+const students = ref<StudentListItem[]>([])
+const loading = ref(true)
+const error = ref('')
+
+async function load(): Promise<void> {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await getStudents()
+    students.value = res.items
+  } catch {
+    error.value = 'Попробуйте ещё раз'
+  } finally {
+    loading.value = false
+  }
 }
-const students = ref<Student[]>([
-  { id: 'maria-k', name: 'Мария К.', practices_count: 12, needs_attention: false },
-  { id: 'anna-p', name: 'Анна П.', practices_count: 8, needs_attention: true },
-  { id: 'dmitry-s', name: 'Дмитрий С.', practices_count: 5, needs_attention: false },
-  { id: 'elena-v', name: 'Елена В.', practices_count: 3, needs_attention: false },
-])
+onMounted(load)
 
 const query = ref('')
-const filtered = computed((): Student[] => {
+const filtered = computed((): StudentListItem[] => {
   const q = query.value.trim().toLowerCase()
   if (!q) return students.value
   return students.value.filter((s) => s.name.toLowerCase().includes(q))
 })
 
-function openProfile(id: string): void {
-  router.push({ name: 'master-student-profile', params: { id } })
+// The detail endpoint carries no name → pass it forward from the list row.
+function openProfile(student: StudentListItem): void {
+  router.push({
+    name: 'master-student-profile',
+    params: { id: student.id },
+    query: { name: student.name },
+  })
 }
 
-// -- Send-message sheet (stub) --
+// -- Send-message sheet (stub — E4 messaging not delivered) --
 const msgOpen = ref(false)
 const msgName = ref('')
 function openMessage(name: string): void {
@@ -126,6 +163,12 @@ function openMessage(name: string): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.students__state {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
 }
 
 /* -- Search (glass pill + primary circle button) -- */

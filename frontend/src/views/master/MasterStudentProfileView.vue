@@ -15,85 +15,160 @@
     <VHeader title="Профиль ученика" show-back @back="router.back()" />
 
     <div class="profile__content">
-      <!-- Hero -->
-      <div class="profile__hero">
-        <VAvatar :name="student.name" size="xl" class="profile__hero-ava" />
-        <div class="profile__hero-name">{{ student.name }}</div>
+      <!-- Loading -->
+      <div v-if="loading" class="profile__state">
+        <VLoader size="lg" />
       </div>
 
-      <!-- Stats -->
-      <div class="profile__stats">
-        <VStatCard :value="student.practices_count" label="Практик" />
-        <VStatCard :value="student.hours" label="Часов" />
-        <div class="profile__stat">
-          <div class="profile__stat-value">{{ student.satisfaction_pct }}%</div>
-          <div class="profile__stat-icons">
-            <IconHeart :size="15" class="profile__ic-heart" />
-            <IconRatingFire :size="15" class="profile__ic-fire" />
+      <!-- Error -->
+      <VEmptyState
+        v-else-if="error"
+        icon="warning"
+        title="Не удалось загрузить профиль"
+        :description="error"
+      >
+        <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+      </VEmptyState>
+
+      <template v-else>
+        <!-- Hero (name comes from the list nav — see script note) -->
+        <div class="profile__hero">
+          <VAvatar :name="name" size="xl" class="profile__hero-ava" />
+          <div class="profile__hero-name">{{ name }}</div>
+        </div>
+
+        <!-- Stats -->
+        <div class="profile__stats">
+          <VStatCard :value="practicesCount" label="Практик" />
+          <VStatCard :value="hours" label="Часов" />
+          <div class="profile__stat">
+            <div class="profile__stat-value">{{ satisfactionLabel }}</div>
+            <div class="profile__stat-icons">
+              <IconHeart :size="15" class="profile__ic-heart" />
+              <IconRatingFire :size="15" class="profile__ic-fire" />
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Recent check-ins -->
-      <h2 class="velo-section-title">Последние check-ins</h2>
-      <div v-for="(ci, i) in checkins" :key="i" class="profile__ci">
-        <MoodAvatar :mood="ci.mood" :size="46" />
-        <div class="profile__ci-body">
-          <div class="profile__ci-text">{{ ci.comment || moodLabelFromScore(ci.mood) }}</div>
-          <div class="profile__ci-date">{{ ci.date }}</div>
-        </div>
-      </div>
-
-      <!-- Feedbacks -->
-      <h2 class="velo-section-title">Feedbacks</h2>
-      <div v-for="(fb, i) in feedbacks" :key="`fb-${i}`" class="profile__fb">
-        <span class="profile__fb-ic"><IconRatingFire :size="30" /></span>
-        <div class="profile__fb-body">
-          <div class="profile__fb-row">
-            <span class="profile__fb-title">{{ fb.title }}</span>
-            <span class="profile__fb-date">{{ fb.date }}</span>
+        <!-- Recent check-ins -->
+        <h2 class="velo-section-title">Последние check-ins</h2>
+        <div v-if="checkinRows.length === 0" class="profile__empty">Пока нет check-ins</div>
+        <div v-for="(ci, i) in checkinRows" :key="`ci-${i}`" class="profile__ci">
+          <MoodAvatar :mood="ci.mood" :size="46" />
+          <div class="profile__ci-body">
+            <div class="profile__ci-text">{{ ci.comment || moodLabelFromScore(ci.mood) }}</div>
+            <div class="profile__ci-date">{{ ci.date }}</div>
           </div>
-          <div class="profile__fb-text">{{ fb.comment }}</div>
         </div>
-      </div>
 
-      <!-- Action -->
-      <VButton variant="primary" block class="profile__cta" @click="msgOpen = true">
-        Написать сообщение
-      </VButton>
+        <!-- Feedbacks -->
+        <h2 class="velo-section-title">Feedbacks</h2>
+        <div v-if="feedbackRows.length === 0" class="profile__empty">Пока нет отзывов</div>
+        <div v-for="(fb, i) in feedbackRows" :key="`fb-${i}`" class="profile__fb">
+          <span class="profile__fb-ic" :style="{ color: fb.color }">
+            <component :is="fb.icon" :size="30" />
+          </span>
+          <div class="profile__fb-body">
+            <div class="profile__fb-row">
+              <span class="profile__fb-title">{{ fb.label }}</span>
+              <span class="profile__fb-date">{{ fb.date }}</span>
+            </div>
+            <div v-if="fb.comment" class="profile__fb-text">{{ fb.comment }}</div>
+          </div>
+        </div>
+
+        <!-- Action (stub — E4 messaging not delivered) -->
+        <VButton variant="primary" block class="profile__cta" @click="msgOpen = true">
+          Написать сообщение
+        </VButton>
+      </template>
     </div>
 
-    <SendMessageModal :open="msgOpen" :name="student.name" @close="msgOpen = false" />
+    <SendMessageModal :open="msgOpen" :name="name" @close="msgOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, type Component } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VAvatar, VStatCard, VButton } from '@/components/ui'
-import { IconHeart, IconRatingFire } from '@/components/icons'
+import { VAvatar, VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
+import { IconHeart, IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
 import MoodAvatar from '@/components/shared/MoodAvatar.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
-import { moodLabelFromScore } from '@/utils/displayHelpers'
+import {
+  moodLabelFromScore,
+  ratingLabelFromScore,
+  ratingZoneFromScore,
+  RATING_ICON_COLOR,
+} from '@/utils/displayHelpers'
+import { formatShortDate } from '@/utils/format'
+import { getStudent } from '@/api/masters'
+import type { StudentDetailResponse } from '@/api/types'
 
+const route = useRoute()
 const router = useRouter()
 
-// -- STUB data (no per-student aggregation backend → roadmap for Zod). --
-const student = ref({
-  name: 'Мария К.',
-  practices_count: 12,
-  hours: '9,5',
-  satisfaction_pct: 85,
+// Name/avatar are NOT in StudentDetailResponse — the students list passes the
+// name forward via route query. Fallback for a direct/refreshed nav.
+const name = computed((): string => {
+  const q = route.query.name
+  return (typeof q === 'string' && q) || 'Ученик'
 })
-const checkins = ref<Array<{ mood: number; date: string; comment: string }>>([
-  { mood: 9, date: '22 янв', comment: 'Выспалась, готова к практике' },
-  { mood: 6, date: '20 янв', comment: '' },
-])
-const feedbacks = ref<Array<{ title: string; date: string; comment: string }>>([
-  { title: 'Огонь!', date: '22 янв', comment: 'Лучшая практика за месяц!' },
-])
 
+// -- Per-student aggregate (E5: GET /masters/me/students/{id}). --
+const detail = ref<StudentDetailResponse | null>(null)
+const loading = ref(true)
+const error = ref('')
+
+async function load(): Promise<void> {
+  loading.value = true
+  error.value = ''
+  try {
+    detail.value = await getStudent(String(route.params.id))
+  } catch {
+    error.value = 'Попробуйте ещё раз'
+  } finally {
+    loading.value = false
+  }
+}
+onMounted(load)
+
+const practicesCount = computed((): number => detail.value?.practices_count ?? 0)
+const hours = computed((): number => detail.value?.hours ?? 0)
+const satisfactionLabel = computed((): string => {
+  const pct = detail.value?.satisfaction_pct
+  return pct == null ? '—' : `${pct}%`
+})
+
+const ICON_BY_ZONE: Record<'confused' | 'good' | 'fire', Component> = {
+  confused: IconRatingConfused,
+  good: IconRatingGood,
+  fire: IconRatingFire,
+}
+
+const checkinRows = computed(() =>
+  (detail.value?.recent_checkins ?? []).map((ci) => ({
+    mood: ci.mood,
+    comment: ci.comment ?? '',
+    date: formatShortDate(ci.created_at),
+  })),
+)
+
+const feedbackRows = computed(() =>
+  (detail.value?.feedbacks ?? []).map((fb) => {
+    const zone = ratingZoneFromScore(fb.rating)
+    return {
+      label: ratingLabelFromScore(fb.rating),
+      icon: ICON_BY_ZONE[zone],
+      color: RATING_ICON_COLOR[zone],
+      comment: fb.comment ?? '',
+      date: formatShortDate(fb.created_at),
+    }
+  }),
+)
+
+// "Написать сообщение" — stub (E4 messaging not delivered).
 const msgOpen = ref(false)
 </script>
 
@@ -111,6 +186,18 @@ const msgOpen = ref(false)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.profile__state {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
+}
+
+.profile__empty {
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
 /* -- Hero -- */
