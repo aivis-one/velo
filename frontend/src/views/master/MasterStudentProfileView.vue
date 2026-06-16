@@ -33,7 +33,7 @@
       <template v-else>
         <!-- Hero (name comes from the list nav — see script note) -->
         <div class="profile__hero">
-          <VAvatar :name="name" size="xl" class="profile__hero-ava" />
+          <VAvatar :name="name" :url="avatarUrl" size="xl" class="profile__hero-ava" />
           <div class="profile__hero-name">{{ name }}</div>
         </div>
 
@@ -109,12 +109,15 @@ import type { StudentDetailResponse } from '@/api/types'
 const route = useRoute()
 const router = useRouter()
 
-// Name/avatar are NOT in StudentDetailResponse — the students list passes the
-// name forward via route query. Fallback for a direct/refreshed nav.
+// Identity comes from StudentDetailResponse (name/avatar_url, E5). The list
+// still forwards ?name= for an instant pre-fetch render; «Ученик» is only a
+// last-resort fallback (e.g. before the fetch resolves on a direct deep-link),
+// never the unconditional placeholder.
 const name = computed((): string => {
   const q = route.query.name
-  return (typeof q === 'string' && q) || 'Ученик'
+  return detail.value?.name || (typeof q === 'string' && q) || 'Ученик'
 })
+const avatarUrl = computed((): string => detail.value?.avatar_url ?? '')
 
 // -- Per-student aggregate (E5: GET /masters/me/students/{id}). --
 const detail = ref<StudentDetailResponse | null>(null)
