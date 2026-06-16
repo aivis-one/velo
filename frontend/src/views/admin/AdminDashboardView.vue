@@ -185,6 +185,7 @@ import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
+import { getCheckinMetric, getFeedbackMetric, getReturnMetric } from '@/api/admin'
 
 const router = useRouter()
 const toast = useToast()
@@ -227,13 +228,26 @@ const practicesDelta = computed((): string => '')
 const mastersDelta = computed((): string => '')
 const participantsDelta = computed((): string => '')
 
-// Revenue + engagement: no API yet -> stub. Revenue "—"; engagement rows render an
-// empty track + "—". Bound through computeds so wiring the future API is one line.
+// Revenue: no API yet (E2 -> batch-5) -> stub "—".
 const revenueValue = computed((): string => '—')
 const revenueDelta = computed((): string => '')
-const checkinRate = computed<number | null>((): number | null => null)
-const feedbackRate = computed<number | null>((): number | null => null)
-const returnRate = computed<number | null>((): number | null => null)
+
+// Engagement headline rates (E9). Fetched best-effort on mount; a failed metric
+// leaves its row at an empty track + "—". The detail screens carry the breakdown.
+const checkinRate = ref<number | null>(null)
+const feedbackRate = ref<number | null>(null)
+const returnRate = ref<number | null>(null)
+
+async function loadEngagement(): Promise<void> {
+  const [checkin, feedback, ret] = await Promise.allSettled([
+    getCheckinMetric(),
+    getFeedbackMetric(),
+    getReturnMetric(),
+  ])
+  if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
+  if (feedback.status === 'fulfilled') feedbackRate.value = feedback.value.rate_pct
+  if (ret.status === 'fulfilled') returnRate.value = ret.value.rate_pct
+}
 
 // Current ISO week range (Mon–Sun), client-side. The period toggle + week steps
 // are visual-only until a period-scoped stats API exists (roadmap for Zod).
@@ -256,6 +270,7 @@ function stub(): void {
 
 onMounted(() => {
   void adminStore.fetchDashboard()
+  void loadEngagement()
 })
 </script>
 

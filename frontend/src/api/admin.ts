@@ -17,6 +17,9 @@
 //   POST /api/v1/admin/reports/{id}/resolve
 //   POST /api/v1/admin/reports/{id}/dismiss
 //   GET  /api/v1/admin/consistency
+//   GET  /api/v1/admin/metrics/check-in     -- engagement metric (E9)
+//   GET  /api/v1/admin/metrics/feedback     -- engagement metric (E9)
+//   GET  /api/v1/admin/metrics/return       -- engagement metric (E9)
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -34,6 +37,9 @@ import type {
   AdminWithdrawalResponse,
   PaginatedAdminWithdrawalsResponse,
   WithdrawalStatus,
+  CheckinMetricResponse,
+  FeedbackMetricResponse,
+  ReturnMetricResponse,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -167,4 +173,21 @@ export function rejectWithdrawal(
   return api.post<AdminWithdrawalResponse>(`/api/v1/admin/withdrawals/${withdrawalId}/reject`, {
     note,
   })
+}
+
+// ============================================================================
+// Engagement metrics (E9). Absolute values only — period-over-period deltas
+// need E7 (not delivered), so the views leave the delta fields blank.
+// ============================================================================
+
+export function getCheckinMetric(): Promise<CheckinMetricResponse> {
+  return api.get<CheckinMetricResponse>('/api/v1/admin/metrics/check-in')
+}
+
+export function getFeedbackMetric(): Promise<FeedbackMetricResponse> {
+  return api.get<FeedbackMetricResponse>('/api/v1/admin/metrics/feedback')
+}
+
+export function getReturnMetric(): Promise<ReturnMetricResponse> {
+  return api.get<ReturnMetricResponse>('/api/v1/admin/metrics/return')
 }
