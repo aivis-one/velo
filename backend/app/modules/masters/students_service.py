@@ -180,6 +180,12 @@ async def get_master_student_detail(
     if practices_count == 0:
         raise NotFoundError("Student not found")
 
+    # Identity for the detail header — same source as the list (StudentListItem):
+    # the student's User record. Guaranteed present (the booking FK references it).
+    student = await session.get(User, student_id)
+    name = _student_name(student) if student is not None else "Участник"
+    avatar_url = student.avatar_url if student is not None else None
+
     hours = round(total_minutes / 60, 1)
 
     # satisfaction_pct = round(avg(rating) * 10); null when no feedback.
@@ -226,6 +232,8 @@ async def get_master_student_detail(
     ).all()
 
     return {
+        "name": name,
+        "avatar_url": avatar_url,
         "practices_count": practices_count,
         "hours": hours,
         "satisfaction_pct": satisfaction_pct,

@@ -67,6 +67,9 @@ class StudentFeedbackItem(BaseModel):
 class StudentDetailResponse(BaseModel):
     """GET /api/v1/masters/me/students/{id} -- per-student aggregate.
 
+    name / avatar_url -- the student's identity, same source as StudentListItem
+                       (so a direct/refreshed deep-link renders the real name,
+                       not a fallback).
     practices_count -- number of this master's practices the student attended.
     hours           -- attended duration_minutes summed, in hours (1 decimal).
     satisfaction_pct-- round(avg(rating) * 10) over the student's feedbacks on
@@ -75,6 +78,8 @@ class StudentDetailResponse(BaseModel):
     feedbacks       -- newest-first, capped.
     """
 
+    name: str
+    avatar_url: str | None
     practices_count: int
     hours: float
     satisfaction_pct: int | None
