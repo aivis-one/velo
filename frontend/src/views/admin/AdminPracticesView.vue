@@ -11,10 +11,10 @@
   capacity in the #badge slot, rose when full). No status badge — capacity took its
   slot in the newer SVGs.
 
-  STUB (operator Q2=А — honest skeleton): no admin practices API yet -> the list is
-  empty ("Данных пока нет"); the header count + the «Все» badge show the real total
-  from /admin/stats (practices_count). Roadmap for Zod: GET /admin/practices (filters
-  upcoming/past, counts, capacity + status) + GET /admin/practices/:id (detail).
+  WIRED (E9, 2026-06-16): GET /api/v1/admin/practices?scope=all|upcoming|past drives
+  the list (loading/error/empty states). Header count = the fetched scope total; the
+  «Все» segment badge keeps the platform total from /admin/stats. Tapping a card opens
+  the detail, which re-fetches by id (GET /admin/practices/:id).
 -->
 
 <template>
@@ -27,18 +27,30 @@
 
     <VSegment v-model="filter" :options="segOptions" />
 
-    <div v-if="practices.length" class="admin-list__items">
+    <div v-if="loading" class="admin-list__loader"><VLoader size="lg" /></div>
+
+    <VEmptyState
+      v-else-if="error"
+      icon="warning"
+      title="Не удалось загрузить практики"
+      :description="error"
+    >
+      <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+    </VEmptyState>
+
+    <div v-else-if="practices.length" class="admin-list__items">
       <PracticeListCard
         v-for="p in practices"
         :key="p.id"
         :practice="p"
-        :when="p.when_label"
-        :duration="p.duration_label"
+        :when="whenLabel(p)"
+        :duration="durationLabel(p)"
+        :show-verified="p.master_verified"
         @click="openDetail(p)"
       >
         <template #badge>
-          <span class="admin-cap" :class="{ 'admin-cap--full': p.booked >= p.capacity }">
-            <IconGroup :size="14" />{{ p.booked }}/{{ p.capacity }}
+          <span class="admin-cap" :class="{ 'admin-cap--full': isFull(p) }">
+            <IconGroup :size="14" />{{ p.booked }}/{{ capacityText(p) }}
           </span>
         </template>
       </PracticeListCard>
@@ -51,40 +63,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBackButton, VSegment, VCard } from '@/components/ui'
+import { VBackButton, VSegment, VCard, VLoader, VEmptyState, VButton } from '@/components/ui'
 import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import { IconGroup } from '@/components/icons'
 import { useAdminStore } from '@/stores/admin'
-
-interface AdminPractice {
-  id: string
-  title: string
-  direction?: string | null
-  master_name: string
-  when_label: string
-  duration_label: string
-  booked: number
-  capacity: number
-  status: 'upcoming' | 'past'
-}
+import { getAdminPractices, type AdminPracticeScope } from '@/api/admin'
+import { ApiResponseError } from '@/api/client'
+import { formatDateShort } from '@/utils/format'
+import type { AdminPracticeListItem } from '@/api/types'
 
 const router = useRouter()
 const adminStore = useAdminStore()
 
-// Filter scopes the future API query (Zod). Visual-only until /admin/practices.
 const filter = ref('all')
+const practices = ref<AdminPracticeListItem[]>([])
+const total = ref<number | null>(null)
+const loading = ref(false)
+const error = ref<string | null>(null)
 
-// Stub list -> Zod. Honest skeleton (Q2=А): empty until the API exists.
-const practices = ref<AdminPractice[]>([])
-
-// Real aggregate from /admin/stats (loaded by AdminShell). Header + «Все» badge.
+// Platform total from /admin/stats (loaded by AdminShell) — the «Все» badge.
 const totalCount = computed<number | null>(() => adminStore.stats?.practices_count ?? null)
-const headerCount = computed<string>(() =>
-  totalCount.value !== null ? String(totalCount.value) : '—',
-)
+// Header count reflects the fetched scope total.
+const headerCount = computed<string>(() => (total.value !== null ? String(total.value) : '—'))
 
 const segOptions = computed<SegmentOption[]>(() => [
   { value: 'all', label: 'Все', badge: totalCount.value ?? undefined },
@@ -92,15 +95,43 @@ const segOptions = computed<SegmentOption[]>(() => [
   { value: 'past', label: 'Прошедшие' },
 ])
 
-// Tap a card -> admin practice detail; hand the practice via router state (the list
-// API isn't wired yet, so the detail reads what it was given).
-function openDetail(p: AdminPractice): void {
-  router.push({
-    name: 'admin-practice-detail',
-    params: { id: p.id },
-    state: { practice: JSON.parse(JSON.stringify(p)) },
-  })
+function whenLabel(p: AdminPracticeListItem): string {
+  return formatDateShort(p.scheduled_at)
 }
+function durationLabel(p: AdminPracticeListItem): string {
+  return `${p.duration_minutes} мин`
+}
+function capacityText(p: AdminPracticeListItem): string {
+  return p.capacity != null ? String(p.capacity) : '∞'
+}
+function isFull(p: AdminPracticeListItem): boolean {
+  return p.capacity != null && p.booked >= p.capacity
+}
+
+async function load(): Promise<void> {
+  // Narrow the segment value to the backend scope without a cast.
+  const scope: AdminPracticeScope =
+    filter.value === 'upcoming' ? 'upcoming' : filter.value === 'past' ? 'past' : 'all'
+  loading.value = true
+  error.value = null
+  try {
+    const res = await getAdminPractices(scope, 100, 0)
+    practices.value = res.items
+    total.value = res.total
+  } catch (e) {
+    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+  } finally {
+    loading.value = false
+  }
+}
+
+// Tap a card -> admin practice detail; it re-fetches by id (GET /admin/practices/:id).
+function openDetail(p: AdminPracticeListItem): void {
+  router.push({ name: 'admin-practice-detail', params: { id: p.id } })
+}
+
+watch(filter, load)
+onMounted(load)
 </script>
 
 <style scoped>
@@ -140,6 +171,12 @@ function openDetail(p: AdminPractice): void {
   font-family: var(--font-body);
   font-size: var(--text-base);
   letter-spacing: 0.02em;
+}
+
+.admin-list__loader {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
 }
 
 .admin-list__items {

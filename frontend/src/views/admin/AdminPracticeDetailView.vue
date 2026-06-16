@@ -2,18 +2,17 @@
   VELO Frontend -- AdminPracticeDetailView (Admin DS, 2026-06-14, operator SVGs "3 Practice details" upcoming/past)
 
   Admin oversight of a single practice (read-only). Reached by tapping a card in the
-  admin practices list (admin-practice-detail), which hands the practice via router
-  state. Hero (PracticeHeroCard, #meta = master + date) + 2 VStatCard + roster.
+  admin practices list (admin-practice-detail); the detail re-fetches by route id.
+  Hero (PracticeHeroCard, #meta = master + date) + 2 VStatCard + roster.
 
-  Two variants by practice.status:
+  Two variants by practice.status ("upcoming" / "past"):
     - upcoming: stats Записалось / Свободно; section «Записались (N/M)».
     - past: stats Записалось / Пришли; «Присутствовали» (teal check) + «Не пришли»
       (rose cross).
 
-  STUB (operator Q2=А — honest skeleton): the hero + the «Записалось»/«Свободно» stats
-  come from the handed practice; the per-person roster and the attendance count have
-  no API yet -> empty («Данных пока нет») / «—». Roadmap for Zod: GET
-  /admin/practices/:id (detail + roster + attendance).
+  WIRED (E9, 2026-06-16): GET /api/v1/admin/practices/:id provides the hero fields,
+  booked/capacity/attended counts and the full non-cancelled roster (loading/error
+  states). Past practices bucket the roster by booking status (attended / no_show).
 -->
 
 <template>
@@ -23,16 +22,25 @@
       <span class="admin-detail__title">Детали практики</span>
     </header>
 
-    <template v-if="practice">
-      <PracticeHeroCard :title="practice.title" :direction="practice.direction ?? null">
+    <div v-if="loading" class="admin-detail__loader"><VLoader size="lg" /></div>
+
+    <VEmptyState
+      v-else-if="error"
+      icon="warning"
+      title="Не удалось загрузить практику"
+      :description="error"
+    >
+      <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+    </VEmptyState>
+
+    <template v-else-if="practice">
+      <PracticeHeroCard :title="practice.title" :direction="practice.direction">
         <template #meta>
           <span class="admin-detail__hero-cell">
             <span class="admin-detail__pic">{{ masterInitial }}</span>
             {{ practice.master_name }}
           </span>
-          <span class="admin-detail__hero-cell">
-            <IconCalendar :size="14" /> {{ practice.when_label }}
-          </span>
+          <span class="admin-detail__hero-cell"> <IconCalendar :size="14" /> {{ whenLabel }} </span>
         </template>
       </PracticeHeroCard>
 
@@ -44,51 +52,37 @@
 
       <!-- Upcoming: who registered -->
       <template v-if="!isPast">
-        <h3 class="admin-detail__section">
-          Записались ({{ practice.booked }}/{{ practice.capacity }})
-        </h3>
-        <template v-if="registered.length">
-          <div class="admin-detail__items">
-            <VListRow v-for="r in registered" :key="r.id" :title="r.name" :subtitle="r.sub">
-              <template #lead>
-                <span class="admin-detail__avatar"><IconProfile :size="22" /></span>
-              </template>
-            </VListRow>
-          </div>
-          <div class="admin-detail__more">
-            <VButton variant="outline" @click="stub"
-              >Показать всех ({{ registered.length }})</VButton
-            >
-          </div>
-        </template>
+        <h3 class="admin-detail__section">Записались ({{ practice.booked }}/{{ capacityText }})</h3>
+        <div v-if="registered.length" class="admin-detail__items">
+          <VListRow v-for="r in registered" :key="r.user_id" :title="r.name">
+            <template #lead>
+              <span class="admin-detail__avatar"><IconProfile :size="22" /></span>
+            </template>
+          </VListRow>
+        </div>
         <VCard v-else><p class="admin-detail__empty">Данных пока нет</p></VCard>
       </template>
 
       <!-- Past: who attended / who didn't -->
       <template v-else>
         <h3 class="admin-detail__section">Присутствовали ({{ present.length }})</h3>
-        <template v-if="present.length">
-          <div class="admin-detail__items">
-            <VListRow v-for="r in present" :key="r.id" :title="r.name" :subtitle="r.sub">
-              <template #lead>
-                <span class="admin-detail__avatar"><IconProfile :size="22" /></span>
-              </template>
-              <template #trailing>
-                <span class="admin-detail__mark admin-detail__mark--ok"
-                  ><IconCheck :size="24"
-                /></span>
-              </template>
-            </VListRow>
-          </div>
-          <div class="admin-detail__more">
-            <VButton variant="outline" @click="stub">Показать всех ({{ present.length }})</VButton>
-          </div>
-        </template>
+        <div v-if="present.length" class="admin-detail__items">
+          <VListRow v-for="r in present" :key="r.user_id" :title="r.name">
+            <template #lead>
+              <span class="admin-detail__avatar"><IconProfile :size="22" /></span>
+            </template>
+            <template #trailing>
+              <span class="admin-detail__mark admin-detail__mark--ok"
+                ><IconCheck :size="24"
+              /></span>
+            </template>
+          </VListRow>
+        </div>
         <VCard v-else><p class="admin-detail__empty">Данных пока нет</p></VCard>
 
         <h3 class="admin-detail__section">Не пришли ({{ absent.length }})</h3>
         <div v-if="absent.length" class="admin-detail__items">
-          <VListRow v-for="r in absent" :key="r.id" :title="r.name" :subtitle="r.sub">
+          <VListRow v-for="r in absent" :key="r.user_id" :title="r.name">
             <template #lead>
               <span class="admin-detail__avatar"><IconProfile :size="22" /></span>
             </template>
@@ -110,39 +104,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { VBackButton, VStatCard, VCard, VButton, VListRow } from '@/components/ui'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  VBackButton,
+  VStatCard,
+  VCard,
+  VButton,
+  VListRow,
+  VLoader,
+  VEmptyState,
+} from '@/components/ui'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { IconCalendar, IconProfile, IconCheck, IconClose } from '@/components/icons'
-import { useToast } from '@/composables/useToast'
+import { getAdminPracticeDetail } from '@/api/admin'
+import { ApiResponseError } from '@/api/client'
+import { formatDateShort } from '@/utils/format'
+import type { AdminPracticeDetailResponse, AdminRosterEntry } from '@/api/types'
 
-interface DetailPractice {
-  id: string
-  title: string
-  direction?: string | null
-  master_name: string
-  when_label: string
-  booked: number
-  capacity: number
-  status: 'upcoming' | 'past'
-}
-
-interface RosterPerson {
-  id: string
-  name: string
-  sub: string
-  avatar_url?: string
-}
-
+const route = useRoute()
 const router = useRouter()
-const toast = useToast()
+const practiceId = route.params.id as string
 
-// The practice is handed over via router state by the practices list (no detail API
-// yet). Direct navigation without state -> "Практика недоступна".
-const practice = ref<DetailPractice | null>(
-  (history.state as { practice?: DetailPractice }).practice ?? null,
-)
+const practice = ref<AdminPracticeDetailResponse | null>(null)
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 const isPast = computed<boolean>(() => practice.value?.status === 'past')
 
@@ -150,23 +136,45 @@ const masterInitial = computed<string>(() =>
   (practice.value?.master_name.trim().charAt(0) || 'М').toUpperCase(),
 )
 
+const whenLabel = computed<string>(() =>
+  practice.value ? formatDateShort(practice.value.scheduled_at) : '',
+)
+
 const bookedLabel = computed<string>(() => String(practice.value?.booked ?? '—'))
+const attendedLabel = computed<string>(() => String(practice.value?.attended ?? '—'))
+const capacityText = computed<string>(() => {
+  const c = practice.value?.capacity
+  return c != null ? String(c) : '∞'
+})
 const freeLabel = computed<string>(() => {
   const p = practice.value
-  return p ? String(Math.max(0, p.capacity - p.booked)) : '—'
+  if (!p) return '—'
+  return p.capacity != null ? String(Math.max(0, p.capacity - p.booked)) : '∞'
 })
-// «Пришли» (attended) has no source without the roster API -> honest «—».
-const attendedLabel = computed<string>(() => '—')
 
-// Roster -> Zod. Honest skeleton (Q2=А): empty until GET /admin/practices/:id.
-const registered = ref<RosterPerson[]>([])
-const present = ref<RosterPerson[]>([])
-const absent = ref<RosterPerson[]>([])
+// Roster from the detail response. Past practices bucket by booking status.
+const roster = computed<AdminRosterEntry[]>(() => practice.value?.roster ?? [])
+const registered = computed<AdminRosterEntry[]>(() => roster.value)
+const present = computed<AdminRosterEntry[]>(() =>
+  roster.value.filter((r) => r.status === 'attended'),
+)
+const absent = computed<AdminRosterEntry[]>(() =>
+  roster.value.filter((r) => r.status !== 'attended'),
+)
 
-// Inert until the roster API lands (the «Показать всех» button only shows with data).
-function stub(): void {
-  toast.info('Раздел пока недоступен')
+async function load(): Promise<void> {
+  loading.value = true
+  error.value = null
+  try {
+    practice.value = await getAdminPracticeDetail(practiceId)
+  } catch (e) {
+    error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+  } finally {
+    loading.value = false
+  }
 }
+
+onMounted(load)
 </script>
 
 <style scoped>
@@ -232,10 +240,10 @@ function stub(): void {
   gap: var(--space-2);
 }
 
-.admin-detail__more {
+.admin-detail__loader {
   display: flex;
   justify-content: center;
-  padding-top: var(--space-1);
+  padding: var(--space-6) 0;
 }
 
 .admin-detail__empty {

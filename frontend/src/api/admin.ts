@@ -20,6 +20,9 @@
 //   GET  /api/v1/admin/metrics/check-in     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/feedback     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/return       -- engagement metric (E9)
+//   GET  /api/v1/admin/practices            -- global practices list (E9)
+//   GET  /api/v1/admin/practices/{id}       -- practice detail + roster (E9)
+//   GET  /api/v1/admin/revenue              -- revenue/commission/payout (E9)
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -40,6 +43,9 @@ import type {
   CheckinMetricResponse,
   FeedbackMetricResponse,
   ReturnMetricResponse,
+  PaginatedAdminPracticesResponse,
+  AdminPracticeDetailResponse,
+  AdminRevenueResponse,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -190,4 +196,30 @@ export function getFeedbackMetric(): Promise<FeedbackMetricResponse> {
 
 export function getReturnMetric(): Promise<ReturnMetricResponse> {
   return api.get<ReturnMetricResponse>('/api/v1/admin/metrics/return')
+}
+
+// ============================================================================
+// Oversight: practices (list + detail/roster) + revenue (E9)
+// ============================================================================
+
+/** Scope filter for the global practices list (backend: ?scope=). */
+export type AdminPracticeScope = 'all' | 'upcoming' | 'past'
+
+export function getAdminPractices(
+  scope: AdminPracticeScope = 'all',
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedAdminPracticesResponse> {
+  const query = buildQuery({ scope, limit, offset })
+  return api.get<PaginatedAdminPracticesResponse>(`/api/v1/admin/practices${query}`)
+}
+
+export function getAdminPracticeDetail(id: string): Promise<AdminPracticeDetailResponse> {
+  return api.get<AdminPracticeDetailResponse>(`/api/v1/admin/practices/${id}`)
+}
+
+/** Platform revenue/commission/payout + per-master breakdown for the period. */
+export function getAdminRevenue(period: 'week' | 'month' = 'week'): Promise<AdminRevenueResponse> {
+  const query = buildQuery({ period })
+  return api.get<AdminRevenueResponse>(`/api/v1/admin/revenue${query}`)
 }

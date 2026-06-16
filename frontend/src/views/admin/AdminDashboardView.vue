@@ -185,7 +185,8 @@ import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
-import { getCheckinMetric, getFeedbackMetric, getReturnMetric } from '@/api/admin'
+import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
+import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
 const toast = useToast()
@@ -228,8 +229,13 @@ const practicesDelta = computed((): string => '')
 const mastersDelta = computed((): string => '')
 const participantsDelta = computed((): string => '')
 
-// Revenue: no API yet (E2 -> batch-5) -> stub "—".
-const revenueValue = computed((): string => '—')
+// Revenue (E9). Weekly GMV from /admin/revenue, best-effort. €0.00 while seed
+// practices are free (priced templates land with the seed-pricing task). Delta
+// needs E7 (not delivered) -> blank.
+const revenueCents = ref<number | null>(null)
+const revenueValue = computed((): string =>
+  revenueCents.value !== null ? formatMoney(revenueCents.value, 'EUR', 'ru', true) : '—',
+)
 const revenueDelta = computed((): string => '')
 
 // Engagement headline rates (E9). Fetched best-effort on mount; a failed metric
@@ -239,14 +245,16 @@ const feedbackRate = ref<number | null>(null)
 const returnRate = ref<number | null>(null)
 
 async function loadEngagement(): Promise<void> {
-  const [checkin, feedback, ret] = await Promise.allSettled([
+  const [checkin, feedback, ret, revenue] = await Promise.allSettled([
     getCheckinMetric(),
     getFeedbackMetric(),
     getReturnMetric(),
+    getAdminRevenue(),
   ])
   if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
   if (feedback.status === 'fulfilled') feedbackRate.value = feedback.value.rate_pct
   if (ret.status === 'fulfilled') returnRate.value = ret.value.rate_pct
+  if (revenue.status === 'fulfilled') revenueCents.value = revenue.value.revenue_cents
 }
 
 // Current ISO week range (Mon–Sun), client-side. The period toggle + week steps
