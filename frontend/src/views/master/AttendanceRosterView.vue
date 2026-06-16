@@ -67,7 +67,7 @@
 
         <!-- Присутствовали -->
         <section v-if="attendedItems.length > 0" class="roster__section">
-          <h2 class="roster__section-title">Присутствовали</h2>
+          <h2 class="velo-section-title">Присутствовали</h2>
           <div v-for="item in visibleAttended" :key="item.booking_id" class="roster__row">
             <IconCheck :size="24" class="roster__ic roster__ic--ok" />
             <span class="roster__name">{{ displayName(item) }}</span>
@@ -81,7 +81,7 @@
 
         <!-- Не пришли -->
         <section v-if="noShowItems.length > 0" class="roster__section">
-          <h2 class="roster__section-title">Не пришли</h2>
+          <h2 class="velo-section-title">Не пришли</h2>
           <div v-for="item in visibleNoShow" :key="item.booking_id" class="roster__row">
             <IconClose :size="24" class="roster__ic roster__ic--no" />
             <span class="roster__name">{{ displayName(item) }}</span>
@@ -274,14 +274,6 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.roster__section-title {
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 /* ===== Roster row ===== */

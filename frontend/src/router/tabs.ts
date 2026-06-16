@@ -18,7 +18,7 @@ import {
   IconCalendar,
   IconDiary,
   IconProfile,
-  IconBrain,
+  IconAnalytics,
   IconGroup,
   IconWarning,
 } from '@/components/icons'
@@ -33,7 +33,7 @@ export const USER_TABS: TabItem[] = [
 export const MASTER_TABS: TabItem[] = [
   { icon: IconHome, label: 'Дашборд', to: '/master/dashboard' },
   { icon: IconCalendar, label: 'Практики', to: '/master/practices' },
-  { icon: IconBrain, label: 'Аналитика', to: '/master/analytics' },
+  { icon: IconAnalytics, label: 'Аналитика', to: '/master/analytics' },
   { icon: IconProfile, label: 'Я', to: '/master/profile' },
 ]
 

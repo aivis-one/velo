@@ -189,18 +189,21 @@ const router = createRouter({
           path: 'practices/new',
           name: 'master-practice-new',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/CreatePracticeView.vue'),
         },
         {
           path: 'practices/:id',
           name: 'master-practice-edit',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/EditPracticeView.vue'),
         },
         {
           path: 'practices/:id/attendance',
           name: 'master-attendance',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/AttendanceView.vue'),
         },
         {
@@ -226,6 +229,7 @@ const router = createRouter({
           path: 'analytics/practice/:id',
           name: 'master-practice-reviews',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/PracticeReviewsView.vue'),
         },
         {
@@ -240,6 +244,7 @@ const router = createRouter({
         {
           path: 'profile/edit',
           name: 'master-edit-profile',
+          meta: { hideTabBar: true },
           component: () => import('@/views/user/EditProfileView.vue'),
         },
         {
@@ -251,6 +256,7 @@ const router = createRouter({
         {
           path: 'profile/language-timezone',
           name: 'master-language-timezone',
+          meta: { hideTabBar: true },
           component: () => import('@/views/user/LanguageTimezoneView.vue'),
         },
         {
@@ -262,6 +268,7 @@ const router = createRouter({
         {
           path: 'messages',
           name: 'master-messages',
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterMessagesView.vue'),
         },
         {
@@ -273,6 +280,7 @@ const router = createRouter({
         {
           path: 'promocodes',
           name: 'master-promocodes',
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterPromocodesView.vue'),
         },
         {
@@ -285,24 +293,28 @@ const router = createRouter({
           path: 'finance',
           name: 'master-finance',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterFinanceView.vue'),
         },
         {
           path: 'students',
           name: 'master-students',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterStudentsView.vue'),
         },
         {
           path: 'students/:id',
           name: 'master-student-profile',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterStudentProfileView.vue'),
         },
         {
           path: 'summary',
           name: 'master-summary',
           beforeEnter: masterStatusGuard,
+          meta: { hideTabBar: true },
           component: () => import('@/views/master/MasterSummaryView.vue'),
         },
         {

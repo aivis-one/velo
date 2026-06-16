@@ -102,7 +102,7 @@
 
         <!-- Записались (roster; each row removable — FORK1) -->
         <section v-if="rosterItems.length > 0" class="practice-detail__section">
-          <h2 class="practice-detail__section-title">Записались</h2>
+          <h2 class="velo-section-title">Записались</h2>
           <div v-for="item in rosterItems" :key="item.booking_id" class="pd-prow">
             <span class="pd-prow__ava">
               <img
@@ -181,7 +181,7 @@
 
         <!-- Отзывы участников (stub: empty until a non-anonymous endpoint lands) -->
         <section class="practice-detail__section">
-          <h2 class="practice-detail__section-title">Отзывы участников</h2>
+          <h2 class="velo-section-title">Отзывы участников</h2>
           <template v-if="reviews.length > 0">
             <div v-for="(r, i) in reviews" :key="i" class="practice-detail__review">
               <div class="practice-detail__review-top">
@@ -200,7 +200,7 @@
 
         <!-- Финансы -->
         <section class="practice-detail__section">
-          <h2 class="practice-detail__section-title">Финансы</h2>
+          <h2 class="velo-section-title">Финансы</h2>
           <div class="practice-detail__finance">
             <div class="practice-detail__finrow">
               <span>Записалось</span><span>{{ enrolledLabel }}</span>
@@ -669,14 +669,6 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.practice-detail__section-title {
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 /* Accordions sit on a white card plate (matches the surrounding surfaces). */

@@ -32,8 +32,18 @@ const activeTab = computed(() => {
   return match?.to ?? MASTER_TABS[0]?.to ?? ''
 })
 
-// Edge-to-edge fog only on the long practices list; detail/forms stay crisp.
-const FOG_ROUTES = ['master-practices']
+// Edge-to-edge fog on the long scrolling master content screens (design shows
+// the edge dissolve on practices / dashboard / analytics / a practice's reviews).
+// Forms and short detail screens stay crisp. NOTE: master-practice-reviews also
+// sets meta.hideTabBar, which collapses MobileLayout's bottom clearance to 24px
+// while the default fog bottom zone is ~160px — verify on device and add a custom
+// fog tuning (fogBotFade/fogBotHard) if the bottom fade clips content.
+const FOG_ROUTES = [
+  'master-practices',
+  'master-dashboard',
+  'master-analytics',
+  'master-practice-reviews',
+]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
 // Hide the bottom tab bar on detail routes that opt in via `meta.hideTabBar`

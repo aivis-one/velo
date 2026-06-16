@@ -46,7 +46,7 @@
 
     <!-- Распределение -->
     <section class="practice-reviews__section">
-      <h2 class="practice-reviews__section-title">Распределение</h2>
+      <h2 class="velo-section-title">Распределение</h2>
       <VCard class="practice-reviews__rating">
         <div v-for="bar in ratingBars" :key="bar.key" class="practice-reviews__rrow">
           <span class="practice-reviews__rrow-head">
@@ -66,7 +66,7 @@
 
     <!-- Отзывы (scaffold: empty until a non-anonymous endpoint lands) -->
     <section class="practice-reviews__section">
-      <h2 class="practice-reviews__section-title">Отзывы</h2>
+      <h2 class="velo-section-title">Отзывы</h2>
       <template v-if="reviews.length > 0">
         <VCard v-for="(r, i) in reviews" :key="i" class="practice-reviews__review">
           <div class="practice-reviews__review-top">
@@ -309,14 +309,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.practice-reviews__section-title {
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 /* ===== Distribution ===== */

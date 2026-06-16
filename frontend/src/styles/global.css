@@ -118,3 +118,15 @@ ol {
   background: url('/bg/background.png') center / cover no-repeat;
   pointer-events: none;
 }
+
+/* === Section header (DS canon) ===
+   Single source for in-page content section headings across the master views
+   (was duplicated per-view as `*__section-title`, with drifting font-family and
+   mixed h2/h3 levels). Use ALWAYS as <h2 class="velo-section-title"> so heading
+   levels stay consistent (a11y). font-family / weight / colour inherit from the
+   h2 reset above; this only pins size, tracking and margin. */
+.velo-section-title {
+  font-size: var(--text-base);
+  letter-spacing: 0.02em;
+  margin: 0;
+}

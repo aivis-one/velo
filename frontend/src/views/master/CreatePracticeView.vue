@@ -47,7 +47,7 @@
            practice_type не показываем, выводим из «Повторения»)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Основное</h2>
+        <h2 class="velo-section-title">Основное</h2>
 
         <VInput
           v-model="form.title"
@@ -84,7 +84,7 @@
            Расписание
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Расписание</h2>
+        <h2 class="velo-section-title">Расписание</h2>
 
         <!-- Дата: открывает DatePickerSheet (нативный input заменён на DS-пикер). -->
         <div class="create-practice__field">
@@ -145,7 +145,7 @@
            Печати обязательности — Q2=В: на полях повтора, когда «регулярная» вкл.)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Повторение</h2>
+        <h2 class="velo-section-title">Повторение</h2>
 
         <VCard class="create-practice__repeat" padding="none">
           <VCheckbox v-model="form.is_recurring" label="Сделать регулярной" />
@@ -161,19 +161,11 @@
             <IconRequired class="create-practice__seal-card" :size="22" />
           </div>
 
-          <!-- Дни недели (captured-only; view-local чипы на токенах --velo-*) -->
+          <!-- Дни недели (captured-only; DS-primitive VDayPicker, оставлен в
+               карточке-обёртке чтобы держать ритм секции «Повторение»). -->
           <div class="create-practice__seal-row">
             <div class="create-practice__days create-practice__grow">
-              <button
-                v-for="d in WEEKDAYS"
-                :key="d.value"
-                type="button"
-                class="create-practice__day"
-                :class="{ 'create-practice__day--on': form.recurrence_days.includes(d.value) }"
-                @click="toggleDay(d.value)"
-              >
-                {{ d.label }}
-              </button>
+              <VDayPicker v-model="form.recurrence_days" aria-label="Дни недели для повтора" />
             </div>
             <IconRequired class="create-practice__seal-card" :size="22" />
           </div>
@@ -199,7 +191,7 @@
            Участники  (опционально → без печати; имя поля = плейсхолдер)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Участники</h2>
+        <h2 class="velo-section-title">Участники</h2>
 
         <VInput
           v-model="form.max_participants_raw"
@@ -213,7 +205,7 @@
            Оплата  (radio-карта Бесплатно/Платно; цена при «Платно» — с печатью)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Оплата</h2>
+        <h2 class="velo-section-title">Оплата</h2>
 
         <VCard class="create-practice__repeat" padding="none">
           <VRadioGroup
@@ -238,7 +230,7 @@
            Описание  (textarea + 2 однострочных; опциональны → без печати)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Описание</h2>
+        <h2 class="velo-section-title">Описание</h2>
 
         <VTextarea
           v-model="form.description"
@@ -256,7 +248,7 @@
            zoom_link=null; ручной ввод остаётся в Edit; авто-генерация → Зоду)
            ================================================================ -->
       <div class="create-practice__section">
-        <h2 class="create-practice__section-title">Подключение</h2>
+        <h2 class="velo-section-title">Подключение</h2>
 
         <VCard class="create-practice__connect" padding="none">
           <span class="create-practice__connect-ico"><IconBroadcast :size="88" /></span>
@@ -294,7 +286,16 @@ import { ref, reactive, computed } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCard, VCheckbox, VRadioGroup } from '@/components/ui'
+import {
+  VButton,
+  VInput,
+  VTextarea,
+  VSelect,
+  VCard,
+  VCheckbox,
+  VRadioGroup,
+  VDayPicker,
+} from '@/components/ui'
 import { IconRequired, IconBroadcast } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -345,17 +346,6 @@ const RECURRENCE_END_OPTIONS = [
   { label: 'Никогда', value: 'never' },
   { label: 'Выбрать дату', value: 'until_date' },
   { label: 'После числа повторений', value: 'after_count' },
-]
-
-// Дни недели для повтора (captured-only).
-const WEEKDAYS = [
-  { label: 'ПН', value: 'mon' },
-  { label: 'ВТ', value: 'tue' },
-  { label: 'СР', value: 'wed' },
-  { label: 'ЧТ', value: 'thu' },
-  { label: 'ПТ', value: 'fri' },
-  { label: 'СБ', value: 'sat' },
-  { label: 'ВС', value: 'sun' },
 ]
 
 const PAYMENT_OPTIONS = [
@@ -420,13 +410,6 @@ const styleSelectOptions = computed(() => [
  *  invalid for the new direction. */
 function onDirectionChange(): void {
   form.style = ''
-}
-
-/** Toggle a weekday in the captured-only recurrence_days set. */
-function toggleDay(value: string): void {
-  const i = form.recurrence_days.indexOf(value)
-  if (i === -1) form.recurrence_days.push(value)
-  else form.recurrence_days.splice(i, 1)
 }
 
 // -- Validation --
@@ -575,15 +558,6 @@ async function submit(): Promise<void> {
   gap: var(--space-3);
 }
 
-.create-practice__section-title {
-  font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
 /* Required-fields legend banner (DS, Phase-3) — pink glass plate, rose seal. */
 .create-practice__legend {
   display: flex;
@@ -689,33 +663,11 @@ async function submit(): Promise<void> {
   margin-top: var(--space-2);
 }
 
-/* -- Дни недели: круглые тогл-чипы (view-local control, токены --velo-*). -- */
+/* -- Дни недели: карточка-обёртка для DS-примитива VDayPicker. -- */
 .create-practice__days {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
   background: var(--velo-bg-card-solid);
   border-radius: var(--radius-md);
   padding: 13px 14px;
-}
-
-.create-practice__day {
-  width: 35px;
-  height: 35px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--velo-primary);
-  background: transparent;
-  color: var(--velo-primary);
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.create-practice__day--on {
-  background: var(--velo-primary);
-  color: var(--velo-white);
 }
 
 /* -- «После числа повторений»: счётчик-пилюля (captured-only). -- */

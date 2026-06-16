@@ -35,7 +35,7 @@
       </div>
 
       <!-- Recent check-ins -->
-      <h3 class="profile__section-title">Последние check-ins</h3>
+      <h2 class="velo-section-title">Последние check-ins</h2>
       <div v-for="(ci, i) in checkins" :key="i" class="profile__ci">
         <MoodAvatar :mood="ci.mood" :size="46" />
         <div class="profile__ci-body">
@@ -45,7 +45,7 @@
       </div>
 
       <!-- Feedbacks -->
-      <h3 class="profile__section-title">Feedbacks</h3>
+      <h2 class="velo-section-title">Feedbacks</h2>
       <div v-for="(fb, i) in feedbacks" :key="`fb-${i}`" class="profile__fb">
         <span class="profile__fb-ic"><IconRatingFire :size="30" /></span>
         <div class="profile__fb-body">
@@ -177,14 +177,6 @@ const msgOpen = ref(false)
 }
 
 /* -- Section title -- */
-.profile__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: var(--space-1) 0 0;
-}
 
 /* -- Check-in card -- */
 .profile__ci {

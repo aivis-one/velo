@@ -16,13 +16,13 @@
 
     <div class="summary__content">
       <!-- AI insight -->
-      <h3 class="summary__section-title">AI-инсайты за неделю</h3>
+      <h2 class="velo-section-title">AI-инсайты за неделю</h2>
       <VCard>
         <p class="summary__insight">{{ insight }}</p>
       </VCard>
 
       <!-- Key feedbacks -->
-      <h3 class="summary__section-title">Ключевые отзывы</h3>
+      <h2 class="velo-section-title">Ключевые отзывы</h2>
       <div v-for="fb in keyFeedbacks" :key="fb.id" class="summary__fb">
         <span class="summary__fb-ic" :class="`summary__fb-ic--${fb.rating}`">
           <component :is="fb.rating === 'fire' ? IconRatingFire : IconRatingConfused" :size="30" />
@@ -34,7 +34,7 @@
       </div>
 
       <!-- Needs attention -->
-      <h3 class="summary__section-title">Требуют внимания</h3>
+      <h2 class="velo-section-title">Требуют внимания</h2>
       <div v-for="item in needsAttention" :key="item.id" class="summary__attn">
         <VAvatar :name="item.name" size="md" />
         <div class="summary__attn-body">
@@ -103,15 +103,6 @@ function openMessage(name: string): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.summary__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: var(--space-1) 0 0;
 }
 
 .summary__insight {
