@@ -175,6 +175,15 @@ export interface CancelBookingRequest {
   reason?: string | null
 }
 
+/** GET /api/v1/admin/metrics/check-in. */
+export interface CheckinMetricResponse {
+  rate_pct: number
+  total_records: number
+  checked_in: number
+  series: SeriesPoint[]
+  low_practices: LowCheckinPractice[]
+}
+
 /** POST /api/v1/practices/{id}/checkin body. */
 export interface CheckinRequest {
   mood: number
@@ -316,6 +325,14 @@ export interface ExistingReportResponse {
   report: ReportResponse
 }
 
+/** GET /api/v1/admin/metrics/feedback. */
+export interface FeedbackMetricResponse {
+  rate_pct: number
+  visited: number
+  left_review: number
+  distribution: app__modules__admin__metrics__schemas__RatingDistribution
+}
+
 /** POST /api/v1/practices/{id}/feedback body. */
 export interface FeedbackRequest {
   rating: number
@@ -339,6 +356,14 @@ export interface IncomeResponse {
   income_cents: number
   prev_income_cents: number
   delta_pct: number | null
+}
+
+/** A practice with a low check-in rate in the period. */
+export interface LowCheckinPractice {
+  id: string
+  title: string
+  checkin_rate_pct: number
+  total: number
 }
 
 /** Step 2 of master application -- professional background. */
@@ -584,7 +609,7 @@ export interface PracticeInsightsResponse {
   practice_id: string
   participants: number
   checkins: MoodDistribution
-  feedbacks: RatingDistribution
+  feedbacks: app__modules__diary__schemas__RatingDistribution
   comments_count: number
 }
 
@@ -714,13 +739,6 @@ export interface PurchaseWithPracticeResponse {
   practice: PracticeSummary
 }
 
-/** Feedback rating counts for a practice, bucketed by score range. rating is a 1..10 score; counts are grouped into three buckets: confused = scores 1-3 good = scores 4-7 fire = scores 8-10 CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
-export interface RatingDistribution {
-  fire: number
-  good: number
-  confused: number
-}
-
 /** POST /admin/masters/{user_id}/reject -- request body. */
 export interface RejectMasterRequest {
   reason: string
@@ -751,6 +769,14 @@ export interface ResolveReportRequest {
   resolution_note: string
 }
 
+/** GET /api/v1/admin/metrics/return. */
+export interface ReturnMetricResponse {
+  rate_pct: number
+  total_users: number
+  returning: number
+  top_users: TopUser[]
+}
+
 /** One named review (GET /api/v1/practices/{id}/reviews). The de-anonymised counterpart to RatingDistribution: where insights expose only numeric buckets, this carries the reviewer's name, avatar and comment text. `rating` is the stored 1..10 score mapped to the three UI buckets (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same rating icons it already renders for the anonymous distribution. */
 export interface ReviewItem {
   reviewer_name: string
@@ -779,6 +805,12 @@ export interface SemaphoreResult {
   actual: string
   details?: Record<string, unknown> | null
   criticality: 'critical' | 'warning' | 'info'
+}
+
+/** One bar in the check-in weekly chart (label = bucket date, value = %). */
+export interface SeriesPoint {
+  label: string
+  value: number
 }
 
 /** One recent check-in by the student (on this master's practices). */
@@ -816,6 +848,13 @@ export interface StudentListItem {
 /** POST /api/v1/auth/telegram — request body. */
 export interface TelegramAuthRequest {
   init_data: string
+}
+
+/** A loyal user, ranked by all-time attended practices. */
+export interface TopUser {
+  id: string
+  name: string
+  practices_count: number
 }
 
 /** POST /api/v1/payments/topup -- request body. */
@@ -966,4 +1005,18 @@ export interface WithdrawalResponse {
   rejected_at: string | null
   created_at: string
   updated_at: string | null
+}
+
+/** Feedback counts by bucket (confused 1-3 / good 4-7 / fire 8-10). */
+export interface app__modules__admin__metrics__schemas__RatingDistribution {
+  fire: number
+  good: number
+  confused: number
+}
+
+/** Feedback rating counts for a practice, bucketed by score range. rating is a 1..10 score; counts are grouped into three buckets: confused = scores 1-3 good = scores 4-7 fire = scores 8-10 CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
+export interface app__modules__diary__schemas__RatingDistribution {
+  fire: number
+  good: number
+  confused: number
 }
