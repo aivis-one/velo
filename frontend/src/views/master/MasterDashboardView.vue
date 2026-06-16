@@ -61,7 +61,12 @@
       <div class="master-dashboard__stats-grid">
         <VStatCard :value="practicesStat" label="Практик" :delta="practicesDelta" />
         <VStatCard :value="participantsStat" label="Участников" :delta="participantsDelta" />
-        <VStatCard :value="incomeStat" label="Доход" :delta="incomeDelta" />
+        <VStatCard
+          :value="incomeStat"
+          label="Доход"
+          :delta="incomeDelta"
+          :delta-tone="incomeDeltaTone"
+        />
       </div>
 
       <!-- ================================================================
@@ -173,7 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   VButton,
@@ -187,10 +192,17 @@ import {
 import { IconBell, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useToast } from '@/composables/useToast'
-import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
+import {
+  formatDateShort,
+  formatTime,
+  formatDuration,
+  formatParticipants,
+  formatMoney,
+} from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
-import type { PracticeResponse } from '@/api/types'
+import { getIncome } from '@/api/masters'
+import type { PracticeResponse, IncomeResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -212,18 +224,46 @@ const isNewMaster = computed(
 )
 
 // =========================================================================
-// Stats. Only the practices total is real; participants/income + all deltas
-// + the period scoping have no backend yet → "—" / no delta (roadmap for Zod).
-// Bound through computeds so wiring the future API is a one-line change.
+// Stats. Practices total is real; income is wired (E2: getIncome by period,
+// with a signed delta_pct). Participants + its delta have no backend yet → "—".
+// Period scoping affects income only; the toggle re-fetches it.
 // =========================================================================
+const incomeData = ref<IncomeResponse | null>(null)
+
 const practicesStat = computed((): string =>
   String(masterStore.practicesTotal ?? masterStore.practices.length),
 )
 const participantsStat = computed((): string => '—')
-const incomeStat = computed((): string => '—')
+// Currency canon = EUR; €0.00 while seed practices are free (seed-pricing next).
+const incomeStat = computed((): string =>
+  incomeData.value ? formatMoney(incomeData.value.income_cents, 'EUR', 'ru', true) : '—',
+)
 const practicesDelta = computed((): string => '')
 const participantsDelta = computed((): string => '')
-const incomeDelta = computed((): string => '')
+// delta_pct is null when the previous period had no net-positive turnover -> hidden.
+const incomeDelta = computed((): string => {
+  const d = incomeData.value?.delta_pct
+  if (d == null) return ''
+  const sign = d >= 0 ? '+' : '−'
+  return `${sign}${Math.abs(Math.round(d))}%`
+})
+// VStatCard supports up (teal) / muted only — a negative trend reads as muted.
+const incomeDeltaTone = computed<'up' | 'muted'>(() =>
+  (incomeData.value?.delta_pct ?? 0) >= 0 ? 'up' : 'muted',
+)
+
+async function loadIncome(): Promise<void> {
+  try {
+    incomeData.value = await getIncome(period.value)
+  } catch {
+    // Best-effort: the income stat stays "—" if the fetch fails.
+  }
+}
+
+// Period toggle re-fetches income (the only period-scoped stat here).
+watch(period, () => {
+  void loadIncome()
+})
 
 // Notifications feed not built yet → no unread count (roadmap for Zod).
 const unreadCount = computed((): number => 0)
@@ -267,6 +307,7 @@ onMounted(async () => {
     now.value = Date.now()
   }, 60_000)
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
+  void loadIncome()
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
 })

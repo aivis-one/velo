@@ -23,10 +23,10 @@
       - «Требуют внимания»: insights are anonymous (no names / comment texts), so
         the de-anonymised attention feed has no source. Section is scaffolded and
         renders its empty state until Zod adds a NON-anonymous endpoint.
-      - «Платежи»: no income-by-period and no transactions/ledger endpoints. Income
-        shows "—", transactions show the empty state. Currency canon stays EUR
-        (₽ vs € is a cross-screen SHELL decision). Full finance (balance, payout,
-        withdrawals) lives on /master/finance -> "Открыть Финансы" link.
+      - «Платежи» (E2 wired 2026-06-16): getIncome(period) drives «Доход за период»
+        + signed delta_pct; getTransactions drives the feed. Currency canon = EUR;
+        €0.00 / empty while seed practices are free (seed-pricing task next). Full
+        finance (balance, payout, withdrawals) lives on /master/finance -> link.
 -->
 
 <template>
@@ -165,31 +165,55 @@
          TAB: ПЛАТЕЖИ
          ================================================================ -->
     <div v-show="activeTab === 'payments'" class="analytics__body">
-      <!-- Income — no income-by-period API yet -> "—" (roadmap Zod). -->
-      <div class="analytics__income">
-        <div class="analytics__income-value">{{ income }}</div>
-        <div class="analytics__income-label">Доход за период</div>
-      </div>
+      <div v-if="paymentsLoading" class="analytics__loader"><VLoader /></div>
 
-      <!-- Транзакции — no ledger-list API yet -> empty (roadmap Zod). -->
-      <section class="analytics__section">
-        <h2 class="velo-section-title">Транзакции</h2>
-        <div v-if="transactions.length > 0" class="analytics__txns">
-          <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
-            <div class="analytics__txn-info">
-              <div class="analytics__txn-title">{{ t.title }}</div>
-              <div class="analytics__txn-meta">{{ t.date }} · {{ t.counterparty }}</div>
-            </div>
-            <div
-              class="analytics__txn-amt"
-              :class="t.amountCents >= 0 ? 'analytics__txn-amt--in' : 'analytics__txn-amt--out'"
-            >
-              {{ formatTxnAmount(t.amountCents) }}
-            </div>
+      <VCard v-else-if="paymentsError" class="analytics__pay-error">
+        <p class="analytics__empty">{{ paymentsError }}</p>
+        <VButton size="sm" variant="outline" @click="loadPayments">Повторить</VButton>
+      </VCard>
+
+      <template v-else>
+        <!-- Income (E2: getIncome by period; delta_pct vs previous period). -->
+        <div class="analytics__income">
+          <div class="analytics__income-value">{{ income }}</div>
+          <div class="analytics__income-label">Доход за период</div>
+          <div
+            v-if="incomeDelta"
+            class="analytics__income-delta"
+            :class="
+              incomeDeltaPositive ? 'analytics__income-delta--up' : 'analytics__income-delta--down'
+            "
+          >
+            {{ incomeDelta }}
           </div>
         </div>
-        <div v-else class="analytics__empty">Данных пока нет</div>
-      </section>
+
+        <!-- Транзакции (E2: getTransactions — signed title-tagged ledger rows). -->
+        <section class="analytics__section">
+          <h2 class="velo-section-title">Транзакции</h2>
+          <div v-if="transactions.length > 0" class="analytics__txns">
+            <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
+              <div class="analytics__txn-info">
+                <div class="analytics__txn-title">{{ t.title }}</div>
+                <div class="analytics__txn-meta">
+                  {{ formatShortDate(t.created_at)
+                  }}<template v-if="t.counterparty_name"> · {{ t.counterparty_name }}</template>
+                </div>
+              </div>
+              <div
+                class="analytics__txn-amt"
+                :class="t.amount_cents >= 0 ? 'analytics__txn-amt--in' : 'analytics__txn-amt--out'"
+              >
+                {{ formatTxnAmount(t.amount_cents) }}
+              </div>
+            </div>
+            <div v-if="hasMoreTx" class="analytics__more">
+              <VButton variant="ghost" @click="loadMoreTx">Показать ещё</VButton>
+            </div>
+          </div>
+          <div v-else class="analytics__empty">Данных пока нет</div>
+        </section>
+      </template>
 
       <!-- Full finance (balance / payout / withdrawals) lives on /master/finance. -->
       <button
@@ -204,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from 'vue'
+import { ref, computed, onMounted, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
@@ -218,6 +242,9 @@ import {
 } from '@/components/icons'
 import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
+import { getIncome, getTransactions } from '@/api/masters'
+import { ApiResponseError } from '@/api/client'
+import type { IncomeResponse, MasterTransactionItem } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -369,24 +396,67 @@ interface AttentionItem {
 const attentionItems = ref<AttentionItem[]>([])
 
 // =========================================================================
-// Платежи -- scaffold (no income-by-period / transactions endpoints yet)
+// Платежи (E2: income by period + transaction feed)
 // =========================================================================
 
-// Income: "—" until an income-by-period API exists. Currency canon = EUR.
-const income = '—'
+const TX_PAGE = 20
 
-interface Transaction {
-  title: string
-  date: string
-  counterparty: string
-  amountCents: number
-}
-const transactions = ref<Transaction[]>([])
+const incomeData = ref<IncomeResponse | null>(null)
+const transactions = ref<MasterTransactionItem[]>([])
+const txTotal = ref(0)
+const paymentsLoading = ref(false)
+const paymentsError = ref<string | null>(null)
+const hasMoreTx = computed((): boolean => transactions.value.length < txTotal.value)
+
+// Income value + signed period delta. Currency canon = EUR; €0.00 while free seed.
+const income = computed((): string =>
+  incomeData.value ? formatMoney(incomeData.value.income_cents, 'EUR', 'ru', true) : '—',
+)
+const incomeDeltaPositive = computed((): boolean => (incomeData.value?.delta_pct ?? 0) >= 0)
+// delta_pct is null when the previous period had no net-positive turnover -> hidden.
+const incomeDelta = computed((): string => {
+  const d = incomeData.value?.delta_pct
+  if (d == null) return ''
+  const sign = d >= 0 ? '+' : '−'
+  return `${sign}${Math.abs(Math.round(d))}%`
+})
 
 function formatTxnAmount(cents: number): string {
   const sign = cents >= 0 ? '+' : '−'
   return `${sign}${formatMoney(Math.abs(cents), 'EUR', 'ru', true)}`
 }
+
+async function loadIncome(): Promise<void> {
+  incomeData.value = await getIncome(period.value)
+}
+
+async function loadPayments(): Promise<void> {
+  paymentsLoading.value = true
+  paymentsError.value = null
+  try {
+    const [, txRes] = await Promise.all([loadIncome(), getTransactions(TX_PAGE, 0)])
+    transactions.value = txRes.items
+    txTotal.value = txRes.total
+  } catch (e) {
+    paymentsError.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
+  } finally {
+    paymentsLoading.value = false
+  }
+}
+
+async function loadMoreTx(): Promise<void> {
+  if (!hasMoreTx.value) return
+  const res = await getTransactions(TX_PAGE, transactions.value.length)
+  transactions.value = [...transactions.value, ...res.items]
+  txTotal.value = res.total
+}
+
+// Period drives income only (transactions are not period-scoped).
+watch(period, () => {
+  void loadIncome().catch(() => {
+    /* keep the previous income value on a transient refetch error */
+  })
+})
 
 // =========================================================================
 // Helpers
@@ -418,6 +488,7 @@ function openReviews(practiceId: string): void {
 // =========================================================================
 
 onMounted(async () => {
+  void loadPayments()
   await masterStore.fetchMyPractices()
   await loadVisibleInsights()
 })
@@ -699,6 +770,27 @@ onMounted(async () => {
 .analytics__income-label {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
+}
+
+.analytics__income-delta {
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+.analytics__income-delta--up {
+  color: var(--velo-teal-600);
+}
+
+.analytics__income-delta--down {
+  color: var(--velo-pink-500);
+}
+
+.analytics__pay-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
 }
 
 .analytics__txns {

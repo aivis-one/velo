@@ -26,6 +26,8 @@ import type {
   WithdrawalResponse,
   PaginatedStudentsResponse,
   StudentDetailResponse,
+  IncomeResponse,
+  PaginatedTransactionsResponse,
 } from '@/api/types'
 
 /**
@@ -125,4 +127,29 @@ export function getStudents(limit = 50, offset = 0): Promise<PaginatedStudentsRe
  */
 export function getStudent(id: string): Promise<StudentDetailResponse> {
   return api.get<StudentDetailResponse>(`/api/v1/masters/me/students/${id}`)
+}
+
+// =============================================================================
+// E2: Finance — income (by period) + transaction feed
+//   GET /api/v1/masters/me/income?period=week|month  -- gross booked turnover
+//   GET /api/v1/masters/me/transactions              -- paginated ledger feed
+// =============================================================================
+
+/**
+ * Fetch the master's gross booked turnover for the current calendar period
+ * plus the previous-period total and the signed delta_pct (null when the
+ * previous period had no net-positive turnover).
+ */
+export function getIncome(period: 'week' | 'month' = 'week'): Promise<IncomeResponse> {
+  const query = buildQuery({ period })
+  return api.get<IncomeResponse>(`/api/v1/masters/me/income${query}`)
+}
+
+/**
+ * Fetch the master's transaction feed (title-tagged master_ledger rows,
+ * newest first). amount_cents is signed: + sale, − commission/refund.
+ */
+export function getTransactions(limit = 20, offset = 0): Promise<PaginatedTransactionsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedTransactionsResponse>(`/api/v1/masters/me/transactions${query}`)
 }
