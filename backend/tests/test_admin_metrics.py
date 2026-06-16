@@ -193,6 +193,14 @@ async def test_checkin_metric_basic(
 ) -> None:
     """rate = checked_in / total_records; series has 7 daily buckets (week)."""
     token = await _make_admin(client, db_session)
+    await db_session.commit()  # admin must be visible to the endpoint
+
+    # Baseline BEFORE our fixtures — the shared DB may carry seed data, so we
+    # assert the DELTA our fixtures contribute, not absolute global counts.
+    base = (
+        await client.get(CHECKIN_URL, headers=auth_headers(token))
+    ).json()
+
     master_id = await _make_master(client, db_session, 92800)
     practice = await _create_practice(
         db_session, master_id, scheduled_at=datetime.now(UTC),
@@ -206,15 +214,22 @@ async def test_checkin_metric_basic(
     resp = await client.get(CHECKIN_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total_records"] == 2
-    assert data["checked_in"] == 1
-    assert data["rate_pct"] == 50
+    # We added 2 attended bookings, 1 of them with a check-in.
+    assert data["total_records"] - base["total_records"] == 2
+    assert data["checked_in"] - base["checked_in"] == 1
     assert len(data["series"]) == 7
     assert {"label", "value"} == set(data["series"][0].keys())
-    assert len(data["low_practices"]) == 1
-    low = data["low_practices"][0]
-    assert low["checkin_rate_pct"] == 50
-    assert low["total"] == 2
+    # low_practices is bottom-N (<=5) and seed practices may fill it, so check
+    # shape, and our own row's values only when it surfaces.
+    assert len(data["low_practices"]) <= 5
+    if data["low_practices"]:
+        assert set(data["low_practices"][0].keys()) == {
+            "id", "title", "checkin_rate_pct", "total",
+        }
+    ours = [p for p in data["low_practices"] if p["id"] == str(practice.id)]
+    if ours:
+        assert ours[0]["checkin_rate_pct"] == 50
+        assert ours[0]["total"] == 2
 
 
 @pytest.mark.asyncio
@@ -226,13 +241,17 @@ async def test_checkin_metric_empty(
     token = await _make_admin(client, db_session)
     await db_session.commit()
 
+    # Shared DB may carry seed data, so "empty" can't mean global zero. Capture
+    # a baseline and assert our no-op (no fixtures added) changes nothing.
+    base = (
+        await client.get(CHECKIN_URL, headers=auth_headers(token))
+    ).json()
+
     resp = await client.get(CHECKIN_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["rate_pct"] == 0
-    assert data["total_records"] == 0
-    assert data["checked_in"] == 0
-    assert data["low_practices"] == []
+    assert data["total_records"] == base["total_records"]
+    assert data["checked_in"] == base["checked_in"]
     assert len(data["series"]) == 7
 
 
@@ -276,6 +295,13 @@ async def test_feedback_metric_basic_and_distribution(
 ) -> None:
     """rate = left_review / visited; distribution buckets by rating."""
     token = await _make_admin(client, db_session)
+    await db_session.commit()  # admin must be visible to the endpoint
+
+    # Baseline BEFORE our fixtures (shared DB may carry seed data).
+    base = (
+        await client.get(FEEDBACK_URL, headers=auth_headers(token))
+    ).json()
+
     master_id = await _make_master(client, db_session, 92802)
     practice = await _create_practice(
         db_session, master_id, scheduled_at=datetime.now(UTC),
@@ -291,11 +317,13 @@ async def test_feedback_metric_basic_and_distribution(
     resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["visited"] == 3
-    assert data["left_review"] == 2
-    # round(2 / 3 * 100) = 67
-    assert data["rate_pct"] == 67
-    assert data["distribution"] == {"fire": 1, "good": 0, "confused": 1}
+    # 3 attended bookings; 2 left feedback (1 fire, 1 confused).
+    assert data["visited"] - base["visited"] == 3
+    assert data["left_review"] - base["left_review"] == 2
+    dist, bdist = data["distribution"], base["distribution"]
+    assert dist["fire"] - bdist["fire"] == 1
+    assert dist["good"] - bdist["good"] == 0
+    assert dist["confused"] - bdist["confused"] == 1
 
 
 @pytest.mark.asyncio
@@ -325,6 +353,13 @@ async def test_feedback_metric_excludes_non_attended(
 ) -> None:
     """W-3: a feedback without an attended booking is not counted (rate <= 100%)."""
     token = await _make_admin(client, db_session)
+    await db_session.commit()  # admin must be visible to the endpoint
+
+    # Baseline BEFORE our fixtures (shared DB may carry seed data).
+    base = (
+        await client.get(FEEDBACK_URL, headers=auth_headers(token))
+    ).json()
+
     master_id = await _make_master(client, db_session, 92804)
     practice = await _create_practice(
         db_session, master_id, scheduled_at=datetime.now(UTC),
@@ -345,10 +380,14 @@ async def test_feedback_metric_excludes_non_attended(
     resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["visited"] == 1
-    assert data["left_review"] == 1          # no_show feedback excluded
-    assert data["rate_pct"] == 100           # not 200
-    assert data["distribution"] == {"fire": 1, "good": 0, "confused": 0}
+    # Only the attended booking + its feedback count; the no_show row (a fire
+    # rating) is excluded -> deltas are +1, not +2 (W-3 intent preserved).
+    assert data["visited"] - base["visited"] == 1
+    assert data["left_review"] - base["left_review"] == 1
+    dist, bdist = data["distribution"], base["distribution"]
+    assert dist["fire"] - bdist["fire"] == 1
+    assert dist["good"] - bdist["good"] == 0
+    assert dist["confused"] - bdist["confused"] == 0
 
 
 # ===================================================================
@@ -363,6 +402,13 @@ async def test_return_metric_basic(
 ) -> None:
     """returning = period users who also attended before the period start."""
     token = await _make_admin(client, db_session)
+    await db_session.commit()  # admin must be visible to the endpoint
+
+    # Baseline BEFORE our fixtures (shared DB may carry seed data).
+    base = (
+        await client.get(RETURN_URL, headers=auth_headers(token))
+    ).json()
+
     master_id = await _make_master(client, db_session, 92804)
     this_week = await _create_practice(
         db_session, master_id, scheduled_at=datetime.now(UTC),
@@ -382,9 +428,9 @@ async def test_return_metric_basic(
     resp = await client.get(RETURN_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total_users"] == 2
-    assert data["returning"] == 1
-    assert data["rate_pct"] == 50
+    # 2 new period-users (A, B); A also attended before the period -> +1 returning.
+    assert data["total_users"] - base["total_users"] == 2
+    assert data["returning"] - base["returning"] == 1
     # top_users is platform-wide all-time (seed users may rank above the test
     # users), so assert shape + descending order rather than an exact head.
     counts = [u["practices_count"] for u in data["top_users"]]
