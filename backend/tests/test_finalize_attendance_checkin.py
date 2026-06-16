@@ -102,7 +102,10 @@ async def _make_master(
         )
     )
     await db_session.flush()
-    return user_id
+    # Return the UUID (not the JSON string): practice.master_id is set from this
+    # and finalize_practice compares it to User.id (UUID) in Python -- a str vs
+    # UUID mismatch would wrongly fail the ownership check.
+    return user.id
 
 
 async def _create_practice(
