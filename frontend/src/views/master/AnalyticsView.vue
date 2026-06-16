@@ -36,42 +36,17 @@
       <h1 class="analytics__title">Аналитика</h1>
     </header>
 
-    <!-- Tab segment (track+thumb) -->
-    <div class="analytics__seg" role="tablist">
-      <button
-        v-for="tab in TAB_OPTIONS"
-        :key="tab.value"
-        type="button"
-        role="tab"
-        :aria-selected="activeTab === tab.value"
-        class="analytics__seg-btn"
-        :class="{ 'analytics__seg-btn--active': activeTab === tab.value }"
-        @click="activeTab = tab.value"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+    <!-- Tab segment (track+thumb, DS primitive) -->
+    <VSegmentTrack v-model="activeTab" :options="TAB_OPTIONS" variant="tabs" />
 
     <!-- Period toggle -- visual-only until a period-scoped analytics API exists. -->
     <div class="analytics__period-row">
-      <div class="analytics__period" role="tablist" aria-label="Период статистики">
-        <button
-          type="button"
-          class="analytics__period-btn"
-          :class="{ 'analytics__period-btn--active': period === 'week' }"
-          @click="period = 'week'"
-        >
-          Неделя
-        </button>
-        <button
-          type="button"
-          class="analytics__period-btn"
-          :class="{ 'analytics__period-btn--active': period === 'month' }"
-          @click="period = 'month'"
-        >
-          Месяц
-        </button>
-      </div>
+      <VSegmentTrack
+        v-model="period"
+        :options="PERIOD_OPTIONS"
+        variant="toggle"
+        aria-label="Период статистики"
+      />
     </div>
 
     <!-- ================================================================
@@ -87,7 +62,7 @@
 
       <!-- Общая статистика -->
       <section class="analytics__section">
-        <h2 class="analytics__section-title">Общая статистика</h2>
+        <h2 class="velo-section-title">Общая статистика</h2>
         <VCard class="analytics__rating">
           <div v-for="bar in ratingBars" :key="bar.key" class="analytics__rrow">
             <span class="analytics__rrow-head">
@@ -107,7 +82,7 @@
 
       <!-- Требуют внимания (scaffold: empty until a non-anonymous endpoint lands). -->
       <section class="analytics__section">
-        <h2 class="analytics__section-title">Требуют внимания</h2>
+        <h2 class="velo-section-title">Требуют внимания</h2>
         <template v-if="attentionItems.length > 0">
           <VCard v-for="(item, i) in attentionItems" :key="i" class="analytics__attention">
             <span class="analytics__attention-av"><IconProfile :size="26" /></span>
@@ -127,7 +102,7 @@
 
       <!-- Прошедшие практики -->
       <section class="analytics__section">
-        <h2 class="analytics__section-title">Прошедшие практики</h2>
+        <h2 class="velo-section-title">Прошедшие практики</h2>
 
         <div
           v-if="masterStore.practicesLoading && pastPractices.length === 0"
@@ -198,7 +173,7 @@
 
       <!-- Транзакции — no ledger-list API yet -> empty (roadmap Zod). -->
       <section class="analytics__section">
-        <h2 class="analytics__section-title">Транзакции</h2>
+        <h2 class="velo-section-title">Транзакции</h2>
         <div v-if="transactions.length > 0" class="analytics__txns">
           <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
             <div class="analytics__txn-info">
@@ -233,7 +208,7 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VButton, VStatCard, VCard } from '@/components/ui'
+import { VLoader, VButton, VStatCard, VCard, VSegmentTrack } from '@/components/ui'
 import {
   IconArrowRight,
   IconRatingFire,
@@ -264,6 +239,10 @@ const TAB_OPTIONS: Array<{ value: 'reviews' | 'payments'; label: string }> = [
 // Period scoping has no backend yet -> the toggle only moves the active pill
 // (mirrors the master-dashboard pattern). Roadmap: period-scoped summary API.
 const period = ref<'week' | 'month'>('week')
+const PERIOD_OPTIONS: ReadonlyArray<{ value: 'week' | 'month'; label: string }> = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+]
 
 // =========================================================================
 // Past practices (completed, newest first)
@@ -464,66 +443,12 @@ onMounted(async () => {
   margin: 0;
 }
 
-/* ===== Controls: track+thumb (segment + period toggle) ===== */
-.analytics__seg {
-  display: flex;
-  gap: 2px;
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: 3px;
-}
-
-.analytics__seg-btn {
-  flex: 1;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-xl);
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.analytics__seg-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
-}
-
+/* ===== Controls: period-toggle row (the track+thumb control itself is now the
+   shared VSegmentTrack DS primitive). ===== */
 .analytics__period-row {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--space-3);
-}
-
-.analytics__period {
-  display: flex;
-  gap: 2px;
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: 2px;
-}
-
-.analytics__period-btn {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-xl);
-  padding: var(--space-1) var(--space-3);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.analytics__period-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
 }
 
 /* ===== Body ===== */
@@ -547,14 +472,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.analytics__section-title {
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 /* ===== Rating distribution (Общая статистика) ===== */

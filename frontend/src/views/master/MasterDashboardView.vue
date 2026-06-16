@@ -50,22 +50,12 @@
         <span class="master-dashboard__stats-title">
           {{ isNewMaster ? 'Моя статистика' : 'Статистика' }}
         </span>
-        <div class="master-dashboard__period-toggle" role="tablist" aria-label="Период статистики">
-          <button
-            class="master-dashboard__period-btn"
-            :class="{ 'master-dashboard__period-btn--active': period === 'week' }"
-            @click="period = 'week'"
-          >
-            Неделя
-          </button>
-          <button
-            class="master-dashboard__period-btn"
-            :class="{ 'master-dashboard__period-btn--active': period === 'month' }"
-            @click="period = 'month'"
-          >
-            Месяц
-          </button>
-        </div>
+        <VSegmentTrack
+          v-model="period"
+          :options="PERIOD_OPTIONS"
+          variant="toggle"
+          aria-label="Период статистики"
+        />
       </div>
 
       <div class="master-dashboard__stats-grid">
@@ -96,7 +86,7 @@
       <!-- ================================================================
            САММАРИ НЕДЕЛИ (placeholder — no master-AI backend yet)
            ================================================================ -->
-      <h3 class="master-dashboard__section-title">Саммари недели</h3>
+      <h2 class="velo-section-title">Саммари недели</h2>
       <VCard>
         <p class="master-dashboard__empty-text">
           {{
@@ -113,9 +103,9 @@
       <!-- ================================================================
            БЛИЖАЙШИЕ ПРАКТИКИ (up to 3)
            ================================================================ -->
-      <h3 class="master-dashboard__section-title">
+      <h2 class="velo-section-title">
         {{ nearestPractices.length > 1 ? 'Ближайшие практики' : 'Ближайшая практика' }}
-      </h3>
+      </h2>
 
       <template v-if="masterStore.practicesLoading && nearestPractices.length === 0">
         <div class="master-dashboard__loading-row">
@@ -185,7 +175,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VLoader, VStatCard, VCard, VMenuRow, VMoreLink } from '@/components/ui'
+import {
+  VButton,
+  VLoader,
+  VStatCard,
+  VCard,
+  VMenuRow,
+  VMoreLink,
+  VSegmentTrack,
+} from '@/components/ui'
 import { IconBell, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useToast } from '@/composables/useToast'
@@ -200,6 +198,10 @@ const toast = useToast()
 
 // -- Period toggle. Visual-only until a period-scoped stats API exists (roadmap). --
 const period = ref<'week' | 'month'>('week')
+const PERIOD_OPTIONS: ReadonlyArray<{ value: 'week' | 'month'; label: string }> = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+]
 
 // -- Display name fallback --
 const displayName = computed((): string => masterStore.profile?.display_name ?? 'Мастер')
@@ -361,33 +363,6 @@ onUnmounted(() => {
   letter-spacing: 0.02em;
 }
 
-.master-dashboard__period-toggle {
-  display: flex;
-  gap: 2px;
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: 2px;
-}
-
-.master-dashboard__period-btn {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-xl);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.master-dashboard__period-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
-}
-
 /* -- Stats grid -- */
 .master-dashboard__stats-grid {
   display: grid;
@@ -396,14 +371,6 @@ onUnmounted(() => {
 }
 
 /* -- Section title -- */
-.master-dashboard__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
-}
 
 /* -- Empty/placeholder card text -- */
 .master-dashboard__empty-text {
