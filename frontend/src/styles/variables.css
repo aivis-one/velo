@@ -1,8 +1,8 @@
 /* =============================================================================
  * VELO Frontend -- Design Tokens
  * =============================================================================
- * Source: velo-mockups/css/variables.css (1:1 transfer)
- * Single source of truth for all visual values.
+ * Distilled 1:1 from the original design reference; this file is now the
+ * single source of truth for all visual values.
  *
  * F8-fix (W-4): Added semantic tint variables (bg, border, text) for
  * warning / error / success / alert states. Admin views use these instead
