@@ -55,6 +55,22 @@ export interface AdminMasterListItem {
   master_status: string
 }
 
+/** One master's earnings + payouts within the period. */
+export interface AdminRevenuePerMaster {
+  master_id: string
+  name: string
+  earned_cents: number
+  payout_cents: number
+}
+
+/** GET /api/v1/admin/revenue. */
+export interface AdminRevenueResponse {
+  revenue_cents: number
+  commission_cents: number
+  payout_cents: number
+  per_master: AdminRevenuePerMaster[]
+}
+
 /** GET /api/v1/admin/stats -- response body. */
 export interface AdminStatsResponse {
   users_count: number
