@@ -896,8 +896,10 @@ export interface StudentCheckinItem {
   created_at: string
 }
 
-/** GET /api/v1/masters/me/students/{id} -- per-student aggregate. practices_count -- number of this master's practices the student attended. hours -- attended duration_minutes summed, in hours (1 decimal). satisfaction_pct-- round(avg(rating) * 10) over the student's feedbacks on this master's practices; null when they left no feedback. recent_checkins -- newest-first, capped. feedbacks -- newest-first, capped. */
+/** GET /api/v1/masters/me/students/{id} -- per-student aggregate. name / avatar_url -- the student's identity, same source as StudentListItem (so a direct/refreshed deep-link renders the real name, not a fallback). practices_count -- number of this master's practices the student attended. hours -- attended duration_minutes summed, in hours (1 decimal). satisfaction_pct-- round(avg(rating) * 10) over the student's feedbacks on this master's practices; null when they left no feedback. recent_checkins -- newest-first, capped. feedbacks -- newest-first, capped. */
 export interface StudentDetailResponse {
+  name: string
+  avatar_url: string | null
   practices_count: number
   hours: number
   satisfaction_pct: number | null
