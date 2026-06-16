@@ -318,6 +318,39 @@ async def test_feedback_metric_good_bucket(
     assert resp.json()["distribution"] == {"fire": 0, "good": 1, "confused": 0}
 
 
+@pytest.mark.asyncio
+async def test_feedback_metric_excludes_non_attended(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """W-3: a feedback without an attended booking is not counted (rate <= 100%)."""
+    token = await _make_admin(client, db_session)
+    master_id = await _make_master(client, db_session, 92804)
+    practice = await _create_practice(
+        db_session, master_id, scheduled_at=datetime.now(UTC),
+    )
+
+    # Attended + feedback -> counts.
+    u1, b1 = await _attend(client, db_session, practice, 92040)
+    await _add_feedback(db_session, practice, u1, b1, rating=9)
+
+    # no_show booking + feedback on it -> must NOT count toward left_review.
+    u2, b2 = await _attend(
+        client, db_session, practice, 92041,
+        status=BookingStatus.NO_SHOW.value,
+    )
+    await _add_feedback(db_session, practice, u2, b2, rating=8)
+    await db_session.commit()
+
+    resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["visited"] == 1
+    assert data["left_review"] == 1          # no_show feedback excluded
+    assert data["rate_pct"] == 100           # not 200
+    assert data["distribution"] == {"fire": 1, "good": 0, "confused": 0}
+
+
 # ===================================================================
 # return
 # ===================================================================

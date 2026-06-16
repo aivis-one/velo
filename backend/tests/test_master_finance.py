@@ -239,6 +239,45 @@ async def test_income_delta_pct_vs_previous(
 
 
 @pytest.mark.asyncio
+async def test_income_delta_pct_null_when_prev_negative(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """S-1: a net-negative previous period yields delta_pct null (no sign flip)."""
+    master = await _make_verified_master(client, db_session, telegram_id=90004)
+    mid = master["user"]["id"]
+    now = datetime.now(UTC)
+
+    # Current week: +10000.
+    await _add_ledger(
+        db_session, mid, amount_cents=10000,
+        title="Оплата за практику", created_at=now,
+    )
+    # Previous week nets to -2000 (refund exceeded sale).
+    await _add_ledger(
+        db_session, mid, amount_cents=3000,
+        title="Оплата за практику", created_at=now - timedelta(days=7),
+    )
+    await _add_ledger(
+        db_session, mid, amount_cents=-5000,
+        title="Возврат", created_at=now - timedelta(days=7),
+    )
+    await db_session.commit()
+
+    resp = await client.get(
+        INCOME_URL,
+        params={"period": "week"},
+        headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["income_cents"] == 10000
+    assert data["prev_income_cents"] == -2000
+    # prev <= 0 -> no meaningful base -> null (old abs() would have flipped sign).
+    assert data["delta_pct"] is None
+
+
+@pytest.mark.asyncio
 async def test_income_month_period(
     client: AsyncClient,
     db_session: AsyncSession,

@@ -63,9 +63,9 @@ def _calendar_bounds(period: str, now: datetime) -> tuple[datetime, datetime]:
 
 
 def _master_name(first_name: str | None, last_name: str | None) -> str:
-    """Display name: first + last, else a neutral label."""
+    """Display name: first + last, else a neutral label (this is a master)."""
     name = " ".join(part for part in (first_name, last_name) if part).strip()
-    return name or "Участник"
+    return name or "Мастер"
 
 
 async def get_admin_revenue(
@@ -167,7 +167,7 @@ async def get_admin_revenue(
         (
             AdminRevenuePerMaster(
                 master_id=mid,
-                name=names.get(mid, "Участник"),
+                name=names.get(mid, "Мастер"),
                 earned_cents=earned_map.get(mid, 0),
                 payout_cents=payout_map.get(mid, 0),
             )

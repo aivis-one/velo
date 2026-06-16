@@ -214,12 +214,23 @@ async def get_feedback_metric(
         )
     ).scalar_one()
 
-    # Ratings of feedbacks left on those practices.
+    # Ratings of feedbacks tied to those SAME attended bookings. We join
+    # Feedback -> Booking on (practice_id, user_id) and require the booking to
+    # be attended, so every counted feedback corresponds to a visited booking
+    # (W-3: left_review <= visited, rate_pct never exceeds 100%). The partial
+    # unique index on bookings (practice_id, user_id WHERE not cancelled) means
+    # at most one attended booking matches per feedback, so no double-counting.
     ratings = (
         await session.execute(
             select(Feedback.rating)
             .join(Practice, Feedback.practice_id == Practice.id)
+            .join(
+                Booking,
+                (Booking.practice_id == Feedback.practice_id)
+                & (Booking.user_id == Feedback.user_id),
+            )
             .where(
+                Booking.status == BookingStatus.ATTENDED.value,
                 Practice.scheduled_at >= start,
                 Practice.scheduled_at < end,
             )

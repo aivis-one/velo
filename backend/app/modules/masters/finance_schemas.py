@@ -22,11 +22,13 @@ from pydantic import BaseModel, ConfigDict
 class IncomeResponse(BaseModel):
     """GET /api/v1/masters/me/income?period=week|month.
 
-    income_cents       -- net of title-tagged movements in the current calendar
-                          period (sale - commission - refund).
+    income_cents       -- gross booked turnover for the current calendar period:
+                          signed sum of title-tagged sale (+) / commission (-) /
+                          refund (-) movements, frozen sales included. Matches
+                          the transaction feed, not realized/available earnings.
     prev_income_cents  -- same sum for the previous calendar period.
     delta_pct          -- signed percent change vs the previous period, or null
-                          when there is no previous activity (no division by 0).
+                          when the previous period had no net-positive turnover.
     """
 
     income_cents: int

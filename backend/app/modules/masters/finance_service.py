@@ -8,10 +8,17 @@
 #
 # INCOME (GET /masters/me/income?period):
 #   income_cents = SUM(amount_cents) of title-tagged DONE rows in the current
-#   calendar period (week = Mon..next Mon, month = 1st..next 1st, UTC). Net of
-#   sale (+) / commission (-) / refund (-), matching exactly what the
-#   transaction feed shows for that period. delta_pct compares against the
-#   previous calendar period; null when there is no previous activity.
+#   calendar period (week = Mon..next Mon, month = 1st..next 1st, UTC). This is
+#   the master's GROSS BOOKED TURNOVER for the period -- the signed sum of the
+#   same title-tagged movements the transaction feed shows: sale (+),
+#   commission (-), refund (-). It is deliberately NOT realized earnings:
+#   - sale credits are counted even while still frozen (practice not yet
+#     finalized), so the figure matches the feed the master sees;
+#   - a refund is booked in the period it happens, so a sale in one period and
+#     its refund in the next leave the earlier period's turnover unreduced.
+#   For realized/available earnings use the ledger balances, not this endpoint.
+#   delta_pct compares against the previous calendar period; null when the
+#   previous period had no net-positive turnover.
 #
 # TRANSACTIONS (GET /masters/me/transactions):
 #   Title-tagged DONE rows, newest first, paginated. counterparty_name is
@@ -75,7 +82,12 @@ async def _sum_titled_income(
     end: datetime,
     session: AsyncSession,
 ) -> int:
-    """SUM(amount_cents) of title-tagged DONE rows in [start, end)."""
+    """SUM(amount_cents) of title-tagged DONE rows in [start, end).
+
+    Signed sum of the title-tagged movements (sale +, commission -, refund -):
+    gross booked turnover, not realized earnings. Sale credits are included
+    even while frozen, so this matches the master's transaction feed.
+    """
     stmt = (
         select(func.coalesce(func.sum(MasterLedger.amount_cents), 0))
         .where(
@@ -94,9 +106,11 @@ async def get_master_income(
     period: str,
     session: AsyncSession,
 ) -> dict:
-    """Income for the current calendar period + delta vs the previous one.
+    """Gross booked turnover for the current calendar period + delta vs prev.
 
-    Returns a dict ready for IncomeResponse.
+    income_cents is the signed sum of title-tagged sale/commission/refund
+    movements in the period (frozen sales included), matching the transaction
+    feed -- not realized earnings. Returns a dict ready for IncomeResponse.
     """
     now = datetime.now(UTC)
     cur_start, cur_end, prev_start = _calendar_period_bounds(period, now)
@@ -106,11 +120,14 @@ async def get_master_income(
         user_id, prev_start, cur_start, session,
     )
 
-    # No previous activity -> no meaningful percentage (avoid div by zero).
-    if prev_income == 0:
-        delta_pct: int | None = None
+    # delta_pct only when the previous period was net-positive. With prev <= 0
+    # there is no meaningful base: prev == 0 divides by zero, and prev < 0
+    # (refunds exceeded sales) would flip the sign through abs(). In both cases
+    # we return null and let the client show "--" instead of a misleading %.
+    if prev_income > 0:
+        delta_pct: int | None = round((income - prev_income) / prev_income * 100)
     else:
-        delta_pct = round((income - prev_income) / abs(prev_income) * 100)
+        delta_pct = None
 
     return {
         "income_cents": income,
