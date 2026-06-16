@@ -330,7 +330,14 @@ export interface FeedbackMetricResponse {
   rate_pct: number
   visited: number
   left_review: number
-  distribution: app__modules__admin__metrics__schemas__RatingDistribution
+  distribution: FeedbackRatingDistribution
+}
+
+/** Feedback counts by bucket (confused 1-3 / good 4-7 / fire 8-10). Named distinctly from diary.schemas.RatingDistribution to avoid an OpenAPI component-name collision (both would otherwise be emitted under module-qualified names, breaking the frontend's flat re-export). */
+export interface FeedbackRatingDistribution {
+  fire: number
+  good: number
+  confused: number
 }
 
 /** POST /api/v1/practices/{id}/feedback body. */
@@ -609,7 +616,7 @@ export interface PracticeInsightsResponse {
   practice_id: string
   participants: number
   checkins: MoodDistribution
-  feedbacks: app__modules__diary__schemas__RatingDistribution
+  feedbacks: RatingDistribution
   comments_count: number
 }
 
@@ -737,6 +744,13 @@ export interface PurchaseWithPracticeResponse {
   created_at: string
   updated_at: string | null
   practice: PracticeSummary
+}
+
+/** Feedback rating counts for a practice, bucketed by score range. rating is a 1..10 score; counts are grouped into three buckets: confused = scores 1-3 good = scores 4-7 fire = scores 8-10 CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
+export interface RatingDistribution {
+  fire: number
+  good: number
+  confused: number
 }
 
 /** POST /admin/masters/{user_id}/reject -- request body. */
@@ -1005,18 +1019,4 @@ export interface WithdrawalResponse {
   rejected_at: string | null
   created_at: string
   updated_at: string | null
-}
-
-/** Feedback counts by bucket (confused 1-3 / good 4-7 / fire 8-10). */
-export interface app__modules__admin__metrics__schemas__RatingDistribution {
-  fire: number
-  good: number
-  confused: number
-}
-
-/** Feedback rating counts for a practice, bucketed by score range. rating is a 1..10 score; counts are grouped into three buckets: confused = scores 1-3 good = scores 4-7 fire = scores 8-10 CR-01: fields are required (no default=0). Same rationale as MoodDistribution above. */
-export interface app__modules__diary__schemas__RatingDistribution {
-  fire: number
-  good: number
-  confused: number
 }
