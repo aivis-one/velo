@@ -1130,8 +1130,6 @@ async def create_seed_booking(
             is_frozen=False,
             practice_id=practice.id,
             session=session,
-            title="Оплата за практику",
-            counterparty_id=user.id,
         )
         # Commission: master debit + company credit.
         if commission > 0:
@@ -1142,7 +1140,6 @@ async def create_seed_booking(
                 is_frozen=False,
                 practice_id=practice.id,
                 session=session,
-                title="Комиссия",
             )
             await record_company_ledger(
                 amount_cents=commission,
@@ -1175,8 +1172,6 @@ async def create_seed_booking(
             is_frozen=True,
             practice_id=practice.id,
             session=session,
-            title="Оплата за практику",
-            counterparty_id=user.id,
         )
 
     return booking
@@ -1385,6 +1380,98 @@ async def create_seed_diary_entries(
 # ===================================================================
 # Main seed orchestrator
 # ===================================================================
+
+async def create_seed_withdrawals(
+    session: AsyncSession,
+    masters: list[User],
+    admin: User,
+    *,
+    max_withdrawals: int = 3,
+) -> int:
+    """Seed a few approved withdrawals so admin revenue payout is non-empty.
+
+    Reuses the production create + approve flow so the full double-entry stays
+    balanced: create_withdrawal freezes available -> frozen; approve_withdrawal
+    debits frozen, books the WITHDRAWAL_FEE into the company ledger, and writes
+    Payment(OUT). A bare Withdrawal row would leave the ledger unbalanced and
+    trip the consistency semaphores -- this does not.
+
+    approve_withdrawal stamps approved_at = now, so the payout lands in the
+    current period and shows on GET /admin/revenue (payout + per-master).
+
+    Idempotent: skips any master that already has a withdrawal. The --reset wipe
+    clears all withdrawals / ledgers / payments, so a fresh run re-creates them.
+    """
+    import copy
+
+    from app.modules.admin.withdrawals.service import approve_withdrawal
+    from app.modules.withdrawals.service import create_withdrawal
+
+    fee = settings.withdrawal_fee_cents
+    min_amount = settings.min_withdrawal_cents
+    created = 0
+
+    for master in masters:
+        if created >= max_withdrawals:
+            break
+
+        # Idempotency: one seeded withdrawal per master is enough.
+        existing = (
+            await session.execute(
+                select(Withdrawal.id)
+                .where(Withdrawal.user_id == master.id)
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if existing is not None:
+            continue
+
+        profile = await session.get(MasterProfile, master.id)
+        if profile is None:
+            continue
+
+        # Need spendable balance above the minimum (and above the fee).
+        available = profile.available_cents
+        if available < min_amount or available <= fee:
+            continue
+
+        # Withdraw part of the balance: >= min, > fee, <= available.
+        amount = min(available, max(min_amount, available // 2))
+        if amount < min_amount or amount <= fee or amount > available:
+            continue
+
+        # create_withdrawal requires payout details on the profile.
+        if not profile.data.get("payout"):
+            data = copy.deepcopy(profile.data)
+            data["payout"] = {
+                "method": "bank_transfer",
+                "details": {
+                    "iban": "DE89370400440532013000",
+                    "account_holder": profile.data.get("profile", {}).get(
+                        "display_name", "Seed Master",
+                    ),
+                },
+            }
+            profile.set_jsonb("data", data)
+            await session.flush()
+            await session.refresh(profile)
+
+        withdrawal = await create_withdrawal(
+            user=master,
+            profile=profile,
+            amount_cents=amount,
+            session=session,
+        )
+        await approve_withdrawal(
+            withdrawal_id=withdrawal.id,
+            admin=admin,
+            note=f"{SEED_REASON}auto-approved",
+            session=session,
+        )
+        created += 1
+
+    return created
+
 
 async def seed(reset: bool = False) -> None:
     """Main seed entry point."""
@@ -1916,6 +2003,21 @@ async def seed(reset: bool = False) -> None:
                     f"{journey_diary} diary records "
                     f"for {len(journey_users)} real user(s)"
                 )
+
+            # ========================================
+            # STEP 4.6: Approved withdrawals (E9/4d)
+            # ========================================
+            # Populate admin revenue payout + per-master payouts with a few
+            # approved withdrawals, via the full create + approve ledger flow
+            # (semaphore-safe). Needs an admin to approve.
+            approver = all_admins[0] if all_admins else None
+            if approver is not None:
+                seeded_wd = await create_seed_withdrawals(
+                    session, all_masters, approver,
+                )
+                log(f"Created {seeded_wd} approved withdrawal(s)")
+            else:
+                warn("Skipping withdrawals -- no admin to approve")
 
             # ========================================
             # STEP 5: Commit
