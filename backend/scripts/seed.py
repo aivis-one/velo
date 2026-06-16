@@ -1130,6 +1130,9 @@ async def create_seed_booking(
             is_frozen=False,
             practice_id=practice.id,
             session=session,
+            # E2: mirror purchase.py sale tagging (the buyer paid).
+            title="Оплата за практику",
+            counterparty_id=user.id,
         )
         # Commission: master debit + company credit.
         if commission > 0:
@@ -1140,6 +1143,8 @@ async def create_seed_booking(
                 is_frozen=False,
                 practice_id=practice.id,
                 session=session,
+                # E2: mirror purchase.py commission tagging (platform fee).
+                title="Комиссия",
             )
             await record_company_ledger(
                 amount_cents=commission,
@@ -1172,6 +1177,9 @@ async def create_seed_booking(
             is_frozen=True,
             practice_id=practice.id,
             session=session,
+            # E2: mirror purchase.py sale tagging (the buyer paid).
+            title="Оплата за практику",
+            counterparty_id=user.id,
         )
 
     return booking
