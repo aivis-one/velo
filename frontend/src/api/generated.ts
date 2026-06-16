@@ -519,6 +519,14 @@ export interface PaginatedReviewsResponse {
   offset: number
 }
 
+/** GET /api/v1/masters/me/students -- paginated, searchable list. */
+export interface PaginatedStudentsResponse {
+  items: StudentListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
 /** GET /api/v1/masters/me/transactions -- paginated transaction feed. */
 export interface PaginatedTransactionsResponse {
   items: MasterTransactionItem[]
@@ -771,6 +779,38 @@ export interface SemaphoreResult {
   actual: string
   details?: Record<string, unknown> | null
   criticality: 'critical' | 'warning' | 'info'
+}
+
+/** One recent check-in by the student (on this master's practices). */
+export interface StudentCheckinItem {
+  mood: number
+  comment: string | null
+  created_at: string
+}
+
+/** GET /api/v1/masters/me/students/{id} -- per-student aggregate. practices_count -- number of this master's practices the student attended. hours -- attended duration_minutes summed, in hours (1 decimal). satisfaction_pct-- round(avg(rating) * 10) over the student's feedbacks on this master's practices; null when they left no feedback. recent_checkins -- newest-first, capped. feedbacks -- newest-first, capped. */
+export interface StudentDetailResponse {
+  practices_count: number
+  hours: number
+  satisfaction_pct: number | null
+  recent_checkins: StudentCheckinItem[]
+  feedbacks: StudentFeedbackItem[]
+}
+
+/** One feedback left by the student (on this master's practices). */
+export interface StudentFeedbackItem {
+  rating: number
+  comment: string | null
+  created_at: string
+}
+
+/** One student in the master's students list. needs_attention is True when the student's MOST RECENT feedback on this master's practices is in the negative bucket (rating 1-3) -- the same signal that feeds the dashboard "needs attention" block (consistent with the reviews projection). */
+export interface StudentListItem {
+  id: string
+  name: string
+  avatar_url: string | null
+  practices_count: number
+  needs_attention: boolean
 }
 
 /** POST /api/v1/auth/telegram — request body. */
