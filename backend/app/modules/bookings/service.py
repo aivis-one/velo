@@ -595,9 +595,9 @@ async def _finalize_practice_core(
     two paths can never drift in how attendance, money, or the diary are
     settled.
 
-    Transitions:
-    - confirmed + joined_at IS NOT NULL -> attended
-    - confirmed + joined_at IS NULL     -> no_show
+    Transitions (W-1: presence is proven by a Zoom join OR a PRE check-in):
+    - confirmed + (joined_at IS NOT NULL OR has PRE check-in) -> attended
+    - confirmed + neither                                     -> no_show
     - Practice status -> completed
     - All pending purchases -> completed (unfreeze + commission)
 
@@ -618,6 +618,22 @@ async def _finalize_practice_core(
     bookings_result = await session.execute(bookings_stmt)
     bookings = bookings_result.scalars().all()
 
+    # W-1: presence is proven by a Zoom join OR a PRE check-in. joined_at is
+    # set only through the Zoom "join" flow; while Zoom is disabled it stays
+    # null, which would otherwise send every confirmed booking to no_show and
+    # block feedback / named reviews (E1). So a confirmed booking that left a
+    # PRE check-in counts as attended too. Runtime-local import keeps the
+    # bookings -> diary dependency one-way (diary imports from bookings).
+    from app.modules.diary.models import Checkin, CheckType
+
+    checkin_rows = await session.execute(
+        select(Checkin.booking_id).where(
+            Checkin.practice_id == practice_id,
+            Checkin.check_type == CheckType.PRE.value,
+        )
+    )
+    checked_in_booking_ids = set(checkin_rows.scalars().all())
+
     attended_count = 0
     no_show_count = 0
     # Collect (user_id, booking_id, status) for the diary feed projection.
@@ -626,7 +642,11 @@ async def _finalize_practice_core(
     outcomes: list[tuple[UUID, UUID, str]] = []
 
     for booking in bookings:
-        if booking.joined_at is not None:
+        attended = (
+            booking.joined_at is not None
+            or booking.id in checked_in_booking_ids
+        )
+        if attended:
             booking.status = BookingStatus.ATTENDED.value
             attended_count += 1
         else:
