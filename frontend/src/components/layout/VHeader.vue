@@ -107,7 +107,9 @@ defineEmits<{
 .v-header__title {
   font-family: var(--font-body);
   font-size: 18px;
-  font-weight: 400;
+  /* Slightly heavier to match the section-heading reset (operator 2026-06-17);
+     Marmelad is single-weight, so 600 = the browser's synthesized heavier face. */
+  font-weight: 600;
   color: var(--velo-primary);
   white-space: nowrap;
   overflow: hidden;
