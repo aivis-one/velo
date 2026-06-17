@@ -56,6 +56,9 @@ const FOG_ROUTES = [
   'master-promocodes',
   'master-summary',
   'master-attendance-roster',
+  // Scrolling profile (check-ins + feedbacks lists) — fog so the floating header
+  // doesn't collide with content on scroll (operator tester-fix 2026-06-17).
+  'master-student-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 

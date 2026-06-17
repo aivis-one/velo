@@ -80,4 +80,11 @@ function onSend(): void {
 .send-msg :deep(.v-textarea) {
   margin-bottom: 0;
 }
+
+/* The textarea rests with a transparent border (white plate) — invisible on the
+   white modal. Give it a visible frame here so the input area reads clearly
+   (design «3 Students» message sheet). */
+.send-msg :deep(.v-textarea__field) {
+  border-color: var(--velo-border);
+}
 </style>
