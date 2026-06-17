@@ -148,7 +148,7 @@ describe('formatTime', () => {
 // -----------------------------------------------------------------------
 describe('formatParticipants', () => {
   it('shows current/max when max is set', () => {
-    expect(formatParticipants(5, 20)).toBe('5/20 мест')
+    expect(formatParticipants(5, 20)).toBe('5/20')
   })
 
   it('shows count + label when max is null (unlimited)', () => {
@@ -156,7 +156,7 @@ describe('formatParticipants', () => {
   })
 
   it('shows 0/max', () => {
-    expect(formatParticipants(0, 10)).toBe('0/10 мест')
+    expect(formatParticipants(0, 10)).toBe('0/10')
   })
 })
 

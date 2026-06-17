@@ -201,11 +201,13 @@ export function formatDuration(minutes: number): string {
 }
 
 /**
- * Format participants count: "5/20 мест" or "∞" when unlimited.
+ * Format participants count: "5/20" or "N участн." when unlimited.
  */
 export function formatParticipants(current: number, max: number | null): string {
   if (max === null) return `${current} участн.`
-  return `${current}/${max} мест`
+  // No trailing «мест» — the group icon already conveys it; the design shows a
+  // bare «N/M» (operator 2026-06-17).
+  return `${current}/${max}`
 }
 
 /**
