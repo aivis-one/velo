@@ -136,6 +136,11 @@ let fogDefaultsCache: {
   topHard: number
   botFade: number
   botHard: number
+  // Compact bottom zone for fog screens that also hide the tab bar — the default
+  // botFade/botHard (160px) is sized for the tab-bar clearance and would float
+  // the fade ~136px above a hideTabBar list's true bottom. See --velo-fog-list-*.
+  listBotFade: number
+  listBotHard: number
 } | null = null
 function fogDefaults() {
   if (fogDefaultsCache) return fogDefaultsCache
@@ -149,6 +154,8 @@ function fogDefaults() {
     topHard: tok('--velo-fog-z2', 40),
     botFade: tok('--velo-fog-z3', 70),
     botHard: tok('--velo-fog-z4', 90),
+    listBotFade: tok('--velo-fog-list-z3', 48),
+    listBotHard: tok('--velo-fog-list-z4', 0),
   }
   return fogDefaultsCache
 }
@@ -165,10 +172,16 @@ const mainStyle = computed(() => {
   const d = fogDefaults()
   const topGap = props.topGap ?? d.topGap
   const topHard = props.fogTopHard ?? d.topHard
-  const botFade = props.fogBotFade ?? d.botFade
-  const botHard = props.fogBotHard ?? d.botHard
+  // When the tab bar is hidden there is no 160px bar to clear, so the bottom fog
+  // zone shrinks to the compact list tuning (unless a screen overrides it). An
+  // explicit fogBot* prop always wins (e.g. practice-detail's operator tuning).
+  const botFade = props.fogBotFade ?? (props.hideTabBar ? d.listBotFade : d.botFade)
+  const botHard = props.fogBotHard ?? (props.hideTabBar ? d.listBotHard : d.botHard)
   const top = islandH.value > 0 ? islandH.value + topGap : props.fog ? 60 : 16
-  const bottom = props.hideTabBar ? 24 : 160
+  // Bottom clearance: clear the floating tab bar (160) when present; without it,
+  // a fog list pads exactly to its bottom fade zone so the last item rests crisp
+  // and only dissolves on scroll; a plain (no-fog) detail keeps a small 24 base.
+  const bottom = props.hideTabBar ? (props.fog ? botFade + botHard : 24) : 160
   return {
     paddingTop: `${top}px`,
     paddingBottom: `${bottom}px`,

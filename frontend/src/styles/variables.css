@@ -198,6 +198,16 @@
   --velo-fog-z2: 40px;
   --velo-fog-z3: 70px;
   --velo-fog-z4: 90px;
+  /* Bottom fog tuning for fog screens that ALSO hide the tab bar (no 160px bar
+     to clear). The default z3/z4 (70+90 = 160px) are sized for the tab-bar
+     clearance; on a hideTabBar list that leaves the fade ~136px ABOVE the real
+     content bottom (students / messages / promocodes / summary / roster +
+     practice-reviews). These compact values land the dissolve at the true
+     bottom. MobileLayout substitutes them automatically when fog && hideTabBar.
+       list-z3 = bottom fade
+       list-z4 = bottom hard (no tab bar → no transparent gap) */
+  --velo-fog-list-z3: 48px;
+  --velo-fog-list-z4: 0px;
   /* practice-detail fog override (operator-tuned 2026-06-09): softer top dissolve
      under the header + tighter bottom so the «Записаться бесплатно» CTA stays crisp
      над таб-баром. Read by UserShell → passed to MobileLayout (values flow through

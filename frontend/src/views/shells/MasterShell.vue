@@ -22,9 +22,14 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MobileLayout } from '@/components/layout'
 import { MASTER_TABS } from '@/router/tabs'
+import { useKeyboardOpen } from '@/composables/useKeyboardOpen'
 
 const route = useRoute()
 const router = useRouter()
+
+// Hide the floating tab bar while the soft keyboard is open, so it does not ride
+// up over a focused input (parity with UserShell — e.g. the «Мои ученики» search).
+const { keyboardOpen } = useKeyboardOpen()
 
 const activeTab = computed(() => {
   const path = route.path
@@ -32,22 +37,30 @@ const activeTab = computed(() => {
   return match?.to ?? MASTER_TABS[0]?.to ?? ''
 })
 
-// Edge-to-edge fog on the long scrolling master content screens (design shows
-// the edge dissolve on practices / dashboard / analytics / a practice's reviews).
-// Forms and short detail screens stay crisp. NOTE: master-practice-reviews also
-// sets meta.hideTabBar, which collapses MobileLayout's bottom clearance to 24px
-// while the default fog bottom zone is ~160px — verify on device and add a custom
-// fog tuning (fogBotFade/fogBotHard) if the bottom fade clips content.
+// Edge-to-edge fog on the long scrolling master LIST/feed screens, matching the
+// User zone (operator tester-fix 2026-06-17, scope А). Forms / profile / create-
+// edit / single-detail / message-thread composer stay CRISP (DS rule: their
+// CTAs/footers must not fade) — so notifications (settings toggles) and finance
+// (payout form + «Запросить вывод» CTA) are deliberately NOT fogged.
+// Every hideTabBar list below gets the compact bottom fade automatically:
+// MobileLayout substitutes --velo-fog-list-z3/z4 when fog && hideTabBar, so the
+// dissolve lands at the real content bottom (this also fixes the latent
+// practice-reviews bottom clip the previous comment flagged).
 const FOG_ROUTES = [
   'master-practices',
   'master-dashboard',
   'master-analytics',
   'master-practice-reviews',
+  'master-students',
+  'master-messages',
+  'master-promocodes',
+  'master-summary',
+  'master-attendance-roster',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
 // Hide the bottom tab bar on detail routes that opt in via `meta.hideTabBar`
-// (the design omits the tab bar on master detail screens). Opt-in per route —
-// the remaining master detail screens migrate later in the SHELL pass.
-const hideTabBar = computed(() => route.meta.hideTabBar === true)
+// (the design omits the tab bar on master detail screens), OR while the soft
+// keyboard is open so it never rides up over a focused input.
+const hideTabBar = computed(() => route.meta.hideTabBar === true || keyboardOpen.value)
 </script>
