@@ -300,7 +300,7 @@ import { IconRequired, IconBroadcast } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { createPractice } from '@/api/practices'
+import { createPractice, updatePractice } from '@/api/practices'
 import { formatShortDate } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
@@ -500,7 +500,7 @@ async function submit(): Promise<void> {
       return
     }
 
-    await createPractice({
+    const created = await createPractice({
       // Q2=А: practice_type derived from the recurrence toggle (series/live);
       // one_on_one/replay are not creatable from this form (roadmap: advanced mode).
       practice_type: form.is_recurring ? 'series' : 'live',
@@ -521,6 +521,13 @@ async function submit(): Promise<void> {
       price_cents: form.is_free ? 0 : priceCents.value,
       currency: 'eur',
     })
+
+    // Publish immediately: a freshly created practice must be live & bookable,
+    // not a draft that needs a second edit→«Опубликовать» step (operator
+    // 2026-06-17). The backend create defaults to 'draft'; we run the same
+    // draft→scheduled PATCH the edit screen uses, so the practice appears on the
+    // dashboard «Ближайшая практика» (scheduled/live only) right away.
+    await updatePractice(created.id, { status: 'scheduled' })
 
     toast.success('Практика создана!')
     // Invalidate cached list so it reloads on practices view
