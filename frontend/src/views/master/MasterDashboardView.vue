@@ -33,10 +33,10 @@
 
     <template v-else>
       <!-- ================================================================
-           GREETING + NOTIFICATION BELL
+           NOTIFICATION BELL (greeting removed — operator tester-fix
+           2026-06-17, mirroring the user dashboard). Bell stays top-right.
            ================================================================ -->
-      <div class="master-dashboard__greeting">
-        <h2 class="master-dashboard__greeting-name">Привет, {{ displayName }}!</h2>
+      <div class="master-dashboard__bell-row">
         <button class="master-dashboard__bell" aria-label="Уведомления" @click="onBell">
           <IconBell :size="21" />
           <span v-if="unreadCount > 0" class="master-dashboard__bell-badge">{{ unreadCount }}</span>
@@ -58,15 +58,10 @@
         />
       </div>
 
+      <!-- Income card removed from the dashboard (operator tester-fix 2026-06-17). -->
       <div class="master-dashboard__stats-grid">
         <VStatCard :value="practicesStat" label="Практик" :delta="practicesDelta" />
         <VStatCard :value="participantsStat" label="Участников" :delta="participantsDelta" />
-        <VStatCard
-          :value="incomeStat"
-          label="Доход"
-          :delta="incomeDelta"
-          :delta-tone="incomeDeltaTone"
-        />
       </div>
 
       <!-- ================================================================
@@ -79,31 +74,32 @@
       <!-- ================================================================
            ZERO-STATE CTA
            ================================================================ -->
+      <!-- Shown whenever there is no upcoming practice (not only brand-new
+           masters) — operator tester-fix 2026-06-17; «первую» dropped. -->
       <VButton
-        v-if="isNewMaster"
+        v-if="nearestPractices.length === 0"
         variant="primary"
         block
         @click="router.push({ name: 'master-practice-new' })"
       >
-        Создать первую практику
+        Создать практику
       </VButton>
 
       <!-- ================================================================
            САММАРИ НЕДЕЛИ (placeholder — no master-AI backend yet)
            ================================================================ -->
       <h2 class="velo-section-title">Саммари недели</h2>
-      <VCard>
-        <p class="master-dashboard__empty-text">
-          {{
-            isNewMaster
-              ? 'Данных пока нет — создайте первую практику'
-              : 'Сводка появится после проведения практик'
-          }}
-        </p>
+      <!-- The whole block opens the full summary on tap (operator tester-fix
+           2026-06-17; «Подробнее» button removed). When a summary exists the
+           teaser is clamped to 2 lines with an ellipsis so it reads as "tap to
+           expand" — same idiom as the diary feed card (Variant B). The new
+           master has nothing to open, so it keeps a plain placeholder. -->
+      <VCard v-if="!isNewMaster" clickable @click="router.push({ name: 'master-summary' })">
+        <p class="master-dashboard__summary-text">Сводка появится после проведения практик</p>
       </VCard>
-      <div v-if="!isNewMaster" class="master-dashboard__summary-more">
-        <VMoreLink @click="router.push({ name: 'master-summary' })" />
-      </div>
+      <VCard v-else>
+        <p class="master-dashboard__empty-text">Данных пока нет — создайте первую практику</p>
+      </VCard>
 
       <!-- ================================================================
            БЛИЖАЙШИЕ ПРАКТИКИ (up to 3)
@@ -178,31 +174,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import {
-  VButton,
-  VLoader,
-  VStatCard,
-  VCard,
-  VMenuRow,
-  VMoreLink,
-  VSegmentTrack,
-} from '@/components/ui'
+import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
 import { IconBell, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useToast } from '@/composables/useToast'
-import {
-  formatDateShort,
-  formatTime,
-  formatDuration,
-  formatParticipants,
-  formatMoney,
-} from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
-import { getIncome } from '@/api/masters'
-import type { PracticeResponse, IncomeResponse } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -215,55 +196,22 @@ const PERIOD_OPTIONS: ReadonlyArray<{ value: 'week' | 'month'; label: string }> 
   { value: 'month', label: 'Месяц' },
 ]
 
-// -- Display name fallback --
-const displayName = computed((): string => masterStore.profile?.display_name ?? 'Мастер')
-
 // True for a brand-new master with no practices at all (zero state).
 const isNewMaster = computed(
   (): boolean => (masterStore.practicesTotal ?? masterStore.practices.length) === 0,
 )
 
 // =========================================================================
-// Stats. Practices total is real; income is wired (E2: getIncome by period,
-// with a signed delta_pct). Participants + its delta have no backend yet → "—".
-// Period scoping affects income only; the toggle re-fetches it.
+// Stats. Practices total is real; participants has no backend yet → "—".
+// The period toggle is visual-only now (income was removed from the dashboard
+// — operator tester-fix 2026-06-17; it was the only period-scoped stat).
 // =========================================================================
-const incomeData = ref<IncomeResponse | null>(null)
-
 const practicesStat = computed((): string =>
   String(masterStore.practicesTotal ?? masterStore.practices.length),
 )
 const participantsStat = computed((): string => '—')
-// Currency canon = EUR; €0.00 while seed practices are free (seed-pricing next).
-const incomeStat = computed((): string =>
-  incomeData.value ? formatMoney(incomeData.value.income_cents, 'EUR', 'ru', true) : '—',
-)
 const practicesDelta = computed((): string => '')
 const participantsDelta = computed((): string => '')
-// delta_pct is null when the previous period had no net-positive turnover -> hidden.
-const incomeDelta = computed((): string => {
-  const d = incomeData.value?.delta_pct
-  if (d == null) return ''
-  const sign = d >= 0 ? '+' : '−'
-  return `${sign}${Math.abs(Math.round(d))}%`
-})
-// VStatCard supports up (teal) / muted only — a negative trend reads as muted.
-const incomeDeltaTone = computed<'up' | 'muted'>(() =>
-  (incomeData.value?.delta_pct ?? 0) >= 0 ? 'up' : 'muted',
-)
-
-async function loadIncome(): Promise<void> {
-  try {
-    incomeData.value = await getIncome(period.value)
-  } catch {
-    // Best-effort: the income stat stays "—" if the fetch fails.
-  }
-}
-
-// Period toggle re-fetches income (the only period-scoped stat here).
-watch(period, () => {
-  void loadIncome()
-})
 
 // Notifications feed not built yet → no unread count (roadmap for Zod).
 const unreadCount = computed((): number => 0)
@@ -307,7 +255,6 @@ onMounted(async () => {
     now.value = Date.now()
   }, 60_000)
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
-  void loadIncome()
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
 })
@@ -334,22 +281,11 @@ onUnmounted(() => {
   padding: var(--space-10) 0;
 }
 
-/* -- Greeting + bell -- */
-.master-dashboard__greeting {
+/* -- Bell row (greeting removed — bell stays top-right) -- */
+.master-dashboard__bell-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  justify-content: flex-end;
   min-height: 44px;
-}
-
-.master-dashboard__greeting-name {
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 .master-dashboard__bell {
@@ -404,10 +340,10 @@ onUnmounted(() => {
   letter-spacing: 0.02em;
 }
 
-/* -- Stats grid -- */
+/* -- Stats grid (2 cards — income removed) -- */
 .master-dashboard__stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
 }
 
@@ -421,6 +357,20 @@ onUnmounted(() => {
   font-size: var(--text-sm);
   line-height: 1.5;
   padding: var(--space-1) var(--space-2);
+}
+
+/* -- Summary teaser: 2-line clamp + ellipsis so the card reads as "tap to
+      expand" (mirrors the diary feed card, Variant B). -- */
+.master-dashboard__summary-text {
+  margin: 0;
+  color: var(--velo-text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 /* -- Loading row -- */

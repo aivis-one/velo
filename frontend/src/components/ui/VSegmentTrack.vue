@@ -117,4 +117,14 @@ const emit = defineEmits<{
   color: var(--velo-text-muted);
   padding: 6px 10px;
 }
+
+/* Active label is white on the primary fill-pill. Declared at variant
+   specificity (and after the variant rules) so it wins over the inactive
+   per-variant colour above — otherwise `.v-segment-track--toggle
+   .v-segment-track__btn` (0,2,0) overrides `.v-segment-track__btn--active`
+   (0,1,0) and the active text stays dark. */
+.v-segment-track--toggle .v-segment-track__btn--active,
+.v-segment-track--tabs .v-segment-track__btn--active {
+  color: var(--velo-white);
+}
 </style>
