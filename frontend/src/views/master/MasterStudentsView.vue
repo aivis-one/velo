@@ -158,11 +158,13 @@ function openMessage(name: string): void {
 
 .students__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding).
+     Top trimmed to raise the search closer to the header (design «3 Students»). */
+  padding: var(--space-2) 0 var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  /* Inter-card spacing tightened to the design (~10px → nearest token). */
+  gap: var(--space-2);
 }
 
 .students__state {
@@ -177,10 +179,18 @@ function openMessage(name: string): void {
   align-items: center;
   gap: var(--space-2);
   height: 50px;
+  /* Gap to the first student card (design ~25px = space-2 row gap + this). */
+  margin-bottom: var(--space-4);
   padding: 5px 5px 5px var(--space-5);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
+  /* Frost the busy mandala behind the translucent fill so the interior reads
+     clean, not muddy (design «3 Students» uses a backdrop blur). */
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  /* White halo behind the pill (design drop-shadow → DS glow token). */
+  box-shadow: var(--velo-shadow-glow);
 }
 
 .students__search-input {
