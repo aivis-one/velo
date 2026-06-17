@@ -120,7 +120,13 @@
           :key="practice.id"
           class="master-dashboard__practice-block"
         >
-          <article class="master-dashboard__practice-card">
+          <article
+            class="master-dashboard__practice-card"
+            role="button"
+            tabindex="0"
+            @click="openPractice(practice)"
+            @keydown.enter.space.prevent="openPractice(practice)"
+          >
             <div class="master-dashboard__practice-top">
               <span class="master-dashboard__practice-icon">
                 <component :is="practiceIconFor(practice)" :size="46" />
@@ -141,14 +147,11 @@
               </div>
             </div>
           </article>
+          <!-- Like the user dashboard: left = Zoom (1-click launch; stub toast
+               until Zoom ships), right = Check-ins. Edit/delete moved to the
+               practice screen, reached by tapping the card (openPractice). -->
           <div class="master-dashboard__practice-actions">
-            <VButton
-              variant="secondary"
-              block
-              @click="router.push({ name: 'master-practice-edit', params: { id: practice.id } })"
-            >
-              Изменить
-            </VButton>
+            <VButton variant="secondary" block @click="onZoom">Zoom</VButton>
             <VButton
               variant="primary"
               block
@@ -247,6 +250,14 @@ function onBell(): void {
 }
 function onStudents(): void {
   router.push({ name: 'master-students' })
+}
+// Tap the card → the practice screen (edit/cancel/delete live there via «…»).
+function openPractice(p: PracticeResponse): void {
+  router.push({ name: 'master-practice-detail', params: { id: p.id } })
+}
+// Zoom — stub until delivery (mirrors the user dashboard's Zoom button).
+function onZoom(): void {
+  toast.info('Zoom пока недоступен')
 }
 
 // -- Load data on mount --
@@ -392,6 +403,12 @@ onUnmounted(() => {
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.master-dashboard__practice-card:active {
+  opacity: 0.85;
 }
 
 .master-dashboard__practice-top {
@@ -454,5 +471,18 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
+  /* Side inset so the buttons land at the design width (~145px) instead of
+     full-bleed to the rail (design «1 Dashboard»). */
+  padding: 0 var(--space-4);
+}
+
+/* Card action buttons: 20px label (design); secondary action is a light glass
+   fill (blue-200 @ .15) — far more transparent than the default secondary. */
+.master-dashboard__practice-actions :deep(.v-btn) {
+  font-size: var(--text-lg);
+}
+
+.master-dashboard__practice-actions :deep(.v-btn--secondary) {
+  background: var(--velo-glass-blue-200-15);
 }
 </style>

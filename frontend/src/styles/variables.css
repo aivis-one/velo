@@ -141,6 +141,8 @@
   --velo-glass-blue-15: rgba(98, 122, 156, 0.15);
   --velo-glass-blue-30: rgba(98, 122, 156, 0.3); /* VBottomSheet grab handle */
   --velo-glass-blue-60: rgba(171, 191, 218, 0.6);
+  /* light glass (blue-200 @ .15) — dashboard secondary action button (design «1 Dashboard») */
+  --velo-glass-blue-200-15: rgba(171, 191, 218, 0.15);
   --velo-glass-teal-30: rgba(118, 221, 230, 0.3);
   --velo-glass-teal-40: rgba(118, 221, 230, 0.4);
   --velo-glass-peach-40: rgba(251, 192, 136, 0.4);
