@@ -165,7 +165,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VSegment, VRatingBadges } from '@/components/ui'
 import {
@@ -182,6 +182,7 @@ import { practiceIconFor } from '@/utils/displayHelpers'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
+const route = useRoute()
 const router = useRouter()
 const masterStore = useMasterStore()
 const diaryStore = useDiaryStore()
@@ -189,7 +190,10 @@ const diaryStore = useDiaryStore()
 // Reactive insights cache (shared with Analytics / PracticeReviews — often warm).
 const insightsCache = diaryStore.insightsCache
 
-const activeTab = ref<'upcoming' | 'past'>('upcoming')
+// Active tab is mirrored in the URL query (?tab=past) so that returning from a
+// practice detail via router.back() restores the tab the user left from
+// (otherwise a fresh mount always reset to «Предстоящие»).
+const activeTab = ref<'upcoming' | 'past'>(route.query.tab === 'past' ? 'past' : 'upcoming')
 
 // -- Upcoming: draft + scheduled + live, ascending --
 const upcomingPractices = computed((): PracticeResponse[] =>
@@ -274,7 +278,11 @@ async function onLoadMore(): Promise<void> {
   await loadTabInsights()
 }
 
-watch(activeTab, () => {
+watch(activeTab, (tab) => {
+  // Persist the tab in the URL so a back-navigation from detail restores it.
+  if (route.query.tab !== tab) {
+    router.replace({ query: { ...route.query, tab } })
+  }
   loadTabInsights()
 })
 
