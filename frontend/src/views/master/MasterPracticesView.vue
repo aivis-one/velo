@@ -136,17 +136,13 @@
               <span class="mp-stat mp-stat--no"><IconClose :size="16" /> —</span>
             </div>
             <!-- Rating distribution (REAL, anonymous insights — eager-loaded). -->
-            <div v-if="hasRating(p.id)" class="mp-card__rbadges">
-              <span class="mp-rbadge mp-rbadge--fire"
-                ><IconRatingFire :size="14" /> {{ ratingPct(p.id, 'fire') }}%</span
-              >
-              <span class="mp-rbadge mp-rbadge--good"
-                ><IconRatingGood :size="14" /> {{ ratingPct(p.id, 'good') }}%</span
-              >
-              <span class="mp-rbadge mp-rbadge--conf"
-                ><IconRatingConfused :size="14" /> {{ ratingPct(p.id, 'confused') }}%</span
-              >
-            </div>
+            <VRatingBadges
+              v-if="hasRating(p.id)"
+              class="mp-card__rbadges"
+              :fire="ratingPct(p.id, 'fire')"
+              :good="ratingPct(p.id, 'good')"
+              :confused="ratingPct(p.id, 'confused')"
+            />
           </article>
         </template>
         <VEmptyState
@@ -171,7 +167,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VSegment } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VSegment, VRatingBadges } from '@/components/ui'
 import {
   IconPlus,
   IconGroup,
@@ -179,9 +175,6 @@ import {
   IconRepeat,
   IconCheck,
   IconClose,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
@@ -415,33 +408,8 @@ onMounted(async () => {
 
 /* Rating-distribution badges (sand/pink/blue-100 tints; confused = blue-400
    per operator SVG 2026-06-11). */
+/* Margin only — the trio itself is the shared VRatingBadges component. */
 .mp-card__rbadges {
-  display: flex;
-  gap: var(--space-2);
   margin-top: 13px;
-}
-
-.mp-rbadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  border-radius: var(--velo-radius-badge);
-  font-size: var(--text-xs);
-}
-
-.mp-rbadge--fire {
-  background: var(--velo-sand-100);
-  color: var(--velo-rating-fire);
-}
-
-.mp-rbadge--good {
-  background: var(--velo-pink-100);
-  color: var(--velo-rating-good);
-}
-
-.mp-rbadge--conf {
-  background: var(--velo-blue-100);
-  color: var(--velo-blue-400);
 }
 </style>

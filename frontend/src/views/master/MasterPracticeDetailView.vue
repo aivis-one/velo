@@ -160,17 +160,14 @@
             <span><IconCalendar :size="16" />{{ whenLabel }}</span>
             <span><IconClock :size="16" />{{ durationLabel }}</span>
           </div>
-          <div v-if="hasRating" class="practice-detail__rbadges">
-            <span class="practice-detail__rbadge practice-detail__rbadge--fire">
-              <IconRatingFire :size="16" /> {{ ratingPct('fire') }}%
-            </span>
-            <span class="practice-detail__rbadge practice-detail__rbadge--good">
-              <IconRatingGood :size="16" /> {{ ratingPct('good') }}%
-            </span>
-            <span class="practice-detail__rbadge practice-detail__rbadge--conf">
-              <IconRatingConfused :size="16" /> {{ ratingPct('confused') }}%
-            </span>
-          </div>
+          <VRatingBadges
+            v-if="hasRating"
+            class="practice-detail__rbadges"
+            size="lg"
+            :fire="ratingPct('fire')"
+            :good="ratingPct('good')"
+            :confused="ratingPct('confused')"
+          />
         </div>
 
         <!-- Stats -->
@@ -305,6 +302,7 @@ import {
   VAccordion,
   VMenu,
   VAvatar,
+  VRatingBadges,
 } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
@@ -671,34 +669,9 @@ onMounted(load)
 }
 
 /* Rating-distribution badges (sand/pink/blue-100 tints; confused = blue-400). */
+/* Margin only — the trio itself is the shared VRatingBadges component. */
 .practice-detail__rbadges {
-  display: flex;
-  gap: var(--space-2);
   margin-top: 4px;
-}
-
-.practice-detail__rbadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 12px;
-  border-radius: var(--velo-radius-badge);
-  font-size: var(--text-xs);
-}
-
-.practice-detail__rbadge--fire {
-  background: var(--velo-sand-100);
-  color: var(--velo-rating-fire);
-}
-
-.practice-detail__rbadge--good {
-  background: var(--velo-pink-100);
-  color: var(--velo-rating-good);
-}
-
-.practice-detail__rbadge--conf {
-  background: var(--velo-blue-100);
-  color: var(--velo-blue-400);
 }
 
 /* ===== Stats ===== */

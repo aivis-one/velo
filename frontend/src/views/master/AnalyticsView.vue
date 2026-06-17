@@ -136,20 +136,13 @@
             </div>
 
             <!-- Inline rating badges (insights eager-loaded for the page). -->
-            <div
+            <VRatingBadges
               v-if="insightsCache.has(p.id) && totalFeedbacks(p.id) > 0"
               class="analytics__pcard-badges"
-            >
-              <span class="analytics__rbadge analytics__rbadge--fire">
-                <IconRatingFire :size="14" />{{ ratingPct(p.id, 'fire') }}%
-              </span>
-              <span class="analytics__rbadge analytics__rbadge--good">
-                <IconRatingGood :size="14" />{{ ratingPct(p.id, 'good') }}%
-              </span>
-              <span class="analytics__rbadge analytics__rbadge--confused">
-                <IconRatingConfused :size="14" />{{ ratingPct(p.id, 'confused') }}%
-              </span>
-            </div>
+              :fire="ratingPct(p.id, 'fire')"
+              :good="ratingPct(p.id, 'good')"
+              :confused="ratingPct(p.id, 'confused')"
+            />
           </button>
 
           <div v-if="masterStore.practicesHasMore" class="analytics__more">
@@ -232,7 +225,7 @@ import { ref, computed, onMounted, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VButton, VStatCard, VCard, VSegmentTrack } from '@/components/ui'
+import { VLoader, VButton, VStatCard, VCard, VSegmentTrack, VRatingBadges } from '@/components/ui'
 import {
   IconArrowRight,
   IconRatingFire,
@@ -702,36 +695,9 @@ onMounted(async () => {
   letter-spacing: 0.28px;
 }
 
+/* Wrap behaviour only — the trio itself is the shared VRatingBadges component. */
 .analytics__pcard-badges {
-  display: flex;
-  gap: var(--space-2);
   flex-wrap: wrap;
-}
-
-/* Rating badges -- analytics-local tints from DS tokens. Promote to a VBadge
-   rating variant if reused elsewhere (SHELL). */
-.analytics__rbadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: var(--velo-radius-badge);
-  font-size: var(--text-xs);
-}
-
-.analytics__rbadge--fire {
-  background: var(--velo-sand-100);
-  color: var(--velo-rating-fire);
-}
-
-.analytics__rbadge--good {
-  background: var(--velo-pink-100);
-  color: var(--velo-rating-good);
-}
-
-.analytics__rbadge--confused {
-  background: var(--velo-blue-100);
-  color: var(--velo-blue-400);
 }
 
 /* ===== Load more ===== */
