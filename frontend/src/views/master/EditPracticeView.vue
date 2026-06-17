@@ -202,28 +202,11 @@
             Начать эфир
           </VButton>
 
-          <!-- live -> completed (finalize) -->
-          <VButton
-            v-if="practice.status === 'live'"
-            variant="primary"
-            block
-            :loading="transitioning"
-            :disabled="anyLoading"
-            @click="confirmFinalize"
-          >
-            Завершить практику
-          </VButton>
-
-          <!-- scheduled / live -> attendance -->
-          <VButton
-            v-if="practice.status === 'live' || practice.status === 'scheduled'"
-            variant="outline"
-            block
-            :disabled="anyLoading"
-            @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
-          >
-            Посещаемость
-          </VButton>
+          <!-- «Завершить практику» + «Посещаемость» removed (operator 2026-06-17):
+               finalize is non-obvious behind the edit form; a practice is meant to
+               complete automatically by its duration (unless cancelled) once the
+               backend implements it — see the Zod note. Attendance/check-ins stay
+               reachable from the dashboard «Check-ins» and the practice screen. -->
 
           <!-- draft -> deleted -->
           <VButton
@@ -247,17 +230,6 @@
             @click="confirmCancel"
           >
             Отменить практику
-          </VButton>
-        </div>
-
-        <!-- Attendance link for completed -->
-        <div v-if="practice.status === 'completed'" class="edit-practice__actions">
-          <VButton
-            variant="outline"
-            block
-            @click="router.push({ name: 'master-attendance', params: { id: practice.id } })"
-          >
-            Посещаемость
           </VButton>
         </div>
       </div>
@@ -322,13 +294,7 @@ import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
-import {
-  getPractice,
-  updatePractice,
-  deletePractice,
-  cancelPractice,
-  finalizePractice,
-} from '@/api/practices'
+import { getPractice, updatePractice, deletePractice, cancelPractice } from '@/api/practices'
 import { formatShortDate } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
@@ -579,33 +545,6 @@ async function startLive(): Promise<void> {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось начать эфир')
   } finally {
     transitioning.value = false
-  }
-}
-
-// -- Confirm finalize --
-function confirmFinalize(): void {
-  confirmDialog.message = 'Завершить практику? Посещаемость будет зафиксирована.'
-  confirmDialog.confirmLabel = 'Завершить'
-  confirmDialog.danger = false
-  confirmDialog.visible = true
-  confirmDialog.onConfirm = finalize
-}
-
-// -- Finalize: live -> completed --
-async function finalize(): Promise<void> {
-  if (confirmDialog.loading) return
-  confirmDialog.loading = true
-  try {
-    const updated = await finalizePractice(practiceId)
-    practice.value = updated
-    confirmDialog.visible = false
-    toast.success('Практика завершена!')
-    await masterStore.refreshMyPractices()
-    router.push({ name: 'master-attendance', params: { id: practiceId } })
-  } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось завершить')
-  } finally {
-    confirmDialog.loading = false
   }
 }
 
