@@ -40,7 +40,13 @@
 
 <template>
   <div class="edit-practice">
-    <VHeader title="Редактировать" show-back @back="router.push({ name: 'master-practices' })" />
+    <!-- Back always returns to the practice screen; that screen decides where to
+         go next (dashboard or practices, depending on origin) — operator 2026-06-17. -->
+    <VHeader
+      title="Редактировать"
+      show-back
+      @back="router.push({ name: 'master-practice-detail', params: { id: practiceId } })"
+    />
 
     <!-- Loading -->
     <div v-if="loading" class="edit-practice__loader">
@@ -70,7 +76,7 @@
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
       </div>
 
-      <div class="edit-practice__content">
+      <div class="edit-practice__content" @click="dismissKeyboardOnBlank">
         <!-- ================================================================
              FORM (editable for draft / scheduled only)
              ================================================================ -->
@@ -131,10 +137,11 @@
             :rows="2"
           />
 
-          <VInput
+          <VTextarea
             v-model="form.what_to_prepare"
             label="Что подготовить"
             placeholder="Коврик, плед, вода"
+            :rows="3"
           />
 
           <!-- Zoom (реш. В: сохранена по ЛОГИКЕ — авто-ссылки-бэка ещё нет, и Edit
@@ -335,6 +342,15 @@ const toast = useToast()
 const masterStore = useMasterStore()
 
 const practiceId = route.params.id as string
+
+// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
+// like «Максимум мест» have no «Готово» key) — operator 2026-06-17.
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
+}
 
 // -- Practice data --
 const practice = ref<PracticeResponse | null>(null)
@@ -679,8 +695,9 @@ async function remove(): Promise<void> {
 /* -- Content -- */
 .edit-practice__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding).
+     Top trimmed to sit closer to the header (operator 2026-06-17). */
+  padding: var(--space-2) 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);

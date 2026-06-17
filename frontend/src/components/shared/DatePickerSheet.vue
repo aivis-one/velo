@@ -155,7 +155,18 @@ watch(
   { immediate: true },
 )
 
-const monthOptions = computed(() => MONTHS.map((label, i) => ({ value: String(i), label })))
+const monthOptions = computed(() => {
+  // No past months: when the viewed year is the `min` year, drop months before
+  // the min month (operator 2026-06-17 — couldn't pick a past practice month).
+  let startMonth = 0
+  if (props.min) {
+    const parts = props.min.split('-')
+    const minY = Number(parts[0])
+    const minM = Number(parts[1])
+    if (viewYear.value === minY) startMonth = minM - 1
+  }
+  return MONTHS.map((label, i) => ({ value: String(i), label })).filter((_, i) => i >= startMonth)
+})
 
 const yearOptions = computed(() => {
   const now = new Date().getFullYear()

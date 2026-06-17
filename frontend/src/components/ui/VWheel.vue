@@ -115,6 +115,11 @@ onMounted(() => {
   scroll-snap-type: y mandatory;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Own the vertical gesture so the touch lands on THIS column on first contact
+     (fixes the minutes wheel ignoring the first swipe) and never chains to the
+     sheet/page scroll. Operator 2026-06-17 — verify on device. */
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   /* Soft top/bottom fade so the wheel reads as a cylinder. */
   -webkit-mask-image: linear-gradient(
     to bottom,
