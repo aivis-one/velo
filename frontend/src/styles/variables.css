@@ -52,6 +52,9 @@
 
   /* Error / Alert (red) */
   --velo-error-bg: rgba(253, 226, 226, 0.4);
+  /* Stronger error surface — alerts/legends that read too washed-out at the soft
+     --velo-error-bg above (the error pink itself, not the desaturated tint). */
+  --velo-error-bg-strong: rgba(247, 149, 162, 0.25);
   --velo-error-bg-subtle: #fff5f5;
   --velo-error-border: #f795a2;
   --velo-error-text: #a16124;

@@ -8,7 +8,7 @@
 
 <template>
   <div class="new-promo">
-    <VHeader title="Новый промокод" show-back @back="router.back()" />
+    <VHeader title="Новый промокод" show-back solid @back="router.back()" />
 
     <div class="new-promo__content">
       <!-- Required-fields legend (DS, Phase-3). -->
@@ -24,8 +24,14 @@
         required
       />
       <VSelect v-model="form.discount" label="Скидка" :options="DISCOUNT_OPTIONS" required />
-      <VInput v-model="form.until" label="Действует до" type="date" required />
-      <VInput v-model="form.limit" label="Лимит использований" type="number" placeholder="10" />
+      <VInput v-model="form.until" label="Действует до" type="date" :min="todayISO" required />
+      <VInput
+        v-model="form.limit"
+        label="Лимит использований"
+        type="number"
+        min="1"
+        placeholder="10"
+      />
 
       <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
         Создать промокод
@@ -35,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VInput, VSelect, VButton } from '@/components/ui'
@@ -59,6 +65,17 @@ const form = reactive({
   until: '',
   limit: '',
 })
+
+// «Действует до» must be in the future — native date-picker min = today (B6).
+const todayISO = computed((): string => new Date().toISOString().slice(0, 10))
+
+// Usage limit starts at 1 — clamp away 0 / negatives the number spinner allows (B1).
+watch(
+  () => form.limit,
+  (v) => {
+    if (v !== '' && Number(v) < 1) form.limit = '1'
+  },
+)
 
 function onCreate(): void {
   // No promocodes backend yet -> stub per the operator rule. -> Zod.
@@ -86,7 +103,10 @@ function onCreate(): void {
   gap: var(--space-2);
   padding: var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--velo-error-bg);
+  /* Brighter than the default --velo-error-bg (was too pale, operator 2026-06-19):
+     stronger pink fill + a defining error border. */
+  background: var(--velo-error-bg-strong);
+  border: 1.5px solid var(--velo-error-border);
   color: var(--velo-danger-text);
   font-size: var(--text-sm);
 }

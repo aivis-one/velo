@@ -31,7 +31,7 @@
           </div>
         </div>
         <div class="promo__actions">
-          <VButton variant="primary" @click="onCopy">Копировать</VButton>
+          <VButton variant="primary" @click="onCopy(p.code)">Копировать</VButton>
           <VButton variant="danger" @click="onDelete">Удалить</VButton>
         </div>
       </div>
@@ -67,11 +67,18 @@ const promos = [
 function onNew(): void {
   router.push({ name: 'master-promocode-new' })
 }
-function onCopy(): void {
-  toast.info('Промокоды пока недоступны')
+// Copy needs no backend — write the code straight to the clipboard (B2).
+async function onCopy(code: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(code)
+    toast.success('Промокод скопирован')
+  } catch {
+    toast.error('Не удалось скопировать')
+  }
 }
+// Delete needs a backend (no promocodes API yet) — stub. -> Zod.
 function onDelete(): void {
-  toast.info('Промокоды пока недоступны')
+  toast.info('Удаление промокодов появится позже')
 }
 </script>
 
