@@ -47,37 +47,40 @@
         <h2 class="mn-section__title">График уведомлений</h2>
         <p class="mn-section__sub">Получать уведомления с</p>
         <div class="mn-sched">
-          <div class="mn-sched__time">
-            <VSelect
-              :model-value="schedule.from"
-              :options="TIME_OPTIONS"
-              @update:model-value="(v) => onScheduleTime('from', v)"
-            />
-          </div>
+          <button type="button" class="mn-sched__field" @click="openTimePicker('from')">
+            {{ schedule.from }}
+          </button>
           <span class="mn-sched__sep">до</span>
-          <div class="mn-sched__time">
-            <VSelect
-              :model-value="schedule.to"
-              :options="TIME_OPTIONS"
-              @update:model-value="(v) => onScheduleTime('to', v)"
-            />
-          </div>
+          <button type="button" class="mn-sched__field" @click="openTimePicker('to')">
+            {{ schedule.to }}
+          </button>
         </div>
-        <VDayPicker
-          :model-value="schedule.days"
-          aria-label="Дни доставки уведомлений"
-          @update:model-value="onScheduleDays"
-        />
+        <div class="mn-days-card">
+          <VDayPicker
+            :model-value="schedule.days"
+            aria-label="Дни доставки уведомлений"
+            @update:model-value="onScheduleDays"
+          />
+        </div>
       </section>
     </div>
+
+    <TimePickerSheet
+      :open="timePickerOpen"
+      :model-value="schedule[timePickerEdge]"
+      title="Время уведомлений"
+      @update:model-value="onTimePicked"
+      @close="timePickerOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VSwitch, VSelect, VDayPicker } from '@/components/ui'
+import { VSwitch, VDayPicker } from '@/components/ui'
+import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 
 const router = useRouter()
 
@@ -161,13 +164,20 @@ const schedule = reactive<{ from: string; to: string; days: string[] }>({
   days: ['mon', 'tue', 'wed', 'thu', 'fri'],
 })
 
-// Half-hour options 00:00…23:30 (value === label).
-const TIME_OPTIONS: { value: string; label: string }[] = Array.from({ length: 48 }, (_, i) => {
-  const h = String(Math.floor(i / 2)).padStart(2, '0')
-  const m = i % 2 === 0 ? '00' : '30'
-  const t = `${h}:${m}`
-  return { value: t, label: t }
-})
+// Wheel time-picker (operator 2026-06-19: switch the from/to dropdowns to the same
+// scroll-wheel sheet as the practice form). One sheet, reused for both edges.
+const timePickerOpen = ref(false)
+const timePickerEdge = ref<'from' | 'to'>('from')
+
+function openTimePicker(edge: 'from' | 'to'): void {
+  timePickerEdge.value = edge
+  timePickerOpen.value = true
+}
+function onTimePicked(value: string): void {
+  schedule[timePickerEdge.value] = value
+  timePickerOpen.value = false
+  // TODO(Zod): persist the schedule once the contract carries it.
+}
 
 // --- Handlers --------------------------------------------------------------
 // Local-only until the backend contract is extended (see file header). We do NOT
@@ -176,10 +186,6 @@ const TIME_OPTIONS: { value: string; label: string }[] = Array.from({ length: 48
 function onToggle(key: ToggleKey, value: boolean): void {
   toggles[key] = value
   // TODO(Zod): persist once NotificationSettings carries the master keys.
-}
-function onScheduleTime(edge: 'from' | 'to', value: string): void {
-  schedule[edge] = value
-  // TODO(Zod): persist the schedule once the contract carries it.
 }
 function onScheduleDays(days: string[]): void {
   schedule.days = days
@@ -200,7 +206,9 @@ function onScheduleDays(days: string[]): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: 0 var(--space-4) var(--space-4);
+  /* Extra bottom space so the «График уведомлений» block isn't glued to the
+     bottom edge (operator 2026-06-19). */
+  padding: 0 var(--space-4) var(--space-8);
 }
 
 .mn-section {
@@ -264,17 +272,38 @@ function onScheduleDays(days: string[]): void {
   gap: var(--space-3);
 }
 
-.mn-sched__time {
+/* Tappable time field — white plate that opens the wheel sheet (mirrors a select). */
+.mn-sched__field {
   flex: 1;
+  height: 40px;
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  background: var(--velo-bg-card-solid);
+  border: 2px solid transparent;
+  border-radius: 5px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  cursor: pointer;
+  transition: border-color var(--transition-base);
 }
 
-/* VSelect carries a bottom margin for form stacking; drop it in the inline row. */
-.mn-sched__time :deep(.v-select) {
-  margin-bottom: 0;
+.mn-sched__field:focus-visible {
+  outline: none;
+  border-color: var(--velo-border-input-focus);
 }
 
 .mn-sched__sep {
   font-size: var(--text-base);
   color: var(--velo-text-secondary);
+}
+
+/* Day-of-week pills sit on a white plate (operator 2026-06-19). */
+.mn-days-card {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) 18px;
 }
 </style>

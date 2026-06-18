@@ -12,7 +12,7 @@
 <template>
   <VBottomSheet
     :open="open"
-    title="Время практики"
+    :title="title"
     save-label="Сохранить"
     @save="save"
     @close="$emit('close')"
@@ -32,8 +32,10 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     modelValue?: string
+    /** Sheet heading — defaults to the practice-form label; override for reuse. */
+    title?: string
   }>(),
-  { modelValue: '' },
+  { modelValue: '', title: 'Время практики' },
 )
 
 const emit = defineEmits<{
