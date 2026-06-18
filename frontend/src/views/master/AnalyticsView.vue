@@ -111,13 +111,13 @@
           <VLoader />
         </div>
 
-        <div v-else-if="pastPractices.length === 0" class="analytics__empty">
-          Данных пока нет — создайте первую практику
+        <div v-else-if="periodPractices.length === 0" class="analytics__empty">
+          За выбранный период практик нет
         </div>
 
         <template v-else>
           <button
-            v-for="p in pastPractices"
+            v-for="p in visiblePast"
             :key="p.id"
             type="button"
             class="analytics__pcard"
@@ -145,7 +145,16 @@
             />
           </button>
 
-          <div v-if="masterStore.practicesHasMore" class="analytics__more">
+          <!-- Первые 3 + раскрытие «+ ещё N практик» (#5). -->
+          <button
+            v-if="!pastExpanded && hiddenPastCount > 0"
+            type="button"
+            class="analytics__more-pill"
+            @click="pastExpanded = true"
+          >
+            + ещё {{ hiddenPastCount }} практик
+          </button>
+          <div v-else-if="pastExpanded && masterStore.practicesHasMore" class="analytics__more">
             <VButton variant="ghost" :loading="masterStore.practicesLoading" @click="onLoadMore">
               Показать ещё
             </VButton>
@@ -274,33 +283,47 @@ const pastPractices = computed(() =>
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
 )
 
+// Period scoping (#1, fork В): until a period-scoped reviews API exists, filter
+// the loaded past practices client-side (Неделя = 7 days, Месяц = 30) so the
+// toggle moves real numbers. Swap to the Zod summary endpoint when it lands.
+const PERIOD_DAYS: Record<'week' | 'month', number> = { week: 7, month: 30 }
+const periodPractices = computed(() => {
+  const cutoff = Date.now() - PERIOD_DAYS[period.value] * 86_400_000
+  return pastPractices.value.filter((p) => new Date(p.scheduled_at).getTime() >= cutoff)
+})
+const periodInsights = computed(() =>
+  periodPractices.value.map((p) => insightsCache.get(p.id)).filter((i) => i != null),
+)
+
+// Past list: first 3 + «+ ещё N практик» reveal (#5).
+const PAST_PREVIEW = 3
+const pastExpanded = ref(false)
+const visiblePast = computed(() =>
+  pastExpanded.value ? periodPractices.value : periodPractices.value.slice(0, PAST_PREVIEW),
+)
+const hiddenPastCount = computed(() => Math.max(0, periodPractices.value.length - PAST_PREVIEW))
+
 // =========================================================================
-// Aggregate stats (over all loaded insights)
+// Aggregate stats (over the selected period's loaded insights)
 // =========================================================================
 
-const aggregateTotalFeedbacks = computed((): number => {
-  let total = 0
-  insightsCache.forEach((ins) => {
-    total += ins.feedbacks.fire + ins.feedbacks.good + ins.feedbacks.confused
-  })
-  return total
-})
+const aggregateTotalFeedbacks = computed((): number =>
+  periodInsights.value.reduce(
+    (t, ins) => t + ins.feedbacks.fire + ins.feedbacks.good + ins.feedbacks.confused,
+    0,
+  ),
+)
 
-const aggregateTotalCheckins = computed((): number => {
-  let total = 0
-  insightsCache.forEach((ins) => {
-    total += ins.checkins.high + ins.checkins.mid + ins.checkins.low
-  })
-  return total
-})
+const aggregateTotalCheckins = computed((): number =>
+  periodInsights.value.reduce(
+    (t, ins) => t + ins.checkins.high + ins.checkins.mid + ins.checkins.low,
+    0,
+  ),
+)
 
-const aggregateTotalParticipants = computed((): number => {
-  let total = 0
-  insightsCache.forEach((ins) => {
-    total += ins.participants
-  })
-  return total
-})
+const aggregateTotalParticipants = computed((): number =>
+  periodInsights.value.reduce((t, ins) => t + ins.participants, 0),
+)
 
 /** Check-in rate over loaded insights. "—" when there is no data yet. */
 const aggregateCheckinPct = computed((): string => {
@@ -342,7 +365,7 @@ const RATING_BARS_CONFIG: Array<{
 
 const ratingBars = computed((): RatingBar[] => {
   const totals = { fire: 0, good: 0, confused: 0 }
-  insightsCache.forEach((ins) => {
+  periodInsights.value.forEach((ins) => {
     totals.fire += ins.feedbacks.fire
     totals.good += ins.feedbacks.good
     totals.confused += ins.feedbacks.confused
@@ -446,6 +469,8 @@ async function loadMoreTx(): Promise<void> {
 
 // Period drives income only (transactions are not period-scoped).
 watch(period, () => {
+  // Collapse the past list back to the preview when the period changes (#5).
+  pastExpanded.value = false
   void loadIncome().catch(() => {
     /* keep the previous income value on a transient refetch error */
   })
@@ -705,6 +730,20 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   padding-top: var(--space-2);
+}
+
+/* «+ ещё N практик» reveal pill (#5; same idiom as the practice-detail roster). */
+.analytics__more-pill {
+  align-self: center;
+  margin: var(--space-1) auto 0;
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-primary);
+  background: transparent;
+  border: 1.5px solid var(--velo-primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
 .analytics__loader {
