@@ -49,32 +49,32 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Основное</h2>
 
-        <VInput
-          v-model="form.title"
-          label="Название"
-          placeholder="Утренняя медитация"
-          :error="errors.title"
-          required
-        />
+        <VInput v-model="form.title" placeholder="Название" :error="errors.title" required />
 
-        <!-- Направление = дисциплина (meditation/yoga/…). -->
+        <!-- Направление = дисциплина (meditation/yoga/…). Подпись = плейсхолдер. -->
         <VSelect
           v-model="form.direction"
-          label="Направление практики"
+          placeholder="Направление практики"
           :options="DIRECTION_OPTIONS"
           :error="errors.direction"
           required
           @update:modelValue="onDirectionChange"
         />
 
-        <!-- Вид практики = style (зависит от направления; «Без вида», если стилей нет). -->
-        <VSelect v-model="form.style" label="Вид практики" :options="styleSelectOptions" required />
+        <!-- Вид практики = style. Показываем только если у направления есть виды
+             (Q4=А: без явного «Без вида», не выбрано = null, необязательное). -->
+        <VSelect
+          v-if="styleOptionsForForm.length > 0"
+          v-model="form.style"
+          placeholder="Вид практики"
+          :options="styleOptionsForForm"
+        />
 
-        <!-- Уровень = difficulty. -->
+        <!-- Уровень сложности = difficulty (локальные мужские лейблы, Q1=Б). -->
         <VSelect
           v-model="form.difficulty"
-          label="Уровень"
-          :options="DIFFICULTY_OPTIONS"
+          placeholder="Уровень сложности"
+          :options="DIFFICULTY_OPTIONS_CREATE"
           :error="errors.difficulty"
           required
         />
@@ -86,9 +86,8 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Расписание</h2>
 
-        <!-- Дата: открывает DatePickerSheet (нативный input заменён на DS-пикер). -->
+        <!-- Дата: открывает DatePickerSheet. Подпись = плейсхолдер внутри поля. -->
         <div class="create-practice__field">
-          <label class="create-practice__field-label">Дата</label>
           <div class="create-practice__field-row">
             <button
               type="button"
@@ -99,16 +98,15 @@
               }"
               @click="showDate = true"
             >
-              {{ form.date ? dateDisplay : 'Выберите дату' }}
+              {{ form.date ? dateDisplay : 'Дата' }}
             </button>
             <IconRequired v-if="!form.date" class="create-practice__seal" :size="22" />
           </div>
           <span v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</span>
         </div>
 
-        <!-- Время: открывает TimePickerSheet (24ч). -->
+        <!-- Время: открывает TimePickerSheet (24ч). Подпись = плейсхолдер. -->
         <div class="create-practice__field">
-          <label class="create-practice__field-label">Время</label>
           <div class="create-practice__field-row">
             <button
               type="button"
@@ -119,7 +117,7 @@
               }"
               @click="showTime = true"
             >
-              {{ form.time || 'Выберите время' }}
+              {{ form.time || 'Время' }}
             </button>
             <IconRequired v-if="!form.time" class="create-practice__seal" :size="22" />
           </div>
@@ -128,7 +126,7 @@
 
         <VSelect
           v-model="form.duration_minutes"
-          label="Длительность"
+          placeholder="Длительность"
           :options="DURATION_OPTIONS"
           :error="errors.duration_minutes"
           required
@@ -230,18 +228,13 @@
       </div>
 
       <!-- ================================================================
-           Подключение  (инфо-карта авто-ссылки; zoom на создании НЕ вводится —
-           zoom_link=null; ручной ввод остаётся в Edit; авто-генерация → Зоду)
+           Подключение  (ручной ввод Zoom-ссылки, необязательно; пусто = бэк
+           сгенерит ссылку сам — operator 2026-06-18 Q3=А; авто-генерация → Зоду)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="velo-section-title">Подключение</h2>
 
-        <VCard class="create-practice__connect" padding="none">
-          <span class="create-practice__connect-ico"><IconBroadcast :size="88" /></span>
-          <p class="create-practice__connect-text">
-            Ссылка будет создана платформой и придет участникам за 10 минут до начала
-          </p>
-        </VCard>
+        <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" />
       </div>
 
       <!-- Submit -->
@@ -282,7 +275,7 @@ import {
   VRadioGroup,
   VDayPicker,
 } from '@/components/ui'
-import { IconRequired, IconBroadcast } from '@/components/icons'
+import { IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -291,12 +284,7 @@ import { formatShortDate } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import { ApiResponseError } from '@/api/client'
-import {
-  DURATION_OPTIONS,
-  DIRECTION_OPTIONS,
-  DIFFICULTY_OPTIONS,
-  stylesForDirection,
-} from '@/utils/practiceOptions'
+import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
 import type { PracticeDirection } from '@/api/types'
 
 const router = useRouter()
@@ -335,14 +323,23 @@ const RECURRENCE_END_OPTIONS = [
 // «Платно» убрано (operator 2026-06-18 Q2=А) — пока только бесплатные практики.
 const PAYMENT_OPTIONS = [{ value: 'free', label: 'Бесплатно' }]
 
+// Уровень сложности — локальные мужские лейблы под слово «уровень» (Q1=Б);
+// глобальный DIFFICULTY_LABEL (женский род, под «практика») не трогаем.
+const DIFFICULTY_OPTIONS_CREATE = [
+  { value: 'beginner', label: 'Начальный' },
+  { value: 'medium', label: 'Средний' },
+  { value: 'high', label: 'Высокий' },
+]
+
 // W-7: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
 
 // -- Form state --
 const form = reactive({
   title: '',
-  direction: 'meditation',
-  difficulty: 'beginner',
+  // Selects start empty so the field name shows as the in-field placeholder (#6).
+  direction: '',
+  difficulty: '',
   style: '',
   // Повторение: is_recurring drives practice_type (series/live) on submit — REAL.
   // Period / days / end-condition / count are captured-only (no backend field yet,
@@ -354,7 +351,7 @@ const form = reactive({
   recurrence_count: 40,
   date: '',
   time: '',
-  duration_minutes: '60',
+  duration_minutes: '',
   // Timezone is taken from the master's profile (field removed from the form).
   timezone: authStore.user?.timezone ?? 'Europe/Moscow',
   max_participants_raw: '', // string input, parsed to int|null on submit
@@ -362,7 +359,8 @@ const form = reactive({
   description: '',
   what_to_prepare: '',
   contraindications: '',
-  // zoom_link removed — «Подключение» = инфо-карта авто-ссылки (zoom_link=null on submit).
+  // «Подключение» — ручной ввод Zoom-ссылки (Q3=А); пусто → null на submit.
+  zoom_link: '',
 })
 
 // -- Validation errors --
@@ -379,10 +377,6 @@ const errors = reactive({
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
 const styleOptionsForForm = computed(() => stylesForDirection(form.direction as PracticeDirection))
-const styleSelectOptions = computed(() => [
-  { value: '', label: 'Без вида' },
-  ...styleOptionsForForm.value,
-])
 
 /** Reset style when direction changes — the previous value is likely
  *  invalid for the new direction. */
@@ -484,8 +478,8 @@ async function submit(): Promise<void> {
       duration_minutes: parseInt(form.duration_minutes, 10),
       timezone: form.timezone,
       max_participants: form.max_participants_raw ? parseInt(form.max_participants_raw, 10) : null,
-      // «Подключение» — авто-ссылка платформы (стаб → Зоду); не вводится на создании.
-      zoom_link: null,
+      // «Подключение» — ручная Zoom-ссылка; пусто → null (бэк сгенерит, → Зоду).
+      zoom_link: form.zoom_link.trim() || null,
       is_free: form.is_free,
       price_cents: 0,
       currency: 'eur',
