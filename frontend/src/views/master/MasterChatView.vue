@@ -24,7 +24,13 @@
 
     <div class="chat__compose">
       <input v-model="draft" type="text" class="chat__input" placeholder="Написать сообщение…" />
-      <button type="button" class="chat__send" aria-label="Отправить" @click="onSend">
+      <button
+        type="button"
+        class="chat__send"
+        :disabled="!draft.trim()"
+        aria-label="Отправить"
+        @click="onSend"
+      >
         <IconSend :size="20" />
       </button>
     </div>
@@ -135,12 +141,12 @@ function onSend(): void {
   padding: 0 var(--space-4);
   border-radius: var(--radius-full);
   border: 1px solid var(--velo-glass-border);
-  background: var(--velo-glass-white-01);
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  /* Opaque white plate (was 1% glass) so the blue text the master types stays
+     readable instead of bleeding into the bubble behind it (operator 2026-06-19). */
+  background: var(--velo-bg-card-solid);
 }
 
 .chat__input::placeholder {
@@ -159,5 +165,10 @@ function onSend(): void {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.chat__send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

@@ -71,7 +71,9 @@ function openChat(id: string): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) 0;
+  /* Tighter top gap from the «Сообщения» header to the first card — the floating
+     header island already supplies its own clearance (operator 2026-06-19). */
+  padding: 0 0 var(--space-4);
 }
 
 .messages__row {
