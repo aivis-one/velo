@@ -35,7 +35,7 @@
     <!-- Header -->
     <VHeader title="Новая практика" show-back @back="router.push({ name: 'master-practices' })" />
 
-    <div class="create-practice__content">
+    <div class="create-practice__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS banner, Phase-3). -->
       <div class="create-practice__legend">
         <IconRequired class="create-practice__legend-seal" :size="22" />
@@ -149,13 +149,13 @@
         </VCard>
 
         <template v-if="form.is_recurring">
-          <!-- Повтор: период -->
+          <!-- Повтор: период (всегда выбрано → печать не нужна). -->
           <div class="create-practice__seal-row">
             <VCard class="create-practice__repeat create-practice__grow" padding="none">
               <div class="create-practice__repeat-title">Повтор:</div>
               <VRadioGroup v-model="form.recurrence" :options="RECURRENCE_OPTIONS" />
             </VCard>
-            <IconRequired class="create-practice__seal-card" :size="22" />
+            <IconRequired v-if="!form.recurrence" class="create-practice__seal-card" :size="22" />
           </div>
 
           <!-- Дни недели (captured-only; DS-primitive VDayPicker, оставлен в
@@ -164,7 +164,11 @@
             <div class="create-practice__days create-practice__grow">
               <VDayPicker v-model="form.recurrence_days" aria-label="Дни недели для повтора" />
             </div>
-            <IconRequired class="create-practice__seal-card" :size="22" />
+            <IconRequired
+              v-if="!form.recurrence_days.length"
+              class="create-practice__seal-card"
+              :size="22"
+            />
           </div>
 
           <!-- Завершить -->
@@ -172,14 +176,34 @@
             <VCard class="create-practice__repeat create-practice__grow" padding="none">
               <div class="create-practice__repeat-title">Завершить:</div>
               <VRadioGroup v-model="form.recurrence_end" :options="RECURRENCE_END_OPTIONS" />
-              <span
-                v-if="form.recurrence_end === 'after_count'"
-                class="create-practice__count-pill"
+
+              <!-- Выбрать дату: тот же DatePickerSheet, дата окончания серии (#10). -->
+              <button
+                v-if="form.recurrence_end === 'until_date'"
+                type="button"
+                class="create-practice__picker create-practice__end-control"
+                :class="{ 'create-practice__picker--empty': !form.recurrence_end_date }"
+                @click="showEndDate = true"
               >
-                {{ form.recurrence_count }} практик
-              </span>
+                {{ form.recurrence_end_date ? endDateDisplay : 'Дата окончания' }}
+              </button>
+
+              <!-- После числа повторений: ручной ввод количества (#11). -->
+              <input
+                v-else-if="form.recurrence_end === 'after_count'"
+                v-model.number="form.recurrence_count"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                class="create-practice__end-control create-practice__count-input"
+                placeholder="Число повторений"
+              />
             </VCard>
-            <IconRequired class="create-practice__seal-card" :size="22" />
+            <IconRequired
+              v-if="!form.recurrence_end"
+              class="create-practice__seal-card"
+              :size="22"
+            />
           </div>
         </template>
       </div>
@@ -250,6 +274,15 @@
         @update:model-value="form.date = $event"
         @close="showDate = false"
       />
+      <!-- Дата окончания серии (#10): тот же пикер, минимум — дата старта. -->
+      <DatePickerSheet
+        :open="showEndDate"
+        :model-value="form.recurrence_end_date"
+        :min="form.date || todayDate"
+        title="Дата окончания"
+        @update:model-value="form.recurrence_end_date = $event"
+        @close="showEndDate = false"
+      />
       <TimePickerSheet
         :open="showTime"
         :model-value="form.time"
@@ -297,11 +330,23 @@ const submitting = ref(false)
 // Date/time picker sheets.
 const showDate = ref(false)
 const showTime = ref(false)
+const showEndDate = ref(false) // «Завершить → Выбрать дату» (#10)
 
-// Friendly date for the trigger field, e.g. "25 янв. 2026".
-const dateDisplay = computed((): string =>
-  form.date ? `${formatShortDate(`${form.date}T12:00:00`)} ${form.date.slice(0, 4)}` : '',
-)
+// Friendly date for a trigger field, e.g. "25 янв. 2026".
+function friendlyDate(iso: string): string {
+  return iso ? `${formatShortDate(`${iso}T12:00:00`)} ${iso.slice(0, 4)}` : ''
+}
+const dateDisplay = computed((): string => friendlyDate(form.date))
+const endDateDisplay = computed((): string => friendlyDate(form.recurrence_end_date))
+
+// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
+// like «Максимум мест» have no «Готово» key) — operator 2026-06-18 (port from edit).
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
+}
 
 // -- Recurrence period options (Повторение). The on/off toggle IS real — it
 // drives practice_type (series/live) on submit. The daily/weekly/biweekly value
@@ -349,6 +394,7 @@ const form = reactive({
   recurrence_days: [] as string[],
   recurrence_end: 'never',
   recurrence_count: 40,
+  recurrence_end_date: '', // ISO 'YYYY-MM-DD' when recurrence_end === 'until_date' (#10)
   date: '',
   time: '',
   duration_minutes: '',
@@ -514,8 +560,10 @@ async function submit(): Promise<void> {
 
 .create-practice__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). Top
+     trimmed so the floating header sits closer to the first field (#1, port
+     from the edit form). */
+  padding: var(--space-2) 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -565,13 +613,6 @@ async function submit(): Promise<void> {
 /* -- Date/time picker trigger field (mirrors the white VInput plate) -- */
 .create-practice__field {
   margin-bottom: var(--space-4);
-}
-
-.create-practice__field-label {
-  display: block;
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  margin-bottom: var(--space-2);
 }
 
 .create-practice__field-row {
@@ -641,43 +682,34 @@ async function submit(): Promise<void> {
 }
 
 /* -- «После числа повторений»: счётчик-пилюля (captured-only). -- */
-.create-practice__count-pill {
-  align-self: flex-start;
-  background: var(--velo-primary);
-  color: var(--velo-white);
-  border-radius: var(--radius-full);
-  padding: var(--space-2) var(--space-5);
-  font-size: var(--text-base);
+/* «Завершить» sub-control (end date button / repeat-count input) — sits below
+   the radios; needs a visible edge on the white card. */
+.create-practice__end-control {
+  margin-top: var(--space-3);
 }
 
-/* -- Подключение: инфо-карта авто-ссылки (круг blue-100 + глиф blue-400). -- */
-.create-practice__connect {
-  padding: var(--space-5) var(--space-4) 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-5);
-  text-align: center;
+.create-practice__end-control.create-practice__picker {
+  border-color: var(--velo-border);
 }
 
-.create-practice__connect-ico {
-  width: 129px;
-  height: 129px;
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--velo-blue-100);
-  color: var(--velo-blue-400);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.create-practice__connect-text {
+.create-practice__count-input {
+  width: 160px;
+  height: 40px;
+  padding: 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
-  line-height: 1.5;
-  margin: 0;
+  background: var(--velo-bg-card-solid);
+  border: 2px solid var(--velo-border);
+  border-radius: 5px;
+}
+
+.create-practice__count-input:focus {
+  outline: none;
+  border-color: var(--velo-border-input-focus);
+}
+
+.create-practice__count-input::placeholder {
+  color: var(--velo-text-muted);
 }
 </style>
