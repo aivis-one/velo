@@ -10,7 +10,12 @@
   slot-prop that VMenu exposes so the popover dismisses.
 -->
 <template>
-  <button type="button" class="v-menu-item" :aria-label="ariaLabel">
+  <button
+    type="button"
+    class="v-menu-item"
+    :class="{ 'v-menu-item--danger': danger }"
+    :aria-label="ariaLabel"
+  >
     <component :is="icon" v-if="icon" :size="iconSize" />
     <slot v-else />
   </button>
@@ -27,8 +32,10 @@ withDefaults(
     ariaLabel: string
     /** Size passed to the icon component (ignored when using the slot). */
     iconSize?: number
+    /** Destructive action — renders the pink (error) fill instead of brand blue. */
+    danger?: boolean
   }>(),
-  { iconSize: 20 },
+  { iconSize: 20, danger: false },
 )
 </script>
 
@@ -50,5 +57,10 @@ withDefaults(
 
 .v-menu-item:hover {
   opacity: 0.85;
+}
+
+/* Destructive action (delete) — pink error fill, white glyph. */
+.v-menu-item--danger {
+  background: var(--velo-error);
 }
 </style>

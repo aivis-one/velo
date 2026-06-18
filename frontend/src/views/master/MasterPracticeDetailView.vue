@@ -37,30 +37,30 @@
       <template v-if="isUpcoming" #action>
         <VMenu aria-label="Меню">
           <template #default="{ close }">
-            <div class="pd-menu">
-              <button
-                class="pd-menu__row"
-                @click="
-                  () => {
-                    goEdit()
-                    close()
-                  }
-                "
-              >
-                Изменить
-              </button>
-              <button
-                class="pd-menu__row pd-menu__row--danger"
-                @click="
-                  () => {
-                    openDestructive()
-                    close()
-                  }
-                "
-              >
-                {{ destructiveLabel }}
-              </button>
-            </div>
+            <!-- Карандаш → редактирование, корзина → удаление/отмена (Q1=А,
+                 openDestructive контекстный: черновик удаляет, запланированную
+                 отменяет, с подтверждением). -->
+            <VMenuItem
+              :icon="IconEdit"
+              ariaLabel="Редактировать"
+              @click="
+                () => {
+                  goEdit()
+                  close()
+                }
+              "
+            />
+            <VMenuItem
+              :icon="IconTrash"
+              danger
+              :ariaLabel="destructiveLabel"
+              @click="
+                () => {
+                  openDestructive()
+                  close()
+                }
+              "
+            />
           </template>
         </VMenu>
       </template>
@@ -93,17 +93,16 @@
           :difficulty-label="difficultyLabel"
         />
 
-        <!-- Записалось / Мест / Цена -->
-        <div class="practice-detail__stats practice-detail__stats--3">
+        <!-- Записалось / Мест (карточка «Цена» убрана — operator 2026-06-18) -->
+        <div class="practice-detail__stats">
           <VStatCard :value="enrolledStat" label="Записалось" />
           <VStatCard :value="capacityStat" label="Мест" />
-          <VStatCard :value="priceStat" label="Цена" />
         </div>
 
-        <!-- Записались (roster; each row removable — FORK1) -->
+        <!-- Записались (roster; первые 5 + раскрытие — operator 2026-06-18) -->
         <section v-if="rosterItems.length > 0" class="practice-detail__section">
           <h2 class="velo-section-title">Записались</h2>
-          <div v-for="item in rosterItems" :key="item.booking_id" class="pd-prow">
+          <div v-for="item in visibleRoster" :key="item.booking_id" class="pd-prow">
             <span class="pd-prow__ava">
               <img
                 v-if="item.user_avatar_url"
@@ -118,6 +117,13 @@
               <IconClose :size="16" />
             </button>
           </div>
+          <button
+            v-if="!rosterExpanded && hiddenRosterCount > 0"
+            class="pd-more-pill"
+            @click="rosterExpanded = true"
+          >
+            + ещё {{ hiddenRosterCount }} участников
+          </button>
         </section>
 
         <!-- Описание / Противопоказания -->
@@ -133,19 +139,8 @@
           </VAccordion>
         </section>
 
-        <!-- CTAs -->
-        <div class="practice-detail__actions">
-          <VButton
-            v-if="canStart"
-            variant="primary"
-            block
-            :loading="starting"
-            @click="startPractice"
-          >
-            Начать практику
-          </VButton>
-          <VButton variant="outline" block @click="goCheckins">Check-ins</VButton>
-        </div>
+        <!-- Нижние кнопки убраны (operator 2026-06-18): запуск — авто по
+             расписанию (Зод), check-in живёт на дашборде ≤24ч. -->
       </div>
 
       <!-- ===================== PAST detail (read-only) ===================== -->
@@ -183,7 +178,7 @@
             <VLoader />
           </div>
           <template v-else-if="reviews.length > 0">
-            <div v-for="(r, i) in reviews" :key="i" class="practice-detail__review">
+            <div v-for="(r, i) in visibleReviews" :key="i" class="practice-detail__review">
               <div class="practice-detail__review-top">
                 <VAvatar :name="r.reviewer_name" :url="r.avatar_url ?? ''" size="sm" />
                 <div class="practice-detail__review-id">
@@ -203,7 +198,15 @@
               </div>
               <div v-if="r.comment" class="practice-detail__review-quote">«{{ r.comment }}»</div>
             </div>
-            <div v-if="hasMoreReviews" class="practice-detail__more">
+            <!-- Первые 5 + раскрытие «+ ещё N отзывов» (operator 2026-06-18). -->
+            <button
+              v-if="!reviewsExpanded && hiddenReviewsCount > 0"
+              class="pd-more-pill"
+              @click="expandReviews"
+            >
+              + ещё {{ hiddenReviewsCount }} отзывов
+            </button>
+            <div v-else-if="reviewsExpanded && hasMoreReviews" class="practice-detail__more">
               <VButton variant="ghost" @click="loadMoreReviews">Показать ещё</VButton>
             </div>
           </template>
@@ -220,9 +223,7 @@
             <div class="practice-detail__finrow">
               <span>Присутствовало</span><span>{{ attendedPeopleLabel }}</span>
             </div>
-            <div class="practice-detail__finrow practice-detail__finrow--income">
-              <span>Доход</span><span>{{ incomeLabel }}</span>
-            </div>
+            <!-- «Доход» убран до появления ledger-API (operator 2026-06-18). -->
           </div>
         </section>
 
@@ -286,7 +287,6 @@ import { useMasterStore } from '@/stores/master'
 import {
   getPractice,
   getAttendance,
-  updatePractice,
   deletePractice,
   cancelPractice,
   getPracticeReviews,
@@ -301,6 +301,7 @@ import {
   VConfirmDialog,
   VAccordion,
   VMenu,
+  VMenuItem,
   VAvatar,
   VRatingBadges,
 } from '@/components/ui'
@@ -316,7 +317,11 @@ import {
   IconRatingFire,
   IconRatingGood,
   IconRatingConfused,
+  IconEdit,
 } from '@/components/icons'
+// IconTrash is not re-exported from the icons barrel; import the component
+// directly (same as EntryView).
+import IconTrash from '@/components/icons/IconTrash.vue'
 import {
   practiceIconFor,
   RATING_ICON_COLOR,
@@ -324,7 +329,7 @@ import {
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
 } from '@/utils/displayHelpers'
-import { formatDateShort, formatTime, formatMoney } from '@/utils/format'
+import { formatDateShort, formatTime } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
 import type {
   PracticeResponse,
@@ -355,11 +360,6 @@ const isPast = computed(
 )
 const isUpcoming = computed((): boolean => practice.value != null && !isPast.value)
 const isDraft = computed((): boolean => practice.value?.status === 'draft')
-// «Начать практику» publishes draft/scheduled → live. A live practice is already
-// started, so the CTA is hidden then (FORK3: no «Опубликовать» here regardless).
-const canStart = computed(
-  (): boolean => practice.value?.status === 'draft' || practice.value?.status === 'scheduled',
-)
 const headerTitle = computed((): string => (isPast.value ? 'Прошедшая практика' : 'Практика'))
 const destructiveLabel = computed((): string => (isDraft.value ? 'Удалить' : 'Отменить практику'))
 
@@ -404,15 +404,17 @@ const capacityStat = computed((): string | number => {
   const cap = practice.value?.max_participants
   return cap != null ? cap : '∞'
 })
-const priceStat = computed((): string => {
-  if (!practice.value) return '—'
-  return practice.value.is_free
-    ? 'Бесплатно'
-    : formatMoney(practice.value.price_cents, (practice.value.currency || 'eur').toUpperCase())
-})
 
-// -- Roster (Записались) --
+// -- Roster (Записались): первые 5, остальные — по «+ ещё N участников» --
+const ROSTER_PREVIEW = 5
 const rosterItems = computed((): AttendanceItemResponse[] => attendance.value?.items ?? [])
+const rosterExpanded = ref(false)
+const visibleRoster = computed((): AttendanceItemResponse[] =>
+  rosterExpanded.value ? rosterItems.value : rosterItems.value.slice(0, ROSTER_PREVIEW),
+)
+const hiddenRosterCount = computed((): number =>
+  Math.max(0, rosterItems.value.length - ROSTER_PREVIEW),
+)
 
 function displayName(item: AttendanceItemResponse): string {
   return item.user_display_name || `#${item.user_id.slice(0, 8)}`
@@ -448,15 +450,25 @@ const enrolledLabel = computed((): string =>
 const attendedPeopleLabel = computed((): string =>
   attendance.value ? `${attendance.value.attended} чел.` : '—',
 )
-// STUB → Zod: no income/ledger API yet (currency canon ₽ vs € also deferred).
-const incomeLabel = '—'
 
 // -- Past: Отзывы участников (E1 named reviews — getPracticeReviews, paginated) --
 const REVIEWS_PAGE = 20
+const REVIEWS_PREVIEW = 5
 const reviews = ref<ReviewItem[]>([])
 const reviewsTotal = ref(0)
 const reviewsLoading = ref(false)
 const hasMoreReviews = computed((): boolean => reviews.value.length < reviewsTotal.value)
+
+// Первые 5 + раскрытие «+ ещё N отзывов» (operator 2026-06-18).
+const reviewsExpanded = ref(false)
+const visibleReviews = computed((): ReviewItem[] =>
+  reviewsExpanded.value ? reviews.value : reviews.value.slice(0, REVIEWS_PREVIEW),
+)
+const hiddenReviewsCount = computed((): number => Math.max(0, reviewsTotal.value - REVIEWS_PREVIEW))
+function expandReviews(): void {
+  reviewsExpanded.value = true
+  if (hasMoreReviews.value) loadMoreReviews()
+}
 const RATING_ICON: Record<FeedbackRating, Component> = {
   fire: IconRatingFire,
   good: IconRatingGood,
@@ -499,22 +511,6 @@ function goRoster(): void {
 }
 function goEdit(): void {
   router.push({ name: 'master-practice-edit', params: { id: practiceId } })
-}
-
-// -- «Начать практику» (scheduled/draft → live) --
-const starting = ref(false)
-async function startPractice(): Promise<void> {
-  if (starting.value || !practice.value) return
-  starting.value = true
-  try {
-    practice.value = await updatePractice(practiceId, { status: 'live' })
-    toast.success('Практика началась')
-    await masterStore.refreshMyPractices()
-  } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось начать практику')
-  } finally {
-    starting.value = false
-  }
 }
 
 // -- «…» destructive: cancel (scheduled/live) or delete (draft) --
@@ -681,8 +677,18 @@ onMounted(load)
   gap: var(--space-3);
 }
 
-.practice-detail__stats--3 {
-  grid-template-columns: repeat(3, 1fr);
+/* ===== «+ ещё N» раскрывающая пилюля (roster / отзывы; SVG «6 Attendance») ===== */
+.pd-more-pill {
+  align-self: center;
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-primary);
+  background: transparent;
+  border: 1.5px solid var(--velo-primary);
+  border-radius: var(--radius-full);
+  cursor: pointer;
 }
 
 /* ===== Section ===== */
@@ -853,52 +859,12 @@ onMounted(load)
   color: var(--velo-text-primary);
 }
 
-.practice-detail__finrow--income {
-  color: var(--velo-teal-600);
-}
-
 /* ===== CTAs ===== */
 .practice-detail__actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: var(--space-1);
-}
-
-/* ===== «…» menu rows (text popover in the VMenu slot) ===== */
-.pd-menu {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  box-shadow: var(--velo-shadow-glow);
-  overflow: hidden;
-  min-width: 200px;
-}
-
-.pd-menu__row {
-  display: block;
-  width: 100%;
-  padding: 13px var(--space-4);
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  text-align: left;
-  transition: background-color var(--transition-fast);
-}
-
-.pd-menu__row:hover {
-  background: var(--velo-glass-blue-15);
-}
-
-.pd-menu__row + .pd-menu__row {
-  border-top: 1px solid var(--velo-border-light);
-}
-
-.pd-menu__row--danger {
-  color: var(--velo-danger-text);
 }
 
 /* ===== Cancel-a-reservation modal ===== */
