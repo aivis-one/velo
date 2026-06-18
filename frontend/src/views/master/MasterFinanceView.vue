@@ -11,7 +11,7 @@
   fields, which have no backend), so «Запросить вывод» stays real. Currency € (В2=А;
   ₽ on the mockup is illustrative).
 
-  Sections: balance · «Сохранённая карта» (method-as-card + add) · «Сумма вывода»
+  Sections: balance · «Метод оплаты» (method-as-card + add) · «Сумма вывода»
   (always visible — the toggle was removed) · «История выводов» (status icons).
 
   Stub → Zod (roadmap Screen 17): X removes the saved method — no delete-payout
@@ -37,9 +37,9 @@
       </div>
     </div>
 
-    <!-- ===================== SAVED CARD (= configured payout, Б) ===================== -->
+    <!-- ===================== PAYMENT METHOD (= configured payout, Б) ===================== -->
     <section class="finance-view__section">
-      <h2 class="finance-view__title">Сохранённая карта</h2>
+      <h2 class="finance-view__title">Метод оплаты</h2>
 
       <template v-if="!showPayoutForm">
         <div v-if="hasPayout" class="finance-view__card">
@@ -65,14 +65,15 @@
         </p>
 
         <VButton variant="outline" class="finance-view__add" @click="openPayoutForm(hasPayout)">
-          + Добавить новую карту
+          + Добавить метод оплаты
         </VButton>
       </template>
 
       <div v-else class="finance-view__payout-form">
+        <!-- No own label — the section heading «Метод оплаты» is the single title
+             (operator 2026-06-19: drop the duplicate «Способ выплаты»). -->
         <VSelect
           v-model="payoutForm.method"
-          label="Способ выплаты"
           :options="METHOD_OPTIONS"
           @update:model-value="onMethodChange"
         />
@@ -112,6 +113,18 @@
             label="Revolut Tag или телефон *"
             placeholder="@username или +49123456789"
             :error="formErrors.tag"
+          />
+        </template>
+
+        <!-- Card transfer (operator SVG «8 Withdrawal (add card)»). No card-payout
+             backend (card storage + one-time use) yet → «Сохранить» stubs. -> Zod. -->
+        <template v-else-if="payoutForm.method === 'card'">
+          <VInput v-model="payoutForm.cardNumber" label="Номер карты" placeholder="0000 0000 0000 0000" />
+          <VInput v-model="payoutForm.cardHolder" label="Имя владельца" placeholder="IVAN IVANOV" />
+          <VCheckbox
+            v-model="payoutForm.saveCard"
+            label="Сохранить карту"
+            class="finance-view__save-card"
           />
         </template>
 
@@ -157,7 +170,7 @@
           {{ formattedNetAmount }}
         </p>
 
-        <VButton variant="outline" size="sm" class="finance-view__all" @click="fillMaxAmount">
+        <VButton variant="ghost" size="sm" class="finance-view__all" @click="fillMaxAmount">
           Вывести все
         </VButton>
 
@@ -174,7 +187,7 @@
       </template>
 
       <p v-else class="finance-view__warning-text">
-        Сначала добавьте способ выплаты в разделе «Сохранённая карта» выше.
+        Сначала добавьте способ выплаты в разделе «Метод оплаты» выше.
       </p>
     </section>
 
@@ -228,7 +241,7 @@
 import { ref, computed, reactive, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VInput, VSelect } from '@/components/ui'
+import { VButton, VLoader, VInput, VSelect, VCheckbox } from '@/components/ui'
 import { IconCheck, IconClose, IconPending, IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -271,6 +284,7 @@ const METHOD_OPTIONS = [
   { value: 'bank_transfer', label: 'Банковский перевод (IBAN)' },
   { value: 'paypal', label: 'PayPal' },
   { value: 'revolut', label: 'Revolut' },
+  { value: 'card', label: 'Перевод по номеру карты' },
 ]
 
 const showPayoutForm = ref(false)
@@ -283,6 +297,10 @@ const payoutForm = reactive({
   swift: '',
   email: '',
   tag: '',
+  // Card transfer (stub → Zod). saveCard unchecked ⇒ one-time use, not stored.
+  cardNumber: '',
+  cardHolder: '',
+  saveCard: true,
 })
 
 const formErrors = reactive({ iban: '', email: '', tag: '' })
@@ -313,6 +331,10 @@ function openPayoutForm(editing: boolean): void {
     payoutForm.email = ''
     payoutForm.tag = ''
   }
+  // Card fields are never persisted (no backend) — always reset on open.
+  payoutForm.cardNumber = ''
+  payoutForm.cardHolder = ''
+  payoutForm.saveCard = true
   showPayoutForm.value = true
 }
 
@@ -359,6 +381,12 @@ function buildPayoutBody(): PayoutDetails | null {
 
 async function savePayout(): Promise<void> {
   if (savingPayout.value) return
+  // Card transfer has no backend yet (card storage + one-time payout). Build the
+  // full form per the SVG, but stub the save. -> Zod (roadmap Screen 17).
+  if (payoutForm.method === 'card') {
+    toast.info('Выплата по номеру карты появится позже')
+    return
+  }
   const body = buildPayoutBody()
   if (!body) return
   savingPayout.value = true
@@ -667,6 +695,11 @@ onMounted(async () => {
 .finance-view__payout-form {
   display: flex;
   flex-direction: column;
+}
+
+/* «Сохранить карту» checkbox sits between the card fields and the form actions. */
+.finance-view__save-card {
+  margin-bottom: var(--space-4);
 }
 
 .finance-view__form-actions {
