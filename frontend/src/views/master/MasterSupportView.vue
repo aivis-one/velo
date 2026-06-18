@@ -21,11 +21,23 @@
 -->
 <template>
   <div class="support">
-    <VHeader title="Поддержка" show-back solid @back="router.back()" />
+    <!-- Header hidden on the success screen — it's a terminal state with no back
+         (operator 2026-06-19); «На главную» is the only exit. -->
+    <VHeader v-if="!submitted" title="Поддержка" show-back solid @back="router.back()" />
 
     <!-- ===================== SUCCESS ===================== -->
     <div v-if="submitted" class="support__success">
-      <div class="support__ok-circle"><IconCheck :size="46" /></div>
+      <div class="support__ok-circle">
+        <svg class="support__ok-check" viewBox="0 0 48 34" fill="none" aria-hidden="true">
+          <path
+            d="M4 18 L18 31 L44 4"
+            stroke="currentColor"
+            stroke-width="6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
       <h2 class="support__ok-title">Сообщение отправлено!</h2>
       <p class="support__ok-text">Скоро свяжемся с вами в личных сообщениях</p>
       <VButton variant="primary" block class="support__ok-cta" @click="onGoHome">
@@ -115,7 +127,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VRadioGroup, VTextarea } from '@/components/ui'
-import { IconSupportChat, IconCheck, IconFile, IconClose, IconArrowRight } from '@/components/icons'
+import { IconSupportChat, IconFile, IconClose, IconArrowRight } from '@/components/icons'
 
 const router = useRouter()
 
@@ -345,15 +357,20 @@ function onGoHome(): void {
 }
 
 /* -- Success -- */
+/* Full-bleed solid white terminal screen (operator 2026-06-19): covers the photo
+   background entirely and sits over the header (no back button on success). */
 .support__success {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--velo-bg-card-solid);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   gap: var(--space-3);
-  min-height: 70vh;
-  padding: 0 var(--space-4) var(--space-4);
+  padding: var(--space-6);
 }
 
 .support__ok-circle {
@@ -365,6 +382,12 @@ function onGoHome(): void {
   align-items: center;
   justify-content: center;
   color: var(--velo-success);
+}
+
+/* Bold teal check matching the «Check-in Success» SVG (thick rounded stroke). */
+.support__ok-check {
+  width: 48px;
+  height: 34px;
 }
 
 .support__ok-title {
@@ -386,6 +409,10 @@ function onGoHome(): void {
 
 .support__ok-cta {
   align-self: stretch;
+  max-width: 336px;
   margin-top: var(--space-5);
+  /* Heavier label (operator 2026-06-19) — Marmelad is single-weight, so thicken
+     with the 0.3px stroke trick used by the section titles. */
+  -webkit-text-stroke: 0.3px currentColor;
 }
 </style>
