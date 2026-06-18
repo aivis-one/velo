@@ -264,3 +264,20 @@ export function formatShortDate(iso: string): string {
     month: 'short',
   })
 }
+
+/** Short Russian weekday names indexed by ISO weekday − 1 (1=Mon … 7=Sun). */
+const WEEKDAY_ABBR = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
+
+/**
+ * Recurrence label for a series from its ISO weekday list: «Ежедневно» when all
+ * seven days are present, otherwise the short list «Пн, Ср, Пт» (de-duplicated,
+ * ordered Mon→Sun). Returns null when there are no valid days so the caller can
+ * fall back to a generic label.
+ */
+export function recurrenceDaysLabel(days: number[] | null | undefined): string | null {
+  if (!days || days.length === 0) return null
+  const valid = [...new Set(days)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b)
+  if (valid.length === 0) return null
+  if (valid.length === 7) return 'Ежедневно'
+  return valid.map((d) => WEEKDAY_ABBR[d - 1]).join(', ')
+}

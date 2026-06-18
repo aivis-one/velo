@@ -88,8 +88,13 @@
             <div class="mp-card__meta">
               <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
               <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
-              <span v-if="p.practice_type === 'series'" class="mp-stat"
-                ><IconRepeat :size="16" /> Регулярная</span
+              <span v-if="recurrenceLabel(p)" class="mp-stat"
+                ><IconRepeat :size="16" /> {{ recurrenceLabel(p) }}</span
+              >
+            </div>
+            <div v-if="remainingSessionsLabel(p)" class="mp-card__meta mp-card__meta--row2">
+              <span class="mp-stat"
+                ><IconHourglass :size="16" /> {{ remainingSessionsLabel(p) }}</span
               >
             </div>
           </article>
@@ -172,12 +177,13 @@ import {
   IconRepeat,
   IconCheck,
   IconClose,
+  IconHourglass,
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { practiceIconFor } from '@/utils/displayHelpers'
+import { practiceIconFor, recurrenceDaysLabel } from '@/utils/displayHelpers'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
-import type { PracticeResponse } from '@/api/types'
+import type { PracticeResponse, PracticeCardMeta } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -237,11 +243,33 @@ function totalFeedbacks(id: string): number {
   return i ? i.feedbacks.fire + i.feedbacks.good + i.feedbacks.confused : 0
 }
 
-/** Check-in count "10/20" (submitted check-ins / capacity). "—" until loaded. */
+/** Check-in count "10/20" (submitted check-ins / capacity). Always a fraction —
+ * "0/N" before anyone has checked in (operator: never a bare «—»). */
 function checkinLabel(p: PracticeResponse): string {
-  if (!insightsCache.has(p.id)) return '—'
   const denom = p.max_participants ?? p.current_participants
   return `${totalCheckins(p.id)}/${denom}`
+}
+
+// -- Recurrence + series progress (Zod-gated: PracticeCardMeta) --------------
+
+/** PracticeResponse widened with the not-yet-shipped card-meta fields. */
+function cardMeta(p: PracticeResponse): PracticeCardMeta {
+  return p as PracticeResponse & PracticeCardMeta
+}
+
+/** Series recurrence: weekday list / «Ежедневно» from recurrence_days, falling
+ * back to «Регулярная» for a series until the backend ships the days. */
+function recurrenceLabel(p: PracticeResponse): string | null {
+  if (p.practice_type !== 'series') return null
+  return recurrenceDaysLabel(cardMeta(p).recurrence_days) ?? 'Регулярная'
+}
+
+/** «Осталось N из M занятий» for a series with a known session count. */
+function remainingSessionsLabel(p: PracticeResponse): string | null {
+  const total = cardMeta(p).total_sessions
+  if (total == null) return null
+  const left = Math.max(0, total - (cardMeta(p).completed_sessions ?? 0))
+  return `Осталось ${left} из ${total} занятий`
 }
 
 function hasRating(id: string): boolean {
@@ -391,6 +419,11 @@ onMounted(async () => {
   margin-top: 13px;
   font-size: var(--text-xs);
   color: var(--velo-text-primary);
+}
+
+/* Second meta row («Осталось N из M занятий») sits tighter under the first. */
+.mp-card__meta--row2 {
+  margin-top: 7px;
 }
 
 .mp-stat {

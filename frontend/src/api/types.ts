@@ -140,6 +140,22 @@ export interface RoleSwitchInfo {
   allowed_roles: UserRole[]
 }
 
+// -- Practice card meta (pending Zod backend — recorded contract) -------------
+// Fields the master practice card renders that PracticeResponse does not yet
+// carry. Kept here so the frontend typechecks locally BEFORE the server
+// regenerates generated.ts; read structurally after Zod ships them (no conflict
+// — separate named type, same pattern as RoleSwitchInfo). Contract:
+//   recurrence_days   — ISO weekday ints (1=Mon..7=Sun) a series recurs on;
+//                       empty/absent = non-recurring. Rendered «Ежедневно» (all
+//                       7) / «Пн, Ср, Пт» (subset).
+//   total_sessions    — series length; completed_sessions — sessions already
+//                       run → «Осталось {total-completed} из {total} занятий».
+export interface PracticeCardMeta {
+  recurrence_days?: number[] | null
+  total_sessions?: number | null
+  completed_sessions?: number | null
+}
+
 // -- API error shape (matches VeloError + Pydantic 422 formats) --------------
 
 export interface ApiError {
