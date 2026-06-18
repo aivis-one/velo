@@ -104,11 +104,10 @@ function select(iana: string): void {
   max-height: 320px;
   overflow-y: auto;
   scrollbar-width: none;
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
+  /* Crisp white plate (was murky glass-blue over the photo bg, operator 2026-06-19). */
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
 }
 
 .tz-picker__list::-webkit-scrollbar {
@@ -129,7 +128,7 @@ function select(iana: string): void {
 }
 
 .tz-picker__row + .tz-picker__row {
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-top: 1px solid var(--velo-border-light);
 }
 
 .tz-picker__row--active {

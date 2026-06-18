@@ -23,7 +23,9 @@ export interface TimezoneCity {
   q: string
 }
 
-export const TIMEZONE_CITIES: TimezoneCity[] = [
+// Curated, RU-named popular cities (Europe-weighted, nice names + search aliases).
+// These sit at the TOP of the list and take precedence over the generated zones.
+const CURATED: TimezoneCity[] = [
   // ── Россия (только Москва + Санкт-Петербург) ──
   { city: 'Москва', iana: 'Europe/Moscow', q: 'moscow moskva' },
   { city: 'Санкт-Петербург', iana: 'Europe/Moscow', q: 'spb piter saint petersburg sankt' },
@@ -160,3 +162,33 @@ export const TIMEZONE_CITIES: TimezoneCity[] = [
   { city: 'Окленд', iana: 'Pacific/Auckland', q: 'auckland' },
   { city: 'Веллингтон', iana: 'Pacific/Auckland', q: 'wellington' },
 ]
+
+// Famous cities that SHARE a zone with another city, so a search by their own
+// name still resolves (e.g. Рио-де-Жанейро → America/Sao_Paulo). Extend as needed.
+const ALIASES: TimezoneCity[] = [
+  { city: 'Рио-де-Жанейро', iana: 'America/Sao_Paulo', q: 'rio de janeiro rio-de-janeiro rio' },
+]
+
+// Full IANA coverage: every remaining zone the runtime knows about, so the search
+// is complete (operator 2026-06-19 — the curated list missed cities like Rio). The
+// display name is derived from the zone id's last segment (English); the curated
+// RU entries above win for the popular cities. Computed once at module load;
+// no-ops where Intl.supportedValuesOf is unavailable (older webviews).
+function generatedZones(): TimezoneCity[] {
+  const supportedValuesOf = (
+    Intl as unknown as { supportedValuesOf?: (key: string) => string[] }
+  ).supportedValuesOf
+  if (typeof supportedValuesOf !== 'function') return []
+  const covered = new Set([...CURATED, ...ALIASES].map((c) => c.iana))
+  const out: TimezoneCity[] = []
+  for (const iana of supportedValuesOf('timeZone')) {
+    if (covered.has(iana) || iana.startsWith('Etc/')) continue
+    covered.add(iana)
+    const segment = iana.split('/').pop() ?? iana
+    const city = segment.replace(/_/g, ' ')
+    out.push({ city, iana, q: `${city} ${iana}`.toLowerCase() })
+  }
+  return out
+}
+
+export const TIMEZONE_CITIES: TimezoneCity[] = [...CURATED, ...ALIASES, ...generatedZones()]

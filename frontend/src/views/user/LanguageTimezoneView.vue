@@ -53,10 +53,10 @@
       <!-- Timezone (UNCHANGED — existing onboarding picker, shared with the user) -->
       <section class="lang-tz__section">
         <h2 class="lang-tz__section-title">Часовой пояс</h2>
-        <TimezoneCityPicker v-model="selectedTimezone" @update:modelValue="onTimezoneChange" />
-        <p class="lang-tz__hint">
-          Часовой пояс используется, чтобы правильно показывать время практик.
+        <p class="lang-tz__subtitle">
+          Время практик будет отображаться в выбранном часовом поясе
         </p>
+        <TimezoneCityPicker v-model="selectedTimezone" @update:modelValue="onTimezoneChange" />
       </section>
 
       <!-- Date format (captured-only — see header / Zod task) -->
@@ -91,9 +91,10 @@ interface LanguageOption {
   label: string
   available: boolean
 }
+// English is hidden for now (operator 2026-06-19) — Russian is the only option
+// until i18n lands. The «available:false» stub path is kept for when English returns.
 const LANGUAGE_OPTIONS: LanguageOption[] = [
   { value: 'ru', label: 'Русский', available: true },
-  { value: 'en', label: 'English', available: false },
 ]
 
 // Current language: the stored value if it is a real (available) option, else ru.
@@ -242,10 +243,13 @@ async function onTimezoneChange(value: string): Promise<void> {
   flex-shrink: 0;
 }
 
-.lang-tz__hint {
-  margin: var(--space-1) 0 0;
+/* Subtitle directly under the «Часовой пояс» heading (operator 2026-06-19). The
+   negative top margin pulls it tight to the heading inside the section gap. */
+.lang-tz__subtitle {
+  margin: calc(-1 * var(--space-2)) 0 0;
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--velo-text-secondary);
+  line-height: 1.35;
 }
 </style>
