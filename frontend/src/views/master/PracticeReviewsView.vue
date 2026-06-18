@@ -21,7 +21,7 @@
 
 <template>
   <div class="practice-reviews">
-    <VHeader title="Отзывы о практике" show-back @back="router.back()" />
+    <VHeader title="Отзывы о практике" show-back solid @back="router.back()" />
 
     <!-- Practice header card -->
     <div v-if="practice" class="practice-reviews__head">
