@@ -62,15 +62,13 @@ import { VHeader } from '@/components/layout'
 import { VCard, VAvatar } from '@/components/ui'
 import { IconRatingFire, IconRatingConfused, IconMessages } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
+import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 
 const router = useRouter()
 
-// -- STUB data (no master-AI / feedback-aggregation backend → roadmap for Zod). --
-const insight = ref(
-  '«На этой неделе вы провели 12 практик для 89 участников. 85% отметили хорошее ' +
-    'или отличное состояние после занятий. Анна П. оставила запрос на индивидуальную ' +
-    'консультацию — рекомендую связаться с ней.»',
-)
+// -- STUB data (no master-AI / feedback-aggregation backend → roadmap for Zod).
+//    The insight is shared with the dashboard teaser (single source). --
+const insight = ref(WEEKLY_SUMMARY_INSIGHT)
 const keyFeedbacks = ref<
   Array<{ id: number; rating: 'fire' | 'confused'; name: string; comment: string }>
 >([

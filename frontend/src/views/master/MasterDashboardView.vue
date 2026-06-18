@@ -95,7 +95,7 @@
            expand" — same idiom as the diary feed card (Variant B). The new
            master has nothing to open, so it keeps a plain placeholder. -->
       <VCard v-if="!isNewMaster" clickable @click="router.push({ name: 'master-summary' })">
-        <p class="master-dashboard__summary-text">Сводка появится после проведения практик</p>
+        <p class="master-dashboard__summary-text">{{ WEEKLY_SUMMARY_INSIGHT }}</p>
       </VCard>
       <VCard v-else>
         <p class="master-dashboard__empty-text">Данных пока нет — создайте первую практику</p>
@@ -186,6 +186,7 @@ import { useToast } from '@/composables/useToast'
 import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
+import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import type { PracticeResponse } from '@/api/types'
 
 const router = useRouter()
