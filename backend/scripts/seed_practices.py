@@ -157,7 +157,7 @@ SYNTH_TID_MAX = 10199
 # Defaults for the per-tester "as_master" block (when as_master == true).
 # Counts are clamped to the available participant pool at seed time.
 TESTER_MASTER_DEFAULTS = {
-    "practices": 10,            # own practices spread over ±2 weeks
+    "practices": 16,            # own practices spread across ~6 past weeks + future
     "participants_completed": 6,  # attendees per completed practice
     "noshow_completed": 1,        # of which marked no_show
     "checkins_completed": 4,      # attendees leaving a check-in (mood)
@@ -1554,8 +1554,12 @@ def _build_tester_practice_dicts(
     Статус по времени. key стабилен (mt-{tid}-{date}-{HHMM}-{tkey}) -> идемпотентно.
     """
     tz = ZoneInfo("Europe/Moscow")
-    # Дни относительно сегодня: половина в прошлом (completed), половина в будущем.
-    day_offsets = [-12, -10, -8, -6, -4, -2, 3, 6, 9, 12, 14]
+    # Дни относительно сегодня. Completed-практики РАСТЯНУТЫ на ~6 недель назад (вкл.
+    # прошлый календарный месяц), чтобы дашборд-«Статистика» имел историю для
+    # Неделя/Месяц и недельного/месячного прироста (а не только последние 2 недели):
+    #   текущая неделя: -2, -5 · прошлая: -9, -12 · недели -3/-4: -16, -20, -25 ·
+    #   прошлый месяц: -33, -40. Будущее (scheduled): 3..25.
+    day_offsets = [-2, -5, -9, -12, -16, -20, -25, -33, -40, 3, 6, 9, 13, 18, 25]
     slot_hours = [10, 18]
     rr = (tester.telegram_id or 0)
     out: list[dict] = []
@@ -1596,6 +1600,16 @@ def _build_tester_practice_dicts(
             status = "scheduled"
         key = f"mt-{tester.telegram_id}-{day.isoformat()}-{hh:02d}00-{tmpl['key']}"
         out.append(_mk(tmpl, start, status, key))
+
+    # One DRAFT (unpublished) practice so testers can see a saved-but-not-published
+    # practice (the presave state). It gets NO participants (see seed_tester_as_master).
+    draft_tmpl = templates[(rr + 2) % len(templates)]
+    draft_day = (now.astimezone(tz) + timedelta(days=5)).date()
+    draft_start = datetime(draft_day.year, draft_day.month, draft_day.day, 12, 0, tzinfo=tz)
+    out.append(_mk(
+        draft_tmpl, draft_start, "draft",
+        f"mt-{tester.telegram_id}-draft-{draft_tmpl['key']}",
+    ))
     return out
 
 
@@ -1669,8 +1683,9 @@ async def seed_tester_as_master(
                                             master_name, batch_iso, k,
                                             pools["feedback"]):
                         stats["feedbacks"] += 1
-        else:
-            # scheduled / live -> confirmed-брони участников.
+        elif status in ("scheduled", "live"):
+            # scheduled / live -> confirmed-брони участников. (draft -> ничего:
+            # черновик не опубликован, участников быть не должно.)
             n_part = min(cfg_m["participants_scheduled"], len(participants))
             for part in participants[:n_part]:
                 if not await _practice_has_room(session, practice):
