@@ -80,27 +80,9 @@
           </div>
         </div>
 
-        <!-- Finalize (kept: required for the master flow; design omits it) -->
-        <VButton
-          v-if="canFinalize"
-          variant="primary"
-          block
-          :loading="finalizing"
-          @click="confirmFinalize"
-        >
-          Финализировать практику
-        </VButton>
+        <!-- «Финализировать практику» убрана (operator 2026-06-18): завершение —
+             авто по расписанию (Зод auto-finalizer). -->
       </div>
-
-      <!-- Confirm dialog (cancel/overlay blocked while finalizing) -->
-      <VConfirmDialog
-        :open="confirmVisible"
-        message="Финализировать практику? Посещаемость будет зафиксирована, замороженные средства разморожены."
-        confirm-label="Финализировать"
-        :loading="finalizing"
-        @confirm="finalize"
-        @cancel="confirmVisible = false"
-      />
     </template>
   </div>
 </template>
@@ -109,12 +91,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VConfirmDialog, VCard } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VCard } from '@/components/ui'
 import { IconClose } from '@/components/icons'
 import MoodAvatar from '@/components/shared/MoodAvatar.vue'
-import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
-import { getAttendance, finalizePractice, getPractice } from '@/api/practices'
+import { getAttendance, getPractice } from '@/api/practices'
 import { formatDateShort, formatTime } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { ApiResponseError } from '@/api/client'
@@ -122,7 +103,6 @@ import type { AttendanceResponse, AttendanceItemResponse, PracticeResponse } fro
 
 const route = useRoute()
 const router = useRouter()
-const toast = useToast()
 const masterStore = useMasterStore()
 
 const practiceId = route.params.id as string
@@ -132,10 +112,6 @@ const attendance = ref<AttendanceResponse | null>(null)
 const practice = ref<PracticeResponse | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
-
-// -- Action state --
-const finalizing = ref(false)
-const confirmVisible = ref(false)
 
 // -- Header count badge: how many left a pre-check-in, of the total booked. --
 const checkinBadge = computed((): string => {
@@ -161,12 +137,6 @@ const sortedItems = computed((): AttendanceItemResponse[] => {
     return 1
   }
   return [...(attendance.value?.items ?? [])].sort((a, b) => rank(a) - rank(b))
-})
-
-// -- Can finalize (practice is live or scheduled and not yet completed) --
-const canFinalize = computed((): boolean => {
-  const s = practice.value?.status
-  return s === 'live' || s === 'scheduled'
 })
 
 // -- Display helpers --
@@ -210,28 +180,6 @@ async function loadPractice(): Promise<void> {
 }
 
 onMounted(load)
-
-// -- Finalize --
-function confirmFinalize(): void {
-  confirmVisible.value = true
-}
-
-async function finalize(): Promise<void> {
-  if (finalizing.value) return
-  finalizing.value = true
-  try {
-    const updated = await finalizePractice(practiceId)
-    practice.value = updated
-    confirmVisible.value = false
-    toast.success('Практика завершена!')
-    await masterStore.refreshMyPractices()
-    attendance.value = await getAttendance(practiceId)
-  } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось финализировать')
-  } finally {
-    finalizing.value = false
-  }
-}
 </script>
 
 <style scoped>
