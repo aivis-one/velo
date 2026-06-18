@@ -25,8 +25,10 @@
           {{ opt.label }}
         </option>
       </select>
-      <!-- Required marker (DS pattern): pink seal in the right gutter. -->
-      <IconRequired v-if="required" class="v-select__seal" :size="22" />
+      <!-- Required marker (DS pattern): pink seal in the right gutter. Shown only
+           while nothing is selected — it clears once a value is chosen
+           (operator 2026-06-18). -->
+      <IconRequired v-if="required && !modelValue" class="v-select__seal" :size="22" />
     </div>
     <span v-if="error" class="v-select__error">{{ error }}</span>
   </div>

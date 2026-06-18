@@ -101,7 +101,7 @@
             >
               {{ form.date ? dateDisplay : 'Выберите дату' }}
             </button>
-            <IconRequired class="create-practice__seal" :size="22" />
+            <IconRequired v-if="!form.date" class="create-practice__seal" :size="22" />
           </div>
           <span v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</span>
         </div>
@@ -121,7 +121,7 @@
             >
               {{ form.time || 'Выберите время' }}
             </button>
-            <IconRequired class="create-practice__seal" :size="22" />
+            <IconRequired v-if="!form.time" class="create-practice__seal" :size="22" />
           </div>
           <span v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</span>
         </div>
@@ -133,9 +133,8 @@
           :error="errors.duration_minutes"
           required
         />
-
-        <!-- Часовой пояс: дефолт из профиля мастера, не обязательное (Q1). -->
-        <VSelect v-model="form.timezone" label="Часовой пояс" :options="TIMEZONE_OPTIONS" />
+        <!-- Часовой пояс убран: берётся из профиля мастера (form.timezone),
+             расписание задаётся в его часовом поясе (operator 2026-06-18). -->
       </div>
 
       <!-- ================================================================
@@ -202,28 +201,15 @@
       </div>
 
       <!-- ================================================================
-           Оплата  (radio-карта Бесплатно/Платно; цена при «Платно» — с печатью)
+           Оплата  (платная опция убрана — пока только «Бесплатно», operator
+           2026-06-18 Q2=А; «Платно» + цену вернём одной строкой при надобности)
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="velo-section-title">Оплата</h2>
 
         <VCard class="create-practice__repeat" padding="none">
-          <VRadioGroup
-            :model-value="form.is_free ? 'free' : 'paid'"
-            :options="PAYMENT_OPTIONS"
-            @update:model-value="form.is_free = $event === 'free'"
-          />
+          <VRadioGroup :model-value="'free'" :options="PAYMENT_OPTIONS" />
         </VCard>
-
-        <!-- Цена видна только для платной; печать обязательности (Q2=В). -->
-        <VInput
-          v-if="!form.is_free"
-          v-model="form.price_eur_raw"
-          type="number"
-          placeholder="Цена"
-          :error="errors.price_cents"
-          required
-        />
       </div>
 
       <!-- ================================================================
@@ -307,12 +293,10 @@ import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import { ApiResponseError } from '@/api/client'
 import {
   DURATION_OPTIONS,
-  TIMEZONE_OPTIONS,
   DIRECTION_OPTIONS,
   DIFFICULTY_OPTIONS,
   stylesForDirection,
 } from '@/utils/practiceOptions'
-import { eurStringToCents } from '@/utils/currency'
 import type { PracticeDirection } from '@/api/types'
 
 const router = useRouter()
@@ -348,10 +332,8 @@ const RECURRENCE_END_OPTIONS = [
   { label: 'После числа повторений', value: 'after_count' },
 ]
 
-const PAYMENT_OPTIONS = [
-  { value: 'free', label: 'Бесплатно' },
-  { value: 'paid', label: 'Платно' },
-]
+// «Платно» убрано (operator 2026-06-18 Q2=А) — пока только бесплатные практики.
+const PAYMENT_OPTIONS = [{ value: 'free', label: 'Бесплатно' }]
 
 // W-7: computed so todayDate is never stale after midnight
 const todayDate = computed(() => new Date().toISOString().split('T')[0])
@@ -373,10 +355,10 @@ const form = reactive({
   date: '',
   time: '',
   duration_minutes: '60',
+  // Timezone is taken from the master's profile (field removed from the form).
   timezone: authStore.user?.timezone ?? 'Europe/Moscow',
   max_participants_raw: '', // string input, parsed to int|null on submit
-  is_free: false,
-  price_eur_raw: '', // string input, converted to cents on submit
+  is_free: true, // «Платно» removed — practices are free for now (Q2=А)
   description: '',
   what_to_prepare: '',
   contraindications: '',
@@ -392,11 +374,7 @@ const errors = reactive({
   time: '',
   duration_minutes: '',
   max_participants: '',
-  price_cents: '',
 })
-
-// W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
-const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
 
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
@@ -464,15 +442,6 @@ function validate(): boolean {
       ok = false
     }
   }
-  if (!form.is_free) {
-    if (!form.price_eur_raw) {
-      errors.price_cents = 'Введите цену'
-      ok = false
-    } else if (priceCents.value < 100) {
-      errors.price_cents = 'Минимальная цена — €1,00'
-      ok = false
-    }
-  }
   return ok
 }
 
@@ -518,7 +487,7 @@ async function submit(): Promise<void> {
       // «Подключение» — авто-ссылка платформы (стаб → Зоду); не вводится на создании.
       zoom_link: null,
       is_free: form.is_free,
-      price_cents: form.is_free ? 0 : priceCents.value,
+      price_cents: 0,
       currency: 'eur',
     })
 

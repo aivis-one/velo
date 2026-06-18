@@ -46,8 +46,10 @@
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
 
-      <!-- Required marker (DS pattern): pink seal in the right gutter. -->
-      <IconRequired v-if="required" class="v-input__seal" :size="22" />
+      <!-- Required marker (DS pattern): pink seal in the right gutter. Shown only
+           while the field is still empty — it clears once the master fills it in
+           (operator 2026-06-18). -->
+      <IconRequired v-if="required && !modelValue" class="v-input__seal" :size="22" />
     </div>
 
     <span v-if="error" class="v-input__error">{{ error }}</span>
