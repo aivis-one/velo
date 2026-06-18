@@ -541,7 +541,9 @@ async function submit(): Promise<void> {
     toast.success('Практика создана!')
     // Invalidate cached list so it reloads on practices view
     await masterStore.refreshMyPractices()
-    router.push({ name: 'master-practices' })
+    // Open the new practice's detail screen; replace (not push) so «назад» from
+    // it lands on the origin (practices / dashboard), not back on this form (#1).
+    router.replace({ name: 'master-practice-detail', params: { id: created.id } })
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
   } finally {
