@@ -1610,6 +1610,20 @@ def _build_tester_practice_dicts(
         draft_tmpl, draft_start, "draft",
         f"mt-{tester.telegram_id}-draft-{draft_tmpl['key']}",
     ))
+
+    # One SERIES (recurring) practice, scheduled in the future, so the cancel
+    # dialog shows the «Это регулярная практика» block + scope radio (the frontend
+    # keys off practice_type === 'series'). Gets confirmed participants like any
+    # scheduled practice.
+    series_tmpl = templates[(rr + 3) % len(templates)]
+    series_day = (now.astimezone(tz) + timedelta(days=7)).date()
+    series_start = datetime(series_day.year, series_day.month, series_day.day, 19, 0, tzinfo=tz)
+    series_dict = _mk(
+        series_tmpl, series_start, "scheduled",
+        f"mt-{tester.telegram_id}-series-{series_tmpl['key']}",
+    )
+    series_dict["practice_type"] = "series"
+    out.append(series_dict)
     return out
 
 
