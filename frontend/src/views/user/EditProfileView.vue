@@ -43,8 +43,9 @@
         </button>
       </div>
 
-      <!-- Name -->
-      <VInput v-model="form.firstName" label="Имя" placeholder="Ваше имя" />
+      <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
+      <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
+      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" />
 
       <!-- E-mail (disabled stub) -->
       <VInput
@@ -55,10 +56,6 @@
         :disabled="true"
       />
 
-      <!-- Phone -->
-      <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (___) ___-__-__" />
-      <p v-if="phoneError" class="edit-profile__field-error">{{ phoneError }}</p>
-
       <!-- About -->
       <VTextarea
         v-model="form.bio"
@@ -67,6 +64,15 @@
         placeholder="Расскажите немного о себе"
         :error="bioError"
       />
+
+      <!-- Методы из онбординга — залочены (менять через поддержку). -->
+      <div v-if="isMaster && methods.length > 0" class="edit-profile__methods">
+        <label class="edit-profile__methods-label">Методы</label>
+        <div class="edit-profile__methods-chips">
+          <VChip v-for="m in methods" :key="m" size="sm">{{ m }}</VChip>
+        </div>
+        <p class="edit-profile__methods-note">Изменить методы можно через поддержку</p>
+      </div>
 
       <!-- Save -->
       <VButton variant="primary" block :loading="saving" @click="onSave"> Сохранить </VButton>
@@ -126,7 +132,7 @@
 import { computed, reactive, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VInput, VTextarea, VButton, VAvatar, VModal, VCheckbox } from '@/components/ui'
+import { VInput, VTextarea, VButton, VAvatar, VModal, VCheckbox, VChip } from '@/components/ui'
 import { IconWarning } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
@@ -141,10 +147,16 @@ const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
 const user = computed(() => authStore.user)
+const isMaster = computed(() => authStore.role === 'master')
 
-// Load the master profile so the delete modal can show the balance to forfeit.
+// Onboarding methods — read-only chips (locked; change via support). Plain
+// human-readable strings (see MasterApplyView AVAILABLE_METHODS).
+const methods = computed((): string[] => masterStore.profile?.methods ?? [])
+
+// Load the master profile so the delete modal can show the balance to forfeit
+// and the locked methods chips.
 onMounted(() => {
-  if (authStore.role === 'master') {
+  if (isMaster.value) {
     void masterStore.fetchMyProfile()
   }
 })
@@ -163,28 +175,14 @@ const emailStub = ref('')
 // match the «2 Edit Profile» design (the 2026-06-04 trim was unintended).
 const form = reactive({
   firstName: user.value?.first_name ?? '',
-  phone: user.value?.phone ?? '',
+  lastName: user.value?.last_name ?? '',
   bio: user.value?.bio ?? '',
 })
 
 // -- Validation (mirrors backend soft rules) --------------------------------
-const PHONE_ALLOWED = /^[0-9 +()-]*$/
-
-const phoneError = computed((): string => {
-  const v = form.phone.trim()
-  if (v === '') return '' // empty = clear, allowed
-  if (!PHONE_ALLOWED.test(v)) {
-    return 'Телефон может содержать только цифры, пробелы и + ( ) -'
-  }
-  const digits = (v.match(/\d/g) ?? []).length
-  if (digits < 5) return 'Введите корректный номер телефона'
-  if (v.length > 20) return 'Слишком длинный номер'
-  return ''
-})
-
 const bioError = computed((): string => (form.bio.length > 2000 ? 'Не более 2000 символов' : ''))
 
-const hasErrors = computed(() => !!phoneError.value || !!bioError.value)
+const hasErrors = computed(() => !!bioError.value)
 
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
@@ -208,9 +206,9 @@ async function onSave(): Promise<void> {
   if (nextName && nextName !== (user.value?.first_name ?? '')) {
     body.first_name = nextName
   }
-  const nextPhone = form.phone.trim()
-  if (nextPhone !== (user.value?.phone ?? '')) {
-    body.phone = nextPhone
+  const nextLast = form.lastName.trim()
+  if (nextLast !== (user.value?.last_name ?? '')) {
+    body.last_name = nextLast
   }
   const nextBio = form.bio.trimEnd()
   if (nextBio !== (user.value?.bio ?? '')) {
@@ -254,8 +252,11 @@ const formattedBalance = computed(() => formatMoney(balanceCents.value, 'EUR', '
 
 // «Удалить навсегда» unlocks once any balance is consented to and the user
 // typed the confirmation word.
+// Confirmation word accepted in any case — «удалить» / «УДАЛИТЬ» both unlock (C7).
 const canDelete = computed(
-  () => (!hasBalance.value || delConsent.value) && delConfirmText.value.trim() === 'УДАЛИТЬ',
+  () =>
+    (!hasBalance.value || delConsent.value) &&
+    delConfirmText.value.trim().toUpperCase() === 'УДАЛИТЬ',
 )
 
 function closeDeleteModal(): void {
@@ -286,12 +287,17 @@ function onConfirmDelete(): void {
   padding: 0 var(--space-4) var(--space-8);
 }
 
+/* White plate around the photo (operator SVG mockup 2026-06-18). */
 .edit-profile__avatar-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-4) 0 var(--space-5);
+  margin: var(--space-2) 0 var(--space-5);
+  padding: var(--space-5) 0;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
 }
 
 .edit-profile__change-photo {
@@ -303,10 +309,28 @@ function onConfirmDelete(): void {
   cursor: pointer;
 }
 
-.edit-profile__field-error {
-  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+/* Locked onboarding methods (read-only chips + support note). */
+.edit-profile__methods {
+  margin-bottom: var(--space-4);
+}
+
+.edit-profile__methods-label {
+  display: block;
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.edit-profile__methods-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.edit-profile__methods-note {
+  margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
-  color: var(--velo-error);
+  color: var(--velo-text-secondary);
 }
 
 .edit-profile__delete {
