@@ -11,11 +11,13 @@
     - variant="toggle" — compact auto-width pills (master dashboard period toggle
       + analytics period toggle): track padding 2px, btn text-xs / space-1 space-3,
       inactive colour text-primary.
-    - variant="tabs"   — full-width equal segments (analytics tab segment): track
-      padding 3px, btn flex:1 / text-sm / 6px 10px, inactive colour text-muted.
+    - variant="tabs"   — full-width equal segments (analytics tabs + master
+      practices tabs): track padding 3px, btn flex:1 / text-sm / 6px 10px,
+      inactive colour text-primary.
 
-  No visual change vs the originals — the CSS property values below are byte-equal
-  to the former `*__period-*` / `analytics__seg-*` rules.
+  Track glass aligned to the operator SVG «1 Practices» (2026-06-18): blue-200 @15
+  tint + 2px backdrop blur, and the tabs inactive colour brought to text-primary so
+  the Practices and Analytics tab strips are byte-identical (operator fork Б=Г).
 
   Usage:
     <VSegmentTrack v-model="period" :options="PERIOD_OPTIONS" variant="toggle" />
@@ -75,9 +77,11 @@ const emit = defineEmits<{
 .v-segment-track {
   display: flex;
   gap: 2px;
-  background: var(--velo-glass-blue-15);
+  background: var(--velo-glass-blue-200-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .v-segment-track__btn {
@@ -114,7 +118,7 @@ const emit = defineEmits<{
 .v-segment-track--tabs .v-segment-track__btn {
   flex: 1;
   font-size: var(--text-sm);
-  color: var(--velo-text-muted);
+  color: var(--velo-text-primary);
   padding: 6px 10px;
 }
 

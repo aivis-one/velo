@@ -34,13 +34,10 @@
       </template>
     </VHeader>
 
-    <!-- Tabs -->
+    <!-- Tabs — unified track+thumb segmented control (one solid block, two
+         switches inside), the shared master idiom. Counts removed per operator. -->
     <div class="master-practices__tabs">
-      <VSegment
-        :model-value="activeTab"
-        :options="tabOptions"
-        @update:model-value="activeTab = $event as 'upcoming' | 'past'"
-      />
+      <VSegmentTrack v-model="activeTab" :options="tabOptions" variant="tabs" />
     </div>
 
     <!-- Loading -->
@@ -167,7 +164,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VEmptyState, VSegment, VRatingBadges } from '@/components/ui'
+import { VButton, VLoader, VEmptyState, VSegmentTrack, VRatingBadges } from '@/components/ui'
 import {
   IconPlus,
   IconGroup,
@@ -209,10 +206,10 @@ const pastPractices = computed((): PracticeResponse[] =>
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
 )
 
-const tabOptions = computed(() => [
-  { value: 'upcoming', label: 'Предстоящие', badge: upcomingPractices.value.length || undefined },
-  { value: 'past', label: 'Прошедшие', badge: pastPractices.value.length || undefined },
-])
+const tabOptions = [
+  { value: 'upcoming' as const, label: 'Предстоящие' },
+  { value: 'past' as const, label: 'Прошедшие' },
+]
 
 // -- Card subtitle helpers --------------------------------------------------
 
