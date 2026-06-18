@@ -21,7 +21,7 @@
 -->
 <template>
   <div class="support">
-    <VHeader title="Поддержка" show-back @back="router.back()" />
+    <VHeader title="Поддержка" show-back solid @back="router.back()" />
 
     <!-- ===================== SUCCESS ===================== -->
     <div v-if="submitted" class="support__success">
@@ -36,7 +36,7 @@
     <!-- ===================== FORM ===================== -->
     <div v-else class="support__content">
       <div class="support__hero">
-        <IconSupport :size="56" class="support__hero-ic" />
+        <IconSupportChat :size="56" class="support__hero-ic" />
         <div class="support__hero-title">Как мы можем помочь?</div>
         <div class="support__hero-sub">Обычно отвечаем в течение 24 часов</div>
       </div>
@@ -115,7 +115,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VRadioGroup, VTextarea } from '@/components/ui'
-import { IconSupport, IconCheck, IconFile, IconClose, IconArrowRight } from '@/components/icons'
+import { IconSupportChat, IconCheck, IconFile, IconClose, IconArrowRight } from '@/components/icons'
 
 const router = useRouter()
 
