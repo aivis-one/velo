@@ -216,15 +216,6 @@
           <div v-else class="analytics__empty">Данных пока нет</div>
         </section>
       </template>
-
-      <!-- Full finance (balance / payout / withdrawals) lives on /master/finance. -->
-      <button
-        type="button"
-        class="analytics__finance-link"
-        @click="router.push({ name: 'master-finance' })"
-      >
-        Открыть Финансы<IconArrowRight :size="16" class="analytics__finance-arrow" />
-      </button>
     </div>
   </div>
 </template>
@@ -235,13 +226,7 @@ import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VButton, VStatCard, VCard, VSegmentTrack, VRatingBadges } from '@/components/ui'
-import {
-  IconArrowRight,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-  IconProfile,
-} from '@/components/icons'
+import { IconRatingFire, IconRatingGood, IconRatingConfused, IconProfile } from '@/components/icons'
 import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 import { getIncome, getTransactions } from '@/api/masters'
@@ -843,23 +828,5 @@ onMounted(async () => {
 
 .analytics__txn-amt--out {
   color: var(--velo-pink-300);
-}
-
-.analytics__finance-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  background: transparent;
-  border: none;
-  padding: var(--space-2);
-  cursor: pointer;
-}
-
-.analytics__finance-arrow {
-  vertical-align: middle;
 }
 </style>
