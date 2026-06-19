@@ -188,7 +188,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-detail__title {
@@ -202,7 +202,7 @@ onMounted(load)
 .admin-detail__hero-cell {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .admin-detail__pic {
@@ -231,7 +231,7 @@ onMounted(load)
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: 2px 0 0;
+  margin: var(--velo-gap-2) 0 0;
 }
 
 .admin-detail__items {

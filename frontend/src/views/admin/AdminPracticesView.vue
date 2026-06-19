@@ -146,7 +146,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-list__title {
@@ -197,7 +197,7 @@ onMounted(load)
 .admin-cap {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
 }

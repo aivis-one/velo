@@ -264,7 +264,6 @@ onMounted(loadReport)
 
 .report-detail__section-title {
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -307,7 +306,6 @@ onMounted(loadReport)
 
 .report-detail__meta-val {
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
   text-align: right;
 }

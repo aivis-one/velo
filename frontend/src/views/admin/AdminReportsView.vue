@@ -240,7 +240,7 @@ onMounted(loadInitial)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-reports__title {
@@ -273,7 +273,7 @@ onMounted(loadInitial)
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  height: 50px;
+  height: var(--velo-size-50);
   padding: 0 var(--space-5);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);

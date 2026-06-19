@@ -124,7 +124,7 @@ function loadMore(): void {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-list__title {
@@ -209,7 +209,7 @@ function loadMore(): void {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
 }
 
 .prow__name {
@@ -237,8 +237,8 @@ function loadMore(): void {
 }
 
 .prow__msg {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);

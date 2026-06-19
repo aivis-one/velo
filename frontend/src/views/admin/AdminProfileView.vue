@@ -128,7 +128,6 @@ async function onLogout(): Promise<void> {
 
 .admin-profile__section-title {
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;

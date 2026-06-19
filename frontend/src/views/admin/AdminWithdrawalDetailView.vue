@@ -231,7 +231,7 @@ async function onReject(): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .wd__title {

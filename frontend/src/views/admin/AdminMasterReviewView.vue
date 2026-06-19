@@ -367,7 +367,7 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .mreview__title {
@@ -450,7 +450,7 @@ onMounted(loadMaster)
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 
 .mreview__v--bio {
@@ -486,7 +486,7 @@ onMounted(loadMaster)
   flex-shrink: 0;
   width: 60px;
   height: 41px;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-primary);
   color: var(--velo-white);
   border: none;
@@ -508,9 +508,9 @@ onMounted(loadMaster)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 9px;
+  height: var(--velo-size-44);
+  padding: 0 var(--space-3);
+  border-radius: var(--velo-radius-9);
   background: var(--velo-glass-teal-30);
   border: 1px solid var(--velo-teal-400);
   color: var(--velo-teal-700);
@@ -590,7 +590,7 @@ onMounted(loadMaster)
 }
 
 .mreview__acc-body {
-  padding: 0 16px 16px;
+  padding: 0 var(--space-4) var(--space-4);
 }
 
 .mreview__hist-entry {
@@ -620,7 +620,7 @@ onMounted(loadMaster)
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: 0.02em;
-  margin-top: 6px;
+  margin-top: var(--velo-gap-6);
   line-height: 1.35;
 }
 

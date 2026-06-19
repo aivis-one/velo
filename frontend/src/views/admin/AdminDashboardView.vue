@@ -298,7 +298,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-dashboard__title {
@@ -311,8 +311,8 @@ onMounted(() => {
 }
 
 .admin-dashboard__eye {
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -347,7 +347,6 @@ onMounted(() => {
 .admin-dashboard__section-title {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
@@ -355,7 +354,7 @@ onMounted(() => {
 /* -- Period toggle (user/master dashboard pattern) -- */
 .admin-dashboard__period {
   display: flex;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
@@ -435,7 +434,6 @@ onMounted(() => {
 .admin-dashboard__revenue-amount {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.64px;
   line-height: 1.1;

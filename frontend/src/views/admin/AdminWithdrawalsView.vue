@@ -223,7 +223,7 @@ onMounted(loadInitial)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .admin-withdrawals__title {
@@ -282,7 +282,7 @@ onMounted(loadInitial)
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--velo-gap-3);
 }
 
 .wrow__amount {
@@ -305,7 +305,7 @@ onMounted(loadInitial)
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 3px;
+  gap: var(--velo-gap-3);
 }
 
 .wrow__time {

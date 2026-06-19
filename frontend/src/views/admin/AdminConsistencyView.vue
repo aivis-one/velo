@@ -226,14 +226,13 @@ onMounted(loadData)
 
 .consistency__summary-title {
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
 .consistency__summary-sub {
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 /* -- Run at -- */
@@ -246,7 +245,6 @@ onMounted(loadData)
 /* -- Group -- */
 .consistency__group-title {
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -290,7 +288,6 @@ onMounted(loadData)
 .consistency__item-name {
   flex: 1;
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
@@ -301,7 +298,7 @@ onMounted(loadData)
 .consistency__item-detail {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--velo-error-border);
@@ -314,7 +311,6 @@ onMounted(loadData)
 
 .consistency__item-actual {
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-error-text);
 }
 </style>
