@@ -59,7 +59,6 @@ const router = useRouter()
 .topup-result__text {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0 0 var(--space-8);
   line-height: 1.5;

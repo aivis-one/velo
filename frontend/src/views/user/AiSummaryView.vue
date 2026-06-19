@@ -85,7 +85,6 @@ function goToDashboard(): void {
 .ai-summary__text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   max-width: 280px;
   line-height: 1.5;

@@ -223,7 +223,6 @@ onMounted(() => {
   display: block;
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-muted);
   margin-bottom: var(--space-2);
 }
@@ -231,7 +230,6 @@ onMounted(() => {
 .topup__balance-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-primary);
 }
 
@@ -239,7 +237,6 @@ onMounted(() => {
 .topup__section-title {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -259,7 +256,6 @@ onMounted(() => {
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 400;
   color: var(--velo-text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -283,7 +279,6 @@ onMounted(() => {
   padding: var(--space-3) var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-primary);
   cursor: pointer;
   text-align: center;
@@ -305,7 +300,6 @@ onMounted(() => {
 .topup__error {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-error);
   text-align: center;
 }

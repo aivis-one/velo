@@ -276,7 +276,6 @@ onMounted(async () => {
   font-family: var(--font-body);
   /* Figma: section labels are Marmelad 18, primary colour (not uppercase muted). */
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }

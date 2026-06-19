@@ -594,7 +594,6 @@ onUnmounted(() => {
 .detail__accordion-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   line-height: 1.6;
 }
@@ -694,14 +693,12 @@ onUnmounted(() => {
 .detail__price-label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
 .detail__price-value {
   font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 

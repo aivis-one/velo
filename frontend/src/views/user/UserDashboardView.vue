@@ -552,7 +552,7 @@ onUnmounted(() => {
 
 .dashboard__period-toggle {
   display: flex;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
@@ -562,7 +562,6 @@ onUnmounted(() => {
 .dashboard__period-btn {
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-primary);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-xl);
@@ -580,7 +579,6 @@ onUnmounted(() => {
 .dashboard__ai-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.6;
   margin: 0;

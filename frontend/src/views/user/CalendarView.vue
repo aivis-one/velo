@@ -359,7 +359,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: 50px;
+  height: var(--velo-size-50);
   padding: 0 var(--space-5);
   background: var(--velo-primary);
   border: 1px solid var(--velo-glass-border);

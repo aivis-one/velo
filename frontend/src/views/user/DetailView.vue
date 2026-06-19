@@ -279,7 +279,7 @@ function goBack(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: var(--velo-size-40);
 }
 
 .detail__pill-title {
