@@ -303,7 +303,7 @@ async function onReject(): Promise<void> {
   bottom: 0;
   z-index: var(--z-sticky);
   display: flex;
-  gap: 15px;
+  gap: var(--velo-gap-15);
   margin-top: var(--space-1);
   padding: var(--space-3) 0;
   background: linear-gradient(to top, var(--velo-bg-start) 55%, transparent);

@@ -637,7 +637,7 @@ onMounted(loadMaster)
   bottom: 0;
   z-index: var(--z-sticky);
   display: flex;
-  gap: 15px;
+  gap: var(--velo-gap-15);
   margin-top: var(--space-1);
   padding: var(--space-3) 0;
   /* Soft scrim so the content fades under the floating glass buttons. */

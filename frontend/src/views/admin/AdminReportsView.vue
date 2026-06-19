@@ -254,7 +254,7 @@ onMounted(loadInitial)
 .admin-reports__count {
   min-width: 38px;
   height: 36px;
-  padding: 0 12px;
+  padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);
   background: var(--velo-primary);

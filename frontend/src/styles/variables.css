@@ -362,4 +362,6 @@
   --velo-gap-2: 2px;
   --velo-gap-3: 3px;
   --velo-gap-6: 6px;
+  --velo-gap-15: 15px; /* cross-component flex gap (dashboard / master-review / withdrawal) */
+  --velo-inset-12: 12px; /* admin filter / list row horizontal inset */
 }

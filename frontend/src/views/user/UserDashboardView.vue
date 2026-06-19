@@ -490,7 +490,7 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   /* Figma: 15 — близко к --space-3 (14), но точно 15 для соответствия */
-  gap: 15px;
+  gap: var(--velo-gap-15);
   margin-top: 15px;
 }
 
