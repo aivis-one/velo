@@ -98,7 +98,7 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   cursor: pointer;
   color: var(--velo-text-primary);
   /* Inactive (default): glass bubble. Component-specific border-width and

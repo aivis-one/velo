@@ -28,7 +28,7 @@ withDefaults(
   border-style: solid;
   border-color: var(--velo-border);
   border-top-color: var(--velo-primary);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: v-loader-spin 0.7s linear infinite;
 }
 

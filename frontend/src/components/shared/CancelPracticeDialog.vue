@@ -121,7 +121,7 @@ const practiceWhen = computed((): string => {
   gap: var(--space-3);
   border: 1px solid var(--velo-primary);
   border-radius: var(--radius-md);
-  padding: 13px 16px;
+  padding: var(--velo-card-padding-y) var(--space-4);
 }
 
 .cpd__pico {
@@ -144,7 +144,7 @@ const practiceWhen = computed((): string => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 12px;
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
 }
@@ -152,7 +152,7 @@ const practiceWhen = computed((): string => {
 .cpd__pcount {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .cpd__pcount :deep(svg) {

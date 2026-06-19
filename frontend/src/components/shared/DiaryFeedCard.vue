@@ -263,7 +263,7 @@ function onTap(): void {
 }
 
 .feed-card__practice-when {
-  width: 46px;
+  width: var(--velo-size-46);
   flex-shrink: 0;
   text-align: center;
   font-size: var(--text-12);
@@ -355,8 +355,8 @@ function onTap(): void {
   justify-content: center;
   /* 40px container with a 32px glyph: a little breathing room so the mood face
      no longer looks cramped/squished (operator feedback, item 4). */
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
 }
 
 /* Monochrome glyphs take the brand text color; mood faces carry their own
@@ -375,7 +375,7 @@ function onTap(): void {
 .feed-card__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   flex: 1;
   min-width: 0;
 }

@@ -57,7 +57,6 @@ defineEmits<{
   border-radius: var(--radius-full);
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-primary);
   white-space: nowrap;
 }

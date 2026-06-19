@@ -55,14 +55,13 @@ defineProps<{
 .v-metric-hero__body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   min-width: 0;
 }
 
 .v-metric-hero__value {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.64px;
   line-height: 1.05;

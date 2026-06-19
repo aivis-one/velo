@@ -73,7 +73,7 @@ defineEmits<{ click: [] }>()
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--velo-gap-3);
 }
 
 .v-list-row__title {

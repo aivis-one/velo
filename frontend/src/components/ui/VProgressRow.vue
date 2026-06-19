@@ -92,7 +92,7 @@ const valueDisplay = computed((): string =>
 .v-progress-row__track {
   position: relative;
   height: 10px;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-glass-blue-15);
   overflow: hidden;
 }
@@ -100,7 +100,7 @@ const valueDisplay = computed((): string =>
 .v-progress-row__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-primary);
   transition: width var(--transition-base);
 }

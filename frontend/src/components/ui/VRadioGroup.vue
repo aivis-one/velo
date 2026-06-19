@@ -73,7 +73,7 @@ defineEmits<{
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--velo-primary);
   display: flex;
   align-items: center;
@@ -91,7 +91,6 @@ defineEmits<{
 
 .v-radio__label {
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 </style>

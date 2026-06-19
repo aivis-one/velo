@@ -108,7 +108,7 @@ const open = ref(false)
 .v-rating-badges__badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--velo-card-gap-icon-title);
   border-radius: var(--velo-radius-badge);
   font-size: var(--text-xs);
 }
@@ -162,7 +162,7 @@ const open = ref(false)
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .v-rating-badges__legend-row {

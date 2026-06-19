@@ -88,7 +88,7 @@ const normalizedSize = computed(() => (props.size === 'lg' ? 'md' : props.size))
 
 /* -- Sizes -- */
 .v-btn--sm {
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-xs);
   min-height: 36px;
 }
@@ -96,13 +96,13 @@ const normalizedSize = computed(() => (props.size === 'lg' ? 'md' : props.size))
 .v-btn--md {
   padding: 12px 24px;
   font-size: var(--text-sm);
-  min-height: 50px;
+  min-height: var(--velo-size-50);
 }
 
 /* -- Variants -- */
 .v-btn--primary {
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
 }
 
 .v-btn--primary:hover:not(:disabled) {
@@ -120,7 +120,7 @@ const normalizedSize = computed(() => (props.size === 'lg' ? 'md' : props.size))
 
 .v-btn--danger {
   background: var(--velo-pink-300);
-  color: white;
+  color: var(--velo-white);
 }
 
 .v-btn--danger:hover:not(:disabled) {
@@ -174,7 +174,7 @@ const normalizedSize = computed(() => (props.size === 'lg' ? 'md' : props.size))
   height: 18px;
   border: 2px solid currentColor;
   border-top-color: transparent;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: v-btn-spin 0.6s linear infinite;
 }
 

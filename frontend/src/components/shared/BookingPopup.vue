@@ -288,14 +288,12 @@ async function onPurchase(): Promise<void> {
 .popup__label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-muted);
 }
 
 .popup__value {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
   text-align: right;
   max-width: 60%;
@@ -313,11 +311,10 @@ async function onPurchase(): Promise<void> {
   padding: 10px var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-primary);
   background: var(--velo-glass-blue-15);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: border-color var(--transition-fast);
 }
 
@@ -344,14 +341,12 @@ async function onPurchase(): Promise<void> {
 .popup__discount-label {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-success);
 }
 
 .popup__discount-value {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-success);
 }
 
@@ -368,14 +363,12 @@ async function onPurchase(): Promise<void> {
 .popup__total-label {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
 .popup__total-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-primary);
 }
 
@@ -388,7 +381,6 @@ async function onPurchase(): Promise<void> {
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-warning-text);
 }
 

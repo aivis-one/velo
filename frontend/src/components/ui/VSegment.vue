@@ -68,7 +68,6 @@ defineEmits<{
   padding: var(--space-2) var(--space-3);
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-muted);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-glass-border);
@@ -89,7 +88,6 @@ defineEmits<{
   background: rgba(255, 255, 255, 0.3);
   color: inherit;
   font-size: var(--text-xs);
-  font-weight: 400;
   padding: 1px 6px;
   border-radius: var(--radius-full);
 }

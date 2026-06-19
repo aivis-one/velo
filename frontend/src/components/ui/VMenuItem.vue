@@ -44,8 +44,8 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);

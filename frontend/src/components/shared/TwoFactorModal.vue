@@ -143,10 +143,10 @@ watch(
 }
 
 .tfa__box {
-  width: 44px;
+  width: var(--velo-size-44);
   height: 52px;
   border: 1px solid var(--velo-border);
-  border-radius: 9px;
+  border-radius: var(--velo-radius-9);
   background: var(--velo-bg-card-solid);
   font-family: var(--font-body);
   font-size: var(--text-lg);

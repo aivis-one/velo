@@ -133,7 +133,7 @@ const cells = computed<Cell[]>(() =>
 .week-strip__days {
   display: flex;
   /* Figma 2266:2307 — gap между day-pills = 5px, не --space-2 (8). */
-  gap: 5px;
+  gap: var(--velo-card-gap-icon-title);
   justify-content: space-between;
 }
 
@@ -165,7 +165,6 @@ const cells = computed<Cell[]>(() =>
 .week-strip__weekday {
   font-family: var(--font-body);
   font-size: var(--text-10);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -174,7 +173,6 @@ const cells = computed<Cell[]>(() =>
 .week-strip__num {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   line-height: 1.2;
 }
@@ -206,7 +204,7 @@ const cells = computed<Cell[]>(() =>
 }
 
 .week-strip__arrow {
-  width: 44px;
+  width: var(--velo-size-44);
   height: 36px;
   display: flex;
   align-items: center;

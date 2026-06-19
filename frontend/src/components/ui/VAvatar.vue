@@ -50,7 +50,6 @@ const initials = computed(() => {
   justify-content: center;
   background: var(--velo-bg-subtle);
   color: var(--velo-primary);
-  font-weight: 400;
   flex-shrink: 0;
   overflow: hidden;
 }
@@ -62,8 +61,8 @@ const initials = computed(() => {
 }
 
 .v-avatar--md {
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   font-size: 14px;
 }
 

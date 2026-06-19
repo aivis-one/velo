@@ -76,7 +76,7 @@ function toggle(): void {
   flex-shrink: 0;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   border: 1.5px solid var(--velo-primary);
   display: flex;
   align-items: center;
@@ -94,7 +94,6 @@ function toggle(): void {
 
 .v-checkbox__label {
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 </style>

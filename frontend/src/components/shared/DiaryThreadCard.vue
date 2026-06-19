@@ -203,7 +203,7 @@ function onTap(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-bg-card-solid);
   color: var(--velo-text-primary);
 }
@@ -213,9 +213,9 @@ function onTap(): void {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   padding: 0 var(--space-3);
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-bg-card-solid);
 }
 .tcard__mt {
@@ -266,8 +266,8 @@ function onTap(): void {
 
 .tcard__scale {
   display: inline-flex;
-  gap: 5px;
-  margin-top: 4px;
+  gap: var(--velo-card-gap-icon-title);
+  margin-top: var(--space-1);
 }
 
 .tcard__dot {

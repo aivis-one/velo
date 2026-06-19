@@ -188,8 +188,8 @@ function submit(term: string): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-primary);

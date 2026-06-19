@@ -105,7 +105,6 @@ defineExpose({ focus: () => inputEl.value?.focus() })
   display: block;
   /* Figma form spec (2 Edit Profile.svg): label Marmelad 18, primary colour. */
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   margin-bottom: var(--space-2);
 }
@@ -120,7 +119,7 @@ defineExpose({ focus: () => inputEl.value?.focus() })
 .v-input__field {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  height: var(--velo-size-40);
   padding: 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -129,7 +128,7 @@ defineExpose({ focus: () => inputEl.value?.focus() })
      "transparent" on the photo background). This is the single field standard. */
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: border-color var(--transition-base);
 }
 
@@ -159,11 +158,11 @@ defineExpose({ focus: () => inputEl.value?.focus() })
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 40px;
+  height: var(--velo-size-40);
   padding: 0 var(--space-4);
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: border-color var(--transition-base);
 }
 

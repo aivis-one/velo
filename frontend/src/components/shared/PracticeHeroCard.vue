@@ -112,8 +112,8 @@ const iconComponent = computed(
 }
 
 .hero-card__icon {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,7 +139,6 @@ const iconComponent = computed(
   gap: var(--space-3);
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 

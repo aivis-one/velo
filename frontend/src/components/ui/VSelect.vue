@@ -77,7 +77,6 @@ defineEmits<{
   display: block;
   /* Figma form spec: label Marmelad 18, primary — unified with VInput/VTextarea. */
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   margin-bottom: var(--space-2);
 }
@@ -92,7 +91,7 @@ defineEmits<{
 .v-select__field {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  height: var(--velo-size-40);
   padding: 0 40px 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -100,7 +99,7 @@ defineEmits<{
   /* White plate canon — the single field surface, unified with VInput. */
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: border-color var(--transition-base);
   appearance: none;
   /* Primary-tinted chevron (operator SVG 2026-06-11). */

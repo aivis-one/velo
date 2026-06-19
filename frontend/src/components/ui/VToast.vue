@@ -51,7 +51,6 @@ const { toasts, dismiss } = useToast()
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  font-weight: 400;
   max-width: 90%;
   text-align: center;
   cursor: pointer;
@@ -61,17 +60,17 @@ const { toasts, dismiss } = useToast()
 
 .v-toast--success {
   background: var(--velo-success);
-  color: white;
+  color: var(--velo-white);
 }
 
 .v-toast--error {
   background: var(--velo-error);
-  color: white;
+  color: var(--velo-white);
 }
 
 .v-toast--info {
   background: var(--velo-text-primary);
-  color: white;
+  color: var(--velo-white);
 }
 
 /* -- Transition -- */

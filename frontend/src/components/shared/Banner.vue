@@ -108,12 +108,11 @@ defineEmits<{ click: [] }>()
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
 }
 
 .banner__title {
   font-size: var(--text-base);
-  font-weight: 400;
   margin: 0;
   letter-spacing: var(--velo-card-letter-spacing-title);
 }

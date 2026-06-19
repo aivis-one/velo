@@ -263,7 +263,7 @@ async function onSend(): Promise<void> {
   min-width: 0;
   display: flex;
   align-items: center;
-  min-height: 50px;
+  min-height: var(--velo-size-50);
   padding: var(--space-2) var(--space-4);
   box-sizing: border-box;
   border: 1.26px solid rgba(255, 255, 255, 0.6);
@@ -325,8 +325,8 @@ async function onSend(): Promise<void> {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -369,7 +369,7 @@ async function onSend(): Promise<void> {
   width: 100%;
   min-height: 54px;
   align-items: flex-start;
-  padding: 13px 18px;
+  padding: var(--velo-card-padding-y) var(--velo-inset-row);
   /* Blue outline + slightly whitened glass (matches the write-mode frost);
      NO dark, NO white inversion. */
   border-color: var(--velo-nav-active-bg);

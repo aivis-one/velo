@@ -74,7 +74,7 @@ defineEmits<{ click: [] }>()
   align-items: center;
   justify-content: center;
   width: 63px;
-  height: 40px;
+  height: var(--velo-size-40);
   border-radius: var(--radius-full);
   background: var(--velo-bg-card-solid);
   color: var(--velo-text-primary);

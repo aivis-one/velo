@@ -121,7 +121,6 @@ defineEmits<{
   /* Match shipped user-dashboard stat value: heading font, 32px, primary. */
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.64px;
   line-height: 1.1;

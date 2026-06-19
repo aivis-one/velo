@@ -295,7 +295,7 @@ function save(): void {
 .dps__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  row-gap: 6px;
+  row-gap: var(--velo-gap-6);
   justify-items: center;
 }
 
@@ -311,7 +311,7 @@ function save(): void {
 .dps__day {
   width: 37px;
   height: 37px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;

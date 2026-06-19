@@ -79,7 +79,6 @@ defineEmits<{
   flex: 1;
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
 }
 
@@ -106,7 +105,7 @@ defineEmits<{
   padding: 0 6px;
   border-radius: var(--radius-full);
   background: var(--velo-error);
-  color: white;
+  color: var(--velo-white);
   font-size: var(--text-xs);
   display: inline-flex;
   align-items: center;

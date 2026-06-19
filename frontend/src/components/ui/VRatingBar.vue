@@ -66,7 +66,7 @@ const valueDisplay = computed((): string =>
 .v-rating-bar {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .v-rating-bar__head {
@@ -91,7 +91,7 @@ const valueDisplay = computed((): string =>
 .v-rating-bar__track {
   position: relative;
   height: 10px;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   background: var(--velo-glass-blue-15);
   overflow: hidden;
 }
@@ -99,7 +99,7 @@ const valueDisplay = computed((): string =>
 .v-rating-bar__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   transition: width var(--transition-base);
 }
 

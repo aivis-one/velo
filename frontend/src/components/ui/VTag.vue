@@ -33,7 +33,6 @@ withDefaults(
   align-items: center;
   padding: 4px 12px;
   font-size: var(--text-xs);
-  font-weight: 400;
   /* Rect badge canon (--velo-radius-badge 5px), matching VBadge — tags and
      status badges share one shape across the app. */
   border-radius: var(--velo-radius-badge);

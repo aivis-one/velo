@@ -43,10 +43,9 @@ withDefaults(
 .v-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 4px 10px;
   font-size: var(--text-xs);
-  font-weight: 400;
   border-radius: var(--velo-radius-badge);
   white-space: nowrap;
 }

@@ -108,8 +108,8 @@ defineExpose({ close })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   border: none;
   border-radius: var(--radius-full);
   background: var(--velo-nav-active-bg);

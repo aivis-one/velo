@@ -121,7 +121,6 @@ function onMore(): void {
   gap: var(--space-2);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   margin-bottom: var(--space-1);
 }

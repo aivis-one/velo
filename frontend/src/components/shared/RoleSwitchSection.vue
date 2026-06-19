@@ -87,7 +87,6 @@ async function onSwitch(target: UserRole): Promise<void> {
 .role-switch__title {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }

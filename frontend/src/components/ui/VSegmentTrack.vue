@@ -76,7 +76,7 @@ const emit = defineEmits<{
 /* Shared track + pill (identical across both variants). */
 .v-segment-track {
   display: flex;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   background: var(--velo-glass-blue-200-15);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
@@ -86,7 +86,6 @@ const emit = defineEmits<{
 
 .v-segment-track__btn {
   font-family: var(--font-body);
-  font-weight: 400;
   background: transparent;
   border: none;
   border-radius: var(--radius-xl);

@@ -66,7 +66,6 @@ defineEmits<{
 .v-confirm__text {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-primary);
   text-align: center;
   line-height: 1.5;

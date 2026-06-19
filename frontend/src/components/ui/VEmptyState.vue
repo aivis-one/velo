@@ -86,7 +86,6 @@ const resolvedIcon = computed<Component | null>(() => ICON_MAP[props.icon] ?? nu
 
 .v-empty__title {
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   margin-bottom: var(--space-1);
 }

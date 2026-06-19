@@ -223,7 +223,6 @@ const cleanTitle = computed(() => (props.practice ? cleanPracticeTitle(props.pra
 .form-shell__question p {
   font-family: var(--font-body);
   font-size: var(--text-xs);
-  font-weight: 400;
   color: var(--velo-text-secondary);
 }
 
