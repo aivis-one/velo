@@ -56,6 +56,9 @@ const FOG_ROUTES = [
   'master-promocodes',
   'master-summary',
   'master-attendance-roster',
+  // Check-ins list (the same per-practice attendance feed as the roster) — fog
+  // for parity with master-attendance-roster (WS-1, 2026-06-19).
+  'master-attendance',
   // Scrolling profile (check-ins + feedbacks lists) — fog so the floating header
   // doesn't collide with content on scroll (operator tester-fix 2026-06-17).
   'master-student-profile',
