@@ -15,7 +15,8 @@
     - Practice card (icon + title + when).
     - One card per participant: mood face (from checkin.mood) + name + comment;
       no-show -> muted × avatar; not-yet-checked-in -> muted initials.
-    - Finalize button (kept — functionally required; the design omits it).
+    - Read-only: no finalize button (manual finalize removed; completion is
+      auto-by-duration, pending backend).
 
   Note: the design's secondary "message" bubble is a future master↔participant
   messaging feature (no backend) — not rendered here; only the real pre-check-in
@@ -175,7 +176,7 @@ async function loadPractice(): Promise<void> {
   try {
     practice.value = await getPractice(practiceId)
   } catch {
-    // Non-critical: the practice card and finalize button just won't show.
+    // Non-critical: the practice card just won't show.
   }
 }
 

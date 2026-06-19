@@ -4,12 +4,11 @@
   "Мои ученики" — the master's students list. Reached from the dashboard row.
   Rendered inside MasterShell.
 
-  STUB: there is no students/CRM backend yet (no aggregate of who attends a
-  master's practices). The list below is placeholder data and documents the
-  contract for Zod (roadmap: Agent-Velo/master-ds-zod-roadmap.md):
-    Student { id, name, practices_count, needs_attention }
-  Search filters the loaded list client-side. The message action opens the
-  shared (stub) send-message sheet.
+  LIVE (E5): getStudents() → GET /api/v1/masters/me/students →
+  PaginatedStudentsResponse { items: StudentListItem[], total, limit, offset };
+  each item = { id, name, avatar_url, practices_count, needs_attention }.
+  Search filters the loaded page client-side. The message action opens the
+  shared send-message sheet, which is still a STUB (E4 messaging pending backend).
 -->
 
 <template>

@@ -4,10 +4,11 @@
   "Профиль ученика" — one student's card: hero, stats, recent check-ins,
   feedbacks, and a "Написать сообщение" action. Rendered inside MasterShell.
 
-  STUB: no per-student aggregation backend (practices/hours/satisfaction, the
-  student's check-ins across practices, their feedbacks). Placeholder data below;
-  documents the contract for Zod (roadmap: Agent-Velo/master-ds-zod-roadmap.md).
-  Reuses the real MoodAvatar (diary mood faces) for check-ins.
+  LIVE (E5): getStudent(id) → GET /api/v1/masters/me/students/{id} →
+  StudentDetailResponse { name, avatar_url, practices_count, hours,
+  satisfaction_pct, recent_checkins[], feedbacks[] }. Reuses the real MoodAvatar
+  (diary mood faces) for check-ins. The "Написать сообщение" action is still a
+  STUB (E4 messaging pending backend).
 -->
 
 <template>

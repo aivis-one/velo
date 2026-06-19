@@ -19,10 +19,11 @@
   /users/me). phone/bio cleared by sending "" (not null) -- matches the
   backend variant (b) semantics.
 
-  DELETE (Screen D): the red "Удалить аккаунт" opens a confirm modal. On
-  confirm we call deleteMe() then authStore.logout(). MVP backend semantics:
-  this resets onboarding rather than erasing data, so the next login shows
-  the welcome flow again with old data intact.
+  DELETE (Screen D): the red "Удалить аккаунт" opens a confirm modal. The
+  confirm action is a STUB — onConfirmDelete toasts «недоступно» and does NOT
+  call any delete endpoint (real account-deletion + balance-forfeit pending
+  backend; see the inline note in onConfirmDelete). deleteMe() only resets
+  onboarding (not a real erase), so it is intentionally NOT wired here.
 
   VInput note: VInput has no `error` prop (unlike VTextarea), so the phone
   validation message is rendered as a sibling <p> under the field.

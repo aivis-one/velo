@@ -18,8 +18,9 @@
                   "Удалить"       DELETE  (soft-delete, draft only)
     scheduled  -> "Начать эфир"   PATCH status=live
                   "Отменить"      POST /cancel (+ confirm dialog)
-    live       -> "Завершить"     POST /finalize (+ confirm dialog)
-                  "Отменить"      POST /cancel   (+ confirm dialog)
+    live       -> "Отменить"      POST /cancel   (+ confirm dialog)
+                  (manual "Завершить" removed — completion is auto-by-duration,
+                   pending backend; there is no live->finalize button here)
     completed / cancelled / deleted -> readonly info banner
 
   After any successful mutation:
