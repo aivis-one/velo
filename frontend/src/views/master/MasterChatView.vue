@@ -108,7 +108,7 @@ function onSend(): void {
 }
 
 .chat__msg--out .chat__text {
-  color: white;
+  color: var(--velo-white);
 }
 
 .chat__time {
@@ -122,7 +122,7 @@ function onSend(): void {
 }
 
 .chat__msg--out .chat__time {
-  color: white;
+  color: var(--velo-white);
   opacity: 0.7;
 }
 
@@ -137,7 +137,7 @@ function onSend(): void {
 
 .chat__input {
   flex: 1;
-  height: 50px;
+  height: var(--velo-size-50);
   padding: 0 var(--space-4);
   border-radius: var(--radius-full);
   border: 1px solid var(--velo-glass-border);
@@ -155,12 +155,12 @@ function onSend(): void {
 
 .chat__send {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
+  border-radius: var(--radius-full);
   border: none;
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
   display: inline-flex;
   align-items: center;
   justify-content: center;

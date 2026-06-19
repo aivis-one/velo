@@ -297,13 +297,13 @@ onUnmounted(() => {
 .master-dashboard__bell-row {
   display: flex;
   justify-content: flex-end;
-  min-height: 44px;
+  min-height: var(--velo-size-44);
 }
 
 .master-dashboard__bell {
   position: relative;
-  width: 44px;
-  height: 44px;
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);
@@ -346,9 +346,7 @@ onUnmounted(() => {
 
 .master-dashboard__stats-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
+  font-size: var(--text-base);  color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
@@ -436,9 +434,7 @@ onUnmounted(() => {
 
 .master-dashboard__practice-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
+  font-size: var(--text-base);  color: var(--velo-text-primary);
   letter-spacing: var(--velo-card-letter-spacing-title);
   white-space: nowrap;
   overflow: hidden;
@@ -459,13 +455,13 @@ onUnmounted(() => {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: var(--velo-card-letter-spacing-meta);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 .master-dashboard__meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--velo-card-gap-icon-title);
 }
 
 .master-dashboard__practice-actions {

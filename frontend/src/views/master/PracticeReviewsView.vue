@@ -305,7 +305,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-reviews__head-icon {
@@ -331,7 +331,7 @@ onMounted(async () => {
 .practice-reviews__head-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-reviews__head-meta :deep(svg) {
@@ -395,19 +395,19 @@ onMounted(async () => {
 .practice-reviews__review {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-reviews__review-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--velo-card-meta-row-gap);
 }
 
 .practice-reviews__review-id {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   min-width: 0;
 }
 
@@ -426,7 +426,7 @@ onMounted(async () => {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   white-space: nowrap;

@@ -194,7 +194,7 @@ async function onTimezoneChange(value: string): Promise<void> {
   margin: 0;
   /* Matches the SVG section headers (Marmelad has no bold weight; the design
      thickens them with a 0.3 stroke). */
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
 /* -- Language rows (filled-selected per the SVG) -- */
@@ -210,7 +210,7 @@ async function onTimezoneChange(value: string): Promise<void> {
   gap: var(--space-3);
   width: 100%;
   height: 47px;
-  padding: 0 18px;
+  padding: 0 var(--velo-inset-row);
   border-radius: var(--radius-md);
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);

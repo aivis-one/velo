@@ -326,8 +326,8 @@ onMounted(async () => {
 
 /* -- "+" add button (filled primary circle + white plus, operator SVG) -- */
 .master-practices__add-btn {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -373,7 +373,7 @@ onMounted(async () => {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 13px 15px;
+  padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
   display: flex;
   flex-direction: column;
 }
@@ -409,13 +409,13 @@ onMounted(async () => {
 .mp-card__sub {
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 
 .mp-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: var(--space-2) var(--space-4);
   margin-top: 13px;
   font-size: var(--text-xs);
   color: var(--velo-text-primary);
@@ -429,7 +429,7 @@ onMounted(async () => {
 .mp-stat {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .mp-stat :deep(svg) {

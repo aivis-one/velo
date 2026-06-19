@@ -337,4 +337,29 @@
   --velo-effect-elevation-3: none;
   --velo-effect-glow: var(--velo-shadow-glow);
   --velo-effect-focus: 0 0 0 2px var(--velo-blue-500); /* NO SOURCE; 4.39:1 vs white */
+
+  /* =========================================================================
+   * WS-3 normalization tokens (appearance-preserving; value = prior literal).
+   * Added so off-scale literals route through the DS with ZERO visual change.
+   * ========================================================================= */
+  /* Radius */
+  --velo-radius-9: 9px; /* Support attach-box / thumb radius (between badge 5 / md 15) */
+  /* Surfaces */
+  --velo-divider: rgba(98, 122, 156, 0.3); /* dashed section divider; = former glass-blue-30 (grab-handle) reused as a divider */
+  --velo-divider-width: 3px; /* dashed divider stroke width */
+  /* Typography */
+  --velo-text-stroke-strong: 0.3px; /* Marmelad faux-bold stroke width (single-weight workaround) */
+  /* Component-size ramp — values reused across >=2 distinct components (avatars,
+     icon circles, round + field controls). Value-named because each is cross-ROLE
+     (e.g. 46 = avatar AND icon AND control), so a semantic name would mislead. */
+  --velo-size-40: 40px; /* field/select height + small square/round buttons */
+  --velo-size-44: 44px; /* round icon buttons (bell, chat send, roster action) */
+  --velo-size-46: 46px; /* list/participant avatars + card icon circles */
+  --velo-size-50: 50px; /* search / chat input field height */
+  /* Off-scale row inset (between --space-4=16 / --space-5=24): section/row h-padding */
+  --velo-inset-row: 18px;
+  /* Micro inter-element spacing (gap / margin) below --space-2=8 granularity */
+  --velo-gap-2: 2px;
+  --velo-gap-3: 3px;
+  --velo-gap-6: 6px;
 }

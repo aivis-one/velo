@@ -213,7 +213,7 @@ function onGoHome(): void {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   text-align: center;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
@@ -229,7 +229,7 @@ function onGoHome(): void {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
 .support__hero-sub {
@@ -241,7 +241,7 @@ function onGoHome(): void {
 .support__section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--velo-card-meta-row-gap);
 }
 
 .support__title {
@@ -251,7 +251,7 @@ function onGoHome(): void {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0;
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
 /* -- Topic card -- */
@@ -259,7 +259,7 @@ function onGoHome(): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: var(--space-3) 18px;
+  padding: var(--space-3) var(--velo-inset-row);
 }
 
 .support__other {
@@ -267,8 +267,8 @@ function onGoHome(): void {
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
-  height: 40px;
-  padding: 0 16px;
+  height: var(--velo-size-40);
+  padding: 0 var(--space-4);
   border: 1.5px solid var(--velo-primary);
   border-radius: var(--radius-full);
 }
@@ -298,7 +298,7 @@ function onGoHome(): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: var(--space-3);
 }
 
 .support__drop {
@@ -308,9 +308,9 @@ function onGoHome(): void {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   border: 1px dashed var(--velo-text-primary);
-  border-radius: 9px;
+  border-radius: var(--velo-radius-9);
   background: transparent;
   color: var(--velo-text-primary);
   cursor: pointer;
@@ -325,7 +325,7 @@ function onGoHome(): void {
 .support__thumbs {
   display: flex;
   gap: var(--space-2);
-  margin-top: 10px;
+  margin-top: var(--velo-card-meta-row-gap);
   flex-wrap: wrap;
 }
 
@@ -333,7 +333,7 @@ function onGoHome(): void {
   width: 54px;
   height: 54px;
   padding: 4px;
-  border-radius: 9px;
+  border-radius: var(--velo-radius-9);
   background: var(--velo-glass-blue-15);
   border: 1px solid var(--velo-border-light);
   display: flex;
@@ -376,7 +376,7 @@ function onGoHome(): void {
 .support__ok-circle {
   width: 93px;
   height: 93px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--velo-glass-teal-30);
   display: flex;
   align-items: center;
@@ -397,7 +397,7 @@ function onGoHome(): void {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: var(--space-2) 0 0;
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
 .support__ok-text {
@@ -413,6 +413,6 @@ function onGoHome(): void {
   margin-top: var(--space-5);
   /* Heavier label (operator 2026-06-19) — Marmelad is single-weight, so thicken
      with the 0.3px stroke trick used by the section titles. */
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 </style>

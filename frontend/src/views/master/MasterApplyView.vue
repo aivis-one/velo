@@ -420,9 +420,7 @@ async function submit(): Promise<void> {
 }
 
 .apply-view__label {
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-secondary);
+  font-size: var(--text-sm);  color: var(--velo-text-secondary);
 }
 
 .apply-view__checkbox-list {
@@ -456,9 +454,7 @@ async function submit(): Promise<void> {
   height: 22px;
   border: 2px solid var(--velo-border-light);
   border-radius: var(--velo-radius-badge);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-primary);
+  font-size: var(--text-sm);  color: var(--velo-primary);
   background: var(--velo-glass-blue-15);
   flex-shrink: 0;
   transition: border-color var(--transition-fast);
@@ -468,7 +464,7 @@ async function submit(): Promise<void> {
 .apply-view__checkbox-item input:checked + .apply-view__checkbox-mark {
   border-color: var(--velo-primary);
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
 }
 
 .apply-view__checkbox-label {

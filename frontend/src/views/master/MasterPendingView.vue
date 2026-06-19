@@ -175,12 +175,10 @@ async function refreshStatus(): Promise<void> {
 .pending-view__icon {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--velo-success);
-  color: white;
-  font-size: 36px;
-  font-weight: 400;
-  display: flex;
+  color: var(--velo-white);
+  font-size: 36px;  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;

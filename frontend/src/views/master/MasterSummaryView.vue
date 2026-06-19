@@ -119,7 +119,7 @@ function openMessage(name: string): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 13px var(--space-4);
+  padding: var(--velo-card-padding-y) var(--space-4);
 }
 
 .summary__fb-ic {
@@ -150,7 +150,7 @@ function openMessage(name: string): void {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 
 /* -- Needs-attention row -- */
@@ -161,7 +161,7 @@ function openMessage(name: string): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 13px var(--space-4);
+  padding: var(--velo-card-padding-y) var(--space-4);
 }
 
 .summary__attn-body {
@@ -178,16 +178,16 @@ function openMessage(name: string): void {
 .summary__attn-reason {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--velo-card-gap-icon-title);
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 .summary__msg {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);

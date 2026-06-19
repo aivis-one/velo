@@ -133,3 +133,12 @@ ol {
   letter-spacing: 0.02em;
   margin: 0;
 }
+
+/* === Faux-bold (DS canon) ===
+   Marmelad ships a single 400 weight; some titles fake extra weight with a hair
+   stroke. Single source for that technique — one line to change app-wide (or to
+   retire if a real bold face ever lands). Apply as a class, or reference the
+   --velo-text-stroke-strong token directly in a scoped rule. */
+.velo-text-strong {
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
+}

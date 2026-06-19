@@ -598,7 +598,8 @@ onMounted(async () => {
   width: 48px;
   height: 48px;
   border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
+  /* WS-3: unified muted-avatar fill with the check-ins/roster faces (was glass-blue-15). */
+  background: var(--velo-glass-blue-60);
   color: var(--velo-text-primary);
   display: flex;
   align-items: center;
@@ -622,7 +623,7 @@ onMounted(async () => {
 .analytics__attention-rate {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   font-size: var(--text-sm);
   color: var(--velo-text-primary);
 }
@@ -661,7 +662,7 @@ onMounted(async () => {
   padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--velo-card-meta-row-gap);
   transition: opacity var(--transition-fast);
 }
 
@@ -676,8 +677,8 @@ onMounted(async () => {
 }
 
 .analytics__pcard-icon {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   flex-shrink: 0;
   color: var(--velo-text-primary);
   display: flex;
@@ -693,7 +694,7 @@ onMounted(async () => {
 .analytics__pcard-title {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
-  letter-spacing: 0.36px;
+  letter-spacing: var(--velo-card-letter-spacing-title);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -746,13 +747,12 @@ onMounted(async () => {
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .analytics__income-value {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
-  font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.5px;
 }

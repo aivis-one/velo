@@ -223,16 +223,14 @@ onMounted(load)
 
 .checkins__practice-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
+  font-size: var(--text-base);  color: var(--velo-text-primary);
 }
 
 .checkins__practice-sub {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 /* -- Participant card -- */
@@ -248,8 +246,8 @@ onMounted(load)
 
 /* Non-mood avatars (no-show ×, awaiting initials): muted blue-grey circle. */
 .checkins__face {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   display: flex;
@@ -278,13 +276,13 @@ onMounted(load)
   font-family: var(--font-body);
   font-size: var(--text-12);
   color: var(--velo-text-secondary);
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 
 .checkins__meta {
   font-family: var(--font-body);
   font-size: var(--text-12);
   color: var(--velo-text-muted);
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 </style>

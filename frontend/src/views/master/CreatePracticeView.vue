@@ -607,9 +607,7 @@ async function submit(): Promise<void> {
 
 .create-practice__repeat-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
+  font-size: var(--text-base);  color: var(--velo-text-primary);
 }
 
 /* -- Date/time picker trigger field (mirrors the white VInput plate) -- */
@@ -626,7 +624,7 @@ async function submit(): Promise<void> {
 .create-practice__picker {
   flex: 1;
   min-width: 0;
-  height: 40px;
+  height: var(--velo-size-40);
   text-align: left;
   padding: 0 var(--space-4);
   font-family: var(--font-body);
@@ -634,7 +632,7 @@ async function submit(): Promise<void> {
   color: var(--velo-text-primary);
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   cursor: pointer;
 }
 
@@ -680,7 +678,7 @@ async function submit(): Promise<void> {
 .create-practice__days {
   background: var(--velo-bg-card-solid);
   border-radius: var(--radius-md);
-  padding: 13px 14px;
+  padding: var(--velo-card-padding-y) var(--space-3);
 }
 
 /* -- «После числа повторений»: счётчик-пилюля (captured-only). -- */
@@ -696,14 +694,14 @@ async function submit(): Promise<void> {
 
 .create-practice__count-input {
   width: 160px;
-  height: 40px;
+  height: var(--velo-size-40);
   padding: 0 var(--space-4);
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   background: var(--velo-bg-card-solid);
   border: 2px solid var(--velo-border);
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
 }
 
 .create-practice__count-input:focus {

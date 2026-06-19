@@ -177,7 +177,7 @@ function openMessage(name: string): void {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: 50px;
+  height: var(--velo-size-50);
   /* Gap to the first student card (design ~25px = space-2 row gap + this). */
   margin-bottom: var(--space-4);
   padding: 5px 5px 5px var(--space-5);
@@ -211,8 +211,8 @@ function openMessage(name: string): void {
 }
 
 .students__search-btn {
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
@@ -230,7 +230,7 @@ function openMessage(name: string): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 13px var(--space-4);
+  padding: var(--velo-card-padding-y) var(--space-4);
   cursor: pointer;
   transition: opacity var(--transition-fast);
 }
@@ -254,14 +254,14 @@ function openMessage(name: string): void {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 .students__attn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 6px;
+  gap: var(--velo-card-gap-icon-title);
+  margin-top: var(--velo-gap-6);
   padding: 3px 10px;
   border-radius: var(--velo-radius-badge);
   background: var(--velo-warning-bg);
@@ -274,8 +274,8 @@ function openMessage(name: string): void {
 }
 
 .students__msg {
-  width: 46px;
-  height: 46px;
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-full);

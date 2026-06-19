@@ -627,9 +627,7 @@ async function remove(): Promise<void> {
 
 .edit-practice__readonly-text {
   font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 400;
-  color: var(--velo-text-muted);
+  font-size: var(--text-sm);  color: var(--velo-text-muted);
 }
 
 /* -- Content -- */
@@ -661,9 +659,7 @@ async function remove(): Promise<void> {
 
 .edit-practice__section-title {
   font-family: var(--font-body);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--velo-text-muted);
+  font-size: var(--text-xs);  color: var(--velo-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   padding-bottom: var(--space-1);
@@ -686,7 +682,7 @@ async function remove(): Promise<void> {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 40px;
+  height: var(--velo-size-40);
   text-align: left;
   padding: 0 var(--space-4);
   font-family: var(--font-body);
@@ -694,7 +690,7 @@ async function remove(): Promise<void> {
   color: var(--velo-text-primary);
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   cursor: pointer;
 }
 

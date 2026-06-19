@@ -295,7 +295,7 @@ const msgOpen = ref(false)
   font-family: var(--font-body);
   font-size: var(--text-12);
   color: var(--velo-text-secondary);
-  margin-top: 2px;
+  margin-top: var(--velo-gap-2);
 }
 
 /* -- Feedback card -- */
@@ -306,7 +306,7 @@ const msgOpen = ref(false)
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 13px var(--space-4);
+  padding: var(--velo-card-padding-y) var(--space-4);
 }
 
 .profile__fb-ic {
@@ -345,7 +345,7 @@ const msgOpen = ref(false)
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
-  margin-top: 3px;
+  margin-top: var(--velo-gap-3);
 }
 
 .profile__cta {

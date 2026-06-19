@@ -240,7 +240,7 @@ function onScheduleDays(days: string[]): void {
   justify-content: space-between;
   gap: var(--space-4);
   min-height: 51px;
-  padding: var(--space-3) 18px;
+  padding: var(--space-3) var(--velo-inset-row);
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
@@ -249,7 +249,7 @@ function onScheduleDays(days: string[]): void {
 .mn-card__text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--velo-gap-3);
   min-width: 0;
 }
 
@@ -275,13 +275,13 @@ function onScheduleDays(days: string[]): void {
 /* Tappable time field — white plate that opens the wheel sheet (mirrors a select). */
 .mn-sched__field {
   flex: 1;
-  height: 40px;
+  height: var(--velo-size-40);
   padding: 0 var(--space-4);
   display: flex;
   align-items: center;
   background: var(--velo-bg-card-solid);
   border: 2px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--velo-radius-badge);
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
@@ -304,6 +304,6 @@ function onScheduleDays(days: string[]): void {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: var(--space-3) 18px;
+  padding: var(--space-3) var(--velo-inset-row);
 }
 </style>

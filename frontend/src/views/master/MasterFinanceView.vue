@@ -608,7 +608,6 @@ onMounted(async () => {
 .finance-view__balance-value {
   font-family: var(--font-body);
   font-size: var(--text-xl);
-  font-weight: 400;
   letter-spacing: -0.5px;
 }
 
@@ -621,7 +620,7 @@ onMounted(async () => {
 .finance-view__section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--velo-card-meta-row-gap);
 }
 
 .finance-view__title {
@@ -631,7 +630,7 @@ onMounted(async () => {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0;
-  -webkit-text-stroke: 0.3px currentColor;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
 .finance-view__hint {
@@ -649,13 +648,13 @@ onMounted(async () => {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: 14px 18px;
+  padding: var(--space-3) var(--velo-inset-row);
 }
 
 .finance-view__card-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--velo-gap-3);
   min-width: 0;
   flex: 1;
 }
@@ -674,10 +673,10 @@ onMounted(async () => {
 
 .finance-view__card-x {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 2px solid var(--velo-error);
   background: transparent;
   color: var(--velo-error);
@@ -774,11 +773,11 @@ onMounted(async () => {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
-  padding: var(--space-3) 18px;
+  padding: var(--space-3) var(--velo-inset-row);
 }
 
 .finance-view__hitem + .finance-view__hitem {
-  margin-top: 10px;
+  margin-top: var(--velo-card-meta-row-gap);
 }
 
 .finance-view__hicon {
@@ -801,7 +800,7 @@ onMounted(async () => {
 .finance-view__htext {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   min-width: 0;
 }
 

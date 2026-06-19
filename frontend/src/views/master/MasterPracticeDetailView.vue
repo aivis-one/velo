@@ -631,7 +631,7 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-detail__head-icon {
@@ -657,7 +657,7 @@ onMounted(load)
 .practice-detail__head-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-detail__head-meta :deep(svg) {
@@ -773,19 +773,19 @@ onMounted(load)
   padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .practice-detail__review-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--velo-card-meta-row-gap);
 }
 
 .practice-detail__review-id {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--velo-gap-2);
   min-width: 0;
 }
 
@@ -804,7 +804,7 @@ onMounted(load)
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   white-space: nowrap;
@@ -890,12 +890,12 @@ onMounted(load)
   gap: var(--space-3);
   border: 1px solid var(--velo-primary);
   border-radius: var(--radius-md);
-  padding: 13px 16px;
+  padding: var(--velo-card-padding-y) var(--space-4);
 }
 
 .pd-cres__ava {
-  width: 44px;
-  height: 44px;
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-glass-blue-60);

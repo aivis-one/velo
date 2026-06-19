@@ -89,12 +89,12 @@ function onDelete(): void {
 }
 
 .promo__add {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
+  border-radius: var(--radius-full);
   border: none;
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -132,7 +132,7 @@ function onDelete(): void {
 .promo__divider {
   align-self: stretch;
   width: 0;
-  border-left: 3px dashed var(--velo-glass-blue-30);
+  border-left: var(--velo-divider-width) dashed var(--velo-divider);
 }
 
 .promo__info {

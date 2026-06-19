@@ -229,7 +229,7 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .roster__head-icon {
@@ -255,7 +255,7 @@ onMounted(load)
 .roster__head-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--velo-gap-6);
 }
 
 .roster__head-meta :deep(svg) {
@@ -285,7 +285,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 0 18px;
+  padding: 0 var(--velo-inset-row);
 }
 
 .roster__ic {

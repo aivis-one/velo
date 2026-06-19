@@ -148,7 +148,7 @@ function openChat(id: string): void {
   padding: 0 6px;
   border-radius: var(--radius-full);
   background: var(--velo-error);
-  color: white;
+  color: var(--velo-white);
   font-size: var(--text-xs);
   display: inline-flex;
   align-items: center;
