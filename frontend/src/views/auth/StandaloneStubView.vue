@@ -56,7 +56,6 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
 .stub__message {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0 0 var(--space-8) 0;
   max-width: 280px;
@@ -69,10 +68,9 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   justify-content: center;
   width: 100%;
   max-width: var(--velo-content-width);
-  height: 50px;
+  height: var(--velo-size-50);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   text-decoration: none;
   border-radius: var(--radius-full);
   border: 1px solid var(--velo-glass-border);
@@ -88,13 +86,12 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
 
 .stub__button--primary {
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
 }
 
 .stub__hint {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-muted);
   margin: var(--space-4) 0 0 0;
   max-width: 240px;

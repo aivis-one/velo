@@ -44,16 +44,14 @@ const router = useRouter()
 .not-found__text {
   font-family: var(--font-body);
   font-size: var(--text-lg);
-  font-weight: 400;
   color: var(--velo-text-muted);
   margin-bottom: var(--space-5);
 }
 .not-found__btn {
   padding: var(--space-3) var(--space-5);
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
   font-family: var(--font-body);
-  font-weight: 400;
   font-size: var(--text-sm);
   border: 1px solid var(--velo-glass-border);
   border-radius: var(--radius-full);

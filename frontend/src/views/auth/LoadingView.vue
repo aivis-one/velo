@@ -63,7 +63,7 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   height: 24px;
   border: 2px solid var(--velo-border-light);
   border-top-color: var(--velo-primary);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   animation: spin 0.8s linear infinite;
 }
 

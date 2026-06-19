@@ -120,7 +120,6 @@ const { isStandalone } = useAuth()
 .welcome__message {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0 0 var(--space-8) 0;
   max-width: 280px;
@@ -140,10 +139,9 @@ const { isStandalone } = useAuth()
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 50px;
+  height: var(--velo-size-50);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
   border: 1px solid var(--velo-glass-border);
@@ -164,7 +162,7 @@ const { isStandalone } = useAuth()
 
 .welcome__button--primary {
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
 }
 
 /* Glass variant: transparent fill, primary-colored label (matches mockup). */

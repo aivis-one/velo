@@ -84,7 +84,6 @@ function onRetry(): void {
 .auth-error__body {
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   line-height: 1.5;
   margin: 0;

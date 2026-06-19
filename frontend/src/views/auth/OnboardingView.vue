@@ -324,7 +324,6 @@ async function finish(): Promise<void> {
 .onboarding__text {
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   color: var(--velo-text-secondary);
   margin: 0;
   max-width: 300px;
@@ -354,7 +353,7 @@ async function finish(): Promise<void> {
 .onboarding__dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: rgba(76, 101, 137, 0.6);
   transition:
     width var(--transition-fast),
@@ -373,15 +372,14 @@ async function finish(): Promise<void> {
   justify-content: center;
   width: 100%;
   max-width: var(--velo-content-width);
-  height: 50px;
+  height: var(--velo-size-50);
   font-family: var(--font-body);
   font-size: var(--text-base);
-  font-weight: 400;
   cursor: pointer;
   border-radius: var(--radius-full);
   border: 1px solid var(--velo-glass-border);
   background: var(--velo-primary);
-  color: white;
+  color: var(--velo-white);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   box-shadow: var(--velo-shadow-glow);
