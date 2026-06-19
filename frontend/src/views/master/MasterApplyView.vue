@@ -397,8 +397,9 @@ async function submit(): Promise<void> {
 /* -- Content area -- */
 .apply-view__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* Standalone route (outside MobileLayout) — apply the screen rail inset
+     directly so content matches the app's 24px rail (WS-1, 2026-06-19). */
+  padding: var(--space-4) var(--velo-rail-pad-x);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

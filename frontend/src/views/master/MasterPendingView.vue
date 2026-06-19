@@ -165,8 +165,9 @@ async function refreshStatus(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-8) 0 var(--space-5);
+  /* Standalone route (outside MobileLayout) — apply the screen rail inset
+     directly so content matches the app's 24px rail (WS-1, 2026-06-19). */
+  padding: var(--space-8) var(--velo-rail-pad-x) var(--space-5);
   gap: var(--space-4);
 }
 
