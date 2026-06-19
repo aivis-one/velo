@@ -45,3 +45,16 @@ export const MIN_WITHDRAWAL_EUROS = 50
 
 /** Platform fee deducted per withdrawal in euros (backend: withdrawal_fee_cents = 200). */
 export const WITHDRAWAL_FEE_EUROS = 2
+
+// ---------------------------------------------------------------------------
+// Master onboarding (WS-1, item 2)
+// Used by: MasterApplyView (set), master store $reset (clear), masterPendingGuard (read)
+// ---------------------------------------------------------------------------
+
+/**
+ * sessionStorage marker set on a successful master-application submit. The
+ * `master-pending` route guard uses it to tell an actual applicant (who stays
+ * role='user' until the backend promotes them) apart from a plain user who
+ * navigated to the pending URL directly. Cleared on logout via master $reset.
+ */
+export const MASTER_APPLIED_KEY = 'velo:master-applied'

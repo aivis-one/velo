@@ -36,6 +36,7 @@ import { useMasterStore } from '@/stores/master'
 import { waitUntilReady, pendingDeepLink } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
+import { MASTER_APPLIED_KEY } from '@/utils/constants'
 
 /**
  * Redirect `/` to the correct dashboard based on user role.
@@ -118,4 +119,35 @@ export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () =>
   }
 
   return true
+}
+
+/**
+ * Gate the standalone `master-pending` route.
+ *
+ * The route lives OUTSIDE the /master shell group, so it has no role guard of
+ * its own — without this, a plain user who opens /master/pending directly sees
+ * a false "Заявка отправлена!" screen. Access rules:
+ *   - admin            -> redirect to /admin/dashboard (admins never apply)
+ *   - master           -> allow (masterStatusGuard sends non-verified masters
+ *                         here; a verified master is redirected to the dashboard
+ *                         by the view's own onMounted check)
+ *   - user + marker     -> allow (an actual applicant — still role='user' until
+ *                         the backend promotes them; MASTER_APPLIED_KEY is set
+ *                         on a successful application submit)
+ *   - user, no marker   -> redirect to /user/dashboard (never applied)
+ */
+export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () => {
+  const { timedOut }: ReadyResult = await waitUntilReady()
+  const auth = useAuthStore()
+
+  if (timedOut && auth.role === null) {
+    return { path: '/auth-error' }
+  }
+
+  if (auth.role === 'admin') return { path: '/admin/dashboard' }
+  if (auth.role === 'master') return true
+
+  if (sessionStorage.getItem(MASTER_APPLIED_KEY) === '1') return true
+
+  return { path: '/user/dashboard' }
 }

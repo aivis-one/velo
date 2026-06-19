@@ -192,6 +192,7 @@ import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
+import { MASTER_APPLIED_KEY } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
@@ -345,6 +346,9 @@ async function submit(): Promise<void> {
       documents: [],
     })
 
+    // Mark this session as an actual applicant so the master-pending guard
+    // lets a still-role='user' applicant through (backend promotes role later).
+    sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
     toast.success('Заявка отправлена!')
     router.push({ name: 'master-pending' })
   } catch (e) {

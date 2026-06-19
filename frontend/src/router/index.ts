@@ -10,7 +10,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useMasterStore } from '@/stores/master'
-import { roleRedirect, roleGuard, masterStatusGuard } from '@/router/guards'
+import { roleRedirect, roleGuard, masterStatusGuard, masterPendingGuard } from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 
@@ -333,6 +333,7 @@ const router = createRouter({
     {
       path: '/master/pending',
       name: 'master-pending',
+      beforeEnter: masterPendingGuard,
       component: () => import('@/views/master/MasterPendingView.vue'),
     },
 

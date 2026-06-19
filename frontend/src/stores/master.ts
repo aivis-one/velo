@@ -12,6 +12,7 @@ import { ref } from 'vue'
 import { getMyMasterProfile, getMyPractices } from '@/api/masters'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
+import { MASTER_APPLIED_KEY } from '@/utils/constants'
 import type { MasterProfileResponse, PracticeResponse } from '@/api/types'
 
 export const useMasterStore = defineStore('master', () => {
@@ -95,6 +96,8 @@ export const useMasterStore = defineStore('master', () => {
     pagination.items.value = []
     pagination.total.value = 0
     practicesLoaded.value = false
+    // Drop the applicant marker so a logged-out tab can't reach master-pending.
+    sessionStorage.removeItem(MASTER_APPLIED_KEY)
   }
 
   return {
