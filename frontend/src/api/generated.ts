@@ -342,6 +342,7 @@ export interface CreatePracticeRequest {
   direction: string
   difficulty: string
   style?: string | null
+  recurrence?: RecurrenceSpec | null
 }
 
 /** User submits a new report. */
@@ -861,6 +862,15 @@ export interface RatingDistribution {
   fire: number
   good: number
   confused: number
+}
+
+/** Recurrence rule for a series practice. Fields: period -- daily: every calendar day after the root; weekly: on `days`, every week; biweekly: on `days`, every other week. days -- ISO weekday ints (1=Mon .. 7=Sun) the series recurs on. REQUIRED and non-empty for weekly/biweekly; ignored for daily (generation does not read it). end -- never: generate up to the cap; until_date: occurrences through `until_date` (inclusive, local date); after_count: exactly `count` occurrences. count -- TOTAL occurrences INCLUDING the root (so count=40 yields the root + 39 children). Required for after_count; 1..cap. An explicit count above the cap is a 422 (the user named the number -- we do not silently truncate it; until_date / never are truncated silently instead). until_date -- local calendar date of the last allowed occurrence; required for until_date. */
+export interface RecurrenceSpec {
+  period: 'daily' | 'weekly' | 'biweekly'
+  days?: number[]
+  end: 'never' | 'until_date' | 'after_count'
+  count?: number | null
+  until_date?: string | null
 }
 
 /** POST /admin/masters/{user_id}/reject -- request body. */
