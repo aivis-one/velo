@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VBackButton, VCard, VButton, VTextarea, VBottomSheet } from '@/components/ui'
 import ConfirmPaymentModal from '@/components/shared/ConfirmPaymentModal.vue'
@@ -117,6 +117,14 @@ const toast = useToast()
 const w = ref<AdminWithdrawalResponse | null>(
   (window.history.state as { withdrawal?: AdminWithdrawalResponse }).withdrawal ?? null,
 )
+
+// W-5: the withdrawal arrives ONLY via router state, so a deep-link or a page
+// reload leaves w null -> '—' placeholders, disabled actions, and a VBackButton
+// that runs router.back() out of the app (dead-end). Bounce to the list instead
+// of stranding the admin on a blank screen.
+onMounted((): void => {
+  if (!w.value) router.replace('/admin/withdrawals')
+})
 
 const showReject = ref(false)
 const rejectReason = ref('')
