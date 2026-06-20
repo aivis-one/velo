@@ -249,6 +249,11 @@ export interface CancelBookingRequest {
   reason?: string | null
 }
 
+/** POST /api/v1/practices/{id}/cancel -- optional request body. `scope` selects how far a cancellation reaches for a SERIES practice: "this" -- cancel only this occurrence (the default, and the behavior when no body is sent -- preserving the pre-series contract for existing callers). "this_and_future" -- cancel this occurrence and every later occurrence of the same series. A non-series practice has no siblings, so it behaves like "this". Closed, by-design vocabulary -> Literal (no config indirection), matching the feed's duration_bucket / time_of_day. */
+export interface CancelPracticeRequest {
+  scope?: 'this' | 'this_and_future'
+}
+
 /** GET /api/v1/admin/metrics/check-in. */
 export interface CheckinMetricResponse {
   rate_pct: number
