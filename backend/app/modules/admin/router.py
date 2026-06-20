@@ -4,7 +4,7 @@
 #
 # Main router for all admin endpoints. Includes sub-routers:
 #   - masters/      -- verify/reject master applications (Phase 2.3)
-#   - stats/        -- platform statistics (Phase 3.1)
+#   - stats/        -- platform statistics (Phase 3.1) + overview (E7)
 #   - users/        -- user and master listings (Phase 3.2)
 #   - reports/      -- report management (Phase 3.3)
 #   - withdrawals/  -- approve/reject withdrawals (Phase 6.6)
@@ -33,6 +33,9 @@ from app.modules.admin.revenue.router import router as revenue_router
 from app.modules.admin.promos.router import router as promos_router
 from app.modules.admin.reports.router import router as reports_router
 from app.modules.admin.stats.router import router as stats_router
+from app.modules.admin.stats.overview_router import (              # E7
+    router as stats_overview_router,
+)
 from app.modules.admin.users.router import router as users_router
 from app.modules.admin.withdrawals.router import router as withdrawals_router
 from app.modules.auth.dependencies import get_current_admin
@@ -48,6 +51,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 router.include_router(masters_router)
 router.include_router(stats_router)
+router.include_router(stats_overview_router)  # E7
 router.include_router(users_router)
 router.include_router(reports_router)
 router.include_router(withdrawals_router)
