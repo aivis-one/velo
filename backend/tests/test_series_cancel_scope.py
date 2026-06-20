@@ -14,7 +14,7 @@
 # default scope through the refactored _cancel_one core.
 #
 # telegram_id range (own cleanup band):
-#   63001 -- master, 63900 -- admin
+#   64001 -- master, 64900 -- admin
 # =============================================================================
 
 from collections.abc import AsyncGenerator
@@ -38,8 +38,8 @@ MY_PRACTICES_URL = "/api/v1/masters/me/practices"
 APPLY_URL = "/api/v1/masters/apply"
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 
-_MASTER_TID = 63001
-_ADMIN_TID = 63900
+_MASTER_TID = 64001
+_ADMIN_TID = 64900
 _UNSET = object()
 
 
@@ -55,8 +55,8 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Full ORM cleanup for telegram_id 63000-63999."""
-    await full_cleanup_range(session, 63000, 63999, delete_users=False)
+    """Full ORM cleanup for telegram_id 64000-64999."""
+    await full_cleanup_range(session, 64000, 64999, delete_users=False)
     await session.commit()
 
 
