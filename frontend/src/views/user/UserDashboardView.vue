@@ -6,15 +6,16 @@
     - Check-in alert banner (amber) -- confirmed booking in check-in window
     - Feedback alert banner (teal)  -- attended booking in feedback window
     - "Ближайшая практика" -- nearest confirmed booking card with Zoom + Check-in
-    - "Ваш прогресс"       -- attended count + hours, derived from bookingsStore
+    - "Ваш прогресс"       -- attended count + hours, from GET /bookings/me/stats
     - "AI-саммари"         -- placeholder card with week/month toggle,
                               mood trend indicator and a "Подробнее" link
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
 
-  Progress stats are derived from the already-loaded bookingsStore (limit 20).
-  For users with >20 attended practices the numbers will be partial -- acceptable for MVP.
+  Progress stats come from GET /api/v1/bookings/me/stats (UserStatsResponse:
+  practices_attended + hours_attended), a server-side aggregate over ALL attended
+  bookings -- so the numbers are complete, not limited to the first bookings page.
 
   Screen 16 (AI-summary): the "Подробнее" link navigates to 'user-ai-summary'
   (currently a placeholder screen -- the user AI backend does not exist yet).
@@ -173,6 +174,7 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
+import { getMyStats } from '@/api/bookings'
 import { useToast } from '@/composables/useToast'
 import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/components/ui'
 import {
@@ -190,7 +192,7 @@ import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePractice
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
-import type { BookingWithPracticeResponse } from '@/api/types'
+import type { BookingWithPracticeResponse, UserStatsResponse } from '@/api/types'
 
 // CHECKIN_WINDOW_H is imported but only used implicitly via isInCheckinWindow.
 // Keeping import to document the dependency (mirrors usePracticeWindows).
@@ -207,6 +209,10 @@ let clockInterval: ReturnType<typeof setInterval> | null = null
 
 // -- Period toggle for AI summary (visual only, no API) --
 const aiPeriod = ref<'week' | 'month'>('week')
+
+// -- Profile stats (attended count + hours): server-side aggregate over ALL
+// attended bookings -- not derived from the paginated bookings page (W-6). --
+const stats = ref<UserStatsResponse | null>(null)
 
 // =========================================================================
 // Alert banners
@@ -403,24 +409,26 @@ const nearestPracticeDuration = computed((): string => {
 // Progress stats
 // =========================================================================
 
-const attendedBookings = computed(() =>
-  bookingsStore.bookings.filter((b) => b.status === 'attended'),
-)
-
-const attendedCount = computed(() => attendedBookings.value.length)
+const attendedCount = computed((): number => stats.value?.practices_attended ?? 0)
 
 /**
  * Total hours in practice.
+ * hours_attended is a server-side float already rounded to one decimal.
  * Formatted as integer when whole (12), one decimal otherwise (9,5).
  */
 const practiceHours = computed((): string => {
-  const totalMinutes = attendedBookings.value.reduce(
-    (sum, b) => sum + b.practice.duration_minutes,
-    0,
-  )
-  const hours = totalMinutes / 60
+  const hours = stats.value?.hours_attended ?? 0
   return hours % 1 === 0 ? String(hours) : hours.toFixed(1).replace('.', ',')
 })
+
+/** Load the server-side attended-practice stats (W-6: full, not page-derived). */
+async function loadStats(): Promise<void> {
+  try {
+    stats.value = await getMyStats()
+  } catch {
+    // Leave stats null -> the cards show 0; the rest of the dashboard still works.
+  }
+}
 
 // =========================================================================
 // Actions
@@ -440,6 +448,7 @@ function goToFeedback(practiceId: string): void {
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
+  void loadStats()
   clockInterval = setInterval(() => {
     now.value = Date.now()
   }, 60_000)

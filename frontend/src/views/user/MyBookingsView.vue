@@ -6,10 +6,10 @@
       sorted to the top and get a "Завтра" badge; the rest have no badge.
     - "Прошедшие": attended / no_show / cancelled, with a status badge.
 
-  All bookings are loaded at once (no status filter) and grouped on the
-  client. For the MVP volume this is simpler than server-side pagination
-  per status. Cancellation now lives on the detail screens (15/18), so the
-  card is a plain link to the booking detail (screen 18).
+  Bookings are fetched page by page (no status filter) and grouped on the
+  client; a "Показать ещё" button appends the next page (store.loadMore /
+  store.hasMore, via usePagination). Cancellation now lives on the detail
+  screens (15/18), so the card is a plain link to the booking detail (screen 18).
 
   Route: /user/bookings (name: 'user-bookings')
 -->
@@ -70,6 +70,15 @@
           />
         </div>
       </section>
+
+      <!-- Load more (W-7): the list is paginated -- append the next page, which
+           then re-groups into the two sections above. store.loading guards a
+           double-tap; the button hides once every page is loaded. -->
+      <div v-if="store.hasMore" class="bookings__more">
+        <VButton variant="ghost" block :loading="store.loading" @click="store.loadMore()">
+          Показать ещё
+        </VButton>
+      </div>
     </div>
   </div>
 </template>
@@ -253,5 +262,12 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* ===== Load more ===== */
+.bookings__more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
 }
 </style>
