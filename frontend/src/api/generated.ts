@@ -109,6 +109,26 @@ export interface AdminRosterEntry {
   status: string
 }
 
+/** GET /api/v1/admin/stats/overview?period=week|month. */
+export interface AdminStatsOverviewResponse {
+  new_users: number
+  new_users_delta_pct: number | null
+  new_masters: number
+  new_masters_delta_pct: number | null
+  practices_count: number
+  practices_delta_pct: number | null
+  revenue_cents: number
+  revenue_delta_pct: number | null
+  commission_cents: number
+  checkin_rate_pct: number
+  checkin_rate_delta: number | null
+  feedback_rate_pct: number
+  feedback_rate_delta: number | null
+  return_rate_pct: number
+  return_rate_delta: number | null
+  pending_reports: number
+}
+
 /** GET /api/v1/admin/stats -- response body. */
 export interface AdminStatsResponse {
   users_count: number
