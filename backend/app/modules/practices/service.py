@@ -1028,49 +1028,19 @@ async def delete_practice(
 # ===================================================================
 
 
-async def cancel_practice(
-    practice_id: UUID,
+async def _cancel_one(
+    practice: Practice,
     user: User,
     session: AsyncSession,
-) -> Practice:
-    """Cancel a scheduled/live practice with full refund to all participants.
+) -> int:
+    """Cancel a single, already-locked + already-validated practice occurrence.
 
-    Master-only. This is the ONLY path to Practice.status=cancelled.
-    PATCH status=cancelled is intentionally blocked in _VALID_TRANSITIONS.
-
-    Steps:
-    1. Lock practice with FOR UPDATE (P-12).
-    2. Verify ownership (P-08: 404 not 403).
-    3. Verify status is cancellable (scheduled or live).
-    4. Refund all active bookings (100% to each user).
-    5. Clear waitlist (all active entries -> left).
-    6. Set practice status -> cancelled.
-    7. Audit log.
-
-    Raises NotFoundError if not found or not owner.
-    Raises BadRequestError if practice is not in a cancellable state.
+    Runs the full refund flow for ONE occurrence: collect booked users, refund
+    all active bookings (+ clear waitlist), flip status to cancelled, audit, and
+    project the diary "cancelled" event. The CALLER must have locked the row
+    (FOR UPDATE), verified ownership, and confirmed the status is cancellable --
+    this core does not re-check. Returns the number of refunded bookings.
     """
-    stmt = (
-        select(Practice)
-        .where(Practice.id == practice_id)
-        .with_for_update()
-    )
-    result = await session.execute(stmt)
-    practice = result.scalar_one_or_none()
-
-    if not practice:
-        raise NotFoundError("Practice not found")
-
-    # P-08: 404 not 403 for non-owner.
-    if practice.master_id != user.id:
-        raise NotFoundError("Practice not found")
-
-    if practice.status not in _CANCELLABLE_PRACTICE_STATUSES:
-        raise BadRequestError(
-            f"Cannot cancel practice in status "
-            f"{practice.status}"
-        )
-
     # Diary feed: collect the booked users BEFORE the refund flow runs --
     # refund_all_bookings_for_practice transitions bookings to cancelled, so
     # reading them afterwards would yield an empty set. Inline ORM query
@@ -1112,18 +1082,16 @@ async def cancel_practice(
 
     logger.info(
         "practice_cancelled",
-        practice_id=str(practice_id),
+        practice_id=str(practice.id),
         master_id=str(user.id),
         refunded_bookings=refunded_count,
     )
 
-    # Diary feed: fan out "master cancelled the practice" to the users who
-    # were booked (collected above, before the refund). occurred_at is now.
-    # Diary feed: fan out "master cancelled the practice" to the users who
-    # were booked (collected above, before the refund). occurred_at is now.
+    # Diary feed: fan out "master cancelled the practice" to the users who were
+    # booked (collected above, before the refund). occurred_at is now. Master
+    # name for the diary card: full "First Last" (MVP rule). Load the User
+    # directly rather than get_master_display_name (notification helper).
     from app.modules.diary.projections import project_practice_cancelled
-    # Master name for the diary card: full "First Last" (MVP rule). Load the
-    # User directly rather than get_master_display_name (notification helper).
     master_user = await session.get(User, practice.master_id)
     master_name = _master_full_name(
         master_user.first_name if master_user else None,
@@ -1137,7 +1105,86 @@ async def cancel_practice(
         occurred_at=datetime.now(UTC),
     )
 
-    return practice
+    return refunded_count
+
+
+async def cancel_practice(
+    practice_id: UUID,
+    user: User,
+    session: AsyncSession,
+    *,
+    scope: str = "this",
+) -> Practice:
+    """Cancel a scheduled/live practice with full refund to all participants.
+
+    Master-only. This is the ONLY path to Practice.status=cancelled (PATCH
+    status=cancelled is intentionally blocked in _VALID_TRANSITIONS).
+
+    scope:
+      "this"            -- cancel only this occurrence (the historical default).
+      "this_and_future" -- for a SERIES, also cancel every LATER occurrence of
+                           the same series (scheduled_at >= this one's) that is
+                           still cancellable. A non-series practice has no
+                           siblings, so it behaves like "this". Past, completed,
+                           or already-cancelled occurrences are never touched.
+
+    Each affected occurrence is locked FOR UPDATE (P-12), refunded via the same
+    double-entry flow, audited, and projected to the diary. Returns the primary
+    practice (the one addressed by practice_id).
+
+    Raises NotFoundError if not found or not owner (P-08: 404 not 403).
+    Raises BadRequestError if the primary practice is not in a cancellable state.
+    """
+    # Lock + validate the primary occurrence.
+    primary = (
+        await session.execute(
+            select(Practice)
+            .where(Practice.id == practice_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+
+    if not primary:
+        raise NotFoundError("Practice not found")
+
+    # P-08: 404 not 403 for non-owner.
+    if primary.master_id != user.id:
+        raise NotFoundError("Practice not found")
+
+    if primary.status not in _CANCELLABLE_PRACTICE_STATUSES:
+        raise BadRequestError(
+            f"Cannot cancel practice in status "
+            f"{primary.status}"
+        )
+
+    await _cancel_one(primary, user, session)
+
+    if scope == "this_and_future":
+        # Series identity = the root id (parent if this is a child, else its own
+        # id). Cancel later siblings of the SAME series that are still
+        # cancellable; non-series practices have no siblings, so this is empty
+        # and the call reduces to "this".
+        root_id = primary.parent_practice_id or primary.id
+        root_expr = func.coalesce(Practice.parent_practice_id, Practice.id)
+        siblings = (
+            (
+                await session.execute(
+                    select(Practice)
+                    .where(
+                        root_expr == root_id,
+                        Practice.id != primary.id,
+                        Practice.scheduled_at >= primary.scheduled_at,
+                        Practice.status.in_(_CANCELLABLE_PRACTICE_STATUSES),
+                    )
+                    .order_by(Practice.scheduled_at)
+                    .with_for_update()
+                )
+            ).scalars().all()
+        )
+        for sibling in siblings:
+            await _cancel_one(sibling, user, session)
+
+    return primary
 
 
 # ===================================================================

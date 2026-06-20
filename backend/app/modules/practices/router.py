@@ -45,6 +45,7 @@ from app.modules.auth.dependencies import (
 )
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.schemas import (
+    CancelPracticeRequest,
     CreatePracticeRequest,
     PaginatedPracticesResponse,
     PracticeResponse,
@@ -303,6 +304,7 @@ async def delete_practice_endpoint(
 )
 async def cancel_practice_endpoint(
     practice_id: UUID,
+    body: CancelPracticeRequest | None = None,
     master_tuple: tuple[User, MasterProfile] = Depends(
         get_current_master,
     ),
@@ -310,13 +312,17 @@ async def cancel_practice_endpoint(
 ) -> PracticeResponse:
     """Cancel a practice and refund all participants (owner master only).
 
-    100% refund to every active booking. Waitlist entries cleared.
-    Only works on scheduled/live practices. This is the only way
-    to transition a practice to cancelled status.
+    100% refund to every active booking. Waitlist entries cleared. Only works
+    on scheduled/live practices. This is the only way to reach cancelled status.
+
+    Optional body {scope}: "this" (the default, or no body) cancels only this
+    occurrence; "this_and_future" also cancels every later occurrence of the
+    same series (a non-series practice behaves like "this").
     """
     user, _profile = master_tuple
+    scope = (body or CancelPracticeRequest()).scope
     practice = await cancel_practice(
-        practice_id, user, session,
+        practice_id, user, session, scope=scope,
     )
     await session.flush()
     await session.refresh(practice)
