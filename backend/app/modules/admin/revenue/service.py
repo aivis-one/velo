@@ -14,16 +14,20 @@
 #                      E2) + payout (net approved withdrawals), in the period;
 #                      sorted by earned_cents desc.
 #
+# CALENDAR BOUNDS come from core.periods (single source of truth, E7); revenue
+# is a single-period aggregate, so the previous-period start is ignored.
+#
 # All metrics are platform-wide. SESSION: read-only, no commit (P-01), ORM-only.
 # =============================================================================
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.periods import calendar_period_bounds
 from app.modules.admin.revenue.schemas import (
     AdminRevenuePerMaster,
     AdminRevenueResponse,
@@ -42,26 +46,6 @@ from app.modules.withdrawals.models import Withdrawal, WithdrawalStatus
 logger = structlog.get_logger()
 
 
-def _calendar_bounds(period: str, now: datetime) -> tuple[datetime, datetime]:
-    """Return (start, end) for a calendar period (UTC).
-
-    week  -> Monday 00:00 .. next Monday.
-    month -> 1st 00:00 .. next 1st.
-    """
-    if period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0,
-        )
-        return start, start + timedelta(weeks=1)
-
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if start.month == 12:
-        end = start.replace(year=start.year + 1, month=1)
-    else:
-        end = start.replace(month=start.month + 1)
-    return start, end
-
-
 def _master_name(first_name: str | None, last_name: str | None) -> str:
     """Display name: first + last, else a neutral label (this is a master)."""
     name = " ".join(part for part in (first_name, last_name) if part).strip()
@@ -73,7 +57,8 @@ async def get_admin_revenue(
     session: AsyncSession,
 ) -> AdminRevenueResponse:
     """Platform revenue, commission, payout, and per-master breakdown."""
-    start, end = _calendar_bounds(period, datetime.now(UTC))
+    # Single-period aggregate: the previous-period start is unused here.
+    start, end, _prev_start = calendar_period_bounds(period, datetime.now(UTC))
 
     # -- revenue (GMV): gross sales of completed purchases in the period --
     revenue_cents = (

@@ -24,56 +24,27 @@
 #   Title-tagged DONE rows, newest first, paginated. counterparty_name is
 #   resolved via an outer join to users (null for platform-side rows).
 #
-# CALENDAR BOUNDS are computed in UTC. A master in another timezone sees the
-# UTC calendar week/month -- an accepted MVP simplification (revisit with E7).
+# CALENDAR BOUNDS + the income delta come from core.periods (single source of
+# truth, E7): calendar_period_bounds gives the UTC week/month boundaries and
+# period_delta_pct encodes the S-1 rule. A master in another timezone sees the
+# UTC calendar week/month -- an accepted MVP simplification.
 #
 # SESSION RULES:
 #   Read-only -- callers pass get_db_reader. No commit (P-01).
 # =============================================================================
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.periods import calendar_period_bounds, period_delta_pct
 from app.modules.payments.models import LedgerStatus, MasterLedger
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
-
-
-def _calendar_period_bounds(
-    period: str, now: datetime,
-) -> tuple[datetime, datetime, datetime]:
-    """Return (current_start, current_end, prev_start) for a calendar period.
-
-    current_end doubles as prev_end (periods are contiguous). Boundaries are
-    UTC. `period` is "week" (Monday 00:00 .. next Monday) or "month"
-    (1st 00:00 .. next 1st).
-    """
-    if period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0,
-        )
-        current_end = start + timedelta(weeks=1)
-        prev_start = start - timedelta(weeks=1)
-        return start, current_end, prev_start
-
-    # month
-    start = now.replace(
-        day=1, hour=0, minute=0, second=0, microsecond=0,
-    )
-    if start.month == 12:
-        current_end = start.replace(year=start.year + 1, month=1)
-    else:
-        current_end = start.replace(month=start.month + 1)
-    if start.month == 1:
-        prev_start = start.replace(year=start.year - 1, month=12)
-    else:
-        prev_start = start.replace(month=start.month - 1)
-    return start, current_end, prev_start
 
 
 async def _sum_titled_income(
@@ -113,21 +84,17 @@ async def get_master_income(
     feed -- not realized earnings. Returns a dict ready for IncomeResponse.
     """
     now = datetime.now(UTC)
-    cur_start, cur_end, prev_start = _calendar_period_bounds(period, now)
+    cur_start, cur_end, prev_start = calendar_period_bounds(period, now)
 
     income = await _sum_titled_income(user_id, cur_start, cur_end, session)
     prev_income = await _sum_titled_income(
         user_id, prev_start, cur_start, session,
     )
 
-    # delta_pct only when the previous period was net-positive. With prev <= 0
-    # there is no meaningful base: prev == 0 divides by zero, and prev < 0
-    # (refunds exceeded sales) would flip the sign through abs(). In both cases
-    # we return null and let the client show "--" instead of a misleading %.
-    if prev_income > 0:
-        delta_pct: int | None = round((income - prev_income) / prev_income * 100)
-    else:
-        delta_pct = None
+    # Signed percent change vs the previous period; null when prev <= 0 (S-1:
+    # prev == 0 divides by zero, prev < 0 would flip the sign). Client shows
+    # "--" in that case.
+    delta_pct = period_delta_pct(income, prev_income)
 
     return {
         "income_cents": income,

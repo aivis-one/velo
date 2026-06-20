@@ -22,6 +22,9 @@
 #
 # rate_pct is integer percent, 0 when the denominator is 0 (honest empty).
 #
+# CALENDAR BOUNDS come from core.periods (single source of truth, E7); the
+# previous-period start is unused here (return looks BEFORE the period start).
+#
 # SESSION RULES:
 #   Read-only -- callers pass get_db_reader. No commit (P-01). ORM-only.
 # =============================================================================
@@ -34,6 +37,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.periods import calendar_period_bounds
 from app.modules.admin.metrics.schemas import (
     CheckinMetricResponse,
     FeedbackMetricResponse,
@@ -57,32 +61,6 @@ _GOOD_MAX = 7
 # How many practices / users to surface in the low / top sections.
 _LOW_LIMIT = 5
 _TOP_LIMIT = 5
-
-
-def _calendar_bounds(
-    period: str, now: datetime,
-) -> tuple[datetime, datetime, datetime]:
-    """Return (start, end, prev_start) for a calendar period (UTC).
-
-    week  -> Monday 00:00 .. next Monday; prev_start = previous Monday.
-    month -> 1st 00:00 .. next 1st;       prev_start = previous month 1st.
-    """
-    if period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0,
-        )
-        return start, start + timedelta(weeks=1), start - timedelta(weeks=1)
-
-    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    if start.month == 12:
-        end = start.replace(year=start.year + 1, month=1)
-    else:
-        end = start.replace(month=start.month + 1)
-    if start.month == 1:
-        prev_start = start.replace(year=start.year - 1, month=12)
-    else:
-        prev_start = start.replace(month=start.month - 1)
-    return start, end, prev_start
 
 
 def _pct(numerator: int, denominator: int) -> int:
@@ -110,7 +88,7 @@ async def get_checkin_metric(
     session: AsyncSession,
 ) -> CheckinMetricResponse:
     """Check-in rate + weekly series + low-check-in practices for the period."""
-    start, end, _prev = _calendar_bounds(period, datetime.now(UTC))
+    start, end, _prev = calendar_period_bounds(period, datetime.now(UTC))
     bucket_days, n_buckets = _bucket_layout(period, start, end)
 
     # One row per attended booking in the period: practice, scheduled_at, and
@@ -198,7 +176,7 @@ async def get_feedback_metric(
     session: AsyncSession,
 ) -> FeedbackMetricResponse:
     """Feedback rate + rating distribution for the period."""
-    start, end, _prev = _calendar_bounds(period, datetime.now(UTC))
+    start, end, _prev = calendar_period_bounds(period, datetime.now(UTC))
 
     # visited = attended bookings whose practice fell in the period.
     visited = (
@@ -263,7 +241,7 @@ async def get_return_metric(
     session: AsyncSession,
 ) -> ReturnMetricResponse:
     """Return rate + top loyal users for the period."""
-    start, end, _prev = _calendar_bounds(period, datetime.now(UTC))
+    start, end, _prev = calendar_period_bounds(period, datetime.now(UTC))
 
     # Unique users with an attended practice in the period.
     period_user_ids = set(
