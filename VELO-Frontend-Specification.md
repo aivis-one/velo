@@ -225,6 +225,25 @@ Browser / Telegram
 - Nginx: app.domain.com → фронтенд, api.domain.com → бэкенд
 - Код не меняется
 
+> **Бэкенд-контракты — обновление (backend-sourced, 2026-06-20).** Этот блок ведёт
+> бэкенд (Zod); статус ВАЙРИНГА на стороне фронта — за фронт-командой (P0-вайринг
+> сделан в `f6c9744`). Зафиксированы как ground-truth контракта:
+> - **Новые эндпоинты под вайринг/сверку:** `GET /masters/me/income?period`,
+>   `GET /masters/me/transactions`, `GET /masters/me/students` (+`/{id}`),
+>   `GET /masters/me/reviews?attention=` (cross-practice, поле `practice_title`),
+>   `GET /practices/{id}/reviews` (+`attention`), `GET /admin/metrics/check-in|feedback|return`,
+>   `GET /admin/revenue`, `GET /admin/practices` (+`/{id}` + roster). Типы — в
+>   `generated.ts` (118 типов после регенерации). Подробности контрактов — Бэковый
+>   Кодекс §2.
+> - **Авто-финализация по длительности — закрыта бэкендом.** Практики `scheduled/live`
+>   переводятся в `completed` фоновым воркером по `scheduled_at + duration + buffer`
+>   (15 мин); ручной `finalizePractice` / кнопка «Завершить» бэкенду больше не нужны.
+> - **Чек-ин Zoom-независим (продуктовый инвариант, важно для явки).** Явка теперь
+>   засчитывается и по PRE-чек-ину, поэтому путь к чек-ину НЕ должен гейтиться
+>   наличием `zoom_link` (баннер на дашборде + кнопка на live-экране).
+> - **`role_switch_enabled`** теперь логирует security-WARNING на бэке — на поведение
+>   фронта не влияет, эксплуатационная заметка.
+
 ### 3.3. Платформенная абстракция
 
 ```typescript
