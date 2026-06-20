@@ -27,6 +27,8 @@
 #   The validator below raises at startup if this happens in production.
 # =============================================================================
 
+import logging
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -476,6 +478,24 @@ class Settings(BaseSettings):
             raise ValueError(
                 "log_level DEBUG is not allowed in production. "
                 "Use INFO or higher."
+            )
+
+        # SEC (W-4 defense-in-depth): role_switch_enabled is a TEST-ONLY flag
+        # that activates POST /users/me/role -- a tester can switch their OWN
+        # account into any seeded allowed role, including admin. app_env cannot
+        # tell the TEST server (prod-grade, by design) apart from PROD, so we
+        # cannot hard-gate this by environment; the dedicated flag IS the
+        # test/prod discriminator. Instead we emit a LOUD warning whenever the
+        # flag is on: expected noise on the TEST server, an alarm in PRODUCTION
+        # logs (prod must leave it unset/False). A warning -- not a raise --
+        # keeps config.py import-safe for Alembic (mirrors the STRIPE_STUB note
+        # above: startup hard-guards live in main.py lifespan, not here).
+        if self.role_switch_enabled:
+            logging.getLogger("velo.security").warning(
+                "ROLE_SWITCH_ENABLED is ON: the self role-switch endpoint "
+                "(POST /users/me/role) is active and seeded testers may switch "
+                "into admin. This MUST be a non-production server -- production "
+                "must leave ROLE_SWITCH_ENABLED unset/False."
             )
 
         return self
