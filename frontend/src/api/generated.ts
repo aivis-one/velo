@@ -757,6 +757,9 @@ export interface PracticeResponse {
   direction?: string | null
   style?: string | null
   difficulty?: string | null
+  recurrence_days?: number[] | null
+  total_sessions?: number | null
+  completed_sessions?: number | null
   is_booked?: boolean
   is_paid?: boolean
   created_at: string
