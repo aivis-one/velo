@@ -496,6 +496,16 @@ export interface MasterReviewItem {
   created_at: string
 }
 
+/** GET /api/v1/masters/me/stats?period=week|month. practices_count -- master's practices scheduled in the period (excludes draft / deleted / cancelled). participants_count -- distinct users with an ATTENDED booking across those practices. income_cents -- gross booked turnover for the period, reused verbatim from the E2 finance projection. The dashboard renders practices/participants; the finance screen renders income. Each *_delta_pct is the signed percent change vs the previous period, or null when the previous period was non-positive (S-1). */
+export interface MasterStatsResponse {
+  practices_count: number
+  practices_delta_pct: number | null
+  participants_count: number
+  participants_delta_pct: number | null
+  income_cents: number
+  income_delta_pct: number | null
+}
+
 /** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). */
 export interface MasterTransactionItem {
   title: string
