@@ -60,7 +60,8 @@
 #   guards against explicit null.
 # =============================================================================
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -123,6 +124,78 @@ def _validate_style_for_direction(direction: str | None, style: str | None) -> N
         )
 
 
+# -- Recurrence spec (E3, series only) --
+# Lives on the series ROOT in Practice.data.recurrence (schema-on-read, the
+# same JSONB sandbox as taxonomy) and drives child-occurrence generation when
+# the series is published (draft -> scheduled). Closed vocabularies (period /
+# end) stay as Literal -- by-design, not config-driven, matching the feed's
+# duration_bucket / time_of_day. The occurrence ceiling IS config-driven
+# (settings.practice_series_max_occurrences).
+
+
+class RecurrenceSpec(BaseModel):
+    """Recurrence rule for a series practice.
+
+    Fields:
+      period     -- daily: every calendar day after the root; weekly: on `days`,
+                    every week; biweekly: on `days`, every other week.
+      days       -- ISO weekday ints (1=Mon .. 7=Sun) the series recurs on.
+                    REQUIRED and non-empty for weekly/biweekly; ignored for
+                    daily (generation does not read it).
+      end        -- never: generate up to the cap; until_date: occurrences
+                    through `until_date` (inclusive, local date); after_count:
+                    exactly `count` occurrences.
+      count      -- TOTAL occurrences INCLUDING the root (so count=40 yields the
+                    root + 39 children). Required for after_count; 1..cap. An
+                    explicit count above the cap is a 422 (the user named the
+                    number -- we do not silently truncate it; until_date / never
+                    are truncated silently instead).
+      until_date -- local calendar date of the last allowed occurrence; required
+                    for until_date.
+    """
+
+    period: Literal["daily", "weekly", "biweekly"]
+    days: list[int] = Field(default_factory=list)
+    end: Literal["never", "until_date", "after_count"]
+    count: int | None = Field(default=None, ge=1)
+    until_date: date | None = None
+
+    @field_validator("days")
+    @classmethod
+    def _days_in_iso_range(cls, v: list[int]) -> list[int]:
+        """Each weekday must be an ISO int 1..7; de-duplicate and sort."""
+        bad = [d for d in v if d < 1 or d > 7]
+        if bad:
+            raise ValueError(
+                f"recurrence days must be ISO weekday ints 1..7, got {bad}"
+            )
+        return sorted(set(v))
+
+    @model_validator(mode="after")
+    def _check_consistency(self) -> "RecurrenceSpec":
+        """Cross-field rules: weekday requirement + end-condition payloads.
+
+        The cap comes from config; an explicit after_count above it is rejected
+        here (-> 422). daily ignores `days`, so no weekday requirement applies.
+        """
+        cap = settings.practice_series_max_occurrences
+        if self.period in ("weekly", "biweekly") and not self.days:
+            raise ValueError(
+                f"recurrence days are required for period '{self.period}'"
+            )
+        if self.end == "after_count":
+            if self.count is None:
+                raise ValueError("count is required when end='after_count'")
+            if self.count > cap:
+                raise ValueError(
+                    f"count must be <= {cap} (series occurrence cap), "
+                    f"got {self.count}"
+                )
+        elif self.end == "until_date" and self.until_date is None:
+            raise ValueError("until_date is required when end='until_date'")
+        return self
+
+
 class CreatePracticeRequest(BaseModel):
     """POST /api/v1/practices -- request body."""
 
@@ -165,6 +238,14 @@ class CreatePracticeRequest(BaseModel):
         default=None, max_length=settings.practice_style_max_length,
     )
 
+    # -- Recurrence (E3, series only) --
+    # Optional. When present, practice_type MUST be "series" (enforced below)
+    # and the practice is materialized into child occurrences on publication
+    # (draft -> scheduled). A series practice WITHOUT a spec is allowed -- it
+    # stays a single tagged practice (e.g. the seed's demo series); generation
+    # simply no-ops. Persisted into data.recurrence by the service layer.
+    recurrence: RecurrenceSpec | None = None
+
     @field_validator("practice_type")
     @classmethod
     def practice_type_must_be_valid(cls, v: str) -> str:
@@ -205,6 +286,24 @@ class CreatePracticeRequest(BaseModel):
         direction is REQUIRED on create, so this validator always has it.
         """
         _validate_style_for_direction(self.direction, self.style)
+        return self
+
+    @model_validator(mode="after")
+    def _check_recurrence_requires_series(self) -> "CreatePracticeRequest":
+        """A recurrence spec is only meaningful on a series practice.
+
+        Reject recurrence sent with a non-series type (a contradiction -> 422).
+        The reverse is allowed: a series practice may omit recurrence and stay a
+        single tagged practice. Generation is gated on the spec's presence, not
+        on the type alone.
+        """
+        if (
+            self.recurrence is not None
+            and self.practice_type != PracticeType.SERIES.value
+        ):
+            raise ValueError(
+                "recurrence is only allowed when practice_type='series'"
+            )
         return self
 
     @field_validator("currency")

@@ -210,6 +210,17 @@ class Settings(BaseSettings):
     # Upper cap for max_participants (ge=1 enforced in schema).
     practice_max_participants_limit: int = 10000
 
+    # -- Practice series / recurrence (E3) --
+    # A "series" practice (practice_type=series WITH a recurrence spec) is
+    # materialized into child Practice rows when it is published (draft ->
+    # scheduled). This is the hard ceiling on the TOTAL number of occurrences in
+    # one series (the root + its generated children). It backs both the
+    # schema-level guard (an explicit recurrence after_count > this -> 422) and
+    # the generation cap (until_date / never are silently truncated to this many
+    # occurrences). The frontend create form defaults the repeat count to 40, so
+    # the ceiling matches that default. NO-LITERALS: tunable here, not inline.
+    practice_series_max_occurrences: int = 40
+
     # -- Stripe (Phase 6.3) --
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""

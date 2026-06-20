@@ -64,9 +64,10 @@
 # =============================================================================
 
 import copy
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 import structlog
 from sqlalchemy import and_, extract, func, select
@@ -80,7 +81,7 @@ from app.core.exceptions import (
 )
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.payments.refund import refund_all_bookings_for_practice
-from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.practices.schemas import (
     CreatePracticeRequest,
     PaginatedPracticesResponse,
@@ -359,14 +360,19 @@ async def create_practice(
     # Calendar taxonomy -> data.taxonomy (JSONB sandbox).
     # set_jsonb() flags the column modified so SQLAlchemy emits the write;
     # a fresh dict is safe to assign on a not-yet-persisted object.
-    practice.set_jsonb(
-        "data",
-        {
-            "taxonomy": _build_taxonomy(
-                body.direction, body.difficulty, body.style,
-            ),
-        },
-    )
+    data: dict = {
+        "taxonomy": _build_taxonomy(
+            body.direction, body.difficulty, body.style,
+        ),
+    }
+    # E3: persist the recurrence spec on the series root (schema-on-read, the
+    # same JSONB sandbox as taxonomy). Stored as plain JSON (dates -> ISO
+    # strings via mode="json") so it round-trips through JSONB; generation
+    # parses it back on publication. A series practice without a spec omits the
+    # key entirely, and generation no-ops for it.
+    if body.recurrence is not None:
+        data["recurrence"] = body.recurrence.model_dump(mode="json")
+    practice.set_jsonb("data", data)
 
     session.add(practice)
 
@@ -382,6 +388,189 @@ async def create_practice(
     )
 
     return practice
+
+
+# ===================================================================
+# Series occurrence generation (E3)
+# ===================================================================
+
+
+def _series_occurrence_starts(
+    root: Practice,
+    spec: dict,
+    cap: int,
+) -> list[datetime]:
+    """Compute UTC start datetimes for a series root's CHILD occurrences.
+
+    The root itself is occurrence #1 (its scheduled_at); this returns the
+    subsequent occurrences (#2..N) as tz-aware UTC datetimes.
+
+    DST-safe: each occurrence is built at the root's LOCAL wall-clock time (same
+    hour/minute as the root) in the root's IANA timezone, then converted to UTC
+    per-occurrence -- so 19:00 local stays 19:00 local across a DST transition
+    rather than drifting by an hour.
+
+    period:
+      daily    -- every calendar day after the root (days are ignored).
+      weekly   -- on the spec's ISO weekdays (1=Mon..7=Sun), every week.
+      biweekly -- on the spec's ISO weekdays, every OTHER week (parity measured
+                  from the root's week, Monday-anchored).
+
+    end / cap (root included in the total):
+      after_count -- total occurrences is min(count, cap).
+      until_date  -- occurrences through until_date (inclusive, local date),
+                     truncated to the cap.
+      never       -- exactly cap occurrences.
+    The TOTAL (root + children) never exceeds `cap`, so at most cap-1 children
+    are returned.
+    """
+    period = spec["period"]
+    end = spec["end"]
+    days = set(spec.get("days") or ())
+    count = spec.get("count")
+    until_raw = spec.get("until_date")
+    until_date = date.fromisoformat(until_raw) if until_raw else None
+
+    # Total occurrences (root included) we are allowed to emit.
+    if end == "after_count" and count is not None:
+        total_target = min(int(count), cap)
+    else:  # never / until_date
+        total_target = cap
+    max_children = max(0, total_target - 1)
+    if max_children == 0:
+        return []
+
+    tz = ZoneInfo(root.timezone)
+    anchor_local = root.scheduled_at.astimezone(tz)
+    anchor_date = anchor_local.date()
+    anchor_monday = anchor_date - timedelta(days=anchor_date.weekday())
+    hour, minute = anchor_local.hour, anchor_local.minute
+
+    # Absolute safety ceiling on the forward day-walk so a pathological spec can
+    # never loop unbounded. cap=40 with biweekly single-day needs ~78 weeks;
+    # five years of days is comfortably beyond any reachable case.
+    safety_days = 366 * 5
+
+    starts: list[datetime] = []
+    cursor = anchor_date
+    for _ in range(safety_days):
+        cursor += timedelta(days=1)
+        if until_date is not None and cursor > until_date:
+            break
+
+        if period == "daily":
+            qualifies = True
+        else:
+            iso_weekday = cursor.isoweekday()  # 1=Mon .. 7=Sun
+            if iso_weekday not in days:
+                qualifies = False
+            elif period == "weekly":
+                qualifies = True
+            else:  # biweekly: even week offset from the root's week
+                cursor_monday = cursor - timedelta(days=cursor.weekday())
+                week_offset = (cursor_monday - anchor_monday).days // 7
+                qualifies = week_offset % 2 == 0
+
+        if not qualifies:
+            continue
+
+        # Build the local wall-clock instant, then convert to UTC (DST-safe).
+        local_dt = datetime(
+            cursor.year, cursor.month, cursor.day, hour, minute, tzinfo=tz,
+        )
+        starts.append(local_dt.astimezone(UTC))
+        if len(starts) >= max_children:
+            break
+
+    return starts
+
+
+def _build_child_occurrence(
+    root: Practice,
+    start_utc: datetime,
+) -> Practice:
+    """Build one child Practice for a series, copying the root's fields.
+
+    The child links back via parent_practice_id=root.id, starts already
+    SCHEDULED (it is created at publication time), and carries only the root's
+    taxonomy in its data sandbox -- NOT the recurrence spec (that lives on the
+    root alone) and NOT any seed marker. current_participants resets to 0 (the
+    ORM default).
+    """
+    child = Practice(
+        master_id=root.master_id,
+        practice_type=PracticeType.SERIES.value,
+        status=PracticeStatus.SCHEDULED.value,
+        title=root.title,
+        description=root.description,
+        what_to_prepare=root.what_to_prepare,
+        contraindications=root.contraindications,
+        scheduled_at=start_utc,
+        duration_minutes=root.duration_minutes,
+        timezone=root.timezone,
+        max_participants=root.max_participants,
+        zoom_link=root.zoom_link,
+        parent_practice_id=root.id,
+        is_free=root.is_free,
+        price_cents=root.price_cents,
+        currency=root.currency,
+    )
+    taxonomy = (root.data or {}).get("taxonomy")
+    if taxonomy is not None:
+        child.set_jsonb("data", {"taxonomy": copy.deepcopy(taxonomy)})
+    return child
+
+
+async def _generate_series_occurrences(
+    root: Practice,
+    session: AsyncSession,
+) -> int:
+    """Generate child occurrences for a published series root.
+
+    No-op (returns 0) unless the root carries a recurrence spec in
+    data.recurrence. Idempotent: if children already exist for this root they
+    are left untouched (defends against any re-entry, though draft -> scheduled
+    is a one-way transition). Children are added to the session; the router's
+    flush + refresh of the root persists them.
+
+    Returns the number of children created.
+    """
+    spec = (root.data or {}).get("recurrence")
+    if not spec:
+        return 0
+
+    # Idempotency guard: never double-generate for the same root.
+    existing = (
+        await session.execute(
+            select(func.count(Practice.id)).where(
+                Practice.parent_practice_id == root.id,
+            )
+        )
+    ).scalar_one()
+    if existing > 0:
+        logger.info(
+            "series_generation_skipped_existing",
+            root_practice_id=str(root.id),
+            existing_children=existing,
+        )
+        return 0
+
+    cap = settings.practice_series_max_occurrences
+    starts = _series_occurrence_starts(root, spec, cap)
+
+    for start_utc in starts:
+        session.add(_build_child_occurrence(root, start_utc))
+
+    logger.info(
+        "series_occurrences_generated",
+        root_practice_id=str(root.id),
+        master_id=str(root.master_id),
+        period=spec.get("period"),
+        end=spec.get("end"),
+        children_created=len(starts),
+    )
+
+    return len(starts)
 
 
 async def get_practice(
@@ -568,6 +757,9 @@ async def update_practice(
     # record old -> new in the diary feed projection below. Read BEFORE the
     # setattr loop overwrites practice.scheduled_at.
     old_scheduled_at = practice.scheduled_at
+    # E3: capture status before the loop applies the new one, so we can detect a
+    # draft -> scheduled publication and materialize series occurrences below.
+    old_status = practice.status
 
     # Apply only provided column fields.
     for field, value in update_data.items():
@@ -636,6 +828,19 @@ async def update_practice(
             new_scheduled_at=new_scheduled_at,
             occurred_at=datetime.now(UTC),
         )
+
+    # E3: materialize series occurrences when a series ROOT is published
+    # (draft -> scheduled). Gated inside the helper on the recurrence spec's
+    # presence, so a series practice without a spec (seed demo) is a no-op. Only
+    # roots generate (parent_practice_id is None); generated children are
+    # created already-scheduled and never re-enter this path.
+    if (
+        old_status == PracticeStatus.DRAFT.value
+        and practice.status == PracticeStatus.SCHEDULED.value
+        and practice.practice_type == PracticeType.SERIES.value
+        and practice.parent_practice_id is None
+    ):
+        await _generate_series_occurrences(practice, session)
 
     return practice
 
