@@ -380,3 +380,30 @@ async def test_cancel_invalid_scope_rejected(
 
     resp = await _cancel(client, auth, pid, scope="everything")
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_cancel_this_and_future_on_completed_root_rejected(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """this_and_future on an already-completed root is a 400 (not cancellable).
+
+    The primary-occurrence status check runs before any scope fan-out, so a
+    terminal root is rejected regardless of scope (W-2).
+    """
+    auth = await _make_verified_master(client, db_session)
+    root_id = await _create_and_publish(
+        client, auth,
+        recurrence={"period": "daily", "end": "after_count", "count": 4},
+    )
+    # Drive the root to a terminal status directly (no finalize flow needed).
+    await db_session.execute(
+        update(Practice)
+        .where(Practice.id == UUID(root_id))
+        .values(status=PracticeStatus.COMPLETED.value)
+    )
+    await db_session.commit()
+
+    resp = await _cancel(client, auth, root_id, scope="this_and_future")
+    assert resp.status_code == 400

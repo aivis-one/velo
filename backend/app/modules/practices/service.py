@@ -686,6 +686,17 @@ async def _generate_series_occurrences(
     cap = settings.practice_series_max_occurrences
     starts = _series_occurrence_starts(root, spec, cap)
 
+    # W-1: an until_date earlier than the first recurring occurrence produces no
+    # children, which would silently publish a "series" of just the root. Reject
+    # it so the master gets clear feedback rather than a degenerate series. Only
+    # until_date can be degenerate this way: never always fills to the cap, and
+    # after_count with count=1 is an explicit single-occurrence choice.
+    if not starts and spec.get("end") == "until_date":
+        raise BadRequestError(
+            "recurrence until_date is too early -- it yields no sessions "
+            "after the first occurrence; choose a later date"
+        )
+
     for start_utc in starts:
         session.add(_build_child_occurrence(root, start_utc))
 
@@ -1032,6 +1043,8 @@ async def _cancel_one(
     practice: Practice,
     user: User,
     session: AsyncSession,
+    *,
+    occurred_at: datetime | None = None,
 ) -> int:
     """Cancel a single, already-locked + already-validated practice occurrence.
 
@@ -1040,6 +1053,10 @@ async def _cancel_one(
     project the diary "cancelled" event. The CALLER must have locked the row
     (FOR UPDATE), verified ownership, and confirmed the status is cancellable --
     this core does not re-check. Returns the number of refunded bookings.
+
+    occurred_at is the diary timestamp for the projected "cancelled" event. A
+    scope cancellation spanning several occurrences passes ONE shared instant so
+    every diary card shares it (W-3); a lone call defaults to now.
     """
     # Diary feed: collect the booked users BEFORE the refund flow runs --
     # refund_all_bookings_for_practice transitions bookings to cancelled, so
@@ -1102,7 +1119,9 @@ async def _cancel_one(
         practice=practice,
         master_name=master_name,
         user_ids=affected_user_ids,
-        occurred_at=datetime.now(UTC),
+        occurred_at=(
+            occurred_at if occurred_at is not None else datetime.now(UTC)
+        ),
     )
 
     return refunded_count
@@ -1157,7 +1176,10 @@ async def cancel_practice(
             f"{primary.status}"
         )
 
-    await _cancel_one(primary, user, session)
+    # W-3: one shared instant for every occurrence this action cancels, so the
+    # diary cards line up rather than drifting by microseconds.
+    cancel_ts = datetime.now(UTC)
+    await _cancel_one(primary, user, session, occurred_at=cancel_ts)
 
     if scope == "this_and_future":
         # Series identity = the root id (parent if this is a child, else its own
@@ -1182,7 +1204,7 @@ async def cancel_practice(
             ).scalars().all()
         )
         for sibling in siblings:
-            await _cancel_one(sibling, user, session)
+            await _cancel_one(sibling, user, session, occurred_at=cancel_ts)
 
     return primary
 

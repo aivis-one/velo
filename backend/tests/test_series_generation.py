@@ -594,3 +594,37 @@ async def test_series_generation_idempotent(
 
     after = _children_of(await _scheduled_items(client, auth, master_id), root_id)
     assert len(after) == 3
+
+
+@pytest.mark.asyncio
+async def test_series_until_date_in_past_rejected_on_publish(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A past until_date yields no children, so publishing is a 400 rather than
+    a silent single-occurrence "series".
+
+    The schema accepts the syntactically valid date; the degenerate outcome is
+    caught at publication, when generation produces zero children (W-1).
+    """
+    auth = await _make_verified_master(client, db_session)
+
+    # Daily series whose until_date sits well before the (future) root, so no
+    # occurrence beyond the root itself can be emitted.
+    past = (date.today() - timedelta(days=30)).isoformat()
+    create = await client.post(
+        PRACTICES_URL,
+        json=_series_body(
+            {"period": "daily", "end": "until_date", "until_date": past},
+        ),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create.status_code == 201, create.text
+    root_id = create.json()["id"]
+
+    publish = await client.patch(
+        f"{PRACTICES_URL}/{root_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert publish.status_code == 400, publish.text
