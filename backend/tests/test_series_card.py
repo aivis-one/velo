@@ -144,6 +144,10 @@ async def _create_and_publish(
     body = _valid_practice_body(**overrides)
     if recurrence is not None:
         body["recurrence"] = recurrence
+        # A recurrence implies a series; set the type unless the caller pinned
+        # it explicitly (the batch-1 validator rejects recurrence on non-series).
+        if "practice_type" not in overrides:
+            body["practice_type"] = "series"
     create = await client.post(
         PRACTICES_URL,
         json=body,
