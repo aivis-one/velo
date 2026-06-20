@@ -591,6 +591,19 @@ class PracticeResponse(BaseModel):
     style: str | None = None
     difficulty: str | None = None
 
+    # -- Series meta (E3 batch 2; computed by the service for series roots) --
+    # Populated only for a `series` practice whose ROOT carries a recurrence
+    # spec; None otherwise (a non-series practice, or a series tag without a
+    # spec). The values describe the SERIES (root + children), so every
+    # occurrence of one series reports the same trio. recurrence_days are ISO
+    # weekday ints (1=Mon..7=Sun); daily is surfaced as the full week [1..7].
+    # total_sessions counts the series' occurrences excluding cancelled;
+    # completed_sessions is those with status=completed. The master list +
+    # detail endpoints fill these; the public feed leaves them None.
+    recurrence_days: list[int] | None = None
+    total_sessions: int | None = None
+    completed_sessions: int | None = None
+
     # -- Per-user state (computed by the service for the requesting user) --
     # Ephemeral, NOT stored in data JSONB. Default False so model_validate()
     # on a raw ORM object is safe; the service overrides them in feed/detail

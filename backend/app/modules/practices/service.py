@@ -247,6 +247,9 @@ def practice_to_response(
     master_avatar_url: str | None = None,
     is_booked: bool = False,
     is_paid: bool = False,
+    recurrence_days: list[int] | None = None,
+    total_sessions: int | None = None,
+    completed_sessions: int | None = None,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -275,6 +278,12 @@ def practice_to_response(
     # Per-user state for the requesting user (default False -- see schema).
     resp.is_booked = is_booked
     resp.is_paid = is_paid
+
+    # Series card meta (E3 batch 2). None unless the caller resolved it for a
+    # series-with-spec; the public feed leaves all three None.
+    resp.recurrence_days = recurrence_days
+    resp.total_sessions = total_sessions
+    resp.completed_sessions = completed_sessions
 
     return resp
 
@@ -319,6 +328,121 @@ async def _user_flags_for_practices(
     for practice_id, price_cents in result.all():
         flags[practice_id] = (True, price_cents > 0)
     return flags
+
+
+# -- Series card meta (E3 batch 2) -----------------------------------------
+# Resolve recurrence_days / total_sessions / completed_sessions for a page of
+# practices in two bounded queries (no N+1). Meta describes the SERIES (root +
+# children), so every occurrence of one series reports the same trio; only
+# series whose ROOT carries a recurrence spec get values, everything else stays
+# None on the response.
+
+# Tuple shape returned per practice: (recurrence_days, total, completed).
+_SeriesMeta = tuple[list[int] | None, int | None, int | None]
+
+
+def _recurrence_days_from_spec(spec: dict) -> list[int]:
+    """Card weekday list for a recurrence spec (ISO 1=Mon..7=Sun).
+
+    daily is surfaced as the full week [1..7] (the card renders "Ежедневно");
+    weekly/biweekly return the spec's selected days. The set/clamp keeps the
+    output well-formed even if the stored spec is unusual.
+    """
+    if spec.get("period") == "daily":
+        return [1, 2, 3, 4, 5, 6, 7]
+    return sorted({d for d in (spec.get("days") or []) if 1 <= d <= 7})
+
+
+def _series_meta_kwargs(meta: _SeriesMeta | None) -> dict:
+    """Unpack a series-meta tuple into practice_to_response kwargs.
+
+    None (not a series-with-spec) -> empty dict, so the response keeps its None
+    defaults for all three fields.
+    """
+    if meta is None:
+        return {}
+    recurrence_days, total_sessions, completed_sessions = meta
+    return {
+        "recurrence_days": recurrence_days,
+        "total_sessions": total_sessions,
+        "completed_sessions": completed_sessions,
+    }
+
+
+async def _series_meta_for_practices(
+    practices: list[Practice],
+    session: AsyncSession,
+) -> dict[UUID, _SeriesMeta]:
+    """Map practice_id -> (recurrence_days, total, completed) for a page.
+
+    Only practices belonging to a series whose ROOT carries a recurrence spec
+    (data.recurrence) appear in the map; the caller renders the rest as all
+    None. Two bounded queries regardless of page size:
+
+      1. roots: id + data for the page's distinct root ids -> recurrence_days
+         and which roots actually carry a spec.
+      2. counts: occurrences grouped by root id (coalesce(parent_practice_id,
+         id)), excluding cancelled -> total and completed (status=completed).
+    """
+    if not practices:
+        return {}
+
+    # root_id for each row: parent if a child, else its own id (it IS the root).
+    # No query -- the rows are already in hand.
+    root_id_of: dict[UUID, UUID] = {
+        p.id: (p.parent_practice_id or p.id) for p in practices
+    }
+    root_ids = set(root_id_of.values())
+
+    # -- Query 1: recurrence spec on each candidate root --
+    root_rows = (
+        await session.execute(
+            select(Practice.id, Practice.data).where(Practice.id.in_(root_ids))
+        )
+    ).all()
+    days_by_root: dict[UUID, list[int]] = {}
+    for root_id, data in root_rows:
+        spec = (data or {}).get("recurrence")
+        if spec:
+            days_by_root[root_id] = _recurrence_days_from_spec(spec)
+
+    spec_root_ids = set(days_by_root)
+    if not spec_root_ids:
+        # No series-with-spec on this page -- skip the count query entirely.
+        return {}
+
+    # -- Query 2: occurrence counts per series (cancelled excluded) --
+    root_expr = func.coalesce(Practice.parent_practice_id, Practice.id)
+    count_rows = (
+        await session.execute(
+            select(
+                root_expr.label("root"),
+                func.count(Practice.id),
+                func.count(Practice.id).filter(
+                    Practice.status == PracticeStatus.COMPLETED.value,
+                ),
+            )
+            .where(
+                root_expr.in_(spec_root_ids),
+                Practice.status != PracticeStatus.CANCELLED.value,
+            )
+            .group_by(root_expr)
+        )
+    ).all()
+    counts_by_root: dict[UUID, tuple[int, int]] = {
+        root_id: (total, completed)
+        for root_id, total, completed in count_rows
+    }
+
+    # -- Assemble per-practice meta (same trio for every occurrence) --
+    meta: dict[UUID, _SeriesMeta] = {}
+    for p in practices:
+        root_id = root_id_of[p.id]
+        if root_id not in spec_root_ids:
+            continue
+        total, completed = counts_by_root.get(root_id, (0, 0))
+        meta[p.id] = (days_by_root[root_id], total, completed)
+    return meta
 
 
 # ===================================================================
@@ -650,6 +774,7 @@ async def get_practice_detail(
     )
     flags = await _user_flags_for_practices(user.id, [practice.id], session)
     is_booked, is_paid = flags.get(practice.id, (False, False))
+    series_meta = await _series_meta_for_practices([practice], session)
     return practice_to_response(
         practice,
         master_name,
@@ -657,6 +782,7 @@ async def get_practice_detail(
         master_avatar_url=master_avatar_url,
         is_booked=is_booked,
         is_paid=is_paid,
+        **_series_meta_kwargs(series_meta.get(practice.id)),
     )
 
 
@@ -1054,9 +1180,18 @@ async def list_master_practices(
     result = await session.execute(stmt)
     rows = result.all()
 
+    # E3 batch 2: series card meta for the practices on this page (2 queries).
+    series_meta = await _series_meta_for_practices(
+        [p for p, _first, _last in rows], session,
+    )
+
     return PaginatedPracticesResponse(
         items=[
-            practice_to_response(p, _master_full_name(first, last))
+            practice_to_response(
+                p,
+                _master_full_name(first, last),
+                **_series_meta_kwargs(series_meta.get(p.id)),
+            )
             for p, first, last in rows
         ],
         total=total,
