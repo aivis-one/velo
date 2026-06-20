@@ -32,25 +32,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.diary.models import Checkin, Feedback
+from app.modules.diary.service import ATTENTION_RATING_MAX
 from app.modules.practices.models import Practice
+from app.modules.users.helpers import display_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
 
-# A student's latest feedback at or below this rating flags needs_attention
-# (the negative "confused" bucket, 1-3). Mirrors the reviews projection.
-_ATTENTION_RATING_MAX = 3
-
 # Cap on the recent_checkins / feedbacks lists on the detail screen.
 _RECENT_LIMIT = 10
-
-
-def _student_name(user: User) -> str:
-    """Display name for a student: first + last, else a neutral label."""
-    name = " ".join(
-        part for part in (user.first_name, user.last_name) if part
-    ).strip()
-    return name or "Участник"
 
 
 async def _needs_attention_map(
@@ -80,7 +70,7 @@ async def _needs_attention_map(
     )
     rows = (await session.execute(stmt)).all()
     return {
-        user_id: rating <= _ATTENTION_RATING_MAX for user_id, rating in rows
+        user_id: rating <= ATTENTION_RATING_MAX for user_id, rating in rows
     }
 
 
@@ -137,7 +127,7 @@ async def list_master_students(
     items = [
         {
             "id": user.id,
-            "name": _student_name(user),
+            "name": display_name(user.first_name, user.last_name),
             "avatar_url": user.avatar_url,
             "practices_count": count,
             "needs_attention": attention.get(user.id, False),
@@ -183,7 +173,10 @@ async def get_master_student_detail(
     # Identity for the detail header — same source as the list (StudentListItem):
     # the student's User record. Guaranteed present (the booking FK references it).
     student = await session.get(User, student_id)
-    name = _student_name(student) if student is not None else "Участник"
+    name = (
+        display_name(student.first_name, student.last_name)
+        if student is not None else "Участник"
+    )
     avatar_url = student.avatar_url if student is not None else None
 
     hours = round(total_minutes / 60, 1)

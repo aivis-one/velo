@@ -35,6 +35,7 @@ from app.modules.admin.practices.schemas import (
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.users.helpers import display_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -49,12 +50,6 @@ _HIDDEN_STATUSES = (
 def _temporal_status(scheduled_at: datetime, now: datetime) -> str:
     """upcoming if the practice has not happened yet, else past."""
     return "upcoming" if scheduled_at >= now else "past"
-
-
-def _person_name(first_name: str | None, last_name: str | None) -> str:
-    """Display name: first + last, else a neutral label."""
-    name = " ".join(part for part in (first_name, last_name) if part).strip()
-    return name or "Участник"
 
 
 def _master_name(profile: MasterProfile, user: User) -> str:
@@ -198,7 +193,7 @@ async def get_admin_practice_detail(
     roster = [
         AdminRosterEntry(
             user_id=user_id,
-            name=_person_name(first_name, last_name),
+            name=display_name(first_name, last_name),
             avatar_url=avatar_url,
             status=booking_status,
         )

@@ -50,6 +50,7 @@ from app.modules.admin.metrics.schemas import (
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.diary.models import Checkin, Feedback
 from app.modules.practices.models import Practice
+from app.modules.users.helpers import display_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -295,7 +296,7 @@ async def get_return_metric(
     top_users = [
         TopUser(
             id=user.id,
-            name=_user_name(user),
+            name=display_name(user.first_name, user.last_name),
             practices_count=count,
         )
         for user, count in top_rows
@@ -307,11 +308,3 @@ async def get_return_metric(
         returning=returning,
         top_users=top_users,
     )
-
-
-def _user_name(user: User) -> str:
-    """Display name: first + last, else a neutral label."""
-    name = " ".join(
-        part for part in (user.first_name, user.last_name) if part
-    ).strip()
-    return name or "Участник"

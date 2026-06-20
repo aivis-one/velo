@@ -6,11 +6,11 @@
 # master's COMPLETED practices -- the cross-practice counterpart to E1's
 # per-practice list_practice_reviews.
 #
-# REUSE (S-2 -- consolidate, do not duplicate): the rating-bucket mapping
-# (1-3 confused / 4-7 good / 8-10 fire), the reviewer-name formatter, and the
-# attention threshold are imported from diary.service rather than re-copied.
-# masters -> diary is a one-way dependency (diary never imports masters), so
-# there is no import cycle.
+# REUSE (consolidate, do not duplicate): the rating-bucket mapping (1-3
+# confused / 4-7 good / 8-10 fire) and the attention threshold come from
+# diary.service; the reviewer's display name comes from the shared
+# users.display_name formatter (S-1c). Neither import forms a cycle
+# (users.helpers is import-free; diary.service does not import masters reviews).
 #
 # attention=True narrows the feed to the negative (confused) bucket for the
 # dashboard "Требуют внимания" block; attention=False returns the full feed.
@@ -25,11 +25,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.diary.models import Feedback
 from app.modules.diary.service import (
-    _ATTENTION_RATING_MAX,
-    _rating_bucket,
-    _reviewer_name,
+    ATTENTION_RATING_MAX,
+    rating_bucket,
 )
 from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.users.helpers import display_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -72,7 +72,7 @@ async def list_master_reviews(
         )
     )
     if attention:
-        base = base.where(Feedback.rating <= _ATTENTION_RATING_MAX)
+        base = base.where(Feedback.rating <= ATTENTION_RATING_MAX)
 
     # Total derived from the base query (filters applied once).
     total = (
@@ -91,9 +91,9 @@ async def list_master_reviews(
 
     items = [
         {
-            "reviewer_name": _reviewer_name(author),
+            "reviewer_name": display_name(author.first_name, author.last_name),
             "avatar_url": author.avatar_url,
-            "rating": _rating_bucket(feedback.rating),
+            "rating": rating_bucket(feedback.rating),
             "comment": feedback.comment,
             "practice_title": practice_title,
             "created_at": feedback.created_at,

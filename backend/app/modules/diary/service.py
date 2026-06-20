@@ -57,6 +57,7 @@ from app.modules.diary.projections import (
 )
 from app.modules.masters.service import get_master_display_name
 from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.users.helpers import display_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -1135,13 +1136,18 @@ async def get_practice_insights(
 # Practice reviews (E1, master-facing, NON-anonymous)
 # ===================================================================
 
+# Rating helpers shared with the cross-practice feed in masters/reviews_service
+# (S-1): public so the import targets diary's intentional API. The reviewer's
+# display name uses the shared users.display_name formatter (S-1c) -- see
+# list_practice_reviews below.
+#
 # A review with rating in this range is "negative" -- the confused bucket
 # (1-3). attention=True narrows the feed to exactly these for the dashboard
 # "needs attention" block.
-_ATTENTION_RATING_MAX = 3
+ATTENTION_RATING_MAX = 3
 
 
-def _rating_bucket(score: int) -> str:
+def rating_bucket(score: int) -> str:
     """Map a 1..10 feedback rating to its UI bucket name.
 
     Same ranges as _score_bucket (1-3 / 4-7 / 8-10), but renamed to the
@@ -1151,19 +1157,6 @@ def _rating_bucket(score: int) -> str:
     return {"low": "confused", "mid": "good", "high": "fire"}[
         _score_bucket(score)
     ]
-
-
-def _reviewer_name(author: User) -> str:
-    """Display name for a review author: first + last, else a neutral label.
-
-    Deliberately never falls back to a raw id -- this is a user-facing name,
-    and leaking an identifier here would undo the point of a named-but-safe
-    projection. An author with no name renders as a generic participant label.
-    """
-    name = " ".join(
-        part for part in (author.first_name, author.last_name) if part
-    ).strip()
-    return name or "Участник"
 
 
 async def list_practice_reviews(
@@ -1221,7 +1214,7 @@ async def list_practice_reviews(
         .where(Feedback.practice_id == practice_id)
     )
     if attention:
-        base = base.where(Feedback.rating <= _ATTENTION_RATING_MAX)
+        base = base.where(Feedback.rating <= ATTENTION_RATING_MAX)
 
     # 3. Total derived from the base query (11.1 pattern -- filters once).
     total = (
@@ -1241,9 +1234,9 @@ async def list_practice_reviews(
 
     items = [
         {
-            "reviewer_name": _reviewer_name(author),
+            "reviewer_name": display_name(author.first_name, author.last_name),
             "avatar_url": author.avatar_url,
-            "rating": _rating_bucket(feedback.rating),
+            "rating": rating_bucket(feedback.rating),
             "comment": feedback.comment,
             "created_at": feedback.created_at,
         }
