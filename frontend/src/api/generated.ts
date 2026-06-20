@@ -486,6 +486,16 @@ export interface MasterPublicResponse {
   reviews_count: number
 }
 
+/** One named review in the master-wide feed. */
+export interface MasterReviewItem {
+  reviewer_name: string
+  avatar_url: string | null
+  rating: string
+  comment: string | null
+  practice_title: string
+  created_at: string
+}
+
 /** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). */
 export interface MasterTransactionItem {
   title: string
@@ -560,6 +570,14 @@ export interface PaginatedDiaryEntriesResponse {
 /** GET /api/v1/users/me/feedbacks -- paginated list. */
 export interface PaginatedFeedbacksResponse {
   items: FeedbackResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /api/v1/masters/me/reviews -- paginated cross-practice feed. */
+export interface PaginatedMasterReviewsResponse {
+  items: MasterReviewItem[]
   total: number
   limit: number
   offset: number
