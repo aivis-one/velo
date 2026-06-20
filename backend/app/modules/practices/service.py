@@ -444,7 +444,6 @@ def _series_occurrence_starts(
     anchor_local = root.scheduled_at.astimezone(tz)
     anchor_date = anchor_local.date()
     anchor_monday = anchor_date - timedelta(days=anchor_date.weekday())
-    hour, minute = anchor_local.hour, anchor_local.minute
 
     # Absolute safety ceiling on the forward day-walk so a pathological spec can
     # never loop unbounded. cap=40 with biweekly single-day needs ~78 weeks;
@@ -474,9 +473,14 @@ def _series_occurrence_starts(
         if not qualifies:
             continue
 
-        # Build the local wall-clock instant, then convert to UTC (DST-safe).
+        # Build the local wall-clock instant -- preserving the root's FULL
+        # time-of-day (sub-minute included) so occurrences sit exactly one
+        # recurrence interval apart -- then convert to UTC (DST-safe).
         local_dt = datetime(
-            cursor.year, cursor.month, cursor.day, hour, minute, tzinfo=tz,
+            cursor.year, cursor.month, cursor.day,
+            anchor_local.hour, anchor_local.minute,
+            anchor_local.second, anchor_local.microsecond,
+            tzinfo=tz,
         )
         starts.append(local_dt.astimezone(UTC))
         if len(starts) >= max_children:
