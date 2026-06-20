@@ -37,6 +37,9 @@ from app.modules.masters.finance_router import (                  # E2
 from app.modules.masters.students_router import (                 # E5
     router as masters_students_router,
 )
+from app.modules.masters.reviews_router import (                  # #3
+    router as masters_reviews_router,
+)
 from app.modules.users.router import router as users_router
 from app.modules.reports.router import router as reports_router
 from app.modules.practices.router import router as practices_router
@@ -178,6 +181,7 @@ app.include_router(users_router)
 app.include_router(masters_router)
 app.include_router(masters_finance_router)        # E2
 app.include_router(masters_students_router)       # E5
+app.include_router(masters_reviews_router)        # #3
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(practices_router)
