@@ -28,6 +28,8 @@ import type {
   StudentDetailResponse,
   IncomeResponse,
   PaginatedTransactionsResponse,
+  MasterStatsResponse,
+  PaginatedMasterReviewsResponse,
 } from '@/api/types'
 
 /**
@@ -152,4 +154,39 @@ export function getIncome(period: 'week' | 'month' = 'week'): Promise<IncomeResp
 export function getTransactions(limit = 20, offset = 0): Promise<PaginatedTransactionsResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedTransactionsResponse>(`/api/v1/masters/me/transactions${query}`)
+}
+
+// =============================================================================
+// E7: Period-scoped dashboard stats
+//   GET /api/v1/masters/me/stats?period=week|month
+// =============================================================================
+
+/**
+ * Fetch the master's period-scoped dashboard stats: practices_count and
+ * participants_count for the selected calendar period, each with a signed
+ * *_delta_pct vs the previous period (null when the previous period was
+ * non-positive). income_cents is also returned but rendered on Finance /
+ * Analytics, not the dashboard.
+ */
+export function getMasterStats(period: 'week' | 'month' = 'week'): Promise<MasterStatsResponse> {
+  const query = buildQuery({ period })
+  return api.get<MasterStatsResponse>(`/api/v1/masters/me/stats${query}`)
+}
+
+// =============================================================================
+// #3: Cross-practice named reviews feed
+//   GET /api/v1/masters/me/reviews
+// =============================================================================
+
+/**
+ * Fetch the master's cross-practice named reviews feed (newest first). Each
+ * item carries the reviewer name/avatar, the rating bucket, the comment, and
+ * the practice_title the review belongs to.
+ */
+export function getMasterReviews(
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedMasterReviewsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedMasterReviewsResponse>(`/api/v1/masters/me/reviews${query}`)
 }
