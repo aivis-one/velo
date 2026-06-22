@@ -60,8 +60,18 @@
 
       <!-- Income card removed from the dashboard (operator tester-fix 2026-06-17). -->
       <div class="master-dashboard__stats-grid">
-        <VStatCard :value="practicesStat" label="Практик" :delta="practicesDelta" />
-        <VStatCard :value="participantsStat" label="Участников" :delta="participantsDelta" />
+        <VStatCard
+          :value="practicesStat"
+          label="Практик"
+          :delta="practicesDelta"
+          :delta-tone="practicesDeltaTone"
+        />
+        <VStatCard
+          :value="participantsStat"
+          label="Участников"
+          :delta="participantsDelta"
+          :delta-tone="participantsDeltaTone"
+        />
       </div>
 
       <!-- ================================================================
@@ -177,7 +187,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
 import { IconBell, IconGroup } from '@/components/icons'
@@ -187,13 +197,14 @@ import { formatDateShort, formatTime, formatDuration, formatParticipants } from 
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
-import type { PracticeResponse } from '@/api/types'
+import { getMasterStats } from '@/api/masters'
+import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
 const toast = useToast()
 
-// -- Period toggle. Visual-only until a period-scoped stats API exists (roadmap). --
+// -- Period toggle. Drives the period-scoped stats row (E7). --
 const period = ref<'week' | 'month'>('week')
 const PERIOD_OPTIONS: ReadonlyArray<{ value: 'week' | 'month'; label: string }> = [
   { value: 'week', label: 'Неделя' },
@@ -206,16 +217,47 @@ const isNewMaster = computed(
 )
 
 // =========================================================================
-// Stats. Practices total is real; participants has no backend yet → "—".
-// The period toggle is visual-only now (income was removed from the dashboard
-// — operator tester-fix 2026-06-17; it was the only period-scoped stat).
+// Stats (E7: GET /masters/me/stats?period). Both «Практик» and «Участников»
+// are period-scoped (D1); the toggle refetches. income_cents is returned but
+// rendered on Finance/Analytics, not here (D2). "—" until the fetch resolves.
 // =========================================================================
+const stats = ref<MasterStatsResponse | null>(null)
+
+async function loadStats(): Promise<void> {
+  stats.value = await getMasterStats(period.value)
+}
+
 const practicesStat = computed((): string =>
-  String(masterStore.practicesTotal ?? masterStore.practices.length),
+  stats.value ? String(stats.value.practices_count) : '—',
 )
-const participantsStat = computed((): string => '—')
-const practicesDelta = computed((): string => '')
-const participantsDelta = computed((): string => '')
+const participantsStat = computed((): string =>
+  stats.value ? String(stats.value.participants_count) : '—',
+)
+
+/** Signed percent string for a delta; '' (hidden) when null. */
+function deltaStr(pct: number | null | undefined): string {
+  if (pct == null) return ''
+  const r = Math.round(pct)
+  if (r === 0) return '0%'
+  return `${r > 0 ? '+' : '−'}${Math.abs(r)}%`
+}
+/** Tone: positive → up (teal), negative → down (rose, D5), zero/null → muted. */
+function deltaTone(pct: number | null | undefined): 'up' | 'down' | 'muted' {
+  if (pct == null || Math.round(pct) === 0) return 'muted'
+  return pct > 0 ? 'up' : 'down'
+}
+
+const practicesDelta = computed((): string => deltaStr(stats.value?.practices_delta_pct))
+const participantsDelta = computed((): string => deltaStr(stats.value?.participants_delta_pct))
+const practicesDeltaTone = computed(() => deltaTone(stats.value?.practices_delta_pct))
+const participantsDeltaTone = computed(() => deltaTone(stats.value?.participants_delta_pct))
+
+// Refetch the stats row when the period toggle changes.
+watch(period, () => {
+  void loadStats().catch(() => {
+    /* keep the previous values on a transient refetch error */
+  })
+})
 
 // Notifications feed not built yet → no unread count (roadmap for Zod).
 const unreadCount = computed((): number => 0)
@@ -266,6 +308,10 @@ onMounted(async () => {
   clockInterval = setInterval(() => {
     now.value = Date.now()
   }, 60_000)
+  // Period-scoped stats row (E7); independent of the practices list fetch.
+  void loadStats().catch(() => {
+    /* leave cards at "—" if the stats fetch fails */
+  })
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
