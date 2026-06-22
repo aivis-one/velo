@@ -1,5 +1,5 @@
 {
-  "_comment": "Сценарий 'default' — текущее поведение сидера (то, что было до введения сценариев). Подключает базу-библиотеку через extends, берёт ВСЕХ мастеров (masters_select опущен), окно расписания ±14 дней, полный набор граничных демо-состояний (boundary_practices) и 6 тест-юзеров с богатыми объёмами. Запуск: velo seed-practices --reset --yes (без --scenario → этот сценарий).",
+  "_comment": "Сценарий 'default' — текущее поведение сидера (то, что было до введения сценариев). Подключает базу-библиотеку через extends, берёт ВСЕХ мастеров (masters_select опущен), окно расписания ±14 дней, полный набор граничных демо-состояний (boundary_practices) и 6 тест-юзеров с богатыми объёмами. Тестеры — ВЛАДЕЛЬЦЫ своих практик (as_master): под роль-свитч у каждого живой мастер-зон (свои практики вкл. серию, completed-с-отзывами, спред под period-stats/дельты). Запуск: velo seed-practices --reset --yes (без --scenario → этот сценарий).",
   "extends": "seed_practices.json",
   "schedule": {
     "timezone": "Europe/Moscow",
@@ -153,7 +153,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     },
     {
       "telegram_id": 231944851,
@@ -166,7 +167,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     },
     {
       "telegram_id": 792933976,
@@ -179,7 +181,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     },
     {
       "telegram_id": 936933042,
@@ -192,7 +195,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     },
     {
       "telegram_id": 1051790788,
@@ -205,7 +209,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     },
     {
       "telegram_id": 5971989877,
@@ -218,7 +223,8 @@
       "checkins": 12,
       "feedbacks": 12,
       "upcoming_bookings": 4,
-      "cancelled_bookings": 2
+      "cancelled_bookings": 2,
+      "as_master": true
     }
   ]
 }
