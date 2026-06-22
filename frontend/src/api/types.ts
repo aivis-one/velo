@@ -92,6 +92,7 @@ export type {
   PurchaseResponse,
   PurchaseWithPracticeResponse,
   RatingDistribution,
+  RecurrenceSpec,
   RejectMasterRequest,
   RejectWithdrawalRequest,
   ReportResponse,

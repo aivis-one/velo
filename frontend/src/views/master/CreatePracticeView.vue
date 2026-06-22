@@ -318,7 +318,7 @@ import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
-import type { PracticeDirection } from '@/api/types'
+import type { PracticeDirection, RecurrenceSpec } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -348,17 +348,16 @@ function dismissKeyboardOnBlank(e: MouseEvent): void {
   }
 }
 
-// -- Recurrence period options (Повторение). The on/off toggle IS real — it
-// drives practice_type (series/live) on submit. The daily/weekly/biweekly value
-// is captured in form state but NOT yet a backend field (see
-// master-ds-zod-roadmap.md "recurrence period + series engine"). --
+// -- Recurrence period options (Повторение). The on/off toggle drives
+// practice_type (series/live); when on, period/days/end build a RecurrenceSpec
+// sent to the series engine (E3). --
 const RECURRENCE_OPTIONS = [
   { label: 'Каждый день', value: 'daily' },
   { label: 'Каждую неделю', value: 'weekly' },
   { label: 'Раз в две недели', value: 'biweekly' },
 ]
 
-// Завершение серии (captured-only — нет бэка; см. master-ds-zod-roadmap).
+// Завершение серии: never / until_date / after_count → RecurrenceSpec.end.
 const RECURRENCE_END_OPTIONS = [
   { label: 'Никогда', value: 'never' },
   { label: 'Выбрать дату', value: 'until_date' },
@@ -386,13 +385,13 @@ const form = reactive({
   direction: '',
   difficulty: '',
   style: '',
-  // Повторение: is_recurring drives practice_type (series/live) on submit — REAL.
-  // Period / days / end-condition / count are captured-only (no backend field yet,
-  // see master-ds-zod-roadmap); NOT sent on submit.
+  // Повторение: is_recurring drives practice_type (series/live); when on,
+  // period/days/end-condition/count are sent as a RecurrenceSpec (E3 series
+  // engine). recurrence_days holds VDayPicker codes ('mon'..'sun').
   is_recurring: false,
-  recurrence: 'weekly',
+  recurrence: 'weekly' as RecurrenceSpec['period'],
   recurrence_days: [] as string[],
-  recurrence_end: 'never',
+  recurrence_end: 'never' as RecurrenceSpec['end'],
   recurrence_count: 40,
   recurrence_end_date: '', // ISO 'YYYY-MM-DD' when recurrence_end === 'until_date' (#10)
   date: '',
@@ -482,7 +481,42 @@ function validate(): boolean {
       ok = false
     }
   }
+  // Weekly / biweekly series require at least one weekday (the day picker shows
+  // a required-seal when empty). Daily ignores days. Block an invalid spec.
+  if (form.is_recurring && form.recurrence !== 'daily' && form.recurrence_days.length === 0) {
+    ok = false
+  }
   return ok
+}
+
+// VDayPicker emits day codes ('mon'..'sun'); RecurrenceSpec.days needs ISO
+// weekday ints (1=Mon..7=Sun). VDayPicker already emits in Mon→Sun order.
+const WEEKDAY_ISO: Record<string, number> = {
+  mon: 1,
+  tue: 2,
+  wed: 3,
+  thu: 4,
+  fri: 5,
+  sat: 6,
+  sun: 7,
+}
+
+/** Build the RecurrenceSpec from the captured form (only when is_recurring). */
+function buildRecurrence(): RecurrenceSpec {
+  const spec: RecurrenceSpec = {
+    period: form.recurrence,
+    end: form.recurrence_end,
+  }
+  // Daily ignores days; weekly/biweekly send the selected ISO weekdays.
+  if (form.recurrence !== 'daily') {
+    spec.days = form.recurrence_days.map((d) => WEEKDAY_ISO[d]).filter((n) => n != null)
+  }
+  if (form.recurrence_end === 'after_count') {
+    spec.count = form.recurrence_count
+  } else if (form.recurrence_end === 'until_date') {
+    spec.until_date = form.recurrence_end_date || null
+  }
+  return spec
 }
 
 // -- Submit --
@@ -529,6 +563,8 @@ async function submit(): Promise<void> {
       is_free: form.is_free,
       price_cents: 0,
       currency: 'eur',
+      // E3: when recurring, send the series spec; non-recurring → null.
+      recurrence: form.is_recurring ? buildRecurrence() : null,
     })
 
     // Publish immediately: a freshly created practice must be live & bookable,
