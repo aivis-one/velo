@@ -141,6 +141,18 @@
       "contraindications": null
     }
   ],
+  "participant_pool": [
+    { "telegram_id": 10101, "key": "participant-1", "first_name": "Аня" },
+    { "telegram_id": 10102, "key": "participant-2", "first_name": "Борис" },
+    { "telegram_id": 10103, "key": "participant-3", "first_name": "Вера" },
+    { "telegram_id": 10104, "key": "participant-4", "first_name": "Глеб" },
+    { "telegram_id": 10105, "key": "participant-5", "first_name": "Дина" },
+    { "telegram_id": 10106, "key": "participant-6", "first_name": "Егор" },
+    { "telegram_id": 10107, "key": "participant-7", "first_name": "Жанна" },
+    { "telegram_id": 10108, "key": "participant-8", "first_name": "Заур" },
+    { "telegram_id": 10109, "key": "participant-9", "first_name": "Инна" },
+    { "telegram_id": 10110, "key": "participant-10", "first_name": "Кирилл" }
+  ],
   "test_users": [
     {
       "telegram_id": 526738615,
