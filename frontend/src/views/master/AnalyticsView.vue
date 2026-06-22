@@ -70,24 +70,28 @@
         />
       </section>
 
-      <!-- Требуют внимания (scaffold: empty until a non-anonymous endpoint lands). -->
+      <!-- Последние отзывы (#3: cross-practice named feed; all ratings, honest). -->
       <section class="analytics__section">
-        <h2 class="velo-section-title">Требуют внимания</h2>
-        <template v-if="attentionItems.length > 0">
-          <VCard v-for="(item, i) in attentionItems" :key="i" class="analytics__attention">
-            <span class="analytics__attention-av"><IconProfile :size="26" /></span>
+        <h2 class="velo-section-title">Последние отзывы</h2>
+        <template v-if="reviews.length > 0">
+          <VCard v-for="(item, i) in reviews" :key="i" class="analytics__attention">
+            <VAvatar :name="item.reviewer_name" :url="item.avatar_url ?? ''" size="md" />
             <div class="analytics__attention-body">
-              <div class="analytics__attention-name">{{ item.name }}</div>
+              <div class="analytics__attention-name">{{ item.reviewer_name }}</div>
               <div class="analytics__attention-rate">
-                <IconRatingConfused :size="16" :style="{ color: 'var(--velo-rating-confused)' }" />
-                {{ item.rating }}
-                <span class="analytics__attention-pr">• {{ item.practice }}</span>
+                <component
+                  :is="RATING_ICON[item.rating as FeedbackRating]"
+                  :size="16"
+                  :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
+                />
+                {{ RATING_LABEL[item.rating as FeedbackRating] }}
+                <span class="analytics__attention-pr">• {{ item.practice_title }}</span>
               </div>
-              <div class="analytics__attention-quote">«{{ item.comment }}»</div>
+              <div v-if="item.comment" class="analytics__attention-quote">«{{ item.comment }}»</div>
             </div>
           </VCard>
         </template>
-        <VEmptyState v-else variant="note" title="Данных пока нет — создайте первую практику" />
+        <VEmptyState v-else variant="note" title="Отзывов пока нет" />
       </section>
 
       <!-- Прошедшие практики -->
@@ -211,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
@@ -223,15 +227,21 @@ import {
   VSegmentTrack,
   VRatingBadges,
   VEmptyState,
+  VAvatar,
 } from '@/components/ui'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
-import { IconRatingConfused, IconProfile } from '@/components/icons'
-import { practiceIconFor } from '@/utils/displayHelpers'
+import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
+import { practiceIconFor, RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
-import { getIncome, getTransactions } from '@/api/masters'
+import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
-import type { IncomeResponse, MasterTransactionItem } from '@/api/types'
+import type {
+  IncomeResponse,
+  MasterTransactionItem,
+  MasterReviewItem,
+  FeedbackRating,
+} from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -354,19 +364,28 @@ function ratingPct(practiceId: string, rating: 'fire' | 'good' | 'confused'): nu
 }
 
 // =========================================================================
-// Требуют внимания -- scaffold (no backend source: insights are anonymous)
+// Последние отзывы (#3: GET /masters/me/reviews — cross-practice named feed)
 // =========================================================================
 
-// Needs a NON-anonymous endpoint (negative/«есть вопросы» feedback with the
-// participant name + comment text + practice). Until Zod adds it the array stays
-// empty and the section shows its empty state; the v-for is wiring-ready.
-interface AttentionItem {
-  name: string
-  rating: string
-  practice: string
-  comment: string
+// Per-item rating icon, reusing the same map as the per-practice reviews screen
+// (PracticeReviewsView) + the shared RATING_ICON_COLOR / RATING_LABEL.
+const RATING_ICON: Record<FeedbackRating, Component> = {
+  fire: IconRatingFire,
+  good: IconRatingGood,
+  confused: IconRatingConfused,
 }
-const attentionItems = ref<AttentionItem[]>([])
+
+const REVIEWS_PAGE = 20
+const reviews = ref<MasterReviewItem[]>([])
+
+async function loadReviews(): Promise<void> {
+  try {
+    const res = await getMasterReviews(REVIEWS_PAGE, 0)
+    reviews.value = res.items
+  } catch {
+    /* leave the section empty on error */
+  }
+}
 
 // =========================================================================
 // Платежи (E2: income by period + transaction feed)
@@ -464,6 +483,7 @@ function openReviews(practiceId: string): void {
 
 onMounted(async () => {
   void loadPayments()
+  void loadReviews()
   await masterStore.fetchMyPractices()
   await loadVisibleInsights()
 })
@@ -525,19 +545,6 @@ onMounted(async () => {
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
-}
-
-.analytics__attention-av {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-full);
-  /* WS-3: unified muted-avatar fill with the check-ins/roster faces (was glass-blue-15). */
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .analytics__attention-body {
