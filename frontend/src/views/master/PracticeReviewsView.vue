@@ -45,21 +45,11 @@
     <!-- Распределение -->
     <section class="practice-reviews__section">
       <h2 class="velo-section-title">Распределение</h2>
-      <VCard class="practice-reviews__rating">
-        <div v-for="bar in ratingBars" :key="bar.key" class="practice-reviews__rrow">
-          <span class="practice-reviews__rrow-head">
-            <component :is="bar.icon" :size="22" :style="{ color: bar.iconColor }" />
-            {{ bar.label }}
-          </span>
-          <div class="practice-reviews__rtrack">
-            <div
-              class="practice-reviews__rfill"
-              :style="{ width: `${bar.pct}%`, background: bar.barColor }"
-            />
-          </div>
-          <span class="practice-reviews__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
-        </div>
-      </VCard>
+      <VRatingDistribution
+        :fire="feedbackCounts.fire"
+        :good="feedbackCounts.good"
+        :confused="feedbackCounts.confused"
+      />
     </section>
 
     <!-- Отзывы (E1 named reviews) -->
@@ -105,6 +95,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
 import { getPractice, getPracticeReviews } from '@/api/practices'
 import { VStatCard, VCard, VButton, VLoader, VEmptyState, VAvatar } from '@/components/ui'
+import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import { VHeader } from '@/components/layout'
 import {
   IconCalendar,
@@ -113,12 +104,7 @@ import {
   IconRatingGood,
   IconRatingConfused,
 } from '@/components/icons'
-import {
-  practiceIconFor,
-  RATING_COLOR,
-  RATING_ICON_COLOR,
-  RATING_LABEL,
-} from '@/utils/displayHelpers'
+import { practiceIconFor, RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
 import type { PracticeResponse, FeedbackRating, ReviewItem } from '@/api/types'
 
 const route = useRoute()
@@ -180,40 +166,13 @@ const feedbacksLabel = computed((): string | number =>
 )
 
 // =========================================================================
-// Distribution bars (fill = RATING_COLOR, icon = RATING_ICON_COLOR)
+// Distribution — VRatingDistribution owns the bar config/palettes/markup; we
+// just feed it this practice's raw feedback counts.
 // =========================================================================
 
-interface RatingBar {
-  key: 'fire' | 'good' | 'confused'
-  icon: Component
-  label: string
-  count: number
-  pct: number
-  iconColor: string
-  barColor: string
-}
-
-const RATING_BARS_CONFIG: Array<{
-  key: 'fire' | 'good' | 'confused'
-  icon: Component
-  label: string
-}> = [
-  { key: 'fire', icon: IconRatingFire, label: 'Огонь!' },
-  { key: 'good', icon: IconRatingGood, label: 'Хорошо' },
-  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы' },
-]
-
-const ratingBars = computed((): RatingBar[] => {
-  const f = insights.value?.feedbacks ?? { fire: 0, good: 0, confused: 0 }
-  const total = f.fire + f.good + f.confused
-  return RATING_BARS_CONFIG.map((cfg) => ({
-    ...cfg,
-    iconColor: RATING_ICON_COLOR[cfg.key],
-    barColor: RATING_COLOR[cfg.key],
-    count: f[cfg.key],
-    pct: total > 0 ? Math.round((f[cfg.key] / total) * 100) : 0,
-  }))
-})
+const feedbackCounts = computed((): { fire: number; good: number; confused: number } =>
+  insights.value?.feedbacks ?? { fire: 0, good: 0, confused: 0 },
+)
 
 // =========================================================================
 // Отзывы (E1 named reviews — GET /practices/{id}/reviews, paginated)
@@ -350,45 +309,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-/* ===== Distribution ===== */
-.practice-reviews__rating {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.practice-reviews__rrow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.practice-reviews__rrow-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-}
-
-.practice-reviews__rtrack {
-  height: 10px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  overflow: hidden;
-}
-
-.practice-reviews__rfill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  transition: width 0.4s ease;
-}
-
-.practice-reviews__rmeta {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* ===== Review card ===== */

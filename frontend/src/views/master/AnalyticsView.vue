@@ -63,21 +63,11 @@
       <!-- Общая статистика -->
       <section class="analytics__section">
         <h2 class="velo-section-title">Общая статистика</h2>
-        <VCard class="analytics__rating">
-          <div v-for="bar in ratingBars" :key="bar.key" class="analytics__rrow">
-            <span class="analytics__rrow-head">
-              <component :is="bar.icon" :size="22" :style="{ color: bar.iconColor }" />
-              {{ bar.label }}
-            </span>
-            <div class="analytics__rtrack">
-              <div
-                class="analytics__rfill"
-                :style="{ width: `${bar.pct}%`, background: bar.barColor }"
-              />
-            </div>
-            <span class="analytics__rmeta">{{ bar.pct }}% ({{ bar.count }})</span>
-          </div>
-        </VCard>
+        <VRatingDistribution
+          :fire="ratingTotals.fire"
+          :good="ratingTotals.good"
+          :confused="ratingTotals.confused"
+        />
       </section>
 
       <!-- Требуют внимания (scaffold: empty until a non-anonymous endpoint lands). -->
@@ -221,13 +211,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, type Component } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { VLoader, VButton, VStatCard, VCard, VSegmentTrack, VRatingBadges } from '@/components/ui'
-import { IconRatingFire, IconRatingGood, IconRatingConfused, IconProfile } from '@/components/icons'
-import { practiceIconFor, RATING_COLOR, RATING_ICON_COLOR } from '@/utils/displayHelpers'
+import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
+import { IconRatingConfused, IconProfile } from '@/components/icons'
+import { practiceIconFor } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 import { getIncome, getTransactions } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -323,46 +314,18 @@ const aggregateFeedbackPct = computed((): string => {
 })
 
 // =========================================================================
-// Overall rating distribution bars (Общая статистика)
+// Overall rating distribution (Общая статистика) — VRatingDistribution owns the
+// bar config/palettes/markup; we just feed it the period's summed feedback counts.
 // =========================================================================
 
-interface RatingBar {
-  key: 'fire' | 'good' | 'confused'
-  icon: Component
-  label: string
-  count: number
-  pct: number
-  iconColor: string
-  barColor: string
-}
-
-// Bar fill = RATING_COLOR (peach-300 / pink-300 / blue-400); icon accent =
-// RATING_ICON_COLOR (--velo-rating-*). Two palettes on purpose (see displayHelpers).
-const RATING_BARS_CONFIG: Array<{
-  key: 'fire' | 'good' | 'confused'
-  icon: Component
-  label: string
-}> = [
-  { key: 'fire', icon: IconRatingFire, label: 'Огонь!' },
-  { key: 'good', icon: IconRatingGood, label: 'Хорошо' },
-  { key: 'confused', icon: IconRatingConfused, label: 'Есть вопросы' },
-]
-
-const ratingBars = computed((): RatingBar[] => {
+const ratingTotals = computed((): { fire: number; good: number; confused: number } => {
   const totals = { fire: 0, good: 0, confused: 0 }
   periodInsights.value.forEach((ins) => {
     totals.fire += ins.feedbacks.fire
     totals.good += ins.feedbacks.good
     totals.confused += ins.feedbacks.confused
   })
-  const total = totals.fire + totals.good + totals.confused
-  return RATING_BARS_CONFIG.map((cfg) => ({
-    ...cfg,
-    iconColor: RATING_ICON_COLOR[cfg.key],
-    barColor: RATING_COLOR[cfg.key],
-    count: totals[cfg.key],
-    pct: total > 0 ? Math.round((totals[cfg.key] / total) * 100) : 0,
-  }))
+  return totals
 })
 
 // =========================================================================
@@ -546,45 +509,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-/* ===== Rating distribution (Общая статистика) ===== */
-.analytics__rating {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.analytics__rrow {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.analytics__rrow-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-}
-
-.analytics__rtrack {
-  height: 10px;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  overflow: hidden;
-}
-
-.analytics__rfill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  transition: width 0.4s ease;
-}
-
-.analytics__rmeta {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
 }
 
 /* ===== Требуют внимания ===== */
