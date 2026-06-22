@@ -821,7 +821,7 @@ async def ensure_practice(
             price_cents=p_yaml.get("price_cents", 0),
             currency=p_yaml.get("currency", "eur"),
             zoom_link=p_yaml.get("zoom_link"),
-            parent_practice_id=None,
+            parent_practice_id=p_yaml.get("parent_practice_id"),
         )
         session.add(practice)
         await session.flush()
@@ -836,6 +836,10 @@ async def ensure_practice(
             "difficulty": p_yaml["difficulty"],
             "style": p_yaml.get("style"),
         }
+    # Series recurrence spec (E3): only the ROOT of a series carries it. The
+    # backend (_resolve_series_meta) reads data.recurrence -> recurrence_days.
+    if p_yaml.get("recurrence"):
+        current_data["recurrence"] = p_yaml["recurrence"]
     current_data["seed"] = {
         "source": SEED_SOURCE,
         "owner_tid": master_user.telegram_id,
@@ -1611,10 +1615,12 @@ def _build_tester_practice_dicts(
         f"mt-{tester.telegram_id}-draft-{draft_tmpl['key']}",
     ))
 
-    # One SERIES (recurring) practice, scheduled in the future, so the cancel
-    # dialog shows the «Это регулярная практика» block + scope radio (the frontend
-    # keys off practice_type === 'series'). Gets confirmed participants like any
-    # scheduled practice.
+    # One SERIES (recurring) practice = the ROOT occurrence, scheduled in the
+    # future. It carries the recurrence spec (E3) so the master practices list
+    # shows the «Пн, Ср, Пт» chip; child occurrences are added separately (see
+    # _build_series_child_dicts / seed_tester_as_master) so «N/M занятий»
+    # progress is real. Also drives the cancel dialog's «Это регулярная
+    # практика» block. Gets confirmed participants like any scheduled practice.
     series_tmpl = templates[(rr + 3) % len(templates)]
     series_day = (now.astimezone(tz) + timedelta(days=7)).date()
     series_start = datetime(series_day.year, series_day.month, series_day.day, 19, 0, tzinfo=tz)
@@ -1623,7 +1629,63 @@ def _build_tester_practice_dicts(
         f"mt-{tester.telegram_id}-series-{series_tmpl['key']}",
     )
     series_dict["practice_type"] = "series"
+    series_dict["recurrence"] = dict(SERIES_RECURRENCE_SPEC)
     out.append(series_dict)
+    return out
+
+
+# Weekly Mon/Wed/Fri series spec stamped on the root's data.recurrence (E3).
+# _resolve_series_meta reads period + days for recurrence_days; total/completed
+# come from the actual occurrence ROWS, not the spec's count.
+SERIES_RECURRENCE_SPEC = {
+    "period": "weekly",
+    "days": [1, 3, 5],
+    "end": "after_count",
+    "count": 8,
+}
+
+# Child occurrences for the tester series root. Offsets (days from now) + hour;
+# 3 past -> completed, 4 future -> scheduled. With the root that is 8 rows total
+# / 3 completed -> «Осталось 5 из 8 занятий». No participants (E3 card only).
+SERIES_CHILD_OFFSETS = (-21, -14, -7, 14, 21, 28, 35)
+
+
+def _build_series_child_dicts(
+    tester: User, series_tmpl: dict, root_id, now: datetime,
+) -> list[dict]:
+    """Child occurrence dicts for the series root (parent_practice_id=root_id).
+
+    Status is derived from scheduled_at vs now (past -> completed, future ->
+    scheduled). Children carry NO recurrence spec — only the root does; the
+    backend reads the spec from the root and counts child rows for total/done.
+    """
+    tz = ZoneInfo("Europe/Moscow")
+    # Inherit only the content fields; never the root's identity/spec keys
+    # (recurrence stays on the root alone; key/status/parent are set per child).
+    _DROP = {"recurrence", "parent_practice_id", "key", "template_key",
+             "status", "scheduled_at"}
+    base = {k: v for k, v in series_tmpl.items() if k not in _DROP}
+    tmpl_key = series_tmpl.get("template_key") or series_tmpl["key"]
+    out: list[dict] = []
+    for i, doff in enumerate(SERIES_CHILD_OFFSETS):
+        day = (now.astimezone(tz) + timedelta(days=doff)).date()
+        start = datetime(day.year, day.month, day.day, 19, 0, tzinfo=tz)
+        dur = int(series_tmpl.get("duration_minutes", 60))
+        status = "completed" if start + timedelta(minutes=dur) <= now else "scheduled"
+        child = {
+            **base,
+            "key": f"mt-{tester.telegram_id}-series-occ-{i}-{tmpl_key}",
+            "template_key": tmpl_key,
+            "scheduled_at": start.isoformat(),
+            "timezone": "Europe/Moscow",
+            "status": status,
+            "practice_type": "series",
+            "parent_practice_id": root_id,
+            "description": _join_lines(series_tmpl.get("description")),
+            "what_to_prepare": _join_lines(series_tmpl.get("what_to_prepare")),
+            "contraindications": _join_lines(series_tmpl.get("contraindications")),
+        }
+        out.append(child)
     return out
 
 
@@ -1657,6 +1719,8 @@ async def seed_tester_as_master(
     p_dicts = _build_tester_practice_dicts(
         tester, templates, now, cfg_m["practices"],
     )
+    series_root: Practice | None = None
+    series_src: dict | None = None
     for p_yaml in p_dicts:
         practice, _action = await ensure_practice(
             session, tester, p_yaml, dry_run, batch_iso, force_orm=True,
@@ -1664,6 +1728,9 @@ async def seed_tester_as_master(
         if practice is None:
             continue
         stats["practices"] += 1
+        if p_yaml.get("recurrence"):
+            series_root = practice
+            series_src = p_yaml
         status = p_yaml["status"]
 
         if status == "completed":
@@ -1710,6 +1777,20 @@ async def seed_tester_as_master(
                 stats["participants"] += 1
 
         await recalculate_participants(practice.id, session)
+
+    # Series child occurrences (E3): give the series root real siblings so
+    # total_sessions / completed_sessions (counted from rows, not the spec) are
+    # non-trivial and «N/M занятий» renders. The root carries the recurrence
+    # spec; children link via parent_practice_id and get no participants.
+    if series_root is not None and series_src is not None:
+        for child_yaml in _build_series_child_dicts(
+            tester, series_src, series_root.id, now,
+        ):
+            child, _action = await ensure_practice(
+                session, tester, child_yaml, dry_run, batch_iso, force_orm=True,
+            )
+            if child is not None:
+                stats["practices"] += 1
 
     return stats
 
