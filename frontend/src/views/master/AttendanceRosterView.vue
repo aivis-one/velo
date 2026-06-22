@@ -39,17 +39,15 @@
 
     <template v-else-if="attendance">
       <div class="roster__content">
-        <!-- Hero -->
-        <div v-if="practice" class="roster__head">
-          <span class="roster__head-icon">
-            <component :is="practiceIconFor(practice)" :size="48" />
-          </span>
-          <div class="roster__head-title">{{ practice.title }}</div>
-          <div class="roster__head-meta">
-            <span><IconCalendar :size="16" />{{ whenLabel }}</span>
-            <span><IconClock :size="16" />{{ durationLabel }}</span>
-          </div>
-        </div>
+        <!-- Hero (shared PracticeHeroCard; titleSize base canon, icon-46) -->
+        <PracticeHeroCard
+          v-if="practice"
+          :title="practice.title"
+          title-size="base"
+          :date="whenLabel"
+          :duration="durationLabel"
+          :direction="practice.direction"
+        />
 
         <!-- Stats -->
         <div class="roster__stats">
@@ -107,9 +105,9 @@ import { getPractice, getAttendance } from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
 import { VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
 import VShowMore from '@/components/shared/VShowMore.vue'
+import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { VHeader } from '@/components/layout'
-import { IconCalendar, IconClock, IconCheck, IconClose } from '@/components/icons'
-import { practiceIconFor } from '@/utils/displayHelpers'
+import { IconCheck, IconClose } from '@/components/icons'
 import { formatDateShort, formatTime } from '@/utils/format'
 import type { PracticeResponse, AttendanceResponse, AttendanceItemResponse } from '@/api/types'
 
@@ -221,48 +219,6 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* ===== Hero card ===== */
-.roster__head {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.roster__head-icon {
-  color: var(--velo-text-primary);
-  display: flex;
-}
-
-.roster__head-title {
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  letter-spacing: 0.3px;
-  text-align: center;
-}
-
-.roster__head-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.roster__head-meta > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.roster__head-meta :deep(svg) {
-  opacity: 0.85;
 }
 
 /* ===== Stats (2-col, coloured values) ===== */

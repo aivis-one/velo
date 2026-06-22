@@ -144,25 +144,24 @@
 
       <!-- ===================== PAST detail (read-only) ===================== -->
       <div v-else class="practice-detail__content">
-        <!-- Hero -->
-        <div class="practice-detail__head">
-          <span class="practice-detail__head-icon">
-            <component :is="practiceIconFor(practice)" :size="48" />
-          </span>
-          <div class="practice-detail__head-title">{{ practice.title }}</div>
-          <div class="practice-detail__head-meta">
-            <span><IconCalendar :size="16" />{{ whenLabel }}</span>
-            <span><IconClock :size="16" />{{ durationLabel }}</span>
-          </div>
-          <VRatingBadges
-            v-if="hasRating"
-            class="practice-detail__rbadges"
-            size="lg"
-            :fire="ratingPct('fire')"
-            :good="ratingPct('good')"
-            :confused="ratingPct('confused')"
-          />
-        </div>
+        <!-- Hero (shared PracticeHeroCard; titleSize base canon, icon-46;
+             rating-distribution badges via the additive #extra slot) -->
+        <PracticeHeroCard
+          :title="practice.title"
+          title-size="base"
+          :date="whenLabel"
+          :duration="durationLabel"
+          :direction="practice.direction"
+        >
+          <template v-if="hasRating" #extra>
+            <VRatingBadges
+              size="lg"
+              :fire="ratingPct('fire')"
+              :good="ratingPct('good')"
+              :confused="ratingPct('confused')"
+            />
+          </template>
+        </PracticeHeroCard>
 
         <!-- Stats -->
         <div class="practice-detail__stats">
@@ -309,8 +308,6 @@ import VShowMore from '@/components/shared/VShowMore.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import Banner from '@/components/shared/Banner.vue'
 import {
-  IconCalendar,
-  IconClock,
   IconClose,
   IconWarning,
   IconRatingFire,
@@ -322,7 +319,6 @@ import {
 // directly (same as EntryView).
 import IconTrash from '@/components/icons/IconTrash.vue'
 import {
-  practiceIconFor,
   RATING_ICON_COLOR,
   RATING_LABEL,
   DIFFICULTY_DOTS,
@@ -619,54 +615,6 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-/* ===== Hero card (PAST bespoke) ===== */
-.practice-detail__head {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.practice-detail__head-icon {
-  color: var(--velo-text-primary);
-  display: flex;
-}
-
-.practice-detail__head-title {
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-  letter-spacing: 0.3px;
-  text-align: center;
-}
-
-.practice-detail__head-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.practice-detail__head-meta > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.practice-detail__head-meta :deep(svg) {
-  opacity: 0.85;
-}
-
-/* Rating-distribution badges (sand/pink/blue-100 tints; confused = blue-400). */
-/* Margin only — the trio itself is the shared VRatingBadges component. */
-.practice-detail__rbadges {
-  margin-top: 4px;
 }
 
 /* ===== Stats ===== */

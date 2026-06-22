@@ -25,12 +25,15 @@
     <div class="hero-card__icon">
       <component :is="iconComponent" :size="46" />
     </div>
-    <h1 class="hero-card__title">{{ title }}</h1>
+    <h1 class="hero-card__title" :class="{ 'hero-card__title--base': titleSize === 'base' }">
+      {{ title }}
+    </h1>
     <div class="hero-card__meta">
       <!-- #meta переопределяет встроенный icon-row (form-вариант: Check-in / Feedback). -->
       <slot name="meta">
         <span class="hero-card__meta-item"> <IconCalendar :size="14" /> {{ date }} </span>
-        <span class="hero-card__meta-item"> <IconClock :size="14" /> {{ duration }} </span>
+        <!-- duration optional: master review heads omit it (date + participants only). -->
+        <span v-if="duration" class="hero-card__meta-item"> <IconClock :size="14" /> {{ duration }} </span>
         <span v-if="participants" class="hero-card__meta-item">
           <IconGroup :size="14" /> {{ participants }}
         </span>
@@ -50,6 +53,10 @@
         />
       </span>
     </div>
+
+    <!-- Additive optional row below meta/difficulty (e.g. master detail's rating-
+         distribution badges). Default-empty -> existing consumers render unchanged. -->
+    <div v-if="$slots.extra" class="hero-card__extra"><slot name="extra" /></div>
   </div>
 </template>
 
@@ -65,6 +72,9 @@ const props = withDefaults(
     /** Layout variant. 'hero' (default) — detail-экраны. 'form' — practice-header
      *  Check-in / Feedback: меньший заголовок, meta как grid 1fr/1fr через #meta. */
     variant?: 'hero' | 'form'
+    /** Title size in the hero variant. 'lg' (default) keeps every existing
+     *  consumer unchanged; 'base' is the master-head canon (Reviews shrinks). */
+    titleSize?: 'lg' | 'base'
     /** Built-in meta. Нужны только когда слот #meta НЕ передан (hero-вариант). */
     date?: string
     duration?: string
@@ -79,6 +89,7 @@ const props = withDefaults(
   }>(),
   {
     variant: 'hero',
+    titleSize: 'lg',
     date: '',
     duration: '',
     participants: null,
@@ -129,6 +140,17 @@ const iconComponent = computed(
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
   margin: 0;
+}
+
+/* Master-head canon (additive opt-in via titleSize="base"). */
+.hero-card__title--base {
+  font-size: var(--text-base);
+}
+
+/* Optional below-meta row (master detail rating badges). */
+.hero-card__extra {
+  display: flex;
+  justify-content: center;
 }
 
 .hero-card__meta {

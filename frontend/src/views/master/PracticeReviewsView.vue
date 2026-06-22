@@ -23,17 +23,16 @@
   <div class="practice-reviews">
     <VHeader title="Отзывы о практике" show-back solid @back="router.back()" />
 
-    <!-- Practice header card -->
-    <div v-if="practice" class="practice-reviews__head">
-      <span class="practice-reviews__head-icon">
-        <component :is="practiceIconFor(practice)" :size="52" />
-      </span>
-      <div class="practice-reviews__head-title">{{ practice.title }}</div>
-      <div class="practice-reviews__head-meta">
-        <span><IconCalendar :size="16" />{{ practiceDate }}</span>
-        <span><IconGroup :size="16" />{{ participantsLabel }}</span>
-      </div>
-    </div>
+    <!-- Practice header card (shared PracticeHeroCard; titleSize base, meta =
+         date + participants — no duration, relies on the additive v-if). -->
+    <PracticeHeroCard
+      v-if="practice"
+      :title="practice.title"
+      title-size="base"
+      :date="practiceDate"
+      :participants="participantsLabel"
+      :direction="practice.direction"
+    />
 
     <!-- Stats -->
     <div class="practice-reviews__stats">
@@ -96,15 +95,10 @@ import { useDiaryStore } from '@/stores/diary'
 import { getPractice, getPracticeReviews } from '@/api/practices'
 import { VStatCard, VCard, VButton, VLoader, VEmptyState, VAvatar } from '@/components/ui'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
+import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { VHeader } from '@/components/layout'
-import {
-  IconCalendar,
-  IconGroup,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-} from '@/components/icons'
-import { practiceIconFor, RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
+import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
+import { RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
 import type { PracticeResponse, FeedbackRating, ReviewItem } from '@/api/types'
 
 const route = useRoute()
@@ -253,48 +247,6 @@ onMounted(async () => {
   gap: var(--space-4);
   /* F-5 rail sync: MobileLayout supplies the 24px horizontal rail. */
   padding: var(--space-4) 0;
-}
-
-/* ===== Practice header card ===== */
-.practice-reviews__head {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.practice-reviews__head-icon {
-  color: var(--velo-text-primary);
-  display: flex;
-}
-
-.practice-reviews__head-title {
-  font-size: var(--text-lg);
-  color: var(--velo-text-primary);
-  letter-spacing: 0.3px;
-  text-align: center;
-}
-
-.practice-reviews__head-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-}
-
-.practice-reviews__head-meta > span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-gap-6);
-}
-
-.practice-reviews__head-meta :deep(svg) {
-  opacity: 0.8;
 }
 
 /* ===== Stats ===== */
