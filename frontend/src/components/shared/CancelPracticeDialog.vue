@@ -6,9 +6,9 @@
     - practice card (icon + title + when + N участников)
     - warning Banner (DS warning variant, kept as-is per Q3=А)
     - recurring block + scope radio (Только эту / Эту и будущие) — shown only for
-      a `series` practice; the scope is CAPTURED-ONLY (cancelPractice takes no
-      scope yet → backend ask recorded in master-ds-zod-roadmap). The real action
-      is cancelPractice (full refund), invoked by the parent on @confirm.
+      a `series` practice. The chosen scope is emitted on @confirm ('this' /
+      'this_and_future'); the parent forwards it into cancelPractice (full
+      refund). A non-series practice emits 'this' (it has no siblings).
 
   Replaces the generic VConfirmDialog cancel-confirm in EditPracticeView.
 -->
@@ -39,8 +39,7 @@
         <template #icon><IconWarning :size="28" /></template>
       </Banner>
 
-      <!-- Recurring scope (series only). CAPTURED-ONLY: cancelPractice has no
-           scope param yet (→ Zod). Default = cancel only this occurrence. -->
+      <!-- Recurring scope (series only). Default = cancel only this occurrence. -->
       <template v-if="practice.practice_type === 'series'">
         <div class="cpd__recur"><IconRepeat :size="22" /> Это регулярная практика</div>
         <VRadioGroup v-model="scope" :options="SCOPE_OPTIONS" />
@@ -50,7 +49,7 @@
         <VButton variant="primary" :disabled="loading" @click="$emit('cancel')"
           >Не отменять</VButton
         >
-        <VButton variant="danger" :loading="loading" @click="$emit('confirm')">Отменить</VButton>
+        <VButton variant="danger" :loading="loading" @click="onConfirm">Отменить</VButton>
       </div>
     </div>
   </VModal>
@@ -74,18 +73,24 @@ const props = withDefaults(
   { loading: false },
 )
 
-defineEmits<{
-  confirm: []
+const emit = defineEmits<{
+  confirm: [scope: 'this' | 'this_and_future']
   cancel: []
 }>()
 
-// Cancel scope for a series — captured-only (not sent; see docstring).
-// Plain string ref so v-model matches VRadioGroup (modelValue: string).
+// Cancel scope for a series. Plain string ref so v-model matches VRadioGroup
+// (modelValue: string); mapped to the backend vocabulary on confirm.
 const scope = ref('one')
 const SCOPE_OPTIONS = [
   { value: 'one', label: 'Только эту' },
   { value: 'future', label: 'Эту и будущие' },
 ]
+
+/** Emit the backend cancel scope. Non-series practices keep the 'one' default
+ *  (the radio is hidden) → 'this'. */
+function onConfirm(): void {
+  emit('confirm', scope.value === 'future' ? 'this_and_future' : 'this')
+}
 
 const practiceIcon = computed(() => (props.practice ? practiceIconFor(props.practice) : null))
 

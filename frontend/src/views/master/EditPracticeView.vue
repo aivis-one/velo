@@ -556,11 +556,11 @@ function confirmCancel(): void {
 
 // -- Cancel: scheduled/live -> cancelled (full refund). Driven by the branded
 //    modal; uses the `cancelling` flag (modal :loading). --
-async function cancel(): Promise<void> {
+async function cancel(scope: 'this' | 'this_and_future'): Promise<void> {
   if (cancelling.value) return
   cancelling.value = true
   try {
-    const updated = await cancelPractice(practiceId)
+    const updated = await cancelPractice(practiceId, scope)
     practice.value = updated
     cancelModalOpen.value = false
     toast.success('Практика отменена, возвраты выполнены')

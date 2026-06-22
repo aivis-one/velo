@@ -519,11 +519,11 @@ function openDestructive(): void {
   else showCancel.value = true
 }
 
-async function doCancel(): Promise<void> {
+async function doCancel(scope: 'this' | 'this_and_future'): Promise<void> {
   if (cancelling.value) return
   cancelling.value = true
   try {
-    await cancelPractice(practiceId)
+    await cancelPractice(practiceId, scope)
     toast.success('Практика отменена')
     await masterStore.refreshMyPractices()
     router.back()

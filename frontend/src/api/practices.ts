@@ -117,9 +117,20 @@ export function deletePractice(id: string): Promise<void> {
  *
  * Allowed statuses: scheduled, live -> cancelled.
  * Backend triggers refund for all confirmed bookings atomically.
+ *
+ * `scope` selects how far the cancellation reaches for a SERIES practice:
+ *   'this'            -- only this occurrence (default when omitted).
+ *   'this_and_future' -- this occurrence and every later one in the series.
+ * A non-series practice has no siblings, so omitting scope behaves like 'this'.
  */
-export function cancelPractice(id: string): Promise<PracticeResponse> {
-  return api.post<PracticeResponse>(`/api/v1/practices/${id}/cancel`)
+export function cancelPractice(
+  id: string,
+  scope?: 'this' | 'this_and_future',
+): Promise<PracticeResponse> {
+  return api.post<PracticeResponse>(
+    `/api/v1/practices/${id}/cancel`,
+    scope ? { scope } : undefined,
+  )
 }
 
 /**
