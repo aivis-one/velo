@@ -183,7 +183,7 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { practiceIconFor, recurrenceDaysLabel } from '@/utils/displayHelpers'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
-import type { PracticeResponse, PracticeCardMeta } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -250,25 +250,20 @@ function checkinLabel(p: PracticeResponse): string {
   return `${totalCheckins(p.id)}/${denom}`
 }
 
-// -- Recurrence + series progress (Zod-gated: PracticeCardMeta) --------------
-
-/** PracticeResponse widened with the not-yet-shipped card-meta fields. */
-function cardMeta(p: PracticeResponse): PracticeCardMeta {
-  return p as PracticeResponse & PracticeCardMeta
-}
+// -- Recurrence + series progress (native PracticeResponse fields) -----------
 
 /** Series recurrence: weekday list / «Ежедневно» from recurrence_days, falling
- * back to «Регулярная» for a series until the backend ships the days. */
+ * back to «Регулярная» for a series with no day list. */
 function recurrenceLabel(p: PracticeResponse): string | null {
   if (p.practice_type !== 'series') return null
-  return recurrenceDaysLabel(cardMeta(p).recurrence_days) ?? 'Регулярная'
+  return recurrenceDaysLabel(p.recurrence_days) ?? 'Регулярная'
 }
 
 /** «Осталось N из M занятий» for a series with a known session count. */
 function remainingSessionsLabel(p: PracticeResponse): string | null {
-  const total = cardMeta(p).total_sessions
+  const total = p.total_sessions
   if (total == null) return null
-  const left = Math.max(0, total - (cardMeta(p).completed_sessions ?? 0))
+  const left = Math.max(0, total - (p.completed_sessions ?? 0))
   return `Осталось ${left} из ${total} занятий`
 }
 
