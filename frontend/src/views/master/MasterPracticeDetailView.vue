@@ -210,7 +210,7 @@
               <VButton variant="ghost" @click="loadMoreReviews">Показать ещё</VButton>
             </div>
           </template>
-          <div v-else class="practice-detail__empty">Отзывов пока нет</div>
+          <VEmptyState v-else variant="note" title="Отзывов пока нет" />
         </section>
 
         <!-- Финансы -->
@@ -826,18 +826,6 @@ onMounted(load)
   display: flex;
   justify-content: center;
   padding-top: var(--space-2);
-}
-
-/* ===== Empty ===== */
-.practice-detail__empty {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  text-align: center;
-  color: var(--velo-text-muted);
-  font-size: var(--text-sm);
-  line-height: 1.5;
 }
 
 /* ===== Finance card (PAST) ===== */

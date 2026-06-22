@@ -15,10 +15,19 @@
     <VEmptyState title="Нет практик">
       <template #icon><IconClock :size="48" /></template>
     </VEmptyState>
+
+  variant="note" (WS-3b T2) — a compact card-wrapped one-liner: solid card plate,
+  NO icon, NO title/desc split, NO action. The single message comes from `title`
+  (or the default slot). Replaces the bespoke `__empty` plates in the master views.
+    <VEmptyState variant="note" title="Данных пока нет" />
 -->
 
 <template>
-  <div class="v-empty">
+  <!-- note: compact card-wrapped single-line placeholder (no icon / action). -->
+  <div v-if="variant === 'note'" class="v-empty-note"><slot>{{ title }}</slot></div>
+
+  <!-- full (default): icon + title + optional description + optional action. -->
+  <div v-else class="v-empty">
     <span class="v-empty__icon">
       <slot name="icon"><component :is="resolvedIcon" v-if="resolvedIcon" :size="48" /></slot>
     </span>
@@ -47,10 +56,13 @@ const props = withDefaults(
     icon?: string
     title: string
     description?: string
+    /** 'full' (default) = icon + title + desc + action; 'note' = compact card line. */
+    variant?: 'full' | 'note'
   }>(),
   {
     icon: 'empty',
     description: '',
+    variant: 'full',
   },
 )
 
@@ -98,5 +110,17 @@ const resolvedIcon = computed<Component | null>(() => ICON_MAP[props.icon] ?? nu
 
 .v-empty__action {
   margin-top: var(--space-4);
+}
+
+/* ===== note variant — compact card-wrapped one-liner (WS-3b T2) ===== */
+.v-empty-note {
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--velo-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
 }
 </style>

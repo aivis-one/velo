@@ -87,7 +87,7 @@
             </div>
           </VCard>
         </template>
-        <div v-else class="analytics__empty">Данных пока нет — создайте первую практику</div>
+        <VEmptyState v-else variant="note" title="Данных пока нет — создайте первую практику" />
       </section>
 
       <!-- Прошедшие практики -->
@@ -101,9 +101,11 @@
           <VLoader />
         </div>
 
-        <div v-else-if="periodPractices.length === 0" class="analytics__empty">
-          За выбранный период практик нет
-        </div>
+        <VEmptyState
+          v-else-if="periodPractices.length === 0"
+          variant="note"
+          title="За выбранный период практик нет"
+        />
 
         <template v-else>
           <button
@@ -203,7 +205,7 @@
               <VButton variant="ghost" @click="loadMoreTx">Показать ещё</VButton>
             </div>
           </div>
-          <div v-else class="analytics__empty">Данных пока нет</div>
+          <VEmptyState v-else variant="note" title="Данных пока нет" />
         </section>
       </template>
     </div>
@@ -215,7 +217,15 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { VLoader, VButton, VStatCard, VCard, VSegmentTrack, VRatingBadges } from '@/components/ui'
+import {
+  VLoader,
+  VButton,
+  VStatCard,
+  VCard,
+  VSegmentTrack,
+  VRatingBadges,
+  VEmptyState,
+} from '@/components/ui'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import { IconRatingConfused, IconProfile } from '@/components/icons'
 import { practiceIconFor } from '@/utils/displayHelpers'
