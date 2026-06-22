@@ -45,8 +45,9 @@ withDefaults(
     layout?: 'column' | 'row'
     /** Optional trend line under the label (e.g. "+3", "+12%"). Empty = hidden. */
     delta?: string
-    /** Delta tone: 'up' (teal, positive trend, default) or 'muted' (placeholder). */
-    deltaTone?: 'up' | 'muted'
+    /** Delta tone: 'up' (teal, positive, default) / 'down' (rose, negative) /
+     *  'muted' (zero or placeholder). */
+    deltaTone?: 'up' | 'down' | 'muted'
     /** Value colour: 'default' (primary) / 'teal' (attended) / 'rose' (no-show).
      *  Used by the practice-detail + attendance-roster stat cards. */
     valueTone?: 'default' | 'teal' | 'rose'
@@ -150,6 +151,12 @@ defineEmits<{
 
 .v-stat__delta--up {
   color: var(--velo-teal-600);
+}
+
+/* Negative trend — reuses the falling-income rose token (AnalyticsView income
+   delta + v-stat value--rose). Additive: only the 'down' value selects it. */
+.v-stat__delta--down {
+  color: var(--velo-pink-500);
 }
 
 .v-stat__delta--muted {
