@@ -117,13 +117,12 @@
               <IconClose :size="16" />
             </button>
           </div>
-          <button
+          <VShowMore
             v-if="!rosterExpanded && hiddenRosterCount > 0"
-            class="pd-more-pill"
+            :count="hiddenRosterCount"
+            noun="участников"
             @click="rosterExpanded = true"
-          >
-            + ещё {{ hiddenRosterCount }} участников
-          </button>
+          />
         </section>
 
         <!-- Описание / Противопоказания -->
@@ -199,13 +198,12 @@
               <div v-if="r.comment" class="practice-detail__review-quote">«{{ r.comment }}»</div>
             </div>
             <!-- Первые 5 + раскрытие «+ ещё N отзывов» (operator 2026-06-18). -->
-            <button
+            <VShowMore
               v-if="!reviewsExpanded && hiddenReviewsCount > 0"
-              class="pd-more-pill"
+              :count="hiddenReviewsCount"
+              noun="отзывов"
               @click="expandReviews"
-            >
-              + ещё {{ hiddenReviewsCount }} отзывов
-            </button>
+            />
             <div v-else-if="reviewsExpanded && hasMoreReviews" class="practice-detail__more">
               <VButton variant="ghost" @click="loadMoreReviews">Показать ещё</VButton>
             </div>
@@ -307,6 +305,7 @@ import {
 } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
+import VShowMore from '@/components/shared/VShowMore.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import Banner from '@/components/shared/Banner.vue'
 import {
@@ -675,20 +674,6 @@ onMounted(load)
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
-}
-
-/* ===== «+ ещё N» раскрывающая пилюля (roster / отзывы; SVG «6 Attendance») ===== */
-.pd-more-pill {
-  align-self: center;
-  margin-top: var(--space-1);
-  padding: var(--space-2) var(--space-5);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-primary);
-  background: transparent;
-  border: 1.5px solid var(--velo-primary);
-  border-radius: var(--radius-full);
-  cursor: pointer;
 }
 
 /* ===== Section ===== */

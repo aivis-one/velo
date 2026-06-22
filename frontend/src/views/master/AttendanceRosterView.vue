@@ -72,11 +72,12 @@
             <IconCheck :size="24" class="roster__ic roster__ic--ok" />
             <span class="roster__name">{{ displayName(item) }}</span>
           </div>
-          <div v-if="hiddenAttended > 0" class="roster__more">
-            <button class="roster__more-btn" @click="attendedExpanded = true">
-              + еще {{ hiddenAttended }} участников
-            </button>
-          </div>
+          <VShowMore
+            v-if="hiddenAttended > 0"
+            :count="hiddenAttended"
+            noun="участников"
+            @click="attendedExpanded = true"
+          />
         </section>
 
         <!-- Не пришли -->
@@ -86,11 +87,12 @@
             <IconClose :size="24" class="roster__ic roster__ic--no" />
             <span class="roster__name">{{ displayName(item) }}</span>
           </div>
-          <div v-if="hiddenNoShow > 0" class="roster__more">
-            <button class="roster__more-btn" @click="noShowExpanded = true">
-              + еще {{ hiddenNoShow }} участников
-            </button>
-          </div>
+          <VShowMore
+            v-if="hiddenNoShow > 0"
+            :count="hiddenNoShow"
+            noun="участников"
+            @click="noShowExpanded = true"
+          />
         </section>
       </div>
     </template>
@@ -104,6 +106,7 @@ import { useMasterStore } from '@/stores/master'
 import { getPractice, getAttendance } from '@/api/practices'
 import { ApiResponseError } from '@/api/client'
 import { VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
+import VShowMore from '@/components/shared/VShowMore.vue'
 import { VHeader } from '@/components/layout'
 import { IconCalendar, IconClock, IconCheck, IconClose } from '@/components/icons'
 import { practiceIconFor } from '@/utils/displayHelpers'
@@ -306,29 +309,4 @@ onMounted(load)
   letter-spacing: 0.02em;
 }
 
-/* ===== "+ еще N" outline pill (primary border, auto width, centred) ===== */
-.roster__more {
-  display: flex;
-  justify-content: center;
-  padding-top: var(--space-1);
-}
-
-.roster__more-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-primary);
-  background: transparent;
-  border: 1.5px solid var(--velo-primary);
-  border-radius: var(--radius-full);
-  padding: 6px 22px;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.roster__more-btn:hover {
-  background: var(--velo-glass-blue-15);
-}
 </style>

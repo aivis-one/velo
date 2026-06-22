@@ -138,14 +138,12 @@
           </button>
 
           <!-- Первые 3 + раскрытие «+ ещё N практик» (#5). -->
-          <button
+          <VShowMore
             v-if="!pastExpanded && hiddenPastCount > 0"
-            type="button"
-            class="analytics__more-pill"
+            :count="hiddenPastCount"
+            noun="практик"
             @click="pastExpanded = true"
-          >
-            + ещё {{ hiddenPastCount }} практик
-          </button>
+          />
           <div v-else-if="pastExpanded && masterStore.practicesHasMore" class="analytics__more">
             <VButton variant="ghost" :loading="masterStore.practicesLoading" @click="onLoadMore">
               Показать ещё
@@ -227,6 +225,7 @@ import {
   VEmptyState,
 } from '@/components/ui'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
+import VShowMore from '@/components/shared/VShowMore.vue'
 import { IconRatingConfused, IconProfile } from '@/components/icons'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
@@ -650,20 +649,6 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   padding-top: var(--space-2);
-}
-
-/* «+ ещё N практик» reveal pill (#5; same idiom as the practice-detail roster). */
-.analytics__more-pill {
-  align-self: center;
-  margin: var(--space-1) auto 0;
-  padding: var(--space-2) var(--space-5);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-primary);
-  background: transparent;
-  border: 1.5px solid var(--velo-primary);
-  border-radius: var(--radius-full);
-  cursor: pointer;
 }
 
 .analytics__loader {
