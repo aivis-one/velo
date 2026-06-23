@@ -2,7 +2,7 @@
   VELO Frontend -- CreatePracticeView (Phase F6.2, fixed W-2, W-6, W-7, W-9)
 
   Create a new practice. Protected by masterStatusGuard.
-  Standalone within MasterShell (back button -> master-practices).
+  Standalone within MasterShell (back button -> origin via router.back(); see onBack).
 
   Sections (matching mockup screen-practice-create):
     ОСНОВНОЕ    -- title (required), practice_type (required)
@@ -33,7 +33,7 @@
 <template>
   <div class="create-practice">
     <!-- Header -->
-    <VHeader title="Новая практика" show-back @back="router.push({ name: 'master-practices' })" />
+    <VHeader title="Новая практика" show-back @back="onBack" />
 
     <div class="create-practice__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS banner, Phase-3). -->
@@ -322,6 +322,16 @@ import type { PracticeDirection, RecurrenceSpec } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
+
+// Back/cancel: return to the real origin. Create opens from BOTH the dashboard
+// empty-state CTA and Практики's «+» (goNew) — router.back() lands on whichever
+// pushed us here (fixes «back always went to Практики», operator 2026-06-23).
+// Deep-link / no history → fall back to the practices list. Submit-success
+// navigation (→ master-practices) is unchanged; only this Back button differs.
+function onBack(): void {
+  if (window.history.state?.back) router.back()
+  else router.push({ name: 'master-practices' })
+}
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
 

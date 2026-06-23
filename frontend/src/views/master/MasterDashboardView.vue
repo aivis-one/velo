@@ -11,7 +11,7 @@
     - "Мои ученики" row (VMenuRow).
     - Zero state only: "Создать первую практику" (VButton) -> create.
     - "Саммари недели" (VCard placeholder).
-    - "Ближайшие практики": up to 3 upcoming practice cards, each with
+    - "Ближайшие практики": up to 2 upcoming practice cards, each with
       "Изменить" -> edit and "Check-ins" -> attendance.
 
   STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
@@ -38,7 +38,7 @@
            ================================================================ -->
       <div class="master-dashboard__bell-row">
         <button class="master-dashboard__bell" aria-label="Уведомления" @click="onBell">
-          <IconBell :size="21" />
+          <IconBellPlain :size="21" />
           <span v-if="unreadCount > 0" class="master-dashboard__bell-badge">{{ unreadCount }}</span>
         </button>
       </div>
@@ -112,7 +112,7 @@
       </VCard>
 
       <!-- ================================================================
-           БЛИЖАЙШИЕ ПРАКТИКИ (up to 3)
+           БЛИЖАЙШИЕ ПРАКТИКИ (up to 2)
            ================================================================ -->
       <h2 class="velo-section-title">
         {{ nearestPractices.length > 1 ? 'Ближайшие практики' : 'Ближайшая практика' }}
@@ -190,7 +190,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
-import { IconBell, IconGroup } from '@/components/icons'
+import { IconBellPlain, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useToast } from '@/composables/useToast'
 import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
@@ -263,7 +263,7 @@ watch(period, () => {
 const unreadCount = computed((): number => 0)
 
 // =========================================================================
-// Nearest upcoming practices (up to 3). Scheduled/live AND not yet ended;
+// Nearest upcoming practices (up to 2). Scheduled/live AND not yet ended;
 // soonest first. Symmetric with the user dashboard's reactive 60s clock so a
 // card drops off exactly when its practice ends.
 // =========================================================================
@@ -276,7 +276,7 @@ const nearestPractices = computed((): PracticeResponse[] =>
       (p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value),
     )
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
-    .slice(0, 3),
+    .slice(0, 2),
 )
 
 // "Завтра, 07:00 • 45 мин" — rendered in the practice's own timezone (the master
@@ -325,8 +325,11 @@ onUnmounted(() => {
 <style scoped>
 .master-dashboard {
   /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
-     screen rail (--velo-rail-pad-x). Vertical kept for breathing room. */
-  padding: var(--space-4) 0;
+     screen rail (--velo-rail-pad-x). Top padding removed too (greeting gone —
+     the lone bell rode too low under the shell's fog-top clearance; operator
+     2026-06-23, SVG «Dashboard»): the bell now sits right under the shared 60px
+     clearance, matching the SVG's tight top band. Bottom kept for breathing room. */
+  padding: 0 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
