@@ -102,7 +102,10 @@
             >
               {{ form.date ? dateDisplay : 'Дата' }}
             </button>
-            <IconRequired v-if="!form.date" class="create-practice__seal" :size="22" />
+            <span class="create-practice__seal" :class="{ 'create-practice__seal--done': !!form.date }">
+              <IconRequired v-if="!form.date" :size="22" />
+              <IconRequiredDone v-else :size="22" />
+            </span>
           </div>
           <span v-if="errors.date" class="create-practice__field-error">{{ errors.date }}</span>
         </div>
@@ -121,7 +124,10 @@
             >
               {{ form.time || 'Время' }}
             </button>
-            <IconRequired v-if="!form.time" class="create-practice__seal" :size="22" />
+            <span class="create-practice__seal" :class="{ 'create-practice__seal--done': !!form.time }">
+              <IconRequired v-if="!form.time" :size="22" />
+              <IconRequiredDone v-else :size="22" />
+            </span>
           </div>
           <span v-if="errors.time" class="create-practice__field-error">{{ errors.time }}</span>
         </div>
@@ -157,7 +163,13 @@
               <div class="create-practice__repeat-title">Повтор:</div>
               <VRadioGroup v-model="form.recurrence" :options="RECURRENCE_OPTIONS" />
             </VCard>
-            <IconRequired v-if="!form.recurrence" class="create-practice__seal-card" :size="22" />
+            <span
+              class="create-practice__seal-card"
+              :class="{ 'create-practice__seal-card--done': !!form.recurrence }"
+            >
+              <IconRequired v-if="!form.recurrence" :size="22" />
+              <IconRequiredDone v-else :size="22" />
+            </span>
           </div>
 
           <!-- Дни недели (captured-only; DS-primitive VDayPicker, оставлен в
@@ -166,11 +178,13 @@
             <div class="create-practice__days create-practice__grow">
               <VDayPicker v-model="form.recurrence_days" aria-label="Дни недели для повтора" />
             </div>
-            <IconRequired
-              v-if="!form.recurrence_days.length"
+            <span
               class="create-practice__seal-card"
-              :size="22"
-            />
+              :class="{ 'create-practice__seal-card--done': form.recurrence_days.length > 0 }"
+            >
+              <IconRequired v-if="!form.recurrence_days.length" :size="22" />
+              <IconRequiredDone v-else :size="22" />
+            </span>
           </div>
 
           <!-- Завершить -->
@@ -202,11 +216,13 @@
                 @focus="scrollFieldIntoView"
               />
             </VCard>
-            <IconRequired
-              v-if="!form.recurrence_end"
+            <span
               class="create-practice__seal-card"
-              :size="22"
-            />
+              :class="{ 'create-practice__seal-card--done': !!form.recurrence_end }"
+            >
+              <IconRequired v-if="!form.recurrence_end" :size="22" />
+              <IconRequiredDone v-else :size="22" />
+            </span>
           </div>
         </template>
       </div>
@@ -311,7 +327,7 @@ import {
   VRadioGroup,
   VDayPicker,
 } from '@/components/ui'
-import { IconRequired } from '@/components/icons'
+import { IconRequired, IconRequiredDone } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -709,7 +725,12 @@ async function submit(): Promise<void> {
 
 .create-practice__seal {
   flex-shrink: 0;
+  display: flex;
   color: var(--velo-error);
+}
+
+.create-practice__seal--done {
+  color: var(--velo-required-done);
 }
 
 .create-practice__field-error {
@@ -733,8 +754,13 @@ async function submit(): Promise<void> {
 
 .create-practice__seal-card {
   flex-shrink: 0;
+  display: flex;
   color: var(--velo-error);
   margin-top: var(--space-2);
+}
+
+.create-practice__seal-card--done {
+  color: var(--velo-required-done);
 }
 
 /* -- Дни недели: карточка-обёртка для DS-примитива VDayPicker. -- */

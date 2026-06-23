@@ -37,6 +37,10 @@
   --velo-warning: #fbc088;
   --velo-error: #f795a2;
   --velo-info: #76dde6;
+  /* Filled required-marker green (IconRequiredDone «✓»). A distinct green — the
+     palette had none; --velo-success is teal, a different brand colour. Operator-
+     approved 2026-06-23. */
+  --velo-required-done: #3bb38a;
 
   /* === Colors: Semantic tints (W-4) ===
    * Used in admin banners, semaphore cards, status indicators.

@@ -25,17 +25,24 @@
           {{ opt.label }}
         </option>
       </select>
-      <!-- Required marker (DS pattern): pink seal in the right gutter. Shown only
-           while nothing is selected — it clears once a value is chosen
-           (operator 2026-06-18). -->
-      <IconRequired v-if="required && !modelValue" class="v-select__seal" :size="22" />
+      <!-- Required marker (DS): the gutter is ALWAYS reserved while `required`, so
+           the field width never jumps when a value is chosen. Red rosette «!» when
+           empty → green rosette «✓» when selected (operator 2026-06-23). -->
+      <span
+        v-if="required"
+        class="v-select__seal"
+        :class="{ 'v-select__seal--done': !!modelValue }"
+      >
+        <IconRequired v-if="!modelValue" :size="22" />
+        <IconRequiredDone v-else :size="22" />
+      </span>
     </div>
     <span v-if="error" class="v-select__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { IconRequired } from '@/components/icons'
+import { IconRequired, IconRequiredDone } from '@/components/icons'
 
 export interface SelectOption {
   value: string
@@ -123,11 +130,16 @@ defineEmits<{
   border-color: var(--velo-error);
 }
 
-/* Required seal — pink (--velo-error), sits beside the field, never shrinks. */
+/* Required seal — sits beside the field, never shrinks, gutter always reserved
+   while required (no width jump on select). Red empty → green when filled. */
 .v-select__seal {
   flex-shrink: 0;
   display: flex;
   color: var(--velo-error);
+}
+
+.v-select__seal--done {
+  color: var(--velo-required-done);
 }
 
 .v-select__error {

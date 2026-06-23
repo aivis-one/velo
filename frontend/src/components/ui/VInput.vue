@@ -46,10 +46,17 @@
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
 
-      <!-- Required marker (DS pattern): pink seal in the right gutter. Shown only
-           while the field is still empty — it clears once the master fills it in
-           (operator 2026-06-18). -->
-      <IconRequired v-if="required && !modelValue" class="v-input__seal" :size="22" />
+      <!-- Required marker (DS): the gutter is ALWAYS reserved while `required`, so
+           the field width never jumps when it fills. Red rosette «!» when empty →
+           green rosette «✓» when filled (operator 2026-06-23). -->
+      <span
+        v-if="required"
+        class="v-input__seal"
+        :class="{ 'v-input__seal--done': !!modelValue }"
+      >
+        <IconRequired v-if="!modelValue" :size="22" />
+        <IconRequiredDone v-else :size="22" />
+      </span>
     </div>
 
     <span v-if="error" class="v-input__error">{{ error }}</span>
@@ -58,7 +65,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { IconRequired } from '@/components/icons'
+import { IconRequired, IconRequiredDone } from '@/components/icons'
 
 // inheritAttrs:false — forward native attrs (min/max/step/inputmode/…) onto the
 // inner <input>, not the wrapper div. Keeps VInput at parity with VSelect/VTextarea.
@@ -194,11 +201,16 @@ defineExpose({ focus: () => inputEl.value?.focus() })
   background: transparent;
 }
 
-/* Required seal — pink (--velo-error), sits beside the field, never shrinks. */
+/* Required seal — sits beside the field, never shrinks, gutter always reserved
+   while required (no width jump on fill). Red empty → green when filled. */
 .v-input__seal {
   flex-shrink: 0;
   display: flex;
   color: var(--velo-error);
+}
+
+.v-input__seal--done {
+  color: var(--velo-required-done);
 }
 
 .v-input__error {
