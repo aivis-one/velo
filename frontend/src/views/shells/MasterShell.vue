@@ -11,6 +11,7 @@
     :active-tab="activeTab"
     :fog="isFogRoute"
     :hide-tab-bar="hideTabBar"
+    v-bind="fogTuning"
     @navigate="router.push($event)"
   >
     <RouterView />
@@ -65,8 +66,51 @@ const FOG_ROUTES = [
   // Notifications: long settings list — fog so the «Уведомления» header doesn't
   // overlap the rows on scroll (operator 2026-06-19).
   'master-notifications',
+  // Detail / read screens — fog «like the User zone» (operator option А,
+  // 2026-06-23). practice-detail (incl. the past «Прошедшая» state, same view)
+  // and support both carry an IN-FLOW bottom action CTA, so they take the
+  // CTA-safe pd-tuning below (softer top / tighter bottom) — the buttons sit
+  // above the fade and stay solid, exactly like the User practice-detail. The
+  // profile hub has no in-flow bottom CTA (logout lives in a modal) and keeps
+  // its tab bar, so the default fog already clears its last menu row.
+  'master-practice-detail',
+  'master-support',
+  'master-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
+
+// CTA-safe fog tuning for the fogged detail screens that have an in-flow bottom
+// action button (practice-detail, support). Mirrors UserShell's practice-detail:
+// a softer top dissolve + tighter bottom via the shared --velo-fog-pd-* tokens
+// (variables.css, single source), so the CTA clears the bottom fade and stays
+// crisp. Read once + memoized; values flow through JS into MobileLayout. The
+// profile hub is NOT listed here — it uses the default fog (tab-bar clearance
+// already keeps its last row solid).
+const CTA_SAFE_FOG_ROUTES = ['master-practice-detail', 'master-support']
+let pdFogCache: {
+  topGap: number
+  fogTopHard: number
+  fogBotFade: number
+  fogBotHard: number
+} | null = null
+function ctaSafeFog() {
+  if (pdFogCache) return pdFogCache
+  const cs = getComputedStyle(document.documentElement)
+  const tok = (name: string, fallback: number): number => {
+    const n = parseInt(cs.getPropertyValue(`--velo-fog-pd-${name}`), 10)
+    return Number.isFinite(n) ? n : fallback
+  }
+  pdFogCache = {
+    topGap: tok('top-gap', 25),
+    fogTopHard: tok('top-hard', 60),
+    fogBotFade: tok('bot-fade', 50),
+    fogBotHard: tok('bot-hard', 90),
+  }
+  return pdFogCache
+}
+const fogTuning = computed(() =>
+  CTA_SAFE_FOG_ROUTES.includes(route.name as string) ? ctaSafeFog() : {},
+)
 
 // Hide the bottom tab bar on detail routes that opt in via `meta.hideTabBar`
 // (the design omits the tab bar on master detail screens), OR while the soft
