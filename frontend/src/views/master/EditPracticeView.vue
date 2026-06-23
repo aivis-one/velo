@@ -43,9 +43,12 @@
   <div class="edit-practice">
     <!-- Back always returns to the practice screen; that screen decides where to
          go next (dashboard or practices, depending on origin) — operator 2026-06-17. -->
+    <!-- solid: opaque plate so the form scrolling under the floating header
+         doesn't ghost through the transparent title (same A1 fix as reviews). -->
     <VHeader
       title="Редактировать"
       show-back
+      solid
       @back="router.push({ name: 'master-practice-detail', params: { id: practiceId } })"
     />
 

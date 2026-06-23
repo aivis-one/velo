@@ -33,7 +33,9 @@
 <template>
   <div class="create-practice">
     <!-- Header -->
-    <VHeader title="Новая практика" show-back @back="onBack" />
+    <!-- solid: opaque plate so the form scrolling under the floating header
+         doesn't ghost through the transparent title (same A1 fix as reviews). -->
+    <VHeader title="Новая практика" show-back solid @back="onBack" />
 
     <div class="create-practice__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS banner, Phase-3). -->
@@ -197,6 +199,7 @@
                 min="1"
                 class="create-practice__end-control create-practice__count-input"
                 placeholder="Число повторений"
+                @focus="scrollFieldIntoView"
               />
             </VCard>
             <IconRequired
@@ -258,7 +261,7 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Подключение</h2>
 
-        <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" />
+        <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="scrollFieldIntoView" />
       </div>
 
       <!-- Submit -->
@@ -331,6 +334,20 @@ const toast = useToast()
 function onBack(): void {
   if (window.history.state?.back) router.back()
   else router.push({ name: 'master-practices' })
+}
+
+// The bottom-most fields («Число повторений», «Ссылка на Zoom») sit low on the
+// long form, where the soft keyboard covers them on focus. Center the focused
+// field in the (keyboard-shrunk) viewport so it stays visible while typing. The
+// delay lets the keyboard finish opening — scrolling before the visualViewport
+// shrinks would aim at the old, taller viewport. iOS/Telegram-webview behaviour,
+// so this is device-verified on TEST (desktop has no soft keyboard).
+function scrollFieldIntoView(e: FocusEvent): void {
+  const el = e.target as HTMLElement | null
+  if (!el) return
+  window.setTimeout(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, 300)
 }
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
@@ -732,6 +749,11 @@ async function submit(): Promise<void> {
    the radios; needs a visible edge on the white card. */
 .create-practice__end-control {
   margin-top: var(--space-3);
+  /* This trigger reuses .create-practice__picker (flex: 1), but here it sits in a
+     flex-COLUMN card, where flex-basis:0% would collapse its height:40px to the
+     text line («Дата окончания» squished). flex:0 0 auto restores the 40px; the
+     date/time row keeps flex:1 (correct there — grows width in a flex row). */
+  flex: 0 0 auto;
 }
 
 .create-practice__end-control.create-practice__picker {
