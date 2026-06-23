@@ -32,16 +32,14 @@
       </VEmptyState>
 
       <template v-else>
-        <!-- Search (glass pill; client-side filter over the loaded list) -->
+        <!-- Search: DS pattern — VInput glass pill + magnifier, uniform with the
+             user/diary search (DiarySearchModal). Static glass fill (no live
+             backdrop-filter) → no keyboard-focus flicker. Live client-side filter. -->
         <div class="students__search">
-          <input
-            v-model="query"
-            class="students__search-input"
-            type="text"
-            placeholder="Искать…"
-            aria-label="Искать ученика"
-          />
-          <span class="students__search-btn" aria-hidden="true"><IconSearch :size="18" /></span>
+          <div class="students__search-field">
+            <VInput v-model="query" placeholder="Искать…" aria-label="Искать ученика" />
+          </div>
+          <span class="students__search-btn" aria-hidden="true"><IconSearch :size="20" /></span>
         </div>
 
         <!-- List -->
@@ -95,7 +93,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VAvatar, VEmptyState, VLoader, VButton } from '@/components/ui'
+import { VAvatar, VEmptyState, VLoader, VButton, VInput } from '@/components/ui'
 import { IconSearch, IconWarning, IconMessages } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import { getStudents } from '@/api/masters'
@@ -172,47 +170,39 @@ function openMessage(name: string): void {
   padding: var(--space-6) 0;
 }
 
-/* -- Search (glass pill + primary circle button) -- */
+/* -- Search: DS VInput glass pill + magnifier, uniform with the user/diary
+      search (DiarySearchModal). Same VInput primitive + glass-pill override, so
+      there is no bespoke search form here. The glass fill is STATIC (no
+      backdrop-filter) → focusing it never re-samples the keyboard-displaced
+      fixed background, which is what flickered on iOS/Telegram webview. -- */
 .students__search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--velo-size-50);
   /* Gap to the first student card (design ~25px = space-2 row gap + this). */
   margin-bottom: var(--space-4);
-  padding: 5px 5px 5px var(--space-5);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  /* Frost the busy mandala behind the translucent fill so the interior reads
-     clean, not muddy (design «3 Students» uses a backdrop blur). */
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  /* White halo behind the pill (design drop-shadow → DS glow token). */
-  box-shadow: var(--velo-shadow-glow);
 }
 
-.students__search-input {
+.students__search-field {
   flex: 1;
   min-width: 0;
-  border: none;
-  background: transparent;
-  font-family: var(--font-body);
-  font-size: var(--text-16, 16px);
-  color: var(--velo-text-primary);
 }
 
-.students__search-input::placeholder {
-  color: var(--velo-text-muted);
+/* Drop VInput's default bottom margin so the magnifier centers on the field row
+   (same fix DiarySearchModal applies). */
+.students__search-field :deep(.v-input) {
+  margin-bottom: 0;
 }
 
-.students__search-input:focus {
-  outline: none;
+/* Glass-blue pill, overriding VInput's white plate — the diary search standard. */
+.students__search-field :deep(.v-input__field) {
+  background: var(--velo-glass-blue-15);
+  border-radius: var(--radius-full);
 }
 
 .students__search-btn {
-  width: var(--velo-size-40);
-  height: var(--velo-size-40);
+  width: var(--velo-size-44);
+  height: var(--velo-size-44);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-primary);
