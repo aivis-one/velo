@@ -5,7 +5,10 @@
 
   Tabs (VSegment):
     - "Предстоящие" -- draft + scheduled + live  (asc by scheduled_at)
-    - "Прошедшие"   -- completed + cancelled     (desc by scheduled_at)
+    - "Прошедшие"   -- completed ONLY            (desc by scheduled_at)
+    Cancelled practices appear in NEITHER tab — a cancelled practice did not
+    happen, so it is hidden from the list (server-side data is untouched;
+    operator 2026-06-25).
 
   Card (operator SVG 2026-06-11):
     - direction icon + title + "когда, время • N мин"
@@ -151,7 +154,7 @@
           v-else
           icon="list"
           title="Нет прошедших практик"
-          description="Здесь появятся завершённые и отменённые практики"
+          description="Здесь появятся завершённые практики"
         />
       </template>
 
@@ -205,10 +208,11 @@ const upcomingPractices = computed((): PracticeResponse[] =>
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
 )
 
-// -- Past: completed + cancelled, descending (newest first) --
+// -- Past: completed ONLY, descending (newest first). Cancelled practices did
+//    not happen, so they appear in NEITHER tab (operator 2026-06-25). --
 const pastPractices = computed((): PracticeResponse[] =>
   masterStore.practices
-    .filter((p) => p.status === 'completed' || p.status === 'cancelled')
+    .filter((p) => p.status === 'completed')
     .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
 )
 
