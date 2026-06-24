@@ -33,22 +33,52 @@
         </div>
       </div>
 
-      <!-- Needs attention -->
+      <!-- Needs attention (REAL: the master's students with needs_attention).
+           Each row taps through to the real student profile; the message button
+           is @click.stop so it does not navigate. -->
       <h2 class="velo-section-title">Требуют внимания</h2>
-      <div v-for="item in needsAttention" :key="item.id" class="summary__attn">
-        <VAvatar :name="item.name" size="md" />
-        <div class="summary__attn-body">
-          <div class="summary__attn-name">{{ item.name }}</div>
-          <div class="summary__attn-reason"><IconRatingConfused :size="14" />{{ item.reason }}</div>
-        </div>
-        <button
-          class="summary__msg"
-          aria-label="Написать сообщение"
-          @click="openMessage(item.name)"
-        >
-          <IconMessages :size="22" />
-        </button>
+      <div v-if="attnLoading" class="summary__attn-state">
+        <VLoader />
       </div>
+      <VEmptyState
+        v-else-if="attnError"
+        icon="warning"
+        title="Не удалось загрузить"
+        :description="attnError"
+      >
+        <VButton size="sm" variant="outline" @click="loadStudents">Повторить</VButton>
+      </VEmptyState>
+      <template v-else>
+        <div
+          v-for="student in needsAttention"
+          :key="student.id"
+          class="summary__attn summary__attn--clickable"
+          role="button"
+          tabindex="0"
+          @click="openProfile(student)"
+          @keydown.enter.space.prevent="openProfile(student)"
+        >
+          <VAvatar :name="student.name" size="md" />
+          <div class="summary__attn-body">
+            <div class="summary__attn-name">{{ student.name }}</div>
+            <div class="summary__attn-meta">Практик: {{ student.practices_count }}</div>
+            <span class="summary__attn-badge"><IconWarning :size="14" />Требует внимания</span>
+          </div>
+          <button
+            class="summary__msg"
+            aria-label="Написать сообщение"
+            @click.stop="openMessage(student.name)"
+          >
+            <IconMessages :size="22" />
+          </button>
+        </div>
+        <VEmptyState
+          v-if="needsAttention.length === 0"
+          icon="group"
+          title="Все ученики в порядке"
+          description="Здесь появятся те, кому нужно внимание"
+        />
+      </template>
     </div>
 
     <SendMessageModal :open="msgOpen" :name="msgName" @close="msgOpen = false" />
@@ -56,18 +86,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VCard, VAvatar } from '@/components/ui'
-import { IconRatingFire, IconRatingConfused, IconMessages } from '@/components/icons'
+import { VCard, VAvatar, VLoader, VEmptyState, VButton } from '@/components/ui'
+import { IconRatingFire, IconRatingConfused, IconMessages, IconWarning } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
+import { getStudents } from '@/api/masters'
 import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
+import type { StudentListItem } from '@/api/types'
 
 const router = useRouter()
 
 // -- STUB data (no master-AI / feedback-aggregation backend → roadmap for Zod).
-//    The insight is shared with the dashboard teaser (single source). --
+//    The insight + key feedbacks stay stub; «Ключевые отзывы» is NOT tappable
+//    (MasterReviewItem carries no user_id → nothing to navigate to; → Zod). --
 const insight = ref(WEEKLY_SUMMARY_INSIGHT)
 const keyFeedbacks = ref<
   Array<{ id: number; rating: 'fire' | 'confused'; name: string; comment: string }>
@@ -75,9 +108,39 @@ const keyFeedbacks = ref<
   { id: 1, rating: 'fire', name: 'Мария К.', comment: '«Лучшая практика за месяц!»' },
   { id: 2, rating: 'confused', name: 'Анна П.', comment: '«Хотела бы индивидуальную практику»' },
 ])
-const needsAttention = ref<Array<{ id: number; name: string; reason: string }>>([
-  { id: 1, name: 'Анна П.', reason: 'Запрос на консультацию' },
-])
+
+// -- «Требуют внимания» — REAL (E5: GET /masters/me/students). Same source as
+//    MasterStudentsView; show only students flagged needs_attention. --
+const students = ref<StudentListItem[]>([])
+const attnLoading = ref(true)
+const attnError = ref('')
+
+async function loadStudents(): Promise<void> {
+  attnLoading.value = true
+  attnError.value = ''
+  try {
+    const res = await getStudents()
+    students.value = res.items
+  } catch {
+    attnError.value = 'Попробуйте ещё раз'
+  } finally {
+    attnLoading.value = false
+  }
+}
+onMounted(loadStudents)
+
+const needsAttention = computed((): StudentListItem[] =>
+  students.value.filter((s) => s.needs_attention),
+)
+
+// The detail endpoint carries no name → pass it forward (mirror MasterStudentsView).
+function openProfile(student: StudentListItem): void {
+  router.push({
+    name: 'master-student-profile',
+    params: { id: student.id },
+    query: { name: student.name },
+  })
+}
 
 const msgOpen = ref(false)
 const msgName = ref('')
@@ -153,7 +216,14 @@ function openMessage(name: string): void {
   margin-top: var(--velo-gap-3);
 }
 
-/* -- Needs-attention row -- */
+/* Loader while the students fetch is in flight. */
+.summary__attn-state {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) 0;
+}
+
+/* -- Needs-attention row (mirrors MasterStudentsView .students__row) -- */
 .summary__attn {
   display: flex;
   align-items: center;
@@ -162,6 +232,15 @@ function openMessage(name: string): void {
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--velo-card-padding-y) var(--space-4);
+}
+
+.summary__attn--clickable {
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.summary__attn--clickable:active {
+  opacity: 0.85;
 }
 
 .summary__attn-body {
@@ -175,14 +254,28 @@ function openMessage(name: string): void {
   color: var(--velo-text-primary);
 }
 
-.summary__attn-reason {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-card-gap-icon-title);
+.summary__attn-meta {
   font-family: var(--font-body);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   margin-top: var(--velo-gap-2);
+}
+
+/* «Требует внимания» chip — same DS treatment as MasterStudentsView. */
+.summary__attn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--velo-card-gap-icon-title);
+  margin-top: var(--velo-gap-6);
+  padding: 3px 10px;
+  border-radius: var(--velo-radius-badge);
+  background: var(--velo-warning-bg);
+  color: var(--velo-peach-500);
+  font-size: var(--text-xs);
+}
+
+.summary__attn-badge svg {
+  color: var(--velo-warning);
 }
 
 .summary__msg {
