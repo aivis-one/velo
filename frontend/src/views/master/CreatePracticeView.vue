@@ -45,6 +45,16 @@
       </div>
 
       <!-- ================================================================
+           Использовать шаблон — prefill from one of the master's own past
+           practices (newest-first). Reuses PracticeListCard rows. Date/time
+           are NOT copied (a template must not schedule in the past).
+           ================================================================ -->
+      <div class="create-practice__section">
+        <h2 class="velo-section-title">Использовать шаблон</h2>
+        <UseTemplateBlock :practices="templatePractices" @select="applyTemplate" />
+      </div>
+
+      <!-- ================================================================
            Основное  (Q2=А: 3 поля — Направление / Вид=style / Уровень=difficulty;
            practice_type не показываем, выводим из «Повторения»)
            ================================================================ -->
@@ -326,7 +336,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
@@ -348,9 +358,10 @@ import { createPractice, updatePractice } from '@/api/practices'
 import { formatShortDate } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
+import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
-import type { PracticeDirection, RecurrenceSpec } from '@/api/types'
+import type { PracticeDirection, RecurrenceSpec, PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -380,6 +391,12 @@ function scrollFieldIntoView(e: FocusEvent): void {
 }
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
+
+// Load the master's practices so «Использовать шаблон» can offer them as
+// templates (no-op if already loaded from the practices list / dashboard).
+onMounted(() => {
+  void masterStore.fetchMyPractices()
+})
 
 const submitting = ref(false)
 
@@ -475,6 +492,12 @@ const errors = reactive({
   max_participants: '',
 })
 
+// «Использовать шаблон» source: all the master's practices, newest-created
+// first (operator Q2=А — backend list order isn't guaranteed, so sort here).
+const templatePractices = computed((): PracticeResponse[] =>
+  [...masterStore.practices].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+)
+
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
 const styleOptionsForForm = computed(() => stylesForDirection(form.direction as PracticeDirection))
@@ -483,6 +506,25 @@ const styleOptionsForForm = computed(() => stylesForDirection(form.direction as 
  *  invalid for the new direction. */
 function onDirectionChange(): void {
   form.style = ''
+}
+
+/**
+ * «Использовать шаблон»: prefill the form from one of the master's own past
+ * practices. Copies the practice's settings EXCEPT date & time, which stay
+ * fresh so a template can't schedule a practice in the past (operator Q1=А).
+ * The block collapses itself after selecting.
+ */
+function applyTemplate(p: PracticeResponse): void {
+  form.title = p.title
+  form.direction = p.direction ?? ''
+  form.style = p.style ?? ''
+  form.difficulty = p.difficulty ?? ''
+  form.duration_minutes = String(p.duration_minutes)
+  form.max_participants_raw = p.max_participants != null ? String(p.max_participants) : ''
+  form.description = p.description ?? ''
+  form.what_to_prepare = p.what_to_prepare ?? ''
+  form.contraindications = p.contraindications ?? ''
+  // date & time intentionally NOT copied.
 }
 
 // -- Validation --
