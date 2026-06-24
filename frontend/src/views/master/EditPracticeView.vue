@@ -194,17 +194,10 @@
             Опубликовать практику
           </VButton>
 
-          <!-- scheduled -> live -->
-          <VButton
-            v-if="practice.status === 'scheduled'"
-            variant="primary"
-            block
-            :loading="transitioning"
-            :disabled="anyLoading"
-            @click="startLive"
-          >
-            Начать эфир
-          </VButton>
+          <!-- «Начать эфир» (scheduled->live) removed (operator 2026-06-24): it
+               surfaced only because Create now auto-publishes to `scheduled`, and
+               it must not live on the edit screen. Going live is auto-by-schedule
+               (Zod) / lives on the practice hub, not here. -->
 
           <!-- «Завершить практику» + «Посещаемость» removed (operator 2026-06-17):
                finalize is non-obvious behind the edit form; a practice is meant to
@@ -540,22 +533,6 @@ async function publish(): Promise<void> {
     router.push({ name: 'master-practices' })
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось опубликовать')
-  } finally {
-    transitioning.value = false
-  }
-}
-
-// -- Start live: scheduled -> live --
-async function startLive(): Promise<void> {
-  if (anyLoading.value) return
-  transitioning.value = true
-  try {
-    const updated = await updatePractice(practiceId, { status: 'live' })
-    practice.value = updated
-    toast.success('Эфир начат!')
-    await masterStore.refreshMyPractices()
-  } catch (e) {
-    toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось начать эфир')
   } finally {
     transitioning.value = false
   }
