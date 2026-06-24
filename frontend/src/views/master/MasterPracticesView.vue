@@ -340,7 +340,11 @@ onMounted(async () => {
 
 /* -- Tabs (F-5 rail sync: ride MobileLayout's 24px rail, no local h-padding) -- */
 .master-practices__tabs {
-  padding: var(--space-3) 0;
+  /* Top padding dropped so the tab block sits closer to the «+»/title header
+     (operator 2026-06-25). The remaining header→tabs gap is MobileLayout's
+     global island clearance (shared, untouched). Bottom keeps the gap to the
+     first card. */
+  padding: 0 0 var(--space-3);
   background: transparent;
 }
 
