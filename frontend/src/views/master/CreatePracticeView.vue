@@ -263,11 +263,24 @@
           v-model="form.description"
           placeholder="Расскажите подробее о вашей практике"
           :rows="4"
+          autogrow
         />
 
-        <VInput v-model="form.contraindications" placeholder="Противопоказания" />
+        <!-- 1-row start (rows=1) = the VInput height these were before; auto-grow
+             past one line per the «Новая практика» SVG (operator Q1=А). -->
+        <VTextarea
+          v-model="form.contraindications"
+          placeholder="Противопоказания"
+          :rows="1"
+          autogrow
+        />
 
-        <VInput v-model="form.what_to_prepare" placeholder="Что подготовить" />
+        <VTextarea
+          v-model="form.what_to_prepare"
+          placeholder="Что подготовить"
+          :rows="1"
+          autogrow
+        />
       </div>
 
       <!-- ================================================================

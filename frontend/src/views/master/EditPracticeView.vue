@@ -132,13 +132,14 @@
             :error="errors.max_participants"
           />
 
-          <VTextarea v-model="form.description" label="Описание" :rows="4" />
+          <VTextarea v-model="form.description" label="Описание" :rows="4" autogrow />
 
           <VTextarea
             v-model="form.contraindications"
             label="Противопоказания"
             placeholder="Беременность, сердечно-сосудистые заболевания"
             :rows="2"
+            autogrow
           />
 
           <VTextarea
@@ -146,6 +147,7 @@
             label="Что подготовить"
             placeholder="Коврик, плед, вода"
             :rows="3"
+            autogrow
           />
 
           <!-- Zoom (реш. В: сохранена по ЛОГИКЕ — авто-ссылки-бэка ещё нет, и Edit
