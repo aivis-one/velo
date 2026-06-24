@@ -77,6 +77,9 @@
               {{ item.checkin.comment }}
             </div>
             <div v-else-if="item.status === 'no_show'" class="checkins__meta">Не пришёл</div>
+            <!-- Checked in (mood submitted) but left no comment: do NOT say
+                 «Ожидает check-in» — their mood face already shows they're in. -->
+            <div v-else-if="item.checkin" class="checkins__meta">Без комментария</div>
             <div v-else class="checkins__meta">Ожидает check-in</div>
           </div>
         </div>
@@ -198,8 +201,10 @@ onMounted(load)
 
 .checkins__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). Top
+     trimmed to sit closer to the floating header (parity with Create/Edit/
+     Students; operator 2026-06-25). */
+  padding: var(--space-2) 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
