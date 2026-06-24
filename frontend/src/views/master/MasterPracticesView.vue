@@ -420,9 +420,11 @@ onMounted(async () => {
   color: var(--velo-text-primary);
 }
 
-/* Second meta row («Осталось N из M занятий») sits tighter under the first. */
+/* Second meta row («Осталось N из M занятий») sits tighter under the first and
+   is centered in the card (operator 2026-06-25, Figma ref). */
 .mp-card__meta--row2 {
   margin-top: 7px;
+  justify-content: center;
 }
 
 .mp-stat {
