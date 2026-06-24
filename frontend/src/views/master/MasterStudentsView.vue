@@ -44,7 +44,7 @@
 
         <!-- List -->
         <div
-          v-for="student in filtered"
+          v-for="student in visibleStudents"
           :key="student.id"
           class="students__row"
           role="button"
@@ -68,6 +68,14 @@
             <IconMessages :size="22" />
           </button>
         </div>
+
+        <!-- Reveal the rest when there are more than the preview cap. -->
+        <VShowMore
+          v-if="!expanded && hiddenCount > 0"
+          :count="hiddenCount"
+          noun="учеников"
+          @click="expanded = true"
+        />
 
         <!-- Empty: no students at all vs no search match -->
         <VEmptyState
@@ -96,6 +104,7 @@ import { VHeader } from '@/components/layout'
 import { VAvatar, VEmptyState, VLoader, VButton, VInput } from '@/components/ui'
 import { IconSearch, IconWarning, IconMessages } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
+import VShowMore from '@/components/shared/VShowMore.vue'
 import { getStudents } from '@/api/masters'
 import type { StudentListItem } from '@/api/types'
 
@@ -127,6 +136,15 @@ const filtered = computed((): StudentListItem[] => {
   if (!q) return students.value
   return students.value.filter((s) => s.name.toLowerCase().includes(q))
 })
+
+// Show the first 10; the rest hide behind a «+ ещё N учеников» pill until tapped
+// (operator 2026-06-25). The cap applies to the current (search-)filtered list.
+const STUDENTS_PREVIEW = 10
+const expanded = ref(false)
+const visibleStudents = computed((): StudentListItem[] =>
+  expanded.value ? filtered.value : filtered.value.slice(0, STUDENTS_PREVIEW),
+)
+const hiddenCount = computed((): number => Math.max(0, filtered.value.length - STUDENTS_PREVIEW))
 
 // The detail endpoint carries no name → pass it forward from the list row.
 function openProfile(student: StudentListItem): void {
