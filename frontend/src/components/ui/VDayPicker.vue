@@ -80,15 +80,22 @@ function toggle(value: string): void {
 
 <style scoped>
 .v-day-picker {
-  display: flex;
+  /* Fluid 7-column grid (same overflow-proof pattern as DatePickerSheet
+     .dps__grid / WeekStrip): columns flex, the circle is centered in each, so
+     the row can never overflow a narrow container (the master create seal-row)
+     the way the old fixed `width:42px; flex-shrink:0` did. */
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: var(--space-2);
-  justify-content: space-between;
+  justify-items: center;
 }
 
 .v-day-picker__day {
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
+  /* Auto-size to the column, square via aspect-ratio, capped at the prior 42px
+     so it never balloons on a wide container. No fixed size, no new token. */
+  width: 100%;
+  max-width: 42px;
+  aspect-ratio: 1;
   padding: 0;
   border-radius: var(--radius-full);
   display: flex;
