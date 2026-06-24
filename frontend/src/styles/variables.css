@@ -362,6 +362,9 @@
   --velo-size-50: 50px; /* search / chat input field height */
   /* Off-scale row inset (between --space-4=16 / --space-5=24): section/row h-padding */
   --velo-inset-row: 18px;
+  /* Auto-grow textarea cap (~9 rows) before the field switches to internal
+     scroll. No SVG source for the cap (operator F1=А); single-role -> semantic. */
+  --velo-textarea-autogrow-max: 240px;
   /* Micro inter-element spacing (gap / margin) below --space-2=8 granularity */
   --velo-gap-2: 2px;
   --velo-gap-3: 3px;

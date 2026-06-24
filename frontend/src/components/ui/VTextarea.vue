@@ -11,24 +11,28 @@
   <div class="v-textarea" :class="{ 'v-textarea--error': !!error }">
     <label v-if="label" class="v-textarea__label">{{ label }}</label>
     <textarea
+      ref="fieldEl"
       class="v-textarea__field"
+      :class="{ 'v-textarea__field--autogrow': autogrow }"
       :value="modelValue"
       :placeholder="placeholder"
       :rows="rows"
       :disabled="disabled"
       v-bind="$attrs"
-      @input="$emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+      @input="onInput"
     />
     <span v-if="error" class="v-textarea__error">{{ error }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, watch, onMounted, nextTick } from 'vue'
+
 // inheritAttrs:false — forward native attrs (maxlength/inputmode/…) onto the
 // inner <textarea>, not the wrapper div. Parity with VInput/VSelect.
 defineOptions({ inheritAttrs: false })
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     modelValue?: string
     label?: string
@@ -36,6 +40,14 @@ withDefaults(
     rows?: number
     error?: string
     disabled?: boolean
+    /**
+     * Opt-in: grow the field to fit its content (up to the DS cap
+     * --velo-textarea-autogrow-max, then scroll internally). Off by default so
+     * existing fixed-rows usages are byte-identical. The empty start height
+     * follows `rows` (e.g. rows=1 ≈ a single-line VInput; rows=4 ≈ the 4-row
+     * description plate).
+     */
+    autogrow?: boolean
   }>(),
   {
     modelValue: '',
@@ -44,12 +56,43 @@ withDefaults(
     rows: 3,
     error: '',
     disabled: false,
+    autogrow: false,
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const fieldEl = ref<HTMLTextAreaElement | null>(null)
+
+// Resize to content: reset to auto, then take scrollHeight. The CSS max-height
+// (--velo-textarea-autogrow-max) caps the visible box and overflow-y:auto kicks
+// in past the cap, so no min/max math is needed here.
+function resize(): void {
+  if (!props.autogrow) return
+  const el = fieldEl.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
+function onInput(e: Event): void {
+  emit('update:modelValue', (e.target as HTMLTextAreaElement).value)
+  resize()
+}
+
+// Initial size + react to programmatic value changes (e.g. the edit form
+// populating fields after the practice loads).
+onMounted(() => {
+  void nextTick(resize)
+})
+watch(
+  () => props.modelValue,
+  () => {
+    if (props.autogrow) void nextTick(resize)
+  },
+)
 </script>
 
 <style scoped>
@@ -78,6 +121,16 @@ defineEmits<{
   transition: border-color var(--transition-base);
   min-height: 100px;
   resize: vertical;
+}
+
+/* Auto-grow variant: JS drives the height to content; CSS caps it at the DS
+   token and switches to internal scroll. min-height:0 so a 1-row field can sit
+   at the VInput height instead of the 100px fixed-rows floor. */
+.v-textarea__field--autogrow {
+  min-height: 0;
+  max-height: var(--velo-textarea-autogrow-max);
+  resize: none;
+  overflow-y: auto;
 }
 
 .v-textarea__field:focus {
