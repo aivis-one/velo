@@ -41,16 +41,14 @@
 
 <template>
   <div class="edit-practice">
-    <!-- Back always returns to the practice screen; that screen decides where to
-         go next (dashboard or practices, depending on origin) — operator 2026-06-17. -->
+    <!-- Back returns to the practice screen; that screen decides where to go next
+         (dashboard or practices, depending on origin) — operator 2026-06-17.
+         Deep-link-safe: pop the existing detail entry (router.back) instead of
+         PUSHing a new one — pushing grew history and ping-ponged edit<->detail
+         (the back-loop, operator 2026-06-24). Mirror of CreatePracticeView.onBack. -->
     <!-- solid: opaque plate so the form scrolling under the floating header
          doesn't ghost through the transparent title (same A1 fix as reviews). -->
-    <VHeader
-      title="Редактировать"
-      show-back
-      solid
-      @back="router.push({ name: 'master-practice-detail', params: { id: practiceId } })"
-    />
+    <VHeader title="Редактировать" show-back solid @back="onBack" />
 
     <!-- Loading -->
     <div v-if="loading" class="edit-practice__loader">
@@ -314,6 +312,15 @@ const toast = useToast()
 const masterStore = useMasterStore()
 
 const practiceId = route.params.id as string
+
+// Back to the practice screen. Deep-link-safe: if there's history, pop to the
+// detail entry that pushed us here (avoids the edit<->detail back-loop); else
+// (cold deep-link) push the detail route. Mirror of CreatePracticeView.onBack.
+function onBack(): void {
+  if (window.history.state?.back)
+    router.back()
+  else router.push({ name: 'master-practice-detail', params: { id: practiceId } })
+}
 
 // Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
 // like «Максимум мест» have no «Готово» key) — operator 2026-06-17.
