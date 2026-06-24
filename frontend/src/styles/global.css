@@ -120,6 +120,11 @@ ol {
   z-index: -1;
   background: url('/bg/background.png') center / cover no-repeat;
   pointer-events: none;
+  /* Counter-shift against the keyboard-driven visual-viewport reflow on
+     iOS / Telegram webview (the "dancing background"). The offset is written
+     live by useBackgroundStabilizer; at rest it is 0px -> translateY(0px),
+     i.e. inert / pixel-identical to no transform. */
+  transform: translateY(var(--velo-bg-shift, 0px));
 }
 
 /* === Section header (DS canon) ===

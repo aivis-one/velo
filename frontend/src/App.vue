@@ -53,6 +53,7 @@ import { onMounted, ref } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
+import { useBackgroundStabilizer } from '@/composables/useBackgroundStabilizer'
 import { VToast } from '@/components/ui'
 import AppFrame from '@/components/layout/AppFrame.vue'
 import LoadingView from '@/views/auth/LoadingView.vue'
@@ -63,6 +64,10 @@ import OnboardingView from '@/views/auth/OnboardingView.vue'
 const { isReady, isAuthenticated, isStandalone, isLoggingOut, initAuth } = useAuth()
 const authStore = useAuthStore()
 const toast = useToast()
+
+// Pin the fixed photo-background against the iOS/Telegram keyboard viewport
+// shift (the "dancing background"). Mounted once here, on the app root.
+useBackgroundStabilizer()
 
 /** Entry stage after a successful auth. Starts at the welcome screen. */
 type EntryStage = 'welcome' | 'onboarding' | 'app'

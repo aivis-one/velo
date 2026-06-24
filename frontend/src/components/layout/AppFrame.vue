@@ -33,8 +33,12 @@ const { contentSafeTop } = useSafeArea()
      (fill-mode screens like the diary need a bounded height to scroll their
      inner body instead of growing the whole frame). box-sizing:border-box keeps
      the safe-area padding inside this height. */
-  height: 100vh; /* fallback for browsers without dvh */
-  height: 100dvh;
+  height: 100vh; /* fallback for browsers without lvh */
+  /* lvh (large viewport height), NOT dvh: the *stable* large height that does
+     not shrink when the iOS keyboard opens. With dvh the frame reflowed on
+     keyboard open, re-anchoring the fixed #app::before bg layer (the "dancing
+     background"). Paired with useBackgroundStabilizer's counter-shift. */
+  height: 100lvh;
   min-height: 100vh;
   /* Fixed mobile design frame (Figma 402px). Content never grows wider than the
      design width, so the absolute px geometry taken from the 402px mockups stays
