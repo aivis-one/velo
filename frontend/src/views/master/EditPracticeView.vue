@@ -16,11 +16,11 @@
   State machine action buttons (below form):
     draft      -> "Опубликовать"  PATCH status=scheduled
                   "Удалить"       DELETE  (soft-delete, draft only)
-    scheduled  -> "Начать эфир"   PATCH status=live
-                  "Отменить"      POST /cancel (+ confirm dialog)
+    scheduled  -> "Отменить"      POST /cancel (+ confirm dialog)
     live       -> "Отменить"      POST /cancel   (+ confirm dialog)
-                  (manual "Завершить" removed — completion is auto-by-duration,
-                   pending backend; there is no live->finalize button here)
+                  (no manual scheduled->live nor live->finalize here: going live
+                   and completion are auto-by-schedule/duration, pending backend.
+                   The «Начать эфир» button was removed — operator 2026-06-24.)
     completed / cancelled / deleted -> readonly info banner
 
   After any successful mutation:
