@@ -72,8 +72,7 @@
           </div>
           <VShowMore
             v-if="hiddenAttended > 0"
-            :count="hiddenAttended"
-            noun="участников"
+            label="посмотреть еще"
             @click="attendedExpanded = true"
           />
         </section>
@@ -87,8 +86,7 @@
           </div>
           <VShowMore
             v-if="hiddenNoShow > 0"
-            :count="hiddenNoShow"
-            noun="участников"
+            label="посмотреть еще"
             @click="noShowExpanded = true"
           />
         </section>
@@ -117,7 +115,7 @@ const masterStore = useMasterStore()
 
 const practiceId = route.params.id as string
 
-const COLLAPSE_THRESHOLD = 5
+const COLLAPSE_THRESHOLD = 10
 
 // -- Data --
 const practice = ref<PracticeResponse | null>(null)
@@ -214,8 +212,9 @@ onMounted(load)
 
 .roster__content {
   flex: 1;
-  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding). */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: ride MobileLayout's 24px rail (no local h-padding).
+     Top tightened (operator ПРОМТ №161): back-button → hero sits closer. */
+  padding: var(--space-2) 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -229,10 +228,11 @@ onMounted(load)
 }
 
 /* ===== Section ===== */
+/* Row-to-row spacing tightened (operator ПРОМТ №161). */
 .roster__section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 /* ===== Roster row ===== */
