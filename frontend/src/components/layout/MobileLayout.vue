@@ -168,6 +168,14 @@ function fogDefaults() {
 //   top    -> measured island height + gap (floating header), else a small base
 //   bottom -> clear the floating tab bar when present, else a small base
 //   fog-*  -> mask fade zones, aligned to the clearances (used only with --fog)
+//
+// Pre-measurement fallback (islandH===0 race): clear the floating VHeader's REAL
+// rendered height instead of a too-small base, so a back-button screen («Отзывы о
+// практике» / «Вывод средств») doesn't underlap its header before the island is
+// measured. Derived from VHeader.vue: padding-top calc(--space-3 + 20px)=34 +
+// the 40px back button + padding-bottom --space-3=14 ≈ 88px. The measured
+// islandH>0 path stays unchanged. (operator ПРОМТ №164)
+const HEADER_FALLBACK = 88
 const mainStyle = computed(() => {
   const d = fogDefaults()
   const topGap = props.topGap ?? d.topGap
@@ -177,7 +185,7 @@ const mainStyle = computed(() => {
   // explicit fogBot* prop always wins (e.g. practice-detail's operator tuning).
   const botFade = props.fogBotFade ?? (props.hideTabBar ? d.listBotFade : d.botFade)
   const botHard = props.fogBotHard ?? (props.hideTabBar ? d.listBotHard : d.botHard)
-  const top = islandH.value > 0 ? islandH.value + topGap : props.fog ? 60 : 16
+  const top = islandH.value > 0 ? islandH.value + topGap : HEADER_FALLBACK + topGap
   // Bottom clearance: clear the floating tab bar (160) when present; without it,
   // a fog list pads exactly to its bottom fade zone so the last item rests crisp
   // and only dissolves on scroll; a plain (no-fog) detail keeps a small 24 base.
