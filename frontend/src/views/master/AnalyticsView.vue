@@ -69,28 +69,33 @@
         />
       </section>
 
-      <!-- Последние отзывы (#3: cross-practice named feed; all ratings, honest). -->
-      <section class="analytics__section">
-        <h2 class="velo-section-title">Последние отзывы</h2>
-        <template v-if="reviews.length > 0">
-          <VCard v-for="(item, i) in reviews" :key="i" class="analytics__attention">
-            <VAvatar :name="item.reviewer_name" :url="item.avatar_url ?? ''" size="md" />
-            <div class="analytics__attention-body">
-              <div class="analytics__attention-name">{{ item.reviewer_name }}</div>
-              <div class="analytics__attention-rate">
-                <component
-                  :is="RATING_ICON[item.rating as FeedbackRating]"
-                  :size="16"
-                  :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
-                />
-                {{ RATING_LABEL[item.rating as FeedbackRating] }}
-                <span class="analytics__attention-pr">• {{ item.practice_title }}</span>
-              </div>
-              <div v-if="item.comment" class="analytics__attention-quote">«{{ item.comment }}»</div>
+      <!-- Требуют внимания: ученики, оставившие в фидбэке «Есть вопросы» (confused)
+           за период. Секция (вместе с заголовком) НЕ показывается, если таких нет;
+           тап по карточке открывает окно сообщения ученику (ПРОМТ №163). -->
+      <section v-if="attentionItems.length > 0" class="analytics__section">
+        <h2 class="velo-section-title">Требуют внимания</h2>
+        <button
+          v-for="(item, i) in attentionItems"
+          :key="i"
+          type="button"
+          class="analytics__attention"
+          @click="openMessage(item.reviewer_name)"
+        >
+          <VAvatar :name="item.reviewer_name" :url="item.avatar_url ?? ''" size="md" />
+          <div class="analytics__attention-body">
+            <div class="analytics__attention-name">{{ item.reviewer_name }}</div>
+            <div class="analytics__attention-rate">
+              <component
+                :is="RATING_ICON[item.rating as FeedbackRating]"
+                :size="16"
+                :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
+              />
+              {{ RATING_LABEL[item.rating as FeedbackRating] }}
+              <span class="analytics__attention-pr">• {{ item.practice_title }}</span>
             </div>
-          </VCard>
-        </template>
-        <VEmptyState v-else variant="note" title="Отзывов пока нет" />
+            <div v-if="item.comment" class="analytics__attention-quote">«{{ item.comment }}»</div>
+          </div>
+        </button>
       </section>
 
       <!-- Прошедшие практики -->
@@ -210,6 +215,9 @@
         </section>
       </template>
     </div>
+
+    <!-- «Требуют внимания» tap → message the student (stub modal, E4). -->
+    <SendMessageModal :open="msgOpen" :name="msgName" @close="msgOpen = false" />
   </div>
 </template>
 
@@ -231,6 +239,7 @@ import {
 import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
+import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
@@ -387,6 +396,23 @@ async function loadReviews(): Promise<void> {
   }
 }
 
+// Требуют внимания: «Есть вопросы» (confused) reviews within the active period
+// (client-side, mirroring the past list). Empty ⇒ the section + title are hidden.
+const attentionItems = computed((): MasterReviewItem[] => {
+  const cutoff = Date.now() - PERIOD_DAYS[period.value] * 86_400_000
+  return reviews.value.filter(
+    (r) => r.rating === 'confused' && new Date(r.created_at).getTime() >= cutoff,
+  )
+})
+
+// Tap a «Требуют внимания» card → open the (stub, E4) send-message modal by name.
+const msgOpen = ref(false)
+const msgName = ref('')
+function openMessage(name: string): void {
+  msgName.value = name
+  msgOpen.value = true
+}
+
 // =========================================================================
 // Платежи (E2: income by period + transaction feed)
 // =========================================================================
@@ -527,11 +553,24 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-/* ===== Требуют внимания ===== */
+/* ===== Требуют внимания (tappable card → message) ===== */
 .analytics__attention {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
+  transition: opacity var(--transition-fast);
+}
+
+.analytics__attention:active {
+  opacity: 0.85;
 }
 
 .analytics__attention-body {
