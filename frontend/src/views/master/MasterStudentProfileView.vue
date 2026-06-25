@@ -38,34 +38,32 @@
           <div class="profile__hero-name">{{ name }}</div>
         </div>
 
-        <!-- Stats -->
+        <!-- Stats (% card removed — ПРОМТ №157; two cards widen under the hero) -->
         <div class="profile__stats">
           <VStatCard :value="practicesCount" label="Практик" />
           <VStatCard :value="hours" label="Часов" />
-          <div class="profile__stat">
-            <div class="profile__stat-value">{{ satisfactionLabel }}</div>
-            <div class="profile__stat-icons">
-              <IconHeart :size="15" class="profile__ic-heart" />
-              <IconRatingFire :size="15" class="profile__ic-fire" />
-            </div>
-          </div>
         </div>
 
-        <!-- Recent check-ins -->
+        <!-- Recent check-ins (cap 3; rest behind «посмотреть еще» — ПРОМТ №157) -->
         <h2 class="velo-section-title">Последние check-ins</h2>
         <div v-if="checkinRows.length === 0" class="profile__empty">Пока нет check-ins</div>
-        <div v-for="(ci, i) in checkinRows" :key="`ci-${i}`" class="profile__ci">
+        <div v-for="(ci, i) in visibleCheckins" :key="`ci-${i}`" class="profile__ci">
           <MoodAvatar :mood="ci.mood" :size="46" />
           <div class="profile__ci-body">
             <div class="profile__ci-text">{{ ci.comment || moodLabelFromScore(ci.mood) }}</div>
             <div class="profile__ci-date">{{ ci.date }}</div>
           </div>
         </div>
+        <VShowMore
+          v-if="!ciExpanded && hiddenCheckins > 0"
+          label="посмотреть еще"
+          @click="ciExpanded = true"
+        />
 
-        <!-- Feedbacks -->
+        <!-- Feedbacks (cap 3; rest behind «посмотреть еще» — ПРОМТ №157) -->
         <h2 class="velo-section-title">Feedbacks</h2>
         <div v-if="feedbackRows.length === 0" class="profile__empty">Пока нет отзывов</div>
-        <div v-for="(fb, i) in feedbackRows" :key="`fb-${i}`" class="profile__fb">
+        <div v-for="(fb, i) in visibleFeedbacks" :key="`fb-${i}`" class="profile__fb">
           <span class="profile__fb-ic" :style="{ color: fb.color }">
             <component :is="fb.icon" :size="30" />
           </span>
@@ -77,6 +75,11 @@
             <div v-if="fb.comment" class="profile__fb-text">{{ fb.comment }}</div>
           </div>
         </div>
+        <VShowMore
+          v-if="!fbExpanded && hiddenFeedbacks > 0"
+          label="посмотреть еще"
+          @click="fbExpanded = true"
+        />
 
         <!-- Action (stub — E4 messaging not delivered) -->
         <VButton variant="primary" block class="profile__cta" @click="msgOpen = true">
@@ -94,9 +97,10 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VAvatar, VStatCard, VButton, VLoader, VEmptyState } from '@/components/ui'
-import { IconHeart, IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
+import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
 import MoodAvatar from '@/components/shared/MoodAvatar.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
+import VShowMore from '@/components/shared/VShowMore.vue'
 import {
   moodLabelFromScore,
   ratingLabelFromScore,
@@ -140,10 +144,6 @@ onMounted(load)
 
 const practicesCount = computed((): number => detail.value?.practices_count ?? 0)
 const hours = computed((): number => detail.value?.hours ?? 0)
-const satisfactionLabel = computed((): string => {
-  const pct = detail.value?.satisfaction_pct
-  return pct == null ? '—' : `${pct}%`
-})
 
 const ICON_BY_ZONE: Record<'confused' | 'good' | 'fire', Component> = {
   confused: IconRatingConfused,
@@ -171,6 +171,21 @@ const feedbackRows = computed(() =>
     }
   }),
 )
+
+// Show the 3 most recent of each; the rest hide behind a «посмотреть еще» pill
+// until tapped (operator, ПРОМТ №157). Client-side expand of the already-loaded
+// (backend-capped) set — no pagination.
+const PREVIEW_CAP = 3
+const ciExpanded = ref(false)
+const fbExpanded = ref(false)
+const visibleCheckins = computed(() =>
+  ciExpanded.value ? checkinRows.value : checkinRows.value.slice(0, PREVIEW_CAP),
+)
+const visibleFeedbacks = computed(() =>
+  fbExpanded.value ? feedbackRows.value : feedbackRows.value.slice(0, PREVIEW_CAP),
+)
+const hiddenCheckins = computed((): number => Math.max(0, checkinRows.value.length - PREVIEW_CAP))
+const hiddenFeedbacks = computed((): number => Math.max(0, feedbackRows.value.length - PREVIEW_CAP))
 
 // "Написать сообщение" — stub (E4 messaging not delivered).
 const msgOpen = ref(false)
@@ -228,43 +243,11 @@ const msgOpen = ref(false)
   color: var(--velo-text-primary);
 }
 
-/* -- Stats (VStatCard ×2 + a custom % card matching its look) -- */
+/* -- Stats (VStatCard ×2: practices + hours) -- */
 .profile__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
-}
-
-.profile__stat {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  text-align: center;
-}
-
-.profile__stat-value {
-  font-family: var(--font-heading);
-  font-size: var(--text-xl);
-  color: var(--velo-text-primary);
-  line-height: 1.1;
-  letter-spacing: 0.64px;
-}
-
-.profile__stat-icons {
-  display: inline-flex;
-  gap: var(--space-1);
-}
-
-.profile__ic-heart {
-  color: var(--velo-pink-500);
-}
-.profile__ic-fire {
-  color: var(--velo-peach-500);
 }
 
 /* -- Section title -- */
