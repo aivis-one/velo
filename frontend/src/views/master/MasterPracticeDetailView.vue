@@ -222,29 +222,20 @@
           <template v-else-if="reviews.length > 0">
             <div v-for="(r, i) in visibleReviews" :key="i" class="practice-detail__review">
               <div class="practice-detail__review-top">
-                <VAvatar :name="r.reviewer_name" :url="r.avatar_url ?? ''" size="sm" />
-                <div class="practice-detail__review-id">
-                  <span class="practice-detail__review-name">{{ r.reviewer_name }}</span>
-                  <span class="practice-detail__review-date">{{
-                    formatDateShort(r.created_at)
-                  }}</span>
-                </div>
-                <span class="practice-detail__review-rating">
-                  <component
-                    :is="RATING_ICON[r.rating]"
-                    :size="22"
-                    :style="{ color: RATING_ICON_COLOR[r.rating] }"
-                  />
-                  {{ RATING_LABEL[r.rating] }}
+                <span
+                  class="practice-detail__review-ic"
+                  :style="{ color: RATING_ICON_COLOR[r.rating] }"
+                >
+                  <component :is="RATING_ICON[r.rating]" :size="28" />
                 </span>
+                <span class="practice-detail__review-name">{{ r.reviewer_name }}</span>
               </div>
               <div v-if="r.comment" class="practice-detail__review-quote">«{{ r.comment }}»</div>
             </div>
-            <!-- Первые 5 + раскрытие «+ ещё N отзывов» (operator 2026-06-18). -->
+            <!-- Первые 10 + раскрытие «посмотреть еще» (operator ПРОМТ №160). -->
             <VShowMore
               v-if="!reviewsExpanded && hiddenReviewsCount > 0"
-              :count="hiddenReviewsCount"
-              noun="отзывов"
+              label="посмотреть еще"
               @click="expandReviews"
             />
             <div v-else-if="reviewsExpanded && hasMoreReviews" class="practice-detail__more">
@@ -252,20 +243,6 @@
             </div>
           </template>
           <VEmptyState v-else variant="note" title="Отзывов пока нет" />
-        </section>
-
-        <!-- Финансы -->
-        <section class="practice-detail__section">
-          <h2 class="velo-section-title">Финансы</h2>
-          <div class="practice-detail__finance">
-            <div class="practice-detail__finrow">
-              <span>Записалось</span><span>{{ enrolledLabel }}</span>
-            </div>
-            <div class="practice-detail__finrow">
-              <span>Присутствовало</span><span>{{ attendedPeopleLabel }}</span>
-            </div>
-            <!-- «Доход» убран до появления ledger-API (operator 2026-06-18). -->
-          </div>
         </section>
 
         <!-- CTAs -->
@@ -342,7 +319,6 @@ import {
   VConfirmDialog,
   VMenu,
   VMenuItem,
-  VAvatar,
   VRatingBadges,
 } from '@/components/ui'
 import { VHeader } from '@/components/layout'
@@ -363,7 +339,6 @@ import {
 import IconTrash from '@/components/icons/IconTrash.vue'
 import {
   RATING_ICON_COLOR,
-  RATING_LABEL,
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
   recurrenceDaysLabel,
@@ -482,29 +457,23 @@ function ratingPct(key: 'fire' | 'good' | 'confused'): number {
   return total > 0 ? Math.round((f[key] / total) * 100) : 0
 }
 
-// -- Past: stats + finance (REAL via getAttendance; "—" until loaded) --
+// -- Past: stats (REAL via getAttendance; "—" until loaded) --
 const attendedValue = computed((): string | number =>
   attendance.value ? attendance.value.attended : '—',
 )
 const noShowValue = computed((): string | number =>
   attendance.value ? attendance.value.no_show : '—',
 )
-const enrolledLabel = computed((): string =>
-  attendance.value ? `${attendance.value.total} чел.` : '—',
-)
-const attendedPeopleLabel = computed((): string =>
-  attendance.value ? `${attendance.value.attended} чел.` : '—',
-)
 
 // -- Past: Отзывы участников (E1 named reviews — getPracticeReviews, paginated) --
 const REVIEWS_PAGE = 20
-const REVIEWS_PREVIEW = 5
+const REVIEWS_PREVIEW = 10
 const reviews = ref<ReviewItem[]>([])
 const reviewsTotal = ref(0)
 const reviewsLoading = ref(false)
 const hasMoreReviews = computed((): boolean => reviews.value.length < reviewsTotal.value)
 
-// Первые 5 + раскрытие «+ ещё N отзывов» (operator 2026-06-18).
+// Первые 10 + раскрытие «посмотреть еще» (operator ПРОМТ №160).
 const reviewsExpanded = ref(false)
 const visibleReviews = computed((): ReviewItem[] =>
   reviewsExpanded.value ? reviews.value : reviews.value.slice(0, REVIEWS_PREVIEW),
@@ -800,32 +769,17 @@ onMounted(load)
   gap: var(--velo-card-meta-row-gap);
 }
 
-.practice-detail__review-id {
-  display: flex;
-  flex-direction: column;
-  gap: var(--velo-gap-2);
-  min-width: 0;
+/* Identifier icon (the rating the student chose) — replaces the avatar, left. */
+.practice-detail__review-ic {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
 }
 
 .practice-detail__review-name {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-}
-
-.practice-detail__review-date {
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-}
-
-.practice-detail__review-rating {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-gap-6);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  white-space: nowrap;
 }
 
 .practice-detail__review-quote {
@@ -844,25 +798,6 @@ onMounted(load)
   display: flex;
   justify-content: center;
   padding-top: var(--space-2);
-}
-
-/* ===== Finance card (PAST) ===== */
-.practice-detail__finance {
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--space-4) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.practice-detail__finrow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: var(--text-xs);
-  color: var(--velo-text-primary);
 }
 
 /* ===== CTAs ===== */
