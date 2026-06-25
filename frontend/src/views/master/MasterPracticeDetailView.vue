@@ -87,7 +87,7 @@
           :title="practice.title"
           :date="whenLabel"
           :duration="durationLabel"
-          :participants="participantsLabel"
+          :recurrence="recurrenceLabel"
           :direction="practice.direction"
           :difficulty-dots="difficultyDots"
           :difficulty-label="difficultyLabel"
@@ -125,17 +125,60 @@
           />
         </section>
 
-        <!-- Описание / Противопоказания -->
+        <!-- Описание / Противопоказания / Что подготовить — отдельные карточки
+             (separate cards, bold headers, big chevron — ПРОМТ №158). -->
         <section
-          v-if="practice.description || practice.contraindications"
-          class="practice-detail__section practice-detail__accordions"
+          v-if="practice.description || practice.contraindications || practice.what_to_prepare"
+          class="practice-detail__section"
         >
-          <VAccordion v-if="practice.description" title="Описание" :default-open="true">
-            {{ practice.description }}
-          </VAccordion>
-          <VAccordion v-if="practice.contraindications" title="Противопоказания">
-            {{ practice.contraindications }}
-          </VAccordion>
+          <div v-if="practice.description" class="pd-acc" :class="{ 'pd-acc--open': descOpen }">
+            <button
+              class="pd-acc__hd"
+              :aria-expanded="descOpen"
+              :aria-label="descOpen ? 'Свернуть' : 'Развернуть'"
+              @click="descOpen = !descOpen"
+            >
+              <span class="pd-acc__title">Описание</span>
+              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            <div v-if="descOpen" class="pd-acc__body">{{ practice.description }}</div>
+          </div>
+
+          <div
+            v-if="practice.contraindications"
+            class="pd-acc"
+            :class="{ 'pd-acc--open': contraOpen }"
+          >
+            <button
+              class="pd-acc__hd"
+              :aria-expanded="contraOpen"
+              :aria-label="contraOpen ? 'Свернуть' : 'Развернуть'"
+              @click="contraOpen = !contraOpen"
+            >
+              <span class="pd-acc__title">Противопоказания</span>
+              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            <div v-if="contraOpen" class="pd-acc__body">{{ practice.contraindications }}</div>
+          </div>
+
+          <div v-if="practice.what_to_prepare" class="pd-acc" :class="{ 'pd-acc--open': prepOpen }">
+            <button
+              class="pd-acc__hd"
+              :aria-expanded="prepOpen"
+              :aria-label="prepOpen ? 'Свернуть' : 'Развернуть'"
+              @click="prepOpen = !prepOpen"
+            >
+              <span class="pd-acc__title">Что подготовить</span>
+              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            <div v-if="prepOpen" class="pd-acc__body">{{ practice.what_to_prepare }}</div>
+          </div>
         </section>
 
         <!-- Нижние кнопки убраны (operator 2026-06-18): запуск — авто по
@@ -296,7 +339,6 @@ import {
   VEmptyState,
   VModal,
   VConfirmDialog,
-  VAccordion,
   VMenu,
   VMenuItem,
   VAvatar,
@@ -323,6 +365,7 @@ import {
   RATING_LABEL,
   DIFFICULTY_DOTS,
   DIFFICULTY_LABEL,
+  recurrenceDaysLabel,
 } from '@/utils/displayHelpers'
 import { formatDateShort, formatTime } from '@/utils/format'
 import { useToast } from '@/composables/useToast'
@@ -375,12 +418,18 @@ const durationLabel = computed((): string =>
 )
 
 // -- Upcoming hero extras --
-const participantsLabel = computed((): string | null => {
-  if (!practice.value) return null
-  const enrolled = attendance.value ? attendance.value.total : practice.value.current_participants
-  const cap = practice.value.max_participants
-  return cap != null ? `${enrolled}/${cap}` : `${enrolled}`
+// Recurrence chip (Q2=Б): mirrors MasterPracticesView — «Пн, Ср, Пт» / «Ежедневно»
+// for a series, «Регулярная» when the day list is empty; null hides the chip.
+const recurrenceLabel = computed((): string | null => {
+  if (practice.value?.practice_type !== 'series') return null
+  return recurrenceDaysLabel(practice.value.recurrence_days) ?? 'Регулярная'
 })
+
+// Accordion open state (local per-screen cards, was VAccordion — ПРОМТ №158).
+// Matches the approved preview: Описание + Что подготовить open, Противопоказания collapsed.
+const descOpen = ref(true)
+const contraOpen = ref(false)
+const prepOpen = ref(true)
 
 const difficultyDots = computed((): number => {
   const d = practice.value?.difficulty
@@ -631,13 +680,48 @@ onMounted(load)
   gap: var(--space-3);
 }
 
-/* Accordions sit on a white card plate (matches the surrounding surfaces). */
-.practice-detail__accordions {
-  gap: 0;
+/* Описание / Противопоказания / Что подготовить — отдельные карточки
+   (bold header + big chevron, screen-local; ПРОМТ №158). */
+.pd-acc {
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: 0 var(--space-4);
+}
+
+.pd-acc__hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--velo-text-primary);
+  text-align: left;
+}
+
+.pd-acc__chev {
+  flex-shrink: 0;
+  stroke: var(--velo-primary);
+  stroke-width: 2;
+  fill: none;
+  transition: transform var(--transition-fast);
+}
+
+.pd-acc--open .pd-acc__chev {
+  transform: rotate(180deg);
+}
+
+.pd-acc__body {
+  padding: var(--space-3) 0 var(--space-4);
+  border-top: 1px solid var(--velo-border-light);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  line-height: 1.5;
 }
 
 /* ===== Записались rows (upcoming roster) ===== */
