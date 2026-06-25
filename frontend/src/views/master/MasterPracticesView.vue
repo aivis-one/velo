@@ -136,14 +136,20 @@
             </div>
             <div class="mp-card__meta">
               <span class="mp-stat"><IconGroup :size="16" /> {{ p.current_participants }}</span>
-              <!-- attended / no-show: no aggregate field yet (→ Zod), shown as «—». -->
-              <span class="mp-stat mp-stat--ok"><IconCheck :size="16" /> —</span>
-              <span class="mp-stat mp-stat--no"><IconClose :size="16" /> —</span>
+              <!-- attended / no-show: eager getAttendance per past card (E11 aggregate
+                   recorded for Zod); «—» until the card resolves / on failure. -->
+              <span class="mp-stat mp-stat--ok"
+                ><IconCheck :size="16" /> {{ attendedLabel(p.id) }}</span
+              >
+              <span class="mp-stat mp-stat--no"
+                ><IconClose :size="16" /> {{ noShowLabel(p.id) }}</span
+              >
             </div>
             <!-- Rating distribution (REAL, anonymous insights — eager-loaded). -->
             <VRatingBadges
               v-if="hasRating(p.id)"
               class="mp-card__rbadges"
+              :hint="false"
               :fire="ratingPct(p.id, 'fire')"
               :good="ratingPct(p.id, 'good')"
               :confused="ratingPct(p.id, 'confused')"
@@ -169,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VSegmentTrack, VRatingBadges } from '@/components/ui'
@@ -186,7 +192,8 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { practiceIconFor, recurrenceDaysLabel } from '@/utils/displayHelpers'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
-import type { PracticeResponse } from '@/api/types'
+import { getAttendance } from '@/api/practices'
+import type { PracticeResponse, AttendanceResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -195,6 +202,29 @@ const diaryStore = useDiaryStore()
 
 // Reactive insights cache (shared with Analytics / PracticeReviews — often warm).
 const insightsCache = diaryStore.insightsCache
+
+// Per-card attendance cache for PAST cards' ✓/✗ (attended / no_show). There is no
+// store cache for attendance, so keep a local reactive map; eager-fetched per loaded
+// PAST card (mirrors eager insights), idempotent, «—» until a card resolves / on error.
+const attendanceCache = reactive(new Map<string, AttendanceResponse>())
+
+async function loadAttendance(id: string): Promise<void> {
+  if (attendanceCache.has(id)) return
+  try {
+    attendanceCache.set(id, await getAttendance(id))
+  } catch {
+    // Leave uncached → the card keeps «—»; a later tab visit retries.
+  }
+}
+
+function attendedLabel(id: string): string {
+  const a = attendanceCache.get(id)
+  return a ? String(a.attended) : '—'
+}
+function noShowLabel(id: string): string {
+  const a = attendanceCache.get(id)
+  return a ? String(a.no_show) : '—'
+}
 
 // Active tab is mirrored in the URL query (?tab=past) so that returning from a
 // practice detail via router.back() restores the tab the user left from
@@ -288,6 +318,15 @@ function loadTabInsights(): Promise<void[]> {
   return Promise.all(list.map((p) => diaryStore.loadInsights(p.id)))
 }
 
+/** Eager-load per-tab data: insights for the visible tab + attendance for PAST cards
+ *  (✓/✗). Bounded to the currently-loaded page; both fetches are idempotent. */
+async function loadTabData(): Promise<void> {
+  await loadTabInsights()
+  if (activeTab.value === 'past') {
+    await Promise.all(pastPractices.value.map((p) => loadAttendance(p.id)))
+  }
+}
+
 // -- Navigation -------------------------------------------------------------
 
 function goNew(): void {
@@ -299,7 +338,7 @@ function goDetail(id: string): void {
 
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
-  await loadTabInsights()
+  await loadTabData()
 }
 
 watch(activeTab, (tab) => {
@@ -307,12 +346,12 @@ watch(activeTab, (tab) => {
   if (route.query.tab !== tab) {
     router.replace({ query: { ...route.query, tab } })
   }
-  loadTabInsights()
+  loadTabData()
 })
 
 onMounted(async () => {
   await masterStore.fetchMyPractices()
-  await loadTabInsights()
+  await loadTabData()
 })
 </script>
 
