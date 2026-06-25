@@ -37,6 +37,9 @@
         <span v-if="participants" class="hero-card__meta-item">
           <IconGroup :size="14" /> {{ participants }}
         </span>
+        <span v-if="recurrence" class="hero-card__meta-item">
+          <IconRepeat :size="14" /> {{ recurrence }}
+        </span>
         <slot name="badge" />
       </slot>
     </div>
@@ -62,7 +65,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { IconCalendar, IconClock, IconGroup } from '@/components/icons'
+import { IconCalendar, IconClock, IconGroup, IconRepeat } from '@/components/icons'
 import { DIRECTION_ICON, DIRECTION_ICON_FALLBACK } from '@/utils/displayHelpers'
 import type { PracticeDirection } from '@/api/types'
 
@@ -80,6 +83,8 @@ const props = withDefaults(
     duration?: string
     /** Optional "N / M" participants string. Omit to hide (booked / detail). */
     participants?: string | null
+    /** Optional recurrence label («Пн, Ср, Пт» / «Ежедневно» / «Регулярная»). Omit to hide. */
+    recurrence?: string | null
     /** Content direction (taxonomy) -- picks the hero glyph. */
     direction?: PracticeDirection | string | null
     /** Filled-dot count for difficulty (0 hides the block). */
@@ -93,6 +98,7 @@ const props = withDefaults(
     date: '',
     duration: '',
     participants: null,
+    recurrence: null,
     direction: null,
     difficultyDots: 0,
     difficultyLabel: '',
