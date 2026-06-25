@@ -12,20 +12,24 @@
 
   Usage:
     <VShowMore :count="hiddenCount" noun="практик" @click="expand" />
+    <VShowMore label="посмотреть еще" @click="expand" />   <!-- verbatim override -->
 -->
 
 <template>
   <button type="button" class="v-show-more" @click="$emit('click')">
-    + ещё {{ count }} {{ noun }}
+    <template v-if="label">{{ label }}</template>
+    <template v-else>+ ещё {{ count }} {{ noun }}</template>
   </button>
 </template>
 
 <script setup lang="ts">
 defineProps<{
-  /** Hidden-items count shown in the label. */
-  count: number
-  /** Trailing noun, already in the correct case ("практик" / "участников" / "отзывов"). */
-  noun: string
+  /** Hidden-items count shown in the default label. Omit when `label` is set. */
+  count?: number
+  /** Trailing noun, already in the correct case ("практик" / "участников" / "отзывов"). Omit when `label` is set. */
+  noun?: string
+  /** Verbatim label override; when set, replaces the «+ ещё {count} {noun}» default. */
+  label?: string
 }>()
 
 defineEmits<{ click: [] }>()
