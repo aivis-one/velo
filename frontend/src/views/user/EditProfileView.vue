@@ -35,7 +35,7 @@
   <div class="edit-profile">
     <VHeader title="Редактировать профиль" show-back @back="router.back()" />
 
-    <div class="edit-profile__content">
+    <div class="edit-profile__content" @click="dismissKeyboardOnBlank">
       <!-- Avatar + change photo (stub) -->
       <div class="edit-profile__avatar-block">
         <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" size="xl" />
@@ -46,7 +46,12 @@
 
       <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
       <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
-      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" />
+      <VInput
+        v-model="form.lastName"
+        label="Фамилия"
+        placeholder="Фамилия"
+        @focus="scrollFieldIntoView"
+      />
 
       <!-- E-mail (disabled stub) -->
       <VInput
@@ -188,6 +193,25 @@ const hasErrors = computed(() => !!bioError.value)
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
   toast.info('Опция временно недоступна')
+}
+
+// «Фамилия» sits low enough that the soft keyboard covers it on focus — centre the
+// focused field in the (keyboard-shrunk) viewport. Tap a blank area to dismiss the
+// keyboard. Pattern ported from CreatePracticeView; iOS/Telegram-webview behaviour →
+// device-verified on TEST (no soft keyboard on desktop).
+function scrollFieldIntoView(e: FocusEvent): void {
+  const el = e.target as HTMLElement | null
+  if (!el) return
+  window.setTimeout(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, 300)
+}
+
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
 }
 
 const saving = ref(false)

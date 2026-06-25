@@ -10,7 +10,7 @@
   <div class="new-promo">
     <VHeader title="Новый промокод" show-back solid @back="router.back()" />
 
-    <div class="new-promo__content">
+    <div class="new-promo__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS, Phase-3). -->
       <div class="new-promo__legend">
         <IconRequired class="new-promo__legend-seal" :size="22" />
@@ -31,6 +31,7 @@
         type="number"
         min="1"
         placeholder="10"
+        @focus="scrollFieldIntoView"
       />
 
       <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
@@ -80,6 +81,27 @@ watch(
 function onCreate(): void {
   // No promocodes backend yet -> stub per the operator rule. -> Zod.
   toast.info('Промокоды пока недоступны')
+}
+
+// «Лимит использований» sits low on the form, where the soft keyboard covers it on
+// focus — centre the focused field in the (keyboard-shrunk) viewport. The delay lets
+// the keyboard finish opening. Pattern ported from CreatePracticeView; iOS/Telegram-
+// webview behaviour → device-verified on TEST (no soft keyboard on desktop).
+function scrollFieldIntoView(e: FocusEvent): void {
+  const el = e.target as HTMLElement | null
+  if (!el) return
+  window.setTimeout(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, 300)
+}
+
+// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs have
+// no «Готово» key). Pattern ported from CreatePracticeView.
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
 }
 </script>
 
