@@ -31,10 +31,9 @@
 
 <template>
   <div class="analytics">
-    <!-- Header -->
-    <header class="analytics__header">
-      <h1 class="analytics__title">Аналитика</h1>
-    </header>
+    <!-- Header (DS VHeader — uniform with the rest of the master zone, rides
+         MobileLayout's floating island; ПРОМТ №162). -->
+    <VHeader title="Аналитика" />
 
     <!-- Tab segment (track+thumb, DS primitive) -->
     <VSegmentTrack v-model="activeTab" :options="TAB_OPTIONS" variant="tabs" />
@@ -229,6 +228,7 @@ import {
   VEmptyState,
   VAvatar,
 } from '@/components/ui'
+import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
@@ -494,19 +494,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-
-/* ===== Header (F-5 rail sync: ride MobileLayout's 24px rail) ===== */
-.analytics__header {
-  padding: var(--space-4) 0 var(--space-3);
-}
-
-.analytics__title {
-  font-size: var(--text-base);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  margin: 0;
 }
 
 /* ===== Controls: period-toggle row (the track+thumb control itself is now the
