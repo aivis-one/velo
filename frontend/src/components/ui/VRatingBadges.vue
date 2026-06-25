@@ -34,8 +34,10 @@
       <IconRatingConfused :size="iconSize" />{{ confused }}%
     </span>
 
-    <!-- «?» — что значат проценты (статичное описание, без расчётов). -->
+    <!-- «?» — что значат проценты (статичное описание, без расчётов).
+         Скрывается через :hint="false" (мастер-карта / детали — operator ПРОМТ №159). -->
     <button
+      v-if="hint"
       type="button"
       class="v-rating-badges__info"
       aria-label="Что значат оценки?"
@@ -90,8 +92,10 @@ const props = withDefaults(
     confused: number
     /** 'sm' (list/analytics cards, icon 14) or 'lg' (practice-detail hero, icon 16). */
     size?: 'sm' | 'lg'
+    /** Show the trailing «?» explainer trigger. Default true; pass false to hide it. */
+    hint?: boolean
   }>(),
-  { size: 'sm' },
+  { size: 'sm', hint: true },
 )
 
 const iconSize = computed((): number => (props.size === 'lg' ? 16 : 14))
