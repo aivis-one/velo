@@ -23,7 +23,7 @@
   <div class="support">
     <!-- Header hidden on the success screen — it's a terminal state with no back
          (operator 2026-06-19); «На главную» is the only exit. -->
-    <VHeader v-if="!submitted" title="Поддержка" show-back solid @back="router.back()" />
+    <VHeader v-if="!submitted" title="Поддержка" show-back @back="router.back()" />
 
     <!-- ===================== SUCCESS ===================== -->
     <div v-if="submitted" class="support__success">

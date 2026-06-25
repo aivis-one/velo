@@ -21,7 +21,7 @@
 
 <template>
   <div class="practice-reviews">
-    <VHeader title="Отзывы о практике" show-back solid @back="router.back()" />
+    <VHeader title="Отзывы о практике" show-back @back="router.back()" />
 
     <!-- Practice header card (shared PracticeHeroCard; titleSize base, meta =
          date + participants — no duration, relies on the additive v-if). -->
