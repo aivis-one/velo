@@ -24,7 +24,25 @@
         required
       />
       <VSelect v-model="form.discount" label="Скидка" :options="DISCOUNT_OPTIONS" required />
-      <VInput v-model="form.until" label="Действует до" type="date" :min="todayISO" required />
+      <!-- «Действует до»: opens the shared DatePickerSheet (consistent in-app picker;
+           future-only via :min) instead of the OS-native date input. -->
+      <div class="new-promo__field">
+        <label class="new-promo__label">Действует до</label>
+        <div class="new-promo__field-row">
+          <button
+            type="button"
+            class="new-promo__picker"
+            :class="{ 'new-promo__picker--empty': !form.until }"
+            @click="showDate = true"
+          >
+            {{ form.until ? untilDisplay : 'Выберите дату' }}
+          </button>
+          <span class="new-promo__seal" :class="{ 'new-promo__seal--done': !!form.until }">
+            <IconRequired v-if="!form.until" :size="22" />
+            <IconRequiredDone v-else :size="22" />
+          </span>
+        </div>
+      </div>
       <VInput
         v-model="form.limit"
         label="Лимит использований"
@@ -38,16 +56,27 @@
         Создать промокод
       </VButton>
     </div>
+
+    <DatePickerSheet
+      :open="showDate"
+      :model-value="form.until"
+      :min="todayISO"
+      title="Действует до"
+      @update:model-value="form.until = $event"
+      @close="showDate = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch } from 'vue'
+import { reactive, computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VInput, VSelect, VButton } from '@/components/ui'
-import { IconRequired } from '@/components/icons'
+import { IconRequired, IconRequiredDone } from '@/components/icons'
+import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { useToast } from '@/composables/useToast'
+import { formatShortDate } from '@/utils/format'
 
 const router = useRouter()
 const toast = useToast()
@@ -67,8 +96,15 @@ const form = reactive({
   limit: '',
 })
 
-// «Действует до» must be in the future — native date-picker min = today (B6).
+// «Действует до» must be in the future — DatePickerSheet :min = today disables the
+// earlier days (B6; replaces the OS-native min attribute).
 const todayISO = computed((): string => new Date().toISOString().slice(0, 10))
+
+// Shared calendar sheet state + the friendly trigger label, e.g. "27 июн. 2026".
+const showDate = ref(false)
+const untilDisplay = computed((): string =>
+  form.until ? `${formatShortDate(`${form.until}T12:00:00`)} ${form.until.slice(0, 4)}` : '',
+)
 
 // Usage limit starts at 1 — clamp away 0 / negatives the number spinner allows (B1).
 watch(
@@ -140,5 +176,53 @@ function dismissKeyboardOnBlank(e: MouseEvent): void {
 
 .new-promo__submit {
   margin-top: var(--space-4);
+}
+
+/* «Действует до» date trigger — same box + required seal as a VInput field
+   (tokens match .v-input__field / CreatePractice's picker), opens DatePickerSheet. */
+.new-promo__field {
+  margin-bottom: var(--space-4);
+}
+
+.new-promo__label {
+  display: block;
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.new-promo__field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.new-promo__picker {
+  flex: 1;
+  min-width: 0;
+  height: var(--velo-size-40);
+  text-align: left;
+  padding: 0 var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+  background: var(--velo-bg-card-solid);
+  border: 2px solid transparent;
+  border-radius: var(--velo-radius-badge);
+  cursor: pointer;
+}
+
+.new-promo__picker--empty {
+  color: var(--velo-text-muted);
+}
+
+.new-promo__seal {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--velo-error);
+}
+
+.new-promo__seal--done {
+  color: var(--velo-required-done);
 }
 </style>
