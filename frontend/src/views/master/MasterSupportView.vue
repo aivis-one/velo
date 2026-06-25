@@ -369,8 +369,10 @@ function onGoHome(): void {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-3);
-  padding: var(--space-6);
+  /* Spacing is per-element margin (circle→title→text→CTA) to match the comp's
+     rhythm. padding = --space-8 (33px) restores the side margins lost when the
+     stale `var(--space-6)` token (removed in the DS cleanup) collapsed to 0. */
+  padding: var(--space-8);
 }
 
 .support__ok-circle {
@@ -396,7 +398,7 @@ function onGoHome(): void {
   font-weight: 400;
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: var(--space-2) 0 0;
+  margin: var(--space-5) 0 0;
   -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
 }
 
@@ -404,13 +406,18 @@ function onGoHome(): void {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   line-height: 1.35;
-  margin: 0;
+  /* Wrap to the comp's two centred lines — max-width = the SVG's line-1 width
+     («Скоро свяжемся с вами в личных») so the Marmelad wrap matches the
+     «Check-in Success».svg instead of running edge-to-edge. */
+  max-width: 290px;
+  margin: var(--space-4) 0 0;
 }
 
 .support__ok-cta {
-  align-self: stretch;
+  width: 100%;
   max-width: 336px;
-  margin-top: var(--space-5);
+  align-self: center;
+  margin-top: var(--space-8);
   /* Heavier label (operator 2026-06-19) — Marmelad is single-weight, so thicken
      with the 0.3px stroke trick used by the section titles. */
   -webkit-text-stroke: var(--velo-text-stroke-strong) currentColor;
