@@ -151,7 +151,27 @@
     { "telegram_id": 10107, "key": "participant-7", "first_name": "Жанна" },
     { "telegram_id": 10108, "key": "participant-8", "first_name": "Заур" },
     { "telegram_id": 10109, "key": "participant-9", "first_name": "Инна" },
-    { "telegram_id": 10110, "key": "participant-10", "first_name": "Кирилл" }
+    { "telegram_id": 10110, "key": "participant-10", "first_name": "Кирилл" },
+    { "telegram_id": 10111, "key": "participant-11", "first_name": "Лариса" },
+    { "telegram_id": 10112, "key": "participant-12", "first_name": "Максим" },
+    { "telegram_id": 10113, "key": "participant-13", "first_name": "Нина" },
+    { "telegram_id": 10114, "key": "participant-14", "first_name": "Олег" },
+    { "telegram_id": 10115, "key": "participant-15", "first_name": "Полина" },
+    { "telegram_id": 10116, "key": "participant-16", "first_name": "Роман" },
+    { "telegram_id": 10117, "key": "participant-17", "first_name": "Света" },
+    { "telegram_id": 10118, "key": "participant-18", "first_name": "Тимур" },
+    { "telegram_id": 10119, "key": "participant-19", "first_name": "Ульяна" },
+    { "telegram_id": 10120, "key": "participant-20", "first_name": "Фёдор" },
+    { "telegram_id": 10121, "key": "participant-21", "first_name": "Хадижа" },
+    { "telegram_id": 10122, "key": "participant-22", "first_name": "Цветана" },
+    { "telegram_id": 10123, "key": "participant-23", "first_name": "Чулпан" },
+    { "telegram_id": 10124, "key": "participant-24", "first_name": "Шамиль" },
+    { "telegram_id": 10125, "key": "participant-25", "first_name": "Эльвира" },
+    { "telegram_id": 10126, "key": "participant-26", "first_name": "Юрий" },
+    { "telegram_id": 10127, "key": "participant-27", "first_name": "Яна" },
+    { "telegram_id": 10128, "key": "participant-28", "first_name": "Артём" },
+    { "telegram_id": 10129, "key": "participant-29", "first_name": "Богдан" },
+    { "telegram_id": 10130, "key": "participant-30", "first_name": "Галина" }
   ],
   "test_users": [
     {

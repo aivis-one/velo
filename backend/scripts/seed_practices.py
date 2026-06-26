@@ -983,6 +983,35 @@ async def cmd_seed(
                 f"no_show={mstats['noshow']}"
             )
 
+        # Withdrawal history per tester-master (reuses seed.py's create+approve
+        # flow; balance comes from the paid completed practices above). Needs an
+        # admin to approve — skip gracefully if none (income still seeds).
+        if not dry_run:
+            from seed import create_seed_withdrawals  # noqa: E402
+            tester_masters: list[User] = []
+            for tu in master_testers:
+                tm = await _find_user_by_tid(session, tu["telegram_id"])
+                if tm is not None:
+                    tester_masters.append(tm)
+            # Withdrawals need a DB admin approver AT SEED TIME. Every tester keeps
+            # allowed_roles incl admin (in-app role-switch untouched) — we just set
+            # ONE tester's current DB role to ADMIN here so create_seed_withdrawals
+            # can approve (ensure_test_user forces testers to USER earlier in the run).
+            admin_u = (await session.execute(
+                select(User).where(User.role == UserRole.ADMIN.value).limit(1)
+            )).scalar_one_or_none()
+            if admin_u is None and tester_masters:
+                admin_u = tester_masters[0]
+                admin_u.role = UserRole.ADMIN
+                await session.flush()
+            if admin_u is not None and tester_masters:
+                n_wd = await create_seed_withdrawals(
+                    session, tester_masters, admin_u, max_withdrawals=6,
+                )
+                print(f"  + выводы средств (approved): {n_wd}")
+            else:
+                print("  ! выводы средств пропущены (нет мастеров)")
+
     if not dry_run:
         await session.commit()
         print("\nSeed завершён, изменения зафиксированы.")
@@ -1603,7 +1632,14 @@ def _build_tester_practice_dicts(
         else:
             status = "scheduled"
         key = f"mt-{tester.telegram_id}-{day.isoformat()}-{hh:02d}00-{tmpl['key']}"
-        out.append(_mk(tmpl, start, status, key))
+        pd = _mk(tmpl, start, status, key)
+        # Varied realistic price on most completed practices (every 4th left free
+        # for a believable mix); offsets span this week / last week / last month,
+        # so getIncome(week|month) varies (megapack).
+        if status == "completed" and i % 4 != 0:
+            pd["is_free"] = False
+            pd["price_cents"] = SEED_PRICES[i % len(SEED_PRICES)]
+        out.append(pd)
 
     # One DRAFT (unpublished) practice so testers can see a saved-but-not-published
     # practice (the presave state). It gets NO participants (see seed_tester_as_master).
@@ -1615,45 +1651,112 @@ def _build_tester_practice_dicts(
         f"mt-{tester.telegram_id}-draft-{draft_tmpl['key']}",
     ))
 
-    # One SERIES (recurring) practice = the ROOT occurrence, scheduled in the
-    # future. It carries the recurrence spec (E3) so the master practices list
-    # shows the «Пн, Ср, Пт» chip; child occurrences are added separately (see
-    # _build_series_child_dicts / seed_tester_as_master) so «N/M занятий»
-    # progress is real. Also drives the cancel dialog's «Это регулярная
-    # практика» block. Gets confirmed participants like any scheduled practice.
-    series_tmpl = templates[(rr + 3) % len(templates)]
-    series_day = (now.astimezone(tz) + timedelta(days=7)).date()
-    series_start = datetime(series_day.year, series_day.month, series_day.day, 19, 0, tzinfo=tz)
-    series_dict = _mk(
-        series_tmpl, series_start, "scheduled",
-        f"mt-{tester.telegram_id}-series-{series_tmpl['key']}",
-    )
-    series_dict["practice_type"] = "series"
-    series_dict["recurrence"] = dict(SERIES_RECURRENCE_SPEC)
-    out.append(series_dict)
+    # SIX SERIES — one per recurrence variant — so the master can compare how each
+    # recurrence renders in «Мои практики». Each root carries a DISTINCT recurrence
+    # spec (-> distinct chip); children are added per root in seed_tester_as_master
+    # (so «N/M занятий» is real). Roots staggered on future days. Confirmed
+    # participants like any scheduled practice.
+    for vi, variant in enumerate(SERIES_RECURRENCE_VARIANTS):
+        s_tmpl = templates[(rr + 3 + vi) % len(templates)]
+        s_day = (now.astimezone(tz) + timedelta(days=7 + vi)).date()
+        s_start = datetime(s_day.year, s_day.month, s_day.day, 19, 0, tzinfo=tz)
+        s_dict = _mk(
+            s_tmpl, s_start, "scheduled",
+            f"mt-{tester.telegram_id}-series-{variant['slug']}-{s_tmpl['key']}",
+        )
+        s_dict["practice_type"] = "series"
+        s_dict["recurrence"] = _recurrence_spec(variant)
+        s_dict["_variant_slug"] = variant["slug"]
+        out.append(s_dict)
+
+    # Boundary attendance + high-participant demos (PAST / completed), owned by THIS
+    # tester so they show in the tester-master's Аналитика / Посещаемость. Explicit
+    # attendance via _attend_total / _noshow (seed_tester_as_master overrides cfg_m);
+    # cap raised to fit; PAID so they also feed income.
+    specials = [
+        {"label": "att15", "doff": -6, "attend": 15, "noshow": 0},
+        {"label": "att12ns11", "doff": -8, "attend": 23, "noshow": 11},
+        {"label": "hi25", "doff": -4, "attend": 25, "noshow": 0},
+    ]
+    for si, sp in enumerate(specials):
+        sp_tmpl = templates[(rr + 9 + si) % len(templates)]
+        sp_day = (now.astimezone(tz) + timedelta(days=sp["doff"])).date()
+        sp_start = datetime(sp_day.year, sp_day.month, sp_day.day, 11, 0, tzinfo=tz)
+        sp_dict = _mk(
+            sp_tmpl, sp_start, "completed",
+            f"mt-{tester.telegram_id}-special-{sp['label']}-{sp_tmpl['key']}",
+        )
+        sp_dict["max_participants"] = 40
+        sp_dict["is_free"] = False
+        sp_dict["price_cents"] = SEED_PRICES[si % len(SEED_PRICES)]
+        sp_dict["_attend_total"] = sp["attend"]
+        sp_dict["_noshow"] = sp["noshow"]
+        out.append(sp_dict)
     return out
 
 
-# Weekly Mon/Wed/Fri series spec stamped on the root's data.recurrence (E3).
-# _resolve_series_meta reads period + days for recurrence_days; total/completed
-# come from the actual occurrence ROWS, not the spec's count.
-SERIES_RECURRENCE_SPEC = {
-    "period": "weekly",
-    "days": [1, 3, 5],
-    "end": "after_count",
-    "count": 8,
-}
+# Six recurrence variants (E3 / megapack): each a DISTINCT recurrence_days set so
+# the frontend recurrenceDaysLabel() renders a distinct chip — [1..7] -> «Ежедневно»
+# (the zero-FE-change daily path), [1-5] будни, [6,7] выходные, [1,3,5] Пн/Ср/Пт,
+# [2,4] Вт/Чт, [6] суббота. `slug` only builds stable per-variant keys; it is
+# stripped before the spec is stamped on data.recurrence (the backend reads
+# period/days/end/count). total/completed come from the occurrence ROWS, not `count`.
+SERIES_RECURRENCE_VARIANTS = [
+    {"slug": "daily", "period": "weekly", "days": [1, 2, 3, 4, 5, 6, 7], "end": "after_count", "count": 8},
+    {"slug": "weekdays", "period": "weekly", "days": [1, 2, 3, 4, 5], "end": "after_count", "count": 8},
+    {"slug": "weekends", "period": "weekly", "days": [6, 7], "end": "after_count", "count": 8},
+    {"slug": "mwf", "period": "weekly", "days": [1, 3, 5], "end": "after_count", "count": 8},
+    {"slug": "tuethu", "period": "weekly", "days": [2, 4], "end": "after_count", "count": 8},
+    {"slug": "sat", "period": "weekly", "days": [6], "end": "after_count", "count": 8},
+]
 
-# Child occurrences for the tester series root. Offsets (days from now) + hour;
-# 3 past -> completed, 4 future -> scheduled. With the root that is 8 rows total
-# / 3 completed -> «Осталось 5 из 8 занятий». No participants (E3 card only).
-SERIES_CHILD_OFFSETS = (-21, -14, -7, 14, 21, 28, 35)
+
+def _recurrence_spec(variant: dict) -> dict:
+    """The data.recurrence payload for a variant — `slug` stripped."""
+    return {k: v for k, v in variant.items() if k != "slug"}
+
+
+# Series children land on the variant's REAL weekdays (days 1=Mon..7=Sun): 2 past
+# (completed) + 2 future (scheduled), searching out to MAX_SPAN so sparse variants
+# (sat / weekends) still find 2+2. root + 4 children = 5 rows / 2 completed ->
+# «Осталось 3 из 5 занятий»; the pack lands at ~300. No participants (E3 card only).
+SERIES_CHILD_PER_SIDE = 2
+SERIES_CHILD_MAX_SPAN = 21
+
+# Realistic varied practice prices (cents; €10–40) for seeded paid practices, cycled
+# by index so income shows believable, non-uniform numbers.
+SEED_PRICES = (1000, 1500, 2000, 2500, 3000, 3500, 4000, 1800)
+
+
+def _series_child_dates(days: list[int], now: datetime, tz: ZoneInfo) -> list:
+    """Dates on the variant's REAL weekdays (days 1=Mon..7=Sun): up to
+    SERIES_CHILD_PER_SIDE past + same future, searching out to SERIES_CHILD_MAX_SPAN
+    so sparse variants (sat/weekends) still find 2+2. Returns chronological dates.
+    """
+    dayset = {d for d in days if 1 <= d <= 7}
+    today = now.astimezone(tz).date()
+    past: list = []
+    future: list = []
+    for doff in range(1, SERIES_CHILD_MAX_SPAN + 1):
+        if len(past) < SERIES_CHILD_PER_SIDE:
+            d = today - timedelta(days=doff)
+            if (d.weekday() + 1) in dayset:
+                past.append(d)
+        if len(future) < SERIES_CHILD_PER_SIDE:
+            d = today + timedelta(days=doff)
+            if (d.weekday() + 1) in dayset:
+                future.append(d)
+        if len(past) >= SERIES_CHILD_PER_SIDE and len(future) >= SERIES_CHILD_PER_SIDE:
+            break
+    return sorted(past) + sorted(future)
 
 
 def _build_series_child_dicts(
     tester: User, series_tmpl: dict, root_id, now: datetime,
+    variant_slug: str, days: list[int],
 ) -> list[dict]:
-    """Child occurrence dicts for the series root (parent_practice_id=root_id).
+    """Child occurrence dicts for the series root (parent_practice_id=root_id),
+    landing on the recurrence's REAL weekdays (`days`).
 
     Status is derived from scheduled_at vs now (past -> completed, future ->
     scheduled). Children carry NO recurrence spec — only the root does; the
@@ -1666,15 +1769,14 @@ def _build_series_child_dicts(
              "status", "scheduled_at"}
     base = {k: v for k, v in series_tmpl.items() if k not in _DROP}
     tmpl_key = series_tmpl.get("template_key") or series_tmpl["key"]
+    dur = int(series_tmpl.get("duration_minutes", 60))
     out: list[dict] = []
-    for i, doff in enumerate(SERIES_CHILD_OFFSETS):
-        day = (now.astimezone(tz) + timedelta(days=doff)).date()
+    for i, day in enumerate(_series_child_dates(days, now, tz)):
         start = datetime(day.year, day.month, day.day, 19, 0, tzinfo=tz)
-        dur = int(series_tmpl.get("duration_minutes", 60))
         status = "completed" if start + timedelta(minutes=dur) <= now else "scheduled"
         child = {
             **base,
-            "key": f"mt-{tester.telegram_id}-series-occ-{i}-{tmpl_key}",
+            "key": f"mt-{tester.telegram_id}-series-{variant_slug}-occ-{i}-{tmpl_key}",
             "template_key": tmpl_key,
             "scheduled_at": start.isoformat(),
             "timezone": "Europe/Moscow",
@@ -1719,8 +1821,11 @@ async def seed_tester_as_master(
     p_dicts = _build_tester_practice_dicts(
         tester, templates, now, cfg_m["practices"],
     )
-    series_root: Practice | None = None
-    series_src: dict | None = None
+    series_pairs: list[tuple[Practice, dict]] = []
+    # Rotate the shared participant pool per tester so «Мои ученики» differs across
+    # testers (non-identical rosters) instead of every tester booking the same head.
+    off = (tester.telegram_id or 0) % max(1, len(participants))
+    roster = participants[off:] + participants[:off]
     for p_yaml in p_dicts:
         practice, _action = await ensure_practice(
             session, tester, p_yaml, dry_run, batch_iso, force_orm=True,
@@ -1729,16 +1834,18 @@ async def seed_tester_as_master(
             continue
         stats["practices"] += 1
         if p_yaml.get("recurrence"):
-            series_root = practice
-            series_src = p_yaml
+            series_pairs.append((practice, p_yaml))
         status = p_yaml["status"]
 
         if status == "completed":
-            n_part = min(cfg_m["participants_completed"], len(participants))
-            n_noshow = min(cfg_m["noshow_completed"], n_part)
+            # _attend_total / _noshow let a specific practice override cfg_m (the
+            # boundary 15-attended / 12-attended+11-noshow + high-participant demos).
+            n_part = min(p_yaml.get("_attend_total", cfg_m["participants_completed"]),
+                         len(roster))
+            n_noshow = min(p_yaml.get("_noshow", cfg_m["noshow_completed"]), n_part)
             master_name = await get_master_display_name(practice.master_id, session)
             attended: list[tuple[User, Booking]] = []
-            for j, part in enumerate(participants[:n_part]):
+            for j, part in enumerate(roster[:n_part]):
                 if not await _practice_has_room(session, practice):
                     break
                 booking = await create_seed_booking(session, part, practice)
@@ -1767,14 +1874,23 @@ async def seed_tester_as_master(
         elif status in ("scheduled", "live"):
             # scheduled / live -> confirmed-брони участников. (draft -> ничего:
             # черновик не опубликован, участников быть не должно.)
-            n_part = min(cfg_m["participants_scheduled"], len(participants))
-            for part in participants[:n_part]:
+            n_part = min(cfg_m["participants_scheduled"], len(roster))
+            # Pre-check-ins on roughly half the bookings so the master's check-ins
+            # screen shows «X из Y» on the nearest UPCOMING practice (operator).
+            master_name = await get_master_display_name(practice.master_id, session)
+            n_pre = max(0, n_part // 2)
+            for j, part in enumerate(roster[:n_part]):
                 if not await _practice_has_room(session, practice):
                     break
                 booking = await create_seed_booking(session, part, practice)
                 if booking is None:
                     continue
                 stats["participants"] += 1
+                if j < n_pre:
+                    if await _seed_checkin(session, part, practice, booking,
+                                           master_name, batch_iso, j,
+                                           pools["checkin"]):
+                        stats["checkins"] += 1
 
         await recalculate_participants(practice.id, session)
 
@@ -1782,9 +1898,10 @@ async def seed_tester_as_master(
     # total_sessions / completed_sessions (counted from rows, not the spec) are
     # non-trivial and «N/M занятий» renders. The root carries the recurrence
     # spec; children link via parent_practice_id and get no participants.
-    if series_root is not None and series_src is not None:
+    for root, src in series_pairs:
         for child_yaml in _build_series_child_dicts(
-            tester, series_src, series_root.id, now,
+            tester, src, root.id, now, src.get("_variant_slug", "s"),
+            src.get("recurrence", {}).get("days", [1, 2, 3, 4, 5, 6, 7]),
         ):
             child, _action = await ensure_practice(
                 session, tester, child_yaml, dry_run, batch_iso, force_orm=True,
