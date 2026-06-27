@@ -1,79 +1,88 @@
 <!--
-  VELO Frontend -- MasterPendingView (Phase F6.1)
+  VELO Frontend -- MasterPendingView (verdict screens, slice-2 C2)
 
-  Standalone route (no MasterShell, no tab bar).
-  Shown after master application is submitted or when masterStatusGuard
-  detects that profile.status !== 'verified'.
+  Standalone route (no MasterShell, no tab bar). Shown after a master
+  application is submitted, or when masterStatusGuard sends a non-verified
+  master here. Restyled to the operator Figma — three distinct states keyed on
+  the application status:
 
-  Two cases handled:
-    1. role='user'   -- just applied, can't call GET /masters/me yet.
-                        Shows static "application submitted" screen.
-                        "Обновить" calls authStore.fetchMe() to re-check
-                        role. If role flips to 'master', redirect to dashboard.
-    2. role='master' -- fetches master profile from store, shows real status.
-                        If status becomes 'verified', redirect to dashboard.
+    1. «Заявка отправлена» (pending) — SVG-6. role='user' just applied (can't
+       fetch /masters/me yet) OR role='master' pending. Keeps the polling
+       («Обновить статус») + «Вернуться к каталогу».
+    2. «Ваша заявка одобрена!» (verified) — SVG-7. Explicit approved screen with
+       a single «Войти в кабинет» CTA → master dashboard (which chains into the
+       post-approval onboarding carousel). Replaces the old auto-redirect.
+    3. «Отказ» (rejected) — SVG-8. Amber, generic reason until rejection_reason
+       is exposed (Zod E14); TWO CTAs (FORK-4): «Написать в поддержку» AND
+       «Подать новую заявку» (the re-apply path is kept).
 
-  Both cases show:
-    - Success icon + title
-    - "Рассмотрим в течение 24-48 часов" message
-    - Status badge (pending / rejected)
-    - Rejection reason if status=rejected (with "Re-apply" link)
-    - "Обновить статус" button
+  Illustrations extracted from the design SVGs to public/onboarding/master-verdict-*.svg.
 -->
 
 <template>
   <div class="pending-view">
-    <!-- Header (no back button -- user is in a holding state) -->
     <VHeader title="Заявка" />
 
     <div class="pending-view__content">
-      <!-- Submitted icon -->
-      <div class="pending-view__icon"><IconCheck :size="40" /></div>
+      <template v-if="masterStore.profileLoading">
+        <VLoader size="lg" />
+      </template>
 
-      <h2 class="pending-view__title">Заявка отправлена!</h2>
+      <!-- ================= APPROVED (verified) ================= -->
+      <template v-else-if="profileStatus === 'verified'">
+        <img
+          src="/onboarding/master-verdict-approved.svg"
+          alt=""
+          class="pending-view__illu pending-view__illu--lg"
+        />
+        <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
+        <div class="pending-view__actions">
+          <VButton variant="primary" block @click="router.push({ name: 'master-dashboard' })">
+            Войти в кабинет
+          </VButton>
+        </div>
+      </template>
 
-      <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
+      <!-- ================= REJECTED ================= -->
+      <template v-else-if="profileStatus === 'rejected'">
+        <img
+          src="/onboarding/master-verdict-reject.svg"
+          alt=""
+          class="pending-view__illu pending-view__illu--lg"
+        />
+        <h2 class="pending-view__title">Спасибо за заявку!</h2>
+        <p class="pending-view__subtitle">К сожалению, мы пока не можем одобрить вашу заявку.</p>
 
-      <!-- Status badge (real data for role='master', static for role='user') -->
-      <div class="pending-view__status">
-        <template v-if="masterStore.profileLoading">
-          <VLoader size="sm" />
-        </template>
-        <template v-else-if="profileStatus === 'rejected'">
-          <VBadge variant="error">Заявка отклонена</VBadge>
-          <p v-if="rejectionReason" class="pending-view__rejection">
-            Причина: {{ rejectionReason }}
-          </p>
-          <VButton
-            variant="outline"
-            size="sm"
-            class="pending-view__reapply"
-            @click="router.push({ name: 'master-apply' })"
-          >
+        <div class="pending-view__reason">
+          <div class="pending-view__reason-label">Причина:</div>
+          <div class="pending-view__reason-text">{{ rejectionReason }}</div>
+        </div>
+
+        <div class="pending-view__actions">
+          <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
+            Написать в поддержку
+          </VButton>
+          <VButton variant="ghost" block @click="router.push({ name: 'master-apply' })">
             Подать новую заявку
           </VButton>
-        </template>
-        <template v-else>
-          <VBadge variant="warning">На проверке</VBadge>
-        </template>
-      </div>
+        </div>
+      </template>
 
-      <!-- Info card -->
-      <VCard class="pending-view__info-card" padding="none">
-        <p class="pending-view__info-text">
-          Когда ваша заявка будет рассмотрена, вы получите уведомление в Telegram.
-        </p>
-      </VCard>
+      <!-- ================= SENT (pending) ================= -->
+      <template v-else>
+        <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
+        <h2 class="pending-view__title">Заявка отправлена!</h2>
+        <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
 
-      <!-- Refresh button -->
-      <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
-        Обновить статус
-      </VButton>
-
-      <!-- Back to catalog -->
-      <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
-        Вернуться к каталогу
-      </VButton>
+        <div class="pending-view__actions">
+          <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
+            Обновить статус
+          </VButton>
+          <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
+            Вернуться к каталогу
+          </VButton>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -82,8 +91,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VBadge, VLoader, VCard } from '@/components/ui'
-import { IconCheck } from '@/components/icons'
+import { VButton, VLoader } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -95,51 +103,38 @@ const masterStore = useMasterStore()
 
 const refreshing = ref(false)
 
-// -- Derived profile status --
-// For role='user': always 'pending' (can't fetch master profile yet)
-// For role='master': taken from loaded profile
+// -- Derived application status --
+// role='user' (just applied) can't fetch /masters/me yet -> always 'pending'.
+// role='master' -> the loaded profile status (verified / rejected / pending).
 const profileStatus = computed(() => {
   if (authStore.role !== 'master') return 'pending'
   return masterStore.profile?.status ?? 'pending'
 })
 
-// Rejection reason from JSONB data -- not in MasterProfileResponse directly,
-// but status 'rejected' means backend has set it. We show a generic message
-// since the rejection reason is not exposed in the public profile endpoint.
+// Generic reason until rejection_reason is exposed on MasterProfileResponse
+// (Zod E14). The admin captures a reason on reject, but it is not surfaced here.
 const rejectionReason = computed((): string => {
   if (profileStatus.value !== 'rejected') return ''
-  // MasterProfileResponse doesn't expose rejection_reason. Show generic text.
   return 'Заявка не прошла верификацию. Пожалуйста, подайте повторную заявку с актуальными данными.'
 })
 
-// -- On mount: if role='master', load profile to show real status --
+// On mount: load the master profile so the status-keyed state renders. No
+// auto-redirect on verified — the «Одобрено» screen + CTA handles that now.
 onMounted(async () => {
   if (authStore.role === 'master') {
     await masterStore.fetchMyProfile(true)
-    checkIfVerified()
   }
 })
 
-// -- Redirect if already verified --
-function checkIfVerified(): void {
-  if (authStore.role === 'master' && masterStore.profile?.status === 'verified') {
-    router.replace({ name: 'master-dashboard' })
-  }
-}
-
-// -- Refresh status --
+// -- Refresh status -- (re-checks the user->master promotion + profile status)
 async function refreshStatus(): Promise<void> {
   if (refreshing.value) return
   refreshing.value = true
-
   try {
-    // Always re-fetch user role first (covers role='user' -> role='master' transition)
+    // Re-fetch user role first (covers the role='user' -> 'master' transition).
     await authStore.fetchMe()
-
     if (authStore.role === 'master') {
-      // Now fetch master profile to get real status
       await masterStore.fetchMyProfile(true)
-      checkIfVerified()
     } else {
       toast.info('Заявка ещё на рассмотрении')
     }
@@ -165,69 +160,70 @@ async function refreshStatus(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Standalone route (outside MobileLayout) — apply the screen rail inset
-     directly so content matches the app's 24px rail (WS-1, 2026-06-19). */
+  /* Standalone route (outside MobileLayout) — apply the screen rail directly
+     so content matches the app's 24px rail (WS-1, 2026-06-19). */
   padding: var(--space-8) var(--velo-rail-pad-x) var(--space-5);
   gap: var(--space-4);
 }
 
-/* -- Success icon (circle with checkmark, matches mockup screen-submitted) -- */
-.pending-view__icon {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--radius-full);
-  background: var(--velo-success);
-  color: var(--velo-white);
-  font-size: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* -- Verdict illustration (extracted from the design SVGs) -- */
+.pending-view__illu {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
   flex-shrink: 0;
+}
+
+.pending-view__illu--lg {
+  width: 160px;
+  height: 160px;
 }
 
 .pending-view__title {
   font-family: var(--font-body);
-  font-size: var(--text-2xl);
+  font-size: var(--text-xl);
   color: var(--velo-text-primary);
   text-align: center;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) var(--velo-text-primary);
 }
 
 .pending-view__subtitle {
   font-size: var(--text-base);
   color: var(--velo-text-secondary);
   text-align: center;
-}
-
-/* -- Status area -- */
-.pending-view__status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-.pending-view__rejection {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  text-align: center;
   max-width: 300px;
   line-height: 1.5;
+  margin: 0;
 }
 
-.pending-view__reapply {
+/* -- Rejection reason (amber) -- */
+.pending-view__reason {
+  width: 100%;
+  background: var(--velo-warning-bg);
+  border: var(--velo-banner-border-width) solid var(--velo-warning-border);
+  border-radius: var(--velo-radius-9);
+  padding: var(--space-3) var(--space-4);
+}
+
+.pending-view__reason-label {
+  font-size: var(--text-xs);
+  color: var(--velo-warning-text);
+  letter-spacing: 0.02em;
+}
+
+.pending-view__reason-text {
+  font-size: var(--text-base);
+  color: var(--velo-warning-text);
+  line-height: 1.4;
   margin-top: var(--space-1);
 }
 
-/* -- Info card -- */
-.pending-view__info-card {
+/* -- Actions -- */
+.pending-view__actions {
   width: 100%;
-  padding: var(--space-4);
-}
-
-.pending-view__info-text {
-  font-size: var(--text-sm);
-  color: var(--velo-text-secondary);
-  text-align: center;
-  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 </style>
