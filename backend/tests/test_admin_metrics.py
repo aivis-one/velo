@@ -333,6 +333,13 @@ async def test_feedback_metric_good_bucket(
 ) -> None:
     """A mid rating (4-7) lands in the good bucket."""
     token = await _make_admin(client, db_session)
+    await db_session.commit()  # admin must be visible to the endpoint
+
+    # Baseline BEFORE our fixtures (shared DB may carry seed data).
+    base = (
+        await client.get(FEEDBACK_URL, headers=auth_headers(token))
+    ).json()
+
     master_id = await _make_master(client, db_session, 92803)
     practice = await _create_practice(
         db_session, master_id, scheduled_at=datetime.now(UTC),
@@ -343,7 +350,13 @@ async def test_feedback_metric_good_bucket(
 
     resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
     assert resp.status_code == 200
-    assert resp.json()["distribution"] == {"fire": 0, "good": 1, "confused": 0}
+    # Our single rating-6 feedback lands in the good bucket. Assert the DELTA
+    # over the baseline (not an absolute distribution), since seed practices
+    # may carry other in-period feedbacks the platform-wide metric also counts.
+    dist, bdist = resp.json()["distribution"], base["distribution"]
+    assert dist["good"] - bdist["good"] == 1
+    assert dist["fire"] - bdist["fire"] == 0
+    assert dist["confused"] - bdist["confused"] == 0
 
 
 @pytest.mark.asyncio
