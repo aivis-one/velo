@@ -1,9 +1,22 @@
 # VELO — Бэковый Кодекс
 
-**Версия:** 1.9
+**Версия:** 2.0
 **Дата:** 20 июня 2026
 **Статус:** Active
-**Тесты:** 564 passed, 12 skipped  
+**Тесты:** 615 passed, 12 skipped  
+
+> **v2.0 (E3 серии + E7 период-статы + аудит F8, 20 июня 2026):** Бэковый Кодекс
+> синхронизирован — тело уже отражало E3/E7/F8, шапка отставала (была v1.9/564).
+> **E3** — recurrence/серии (§3.13): `recurrence: RecurrenceSpec` на `POST /practices`,
+> `recurrence_days`/`total_sessions`/`completed_sessions` на карточке,
+> `CancelPracticeRequest.scope`; без миграций (всё в `data.recurrence` +
+> существующий `parent_practice_id`). **E7** — период-сетки `GET /masters/me/stats`
+> + `GET /admin/stats/overview`; `core/periods.py` стал единым источником границ
+> периода и `delta_pct`/`delta_pp` (finance/revenue/metrics перерефакторены на него,
+> числа не изменены). **Аудит F8 (по `test`)** — закрыт: W-1 (вырожденный `until_date`
+> -> 400 на ПУБЛИКАЦИИ), W-3 (один diary-timestamp при bulk-отмене), W-2 (тест
+> completed-root), S-1/S-1c (публичные diary-хелперы + единый `users.display_name`).
+> Тесты 564 -> 615. Детали — §2, §3.13, §9.
 
 > **v1.9 (P0 frontend-backlog эпики + внешний код-ревью + #3, 20 июня 2026):**
 > закрыт весь P0 фронт-бэклога и пройдено внешнее код-ревью ветки `test`.
