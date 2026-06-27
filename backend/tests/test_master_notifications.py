@@ -69,8 +69,18 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
-    """Reset roles + clear master_profiles for the 89xxx range (keep users)."""
-    await full_cleanup_range(session, 89000, 89999, delete_users=False)
+    """Hard-delete the 89xxx test users before/after each test.
+
+    delete_users=True (not just role reset) on purpose: these tests assert
+    DEFAULT toggle/schedule values on a FRESH master, but full_cleanup_range
+    does NOT clear the credentials JSONB on a role reset. A reused telegram_id
+    would therefore carry master_notifications written by a previous test (even
+    across runs) and break the "untouched == default" assertions. Deleting the
+    users gives every test a clean credentials slate. Same pattern as
+    test_admin_withdrawals; full_cleanup_range removes verification audit logs
+    in FK-safe order, so deleting users in this range is safe.
+    """
+    await full_cleanup_range(session, 89000, 89999, delete_users=True)
     await session.commit()
 
 
