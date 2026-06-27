@@ -17,6 +17,7 @@
 #     PATCH /users/me. The service writes it back into credentials.
 # =============================================================================
 
+import re
 from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -64,6 +65,178 @@ class NotificationSettingsUpdate(BaseModel):
     practice_reminders: bool | None = None
     master_messages: bool | None = None
     support_messages: bool | None = None
+
+
+# =============================================================================
+# Master notification preferences (E8 contract)
+# =============================================================================
+#
+# The MASTER notifications screen (separate from the frozen 4-key USER screen
+# above) carries nine on/off toggles grouped by area (bookings / participants /
+# messages / analytics) plus a delivery `schedule`. It is persisted under
+# credentials["master_notifications"] -- the SAME schema-on-read JSONB sandbox
+# as credentials["notifications"], with the same defaults-merge-on-read +
+# partial-merge-on-write mechanics. No migration.
+#
+# This is a forward-looking preference store: the flags persist and survive
+# relogin, ready for delivery later. NOTHING is delivered off them yet (no
+# push, no quiet-hours scheduler) -- that is a separate track.
+#
+# A master is ALSO a user, so a master reports BOTH `notifications` (4-key) and
+# `master_notifications` (9-key + schedule); that is intended. Exposure of
+# `master_notifications` in UserResponse is gated to role=master (see the
+# computed field below); the write path in UserUpdate is NOT role-gated -- a
+# non-master may store the prefs, they simply stay hidden until/unless the
+# account becomes a master.
+#
+# Schema names are deliberately unique so they do not collide with the existing
+# NotificationSettings(+Update) in OpenAPI / generated.ts.
+
+# Nine toggle defaults: all True except monthly_report.
+_MASTER_NOTIFICATION_DEFAULTS: dict[str, bool] = {
+    "new_booking": True,
+    "booking_cancelled": True,
+    "reminder": True,
+    "new_checkin": True,
+    "new_feedback": True,
+    "msg_participants": True,
+    "msg_support": True,
+    "ai_summary": True,
+    "monthly_report": False,
+}
+
+# Schedule defaults (single source of truth, shared by the model field defaults
+# and the schema-on-read merge in UserResponse.master_notifications). Keys use
+# the wire names ("from"/"to"), i.e. the aliases -- see NotificationSchedule.
+_NOTIFICATION_SCHEDULE_DEFAULTS: dict = {
+    "from": "08:00",
+    "to": "22:00",
+    "days": ["mon", "tue", "wed", "thu", "fri"],
+}
+
+# Allowed weekday codes (string codes, NOT ISO ints).
+_WEEKDAY_CODES: frozenset[str] = frozenset(
+    {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
+)
+
+# "HH:MM" 24h, e.g. "08:00", "22:30", "00:00", "23:59".
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+def _validate_weekday_codes(value: list[str] | None) -> list[str] | None:
+    """Reject unknown weekday codes (-> 422). Empty list is allowed.
+
+    Shared by NotificationSchedule and NotificationScheduleUpdate so the rule
+    lives in one place. None (field not sent on a partial update) passes
+    through untouched. Order and duplicates are kept as sent -- only unknown
+    codes are rejected.
+    """
+    if value is None:
+        return value
+    invalid = [d for d in value if d not in _WEEKDAY_CODES]
+    if invalid:
+        allowed = ", ".join(sorted(_WEEKDAY_CODES))
+        raise ValueError(
+            f"Unknown weekday code(s): {invalid}. Allowed: {allowed}"
+        )
+    return value
+
+
+class NotificationSchedule(BaseModel):
+    """Master delivery-window schedule (nested in master_notifications).
+
+    RESPONSE shape: defaults are the operator-approved window (08:00-22:00,
+    Mon-Fri). `from` is a Python keyword, so the field is `from_` aliased to
+    "from" -- input accepts "from", output emits "from". Output-only: the read
+    path in UserResponse sanitizes stored values before constructing this, so
+    it never has to reject malformed data here.
+    """
+
+    from_: str = Field(default=_NOTIFICATION_SCHEDULE_DEFAULTS["from"], alias="from")
+    to: str = Field(default=_NOTIFICATION_SCHEDULE_DEFAULTS["to"])
+    days: list[str] = Field(
+        default_factory=lambda: list(_NOTIFICATION_SCHEDULE_DEFAULTS["days"])
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class NotificationScheduleUpdate(BaseModel):
+    """Partial update for the master delivery-window schedule.
+
+    Every field optional: only the sub-fields the client changed are sent and
+    the service merges them onto the stored schedule (from/to overwrite; days
+    replaces the list wholesale). "from"/"to" must be a 24h "HH:MM" string
+    (else 422); each day code must be a known lowercase weekday (else 422), and
+    an empty days list is allowed. `from` is aliased the same way as in
+    NotificationSchedule.
+    """
+
+    from_: str | None = Field(default=None, alias="from")
+    to: str | None = Field(default=None)
+    days: list[str] | None = Field(default=None)
+
+    model_config = {"populate_by_name": True}
+
+    @field_validator("from_", "to")
+    @classmethod
+    def _validate_time(cls, v: str | None) -> str | None:
+        """Reject anything that is not a 24h "HH:MM" string (-> 422)."""
+        if v is None:
+            return v
+        if not _TIME_RE.match(v):
+            raise ValueError(
+                'Time must be a 24h "HH:MM" string, e.g. "08:00" or "22:30"'
+            )
+        return v
+
+    @field_validator("days")
+    @classmethod
+    def _validate_days(cls, v: list[str] | None) -> list[str] | None:
+        """Reject unknown weekday codes (-> 422). Empty list is allowed."""
+        return _validate_weekday_codes(v)
+
+
+class MasterNotificationSettings(BaseModel):
+    """Master notification preferences (under credentials.master_notifications).
+
+    Nine on/off toggles grouped by the master notifications screen (bookings /
+    participants / messages / analytics) plus a delivery `schedule`. All
+    toggles default True except monthly_report. RESPONSE shape returned inside
+    UserResponse.master_notifications (only when role=master).
+    """
+
+    new_booking: bool = True
+    booking_cancelled: bool = True
+    reminder: bool = True
+    new_checkin: bool = True
+    new_feedback: bool = True
+    msg_participants: bool = True
+    msg_support: bool = True
+    ai_summary: bool = True
+    monthly_report: bool = False
+    schedule: NotificationSchedule = Field(default_factory=NotificationSchedule)
+
+
+class MasterNotificationSettingsUpdate(BaseModel):
+    """Partial update for master notification preferences.
+
+    Every toggle optional; `schedule` optional and itself partial. The service
+    merges the sent toggles and schedule sub-fields onto the stored object so
+    untouched preferences are kept. Used as the optional update payload in
+    UserUpdate.
+    """
+
+    new_booking: bool | None = None
+    booking_cancelled: bool | None = None
+    reminder: bool | None = None
+    new_checkin: bool | None = None
+    new_feedback: bool | None = None
+    msg_participants: bool | None = None
+    msg_support: bool | None = None
+    ai_summary: bool | None = None
+    monthly_report: bool | None = None
+    schedule: NotificationScheduleUpdate | None = None
 
 
 class RoleSwitchInfo(BaseModel):
@@ -170,6 +343,57 @@ class UserResponse(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def master_notifications(self) -> MasterNotificationSettings | None:
+        """Master notification preferences, or None when the user is not master.
+
+        Gated to role=master (mirrors how role_switch returns None when
+        unavailable): a master is also a user, so a master reports BOTH the
+        4-key `notifications` and this 9-key `master_notifications` (+ schedule).
+        For everyone else (user/admin) this is None and the block never ships.
+
+        Schema-on-read, stored under credentials["master_notifications"]: stored
+        toggles are layered over _MASTER_NOTIFICATION_DEFAULTS, and the nested
+        schedule is layered over _NOTIFICATION_SCHEDULE_DEFAULTS field-by-field.
+        Unknown / malformed stored values are ignored (defensive isinstance /
+        format checks) so a hand-edited blob can never 500 a GET.
+        """
+        if self.role != UserRole.MASTER:
+            return None
+
+        stored = self.credentials_in.get("master_notifications")
+        if not isinstance(stored, dict):
+            stored = {}
+
+        # Toggles: defaults, overlaid with stored bools only.
+        merged = dict(_MASTER_NOTIFICATION_DEFAULTS)
+        for key in _MASTER_NOTIFICATION_DEFAULTS:
+            if isinstance(stored.get(key), bool):
+                merged[key] = stored[key]
+
+        # Schedule: defaults, overlaid field-by-field with VALID stored values.
+        stored_schedule = stored.get("schedule")
+        if not isinstance(stored_schedule, dict):
+            stored_schedule = {}
+        schedule = dict(_NOTIFICATION_SCHEDULE_DEFAULTS)
+        raw_from = stored_schedule.get("from")
+        if isinstance(raw_from, str) and _TIME_RE.match(raw_from):
+            schedule["from"] = raw_from
+        raw_to = stored_schedule.get("to")
+        if isinstance(raw_to, str) and _TIME_RE.match(raw_to):
+            schedule["to"] = raw_to
+        raw_days = stored_schedule.get("days")
+        if isinstance(raw_days, list) and all(
+            isinstance(d, str) and d in _WEEKDAY_CODES for d in raw_days
+        ):
+            schedule["days"] = list(raw_days)
+
+        return MasterNotificationSettings(
+            **merged,
+            schedule=NotificationSchedule(**schedule),
+        )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def role_switch(self) -> RoleSwitchInfo | None:
         """Tester role-switch capability, or None when unavailable.
 
@@ -236,6 +460,15 @@ class UserUpdate(BaseModel):
     # the flipped toggles are sent; the service merges onto the stored object.
     # "Not sent" leaves all preferences untouched.
     notifications: NotificationSettingsUpdate | None = Field(default=None)
+    # Master notification preferences (9 toggles + schedule, nested object in
+    # credentials["master_notifications"]). Partial: only the flipped toggles
+    # and changed schedule sub-fields are sent; the service deep-merges onto
+    # the stored object (nested merge for schedule). NOT role-gated on write
+    # (stored regardless of role); exposure in UserResponse is gated to
+    # role=master. "Not sent" leaves it untouched.
+    master_notifications: MasterNotificationSettingsUpdate | None = Field(
+        default=None
+    )
 
     @field_validator("phone")
     @classmethod

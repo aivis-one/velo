@@ -86,6 +86,25 @@ async def update_user(
     # and None values (no opinion) are skipped here too.
     notifications_update = updates.pop("notifications", None)
 
+    # -- Nested master_notifications object (partial deep-merge) --------------
+    #
+    # master_notifications is the master-only 9-toggle preference set plus a
+    # delivery `schedule`, stored under credentials["master_notifications"]
+    # (schema-on-read sandbox, same idea as the 4-key user "notifications").
+    # Like notifications it must NOT go through the flat path below, so drop it
+    # from `updates`. We re-derive the payload straight from the model with
+    # by_alias=True so the schedule's "from" field (aliased from the `from_`
+    # Python keyword) is keyed as "from" -- exactly the key the read side
+    # (UserResponse.master_notifications) looks for. exclude_unset drops keys
+    # the client omitted; None toggles / sub-fields mean "leave as is" and are
+    # skipped during the merge below.
+    updates.pop("master_notifications", None)
+    master_notifications_update = (
+        data.master_notifications.model_dump(exclude_unset=True, by_alias=True)
+        if data.master_notifications is not None
+        else None
+    )
+
     # Split the REMAINING flat JSONB-backed fields from plain column fields.
     #
     # None is dropped for JSONB fields, empty string is kept:
@@ -116,7 +135,11 @@ async def update_user(
     # credentials. We build a NEW dict (copy) and hand it to set_jsonb, which
     # reassigns + flag_modified()s the column. Mutating user.credentials in
     # place would not be detected by SQLAlchemy.
-    if jsonb_updates or notifications_update is not None:
+    if (
+        jsonb_updates
+        or notifications_update is not None
+        or master_notifications_update is not None
+    ):
         new_credentials = dict(user.credentials or {})
 
         if jsonb_updates:
@@ -131,6 +154,35 @@ async def update_user(
                 if value is not None:
                     merged[key] = value
             new_credentials["notifications"] = merged
+
+        if master_notifications_update is not None:
+            # Same partial-merge idea as notifications, with one extra level:
+            # the nested `schedule` is merged field-by-field so changing only
+            # `to` keeps the stored `from`/`days`. None values mean "leave as
+            # is" and are skipped (toggles and schedule sub-fields alike).
+            current = new_credentials.get("master_notifications")
+            merged = dict(current) if isinstance(current, dict) else {}
+
+            schedule_update = master_notifications_update.pop("schedule", None)
+
+            for key, value in master_notifications_update.items():
+                if value is not None:
+                    merged[key] = value
+
+            if schedule_update is not None:
+                current_schedule = merged.get("schedule")
+                merged_schedule = (
+                    dict(current_schedule)
+                    if isinstance(current_schedule, dict)
+                    else {}
+                )
+                # from / to overwrite; days replaces the list wholesale.
+                for key, value in schedule_update.items():
+                    if value is not None:
+                        merged_schedule[key] = value
+                merged["schedule"] = merged_schedule
+
+            new_credentials["master_notifications"] = merged
 
         user.set_jsonb("credentials", new_credentials)
 
