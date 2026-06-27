@@ -1,46 +1,39 @@
 <!--
-  VELO Frontend -- MasterApplyView (Phase F6.1)
+  VELO Frontend -- MasterApplyView (Phase B redesign, slice-2)
 
-  3-step master application form. Standalone route (no MasterShell,
-  no tab bar) -- accessible to role='user'.
+  3-step master application form, restyled to the operator Figma. Standalone
+  route (no MasterShell, no tab bar) — accessible to role='user'.
 
   Steps:
-    1. Profile  -- display_name (required), email, phone
-    2. Experience -- methods (checkboxes), experience_years (select), bio
-    3. Documents -- placeholder (no real upload in MVP), terms checkbox
+    1. Профиль   -- display_name (required), email, phone + privacy consent
+    2. Опыт      -- methods (VChip pills + «Свой вариант»), experience_years
+                    (VSelect), bio (kept), language (Русский/English — honest
+                    stub, no backend field yet → Zod E16)
+    3. Документы -- passport / certificates / profile-photo upload zones
+                    (honest stub → Zod E13: tap shows «недоступно», no file POST)
+                    + privacy paragraph + processing consent
 
-  All data collected across steps is sent as one POST /api/v1/masters/apply
-  on step 3 submit. On success -> /master/pending.
+  FORKS (operator-locked): NO password fields (Telegram initData auth, F1) ·
+  bio retained (F2) · language stub (F3) · full method list incl. «Кундалини
+  йога» (F6). Step indicator = the canonical VPaginationDots (top-left).
 
-  Back button on step 1 -> router.back() (returns to previous page,
-  typically /user/profile). Steps 2-3 -> go to previous step.
+  All collected data is sent as one POST /api/v1/masters/apply on step-3 submit
+  (language + uploaded files are NOT in the request yet — Zod E16/E13). On
+  success -> /master/pending.
 
-  Note on checkboxes: uses custom native-checkbox markup (.apply-view__checkbox-item)
-  — multi-select list with an "Other + free text" variant the DS Checkbox spec
-  doesn't cover. When the DS Checkbox is adopted here, keep the "Other" custom.
+  Back on step 1 -> router.back() (typically /user/profile); steps 2-3 -> prev step.
 -->
 
 <template>
   <div class="apply-view">
-    <!-- Header -->
     <VHeader title="Заявка" show-back @back="onBack" />
 
-    <!-- Progress bar -->
-    <div class="apply-view__progress">
-      <div
-        v-for="n in 3"
-        :key="n"
-        class="apply-view__progress-step"
-        :class="{
-          'apply-view__progress-step--completed': step > n,
-          'apply-view__progress-step--active': step === n,
-        }"
-      />
-    </div>
+    <!-- Canonical step dots, top-left (operator 2026-06-27). -->
+    <VPaginationDots :total="3" :active="step - 1" class="apply-view__dots" />
 
     <div class="apply-view__content">
       <!-- ================================================================
-           STEP 1: Profile
+           STEP 1: Профиль
            ================================================================ -->
       <template v-if="step === 1">
         <h3 class="apply-view__step-title">Шаг 1: Профиль</h3>
@@ -51,10 +44,15 @@
           placeholder="Alex Mindful"
           :error="errors.display_name"
         />
-
-        <VInput v-model="form.email" label="Email" type="email" placeholder="alex@example.com" />
-
+        <VInput v-model="form.email" label="E-mail" type="email" placeholder="alex@example.com" />
         <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (999) 123-45-67" />
+
+        <VCard class="apply-view__consent" padding="none">
+          <VCheckbox v-model="form.privacyAccepted">
+            Я принимаю Условия использования и ознакомлен(а) с Политикой конфиденциальности
+          </VCheckbox>
+        </VCard>
+        <p v-if="errors.privacy" class="apply-view__field-error">{{ errors.privacy }}</p>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
           Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
@@ -62,49 +60,38 @@
       </template>
 
       <!-- ================================================================
-           STEP 2: Experience
+           STEP 2: Опыт
            ================================================================ -->
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Methods checkboxes (custom native markup; DS Checkbox spec in showcase) -->
+        <!-- Направления практик — VChip pills (full method set, FORK-6) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-          <VCard class="apply-view__checkbox-list" padding="none">
-            <label
+          <div class="apply-view__chips">
+            <VChip
               v-for="method in AVAILABLE_METHODS"
               :key="method"
-              class="apply-view__checkbox-item"
+              size="md"
+              clickable
+              :active="form.methods.includes(method)"
+              @click="toggleMethod(method)"
             >
-              <input
-                type="checkbox"
-                :value="method"
-                :checked="form.methods.includes(method)"
-                @change="toggleMethod(method)"
-              />
-              <span class="apply-view__checkbox-mark">
-                <IconCheck v-if="form.methods.includes(method)" :size="14" />
-              </span>
-              <span class="apply-view__checkbox-label">{{ method }}</span>
-            </label>
-            <!-- "Other" with text input -->
-            <label class="apply-view__checkbox-item">
-              <input type="checkbox" :checked="otherMethodEnabled" @change="toggleOtherMethod" />
-              <span class="apply-view__checkbox-mark">
-                <IconCheck v-if="otherMethodEnabled" :size="14" />
-              </span>
-              <span class="apply-view__checkbox-label">Другое</span>
-            </label>
-            <VInput
-              v-if="otherMethodEnabled"
-              v-model="otherMethodText"
-              placeholder="Укажите направление..."
-            />
-          </VCard>
+              {{ method }}
+            </VChip>
+            <VChip size="md" clickable :active="otherMethodEnabled" @click="toggleOtherMethod">
+              Свой вариант
+            </VChip>
+          </div>
+          <VInput
+            v-if="otherMethodEnabled"
+            v-model="otherMethodText"
+            placeholder="Укажите направление…"
+            class="apply-view__other"
+          />
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
 
-        <!-- Experience years -->
         <VSelect
           v-model="experienceLabel"
           label="Опыт преподавания *"
@@ -112,13 +99,22 @@
           :error="errors.experience_years"
         />
 
-        <!-- Bio -->
         <VTextarea
           v-model="form.bio"
           label="О себе (опционально)"
-          placeholder="Расскажите о вашем опыте и подходе к практикам..."
+          placeholder="Расскажите о вашем опыте и подходе к практикам…"
           :rows="4"
         />
+
+        <!-- Язык проведения практик — honest stub (no backend field, Zod E16):
+             toggles locally, not sent with the application. -->
+        <div class="apply-view__field">
+          <label class="apply-view__label">Язык проведения практик</label>
+          <VCard class="apply-view__langs" padding="none">
+            <VCheckbox v-model="langRu" label="Русский" />
+            <VCheckbox v-model="langEn" label="English" />
+          </VCard>
+        </div>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
           Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
@@ -126,47 +122,57 @@
       </template>
 
       <!-- ================================================================
-           STEP 3: Documents (placeholder -- no real upload in MVP)
+           STEP 3: Документы (upload = honest stub, Zod E13)
            ================================================================ -->
       <template v-else>
         <h3 class="apply-view__step-title">Шаг 3: Документы</h3>
+        <p class="apply-view__intro">
+          Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации.
+          Удостоверение личности удаляется через 30 дней после верификации.
+        </p>
 
-        <!-- Passport upload placeholder -->
+        <!-- Passport -->
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
-          <div class="apply-view__upload-area">
-            <IconFile :size="28" class="apply-view__upload-icon" />
-            <p class="apply-view__upload-text">+ Загрузить документ</p>
-          </div>
           <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
+          <button type="button" class="apply-view__upload" @click="onUpload">
+            <IconFile :size="26" class="apply-view__upload-icon" />
+            <span class="apply-view__upload-text">Загрузить документ</span>
+          </button>
         </div>
 
-        <!-- Certificates upload placeholder -->
+        <!-- Certificates (multi-file UI; chip list renders once E13 stores files) -->
         <div class="apply-view__field">
           <label class="apply-view__label">Сертификаты</label>
-          <div class="apply-view__upload-area">
-            <IconFile :size="28" class="apply-view__upload-icon" />
-            <p class="apply-view__upload-text">+ Добавить сертификат</p>
-          </div>
           <p class="apply-view__hint">Можно загрузить несколько файлов.</p>
+          <div v-for="cert in uploadedCerts" :key="cert" class="apply-view__filechip">
+            <IconCheck :size="18" />
+            <span class="apply-view__filechip-name">{{ cert }}</span>
+          </div>
+          <button type="button" class="apply-view__upload" @click="onUpload">
+            <IconFile :size="26" class="apply-view__upload-icon" />
+            <span class="apply-view__upload-text">Добавить сертификат</span>
+          </button>
         </div>
 
-        <!-- Terms checkbox (custom native markup) -->
-        <VCard class="apply-view__terms" padding="none">
-          <label
-            class="apply-view__checkbox-item"
-            @click="form.termsAccepted = !form.termsAccepted"
-          >
-            <span
-              class="apply-view__checkbox-mark"
-              :class="{ 'apply-view__checkbox-mark--checked': form.termsAccepted }"
-            >
-              <IconCheck v-if="form.termsAccepted" :size="14" />
-            </span>
-            <span class="apply-view__checkbox-label"> Я соглашаюсь с условиями использования </span>
-          </label>
-          <p v-if="errors.terms" class="apply-view__field-error">{{ errors.terms }}</p>
+        <!-- Profile photo -->
+        <div class="apply-view__field">
+          <label class="apply-view__label">Фото профиля</label>
+          <p class="apply-view__hint">
+            Будет использовано на платформе в открытом доступе для участников.
+          </p>
+          <button type="button" class="apply-view__upload" @click="onUpload">
+            <IconFile :size="26" class="apply-view__upload-icon" />
+            <span class="apply-view__upload-text">Загрузить фото</span>
+          </button>
+        </div>
+
+        <VCard class="apply-view__consent" padding="none">
+          <VCheckbox v-model="form.docsConsent">
+            Я даю согласие на обработку загруженных документов для верификации
+          </VCheckbox>
         </VCard>
+        <p v-if="errors.docs" class="apply-view__field-error">{{ errors.docs }}</p>
 
         <VButton
           variant="primary"
@@ -176,7 +182,7 @@
           :loading="submitting"
           @click="submit"
         >
-          Отправить заявку
+          Отправить
         </VButton>
       </template>
     </div>
@@ -187,7 +193,16 @@
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VInput, VTextarea, VSelect, VCard } from '@/components/ui'
+import {
+  VButton,
+  VInput,
+  VTextarea,
+  VSelect,
+  VCard,
+  VCheckbox,
+  VChip,
+  VPaginationDots,
+} from '@/components/ui'
 import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
@@ -201,7 +216,7 @@ const toast = useToast()
 const step = ref(1)
 const submitting = ref(false)
 
-// -- Available practice methods (from mockup) --
+// -- Available practice methods (full set, FORK-6 — incl. «Кундалини йога») --
 const AVAILABLE_METHODS = [
   'Медитация',
   'Mindfulness / MBSR',
@@ -226,26 +241,35 @@ const form = reactive({
   display_name: '',
   email: '',
   phone: '',
+  privacyAccepted: false,
   // Step 2
   methods: [] as string[],
   bio: '',
   // Step 3
-  termsAccepted: false,
+  docsConsent: false,
 })
 
-// "Other" method handling
+// "Свой вариант" custom method
 const otherMethodEnabled = ref(false)
 const otherMethodText = ref('')
 
-// Experience years stored as string label, mapped to int on submit
+// Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
+
+// Language — honest stub (Zod E16): local only, not sent with the application.
+const langRu = ref(true)
+const langEn = ref(false)
+
+// Certificates chip list — empty until E13 file storage ships (no faked data).
+const uploadedCerts = ref<string[]>([])
 
 // -- Validation errors --
 const errors = reactive({
   display_name: '',
+  privacy: '',
   methods: '',
   experience_years: '',
-  terms: '',
+  docs: '',
 })
 
 // -- Methods helpers --
@@ -280,6 +304,11 @@ const experienceYears = computed((): number => {
   return opt ? parseInt(opt.value, 10) : 0
 })
 
+// -- Upload stub (Zod E13: no file storage yet) --
+function onUpload(): void {
+  toast.info('Загрузка файлов пока недоступна')
+}
+
 // -- Navigation --
 function onBack(): void {
   if (step.value > 1) {
@@ -292,8 +321,13 @@ function onBack(): void {
 // -- Step 1 validation and advance --
 function goToStep2(): void {
   errors.display_name = ''
+  errors.privacy = ''
   if (!form.display_name.trim()) {
     errors.display_name = 'Пожалуйста, введите имя'
+    return
+  }
+  if (!form.privacyAccepted) {
+    errors.privacy = 'Необходимо принять условия использования'
     return
   }
   step.value = 2
@@ -303,7 +337,6 @@ function goToStep2(): void {
 function goToStep3(): void {
   errors.methods = ''
   errors.experience_years = ''
-
   if (allMethods.value.length === 0) {
     errors.methods = 'Выберите хотя бы одно направление'
     return
@@ -316,20 +349,18 @@ function goToStep3(): void {
 }
 
 // -- Final submit --
-// FP-04: double-submit guard must come before any validation --
-// parallel clicks both pass termsAccepted check before guard fires.
+// FP-04: double-submit guard must come before validation — parallel clicks both
+// pass the consent check before the guard fires.
 async function submit(): Promise<void> {
   if (submitting.value) return
 
-  errors.terms = ''
-
-  if (!form.termsAccepted) {
-    errors.terms = 'Необходимо принять условия использования'
+  errors.docs = ''
+  if (!form.docsConsent) {
+    errors.docs = 'Необходимо дать согласие на обработку документов'
     return
   }
 
   submitting.value = true
-
   try {
     await applyMaster({
       profile: {
@@ -346,8 +377,8 @@ async function submit(): Promise<void> {
       documents: [],
     })
 
-    // Mark this session as an actual applicant so the master-pending guard
-    // lets a still-role='user' applicant through (backend promotes role later).
+    // Mark this session as an actual applicant so the master-pending guard lets
+    // a still-role='user' applicant through (backend promotes role later).
     sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
     toast.success('Заявка отправлена!')
     router.push({ name: 'master-pending' })
@@ -369,37 +400,16 @@ async function submit(): Promise<void> {
   flex-direction: column;
 }
 
-/* -- Progress bar -- */
-.apply-view__progress {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--velo-glass-blue-15);
-  border-bottom: 1px solid var(--velo-border-light);
-}
-
-.apply-view__progress-step {
-  flex: 1;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--velo-border-light);
-  transition: background var(--transition-base);
-}
-
-.apply-view__progress-step--active {
-  background: var(--velo-primary);
-}
-
-.apply-view__progress-step--completed {
-  background: var(--velo-success);
+/* Step dots — top-left at the screen rail (standalone route, WS-1 24px rail). */
+.apply-view__dots {
+  padding: var(--space-2) var(--velo-rail-pad-x) 0;
 }
 
 /* -- Content area -- */
 .apply-view__content {
   flex: 1;
-  /* Standalone route (outside MobileLayout) — apply the screen rail inset
-     directly so content matches the app's 24px rail (WS-1, 2026-06-19). */
-  padding: var(--space-4) var(--velo-rail-pad-x);
+  /* Standalone route (outside MobileLayout) — apply the screen rail directly. */
+  padding: var(--space-4) var(--velo-rail-pad-x) var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -407,12 +417,22 @@ async function submit(): Promise<void> {
 
 .apply-view__step-title {
   font-family: var(--font-body);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
+  font-weight: 400;
   color: var(--velo-text-primary);
-  margin-bottom: var(--space-2);
+  letter-spacing: 0.02em;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) var(--velo-text-primary);
+  margin-bottom: var(--space-1);
 }
 
-/* -- Methods checkbox list -- */
+.apply-view__intro {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* -- Fields -- */
 .apply-view__field {
   display: flex;
   flex-direction: column;
@@ -420,56 +440,17 @@ async function submit(): Promise<void> {
 }
 
 .apply-view__label {
-  font-size: var(--text-sm);  color: var(--velo-text-secondary);
-}
-
-.apply-view__checkbox-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-}
-
-.apply-view__checkbox-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
-  user-select: none;
-  /* Hide native checkbox -- rendered as custom mark */
-}
-
-.apply-view__checkbox-item input[type='checkbox'] {
-  position: absolute;
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.apply-view__checkbox-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--velo-border-light);
-  border-radius: var(--velo-radius-badge);
-  font-size: var(--text-sm);  color: var(--velo-primary);
-  background: var(--velo-glass-blue-15);
-  flex-shrink: 0;
-  transition: border-color var(--transition-fast);
-}
-
-.apply-view__checkbox-mark--checked,
-.apply-view__checkbox-item input:checked + .apply-view__checkbox-mark {
-  border-color: var(--velo-primary);
-  background: var(--velo-primary);
-  color: var(--velo-white);
-}
-
-.apply-view__checkbox-label {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+  -webkit-text-stroke: var(--velo-text-stroke-strong) var(--velo-text-primary);
+}
+
+.apply-view__hint {
+  font-size: var(--text-xs);
+  color: var(--velo-text-muted);
+  line-height: 1.4;
+  margin: 0;
 }
 
 .apply-view__field-error {
@@ -477,52 +458,85 @@ async function submit(): Promise<void> {
   color: var(--velo-error);
 }
 
-/* -- Upload placeholder -- */
-.apply-view__upload-area {
+/* -- Method chips -- */
+.apply-view__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.apply-view__other {
+  margin-top: var(--space-1);
+}
+
+/* -- Language stub card -- */
+.apply-view__langs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+/* -- Upload zones (stub) -- */
+.apply-view__upload {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-5);
-  border: 2px dashed var(--velo-border-light);
-  border-radius: var(--radius-md);
-  background: var(--velo-glass-blue-15);
-  gap: var(--space-2);
+  gap: var(--velo-gap-6);
+  height: 80px;
+  border: 1px solid var(--velo-text-primary);
+  border-radius: var(--velo-radius-9);
+  background: transparent;
   cursor: pointer;
-  transition: border-color var(--transition-fast);
+  color: var(--velo-text-primary);
+  transition: opacity var(--transition-fast);
 }
 
-.apply-view__upload-area:hover {
-  border-color: var(--velo-primary);
+.apply-view__upload:hover {
+  opacity: 0.85;
 }
 
 .apply-view__upload-icon {
-  /* Vector IconFile (was a 28px emoji). */
-  color: var(--velo-text-muted);
+  color: var(--velo-text-primary);
+}
+
+.apply-view__upload-text {
+  font-size: var(--text-base);
+  letter-spacing: 0.02em;
+}
+
+/* -- Uploaded-file chip (teal; renders once E13 stores files) -- */
+.apply-view__filechip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--velo-size-44);
+  padding: 0 var(--space-3);
+  border-radius: var(--velo-radius-9);
+  background: var(--velo-glass-teal-30);
+  border: 1px solid var(--velo-teal-400);
+  color: var(--velo-teal-700);
+}
+
+.apply-view__filechip-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* -- Consent cards -- */
+.apply-view__consent {
+  padding: var(--space-3);
 }
 
 /* Forward arrow on the "Далее" step buttons (currentColor = white). */
 .apply-view__btn-arrow {
   margin-left: var(--space-2);
   vertical-align: middle;
-}
-
-.apply-view__upload-text {
-  font-size: var(--text-sm);
-  color: var(--velo-text-muted);
-}
-
-.apply-view__hint {
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-}
-
-/* -- Terms -- */
-.apply-view__terms {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .apply-view__next {

@@ -32,7 +32,7 @@
 
       <h2 class="pending-view__title">Заявка отправлена!</h2>
 
-      <p class="pending-view__subtitle">Рассмотрим в течение 24-48 часов</p>
+      <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
 
       <!-- Status badge (real data for role='master', static for role='user') -->
       <div class="pending-view__status">
@@ -178,7 +178,8 @@ async function refreshStatus(): Promise<void> {
   border-radius: var(--radius-full);
   background: var(--velo-success);
   color: var(--velo-white);
-  font-size: 36px;  display: flex;
+  font-size: 36px;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
