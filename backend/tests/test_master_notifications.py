@@ -4,18 +4,20 @@
 #
 # Covers the persisted master notifications contract: 9 toggles + a delivery
 # schedule stored schema-on-read under credentials["master_notifications"] and
-# exposed on UserResponse ONLY for role=master. Mirrors the existing 4-key
-# user "notifications" suite, one band up.
+# exposed on UserResponse only when the caller has MASTER CAPABILITY (a verified
+# MasterProfile). Mirrors the existing 4-key user "notifications" suite, one
+# band up.
 #
 # No delivery is asserted (push / quiet-hours are a separate track) -- only
-# persistence, defaults, partial deep-merge, validation (422), role gating,
-# and coexistence with the other credentials keys.
+# persistence, defaults, partial deep-merge, validation (422), capability
+# gating, and coexistence with the other credentials keys.
 #
 # telegram_id ranges:
-#   89001          -- master (apply -> verified)
+#   89001          -- master (apply -> verified); also promoted to admin in the
+#                     admin-capability test, keeping the verified profile
 #   89900          -- admin (used to verify the master)
-#   89002          -- plain user (non-master)
-#   89003          -- user promoted to admin (admin sees None)
+#   89002          -- plain user (no MasterProfile -> no capability)
+#   89004          -- applicant (pending, unverified MasterProfile -> no cap.)
 # =============================================================================
 
 from collections.abc import AsyncGenerator
@@ -432,13 +434,13 @@ async def test_master_notifications_bad_day_code_is_422(
 
 
 # ---------------------------------------------------------------------------
-# Role gating -- exposed only to master
+# Capability gating -- exposed only with a verified MasterProfile
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_master_notifications_none_for_regular_user(
     client: AsyncClient,
 ) -> None:
-    """A plain (non-master) user sees master_notifications == None."""
+    """A plain user with no MasterProfile has no capability -> None."""
     auth = await login_user(client, telegram_id=89002, first_name="Regular")
     body = await _get_me(client, auth["session_token"])
 
@@ -453,21 +455,55 @@ async def test_master_notifications_none_for_regular_user(
 
 
 @pytest.mark.asyncio
-async def test_master_notifications_none_for_admin(
+async def test_master_notifications_none_without_verified_profile(
+    client: AsyncClient,
+) -> None:
+    """A MasterProfile that exists but is NOT verified -> no capability -> None.
+
+    Sharp "no capability" case: applying creates a pending profile (role stays
+    user), so master_notifications must still be hidden.
+    """
+    auth = await login_user(client, telegram_id=89004, first_name="Applicant")
+    apply_resp = await client.post(
+        APPLY_URL,
+        json=_valid_apply_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert apply_resp.status_code == 201
+
+    body = await _get_me(client, auth["session_token"])
+    assert body["master_notifications"] is None
+
+
+@pytest.mark.asyncio
+async def test_master_notifications_visible_for_admin_with_master_profile(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """An admin (role != master) also sees master_notifications == None."""
-    auth = await login_user(client, telegram_id=89003, first_name="AdminUser")
+    """An admin who also has a verified MasterProfile keeps the screen.
+
+    Capability gate (not role==master): the role is flipped to admin but the
+    verified profile is left in place, so master_notifications is still exposed.
+    This is exactly the "admin is also a master" case the gate must support.
+    """
+    await _make_verified_master(client, db_session)
+
+    # Promote to admin WITHOUT touching the (verified) master profile.
     await db_session.execute(
         update(User)
-        .where(User.telegram_id == 89003)
+        .where(User.telegram_id == _MASTER_TID)
         .values(role=UserRole.ADMIN.value)
     )
     await db_session.commit()
 
     # Re-login to pick up the admin role in the session.
-    auth = await login_user(client, telegram_id=89003, first_name="AdminUser")
-    body = await _get_me(client, auth["session_token"])
+    relog = await login_user(
+        client, telegram_id=_MASTER_TID, first_name="Master",
+    )
+    body = await _get_me(client, relog["session_token"])
 
-    assert body["master_notifications"] is None
+    mn = body["master_notifications"]
+    assert mn is not None
+    assert mn["new_booking"] is True
+    assert mn["monthly_report"] is False
+    assert mn["schedule"] == _DEFAULT_SCHEDULE

@@ -11,13 +11,21 @@
 #   Depends(get_db_session), so FastAPI reuses the same session instance
 #   for the entire request — one DB connection instead of two.
 #   The service no longer needs session.merge().
+#
+# MASTER NOTIFICATIONS (E8): GET /users/me exposes master_notifications only
+#   when the caller has master capability (a verified MasterProfile). That
+#   check needs the MasterProfile table, which UserResponse cannot read on its
+#   own, so the route computes it (user_has_master_capability) on the same
+#   read session get_current_user already uses and sets the response carrier.
+#   Capability -- not strict role==master -- so an admin who is also a verified
+#   master keeps the screen.
 # =============================================================================
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.database import get_db_session
+from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import NotFoundError
 from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
@@ -26,6 +34,7 @@ from app.modules.users.service import (
     reset_user_to_onboarding,
     switch_user_role,
     update_user,
+    user_has_master_capability,
 )
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -34,13 +43,24 @@ router = APIRouter(prefix="/api/v1/users", tags=["users"])
 @router.get("/me", response_model=UserResponse)
 async def get_me(
     user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
 ) -> UserResponse:
     """Return the authenticated user's profile.
 
-    User object is loaded by get_current_user dependency (read-only session).
-    No extra DB query needed.
+    The user is loaded by get_current_user (read-only session). The same
+    get_db_reader session is reused here (FastAPI caches Depends within a
+    request, so this is one DB connection, not two) to check master capability
+    -- whether the user has a VERIFIED MasterProfile -- which gates the
+    master_notifications block. Capability is used rather than a strict
+    role==master check so that an admin who is also a verified master keeps the
+    master notifications screen. The flag is set on the response after
+    model_validate because UserResponse cannot derive it on its own.
     """
-    return UserResponse.model_validate(user)
+    response = UserResponse.model_validate(user)
+    response.master_capability_in = await user_has_master_capability(
+        user, session
+    )
+    return response
 
 
 @router.patch("/me", response_model=UserResponse)

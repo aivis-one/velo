@@ -84,10 +84,13 @@ class NotificationSettingsUpdate(BaseModel):
 #
 # A master is ALSO a user, so a master reports BOTH `notifications` (4-key) and
 # `master_notifications` (9-key + schedule); that is intended. Exposure of
-# `master_notifications` in UserResponse is gated to role=master (see the
-# computed field below); the write path in UserUpdate is NOT role-gated -- a
-# non-master may store the prefs, they simply stay hidden until/unless the
-# account becomes a master.
+# `master_notifications` in UserResponse is gated to MASTER CAPABILITY (the user
+# has a verified MasterProfile) rather than a strict role==master check, so an
+# admin who is also a verified master still sees the screen. That flag cannot be
+# derived inside this schema (it needs the MasterProfile table), so the
+# GET /users/me router computes it and sets the master_capability_in carrier
+# below. The write path in UserUpdate is NOT gated -- a non-master may store the
+# prefs, they simply stay hidden until the account gains master capability.
 #
 # Schema names are deliberately unique so they do not collide with the existing
 # NotificationSettings(+Update) in OpenAPI / generated.ts.
@@ -289,6 +292,14 @@ class UserResponse(BaseModel):
         exclude=True,
     )
 
+    # Input-only carrier for the master_notifications capability gate. NOT read
+    # from the ORM (no validation_alias) -- the GET /users/me router sets it
+    # explicitly after model_validate, because deciding it requires a
+    # MasterProfile lookup this schema cannot do. Excluded from output. Defaults
+    # to False, so any UserResponse built without the router (e.g. an admin
+    # user list) simply reports master_notifications=None.
+    master_capability_in: bool = Field(default=False, exclude=True)
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def onboarding_completed(self) -> bool:
@@ -344,12 +355,14 @@ class UserResponse(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def master_notifications(self) -> MasterNotificationSettings | None:
-        """Master notification preferences, or None when the user is not master.
+        """Master notification preferences, or None without master capability.
 
-        Gated to role=master (mirrors how role_switch returns None when
-        unavailable): a master is also a user, so a master reports BOTH the
-        4-key `notifications` and this 9-key `master_notifications` (+ schedule).
-        For everyone else (user/admin) this is None and the block never ships.
+        Gated on master_capability_in (set by the GET /users/me router when the
+        user has a verified MasterProfile) rather than a strict role check, so
+        an admin who is also a verified master still gets the block. A master is
+        also a user, so a capable user reports BOTH the 4-key `notifications`
+        and this 9-key `master_notifications` (+ schedule). Without capability
+        this is None and the block never ships.
 
         Schema-on-read, stored under credentials["master_notifications"]: stored
         toggles are layered over _MASTER_NOTIFICATION_DEFAULTS, and the nested
@@ -357,7 +370,7 @@ class UserResponse(BaseModel):
         Unknown / malformed stored values are ignored (defensive isinstance /
         format checks) so a hand-edited blob can never 500 a GET.
         """
-        if self.role != UserRole.MASTER:
+        if not self.master_capability_in:
             return None
 
         stored = self.credentials_in.get("master_notifications")
@@ -463,9 +476,10 @@ class UserUpdate(BaseModel):
     # Master notification preferences (9 toggles + schedule, nested object in
     # credentials["master_notifications"]). Partial: only the flipped toggles
     # and changed schedule sub-fields are sent; the service deep-merges onto
-    # the stored object (nested merge for schedule). NOT role-gated on write
-    # (stored regardless of role); exposure in UserResponse is gated to
-    # role=master. "Not sent" leaves it untouched.
+    # the stored object (nested merge for schedule). NOT gated on write (stored
+    # regardless of role/capability); exposure in UserResponse is gated to
+    # master capability (a verified MasterProfile). "Not sent" leaves it
+    # untouched.
     master_notifications: MasterNotificationSettingsUpdate | None = Field(
         default=None
     )

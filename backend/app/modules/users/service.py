@@ -289,3 +289,25 @@ async def reset_user_to_onboarding(
     )
 
     return user
+
+
+async def user_has_master_capability(
+    user: User,
+    session: AsyncSession,
+) -> bool:
+    """Whether the user has a VERIFIED MasterProfile (i.e. master capability).
+
+    Used by GET /users/me to gate the master_notifications block. This is the
+    "is effectively a master" check -- deliberately capability-based rather than
+    role==MASTER, so an admin (role=ADMIN) who also has a verified MasterProfile
+    still sees the master notifications screen. A missing / pending / rejected
+    profile -> False.
+
+    Read-only: the caller passes a read session (get_db_reader in the router).
+    """
+    stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        return False
+    return profile.data.get("account", {}).get("status") == "verified"
