@@ -28,6 +28,13 @@ export const useMasterStore = defineStore('master', () => {
   // Used by masterStatusGuard to skip redundant network calls.
   const profileLoaded = ref(false)
 
+  // Per-session suppression for the post-approval onboarding carousel
+  // (MasterOnboardingView, Phase D). Set true on done/skip so the overlay does
+  // not re-trigger within a session; the persisted server flag
+  // (master_onboarding_completed, Zod E15) governs across sessions. Cleared on
+  // $reset/logout so a different account in the same tab starts fresh.
+  const onboardingShownThisSession = ref(false)
+
   /**
    * Fetch master profile from API.
    *
@@ -93,6 +100,7 @@ export const useMasterStore = defineStore('master', () => {
     profileLoading.value = false
     profileError.value = null
     profileLoaded.value = false
+    onboardingShownThisSession.value = false
     pagination.items.value = []
     pagination.total.value = 0
     practicesLoaded.value = false
@@ -106,6 +114,7 @@ export const useMasterStore = defineStore('master', () => {
     profileLoading,
     profileError,
     profileLoaded,
+    onboardingShownThisSession,
     fetchMyProfile,
 
     // Practices list

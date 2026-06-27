@@ -184,6 +184,19 @@
       </template>
     </template>
   </div>
+
+  <!-- Post-approval onboarding carousel — full-screen overlay above the shell
+       (tab bar + header). Teleported to body to escape any ancestor transform
+       (fog / bg-stabilizer) that would otherwise trap position:fixed. -->
+  <Teleport to="body">
+    <div
+      v-if="showMasterOnboarding"
+      class="master-onboarding-overlay"
+      :style="{ paddingTop: contentSafeTop + 'px' }"
+    >
+      <MasterOnboardingView @done="onMasterOnboardingDone" />
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -192,16 +205,22 @@ import { useRouter } from 'vue-router'
 import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
 import { IconBellPlain, IconGroup } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
+import { useAuthStore } from '@/stores/auth'
+import { useSafeArea } from '@/composables/useSafeArea'
+import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
+import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
 import { useToast } from '@/composables/useToast'
 import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import { getMasterStats } from '@/api/masters'
-import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
+import type { PracticeResponse, MasterStatsResponse, UserUpdate } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
+const authStore = useAuthStore()
+const { contentSafeTop } = useSafeArea()
 const toast = useToast()
 
 // -- Period toggle. Drives the period-scoped stats row (E7). --
@@ -303,6 +322,44 @@ function onZoom(): void {
   toast.info('Zoom пока недоступен')
 }
 
+// =========================================================================
+// Post-approval onboarding carousel (Phase D, slice-1). Shown ONCE to a
+// freshly-verified master as a full-screen overlay (Teleport) on first
+// dashboard entry. Gate + defensive flag read in utils/masterOnboarding; the
+// per-session guard lives in the master store so it survives this view's
+// unmount/remount but resets on logout. Honest-stub: the server flag
+// (master_onboarding_completed, Zod E15) is not stored yet, so it re-shows on
+// the next app session — expected interim, not a bug.
+// =========================================================================
+const showMasterOnboarding = computed(() =>
+  shouldShowMasterOnboarding({
+    role: authStore.role,
+    profileStatus: masterStore.profile?.status,
+    completed: isMasterOnboardingCompleted(authStore.user),
+    shownThisSession: masterStore.onboardingShownThisSession,
+  }),
+)
+
+function onMasterOnboardingDone(): void {
+  // Hide the overlay immediately (gate → false), then persist best-effort.
+  masterStore.onboardingShownThisSession = true
+  void persistMasterOnboarding()
+}
+
+async function persistMasterOnboarding(): Promise<void> {
+  try {
+    // Defensive write: master_onboarding_completed is not on the autogen
+    // UserUpdate yet (Zod E15) — cast (mirrors auth.ts role_switch precedent).
+    // Honest-stub: the backend ignores it until E15, so it re-shows next session.
+    await authStore.updateProfile({
+      master_onboarding_completed: true,
+    } as UserUpdate & { master_onboarding_completed?: boolean })
+  } catch {
+    // Best-effort only: the session guard already prevents a re-show, and the
+    // server flag takes over once E15 ships. Not surfaced to the user.
+  }
+}
+
 // -- Load data on mount --
 onMounted(async () => {
   clockInterval = setInterval(() => {
@@ -323,6 +380,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Full-screen onboarding overlay. Replicates the app's photo background
+   (#app::before in global.css) so it obscures the dashboard behind it and the
+   transparent carousel reads exactly like the user OnboardingView. Below the
+   toast layer (--z-toast) so error toasts still surface. */
+.master-onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-popup);
+  background: url('/bg/background.png') center / cover no-repeat;
+  box-sizing: border-box;
+}
+
 .master-dashboard {
   /* F-5 rail sync: horizontal padding removed — MobileLayout supplies the 24px
      screen rail (--velo-rail-pad-x). Top padding removed too (greeting gone —
@@ -395,7 +464,8 @@ onUnmounted(() => {
 
 .master-dashboard__stats-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);  color: var(--velo-text-primary);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
@@ -483,7 +553,8 @@ onUnmounted(() => {
 
 .master-dashboard__practice-title {
   font-family: var(--font-body);
-  font-size: var(--text-base);  color: var(--velo-text-primary);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
   letter-spacing: var(--velo-card-letter-spacing-title);
   white-space: nowrap;
   overflow: hidden;
