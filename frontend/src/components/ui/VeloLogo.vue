@@ -64,6 +64,17 @@
       alt="VELΘ"
     />
   </div>
+  <!-- Blue line-art lockup (mandala + VELΘ wordmark in one vector). The original
+       all-in-one logo.svg, kept for brand uses; reused by the parked master-web
+       auth screens whose Figma uses the line lockup (not the filled mandala). -->
+  <img
+    v-else-if="variant === 'lockup'"
+    src="/icons/logo.svg"
+    :width="size"
+    :height="size"
+    alt="VELΘ"
+    class="velo-logo"
+  />
   <!-- White static logo. -->
   <img
     v-else
@@ -79,7 +90,8 @@
 withDefaults(
   defineProps<{
     size?: number
-    variant?: 'default' | 'white'
+    /** 'lockup' = blue line-art logo.svg (mandala + wordmark), used by auth screens. */
+    variant?: 'default' | 'white' | 'lockup'
     /** White only: slowly rotate the mandala ring with the wordmark static. */
     spin?: boolean
   }>(),

@@ -432,6 +432,35 @@ const router = createRouter({
       ],
     },
 
+    // =========================================================================
+    // PARKED master-web auth routes (Phase A) — DORMANT + UNLINKED.
+    // Registered for the future web-auth backend (Zod E17) only. App.vue's stage
+    // machine + role redirects NEVER route here and nothing links in, so they are
+    // unreachable in the Telegram flow (App.vue renders StandaloneStubView for a
+    // browser session, so RouterView — and these views — never mount until E17).
+    // No guards, no shell; the views render transparent over the app background.
+    // =========================================================================
+    {
+      path: '/auth/landing',
+      name: 'auth-landing',
+      component: () => import('@/views/auth/LandingView.vue'),
+    },
+    {
+      path: '/auth/login',
+      name: 'auth-login',
+      component: () => import('@/views/auth/LoginView.vue'),
+    },
+    {
+      path: '/auth/recover',
+      name: 'auth-recover',
+      component: () => import('@/views/auth/RecoverPasswordRequestView.vue'),
+    },
+    {
+      path: '/auth/recover/reset',
+      name: 'auth-recover-reset',
+      component: () => import('@/views/auth/RecoverPasswordSetView.vue'),
+    },
+
     {
       path: '/auth-error',
       name: 'auth-error',
