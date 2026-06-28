@@ -41,14 +41,7 @@
     </div>
 
     <div class="master-onboarding__footer">
-      <div class="master-onboarding__dots" aria-hidden="true">
-        <span
-          v-for="(_, i) in TOTAL_STEPS"
-          :key="i"
-          class="master-onboarding__dot"
-          :class="{ 'master-onboarding__dot--active': i === step }"
-        />
-      </div>
+      <VPaginationDots :total="TOTAL_STEPS" :active="step" />
 
       <button type="button" class="master-onboarding__button" @click="onPrimaryAction">
         {{ isLastStep ? 'Войти в кабинет' : 'Далее' }}
@@ -59,6 +52,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { VPaginationDots } from '@/components/ui'
 
 const emit = defineEmits<{
   /** Carousel finished (completed or skipped). Parent persists + hides. */
@@ -182,29 +176,6 @@ function skip(): void {
   align-items: center;
   gap: var(--space-5);
   padding-top: var(--space-4);
-}
-
-.master-onboarding__dots {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.master-onboarding__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  /* FORK-3: raw value, 1:1 with the user carousel (OnboardingView hardcodes it). */
-  background: rgba(76, 101, 137, 0.6);
-  transition:
-    width var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.master-onboarding__dot--active {
-  width: 13px;
-  border-radius: var(--radius-full);
-  background: var(--velo-text-primary);
 }
 
 .master-onboarding__button {

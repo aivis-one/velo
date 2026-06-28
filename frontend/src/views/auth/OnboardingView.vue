@@ -61,14 +61,7 @@
 
     <!-- ================= FOOTER: dots + action ================= -->
     <div class="onboarding__footer">
-      <div class="onboarding__dots" aria-hidden="true">
-        <span
-          v-for="(_, i) in TOTAL_STEPS"
-          :key="i"
-          class="onboarding__dot"
-          :class="{ 'onboarding__dot--active': i === step }"
-        />
-      </div>
+      <VPaginationDots :total="TOTAL_STEPS" :active="step" />
 
       <button
         type="button"
@@ -85,6 +78,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import TimezoneCityPicker from '@/components/shared/TimezoneCityPicker.vue'
+import { VPaginationDots } from '@/components/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { ApiResponseError } from '@/api/client'
@@ -342,28 +336,6 @@ async function finish(): Promise<void> {
   align-items: center;
   gap: var(--space-5);
   padding-top: var(--space-4);
-}
-
-.onboarding__dots {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.onboarding__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  background: rgba(76, 101, 137, 0.6);
-  transition:
-    width var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.onboarding__dot--active {
-  width: 13px;
-  border-radius: var(--radius-full);
-  background: var(--velo-text-primary);
 }
 
 .onboarding__button {
