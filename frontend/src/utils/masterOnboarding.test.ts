@@ -53,4 +53,22 @@ describe('shouldShowMasterOnboarding (gate)', () => {
   it('dismissed this session -> hidden (loop guard before E15)', () => {
     expect(shouldShowMasterOnboarding({ ...base, shownThisSession: true })).toBe(false)
   })
+
+  it('forced (test role-switch replay) bypasses completed + shownThisSession', () => {
+    expect(
+      shouldShowMasterOnboarding({
+        ...base,
+        completed: true,
+        shownThisSession: true,
+        forced: true,
+      }),
+    ).toBe(true)
+  })
+
+  it('forced still requires a verified master', () => {
+    expect(shouldShowMasterOnboarding({ ...base, profileStatus: 'pending', forced: true })).toBe(
+      false,
+    )
+    expect(shouldShowMasterOnboarding({ ...base, role: 'user', forced: true })).toBe(false)
+  })
 })

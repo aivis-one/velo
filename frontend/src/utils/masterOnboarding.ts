@@ -37,6 +37,12 @@ export interface MasterOnboardingGateInput {
   completed: boolean
   /** Per-session suppression (set on done/skip; cleared on logout). */
   shownThisSession: boolean
+  /**
+   * TEST-only force (role-switch replay): bypasses `completed` +
+   * `shownThisSession` so a tester can re-watch the carousel. Still requires a
+   * verified master — you cannot onboard a non-verified one. Default false.
+   */
+  forced?: boolean
 }
 
 /**
@@ -52,7 +58,6 @@ export function shouldShowMasterOnboarding(input: MasterOnboardingGateInput): bo
   return (
     input.role === 'master' &&
     input.profileStatus === 'verified' &&
-    !input.completed &&
-    !input.shownThisSession
+    (input.forced === true || (!input.completed && !input.shownThisSession))
   )
 }

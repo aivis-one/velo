@@ -49,9 +49,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { useToast } from '@/composables/useToast'
 import { useBackgroundStabilizer } from '@/composables/useBackgroundStabilizer'
 import { VToast } from '@/components/ui'
@@ -63,6 +64,7 @@ import OnboardingView from '@/views/auth/OnboardingView.vue'
 
 const { isReady, isAuthenticated, isStandalone, isLoggingOut, initAuth } = useAuth()
 const authStore = useAuthStore()
+const uiStore = useUiStore()
 const toast = useToast()
 
 // Pin the fixed photo-background against the iOS/Telegram keyboard viewport
@@ -72,6 +74,20 @@ useBackgroundStabilizer()
 /** Entry stage after a successful auth. Starts at the welcome screen. */
 type EntryStage = 'welcome' | 'onboarding' | 'app'
 const stage = ref<EntryStage>('welcome')
+
+// TEST-ONLY: a tester role-switch into 'user' replays the user onboarding by
+// re-entering the onboarding stage (consume-on-enter). forceOnboarding is only
+// ever set by the test-gated role switch, so this never fires in production.
+// OnboardingView's @done returns the stage to 'app' as usual (unchanged).
+watch(
+  () => uiStore.forceOnboarding,
+  (val) => {
+    if (val === 'user') {
+      stage.value = 'onboarding'
+      uiStore.clearForceOnboarding()
+    }
+  },
+)
 
 /**
  * "Войти" on the welcome screen. New users go through the onboarding

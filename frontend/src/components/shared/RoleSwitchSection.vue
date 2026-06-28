@@ -68,6 +68,13 @@ async function onSwitch(target: UserRole): Promise<void> {
     await authStore.switchRole(target)
     // Drop any user-mode preview so the native shell of the new role shows.
     uiStore.setUiMode('default')
+    // TEST-ONLY: replay the target role's onboarding on switch. Bound to the
+    // same gate as this whole section (allowedRoles non-empty = backend
+    // role_switch present = test server) — never fires in prod. user/master
+    // have onboarding; admin does not.
+    if (authStore.allowedRoles.length && (target === 'user' || target === 'master')) {
+      uiStore.setForceOnboarding(target)
+    }
     await router.push({ name: ROLE_DASHBOARD[target] })
   } catch {
     toast.error('Не удалось переключить роль')
