@@ -196,6 +196,9 @@
               <IconRequiredDone v-else :size="22" />
             </span>
           </div>
+          <span v-if="errors.recurrence_days" class="create-practice__field-error">{{
+            errors.recurrence_days
+          }}</span>
 
           <!-- Завершить -->
           <div class="create-practice__seal-row">
@@ -234,6 +237,12 @@
               <IconRequiredDone v-else :size="22" />
             </span>
           </div>
+          <span v-if="errors.recurrence_end_date" class="create-practice__field-error">{{
+            errors.recurrence_end_date
+          }}</span>
+          <span v-if="errors.recurrence_count" class="create-practice__field-error">{{
+            errors.recurrence_count
+          }}</span>
         </template>
       </div>
 
@@ -490,6 +499,12 @@ const errors = reactive({
   time: '',
   duration_minutes: '',
   max_participants: '',
+  // Recurrence end-condition errors (surfaced as field errors, mirroring the
+  // weekday-required check): days required, until-date needs a date, after-count
+  // needs a positive count. Reset by the Object.keys(errors) loop in validate().
+  recurrence_days: '',
+  recurrence_end_date: '',
+  recurrence_count: '',
 })
 
 // «Использовать шаблон» source: all the master's practices, newest-created
@@ -582,6 +597,23 @@ function validate(): boolean {
   // Weekly / biweekly series require at least one weekday (the day picker shows
   // a required-seal when empty). Daily ignores days. Block an invalid spec.
   if (form.is_recurring && form.recurrence !== 'daily' && form.recurrence_days.length === 0) {
+    errors.recurrence_days = 'Выберите хотя бы один день недели'
+    ok = false
+  }
+  // End = «выбрать дату» needs a chosen date, else until_date submits null → 422
+  // with no field feedback.
+  if (form.is_recurring && form.recurrence_end === 'until_date' && !form.recurrence_end_date) {
+    errors.recurrence_end_date = 'Выберите дату окончания'
+    ok = false
+  }
+  // End = «после числа повторений» needs a positive count; a cleared input binds
+  // to '' (HTML min doesn't block submit) → count '' → 422 with no feedback.
+  if (
+    form.is_recurring &&
+    form.recurrence_end === 'after_count' &&
+    (!form.recurrence_count || form.recurrence_count < 1)
+  ) {
+    errors.recurrence_count = 'Укажите число повторений (не меньше 1)'
     ok = false
   }
   return ok
