@@ -362,7 +362,7 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { createPractice, updatePractice } from '@/api/practices'
-import { formatShortDate } from '@/utils/format'
+import { formatShortDate, todayLocalISO } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
@@ -455,8 +455,9 @@ const DIFFICULTY_OPTIONS_CREATE = [
   { value: 'high', label: 'Высокий' },
 ]
 
-// W-7: computed so todayDate is never stale after midnight
-const todayDate = computed(() => new Date().toISOString().split('T')[0])
+// W-7: computed so todayDate is never stale after midnight. Local-time date floor
+// (not UTC) so it doesn't drift a day near midnight for east/west-of-UTC users.
+const todayDate = computed(() => todayLocalISO())
 
 // -- Form state --
 const form = reactive({

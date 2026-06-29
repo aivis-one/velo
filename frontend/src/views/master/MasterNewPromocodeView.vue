@@ -76,7 +76,7 @@ import { VInput, VSelect, VButton } from '@/components/ui'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { useToast } from '@/composables/useToast'
-import { formatShortDate } from '@/utils/format'
+import { formatShortDate, todayLocalISO } from '@/utils/format'
 
 const router = useRouter()
 const toast = useToast()
@@ -97,8 +97,9 @@ const form = reactive({
 })
 
 // «Действует до» must be in the future — DatePickerSheet :min = today disables the
-// earlier days (B6; replaces the OS-native min attribute).
-const todayISO = computed((): string => new Date().toISOString().slice(0, 10))
+// earlier days (B6; replaces the OS-native min attribute). Local-time date floor
+// (not UTC) so it doesn't drift a day near midnight for east/west-of-UTC testers.
+const todayISO = computed((): string => todayLocalISO())
 
 // Shared calendar sheet state + the friendly trigger label, e.g. "27 июн. 2026".
 const showDate = ref(false)

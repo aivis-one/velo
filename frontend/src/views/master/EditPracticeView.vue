@@ -290,7 +290,7 @@ import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
 import { useToast } from '@/composables/useToast'
 import { useMasterStore } from '@/stores/master'
 import { getPractice, updatePractice, deletePractice, cancelPractice } from '@/api/practices'
-import { formatShortDate } from '@/utils/format'
+import { formatShortDate, todayLocalISO } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS } from '@/utils/practiceOptions'
@@ -356,8 +356,9 @@ const confirmDialog = reactive({
   },
 })
 
-// W-8: computed so todayDate is never stale after midnight
-const todayDate = computed(() => new Date().toISOString().split('T')[0])
+// W-8: computed so todayDate is never stale after midnight. Local-time date floor
+// (not UTC) so it doesn't drift a day near midnight for east/west-of-UTC users.
+const todayDate = computed(() => todayLocalISO())
 
 // Friendly date for the picker trigger, e.g. "25 янв. 2026" (mirrors Create).
 const dateDisplay = computed((): string =>

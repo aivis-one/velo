@@ -145,6 +145,21 @@ export function isToday(isoString: string, timezone = 'UTC'): boolean {
 }
 
 /**
+ * Today's calendar date as a LOCAL-time ISO string 'YYYY-MM-DD' (zero-padded).
+ *
+ * Unlike `new Date().toISOString().slice(0, 10)` (which is UTC), this reads the
+ * browser's LOCAL date parts, so a date-floor `:min` computed from it doesn't
+ * drift by a day for users east/west of UTC near midnight. Used as the
+ * future-only floor for the in-app date pickers (promocode «Действует до»,
+ * practice date). Zero-padded so the 'YYYY-MM-DD' string compare stays correct.
+ */
+export function todayLocalISO(): string {
+  const d = new Date()
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
  * Format an ISO datetime string into time only: "07:00".
  */
 export function formatTime(isoString: string, timezone = 'UTC', locale = 'ru'): string {
