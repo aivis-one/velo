@@ -1,4 +1,5 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { KEYBOARD_VIEWPORT_THRESHOLD } from '@/utils/constants'
 
 /**
  * Reactive "is the on-screen keyboard open" flag, derived from visualViewport.
@@ -13,7 +14,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
  *
  * No-ops gracefully where visualViewport is unavailable (flag stays false).
  */
-export function useKeyboardOpen(threshold = 150) {
+export function useKeyboardOpen(threshold = KEYBOARD_VIEWPORT_THRESHOLD) {
   const keyboardOpen = ref(false)
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
 

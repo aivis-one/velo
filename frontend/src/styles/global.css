@@ -127,6 +127,40 @@ ol {
   transform: translateY(var(--velo-bg-shift, 0px));
 }
 
+/* === Keyboard-aware viewport (device-only — #2/#6/#7) ===
+   The scroll container, sticky composers and the fog mask are sized to the
+   LAYOUT viewport (height:100%), so on a soft-keyboard open they don't shrink to
+   the VISIBLE area: inputs hide under the keyboard, sticky composers float
+   mid-page, fog clips content into a band.
+
+   useBackgroundStabilizer publishes the visual-viewport height as `--velo-vvh`
+   (on :root, so teleported modals under <body> inherit it) and toggles
+   `html.is-keyboard-open` (same threshold as useKeyboardOpen). These rules cap
+   the shared chrome to the visible area ONLY while that class is present.
+
+   AT REST the class is ABSENT → every rule below is inert → the layout / modal /
+   fog are byte-for-byte identical to before. The new behaviour applies ONLY when
+   the keyboard is open. The diary fill-layout is excluded (it owns its keyboard). */
+html.is-keyboard-open .mobile-layout__main:not(.mobile-layout__main--fill) {
+  /* Scroll region (and its %-based fog mask) shrink to the visible area, so the
+     sticky composer sits just above the keyboard and the focused field is
+     reachable; the fog fade follows the new bottom instead of clipping a band. */
+  max-height: var(--velo-vvh);
+}
+
+html.is-keyboard-open .v-modal__overlay {
+  /* Bottom-sheet overlay shrinks to the visible area (pinned to the top of it)
+     so a low field isn't trapped behind the keyboard. */
+  height: var(--velo-vvh);
+  bottom: auto;
+}
+
+html.is-keyboard-open .v-modal__container,
+html.is-keyboard-open .v-modal__scroll {
+  /* Fit the sheet within the shrunk overlay (overrides the at-rest 85vh). */
+  max-height: 100%;
+}
+
 /* === Section header (DS canon) ===
    Single source for in-page content section headings across the master views
    (was duplicated per-view as `*__section-title`, with drifting font-family and

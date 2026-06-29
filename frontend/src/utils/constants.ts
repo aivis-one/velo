@@ -58,3 +58,16 @@ export const WITHDRAWAL_FEE_EUROS = 2
  * navigated to the pending URL directly. Cleared on logout via master $reset.
  */
 export const MASTER_APPLIED_KEY = 'velo:master-applied'
+
+// ---------------------------------------------------------------------------
+// Keyboard / visual-viewport (keyboard-aware layout)
+// ---------------------------------------------------------------------------
+
+/**
+ * Visual-viewport shrink (px) past which we treat the soft keyboard as open.
+ * Single source for useKeyboardOpen (tab-bar hide) AND useBackgroundStabilizer
+ * (the `html.is-keyboard-open` class that gates the keyboard-aware layout in
+ * global.css), so the two detections never drift. iOS / Telegram keyboards
+ * shrink the visual viewport well past this.
+ */
+export const KEYBOARD_VIEWPORT_THRESHOLD = 150
