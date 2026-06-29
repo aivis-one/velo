@@ -33,9 +33,7 @@
 <template>
   <div class="create-practice">
     <!-- Header -->
-    <!-- solid: opaque plate so the form scrolling under the floating header
-         doesn't ghost through the transparent title (same A1 fix as reviews). -->
-    <VHeader title="Новая практика" show-back solid @back="onBack" />
+    <VHeader title="Новая практика" show-back @back="onBack" />
 
     <div class="create-practice__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS banner, Phase-3). -->

@@ -8,7 +8,7 @@
 
 <template>
   <div class="new-promo">
-    <VHeader title="Новый промокод" show-back solid @back="router.back()" />
+    <VHeader title="Новый промокод" show-back @back="router.back()" />
 
     <div class="new-promo__content" @click="dismissKeyboardOnBlank">
       <!-- Required-fields legend (DS, Phase-3). -->

@@ -25,9 +25,7 @@
 
 <template>
   <div class="finance-view">
-    <!-- solid: opaque plate so content scrolling under the floating header
-         doesn't ghost through the transparent title (same A1 fix as reviews). -->
-    <VHeader title="Вывод средств" show-back solid @back="router.back()" />
+    <VHeader title="Вывод средств" show-back @back="router.back()" />
 
     <!-- ===================== BALANCE ===================== -->
     <div class="finance-view__balance">

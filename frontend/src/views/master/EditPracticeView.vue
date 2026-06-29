@@ -46,9 +46,7 @@
          Deep-link-safe: pop the existing detail entry (router.back) instead of
          PUSHing a new one — pushing grew history and ping-ponged edit<->detail
          (the back-loop, operator 2026-06-24). Mirror of CreatePracticeView.onBack. -->
-    <!-- solid: opaque plate so the form scrolling under the floating header
-         doesn't ghost through the transparent title (same A1 fix as reviews). -->
-    <VHeader title="Редактировать" show-back solid @back="onBack" />
+    <VHeader title="Редактировать" show-back @back="onBack" />
 
     <!-- Loading -->
     <div v-if="loading" class="edit-practice__loader">
