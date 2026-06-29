@@ -41,9 +41,11 @@ import { useRouter } from 'vue-router'
 import { VButton } from '@/components/ui'
 import VeloLogo from '@/components/ui/VeloLogo.vue'
 import { useToast } from '@/composables/useToast'
+import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
 const toast = useToast()
+const uiStore = useUiStore()
 
 const features = [
   {
@@ -63,8 +65,14 @@ const features = [
   },
 ]
 
-// Registration backend is not built (Zod E17): inert stub.
+// Registration backend is not built (Zod E17): inert stub. In the TEST-only
+// apply-flow preview (stores/ui.ts), instead advance to the apply wizard so a
+// tester can page through the screens — never set in prod, so the stub holds there.
 function apply(): void {
+  if (uiStore.previewApplyFlow) {
+    router.push({ name: 'master-apply' })
+    return
+  }
   toast.info('Подача заявки появится в веб-версии')
 }
 function goLogin(): void {

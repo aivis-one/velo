@@ -35,5 +35,32 @@ export const useUiStore = defineStore('ui', () => {
     forceOnboarding.value = null
   }
 
-  return { uiMode, setUiMode, forceOnboarding, setForceOnboarding, clearForceOnboarding }
+  // TEST-ONLY apply-flow preview signal. Set only by RoleSwitchSection's
+  // «Просмотреть экраны заявки» button (rendered only when the backend exposes
+  // role_switch = test server). When true, the master application journey
+  // (Landing → apply wizard → pending) runs as a READ-ONLY preview: the apply
+  // POST + applicant marker are skipped and the apply/pending guards are
+  // bypassed, so a tester can page through the screens without filing anything.
+  // Session-scoped (not persisted); never set in production. Cleared on any exit
+  // from the preview (router guard + «Закрыть») so it can't leak into a session.
+  const previewApplyFlow = ref(false)
+
+  function setPreviewApplyFlow(on: boolean): void {
+    previewApplyFlow.value = on
+  }
+
+  function clearPreviewApplyFlow(): void {
+    previewApplyFlow.value = false
+  }
+
+  return {
+    uiMode,
+    setUiMode,
+    forceOnboarding,
+    setForceOnboarding,
+    clearForceOnboarding,
+    previewApplyFlow,
+    setPreviewApplyFlow,
+    clearPreviewApplyFlow,
+  }
 })

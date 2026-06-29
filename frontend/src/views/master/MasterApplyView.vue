@@ -205,12 +205,14 @@ import {
 } from '@/components/ui'
 import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
+import { useUiStore } from '@/stores/ui'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
+const uiStore = useUiStore()
 
 // -- Step state --
 const step = ref(1)
@@ -357,6 +359,15 @@ async function submit(): Promise<void> {
   errors.docs = ''
   if (!form.docsConsent) {
     errors.docs = 'Необходимо дать согласие на обработку документов'
+    return
+  }
+
+  // TEST-only apply-flow preview: no application is filed — skip the real POST +
+  // applicant marker and go straight to the "sent" screen so the tester can
+  // confirm it renders. Never set in prod (see stores/ui.ts); the genuine
+  // applicant path below is untouched.
+  if (uiStore.previewApplyFlow) {
+    router.push({ name: 'master-pending' })
     return
   }
 

@@ -24,6 +24,15 @@
         :label="ROLE_LABEL[t]"
         @click="onSwitch(t)"
       />
+      <!-- TEST-ONLY: page through the master application journey (Landing →
+           apply wizard → «Заявка отправлена») without filing anything. Shares
+           this section's prod gate (targets > 0 ⟹ allowedRoles non-empty ⟹
+           role_switch present ⟹ test server) → never renders in prod. -->
+      <VMenuRow
+        variant="primary"
+        label="Просмотреть экраны заявки"
+        @click="onPreviewApply"
+      />
     </div>
   </div>
 </template>
@@ -81,6 +90,14 @@ async function onSwitch(target: UserRole): Promise<void> {
   } finally {
     switching.value = false
   }
+}
+
+// TEST-ONLY: enter the read-only apply-flow preview (see stores/ui.ts). Sets the
+// session signal then routes to screen 1 (the parked /auth Landing). Reachable
+// only from this prod-gated section, so the signal can never be set in prod.
+function onPreviewApply(): void {
+  uiStore.setPreviewApplyFlow(true)
+  router.push({ name: 'auth-landing' })
 }
 </script>
 

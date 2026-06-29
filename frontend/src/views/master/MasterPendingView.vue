@@ -74,7 +74,12 @@
         <h2 class="pending-view__title">Заявка отправлена!</h2>
         <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
 
-        <div class="pending-view__actions">
+        <!-- TEST-only preview: a single «Закрыть» (clears the signal, returns to
+             the launching profile) replaces the real polling/return CTAs. -->
+        <div v-if="uiStore.previewApplyFlow" class="pending-view__actions">
+          <VButton variant="primary" block @click="closePreview">Закрыть</VButton>
+        </div>
+        <div v-else class="pending-view__actions">
           <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
             Обновить статус
           </VButton>
@@ -95,18 +100,24 @@ import { VButton, VLoader } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
+import { useUiStore } from '@/stores/ui'
+import type { UserRole } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
+const uiStore = useUiStore()
 
 const refreshing = ref(false)
 
 // -- Derived application status --
+// TEST-only apply-flow preview: always the "sent" screen regardless of role/
+// profile (prod-unreachable — see stores/ui.ts).
 // role='user' (just applied) can't fetch /masters/me yet -> always 'pending'.
 // role='master' -> the loaded profile status (verified / rejected / pending).
 const profileStatus = computed(() => {
+  if (uiStore.previewApplyFlow) return 'pending'
   if (authStore.role !== 'master') return 'pending'
   return masterStore.profile?.status ?? 'pending'
 })
@@ -120,11 +131,25 @@ const rejectionReason = computed((): string => {
 
 // On mount: load the master profile so the status-keyed state renders. No
 // auto-redirect on verified — the «Одобрено» screen + CTA handles that now.
+// TEST-only preview forces the "sent" state, so it needs no profile fetch.
 onMounted(async () => {
+  if (uiStore.previewApplyFlow) return
   if (authStore.role === 'master') {
     await masterStore.fetchMyProfile(true)
   }
 })
+
+// -- TEST-only preview exit -- clear the signal and return to the launching
+// profile screen (the role-switch section lives on every role's profile).
+const PROFILE_ROUTE: Record<UserRole, string> = {
+  user: 'user-profile',
+  master: 'master-profile',
+  admin: 'admin-profile',
+}
+function closePreview(): void {
+  uiStore.clearPreviewApplyFlow()
+  router.push({ name: PROFILE_ROUTE[authStore.role ?? 'user'] })
+}
 
 // -- Refresh status -- (re-checks the user->master promotion + profile status)
 async function refreshStatus(): Promise<void> {
