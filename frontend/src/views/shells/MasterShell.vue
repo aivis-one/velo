@@ -68,25 +68,27 @@ const FOG_ROUTES = [
   'master-notifications',
   // Detail / read screens — fog «like the User zone» (operator option А,
   // 2026-06-23). practice-detail (incl. the past «Прошедшая» state, same view)
-  // and support both carry an IN-FLOW bottom action CTA, so they take the
-  // CTA-safe pd-tuning below (softer top / tighter bottom) — the buttons sit
-  // above the fade and stay solid, exactly like the User practice-detail. The
-  // profile hub has no in-flow bottom CTA (logout lives in a modal) and keeps
-  // its tab bar, so the default fog already clears its last menu row.
+  // carries an IN-FLOW bottom action CTA, so it takes the CTA-safe pd-tuning
+  // below (softer top / tighter bottom) — the button sits above the fade and
+  // stays solid, exactly like the User practice-detail. The profile hub has no
+  // in-flow bottom CTA (logout lives in a modal) and keeps its tab bar, so the
+  // default fog already clears its last menu row.
+  // DS RULE (operator-mandate 2026-06-29): FORMS / KEYBOARD screens opt OUT of
+  // fog — a fog mask over a focused input clips it into a narrow band and the
+  // bottom fade floats wrong on keyboard-open. Support is a form → NOT fogged.
   'master-practice-detail',
-  'master-support',
   'master-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
 // CTA-safe fog tuning for the fogged detail screens that have an in-flow bottom
-// action button (practice-detail, support). Mirrors UserShell's practice-detail:
+// action button (practice-detail). Mirrors UserShell's practice-detail:
 // a softer top dissolve + tighter bottom via the shared --velo-fog-pd-* tokens
 // (variables.css, single source), so the CTA clears the bottom fade and stays
 // crisp. Read once + memoized; values flow through JS into MobileLayout. The
 // profile hub is NOT listed here — it uses the default fog (tab-bar clearance
 // already keeps its last row solid).
-const CTA_SAFE_FOG_ROUTES = ['master-practice-detail', 'master-support']
+const CTA_SAFE_FOG_ROUTES = ['master-practice-detail']
 let pdFogCache: {
   topGap: number
   fogTopHard: number
