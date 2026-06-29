@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.7
-**Дата:** 17 июня 2026
+**Версия:** 1.8
+**Дата:** 29 июня 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
@@ -11,6 +11,32 @@
 > (DS-first). Ссылки на Figma-node (`541:…`, `4715-3463` и т.п.), оставшиеся ниже
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
+
+> **v1.8 (Мастер-программа + TEST-only превью заявки, 29 июня 2026, база `00bb5f2`):**
+> построена и задеплоена мастер-программа (DS-first, honest-stub):
+>
+> - **Онбординг мастера** — пост-апрув карусель `MasterOnboardingView` (full-screen
+>   overlay на дашборде через `Teleport`; гейт `master_onboarding_completed` = Zod
+>   **E15**, читается defensive-каст — флаг ещё не в `generated.ts`).
+> - **Заявка мастера — рестайл** — `MasterApplyView` (3 шага Профиль/Опыт/Документы;
+>   honest-стабы: загрузка файлов = Zod **E13**, язык практик = Zod **E16**).
+> - **Вердикт-экраны** — `MasterPendingView` отправлена / одобрено / отказ
+>   (generic-причина отказа до Zod **E14**).
+> - **`VPaginationDots`** (DS-точки) + токены `--text-28`/`--text-46` + `VeloLogo`
+>   вариант `lockup`.
+> - **Phase A parked-auth** — `LandingView`/`LoginView`/`RecoverPassword{Request,Set}View`
+>   + спящие незалинкованные `/auth/*` маршруты (web-auth-бэкенд = Zod **E17**; в
+>   Telegram недостижимы — `App.vue` рендерит StandaloneStubView для браузера).
+> - **TEST-only повтор онбординга на role-switch** (`ui.forceOnboarding`) и **TEST-only
+>   5-экранное превью заявки** (`ui.previewApplyFlow`, `ffca7a0`) — оба
+>   **прод-недостижимы**: единственная точка входа — `RoleSwitchSection`, который
+>   рендерится только при непустом `allowedRoles` (= `ROLE_SWITCH_ENABLED` на TEST).
+> - Фикс клиент-валидации условий окончания серии в `CreatePracticeView`
+>   (until_date / after_count / weekday). E7 период-статы мастера подключены
+>   (`getMasterStats`); E8 уведомления — контракт частично (лента/воркер открыты).
+>
+> Зоны Мастер + Админ — живые на TEST; зона Пользователь — припаркована. Детали
+> мастер-программы — §3.8; TEST-only гейты — §2.2/§2.3; стабы — §10.
 
 > **v1.7 (DS-rebuild ролей Мастер/Админ + фронт-wiring E1/E2/E5/E9, 17 июня 2026):**
 > зоны **Мастер и Админ пересобраны на дизайн-систему** (операторские SVG) и
@@ -185,11 +211,15 @@ frontend/
 /user/dashboard             → UserDashboardView
 /user/calendar              → CalendarView
 /user/diary                 → DiaryFeedView             (name: user-diary -- единая лента-нить, экран 40; шелл в fill-режиме)
+/user/diary/entry/:id       → EntryView                 (name: user-diary-entry)
+/user/diary/:type(checkin|feedback)/:id → DetailView    (name: user-diary-detail)
 /user/profile               → UserProfileView
 /user/profile/language-timezone → LanguageTimezoneView  (name: user-language-timezone -- Профиль, экран F)
 /user/profile/edit          → EditProfileView            (name: user-edit-profile -- Профиль, экраны C+D)
 /user/profile/notifications → NotificationsView          (name: user-notifications -- Профиль, экран E)
-/user/practices/:id         → PracticeDetailView
+/user/practices/:id         → PracticeDetailView         (name: practice-detail)
+/user/masters/:id           → MasterPublicView           (name: user-master-public)
+/user/booking-confirmed/:practiceId → BookingConfirmedView (activeTab: Календарь)
 /user/practice-live/:practiceId → PracticeLiveView      (name: practice-live -- экран 14, live-сессия + Zoom)
 /user/bookings              → MyBookingsView
 /user/ai-summary            → AiSummaryView              (name: user-ai-summary -- экран 16, заглушка, ждёт AI-бэк юзера)
@@ -199,30 +229,60 @@ frontend/
 /user/topup/success         → TopupSuccessView
 /user/topup/cancel          → TopupCancelView
 
--- Master --
-/master/dashboard           → MasterDashboardView
-/master/practices           → MasterPracticesView
-/master/practices/new       → CreatePracticeView
-/master/practices/:id       → EditPracticeView
-/master/practices/:id/attendance → AttendanceView
+-- Master -- (MasterShell, beforeEnter roleGuard('master'))
+/master/dashboard           → MasterDashboardView   (+ пост-апрув онбординг-overlay §3.8)
+/master/practices           → MasterPracticesView          [masterStatusGuard]
+/master/practices/new       → CreatePracticeView           [masterStatusGuard, hideTabBar]
+/master/practices/:id       → EditPracticeView             [masterStatusGuard, hideTabBar]
+/master/practices/:id/attendance → AttendanceView          [masterStatusGuard, hideTabBar]
+/master/practices/:id/detail → MasterPracticeDetailView    [masterStatusGuard, hideTabBar]
+/master/practices/:id/roster → AttendanceRosterView        [masterStatusGuard, hideTabBar]
 /master/analytics           → AnalyticsView
+/master/analytics/practice/:id → PracticeReviewsView       [masterStatusGuard, hideTabBar]
 /master/profile             → MasterProfileView
-/master/finance             → MasterFinanceView
-/master/apply               → MasterApplyView
-/master/pending             → MasterPendingView
+/master/profile/edit        → EditProfileView (reuse)      [hideTabBar]
+/master/profile/notifications → MasterNotificationsView    [hideTabBar]
+/master/profile/language-timezone → LanguageTimezoneView   [hideTabBar]
+/master/support             → MasterSupportView            [hideTabBar]
+/master/messages[/:id]      → MasterMessagesView / MasterChatView   [hideTabBar]
+/master/promocodes[/new]    → MasterPromocodesView / MasterNewPromocodeView  [hideTabBar]
+/master/finance             → MasterFinanceView            [masterStatusGuard, hideTabBar]
+/master/students[/:id]      → MasterStudentsView / MasterStudentProfileView  [masterStatusGuard, hideTabBar]
+/master/summary             → MasterSummaryView            [masterStatusGuard, hideTabBar]
+-- standalone (вне MasterShell) --
+/master/apply               → MasterApplyView              [applyGuard]
+/master/pending             → MasterPendingView            [masterPendingGuard]
 
--- Admin --
+-- Admin -- (AdminShell, beforeEnter roleGuard('admin'))
 /admin/dashboard            → AdminDashboardView
-/admin/masters              → AdminMastersView
-/admin/masters/:id          → AdminMasterReviewView
-/admin/reports              → AdminReportsView
-/admin/reports/:id          → AdminReportDetailView
+/admin/masters[/:id]        → AdminMastersView / AdminMasterReviewView
+/admin/reports[/:id]        → AdminReportsView / AdminReportDetailView
 /admin/consistency          → AdminConsistencyView
-/admin/profile              → AdminProfileView  ← создать (TD-FE-ROLE-SWITCH)
+/admin/profile              → AdminProfileView
+/admin/metrics/check-in     → AdminCheckinRateView
+/admin/metrics/feedback     → AdminFeedbackRateView
+/admin/metrics/return       → AdminReturnRateView
+/admin/revenue              → AdminRevenueView
+/admin/participants         → AdminParticipantsView
+/admin/practices[/:id]      → AdminPracticesView / AdminPracticeDetailView
+/admin/withdrawals[/:id]    → AdminWithdrawalsView / AdminWithdrawalDetailView
 
+-- Parked Phase A web-auth (DORMANT + UNLINKED; недостижимы в Telegram, ждут Zod E17) --
+/auth/landing               → LandingView
+/auth/login                 → LoginView
+/auth/recover               → RecoverPasswordRequestView
+/auth/recover/reset         → RecoverPasswordSetView
+
+/auth-error                 → LoadingErrorView
 /404                        → NotFoundView
 /:pathMatch(.*)             → redirect /404
 ```
+
+> **TEST-only превью заявки.** Кнопка «Просмотреть экраны заявки» в `RoleSwitchSection`
+> проводит тестера по цепочке `auth-landing → master-apply → master-pending` под
+> session-сигналом `ui.previewApplyFlow` (без реального POST/маркера; §3.8).
+> `applyGuard`/`masterPendingGuard` пропускают превью ТОЛЬКО при этом сигнале, который
+> прод-недостижим (ставится лишь из прод-скрытого `RoleSwitchSection`).
 
 ### 2.2. Guards
 
@@ -232,12 +292,16 @@ frontend/
 | `roleGuard('master')` | Пропускает master + admin, остальных → `/user/dashboard`                                       |
 | `roleGuard('admin')`  | Пропускает только admin → `/user/dashboard`                                                    |
 | `masterStatusGuard`   | Проверяет верификацию профиля мастера, нет → `/master/pending`                                 |
-| `applyGuard`          | Верифицированный мастер не может повторно подать заявку                                        |
+| `applyGuard`          | Верифицированный мастер не может повторно подать заявку. **TEST-only:** при `ui.previewApplyFlow` редирект снимается (тестер открывает визард в превью) |
+| `masterPendingGuard`  | Гейтит standalone `/master/pending`: admin → `/admin/dashboard`; master → пропуск; user с маркером `MASTER_APPLIED_KEY` → пропуск; иначе → `/user/dashboard`. **TEST-only:** при `ui.previewApplyFlow` пропуск без маркера |
 
 **`beforeEach` (global guard):**
 
-Сейчас: блокирует только `/user/dashboard` для мастера/админа, все остальные `/user/*` доступны.
-После `TD-FE-ROLE-SWITCH`: если `uiStore.uiMode === 'user'` — пропускать `/user/dashboard` без редиректа.
+Блокирует `/user/dashboard` для мастера/админа (редирект на свой dashboard), КРОМЕ случая
+`uiStore.uiMode === 'user'` — мастер/админ, сам выбравший user-режим, проходит (реализовано).
+**TEST-only:** этот же `beforeEach` сбрасывает `ui.previewApplyFlow` при навигации ВНЕ набора
+превью-маршрутов (`auth-landing` / `master-apply` / `master-pending`), чтобы сигнал превью не «утёк»
+в обычную сессию (back-жест / «Закрыть» / любой уход из флоу).
 
 ### 2.3. Auth инициализация
 
@@ -275,6 +339,13 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 Файлы: `views/auth/WelcomeView.vue` (экран 01), `views/auth/OnboardingView.vue`
 (экраны 05-08: 3 интро + шаг таймзоны), `App.vue` (машина состояний).
 
+**TEST-only повтор онбординга (role-switch).** На тест-сервере `RoleSwitchSection` при смене
+роли ставит session-сигнал `ui.forceOnboarding` (`UserRole | null`, не персистится). Для `user`
+его ловит `App.vue` (`watch` → `stage='onboarding'`, consume-on-enter; `@done` возвращает в
+`app`); для `master` — full-screen overlay на дашборде (§3.8). **Прод-недостижимо:**
+`forceOnboarding` ставится ТОЛЬКО из `RoleSwitchSection`, который рендерится лишь при непустом
+`allowedRoles` (= `ROLE_SWITCH_ENABLED` на TEST). Подробнее о секции — §3.3.
+
 ---
 
 ## 3. Компоненты
@@ -303,7 +374,11 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `VSegment` / `VSegmentTrack`                 | сегмент 2-pill · сегмент track+thumb (variant `tabs`/`toggle`)                                                                                                                                                                |
 | `VMenu` / `VMenuItem` / `VMenuRow`           | «…»-меню (popover) + его строки                                                                                                                                                                                               |
 | `VAccordion`                                 | `title` — раскрывающаяся строка                                                                                                                                                                                               |
-| `VeloLogo`                                   | `size`, `variant` (default/white) — `<img>` из `public/icons/`                                                                                                                                                                |
+| `VeloLogo`                                   | `size`, `variant` (default/white/**lockup**) — `<img>` из `public/icons/` (lockup = знак+слово, Phase A Landing)                                                                                                                                                                |
+
+**Новое (v1.8):** `VPaginationDots` — DS-точки пагинации для онбординг-каруселей (юзер +
+мастер) и визарда заявки. Пропы `total` / `active`: активная точка 13×13, неактивные 7×7.
+Ретрофитнут на обе карусели (заменил локальные пилюли-индикаторы).
 
 **Иконки** (`src/components/ui/icons/`): SVG-компоненты из `Design_prototype/assets/icons/`. Все принимают проп `size?: number` (default 24). Используются в `VTabBar` через `TabItem.icon: string | Component`.
 
@@ -352,6 +427,13 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `DiaryFeedCard`        | (Diary redesign) карточка события ленты, 3 формы по `kind`: **banner** (бирюзовый для `booking_confirmed`, нейтральный для отмен/переносов), **practice** (белая: practice_outcome — мастер+дата+бейдж Done/Не состоялась, без аватара — TD-DIARY-PRACTICE-AVATAR), **standard** (иконка+заголовок+превью+дата для checkin/feedback/note/dream). Читает `snapshot` защитно. `@tap` эмитит `{ item, editable }` (note/dream → editable). kind→иконка-маппинг локально во вью (utils не импортируют `.vue`) |
 | `DiaryComposer`        | (Diary redesign) нижний композер-pill: поле + mic-стаб (toast) + send. Создаёт note через `diaryStore.createEntry`. Стекло: `--velo-glass-blue-15`, backdrop-blur, glow-тень                                                                                                                                                                                                                                                                                                                              |
 | `DiaryTimeline`        | (Diary redesign) нить с альтернированием (экран 40, Уровень 2 упрощённый): центральная ось (CSS), дата-узлы по календарным дням в tz юзера, banner/practice по центру, standard чередуются L/R сквозным счётчиком со **сбросом каждый день**, сторона детерминирована позицией (пагинация не перетасовывает). Коннекторы — CSS-штрихи (не Figma-кривые)                                                                                                                                                   |
+
+**Новое (v1.8):** `RoleSwitchSection` (`components/shared/`) — **TEST-only** инструмент
+тестировщика в профиле всех трёх ролей. Рендерится лишь при непустом `allowedRoles`
+(= `ROLE_SWITCH_ENABLED` на TEST; в проде секции нет вовсе). Содержит: кнопки смены
+собственной роли (user/master/admin) + повтор онбординга на смену (`ui.forceOnboarding`,
+§2.3) + кнопку «Просмотреть экраны заявки» → TEST-only превью заявки (`ui.previewApplyFlow`,
+§3.8).
 
 ### 3.4. Флоу ДАШБОРД (экраны 10–18)
 
@@ -457,6 +539,53 @@ hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl
 
 ---
 
+### 3.8. Флоу МАСТЕР-ПРОГРАММА (DS-rebuild, v1.8)
+
+Путь «стать мастером → онбординг» + Phase A web-auth. DS-first; контролы без бэка =
+honest-стабы (тост «недоступно» + запись для Zod), НЕ фейк.
+
+**Онбординг мастера (пост-апрув).** `views/master/MasterOnboardingView.vue` — карусель,
+показывается ОДИН раз свежеверифицированному мастеру как full-screen overlay (через
+`Teleport` поверх шелла) при входе на дашборд. Гейт — `utils/masterOnboarding.ts`
+(`shouldShowMasterOnboarding`: role=master + profileStatus=verified + не completed + не
+показан в сессии; `forced` обходит гарды для TEST-повтора). Флаг
+`master_onboarding_completed` = Zod **E15**: ещё не в `generated.ts`, читается defensive-кастом
+(absent → не завершён); до E15 не персистится → пере-показ на новой сессии (ожидаемый interim,
+не баг). Per-session гард — `master.onboardingShownThisSession`. Индикатор — `VPaginationDots`.
+
+**Заявка мастера.** `views/master/MasterApplyView.vue` — 3 шага в одном вью (`step` 1→3,
+локальный стейт, без бэка до финала): **Профиль** (имя/email/телефон + согласие) → **Опыт**
+(методы `VChip` + «Свой вариант», стаж `VSelect`, bio, язык) → **Документы**
+(паспорт/сертификаты/фото — зоны загрузки). Honest-стабы: загрузка файлов = Zod **E13**
+(тап → тост, без POST файла), язык практик = Zod **E16** (локальный тоггл, не уходит в
+заявку). Финал «Отправить» → `POST /masters/apply` (без language/files) →
+`/master/pending`. Standalone-роут (вне MasterShell), доступен роли `user`; `applyGuard`
+уводит верифиц-мастера на дашборд.
+
+**Вердикт-экраны.** `views/master/MasterPendingView.vue` — три состояния по статусу:
+**«Заявка отправлена»** (pending; polling «Обновить статус» + «Вернуться к каталогу»),
+**«Заявка одобрена»** (verified; «Войти в кабинет» → дашборд+онбординг), **«Отказ»**
+(rejected; **generic-причина** до Zod **E14** + 2 CTA: «Написать в поддержку» / «Подать
+новую заявку»). Иллюстрации — `public/onboarding/master-verdict-*.svg`.
+
+**Phase A parked web-auth.** `views/auth/{LandingView,LoginView,RecoverPasswordRequestView,
+RecoverPasswordSetView}.vue` + спящие `/auth/*` маршруты (§2.1). Построены 100% из DS над
+классическим app-фоном; web-auth-бэкенд = Zod **E17**. **Недостижимы в Telegram-флоу:**
+`App.vue` рендерит `StandaloneStubView` для браузерной сессии, role-redirect никогда не ведёт
+на `/auth/*`, и ничто не линкует туда. `LandingView` «Подать заявку» / `LoginView` — инертные
+стабы (тост) до E17.
+
+**TEST-only 5-экранное превью заявки** (`ffca7a0`). Чтобы тестер пролистал путь заявки на
+TEST без подачи: кнопка «Просмотреть экраны заявки» в `RoleSwitchSection` ставит
+`ui.previewApplyFlow` и ведёт `auth-landing → (Подать заявку) → MasterApply 1/2/3 →
+(Отправить, БЕЗ POST/маркера) → MasterPending «отправлено»`. В превью: `applyGuard` /
+`masterPendingGuard` пропускают по сигналу; «Отправить» минует реальный `applyMaster()` и
+`MASTER_APPLIED_KEY`; pending форсит состояние «отправлено» независимо от роли/профиля;
+«Закрыть» чистит сигнал и возвращает в профиль. **Прод-недостижимо**: сигнал ставится лишь
+из прод-скрытой секции, а `beforeEach` чистит его при уходе из набора превью-маршрутов (§2.2).
+
+---
+
 ## 4. Stores (Pinia)
 
 | Store       | Ключевые поля                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -466,8 +595,13 @@ hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl
 | `calendar`  | `weekAnchor`, `selectedDate`, `weekPractices[]`, `filters` (facets); computed `days`, `daysWithPractices`, `selectedDayPractices`; actions `loadWeek`, `selectDay`, `prevWeek`, `nextWeek`, `applyFilters`, `init`. Экспортит `CalendarFacetFilters`, `localDateKey`                                                                                                                                                                                                                                                                                                                                                                         |
 | `bookings`  | `bookings[]`, `total`, `loading`; `selectedBooking`, `selectedLoading`, `selectedError`; методы `fetchBooking(id)` (через `getBooking` → `BookingDetailResponse`), `joinBooking`/`leaveBooking` (возвращают `{ ok, error }` через `extractApiError`)                                                                                                                                                                                                                                                                                                                                                                                         |
 | `balance`   | `balance_cents`, `operations[]`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `master`    | `profile` (MasterProfile), `practices[]`, `withdrawals[]`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `master`    | `profile` (MasterProfile), `practices[]` (пагинация), `profileLoaded`/`practicesLoaded`, `onboardingShownThisSession` (per-session гард пост-апрув онбординга §3.8); `$reset` на логауте чистит и `MASTER_APPLIED_KEY`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `diary`     | Переписан (Diary redesign). Единая курсорная лента: `feedItems[]`, `feedLoading`, `feedError`, `feedHasMore`, реактивные `feedFilters` (categories/date_from/date_to/search); actions `fetchFeed`/`loadMoreFeed`/`refreshFeed`/`setFeedFilters`/`clearFeedFilters`/`runFeedSearch` (на `useCursorPagination`). Сохранены `submitCheckin`/`submitFeedback` (Checkin/FeedbackView), CRUD записей `createEntry`/`updateEntry`/`deleteEntry` (рефрешат ленту), `selectedEntry`+`fetchEntry`, `insightsCache` (master-facing), `$reset`. Удалены три offset-списка (checkins/feedbacks/entries) и их `fetch*`/`loadMore*` — их роль забрала лента |
+
+**`ui`-store (TD-FE-ROLE-SWITCH + v1.8).** `uiMode` (`'default' | 'user'` — мастер/админ
+просматривают юзер-интерфейс) + **TEST-only** сигналы `forceOnboarding` (`UserRole | null`,
+повтор онбординга §2.3) и `previewApplyFlow` (превью заявки §3.8). Не персистится (сброс при
+открытии); TEST-сигналы ставятся ТОЛЬКО из `RoleSwitchSection` (прод-недостижимо).
 
 **Осознанное решение:** `token` хранится как module-level переменная в `api/client.ts`, не в Pinia — исключает circular dependency `client → store → client`.
 
@@ -698,6 +832,12 @@ script-эмуляцию. Контр-тест (убрать фикс → ошиб
 
 ---
 
+**Новое (v1.8):** типографские токены `--text-28` / `--text-46` (заголовки онбординга
+мастера и Phase A Landing). `VPaginationDots` — геометрия точек 13×13 (активная) / 7×7
+(неактивные) через DS-токены.
+
+---
+
 ## 8. Phase F9 ✅
 
 Выполнено. Check-in, Feedback, Дневник, Аналитика мастера реализованы и задеплоены.
@@ -826,6 +966,21 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 >
 > - `cursor:default` при одном языке, авто-снимается при добавлении второго).
 >   W-1/W-4/S-5 — на бэке (Бэковый Кодекс §9). W-3/S-3 — осознанно не код.
+
+### Мастер-программа — honest-стабы (Zod E13–E17, v1.8)
+
+| ID | Среда | Файл | Описание | Решение |
+| --- | --- | --- | --- | --- |
+| TD-FE-E13-APPLY-DOCS | 🧪 | `MasterApplyView.vue` | Зоны загрузки паспорт/сертификаты/фото — honest-стаб: тап → тост, файл не уходит на бэк | Zod E13: хранилище файлов заявки |
+| TD-FE-E14-REJECT-REASON | 🧪 | `MasterPendingView.vue` | Экран отказа — generic-причина; реальная `rejection_reason` не на `MasterProfileResponse` | Zod E14: отдать причину отказа |
+| TD-FE-E15-ONBOARDING-FLAG | 🧪 | `utils/masterOnboarding.ts`, `MasterDashboardView.vue` | `master_onboarding_completed` не персистится (нет в `generated.ts`) → карусель пере-показывается на новой сессии; per-session гард держит в пределах сессии | Zod E15: флаг в UserResponse/Update |
+| TD-FE-E16-APPLY-LANGS | 🧪 | `MasterApplyView.vue` | Тоггл языка практик — локальный, не уходит с заявкой | Zod E16: поле языков в заявке |
+| TD-FE-E17-WEB-AUTH | 🧪 | `views/auth/*`, `/auth/*` | Phase A экраны (Landing/Login/восстановление×2) — спящие/незалинкованные, инертные стабы | Zod E17: web-auth-бэкенд (email/OAuth) |
+
+> **Не техдолг (намеренные TEST-аффордансы).** Тестер-свитч ролей, повтор онбординга
+> (`ui.forceOnboarding`) и 5-экранное превью заявки (`ui.previewApplyFlow`) — прод-недостижимы
+> (единственная точка входа — прод-скрытый `RoleSwitchSection`), служат ручной проверке на TEST,
+> а НЕ техдолг. Прод-переключение режима мастер↔юзер (`uiMode`) — отдельная живая фича.
 
 ### Осознанные решения (не техдолг)
 
