@@ -64,19 +64,17 @@
         </div>
       </div>
 
-      <!-- Помощь -->
+      <!-- Помощь + «Открыть как пользователь» (PROD master↔user mode-switch,
+           TD-FE-ROLE-SWITCH). Both are PROD items, so they share one group at the
+           row gap (space-2). «Открыть» is NEVER grouped with the test-only «Режим
+           тестировщика» block below — keeping the layout prod-correct when that
+           block is absent (operator-mandate 2026-06-29: no orphan gap in prod). -->
       <div class="master-profile__menu-section">
         <div class="master-profile__menu-title">Помощь</div>
         <div class="master-profile__menu-list">
           <VMenuRow label="Поддержка" @click="onSupport">
             <template #icon><IconSupport :size="20" /></template>
           </VMenuRow>
-        </div>
-      </div>
-
-      <!-- Switch to user mode (TD-FE-ROLE-SWITCH) -->
-      <div class="master-profile__menu-section">
-        <div class="master-profile__menu-list">
           <VMenuRow variant="primary" label="Открыть как пользователь" @click="switchToUserMode">
             <template #icon><IconUserMode :size="20" /></template>
           </VMenuRow>
