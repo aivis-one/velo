@@ -178,8 +178,6 @@
              save + publish / save + cancel / save + delete etc.
              ================================================================ -->
         <div v-if="!isTerminal" class="edit-practice__actions">
-          <div class="edit-practice__section-title">Действия</div>
-
           <!-- draft -> scheduled -->
           <VButton
             v-if="practice.status === 'draft'"
@@ -645,15 +643,6 @@ async function remove(): Promise<void> {
   pointer-events: none;
 }
 
-.edit-practice__section-title {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);  color: var(--velo-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  padding-bottom: var(--space-1);
-  border-bottom: 1px solid var(--velo-border-light);
-}
-
 /* -- Date/time picker trigger field (mirrors the white VInput plate). -- */
 .edit-practice__field {
   margin-bottom: var(--space-4);
@@ -686,13 +675,12 @@ async function remove(): Promise<void> {
   color: var(--velo-text-muted);
 }
 
-/* -- Actions section -- */
+/* -- Actions section (no «Действия» label/divider — just the buttons; operator
+   EP-B2). The --space-5 content gap separates them from «Сохранить» above. -- */
 .edit-practice__actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--velo-border-light);
 }
 
 /* (confirm dialog now provided by <VConfirmDialog>) */
