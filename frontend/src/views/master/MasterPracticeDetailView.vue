@@ -186,7 +186,7 @@
       </div>
 
       <!-- ===================== PAST detail (read-only) ===================== -->
-      <div v-else class="practice-detail__content">
+      <div v-else class="practice-detail__content practice-detail__content--past">
         <!-- Hero (shared PracticeHeroCard; titleSize base canon, icon-46;
              rating-distribution badges via the additive #extra slot) -->
         <PracticeHeroCard
@@ -402,9 +402,9 @@ const recurrenceLabel = computed((): string | null => {
 })
 
 // Accordion open state (local per-screen cards, was VAccordion — ПРОМТ №158).
-// Matches the approved preview: Описание + Что подготовить open, Противопоказания collapsed.
+// All three open by default (operator PD-C1: Противопоказания also expanded).
 const descOpen = ref(true)
-const contraOpen = ref(false)
+const contraOpen = ref(true)
 const prepOpen = ref(true)
 
 const difficultyDots = computed((): number => {
@@ -634,6 +634,13 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* Past detail: drop the content's top padding so the hero card sits closer to the
+   floating header (operator PP-D1; the fog top-gap keeps the breathing room).
+   Upcoming keeps the default spacing. */
+.practice-detail__content--past {
+  padding-top: 0;
 }
 
 /* ===== Stats ===== */
