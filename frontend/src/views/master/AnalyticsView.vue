@@ -672,9 +672,15 @@ onMounted(async () => {
   letter-spacing: 0.28px;
 }
 
-/* Wrap behaviour only — the trio itself is the shared VRatingBadges component. */
+/* Spread the rating trio across the card (operator SVG: 3 equal-width pills,
+   gap 10) — analytics-only override; the shared VRatingBadges component layout
+   is untouched (other usages keep their left-aligned trio). */
 .analytics__pcard-badges {
-  flex-wrap: wrap;
+  gap: var(--velo-card-meta-row-gap);
+}
+
+.analytics__pcard-badges :deep(.v-rating-badges__badge) {
+  flex: 1;
 }
 
 /* ===== Load more ===== */

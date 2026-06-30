@@ -138,7 +138,6 @@
             <VRatingBadges
               v-if="hasRating(p.id)"
               class="mp-card__rbadges"
-              :hint="false"
               :fire="ratingPct(p.id, 'fire')"
               :good="ratingPct(p.id, 'good')"
               :confused="ratingPct(p.id, 'confused')"

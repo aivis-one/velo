@@ -199,7 +199,6 @@
           <template v-if="hasRating" #extra>
             <VRatingBadges
               size="lg"
-              :hint="false"
               :fire="ratingPct('fire')"
               :good="ratingPct('good')"
               :confused="ratingPct('confused')"
