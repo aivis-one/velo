@@ -49,7 +49,9 @@
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="velo-section-title">Использовать шаблон</h2>
-        <UseTemplateBlock :practices="templatePractices" @select="applyTemplate" />
+        <div class="create-practice__railed">
+          <UseTemplateBlock :practices="templatePractices" @select="applyTemplate" />
+        </div>
       </div>
 
       <!-- ================================================================
@@ -73,12 +75,13 @@
 
         <!-- Вид практики = style. Показываем только если у направления есть виды
              (Q4=А: без явного «Без вида», не выбрано = null, необязательное). -->
-        <VSelect
-          v-if="styleOptionsForForm.length > 0"
-          v-model="form.style"
-          placeholder="Вид практики"
-          :options="styleOptionsForForm"
-        />
+        <div v-if="styleOptionsForForm.length > 0" class="create-practice__railed">
+          <VSelect
+            v-model="form.style"
+            placeholder="Вид практики"
+            :options="styleOptionsForForm"
+          />
+        </div>
 
         <!-- Уровень сложности = difficulty (локальные мужские лейблы, Q1=Б). -->
         <VSelect
@@ -160,9 +163,11 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Повторение</h2>
 
-        <VCard class="create-practice__repeat" padding="none">
-          <VCheckbox v-model="form.is_recurring" label="Сделать регулярной" />
-        </VCard>
+        <div class="create-practice__railed">
+          <VCard class="create-practice__repeat" padding="none">
+            <VCheckbox v-model="form.is_recurring" label="Сделать регулярной" />
+          </VCard>
+        </div>
 
         <template v-if="form.is_recurring">
           <!-- Повтор: период (всегда выбрано → печать не нужна). -->
@@ -253,12 +258,14 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Участники</h2>
 
-        <VInput
-          v-model="form.max_participants_raw"
-          type="number"
-          placeholder="Максимум мест"
-          :error="errors.max_participants"
-        />
+        <div class="create-practice__railed">
+          <VInput
+            v-model="form.max_participants_raw"
+            type="number"
+            placeholder="Максимум мест"
+            :error="errors.max_participants"
+          />
+        </div>
       </div>
 
       <!-- ================================================================
@@ -268,9 +275,11 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Оплата</h2>
 
-        <VCard class="create-practice__repeat" padding="none">
-          <VRadioGroup :model-value="'free'" :options="PAYMENT_OPTIONS" />
-        </VCard>
+        <div class="create-practice__railed">
+          <VCard class="create-practice__repeat" padding="none">
+            <VRadioGroup :model-value="'free'" :options="PAYMENT_OPTIONS" />
+          </VCard>
+        </div>
       </div>
 
       <!-- ================================================================
@@ -279,28 +288,34 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Описание</h2>
 
-        <VTextarea
-          v-model="form.description"
-          placeholder="Расскажите подробее о вашей практике"
-          :rows="4"
-          autogrow
-        />
+        <div class="create-practice__railed">
+          <VTextarea
+            v-model="form.description"
+            placeholder="Расскажите подробее о вашей практике"
+            :rows="4"
+            autogrow
+          />
+        </div>
 
         <!-- 1-row start (rows=1) = the VInput height these were before; auto-grow
              past one line per the «Новая практика» SVG (operator Q1=А). -->
-        <VTextarea
-          v-model="form.contraindications"
-          placeholder="Противопоказания"
-          :rows="1"
-          autogrow
-        />
+        <div class="create-practice__railed">
+          <VTextarea
+            v-model="form.contraindications"
+            placeholder="Противопоказания"
+            :rows="1"
+            autogrow
+          />
+        </div>
 
-        <VTextarea
-          v-model="form.what_to_prepare"
-          placeholder="Что подготовить"
-          :rows="1"
-          autogrow
-        />
+        <div class="create-practice__railed">
+          <VTextarea
+            v-model="form.what_to_prepare"
+            placeholder="Что подготовить"
+            :rows="1"
+            autogrow
+          />
+        </div>
       </div>
 
       <!-- ================================================================
@@ -310,7 +325,9 @@
       <div class="create-practice__section">
         <h2 class="velo-section-title">Подключение</h2>
 
-        <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="scrollFieldIntoView" />
+        <div class="create-practice__railed">
+          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="scrollFieldIntoView" />
+        </div>
       </div>
 
       <!-- Submit -->
@@ -727,6 +744,20 @@ async function submit(): Promise<void> {
   background: transparent;
   display: flex;
   flex-direction: column;
+  /* Seal-gutter = the reserved right column that VInput/VSelect `required`, the
+     date/time pickers and the recurrence seal-rows already inset their field by
+     (gap --space-2 + the 22px IconRequired). No-seal blocks reserve the SAME
+     gutter (.create-practice__railed) so every form block aligns to one rail
+     width — sealed and no-seal identical (NP-12/NP-3b). */
+  --cp-seal-gutter: calc(var(--space-2) + 22px);
+}
+
+/* No-seal blocks (use-template / make-recurring / participants / payment /
+   description / contraindications / what-to-prepare / connection / вид практики)
+   inset their right edge by the seal gutter so their width matches the sealed
+   fields above (operator NP-12/NP-3b: seal & no-seal blocks identical width). */
+.create-practice__railed {
+  margin-right: var(--cp-seal-gutter);
 }
 
 .create-practice__content {
