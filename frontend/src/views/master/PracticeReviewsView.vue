@@ -63,19 +63,14 @@
       <template v-else-if="reviews.length > 0">
         <VCard v-for="(r, i) in reviews" :key="i" class="practice-reviews__review">
           <div class="practice-reviews__review-top">
-            <VAvatar :name="r.reviewer_name" :url="r.avatar_url ?? ''" size="sm" />
-            <div class="practice-reviews__review-id">
-              <span class="practice-reviews__review-name">{{ r.reviewer_name }}</span>
-              <span class="practice-reviews__review-date">{{ formatShortDate(r.created_at) }}</span>
-            </div>
-            <span class="practice-reviews__review-rating">
+            <span class="practice-reviews__review-ident">
               <component
                 :is="RATING_ICON[r.rating]"
-                :size="22"
+                :size="28"
                 :style="{ color: RATING_ICON_COLOR[r.rating] }"
               />
-              {{ RATING_LABEL[r.rating] }}
             </span>
+            <span class="practice-reviews__review-name">{{ r.reviewer_name }}</span>
           </div>
           <div v-if="r.comment" class="practice-reviews__review-quote">«{{ r.comment }}»</div>
         </VCard>
@@ -93,12 +88,12 @@ import { ref, computed, onMounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDiaryStore } from '@/stores/diary'
 import { getPractice, getPracticeReviews } from '@/api/practices'
-import { VStatCard, VCard, VButton, VLoader, VEmptyState, VAvatar } from '@/components/ui'
+import { VStatCard, VCard, VButton, VLoader, VEmptyState } from '@/components/ui'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { VHeader } from '@/components/layout'
 import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
-import { RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
+import { RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import type { PracticeResponse, FeedbackRating, ReviewItem } from '@/api/types'
 
 const route = useRoute()
@@ -276,32 +271,17 @@ onMounted(async () => {
   gap: var(--velo-card-meta-row-gap);
 }
 
-.practice-reviews__review-id {
-  display: flex;
-  flex-direction: column;
-  gap: var(--velo-gap-2);
-  min-width: 0;
+.practice-reviews__review-ident {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .practice-reviews__review-name {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-}
-
-.practice-reviews__review-date {
-  font-size: var(--text-xs);
-  color: var(--velo-text-muted);
-}
-
-.practice-reviews__review-rating {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--velo-gap-6);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  white-space: nowrap;
 }
 
 .practice-reviews__review-quote {
