@@ -128,22 +128,11 @@
               <span class="mp-card__icon"><component :is="practiceIconFor(p)" :size="46" /></span>
               <div class="mp-card__titles">
                 <div class="mp-card__title">{{ p.title }}</div>
-                <div class="mp-card__sub">
-                  {{ whenLabel(p) }}, {{ formatTime(p.scheduled_at, p.timezone) }} •
-                  {{ p.duration_minutes }} мин
-                </div>
+                <!-- Date • participant count (operator SVG «1 Analytics (reviews) 2»).
+                     The ✓/✗ presence row is removed — attendance lives in Посещаемость
+                     / the practice detail (operator PL-E1). -->
+                <div class="mp-card__sub">{{ whenLabel(p) }} • {{ participantsCount(p) }}</div>
               </div>
-            </div>
-            <div class="mp-card__meta">
-              <span class="mp-stat"><IconGroup :size="16" /> {{ p.current_participants }}</span>
-              <!-- attended / no-show: eager getAttendance per past card (E11 aggregate
-                   recorded for Zod); «—» until the card resolves / on failure. -->
-              <span class="mp-stat mp-stat--ok"
-                ><IconCheck :size="16" /> {{ attendedLabel(p.id) }}</span
-              >
-              <span class="mp-stat mp-stat--no"
-                ><IconClose :size="16" /> {{ noShowLabel(p.id) }}</span
-              >
             </div>
             <!-- Rating distribution (REAL, anonymous insights — eager-loaded). -->
             <VRatingBadges
@@ -175,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VButton, VLoader, VEmptyState, VSegmentTrack, VRatingBadges } from '@/components/ui'
@@ -184,16 +173,13 @@ import {
   IconGroup,
   IconCheckin,
   IconRepeat,
-  IconCheck,
-  IconClose,
   IconHourglass,
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { practiceIconFor, recurrenceDaysLabel } from '@/utils/displayHelpers'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
-import { getAttendance } from '@/api/practices'
-import type { PracticeResponse, AttendanceResponse } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -202,29 +188,6 @@ const diaryStore = useDiaryStore()
 
 // Reactive insights cache (shared with Analytics / PracticeReviews — often warm).
 const insightsCache = diaryStore.insightsCache
-
-// Per-card attendance cache for PAST cards' ✓/✗ (attended / no_show). There is no
-// store cache for attendance, so keep a local reactive map; eager-fetched per loaded
-// PAST card (mirrors eager insights), idempotent, «—» until a card resolves / on error.
-const attendanceCache = reactive(new Map<string, AttendanceResponse>())
-
-async function loadAttendance(id: string): Promise<void> {
-  if (attendanceCache.has(id)) return
-  try {
-    attendanceCache.set(id, await getAttendance(id))
-  } catch {
-    // Leave uncached → the card keeps «—»; a later tab visit retries.
-  }
-}
-
-function attendedLabel(id: string): string {
-  const a = attendanceCache.get(id)
-  return a ? String(a.attended) : '—'
-}
-function noShowLabel(id: string): string {
-  const a = attendanceCache.get(id)
-  return a ? String(a.no_show) : '—'
-}
 
 // Active tab is mirrored in the URL query (?tab=past) so that returning from a
 // practice detail via router.back() restores the tab the user left from
@@ -263,6 +226,17 @@ function participantsLabel(p: PracticeResponse): string {
   return p.max_participants != null
     ? `${p.current_participants}/${p.max_participants}`
     : `${p.current_participants}`
+}
+
+/** «N участников» with Russian plural agreement — past-card sub-line (PL-E1). */
+function participantsCount(p: PracticeResponse): string {
+  const n = p.current_participants
+  const mod10 = n % 10
+  const mod100 = n % 100
+  let word = 'участников'
+  if (mod10 === 1 && mod100 !== 11) word = 'участник'
+  else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) word = 'участника'
+  return `${n} ${word}`
 }
 
 // -- Insights-derived (REAL) ------------------------------------------------
@@ -318,13 +292,10 @@ function loadTabInsights(): Promise<void[]> {
   return Promise.all(list.map((p) => diaryStore.loadInsights(p.id)))
 }
 
-/** Eager-load per-tab data: insights for the visible tab + attendance for PAST cards
- *  (✓/✗). Bounded to the currently-loaded page; both fetches are idempotent. */
+/** Eager-load insights for the visible tab. Bounded to the currently-loaded page;
+ *  idempotent. */
 async function loadTabData(): Promise<void> {
   await loadTabInsights()
-  if (activeTab.value === 'past') {
-    await Promise.all(pastPractices.value.map((p) => loadAttendance(p.id)))
-  }
 }
 
 // -- Navigation -------------------------------------------------------------
@@ -478,14 +449,6 @@ onMounted(async () => {
 
 .mp-stat :deep(svg) {
   opacity: 0.8;
-}
-
-.mp-stat--ok {
-  color: var(--velo-success);
-}
-
-.mp-stat--no {
-  color: var(--velo-error);
 }
 
 /* Rating-distribution badges (sand/pink/blue-100 tints; confused = blue-400
