@@ -285,7 +285,7 @@
       <!-- ================================================================
            Описание  (textarea + 2 однострочных; опциональны → без печати)
            ================================================================ -->
-      <div class="create-practice__section">
+      <div class="create-practice__section create-practice__section--desc">
         <h2 class="velo-section-title">Описание</h2>
 
         <div class="create-practice__railed">
@@ -776,6 +776,13 @@ async function submit(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* «Описание» section: the textareas are spaced by the section gap alone — drop
+   their own margin-bottom so Описание / Противопоказания / Что подготовить sit
+   tight (one step, not the doubled gap + margin) (operator CP-A1). */
+.create-practice__section--desc :deep(.v-textarea) {
+  margin-bottom: 0;
 }
 
 /* Required-fields legend banner (DS, Phase-3) — pink glass plate, rose seal. */
