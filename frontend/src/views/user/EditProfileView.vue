@@ -69,6 +69,7 @@
         :rows="4"
         placeholder="Расскажите немного о себе"
         :error="bioError"
+        @focus="scrollFieldIntoView"
       />
 
       <!-- Методы из онбординга — залочены (менять через поддержку). -->

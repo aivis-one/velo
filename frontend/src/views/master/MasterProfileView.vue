@@ -198,8 +198,10 @@ onMounted(async () => {
 
 <style scoped>
 .master-profile {
-  /* F-5 rail sync: MobileLayout supplies the 24px screen rail; vertical only. */
-  padding: var(--space-4) 0;
+  /* F-5 rail sync: MobileLayout supplies the 24px screen rail; vertical only.
+     Top padding dropped (operator PR-1, 2026-06-30): the header card now sits
+     directly under the shell's top clearance instead of an extra space-4 gap. */
+  padding: 0 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
