@@ -112,6 +112,11 @@ const router = createRouter({
           component: () => import('@/views/user/NotificationsView.vue'),
         },
         {
+          path: 'profile/messages',
+          name: 'user-messages',
+          component: () => import('@/views/user/UserMessagesView.vue'),
+        },
+        {
           path: 'practices/:id',
           name: 'practice-detail',
           component: () => import('@/views/user/PracticeDetailView.vue'),

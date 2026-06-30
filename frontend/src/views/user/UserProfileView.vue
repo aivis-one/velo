@@ -53,6 +53,9 @@
           <VMenuRow label="Мои бронирования" @click="router.push({ name: 'user-bookings' })">
             <template #icon><IconBookings :size="20" /></template>
           </VMenuRow>
+          <VMenuRow label="Сообщения" @click="onMessages">
+            <template #icon><IconMessages :size="20" /></template>
+          </VMenuRow>
         </div>
       </div>
 
@@ -125,6 +128,7 @@ import RoleSwitchSection from '@/components/shared/RoleSwitchSection.vue'
 import {
   IconEdit,
   IconBookings,
+  IconMessages,
   IconBell,
   IconGlobe,
   IconSupport,
@@ -164,6 +168,10 @@ const hoursLabel = computed(() => {
 
 function onEditProfile(): void {
   router.push({ name: 'user-edit-profile' })
+}
+
+function onMessages(): void {
+  router.push({ name: 'user-messages' })
 }
 
 function onNotifications(): void {
