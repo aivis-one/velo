@@ -84,19 +84,26 @@ const FOG_ROUTES = [
   'master-practice-edit',
   'master-promocode-new',
   'master-profile',
+  // Edit-profile + language/timezone: fog so content doesn't smudge under the
+  // floating header on scroll (operator FOG-1, 2026-06-30). Both are keyboard
+  // screens — keyboard-safe via the e95e05a viewport mask (ships in this batch),
+  // so this follows the same de-solid → fog, keyboard-safe rationale as the forms.
+  'master-edit-profile',
+  'master-language-timezone',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
-// CTA-safe fog tuning for the fogged detail/form screens that have an in-flow
-// bottom action button (practice-detail, finance, and the create / edit practice
-// + new promocode forms). Mirrors UserShell's practice-detail: a softer top
-// dissolve + tighter bottom via the shared --velo-fog-pd-* tokens (variables.css,
-// single source), so the CTA clears the bottom fade and stays crisp. Read once +
-// memoized; values flow through JS into MobileLayout. The profile hub is NOT
-// listed here — it uses the default fog (tab-bar clearance already keeps its last
-// row solid).
+// Read a numeric px CSS custom property off :root (callers pass a cached `cs`).
+function fogPx(cs: CSSStyleDeclaration, name: string, fallback: number): number {
+  const n = parseInt(cs.getPropertyValue(name), 10)
+  return Number.isFinite(n) ? n : fallback
+}
+
+// CTA-safe fog tuning for the fogged FORM screens that have an in-flow bottom
+// action button (finance, create / edit practice, new promocode). A softer top
+// dissolve + the full pd bottom via the shared --velo-fog-pd-* tokens, so the
+// submit CTA clears the bottom fade and stays crisp. Read once + memoized.
 const CTA_SAFE_FOG_ROUTES = [
-  'master-practice-detail',
   'master-finance',
   'master-practice-new',
   'master-practice-edit',
@@ -111,21 +118,56 @@ let pdFogCache: {
 function ctaSafeFog() {
   if (pdFogCache) return pdFogCache
   const cs = getComputedStyle(document.documentElement)
-  const tok = (name: string, fallback: number): number => {
-    const n = parseInt(cs.getPropertyValue(`--velo-fog-pd-${name}`), 10)
-    return Number.isFinite(n) ? n : fallback
-  }
   pdFogCache = {
-    topGap: tok('top-gap', 25),
-    fogTopHard: tok('top-hard', 60),
-    fogBotFade: tok('bot-fade', 50),
-    fogBotHard: tok('bot-hard', 90),
+    topGap: fogPx(cs, '--velo-fog-pd-top-gap', 25),
+    fogTopHard: fogPx(cs, '--velo-fog-pd-top-hard', 60),
+    fogBotFade: fogPx(cs, '--velo-fog-pd-bot-fade', 50),
+    fogBotHard: fogPx(cs, '--velo-fog-pd-bot-hard', 90),
   }
   return pdFogCache
 }
-const fogTuning = computed(() =>
-  CTA_SAFE_FOG_ROUTES.includes(route.name as string) ? ctaSafeFog() : {},
-)
+
+// master-practice-detail (FOG-2, 2026-06-30): keep the soft pd TOP, but a COMPACT
+// bottom. The screen HIDES the tab bar (router meta), so the pd bottom (fade 50 +
+// hard 90 = 140px, sized for a tab bar) wasted screen; swap the bottom to the
+// compact list zones (--velo-fog-list-z3/z4) while the past-state in-flow CTA
+// stays crisp. Master-scoped — the user practice-detail (UserShell) is untouched.
+// Reuses existing tokens, no new token.
+let pdDetailFogCache: {
+  topGap: number
+  fogTopHard: number
+  fogBotFade: number
+  fogBotHard: number
+} | null = null
+function practiceDetailFog() {
+  if (pdDetailFogCache) return pdDetailFogCache
+  const cs = getComputedStyle(document.documentElement)
+  pdDetailFogCache = {
+    topGap: fogPx(cs, '--velo-fog-pd-top-gap', 25),
+    fogTopHard: fogPx(cs, '--velo-fog-pd-top-hard', 60),
+    fogBotFade: fogPx(cs, '--velo-fog-list-z3', 48),
+    fogBotHard: fogPx(cs, '--velo-fog-list-z4', 0),
+  }
+  return pdDetailFogCache
+}
+
+// master-dashboard (DB-1, 2026-06-30): the greeting was removed, leaving an
+// oversized top band; shrink the top clearance from the default --velo-fog-z1 (16)
+// to --space-2 (8). Per-screen, reuses an existing token; tunable on device.
+let dashFogCache: { topGap: number } | null = null
+function dashboardFog() {
+  if (dashFogCache) return dashFogCache
+  const cs = getComputedStyle(document.documentElement)
+  dashFogCache = { topGap: fogPx(cs, '--space-2', 8) }
+  return dashFogCache
+}
+
+const fogTuning = computed(() => {
+  const name = route.name as string
+  if (name === 'master-practice-detail') return practiceDetailFog()
+  if (name === 'master-dashboard') return dashboardFog()
+  return CTA_SAFE_FOG_ROUTES.includes(name) ? ctaSafeFog() : {}
+})
 
 // Hide the bottom tab bar on detail routes that opt in via `meta.hideTabBar`
 // (the design omits the tab bar on master detail screens), OR while the soft
