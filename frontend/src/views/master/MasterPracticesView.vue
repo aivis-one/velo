@@ -90,7 +90,7 @@
             </div>
             <div class="mp-card__meta">
               <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
-              <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span>
+              <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p, insightsCache) }}</span>
               <span v-if="recurrenceLabel(p)" class="mp-stat"
                 ><IconRepeat :size="16" /> {{ recurrenceLabel(p) }}</span
               >
@@ -176,7 +176,8 @@ import {
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
-import { practiceIconFor, recurrenceDaysLabel } from '@/utils/displayHelpers'
+import { practiceIconFor } from '@/utils/displayHelpers'
+import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
@@ -240,39 +241,13 @@ function participantsCount(p: PracticeResponse): string {
 
 // -- Insights-derived (REAL) ------------------------------------------------
 
-function totalCheckins(id: string): number {
-  const i = insightsCache.get(id)
-  return i ? i.checkins.high + i.checkins.mid + i.checkins.low : 0
-}
-
 function totalFeedbacks(id: string): number {
   const i = insightsCache.get(id)
   return i ? i.feedbacks.fire + i.feedbacks.good + i.feedbacks.confused : 0
 }
 
-/** Check-in count "10/20" (submitted check-ins / capacity). Always a fraction —
- * "0/N" before anyone has checked in (operator: never a bare «—»). */
-function checkinLabel(p: PracticeResponse): string {
-  const denom = p.max_participants ?? p.current_participants
-  return `${totalCheckins(p.id)}/${denom}`
-}
-
-// -- Recurrence + series progress (native PracticeResponse fields) -----------
-
-/** Series recurrence: weekday list / «Ежедневно» from recurrence_days, falling
- * back to «Регулярная» for a series with no day list. */
-function recurrenceLabel(p: PracticeResponse): string | null {
-  if (p.practice_type !== 'series') return null
-  return recurrenceDaysLabel(p.recurrence_days) ?? 'Регулярная'
-}
-
-/** «Осталось N из M занятий» for a series with a known session count. */
-function remainingSessionsLabel(p: PracticeResponse): string | null {
-  const total = p.total_sessions
-  if (total == null) return null
-  const left = Math.max(0, total - (p.completed_sessions ?? 0))
-  return `Осталось ${left} из ${total} занятий`
-}
+// checkinLabel / recurrenceLabel / remainingSessionsLabel moved to
+// utils/practiceCardMeta (shared with the master dashboard card — DB-2).
 
 function hasRating(id: string): boolean {
   return insightsCache.has(id) && totalFeedbacks(id) > 0

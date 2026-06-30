@@ -151,8 +151,23 @@
                       formatParticipants(practice.current_participants, practice.max_participants)
                     }}
                   </span>
-                  <!-- checkin-count + recurrence meta render once the backend
-                       provides the fields (roadmap for Zod). -->
+                  <span class="master-dashboard__meta-item">
+                    <IconCheckin :size="15" /> {{ checkinLabel(practice, insightsCache) }}
+                  </span>
+                  <span
+                    v-if="recurrenceLabel(practice)"
+                    class="master-dashboard__meta-item"
+                  >
+                    <IconRepeat :size="15" /> {{ recurrenceLabel(practice) }}
+                  </span>
+                </div>
+                <div
+                  v-if="remainingSessionsLabel(practice)"
+                  class="master-dashboard__practice-meta"
+                >
+                  <span class="master-dashboard__meta-item">
+                    <IconHourglass :size="15" /> {{ remainingSessionsLabel(practice) }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -203,16 +218,18 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/components/ui'
-import { IconBellPlain, IconGroup } from '@/components/icons'
+import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { useDiaryStore } from '@/stores/diary'
 import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
 import { useToast } from '@/composables/useToast'
 import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
 import { practiceIconFor } from '@/utils/displayHelpers'
+import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import { getMasterStats } from '@/api/masters'
@@ -222,6 +239,10 @@ const router = useRouter()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+const diaryStore = useDiaryStore()
+// Anonymous-insights cache (shared store) — feeds the nearest-practice card's
+// check-in count, identical source to MasterPracticesView (DB-2).
+const insightsCache = diaryStore.insightsCache
 const { contentSafeTop } = useSafeArea()
 const toast = useToast()
 
@@ -378,6 +399,9 @@ onMounted(async () => {
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
+  // Eager-load insights for the visible nearest cards so the check-in meta shows
+  // without a tap (≤2 ids; loadInsights skips cached ones). DB-2.
+  await Promise.all(nearestPractices.value.map((p) => diaryStore.loadInsights(p.id)))
 })
 
 onUnmounted(() => {
