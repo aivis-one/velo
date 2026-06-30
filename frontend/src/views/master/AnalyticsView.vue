@@ -81,18 +81,16 @@
           class="analytics__attention"
           @click="openMessage(item.reviewer_name)"
         >
-          <VAvatar :name="item.reviewer_name" :url="item.avatar_url ?? ''" size="md" />
+          <span class="analytics__attention-ident">
+            <component
+              :is="RATING_ICON[item.rating as FeedbackRating]"
+              :size="36"
+              :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
+            />
+          </span>
           <div class="analytics__attention-body">
             <div class="analytics__attention-name">{{ item.reviewer_name }}</div>
-            <div class="analytics__attention-rate">
-              <component
-                :is="RATING_ICON[item.rating as FeedbackRating]"
-                :size="16"
-                :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
-              />
-              {{ RATING_LABEL[item.rating as FeedbackRating] }}
-              <span class="analytics__attention-pr">• {{ item.practice_title }}</span>
-            </div>
+            <div class="analytics__attention-pr">{{ item.practice_title }}</div>
             <div v-if="item.comment" class="analytics__attention-quote">«{{ item.comment }}»</div>
           </div>
         </button>
@@ -234,14 +232,13 @@ import {
   VSegmentTrack,
   VRatingBadges,
   VEmptyState,
-  VAvatar,
 } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
-import { practiceIconFor, RATING_ICON_COLOR, RATING_LABEL } from '@/utils/displayHelpers'
+import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
@@ -586,15 +583,17 @@ onMounted(async () => {
   color: var(--velo-text-primary);
 }
 
-.analytics__attention-rate {
+.analytics__attention-ident {
+  width: var(--velo-size-40);
+  height: var(--velo-size-40);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: var(--velo-gap-6);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
+  justify-content: center;
 }
 
 .analytics__attention-pr {
+  font-size: var(--text-sm);
   color: var(--velo-text-secondary);
 }
 
