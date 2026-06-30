@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.8
-**Дата:** 29 июня 2026
+**Версия:** 1.9
+**Дата:** 30 июня 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
@@ -11,6 +11,15 @@
 > (DS-first). Ссылки на Figma-node (`541:…`, `4715-3463` и т.п.), оставшиеся ниже
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
+
+> **v1.9 (мастер-зона polish + клавиатура-aware viewport + User «Сообщения», 30 июня 2026, база `00bb5f2`, батч ahead-22, push held):**
+> — **Клавиатура-aware viewport** (`e95e05a`): `useBackgroundStabilizer` публикует ВЫСОТУ visual-viewport в `--velo-vvh` + тогглит `html.is-keyboard-open` (порог `KEYBOARD_VIEWPORT_THRESHOLD`); гейтнутые правила `global.css` ужимают скролл-контейнер `.mobile-layout__main` и модалки `.v-modal__*` до `--velo-vvh` ТОЛЬКО при открытой клавиатуре (at-rest байт-идентично). Плюс прежний job#1 «танцующий фон» — counter-translate `#app::before` на `--velo-bg-shift = visualViewport.offsetTop`.
+> — **Аналитика рестайл (AN-1…7):** бейджи рейтинга в карточках прошедших практик — на всю ширину карты; «Требуют внимания» — крупная иконка-идентификатор (confused «?») вместо аватара + мета = только название практики; «Отзывы о практике» — иконка-рейтинг как идентификатор слева, без даты/подписи. **Из `VRatingBadges` ПОЛНОСТЬЮ удалён механизм «?»-подсказки** (sheet «Оценки участников» больше не существует).
+> — **Мастер-туман (FOG-1/FOG-2):** `master-edit-profile` + `master-language-timezone` добавлены в `FOG_ROUTES`; `master-practice-detail` получил собственный мастер-тюнинг (`practiceDetailFog` — мягкий верх + компактный низ через `--velo-fog-list-z3/z4`, юзер-practice-detail не тронут).
+> — **Дашборд (DB-1/DB-2):** карточка «Ближайшие практики» — паритет меты со списком практик (чек-ины/регулярность/осталось занятий) через НОВЫЙ общий `utils/practiceCardMeta.ts` (вынесен из `MasterPracticesView`); подтянут верхний отступ.
+> — **Профиль (PR-1/PR-2):** подтянут верхний отступ мастер-профиля; `@focus`-скролл на textarea «О себе» (band-aid семейства e95e05a).
+> — **User «Сообщения» (`0b8ef14`):** в Профиль ▸ «Аккаунт» добавлена строка «Сообщения» → `UserMessagesView` (роут `user-messages`) — honest empty-state (НЕТ фейковых тредов; swap-точка под реальный список, когда придёт API). Бэк-гэп — E4 в `VELO-Backend-Tasks.md`.
+> — **Также в батче (косметика):** снятие solid-плашки + туман на 3 формах мастера (promocode/create/edit), редизайн `UseTemplateBlock` + recurrence-UX «Новой практики» (NP), рестайл «Практики/Прошедшие» (CP/EP/PD/PP), фикс UTC-даты `todayLocalISO()` в `utils/format.ts`.
 
 > **v1.8 (Мастер-программа + TEST-only превью заявки, 29 июня 2026, база `00bb5f2`):**
 > построена и задеплоена мастер-программа (DS-first, honest-stub):
@@ -521,7 +530,7 @@ hero — `VAvatar xl`. Единый паттерн вызова `:url="avatarUrl
 
 | Экран                      | View / роут                                           | Примечания                                                                                                                                                                                                                                                                                                                                                                                                  |
 | -------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A — главный (70/71)        | `UserProfileView.vue` (`user-profile`)                | две стат-карточки из `GET /bookings/me/stats` (`getMyStats` в `api/bookings.ts`); векторные иконки (IconEdit/Bookings/Bell/Globe/Share/Logout); пункты-переходы. Балансовая карта и email УБРАНЫ с главного; «Сообщения» УБРАНЫ (модуля нет). «Изменить фото» / share / прочие заглушки — toast                                                                                                             |
+| A — главный (70/71)        | `UserProfileView.vue` (`user-profile`)                | две стат-карточки из `GET /bookings/me/stats` (`getMyStats` в `api/bookings.ts`); векторные иконки (IconEdit/Bookings/Messages/Bell/Globe/Share/Logout); пункты-переходы. Балансовая карта и email УБРАНЫ с главного. **«Сообщения» (v1.9):** строка в «Аккаунт» после «Мои бронирования» → `UserMessagesView` (роут `user-messages`, honest empty-state, бэк-гэп E4) — без бейджа непрочитанных (нет источника). «Изменить фото» / share / прочие заглушки — toast                                                                                                             |
 | F — Язык/Часовой пояс (75) | `LanguageTimezoneView.vue` (`user-language-timezone`) | таймзона = переиспользуемый `VSelect` + `TIMEZONE_OPTIONS` (`practiceOptions.ts`), автосейв `updateProfile({timezone})` + revert-on-error. Язык — заглушка из ОДНОГО пункта «Русский» (i18n НЕТ), рендер через `v-for` по `LANGUAGE_OPTIONS` (расширяемо), неинтерактивна пока язык один (`isLanguageStatic`), НЕ сохраняется. «Изменить город»/radio-список из макета НЕ делаем — выбор пояса через select |
 | C — Редактирование (72)    | `EditProfileView.vue` (`user-edit-profile`)           | Имя=`first_name`; E-mail=disabled-заглушка «появится позже» (не сохраняется); Телефон=`phone`, О себе=`bio` (оба в credentials JSONB, см. Бэк §3.11); «Изменить фото»=toast. Сохранение шлёт только изменённые поля; очистка phone/bio = пустая строка. `VInput` БЕЗ пропа `error` — ошибка телефона рисуется отдельным `<p>`. `bio` сравнивается/шлётся через `.trimEnd()` (S-1)                           |
 | D — Удаление (73)          | модалка в `EditProfileView` (`VModal`)                | «Удалить аккаунт» -> подтверждение -> `deleteMe()` (`DELETE /users/me`) -> `authStore.logout()`. MVP = сброс онбординга (Бэк §3.11), данные сохраняются. Текст модала ЧЕСТНЫЙ: «вернётся к начальному состоянию… данные сохранятся» (W-2), кнопка осталась «Удалить»                                                                                                                                        |
@@ -659,6 +668,10 @@ centsToEurString(cents: number): string -- 1457 → "14.57"
 ### 5.4. commission.ts
 
 `COMMISSION_RATE = 0.15` — единственный источник. Используется в `CreatePracticeView` и `EditPracticeView` для подсказки "Вы получите".
+
+### 5.5. practiceCardMeta.ts (v1.9)
+
+Общие хелперы меты карточки практики — `checkinLabel(p, insightsCache)` («N/M» чек-инов из `diaryStore.insightsCache`), `recurrenceLabel(p)` (регулярность серии), `remainingSessionsLabel(p)` («Осталось N из M занятий»). Вынесены из `MasterPracticesView` и переиспользуются в `MasterDashboardView` (паритет «Ближайшие практики» со списком, DB-2) — без дублирования логики. Данные чек-инов — из insights (корректность — Zod E12).
 
 ---
 
@@ -826,7 +839,7 @@ script-эмуляцию. Контр-тест (убрать фикс → ошиб
 
 Шрифт: Marmelad Regular 400 — единственный вес, единственное начертание. Подключён через `<link>` в `index.html`.
 
-Фон: `body { background: url('/bg/background.png') center / cover no-repeat fixed }` — фото из `Design_prototype`, sacred geometry overlay. Все layout-контейнеры прозрачные.
+Фон: красится на `#app::before { position: fixed; inset: 0; z-index: -1; background: url('/bg/background.png') center / cover no-repeat }` (`global.css` ~116-121), **НЕ на `body`** — фиксированный слой под контентом. `transform: translateY(var(--velo-bg-shift))` контр-сдвигает «танцующий фон» при reflow visual-viewport (клавиатура); at-rest `--velo-bg-shift = 0px` → инертно. Клавиатура-aware (v1.9): `useBackgroundStabilizer` также пишет высоту visual-viewport в `--velo-vvh` + тогглит `html.is-keyboard-open` — гейтнутые правила ужимают `.mobile-layout__main` / `.v-modal__*` до видимой области ТОЛЬКО при открытой клавиатуре. Фото из `Design_prototype`, sacred geometry overlay. Все layout-контейнеры прозрачные.
 
 **Правило FP-01 уточняется:** стекло-эффекты используют `rgba`-значения через переменные (`var(--velo-glass-blue-15)`), не через прямые hex.
 
