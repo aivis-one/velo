@@ -180,23 +180,26 @@
             </span>
           </div>
 
-          <!-- Дни недели (captured-only; DS-primitive VDayPicker, оставлен в
-               карточке-обёртке чтобы держать ритм секции «Повторение»). -->
-          <div class="create-practice__seal-row">
-            <div class="create-practice__days create-practice__grow">
-              <VDayPicker v-model="form.recurrence_days" aria-label="Дни недели для повтора" />
+          <!-- Дни недели — ТОЛЬКО для weekly/biweekly. «Каждый день» (daily) не
+               использует дни недели, поэтому пикер и его печать обязательности не
+               рендерятся вовсе (operator NP-10). Валидация уже пропускает daily. -->
+          <template v-if="form.recurrence !== 'daily'">
+            <div class="create-practice__seal-row">
+              <div class="create-practice__days create-practice__grow">
+                <VDayPicker v-model="form.recurrence_days" aria-label="Дни недели для повтора" />
+              </div>
+              <span
+                class="create-practice__seal-card"
+                :class="{ 'create-practice__seal-card--done': form.recurrence_days.length > 0 }"
+              >
+                <IconRequired v-if="!form.recurrence_days.length" :size="22" />
+                <IconRequiredDone v-else :size="22" />
+              </span>
             </div>
-            <span
-              class="create-practice__seal-card"
-              :class="{ 'create-practice__seal-card--done': form.recurrence_days.length > 0 }"
-            >
-              <IconRequired v-if="!form.recurrence_days.length" :size="22" />
-              <IconRequiredDone v-else :size="22" />
-            </span>
-          </div>
-          <span v-if="errors.recurrence_days" class="create-practice__field-error">{{
-            errors.recurrence_days
-          }}</span>
+            <span v-if="errors.recurrence_days" class="create-practice__field-error">{{
+              errors.recurrence_days
+            }}</span>
+          </template>
 
           <!-- Завершить -->
           <div class="create-practice__seal-row">
@@ -473,7 +476,8 @@ const form = reactive({
   recurrence: 'weekly' as RecurrenceSpec['period'],
   recurrence_days: [] as string[],
   recurrence_end: 'never' as RecurrenceSpec['end'],
-  recurrence_count: 40,
+  // Empty until the master types a count (NP-11) — no auto-filled 40.
+  recurrence_count: null as number | null,
   recurrence_end_date: '', // ISO 'YYYY-MM-DD' when recurrence_end === 'until_date' (#10)
   date: '',
   time: '',
@@ -641,7 +645,7 @@ function buildRecurrence(): RecurrenceSpec {
     spec.days = form.recurrence_days.map((d) => WEEKDAY_ISO[d]).filter((n) => n != null)
   }
   if (form.recurrence_end === 'after_count') {
-    spec.count = form.recurrence_count
+    if (form.recurrence_count != null) spec.count = form.recurrence_count
   } else if (form.recurrence_end === 'until_date') {
     spec.until_date = form.recurrence_end_date || null
   }
