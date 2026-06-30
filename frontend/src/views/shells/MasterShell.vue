@@ -68,28 +68,40 @@ const FOG_ROUTES = [
   'master-notifications',
   // Detail / form screens with a transparent floating header — fog so content
   // doesn't collide with the header on scroll (the white «solid» plate was
-  // dropped 2026-06-29). practice-detail + finance carry an IN-FLOW bottom CTA,
-  // so they take the CTA-safe pd-tuning below (softer top / tighter bottom) — the
-  // button sits above the fade and stays solid. The profile hub has no in-flow
-  // CTA (logout in a modal) + keeps its tab bar, so default fog clears its last row.
+  // dropped 2026-06-29). practice-detail + finance + the 3 Stage-2 forms
+  // (create / edit practice, new promocode) carry an IN-FLOW bottom CTA, so they
+  // take the CTA-safe pd-tuning below (softer top / tighter bottom) — the button
+  // sits above the fade and stays solid. The profile hub has no in-flow CTA
+  // (logout in a modal) + keeps its tab bar, so default fog clears its last row.
   // KEYBOARD-SAFE (operator-mandate 2026-06-29): fog over a form input no longer
   // clips it — the keyboard-aware mask (global.css `html.is-keyboard-open` +
   // `--velo-vvh`, commit e95e05a) shrinks the masked area to the visible viewport
-  // on keyboard-open. Support stays un-fogged for now (no scroll-overlap there).
+  // on keyboard-open, so create/edit/promocode forms join finance under the same
+  // (de-solid → fog, keyboard-safe) rationale. Support stays un-fogged for now.
   'master-practice-detail',
   'master-finance',
+  'master-practice-new',
+  'master-practice-edit',
+  'master-promocode-new',
   'master-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
 // CTA-safe fog tuning for the fogged detail/form screens that have an in-flow
-// bottom action button (practice-detail, finance). Mirrors UserShell's practice-detail:
-// a softer top dissolve + tighter bottom via the shared --velo-fog-pd-* tokens
-// (variables.css, single source), so the CTA clears the bottom fade and stays
-// crisp. Read once + memoized; values flow through JS into MobileLayout. The
-// profile hub is NOT listed here — it uses the default fog (tab-bar clearance
-// already keeps its last row solid).
-const CTA_SAFE_FOG_ROUTES = ['master-practice-detail', 'master-finance']
+// bottom action button (practice-detail, finance, and the create / edit practice
+// + new promocode forms). Mirrors UserShell's practice-detail: a softer top
+// dissolve + tighter bottom via the shared --velo-fog-pd-* tokens (variables.css,
+// single source), so the CTA clears the bottom fade and stays crisp. Read once +
+// memoized; values flow through JS into MobileLayout. The profile hub is NOT
+// listed here — it uses the default fog (tab-bar clearance already keeps its last
+// row solid).
+const CTA_SAFE_FOG_ROUTES = [
+  'master-practice-detail',
+  'master-finance',
+  'master-practice-new',
+  'master-practice-edit',
+  'master-promocode-new',
+]
 let pdFogCache: {
   topGap: number
   fogTopHard: number
