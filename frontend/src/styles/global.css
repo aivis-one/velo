@@ -161,6 +161,26 @@ html.is-keyboard-open .v-modal__scroll {
   max-height: 100%;
 }
 
+/* === Dancing background #4 / KB-1…4 (operator Г, ПРОМТ №232) ===
+   While the keyboard is open, FREEZE the fixed photo background: it must stop
+   tracking `--velo-bg-shift` (= visualViewport.offsetTop), which changes every
+   frame as the focused field scrolls into view and makes the photo visibly
+   slide ("прыгает фон"). `transform: none` pins it at its at-rest position (the
+   translateY is 0px at rest anyway), so the photo stays visible but static.
+   AT REST the class is ABSENT → this rule is inert → `#app::before` transform is
+   byte-identical to today. */
+html.is-keyboard-open #app::before {
+  transform: none;
+}
+
+/* …and drop the scroll fog-mask while typing («убрать туман при вводе»). Only
+   list screens carry `--fog` (forms/detail have none), so this affects just the
+   fog screens. AT REST the class is ABSENT → the mask is unchanged. */
+html.is-keyboard-open .mobile-layout__main--fog {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
 /* === Section header (DS canon) ===
    Single source for in-page content section headings across the master views
    (was duplicated per-view as `*__section-title`, with drifting font-family and

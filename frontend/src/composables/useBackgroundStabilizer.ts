@@ -1,5 +1,7 @@
 import { onMounted, onBeforeUnmount } from 'vue'
+import router from '@/router'
 import { KEYBOARD_VIEWPORT_THRESHOLD } from '@/utils/constants'
+import { resetKeyboardViewportState } from '@/utils/keyboardViewportState'
 
 /**
  * App-root visual-viewport publisher. Mounted ONCE from App.vue (the
@@ -22,10 +24,17 @@ import { KEYBOARD_VIEWPORT_THRESHOLD } from '@/utils/constants'
  *
  * Writes are rAF-throttled (one style write per frame). No-ops where
  * visualViewport is absent (SSR / desktop -> class never added).
+ *
+ * Also resets the above state SYNCHRONOUSLY on every route change (a single
+ * router.afterEach, registered once from this app-root composable) so a freshly
+ * navigated screen never inherits the previous screen's shift / fog geometry
+ * (the between-screens "fog lag", KB #4 item 6). If the keyboard is genuinely
+ * still open, the next visualViewport event re-syncs truth on the following frame.
  */
 export function useBackgroundStabilizer(): void {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   let rafId = 0
+  let stopAfterEach: (() => void) | null = null
 
   function setShift(): void {
     rafId = 0
@@ -52,6 +61,9 @@ export function useBackgroundStabilizer(): void {
     vv.addEventListener('resize', schedule)
     vv.addEventListener('scroll', schedule)
     setShift()
+    // Clear stale shift / fog state the instant the route changes, so the next
+    // screen's first frames don't inherit the previous screen's keyboard state.
+    stopAfterEach = router.afterEach(() => resetKeyboardViewportState())
   })
 
   onBeforeUnmount(() => {
@@ -61,10 +73,8 @@ export function useBackgroundStabilizer(): void {
     }
     vv?.removeEventListener('resize', schedule)
     vv?.removeEventListener('scroll', schedule)
-    if (typeof document === 'undefined') return
-    document.getElementById('app')?.style.setProperty('--velo-bg-shift', '0px')
-    const root = document.documentElement
-    root.style.setProperty('--velo-vvh', '')
-    root.classList.remove('is-keyboard-open')
+    stopAfterEach?.()
+    stopAfterEach = null
+    resetKeyboardViewportState()
   })
 }
