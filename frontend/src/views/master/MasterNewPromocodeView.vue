@@ -121,15 +121,25 @@ function onCreate(): void {
 }
 
 // «Лимит использований» sits low on the form, where the soft keyboard covers it on
-// focus — centre the focused field in the (keyboard-shrunk) viewport. The delay lets
-// the keyboard finish opening. Pattern ported from CreatePracticeView; iOS/Telegram-
-// webview behaviour → device-verified on TEST (no soft keyboard on desktop).
+// focus. The keyboard animates in over several frames, so a fixed timeout races it and
+// the field can still land under the keyboard (operator PC-1). Instead react to the
+// visual viewport: centre the field on focus AND on each subsequent visualViewport
+// resize while the keyboard settles, then detach on blur. Coordinates with the e95e05a
+// keyboard-aware system — reads the same window.visualViewport signal, writes none of
+// its shared state. Desktop / no visualViewport → the original deferred scroll.
 function scrollFieldIntoView(e: FocusEvent): void {
   const el = e.target as HTMLElement | null
   if (!el) return
-  window.setTimeout(() => {
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, 300)
+  const bring = (): void => el.scrollIntoView({ block: 'center' })
+  const vv = window.visualViewport
+  if (!vv) {
+    window.setTimeout(bring, 300)
+    return
+  }
+  const onResize = (): void => bring()
+  vv.addEventListener('resize', onResize)
+  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
+  bring()
 }
 
 // Tap a blank area of the form to dismiss the soft keyboard (number/text inputs have
