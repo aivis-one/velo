@@ -344,19 +344,19 @@ const nearestPracticeTitle = computed((): string => {
 })
 
 /**
- * Open the Zoom link directly (not the practice screen).
+ * Zoom button — honest stub (DATA GAP, Zod backend task).
  *
- * BookingWithPracticeResponse embeds a PracticeSummary (no zoom_link), so we
- * lazy-fetch the full PracticeResponse on click. The https:// guard mirrors
- * PracticeLiveView (AUDIT-0520-02). If the link is missing or invalid, show
- * a toast — we deliberately do NOT navigate to the practice screen, since the
- * whole point of this button is to skip that screen.
+ * The dashboard card sits on `BookingWithPracticeResponse.practice`, which is a
+ * `PracticeSummary` — that type has NO `zoom_link` (generated.ts). We
+ * deliberately do NOT fire a per-click `GET /practices/{id}` just to read the
+ * link, so there is nothing to open here yet: show a truthful "link coming"
+ * toast instead. Wire the real `platform.openLink(...)` once the backend adds
+ * `zoom_link` to `PracticeSummary` (see VELO-Backend-Tasks.md). The in-session
+ * live screen (PracticeLiveView) already opens the real link — it fetches the
+ * full PracticeResponse.
  */
 function onZoomClick(): void {
-  // Zoom is intentionally disabled for now (not ready for the public test):
-  // show "unavailable" instead of opening a link. The same applies to the live
-  // screen's "Войти". Re-enable when Zoom delivery is live.
-  toast.info('Zoom пока недоступен')
+  toast.info('Ссылка появится ближе к началу')
 }
 
 /**

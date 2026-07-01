@@ -126,6 +126,9 @@ async function onEnter(): Promise<void> {
   if (!practice.value?.zoom_link || !hasValidZoom.value) return
   if (joining.value) return
 
+  // Capture the link now: the guard above narrows it to a string, but the await
+  // below resets that narrowing (practice is a computed ref).
+  const zoomUrl = practice.value.zoom_link
   joining.value = true
   try {
     const booking = myBooking.value
@@ -142,10 +145,9 @@ async function onEnter(): Promise<void> {
     } catch {
       /* silent fallback */
     }
-    // Zoom intentionally disabled for now (not ready for the public test): the
-    // check-in above still records, but we show "unavailable" instead of opening
-    // the link. Re-enable when Zoom delivery is live.
-    toast.info('Zoom пока недоступен')
+    // Open the Zoom link via the platform abstraction (Telegram-SDK openLink vs
+    // window.open). zoomUrl was captured above while narrowed to a valid https URL.
+    platform.openLink(zoomUrl)
   } finally {
     joining.value = false
   }

@@ -176,7 +176,7 @@
                until Zoom ships), right = Check-ins. Edit/delete moved to the
                practice screen, reached by tapping the card (openPractice). -->
           <div class="master-dashboard__practice-actions">
-            <VButton variant="secondary" block @click="onZoom">Zoom</VButton>
+            <VButton variant="secondary" block @click="onZoom(practice)">Zoom</VButton>
             <VButton
               variant="primary"
               block
@@ -228,6 +228,7 @@ import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
 import { useToast } from '@/composables/useToast'
 import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
+import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { practiceHasEnded } from '@/utils/practiceStatus'
@@ -340,9 +341,16 @@ function onStudents(): void {
 function openPractice(p: PracticeResponse): void {
   router.push({ name: 'master-practice-detail', params: { id: p.id } })
 }
-// Zoom — stub until delivery (mirrors the user dashboard's Zoom button).
-function onZoom(): void {
-  toast.info('Zoom пока недоступен')
+// Zoom — open the practice's link via the platform abstraction (routes
+// Telegram-SDK openLink vs window.open). Master screens carry the full
+// PracticeResponse, so zoom_link is available; guard for a real https URL
+// (mirrors PracticeLiveView's hasValidZoom), else nudge the master to add one.
+function onZoom(p: PracticeResponse): void {
+  if (p.zoom_link && p.zoom_link.startsWith('https://')) {
+    platform.openLink(p.zoom_link)
+  } else {
+    toast.info('Добавьте ссылку на Zoom в настройках практики')
+  }
 }
 
 // =========================================================================

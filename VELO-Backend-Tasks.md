@@ -353,6 +353,21 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   password-reset email. Wire the parked `/auth/*` screens to it. Entirely a future web-build concern.
 - **STATUS (2026-06-27): OPEN — PARKED.** (Frontend inert screens built; not wired; no Telegram impact.)
 
+### E18 — Zoom link on `PracticeSummary` (NEW 2026-07-01). **P2.**
+- **(a) Why.** The user «Ближайшая практика» (dashboard) + «Мои бронирования» booking cards have a Zoom
+  button. The booking object (`BookingWithPracticeResponse.practice`) embeds a `PracticeSummary`, which
+  has NO `zoom_link` — so the button cannot open the meeting without a second round-trip.
+- **(b) Screens.** `UserDashboardView` (Zoom button); `MyBookingsView` / booking cards.
+- **(c) Breaks.** `UserDashboardView.onZoomClick` is an honest stub (toast «Ссылка появится ближе к
+  началу») — we deliberately do NOT fire a per-click `GET /practices/{id}` just to read the link. (The
+  in-session `PracticeLiveView` already opens the real link — it fetches the full `PracticeResponse`.)
+- **(d) Backend.** `zoom_link` exists on `PracticeResponse` (gen:799) but is **absent** on
+  `PracticeSummary` (gen:775 — the same object that lacks `checkin_count`, E12).
+- **Request.** ADD `zoom_link` to `PracticeSummary` so booking cards can open Zoom without a separate GET;
+  then wire `platform.openLink(...)` on the user dashboard (master screens already open it via the full
+  `PracticeResponse`).
+- **STATUS (2026-07-01): OPEN.** (Frontend honest-stub in place under build-full-design.)
+
 ---
 
 ## B) PER-ENDPOINT TABLE (with STATUS)
