@@ -42,35 +42,42 @@
       Данных пока нет — создайте первую практику
     </div>
 
-    <!-- List: compact bordered cards (NP-5/6/7); ~3 tall then scroll with a
-         visible scrollbar (NP-8). -->
-    <div v-else-if="open" class="use-template__list">
-      <button
-        v-for="p in practices"
-        :key="p.id"
-        type="button"
-        class="use-template__card"
-        @click="select(p)"
-      >
-        <span class="use-template__card-icon">
-          <component :is="iconFor(p)" :size="46" />
-        </span>
-        <span class="use-template__card-text">
-          <span class="use-template__card-title">{{ p.title }}</span>
-          <span class="use-template__card-meta">{{ cardWhen(p) }}</span>
-        </span>
-      </button>
+    <!-- List: compact bordered cards (NP-5/6/7); ~3 tall then scroll. The native
+         ::-webkit-scrollbar is not painted by the iOS/Telegram webview for a
+         touch-scroll container, so the block read as non-scrollable — a custom
+         always-visible thumb (item 6, ПРОМТ №233) shows position + that it scrolls. -->
+    <div v-else-if="open" class="use-template__scrollwrap">
+      <div ref="listEl" class="use-template__list" @scroll="syncScrollbar">
+        <button
+          v-for="p in practices"
+          :key="p.id"
+          type="button"
+          class="use-template__card"
+          @click="select(p)"
+        >
+          <span class="use-template__card-icon">
+            <component :is="iconFor(p)" :size="46" />
+          </span>
+          <span class="use-template__card-text">
+            <span class="use-template__card-title">{{ p.title }}</span>
+            <span class="use-template__card-meta">{{ cardWhen(p) }}</span>
+          </span>
+        </button>
+      </div>
+      <div v-show="hasOverflow" class="use-template__scrollbar" aria-hidden="true">
+        <div class="use-template__scrollbar-thumb" :style="thumbStyle" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, type Component } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount, type Component } from 'vue'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { formatShortDate, formatTime } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
-defineProps<{
+const props = defineProps<{
   /** The master's own practices (newest-first), used as templates. */
   practices: PracticeResponse[]
 }>()
@@ -78,6 +85,71 @@ defineProps<{
 const emit = defineEmits<{ select: [practice: PracticeResponse] }>()
 
 const open = ref(false)
+
+// -- Custom scroll indicator (item 6): the iOS/Telegram webview does not paint
+//    ::-webkit-scrollbar for a touch-scroll container, so we drive a thin thumb
+//    from the scroll ratio. Non-interactive — the user scrolls the list itself;
+//    the thumb only shows the position + that the block scrolls. --
+const listEl = ref<HTMLElement | null>(null)
+const hasOverflow = ref(false)
+const thumbTopPct = ref(0)
+const thumbHeightPct = ref(0)
+const thumbStyle = computed(() => ({
+  top: `${thumbTopPct.value}%`,
+  height: `${thumbHeightPct.value}%`,
+}))
+
+function syncScrollbar(): void {
+  const el = listEl.value
+  if (!el) {
+    hasOverflow.value = false
+    return
+  }
+  const { scrollHeight, clientHeight, scrollTop } = el
+  if (scrollHeight - clientHeight <= 1) {
+    hasOverflow.value = false
+    return
+  }
+  hasOverflow.value = true
+  thumbHeightPct.value = (clientHeight / scrollHeight) * 100
+  thumbTopPct.value = (scrollTop / scrollHeight) * 100
+}
+
+// Keep the thumb accurate as the list resizes (late layout / font load).
+let ro: ResizeObserver | null = null
+function observeList(): void {
+  ro?.disconnect()
+  const el = listEl.value
+  if (el && typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => syncScrollbar())
+    ro.observe(el)
+  }
+}
+
+// Recompute when the block opens (the list mounts) or the template set changes.
+watch(open, async (isOpen) => {
+  if (!isOpen) {
+    ro?.disconnect()
+    hasOverflow.value = false
+    return
+  }
+  await nextTick()
+  syncScrollbar()
+  observeList()
+})
+watch(
+  () => props.practices.length,
+  async () => {
+    if (!open.value) return
+    await nextTick()
+    syncScrollbar()
+  },
+)
+
+onBeforeUnmount(() => {
+  ro?.disconnect()
+  ro = null
+})
 
 /** Direction icon (carries its own circle outline). */
 function iconFor(p: PracticeResponse): Component {
@@ -146,7 +218,14 @@ function select(p: PracticeResponse): void {
   padding: var(--space-2) var(--space-2) var(--space-3);
 }
 
-/* List: ~3 compact cards then scroll, with a VISIBLE scrollbar (NP-8). */
+/* Positioning context for the custom scroll indicator. */
+.use-template__scrollwrap {
+  position: relative;
+}
+
+/* List: ~3 compact cards then scroll. Native scrollbar hidden — the webview does
+   not paint ::-webkit-scrollbar for a touch-scroll container, so the custom thumb
+   below is the visible affordance (item 6). */
 .use-template__list {
   display: flex;
   flex-direction: column;
@@ -154,25 +233,34 @@ function select(p: PracticeResponse): void {
   /* ~3 cards (icon 46 + card padding + border) + 2 gaps, then scroll. */
   max-height: calc((46px + var(--space-3) * 2 + 2px) * 3 + var(--space-2) * 2);
   overflow-y: auto;
-  padding-right: var(--space-1);
-  /* Firefox visible thin scrollbar (webkit styled below). */
-  scrollbar-width: thin;
-  scrollbar-color: var(--velo-primary) transparent;
+  /* Room on the right for the custom thumb so card text never sits under it. */
+  padding-right: var(--space-3);
+  scrollbar-width: none; /* Firefox: hide native (custom thumb below) */
+}
+.use-template__list::-webkit-scrollbar {
+  display: none;
 }
 
-/* Visible scrollbar ONLY here (app thins/hides scrollbars elsewhere).
-   SVG: ~9px pill, --velo-primary @ 50%. color-mix derives it from the token;
-   --velo-border is the safe fallback for webviews without color-mix. */
-.use-template__list::-webkit-scrollbar {
-  width: 9px;
-}
-.use-template__list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.use-template__list::-webkit-scrollbar-thumb {
-  background: var(--velo-border);
-  background: color-mix(in srgb, var(--velo-primary) 50%, transparent);
+/* Custom always-visible scroll indicator (item 6, ПРОМТ №233): a faint track +
+   a --velo-primary thumb positioned from the scroll ratio (JS). Non-interactive
+   (pointer-events:none) — it only signals position + that the block scrolls. */
+.use-template__scrollbar {
+  position: absolute;
+  top: var(--space-1);
+  bottom: var(--space-1);
+  right: 3px;
+  width: 4px;
   border-radius: var(--radius-full);
+  background: var(--velo-glass-blue-15);
+  pointer-events: none;
+}
+.use-template__scrollbar-thumb {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  min-height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
 }
 
 /* Card (NP-5/6/7): bordered compact row — icon + title + date·time. */

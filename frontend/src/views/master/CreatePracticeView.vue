@@ -49,9 +49,10 @@
            ================================================================ -->
       <div class="create-practice__section">
         <h2 class="velo-section-title">Использовать шаблон</h2>
-        <div class="create-practice__railed">
-          <UseTemplateBlock :practices="templatePractices" @select="applyTemplate" />
-        </div>
+        <!-- Full width (NOT railed): the block carries no required-seal of its
+             own, so it spans the whole rail — as wide as a field PLUS its seal
+             indicator (operator ПРОМТ №233). -->
+        <UseTemplateBlock :practices="templatePractices" @select="applyTemplate" />
       </div>
 
       <!-- ================================================================
