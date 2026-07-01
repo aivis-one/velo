@@ -77,7 +77,8 @@ const FOG_ROUTES = [
   // clips it — the keyboard-aware mask (global.css `html.is-keyboard-open` +
   // `--velo-vvh`, commit e95e05a) shrinks the masked area to the visible viewport
   // on keyboard-open, so create/edit/promocode forms join finance under the same
-  // (de-solid → fog, keyboard-safe) rationale. Support stays un-fogged for now.
+  // (de-solid → fog, keyboard-safe) rationale. Support is now re-fogged too (SP-2,
+  // 2026-07-01) — see its CTA-safe entry below.
   'master-practice-detail',
   'master-finance',
   'master-practice-new',
@@ -90,6 +91,12 @@ const FOG_ROUTES = [
   // so this follows the same de-solid → fog, keyboard-safe rationale as the forms.
   'master-edit-profile',
   'master-language-timezone',
+  // Support (SP-2, 2026-07-01): RE-FOGGED after being un-fogged in #8/#9 (5d74c8c,
+  // where the pre-keyboard-aware fog clipped the form into a band). Safe now: the
+  // «убрать туман при вводе» rule (global.css) drops the mask while typing, and the
+  // CTA-safe bottom (below) keeps the «Отправить» button crisp at rest. Fixes the
+  // header-overlap-on-scroll the operator flagged.
+  'master-support',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
@@ -104,7 +111,7 @@ function fogPx(cs: CSSStyleDeclaration, name: string, fallback: number): number 
 // fade and stays crisp. Read once + memoized. Finance keeps this full pd bottom;
 // the create/edit/promocode forms moved to the COMPACT bottom (ПРОМТ №233 — the
 // full 140px read as a too-wide fog band; see COMPACT_BOTTOM_FOG_ROUTES).
-const CTA_SAFE_FOG_ROUTES = ['master-finance']
+const CTA_SAFE_FOG_ROUTES = ['master-finance', 'master-support']
 let pdFogCache: {
   topGap: number
   fogTopHard: number
