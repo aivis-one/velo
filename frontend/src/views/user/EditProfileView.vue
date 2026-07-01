@@ -119,9 +119,11 @@
           />
         </template>
 
-        <template v-if="!hasBalance || delConsent">
-          <p class="edit-profile__del-confirm-hint">Введите «УДАЛИТЬ» для подтверждения</p>
-          <VInput v-model="delConfirmText" placeholder="УДАЛИТЬ" />
+        <template v-if="showConfirmField">
+          <div ref="confirmFieldEl">
+            <p class="edit-profile__del-confirm-hint">Введите «УДАЛИТЬ» для подтверждения</p>
+            <VInput v-model="delConfirmText" placeholder="УДАЛИТЬ" />
+          </div>
         </template>
 
         <div class="edit-profile__del-actions">
@@ -136,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted } from 'vue'
+import { computed, reactive, ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VInput, VTextarea, VButton, VAvatar, VModal, VCheckbox, VChip } from '@/components/ui'
@@ -295,6 +297,23 @@ const canDelete = computed(
     (!hasBalance.value || delConsent.value) &&
     delConfirmText.value.trim().toUpperCase() === 'УДАЛИТЬ',
 )
+
+// The «УДАЛИТЬ» confirm field sits below the balance / withdraw / consent block, so
+// with a balance it only appears after consent and lands below the fold — the user
+// had to hunt for it (operator PE-4). Scroll it into the modal's `.v-modal__scroll`
+// region as soon as it renders: on modal open (the no-balance path shows it at once)
+// and when consent reveals it (the balance path).
+const confirmFieldEl = ref<HTMLElement | null>(null)
+const showConfirmField = computed(() => !hasBalance.value || delConsent.value)
+function revealConfirmField(): void {
+  void nextTick(() => confirmFieldEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+}
+watch(showDeleteModal, (open) => {
+  if (open && showConfirmField.value) revealConfirmField()
+})
+watch(showConfirmField, (show) => {
+  if (show && showDeleteModal.value) revealConfirmField()
+})
 
 function closeDeleteModal(): void {
   showDeleteModal.value = false
