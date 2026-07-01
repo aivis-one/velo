@@ -70,16 +70,19 @@
       </section>
 
       <!-- Требуют внимания: ученики, оставившие в фидбэке «Есть вопросы» (confused)
-           за период. Секция (вместе с заголовком) НЕ показывается, если таких нет;
-           тап по карточке открывает окно сообщения ученику (ПРОМТ №163). -->
+           за период. Секция (вместе с заголовком) НЕ показывается, если таких нет.
+           Тап по карточке → профиль ученика (E1: user_id на MasterReviewItem);
+           кнопка сообщения — @click.stop, шлёт сообщение, не навигируя (ПРОМТ №229). -->
       <section v-if="attentionItems.length > 0" class="analytics__section">
         <h2 class="velo-section-title">Требуют внимания</h2>
-        <button
+        <div
           v-for="(item, i) in attentionItems"
           :key="i"
-          type="button"
           class="analytics__attention"
-          @click="openMessage(item.reviewer_name)"
+          role="button"
+          tabindex="0"
+          @click="goStudent(item)"
+          @keydown.enter.space.prevent="goStudent(item)"
         >
           <span class="analytics__attention-ident">
             <component
@@ -93,7 +96,14 @@
             <div class="analytics__attention-pr">{{ item.practice_title }}</div>
             <div v-if="item.comment" class="analytics__attention-quote">«{{ item.comment }}»</div>
           </div>
-        </button>
+          <button
+            class="analytics__attention-msg"
+            aria-label="Написать сообщение"
+            @click.stop="openMessage(item.reviewer_name)"
+          >
+            <IconMessages :size="22" />
+          </button>
+        </div>
       </section>
 
       <!-- Прошедшие практики -->
@@ -237,7 +247,7 @@ import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
-import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
+import { IconRatingFire, IconRatingGood, IconRatingConfused, IconMessages } from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
@@ -402,7 +412,18 @@ const attentionItems = computed((): MasterReviewItem[] => {
   )
 })
 
-// Tap a «Требуют внимания» card → open the (stub, E4) send-message modal by name.
+// E1 (ПРОМТ №229): tap an attention card → the reviewer's student profile
+// (user_id now on MasterReviewItem). Mirrors PracticeReviewsView.goStudent.
+function goStudent(item: MasterReviewItem): void {
+  router.push({
+    name: 'master-student-profile',
+    params: { id: item.user_id },
+    query: { name: item.reviewer_name },
+  })
+}
+
+// The message button (@click.stop) → open the (stub, E4) send-message modal by
+// name, as a distinct action that does not trigger the card's profile-nav.
 const msgOpen = ref(false)
 const msgName = ref('')
 function openMessage(name: string): void {
@@ -601,6 +622,27 @@ onMounted(async () => {
   font-size: var(--text-sm);
   color: var(--velo-text-secondary);
   font-style: italic;
+}
+
+/* Message button — distinct action (@click.stop), does not navigate to the
+   profile. Same DS shape as MasterSummaryView's «Требуют внимания» msg button. */
+.analytics__attention-msg {
+  width: var(--velo-size-46);
+  height: var(--velo-size-46);
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--velo-primary);
+  color: var(--velo-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.analytics__attention-msg:active {
+  opacity: 0.85;
 }
 
 /* ===== Empty card ===== */
