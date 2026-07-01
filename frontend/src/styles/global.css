@@ -173,6 +173,19 @@ html.is-keyboard-open #app::before {
   transform: none;
 }
 
+/* SP-3 (focus-driven early freeze, ПРОМТ №242): ALSO freeze the photo the instant a
+   text field is focused — BEFORE the keyboard's open-animation shrinks the viewport
+   past the 150px threshold that toggles is-keyboard-open — so #app::before never
+   slides during that window (the "dance", worst on tall forms like Support). Composes
+   with the is-keyboard-open rule above: either class ⇒ transform:none, they don't
+   fight. ONLY the bg-freeze engages on focus; the max-height cap + mask-drop stay on
+   the 150px is-keyboard-open threshold, so there is no premature layout reflow. AT
+   REST (no class) this is inert. `is-field-focused` is toggled by
+   useBackgroundStabilizer on focusin/focusout. */
+html.is-field-focused #app::before {
+  transform: none;
+}
+
 /* …and drop the scroll fog-mask while typing («убрать туман при вводе»). Only
    list screens carry `--fog` (forms/detail have none), so this affects just the
    fog screens. AT REST the class is ABSENT → the mask is unchanged. */

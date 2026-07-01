@@ -12,18 +12,20 @@ describe('resetKeyboardViewportState', () => {
     document.body.innerHTML = ''
   })
 
-  it('resets bg-shift to 0px, drops is-keyboard-open, clears --velo-vvh', () => {
+  it('resets bg-shift to 0px, drops is-keyboard-open/is-field-focused, clears --velo-vvh', () => {
     const app = document.createElement('div')
     app.id = 'app'
     app.style.setProperty('--velo-bg-shift', '120px')
     document.body.appendChild(app)
     document.documentElement.classList.add('is-keyboard-open')
+    document.documentElement.classList.add('is-field-focused')
     document.documentElement.style.setProperty('--velo-vvh', '540px')
 
     resetKeyboardViewportState()
 
     expect(app.style.getPropertyValue('--velo-bg-shift')).toBe('0px')
     expect(document.documentElement.classList.contains('is-keyboard-open')).toBe(false)
+    expect(document.documentElement.classList.contains('is-field-focused')).toBe(false)
     expect(document.documentElement.style.getPropertyValue('--velo-vvh')).toBe('')
   })
 

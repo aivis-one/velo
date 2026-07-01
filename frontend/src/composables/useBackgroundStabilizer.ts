@@ -31,10 +31,54 @@ import { resetKeyboardViewportState } from '@/utils/keyboardViewportState'
  * (the between-screens "fog lag", KB #4 item 6). If the keyboard is genuinely
  * still open, the next visualViewport event re-syncs truth on the following frame.
  */
+// Input types that do NOT open the soft keyboard (so focusing them must not freeze
+// the background). Everything else on <input> is text-entry (text/number/email/…).
+const NON_TEXT_INPUT_TYPES = [
+  'button',
+  'submit',
+  'reset',
+  'checkbox',
+  'radio',
+  'file',
+  'range',
+  'color',
+  'image',
+  'hidden',
+]
+
+// True for a target that opens the soft keyboard on focus (text input / textarea /
+// contenteditable) — the only focuses that should trigger the early bg-freeze.
+function isTextEntry(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.tagName === 'TEXTAREA') return true
+  if (target.isContentEditable) return true
+  if (target.tagName === 'INPUT') {
+    return !NON_TEXT_INPUT_TYPES.includes((target as HTMLInputElement).type)
+  }
+  return false
+}
+
 export function useBackgroundStabilizer(): void {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null
   let rafId = 0
   let stopAfterEach: (() => void) | null = null
+
+  // SP-3 — focus-driven early bg-freeze. The is-keyboard-open freeze (global.css)
+  // only trips after the viewport shrinks past KEYBOARD_VIEWPORT_THRESHOLD (150px),
+  // so the photo still slides during the keyboard's open-animation. Toggle a
+  // `is-field-focused` class the instant a text field is focused — BEFORE the
+  // keyboard animates — so `#app::before` is pinned for that whole window (see the
+  // global.css rule). Only the bg-freeze engages early; is-keyboard-open (max-height
+  // cap + mask-drop) stays on the 150px threshold, so there's no premature reflow.
+  function onFocusIn(e: FocusEvent): void {
+    if (isTextEntry(e.target)) document.documentElement.classList.add('is-field-focused')
+  }
+  function onFocusOut(): void {
+    // Blur clears it; moving between two fields drops it for a frame then re-adds on
+    // the next focusin — harmless (the keyboard stays open, so the is-keyboard-open
+    // freeze covers the gap, and at rest transform:none == translateY(0) anyway).
+    document.documentElement.classList.remove('is-field-focused')
+  }
 
   function setShift(): void {
     rafId = 0
@@ -57,6 +101,10 @@ export function useBackgroundStabilizer(): void {
   }
 
   onMounted(() => {
+    // Focus listeners run regardless of visualViewport support (harmless without it —
+    // no keyboard ⇒ no shift ⇒ transform:none == translateY(0)).
+    document.addEventListener('focusin', onFocusIn)
+    document.addEventListener('focusout', onFocusOut)
     if (!vv) return
     vv.addEventListener('resize', schedule)
     vv.addEventListener('scroll', schedule)
@@ -67,6 +115,8 @@ export function useBackgroundStabilizer(): void {
   })
 
   onBeforeUnmount(() => {
+    document.removeEventListener('focusin', onFocusIn)
+    document.removeEventListener('focusout', onFocusOut)
     if (rafId) {
       window.cancelAnimationFrame(rafId)
       rafId = 0
