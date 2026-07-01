@@ -66,12 +66,21 @@ const isFormRoute = computed(() => FORM_ROUTES.includes(route.name as string))
 // over the tabbar instead of a hard collision). Forms and the profile still
 // opt out (their footers/actions must stay crisp). The diary owns its own fog
 // via fill mode, so it is not listed here.
+// EXCEPTION (operator PE-2a, 2026-07-01): user-edit-profile opts IN for parity
+// with the master edit-profile variant (master-edit-profile is fogged via FOG-1) —
+// see the entry below.
 const FOG_ROUTES = [
   'user-dashboard',
   'user-calendar',
   'user-bookings',
   'user-master-public',
   'practice-detail',
+  // Edit-profile (operator PE-2a, 2026-07-01): parity with the fogged master
+  // variant — top+bottom dissolve under the floating header. «Сохранить» + the
+  // delete link are in-flow at the list bottom and rest above the bottom fade
+  // (like the profile hub), so they stay crisp; the keyboard-open case drops the
+  // mask (global.css) and the solid header (EditProfileView) hardens the top.
+  'user-edit-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 

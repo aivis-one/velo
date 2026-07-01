@@ -196,16 +196,27 @@ function onChangePhoto(): void {
   toast.info('Опция временно недоступна')
 }
 
-// «Фамилия» sits low enough that the soft keyboard covers it on focus — centre the
-// focused field in the (keyboard-shrunk) viewport. Tap a blank area to dismiss the
-// keyboard. Pattern ported from CreatePracticeView; iOS/Telegram-webview behaviour →
-// device-verified on TEST (no soft keyboard on desktop).
+// «Фамилия» / «О себе» sit low enough that the soft keyboard covers them on focus.
+// The soft keyboard animates in over several frames, so a fixed timeout races it and
+// the field can still land under the keyboard (operator PE-2c). Instead react to the
+// visual viewport: centre the field on focus AND on each subsequent visualViewport
+// resize while the keyboard settles, then detach on blur. This COORDINATES with the
+// e95e05a keyboard-aware system — it reads the same window.visualViewport signal but
+// writes none of its shared state (--velo-vvh / is-keyboard-open stay owned by
+// useBackgroundStabilizer). Desktop / no visualViewport → the original deferred scroll.
 function scrollFieldIntoView(e: FocusEvent): void {
   const el = e.target as HTMLElement | null
   if (!el) return
-  window.setTimeout(() => {
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, 300)
+  const bring = (): void => el.scrollIntoView({ block: 'center' })
+  const vv = window.visualViewport
+  if (!vv) {
+    window.setTimeout(bring, 300)
+    return
+  }
+  const onResize = (): void => bring()
+  vv.addEventListener('resize', onResize)
+  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
+  bring()
 }
 
 function dismissKeyboardOnBlank(e: MouseEvent): void {
