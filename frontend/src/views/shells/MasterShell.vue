@@ -99,16 +99,12 @@ function fogPx(cs: CSSStyleDeclaration, name: string, fallback: number): number 
   return Number.isFinite(n) ? n : fallback
 }
 
-// CTA-safe fog tuning for the fogged FORM screens that have an in-flow bottom
-// action button (finance, create / edit practice, new promocode). A softer top
-// dissolve + the full pd bottom via the shared --velo-fog-pd-* tokens, so the
-// submit CTA clears the bottom fade and stays crisp. Read once + memoized.
-const CTA_SAFE_FOG_ROUTES = [
-  'master-finance',
-  'master-practice-new',
-  'master-practice-edit',
-  'master-promocode-new',
-]
+// CTA-safe fog tuning: a softer top dissolve + the full pd bottom via the shared
+// --velo-fog-pd-* tokens, so an in-flow bottom action button clears the bottom
+// fade and stays crisp. Read once + memoized. Finance keeps this full pd bottom;
+// the create/edit/promocode forms moved to the COMPACT bottom (ПРОМТ №233 — the
+// full 140px read as a too-wide fog band; see COMPACT_BOTTOM_FOG_ROUTES).
+const CTA_SAFE_FOG_ROUTES = ['master-finance']
 let pdFogCache: {
   topGap: number
   fogTopHard: number
@@ -127,29 +123,40 @@ function ctaSafeFog() {
   return pdFogCache
 }
 
-// master-practice-detail (FOG-2, 2026-06-30): keep the soft pd TOP, but a COMPACT
-// bottom. The screen HIDES the tab bar (router meta), so the pd bottom (fade 50 +
-// hard 90 = 140px, sized for a tab bar) wasted screen; swap the bottom to the
-// compact list zones (--velo-fog-list-z3/z4) while the past-state in-flow CTA
-// stays crisp. Master-scoped — the user practice-detail (UserShell) is untouched.
-// Reuses existing tokens, no new token.
-let pdDetailFogCache: {
+// Compact-bottom fog: soft pd TOP + the COMPACT list bottom (--velo-fog-list-z3/z4)
+// for hideTabBar screens whose in-flow CTA sits just above a short bottom fade.
+//   • master-practice-detail (FOG-2, 2026-06-30): the pd bottom (fade 50 + hard 90
+//     = 140px, sized for a tab bar the screen hides) wasted screen; the past-state
+//     «Посещаемость» CTA still clears the 48px fade.
+//   • create / edit practice + new promocode (ПРОМТ №233): same 140px read as a
+//     "too-wide" bottom fog band; the in-flow «Создать …» CTA clears the shorter
+//     48px fade the same way. Master-scoped; finance keeps the full pd bottom.
+// Reuses existing tokens, no new token. Device-tunable via --velo-fog-list-z3/z4.
+let compactBottomFogCache: {
   topGap: number
   fogTopHard: number
   fogBotFade: number
   fogBotHard: number
 } | null = null
-function practiceDetailFog() {
-  if (pdDetailFogCache) return pdDetailFogCache
+function compactBottomFog() {
+  if (compactBottomFogCache) return compactBottomFogCache
   const cs = getComputedStyle(document.documentElement)
-  pdDetailFogCache = {
+  compactBottomFogCache = {
     topGap: fogPx(cs, '--velo-fog-pd-top-gap', 25),
     fogTopHard: fogPx(cs, '--velo-fog-pd-top-hard', 60),
     fogBotFade: fogPx(cs, '--velo-fog-list-z3', 48),
     fogBotHard: fogPx(cs, '--velo-fog-list-z4', 0),
   }
-  return pdDetailFogCache
+  return compactBottomFogCache
 }
+
+// Screens on the compact-bottom fog above (soft top, short bottom fade).
+const COMPACT_BOTTOM_FOG_ROUTES = [
+  'master-practice-detail',
+  'master-practice-new',
+  'master-practice-edit',
+  'master-promocode-new',
+]
 
 // master-dashboard (DB-1, 2026-06-30): the greeting was removed, leaving an
 // oversized top band; shrink the top clearance from the default --velo-fog-z1 (16)
@@ -164,7 +171,7 @@ function dashboardFog() {
 
 const fogTuning = computed(() => {
   const name = route.name as string
-  if (name === 'master-practice-detail') return practiceDetailFog()
+  if (COMPACT_BOTTOM_FOG_ROUTES.includes(name)) return compactBottomFog()
   if (name === 'master-dashboard') return dashboardFog()
   return CTA_SAFE_FOG_ROUTES.includes(name) ? ctaSafeFog() : {}
 })
