@@ -238,6 +238,14 @@
   --velo-fog-pd-top-hard: 60px;
   --velo-fog-pd-bot-fade: 50px;
   --velo-fog-pd-bot-hard: 90px;
+  /* master-profile top clearance (operator PE-1, 2026-07-01): the profile hub is
+     HEADERLESS (no VHeader → islandH=0), so MobileLayout applies the 88px
+     HEADER_FALLBACK + the default z1 gap ≈104px empty band above the first card.
+     This NEGATIVE top-gap pulls that clearance down (top = 88 + this); the fog
+     fade still lands the card crisp because its opaque boundary tracks the reduced
+     paddingTop. Scoped to master-profile via MasterShell.masterProfileFog(); tune
+     the gap here (−40 ⇒ ~48px). Does NOT touch MobileLayout / HEADER_FALLBACK. */
+  --velo-fog-mp-top-gap: -40px;
   /* Header-island clearance (G-1) is no longer a fixed token pair: MobileLayout
      MEASURES the floating island's height (ResizeObserver) and clears exactly
      that much, so any island (short greeting or tall title+weekstrip) gets the

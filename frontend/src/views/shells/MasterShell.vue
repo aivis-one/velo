@@ -169,10 +169,26 @@ function dashboardFog() {
   return dashFogCache
 }
 
+// master-profile (PE-1, 2026-07-01): the profile hub is HEADERLESS (no VHeader →
+// islandH=0), so MobileLayout applies the 88px HEADER_FALLBACK + the default z1 gap
+// ≈104px empty band above the first card. A NEGATIVE top-gap pulls that clearance
+// down (top = HEADER_FALLBACK + this); the fog fade still lands the card crisp
+// because its opaque boundary tracks the reduced paddingTop. Bottom fog unchanged
+// (the hub keeps its tab bar). Reuses the fogPx reader; value in --velo-fog-mp-top-gap.
+// Does NOT touch MobileLayout shared logic / the HEADER_FALLBACK constant.
+let mpFogCache: { topGap: number } | null = null
+function masterProfileFog() {
+  if (mpFogCache) return mpFogCache
+  const cs = getComputedStyle(document.documentElement)
+  mpFogCache = { topGap: fogPx(cs, '--velo-fog-mp-top-gap', -40) }
+  return mpFogCache
+}
+
 const fogTuning = computed(() => {
   const name = route.name as string
   if (COMPACT_BOTTOM_FOG_ROUTES.includes(name)) return compactBottomFog()
   if (name === 'master-dashboard') return dashboardFog()
+  if (name === 'master-profile') return masterProfileFog()
   return CTA_SAFE_FOG_ROUTES.includes(name) ? ctaSafeFog() : {}
 })
 
