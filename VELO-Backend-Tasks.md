@@ -384,6 +384,31 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   `PracticeResponse`).
 - **STATUS (2026-07-01): SELF-FIXED (batch №227) — see SELF-FIX LOG.** `zoom_link` added to `PracticeSummary` (from_attributes, no migration) + `generated.ts` + Zoom wired. No Zod action.
 
+### E19 — Master methods change-request workflow (NEW 2026-07-01, operator PE-3). **P2.**
+- **(a) Why.** On the master «Редактировать профиль» screen the operator wants the onboarding methods shown,
+  LOCKED, and changeable only via an admin-approved request. The operator's mockup (PE-3, image 2 — the
+  design spec) shows a **two-level taxonomy** «Направление» (direction, e.g. Йога) → «Вид» (kind, e.g.
+  Хатха) per method, each editable via a pencil → inline edit → auto-submitted change request → a
+  **«Ожидает подтверждения»** (pending) badge until an admin approves, with the note «Изменение направления
+  или вида практики требует подтверждения администратора. Запрос отправляется автоматически. Обработка
+  запроса обычно занимает не более 3 рабочих дней.»
+- **(b) Screens.** `EditProfileView` (master variant) methods block; an admin approve/reject surface.
+- **(c) Breaks.** The current data is a **flat `string[]`** — `MasterProfileResponse.methods` (fed from the
+  apply `AVAILABLE_METHODS`, e.g. "Йога","Медитация"). There is NO Направление→Вид (direction→kind) pairing,
+  NO method-change-request entity, NO pending/approval status. None of the mockup's structure or workflow
+  exists. **Frontend today ships the honest locked flat-chip display** (`EditProfileView` §methods:
+  read-only `VChip`s + «Изменить методы можно через поддержку»); it does NOT fake the taxonomy or the
+  pending state (no-fake rule).
+- **(d) Backend.** Needs: (1) a two-level methods model — each method = { direction, kind } instead of a
+  flat string; surface it on `MasterProfileResponse`. (2) A method-change-request endpoint (master submits a
+  proposed direction/kind edit). (3) An admin approval/rejection workflow. (4) A per-method **pending**
+  status the profile response exposes so the frontend can render «Ожидает подтверждения» until resolved.
+- **Request.** Design + build the taxonomy model + change-request + admin-approval + pending status; image 2
+  (PE-3) is the visual spec. Then the frontend upgrades the locked flat-chip display into the mockup's
+  editable-with-approval rows. Until then the honest locked display stands.
+- **STATUS (2026-07-01): OPEN.** (Frontend keeps the honest locked flat-methods display; full mockup gated on
+  this backend — no fake data built.)
+
 ---
 
 ## B) PER-ENDPOINT TABLE (with STATUS)
