@@ -61,7 +61,13 @@
         <VButton size="sm" variant="outline" @click="loadReviews">Повторить</VButton>
       </VEmptyState>
       <template v-else-if="reviews.length > 0">
-        <VCard v-for="(r, i) in reviews" :key="i" class="practice-reviews__review">
+        <VCard
+          v-for="(r, i) in reviews"
+          :key="i"
+          clickable
+          class="practice-reviews__review"
+          @click="goStudent(r)"
+        >
           <div class="practice-reviews__review-top">
             <span class="practice-reviews__review-ident">
               <component
@@ -101,6 +107,15 @@ const router = useRouter()
 const diaryStore = useDiaryStore()
 
 const practiceId = computed(() => route.params.id as string)
+
+// E1: tap a review → the reviewer's student profile (user_id now on ReviewItem).
+function goStudent(r: ReviewItem): void {
+  router.push({
+    name: 'master-student-profile',
+    params: { id: r.user_id },
+    query: { name: r.reviewer_name },
+  })
+}
 
 // Reactive insights cache (shared with AnalyticsView -- often already warm).
 const insightsCache = diaryStore.insightsCache

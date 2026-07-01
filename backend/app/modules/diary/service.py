@@ -1234,6 +1234,7 @@ async def list_practice_reviews(
 
     items = [
         {
+            "user_id": author.id,
             "reviewer_name": display_name(author.first_name, author.last_name),
             "avatar_url": author.avatar_url,
             "rating": rating_bucket(feedback.rating),

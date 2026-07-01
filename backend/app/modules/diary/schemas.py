@@ -352,6 +352,9 @@ class ReviewItem(BaseModel):
     rating icons it already renders for the anonymous distribution.
     """
 
+    # E1: reviewer's user id so the per-practice review card can navigate to
+    # their student profile. From the joined User (Feedback.user_id).
+    user_id: UUID
     reviewer_name: str
     avatar_url: str | None
     rating: Literal["fire", "good", "confused"]

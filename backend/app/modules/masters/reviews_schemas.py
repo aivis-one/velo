@@ -15,6 +15,7 @@
 # =============================================================================
 
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -22,6 +23,9 @@ from pydantic import BaseModel
 class MasterReviewItem(BaseModel):
     """One named review in the master-wide feed."""
 
+    # E1: reviewer's user id so the review card can navigate to their student
+    # profile (GET /masters/me/students/{user_id}). From the joined User.
+    user_id: UUID
     reviewer_name: str
     avatar_url: str | None
     rating: str  # "fire" | "good" | "confused"

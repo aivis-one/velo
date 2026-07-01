@@ -543,6 +543,7 @@ export interface MasterPublicResponse {
 
 /** One named review in the master-wide feed. */
 export interface MasterReviewItem {
+  user_id: string
   reviewer_name: string
   avatar_url: string | null
   rating: string
@@ -965,6 +966,7 @@ export interface ReturnMetricResponse {
 
 /** One named review (GET /api/v1/practices/{id}/reviews). The de-anonymised counterpart to RatingDistribution: where insights expose only numeric buckets, this carries the reviewer's name, avatar and comment text. `rating` is the stored 1..10 score mapped to the three UI buckets (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same rating icons it already renders for the anonymous distribution. */
 export interface ReviewItem {
+  user_id: string
   reviewer_name: string
   avatar_url: string | null
   rating: 'fire' | 'good' | 'confused'
