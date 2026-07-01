@@ -688,5 +688,9 @@ class PracticeSummary(BaseModel):
     is_free: bool
     price_cents: int
     currency: str
+    # E18: Zoom link so booking-embedded cards (user dashboard / my bookings)
+    # can open Zoom without a separate GET /practices/{id}. Practice ORM column
+    # (nullable) picked up via from_attributes -- same shape as PracticeResponse.
+    zoom_link: str | None
 
     model_config = {"from_attributes": True}

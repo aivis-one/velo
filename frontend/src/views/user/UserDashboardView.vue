@@ -188,6 +188,7 @@ import {
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
+import { platform } from '@/platform'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -344,19 +345,18 @@ const nearestPracticeTitle = computed((): string => {
 })
 
 /**
- * Zoom button — honest stub (DATA GAP, Zod backend task).
- *
- * The dashboard card sits on `BookingWithPracticeResponse.practice`, which is a
- * `PracticeSummary` — that type has NO `zoom_link` (generated.ts). We
- * deliberately do NOT fire a per-click `GET /practices/{id}` just to read the
- * link, so there is nothing to open here yet: show a truthful "link coming"
- * toast instead. Wire the real `platform.openLink(...)` once the backend adds
- * `zoom_link` to `PracticeSummary` (see VELO-Backend-Tasks.md). The in-session
- * live screen (PracticeLiveView) already opens the real link — it fetches the
- * full PracticeResponse.
+ * Zoom button — open the nearest booking's Zoom link via the platform
+ * abstraction (Telegram-SDK openLink vs window.open), guarded by an https check
+ * (mirrors PracticeLiveView). `zoom_link` is now on PracticeSummary (E18), so no
+ * per-click GET is needed. Empty/invalid link → truthful "link coming" toast.
  */
 function onZoomClick(): void {
-  toast.info('Ссылка появится ближе к началу')
+  const url = nearestBooking.value?.practice.zoom_link
+  if (url && url.startsWith('https://')) {
+    platform.openLink(url)
+  } else {
+    toast.info('Ссылка появится ближе к началу')
+  }
 }
 
 /**

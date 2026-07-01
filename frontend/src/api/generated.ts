@@ -828,6 +828,7 @@ export interface PracticeSummary {
   is_free: boolean
   price_cents: number
   currency: string
+  zoom_link: string | null
 }
 
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */
