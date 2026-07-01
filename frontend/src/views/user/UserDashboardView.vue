@@ -5,7 +5,9 @@
     - Greeting with user's first name
     - Check-in alert banner (amber) -- confirmed booking in check-in window
     - Feedback alert banner (teal)  -- attended booking in feedback window
-    - "Ближайшая практика" -- nearest confirmed booking card with Zoom + Check-in
+    - "Ближайшие практики" -- live-aware list: the active session (if any) pinned
+                              first, then up to 2 soonest upcoming (max 3), each
+                              with Zoom + Check-in
     - "Ваш прогресс"       -- attended count + hours, from GET /bookings/me/stats
     - "AI-саммари"         -- placeholder card with week/month toggle,
                               mood trend indicator and a "Подробнее" link
@@ -56,52 +58,57 @@
          NEAREST PRACTICE
          ================================================================ -->
     <section class="dashboard__section">
-      <h3 class="dashboard__section-title">Ближайшая практика</h3>
+      <h3 class="dashboard__section-title">Ближайшие практики</h3>
 
       <!-- Loading -->
-      <div v-if="bookingsStore.loading && !nearestBooking" class="dashboard__loader">
+      <div v-if="bookingsStore.loading && nearestBookings.length === 0" class="dashboard__loader">
         <VLoader />
       </div>
 
       <!-- Empty -->
-      <div v-else-if="!bookingsStore.loading && !nearestBooking" class="dashboard__empty">
+      <div v-else-if="nearestBookings.length === 0" class="dashboard__empty">
         <p class="dashboard__empty-text">Нет предстоящих практик</p>
         <VButton size="sm" variant="outline" @click="router.push({ name: 'user-calendar' })">
           Найти практику
         </VButton>
       </div>
 
-      <!-- Practice card (shared PracticeListCard) -->
-      <PracticeListCard
-        v-else-if="nearestBooking"
-        :practice="nearestBooking.practice"
-        :title="nearestPracticeTitle"
-        :when="nearestPracticeDate"
-        :when-time="nearestPracticeTime"
-        :duration="nearestPracticeDuration"
-        @click="openNearest"
-      >
-        <template #badge>
-          <VBadge v-if="nearestIsLive" variant="success">
-            <span class="dashboard__live-dot" /> В эфире
-          </VBadge>
-          <VBadge v-else-if="nearestIsFree" variant="blue"> Бесплатно </VBadge>
-          <VBadge v-else variant="blue"> <IconCheck :size="12" /> Оплачено </VBadge>
-        </template>
-      </PracticeListCard>
+      <!-- Live-aware list (TASK-2): the active session (if any) is pinned first,
+           then up to 2 soonest upcoming (max 3). Each card keeps its full markup
+           + per-card handlers (Zoom / check-in / live badge). -->
+      <template v-else>
+        <div v-for="b in nearestBookings" :key="b.id" class="dashboard__nearest-item">
+          <PracticeListCard
+            :practice="b.practice"
+            :title="practiceTitle(b)"
+            :when="practiceDate(b)"
+            :when-time="practiceTime(b)"
+            :duration="practiceDuration(b)"
+            @click="openBooking(b)"
+          >
+            <template #badge>
+              <VBadge v-if="isLive(b)" variant="success">
+                <span class="dashboard__live-dot" /> В эфире
+              </VBadge>
+              <VBadge v-else-if="isFree(b)" variant="blue"> Бесплатно </VBadge>
+              <VBadge v-else variant="blue"> <IconCheck :size="12" /> Оплачено </VBadge>
+            </template>
+          </PracticeListCard>
 
-      <!-- Action buttons (outside the card, per Figma) -->
-      <div v-if="nearestBooking" class="dashboard__practice-actions">
-        <VButton variant="secondary" block @click="onZoomClick"> Zoom </VButton>
-        <VButton
-          variant="primary"
-          block
-          :disabled="nearestCheckedIn"
-          @click="goToCheckin(nearestBooking.practice_id)"
-        >
-          Check-in
-        </VButton>
-      </div>
+          <!-- Action buttons (outside the card, per Figma) -->
+          <div class="dashboard__practice-actions">
+            <VButton variant="secondary" block @click="onZoomClick(b)"> Zoom </VButton>
+            <VButton
+              variant="primary"
+              block
+              :disabled="b.has_checkin"
+              @click="goToCheckin(b.practice_id)"
+            >
+              Check-in
+            </VButton>
+          </div>
+        </div>
+      </template>
     </section>
 
     <!-- ================================================================
@@ -191,6 +198,7 @@ import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
 import { platform } from '@/platform'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
+import { selectNearestBookings } from '@/utils/nearestBookings'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse, UserStatsResponse } from '@/api/types'
@@ -265,73 +273,39 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
 // =========================================================================
 
 /**
- * Nearest booking the user can still act on.
+ * Nearest bookings the user can still act on (live-aware list, TASK-2).
  *
- * Rule: a booking is shown while its practice has NOT ended yet -- i.e. the
- * booking is still confirmed, the practice is not completed/cancelled, and now
- * is before its END (start + duration_minutes). This keeps the card visible to
- * a booked user during the live session (Zoom / Check-in) and hides it the
- * moment the practice is over. (This is "my session" -- distinct from the
- * bookable calendar feed, which hides a practice once it STARTS.)
+ * Candidate rule (unchanged): a booking is a candidate while its practice has
+ * NOT ended yet -- still confirmed, practice not completed/cancelled, and now is
+ * before its END (start + duration_minutes). This keeps the card visible to a
+ * booked user during the live session (Zoom / Check-in) and hides it the moment
+ * the practice is over. (This is "my session" -- distinct from the bookable
+ * calendar feed, which hides a practice once it STARTS.)
  *
- * Selection among the candidates: a practice that is happening RIGHT NOW
- * (already started, not yet over) wins over future ones -- that's where Zoom
- * / Check-in actions matter. Among in-progress ones, the latest start; among
- * future ones, the soonest start.
+ * Selection (operator Г): pin the active session (the single latest-started
+ * in-progress booking) FIRST -- that's where Zoom / Check-in matter -- then the
+ * 2 soonest upcoming, so a genuinely-imminent booking is never hidden behind a
+ * live one. Max 3 cards; nothing live -> just the 2 soonest upcoming. The pure
+ * selection lives in utils/nearestBookings (unit-tested); reacts to `now` so it
+ * re-ranks on the 60s clock tick.
  */
-const nearestBooking = computed((): BookingWithPracticeResponse | null => {
-  const current = now.value
-
-  const candidates = bookingsStore.bookings.filter((b) => {
-    if (b.status !== 'confirmed') return false
-    if (b.practice.status === 'completed' || b.practice.status === 'cancelled') {
-      return false
-    }
-    // Visible until it ENDS (start + duration): present before & during the
-    // session, gone the moment it is over. Epoch ms -> timezone-independent.
-    const start = new Date(b.practice.scheduled_at).getTime()
-    const endMs = start + b.practice.duration_minutes * 60 * 1000
-    return current < endMs
-  })
-
-  if (candidates.length === 0) return null
-
-  const startMs = (b: BookingWithPracticeResponse) => new Date(b.practice.scheduled_at).getTime()
-
-  // In-progress = already started (start <= now) and not past the ceiling.
-  const inProgress = candidates.filter((b) => startMs(b) <= current)
-  if (inProgress.length > 0) {
-    // The one that started most recently is the active session.
-    // `?? null` satisfies noUncheckedIndexedAccess ([0] is typed T|undefined);
-    // length > 0 guarantees an element, so this never actually returns null here.
-    return inProgress.sort((a, b) => startMs(b) - startMs(a))[0] ?? null
-  }
-
-  // Otherwise the soonest upcoming one (candidates is non-empty, checked above).
-  return candidates.sort((a, b) => startMs(a) - startMs(b))[0] ?? null
-})
+const nearestBookings = computed((): BookingWithPracticeResponse[] =>
+  selectNearestBookings(bookingsStore.bookings, now.value),
+)
 
 /**
- * True when the nearest practice is happening right now — decided by CLIENT TIME
+ * True when a card's practice is happening right now — decided by CLIENT TIME
  * (start ≤ now < end) via the shared isLiveNow, NOT by the master's manual
  * status='live' flip. Keeps the «В эфире» badge in sync with «Мои бронирования»
  * and makes it appear/disappear exactly on schedule, no backend/cron dependency.
+ *
+ * Per-card (TASK-2): «Бесплатно»/«Оплачено» use the shared isFree() directly in
+ * the template, and the Check-in button disables on the booking's own
+ * has_checkin (one check-in per booking) -- mirrors the banner.
  */
-const nearestIsLive = computed((): boolean =>
-  nearestBooking.value ? isLiveNow(nearestBooking.value, now.value) : false,
-)
-
-/** True when the nearest practice is free (badge «Бесплатно» vs «Оплачено»). */
-const nearestIsFree = computed((): boolean =>
-  nearestBooking.value ? isFree(nearestBooking.value) : false,
-)
-
-/**
- * True when the nearest booking already has a check-in. Used to disable the
- * "Check-in" action button (one check-in per booking) -- mirrors the banner,
- * which hides itself on has_checkin.
- */
-const nearestCheckedIn = computed((): boolean => nearestBooking.value?.has_checkin ?? false)
+function isLive(b: BookingWithPracticeResponse): boolean {
+  return isLiveNow(b, now.value)
+}
 
 /**
  * Practice title without a trailing " (эфир)" marker. Some seeded / manually
@@ -339,10 +313,9 @@ const nearestCheckedIn = computed((): boolean => nearestBooking.value?.has_check
  * card already shows a "В эфире" badge for live practices, the suffix in the
  * title is redundant — strip it on the client.
  */
-const nearestPracticeTitle = computed((): string => {
-  const title = nearestBooking.value?.practice.title ?? ''
-  return title.replace(/\s*\(эфир\)\s*$/, '')
-})
+function practiceTitle(b: BookingWithPracticeResponse): string {
+  return (b.practice.title ?? '').replace(/\s*\(эфир\)\s*$/, '')
+}
 
 /**
  * Zoom button — open the nearest booking's Zoom link via the platform
@@ -350,8 +323,8 @@ const nearestPracticeTitle = computed((): string => {
  * (mirrors PracticeLiveView). `zoom_link` is now on PracticeSummary (E18), so no
  * per-click GET is needed. Empty/invalid link → truthful "link coming" toast.
  */
-function onZoomClick(): void {
-  const url = nearestBooking.value?.practice.zoom_link
+function onZoomClick(b: BookingWithPracticeResponse): void {
+  const url = b.practice.zoom_link
   if (url && url.startsWith('https://')) {
     platform.openLink(url)
   } else {
@@ -360,22 +333,21 @@ function onZoomClick(): void {
 }
 
 /**
- * Open the nearest practice. Routing uses the BACKEND status='live' (an actually
+ * Open a booking's practice. Routing uses the BACKEND status='live' (an actually
  * running session the master started → Practice-Live / Zoom entry); otherwise
  * the practice detail. (The «В эфире» BADGE is client-time, so it can show while
  * routing still points to detail until the master starts the live session.)
  */
-function openNearest(): void {
-  if (!nearestBooking.value) return
-  if (nearestBooking.value.practice.status === 'live') {
+function openBooking(b: BookingWithPracticeResponse): void {
+  if (b.practice.status === 'live') {
     router.push({
       name: 'practice-live',
-      params: { practiceId: nearestBooking.value.practice_id },
+      params: { practiceId: b.practice_id },
     })
   } else {
     router.push({
       name: 'practice-detail',
-      params: { id: nearestBooking.value.practice_id },
+      params: { id: b.practice_id },
     })
   }
 }
@@ -391,19 +363,15 @@ const viewerTz = useViewerTimezone()
 // Dashboard "Ближайшая практика": show BOTH the day (relative «Сегодня»/«Завтра»
 // or the date «10 июня») AND the time, stacked as two lines in the card — so the
 // time is never lost on a future-day card (operator 2026-06-09).
-const nearestPracticeDate = computed((): string => {
-  if (!nearestBooking.value) return ''
-  return formatDateShort(nearestBooking.value.practice.scheduled_at, viewerTz.value)
-})
-const nearestPracticeTime = computed((): string => {
-  if (!nearestBooking.value) return ''
-  return formatTime(nearestBooking.value.practice.scheduled_at, viewerTz.value)
-})
-
-const nearestPracticeDuration = computed((): string => {
-  if (!nearestBooking.value) return ''
-  return formatDuration(nearestBooking.value.practice.duration_minutes)
-})
+function practiceDate(b: BookingWithPracticeResponse): string {
+  return formatDateShort(b.practice.scheduled_at, viewerTz.value)
+}
+function practiceTime(b: BookingWithPracticeResponse): string {
+  return formatTime(b.practice.scheduled_at, viewerTz.value)
+}
+function practiceDuration(b: BookingWithPracticeResponse): string {
+  return formatDuration(b.practice.duration_minutes)
+}
 
 // =========================================================================
 // Progress stats
@@ -493,6 +461,12 @@ onUnmounted(() => {
   border-radius: var(--radius-full);
   background: var(--velo-teal-600);
   flex-shrink: 0;
+}
+
+/* Live-aware list (TASK-2): separate each nearest card (+ its actions) from the
+   next. Card→actions spacing stays on .dashboard__practice-actions margin-top. */
+.dashboard__nearest-item:not(:last-child) {
+  margin-bottom: var(--space-4);
 }
 
 .dashboard__practice-actions {
