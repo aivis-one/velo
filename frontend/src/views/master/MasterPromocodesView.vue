@@ -1,9 +1,11 @@
 <!--
-  VELO Frontend -- MasterPromocodesView (promocodes list, 2026-06-13)
+  VELO Frontend -- MasterPromocodesView (promocodes list)
 
-  Route /master/promocodes, built to the «4 Promo codes» design. STUB: no
-  promocodes backend → hardcoded sample list; copy / delete / add toast
-  «недоступно» (add navigates to the equally-stub create form). -> Zod.
+  Route /master/promocodes, «4 Promo codes» design. E10 (2026-07-01): wired to
+  the delivered backend — GET /masters/me/promos (list) + PATCH .../deactivate.
+  Shows the master's ACTIVE promo codes; «Удалить» soft-deactivates (backend has
+  no hard delete), which drops it from the active list. Create still routes to
+  the create form; copy writes to the clipboard.
 -->
 
 <template>
@@ -16,23 +18,46 @@
       </template>
     </VHeader>
 
-    <div class="promo__list">
-      <div v-for="p in promos" :key="p.id" class="promo__item">
+    <!-- Loading -->
+    <div v-if="loading && promos.length === 0" class="promo__loader">
+      <VLoader size="lg" />
+    </div>
+
+    <!-- Error -->
+    <VEmptyState v-else-if="error" icon="warning" title="Не удалось загрузить промокоды">
+      <VButton size="sm" variant="outline" @click="load">Повторить</VButton>
+    </VEmptyState>
+
+    <!-- Empty -->
+    <VEmptyState
+      v-else-if="activePromos.length === 0"
+      icon="list"
+      title="Промокодов пока нет"
+      description="Создайте первый промокод для участников"
+    >
+      <VButton size="sm" variant="outline" @click="onNew">Создать</VButton>
+    </VEmptyState>
+
+    <!-- List -->
+    <div v-else class="promo__list">
+      <div v-for="p in activePromos" :key="p.id" class="promo__item">
         <div class="promo__card">
           <span class="promo__icon"><IconPromo :size="40" /></span>
           <span class="promo__divider" aria-hidden="true"></span>
           <div class="promo__info">
             <div class="promo__code">{{ p.code }}</div>
             <div class="promo__meta">
-              <div>Скидка: {{ p.discount }}</div>
-              <div>Использовано: {{ p.used }}</div>
-              <div>Действует до: {{ p.until }}</div>
+              <div>Скидка: {{ p.discount_percent }}%</div>
+              <div>Использовано: {{ usedLabel(p) }}</div>
+              <div>Действует до: {{ untilLabel(p) }}</div>
             </div>
           </div>
         </div>
         <div class="promo__actions">
           <VButton variant="primary" @click="onCopy(p.code)">Копировать</VButton>
-          <VButton variant="danger" @click="onDelete">Удалить</VButton>
+          <VButton variant="danger" :loading="deactivatingId === p.id" @click="onDelete(p)">
+            Удалить
+          </VButton>
         </div>
       </div>
     </div>
@@ -48,21 +73,48 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton } from '@/components/ui'
+import { VButton, VLoader, VEmptyState } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconPlus, IconPromo, IconHint } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
+import { getMyPromos, deactivatePromo } from '@/api/promos'
+import { formatShortDate } from '@/utils/format'
+import type { PromoResponse } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
 
-// STUB sample (no promocodes backend) -> Zod.
-const promos = [
-  { id: '1', code: 'ALEX-VIP', discount: '100%', used: '7 из 10', until: '28.02.2026' },
-  { id: '2', code: 'ДРУЗЬЯ-50', discount: '50%', used: '3 из ∞', until: '31.12.2026' },
-]
+// E10: real promo list. Show ACTIVE codes; deactivating one drops it from the
+// active list (backend soft-deactivate — no hard delete).
+const promos = ref<PromoResponse[]>([])
+const loading = ref(false)
+const error = ref(false)
+const deactivatingId = ref<string | null>(null)
+
+const activePromos = computed((): PromoResponse[] => promos.value.filter((p) => p.is_active))
+
+async function load(): Promise<void> {
+  loading.value = true
+  error.value = false
+  try {
+    const res = await getMyPromos()
+    promos.value = res.items
+  } catch {
+    error.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+function usedLabel(p: PromoResponse): string {
+  return `${p.used_count} из ${p.max_uses ?? '∞'}`
+}
+function untilLabel(p: PromoResponse): string {
+  return p.valid_until ? formatShortDate(p.valid_until) : 'бессрочно'
+}
 
 function onNew(): void {
   router.push({ name: 'master-promocode-new' })
@@ -76,10 +128,22 @@ async function onCopy(code: string): Promise<void> {
     toast.error('Не удалось скопировать')
   }
 }
-// Delete needs a backend (no promocodes API yet) — stub. -> Zod.
-function onDelete(): void {
-  toast.info('Удаление промокодов появится позже')
+// Soft-deactivate (no hard-delete endpoint): drops the code from the active list.
+async function onDelete(p: PromoResponse): Promise<void> {
+  if (deactivatingId.value) return
+  deactivatingId.value = p.id
+  try {
+    await deactivatePromo(p.id)
+    p.is_active = false
+    toast.success('Промокод деактивирован')
+  } catch {
+    toast.error('Не удалось деактивировать промокод')
+  } finally {
+    deactivatingId.value = null
+  }
 }
+
+onMounted(load)
 </script>
 
 <style scoped>
@@ -99,6 +163,12 @@ function onDelete(): void {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.promo__loader {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-8) 0;
 }
 
 .promo__list {

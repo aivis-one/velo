@@ -84,6 +84,19 @@ missing just because a less-seeded screen looks thin.
 
 ---
 
+## SELF-FIX LOG — batch №227 (2026-07-01, operator-authorized backend exception)
+
+Minor gaps closed by us (backend projection + manual `generated.ts` + frontend wire), NOT Zod:
+- **E18** `zoom_link` on `PracticeSummary` — from_attributes projection (no migration); `generated.ts` + Zoom wired (user dashboard / live / master dashboard).
+- **E14** `rejection_reason` on `MasterProfileResponse` — projected from `data.account.rejection_reason` in the router; `MasterPendingView` shows the real reason.
+- **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter remainder still open — see E1; AnalyticsView attention card left on its existing message action pending operator UX call.)*
+- **E10** GET `list_my_promos` + PATCH deactivate were already delivered by Zod — frontend now wired (`api/promos.ts` + `MasterPromocodesView`, active-list + soft-deactivate); no hard DELETE added.
+
+TARGETED Zod one-liners (small, but in Zod-hot files — Zod to slot; we did NOT touch these):
+- **E12** add a grouped-COUNT `checkin_count` to `PracticeResponse`/`PracticeSummary`, batched like `_series_meta_for_practices` (practices/service.py:372). Zod-hot: practices/service.py (E3).
+- **E15** mirror `onboarding_completed` → `master_onboarding_completed` on `UserResponse` + accept on PATCH-self (users/, credentials JSONB, service.py:45 frozenset). Zod-hot: users/ (E8).
+- **E3a** add `Practice.status != PracticeStatus.DELETED.value` to the occurrence-count filter (practices/service.py:427) — soft-deleted occurrences currently inflate `total_sessions`. Zod-hot: E3 engine.
+
 ## A) EPICS
 
 Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend state**, plus a
@@ -254,8 +267,10 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **(c) Breaks.** Sample data + stubbed taps (frontend wrappers unwritten).
 - **(d) Backend.** POST promos + `PaginatedPromosResponse` + `promo_code` on booking exist.
 - **Request.** ADD `GET /masters/me/promos` (list) + `DELETE /masters/me/promos/{id}`.
-- **STATUS (2026-06-24): PARTIAL.** DELIVERED: `POST /masters/me/promos` (gen:320), `PromoResponse`
-  (gen:809), `PaginatedPromosResponse` (gen:639). **OPEN:** no `GET /masters/me/promos` list + no DELETE.
+- **STATUS (2026-07-01): DELIVERED + FRONTEND-WIRED (batch №227).** `POST` + **`GET /masters/me/promos`**
+  (list_my_promos, router.py:72) + **`PATCH /masters/me/promos/{id}/deactivate`** (router.py:88) all exist;
+  frontend wired (`api/promos.ts`, `MasterPromocodesView` active-list + soft-deactivate). A hard `DELETE`
+  was NOT added (PATCH-deactivate covers it) — reopen only if a real hard-delete need surfaces.
 
 ### E11 — One-offs.
 - NEW master-side `DELETE` of a participant's booking (refund + notify) — `cancelBooking` is self-only. **P1.**
@@ -312,7 +327,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **EXTEND (slice-2 2026-06-27):** the redesigned «Отказ» screen renders the specific reason + keeps a
   «Подать новую заявку» path (operator fork-4=Б). Confirm a rejected applicant's role/status keeps the
   rejected screen REACHABLE and the re-apply path allowed after rejection.
-- **STATUS (2026-06-24): OPEN.**
+- **STATUS (2026-07-01): SELF-FIXED (batch №227) — see SELF-FIX LOG.** `rejection_reason` projected onto
+  `MasterProfileResponse` from `data.account.rejection_reason`; `MasterPendingView` renders the real reason.
 
 ### E15 — Master-onboarding "completed" flag (NEW 2026-06-26). **P2.**
 - **(a) Why.** A freshly-verified master currently lands straight on `MasterDashboardView` with no intro.
@@ -366,7 +382,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **Request.** ADD `zoom_link` to `PracticeSummary` so booking cards can open Zoom without a separate GET;
   then wire `platform.openLink(...)` on the user dashboard (master screens already open it via the full
   `PracticeResponse`).
-- **STATUS (2026-07-01): OPEN.** (Frontend honest-stub in place under build-full-design.)
+- **STATUS (2026-07-01): SELF-FIXED (batch №227) — see SELF-FIX LOG.** `zoom_link` added to `PracticeSummary` (from_attributes, no migration) + `generated.ts` + Zoom wired. No Zod action.
 
 ---
 
