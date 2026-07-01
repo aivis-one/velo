@@ -144,32 +144,30 @@
               <div class="master-dashboard__practice-info">
                 <div class="master-dashboard__practice-title">{{ practice.title }}</div>
                 <div class="master-dashboard__practice-sub">{{ practiceWhen(practice) }}</div>
-                <div class="master-dashboard__practice-meta">
-                  <span class="master-dashboard__meta-item">
-                    <IconGroup :size="15" />
-                    {{
-                      formatParticipants(practice.current_participants, practice.max_participants)
-                    }}
-                  </span>
-                  <span class="master-dashboard__meta-item">
-                    <IconCheckin :size="15" /> {{ checkinLabel(practice, insightsCache) }}
-                  </span>
-                  <span
-                    v-if="recurrenceLabel(practice)"
-                    class="master-dashboard__meta-item"
-                  >
-                    <IconRepeat :size="15" /> {{ recurrenceLabel(practice) }}
-                  </span>
-                </div>
-                <div
-                  v-if="remainingSessionsLabel(practice)"
-                  class="master-dashboard__practice-meta"
-                >
-                  <span class="master-dashboard__meta-item">
-                    <IconHourglass :size="15" /> {{ remainingSessionsLabel(practice) }}
-                  </span>
-                </div>
               </div>
+            </div>
+            <!-- Meta rows span the full card width BELOW the head (parity with the
+                 «Практики › Предстоящие» reference card), so the weekday list has
+                 room and never wraps mid-word; icons match the list at :16 (DB-5). -->
+            <div class="master-dashboard__practice-meta">
+              <span class="master-dashboard__meta-item">
+                <IconGroup :size="16" />
+                {{ formatParticipants(practice.current_participants, practice.max_participants) }}
+              </span>
+              <span class="master-dashboard__meta-item">
+                <IconCheckin :size="16" /> {{ checkinLabel(practice, insightsCache) }}
+              </span>
+              <span v-if="recurrenceLabel(practice)" class="master-dashboard__meta-item">
+                <IconRepeat :size="16" /> {{ recurrenceLabel(practice) }}
+              </span>
+            </div>
+            <div
+              v-if="remainingSessionsLabel(practice)"
+              class="master-dashboard__practice-meta master-dashboard__practice-meta--row2"
+            >
+              <span class="master-dashboard__meta-item">
+                <IconHourglass :size="16" /> {{ remainingSessionsLabel(practice) }}
+              </span>
             </div>
           </article>
           <!-- Like the user dashboard: left = Zoom (1-click launch; stub toast
@@ -441,7 +439,10 @@ onUnmounted(() => {
   padding: 0 0 var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* Vertical rhythm tightened one step (16→14) after the greeting was removed —
+     the lone bell band left the top reading sparse (DB-3, operator 2026-07-01).
+     Device-tunable. */
+  gap: var(--space-3);
 }
 
 /* -- Skeleton -- */
@@ -557,6 +558,8 @@ onUnmounted(() => {
 }
 
 .master-dashboard__practice-card {
+  display: flex;
+  flex-direction: column;
   background: var(--velo-bg-card-solid);
   border: 1px solid var(--velo-border-card);
   border-radius: var(--radius-md);
@@ -608,20 +611,32 @@ onUnmounted(() => {
   letter-spacing: var(--velo-card-letter-spacing-meta);
 }
 
+/* Full-width meta row below the head (parity with the «Практики» reference
+   card): flex-wrap so items reflow as whole chips, generous column gap so the
+   weekday list fits without splitting mid-word (DB-5). */
 .master-dashboard__practice-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--velo-card-meta-row-gap);
+  gap: var(--space-2) var(--space-4);
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
   letter-spacing: var(--velo-card-letter-spacing-meta);
-  margin-top: var(--velo-gap-2);
+  margin-top: var(--space-3);
+}
+
+/* Second meta row («Осталось N из M занятий») — tighter under the first and
+   centered, mirroring the reference card's row-2. */
+.master-dashboard__practice-meta--row2 {
+  margin-top: var(--space-2);
+  justify-content: center;
 }
 
 .master-dashboard__meta-item {
   display: inline-flex;
   align-items: center;
   gap: var(--velo-card-gap-icon-title);
+  white-space: nowrap;
 }
 
 .master-dashboard__practice-actions {
