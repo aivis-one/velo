@@ -10,6 +10,7 @@ import {
   formatTime,
   formatParticipants,
   isFull,
+  localSortKey,
 } from '@/utils/format'
 
 // -----------------------------------------------------------------------
@@ -140,6 +141,33 @@ describe('formatTime', () => {
     // UTC 07:00 -> Europe/Moscow is UTC+3 -> 10:00
     const result = formatTime('2026-02-28T07:00:00Z', 'Europe/Moscow')
     expect(result).toBe('10:00')
+  })
+})
+
+// -----------------------------------------------------------------------
+// localSortKey (CR-1: list order must match the displayed local time)
+// -----------------------------------------------------------------------
+describe('localSortKey', () => {
+  it('encodes the timezone-local wall-clock as YYYYMMDDHHmmss', () => {
+    // 07:00 UTC in Europe/Moscow (UTC+3) reads 10:00 local.
+    expect(localSortKey('2026-07-01T07:00:00Z', 'Europe/Moscow')).toBe(20260701100000)
+  })
+
+  it('orders by LOCAL time even when the absolute UTC order is reversed', () => {
+    // A: 10:00 local in a UTC+0 zone  -> instant 10:00 UTC
+    // B: 12:00 local in a UTC+5 zone  -> instant 07:00 UTC
+    // Absolute epoch would put B (07:00 UTC) before A (10:00 UTC) — i.e. a 12:00
+    // card above a 10:00 card. localSortKey must keep A (10:00) before B (12:00).
+    const a = { at: '2026-07-01T10:00:00Z', tz: 'Atlantic/Reykjavik' } // UTC+0, no DST
+    const b = { at: '2026-07-01T07:00:00Z', tz: 'Asia/Yekaterinburg' } // UTC+5, no DST
+
+    // Sanity: the naive absolute-epoch order really is reversed vs the local order.
+    expect(new Date(b.at).getTime()).toBeLessThan(new Date(a.at).getTime())
+
+    // localSortKey restores the visible order: 10:00 (A) sorts before 12:00 (B).
+    expect(localSortKey(a.at, a.tz)).toBeLessThan(localSortKey(b.at, b.tz))
+    expect(localSortKey(a.at, a.tz)).toBe(20260701100000)
+    expect(localSortKey(b.at, b.tz)).toBe(20260701120000)
   })
 })
 

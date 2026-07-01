@@ -178,7 +178,7 @@ import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
-import { formatDateShort, formatShortDate, formatTime } from '@/utils/format'
+import { formatDateShort, formatShortDate, formatTime, localSortKey } from '@/utils/format'
 import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -194,19 +194,22 @@ const insightsCache = diaryStore.insightsCache
 // (otherwise a fresh mount always reset to «Предстоящие»).
 const activeTab = ref<'upcoming' | 'past'>(route.query.tab === 'past' ? 'past' : 'upcoming')
 
-// -- Upcoming: draft + scheduled + live, ascending --
+// -- Upcoming: draft + scheduled + live, ascending. Ordered by LOCAL wall-clock
+//    (each card renders in its own p.timezone) so the on-screen order matches the
+//    shown times across differing timezones (CR-1). --
 const upcomingPractices = computed((): PracticeResponse[] =>
   masterStore.practices
     .filter((p) => p.status === 'draft' || p.status === 'scheduled' || p.status === 'live')
-    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()),
+    .sort((a, b) => localSortKey(a.scheduled_at, a.timezone) - localSortKey(b.scheduled_at, b.timezone)),
 )
 
 // -- Past: completed ONLY, descending (newest first). Cancelled practices did
-//    not happen, so they appear in NEITHER tab (operator 2026-06-25). --
+//    not happen, so they appear in NEITHER tab (operator 2026-06-25). Same
+//    LOCAL-wall-clock ordering as upcoming (CR-1). --
 const pastPractices = computed((): PracticeResponse[] =>
   masterStore.practices
     .filter((p) => p.status === 'completed')
-    .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()),
+    .sort((a, b) => localSortKey(b.scheduled_at, b.timezone) - localSortKey(a.scheduled_at, a.timezone)),
 )
 
 const tabOptions = [

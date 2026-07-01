@@ -227,7 +227,7 @@ import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
 import { useToast } from '@/composables/useToast'
-import { formatDateShort, formatTime, formatDuration, formatParticipants } from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration, formatParticipants, localSortKey } from '@/utils/format'
 import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
@@ -318,7 +318,9 @@ const nearestPractices = computed((): PracticeResponse[] =>
     .filter(
       (p) => (p.status === 'scheduled' || p.status === 'live') && !practiceHasEnded(p, now.value),
     )
-    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+    // LOCAL wall-clock order (each card renders in its own p.timezone), so the
+    // top-2 slice matches the times shown across differing timezones (CR-1/CR-2).
+    .sort((a, b) => localSortKey(a.scheduled_at, a.timezone) - localSortKey(b.scheduled_at, b.timezone))
     .slice(0, 2),
 )
 
