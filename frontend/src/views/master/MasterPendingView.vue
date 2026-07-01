@@ -122,11 +122,15 @@ const profileStatus = computed(() => {
   return masterStore.profile?.status ?? 'pending'
 })
 
-// Generic reason until rejection_reason is exposed on MasterProfileResponse
-// (Zod E14). The admin captures a reason on reject, but it is not surfaced here.
+// Real rejection reason from the profile (E14: surfaced on MasterProfileResponse
+// from data.account.rejection_reason). Falls back to a generic line when the
+// admin left no reason (or on the preview path).
 const rejectionReason = computed((): string => {
   if (profileStatus.value !== 'rejected') return ''
-  return 'Заявка не прошла верификацию. Пожалуйста, подайте повторную заявку с актуальными данными.'
+  return (
+    masterStore.profile?.rejection_reason ??
+    'Заявка не прошла верификацию. Пожалуйста, подайте повторную заявку с актуальными данными.'
+  )
 })
 
 // On mount: load the master profile so the status-keyed state renders. No

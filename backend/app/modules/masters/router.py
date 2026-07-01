@@ -94,6 +94,9 @@ def _make_profile_response(
         payout=payout,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
+        # E14: surface the admin-captured reason from data.account so the
+        # applicant's «Отказ» screen shows why (None unless rejected).
+        rejection_reason=account.get("rejection_reason"),
     )
 
 

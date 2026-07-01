@@ -525,6 +525,7 @@ export interface MasterProfileResponse {
   payout?: PayoutDetails | null
   created_at: string
   updated_at?: string | null
+  rejection_reason: string | null
 }
 
 /** User-facing master profile -- safe public subset + live counters. Returned by GET /api/v1/masters/{user_id} for any authenticated user. Used by the practice detail "Подробнее" link (frame 4) and the master profile screen (node 541:2065). SECURITY: this schema is the isolation boundary between public and private master data. It MUST NOT carry any financial fields (frozen_cents, available_cents, payout, withdrawal limits) or contact fields (email, phone). Only a verified master is exposed; pending / rejected / non-master ids resolve to 404 in the service (we do not reveal the existence of an unverified application). practices_count and reviews_count are LIVE ORM aggregates computed in the service, NOT read from the stale data.stats JSONB cache: practices_count -- Practice rows for this master, excluding draft and deleted statuses. reviews_count -- Feedback rows across all of this master's practices (every feedback, regardless of text). */

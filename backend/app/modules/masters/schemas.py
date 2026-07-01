@@ -153,6 +153,10 @@ class MasterProfileResponse(BaseModel):
     payout: PayoutDetails | None = None
     created_at: datetime
     updated_at: datetime | None = None
+    # E14: rejection reason surfaced to the applicant. Persisted by admin-reject
+    # in the master JSONB under data.account.rejection_reason (service.py); the
+    # router projects it here. None unless the current status is rejected.
+    rejection_reason: str | None
 
 
 # ---------------------------------------------------------------------------
