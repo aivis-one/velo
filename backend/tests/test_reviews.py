@@ -279,10 +279,11 @@ async def test_reviews_happy_path(
     # Comment text is exposed (de-anonymised, unlike insights).
     assert by_name["Alice"]["comment"] == "Loved it!"
 
-    # Each item carries the full review shape.
+    # Each item carries the full review shape (user_id added in E1 so a review
+    # card can navigate to the reviewer's student profile).
     item = data["items"][0]
     assert set(item.keys()) == {
-        "reviewer_name", "avatar_url", "rating", "comment", "created_at",
+        "user_id", "reviewer_name", "avatar_url", "rating", "comment", "created_at",
     }
 
 
