@@ -66,18 +66,55 @@ function onSend(): void {
 </script>
 
 <style scoped>
+/* Fill-mode chat layout (MC-2, №242): the shell puts master-chat in MobileLayout
+   `fill` mode (overflow:hidden, no rail, no shared fog), so the view owns its scroll,
+   its rail, its top fog and a truly-pinned composer — mirroring the diary
+   (DiaryFeedView `.diary-feed` / `__body` / `__composer`). */
 .chat {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
+  position: relative;
+  height: 100%;
+  min-height: 0;
 }
 
+/* Internal-scroll thread: an absolute layer under the floating header + the pinned
+   composer. Its own top/bottom fog mask (the MC-1 header-overlap fix, now view-side)
+   dissolves the thread under the floating title on scroll and behind the composer.
+   The clearances (header ~header-height top, composer bottom) + the inline mask
+   mirror DiaryFeedView's `__body`; the rail is re-added here because fill mode zeroes
+   MobileLayout's rail. */
 .chat__thread {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) 0 var(--space-6);
+  padding: 92px var(--velo-rail-pad-x) 84px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 44px,
+    #000 92px,
+    #000 calc(100% - 84px),
+    transparent calc(100% - 40px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 44px,
+    #000 92px,
+    #000 calc(100% - 84px),
+    transparent calc(100% - 40px),
+    transparent 100%
+  );
+}
+
+.chat__thread::-webkit-scrollbar {
+  display: none;
 }
 
 .chat__msg {
@@ -126,13 +163,19 @@ function onSend(): void {
   opacity: 0.7;
 }
 
+/* Composer PINNED to the bottom (was position:sticky, which floated mid-thread when
+   the stub thread was short — MC-2). An absolute layer over the faded thread bottom;
+   the thread's bottom mask dissolves messages behind it, so no backing is needed. */
 .chat__compose {
-  position: sticky;
+  position: absolute;
+  left: 0;
+  right: 0;
   bottom: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) 0;
+  padding: var(--space-3) var(--velo-rail-pad-x);
 }
 
 .chat__input {

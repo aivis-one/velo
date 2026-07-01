@@ -9,6 +9,7 @@
   <MobileLayout
     :tabs="MASTER_TABS"
     :active-tab="activeTab"
+    :fill="isFillRoute"
     :fog="isFogRoute"
     :hide-tab-bar="hideTabBar"
     v-bind="fogTuning"
@@ -37,6 +38,12 @@ const activeTab = computed(() => {
   const match = MASTER_TABS.find((tab) => path.startsWith(tab.to))
   return match?.to ?? MASTER_TABS[0]?.to ?? ''
 })
+
+// Chat thread runs in MobileLayout `fill` mode (internal-scroll thread + a truly
+// pinned composer + its own top fog), the same per-route opt-in the diary uses in
+// UserShell (MC-2, №242). Opt-in ONLY — every other master route keeps fill=false
+// and renders byte-identically (MobileLayout's `--fill` branch never applies).
+const isFillRoute = computed(() => route.name === 'master-chat')
 
 // Edge-to-edge fog on the long scrolling master LIST/feed screens, matching the
 // User zone (operator tester-fix 2026-06-17, scope А). Forms / profile / create-
@@ -97,12 +104,8 @@ const FOG_ROUTES = [
   // CTA-safe bottom (below) keeps the «Отправить» button crisp at rest. Fixes the
   // header-overlap-on-scroll the operator flagged.
   'master-support',
-  // Chat thread (MC-1, 2026-07-01, fork Q2=В — header only): fog so the floating
-  // «peer name» title stops overlapping the thread on scroll. The composer is a
-  // sticky bottom bar (a fill-mode refactor for it = MC-2, DEFERRED to the real
-  // messaging rebuild), so this route takes chatFog() below: TOP fade only, ZERO
-  // bottom fade, so the composer is never dissolved.
-  'master-chat',
+  // NB: master-chat is NOT here — it runs in MobileLayout `fill` mode (isFillRoute),
+  // which drops the shared mask; the chat owns its top fog view-side (MC-2, №242).
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 
@@ -197,20 +200,11 @@ function masterProfileFog() {
   return mpFogCache
 }
 
-// master-chat (MC-1, 2026-07-01): TOP fade only. The default top (z1/z2) dissolves
-// the thread under the floating title on scroll (fixes the header overlap); the
-// bottom fade is set to 0 so the sticky composer bar is never dissolved. 0 = "no
-// bottom fade" (structural, not a design value), so MobileLayout's fog+hideTabBar
-// bottom padding collapses to 0 and the composer rests at the bottom edge. The
-// composer's mid-page float (MC-2) is a separate, deferred fill-mode refactor.
-const chatFogTuning = { fogBotFade: 0, fogBotHard: 0 }
-
 const fogTuning = computed(() => {
   const name = route.name as string
   if (COMPACT_BOTTOM_FOG_ROUTES.includes(name)) return compactBottomFog()
   if (name === 'master-dashboard') return dashboardFog()
   if (name === 'master-profile') return masterProfileFog()
-  if (name === 'master-chat') return chatFogTuning
   return CTA_SAFE_FOG_ROUTES.includes(name) ? ctaSafeFog() : {}
 })
 
