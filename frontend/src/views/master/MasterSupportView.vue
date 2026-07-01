@@ -73,7 +73,12 @@
       <!-- Message -->
       <section class="support__section">
         <h2 class="support__title">Сообщение</h2>
-        <VTextarea v-model="message" :rows="5" placeholder="Опишите вашу проблему или вопрос..." />
+        <VTextarea
+          v-model="message"
+          :rows="5"
+          placeholder="Опишите вашу проблему или вопрос..."
+          @focus="scrollFieldIntoView"
+        />
       </section>
 
       <!-- Attachments (UI built; files captured locally, NOT uploaded — stub) -->
@@ -186,6 +191,26 @@ function onSubmit(): void {
 
 function onGoHome(): void {
   router.push({ name: 'master-dashboard' })
+}
+
+// The «Сообщение» textarea sits low on the form, where the soft keyboard covers it on
+// focus (operator SP-1). React to the visual viewport: centre the field on focus AND on
+// each subsequent visualViewport resize while the keyboard settles, then detach on blur.
+// Coordinates with the e95e05a keyboard-aware system — reads the same window.visualViewport
+// signal, writes none of its shared state. Desktop / no visualViewport → a deferred scroll.
+function scrollFieldIntoView(e: FocusEvent): void {
+  const el = e.target as HTMLElement | null
+  if (!el) return
+  const bring = (): void => el.scrollIntoView({ block: 'center' })
+  const vv = window.visualViewport
+  if (!vv) {
+    window.setTimeout(bring, 300)
+    return
+  }
+  const onResize = (): void => bring()
+  vv.addEventListener('resize', onResize)
+  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
+  bring()
 }
 </script>
 
