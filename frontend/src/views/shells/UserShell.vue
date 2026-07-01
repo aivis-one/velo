@@ -78,8 +78,10 @@ const FOG_ROUTES = [
   // Edit-profile (operator PE-2a, 2026-07-01): parity with the fogged master
   // variant — top+bottom dissolve under the floating header. «Сохранить» + the
   // delete link are in-flow at the list bottom and rest above the bottom fade
-  // (like the profile hub), so they stay crisp; the keyboard-open case drops the
-  // mask (global.css) and the solid header (EditProfileView) hardens the top.
+  // (like the profile hub), so they stay crisp. At rest the fog dissolves content
+  // under the floating title; on keyboard-open the mask drops (global.css) and the
+  // focused field scrolls above the keyboard (PE-2c). No solid header — the design
+  // has no white plates (operator, no-plate call).
   'user-edit-profile',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
