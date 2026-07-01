@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.9
-**Дата:** 30 июня 2026
+**Версия:** 1.10
+**Дата:** 2 июля 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
@@ -11,6 +11,15 @@
 > (DS-first). Ссылки на Figma-node (`541:…`, `4715-3463` и т.п.), оставшиеся ниже
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
+
+> **v1.10 (клавиатура/туман polish + чат fill-режим + focus-freeze фона, 2 июля 2026, база `583e765` — ДВЕ задеплоенные мили `67b95ef`+`583e765`, задеплоено на TEST):**
+> — **Focus-freeze фона (SP-3):** `useBackgroundStabilizer` тогглит `html.is-field-focused` на `focusin`/`focusout` текстовых полей; `global.css` морозит `#app::before` (`transform:none`) на этом классе — ДО того как клавиатура-анимация пересечёт `KEYBOARD_VIEWPORT_THRESHOLD` (150px) `is-keyboard-open`, иначе фото «сползает» в окне анимации (сильнее всего на высоких формах вроде Поддержки). Композитится с `is-keyboard-open` (любой класс ⇒ `transform:none`). Только freeze фона включается рано; max-height-кап + снятие маски остаются на 150px-пороге (без преждевременного reflow). Действует на ВСЕ экраны с клавиатурой.
+> — **Чат fill-режим (MC-2):** `MasterShell` получил `isFillRoute = route.name==='master-chat'` + `:fill` — per-route opt-in `fill`-режима `MobileLayout` (как дневник в `UserShell`), прочие мастер-роуты байт-идентичны. `MasterChatView` пересобран в 3-слойный layout дневника: `position:relative;height:100%` → absolute internal-scroll тред с собственной верх/низ fog-маской → absolute приклеенный композер (был `position:sticky` — плавал посреди короткого треда). Верхний туман чата теперь во вью (шелл-туман MC-1 снят как мёртвый — `fill` даёт `mask:none`).
+> — **Keyboard-scroll (visualViewport) на edit-profile / промокод / поддержку (PE-2c/PC-1/SP-1):** `scrollFieldIntoView` переведён с фикс-300ms на visualViewport-`resize` (центрирует поле по мере открытия клавиатуры, detach на blur; координируется с `is-keyboard-open`, не пишет его shared-state). У textarea поддержки `@focus`-хендлера не было вовсе — добавлен.
+> — **Туман (SP-2/PE-2a):** `master-support` возвращён в `FOG_ROUTES` + `CTA_SAFE_FOG_ROUTES` (реверс un-fog #8/#9 — безопасен: маска снимается при вводе, CTA-safe низ держит «Отправить»); `user-edit-profile` добавлен в `UserShell` `FOG_ROUTES` (паритет с мастер-вариантом, стандартный туман БЕЗ белой плашки).
+> — **Мастер-профиль (PE-1):** headerless-хаб → `masterProfileFog()` в `MasterShell` подаёт отрицательный top-gap (токен `--velo-fog-mp-top-gap`) через существующий per-screen fog-API; `MobileLayout`/`HEADER_FALLBACK` НЕ тронуты.
+> — **edit-profile ещё (PE-4/PE-3):** авто-скролл поля «УДАЛИТЬ» в модалке удаления при появлении; «Методы» = честный locked flat-chip показ (полная таксономия Направление→Вид + change-request + admin-approval + «Ожидает подтверждения» = бэк **E19**, НЕ построена — no-fake).
+> — **Первая миля `67b95ef` (тоже живая):** live-aware «Ближайшие практики» юзер-дашборда (`utils/nearestBookings.ts` — pin идущей + до 2 предстоящих), **KB#4-композит** (freeze фото + снятие тумана при вводе + reset на смене роута), №233 (компактный нижний туман форм + full-width `UseTemplateBlock` + тонкий скролл-thumb), фронт-провязка E18/E14/E1/E10 (Zoom/причина отказа/отзыв→ученик/промокоды). **AN-1** — рейтинг-% центрирован в пилюлях аналитики.
 
 > **v1.9 (мастер-зона polish + клавиатура-aware viewport + User «Сообщения», 30 июня 2026, база `00bb5f2`, батч ahead-22, push held):**
 > — **Клавиатура-aware viewport** (`e95e05a`): `useBackgroundStabilizer` публикует ВЫСОТУ visual-viewport в `--velo-vvh` + тогглит `html.is-keyboard-open` (порог `KEYBOARD_VIEWPORT_THRESHOLD`); гейтнутые правила `global.css` ужимают скролл-контейнер `.mobile-layout__main` и модалки `.v-modal__*` до `--velo-vvh` ТОЛЬКО при открытой клавиатуре (at-rest байт-идентично). Плюс прежний job#1 «танцующий фон» — counter-translate `#app::before` на `--velo-bg-shift = visualViewport.offsetTop`.
@@ -253,7 +262,7 @@ frontend/
 /master/profile/notifications → MasterNotificationsView    [hideTabBar]
 /master/profile/language-timezone → LanguageTimezoneView   [hideTabBar]
 /master/support             → MasterSupportView            [hideTabBar]
-/master/messages[/:id]      → MasterMessagesView / MasterChatView   [hideTabBar]
+/master/messages[/:id]      → MasterMessagesView / MasterChatView   [hideTabBar; чат (master-chat) в fill-режиме — MC-2, как /user/diary]
 /master/promocodes[/new]    → MasterPromocodesView / MasterNewPromocodeView  [hideTabBar]
 /master/finance             → MasterFinanceView            [masterStatusGuard, hideTabBar]
 /master/students[/:id]      → MasterStudentsView / MasterStudentProfileView  [masterStatusGuard, hideTabBar]
@@ -673,6 +682,10 @@ centsToEurString(cents: number): string -- 1457 → "14.57"
 
 Общие хелперы меты карточки практики — `checkinLabel(p, insightsCache)` («N/M» чек-инов из `diaryStore.insightsCache`), `recurrenceLabel(p)` (регулярность серии), `remainingSessionsLabel(p)` («Осталось N из M занятий»). Вынесены из `MasterPracticesView` и переиспользуются в `MasterDashboardView` (паритет «Ближайшие практики» со списком, DB-2) — без дублирования логики. Данные чек-инов — из insights (корректность — Zod E12).
 
+### 5.6. nearestBookings.ts (v1.10)
+
+`selectNearestBookings(bookings, now, maxUpcoming = DEFAULT_MAX_UPCOMING)` — выбор карточек «Ближайшие практики» юзер-дашборда (TASK-2, `6fe0272`): pin идущей практики (latest-started, если есть live) + до `DEFAULT_MAX_UPCOMING` (=2) ближайших предстоящих по абсолютному времени → массив ≤3. Заменил прежний single-slot nearest (idущая больше не прячет предстоящую в единственном слоте); per-card поведение (Zoom/чек-ин/live-badge) не тронуто. Покрыт `nearestBookings.test.ts`.
+
 ---
 
 ## 6. Правила разработки
@@ -839,7 +852,7 @@ script-эмуляцию. Контр-тест (убрать фикс → ошиб
 
 Шрифт: Marmelad Regular 400 — единственный вес, единственное начертание. Подключён через `<link>` в `index.html`.
 
-Фон: красится на `#app::before { position: fixed; inset: 0; z-index: -1; background: url('/bg/background.png') center / cover no-repeat }` (`global.css` ~116-121), **НЕ на `body`** — фиксированный слой под контентом. `transform: translateY(var(--velo-bg-shift))` контр-сдвигает «танцующий фон» при reflow visual-viewport (клавиатура); at-rest `--velo-bg-shift = 0px` → инертно. Клавиатура-aware (v1.9): `useBackgroundStabilizer` также пишет высоту visual-viewport в `--velo-vvh` + тогглит `html.is-keyboard-open` — гейтнутые правила ужимают `.mobile-layout__main` / `.v-modal__*` до видимой области ТОЛЬКО при открытой клавиатуре. Фото из `Design_prototype`, sacred geometry overlay. Все layout-контейнеры прозрачные.
+Фон: красится на `#app::before { position: fixed; inset: 0; z-index: -1; background: url('/bg/background.png') center / cover no-repeat }` (`global.css` ~116-127), **НЕ на `body`** — фиксированный слой под контентом. `transform: translateY(var(--velo-bg-shift))` контр-сдвигает «танцующий фон» при reflow visual-viewport (клавиатура); at-rest `--velo-bg-shift = 0px` → инертно. Клавиатура-aware: `useBackgroundStabilizer` пишет высоту visual-viewport в `--velo-vvh` + тогглит `html.is-keyboard-open` (порог `KEYBOARD_VIEWPORT_THRESHOLD` = 150px) — гейтнутые правила ужимают `.mobile-layout__main` / `.v-modal__*` до видимой области + снимают fog-маску (`убрать туман при вводе`) ТОЛЬКО при открытой клавиатуре (at-rest байт-идентично). **Заморозка фото (KB#4 + SP-3, v1.10):** `#app::before` морозится (`transform:none`) при `html.is-keyboard-open`, а с v1.10 — ТАКЖЕ при `html.is-field-focused` (тогглится `useBackgroundStabilizer` на `focusin`/`focusout` текстового поля), чтобы фото не «сползало» в окне анимации клавиатуры ДО 150px-порога; классы композитятся (любой ⇒ `transform:none`). `resetKeyboardViewportState` (через `router.afterEach`) синхронно сбрасывает `--velo-bg-shift`/`--velo-vvh`/оба класса на смене роута. Фото из `Design_prototype`, sacred geometry overlay. Все layout-контейнеры прозрачные.
 
 **Правило FP-01 уточняется:** стекло-эффекты используют `rgba`-значения через переменные (`var(--velo-glass-blue-15)`), не через прямые hex.
 
