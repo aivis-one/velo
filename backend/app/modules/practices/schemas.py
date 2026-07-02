@@ -704,4 +704,10 @@ class PracticeSummary(BaseModel):
     price_cents: int
     currency: str
 
+    # E18: zoom_link surfaced on the summary so the dashboard nearest-card
+    # "Войти" / Zoom button opens the link with no extra GET /practices/{id}.
+    # Nullable ORM column on Practice; picked up via from_attributes, no
+    # population code needed (same pattern as timezone / status / direction).
+    zoom_link: str | None = None
+
     model_config = {"from_attributes": True}
