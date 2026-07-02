@@ -91,6 +91,8 @@ async def list_master_reviews(
 
     items = [
         {
+            # user_id lets the dashboard navigate review -> reviewer profile
+            # (E1 remainder). The author User is already in the join.
             "user_id": author.id,
             "reviewer_name": display_name(author.first_name, author.last_name),
             "avatar_url": author.avatar_url,

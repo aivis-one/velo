@@ -350,10 +350,12 @@ class ReviewItem(BaseModel):
     text. `rating` is the stored 1..10 score mapped to the three UI buckets
     (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same
     rating icons it already renders for the anonymous distribution.
+
+    user_id is the reviewer's User.id (E1 remainder) -- it lets the frontend
+    navigate from a review to that student's profile. The author User is
+    already joined in list_practice_reviews, so this adds no query.
     """
 
-    # E1: reviewer's user id so the per-practice review card can navigate to
-    # their student profile. From the joined User (Feedback.user_id).
     user_id: UUID
     reviewer_name: str
     avatar_url: str | None

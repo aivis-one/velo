@@ -240,15 +240,15 @@ async def test_reviews_happy_path(
         db_session, master_auth["user"]["id"],
     )
 
-    await _add_review(
+    alice = await _add_review(
         client, db_session, practice, 89001,
         rating=9, comment="Loved it!", first_name="Alice",
     )
-    await _add_review(
+    bob = await _add_review(
         client, db_session, practice, 89002,
         rating=6, comment="Solid session.", first_name="Bob",
     )
-    await _add_review(
+    carol = await _add_review(
         client, db_session, practice, 89003,
         rating=2, comment="Confusing.", first_name="Carol",
     )
@@ -279,12 +279,17 @@ async def test_reviews_happy_path(
     # Comment text is exposed (de-anonymised, unlike insights).
     assert by_name["Alice"]["comment"] == "Loved it!"
 
-    # Each item carries the full review shape (user_id added in E1 so a review
-    # card can navigate to the reviewer's student profile).
+    # Each item carries the full review shape (incl. the reviewer user_id).
     item = data["items"][0]
     assert set(item.keys()) == {
-        "user_id", "reviewer_name", "avatar_url", "rating", "comment", "created_at",
+        "user_id", "reviewer_name", "avatar_url", "rating", "comment",
+        "created_at",
     }
+
+    # user_id points at the actual reviewer (E1 remainder).
+    assert by_name["Alice"]["user_id"] == alice["user"]["id"]
+    assert by_name["Bob"]["user_id"] == bob["user"]["id"]
+    assert by_name["Carol"]["user_id"] == carol["user"]["id"]
 
 
 # ===================================================================

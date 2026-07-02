@@ -622,6 +622,21 @@ class PracticeResponse(BaseModel):
     total_sessions: int | None = None
     completed_sessions: int | None = None
 
+    # -- Attendance / check-in counts (E12 + aggregate; computed by the
+    # service, OWNER-ONLY) --
+    # checkin_count is the number of DISTINCT participants who left a PRE
+    # check-in for the practice -- the numerator of the card's check-in badge
+    # ("N of M"). POST check-ins are a future socket and are not counted.
+    # attended / no_show are the booking counts in the ATTENDED / NO_SHOW
+    # statuses. All three are filled only where the requester owns the
+    # practice: the master's own list (list_master_practices) and the OWNER's
+    # detail. The public feed and a non-owner's detail leave them None --
+    # no_show is sensitive and is never exposed to a non-owner (the one
+    # deviation from the series-meta trio above, which is shown to everyone).
+    checkin_count: int | None = None
+    attended: int | None = None
+    no_show: int | None = None
+
     # -- Per-user state (computed by the service for the requesting user) --
     # Ephemeral, NOT stored in data JSONB. Default False so model_validate()
     # on a raw ORM object is safe; the service overrides them in feed/detail
@@ -688,9 +703,5 @@ class PracticeSummary(BaseModel):
     is_free: bool
     price_cents: int
     currency: str
-    # E18: Zoom link so booking-embedded cards (user dashboard / my bookings)
-    # can open Zoom without a separate GET /practices/{id}. Practice ORM column
-    # (nullable) picked up via from_attributes -- same shape as PracticeResponse.
-    zoom_link: str | None
 
     model_config = {"from_attributes": True}

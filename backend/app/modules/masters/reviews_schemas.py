@@ -21,10 +21,13 @@ from pydantic import BaseModel
 
 
 class MasterReviewItem(BaseModel):
-    """One named review in the master-wide feed."""
+    """One named review in the master-wide feed.
 
-    # E1: reviewer's user id so the review card can navigate to their student
-    # profile (GET /masters/me/students/{user_id}). From the joined User.
+    user_id is the reviewer's User.id (E1 remainder) -- it lets the dashboard
+    navigate from a review straight to that student's profile. The author User
+    is already joined in list_master_reviews, so this adds no query.
+    """
+
     user_id: UUID
     reviewer_name: str
     avatar_url: str | None

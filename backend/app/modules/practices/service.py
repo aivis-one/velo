@@ -80,6 +80,10 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.modules.bookings.models import Booking, BookingStatus
+# Checkin / CheckType power the E12 attendance counts below. Importing the
+# public diary models here is cycle-free (diary.models imports no practices
+# service), and mirrors masters/reviews_service importing diary.models.
+from app.modules.diary.models import Checkin, CheckType
 from app.modules.payments.refund import refund_all_bookings_for_practice
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.practices.schemas import (
@@ -250,6 +254,9 @@ def practice_to_response(
     recurrence_days: list[int] | None = None,
     total_sessions: int | None = None,
     completed_sessions: int | None = None,
+    checkin_count: int | None = None,
+    attended: int | None = None,
+    no_show: int | None = None,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -284,6 +291,13 @@ def practice_to_response(
     resp.recurrence_days = recurrence_days
     resp.total_sessions = total_sessions
     resp.completed_sessions = completed_sessions
+
+    # Attendance / check-in counts (E12 + aggregate). None unless the caller
+    # resolved them for an owner-facing view (master list / owner detail); the
+    # public feed and a non-owner's detail leave all three None.
+    resp.checkin_count = checkin_count
+    resp.attended = attended
+    resp.no_show = no_show
 
     return resp
 
@@ -443,6 +457,101 @@ async def _series_meta_for_practices(
         total, completed = counts_by_root.get(root_id, (0, 0))
         meta[p.id] = (days_by_root[root_id], total, completed)
     return meta
+
+
+# -- Attendance / check-in counts (E12 + aggregate) ------------------------
+# Resolve checkin_count / attended / no_show for a page of practices in two
+# bounded queries (no N+1), grouped by practice_id -- the same shape as the
+# series-meta helper above. These are OWNER-facing figures: the caller wires
+# them into the master's own list + the owner's detail only; the public feed
+# and a non-owner's detail leave all three None (no_show is sensitive).
+
+# Tuple shape returned per practice: (checkin_count, attended, no_show).
+_AttendanceCounts = tuple[int, int, int]
+
+
+def _attendance_counts_kwargs(counts: _AttendanceCounts | None) -> dict:
+    """Unpack an attendance-counts tuple into practice_to_response kwargs.
+
+    None (the caller did not resolve counts for this practice -- e.g. the
+    requester is not the owner) -> empty dict, so the response keeps its None
+    defaults for all three fields.
+    """
+    if counts is None:
+        return {}
+    checkin_count, attended, no_show = counts
+    return {
+        "checkin_count": checkin_count,
+        "attended": attended,
+        "no_show": no_show,
+    }
+
+
+async def _attendance_counts_for_practices(
+    practices: list[Practice],
+    session: AsyncSession,
+) -> dict[UUID, _AttendanceCounts]:
+    """Map practice_id -> (checkin_count, attended, no_show) for a page.
+
+    checkin_count counts DISTINCT users with a PRE check-in for the practice
+    (POST is a future socket and is excluded, matching the card badge and the
+    attendance view). attended / no_show are booking counts in the ATTENDED /
+    NO_SHOW statuses. Two bounded queries regardless of page size -- one over
+    checkins, one over bookings, both grouped by practice_id. Every practice
+    on the page gets a tuple (missing rows default to 0), so the owner always
+    sees concrete numbers rather than None.
+    """
+    if not practices:
+        return {}
+
+    practice_ids = [p.id for p in practices]
+
+    # -- Query 1: distinct PRE check-in users per practice --
+    checkin_rows = (
+        await session.execute(
+            select(
+                Checkin.practice_id,
+                func.count(func.distinct(Checkin.user_id)),
+            )
+            .where(
+                Checkin.practice_id.in_(practice_ids),
+                Checkin.check_type == CheckType.PRE.value,
+            )
+            .group_by(Checkin.practice_id)
+        )
+    ).all()
+    checkin_by_practice: dict[UUID, int] = {
+        practice_id: count for practice_id, count in checkin_rows
+    }
+
+    # -- Query 2: attended / no_show booking counts per practice --
+    booking_rows = (
+        await session.execute(
+            select(
+                Booking.practice_id,
+                func.count(Booking.id).filter(
+                    Booking.status == BookingStatus.ATTENDED.value,
+                ),
+                func.count(Booking.id).filter(
+                    Booking.status == BookingStatus.NO_SHOW.value,
+                ),
+            )
+            .where(Booking.practice_id.in_(practice_ids))
+            .group_by(Booking.practice_id)
+        )
+    ).all()
+    booking_by_practice: dict[UUID, tuple[int, int]] = {
+        practice_id: (attended, no_show)
+        for practice_id, attended, no_show in booking_rows
+    }
+
+    # -- Assemble per-practice counts (missing rows default to 0) --
+    counts: dict[UUID, _AttendanceCounts] = {}
+    for practice_id in practice_ids:
+        checkin_count = checkin_by_practice.get(practice_id, 0)
+        attended, no_show = booking_by_practice.get(practice_id, (0, 0))
+        counts[practice_id] = (checkin_count, attended, no_show)
+    return counts
 
 
 # ===================================================================
@@ -786,6 +895,14 @@ async def get_practice_detail(
     flags = await _user_flags_for_practices(user.id, [practice.id], session)
     is_booked, is_paid = flags.get(practice.id, (False, False))
     series_meta = await _series_meta_for_practices([practice], session)
+    # E12 + aggregate: OWNER-ONLY on this shared detail endpoint. no_show is
+    # sensitive, so a non-owner viewer never sees these -- skip the query and
+    # leave all three None. (Series-meta above is innocuous and shown to all.)
+    attendance = (
+        await _attendance_counts_for_practices([practice], session)
+        if practice.master_id == user.id
+        else {}
+    )
     return practice_to_response(
         practice,
         master_name,
@@ -794,6 +911,7 @@ async def get_practice_detail(
         is_booked=is_booked,
         is_paid=is_paid,
         **_series_meta_kwargs(series_meta.get(practice.id)),
+        **_attendance_counts_kwargs(attendance.get(practice.id)),
     )
 
 
@@ -1250,9 +1368,13 @@ async def list_master_practices(
     rows = result.all()
 
     # E3 batch 2: series card meta for the practices on this page (2 queries).
-    series_meta = await _series_meta_for_practices(
-        [p for p, _first, _last in rows], session,
-    )
+    page_practices = [p for p, _first, _last in rows]
+    series_meta = await _series_meta_for_practices(page_practices, session)
+    # E12 + aggregate: attendance counts for the same page (2 queries). This is
+    # the master's own list (get_current_master), so the counts are shown
+    # unconditionally here -- the owner-only gate lives on the shared public
+    # detail endpoint (get_practice_detail) instead.
+    attendance = await _attendance_counts_for_practices(page_practices, session)
 
     return PaginatedPracticesResponse(
         items=[
@@ -1260,6 +1382,7 @@ async def list_master_practices(
                 p,
                 _master_full_name(first, last),
                 **_series_meta_kwargs(series_meta.get(p.id)),
+                **_attendance_counts_kwargs(attendance.get(p.id)),
             )
             for p, first, last in rows
         ],
