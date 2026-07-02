@@ -162,6 +162,17 @@ _BOOKED_STATUSES = {
     BookingStatus.ATTENDED.value,
 }
 
+# Booking statuses that grant a user access to the practice's zoom_link
+# (M-3 access gate). STRICTER than _BOOKED_STATUSES above: a PENDING booking
+# does NOT unlock the link -- only CONFIRMED or ATTENDED does. Used by
+# get_practice_detail here and imported by GET /bookings/me to gate zoom_link;
+# every other response leaves it None (see the PracticeResponse / PracticeSummary
+# zoom_link validators).
+ZOOM_VISIBLE_BOOKING_STATUSES = {
+    BookingStatus.CONFIRMED.value,
+    BookingStatus.ATTENDED.value,
+}
+
 # Calendar taxonomy facets -- stored in Practice.data.taxonomy (JSONB),
 # NOT as columns. Handled separately from setattr-based column updates.
 _TAXONOMY_FIELDS = ("direction", "style", "difficulty")
@@ -257,6 +268,7 @@ def practice_to_response(
     checkin_count: int | None = None,
     attended: int | None = None,
     no_show: int | None = None,
+    zoom_link_visible: bool = False,
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
@@ -298,6 +310,14 @@ def practice_to_response(
     resp.checkin_count = checkin_count
     resp.attended = attended
     resp.no_show = no_show
+
+    # zoom_link (M-3 access gate). The schema validator nulled it on
+    # model_validate; re-set it here ONLY when the caller authorized exposure
+    # (the practice owner, or a requester with a confirmed/attended booking --
+    # see get_practice_detail). Every other caller leaves zoom_link_visible
+    # False, so zoom_link stays None (public feed, master list, mutations).
+    if zoom_link_visible:
+        resp.zoom_link = practice.zoom_link
 
     return resp
 
@@ -898,11 +918,29 @@ async def get_practice_detail(
     # E12 + aggregate: OWNER-ONLY on this shared detail endpoint. no_show is
     # sensitive, so a non-owner viewer never sees these -- skip the query and
     # leave all three None. (Series-meta above is innocuous and shown to all.)
+    is_owner = practice.master_id == user.id
     attendance = (
         await _attendance_counts_for_practices([practice], session)
-        if practice.master_id == user.id
+        if is_owner
         else {}
     )
+    # zoom_link (M-3): the owner always sees it; a non-owner only with a
+    # CONFIRMED / ATTENDED booking on this practice (a PENDING booking is not
+    # enough). is_booked (pending/confirmed/attended) being False means no
+    # booking at all -> skip the narrowing query. Everyone else -> None.
+    zoom_visible = is_owner
+    if not zoom_visible and is_booked:
+        zoom_visible = (
+            await session.execute(
+                select(Booking.id)
+                .where(
+                    Booking.practice_id == practice.id,
+                    Booking.user_id == user.id,
+                    Booking.status.in_(ZOOM_VISIBLE_BOOKING_STATUSES),
+                )
+                .limit(1)
+            )
+        ).first() is not None
     return practice_to_response(
         practice,
         master_name,
@@ -910,6 +948,7 @@ async def get_practice_detail(
         master_avatar_url=master_avatar_url,
         is_booked=is_booked,
         is_paid=is_paid,
+        zoom_link_visible=zoom_visible,
         **_series_meta_kwargs(series_meta.get(practice.id)),
         **_attendance_counts_kwargs(attendance.get(practice.id)),
     )

@@ -169,6 +169,10 @@ async def list_my_bookings_endpoint(
     # Fill it here with the same helper the single-booking/detail responses use.
     # Dedup by master_id so a master repeated across the page is looked up once.
     from app.modules.masters.service import get_master_display_name
+    # M-3 gate: expose zoom_link only for confirmed/attended bookings. Imported
+    # locally to match this file's cross-service import style (get_master_-
+    # display_name above) and sidestep any module-load import cycle.
+    from app.modules.practices.service import ZOOM_VISIBLE_BOOKING_STATUSES
 
     master_names: dict[UUID, str] = {}
     for row in items:
@@ -194,7 +198,18 @@ async def list_my_bookings_endpoint(
                 has_feedback=has_feedback,
                 has_checkin=has_checkin,
                 practice=PracticeSummary.model_validate(practice).model_copy(
-                    update={"master_name": master_names[practice.master_id]},
+                    update={
+                        "master_name": master_names[practice.master_id],
+                        # zoom_link (M-3): the summary validator nulled it on
+                        # model_validate; expose it here ONLY for this user's
+                        # confirmed / attended booking (the dashboard "Войти"
+                        # button). pending / cancelled / no_show leave it None.
+                        "zoom_link": (
+                            practice.zoom_link
+                            if booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                            else None
+                        ),
+                    },
                 ),
             )
             for booking, practice, has_feedback, has_checkin in items

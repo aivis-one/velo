@@ -650,6 +650,18 @@ class PracticeResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @model_validator(mode="after")
+    def _hide_zoom_link_by_default(self) -> "PracticeResponse":
+        # zoom_link is access-gated: it must reach only the practice owner
+        # (a master viewing their own practice) or a user with a CONFIRMED /
+        # ATTENDED booking on it. from_attributes would otherwise auto-surface
+        # the ORM column to every caller (the public feed leaked it). Null it
+        # here so it is hidden by default; the service re-sets it explicitly,
+        # after validation, only on the authorized detail path -- mirrors the
+        # is_booked / is_paid "default-then-service-overrides" pattern above.
+        self.zoom_link = None
+        return self
+
 
 class PaginatedPracticesResponse(BaseModel):
     """GET /api/v1/practices -- paginated public list."""
@@ -704,10 +716,19 @@ class PracticeSummary(BaseModel):
     price_cents: int
     currency: str
 
-    # E18: zoom_link surfaced on the summary so the dashboard nearest-card
-    # "Войти" / Zoom button opens the link with no extra GET /practices/{id}.
-    # Nullable ORM column on Practice; picked up via from_attributes, no
-    # population code needed (same pattern as timezone / status / direction).
+    # E18 + M-3: zoom_link on the summary powers the dashboard nearest-card
+    # "Войти" / Zoom button. It is access-gated (M-3): it must reach only a
+    # user with a CONFIRMED / ATTENDED booking on the practice. The validator
+    # below nulls it by default (so from_attributes never auto-leaks it to a
+    # waitlisted / pending / non-booking viewer); GET /bookings/me re-sets it
+    # explicitly, after validation, for confirmed / attended bookings only.
     zoom_link: str | None = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def _hide_zoom_link_by_default(self) -> "PracticeSummary":
+        # Never auto-surface the ORM zoom_link on the summary; only the
+        # authorized booking-list builder opts in after validation.
+        self.zoom_link = None
+        return self
