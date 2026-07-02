@@ -541,7 +541,7 @@ export interface MasterPublicResponse {
   reviews_count: number
 }
 
-/** One named review in the master-wide feed. */
+/** One named review in the master-wide feed. user_id is the reviewer's User.id (E1 remainder) -- it lets the dashboard navigate from a review straight to that student's profile. The author User is already joined in list_master_reviews, so this adds no query. */
 export interface MasterReviewItem {
   user_id: string
   reviewer_name: string
@@ -809,6 +809,9 @@ export interface PracticeResponse {
   recurrence_days?: number[] | null
   total_sessions?: number | null
   completed_sessions?: number | null
+  checkin_count?: number | null
+  attended?: number | null
+  no_show?: number | null
   is_booked?: boolean
   is_paid?: boolean
   created_at: string
@@ -830,7 +833,6 @@ export interface PracticeSummary {
   is_free: boolean
   price_cents: number
   currency: string
-  zoom_link: string | null
 }
 
 /** POST /api/v1/practices/{id}/preview-purchase -- request body. Optional promo_code for pricing preview. */
@@ -964,7 +966,7 @@ export interface ReturnMetricResponse {
   top_users: TopUser[]
 }
 
-/** One named review (GET /api/v1/practices/{id}/reviews). The de-anonymised counterpart to RatingDistribution: where insights expose only numeric buckets, this carries the reviewer's name, avatar and comment text. `rating` is the stored 1..10 score mapped to the three UI buckets (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same rating icons it already renders for the anonymous distribution. */
+/** One named review (GET /api/v1/practices/{id}/reviews). The de-anonymised counterpart to RatingDistribution: where insights expose only numeric buckets, this carries the reviewer's name, avatar and comment text. `rating` is the stored 1..10 score mapped to the three UI buckets (1-3 confused / 4-7 good / 8-10 fire) so the frontend reuses the same rating icons it already renders for the anonymous distribution. user_id is the reviewer's User.id (E1 remainder) -- it lets the frontend navigate from a review to that student's profile. The author User is already joined in list_practice_reviews, so this adds no query. */
 export interface ReviewItem {
   user_id: string
   reviewer_name: string
