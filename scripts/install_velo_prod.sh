@@ -22,19 +22,19 @@
 #   - Ubuntu 22.04+ (fresh VPS)
 #   - Root access
 #   - GitHub deploy key with WRITE access ("velo update" pushes regenerated types)
-#   - Clones the "test" branch (GIT_BRANCH below) -- it must exist on origin
+#   - Clones the "main" branch (GIT_BRANCH below) -- it must exist on origin
 #   - DNS A-records pointing to this server:
-#       velotony.com     → 38.180.114.142
-#       api.velotony.com → 38.180.114.142
+#       vel-app.com     → 37.1.204.171
+#       api.vel-app.com → 37.1.204.171
 # ==============================================================================
 
 # === Configuration ===
 INSTALL_BASE="/opt/velo"
-DOMAIN_FRONTEND="velotony.com"
-DOMAIN_API="api.velotony.com"
+DOMAIN_FRONTEND="vel-app.com"
+DOMAIN_API="api.vel-app.com"
 REPO_URL=""  # Set after SSH key setup
 GITHUB_REPO="aivis-one/velo"
-GIT_BRANCH="test"  # Branch to clone and track (test env). Must already exist on origin.
+GIT_BRANCH="main"  # Branch to clone and track (production). Must already exist on origin.
 DEPLOY_USER="velo"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
@@ -134,8 +134,8 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 echo -e "  Type  Name                Value"
 echo -e "  ────  ──────────────────  ─────────────────"
-echo -e "  A     velotony.com        38.180.114.142"
-echo -e "  A     api.velotony.com    38.180.114.142"
+echo -e "  A     vel-app.com        37.1.204.171"
+echo -e "  A     api.vel-app.com    37.1.204.171"
 echo ""
 echo -e "${YELLOW}Both records must resolve to this server before SSL setup.${NC}"
 echo ""
@@ -497,13 +497,13 @@ setup_nginx() {
 
     cat > /etc/nginx/sites-available/velo << 'NGINX_EOF'
 # VELO — Nginx reverse proxy
-# velotony.com     → frontend (:3000)
-# api.velotony.com → backend  (:8000)
+# vel-app.com     → frontend (:3000)
+# api.vel-app.com → backend  (:8000)
 
 # Frontend
 server {
     listen 80;
-    server_name velotony.com;
+    server_name vel-app.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -521,7 +521,7 @@ server {
 # API
 server {
     listen 80;
-    server_name api.velotony.com;
+    server_name api.vel-app.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -574,13 +574,13 @@ setup_ssl() {
         # Update nginx config with SSL — two separate server blocks
         cat > /etc/nginx/sites-available/velo << 'SSL_NGINX_EOF'
 # VELO — Nginx reverse proxy with SSL
-# velotony.com     → frontend (:3000)
-# api.velotony.com → backend  (:8000)
+# vel-app.com     → frontend (:3000)
+# api.vel-app.com → backend  (:8000)
 
-# ── velotony.com: HTTP → HTTPS ──────────────────────────────────────────────
+# ── vel-app.com: HTTP → HTTPS ──────────────────────────────────────────────
 server {
     listen 80;
-    server_name velotony.com;
+    server_name vel-app.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -591,13 +591,13 @@ server {
     }
 }
 
-# ── velotony.com: HTTPS → frontend ─────────────────────────────────────────
+# ── vel-app.com: HTTPS → frontend ─────────────────────────────────────────
 server {
     listen 443 ssl http2;
-    server_name velotony.com;
+    server_name vel-app.com;
 
-    ssl_certificate /etc/letsencrypt/live/velotony.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/velotony.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
@@ -614,10 +614,10 @@ server {
     }
 }
 
-# ── api.velotony.com: HTTP → HTTPS ─────────────────────────────────────────
+# ── api.vel-app.com: HTTP → HTTPS ─────────────────────────────────────────
 server {
     listen 80;
-    server_name api.velotony.com;
+    server_name api.vel-app.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -628,13 +628,13 @@ server {
     }
 }
 
-# ── api.velotony.com: HTTPS → backend ──────────────────────────────────────
+# ── api.vel-app.com: HTTPS → backend ──────────────────────────────────────
 server {
     listen 443 ssl http2;
-    server_name api.velotony.com;
+    server_name api.vel-app.com;
 
-    ssl_certificate /etc/letsencrypt/live/velotony.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/velotony.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
@@ -769,8 +769,8 @@ create_management_script() {
 INSTALL_BASE="/opt/velo"
 COMPOSE_DIR="$INSTALL_BASE/repo"
 COMPOSE_CMD="docker compose"
-DOMAIN_FRONTEND="velotony.com"
-DOMAIN_API="api.velotony.com"
+DOMAIN_FRONTEND="vel-app.com"
+DOMAIN_API="api.vel-app.com"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -1205,8 +1205,8 @@ Triggered by velo update on commit $NEW_COMMIT" || {
         fi
 
         # -- 5. Lightweight cleanup --
-        # Frequent updates (this is a test server, often many per day) pile up
-        # Docker layers and dangling images. Reap only what's safe: dangling
+        # Frequent updates pile up Docker layers and dangling images.
+        # Reap only what's safe: dangling
         # (<none>) images and build cache older than 24h. Recent cache is kept
         # so same-day rebuilds stay fast. Volumes are never touched here.
         echo ""
@@ -1225,23 +1225,27 @@ Triggered by velo update on commit $NEW_COMMIT" || {
 
         echo "Creating backup..."
 
-        # Dump PostgreSQL from Docker container
+        # Back up the DATABASE ONLY, straight to a gzipped SQL dump.
+        # backend/.env is deliberately NOT backed up: its secrets are
+        # recreated from their own sources (a fresh install regenerates the DB
+        # password, the bot token lives in BotFather, Stripe keys in Stripe).
         cd_compose
-        $COMPOSE_CMD exec -T postgres pg_dump -U velo velo > "$BACKUP_DIR/velo_db_$TIMESTAMP.sql"
+        BACKUP_FILE="$BACKUP_DIR/velo_db_$TIMESTAMP.sql.gz"
+        $COMPOSE_CMD exec -T postgres pg_dump -U velo velo | gzip > "$BACKUP_FILE"
 
-        # Backup .env
-        cp "$COMPOSE_DIR/backend/.env" "$BACKUP_DIR/env_$TIMESTAMP.bak" 2>/dev/null || true
+        # Abort if pg_dump (first stage of the pipe) failed -- otherwise we
+        # would keep a truncated/empty archive and believe it succeeded.
+        if [ "${PIPESTATUS[0]}" -ne 0 ]; then
+            rm -f "$BACKUP_FILE"
+            echo -e "${RED}✗ Backup failed (pg_dump error)${NC}"
+            exit 1
+        fi
 
-        # Create archive
-        cd "$BACKUP_DIR"
-        tar -czf "backup_$TIMESTAMP.tar.gz" "velo_db_$TIMESTAMP.sql" "env_$TIMESTAMP.bak" 2>/dev/null
-        rm -f "velo_db_$TIMESTAMP.sql" "env_$TIMESTAMP.bak"
+        echo -e "${GREEN}✓ Backup created: $BACKUP_FILE${NC}"
 
-        echo -e "${GREEN}✓ Backup created: $BACKUP_DIR/backup_$TIMESTAMP.tar.gz${NC}"
-
-        # Rotate old backups (keep last 7 days)
-        find "$BACKUP_DIR" -name "backup_*.tar.gz" -mtime +7 -delete
-        BACKUP_COUNT=$(find "$BACKUP_DIR" -name "backup_*.tar.gz" | wc -l)
+        # Rotate old backups (keep last 7 days, local only)
+        find "$BACKUP_DIR" -name "velo_db_*.sql.gz" -mtime +7 -delete
+        BACKUP_COUNT=$(find "$BACKUP_DIR" -name "velo_db_*.sql.gz" | wc -l)
         echo "Total backups: $BACKUP_COUNT (auto-rotating after 7 days)"
         ;;
 
@@ -1455,7 +1459,7 @@ Triggered by velo update on commit $NEW_COMMIT" || {
         echo "  setrole               — List current admins & masters"
         echo ""
         echo "Maintenance:"
-        echo "  backup              — Backup DB + .env"
+        echo "  backup              — Backup DB (gzipped dump)"
         echo "  ssl renew           — Renew SSL certificate"
         echo "  ssl status          — Show certificate info"
         echo "  nginx reload        — Reload Nginx config"
