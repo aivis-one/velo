@@ -124,6 +124,25 @@ def _validate_style_for_direction(direction: str | None, style: str | None) -> N
         )
 
 
+# -- Zoom link validation (manual field; no Zoom integration / auto-gen) --
+# zoom_link is optional and hand-entered by the master. A non-empty value MUST
+# be an https:// URL: mirrors the frontend guard (CreatePracticeView) and the
+# live-view usability check (AUDIT-0520-02), enforced on the backend -- the
+# source of truth -- so a direct API call cannot store a non-https /
+# javascript: link. Empty / None means "no link". "https://" is a fixed
+# protocol requirement, not a business value, so it is not sourced from config.
+_ZOOM_LINK_REQUIRED_PREFIX = "https://"
+
+
+def _validate_zoom_link(v: str | None) -> str | None:
+    """Reject a non-empty zoom_link that is not an https:// URL."""
+    if v and not v.startswith(_ZOOM_LINK_REQUIRED_PREFIX):
+        raise ValueError(
+            f"zoom_link must start with '{_ZOOM_LINK_REQUIRED_PREFIX}'"
+        )
+    return v
+
+
 # -- Recurrence spec (E3, series only) --
 # Lives on the series ROOT in Practice.data.recurrence (schema-on-read, the
 # same JSONB sandbox as taxonomy) and drives child-occurrence generation when
@@ -256,6 +275,12 @@ class CreatePracticeRequest(BaseModel):
                 f"practice_type must be one of {allowed}, got '{v}'"
             )
         return v
+
+    @field_validator("zoom_link")
+    @classmethod
+    def zoom_link_must_be_https(cls, v: str | None) -> str | None:
+        """Manually-entered zoom_link must be an https:// URL (or empty)."""
+        return _validate_zoom_link(v)
 
     @field_validator("direction")
     @classmethod
@@ -422,6 +447,12 @@ class UpdatePracticeRequest(BaseModel):
                 f"practice_type must be one of {allowed}, got '{v}'"
             )
         return v
+
+    @field_validator("zoom_link")
+    @classmethod
+    def zoom_link_must_be_https(cls, v: str | None) -> str | None:
+        """Manually-entered zoom_link must be an https:// URL (or empty)."""
+        return _validate_zoom_link(v)
 
     @field_validator("direction")
     @classmethod
@@ -648,19 +679,14 @@ class PracticeResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None
 
+    # zoom_link (M-3 access gate) is handled at the response-building layer,
+    # NOT with a model_validator: FastAPI re-validates the returned model
+    # against response_model, which would re-run an "after" validator and wipe
+    # any value the service set. practice_to_response() therefore assigns
+    # zoom_link explicitly -- the real link only on the authorized path, None
+    # everywhere else. Direct model_validate(practice) callers (booking detail,
+    # finalize) null it themselves.
     model_config = {"from_attributes": True}
-
-    @model_validator(mode="after")
-    def _hide_zoom_link_by_default(self) -> "PracticeResponse":
-        # zoom_link is access-gated: it must reach only the practice owner
-        # (a master viewing their own practice) or a user with a CONFIRMED /
-        # ATTENDED booking on it. from_attributes would otherwise auto-surface
-        # the ORM column to every caller (the public feed leaked it). Null it
-        # here so it is hidden by default; the service re-sets it explicitly,
-        # after validation, only on the authorized detail path -- mirrors the
-        # is_booked / is_paid "default-then-service-overrides" pattern above.
-        self.zoom_link = None
-        return self
 
 
 class PaginatedPracticesResponse(BaseModel):
@@ -718,17 +744,12 @@ class PracticeSummary(BaseModel):
 
     # E18 + M-3: zoom_link on the summary powers the dashboard nearest-card
     # "Войти" / Zoom button. It is access-gated (M-3): it must reach only a
-    # user with a CONFIRMED / ATTENDED booking on the practice. The validator
-    # below nulls it by default (so from_attributes never auto-leaks it to a
-    # waitlisted / pending / non-booking viewer); GET /bookings/me re-sets it
-    # explicitly, after validation, for confirmed / attended bookings only.
+    # user with a CONFIRMED / ATTENDED booking on the practice. The gate lives
+    # in the RESPONSE BUILDERS, not here: GET /bookings/me sets the real link
+    # only for a confirmed/attended booking, and every other builder
+    # (waitlist/me, purchases/me) sets zoom_link=None explicitly. A schema
+    # model_validator cannot be used -- FastAPI re-validates the response and
+    # would re-run it, wiping the value the builder set.
     zoom_link: str | None = None
 
     model_config = {"from_attributes": True}
-
-    @model_validator(mode="after")
-    def _hide_zoom_link_by_default(self) -> "PracticeSummary":
-        # Never auto-surface the ORM zoom_link on the summary; only the
-        # authorized booking-list builder opts in after validation.
-        self.zoom_link = None
-        return self

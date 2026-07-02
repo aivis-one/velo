@@ -28,12 +28,14 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
+from app.modules.practices.schemas import UpdatePracticeRequest
 from app.modules.users.models import User, UserRole
 from app.modules.waitlist.models import Waitlist, WaitlistStatus
 from tests.helpers import auth_headers, login_user
@@ -405,3 +407,34 @@ async def test_waitlist_me_hides_zoom_link(
     items = resp.json()["items"]
     assert len(items) == 1
     assert items[0]["practice"]["zoom_link"] is None
+
+
+# ===================================================================
+# zoom_link format validation (M-3 hardening): non-https is rejected
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_zoom_link_format_rejects_non_https() -> None:
+    """The backend rejects a manually-entered zoom_link that is not https://.
+
+    The frontend guards this on the create form, but the backend is the source
+    of truth: a direct API call must not be able to store a non-https /
+    javascript: link. Empty / None / https:// are accepted.
+    """
+    for bad in (
+        "http://insecure.example/j/1",
+        "javascript:alert(1)",
+        "ftp://x",
+        "zoom.us/j/1",
+    ):
+        with pytest.raises(ValidationError):
+            UpdatePracticeRequest(zoom_link=bad)
+
+    # Accepted: a proper https link, plus "no link" (empty / None).
+    assert (
+        UpdatePracticeRequest(zoom_link="https://zoom.us/j/123").zoom_link
+        == "https://zoom.us/j/123"
+    )
+    assert UpdatePracticeRequest(zoom_link=None).zoom_link is None
+    assert UpdatePracticeRequest(zoom_link="").zoom_link == ""

@@ -311,13 +311,13 @@ def practice_to_response(
     resp.attended = attended
     resp.no_show = no_show
 
-    # zoom_link (M-3 access gate). The schema validator nulled it on
-    # model_validate; re-set it here ONLY when the caller authorized exposure
-    # (the practice owner, or a requester with a confirmed/attended booking --
-    # see get_practice_detail). Every other caller leaves zoom_link_visible
-    # False, so zoom_link stays None (public feed, master list, mutations).
-    if zoom_link_visible:
-        resp.zoom_link = practice.zoom_link
+    # zoom_link (M-3 access gate). model_validate auto-populated the real ORM
+    # link; expose it ONLY when the caller authorized it (the practice owner,
+    # or a requester with a confirmed/attended booking -- see
+    # get_practice_detail), otherwise null it explicitly. This gate lives here,
+    # not in a schema model_validator: FastAPI re-validates the response and
+    # would re-run such a validator, wiping the value set here.
+    resp.zoom_link = practice.zoom_link if zoom_link_visible else None
 
     return resp
 

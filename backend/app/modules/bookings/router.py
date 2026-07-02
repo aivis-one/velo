@@ -280,7 +280,12 @@ async def get_booking_detail_endpoint(
         left_at=booking.left_at,
         created_at=booking.created_at,
         updated_at=booking.updated_at,
-        practice=PracticeResponse.model_validate(practice),
+        # zoom_link (M-3): not exposed on the booking-detail response -- no UI
+        # reads it here, and an authorized viewer gets the link via the
+        # practice detail / dashboard. Nulled explicitly (no schema validator).
+        practice=PracticeResponse.model_validate(practice).model_copy(
+            update={"zoom_link": None},
+        ),
     )
 
 
@@ -389,7 +394,11 @@ async def finalize_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    # zoom_link (M-3): not exposed on the finalize response (owner-only, no UI
+    # consumer). Nulled explicitly since there is no schema validator.
+    return PracticeResponse.model_validate(practice).model_copy(
+        update={"zoom_link": None},
+    )
 
 
 @practices_attendance_router.get(
