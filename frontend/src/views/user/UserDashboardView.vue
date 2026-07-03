@@ -97,7 +97,18 @@
 
           <!-- Action buttons (outside the card, per Figma) -->
           <div class="dashboard__practice-actions">
-            <VButton variant="secondary" block @click="onZoomClick(b)"> Zoom </VButton>
+            <!-- R1 (№263): honest state — the backend status-gates zoom_link
+                 (null unless this booking is confirmed/attended), so a dead
+                 clickable button would read as broken. Disabled mirrors the
+                 MasterDashboardView null-handling pattern. -->
+            <VButton
+              variant="secondary"
+              block
+              :disabled="!hasZoom(b)"
+              @click="onZoomClick(b)"
+            >
+              Zoom
+            </VButton>
             <VButton
               variant="primary"
               block
@@ -323,12 +334,18 @@ function practiceTitle(b: BookingWithPracticeResponse): string {
  * (mirrors PracticeLiveView). `zoom_link` is now on PracticeSummary (E18), so no
  * per-click GET is needed. Empty/invalid link → truthful "link coming" toast.
  */
+/** R1 (№263): valid-link presence check gating the Zoom button. */
+function hasZoom(b: BookingWithPracticeResponse): boolean {
+  return !!b.practice.zoom_link?.startsWith('https://')
+}
+
 function onZoomClick(b: BookingWithPracticeResponse): void {
   const url = b.practice.zoom_link
   if (url && url.startsWith('https://')) {
     platform.openLink(url)
   } else {
-    toast.info('Ссылка появится ближе к началу')
+    // Backstop only — the button is disabled in this state (R1).
+    toast.info('Ссылка пока не добавлена мастером')
   }
 }
 

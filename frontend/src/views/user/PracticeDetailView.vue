@@ -93,11 +93,14 @@
       </section>
 
       <!-- Zoom (Batch 6: ported from BookingDetailView). Only while the
-             booking is active -- a past/cancelled booking has no live link. -->
+             booking is active -- a past/cancelled booking has no live link.
+             F2 (№263): honest copy — the link is revealed by booking status
+             (confirmed), not by a 10-minute timer; it lives on the dashboard
+             card and the live screen. -->
       <section v-if="showZoom" class="detail__section">
         <h3 class="detail__section-title">ZOOM</h3>
         <VCard class="detail__zoom-card">
-          Ссылка будет отправлена за 10 минут до начала практики
+          Ссылка на Zoom доступна после записи — на главном экране и в практике
         </VCard>
       </section>
 
