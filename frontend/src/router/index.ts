@@ -146,6 +146,11 @@ const router = createRouter({
           component: () => import('@/views/user/FeedbackView.vue'),
         },
         {
+          path: 'reflection/:practiceId',
+          name: 'user-reflection',
+          component: () => import('@/views/user/ReflectionView.vue'),
+        },
+        {
           path: 'practice-live/:practiceId',
           name: 'practice-live',
           component: () => import('@/views/user/PracticeLiveView.vue'),

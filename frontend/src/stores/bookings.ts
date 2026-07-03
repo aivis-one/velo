@@ -62,6 +62,17 @@ export const useBookingsStore = defineStore('bookings', () => {
     }
   }
 
+  // Practices whose no-show reflection the user SUBMITTED this session — hides
+  // the dashboard reflection banner immediately. Session-only: there is no
+  // backend `has_reflection` flag yet (TD-REFLECTION, VELO-Backend-Tasks.md),
+  // so it is lost on reload. Mirrors dismissedCheckins.
+  const dismissedReflections = ref<string[]>([])
+  function dismissReflection(practiceId: string): void {
+    if (!dismissedReflections.value.includes(practiceId)) {
+      dismissedReflections.value.push(practiceId)
+    }
+  }
+
   /**
    * Fetch a single booking with full practice details (screen 18).
    * Always refetches -- detail data (status, zoom) may change.
@@ -200,5 +211,9 @@ export const useBookingsStore = defineStore('bookings', () => {
     // Session-only check-in skip tracking
     dismissedCheckins,
     dismissCheckin,
+
+    // Session-only no-show reflection dismiss (TD-REFLECTION)
+    dismissedReflections,
+    dismissReflection,
   }
 })

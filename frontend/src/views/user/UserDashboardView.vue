@@ -54,6 +54,19 @@
       <template #icon><IconFeedback :size="28" /></template>
     </Banner>
 
+    <!-- No-show reflection banner (shared Banner; copy rotates per booking) -->
+    <Banner
+      v-if="reflectionAlert"
+      variant="success"
+      :title="pickReflectionVariant(reflectionAlert.practice_id).bannerTitle"
+      :body="`${reflectionAlert.practice.title} • ${dayLabelOf(reflectionAlert.practice.scheduled_at, viewerTz)}`"
+      :clickable="true"
+      class="dashboard__alert"
+      @click="goToReflection(reflectionAlert.practice_id)"
+    >
+      <template #icon><IconThanks :size="28" /></template>
+    </Banner>
+
     <!-- ================================================================
          NEAREST PRACTICE
          ================================================================ -->
@@ -198,6 +211,7 @@ import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/compone
 import {
   IconClock,
   IconFeedback,
+  IconThanks,
   IconCheck,
   IconArrowRight,
   IconMoodMid,
@@ -210,6 +224,7 @@ import { platform } from '@/platform'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { selectNearestBookings } from '@/utils/nearestBookings'
+import { pickReflectionVariant } from '@/utils/reflectionVariants'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse, UserStatsResponse } from '@/api/types'
@@ -273,6 +288,23 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
       if (b.status !== 'attended') return false
       // Hide once the user has already left feedback (no re-submit via banner).
       if (b.has_feedback) return false
+      const scheduledMs = new Date(b.practice.scheduled_at).getTime()
+      return isInFeedbackWindow(scheduledMs, b.practice.duration_minutes, now.value)
+    }) ?? null
+  )
+})
+
+/**
+ * First no-show booking still in the reflection window, not yet reflected this
+ * session. Mirrors feedbackAlert but for `no_show` (F4=А: same 72h window as
+ * feedback). Session dismiss only — no backend `has_reflection` flag yet
+ * (TD-REFLECTION); the client `dismissedReflections` set hides it after submit.
+ */
+const reflectionAlert = computed((): BookingWithPracticeResponse | null => {
+  return (
+    bookingsStore.bookings.find((b) => {
+      if (b.status !== 'no_show') return false
+      if (bookingsStore.dismissedReflections.includes(b.practice_id)) return false
       const scheduledMs = new Date(b.practice.scheduled_at).getTime()
       return isInFeedbackWindow(scheduledMs, b.practice.duration_minutes, now.value)
     }) ?? null
@@ -425,6 +457,10 @@ function goToCheckin(practiceId: string): void {
 
 function goToFeedback(practiceId: string): void {
   router.push({ name: 'user-feedback', params: { practiceId } })
+}
+
+function goToReflection(practiceId: string): void {
+  router.push({ name: 'user-reflection', params: { practiceId } })
 }
 
 // =========================================================================

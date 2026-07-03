@@ -83,8 +83,10 @@
         <p>{{ questionSubtitle }}</p>
       </div>
 
-      <!-- Selection slot (mood buttons / rating buttons) -->
-      <div class="form-shell__selection">
+      <!-- Selection slot (mood buttons / rating buttons). Omitted entirely when
+           no slot content is passed (ReflectionView) so there's no phantom gap;
+           CheckinView/FeedbackView always pass it, so they render unchanged. -->
+      <div v-if="$slots.selection" class="form-shell__selection">
         <slot name="selection" />
       </div>
 
