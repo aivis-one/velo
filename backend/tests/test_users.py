@@ -325,6 +325,82 @@ async def test_onboarding_completed_null_does_not_reset_flag(
 
 
 # ---------------------------------------------------------------------------
+# Master onboarding flag (E15) — same JSONB pattern as onboarding_completed
+# ---------------------------------------------------------------------------
+
+
+async def test_master_onboarding_completed_defaults_false_for_new_user(
+    client: AsyncClient,
+) -> None:
+    """A freshly created user has master_onboarding_completed=False."""
+    data = await login_user(client, telegram_id=88047, first_name="FreshM")
+    token = data["session_token"]
+
+    response = await client.get("/api/v1/users/me", headers=auth_headers(token))
+
+    assert response.status_code == 200
+    assert response.json()["master_onboarding_completed"] is False
+
+
+async def test_master_onboarding_completed_persists_and_survives_relogin(
+    client: AsyncClient,
+) -> None:
+    """PATCH master_onboarding_completed=true persists across re-login.
+
+    Mirrors test_onboarding_completed_survives_relogin: the credentials merge
+    in upsert_user_on_login must keep the master flag too. The user-side
+    onboarding_completed stays independent (untouched -> False).
+    """
+    first = await login_user(client, telegram_id=88048, first_name="MDone")
+    token1 = first["session_token"]
+
+    patch_response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token1),
+        json={"master_onboarding_completed": True},
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.json()["master_onboarding_completed"] is True
+
+    # Re-login with the SAME telegram_id; the flag must survive the upsert.
+    second = await login_user(client, telegram_id=88048, first_name="MDone")
+    token2 = second["session_token"]
+
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token2))
+    assert me.status_code == 200
+    body = me.json()
+    assert body["master_onboarding_completed"] is True
+    # Independence: the user-side flag was never set and stays False.
+    assert body["onboarding_completed"] is False
+
+
+async def test_master_onboarding_completed_null_does_not_reset_flag(
+    client: AsyncClient,
+) -> None:
+    """PATCH master_onboarding_completed=null is ignored, not written.
+
+    Service drops None for JSONB-backed fields (same rule as
+    onboarding_completed), so a once-true flag stays true.
+    """
+    data = await login_user(client, telegram_id=88049, first_name="MNull")
+    token = data["session_token"]
+
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"master_onboarding_completed": True},
+    )
+
+    resp = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"master_onboarding_completed": None},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["master_onboarding_completed"] is True
+
+
+# ---------------------------------------------------------------------------
 # Profile phone / bio (stored in credentials JSONB, surfaced as str | None)
 # ---------------------------------------------------------------------------
 
