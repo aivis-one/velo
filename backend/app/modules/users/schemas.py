@@ -312,6 +312,19 @@ class UserResponse(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def master_onboarding_completed(self) -> bool:
+        """Whether the user has finished the master-zone onboarding flow (E15).
+
+        Same schema-on-read pattern as onboarding_completed, stored inside
+        credentials JSONB under "master_onboarding_completed". Missing key
+        (never onboarded as master) -> False.
+        """
+        return bool(
+            self.credentials_in.get("master_onboarding_completed", False)
+        )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def phone(self) -> str | None:
         """User's contact phone, stored in the credentials JSONB sandbox.
 
@@ -466,6 +479,10 @@ class UserUpdate(BaseModel):
     timezone: str | None = Field(default=None, min_length=1, max_length=50)
     language: str | None = Field(default=None, min_length=1, max_length=5)
     onboarding_completed: bool | None = Field(default=None)
+    # Master-zone onboarding flag (E15). Same JSONB write path and null
+    # semantics as onboarding_completed: only true/false accepted, "not
+    # sent" / null leave it untouched.
+    master_onboarding_completed: bool | None = Field(default=None)
     # Empty string allowed (clear). Cap only; soft format check below.
     phone: str | None = Field(default=None, max_length=20)
     bio: str | None = Field(default=None, max_length=2000)
