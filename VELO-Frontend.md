@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.10
-**Дата:** 2 июля 2026
+**Версия:** 1.11
+**Дата:** 3 июля 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
@@ -11,6 +11,13 @@
 > (DS-first). Ссылки на Figma-node (`541:…`, `4715-3463` и т.п.), оставшиеся ниже
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
+
+> **v1.11 (capability-роль-свитч + E15 end-to-end + честный вход мастера + инвайт-ссылка, 3 июля 2026, база `d01f6f9` [Zod-батч zoom-гейт/setrole] + held-батч №255-258 до `77ad43a`, ahead-10, НЕ задеплоено):**
+> — **Role-switch = capability-derived (A1=Б); флаг `ROLE_SWITCH_ENABLED` УДАЛЁН (F1=А, `15d5b0d`):** `POST /users/me/role` всегда включён; целевые роли выводит `derive_allowed_roles()` (users/schemas.py — single source of truth и для write-пути, и для блока `role_switch` в `GET /me`): `{USER}` всегда · +`MASTER` при ВЕРИФИЦИРОВАННОМ мастер-профиле · админ (текущая роль ИЛИ server-side маркер `credentials.role_switch.home_role="admin"` — round-trip ушедшего в user/master админа; ставится при уходе, чистится при возврате) — все три. НЕ-админ НИКОГДА не получает admin (только CLI/DB — `velo setrole`). Старые seeded `allowed_roles` МЕРТВЫ (403). Старый 409 `master_profile_required` упразднён — не-capability цель = обычный 403 `role_not_allowed`. `RoleSwitchSection` рендерится по прежнему условию (непустой `allowedRoles`), но это теперь capability, а не тест-флаг → **ОТКРЫТО (operator-ruling):** секция «Режим тестировщика» + кнопка превью заявки станут видимы в ПРОДЕ верифицированным мастерам/админам после деплоя (§3.3).
+> — **E15 закрыт end-to-end:** `master_onboarding_completed` персистится бэком (credentials JSONB, PATCH-whitelist `_JSONB_CREDENTIAL_FIELDS`), типизирован в `generated.ts` (hand-add до регена: `UserResponse.master_onboarding_completed: boolean` + `UserUpdate.master_onboarding_completed?: boolean | null`), `persistMasterOnboarding()` пишет плоским PATCH без каста. Карусель мастера больше НЕ пере-показывается на новой сессии/устройстве. TD-FE-E15 закрыт (§10).
+> — **Честный вход мастера без профиля (№257, Q4=А):** `get_current_master` теперь отдаёт различимые 403-коды `master_profile_not_found` / `master_profile_not_verified`; стор `master.profileMissing` взводится ТОЛЬКО по коду (transient network error НЕ роутит в визард); подтверждённый no-profile мастер (например, админ после свитча) → `/master/apply` (dashboard — новый `masterNoProfileGuard`; sub-routes — первый чек в `masterStatusGuard`); pending/rejected/suspended → `/master/pending` байт-идентично прежнему.
+> — **Batch-INVITE (№258, C1=Б/TTL=В/F2=А):** одноразовая инвайт-ссылка мастера. Админ: «Мастера» → кнопка «Пригласить мастера» → экран `admin-master-invite` (VInput Telegram ID, inline-404 «должен один раз открыть бота», 409-toast) → `POST /admin/masters/invite` → полная ссылка `<bot_url>?startapp=master_onboarding__<token>` + «Скопировать» (B2) + подпись «одноразовая · действует до погашения». Хранение: ТОЛЬКО sha256 в `credentials.master_invite` (server-written, не PATCHable); re-issue перезаписывает (старая ссылка умирает); срока нет. Приглашённый: диплинк-kind `master_onboarding__<token>` (парсер `useAuth.parseStartParam`) → `/master/invite/:token` (`MasterInviteClaimView`, [applyGuard]) → claim `POST /masters/invite/claim` (структурная привязка к СВОЕМУ аккаунту, constant-time, consume single-use) → существующий визард заявки + админ-апрув; ошибка (чужая/погашенная/битая) → честный экран с выходом.
+> — **Опер-заметка (№255):** bare `velo seed-practices` теперь требует typed-«yes» перед мегапак-сценарием `default` (~300 практик / 12 мастеров); `--scenario NAME` / `--yes` / `--dry-run` обходят гейт; reset+default = ОДИН объединённый prompt.
 
 > **v1.10 (клавиатура/туман polish + чат fill-режим + focus-freeze фона, 2 июля 2026, база `583e765` — ДВЕ задеплоенные мили `67b95ef`+`583e765`, задеплоено на TEST):**
 > — **Focus-freeze фона (SP-3):** `useBackgroundStabilizer` тогглит `html.is-field-focused` на `focusin`/`focusout` текстовых полей; `global.css` морозит `#app::before` (`transform:none`) на этом классе — ДО того как клавиатура-анимация пересечёт `KEYBOARD_VIEWPORT_THRESHOLD` (150px) `is-keyboard-open`, иначе фото «сползает» в окне анимации (сильнее всего на высоких формах вроде Поддержки). Композитится с `is-keyboard-open` (любой класс ⇒ `transform:none`). Только freeze фона включается рано; max-height-кап + снятие маски остаются на 150px-пороге (без преждевременного reflow). Действует на ВСЕ экраны с клавиатурой.
@@ -248,7 +255,7 @@ frontend/
 /user/topup/cancel          → TopupCancelView
 
 -- Master -- (MasterShell, beforeEnter roleGuard('master'))
-/master/dashboard           → MasterDashboardView   (+ пост-апрув онбординг-overlay §3.8)
+/master/dashboard           → MasterDashboardView   [masterNoProfileGuard, v1.11] (+ пост-апрув онбординг-overlay §3.8)
 /master/practices           → MasterPracticesView          [masterStatusGuard]
 /master/practices/new       → CreatePracticeView           [masterStatusGuard, hideTabBar]
 /master/practices/:id       → EditPracticeView             [masterStatusGuard, hideTabBar]
@@ -269,11 +276,13 @@ frontend/
 /master/summary             → MasterSummaryView            [masterStatusGuard, hideTabBar]
 -- standalone (вне MasterShell) --
 /master/apply               → MasterApplyView              [applyGuard]
+/master/invite/:token       → MasterInviteClaimView        [applyGuard] (v1.11: claim одноразового инвайта → визард заявки; standalone, вне шелла)
 /master/pending             → MasterPendingView            [masterPendingGuard]
 
 -- Admin -- (AdminShell, beforeEnter roleGuard('admin'))
 /admin/dashboard            → AdminDashboardView
 /admin/masters[/:id]        → AdminMastersView / AdminMasterReviewView
+/admin/masters/invite       → AdminMasterInviteView  (v1.11: «Пригласить мастера», объявлен ДО masters/:id — литерал выигрывает)
 /admin/reports[/:id]        → AdminReportsView / AdminReportDetailView
 /admin/consistency          → AdminConsistencyView
 /admin/profile              → AdminProfileView
@@ -309,8 +318,9 @@ frontend/
 | `roleRedirect`        | Редирект `/` на dashboard по роли. `async` — ждёт `waitUntilReady()` перед чтением `auth.role` |
 | `roleGuard('master')` | Пропускает master + admin, остальных → `/user/dashboard`                                       |
 | `roleGuard('admin')`  | Пропускает только admin → `/user/dashboard`                                                    |
-| `masterStatusGuard`   | Проверяет верификацию профиля мастера, нет → `/master/pending`                                 |
-| `applyGuard`          | Верифицированный мастер не может повторно подать заявку. **TEST-only:** при `ui.previewApplyFlow` редирект снимается (тестер открывает визард в превью) |
+| `masterStatusGuard`   | v1.11: сперва общий чек no-profile (`master.profileMissing` по 403-коду `master_profile_not_found` → `/master/apply`); дальше как раньше — не-verified → `/master/pending` |
+| `masterNoProfileGuard` | v1.11 (№257): на `/master/dashboard` — подтверждённый no-profile мастер → `/master/apply` (честный вход вместо немого дашборда); pending/rejected остаются на дашборде байт-идентично |
+| `applyGuard`          | Верифицированный мастер не может повторно подать заявку (также на `/master/invite/:token`). **TEST-only:** при `ui.previewApplyFlow` редирект снимается (тестер открывает визард в превью) |
 | `masterPendingGuard`  | Гейтит standalone `/master/pending`: admin → `/admin/dashboard`; master → пропуск; user с маркером `MASTER_APPLIED_KEY` → пропуск; иначе → `/user/dashboard`. **TEST-only:** при `ui.previewApplyFlow` пропуск без маркера |
 
 **`beforeEach` (global guard):**
@@ -360,9 +370,11 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 **TEST-only повтор онбординга (role-switch).** На тест-сервере `RoleSwitchSection` при смене
 роли ставит session-сигнал `ui.forceOnboarding` (`UserRole | null`, не персистится). Для `user`
 его ловит `App.vue` (`watch` → `stage='onboarding'`, consume-on-enter; `@done` возвращает в
-`app`); для `master` — full-screen overlay на дашборде (§3.8). **Прод-недостижимо:**
-`forceOnboarding` ставится ТОЛЬКО из `RoleSwitchSection`, который рендерится лишь при непустом
-`allowedRoles` (= `ROLE_SWITCH_ENABLED` на TEST). Подробнее о секции — §3.3.
+`app`); для `master` — full-screen overlay на дашборде (§3.8). `forceOnboarding` ставится
+ТОЛЬКО из `RoleSwitchSection`, который рендерится при непустом `allowedRoles`. **v1.11:**
+флаг `ROLE_SWITCH_ENABLED` удалён — `allowedRoles` выводится из capability (верифицированный
+мастер / админ), поэтому прежний тезис «прод-недостижимо» БОЛЬШЕ НЕ ВЕРЕН для
+мастеров/админов на проде — открытый operator-ruling, см. §3.3.
 
 ---
 
@@ -446,12 +458,16 @@ isStandalone || !isAuthenticated -> StandaloneStubView
 | `DiaryComposer`        | (Diary redesign) нижний композер-pill: поле + mic-стаб (toast) + send. Создаёт note через `diaryStore.createEntry`. Стекло: `--velo-glass-blue-15`, backdrop-blur, glow-тень                                                                                                                                                                                                                                                                                                                              |
 | `DiaryTimeline`        | (Diary redesign) нить с альтернированием (экран 40, Уровень 2 упрощённый): центральная ось (CSS), дата-узлы по календарным дням в tz юзера, banner/practice по центру, standard чередуются L/R сквозным счётчиком со **сбросом каждый день**, сторона детерминирована позицией (пагинация не перетасовывает). Коннекторы — CSS-штрихи (не Figma-кривые)                                                                                                                                                   |
 
-**Новое (v1.8):** `RoleSwitchSection` (`components/shared/`) — **TEST-only** инструмент
-тестировщика в профиле всех трёх ролей. Рендерится лишь при непустом `allowedRoles`
-(= `ROLE_SWITCH_ENABLED` на TEST; в проде секции нет вовсе). Содержит: кнопки смены
-собственной роли (user/master/admin) + повтор онбординга на смену (`ui.forceOnboarding`,
-§2.3) + кнопку «Просмотреть экраны заявки» → TEST-only превью заявки (`ui.previewApplyFlow`,
-§3.8).
+**`RoleSwitchSection`** (`components/shared/`, v1.8; семантика пересмотрена в v1.11) —
+секция смены собственной роли в профиле всех трёх ролей. Рендерится при непустом
+`allowedRoles`; **с v1.11 (№256)** список выводится capability-политикой бэка
+(`derive_allowed_roles`: verified-master → user/master; admin → все три; обычный юзер →
+пусто/нет секции), флаг `ROLE_SWITCH_ENABLED` удалён. Содержит: кнопки смены роли + повтор
+онбординга (`ui.forceOnboarding`, §2.3) + кнопку «Просмотреть экраны заявки»
+(`ui.previewApplyFlow`, §3.8). **ОТКРЫТО (operator-ruling, №259):** после деплоя секция
+(заголовок «Режим тестировщика» + превью-кнопка) станет видима в ПРОДЕ верифицированным
+мастерам/админам — прежний прод-гейт был флагом; нужно решение: переименовать/урезать секцию
+для прода или принять как продуктовую фичу.
 
 ### 3.4. Флоу ДАШБОРД (экраны 10–18)
 
@@ -567,9 +583,11 @@ honest-стабы (тост «недоступно» + запись для Zod),
 `Teleport` поверх шелла) при входе на дашборд. Гейт — `utils/masterOnboarding.ts`
 (`shouldShowMasterOnboarding`: role=master + profileStatus=verified + не completed + не
 показан в сессии; `forced` обходит гарды для TEST-повтора). Флаг
-`master_onboarding_completed` = Zod **E15**: ещё не в `generated.ts`, читается defensive-кастом
-(absent → не завершён); до E15 не персистится → пере-показ на новой сессии (ожидаемый interim,
-не баг). Per-session гард — `master.onboardingShownThisSession`. Индикатор — `VPaginationDots`.
+`master_onboarding_completed` — **E15 ЗАКРЫТ (v1.11, №256/257):** персистится бэком в
+credentials JSONB, типизирован в `generated.ts`, пишется плоским PATCH на done/skip;
+переживает re-login и смену устройства — пере-показа на новой сессии больше нет.
+Per-session гард — `master.onboardingShownThisSession` (быстрый путь внутри сессии).
+Индикатор — `VPaginationDots`.
 
 **Заявка мастера.** `views/master/MasterApplyView.vue` — 3 шага в одном вью (`step` 1→3,
 локальный стейт, без бэка до финала): **Профиль** (имя/email/телефон + согласие) → **Опыт**
@@ -999,7 +1017,7 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 | --- | --- | --- | --- | --- |
 | TD-FE-E13-APPLY-DOCS | 🧪 | `MasterApplyView.vue` | Зоны загрузки паспорт/сертификаты/фото — honest-стаб: тап → тост, файл не уходит на бэк | Zod E13: хранилище файлов заявки |
 | TD-FE-E14-REJECT-REASON | 🧪 | `MasterPendingView.vue` | Экран отказа — generic-причина; реальная `rejection_reason` не на `MasterProfileResponse` | Zod E14: отдать причину отказа |
-| TD-FE-E15-ONBOARDING-FLAG | 🧪 | `utils/masterOnboarding.ts`, `MasterDashboardView.vue` | `master_onboarding_completed` не персистится (нет в `generated.ts`) → карусель пере-показывается на новой сессии; per-session гард держит в пределах сессии | Zod E15: флаг в UserResponse/Update |
+| TD-FE-E15-ONBOARDING-FLAG | ✅ | `utils/masterOnboarding.ts`, `MasterDashboardView.vue` | **ЗАКРЫТ (v1.11, №256/257):** `master_onboarding_completed` персистится бэком + типизирован в `generated.ts`; пере-показа на новой сессии нет | закрыт (E15 сделан своими силами) |
 | TD-FE-E16-APPLY-LANGS | 🧪 | `MasterApplyView.vue` | Тоггл языка практик — локальный, не уходит с заявкой | Zod E16: поле языков в заявке |
 | TD-FE-E17-WEB-AUTH | 🧪 | `views/auth/*`, `/auth/*` | Phase A экраны (Landing/Login/восстановление×2) — спящие/незалинкованные, инертные стабы | Zod E17: web-auth-бэкенд (email/OAuth) |
 
@@ -1063,8 +1081,9 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
 - **Чек-ин Zoom-независим** (инвариант под W-1): явка засчитывается и по PRE-чек-ину,
   поэтому точка входа в чек-ин (баннер дашборда / кнопка live-экрана) не должна
   гейтиться `zoom_link`/`hasValidZoom`. Проверено: сейчас гейтится только «Войти».
-- **`role_switch_enabled`** логирует security-WARNING на бэке — поведение фронта не
-  меняется (эксплуатационная заметка).
+- **`ROLE_SWITCH_ENABLED` удалён (v1.11, `15d5b0d`)** — вместе с W-4 security-WARNING;
+  безопасность роль-свитча теперь в самой capability-политике (`derive_allowed_roles`).
+  Строка `ROLE_SWITCH_ENABLED=False` в TEST `.env` инертна, можно удалить при деплое.
 
 ---
 

@@ -508,3 +508,30 @@ E12–E17 OPEN (E17 PARKED — master web-auth, future web build). **Only delta 
 PARTIAL** (master-notifications contract + capability gate delivered; push/feed open). No regression.
 Auto-complete-by-duration + W-6/W-7 (user dashboard) delivered outside the epic set. This is the current
 state to hand to Zod against his own numbering.
+
+---
+
+## 2026-07-03 — ROLE_SWITCH_ENABLED removed (heads-up for YOUR docs)
+
+**What changed (commit `15d5b0d`, held batch on `d01f6f9`, ПРОМТ №256):** the TEST-only
+`ROLE_SWITCH_ENABLED` flag is REMOVED entirely (config field, the 404 router gate on
+`POST /users/me/role`, the W-4 startup warning + its test file, and the seeded
+`credentials.role_switch.allowed_roles` allow-lists — now ignored). Role-switch security is
+capability-derived (`derive_allowed_roles` in `app/modules/users/schemas.py`, single source of
+truth for the write path AND the `role_switch` block in `GET /users/me`): USER always ·
++MASTER with a verified MasterProfile · admin keeps all three via a server-written
+`credentials.role_switch.home_role` round-trip marker; a non-admin can NEVER switch to admin
+(CLI `velo setrole` only). The endpoint is always on; a plain user derives `{USER}` and can do
+nothing. `ROLE_SWITCH_ENABLED=False` in the TEST `.env` is inert and can be dropped.
+
+**Stale references left in YOUR docs (we don't edit them — please align on your next pass):**
+- `VELO-Backend.md:36` — W-4 summary line («громкий security-WARNING при `role_switch_enabled=True`») — the flag and the warning no longer exist.
+- `VELO-Backend.md:1202` — same W-4 warning note.
+- `VELO-Backend.md:1244` — «эндпоинт 404 в проде при `role_switch_enabled=False`» — the 404 gate is gone; security = derived policy.
+- `VELO-Technical-Specification.md:2726` — W-4 checklist entry.
+- `VELO-Technical-Specification.md:3146` — W-4 mention in the hardening summary list.
+
+**Optional one-line follow-up in YOUR `set_role.py`:** demoting an admin (→user/master) while
+they are role-switched away leaves a stale `credentials.role_switch.home_role="admin"` marker
+(they could self-return to admin via the switch). Clearing the marker in your demote path
+closes the edge; operator accepted the edge as-is for now (№257 ruling), so this is optional.
