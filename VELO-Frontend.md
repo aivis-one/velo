@@ -12,7 +12,8 @@
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
 
-> **v1.11 (capability-роль-свитч + E15 end-to-end + честный вход мастера + инвайт-ссылка + Batch-STRIP, 3 июля 2026, база `d01f6f9` [Zod-батч zoom-гейт/setrole] + held-батч №255-260, НЕ задеплоено):**
+> **v1.11 (capability-роль-свитч + E15 end-to-end + честный вход мастера + инвайт-ссылка + Batch-STRIP + zoom-мини-фиксы, 3 июля 2026, база `d01f6f9` [Zod-батч zoom-гейт/setrole] + held-батч №255-263, НЕ задеплоено):**
+> — **Zoom-мини-фиксы (№263, pre-push):** owner-CRUD-ответы (create/update/delete/cancel в `practices/router.py`) отдают СВОЙ `zoom_link` (передан `zoom_link_visible=True`) — консистентно с owner-always-sees (M-3/Z-6); кнопка «Zoom» на юзер-дашборде `:disabled` без валидной ссылки (честное состояние вместо мёртвого клика); карточка ZOOM в детали практики — честный текст «доступна после записи» вместо ложного «за 10 минут до начала» (reveal привязан к статусу брони, не к таймеру).
 > — **Batch-STRIP (№260, operator-locked «тест==прод»):** тестер-скаффолдинг УДАЛЁН из кода целиком — `ui.forceOnboarding` (повтор онбординга на свитч: сигнал, `App.vue`-watcher, dashboard-`forced`) и `ui.previewApplyFlow` (5-экранное превью заявки: сигнал, `PREVIEW_ROUTE_NAMES`, ветки в `applyGuard`/`masterPendingGuard`/`beforeEach`/Landing/Apply/Pending, кнопка «Просмотреть экраны заявки»). `shouldShowMasterOnboarding` без `forced` — единственный триггер онбординга = естественный прод-путь. **Ruling по находке №259:** свитч в проде = НАМЕРЕННАЯ прод-фича (theme A); `RoleSwitchSection` переименован «Режим тестировщика» → **«Переключение роли»** (только strip+retitle, без рестайла; финальный вид — device-eyeball оператора).
 > — **Role-switch = capability-derived (A1=Б); флаг `ROLE_SWITCH_ENABLED` УДАЛЁН (F1=А, `15d5b0d`):** `POST /users/me/role` всегда включён; целевые роли выводит `derive_allowed_roles()` (users/schemas.py — single source of truth и для write-пути, и для блока `role_switch` в `GET /me`): `{USER}` всегда · +`MASTER` при ВЕРИФИЦИРОВАННОМ мастер-профиле · админ (текущая роль ИЛИ server-side маркер `credentials.role_switch.home_role="admin"` — round-trip ушедшего в user/master админа; ставится при уходе, чистится при возврате) — все три. НЕ-админ НИКОГДА не получает admin (только CLI/DB — `velo setrole`). Старые seeded `allowed_roles` МЕРТВЫ (403). Старый 409 `master_profile_required` упразднён — не-capability цель = обычный 403 `role_not_allowed`. `RoleSwitchSection` рендерится по прежнему условию (непустой `allowedRoles`), но это теперь capability, а не тест-флаг. **Ruling (№260):** прод-видимость свитча = намеренная фича; секция → «Переключение роли», превью-строка удалена (см. Batch-STRIP выше, §3.3).
 > — **E15 закрыт end-to-end:** `master_onboarding_completed` персистится бэком (credentials JSONB, PATCH-whitelist `_JSONB_CREDENTIAL_FIELDS`), типизирован в `generated.ts` (hand-add до регена: `UserResponse.master_onboarding_completed: boolean` + `UserUpdate.master_onboarding_completed?: boolean | null`), `persistMasterOnboarding()` пишет плоским PATCH без каста. Карусель мастера больше НЕ пере-показывается на новой сессии/устройстве. TD-FE-E15 закрыт (§10).
@@ -1069,7 +1070,11 @@ if (role === 'master' || role === 'admin') && to === /user/dashboard:
   гейтиться `zoom_link`/`hasValidZoom`. Проверено: сейчас гейтится только «Войти».
 - **`ROLE_SWITCH_ENABLED` удалён (v1.11, `15d5b0d`)** — вместе с W-4 security-WARNING;
   безопасность роль-свитча теперь в самой capability-политике (`derive_allowed_roles`).
-  Строка `ROLE_SWITCH_ENABLED=False` в TEST `.env` инертна, можно удалить при деплое.
+  Строку `ROLE_SWITCH_ENABLED=False` в TEST `.env` удалить при деплое (№264-точность):
+  под Docker она БЕЗВРЕДНА (compose инжектит `.env` как env-переменные, pydantic-settings
+  игнорит неизвестный ключ; `.env` в образ не копируется — dockerignore), НО на bare-metal
+  запуске ФАТАЛЬНА (pydantic-settings кидает `extra_forbidden` на неизвестный ключ в dotenv-файле).
+  Раннбук №261 её всё равно удаляет.
 
 ---
 
