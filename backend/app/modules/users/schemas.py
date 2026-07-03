@@ -24,7 +24,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from app.core.config import settings
 from app.modules.users.models import UserRole
 
 # Notification preference keys and their defaults (all ON).
@@ -243,15 +242,61 @@ class MasterNotificationSettingsUpdate(BaseModel):
 
 
 class RoleSwitchInfo(BaseModel):
-    """Tester role-switch capability (TEST-ONLY).
+    """Self role-switch capability (capability-derived, A1=Б).
 
-    Present in GET /users/me ONLY when settings.role_switch_enabled is True
-    AND the user was seeded with credentials.role_switch.allowed_roles. The
-    list is the set of roles this tester may switch their own account to via
-    POST /users/me/role. Absent (null) for everyone else and on production.
+    Present in GET /users/me when the derived set contains more than just
+    USER (i.e. there is actually something to switch to). The list is the
+    set of roles this account may switch itself to via POST /users/me/role,
+    derived by derive_allowed_roles() -- the single source of truth shared
+    with the write path. Null when the user can only be a plain user.
     """
 
     allowed_roles: list[UserRole]
+
+
+def has_admin_home(credentials: dict | None) -> bool:
+    """Whether this account is a switched-away admin (round-trip marker).
+
+    When an admin switches their own role away via POST /users/me/role, the
+    service records credentials.role_switch.home_role = "admin" so the
+    derivation keeps ADMIN in their allowed set and they can switch back.
+    The marker is server-written only: "role_switch" is not in the PATCH
+    whitelist (_JSONB_CREDENTIAL_FIELDS), so clients cannot grant it.
+    """
+    role_switch = (credentials or {}).get("role_switch")
+    if not isinstance(role_switch, dict):
+        return False
+    return role_switch.get("home_role") == "admin"
+
+
+def derive_allowed_roles(
+    role: UserRole | str,
+    has_master_capability: bool,
+    *,
+    admin_home: bool = False,
+) -> list[UserRole]:
+    """Single source of truth for the self role-switch policy (A1=Б).
+
+    allowed(user) =
+      {USER}
+      ∪ {MASTER}                iff the user has master capability
+                                     (a VERIFIED MasterProfile)
+      ∪ {USER, MASTER, ADMIN}   iff the user is an admin (current role ADMIN,
+                                     or a switched-away admin -- admin_home)
+
+    Hard rule ADMIN-NEVER-TARGET: a non-admin can never reach ADMIN here --
+    the admin role is granted only via CLI/DB. An admin may switch to MASTER
+    even without a master profile (№254 Q4=А): the master zone then shows
+    its honest empty/onboarding state.
+
+    Used by BOTH the write path (service.switch_user_role) and the read path
+    (UserResponse.role_switch) so the two can never drift.
+    """
+    if role == UserRole.ADMIN or admin_home:
+        return [UserRole.USER, UserRole.MASTER, UserRole.ADMIN]
+    if has_master_capability:
+        return [UserRole.USER, UserRole.MASTER]
+    return [UserRole.USER]
 
 
 class UserResponse(BaseModel):
@@ -421,29 +466,26 @@ class UserResponse(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def role_switch(self) -> RoleSwitchInfo | None:
-        """Tester role-switch capability, or None when unavailable.
+        """Self role-switch capability, or None when there is nothing to
+        switch to.
 
-        Gated by settings.role_switch_enabled (TEST-only feature flag): on
-        production the flag is False, so this is always None and the block
-        never ships. When enabled, reads the seeded set under
-        credentials.role_switch.allowed_roles; a missing/empty/invalid value
-        yields None so non-tester accounts get no block. Order is preserved
-        and duplicates / unknown role strings are dropped.
+        Derived by derive_allowed_roles() from the current role, the master
+        capability (master_capability_in -- set by the router, same carrier
+        the master_notifications gate uses) and the switched-away-admin
+        marker. The old seeded credentials.role_switch.allowed_roles lists
+        are IGNORED: capability, not seeding, decides (A1=Б).
+
+        None when the derivation yields only USER, so plain users get no
+        switch UI. Same carrier caveat as master_notifications: a
+        UserResponse built outside the /users/me routers reports
+        master_capability_in=False and may under-derive.
         """
-        if not settings.role_switch_enabled:
-            return None
-        raw = self.credentials_in.get("role_switch")
-        if not isinstance(raw, dict):
-            return None
-        stored = raw.get("allowed_roles")
-        if not isinstance(stored, list):
-            return None
-        valid_values = {r.value for r in UserRole}
-        allowed: list[UserRole] = []
-        for item in stored:
-            if item in valid_values and UserRole(item) not in allowed:
-                allowed.append(UserRole(item))
-        if not allowed:
+        allowed = derive_allowed_roles(
+            self.role,
+            self.master_capability_in,
+            admin_home=has_admin_home(self.credentials_in),
+        )
+        if len(allowed) == 1:
             return None
         return RoleSwitchInfo(allowed_roles=allowed)
 
