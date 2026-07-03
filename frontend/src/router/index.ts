@@ -389,6 +389,13 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMastersView.vue'),
         },
         {
+          // Batch-INVITE (№258): one-time master invite link issue screen.
+          // Declared BEFORE masters/:id so the literal segment wins.
+          path: 'masters/invite',
+          name: 'admin-master-invite',
+          component: () => import('@/views/admin/AdminMasterInviteView.vue'),
+        },
+        {
           path: 'masters/:id',
           name: 'admin-master-review',
           component: () => import('@/views/admin/AdminMasterReviewView.vue'),

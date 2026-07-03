@@ -26,6 +26,11 @@
 
     <VSegment v-model="filter" :options="segOptions" />
 
+    <!-- Batch-INVITE (№258): entry to the one-time invite link screen. -->
+    <VButton variant="secondary" block @click="router.push({ name: 'admin-master-invite' })">
+      Пригласить мастера
+    </VButton>
+
     <!-- Loading -->
     <div v-if="loading" class="admin-list__loader"><VLoader size="lg" /></div>
 

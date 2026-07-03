@@ -46,6 +46,7 @@ import type {
   PaginatedAdminPracticesResponse,
   AdminPracticeDetailResponse,
   AdminRevenueResponse,
+  InviteMasterResponse,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -106,6 +107,17 @@ export function verifyMaster(userId: string): Promise<AdminMasterActionResponse>
 
 export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {
   return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/reject`, { reason })
+}
+
+/**
+ * Issue a one-time master invite link for a user identified by Telegram ID
+ * (Batch-INVITE, №258). 404 invite_target_not_found if the person never
+ * opened the bot; 409 already_master. Re-issue overwrites the old link.
+ */
+export function inviteMaster(telegramId: number): Promise<InviteMasterResponse> {
+  return api.post<InviteMasterResponse>('/api/v1/admin/masters/invite', {
+    telegram_id: telegramId,
+  })
 }
 
 // ============================================================================
