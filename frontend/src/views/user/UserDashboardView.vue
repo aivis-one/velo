@@ -64,7 +64,7 @@
       class="dashboard__alert"
       @click="goToReflection(reflectionAlert.practice_id)"
     >
-      <template #icon><IconThanks :size="28" /></template>
+      <template #icon><IconReflection :size="28" /></template>
     </Banner>
 
     <!-- ================================================================
@@ -211,7 +211,7 @@ import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/compone
 import {
   IconClock,
   IconFeedback,
-  IconThanks,
+  IconReflection,
   IconCheck,
   IconArrowRight,
   IconMoodMid,
