@@ -584,6 +584,10 @@ async def test_owner_create_response_shows_zoom_link(
     owner-always-sees rule on the detail (M-3) and the master list (Z-6).
     """
     master = await _make_verified_master(client, db_session, telegram_id=96700)
+    # _make_verified_master only flushes on the test session; the API request
+    # runs on a separate session that sees only committed data, so the MASTER
+    # role must be committed before the owner-only POST (else 403).
+    await db_session.commit()
 
     resp = await client.post(
         "/api/v1/practices",
