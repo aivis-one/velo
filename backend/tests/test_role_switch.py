@@ -1,15 +1,27 @@
 # =============================================================================
-# Test: Role Switch — TEST-ONLY tester tool (POST /api/v1/users/me/role)
+# Test: Role Switch — capability-derived policy (POST /api/v1/users/me/role)
 # =============================================================================
 #
-# Covers the dedicated-flag gate, the per-user allow-list, the master-profile
-# requirement, and the role_switch block surfaced in GET /users/me.
+# A1=Б: the endpoint is ALWAYS ON (the ROLE_SWITCH_ENABLED flag is gone);
+# authorization is derived, not seeded:
 #
-# The feature is OFF by default (settings.role_switch_enabled = False). Tests
-# that exercise the enabled behaviour flip the singleton flag via monkeypatch;
-# both the router and the UserResponse computed_field read the same settings
-# object, so one patch covers both. Cleanup of the telegram_id range removes
-# the MasterProfiles created here so they never leak into other suites.
+#   allowed(user) = {USER}
+#                 ∪ {MASTER}              iff a VERIFIED MasterProfile exists
+#                 ∪ {USER, MASTER, ADMIN} iff the user is an admin (current
+#                                              role, or a switched-away admin
+#                                              via credentials.role_switch.
+#                                              home_role -- the round-trip
+#                                              marker)
+#
+# Hard rule ADMIN-NEVER-TARGET: a non-admin can never switch to ADMIN. An
+# admin may switch to MASTER even without a master profile (№254 Q4=А).
+# Legacy seeded credentials.role_switch.allowed_roles lists grant NOTHING.
+#
+# Covers the derivation matrix on the write path, the round-trip marker
+# bookkeeping, and the role_switch block surfaced in GET /users/me (read
+# path -- same derivation, single source of truth). Cleanup of the
+# telegram_id range removes the MasterProfiles created here so they never
+# leak into other suites.
 # =============================================================================
 
 import pytest
@@ -17,7 +29,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
 from tests.helpers import auth_headers, full_cleanup_range, login_user
@@ -36,58 +47,61 @@ async def _cleanup(db_session: AsyncSession):
     await db_session.commit()
 
 
-async def _seed_role_switch(
-    db_session: AsyncSession,
-    telegram_id: int,
-    allowed_roles: list[str],
-    *,
-    with_master_profile: bool = False,
-) -> None:
-    """Seed credentials.role_switch.allowed_roles for an existing user.
-
-    Mirrors what seed_practices will write. Optionally attaches a verified
-    MasterProfile so a switch into the master role is accepted.
-    """
-    user = (
+async def _get_user(db_session: AsyncSession, telegram_id: int) -> User:
+    db_session.expire_all()  # drop stale identity-map state after API writes
+    return (
         await db_session.execute(
             select(User).where(User.telegram_id == telegram_id)
         )
     ).scalar_one()
 
-    creds = dict(user.credentials or {})
-    creds["role_switch"] = {"allowed_roles": allowed_roles}
-    user.set_jsonb("credentials", creds)
 
-    if with_master_profile:
-        profile = MasterProfile(user_id=user.id)
-        profile.set_jsonb("data", {"account": {"status": "verified"}})
-        db_session.add(profile)
-
+async def _set_role(
+    db_session: AsyncSession, telegram_id: int, role: str
+) -> None:
+    """Directly assign a role (simulates the CLI/DB grant, e.g. admin)."""
+    user = await _get_user(db_session, telegram_id)
+    user.role = role
     await db_session.commit()
 
 
-# ---------------------------------------------------------------------------
-# Gate: feature flag
-# ---------------------------------------------------------------------------
-
-
-async def test_switch_role_404_when_feature_disabled(
-    client: AsyncClient,
-    monkeypatch: pytest.MonkeyPatch,
+async def _add_master_profile(
+    db_session: AsyncSession, telegram_id: int, status: str = "verified"
 ) -> None:
-    """With the flag off (default, i.e. production), the endpoint 404s."""
-    # Force the flag OFF so the test does not depend on the ambient
-    # ROLE_SWITCH_ENABLED env. Mirrors the enabled tests' monkeypatch.
-    monkeypatch.setattr(settings, "role_switch_enabled", False)
-    data = await login_user(client, telegram_id=88200, first_name="Off")
-    token = data["session_token"]
+    """Attach a MasterProfile with the given account.status."""
+    user = await _get_user(db_session, telegram_id)
+    profile = MasterProfile(user_id=user.id)
+    profile.set_jsonb("data", {"account": {"status": status}})
+    db_session.add(profile)
+    await db_session.commit()
 
-    response = await client.post(
+
+async def _seed_legacy_allowlist(
+    db_session: AsyncSession, telegram_id: int, allowed_roles: list[str]
+) -> None:
+    """Seed the LEGACY credentials.role_switch.allowed_roles list.
+
+    Mirrors what old seed scenarios wrote. The derived policy must ignore it
+    entirely -- kept only for the regression test below.
+    """
+    user = await _get_user(db_session, telegram_id)
+    creds = dict(user.credentials or {})
+    creds["role_switch"] = {"allowed_roles": allowed_roles}
+    user.set_jsonb("credentials", creds)
+    await db_session.commit()
+
+
+async def _switch(client: AsyncClient, token: str, role: str):
+    return await client.post(
         "/api/v1/users/me/role",
         headers=auth_headers(token),
-        json={"role": "admin"},
+        json={"role": role},
     )
-    assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Plumbing: auth & validation
+# ---------------------------------------------------------------------------
 
 
 async def test_switch_role_no_auth_401(client: AsyncClient) -> None:
@@ -99,211 +113,239 @@ async def test_switch_role_no_auth_401(client: AsyncClient) -> None:
     assert response.status_code == 401
 
 
+async def test_switch_invalid_role_422(client: AsyncClient) -> None:
+    """An unknown role value is rejected by Pydantic → 422."""
+    data = await login_user(client, telegram_id=88207, first_name="Bogus")
+    response = await _switch(client, data["session_token"], "superuser")
+    assert response.status_code == 422
+
+
 # ---------------------------------------------------------------------------
-# Happy paths
+# Derivation matrix: write path (POST /me/role)
 # ---------------------------------------------------------------------------
 
 
-async def test_switch_to_admin_success(
+async def test_plain_user_cannot_switch_to_master_403(
+    client: AsyncClient,
+) -> None:
+    """No master profile → MASTER is not in the derived set → 403."""
+    data = await login_user(client, telegram_id=88201, first_name="Plain")
+    response = await _switch(client, data["session_token"], "master")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
+
+
+async def test_plain_user_cannot_switch_to_admin_403(
+    client: AsyncClient,
+) -> None:
+    """ADMIN-NEVER-TARGET: a non-admin can never switch to admin."""
+    data = await login_user(client, telegram_id=88202, first_name="Wannabe")
+    response = await _switch(client, data["session_token"], "admin")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
+
+
+async def test_unverified_profile_cannot_switch_to_master_403(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A tester allowed admin can switch; role flips and GET /me reflects it."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88201, first_name="Admin")
-    token = data["session_token"]
-    await _seed_role_switch(db_session, 88201, ["user", "master", "admin"])
-
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "admin"},
-    )
-    assert response.status_code == 200
-    assert response.json()["role"] == "admin"
-
-    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
-    assert me.json()["role"] == "admin"
+    """A pending (unverified) profile grants no master capability → 403."""
+    data = await login_user(client, telegram_id=88203, first_name="Pending")
+    await _add_master_profile(db_session, 88203, status="pending")
+    response = await _switch(client, data["session_token"], "master")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
 
 
-async def test_switch_to_master_with_profile_success(
+async def test_suspended_profile_cannot_switch_to_master_403(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Switch to master succeeds when a verified MasterProfile exists."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88202, first_name="Master")
-    token = data["session_token"]
-    await _seed_role_switch(
-        db_session, 88202, ["user", "master", "admin"], with_master_profile=True
-    )
+    """A suspended profile (CLI soft-freeze) grants no capability → 403."""
+    data = await login_user(client, telegram_id=88204, first_name="Frozen")
+    await _add_master_profile(db_session, 88204, status="suspended")
+    response = await _switch(client, data["session_token"], "master")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
 
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "master"},
-    )
+
+async def test_verified_capability_roundtrip_user_master(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A verified MasterProfile unlocks MASTER; USER is always available."""
+    data = await login_user(client, telegram_id=88205, first_name="Capable")
+    token = data["session_token"]
+    await _add_master_profile(db_session, 88205, status="verified")
+
+    response = await _switch(client, token, "master")
     assert response.status_code == 200
     assert response.json()["role"] == "master"
 
+    response = await _switch(client, token, "user")
+    assert response.status_code == 200
+    assert response.json()["role"] == "user"
 
-async def test_switch_back_to_user_success(
+
+async def test_verified_master_cannot_switch_to_admin_403(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A tester can return to the user role (round-trip)."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88203, first_name="RoundTrip")
+    """Master capability does NOT unlock admin (ADMIN-NEVER-TARGET)."""
+    data = await login_user(client, telegram_id=88206, first_name="MasterOnly")
     token = data["session_token"]
-    await _seed_role_switch(db_session, 88203, ["user", "master", "admin"])
+    await _add_master_profile(db_session, 88206, status="verified")
+    await _switch(client, token, "master")
 
-    await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "admin"},
-    )
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "user"},
-    )
+    response = await _switch(client, token, "admin")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
+
+
+async def test_switch_to_current_role_is_noop_200(
+    client: AsyncClient,
+) -> None:
+    """USER is always in the derived set: user → user is a harmless no-op."""
+    data = await login_user(client, telegram_id=88208, first_name="Same")
+    response = await _switch(client, data["session_token"], "user")
     assert response.status_code == 200
     assert response.json()["role"] == "user"
 
 
 # ---------------------------------------------------------------------------
-# Authorization & validation failures
+# Admin round-trip (home_role marker)
 # ---------------------------------------------------------------------------
 
 
-async def test_switch_to_role_not_in_allowlist_403(
+async def test_admin_roundtrip_via_user(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Requesting a role outside the seeded allow-list → 403."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88204, first_name="Limited")
+    """Admin → user → back to admin; the home marker is set, then cleared."""
+    data = await login_user(client, telegram_id=88210, first_name="Boss")
     token = data["session_token"]
-    # Allowed only user — admin is off-limits.
-    await _seed_role_switch(db_session, 88204, ["user"])
+    await _set_role(db_session, 88210, "admin")
 
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "admin"},
+    response = await _switch(client, token, "user")
+    assert response.status_code == 200
+    assert response.json()["role"] == "user"
+    # While away, the derived set still offers admin (round-trip marker).
+    assert response.json()["role_switch"] == {
+        "allowed_roles": ["user", "master", "admin"]
+    }
+    user = await _get_user(db_session, 88210)
+    assert (user.credentials or {}).get("role_switch", {}).get(
+        "home_role"
+    ) == "admin"
+
+    response = await _switch(client, token, "admin")
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+    # Marker is cleared on return: no stale self-serve admin grant remains.
+    user = await _get_user(db_session, 88210)
+    assert "home_role" not in (user.credentials or {}).get("role_switch", {})
+
+
+async def test_admin_without_profile_can_switch_to_master_and_back(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """№254 Q4=А: admin → master works WITHOUT a master profile, and back."""
+    data = await login_user(client, telegram_id=88211, first_name="AdminNoP")
+    token = data["session_token"]
+    await _set_role(db_session, 88211, "admin")
+
+    response = await _switch(client, token, "master")
+    assert response.status_code == 200
+    assert response.json()["role"] == "master"
+
+    response = await _switch(client, token, "admin")
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+
+
+# ---------------------------------------------------------------------------
+# Legacy allow-lists are dead
+# ---------------------------------------------------------------------------
+
+
+async def test_stale_seeded_allowlist_grants_nothing(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Old seeded allowed_roles lists are ignored by the derived policy."""
+    data = await login_user(client, telegram_id=88212, first_name="Legacy")
+    token = data["session_token"]
+    await _seed_legacy_allowlist(
+        db_session, 88212, ["user", "master", "admin"]
     )
+
+    response = await _switch(client, token, "admin")
     assert response.status_code == 403
-    assert response.json()["error"] == "role_not_allowed"
-
-
-async def test_non_tester_cannot_switch_403(
-    client: AsyncClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A user with no seeded allow-list cannot switch even when flag is on."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88205, first_name="Plain")
-    token = data["session_token"]
-
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "master"},
-    )
+    response = await _switch(client, token, "master")
     assert response.status_code == 403
 
 
-async def test_switch_to_master_without_profile_409(
-    client: AsyncClient,
-    db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Master is allowed but no verified profile exists → 409."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88206, first_name="NoProfile")
-    token = data["session_token"]
-    await _seed_role_switch(db_session, 88206, ["user", "master", "admin"])
-
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "master"},
-    )
-    assert response.status_code == 409
-    assert response.json()["error"] == "master_profile_required"
-
-
-async def test_switch_invalid_role_422(
-    client: AsyncClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An unknown role value is rejected by Pydantic → 422."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88207, first_name="Bogus")
-    token = data["session_token"]
-
-    response = await client.post(
-        "/api/v1/users/me/role",
-        headers=auth_headers(token),
-        json={"role": "superuser"},
-    )
-    assert response.status_code == 422
-
-
 # ---------------------------------------------------------------------------
-# GET /users/me — role_switch block exposure
+# GET /users/me — role_switch block exposure (read path, same derivation)
 # ---------------------------------------------------------------------------
 
 
-async def test_me_exposes_role_switch_when_enabled(
+async def test_me_role_switch_null_for_plain_user(
+    client: AsyncClient,
+) -> None:
+    """A plain user derives {USER} only → nothing to switch to → null."""
+    data = await login_user(client, telegram_id=88220, first_name="Nobody")
+    me = await client.get(
+        "/api/v1/users/me", headers=auth_headers(data["session_token"])
+    )
+    assert me.status_code == 200
+    assert me.json()["role_switch"] is None
+
+
+async def test_me_role_switch_for_verified_capability(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With the flag on, a seeded tester sees their allowed_roles in /me."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88208, first_name="Exposed")
-    token = data["session_token"]
-    await _seed_role_switch(db_session, 88208, ["user", "master", "admin"])
+    """A verified MasterProfile surfaces [user, master] regardless of role."""
+    data = await login_user(client, telegram_id=88221, first_name="Exposed")
+    await _add_master_profile(db_session, 88221, status="verified")
+    me = await client.get(
+        "/api/v1/users/me", headers=auth_headers(data["session_token"])
+    )
+    assert me.status_code == 200
+    assert me.json()["role_switch"] == {"allowed_roles": ["user", "master"]}
 
-    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+
+async def test_me_role_switch_for_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """An admin surfaces all three roles (profile not required)."""
+    data = await login_user(client, telegram_id=88222, first_name="AdminMe")
+    await _set_role(db_session, 88222, "admin")
+    me = await client.get(
+        "/api/v1/users/me", headers=auth_headers(data["session_token"])
+    )
     assert me.status_code == 200
     assert me.json()["role_switch"] == {
         "allowed_roles": ["user", "master", "admin"]
     }
 
 
-async def test_me_hides_role_switch_when_disabled(
+async def test_me_role_switch_for_switched_away_admin(
     client: AsyncClient,
     db_session: AsyncSession,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With the flag off, role_switch is null even for a seeded user."""
-    # Force the flag OFF so the test does not depend on the ambient
-    # ROLE_SWITCH_ENABLED env. Mirrors the enabled tests' monkeypatch.
-    monkeypatch.setattr(settings, "role_switch_enabled", False)
-    data = await login_user(client, telegram_id=88209, first_name="Hidden")
+    """A switched-away admin (home marker) still sees all three in /me."""
+    data = await login_user(client, telegram_id=88223, first_name="Away")
     token = data["session_token"]
-    await _seed_role_switch(db_session, 88209, ["user", "master", "admin"])
+    await _set_role(db_session, 88223, "admin")
+    await _switch(client, token, "user")
 
     me = await client.get("/api/v1/users/me", headers=auth_headers(token))
     assert me.status_code == 200
-    assert me.json()["role_switch"] is None
-
-
-async def test_me_role_switch_null_for_non_tester(
-    client: AsyncClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Flag on, but a user with no allow-list gets role_switch null."""
-    monkeypatch.setattr(settings, "role_switch_enabled", True)
-    data = await login_user(client, telegram_id=88210, first_name="Nobody")
-    token = data["session_token"]
-
-    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
-    assert me.status_code == 200
-    assert me.json()["role_switch"] is None
+    assert me.json()["role"] == "user"
+    assert me.json()["role_switch"] == {
+        "allowed_roles": ["user", "master", "admin"]
+    }
