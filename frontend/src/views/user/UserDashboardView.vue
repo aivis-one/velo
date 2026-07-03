@@ -46,7 +46,7 @@
       v-if="feedbackAlert"
       variant="success"
       title="Оставьте feedback!"
-      :body="`${feedbackAlert.practice.title} • Вчера`"
+      :body="`${feedbackAlert.practice.title} • ${dayLabelOf(feedbackAlert.practice.scheduled_at, viewerTz)}`"
       :clickable="true"
       class="dashboard__alert"
       @click="goToFeedback(feedbackAlert.practice_id)"
@@ -205,7 +205,7 @@ import {
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration, dayLabelOf } from '@/utils/format'
 import { platform } from '@/platform'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
