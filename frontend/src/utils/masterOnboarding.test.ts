@@ -9,8 +9,8 @@ import {
   type MasterOnboardingGateInput,
 } from '@/utils/masterOnboarding'
 
-describe('isMasterOnboardingCompleted (defensive read — E15 not yet typed)', () => {
-  it('absent field -> false (honest-stub: backend ignores until E15)', () => {
+describe('isMasterOnboardingCompleted (null-tolerant E15 read)', () => {
+  it('absent field -> false', () => {
     expect(isMasterOnboardingCompleted({ id: 'u1' })).toBe(false)
   })
   it('null / undefined user -> false', () => {
@@ -50,25 +50,7 @@ describe('shouldShowMasterOnboarding (gate)', () => {
   it('already completed (server flag) -> hidden', () => {
     expect(shouldShowMasterOnboarding({ ...base, completed: true })).toBe(false)
   })
-  it('dismissed this session -> hidden (loop guard before E15)', () => {
+  it('dismissed this session -> hidden (in-session loop guard)', () => {
     expect(shouldShowMasterOnboarding({ ...base, shownThisSession: true })).toBe(false)
-  })
-
-  it('forced (test role-switch replay) bypasses completed + shownThisSession', () => {
-    expect(
-      shouldShowMasterOnboarding({
-        ...base,
-        completed: true,
-        shownThisSession: true,
-        forced: true,
-      }),
-    ).toBe(true)
-  })
-
-  it('forced still requires a verified master', () => {
-    expect(shouldShowMasterOnboarding({ ...base, profileStatus: 'pending', forced: true })).toBe(
-      false,
-    )
-    expect(shouldShowMasterOnboarding({ ...base, role: 'user', forced: true })).toBe(false)
   })
 })

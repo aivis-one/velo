@@ -32,31 +32,23 @@ export interface MasterOnboardingGateInput {
   role: UserRole | null
   /** Master profile verification status ('verified' once the admin approves). */
   profileStatus: string | null | undefined
-  /** Defensive server-flag read (isMasterOnboardingCompleted). */
+  /** Persisted server-flag read (isMasterOnboardingCompleted, E15). */
   completed: boolean
   /** Per-session suppression (set on done/skip; cleared on logout). */
   shownThisSession: boolean
-  /**
-   * TEST-only force (role-switch replay): bypasses `completed` +
-   * `shownThisSession` so a tester can re-watch the carousel. Still requires a
-   * verified master — you cannot onboard a non-verified one. Default false.
-   */
-  forced?: boolean
 }
 
 /**
  * Show the post-approval carousel exactly once: only to a VERIFIED master who
- * has neither completed it (server flag) nor dismissed it this session.
- *
- * The session guard is what makes the honest-stub interim safe: until E15 ships
- * the server flag never persists, so without it the overlay would re-trigger on
- * every dashboard re-entry within a session. With it, the carousel re-shows only
- * on a fresh session (next app open) -- the expected interim, not a loop.
+ * has neither completed it (the persisted E15 server flag) nor dismissed it
+ * this session. No forced replays — the tester scaffolding was stripped in
+ * №260; the natural prod trigger is the only trigger.
  */
 export function shouldShowMasterOnboarding(input: MasterOnboardingGateInput): boolean {
   return (
     input.role === 'master' &&
     input.profileStatus === 'verified' &&
-    (input.forced === true || (!input.completed && !input.shownThisSession))
+    !input.completed &&
+    !input.shownThisSession
   )
 }

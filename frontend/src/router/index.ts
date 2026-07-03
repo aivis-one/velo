@@ -36,11 +36,6 @@ const applyGuard = async () => {
     return { path: '/auth-error' }
   }
 
-  // TEST-only apply-flow preview: skip the verified-master redirect so a tester
-  // can open the wizard. Fires only while previewApplyFlow is set, which is
-  // prod-unreachable (see stores/ui.ts).
-  if (useUiStore().previewApplyFlow) return true
-
   if (auth.role !== 'master') return true
 
   const masterStore = useMasterStore()
@@ -50,10 +45,6 @@ const applyGuard = async () => {
   }
   return true
 }
-
-// Route names that make up the TEST-only apply-flow preview. Navigating to any
-// route OUTSIDE this set clears the preview signal (see the global guard below).
-const PREVIEW_ROUTE_NAMES = new Set(['auth-landing', 'master-apply', 'master-pending'])
 
 const router = createRouter({
   history: createWebHistory(),
@@ -531,14 +522,6 @@ router.beforeEach(async (to) => {
     if (timedOut) {
       console.warn('[router] auth initialization timed out on first navigation')
     }
-  }
-
-  // TEST-only: clear the apply-flow preview signal whenever navigation leaves the
-  // preview route set (back-gesture, «Закрыть», or any stray nav), so a stale
-  // signal can never leak into a normal session. No-op in prod (never set there).
-  const uiStore = useUiStore()
-  if (uiStore.previewApplyFlow && !PREVIEW_ROUTE_NAMES.has(to.name as string)) {
-    uiStore.clearPreviewApplyFlow()
   }
 
   if (to.name !== 'user-dashboard' && to.path !== '/user' && to.path !== '/user/') {

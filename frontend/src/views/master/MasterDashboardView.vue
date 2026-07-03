@@ -219,7 +219,6 @@ import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/c
 import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
-import { useUiStore } from '@/stores/ui'
 import { useDiaryStore } from '@/stores/diary'
 import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
@@ -237,7 +236,6 @@ import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 const router = useRouter()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
-const uiStore = useUiStore()
 const diaryStore = useDiaryStore()
 // Anonymous-insights cache (shared store) — feeds the nearest-practice card's
 // check-in count, identical source to MasterPracticesView (DB-2).
@@ -368,16 +366,12 @@ const showMasterOnboarding = computed(() =>
     profileStatus: masterStore.profile?.status,
     completed: isMasterOnboardingCompleted(authStore.user),
     shownThisSession: masterStore.onboardingShownThisSession,
-    // TEST-ONLY: a tester role-switch into master forces a replay (cleared on done).
-    forced: uiStore.forceOnboarding === 'master',
   }),
 )
 
 function onMasterOnboardingDone(): void {
   // Hide the overlay immediately (gate → false), then persist best-effort.
   masterStore.onboardingShownThisSession = true
-  // Consume any TEST-only force flag so the overlay doesn't re-trigger.
-  uiStore.clearForceOnboarding()
   void persistMasterOnboarding()
 }
 

@@ -33,7 +33,6 @@
 import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { useUiStore } from '@/stores/ui'
 import { waitUntilReady, pendingDeepLink } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
@@ -183,11 +182,6 @@ export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () =
   if (timedOut && auth.role === null) {
     return { path: '/auth-error' }
   }
-
-  // TEST-only apply-flow preview: admit the preview to the "sent" screen without
-  // a real applicant marker. Fires only while previewApplyFlow is set, which is
-  // prod-unreachable (see stores/ui.ts).
-  if (useUiStore().previewApplyFlow) return true
 
   if (auth.role === 'admin') return { path: '/admin/dashboard' }
   if (auth.role === 'master') return true
