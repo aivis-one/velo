@@ -200,10 +200,11 @@ async def list_my_bookings_endpoint(
                 practice=PracticeSummary.model_validate(practice).model_copy(
                     update={
                         "master_name": master_names[practice.master_id],
-                        # zoom_link (M-3): the summary validator nulled it on
-                        # model_validate; expose it here ONLY for this user's
+                        # zoom_link (M-3): model_validate auto-populated the
+                        # real ORM link; expose it here ONLY for this user's
                         # confirmed / attended booking (the dashboard "Войти"
-                        # button). pending / cancelled / no_show leave it None.
+                        # button), else null it. pending / cancelled / no_show
+                        # -> None. (Explicit gate; there is no schema validator.)
                         "zoom_link": (
                             practice.zoom_link
                             if booking.status in ZOOM_VISIBLE_BOOKING_STATUSES

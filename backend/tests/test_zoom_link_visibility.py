@@ -43,6 +43,7 @@ from tests.helpers import auth_headers, login_user
 FEED_URL = "/api/v1/practices"
 DETAIL_URL = "/api/v1/practices/{practice_id}"
 BOOKINGS_ME_URL = "/api/v1/bookings/me"
+MASTER_PRACTICES_URL = "/api/v1/masters/me/practices"
 WAITLIST_ME_URL = "/api/v1/waitlist/me"
 
 ZOOM = "https://zoom.example/gated-room"
@@ -438,3 +439,35 @@ async def test_zoom_link_format_rejects_non_https() -> None:
     )
     assert UpdatePracticeRequest(zoom_link=None).zoom_link is None
     assert UpdatePracticeRequest(zoom_link="").zoom_link == ""
+
+
+# ===================================================================
+# Z-6 regression: the master's OWN list exposes zoom_link to the owner
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_master_own_list_shows_zoom_link(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /masters/me/practices exposes zoom_link to the owning master.
+
+    Every row in the master's own list is owned by the requester, so the
+    dashboard "Войти" button must receive the real link. Guards against the
+    fail-open trap of dropping zoom_link_visible=True on this builder (Z-6).
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=96600)
+    practice = await _create_practice(
+        db_session, master["user"]["id"], zoom_link=ZOOM,
+    )
+    await db_session.commit()
+
+    resp = await client.get(
+        MASTER_PRACTICES_URL,
+        headers=auth_headers(master["session_token"]),
+    )
+
+    assert resp.status_code == 200
+    item = _find_in_feed(resp.json()["items"], practice.id)
+    assert item["zoom_link"] == ZOOM

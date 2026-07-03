@@ -1420,6 +1420,11 @@ async def list_master_practices(
             practice_to_response(
                 p,
                 _master_full_name(first, last),
+                # Z-6: the master's OWN list (get_current_master) -- every row
+                # is owned by the requester, so expose zoom_link (the same owner
+                # rule get_practice_detail applies). The master dashboard's
+                # "Войти" button reads zoom_link from this list.
+                zoom_link_visible=True,
                 **_series_meta_kwargs(series_meta.get(p.id)),
                 **_attendance_counts_kwargs(attendance.get(p.id)),
             )
