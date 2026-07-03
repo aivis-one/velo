@@ -29,6 +29,8 @@
 # =============================================================================
 
 import copy
+import hashlib
+import secrets
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -37,7 +39,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.config import settings
+from app.core.exceptions import ConflictError, NotFoundError, VeloError
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 
@@ -169,3 +172,82 @@ async def reject_master(
     )
 
     return profile
+
+
+# ---------------------------------------------------------------------------
+# Batch-INVITE (C1=Б): one-time master invite link
+# ---------------------------------------------------------------------------
+
+
+async def issue_master_invite(
+    telegram_id: int,
+    admin: User,
+    session: AsyncSession,
+) -> tuple[str, datetime]:
+    """Issue a one-time master invite link for an existing User row.
+
+    C1=Б storage: only the token's sha256 lands in the target's
+    credentials["master_invite"] (server-written JSONB -- the key is NOT in
+    the users PATCH whitelist, so clients can never plant it). The plaintext
+    token exists solely inside the returned link. Re-issuing simply
+    overwrites the marker, so the previous link stops claiming (TTL=В: no
+    expiry, one-time until claimed).
+
+    Raises:
+        NotFoundError (invite_target_not_found): no User with this
+            telegram_id -- the person must open the bot once first.
+        ConflictError (already_master): the target already has role MASTER.
+        VeloError 503 (bot_url_not_configured): telegram_bot_url unset.
+    """
+    stmt = select(User).where(User.telegram_id == telegram_id)
+    user = (await session.execute(stmt)).scalar_one_or_none()
+    if user is None:
+        raise NotFoundError(
+            "User with this telegram_id has not opened the bot yet",
+            code="invite_target_not_found",
+        )
+    if user.role == UserRole.MASTER:
+        raise ConflictError(
+            "User is already a master",
+            code="already_master",
+        )
+    if not settings.telegram_bot_url:
+        raise VeloError(
+            message="telegram_bot_url is not configured",
+            code="bot_url_not_configured",
+            status_code=503,
+        )
+
+    token = secrets.token_urlsafe(32)
+    issued_at = datetime.now(UTC)
+
+    new_credentials = dict(user.credentials or {})
+    new_credentials["master_invite"] = {
+        "token_sha256": hashlib.sha256(token.encode()).hexdigest(),
+        "issued_at": issued_at.isoformat(),
+        "issued_by": str(admin.id),
+    }
+    user.set_jsonb("credentials", new_credentials)
+
+    # M-01: audit trail (the token itself is never logged).
+    await record_audit(
+        event="master_invite_issued",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="user",
+        target_id=user.id,
+        data={"telegram_id": telegram_id},
+        session=session,
+    )
+
+    logger.info(
+        "master_invite_issued",
+        target_user_id=str(user.id),
+        telegram_id=telegram_id,
+        admin_id=str(admin.id),
+    )
+
+    invite_link = (
+        f"{settings.telegram_bot_url}?startapp=master_onboarding__{token}"
+    )
+    return invite_link, issued_at

@@ -32,9 +32,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import BadRequestError
-from app.modules.auth.dependencies import get_current_master, get_current_user
+from app.modules.auth.dependencies import (
+    get_current_master,
+    get_current_user,
+    get_current_user_write,
+)
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import (
+    ClaimMasterInviteRequest,
+    ClaimMasterInviteResponse,
     MasterApplyRequest,
     MasterApplyResponse,
     MasterProfileResponse,
@@ -44,6 +50,7 @@ from app.modules.masters.schemas import (
 )
 from app.modules.masters.service import (
     apply_for_master,
+    claim_master_invite,
     get_public_master_profile,
 )
 from app.modules.practices.schemas import PaginatedPracticesResponse
@@ -128,6 +135,33 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+# ===================================================================
+# Batch-INVITE: POST /invite/claim -- claim a one-time invite
+# ===================================================================
+
+
+@router.post(
+    "/invite/claim",
+    response_model=ClaimMasterInviteResponse,
+)
+async def claim_master_invite_endpoint(
+    body: ClaimMasterInviteRequest,
+    user: User = Depends(get_current_user_write),
+    session: AsyncSession = Depends(get_db_session),
+) -> ClaimMasterInviteResponse:
+    """Claim a one-time master invite (deeplink master_onboarding__<token>).
+
+    Validates the token against the caller's OWN invite marker and consumes
+    it (single use). The application itself then goes through the regular
+    apply wizard + admin approval loop. get_current_user_write +
+    Depends(get_db_session) share one session (TD-029), so the credentials
+    mutation rides the request session.
+    """
+    claimed_at = await claim_master_invite(user, body.token, session)
+    await session.flush()
+    return ClaimMasterInviteResponse(claimed_at=claimed_at)
 
 
 # ===================================================================

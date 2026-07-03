@@ -96,6 +96,30 @@ class MasterApplyResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# One-time master invite claim (Batch-INVITE, C1=Б)
+# ---------------------------------------------------------------------------
+class ClaimMasterInviteRequest(BaseModel):
+    """POST /masters/invite/claim -- the token from the deeplink.
+
+    The token is bound to the caller's own account: its sha256 must match
+    the caller's credentials.master_invite marker, so a stranger's token
+    can never be claimed (invite_invalid otherwise).
+    """
+
+    token: str = Field(..., min_length=16, max_length=128)
+
+
+class ClaimMasterInviteResponse(BaseModel):
+    """POST /masters/invite/claim -- claim confirmation.
+
+    Claiming only validates + consumes the one-time marker; becoming a
+    master still goes through the regular apply wizard + admin approval.
+    """
+
+    claimed_at: datetime
+
+
+# ---------------------------------------------------------------------------
 # Payout details (Phase 6.6)
 # ---------------------------------------------------------------------------
 

@@ -35,6 +35,8 @@
 #   the stale data.stats JSONB cache.
 # =============================================================================
 
+import hashlib
+import hmac
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -361,3 +363,64 @@ async def get_public_master_profile(
         practices_count=practices_count,
         reviews_count=reviews_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# Batch-INVITE (C1=Б): claim a one-time master invite
+# ---------------------------------------------------------------------------
+
+
+async def claim_master_invite(
+    user: User,
+    token: str,
+    session: AsyncSession,
+) -> datetime:
+    """Validate + consume the caller's one-time master invite marker.
+
+    The bind is structural: the supplied token's sha256 is compared (in
+    constant time) against the CALLER'S OWN credentials.master_invite
+    marker -- an account that was never invited, or a stranger holding
+    someone else's link, simply has no matching marker -> invite_invalid.
+    On success the token hash is REMOVED (single use) and claimed_at is
+    recorded in the same marker. Becoming a master still goes through the
+    regular apply wizard + admin approval loop -- nothing is verified here.
+
+    The user must be bound to the write session (get_current_user_write).
+
+    Raises:
+        ConflictError (already_master): the caller already has role MASTER.
+        ForbiddenError (invite_invalid): no marker / consumed / wrong token.
+    """
+    if user.role == UserRole.MASTER:
+        raise ConflictError(
+            "Already a master",
+            code="already_master",
+        )
+
+    marker = (user.credentials or {}).get("master_invite")
+    stored_hash = marker.get("token_sha256") if isinstance(marker, dict) else None
+    supplied_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    if not stored_hash or not hmac.compare_digest(stored_hash, supplied_hash):
+        raise ForbiddenError(
+            "Invite link is invalid or already used",
+            code="invite_invalid",
+        )
+
+    claimed_at = datetime.now(UTC)
+
+    # CONSUME: drop the token hash (single use), keep the audit trail fields
+    # (issued_at / issued_by) and record claimed_at alongside them.
+    new_credentials = dict(user.credentials or {})
+    new_marker = dict(new_credentials["master_invite"])
+    new_marker.pop("token_sha256", None)
+    new_marker["claimed_at"] = claimed_at.isoformat()
+    new_credentials["master_invite"] = new_marker
+    user.set_jsonb("credentials", new_credentials)
+
+    logger.info(
+        "master_invite_claimed",
+        user_id=str(user.id),
+    )
+
+    return claimed_at
