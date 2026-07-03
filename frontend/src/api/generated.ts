@@ -998,7 +998,7 @@ export interface ReviewItem {
   created_at: string
 }
 
-/** Tester role-switch capability (TEST-ONLY). Present in GET /users/me ONLY when settings.role_switch_enabled is True AND the user was seeded with credentials.role_switch.allowed_roles. The list is the set of roles this tester may switch their own account to via POST /users/me/role. Absent (null) for everyone else and on production. */
+/** Self role-switch capability (capability-derived, A1=Б). Present in GET /users/me when the derived set contains more than just USER (i.e. there is actually something to switch to). The list is the set of roles this account may switch itself to via POST /users/me/role, derived by derive_allowed_roles() -- the single source of truth shared with the write path. Null when the user can only be a plain user. */
 export interface RoleSwitchInfo {
   allowed_roles: UserRole[]
 }
