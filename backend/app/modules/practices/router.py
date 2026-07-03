@@ -222,7 +222,10 @@ async def create_practice_endpoint(
     practice = await create_practice(user, body, session)
     await session.flush()
     await session.refresh(practice)
-    return practice_to_response(practice, user.first_name)
+    # F1 (№263): this endpoint is owner-only (master guard + ownership check),
+    # so the response returns the caller's OWN zoom_link — consistent with the
+    # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
+    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
 
 
 # ------------------------------------------------------------------
@@ -266,7 +269,10 @@ async def update_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return practice_to_response(practice, user.first_name)
+    # F1 (№263): this endpoint is owner-only (master guard + ownership check),
+    # so the response returns the caller's OWN zoom_link — consistent with the
+    # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
+    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
 
 
 # ------------------------------------------------------------------
@@ -292,7 +298,10 @@ async def delete_practice_endpoint(
     practice = await delete_practice(practice_id, user, session)
     await session.flush()
     await session.refresh(practice)
-    return practice_to_response(practice, user.first_name)
+    # F1 (№263): this endpoint is owner-only (master guard + ownership check),
+    # so the response returns the caller's OWN zoom_link — consistent with the
+    # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
+    return practice_to_response(practice, user.first_name, zoom_link_visible=True)
 
 
 # ------------------------------------------------------------------
@@ -326,4 +335,7 @@ async def cancel_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return practice_to_response(practice, user.first_name)
+    # F1 (№263): this endpoint is owner-only (master guard + ownership check),
+    # so the response returns the caller's OWN zoom_link — consistent with the
+    # owner-always-sees rule on the detail (M-3) and the master list (Z-6).
+    return practice_to_response(practice, user.first_name, zoom_link_visible=True)

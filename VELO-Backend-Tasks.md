@@ -535,3 +535,29 @@ nothing. `ROLE_SWITCH_ENABLED=False` in the TEST `.env` is inert and can be drop
 they are role-switched away leaves a stale `credentials.role_switch.home_role="admin"` marker
 (they could self-return to admin via the switch). Clearing the marker in your demote path
 closes the edge; operator accepted the edge as-is for now (№257 ruling), so this is optional.
+
+---
+
+## 2026-07-03 — zoom_link exposure matrix: test-debt cells (tied to your E18/M-3/Z-6/Z-7 batch)
+
+Pre-push audit (ПРОМТ №262) mapped `test_zoom_link_visibility.py` onto the full exposure matrix.
+The gate itself verified fail-closed (only the two builders set the field). Six cells have NO test —
+small additive cases, your file/conventions:
+
+1. `GET /bookings/{id}` — the booking-detail response wipes zoom_link via
+   `model_copy(update={"zoom_link": None})` (bookings/router.py:281) — untested.
+2. Finalize response — same wipe at bookings/router.py:392-395 — untested.
+3. Practice detail for an ATTENDED booking — only CONFIRMED is asserted today
+   (test_detail_zoom_link_gated_by_booking); the ATTENDED branch of
+   ZOOM_VISIBLE_BOOKING_STATUSES on the DETAIL surface is uncovered.
+4. NO_SHOW booking — not asserted on any surface (should be None everywhere).
+5. Public catalog list (`GET /practices`) for a user who HAS a confirmed booking —
+   the list is unconditionally None even for eligible users (list builder never
+   passes visibility); asserting that pins the design.
+6. Admin surfaces — zoom_link is structurally absent from all admin serializers
+   (grep-verified); one assert would guard against a future admin schema gaining it.
+
+Note: we added the owner-mutation-response cells ourselves in №263
+(`test_owner_create_response_shows_zoom_link` / `test_owner_update_response_shows_zoom_link`)
+after making the four owner-only CRUD responses in practices/router.py pass
+`zoom_link_visible=True` (F1) — consistent with your Z-6 owner-always-sees rule.

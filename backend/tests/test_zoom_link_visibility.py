@@ -565,3 +565,69 @@ async def test_purchases_me_hides_zoom_link(
     items = resp.json()["items"]
     assert len(items) == 1
     assert items[0]["practice"]["zoom_link"] is None
+
+
+# ===================================================================
+# F1 (№263): owner mutation responses carry the owner's own zoom_link
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_owner_create_response_shows_zoom_link(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """POST /practices returns the creating owner's own zoom_link.
+
+    The create endpoint is owner-only (master guard), so the response is an
+    owner surface: nulling the link there (the old default) contradicted the
+    owner-always-sees rule on the detail (M-3) and the master list (Z-6).
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=96700)
+
+    resp = await client.post(
+        "/api/v1/practices",
+        headers=auth_headers(master["session_token"]),
+        json={
+            "practice_type": "live",
+            "direction": "meditation",
+            "difficulty": "beginner",
+            "title": "Zoom Owner Create",
+            "scheduled_at": (
+                datetime.now(UTC) + timedelta(days=7)
+            ).isoformat(),
+            "duration_minutes": 60,
+            "timezone": "UTC",
+            "max_participants": 20,
+            "is_free": True,
+            "price_cents": 0,
+            "currency": "eur",
+            "zoom_link": ZOOM,
+        },
+    )
+
+    assert resp.status_code == 201
+    assert resp.json()["zoom_link"] == ZOOM
+
+
+@pytest.mark.asyncio
+async def test_owner_update_response_shows_zoom_link(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """PATCH /practices/{id} returns the freshly-changed link to the owner."""
+    master = await _make_verified_master(client, db_session, telegram_id=96701)
+    practice = await _create_practice(
+        db_session, master["user"]["id"], zoom_link=ZOOM,
+    )
+    await db_session.commit()
+
+    new_link = "https://zoom.example/changed-room"
+    resp = await client.patch(
+        DETAIL_URL.format(practice_id=practice.id),
+        headers=auth_headers(master["session_token"]),
+        json={"zoom_link": new_link},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["zoom_link"] == new_link
