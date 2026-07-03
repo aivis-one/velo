@@ -561,3 +561,46 @@ Note: we added the owner-mutation-response cells ourselves in №263
 (`test_owner_create_response_shows_zoom_link` / `test_owner_update_response_shows_zoom_link`)
 after making the four owner-only CRUD responses in practices/router.py pass
 `zoom_link_visible=True` (F1) — consistent with your Z-6 owner-always-sees rule.
+
+---
+
+## 2026-07-03 — U4 no-show reflection: persist endpoint + booking flag (frontend shipped on a stub, ПРОМТ №269)
+
+The User frontend now has a full **no-show reflection** flow, built entirely on a
+**stub** (no backend calls). A booking with `status = no_show` («Не состоялась») now shows
+a dashboard banner → `/user/reflection/:practiceId` → `ReflectionView` (FormShell, comment
+only, NO rating) → submit. The submit path is a client no-op
+(`diaryStore.submitReflection`, `TD-REFLECTION`) that resolves ok and dismisses the banner
+**client-side for the session only** (`bookingsStore.dismissedReflections`, mirrors the
+existing `dismissedCheckins`). Nothing persists yet. Please wire the backend to make it real:
+
+**1. Persist endpoint — mirror the feedback endpoint shape.**
+- `POST /api/v1/practices/{practice_id}/reflection` — body `{ "comment": string | null }`
+  (NO rating — a no-show reflection does not rate the practice).
+- Upsert semantics, one per `(practice, user)`, like feedback.
+- **Eligibility (mirror the feedback gate, inverted status):** `booking.status == no_show`,
+  within the window `scheduled_at + duration_minutes .. + 72h`
+  (`FEEDBACK_WINDOW_H`, identical to feedback — frontend uses `isInFeedbackWindow`).
+- Response can mirror `FeedbackResponse` (a `ReflectionResponse` sibling); the frontend does
+  not yet read the response body, so its exact shape is your call.
+- May project a diary-feed event (like feedback/check-in) — optional; the frontend does not
+  depend on it for the stub.
+
+**2. Booking flag — `has_reflection: bool` on `BookingWithPracticeResponse`.**
+- Mirror `has_feedback`: `true` once the user has submitted a reflection for that booking.
+- This **replaces** the client-only session dismiss. When the field ships, the frontend will
+  switch the dashboard `reflectionAlert` computed from `dismissedReflections.includes(...)`
+  to `!b.has_reflection` (one-line swap, symmetrical to `feedbackAlert` reading
+  `has_feedback`), and `generated.ts` regenerates then (NOT now — the stub adds no types).
+
+**⚠ DEPLOY-GATE WARNING (has burned us before):** adding `has_reflection` to
+`BookingWithPracticeResponse` grows the response key-set. **Before** you add the field,
+`grep backend/tests` for frozen **exact-key-set** assertions on the bookings serializers
+(e.g. `assert set(data.keys()) == {...}`) and update them in the same commit — the local
+pre-push gate skips pytest, so a stale key-set only fails at deploy, not locally.
+
+**Frontend wiring already in place (nothing for you to touch there):**
+`utils/reflectionVariants.ts` (copy pool, stable per practiceId), `ReflectionView.vue`,
+`stores/diary.ts::submitReflection` (the stub to flip to a real `upsertReflection` call),
+`stores/bookings.ts::dismissedReflections`, dashboard `reflectionAlert` + banner, route
+`user-reflection`. `generated.ts` UNTOUCHED by the frontend batch.
