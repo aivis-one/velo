@@ -7,19 +7,18 @@
 // full-screen overlay on first master-dashboard entry. Kept framework-free so
 // the gate is unit-testable.
 //
-// The gating flag `master_onboarding_completed` is NOT yet on the generated
-// UserResponse type (Zod task E15). It is read DEFENSIVELY here (absent /
-// undefined -> not completed -> show once); generated.ts stays untouched.
+// E15 SHIPPED (ПРОМТ №256/257): `master_onboarding_completed` is persisted by
+// the backend and typed on UserResponse. The reader below stays null-tolerant
+// (absent / undefined / null -> false) so it accepts a not-yet-loaded user.
 // =============================================================================
 
 import type { UserRole } from '@/api/types'
 
 /**
- * Defensive read of the not-yet-typed `master_onboarding_completed` flag.
+ * Null-tolerant read of the `master_onboarding_completed` flag (E15).
  *
- * Mirrors the role_switch cast precedent in stores/auth.ts: the field lives in
- * the backend credentials JSONB but is not surfaced on the autogen UserResponse
- * until Zod ships E15. Absent / undefined / null -> false (not completed).
+ * The field is now on the typed UserResponse; the loose parameter keeps the
+ * helper usable with a still-null auth user and framework-free in unit tests.
  */
 export function isMasterOnboardingCompleted(user: unknown): boolean {
   return (

@@ -232,7 +232,7 @@ import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/p
 import { practiceHasEnded } from '@/utils/practiceStatus'
 import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import { getMasterStats } from '@/api/masters'
-import type { PracticeResponse, MasterStatsResponse, UserUpdate } from '@/api/types'
+import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
@@ -356,11 +356,11 @@ function onZoom(p: PracticeResponse): void {
 // =========================================================================
 // Post-approval onboarding carousel (Phase D, slice-1). Shown ONCE to a
 // freshly-verified master as a full-screen overlay (Teleport) on first
-// dashboard entry. Gate + defensive flag read in utils/masterOnboarding; the
-// per-session guard lives in the master store so it survives this view's
-// unmount/remount but resets on logout. Honest-stub: the server flag
-// (master_onboarding_completed, Zod E15) is not stored yet, so it re-shows on
-// the next app session — expected interim, not a bug.
+// dashboard entry. Gate + null-tolerant flag read in utils/masterOnboarding;
+// the per-session guard lives in the master store so it survives this view's
+// unmount/remount but resets on logout. E15 shipped (№256/257): the server
+// flag (master_onboarding_completed) persists, so the carousel stays done
+// across sessions and devices.
 // =========================================================================
 const showMasterOnboarding = computed(() =>
   shouldShowMasterOnboarding({
@@ -383,15 +383,12 @@ function onMasterOnboardingDone(): void {
 
 async function persistMasterOnboarding(): Promise<void> {
   try {
-    // Defensive write: master_onboarding_completed is not on the autogen
-    // UserUpdate yet (Zod E15) — cast (mirrors auth.ts role_switch precedent).
-    // Honest-stub: the backend ignores it until E15, so it re-shows next session.
-    await authStore.updateProfile({
-      master_onboarding_completed: true,
-    } as UserUpdate & { master_onboarding_completed?: boolean })
+    // E15 (№256/257): the field is persisted by the backend and typed on
+    // UserUpdate — plain PATCH, source of truth across devices/re-login.
+    await authStore.updateProfile({ master_onboarding_completed: true })
   } catch {
-    // Best-effort only: the session guard already prevents a re-show, and the
-    // server flag takes over once E15 ships. Not surfaced to the user.
+    // Best-effort only: the session guard already prevents a re-show this
+    // session; the next successful PATCH persists it. Not surfaced to the user.
   }
 }
 

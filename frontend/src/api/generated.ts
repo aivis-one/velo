@@ -1119,6 +1119,7 @@ export interface UserResponse {
   created_at: string
   last_login_at: string | null
   onboarding_completed: boolean
+  master_onboarding_completed: boolean
   phone: string | null
   bio: string | null
   notifications: NotificationSettings
@@ -1139,6 +1140,7 @@ export interface UserUpdate {
   timezone?: string | null
   language?: string | null
   onboarding_completed?: boolean | null
+  master_onboarding_completed?: boolean | null
   phone?: string | null
   bio?: string | null
   notifications?: NotificationSettingsUpdate | null

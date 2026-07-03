@@ -10,7 +10,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useMasterStore } from '@/stores/master'
-import { roleRedirect, roleGuard, masterStatusGuard, masterPendingGuard } from '@/router/guards'
+import {
+  roleRedirect,
+  roleGuard,
+  masterStatusGuard,
+  masterPendingGuard,
+  masterNoProfileGuard,
+} from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 
@@ -191,6 +197,9 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'master-dashboard',
+          // №257 honest entry: a master with NO application is led to the
+          // apply wizard; pending/rejected keep the dashboard as before.
+          beforeEnter: masterNoProfileGuard,
           component: () => import('@/views/master/MasterDashboardView.vue'),
         },
         {
