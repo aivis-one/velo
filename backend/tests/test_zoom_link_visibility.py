@@ -34,8 +34,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
+from app.modules.payments.models import Purchase
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
-from app.modules.practices.schemas import UpdatePracticeRequest
+from app.modules.practices.schemas import PracticeSummary, UpdatePracticeRequest
 from app.modules.users.models import User, UserRole
 from app.modules.waitlist.models import Waitlist, WaitlistStatus
 from tests.helpers import auth_headers, login_user
@@ -45,6 +46,7 @@ DETAIL_URL = "/api/v1/practices/{practice_id}"
 BOOKINGS_ME_URL = "/api/v1/bookings/me"
 MASTER_PRACTICES_URL = "/api/v1/masters/me/practices"
 WAITLIST_ME_URL = "/api/v1/waitlist/me"
+PURCHASES_ME_URL = "/api/v1/purchases/me"
 
 ZOOM = "https://zoom.example/gated-room"
 
@@ -71,6 +73,13 @@ async def _do_cleanup(session: AsyncSession) -> None:
     await session.execute(
         AuditLog.__table__.delete().where(
             AuditLog.actor_id.in_(user_ids_subq),
+        )
+    )
+    # purchases have RESTRICT FKs to user / practice / booking -> they must be
+    # deleted BEFORE any of those, or the delete is blocked.
+    await session.execute(
+        Purchase.__table__.delete().where(
+            Purchase.user_id.in_(user_ids_subq),
         )
     )
     # bookings + waitlist reference practices AND users -> delete before both.
@@ -471,3 +480,88 @@ async def test_master_own_list_shows_zoom_link(
     assert resp.status_code == 200
     item = _find_in_feed(resp.json()["items"], practice.id)
     assert item["zoom_link"] == ZOOM
+
+
+# ===================================================================
+# Z-7 factory: PracticeSummary.from_practice is fail-closed on zoom_link
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_summary_factory_zoom_link_fail_closed(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """The single summary factory nulls zoom_link unless explicitly opened.
+
+    This is the fail-closed backstop (Z-7): from_practice() defaults
+    zoom_link to None even though the ORM row carries one, and only surfaces
+    it when the caller passes zoom_link_visible=True.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=96900)
+    practice = await _create_practice(
+        db_session, master["user"]["id"], zoom_link=ZOOM,
+    )
+    await db_session.flush()
+
+    # Default (no flag) -> fail-closed: zoom_link is None; master_name is set.
+    closed = PracticeSummary.from_practice(practice, master_name="M")
+    assert closed.zoom_link is None
+    assert closed.master_name == "M"
+
+    # Explicit opt-in -> the real link.
+    opened = PracticeSummary.from_practice(
+        practice, master_name="M", zoom_link_visible=True,
+    )
+    assert opened.zoom_link == ZOOM
+
+
+# ===================================================================
+# purchases/me -- never exposes zoom_link (third PracticeSummary consumer)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_purchases_me_hides_zoom_link(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """GET /purchases/me leaves zoom_link None even for a confirmed booking.
+
+    Purchase history is not a zoom entry point (and a purchase can outlive a
+    cancelled / refunded booking), so the link is never surfaced there --
+    even though the buyer here holds a CONFIRMED booking.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=96950)
+    practice = await _create_practice(
+        db_session, master["user"]["id"], zoom_link=ZOOM,
+    )
+    buyer = await login_user(client, telegram_id=96951, first_name="Buyer")
+
+    booking = Booking(
+        practice_id=practice.id,
+        user_id=buyer["user"]["id"],
+        status=BookingStatus.CONFIRMED.value,
+        joined_at=None,
+    )
+    db_session.add(booking)
+    await db_session.flush()
+    # Direct Purchase row (defaults: amounts 0, status pending, currency eur).
+    # No ledger is needed -- purchases/me reads only Purchase + Practice.
+    purchase = Purchase(
+        user_id=buyer["user"]["id"],
+        practice_id=practice.id,
+        booking_id=booking.id,
+    )
+    db_session.add(purchase)
+    await db_session.flush()
+    await db_session.commit()
+
+    resp = await client.get(
+        PURCHASES_ME_URL, headers=auth_headers(buyer["session_token"]),
+    )
+
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 1
+    assert items[0]["practice"]["zoom_link"] is None

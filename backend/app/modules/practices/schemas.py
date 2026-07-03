@@ -69,6 +69,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import settings
 from app.modules.practices.models import (
+    Practice,
     PracticeStatus,
     PracticeType,
 )
@@ -742,14 +743,36 @@ class PracticeSummary(BaseModel):
     price_cents: int
     currency: str
 
-    # E18 + M-3: zoom_link on the summary powers the dashboard nearest-card
-    # "Войти" / Zoom button. It is access-gated (M-3): it must reach only a
-    # user with a CONFIRMED / ATTENDED booking on the practice. The gate lives
-    # in the RESPONSE BUILDERS, not here: GET /bookings/me sets the real link
-    # only for a confirmed/attended booking, and every other builder
-    # (waitlist/me, purchases/me) sets zoom_link=None explicitly. A schema
-    # model_validator cannot be used -- FastAPI re-validates the response and
-    # would re-run it, wiping the value the builder set.
+    # E18 + M-3 + Z-7: zoom_link on the summary powers the dashboard
+    # nearest-card "Войти" / Zoom button. It is access-gated (M-3): it must
+    # reach only a user with a CONFIRMED / ATTENDED booking on the practice.
+    # The gate is enforced in from_practice() below -- the SINGLE construction
+    # point for every list-view consumer -- which defaults it to None
+    # (fail-closed). A schema model_validator cannot be used: FastAPI
+    # re-validates the response and would re-run it, wiping the value the
+    # builder set.
     zoom_link: str | None = None
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_practice(
+        cls,
+        practice: Practice,
+        *,
+        master_name: str | None = None,
+        zoom_link_visible: bool = False,
+    ) -> "PracticeSummary":
+        """Build a summary from a Practice ORM row -- the single construction
+        point for all list-view consumers (bookings / waitlist / purchases).
+
+        zoom_link is FAIL-CLOSED (Z-7): None unless the caller explicitly
+        passes zoom_link_visible=True (warranted only by the requester's own
+        CONFIRMED / ATTENDED booking). Because every summary is built here, no
+        builder can forget to null it. master_name is filled here too -- it has
+        no ORM source on the practice row (it lives on the joined user).
+        """
+        summary = cls.model_validate(practice)
+        summary.master_name = master_name
+        summary.zoom_link = practice.zoom_link if zoom_link_visible else None
+        return summary

@@ -222,15 +222,12 @@ async def list_my_purchases_endpoint(
                 completed_at=p.completed_at,
                 created_at=p.created_at,
                 updated_at=p.updated_at,
-                practice=PracticeSummary.model_validate(practice).model_copy(
-                    update={
-                        "master_name": master_names[practice.master_id],
-                        # zoom_link (M-3): purchase history is not a zoom entry
-                        # point, and a purchase can outlive a cancelled /
-                        # refunded booking -- never surface the link here.
-                        # Explicit None (no schema validator does it now).
-                        "zoom_link": None,
-                    },
+                # zoom_link (M-3): purchase history is not a zoom entry point,
+                # and a purchase can outlive a cancelled / refunded booking --
+                # the fail-closed factory leaves the link None by default.
+                practice=PracticeSummary.from_practice(
+                    practice,
+                    master_name=master_names[practice.master_id],
                 ),
             )
             for p, practice in items

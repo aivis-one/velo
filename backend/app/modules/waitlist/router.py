@@ -127,14 +127,11 @@ async def list_my_waitlist_endpoint(
                 expires_at=entry.expires_at,
                 created_at=entry.created_at,
                 updated_at=entry.updated_at,
-                practice=PracticeSummary.model_validate(practice).model_copy(
-                    update={
-                        "master_name": master_names[practice.master_id],
-                        # zoom_link (M-3): a waitlisted user has no confirmed
-                        # booking, so they never see the link. Nulled
-                        # explicitly (no schema validator does it now).
-                        "zoom_link": None,
-                    },
+                # zoom_link (M-3): a waitlisted user has no confirmed booking,
+                # so the fail-closed factory leaves the link None by default.
+                practice=PracticeSummary.from_practice(
+                    practice,
+                    master_name=master_names[practice.master_id],
                 ),
             )
             for entry, practice in items

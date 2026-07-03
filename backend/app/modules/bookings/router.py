@@ -197,20 +197,14 @@ async def list_my_bookings_endpoint(
                 updated_at=booking.updated_at,
                 has_feedback=has_feedback,
                 has_checkin=has_checkin,
-                practice=PracticeSummary.model_validate(practice).model_copy(
-                    update={
-                        "master_name": master_names[practice.master_id],
-                        # zoom_link (M-3): model_validate auto-populated the
-                        # real ORM link; expose it here ONLY for this user's
-                        # confirmed / attended booking (the dashboard "Войти"
-                        # button), else null it. pending / cancelled / no_show
-                        # -> None. (Explicit gate; there is no schema validator.)
-                        "zoom_link": (
-                            practice.zoom_link
-                            if booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
-                            else None
-                        ),
-                    },
+                # zoom_link (M-3): exposed only for this user's confirmed /
+                # attended booking; the fail-closed factory nulls it otherwise.
+                practice=PracticeSummary.from_practice(
+                    practice,
+                    master_name=master_names[practice.master_id],
+                    zoom_link_visible=(
+                        booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                    ),
                 ),
             )
             for booking, practice, has_feedback, has_checkin in items
