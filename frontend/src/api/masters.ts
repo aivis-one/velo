@@ -16,6 +16,7 @@
 import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
+  ClaimMasterInviteResponse,
   MasterApplyRequest,
   MasterApplyResponse,
   MasterProfileResponse,
@@ -38,6 +39,15 @@ import type {
  */
 export function applyMaster(body: MasterApplyRequest): Promise<MasterApplyResponse> {
   return api.post<MasterApplyResponse>('/api/v1/masters/apply', body)
+}
+
+/**
+ * Claim a one-time master invite (deeplink master_onboarding__<token>).
+ * Binds to the caller's own account; consumes the token on success
+ * (Batch-INVITE, №258).
+ */
+export function claimMasterInvite(token: string): Promise<ClaimMasterInviteResponse> {
+  return api.post<ClaimMasterInviteResponse>('/api/v1/masters/invite/claim', { token })
 }
 
 /**

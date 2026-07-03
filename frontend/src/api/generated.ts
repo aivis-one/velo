@@ -282,6 +282,16 @@ export interface CheckinResponse {
   updated_at: string | null
 }
 
+/** POST /masters/invite/claim -- the token from the deeplink. The token is bound to the caller's own account: its sha256 must match the caller's credentials.master_invite marker, so a stranger's token can never be claimed (invite_invalid otherwise). */
+export interface ClaimMasterInviteRequest {
+  token: string
+}
+
+/** POST /masters/invite/claim -- claim confirmation. Claiming only validates + consumes the one-time marker; becoming a master still goes through the regular apply wizard + admin approval. */
+export interface ClaimMasterInviteResponse {
+  claimed_at: string
+}
+
 /** GET /api/v1/admin/consistency -- response body. */
 export interface ConsistencyResponse {
   items: SemaphoreResult[]
@@ -443,6 +453,17 @@ export interface IncomeResponse {
   income_cents: number
   prev_income_cents: number
   delta_pct: number | null
+}
+
+/** POST /admin/masters/invite -- request body (Batch-INVITE, C1=Б). telegram_id identifies the invitee; the person must have opened the bot at least once (a User row must exist), else 404 invite_target_not_found. */
+export interface InviteMasterRequest {
+  telegram_id: number
+}
+
+/** POST /admin/masters/invite -- the composed one-time invite link. No expiry field by design (TTL=В): the link is one-time and lives until claimed; re-issuing overwrites (kills) the previous link. */
+export interface InviteMasterResponse {
+  invite_link: string
+  issued_at: string
 }
 
 /** A practice with a low check-in rate in the period. */

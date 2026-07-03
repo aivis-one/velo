@@ -348,6 +348,16 @@ const router = createRouter({
     },
 
     {
+      // Batch-INVITE (№258): landing for the one-time master invite deeplink
+      // (startapp=master_onboarding__<token>). Standalone like /master/apply;
+      // applyGuard bounces verified masters to the dashboard, everyone else
+      // (incl. the invited plain user) reaches the claim.
+      path: '/master/invite/:token',
+      name: 'master-invite',
+      beforeEnter: applyGuard,
+      component: () => import('@/views/master/MasterInviteClaimView.vue'),
+    },
+    {
       path: '/master/apply',
       name: 'master-apply',
       beforeEnter: applyGuard,
