@@ -32,11 +32,12 @@ export const useAuthStore = defineStore('auth', () => {
   // positives in v-if="role === 'user'" guards for anonymous visitors.
   const role = computed(() => user.value?.role ?? null)
 
-  // TEST-ONLY role switch: the roles this account may switch into, surfaced by
-  // the backend in UserResponse.role_switch only when the server flag is on.
-  // Read structurally (generated.ts may not carry the field locally yet); empty
-  // for normal users and on production. The settings UI shows a switch button
-  // per allowed role except the current one.
+  // Self role-switch: the roles this account may switch into, surfaced by the
+  // backend in UserResponse.role_switch (capability-derived since №256: null
+  // for plain users, [user, master] for verified masters, all three for
+  // admins — no feature flag). Read structurally (generated.ts may not carry
+  // the field locally yet). The settings UI shows a switch button per allowed
+  // role except the current one.
   const allowedRoles = computed<UserRole[]>(() => {
     const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)?.role_switch
     return rs?.allowed_roles ?? []

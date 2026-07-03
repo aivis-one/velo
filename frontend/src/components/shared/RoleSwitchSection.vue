@@ -1,11 +1,13 @@
 <!--
-  VELO Frontend -- RoleSwitchSection (TEST-ONLY tester tool)
+  VELO Frontend -- RoleSwitchSection (self role-switch)
 
-  Settings section that lets a whitelisted tester switch their own account
-  role. Renders one VMenuRow per allowed role EXCEPT the current one
-  (admin tester -> 2 buttons, master/user tester -> 1 button). Renders
-  nothing for normal accounts and on production (allowedRoles is empty when
-  the backend ROLE_SWITCH_ENABLED flag is off).
+  Settings section that lets an account switch its own role. Renders one
+  VMenuRow per allowed role EXCEPT the current one. Since №256 the allowed
+  set is CAPABILITY-DERIVED by the backend (verified master -> user/master;
+  admin -> all three; plain user -> empty, so no section). The old
+  ROLE_SWITCH_ENABLED flag is gone — meaning this section now also renders
+  in PROD for verified masters/admins (open operator ruling: rename/trim
+  the «Режим тестировщика» framing + the apply-preview entry for prod).
 
   Used in the three profile screens (user / master / admin) so a tester can
   move between any of their allowed roles from wherever they are. The switch
@@ -24,10 +26,11 @@
         :label="ROLE_LABEL[t]"
         @click="onSwitch(t)"
       />
-      <!-- TEST-ONLY: page through the master application journey (Landing →
-           apply wizard → «Заявка отправлена») without filing anything. Shares
-           this section's prod gate (targets > 0 ⟹ allowedRoles non-empty ⟹
-           role_switch present ⟹ test server) → never renders in prod. -->
+      <!-- Page through the master application journey (Landing → apply wizard
+           → «Заявка отправлена») without filing anything. Shares this
+           section's gate (targets > 0). NOTE (№256): allowedRoles is now
+           capability-derived, so this entry ALSO renders in prod for verified
+           masters/admins — open operator ruling (see the header comment). -->
       <VMenuRow
         variant="primary"
         label="Просмотреть экраны заявки"
