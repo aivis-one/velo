@@ -204,11 +204,21 @@ async def get_current_master(
     result = await session.execute(stmt)
     profile = result.scalar_one_or_none()
 
+    # Distinct machine-readable codes (№257): the frontend master-zone entry
+    # must tell "no application at all" (-> lead to /master/apply) apart from
+    # "application exists but not verified" (-> /master/pending verdict flow).
+    # Both stay 403; only the code differs.
     if not profile:
-        raise ForbiddenError("Master profile not found")
+        raise ForbiddenError(
+            "Master profile not found",
+            code="master_profile_not_found",
+        )
 
     profile_status = profile.data.get("account", {}).get("status")
     if profile_status != "verified":
-        raise ForbiddenError("Master profile not verified")
+        raise ForbiddenError(
+            "Master profile not verified",
+            code="master_profile_not_verified",
+        )
 
     return user, profile
