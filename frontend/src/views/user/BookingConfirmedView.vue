@@ -48,13 +48,16 @@
         <p class="booking-confirmed__text">Ссылка на Zoom появится за 10 минут до начала.</p>
       </VCard>
 
-      <!-- Ask-master request (VISUAL ONLY, TD-ASK-MASTER) -->
+      <!-- Ask-master request — announced but honestly disabled until the
+           backend lands (TD-ASK-MASTER). Field non-editable, button disabled,
+           inline "скоро" hint; nothing looks tappable / fires a dead toast. -->
       <div class="booking-confirmed__ask">
         <VTextarea
           v-model="masterRequest"
           label="Ваш запрос мастеру (по желанию)"
           placeholder="Концентрация, настрой на работу"
           :rows="2"
+          :disabled="true"
         />
         <Banner
           variant="info"
@@ -62,9 +65,10 @@
         >
           <template #icon><IconSupport :size="28" /></template>
         </Banner>
-        <VButton variant="secondary" size="lg" block @click="onSendRequest">
+        <VButton variant="secondary" size="lg" block :disabled="true" @click="onSendRequest">
           Отправить запрос
         </VButton>
+        <p class="booking-confirmed__ask-hint">Вопросы мастеру — скоро</p>
       </div>
     </div>
   </div>
@@ -171,6 +175,15 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+/* Inline "coming soon" hint under the disabled send button (TD-ASK-MASTER). */
+.booking-confirmed__ask-hint {
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  margin: calc(-1 * var(--space-2)) 0 0;
 }
 
 /* Field + info banner are now the DS VTextarea + Banner components (own styles). */
