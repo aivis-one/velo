@@ -55,6 +55,18 @@ export interface AdminMasterListItem {
   master_status: string
 }
 
+/** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */
+export interface AdminMethodChangeItem {
+  user_id: string
+  display_name?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  avatar_url?: string | null
+  current_methods?: string[]
+  proposed_methods?: string[]
+  submitted_at: string
+}
+
 /** GET /api/v1/admin/practices/{id} -- detail + attendance + roster. */
 export interface AdminPracticeDetailResponse {
   id: string
@@ -547,6 +559,7 @@ export interface MasterProfileResponse {
   created_at: string
   updated_at?: string | null
   rejection_reason: string | null
+  method_change_request?: MethodChangeRequest | null
 }
 
 /** User-facing master profile -- safe public subset + live counters. Returned by GET /api/v1/masters/{user_id} for any authenticated user. Used by the practice detail "Подробнее" link (frame 4) and the master profile screen (node 541:2065). SECURITY: this schema is the isolation boundary between public and private master data. It MUST NOT carry any financial fields (frozen_cents, available_cents, payout, withdrawal limits) or contact fields (email, phone). Only a verified master is exposed; pending / rejected / non-master ids resolve to 404 in the service (we do not reveal the existence of an unverified application). practices_count and reviews_count are LIVE ORM aggregates computed in the service, NOT read from the stale data.stats JSONB cache: practices_count -- Practice rows for this master, excluding draft and deleted statuses. reviews_count -- Feedback rows across all of this master's practices (every feedback, regardless of text). */
@@ -589,6 +602,27 @@ export interface MasterTransactionItem {
   created_at: string
   counterparty_name: string | null
   amount_cents: number
+}
+
+/** Response for approve/reject method-change actions. status is the resulting request state: "approved" (methods updated, request cleared) or "rejected". */
+export interface MethodChangeActionResponse {
+  user_id: string
+  status: string
+}
+
+/** Embedded method change-request, projected onto MasterProfileResponse. Stored at data.profile.method_change_request. status is one of "pending" | "rejected" (approved requests are cleared once the master's methods are updated, so the field returns to None). None on the response means the master has no outstanding or recently-rejected request. */
+export interface MethodChangeRequest {
+  status: string
+  proposed_methods?: string[]
+  submitted_at: string
+  decided_at?: string | null
+  decided_by?: string | null
+  reject_reason?: string | null
+}
+
+/** POST /masters/me/method-change-request -- proposed flat method set. M3 ships FLAT: the request carries a plain list of method strings (same shape/limits as MasterApplyExperience.methods). The two-level direction->kind taxonomy (E19) is deferred / out of scope. */
+export interface MethodChangeRequestSubmit {
+  proposed_methods: string[]
 }
 
 /** Check-in mood counts for a practice, bucketed by score range. mood is a 1..10 score; counts are grouped into three buckets: low = scores 1-3 mid = scores 4-7 high = scores 8-10 CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. */
@@ -687,6 +721,14 @@ export interface PaginatedMasterReviewsResponse {
 /** GET /api/v1/admin/masters -- paginated master list. */
 export interface PaginatedMastersResponse {
   items: AdminMasterListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /admin/masters/method-change-requests -- paginated pending list. */
+export interface PaginatedMethodChangeRequestsResponse {
+  items: AdminMethodChangeItem[]
   total: number
   limit: number
   offset: number
@@ -952,6 +994,11 @@ export interface RecurrenceSpec {
 
 /** POST /admin/masters/{user_id}/reject -- request body. */
 export interface RejectMasterRequest {
+  reason: string
+}
+
+/** POST /admin/masters/{user_id}/method-change-request/reject -- body. */
+export interface RejectMethodChangeRequest {
   reason: string
 }
 
