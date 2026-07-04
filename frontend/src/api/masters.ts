@@ -60,6 +60,20 @@ export function getMyMasterProfile(): Promise<MasterProfileResponse> {
 }
 
 /**
+ * Submit a method change-request (M3, FLAT). The verified master proposes a
+ * new flat method set; it is stored pending admin moderation and does NOT
+ * change the live methods until approved. Returns the refreshed profile so
+ * the caller sees method_change_request projected. 409 if one is pending.
+ */
+export function submitMethodChangeRequest(
+  proposedMethods: string[],
+): Promise<MasterProfileResponse> {
+  return api.post<MasterProfileResponse>('/api/v1/masters/me/method-change-request', {
+    proposed_methods: proposedMethods,
+  })
+}
+
+/**
  * Fetch a verified master's PUBLIC profile (S-4).
  * Callable by any authenticated user. Only verified masters resolve;
  * pending / rejected / non-master ids return 404. Carries no financial
@@ -193,10 +207,7 @@ export function getMasterStats(period: 'week' | 'month' = 'week'): Promise<Maste
  * item carries the reviewer name/avatar, the rating bucket, the comment, and
  * the practice_title the review belongs to.
  */
-export function getMasterReviews(
-  limit = 20,
-  offset = 0,
-): Promise<PaginatedMasterReviewsResponse> {
+export function getMasterReviews(limit = 20, offset = 0): Promise<PaginatedMasterReviewsResponse> {
   const query = buildQuery({ limit, offset })
   return api.get<PaginatedMasterReviewsResponse>(`/api/v1/masters/me/reviews${query}`)
 }

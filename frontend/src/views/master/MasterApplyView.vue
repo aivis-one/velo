@@ -208,6 +208,7 @@ import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
+import { AVAILABLE_METHODS } from '@/utils/methods'
 
 const router = useRouter()
 const toast = useToast()
@@ -216,15 +217,7 @@ const toast = useToast()
 const step = ref(1)
 const submitting = ref(false)
 
-// -- Available practice methods (full set, FORK-6 — incl. «Кундалини йога») --
-const AVAILABLE_METHODS = [
-  'Медитация',
-  'Mindfulness / MBSR',
-  'Дыхательные практики',
-  'Йога',
-  'Кундалини йога',
-  'Звукотерапия',
-]
+// -- Available practice methods (shared source, incl. «Кундалини йога») --
 
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [

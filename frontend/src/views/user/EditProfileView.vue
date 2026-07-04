@@ -44,6 +44,52 @@
         </button>
       </div>
 
+      <!-- Методы практик (мастер): flat set + admin-approved change-request (M3).
+           Positioned below the profile picture per the operator. -->
+      <div v-if="isMaster" class="edit-profile__methods">
+        <label class="edit-profile__methods-label">Методы</label>
+
+        <!-- Pending: the proposed set is locked while an admin reviews it. -->
+        <template v-if="methodRequestPending">
+          <div class="edit-profile__methods-chips">
+            <VChip v-for="m in pendingProposedMethods" :key="m" size="sm">{{ m }}</VChip>
+          </div>
+          <div class="edit-profile__methods-status">
+            <VBadge variant="warning">Ожидает подтверждения</VBadge>
+          </div>
+          <p class="edit-profile__methods-note">{{ METHOD_CHANGE_NOTE }}</p>
+        </template>
+
+        <!-- Editable: toggle the flat method set, then submit a change-request. -->
+        <template v-else>
+          <div class="edit-profile__methods-chips">
+            <VChip
+              v-for="m in AVAILABLE_METHODS"
+              :key="m"
+              size="md"
+              clickable
+              :active="selectedMethods.includes(m)"
+              @click="toggleMethod(m)"
+            >
+              {{ m }}
+            </VChip>
+          </div>
+          <p v-if="methodRejectReason" class="edit-profile__methods-reject">
+            Прошлый запрос отклонён: {{ methodRejectReason }}
+          </p>
+          <p class="edit-profile__methods-note">{{ METHOD_CHANGE_NOTE }}</p>
+          <VButton
+            variant="secondary"
+            block
+            :disabled="!methodsChanged"
+            :loading="submittingMethods"
+            @click="onSubmitMethods"
+          >
+            Отправить на проверку
+          </VButton>
+        </template>
+      </div>
+
       <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
       <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
       <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
@@ -66,15 +112,6 @@
         :error="bioError"
         @focus="onFieldFocus"
       />
-
-      <!-- Методы из онбординга — залочены (менять через поддержку). -->
-      <div v-if="isMaster && methods.length > 0" class="edit-profile__methods">
-        <label class="edit-profile__methods-label">Методы</label>
-        <div class="edit-profile__methods-chips">
-          <VChip v-for="m in methods" :key="m" size="sm">{{ m }}</VChip>
-        </div>
-        <p class="edit-profile__methods-note">Изменить методы можно через поддержку</p>
-      </div>
 
       <!-- Save -->
       <VButton variant="primary" block :loading="saving" @click="onSave"> Сохранить </VButton>
@@ -136,13 +173,24 @@
 import { computed, reactive, ref, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VInput, VTextarea, VButton, VAvatar, VModal, VCheckbox, VChip } from '@/components/ui'
+import {
+  VInput,
+  VTextarea,
+  VButton,
+  VAvatar,
+  VModal,
+  VCheckbox,
+  VChip,
+  VBadge,
+} from '@/components/ui'
 import { IconWarning } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
+import { submitMethodChangeRequest } from '@/api/masters'
 import { formatMoney } from '@/utils/format'
+import { AVAILABLE_METHODS } from '@/utils/methods'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
@@ -157,12 +205,73 @@ const masterStore = useMasterStore()
 const user = computed(() => authStore.user)
 const isMaster = computed(() => authStore.role === 'master')
 
-// Onboarding methods — read-only chips (locked; change via support). Plain
-// human-readable strings (see MasterApplyView AVAILABLE_METHODS).
-const methods = computed((): string[] => masterStore.profile?.methods ?? [])
+// -- Master methods (M3): editable flat set gated by admin approval ---------
+// FLAT branch: plain human-readable strings (shared AVAILABLE_METHODS source).
+const METHOD_CHANGE_NOTE =
+  'Изменение методов практики требует подтверждения администратора. ' +
+  'Запрос отправляется автоматически. Обработка запроса обычно занимает ' +
+  'не более 3 рабочих дней.'
+
+// The master's current live methods (from the profile).
+const currentMethods = computed((): string[] => masterStore.profile?.methods ?? [])
+
+// The outstanding / recently-decided change-request (null when none).
+const methodRequest = computed(() => masterStore.profile?.method_change_request ?? null)
+const methodRequestPending = computed((): boolean => methodRequest.value?.status === 'pending')
+const pendingProposedMethods = computed((): string[] => methodRequest.value?.proposed_methods ?? [])
+const methodRejectReason = computed((): string =>
+  methodRequest.value?.status === 'rejected' ? (methodRequest.value.reject_reason ?? '') : '',
+)
+
+// Local editable selection, seeded from the current methods and re-synced
+// whenever the profile (re)loads.
+const selectedMethods = ref<string[]>([])
+watch(
+  currentMethods,
+  (next) => {
+    selectedMethods.value = [...next]
+  },
+  { immediate: true },
+)
+
+function toggleMethod(method: string): void {
+  const idx = selectedMethods.value.indexOf(method)
+  if (idx === -1) selectedMethods.value.push(method)
+  else selectedMethods.value.splice(idx, 1)
+}
+
+// Order-insensitive: the proposed set must be non-empty and differ from live.
+const methodsChanged = computed((): boolean => {
+  const sel = selectedMethods.value
+  if (sel.length === 0) return false
+  const cur = currentMethods.value
+  if (sel.length !== cur.length) return true
+  const curSet = new Set(cur)
+  return sel.some((m) => !curSet.has(m))
+})
+
+const submittingMethods = ref(false)
+async function onSubmitMethods(): Promise<void> {
+  if (submittingMethods.value || !methodsChanged.value) return
+  submittingMethods.value = true
+  try {
+    await submitMethodChangeRequest([...selectedMethods.value])
+    // Refetch so the pending badge appears (method_change_request now set).
+    await masterStore.fetchMyProfile(true)
+    toast.info('Запрос на смену методов отправлен на проверку')
+  } catch (error) {
+    const message =
+      error instanceof ApiResponseError
+        ? error.detail || 'Не удалось отправить запрос'
+        : 'Не удалось отправить запрос'
+    toast.error(message)
+  } finally {
+    submittingMethods.value = false
+  }
+}
 
 // Load the master profile so the delete modal can show the balance to forfeit
-// and the locked methods chips.
+// and the methods block reflects the current set + any pending request.
 onMounted(() => {
   if (isMaster.value) {
     void masterStore.fetchMyProfile()
@@ -363,6 +472,23 @@ function onConfirmDelete(): void {
   margin: var(--space-2) 0 0;
   font-size: var(--text-xs);
   color: var(--velo-text-secondary);
+  line-height: 1.4;
+}
+
+.edit-profile__methods-status {
+  margin-top: var(--space-3);
+}
+
+.edit-profile__methods-reject {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--velo-error);
+  line-height: 1.4;
+}
+
+/* Submit button sits under the note with a little breathing room. */
+.edit-profile__methods :deep(.v-btn) {
+  margin-top: var(--space-3);
 }
 
 .edit-profile__delete {
