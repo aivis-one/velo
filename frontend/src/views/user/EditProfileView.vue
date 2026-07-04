@@ -46,12 +46,7 @@
 
       <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
       <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
-      <VInput
-        v-model="form.lastName"
-        label="Фамилия"
-        placeholder="Фамилия"
-        @focus="scrollFieldIntoView"
-      />
+      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
 
       <!-- E-mail (disabled stub) -->
       <VInput
@@ -69,7 +64,7 @@
         :rows="4"
         placeholder="Расскажите немного о себе"
         :error="bioError"
-        @focus="scrollFieldIntoView"
+        @focus="onFieldFocus"
       />
 
       <!-- Методы из онбординга — залочены (менять через поддержку). -->
@@ -148,9 +143,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney } from '@/utils/format'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
 const router = useRouter()
+
+// Scroll the «Фамилия» / «О себе» fields above the soft keyboard once it settles (M6).
+const { onFieldFocus } = useKeyboardFieldScroll()
 const toast = useToast()
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
@@ -196,29 +195,6 @@ const hasErrors = computed(() => !!bioError.value)
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
   toast.info('Опция временно недоступна')
-}
-
-// «Фамилия» / «О себе» sit low enough that the soft keyboard covers them on focus.
-// The soft keyboard animates in over several frames, so a fixed timeout races it and
-// the field can still land under the keyboard (operator PE-2c). Instead react to the
-// visual viewport: centre the field on focus AND on each subsequent visualViewport
-// resize while the keyboard settles, then detach on blur. This COORDINATES with the
-// e95e05a keyboard-aware system — it reads the same window.visualViewport signal but
-// writes none of its shared state (--velo-vvh / is-keyboard-open stay owned by
-// useBackgroundStabilizer). Desktop / no visualViewport → the original deferred scroll.
-function scrollFieldIntoView(e: FocusEvent): void {
-  const el = e.target as HTMLElement | null
-  if (!el) return
-  const bring = (): void => el.scrollIntoView({ block: 'center' })
-  const vv = window.visualViewport
-  if (!vv) {
-    window.setTimeout(bring, 300)
-    return
-  }
-  const onResize = (): void => bring()
-  vv.addEventListener('resize', onResize)
-  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
-  bring()
 }
 
 function dismissKeyboardOnBlank(e: MouseEvent): void {
