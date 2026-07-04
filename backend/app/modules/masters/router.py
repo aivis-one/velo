@@ -45,6 +45,8 @@ from app.modules.masters.schemas import (
     MasterApplyResponse,
     MasterProfileResponse,
     MasterPublicResponse,
+    MethodChangeRequest,
+    MethodChangeRequestSubmit,
     PayoutDetails,
     PayoutDetailsUpdate,
 )
@@ -52,6 +54,7 @@ from app.modules.masters.service import (
     apply_for_master,
     claim_master_invite,
     get_public_master_profile,
+    submit_method_change_request,
 )
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
@@ -87,6 +90,12 @@ def _make_profile_response(
     payout_raw = data.get("payout")
     payout = PayoutDetails(**payout_raw) if payout_raw else None
 
+    # M3: project the pending / recently-rejected method-change request.
+    mcr_raw = prof.get("method_change_request")
+    method_change_request = (
+        MethodChangeRequest(**mcr_raw) if mcr_raw else None
+    )
+
     return MasterProfileResponse(
         user_id=profile.user_id,
         status=account.get("status", "pending"),
@@ -104,6 +113,8 @@ def _make_profile_response(
         # E14: surface the admin-captured reason from data.account so the
         # applicant's «Отказ» screen shows why (None unless rejected).
         rejection_reason=account.get("rejection_reason"),
+        # M3: pending / recently-rejected method-change request (None if none).
+        method_change_request=method_change_request,
     )
 
 
@@ -243,6 +254,52 @@ async def update_payout_details(
     )
 
     return PayoutDetails(**payout_data)
+
+
+# ===================================================================
+# M3 (E19-FLAT): POST /me/method-change-request -- request method change
+# ===================================================================
+
+
+@router.post(
+    "/me/method-change-request",
+    response_model=MasterProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_method_change(
+    body: MethodChangeRequestSubmit,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> MasterProfileResponse:
+    """Submit a method change-request (FLAT branch, M3).
+
+    A verified master proposes a new flat method set. It is stored pending
+    under data.profile.method_change_request until an admin approves/rejects;
+    the live data.profile.methods is NOT changed here. 409
+    method_change_pending if one is already outstanding.
+
+    Returns the refreshed profile so the caller sees the pending request
+    projected on method_change_request.
+    """
+    user, _profile = master_tuple
+
+    # Re-load in the writer session (mirrors update_payout_details): the
+    # dependency loaded the profile via the reader, but flush()/refresh()
+    # need the object bound to THIS write session.
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    await submit_method_change_request(
+        profile, body.proposed_methods, session
+    )
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return _make_profile_response((user, profile))
 
 
 # ===================================================================

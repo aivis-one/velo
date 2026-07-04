@@ -65,3 +65,54 @@ class InviteMasterResponse(BaseModel):
 
     invite_link: str
     issued_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# M3 (E19-FLAT): method change-request moderation
+# ---------------------------------------------------------------------------
+class AdminMethodChangeItem(BaseModel):
+    """One pending method change-request in the admin moderation list.
+
+    Carries the master's identity + the current vs proposed flat method sets
+    so the admin can decide without a second fetch.
+    """
+
+    user_id: UUID
+    display_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    avatar_url: str | None = None
+    current_methods: list[str] = Field(default_factory=list)
+    proposed_methods: list[str] = Field(default_factory=list)
+    submitted_at: datetime
+
+
+class PaginatedMethodChangeRequestsResponse(BaseModel):
+    """GET /admin/masters/method-change-requests -- paginated pending list."""
+
+    items: list[AdminMethodChangeItem]
+    total: int
+    limit: int
+    offset: int
+
+
+class RejectMethodChangeRequest(BaseModel):
+    """POST /admin/masters/{user_id}/method-change-request/reject -- body."""
+
+    reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=settings.admin_action_note_max_length,
+        description="Reason for rejecting the method change (shown to master)",
+    )
+
+
+class MethodChangeActionResponse(BaseModel):
+    """Response for approve/reject method-change actions.
+
+    status is the resulting request state: "approved" (methods updated,
+    request cleared) or "rejected".
+    """
+
+    user_id: UUID
+    status: str

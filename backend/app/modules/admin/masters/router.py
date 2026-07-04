@@ -13,20 +13,26 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_session
+from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import (
     AdminMasterActionResponse,
     InviteMasterRequest,
     InviteMasterResponse,
+    MethodChangeActionResponse,
+    PaginatedMethodChangeRequestsResponse,
     RejectMasterRequest,
+    RejectMethodChangeRequest,
     VerifyMasterRequest,
 )
 from app.modules.admin.masters.service import (
+    approve_method_change,
     issue_master_invite,
+    list_pending_method_changes,
     reject_master,
+    reject_method_change,
     verify_master,
 )
 from app.modules.auth.dependencies import get_current_admin
@@ -58,6 +64,30 @@ async def invite_master_endpoint(
     )
     await session.flush()
     return InviteMasterResponse(invite_link=invite_link, issued_at=issued_at)
+
+
+# ---------------------------------------------------------------------------
+# M3 (E19-FLAT): method change-request moderation
+# ---------------------------------------------------------------------------
+# NOTE: this static GET is declared before the dynamic /{user_id}/* routes so
+# "method-change-requests" is never parsed as a user_id (route-order rule,
+# mirrors admin/users/router.py).
+
+
+@router.get(
+    "/method-change-requests",
+    response_model=PaginatedMethodChangeRequestsResponse,
+)
+async def list_method_change_requests_endpoint(
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_reader),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> PaginatedMethodChangeRequestsResponse:
+    """List masters with a pending method change-request (newest first)."""
+    return await list_pending_method_changes(
+        session, limit=limit, offset=offset
+    )
 
 
 @router.post(
@@ -108,3 +138,41 @@ async def reject_master_endpoint(
         user_id=profile.user_id,
         status=profile.data["account"]["status"],
     )
+
+
+@router.post(
+    "/{user_id}/method-change-request/approve",
+    response_model=MethodChangeActionResponse,
+)
+async def approve_method_change_endpoint(
+    user_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> MethodChangeActionResponse:
+    """Approve a master's pending method change-request.
+
+    Copies the proposed methods into the live set and clears the request.
+    """
+    await approve_method_change(user_id, admin, session)
+
+    await session.flush()
+
+    return MethodChangeActionResponse(user_id=user_id, status="approved")
+
+
+@router.post(
+    "/{user_id}/method-change-request/reject",
+    response_model=MethodChangeActionResponse,
+)
+async def reject_method_change_endpoint(
+    user_id: UUID,
+    body: RejectMethodChangeRequest,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> MethodChangeActionResponse:
+    """Reject a master's pending method change-request (with a reason)."""
+    await reject_method_change(user_id, admin, body.reason, session)
+
+    await session.flush()
+
+    return MethodChangeActionResponse(user_id=user_id, status="rejected")

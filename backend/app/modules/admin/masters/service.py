@@ -35,12 +35,16 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, VeloError
+from app.modules.admin.masters.schemas import (
+    AdminMethodChangeItem,
+    PaginatedMethodChangeRequestsResponse,
+)
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
 
@@ -169,6 +173,184 @@ async def reject_master(
         user_id=str(user_id),
         admin_id=str(admin.id),
         reason=reason,
+    )
+
+    return profile
+
+
+# ---------------------------------------------------------------------------
+# M3 (E19-FLAT): method change-request moderation
+# ---------------------------------------------------------------------------
+
+
+async def _load_profile_with_pending_method_change(
+    user_id: UUID,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Load MasterProfile FOR UPDATE and validate a pending method request.
+
+    Mirrors _load_pending_profile but gates on
+    data.profile.method_change_request.status == "pending" (P-07 race guard:
+    two admins acting on the same request).
+
+    Raises NotFoundError if there is no pending method-change request.
+    """
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+
+    if not profile:
+        raise NotFoundError("Method change request not found")
+
+    request = profile.data.get("profile", {}).get("method_change_request")
+    if not isinstance(request, dict) or request.get("status") != "pending":
+        raise NotFoundError("Method change request not found")
+
+    return profile
+
+
+async def list_pending_method_changes(
+    session: AsyncSession,
+    *,
+    limit: int = 20,
+    offset: int = 0,
+) -> PaginatedMethodChangeRequestsResponse:
+    """List masters with a pending method change-request (newest first).
+
+    Joins User + MasterProfile and filters on the JSONB
+    data.profile.method_change_request.status == "pending". Read-only.
+    """
+    pending_filter = (
+        MasterProfile.data["profile"]["method_change_request"][
+            "status"
+        ].as_string()
+        == "pending"
+    )
+
+    query = (
+        select(User, MasterProfile)
+        .join(MasterProfile, User.id == MasterProfile.user_id)
+        .where(pending_filter)
+        .order_by(MasterProfile.created_at.desc())
+    )
+    count_query = (
+        select(func.count(MasterProfile.user_id))
+        .select_from(MasterProfile)
+        .where(pending_filter)
+    )
+
+    total = (await session.execute(count_query)).scalar_one()
+
+    query = query.limit(limit).offset(offset)
+    rows = (await session.execute(query)).all()
+
+    items = [
+        AdminMethodChangeItem(
+            user_id=user.id,
+            display_name=profile.data.get("profile", {}).get("display_name"),
+            first_name=user.first_name,
+            last_name=user.last_name,
+            avatar_url=user.avatar_url,
+            current_methods=profile.data.get("profile", {}).get("methods", []),
+            proposed_methods=profile.data["profile"]["method_change_request"][
+                "proposed_methods"
+            ],
+            submitted_at=profile.data["profile"]["method_change_request"][
+                "submitted_at"
+            ],
+        )
+        for user, profile in rows
+    ]
+
+    return PaginatedMethodChangeRequestsResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def approve_method_change(
+    user_id: UUID,
+    admin: User,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Approve a pending method change-request.
+
+    Copies proposed_methods into the live data.profile.methods and CLEARS the
+    request (so the profile response returns method_change_request=None). No
+    User.role change. Caller does flush + refresh.
+    """
+    profile = await _load_profile_with_pending_method_change(user_id, session)
+
+    new_data = copy.deepcopy(profile.data)
+    request = new_data["profile"]["method_change_request"]
+    proposed = request.get("proposed_methods", [])
+
+    new_data["profile"]["methods"] = proposed
+    # Clear the request -- approval is terminal; the new methods now stand.
+    new_data["profile"].pop("method_change_request", None)
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_method_change_approved",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"methods": proposed},
+        session=session,
+    )
+
+    logger.info(
+        "master_method_change_approved",
+        user_id=str(user_id),
+        admin_id=str(admin.id),
+    )
+
+    return profile
+
+
+async def reject_method_change(
+    user_id: UUID,
+    admin: User,
+    reason: str,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Reject a pending method change-request.
+
+    Marks the request status "rejected" + stores the reason (the master sees
+    it on their profile response); data.profile.methods is unchanged. Caller
+    does flush + refresh.
+    """
+    profile = await _load_profile_with_pending_method_change(user_id, session)
+
+    new_data = copy.deepcopy(profile.data)
+    request = new_data["profile"]["method_change_request"]
+    request["status"] = "rejected"
+    request["decided_at"] = datetime.now(UTC).isoformat()
+    request["decided_by"] = str(admin.id)
+    request["reject_reason"] = reason
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_method_change_rejected",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"reason": reason},
+        session=session,
+    )
+
+    logger.info(
+        "master_method_change_rejected",
+        user_id=str(user_id),
+        admin_id=str(admin.id),
     )
 
     return profile

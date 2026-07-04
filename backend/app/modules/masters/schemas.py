@@ -150,7 +150,38 @@ class PayoutDetails(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Master profile response (updated Phase F7 + CR-01)
+# Method change-request (M3 / E19-FLAT). Additive JSONB, no migration.
+# ---------------------------------------------------------------------------
+class MethodChangeRequestSubmit(BaseModel):
+    """POST /masters/me/method-change-request -- proposed flat method set.
+
+    M3 ships FLAT: the request carries a plain list of method strings (same
+    shape/limits as MasterApplyExperience.methods). The two-level
+    direction->kind taxonomy (E19) is deferred / out of scope.
+    """
+
+    proposed_methods: list[ShortStr] = Field(min_length=1, max_length=20)
+
+
+class MethodChangeRequest(BaseModel):
+    """Embedded method change-request, projected onto MasterProfileResponse.
+
+    Stored at data.profile.method_change_request. status is one of
+    "pending" | "rejected" (approved requests are cleared once the master's
+    methods are updated, so the field returns to None). None on the response
+    means the master has no outstanding or recently-rejected request.
+    """
+
+    status: str
+    proposed_methods: list[str] = Field(default_factory=list)
+    submitted_at: datetime
+    decided_at: datetime | None = None
+    decided_by: UUID | None = None
+    reject_reason: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Master profile response (updated Phase F7 + CR-01, M3)
 # ---------------------------------------------------------------------------
 class MasterProfileResponse(BaseModel):
     """Public master profile representation.
@@ -181,6 +212,10 @@ class MasterProfileResponse(BaseModel):
     # in the master JSONB under data.account.rejection_reason (service.py); the
     # router projects it here. None unless the current status is rejected.
     rejection_reason: str | None
+    # M3 (F-M3-3): the master's pending / recently-rejected method-change
+    # request, projected from data.profile.method_change_request. Optional
+    # (default None) -- no frozen key-set breaks. None when there is none.
+    method_change_request: MethodChangeRequest | None = None
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@
 #   the stale data.stats JSONB cache.
 # =============================================================================
 
+import copy
 import hashlib
 import hmac
 from datetime import UTC, datetime
@@ -45,6 +46,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.modules.diary.models import Feedback
 from app.modules.masters.models import MasterProfile
@@ -363,6 +365,68 @@ async def get_public_master_profile(
         practices_count=practices_count,
         reviews_count=reviews_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# M3 (E19-FLAT): master submits a method change-request
+# ---------------------------------------------------------------------------
+
+
+async def submit_method_change_request(
+    profile: MasterProfile,
+    proposed_methods: list[str],
+    session: AsyncSession,
+) -> MasterProfile:
+    """Record a pending method change-request on the master's profile.
+
+    FLAT branch (M3): stores the proposed flat method list under
+    data.profile.method_change_request with status "pending". Does NOT touch
+    data.profile.methods -- the live method set only changes when an admin
+    approves (admin/masters/service.approve_method_change).
+
+    The profile must be bound to the caller's write session (the router
+    re-loads it via session.get, mirroring update_payout_details).
+
+    Raises:
+        ConflictError (method_change_pending): a request is already pending.
+    """
+    prof = profile.data.get("profile", {})
+    existing = prof.get("method_change_request")
+    if isinstance(existing, dict) and existing.get("status") == "pending":
+        raise ConflictError(
+            "A method change request is already pending",
+            code="method_change_pending",
+        )
+
+    # P-03: deepcopy + set_jsonb for safe JSONB mutation.
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("profile", {})
+    new_data["profile"]["method_change_request"] = {
+        "status": "pending",
+        "proposed_methods": list(proposed_methods),
+        "submitted_at": datetime.now(UTC).isoformat(),
+        "decided_at": None,
+        "decided_by": None,
+        "reject_reason": None,
+    }
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_method_change_requested",
+        actor_id=profile.user_id,
+        actor_type="master",
+        target_type="master_profile",
+        target_id=profile.user_id,
+        data={"proposed_methods": list(proposed_methods)},
+        session=session,
+    )
+
+    logger.info(
+        "master_method_change_requested",
+        user_id=str(profile.user_id),
+    )
+
+    return profile
 
 
 # ---------------------------------------------------------------------------
