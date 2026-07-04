@@ -406,8 +406,17 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **Request.** Design + build the taxonomy model + change-request + admin-approval + pending status; image 2
   (PE-3) is the visual spec. Then the frontend upgrades the locked flat-chip display into the mockup's
   editable-with-approval rows. Until then the honest locked display stands.
-- **STATUS (2026-07-01): OPEN.** (Frontend keeps the honest locked flat-methods display; full mockup gated on
-  this backend — no fake data built.)
+- **STATUS (2026-07-04): SELF-BUILT FLAT (M3, ПРОМТ №278) — two-level taxonomy DEFERRED / out of scope.**
+  Operator locked F-M3-1=А (FLAT `string[]`, no direction→kind nesting) after recon surfaced that this E19
+  entry contradicted the flat decision. Shipped additively (no migration): JSONB
+  `data.profile.method_change_request` + 4 endpoints mirroring the master-application verify/reject loop
+  — `POST /masters/me/method-change-request` (master submit), `GET /admin/masters/method-change-requests`
+  (admin list-pending), `POST /admin/masters/{id}/method-change-request/approve|reject`. Exposed on
+  `MasterProfileResponse.method_change_request` (optional). Frontend: `EditProfileView` master methods block
+  upgraded from locked-chips to an editable flat set + «Ожидает подтверждения» pending badge + auto-submit
+  note; new admin `AdminMethodRequestsView` moderation screen. The **two-level Направление→Вид taxonomy**
+  from the operator's PE-3 mockup (per-method pencil-edit, per-method pending) remains **OPEN / deferred** —
+  revisit if the operator re-prioritises the nested design.
 
 ---
 
