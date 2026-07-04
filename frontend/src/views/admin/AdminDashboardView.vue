@@ -166,6 +166,14 @@
         <span class="admin-dashboard__section-title">Система</span>
       </div>
       <VListRow
+        title="Заявки на смену методов"
+        subtitle="Мастера меняют свои направления"
+        clickable
+        @click="router.push({ name: 'admin-method-requests' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
+      <VListRow
         title="Семафоры"
         subtitle="21 проверка целостности данных"
         clickable

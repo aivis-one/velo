@@ -397,6 +397,12 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMasterReviewView.vue'),
         },
         {
+          // M3: master methods change-request moderation queue.
+          path: 'method-requests',
+          name: 'admin-method-requests',
+          component: () => import('@/views/admin/AdminMethodRequestsView.vue'),
+        },
+        {
           path: 'reports',
           name: 'admin-reports',
           component: () => import('@/views/admin/AdminReportsView.vue'),

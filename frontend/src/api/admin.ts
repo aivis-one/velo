@@ -32,6 +32,8 @@ import type {
   AdminMasterListItem,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  PaginatedMethodChangeRequestsResponse,
+  MethodChangeActionResponse,
   ReportResponse,
   PaginatedReportsResponse,
   ReportStatusFilter,
@@ -55,6 +57,9 @@ export type {
   AdminMasterListItem,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  AdminMethodChangeItem,
+  PaginatedMethodChangeRequestsResponse,
+  MethodChangeActionResponse,
   ReportResponse,
   PaginatedReportsResponse,
   ReportStatusFilter,
@@ -118,6 +123,40 @@ export function inviteMaster(telegramId: number): Promise<InviteMasterResponse> 
   return api.post<InviteMasterResponse>('/api/v1/admin/masters/invite', {
     telegram_id: telegramId,
   })
+}
+
+// ============================================================================
+// Method change-requests (M3, FLAT) — master methods moderation
+// ============================================================================
+
+/** List masters with a pending method change-request (newest first). */
+export function getMethodChangeRequests(
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedMethodChangeRequestsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedMethodChangeRequestsResponse>(
+    `/api/v1/admin/masters/method-change-requests${query}`,
+  )
+}
+
+/** Approve a master's pending method change-request (methods become live). */
+export function approveMethodChange(userId: string): Promise<MethodChangeActionResponse> {
+  return api.post<MethodChangeActionResponse>(
+    `/api/v1/admin/masters/${userId}/method-change-request/approve`,
+    {},
+  )
+}
+
+/** Reject a master's pending method change-request (with a reason). */
+export function rejectMethodChange(
+  userId: string,
+  reason: string,
+): Promise<MethodChangeActionResponse> {
+  return api.post<MethodChangeActionResponse>(
+    `/api/v1/admin/masters/${userId}/method-change-request/reject`,
+    { reason },
+  )
 }
 
 // ============================================================================
