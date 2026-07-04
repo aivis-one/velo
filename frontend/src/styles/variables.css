@@ -246,6 +246,15 @@
      paddingTop. Scoped to master-profile via MasterShell.masterProfileFog(); tune
      the gap here (−40 ⇒ ~48px). Does NOT touch MobileLayout / HEADER_FALLBACK. */
   --velo-fog-mp-top-gap: -40px;
+  /* Reusable SHORT top-fog clearance for HEADERLESS list heads (operator DB-1b,
+     ПРОМТ №273). A dashboard-style screen with no VHeader has islandH=0, so
+     MobileLayout applies the 88px HEADER_FALLBACK + the default z1 gap ≈104px —
+     an oversized empty band above the first row. This NEGATIVE top-gap pulls that
+     fallback band down (top = 88 + this), the same mechanism as the
+     master-profile-only --velo-fog-mp-top-gap but as a shared token other
+     headerless heads can adopt. Read via MasterShell.dashboardFog(); tune here
+     (−40 ⇒ ~48px top). Does NOT touch MobileLayout / the HEADER_FALLBACK constant. */
+  --velo-fog-z1-short: -40px;
   /* Header-island clearance (G-1) is no longer a fixed token pair: MobileLayout
      MEASURES the floating island's height (ResizeObserver) and clears exactly
      that much, so any island (short greeting or tall title+weekstrip) gets the

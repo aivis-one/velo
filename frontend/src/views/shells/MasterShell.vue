@@ -174,14 +174,18 @@ const COMPACT_BOTTOM_FOG_ROUTES = [
   'master-promocode-new',
 ]
 
-// master-dashboard (DB-1, 2026-06-30): the greeting was removed, leaving an
-// oversized top band; shrink the top clearance from the default --velo-fog-z1 (16)
-// to --space-2 (8). Per-screen, reuses an existing token; tunable on device.
+// master-dashboard (DB-1, 2026-06-30 → DB-1b, ПРОМТ №273): the greeting was
+// removed, leaving an oversized top band. The hub is HEADERLESS (bell lives in the
+// content, no VHeader → islandH=0), so the 88px HEADER_FALLBACK dominates and the
+// earlier +8 (--space-2) gap only trimmed 8px off it (88+8=96px). Pull the band
+// down with the reusable short-top-fog token --velo-fog-z1-short (negative top-gap,
+// top = 88 + this ⇒ ~48px), mirroring the headerless master-profile fix. Tunable
+// in variables.css.
 let dashFogCache: { topGap: number } | null = null
 function dashboardFog() {
   if (dashFogCache) return dashFogCache
   const cs = getComputedStyle(document.documentElement)
-  dashFogCache = { topGap: fogPx(cs, '--space-2', 8) }
+  dashFogCache = { topGap: fogPx(cs, '--velo-fog-z1-short', -40) }
   return dashFogCache
 }
 
