@@ -238,6 +238,15 @@
   --velo-fog-pd-top-hard: 60px;
   --velo-fog-pd-bot-fade: 50px;
   --velo-fog-pd-bot-hard: 90px;
+  /* Form-only top-hard variant (M7, ПРОМТ №275): the compact-fog CREATE/EDIT/
+     promocode forms carry a TRANSPARENT floating VHeader (~88px, the
+     HEADER_FALLBACK estimate). The shared pd-top-hard (60) is shorter than the
+     header, so content in the 60–88px band ghosted UNDER the header's lower half
+     on scroll. This taller fully-transparent zone covers the header so content
+     dissolves before it — WITHOUT touching practice-detail, whose softer 60
+     top-hard over its hero is intentional (FOG-2). Read by MasterShell.formFog();
+     tune here to the measured header height. */
+  --velo-fog-pd-top-hard-form: 88px;
   /* master-profile top clearance (operator PE-1, 2026-07-01): the profile hub is
      HEADERLESS (no VHeader → islandH=0), so MobileLayout applies the 88px
      HEADER_FALLBACK + the default z1 gap ≈104px empty band above the first card.
