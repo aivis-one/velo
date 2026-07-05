@@ -45,12 +45,14 @@ logger = structlog.get_logger()
 # master_onboarding_completed: bool flag (master-zone welcome flow, E15) --
 #   the exact same lifecycle as onboarding_completed, persisted so the master
 #   onboarding survives re-login.
-# phone / bio: profile fields (schema-on-read). They allow an empty string
-#   "" as a valid stored value (means "cleared"); None is still dropped
+# phone / bio / email: profile fields (schema-on-read). They allow an empty
+#   string "" as a valid stored value (means "cleared"); None is still dropped
 #   below, so clearing is done by sending "", not null. This reuses the
 #   exact same write path as onboarding_completed -- no special-casing.
+#   email (E11): Telegram provides none, so it is captured via the profile
+#   edit form and stored here (additive JSONB, no column, no migration).
 _JSONB_CREDENTIAL_FIELDS = frozenset(
-    {"onboarding_completed", "master_onboarding_completed", "phone", "bio"}
+    {"onboarding_completed", "master_onboarding_completed", "phone", "bio", "email"}
 )
 
 

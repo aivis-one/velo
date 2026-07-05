@@ -703,3 +703,83 @@ async def test_notifications_coexist_with_onboarding_and_phone(
     assert body["phone"] == "+7 916 000 11 22"
     assert body["notifications"]["push"] is False
     assert body["notifications"]["practice_reminders"] is True
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/v1/users/me — email (E11, credentials JSONB, no column)
+# ---------------------------------------------------------------------------
+async def test_update_me_set_email(client: AsyncClient) -> None:
+    """A valid email is stored and exposed on the response (E11)."""
+    data = await login_user(client, telegram_id=88090, first_name="Mailer")
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"email": "person@example.com"},
+    )
+    assert response.status_code == 200
+    assert response.json()["email"] == "person@example.com"
+
+    # Persists across a fresh GET.
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+    assert me.json()["email"] == "person@example.com"
+
+
+async def test_update_me_email_default_none(client: AsyncClient) -> None:
+    """A user who never set an email reports email=None."""
+    data = await login_user(client, telegram_id=88091, first_name="NoMail")
+    token = data["session_token"]
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+    body = me.json()
+    assert "email" in body
+    assert body["email"] is None
+
+
+async def test_update_me_clear_email_with_empty_string(client: AsyncClient) -> None:
+    """Sending "" clears the email (phone/bio semantics), null leaves untouched."""
+    data = await login_user(client, telegram_id=88092, first_name="Clearer")
+    token = data["session_token"]
+
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"email": "temp@example.com"},
+    )
+    cleared = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"email": ""},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["email"] == ""
+
+
+async def test_update_me_invalid_email_rejected(client: AsyncClient) -> None:
+    """A malformed email is rejected with 422."""
+    data = await login_user(client, telegram_id=88093, first_name="BadMail")
+    token = data["session_token"]
+
+    response = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"email": "not-an-email"},
+    )
+    assert response.status_code == 422
+
+
+async def test_update_me_email_coexists_with_phone_bio(client: AsyncClient) -> None:
+    """email joins phone/bio in credentials without clobbering them."""
+    data = await login_user(client, telegram_id=88094, first_name="Combo")
+    token = data["session_token"]
+
+    await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers(token),
+        json={"phone": "+7 916 000 11 22", "bio": "hi", "email": "combo@example.com"},
+    )
+    me = await client.get("/api/v1/users/me", headers=auth_headers(token))
+    body = me.json()
+    assert body["phone"] == "+7 916 000 11 22"
+    assert body["bio"] == "hi"
+    assert body["email"] == "combo@example.com"

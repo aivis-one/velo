@@ -22,6 +22,7 @@ from datetime import datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from email_validator import EmailNotValidError, validate_email
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.modules.users.models import UserRole
@@ -394,6 +395,18 @@ class UserResponse(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def email(self) -> str | None:
+        """User's contact email, stored in the credentials JSONB (E11).
+
+        Telegram provides no email, so it is captured via the profile edit
+        form. Schema-on-read (key "email"), same pattern as phone/bio. Missing
+        key -> None. Empty string is an allowed cleared value.
+        """
+        value = self.credentials_in.get("email")
+        return value if isinstance(value, str) else None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def notifications(self) -> NotificationSettings:
         """Notification preferences, stored under credentials["notifications"].
 
@@ -528,6 +541,9 @@ class UserUpdate(BaseModel):
     # Empty string allowed (clear). Cap only; soft format check below.
     phone: str | None = Field(default=None, max_length=20)
     bio: str | None = Field(default=None, max_length=2000)
+    # Email (E11). Same "" clears / null untouched semantics as phone/bio;
+    # soft-validated below. Stored in credentials JSONB (no column).
+    email: str | None = Field(default=None, max_length=254)
     # Notification preferences (nested object in credentials). Partial: only
     # the flipped toggles are sent; the service merges onto the stored object.
     # "Not sent" leaves all preferences untouched.
@@ -570,6 +586,23 @@ class UserUpdate(BaseModel):
         digit_count = sum(ch.isdigit() for ch in v)
         if digit_count < 5:
             raise ValueError("Phone must contain at least 5 digits")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def validate_email_field(cls, v: str | None) -> str | None:
+        """Soft email validation (E11).
+
+        An empty string clears the field; None leaves it untouched. A
+        non-empty value must parse as an email (deliverability not checked --
+        we do not do network MX lookups on a profile save).
+        """
+        if v is None or v == "":
+            return v
+        try:
+            validate_email(v, check_deliverability=False)
+        except EmailNotValidError as e:
+            raise ValueError("Invalid email address") from e
         return v
 
     @field_validator("timezone", "language", mode="before")
