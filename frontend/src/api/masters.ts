@@ -74,6 +74,14 @@ export function submitMethodChangeRequest(
 }
 
 /**
+ * Replace the master's languages (E16, freely editable — no moderation).
+ * Returns the refreshed profile. Empty array clears the set.
+ */
+export function updateMasterLanguages(languages: string[]): Promise<MasterProfileResponse> {
+  return api.patch<MasterProfileResponse>('/api/v1/masters/me/languages', { languages })
+}
+
+/**
  * Fetch a verified master's PUBLIC profile (S-4).
  * Callable by any authenticated user. Only verified masters resolve;
  * pending / rejected / non-master ids return 404. Carries no financial
@@ -207,7 +215,14 @@ export function getMasterStats(period: 'week' | 'month' = 'week'): Promise<Maste
  * item carries the reviewer name/avatar, the rating bucket, the comment, and
  * the practice_title the review belongs to.
  */
-export function getMasterReviews(limit = 20, offset = 0): Promise<PaginatedMasterReviewsResponse> {
-  const query = buildQuery({ limit, offset })
+export function getMasterReviews(
+  limit = 20,
+  offset = 0,
+  attention = false,
+): Promise<PaginatedMasterReviewsResponse> {
+  // attention=true narrows the feed to the negative (confused) bucket
+  // server-side (E1) so the «Требуют внимания» block sees a full page of
+  // low-rated reviews, not only those that fall in the first mixed page.
+  const query = buildQuery({ limit, offset, attention: attention || undefined })
   return api.get<PaginatedMasterReviewsResponse>(`/api/v1/masters/me/reviews${query}`)
 }

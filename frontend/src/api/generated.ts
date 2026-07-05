@@ -492,6 +492,7 @@ export interface MasterApplyExperience {
   experience_years: number
   bio?: string | null
   certifications?: string[]
+  languages?: string[]
 }
 
 /** Step 1 of master application -- basic profile. */
@@ -513,6 +514,11 @@ export interface MasterApplyResponse {
   user_id: string
   status: string
   created_at: string
+}
+
+/** PATCH /api/v1/masters/me/languages -- freely-editable language set (E16). Q2=А: no moderation (unlike methods). Replaces data.profile.languages wholesale with the sent flat list. Empty list clears it. */
+export interface MasterLanguagesUpdate {
+  languages?: string[]
 }
 
 /** Master notification preferences (under credentials.master_notifications). Nine on/off toggles grouped by the master notifications screen (bookings / participants / messages / analytics) plus a delivery `schedule`. All toggles default True except monthly_report. RESPONSE shape returned inside UserResponse.master_notifications (only when role=master). */
@@ -550,6 +556,7 @@ export interface MasterProfileResponse {
   display_name?: string | null
   bio?: string | null
   methods?: string[]
+  languages?: string[]
   experience_years?: number | null
   frozen_cents: number
   available_cents: number
@@ -1190,6 +1197,7 @@ export interface UserResponse {
   master_onboarding_completed: boolean
   phone: string | null
   bio: string | null
+  email: string | null
   notifications: NotificationSettings
   master_notifications: MasterNotificationSettings | null
   role_switch: RoleSwitchInfo | null
@@ -1211,6 +1219,7 @@ export interface UserUpdate {
   master_onboarding_completed?: boolean | null
   phone?: string | null
   bio?: string | null
+  email?: string | null
   notifications?: NotificationSettingsUpdate | null
   master_notifications?: MasterNotificationSettingsUpdate | null
 }
