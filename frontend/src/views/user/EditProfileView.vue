@@ -90,18 +90,45 @@
         </template>
       </div>
 
+      <!-- Языки практик (мастер): freely editable, no moderation (E16, Q2=А). -->
+      <div v-if="isMaster" class="edit-profile__methods">
+        <label class="edit-profile__methods-label">Языки практик</label>
+        <div class="edit-profile__methods-chips">
+          <VChip
+            v-for="l in LANGUAGES"
+            :key="l"
+            size="md"
+            clickable
+            :active="selectedLanguages.includes(l)"
+            @click="toggleLanguage(l)"
+          >
+            {{ l }}
+          </VChip>
+        </div>
+        <VButton
+          variant="secondary"
+          block
+          :disabled="!languagesChanged"
+          :loading="savingLanguages"
+          @click="onSaveLanguages"
+        >
+          Сохранить языки
+        </VButton>
+      </div>
+
       <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
       <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
       <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
 
-      <!-- E-mail (disabled stub) -->
+      <!-- E-mail (E11: captured here — Telegram provides none) -->
       <VInput
-        v-model="emailStub"
+        v-model="form.email"
         label="E-mail"
         type="email"
-        placeholder="появится позже"
-        :disabled="true"
+        placeholder="you@example.com"
+        @focus="onFieldFocus"
       />
+      <p v-if="emailError" class="edit-profile__field-error">{{ emailError }}</p>
 
       <!-- About -->
       <VTextarea
@@ -188,9 +215,10 @@ import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
-import { submitMethodChangeRequest } from '@/api/masters'
+import { submitMethodChangeRequest, updateMasterLanguages } from '@/api/masters'
 import { formatMoney } from '@/utils/format'
 import { AVAILABLE_METHODS } from '@/utils/methods'
+import { LANGUAGES } from '@/utils/languages'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
@@ -270,8 +298,53 @@ async function onSubmitMethods(): Promise<void> {
   }
 }
 
+// -- Master languages (E16): freely editable, no moderation -----------------
+const currentLanguages = computed((): string[] => masterStore.profile?.languages ?? [])
+const selectedLanguages = ref<string[]>([])
+watch(
+  currentLanguages,
+  (next) => {
+    selectedLanguages.value = [...next]
+  },
+  { immediate: true },
+)
+
+function toggleLanguage(l: string): void {
+  const idx = selectedLanguages.value.indexOf(l)
+  if (idx === -1) selectedLanguages.value.push(l)
+  else selectedLanguages.value.splice(idx, 1)
+}
+
+// Differs from live (clearing to empty is allowed, unlike methods).
+const languagesChanged = computed((): boolean => {
+  const sel = selectedLanguages.value
+  const cur = currentLanguages.value
+  if (sel.length !== cur.length) return true
+  const curSet = new Set(cur)
+  return sel.some((l) => !curSet.has(l))
+})
+
+const savingLanguages = ref(false)
+async function onSaveLanguages(): Promise<void> {
+  if (savingLanguages.value || !languagesChanged.value) return
+  savingLanguages.value = true
+  try {
+    await updateMasterLanguages([...selectedLanguages.value])
+    await masterStore.fetchMyProfile(true)
+    toast.info('Языки сохранены')
+  } catch (error) {
+    const message =
+      error instanceof ApiResponseError
+        ? error.detail || 'Не удалось сохранить языки'
+        : 'Не удалось сохранить языки'
+    toast.error(message)
+  } finally {
+    savingLanguages.value = false
+  }
+}
+
 // Load the master profile so the delete modal can show the balance to forfeit
-// and the methods block reflects the current set + any pending request.
+// and the methods/languages blocks reflect the current set + any pending request.
 onMounted(() => {
   if (isMaster.value) {
     void masterStore.fetchMyProfile()
@@ -285,21 +358,27 @@ const displayName = computed(() => {
   return parts.length > 0 ? parts.join(' ') : 'Пользователь'
 })
 
-// E-mail is a disabled stub -- bound to a constant, never edited or sent.
-const emailStub = ref('')
-
 // Editable form, initialised from the current profile. Phone + bio restored to
 // match the «2 Edit Profile» design (the 2026-06-04 trim was unintended).
+// email (E11) is captured here — Telegram provides none.
 const form = reactive({
   firstName: user.value?.first_name ?? '',
   lastName: user.value?.last_name ?? '',
   bio: user.value?.bio ?? '',
+  email: user.value?.email ?? '',
 })
 
 // -- Validation (mirrors backend soft rules) --------------------------------
 const bioError = computed((): string => (form.bio.length > 2000 ? 'Не более 2000 символов' : ''))
 
-const hasErrors = computed(() => !!bioError.value)
+// Soft email check (backend also 422s). Empty is allowed (clears the field).
+const emailError = computed((): string => {
+  const v = form.email.trim()
+  if (v === '') return ''
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? '' : 'Введите корректный e-mail'
+})
+
+const hasErrors = computed(() => !!bioError.value || !!emailError.value)
 
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
@@ -337,6 +416,11 @@ async function onSave(): Promise<void> {
   const nextBio = form.bio.trimEnd()
   if (nextBio !== (user.value?.bio ?? '')) {
     body.bio = nextBio
+  }
+  // email (E11): send "" to clear (phone/bio semantics); only when changed.
+  const nextEmail = form.email.trim()
+  if (nextEmail !== (user.value?.email ?? '')) {
+    body.email = nextEmail
   }
 
   if (Object.keys(body).length === 0) {
@@ -484,6 +568,13 @@ function onConfirmDelete(): void {
   font-size: var(--text-xs);
   color: var(--velo-error);
   line-height: 1.4;
+}
+
+/* Inline field error (e-mail) — sibling <p> since VInput has no error prop. */
+.edit-profile__field-error {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--velo-error);
 }
 
 /* Submit button sits under the note with a little breathing room. */
