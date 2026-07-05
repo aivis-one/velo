@@ -209,6 +209,7 @@ import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
 import { AVAILABLE_METHODS } from '@/utils/methods'
+import { LANGUAGES } from '@/utils/languages'
 
 const router = useRouter()
 const toast = useToast()
@@ -249,9 +250,16 @@ const otherMethodText = ref('')
 // Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
 
-// Language — honest stub (Zod E16): local only, not sent with the application.
+// Languages the master runs practices in (E16). Sent with the application as
+// experience.languages (flat list); surfaced + freely editable on the profile.
 const langRu = ref(true)
 const langEn = ref(false)
+const selectedLanguages = computed((): string[] => {
+  const langs: string[] = []
+  if (langRu.value) langs.push(LANGUAGES[0]) // Русский
+  if (langEn.value) langs.push(LANGUAGES[1]) // English
+  return langs
+})
 
 // Certificates chip list — empty until E13 file storage ships (no faked data).
 const uploadedCerts = ref<string[]>([])
@@ -363,6 +371,7 @@ async function submit(): Promise<void> {
       },
       experience: {
         methods: allMethods.value,
+        languages: selectedLanguages.value,
         experience_years: experienceYears.value,
         bio: form.bio.trim() || null,
         certifications: [],
