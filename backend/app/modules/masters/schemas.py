@@ -64,6 +64,10 @@ class MasterApplyExperience(BaseModel):
     experience_years: int = Field(ge=0, le=50)
     bio: str | None = Field(default=None, max_length=2000)
     certifications: list[ShortStr] = Field(default_factory=list, max_length=20)
+    # E16: languages the master runs practices in (Русский / English). Flat
+    # string list, optional at apply time (default []). Freely editable on the
+    # profile later (no moderation, Q2=А).
+    languages: list[ShortStr] = Field(default_factory=list, max_length=10)
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +142,16 @@ class PayoutDetailsUpdate(BaseModel):
     details: dict = Field(min_length=1)  # At least one key required
 
 
+class MasterLanguagesUpdate(BaseModel):
+    """PATCH /api/v1/masters/me/languages -- freely-editable language set (E16).
+
+    Q2=А: no moderation (unlike methods). Replaces data.profile.languages
+    wholesale with the sent flat list. Empty list clears it.
+    """
+
+    languages: list[ShortStr] = Field(default_factory=list, max_length=10)
+
+
 class PayoutDetails(BaseModel):
     """Payout details stored in MasterProfile.data.payout.
 
@@ -198,6 +212,8 @@ class MasterProfileResponse(BaseModel):
     display_name: str | None = None
     bio: str | None = None
     methods: list[str] = Field(default_factory=list)
+    # E16: languages the master runs practices in (freely editable, Q2=А).
+    languages: list[str] = Field(default_factory=list)
     experience_years: int | None = None
     frozen_cents: int
     available_cents: int

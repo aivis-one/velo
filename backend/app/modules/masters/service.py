@@ -84,6 +84,7 @@ def _build_data(body: MasterApplyRequest) -> dict:
             "phone": body.profile.phone,
             "bio": body.experience.bio,
             "methods": body.experience.methods,
+            "languages": body.experience.languages,
             "experience_years": body.experience.experience_years,
             "certifications": body.experience.certifications,
         },
@@ -365,6 +366,36 @@ async def get_public_master_profile(
         practices_count=practices_count,
         reviews_count=reviews_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# E16: master updates their languages (freely editable, no moderation)
+# ---------------------------------------------------------------------------
+
+
+async def update_master_languages(
+    profile: MasterProfile,
+    languages: list[str],
+    session: AsyncSession,
+) -> MasterProfile:
+    """Replace the master's language set (E16, Q2=А -- no moderation).
+
+    Writes data.profile.languages wholesale. The profile must be bound to the
+    caller's write session (the router re-loads it via session.get, mirroring
+    update_payout_details). Caller does flush + refresh.
+    """
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("profile", {})
+    new_data["profile"]["languages"] = list(languages)
+    profile.set_jsonb("data", new_data)
+
+    logger.info(
+        "master_languages_updated",
+        user_id=str(profile.user_id),
+        count=len(languages),
+    )
+
+    return profile
 
 
 # ---------------------------------------------------------------------------

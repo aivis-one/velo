@@ -43,6 +43,7 @@ from app.modules.masters.schemas import (
     ClaimMasterInviteResponse,
     MasterApplyRequest,
     MasterApplyResponse,
+    MasterLanguagesUpdate,
     MasterProfileResponse,
     MasterPublicResponse,
     MethodChangeRequest,
@@ -55,6 +56,7 @@ from app.modules.masters.service import (
     claim_master_invite,
     get_public_master_profile,
     submit_method_change_request,
+    update_master_languages,
 )
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
@@ -102,6 +104,7 @@ def _make_profile_response(
         display_name=prof.get("display_name"),
         bio=prof.get("bio"),
         methods=prof.get("methods", []),
+        languages=prof.get("languages", []),
         experience_years=prof.get("experience_years"),
         frozen_cents=profile.frozen_cents,
         available_cents=profile.available_cents,
@@ -254,6 +257,42 @@ async def update_payout_details(
     )
 
     return PayoutDetails(**payout_data)
+
+
+# ===================================================================
+# E16: PATCH /me/languages -- freely edit the master's language set
+# ===================================================================
+
+
+@router.patch(
+    "/me/languages",
+    response_model=MasterProfileResponse,
+)
+async def update_languages(
+    body: MasterLanguagesUpdate,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> MasterProfileResponse:
+    """Replace the master's languages (E16, freely editable -- no moderation).
+
+    Unlike methods (admin-approved), languages are a plain profile field:
+    the sent flat list replaces data.profile.languages wholesale.
+    """
+    user, _profile = master_tuple
+
+    # Re-load in the writer session (mirrors update_payout_details).
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    await update_master_languages(profile, body.languages, session)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return _make_profile_response((user, profile))
 
 
 # ===================================================================
