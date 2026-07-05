@@ -1,4 +1,7 @@
 #!/bin/bash
+# -u: abort on unset variables. pipefail: a pipeline fails if any stage fails.
+# (No -e: the ERR trap defined below already aborts on any command error.)
+set -uo pipefail
 
 # ==============================================================================
 # VELO Platform — VPS Installation & Management Script
