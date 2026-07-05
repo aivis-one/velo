@@ -1,7 +1,7 @@
 # VELO — Фронтовый Кодекс
 
-**Версия:** 1.11
-**Дата:** 3 июля 2026
+**Версия:** 1.12
+**Дата:** 5 июля 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
@@ -11,6 +11,15 @@
 > (DS-first). Ссылки на Figma-node (`541:…`, `4715-3463` и т.п.), оставшиеся ниже
 > в исторических заметках и в таблице техдолга, — артефакты первоначальной
 > сборки, НЕ действующий источник.
+
+> **v1.12 (M3 методы-через-модерацию + языки/e-mail/attention + keyboard-fog VARIANT-3 + участник-X removal, 5 июля 2026, база `87387d4` — held ahead-24 поверх задеплоенного `97cb445`, НЕ задеплоено):**
+> — **M3 — методы мастера через админ-модерацию (E19, FLAT-ветка):** «Методы» в edit-profile из locked-чипов → редактируемый плоский набор; смена авто-шлёт change-request (`POST /masters/me/method-change-request`), пока pending — бейдж «Ожидает подтверждения» + примечание (авто-отправка, до 3 раб. дней). Новый админ-экран `AdminMethodRequestsView` («Заявки на смену методов», DS-composed) + вход с админ-дашборда: список pending → одобрить (методы становятся живыми) / отклонить (причина). JSONB `data.profile.method_change_request` (additive, без миграции). Двухуровневая таксономия Направление→Вид из мокапа PE-3 **ОТЛОЖЕНА** (out of scope); M3 = FLAT (оператор F-M3-1=А). Отменяет honest-stub «Методы = locked flat-chip / E19 НЕ построена» из v1.10 §PE-3.
+> — **E16 — языки практик:** стаб `langRu`/`langEn` в заявке теперь УХОДИТ (`experience.languages`); на профиле — блок «Языки практик», свободно редактируемый БЕЗ модерации (`PATCH /masters/me/languages`, Q2=А); `MasterProfileResponse.languages`, `utils/languages.ts`. Additive JSONB `data.profile.languages`. Закрывает TD-FE-E16-APPLY-LANGS.
+> — **E11 — e-mail юзера:** поле e-mail в edit-profile из disabled-заглушки «появится позже» → редактируемое; `UserResponse.email` / `UserUpdate.email` (credentials JSONB, паттерн phone/bio, «» очищает; без колонки/миграции). Self-built в users/ (Zod-лейн E8) — additive, remote-cold, reconcile-before-push обязателен.
+> — **E1 — фильтр «Требуют внимания»:** `getMasterReviews(…, attention)` + `AnalyticsView` тянет `attention=true` (серверный негатив-бакет — бэк уже задеплоен; «нет фильтра» в задачах было устаревшим). Frontend-only.
+> — **OT-A — фон при вводе (VARIANT 3):** на fog-экранах при клавиатуре верхний dissolve СОХРАНЯЕТСЯ, убирается только НИЖНИЙ (было: `mask:none` целиком → фон «переключался»); `#app::before` доп-приколот (`min-height:100lvh`, гейт `is-keyboard-open`/`is-field-focused`) против webview-ресайза мандалы. В покое / на non-fog — байт-идентично. Уточняет KB-1…4/SP-2/SP-3.
+> — **OT-B — крестик отмены записи убран:** stub-X на ростере детали практики (модалка → тост «недоступно», эндпоинта нет) удалён целиком; строки участников read-only; вернём с remove-participant эндпоинтом (E11).
+> — **PACK#1/#2 (U1/U2/U4 · M1/M2/M5-M7):** honest-disable master-request на BookingConfirmed; фикс «Вчера»-даты (`dayLabelOf`→format.ts); no-show reflection flow (`ReflectionView` на стабе); чат-композер над клавиатурой (fill); keyboard-scroll settle; short-fog / form-fog-top-hard токены; снят мёртвый `solid` VHeader-вариант.
 
 > **v1.11 (capability-роль-свитч + E15 end-to-end + честный вход мастера + инвайт-ссылка + Batch-STRIP + zoom-мини-фиксы, 3 июля 2026, база `d01f6f9` [Zod-батч zoom-гейт/setrole] + held-батч №255-263, НЕ задеплоено):**
 > — **Zoom-мини-фиксы (№263, pre-push):** owner-CRUD-ответы (create/update/delete/cancel в `practices/router.py`) отдают СВОЙ `zoom_link` (передан `zoom_link_visible=True`) — консистентно с owner-always-sees (M-3/Z-6); кнопка «Zoom» на юзер-дашборде `:disabled` без валидной ссылки (честное состояние вместо мёртвого клика); карточка ZOOM в детали практики — честный текст «доступна после записи» вместо ложного «за 10 минут до начала» (reveal привязан к статусу брони, не к таймеру).

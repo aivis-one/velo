@@ -34,7 +34,7 @@ capability gate delivered). Everything else unchanged, no regression. One-glance
   **E8** ⬆ (master-notifications contract `MasterNotificationSettings` gen:486 + on UserResponse gen:1118
   /UserUpdate gen:1138 + master-capability gate DELIVERED; push-delivery worker + unread bell-feed open) ·
   **E9** (rich masters/reports/withdrawals open) · **E10** (POST done; GET-list + DELETE open) ·
-  **E11** (real `DELETE /users/me` done; rest open) · **E1** (cross-practice needs-attention *filter* open).
+  **E11** (real `DELETE /users/me` + `UserResponse.email` done №280; rest open) · **E1** (cross-practice needs-attention *filter* DONE №280).
 - **OPEN (untouched, field absent on `4713c60`):** **E4** messaging · **E6** weekly summary ·
   **E12** checkin_count · **E13** apply-doc/photo-upload · **E14** application rejection_reason ·
   **E15** master_onboarding_completed · **E16** apply languages · **E17** master web-auth (PARKED).
@@ -89,7 +89,7 @@ missing just because a less-seeded screen looks thin.
 Minor gaps closed by us (backend projection + manual `generated.ts` + frontend wire), NOT Zod:
 - **E18** `zoom_link` on `PracticeSummary` — from_attributes projection (no migration); `generated.ts` + Zoom wired (user dashboard / live / master dashboard).
 - **E14** `rejection_reason` on `MasterProfileResponse` — projected from `data.account.rejection_reason` in the router; `MasterPendingView` shows the real reason.
-- **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter remainder still open — see E1; AnalyticsView attention card left on its existing message action pending operator UX call.)*
+- **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter DONE №280: `getMasterReviews(…, attention)` + AnalyticsView «Требуют внимания» fetches `attention=true`; the backend param was already deployed. AnalyticsView attention card left on its existing message action pending operator UX call.)*
 - **E10** GET `list_my_promos` + PATCH deactivate were already delivered by Zod — frontend now wired (`api/promos.ts` + `MasterPromocodesView`, active-list + soft-deactivate); no hard DELETE added.
 
 TARGETED Zod one-liners (small, but in Zod-hot files — Zod to slot; we did NOT touch these):
@@ -441,7 +441,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | Endpoint (method + path) | NEW/EXTEND | Fields | Prio | Status (2026-06-24) |
 |---|---|---|---|---|
 | GET /practices/{id}/reviews | NEW | reviewer_name, avatar, rating, comment, date; attention | P0 | DELIVERED (gen:663) |
-| GET /masters/me/reviews (cross-practice feed) | NEW | + practice_title; attention filter | P1 | PARTIAL — feed done (gen:615), attention param OPEN |
+| GET /masters/me/reviews (cross-practice feed) | NEW | + practice_title; attention filter | P1 | DELIVERED — feed + attention param (gen:615); FE wired №280 (AnalyticsView attention=true) |
 | GET /masters/me/income?period | NEW | income_cents, delta | P0 | DELIVERED (gen:442) |
 | GET /masters/me/transactions | NEW | title, date, counterparty, amount (signed) | P0 | DELIVERED (gen:536/679) |
 | GET /masters/me/students (+/{id}) | NEW | name, avatar, counts, checkins[], feedbacks[] | P0 | DELIVERED (gen:671/966) |
@@ -470,7 +470,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | connection-link auto-gen | NEW | link generation + delivery | P2 | OPEN |
 | DELETE /masters/me/payout | NEW | remove payout method | P2 | OPEN |
 | DELETE /users/me (real) | EXTEND | forfeit balance + erase semantics | P2 | DELIVERED (users.ts:50) |
-| UserResponse.email | EXTEND | email capture + expose | P1 | OPEN (gen:1059) |
+| UserResponse.email | EXTEND | email capture + expose | P1 | SELF-BUILT №280 (credentials JSONB, no column/migration; UserUpdate.email) |
 | i18n EN + date-format pref | NEW | locale catalog + format pref + formatter | P2 | OPEN |
 | PracticeResponse {attended, no_show} | EXTEND | per-practice card aggregate | P2 | OPEN |
 | PracticeResponse.checkin_count (E12) | EXTEND | «😊 N/M» aggregate | P1 | OPEN (gen:740/775) |
