@@ -116,9 +116,12 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   (gen:663), `ReviewItem` (gen:922), `getPracticeReviews` practices.ts:170. The **cross-practice**
   needs-attention feed (the former internal "#3") is also DELIVERED: `GET /masters/me/reviews` →
   `PaginatedMasterReviewsResponse` (gen:615) with `MasterReviewItem.practice_title` (gen:521).
-  **OPEN remainder:** the cross-practice feed has **no negative-only/attention filter param** (only
-  limit/offset) — add `attention=true` (or a rating filter) so «Требуют внимания» shows only the
-  low-rated. **Also OPEN: `MasterReviewItem` (gen:521) / `ReviewItem` (gen:922) carry no `user_id`** —
+  **CORRECTION (2026-07-04, ПРОМТ №280): the attention param was STALE-OPEN — it already ships.**
+  `GET /masters/me/reviews?attention=true` narrows to the negative (confused) bucket server-side
+  (`reviews_router.py` `attention: bool = Query`, `reviews_service.list_master_reviews`,
+  `Feedback.rating <= ATTENTION_RATING_MAX`) and is LIVE on origin/test. E1-attention = **frontend
+  wiring, now DONE**: `getMasterReviews(..., attention)` passes it; `AnalyticsView` «Требуют внимания»
+  fetches `attention=true`. **Also OPEN: `MasterReviewItem` (gen:521) / `ReviewItem` (gen:922) carry no `user_id`** —
   the reviewer is name-only, so a review card cannot navigate to that student's profile. Add a reviewer
   `user_id` to the review item so the frontend can link a review → student profile. *(The per-practice
   `attention` filter EXISTS on the backend — test-verified — but the frontend wrapper doesn't pass it;
@@ -289,6 +292,15 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   expose it on the profile — contract undefined → define + spec (frontend defers, does not invent). **P2** (recon item E3).
 - NEW i18n EN catalog + language render layer + date-format pref + formatter. **P2.**
 - EXTEND `PracticeResponse` per-card `{ attended, no_show }` aggregate. **P2.**
+- **STATUS (2026-07-04, email SELF-BUILT — PACK#3, ПРОМТ №280):** `UserResponse.email` capture+expose
+  is DONE, additive credentials-JSONB (phone/bio pattern, NO column, NO migration): `"email"` added to
+  `_JSONB_CREDENTIAL_FIELDS`, `UserResponse.email` computed_field, `UserUpdate.email` (soft
+  email-validator; "" clears). `EditProfileView` email field enabled. Regenerated generated.ts.
+  **ZOD HEADS-UP (Q1=А collision note):** Velo orc self-built this in `users/` (Zod's nominal E8 lane).
+  It is **additive only** (one credentials key + one response field + one PATCH field) — no schema/
+  column/migration, no conflict with E8's `master_notifications`. users/ was re-checked remote-cold at
+  build (origin/main 0-ahead vs test, no in-flight users/ push). Reconcile-before-push still mandatory
+  at deploy. The OTHER E11 one-offs below remain OPEN.
 - **STATUS (2026-06-24): PARTIAL.** DELIVERED: real `DELETE /users/me` (forfeit) — users.ts:50.
   **OPEN:** master-delete-participant booking; support-ticket intake + upload; connection-link;
   `DELETE /masters/me/payout` (only PATCH); `UserResponse.email` (gen:1059 has none); per-card
@@ -354,7 +366,11 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **(c) Breaks.** `MasterApplyExperience` / `MasterApplyRequest` (gen:472) has no `languages` field;
   `MasterProfileResponse` (gen:486) has no `languages`. The control persists nothing until added.
 - **Request.** Add `languages: string[]` to the apply experience intake + surface on the profile.
-- **STATUS (2026-06-27): OPEN.** (Frontend stub built under build-full-design.)
+- **STATUS (2026-07-04): SELF-BUILT (PACK#3, ПРОМТ №280).** Additive JSONB `data.profile.languages`
+  (mirror `methods`, NO migration): `MasterApplyExperience.languages` (default []) + on
+  `MasterProfileResponse`; apply UI wired (`langRu`/`langEn` → experience.languages). Q2=А: FREELY
+  editable on the profile (no moderation) via new `PATCH /api/v1/masters/me/languages` +
+  `EditProfileView` languages chips. Regenerated generated.ts. HELD (accumulate-then-deploy).
 
 ### E17 — Master web auth (Phase A) (NEW slice-3 2026-06-27). **P3 (future web build).**
 - **(a) Why.** The Figma Phase A is a standalone WEB master portal: Landing / Login (email+password) /
