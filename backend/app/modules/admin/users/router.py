@@ -26,13 +26,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db_reader
+from app.core.database import get_db_reader, get_db_session
+from app.modules.admin.masters.schemas import AdminMasterActionResponse
 from app.modules.admin.users.schemas import (
     AdminMasterListItem,
     PaginatedMastersResponse,
     PaginatedUsersResponse,
 )
-from app.modules.admin.users.service import get_master_by_id, list_masters, list_users
+from app.modules.admin.users.service import (
+    get_master_by_id,
+    list_masters,
+    list_users,
+    make_master,
+)
 from app.modules.auth.dependencies import get_current_admin
 from app.modules.users.models import User
 
@@ -51,6 +57,32 @@ async def get_users(
     """List all users with optional filters and pagination."""
     return await list_users(
         session, limit=limit, offset=offset, role=role, is_active=is_active
+    )
+
+
+@router.post(
+    "/users/{user_id}/make-master",
+    response_model=AdminMasterActionResponse,
+)
+async def make_master_endpoint(
+    user_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminMasterActionResponse:
+    """Explicitly promote a user to master (admin all-users screen, ПРОМТ №292).
+
+    Creates a verified MasterProfile if missing (or re-verifies a non-verified
+    one) and sets role=master. 409 if the user is already a master. Distinct
+    from POST /masters/{user_id}/verify (the application-approval path).
+    """
+    profile = await make_master(user_id, admin, session)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return AdminMasterActionResponse(
+        user_id=profile.user_id,
+        status=profile.data["account"]["status"],
     )
 
 

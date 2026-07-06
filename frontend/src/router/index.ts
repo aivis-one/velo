@@ -385,6 +385,12 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMastersView.vue'),
         },
         {
+          // All-users list + explicit make-master (ПРОМТ №292).
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('@/views/admin/AdminUsersView.vue'),
+        },
+        {
           // Batch-INVITE (№258): one-time master invite link issue screen.
           // Declared BEFORE masters/:id so the literal segment wins.
           path: 'masters/invite',

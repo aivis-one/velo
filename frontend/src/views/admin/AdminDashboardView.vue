@@ -166,6 +166,14 @@
         <span class="admin-dashboard__section-title">Система</span>
       </div>
       <VListRow
+        title="Пользователи"
+        subtitle="Все пользователи · назначение мастеров"
+        clickable
+        @click="router.push({ name: 'admin-users' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
+      <VListRow
         title="Заявки на смену методов"
         subtitle="Мастера меняют свои направления"
         clickable

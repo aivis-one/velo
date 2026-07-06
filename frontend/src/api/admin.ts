@@ -49,6 +49,7 @@ import type {
   AdminPracticeDetailResponse,
   AdminRevenueResponse,
   InviteMasterResponse,
+  PaginatedUsersResponse,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -57,6 +58,8 @@ export type {
   AdminMasterListItem,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  PaginatedUsersResponse,
+  UserResponse,
   AdminMethodChangeItem,
   PaginatedMethodChangeRequestsResponse,
   MethodChangeActionResponse,
@@ -96,6 +99,32 @@ export function getMastersList(
 ): Promise<PaginatedMastersResponse> {
   const query = buildQuery({ limit, offset, status })
   return api.get<PaginatedMastersResponse>(`/api/v1/admin/masters/list${query}`)
+}
+
+// ============================================================================
+// Users (all-users list + explicit make-master, ПРОМТ №292)
+// ============================================================================
+
+/**
+ * List all users (any role). No server-side search — the screen filters the
+ * fetched page client-side. Limit clamped to the backend cap (le=100).
+ */
+export function getUsersList(
+  role?: 'user' | 'master' | 'admin',
+  limit = 100,
+  offset = 0,
+): Promise<PaginatedUsersResponse> {
+  const query = buildQuery({ limit, offset, role })
+  return api.get<PaginatedUsersResponse>(`/api/v1/admin/users${query}`)
+}
+
+/**
+ * Explicitly promote a user to master (creates a verified MasterProfile if
+ * missing). 409 already_master if they are already a master. Distinct from the
+ * application-approval verify path.
+ */
+export function makeMaster(userId: string): Promise<AdminMasterActionResponse> {
+  return api.post<AdminMasterActionResponse>(`/api/v1/admin/users/${userId}/make-master`, {})
 }
 
 /**
