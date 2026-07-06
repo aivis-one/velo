@@ -131,6 +131,17 @@
           Удостоверение личности удаляется через 30 дней после верификации.
         </p>
 
+        <!-- Documents are OPTIONAL right now: file upload/storage is not built
+             yet (E13 / S3 — SELF-later, see the onUpload stub + submit()). The
+             applicant MUST be able to proceed without uploading, otherwise the
+             required-looking passport «*» + a disabled upload traps them and
+             nobody can become a master. «Пропустить» below submits with an
+             empty documents list (the backend already accepts that). -->
+        <VCard class="apply-view__skip-note" padding="none">
+          Загрузка документов пока недоступна. Вы можете отправить заявку без
+          документов и пройти верификацию позже — нажмите «Пропустить».
+        </VCard>
+
         <!-- Passport -->
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
@@ -180,9 +191,24 @@
           size="lg"
           class="apply-view__next"
           :loading="submitting"
-          @click="submit"
+          @click="submit()"
         >
           Отправить
+        </VButton>
+
+        <!-- Skip the (currently unavailable) document upload. Submits with an
+             empty documents list; bypasses the docs-consent gate since there is
+             nothing uploaded to consent to. Steps 1-2 (name/methods/experience)
+             stay mandatory. Remove this button once E13 file upload ships. -->
+        <VButton
+          variant="ghost"
+          block
+          size="lg"
+          class="apply-view__skip"
+          :disabled="submitting"
+          @click="submit(true)"
+        >
+          Пропустить
         </VButton>
       </template>
     </div>
@@ -352,11 +378,20 @@ function goToStep3(): void {
 // -- Final submit --
 // FP-04: double-submit guard must come before validation — parallel clicks both
 // pass the consent check before the guard fires.
-async function submit(): Promise<void> {
+//
+// `skipDocuments` (the «Пропустить» button): the applicant proceeds WITHOUT
+// documents. File upload/storage is not built yet (E13 / S3 — SELF-later; the
+// onUpload() stub only toasts «недоступно»), so requiring a document — or the
+// consent-to-process-documents checkbox — would trap every applicant. The
+// backend already accepts an empty documents list, so skip is a pure
+// client-side path: it bypasses the docs-consent gate. Steps 1-2
+// (name / methods / experience) were already enforced by goToStep2 /
+// goToStep3 and are untouched.
+async function submit(skipDocuments = false): Promise<void> {
   if (submitting.value) return
 
   errors.docs = ''
-  if (!form.docsConsent) {
+  if (!skipDocuments && !form.docsConsent) {
     errors.docs = 'Необходимо дать согласие на обработку документов'
     return
   }
@@ -543,5 +578,18 @@ async function submit(): Promise<void> {
 
 .apply-view__next {
   margin-top: auto;
+}
+
+/* Skip-documents info note (documents optional until E13 upload ships). */
+.apply-view__skip-note {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  line-height: 1.4;
+}
+
+/* «Пропустить» — secondary path directly under «Отправить». */
+.apply-view__skip {
+  margin-top: var(--space-2);
 }
 </style>
