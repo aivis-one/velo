@@ -1057,7 +1057,7 @@ export interface RoleSwitchInfo {
   allowed_roles: UserRole[]
 }
 
-/** POST /api/v1/users/me/role — target role to switch into (TEST-only). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service against their seeded allowed_roles set. */
+/** POST /api/v1/users/me/role — target role to switch into. A production endpoint (always on; A1=Б). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service via derive_allowed_roles() -- the capability-derived policy (own role + a VERIFIED MasterProfile + the switched-away-admin marker), the single source of truth shared with the GET /users/me read path. Legacy seeded credentials.role_switch.allowed_roles lists grant nothing. */
 export interface RoleSwitchRequest {
   role: UserRole
 }
