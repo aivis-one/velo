@@ -101,9 +101,10 @@
 
         <VTextarea
           v-model="form.bio"
-          label="О себе (опционально)"
+          label="О себе *"
           placeholder="Расскажите о вашем опыте и подходе к практикам…"
           :rows="4"
+          :error="errors.bio"
         />
 
         <!-- Язык проведения практик — honest stub (no backend field, Zod E16):
@@ -296,6 +297,7 @@ const errors = reactive({
   privacy: '',
   methods: '',
   experience_years: '',
+  bio: '',
   docs: '',
 })
 
@@ -364,12 +366,17 @@ function goToStep2(): void {
 function goToStep3(): void {
   errors.methods = ''
   errors.experience_years = ''
+  errors.bio = ''
   if (allMethods.value.length === 0) {
     errors.methods = 'Выберите хотя бы одно направление'
     return
   }
   if (!experienceLabel.value) {
     errors.experience_years = 'Выберите опыт преподавания'
+    return
+  }
+  if (!form.bio.trim()) {
+    errors.bio = 'Пожалуйста, расскажите о себе'
     return
   }
   step.value = 3
