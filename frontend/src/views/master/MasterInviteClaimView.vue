@@ -3,14 +3,13 @@
 VELO Frontend — Master invite claim (Batch-INVITE, ПРОМТ №258)
 =============================================================================
 
-Landing for the one-time invite deeplink master_onboarding__<token>
+Landing for the generic one-time invite deeplink master_onboarding__<token>
 (route /master/invite/:token, standalone — outside the shells, like
-/master/apply). On mount the token is claimed against the caller's OWN
-account (the backend binds structurally: a stranger's link has no matching
-marker). SUCCESS -> straight into the existing apply wizard. FAILURE ->
-an honest error state with a way back — no fake progress:
-  - invite_invalid  -> link is wrong / already used (one-time)
-  - already_master  -> nothing to claim, offer the master dashboard
+/master/apply). On mount the token is claimed: the backend burns it in Redis
+(first claim wins). SUCCESS -> straight into the existing apply wizard.
+FAILURE -> an honest error state with a way back — no fake progress:
+  - invite_invalid (404) -> link is wrong / already used (one-time)
+Verified masters never reach here: applyGuard bounces them to the dashboard.
 =============================================================================
 -->
 
@@ -23,21 +22,12 @@ an honest error state with a way back — no fake progress:
         <p class="invite-claim__subtitle">Проверяем приглашение…</p>
       </template>
 
-      <!-- Honest failure: consumed / foreign / garbage / already master -->
+      <!-- Honest failure: consumed / wrong / garbage token -->
       <template v-else-if="errorTitle">
         <h2 class="invite-claim__title">{{ errorTitle }}</h2>
         <p class="invite-claim__subtitle">{{ errorDescription }}</p>
         <div class="invite-claim__actions">
           <VButton
-            v-if="alreadyMaster"
-            variant="primary"
-            block
-            @click="router.replace({ name: 'master-dashboard' })"
-          >
-            В кабинет мастера
-          </VButton>
-          <VButton
-            v-else
             variant="primary"
             block
             @click="router.replace({ name: 'user-dashboard' })"
@@ -54,7 +44,6 @@ an honest error state with a way back — no fake progress:
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { claimMasterInvite } from '@/api/masters'
-import { ApiResponseError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import VButton from '@/components/ui/VButton.vue'
 import VLoader from '@/components/ui/VLoader.vue'
@@ -66,29 +55,21 @@ const toast = useToast()
 const claiming = ref(true)
 const errorTitle = ref('')
 const errorDescription = ref('')
-const alreadyMaster = ref(false)
 
 onMounted(async () => {
   const token = String(route.params.token ?? '')
   try {
     await claimMasterInvite(token)
-    // Claimed (one-time, consumed) — hand off to the regular apply wizard.
+    // Claimed (one-time, burned) — hand off to the regular apply wizard.
     toast.success('Приглашение принято!')
     void router.replace({ name: 'master-apply' })
-  } catch (e) {
-    if (e instanceof ApiResponseError && e.code === 'already_master') {
-      alreadyMaster.value = true
-      errorTitle.value = 'Вы уже мастер'
-      errorDescription.value =
-        'Это приглашение вам больше не нужно — кабинет мастера уже открыт.'
-    } else {
-      // invite_invalid (wrong / already used / someone else's) and anything
-      // else network-shaped: one honest message, no oracle about which.
-      errorTitle.value = 'Ссылка недействительна'
-      errorDescription.value =
-        'Приглашение одноразовое: возможно, оно уже использовано или ссылка ' +
-        'повреждена. Запросите новую ссылку у администратора.'
-    }
+  } catch {
+    // invite_invalid (wrong / already used) and anything else network-shaped:
+    // one honest message, no oracle about which.
+    errorTitle.value = 'Ссылка недействительна'
+    errorDescription.value =
+      'Приглашение одноразовое: возможно, оно уже использовано или ссылка ' +
+      'повреждена. Запросите новую ссылку у администратора.'
   } finally {
     claiming.value = false
   }

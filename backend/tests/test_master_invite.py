@@ -1,14 +1,15 @@
 # =============================================================================
-# Test: Master invite — one-time link (Batch-INVITE, C1=Б / TTL=В)
+# Test: Master invite -- generic one-time link (Batch-INVITE, Redis-backed)
 # =============================================================================
 #
-# POST /admin/masters/invite  (admin-auth): resolves the target by
-#   telegram_id, stores sha256(token) in credentials.master_invite and
-#   returns the full composed deeplink. No expiry (TTL=В): the link is
-#   one-time until claimed; re-issue overwrites the previous token.
-# POST /masters/invite/claim  (user-auth): binds structurally to the
-#   CALLER'S OWN marker, consumes it on success (single use). Becoming a
-#   master still goes through the regular apply + approval loop.
+# POST /admin/masters/invite  (admin-auth): NO target. Mints a random token,
+#   stores sha256(token) in Redis with NO expiry, returns the full composed
+#   deeplink. 503 if telegram_bot_url is unset.
+# POST /masters/invite/claim  (any authenticated opener): hashes the supplied
+#   token and burns it atomically (GETDEL). First claim wins (200); an unknown
+#   or already-consumed token 404s (invite_invalid). Becoming a master still
+#   goes through the regular apply + approval loop. Any auto-registered opener
+#   may claim -- the link is not bound to an account.
 #
 # telegram_bot_url is monkeypatched so the composed link is deterministic
 # regardless of the ambient .env.
@@ -70,11 +71,11 @@ async def _login_admin(client: AsyncClient, db_session: AsyncSession) -> str:
     return data["session_token"]
 
 
-async def _issue(client: AsyncClient, token: str, telegram_id: int):
+async def _issue(client: AsyncClient, token: str):
+    """Generic issue -- no request body (no target)."""
     return await client.post(
         "/api/v1/admin/masters/invite",
         headers=auth_headers(token),
-        json={"telegram_id": telegram_id},
     )
 
 
@@ -101,34 +102,8 @@ async def test_issue_non_admin_403(
 ) -> None:
     """A plain user cannot issue invites."""
     data = await login_user(client, telegram_id=88301, first_name="Plain")
-    response = await _issue(client, data["session_token"], 88301)
+    response = await _issue(client, data["session_token"])
     assert response.status_code == 403
-
-
-async def test_issue_unknown_telegram_id_404(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """No User row for the target -> 404 with the machine code."""
-    admin_token = await _login_admin(client, db_session)
-
-    response = await _issue(client, admin_token, 88399)
-    assert response.status_code == 404
-    assert response.json()["error"] == "invite_target_not_found"
-
-
-async def test_issue_already_master_409(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """Target already has role MASTER -> 409."""
-    admin_token = await _login_admin(client, db_session)
-    await login_user(client, telegram_id=88302, first_name="AlreadyM")
-    await _set_role(db_session, 88302, "master")
-
-    response = await _issue(client, admin_token, 88302)
-    assert response.status_code == 409
-    assert response.json()["error"] == "already_master"
 
 
 async def test_issue_success_returns_composed_link(
@@ -137,125 +112,91 @@ async def test_issue_success_returns_composed_link(
 ) -> None:
     """Success returns the full server-composed deeplink + issued_at.
 
-    Only the sha256 lands in credentials (never the plaintext token), and
-    there is deliberately NO expiry field (TTL=В).
+    The link is generic (no target); there is deliberately NO expiry field.
     """
     admin_token = await _login_admin(client, db_session)
-    await login_user(client, telegram_id=88303, first_name="Invitee")
 
-    response = await _issue(client, admin_token, 88303)
+    response = await _issue(client, admin_token)
     assert response.status_code == 200
     body = response.json()
     assert body["invite_link"].startswith(LINK_PREFIX)
     assert body["issued_at"] is not None
     assert "expires_at" not in body
-
-    token = _token_from_link(body["invite_link"])
-    user = await _get_user(db_session, 88303)
-    marker = (user.credentials or {}).get("master_invite")
-    assert marker is not None
-    assert marker["token_sha256"] != token  # hash stored, not plaintext
-    assert marker["issued_by"]
-    assert marker["issued_at"]
+    # The plaintext token rides only in the link (never echoed elsewhere).
+    assert _token_from_link(body["invite_link"])
 
 
-async def test_reissue_overwrites_old_token(
+async def test_issue_503_when_bot_url_unset(
     client: AsyncClient,
     db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Re-issue kills the previous link: old token 403s, new one claims."""
+    """No telegram_bot_url configured -> 503 with the machine code."""
     admin_token = await _login_admin(client, db_session)
-    invitee = await login_user(client, telegram_id=88304, first_name="Twice")
+    monkeypatch.setattr(settings, "telegram_bot_url", "")
 
-    first = await _issue(client, admin_token, 88304)
-    old_token = _token_from_link(first.json()["invite_link"])
-    second = await _issue(client, admin_token, 88304)
-    new_token = _token_from_link(second.json()["invite_link"])
-    assert old_token != new_token
-
-    old_claim = await _claim(client, invitee["session_token"], old_token)
-    assert old_claim.status_code == 403
-    assert old_claim.json()["error"] == "invite_invalid"
-
-    new_claim = await _claim(client, invitee["session_token"], new_token)
-    assert new_claim.status_code == 200
+    response = await _issue(client, admin_token)
+    assert response.status_code == 503
+    assert response.json()["error"] == "bot_url_not_configured"
 
 
 # ---------------------------------------------------------------------------
-# Claim (invitee side)
+# Claim (opener side)
 # ---------------------------------------------------------------------------
 
 
-async def test_claim_success_consumes_single_use(
+async def test_claim_success_burns_single_use(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """A valid claim records claimed_at, drops the hash; second claim 403s."""
+    """A valid claim returns claimed_at; the same token then 404s (burned)."""
     admin_token = await _login_admin(client, db_session)
-    invitee = await login_user(client, telegram_id=88305, first_name="Claimer")
-    issued = await _issue(client, admin_token, 88305)
+    opener = await login_user(client, telegram_id=88305, first_name="Claimer")
+    issued = await _issue(client, admin_token)
     token = _token_from_link(issued.json()["invite_link"])
 
-    response = await _claim(client, invitee["session_token"], token)
-    assert response.status_code == 200
-    assert response.json()["claimed_at"] is not None
-
-    # Marker consumed: hash gone, claimed_at + audit fields kept.
-    user = await _get_user(db_session, 88305)
-    marker = (user.credentials or {}).get("master_invite")
-    assert "token_sha256" not in marker
-    assert marker["claimed_at"]
-    assert marker["issued_by"]
+    first = await _claim(client, opener["session_token"], token)
+    assert first.status_code == 200
+    assert first.json()["claimed_at"] is not None
 
     # Single use: the same (correct) token no longer claims.
-    again = await _claim(client, invitee["session_token"], token)
-    assert again.status_code == 403
+    again = await _claim(client, opener["session_token"], token)
+    assert again.status_code == 404
     assert again.json()["error"] == "invite_invalid"
 
 
-async def test_claim_foreign_token_403(
+async def test_claim_unknown_token_404(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """A stranger holding someone else's link cannot claim it."""
+    """A well-formed but never-issued token 404s (invite_invalid)."""
     admin_token = await _login_admin(client, db_session)
-    await login_user(client, telegram_id=88306, first_name="Invited")
-    stranger = await login_user(client, telegram_id=88307, first_name="Thief")
-    issued = await _issue(client, admin_token, 88306)
-    token = _token_from_link(issued.json()["invite_link"])
-
-    response = await _claim(client, stranger["session_token"], token)
-    assert response.status_code == 403
-    assert response.json()["error"] == "invite_invalid"
-
-
-async def test_claim_garbage_token_403(
-    client: AsyncClient,
-    db_session: AsyncSession,
-) -> None:
-    """A well-formed but wrong token 403s even for an invited account."""
-    admin_token = await _login_admin(client, db_session)
-    invitee = await login_user(client, telegram_id=88308, first_name="Garbled")
-    await _issue(client, admin_token, 88308)
+    opener = await login_user(client, telegram_id=88308, first_name="Garbled")
+    # An admin exists but we never issue -> this token was never stored.
+    assert admin_token
 
     response = await _claim(
-        client, invitee["session_token"], "x" * 43  # token_urlsafe(32) length
+        client, opener["session_token"], "x" * 43  # token_urlsafe(32) length
     )
-    assert response.status_code == 403
+    assert response.status_code == 404
     assert response.json()["error"] == "invite_invalid"
 
 
-async def test_claim_already_master_409(
+async def test_claim_auto_registered_opener_succeeds(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """An account that already became a master cannot re-claim."""
-    admin_token = await _login_admin(client, db_session)
-    invitee = await login_user(client, telegram_id=88309, first_name="Fast")
-    issued = await _issue(client, admin_token, 88309)
-    token = _token_from_link(issued.json()["invite_link"])
-    await _set_role(db_session, 88309, "master")
+    """A generic link works for any authenticated opener (not a target).
 
-    response = await _claim(client, invitee["session_token"], token)
-    assert response.status_code == 409
-    assert response.json()["error"] == "already_master"
+    The opener is auto-registered by login (upsert_user_on_login); they were
+    never named in the issue call, yet the generic token claims fine.
+    """
+    admin_token = await _login_admin(client, db_session)
+    issued = await _issue(client, admin_token)
+    token = _token_from_link(issued.json()["invite_link"])
+
+    # A fresh opener who was never specifically invited.
+    fresh = await login_user(client, telegram_id=88310, first_name="Fresh")
+    response = await _claim(client, fresh["session_token"], token)
+    assert response.status_code == 200
+    assert response.json()["claimed_at"] is not None

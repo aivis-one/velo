@@ -314,7 +314,7 @@ export interface CheckinResponse {
   updated_at: string | null
 }
 
-/** POST /masters/invite/claim -- the token from the deeplink. The token is bound to the caller's own account: its sha256 must match the caller's credentials.master_invite marker, so a stranger's token can never be claimed (invite_invalid otherwise). */
+/** POST /masters/invite/claim -- the token from the deeplink. The generic token is looked up in Redis and burned by the first claim; an unknown or already-consumed token 404s (invite_invalid). */
 export interface ClaimMasterInviteRequest {
   token: string
 }
@@ -487,12 +487,7 @@ export interface IncomeResponse {
   delta_pct: number | null
 }
 
-/** POST /admin/masters/invite -- request body (Batch-INVITE, C1=Б). telegram_id identifies the invitee; the person must have opened the bot at least once (a User row must exist), else 404 invite_target_not_found. */
-export interface InviteMasterRequest {
-  telegram_id: number
-}
-
-/** POST /admin/masters/invite -- the composed one-time invite link. No expiry field by design (TTL=В): the link is one-time and lives until claimed; re-issuing overwrites (kills) the previous link. */
+/** POST /admin/masters/invite -- the composed generic invite link. Account-agnostic (no target); no expiry field by design -- the link lives in Redis until the first claim burns it. */
 export interface InviteMasterResponse {
   invite_link: string
   issued_at: string

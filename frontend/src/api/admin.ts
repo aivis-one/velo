@@ -159,14 +159,12 @@ export function rejectMaster(userId: string, reason: string): Promise<AdminMaste
 }
 
 /**
- * Issue a one-time master invite link for a user identified by Telegram ID
- * (Batch-INVITE, №258). 404 invite_target_not_found if the person never
- * opened the bot; 409 already_master. Re-issue overwrites the old link.
+ * Issue a generic one-time master invite link (Batch-INVITE). No target: the
+ * link works for any authenticated opener until the first claim burns it.
+ * 503 bot_url_not_configured if telegram_bot_url is unset on the server.
  */
-export function inviteMaster(telegramId: number): Promise<InviteMasterResponse> {
-  return api.post<InviteMasterResponse>('/api/v1/admin/masters/invite', {
-    telegram_id: telegramId,
-  })
+export function inviteMaster(): Promise<InviteMasterResponse> {
+  return api.post<InviteMasterResponse>('/api/v1/admin/masters/invite', {})
 }
 
 // ============================================================================

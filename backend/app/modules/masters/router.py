@@ -35,7 +35,6 @@ from app.core.exceptions import BadRequestError
 from app.modules.auth.dependencies import (
     get_current_master,
     get_current_user,
-    get_current_user_write,
 )
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import (
@@ -162,19 +161,17 @@ async def apply_master(
 )
 async def claim_master_invite_endpoint(
     body: ClaimMasterInviteRequest,
-    user: User = Depends(get_current_user_write),
-    session: AsyncSession = Depends(get_db_session),
+    _user: User = Depends(get_current_user),
 ) -> ClaimMasterInviteResponse:
-    """Claim a one-time master invite (deeplink master_onboarding__<token>).
+    """Claim a generic one-time master invite (deeplink master_onboarding__<token>).
 
-    Validates the token against the caller's OWN invite marker and consumes
-    it (single use). The application itself then goes through the regular
-    apply wizard + admin approval loop. get_current_user_write +
-    Depends(get_db_session) share one session (TD-029), so the credentials
-    mutation rides the request session.
+    Any authenticated opener (auto-registered at login) may claim; the token
+    is burned atomically in Redis (first claim wins, later claims 404). The
+    application itself then goes through the regular apply wizard + admin
+    approval loop -- nothing is verified here. get_current_user only pins the
+    request to an authenticated user; no DB write happens.
     """
-    claimed_at = await claim_master_invite(user, body.token, session)
-    await session.flush()
+    claimed_at = await claim_master_invite(body.token)
     return ClaimMasterInviteResponse(claimed_at=claimed_at)
 
 

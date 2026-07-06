@@ -57,7 +57,6 @@ export type {
   FeedbackRequest,
   FeedbackResponse,
   IncomeResponse,
-  InviteMasterRequest,
   InviteMasterResponse,
   LowCheckinPractice,
   MasterApplyExperience,

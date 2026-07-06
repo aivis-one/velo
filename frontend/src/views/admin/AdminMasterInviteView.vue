@@ -1,17 +1,17 @@
 <!--
-  VELO Frontend -- AdminMasterInviteView (Batch-INVITE, №252 layout / ПРОМТ №258)
+  VELO Frontend -- AdminMasterInviteView (Batch-INVITE, generic link)
 
   Standalone admin screen «Пригласить мастера» (admin-master-invite), reached
   from the «Мастера» tab. Header (back + title) -> form-card (section
-  «ОДНОРАЗОВАЯ ССЫЛКА», Telegram ID input, «Создать ссылку») -> result-card
-  (the composed t.me/… deeplink + «Скопировать» via the B2 clipboard pattern).
+  «ОДНОРАЗОВАЯ ССЫЛКА», «Создать ссылку») -> result-card (the composed
+  t.me/… deeplink + «Скопировать» via the B2 clipboard pattern).
+
+  The link is GENERIC (no target): it works for any authenticated opener
+  until the first claim burns it. Each «Создать ссылку» mints a fresh link
+  and replaces the result card in place.
 
   Error contract (machine codes from POST /admin/masters/invite):
-    - invite_target_not_found (404) -> INLINE field error (the person must
-      open the bot once so a User row exists)
-    - already_master (409)          -> toast
-  Re-generate for the same/another ID simply replaces the result card
-  content (backend overwrites the marker; the old link dies).
+    - bot_url_not_configured (503) -> toast (server-side ops gap)
 -->
 
 <template>
@@ -25,24 +25,14 @@
     <VCard class="invite__card">
       <span class="invite__section-title">ОДНОРАЗОВАЯ ССЫЛКА</span>
       <p class="invite__desc">
-        Ссылка выдаёт приглашение конкретному человеку. Он должен один раз
-        открыть бота — после этого укажите его Telegram ID и создайте ссылку.
+        Создайте ссылку и отправьте её будущему мастеру. Она одноразовая:
+        сработает у первого, кто её откроет, — после этого погашается.
       </p>
-
-      <VInput
-        v-model="telegramId"
-        label="Telegram ID"
-        placeholder="123456789"
-        inputmode="numeric"
-        :error="fieldError"
-        :disabled="creating"
-      />
 
       <VButton
         variant="primary"
         block
         :loading="creating"
-        :disabled="!telegramId.trim()"
         @click="onCreate"
       >
         Создать ссылку
@@ -62,7 +52,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBackButton, VCard, VInput, VButton } from '@/components/ui'
+import { VBackButton, VCard, VButton } from '@/components/ui'
 import { inviteMaster } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
@@ -70,35 +60,18 @@ import { useToast } from '@/composables/useToast'
 const router = useRouter()
 const toast = useToast()
 
-const telegramId = ref('')
-const fieldError = ref('')
 const creating = ref(false)
 const inviteLink = ref('')
 
 async function onCreate(): Promise<void> {
-  fieldError.value = ''
-
-  const tid = Number(telegramId.value.trim())
-  if (!Number.isInteger(tid) || tid <= 0) {
-    fieldError.value = 'Введите числовой Telegram ID'
-    return
-  }
-
   creating.value = true
   try {
-    const res = await inviteMaster(tid)
+    const res = await inviteMaster()
     inviteLink.value = res.invite_link
   } catch (e) {
-    if (e instanceof ApiResponseError && e.code === 'invite_target_not_found') {
-      fieldError.value =
-        'Пользователь не найден — он должен один раз открыть бота'
-    } else if (e instanceof ApiResponseError && e.code === 'already_master') {
-      toast.error('Этот пользователь уже мастер')
-    } else {
-      toast.error(
-        e instanceof ApiResponseError ? e.detail : 'Не удалось создать ссылку',
-      )
-    }
+    toast.error(
+      e instanceof ApiResponseError ? e.detail : 'Не удалось создать ссылку',
+    )
   } finally {
     creating.value = false
   }

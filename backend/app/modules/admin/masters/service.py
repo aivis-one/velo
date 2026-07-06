@@ -30,6 +30,7 @@
 
 import copy
 import hashlib
+import json
 import secrets
 from datetime import UTC, datetime
 from uuid import UUID
@@ -41,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, VeloError
+from app.core.redis import get_redis
 from app.modules.admin.masters.schemas import (
     AdminMethodChangeItem,
     PaginatedMethodChangeRequestsResponse,
@@ -391,42 +393,27 @@ async def reject_method_change(
 
 
 # ---------------------------------------------------------------------------
-# Batch-INVITE (C1=Б): one-time master invite link
+# Batch-INVITE: generic one-time master invite link (Redis-backed, no TTL)
 # ---------------------------------------------------------------------------
+# The invite is account-agnostic -- no target user_id. The token's sha256 is
+# stored in Redis under MASTER_INVITE_KEY_PREFIX with NO expiry; it lives until
+# the first claim burns it atomically (masters/service.claim_master_invite), or
+# until a Redis flush drops it (acceptable: the admin regenerates). The prefix
+# is duplicated in masters/service.py to avoid a cross-module import -- keep the
+# two literals in sync.
+MASTER_INVITE_KEY_PREFIX = "master_invite:"
 
 
-async def issue_master_invite(
-    telegram_id: int,
-    admin: User,
-    session: AsyncSession,
-) -> tuple[str, datetime]:
-    """Issue a one-time master invite link for an existing User row.
+async def issue_master_invite(admin: User) -> tuple[str, datetime]:
+    """Issue a generic one-time master invite link.
 
-    C1=Б storage: only the token's sha256 lands in the target's
-    credentials["master_invite"] (server-written JSONB -- the key is NOT in
-    the users PATCH whitelist, so clients can never plant it). The plaintext
-    token exists solely inside the returned link. Re-issuing simply
-    overwrites the marker, so the previous link stops claiming (TTL=В: no
-    expiry, one-time until claimed).
+    No target: the returned link works for any authenticated opener until it
+    is claimed once. Only the token's sha256 is persisted (in Redis); the
+    plaintext token exists solely inside the returned link.
 
     Raises:
-        NotFoundError (invite_target_not_found): no User with this
-            telegram_id -- the person must open the bot once first.
-        ConflictError (already_master): the target already has role MASTER.
         VeloError 503 (bot_url_not_configured): telegram_bot_url unset.
     """
-    stmt = select(User).where(User.telegram_id == telegram_id)
-    user = (await session.execute(stmt)).scalar_one_or_none()
-    if user is None:
-        raise NotFoundError(
-            "User with this telegram_id has not opened the bot yet",
-            code="invite_target_not_found",
-        )
-    if user.role == UserRole.MASTER:
-        raise ConflictError(
-            "User is already a master",
-            code="already_master",
-        )
     if not settings.telegram_bot_url:
         raise VeloError(
             message="telegram_bot_url is not configured",
@@ -436,32 +423,19 @@ async def issue_master_invite(
 
     token = secrets.token_urlsafe(32)
     issued_at = datetime.now(UTC)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
 
-    new_credentials = dict(user.credentials or {})
-    new_credentials["master_invite"] = {
-        "token_sha256": hashlib.sha256(token.encode()).hexdigest(),
-        "issued_at": issued_at.isoformat(),
-        "issued_by": str(admin.id),
-    }
-    user.set_jsonb("credentials", new_credentials)
-
-    # M-01: audit trail (the token itself is never logged).
-    await record_audit(
-        event="master_invite_issued",
-        actor_id=admin.id,
-        actor_type="admin",
-        target_type="user",
-        target_id=user.id,
-        data={"telegram_id": telegram_id},
-        session=session,
+    # No expiry: persist until the first claim burns it (or a Redis flush).
+    redis = get_redis()
+    await redis.set(
+        f"{MASTER_INVITE_KEY_PREFIX}{token_hash}",
+        json.dumps(
+            {"issued_by": str(admin.id), "issued_at": issued_at.isoformat()}
+        ),
     )
 
-    logger.info(
-        "master_invite_issued",
-        target_user_id=str(user.id),
-        telegram_id=telegram_id,
-        admin_id=str(admin.id),
-    )
+    # Audit trail (the token itself is never logged).
+    logger.info("master_invite_issued", admin_id=str(admin.id))
 
     invite_link = (
         f"{settings.telegram_bot_url}?startapp=master_onboarding__{token}"

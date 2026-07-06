@@ -22,14 +22,6 @@ _MethodStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 # ---------------------------------------------------------------------------
 # Requests
 # ---------------------------------------------------------------------------
-class InviteMasterRequest(BaseModel):
-    """POST /admin/masters/invite -- request body (Batch-INVITE, C1=Б).
-
-    telegram_id identifies the invitee; the person must have opened the bot
-    at least once (a User row must exist), else 404 invite_target_not_found.
-    """
-
-    telegram_id: int
 class VerifyMasterRequest(BaseModel):
     """POST /admin/masters/{user_id}/verify -- request body."""
 
@@ -73,10 +65,11 @@ class AdminMasterActionResponse(BaseModel):
 
 
 class InviteMasterResponse(BaseModel):
-    """POST /admin/masters/invite -- the composed one-time invite link.
+    """POST /admin/masters/invite -- the composed generic invite link.
 
-    No expiry field by design (TTL=В): the link is one-time and lives until
-    claimed; re-issuing overwrites (kills) the previous link.
+    Account-agnostic: the link is not bound to a target user. No expiry
+    field by design -- the link lives in Redis until the first claim burns
+    it (or a Redis flush drops it, after which the admin regenerates).
     """
 
     invite_link: str

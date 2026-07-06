@@ -20,7 +20,6 @@ from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import (
     AdminMasterActionResponse,
     EditMasterMethodsRequest,
-    InviteMasterRequest,
     InviteMasterResponse,
     MethodChangeActionResponse,
     PaginatedMethodChangeRequestsResponse,
@@ -50,21 +49,15 @@ router = APIRouter(prefix="/masters")
     response_model=InviteMasterResponse,
 )
 async def invite_master_endpoint(
-    body: InviteMasterRequest,
     admin: User = Depends(get_current_admin),
-    session: AsyncSession = Depends(get_db_session),
 ) -> InviteMasterResponse:
-    """Issue a one-time master invite link (Batch-INVITE).
+    """Issue a generic one-time master invite link (Batch-INVITE).
 
-    The target must have opened the bot at least once (User row exists,
-    else 404) and must not already be a master (else 409). The full deeplink
-    is composed server-side from telegram_bot_url; only the token's sha256
-    is stored. Re-issuing overwrites the previous (unclaimed) link.
+    Account-agnostic: no target. The full deeplink is composed server-side
+    from telegram_bot_url; only the token's sha256 is persisted (in Redis,
+    no expiry) and burned by the first claim. 503 if telegram_bot_url unset.
     """
-    invite_link, issued_at = await issue_master_invite(
-        body.telegram_id, admin, session
-    )
-    await session.flush()
+    invite_link, issued_at = await issue_master_invite(admin)
     return InviteMasterResponse(invite_link=invite_link, issued_at=issued_at)
 
 

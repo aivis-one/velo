@@ -105,9 +105,8 @@ class MasterApplyResponse(BaseModel):
 class ClaimMasterInviteRequest(BaseModel):
     """POST /masters/invite/claim -- the token from the deeplink.
 
-    The token is bound to the caller's own account: its sha256 must match
-    the caller's credentials.master_invite marker, so a stranger's token
-    can never be claimed (invite_invalid otherwise).
+    The generic token is looked up in Redis and burned by the first claim;
+    an unknown or already-consumed token 404s (invite_invalid).
     """
 
     token: str = Field(..., min_length=16, max_length=128)
