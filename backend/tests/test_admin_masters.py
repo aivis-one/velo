@@ -141,10 +141,11 @@ async def test_verify_master_success(
     assert profile.data["account"]["status"] == "verified"
     assert profile.data["account"]["verification"]["notes"] == "All documents OK"
 
-    # Assert DB: user role upgraded to MASTER.
+    # Assert DB: role UNCHANGED (T4 — approval grants capability, not role; the
+    # user self-switches to master via POST /users/me/role afterwards).
     user = await db_session.get(User, user_id)
     await db_session.refresh(user)
-    assert user.role == UserRole.MASTER
+    assert user.role == UserRole.USER
 
 
 # ---------------------------------------------------------------------------
@@ -387,10 +388,10 @@ async def test_reject_reapply_verify_cycle(
     assert len(rejections) == 1
     assert rejections[0]["reason"] == "Need more experience"
 
-    # Assert: user is now MASTER.
+    # Assert: role UNCHANGED after re-verify (T4 — capability, not role flip).
     user = await db_session.get(User, user_id)
     await db_session.refresh(user)
-    assert user.role == UserRole.MASTER
+    assert user.role == UserRole.USER
 
 
 # ---------------------------------------------------------------------------

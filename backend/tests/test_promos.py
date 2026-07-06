@@ -26,7 +26,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.promos.models import Promo
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user, full_cleanup_range
+from tests.helpers import (
+    auth_headers,
+    login_user,
+    full_cleanup_range,
+    switch_self_to_master,
+)
 
 # ---------------------------------------------------------------------------
 # URLs
@@ -101,6 +106,10 @@ async def _create_verified_master(
         headers=auth_headers(admin_auth["session_token"]),
     )
     assert verify_resp.status_code == 200
+
+    # T4 (ПРОМТ №295): approval sets status=verified but no longer flips role;
+    # the applicant self-switches to master (capability path).
+    await switch_self_to_master(client, auth["session_token"])
 
     # Re-login to pick up role=master.
     auth = await login_user(client, telegram_id=telegram_id)

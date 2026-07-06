@@ -16,7 +16,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user, full_cleanup_range
+from tests.helpers import auth_headers, login_user, full_cleanup_range, switch_self_to_master
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -139,6 +139,7 @@ async def _make_verified_master(
     assert verify_resp.status_code == 200
 
     # Re-login so session reflects master role.
+    await switch_self_to_master(client, auth["session_token"])
     auth = await login_user(
         client,
         telegram_id=master_telegram_id,

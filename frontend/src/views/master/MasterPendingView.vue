@@ -36,9 +36,13 @@
           class="pending-view__illu pending-view__illu--lg"
         />
         <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
+        <p class="pending-view__subtitle">
+          Переключитесь в режим мастера, чтобы открыть кабинет. Вернуться в режим
+          пользователя можно в любой момент из настроек.
+        </p>
         <div class="pending-view__actions">
-          <VButton variant="primary" block @click="router.push({ name: 'master-dashboard' })">
-            Войти в кабинет
+          <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
+            Перейти в режим мастера
           </VButton>
         </div>
       </template>
@@ -61,9 +65,6 @@
         <div class="pending-view__actions">
           <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
             Написать в поддержку
-          </VButton>
-          <VButton variant="ghost" block @click="router.push({ name: 'master-apply' })">
-            Подать новую заявку
           </VButton>
         </div>
       </template>
@@ -102,13 +103,21 @@ const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
 const refreshing = ref(false)
+const switching = ref(false)
 
 // -- Derived application status --
-// role='user' (just applied) can't fetch /masters/me yet -> always 'pending'.
-// role='master' -> the loaded profile status (verified / rejected / pending).
+// T4: approval no longer flips role — an approved applicant stays role='user'
+// and gains master CAPABILITY (a verified MasterProfile), surfaced as 'master'
+// in authStore.allowedRoles (GET /users/me role_switch). So:
+//   role='master'                    -> the loaded profile status.
+//   role='user' + capability(master) -> approved ('verified').
+//   otherwise                        -> 'pending'.
+// (A rejected applicant is role='user' with no capability -> shows 'pending'
+//  here; surfacing the rejection to a role='user' account is deferred to T5.)
 const profileStatus = computed(() => {
-  if (authStore.role !== 'master') return 'pending'
-  return masterStore.profile?.status ?? 'pending'
+  if (authStore.role === 'master') return masterStore.profile?.status ?? 'pending'
+  if (authStore.allowedRoles.includes('master')) return 'verified'
+  return 'pending'
 })
 
 // Real rejection reason from the profile (E14: surfaced on MasterProfileResponse
@@ -122,26 +131,45 @@ const rejectionReason = computed((): string => {
   )
 })
 
-// On mount: load the master profile so the status-keyed state renders. No
-// auto-redirect on verified — the «Одобрено» screen + CTA handles that now.
+// On mount: refresh the account so the status-keyed state renders. For a
+// role='master' account load the profile; for role='user' re-fetch /users/me so
+// a just-granted master capability (approval) is reflected in allowedRoles.
 onMounted(async () => {
   if (authStore.role === 'master') {
     await masterStore.fetchMyProfile(true)
+  } else {
+    await authStore.fetchMe()
   }
 })
 
-// -- Refresh status -- (re-checks the user->master promotion + profile status)
+// -- Enter master mode -- (T4: approved applicant self-switches role user->master)
+async function enterMasterMode(): Promise<void> {
+  if (switching.value) return
+  switching.value = true
+  try {
+    await authStore.switchRole('master')
+    router.push({ name: 'master-dashboard' })
+  } catch {
+    toast.error('Не удалось переключиться в режим мастера')
+  } finally {
+    switching.value = false
+  }
+}
+
+// -- Refresh status -- (re-checks the approval: role flip OR capability grant)
 async function refreshStatus(): Promise<void> {
   if (refreshing.value) return
   refreshing.value = true
   try {
-    // Re-fetch user role first (covers the role='user' -> 'master' transition).
+    // Re-fetch the account: covers both a role='master' promotion and the T4
+    // capability grant (allowedRoles gains 'master' on approval).
     await authStore.fetchMe()
     if (authStore.role === 'master') {
       await masterStore.fetchMyProfile(true)
-    } else {
+    } else if (!authStore.allowedRoles.includes('master')) {
       toast.info('Заявка ещё на рассмотрении')
     }
+    // else: approved — profileStatus flips to 'verified' reactively.
   } catch {
     toast.error('Не удалось проверить статус')
   } finally {

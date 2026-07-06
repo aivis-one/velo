@@ -36,7 +36,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.helpers import auth_headers, login_user
+from tests.helpers import auth_headers, login_user, switch_self_to_master
 
 # ---------------------------------------------------------------------------
 # URLs
@@ -163,6 +163,7 @@ async def _make_verified_master(
     assert verify_resp.status_code == 200
 
     # Re-login to pick up role=master.
+    await switch_self_to_master(client, auth["session_token"])
     auth = await login_user(client, telegram_id=telegram_id)
     return {
         "session_token": auth["session_token"],

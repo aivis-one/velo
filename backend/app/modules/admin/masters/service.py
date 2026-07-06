@@ -88,13 +88,14 @@ async def verify_master(
     notes: str | None,
     session: AsyncSession,
 ) -> MasterProfile:
-    """Verify a pending master application.
+    """Verify a pending master application (T4, ПРОМТ №295).
 
-    Two things happen:
-      1. MasterProfile.data.account.status -> "verified" (via set_jsonb)
-      2. User.role -> MASTER
-
-    Both are in the same transaction -- if either fails, nothing changes.
+    Sets MasterProfile.data.account.status -> "verified" ONLY. The user's role
+    is NOT changed: approval grants master *capability* (a verified profile),
+    and the user self-switches into master mode via POST /users/me/role
+    (derive_allowed_roles keys on status=="verified"). Keeping role='user'
+    lands the approved applicant back in the user zone with the switch offered,
+    per the locked call-design.
     """
     profile = await _load_pending_profile(user_id, session)
 
@@ -107,14 +108,6 @@ async def verify_master(
         "notes": notes,
     }
     profile.set_jsonb("data", new_data)
-
-    # -- Upgrade user role --
-    user = await session.get(User, user_id)
-    if not user:
-        # Should never happen (FK constraint), but guard anyway.
-        raise NotFoundError("Master application not found")
-
-    user.role = UserRole.MASTER
 
     # M-01: audit trail for master verification.
     await record_audit(
