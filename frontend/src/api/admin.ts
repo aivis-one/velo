@@ -29,7 +29,6 @@ import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
   AdminStatsResponse,
-  AdminMasterListItem,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
   PaginatedMethodChangeRequestsResponse,
@@ -50,12 +49,14 @@ import type {
   AdminRevenueResponse,
   InviteMasterResponse,
   PaginatedUsersResponse,
+  AdminMasterDetail,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
 export type {
   AdminStatsResponse,
   AdminMasterListItem,
+  AdminMasterDetail,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
   PaginatedUsersResponse,
@@ -131,8 +132,22 @@ export function makeMaster(userId: string): Promise<AdminMasterActionResponse> {
  * Fetch a single master by user_id.
  * Fallback for AdminMasterReviewView when router state is unavailable.
  */
-export function getMasterById(userId: string): Promise<AdminMasterListItem> {
-  return api.get<AdminMasterListItem>(`/api/v1/admin/masters/${userId}`)
+export function getMasterById(userId: string): Promise<AdminMasterDetail> {
+  return api.get<AdminMasterDetail>(`/api/v1/admin/masters/${userId}`)
+}
+
+/**
+ * Admin edits a master's methods during review (T3). Overwrites the flat method
+ * list (min 1). Distinct from the master's own method-change request (M3).
+ */
+export function editMasterMethods(
+  userId: string,
+  methods: string[],
+): Promise<AdminMasterActionResponse> {
+  return api.patch<AdminMasterActionResponse>(
+    `/api/v1/admin/masters/${userId}/methods`,
+    { methods },
+  )
 }
 
 export function verifyMaster(userId: string): Promise<AdminMasterActionResponse> {

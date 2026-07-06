@@ -16,7 +16,9 @@
 export type {
   AISummaryResponse,
   AdminMasterActionResponse,
+  AdminMasterDetail,
   AdminMasterListItem,
+  EditMasterMethodsRequest,
   AdminPracticeDetailResponse,
   AdminPracticeListItem,
   AdminRevenuePerMaster,

@@ -29,6 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import AdminMasterActionResponse
 from app.modules.admin.users.schemas import (
+    AdminMasterDetail,
     AdminMasterListItem,
     PaginatedMastersResponse,
     PaginatedUsersResponse,
@@ -130,16 +131,16 @@ async def get_rejected_masters(
     )
 
 
-@router.get("/masters/{user_id}", response_model=AdminMasterListItem)
+@router.get("/masters/{user_id}", response_model=AdminMasterDetail)
 async def get_master(
     user_id: UUID,
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
-) -> AdminMasterListItem:
-    """Fetch a single master by user_id.
+) -> AdminMasterDetail:
+    """Fetch a single master by user_id, with profile detail (T3).
 
-    Used by admin review screen as fallback when router state is unavailable
-    (direct URL navigation, page refresh). Returns 404 if user has no
-    MasterProfile.
+    Feeds the admin review screen (methods / experience_years / bio). Also used
+    as a fallback when router state is unavailable (direct URL / refresh).
+    Returns 404 if the user has no MasterProfile.
     """
     return await get_master_by_id(user_id, session)

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import (
     AdminMasterActionResponse,
+    EditMasterMethodsRequest,
     InviteMasterRequest,
     InviteMasterResponse,
     MethodChangeActionResponse,
@@ -29,6 +30,7 @@ from app.modules.admin.masters.schemas import (
 )
 from app.modules.admin.masters.service import (
     approve_method_change,
+    edit_master_methods,
     issue_master_invite,
     list_pending_method_changes,
     reject_master,
@@ -105,6 +107,32 @@ async def verify_master_endpoint(
     Updates profile status to 'verified' and promotes user role to MASTER.
     """
     profile = await verify_master(user_id, admin, body.notes, session)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return AdminMasterActionResponse(
+        user_id=profile.user_id,
+        status=profile.data["account"]["status"],
+    )
+
+
+@router.patch(
+    "/{user_id}/methods",
+    response_model=AdminMasterActionResponse,
+)
+async def edit_master_methods_endpoint(
+    user_id: UUID,
+    body: EditMasterMethodsRequest,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminMasterActionResponse:
+    """Admin edits a master's methods during review (T3, ПРОМТ №293).
+
+    Overwrites data.profile.methods with the validated flat list (min 1).
+    Distinct from the master's own method-change request (M3 approve/reject).
+    """
+    profile = await edit_master_methods(user_id, body.methods, admin, session)
 
     await session.flush()
     await session.refresh(profile)

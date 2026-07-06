@@ -55,6 +55,26 @@ export interface AdminMasterListItem {
   master_status: string
 }
 
+/** GET /api/v1/admin/masters/{id} -- single master with profile detail (T3). Extends the list item with the profile fields the admin review screen shows: `methods` (editable via PATCH /admin/masters/{id}/methods), plus `experience_years` and `bio` (display-only). All read from MasterProfile.data.profile (additive, no migration). */
+export interface AdminMasterDetail {
+  id: string
+  telegram_id?: number | null
+  first_name?: string | null
+  last_name?: string | null
+  avatar_url?: string | null
+  role: UserRole
+  is_active: boolean
+  master_status: string
+  methods?: string[]
+  experience_years?: number
+  bio?: string | null
+}
+
+/** PATCH /admin/masters/{user_id}/methods -- new flat method set (T3). Admin-authored direct edit of a master's methods during review. Mirrors the apply-side rule (min 1, max 20). Distinct from the master's own method-change request (M3). */
+export interface EditMasterMethodsRequest {
+  methods: string[]
+}
+
 /** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */
 export interface AdminMethodChangeItem {
   user_id: string

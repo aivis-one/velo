@@ -25,6 +25,8 @@ from tests.helpers import auth_headers, cleanup_range, login_user
 # ---------------------------------------------------------------------------
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 REJECT_URL = "/api/v1/admin/masters/{user_id}/reject"
+METHODS_URL = "/api/v1/admin/masters/{user_id}/methods"
+DETAIL_URL = "/api/v1/admin/masters/{user_id}"
 APPLY_URL = "/api/v1/masters/apply"
 
 # ---------------------------------------------------------------------------
@@ -389,3 +391,105 @@ async def test_reject_reapply_verify_cycle(
     user = await db_session.get(User, user_id)
     await db_session.refresh(user)
     assert user.role == UserRole.MASTER
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/masters/{user_id} -- detail carries methods/experience/bio (T3)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_master_detail_carries_profile_fields(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """The detail endpoint returns real methods / experience_years / bio."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56040)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.get(
+        DETAIL_URL.format(user_id=user_id), headers=auth_headers(admin_token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # _valid_apply_body seeds methods=["meditation"], experience_years=5.
+    assert data["methods"] == ["meditation"]
+    assert data["experience_years"] == 5
+    assert data["bio"] == "Test master for admin verification"
+
+
+# ---------------------------------------------------------------------------
+# PATCH /admin/masters/{user_id}/methods (T3)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_edit_methods_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Admin overwrites the master's methods; detail reflects the new set."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56041)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.patch(
+        METHODS_URL.format(user_id=user_id),
+        json={"methods": ["yoga", "tantra"]},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user_id"] == user_id
+
+    # DB reflects the new flat method list.
+    profile = await db_session.get(MasterProfile, user_id)
+    await db_session.refresh(profile)
+    assert profile.data["profile"]["methods"] == ["yoga", "tantra"]
+
+    # Detail endpoint returns the updated methods.
+    detail = await client.get(
+        DETAIL_URL.format(user_id=user_id), headers=auth_headers(admin_token)
+    )
+    assert detail.json()["methods"] == ["yoga", "tantra"]
+
+
+@pytest.mark.asyncio
+async def test_edit_methods_empty_rejected(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Empty method list is a 422 (min 1, mirrors the apply rule)."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56042)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.patch(
+        METHODS_URL.format(user_id=user_id),
+        json={"methods": []},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_edit_methods_not_found(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Editing methods for a non-master user_id is a 404."""
+    _, admin_token = await _make_admin(client, db_session)
+    resp = await client.patch(
+        METHODS_URL.format(user_id=uuid4()),
+        json={"methods": ["yoga"]},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_edit_methods_non_admin(client: AsyncClient) -> None:
+    """A non-admin caller is forbidden."""
+    auth = await login_user(client, telegram_id=56043, first_name="NotAdmin")
+    resp = await client.patch(
+        METHODS_URL.format(user_id=auth["user"]["id"]),
+        json={"methods": ["yoga"]},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 403

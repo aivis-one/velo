@@ -48,40 +48,42 @@
       <!-- Информация -->
       <div class="mreview__seclabel">Информация</div>
       <VCard class="mreview__info" padding="none">
-        <!-- Направление (editable stub) -->
+        <!-- Направления практик — REAL methods, admin-editable (T3) -->
         <div class="mreview__row">
-          <div class="mreview__k">Направление</div>
-          <div v-if="editing === 'direction'" class="mreview__edit">
-            <VInput v-model="directionDraft" />
-            <button type="button" class="mreview__ok" @click="saveEdit">ОК</button>
+          <div class="mreview__k">Направления практик</div>
+          <div v-if="editingMethods" class="mreview__methods-edit">
+            <div class="mreview__chips">
+              <VChip
+                v-for="m in methodOptions"
+                :key="m"
+                size="md"
+                clickable
+                :active="methodsDraft.includes(m)"
+                @click="toggleMethodDraft(m)"
+              >
+                {{ m }}
+              </VChip>
+            </div>
+            <p v-if="methodsError" class="mreview__methods-err">{{ methodsError }}</p>
+            <div class="mreview__methods-actions">
+              <VButton variant="ghost" size="sm" :disabled="savingMethods" @click="cancelMethods">
+                Отмена
+              </VButton>
+              <VButton variant="primary" size="sm" :loading="savingMethods" @click="saveMethods">
+                Сохранить
+              </VButton>
+            </div>
           </div>
           <template v-else>
-            <div class="mreview__v">{{ direction }}</div>
+            <div class="mreview__v mreview__chips">
+              <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
+              <span v-if="!methods.length" class="mreview__muted">—</span>
+            </div>
             <button
               type="button"
               class="mreview__pen"
-              aria-label="Изменить направление"
-              @click="startEdit('direction')"
-            >
-              <IconEdit :size="22" />
-            </button>
-          </template>
-        </div>
-
-        <!-- Вид (editable stub) -->
-        <div class="mreview__row">
-          <div class="mreview__k">Вид</div>
-          <div v-if="editing === 'kind'" class="mreview__edit">
-            <VInput v-model="kindDraft" />
-            <button type="button" class="mreview__ok" @click="saveEdit">ОК</button>
-          </div>
-          <template v-else>
-            <div class="mreview__v">{{ kind }}</div>
-            <button
-              type="button"
-              class="mreview__pen"
-              aria-label="Изменить вид"
-              @click="startEdit('kind')"
+              aria-label="Изменить направления"
+              @click="startMethods"
             >
               <IconEdit :size="22" />
             </button>
@@ -212,7 +214,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   VBackButton,
   VCard,
-  VInput,
+  VChip,
   VTextarea,
   VButton,
   VLoader,
@@ -221,10 +223,11 @@ import {
 } from '@/components/ui'
 import { IconIdCard, IconEdit, IconView, IconClock } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
-import type { AdminMasterListItem } from '@/api/admin'
+import { getMasterById, verifyMaster, rejectMaster, editMasterMethods } from '@/api/admin'
+import type { AdminMasterListItem, AdminMasterDetail } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
+import { AVAILABLE_METHODS } from '@/utils/methods'
 
 const route = useRoute()
 const router = useRouter()
@@ -232,15 +235,16 @@ const toast = useToast()
 
 const masterId = route.params.id as string
 
-const master = ref<AdminMasterListItem | null>(null)
+const master = ref<AdminMasterDetail | null>(null)
 const loading = ref(false)
 const verifying = ref(false)
 const rejecting = ref(false)
 
-// Inline edit (stub — no save endpoint yet, see header note → Zod).
-const editing = ref<'direction' | 'kind' | null>(null)
-const directionDraft = ref('')
-const kindDraft = ref('')
+// Methods editor (T3 — real, admin-editable via PATCH /admin/masters/:id/methods).
+const editingMethods = ref(false)
+const methodsDraft = ref<string[]>([])
+const savingMethods = ref(false)
+const methodsError = ref('')
 
 // Reject reason sheet.
 const showReject = ref(false)
@@ -252,14 +256,26 @@ const historyOpen = ref(false)
 
 // Honest skeleton (operator В): rich fields are not on AdminMasterListItem → «—» /
 // empty until Zod extends the endpoint. Sample data lives in the design preview only.
+// Honest skeleton (operator В): email / language / documents / history are not
+// on the detail endpoint yet → «—» / empty. methods / experience / bio are REAL
+// (T3 — pulled from data.profile via GET /admin/masters/:id).
 const PLACEHOLDER = '—'
 const displayName = computed<string>(() => (master.value ? masterDisplayName(master.value) : ''))
 const email = computed<string>(() => PLACEHOLDER)
-const direction = computed<string>(() => PLACEHOLDER)
-const kind = computed<string>(() => PLACEHOLDER)
-const experience = computed<string>(() => PLACEHOLDER)
 const language = computed<string>(() => PLACEHOLDER)
-const bio = computed<string>(() => PLACEHOLDER)
+const methods = computed<string[]>(() => master.value?.methods ?? [])
+const experience = computed<string>(() =>
+  master.value ? `${master.value.experience_years ?? 0} лет` : PLACEHOLDER,
+)
+const bio = computed<string>(() => master.value?.bio || PLACEHOLDER)
+
+// Editor chips = the shared taxonomy plus any custom methods the master already
+// has (so a custom entry can be kept/removed, not silently dropped).
+const methodOptions = computed<string[]>(() => {
+  const set = new Set<string>(AVAILABLE_METHODS)
+  for (const m of methods.value) set.add(m)
+  return [...set]
+})
 const documents = ref<{ name: string }[]>([])
 const history = ref<{ when: string; title: string; comment?: string }[]>([])
 
@@ -270,14 +286,13 @@ const statusLabel = computed<string>(() =>
 const anyLoading = computed<boolean>(() => verifying.value || rejecting.value)
 
 async function loadMaster(): Promise<void> {
-  // Handed via router state by the list (our `history` ref shadows the global
-  // History, so reach it through window.history.state).
+  // The list hands a subset (AdminMasterListItem) via router state for an
+  // instant paint (our `history` ref shadows the global History, so reach it
+  // through window.history.state). Always fetch the detail afterwards to fill
+  // the real methods / experience / bio (T3).
   const handed = (window.history.state as { master?: AdminMasterListItem }).master
-  if (handed && handed.id === masterId) {
-    master.value = handed
-    return
-  }
-  loading.value = true
+  if (handed && handed.id === masterId) master.value = handed
+  if (!master.value) loading.value = true
   try {
     master.value = await getMasterById(masterId)
   } catch (e) {
@@ -288,16 +303,43 @@ async function loadMaster(): Promise<void> {
   }
 }
 
-function startEdit(field: 'direction' | 'kind'): void {
-  editing.value = field
-  if (field === 'direction') directionDraft.value = direction.value
-  else kindDraft.value = kind.value
+// -- Methods editor (T3) --
+function startMethods(): void {
+  methodsDraft.value = [...methods.value]
+  methodsError.value = ''
+  editingMethods.value = true
 }
 
-// Stub: admin editing of master profile fields has no backend yet → Zod.
-function saveEdit(): void {
-  editing.value = null
-  toast.info('Редактирование пока недоступно')
+function toggleMethodDraft(m: string): void {
+  const i = methodsDraft.value.indexOf(m)
+  if (i === -1) methodsDraft.value.push(m)
+  else methodsDraft.value.splice(i, 1)
+}
+
+function cancelMethods(): void {
+  if (savingMethods.value) return
+  editingMethods.value = false
+}
+
+async function saveMethods(): Promise<void> {
+  if (savingMethods.value) return
+  methodsError.value = ''
+  if (methodsDraft.value.length === 0) {
+    methodsError.value = 'Выберите хотя бы одно направление'
+    return
+  }
+  savingMethods.value = true
+  try {
+    await editMasterMethods(masterId, methodsDraft.value)
+    if (master.value) master.value.methods = [...methodsDraft.value]
+    editingMethods.value = false
+    toast.success('Направления обновлены')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить направления'
+    toast.error(msg)
+  } finally {
+    savingMethods.value = false
+  }
 }
 
 // Stub: document viewing has no backend yet → Zod (documents are empty until then).
@@ -469,31 +511,37 @@ onMounted(loadMaster)
   cursor: pointer;
 }
 
-.mreview__edit {
+/* -- Methods (Направления практик) display + editor (T3) -- */
+.mreview__chips {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-1);
 }
 
-.mreview__edit :deep(.v-input) {
+.mreview__muted {
+  color: var(--velo-text-muted);
+}
+
+.mreview__methods-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.mreview__methods-err {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--velo-error);
+}
+
+.mreview__methods-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.mreview__methods-actions :deep(.v-btn) {
   flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.mreview__ok {
-  flex-shrink: 0;
-  width: 60px;
-  height: 41px;
-  border-radius: var(--velo-radius-badge);
-  background: var(--velo-primary);
-  color: var(--velo-white);
-  border: none;
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  letter-spacing: 0.02em;
-  cursor: pointer;
 }
 
 /* -- Документы -- */

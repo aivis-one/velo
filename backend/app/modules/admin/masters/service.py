@@ -315,6 +315,47 @@ async def approve_method_change(
     return profile
 
 
+async def edit_master_methods(
+    user_id: UUID,
+    methods: list[str],
+    admin: User,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Admin edits a master's methods during review (T3, ПРОМТ №293).
+
+    Overwrites data.profile.methods with the validated flat list. Mirrors
+    approve_method_change's JSONB write (deepcopy -> set_jsonb) + audit, but is
+    an admin-initiated DIRECT edit — distinct from the master's own
+    method-change request (M3). No User.role / status change. Caller does
+    flush + refresh.
+    """
+    profile = await session.get(MasterProfile, user_id)
+    if profile is None:
+        raise NotFoundError("Master not found")
+
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("profile", {})["methods"] = methods
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_methods_edited",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"methods": methods},
+        session=session,
+    )
+
+    logger.info(
+        "master_methods_edited",
+        user_id=str(user_id),
+        admin_id=str(admin.id),
+    )
+
+    return profile
+
+
 async def reject_method_change(
     user_id: UUID,
     admin: User,

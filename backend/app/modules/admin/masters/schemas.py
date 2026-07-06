@@ -7,11 +7,16 @@
 # =============================================================================
 
 from datetime import datetime
+from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.core.config import settings
+
+# Constrained method string, mirroring masters/schemas.ShortStr (defined here
+# to avoid a cross-module import). Non-empty, capped at 200 chars.
+_MethodStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +49,17 @@ class RejectMasterRequest(BaseModel):
         max_length=settings.admin_action_note_max_length,
         description="Reason for rejection (shown to applicant)",
     )
+
+
+class EditMasterMethodsRequest(BaseModel):
+    """PATCH /admin/masters/{user_id}/methods -- new flat method set (T3).
+
+    Admin-authored direct edit of a master's methods during review. Mirrors the
+    apply-side rule (min 1, max 20). Distinct from the master's own
+    method-change request (M3).
+    """
+
+    methods: list[_MethodStr] = Field(min_length=1, max_length=20)
 
 
 # ---------------------------------------------------------------------------

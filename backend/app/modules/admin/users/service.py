@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
 from app.modules.admin.users.schemas import (
+    AdminMasterDetail,
     AdminMasterListItem,
     PaginatedMastersResponse,
     PaginatedUsersResponse,
@@ -151,13 +152,15 @@ async def list_masters(
 async def get_master_by_id(
     user_id: UUID,
     session: AsyncSession,
-) -> AdminMasterListItem:
-    """Fetch a single master by user_id.
+) -> AdminMasterDetail:
+    """Fetch a single master by user_id, with profile detail (T3).
 
     Joins User + MasterProfile. Raises NotFoundError if the user has
-    no MasterProfile (i.e. never applied).
+    no MasterProfile (i.e. never applied). Carries the review-screen profile
+    fields (methods / experience_years / bio) read from data.profile — additive
+    over the F8-fix (W-1) list-item shape, no migration.
 
-    Used by GET /api/v1/admin/masters/{user_id} (F8-fix W-1).
+    Used by GET /api/v1/admin/masters/{user_id}.
     """
     stmt = (
         select(User, MasterProfile)
@@ -171,7 +174,8 @@ async def get_master_by_id(
         raise NotFoundError("Master not found")
 
     user, profile = row
-    return AdminMasterListItem(
+    prof = profile.data.get("profile", {})
+    return AdminMasterDetail(
         id=user.id,
         telegram_id=user.telegram_id,
         first_name=user.first_name,
@@ -180,6 +184,9 @@ async def get_master_by_id(
         role=str(user.role),
         is_active=user.is_active,
         master_status=profile.data.get("account", {}).get("status", "unknown"),
+        methods=prof.get("methods", []),
+        experience_years=prof.get("experience_years", 0),
+        bio=prof.get("bio"),
     )
 
 
