@@ -270,6 +270,32 @@ def has_admin_home(credentials: dict | None) -> bool:
     return role_switch.get("home_role") == "admin"
 
 
+def credentials_without_admin_home(credentials: dict | None) -> dict:
+    """Return a copy of credentials with the switched-away-admin marker cleared.
+
+    Drops credentials.role_switch.home_role (and the whole role_switch block if
+    it becomes empty). Used by the setrole CLI (scripts/set_role.py) whenever it
+    writes a role: an authoritative CLI role change makes that role the
+    account's new home, so a stale home_role="admin" must not survive. Without
+    this, a demoted ex-admin (role -> user) would keep the marker and could
+    self-restore admin via POST /users/me/role, since derive_allowed_roles
+    honours the marker (R-1).
+
+    Pure: input is not mutated; content is returned unchanged when no marker is
+    present, so callers may write it back unconditionally.
+    """
+    new_credentials = dict(credentials or {})
+    role_switch = new_credentials.get("role_switch")
+    if isinstance(role_switch, dict) and "home_role" in role_switch:
+        role_switch = dict(role_switch)
+        role_switch.pop("home_role", None)
+        if role_switch:
+            new_credentials["role_switch"] = role_switch
+        else:
+            new_credentials.pop("role_switch", None)
+    return new_credentials
+
+
 def derive_allowed_roles(
     role: UserRole | str,
     has_master_capability: bool,
@@ -638,11 +664,15 @@ class UserUpdate(BaseModel):
 
 
 class RoleSwitchRequest(BaseModel):
-    """POST /api/v1/users/me/role — target role to switch into (TEST-only).
+    """POST /api/v1/users/me/role — target role to switch into.
 
-    Pydantic validates `role` against UserRole (user/master/admin); anything
-    else is a 422. Whether the caller may actually switch to it is enforced in
-    the service against their seeded allowed_roles set.
+    A production endpoint (always on; A1=Б). Pydantic validates `role` against
+    UserRole (user/master/admin); anything else is a 422. Whether the caller
+    may actually switch to it is enforced in the service via
+    derive_allowed_roles() -- the capability-derived policy (own role + a
+    VERIFIED MasterProfile + the switched-away-admin marker), the single source
+    of truth shared with the GET /users/me read path. Legacy seeded
+    credentials.role_switch.allowed_roles lists grant nothing.
     """
 
     role: UserRole

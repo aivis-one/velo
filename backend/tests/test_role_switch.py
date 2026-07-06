@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
+from app.modules.users.schemas import credentials_without_admin_home
 from tests.helpers import auth_headers, full_cleanup_range, login_user
 
 TID_MIN = 88200
@@ -62,6 +63,24 @@ async def _set_role(
     """Directly assign a role (simulates the CLI/DB grant, e.g. admin)."""
     user = await _get_user(db_session, telegram_id)
     user.role = role
+    await db_session.commit()
+
+
+async def _cli_demote_to_user(
+    db_session: AsyncSession, telegram_id: int
+) -> None:
+    """Simulate `velo setrole <id> U`: set role=user AND clear the marker.
+
+    Mirrors scripts.set_role._set_role. That module cannot be imported here
+    (scripts/ is not a package), so this calls the SAME real helper it uses
+    (credentials_without_admin_home) -- the regression exercises the actual
+    clearing logic, not a copy.
+    """
+    user = await _get_user(db_session, telegram_id)
+    user.role = "user"
+    user.set_jsonb(
+        "credentials", credentials_without_admin_home(user.credentials)
+    )
     await db_session.commit()
 
 
@@ -349,3 +368,59 @@ async def test_me_role_switch_for_switched_away_admin(
     assert me.json()["role_switch"] == {
         "allowed_roles": ["user", "master", "admin"]
     }
+
+
+# ---------------------------------------------------------------------------
+# R-1: CLI demotion clears the home marker (no self-serve admin restore)
+# ---------------------------------------------------------------------------
+
+
+async def test_credentials_without_admin_home_strips_marker() -> None:
+    """R-1 helper: drops role_switch.home_role (and empties role_switch)."""
+    # Marker-only role_switch -> the whole block is removed.
+    assert credentials_without_admin_home(
+        {"role_switch": {"home_role": "admin"}}
+    ) == {}
+    # Only home_role is dropped; other keys (legacy allowed_roles, phone) stay.
+    assert credentials_without_admin_home(
+        {
+            "role_switch": {"home_role": "admin", "allowed_roles": ["user"]},
+            "phone": "1",
+        }
+    ) == {"role_switch": {"allowed_roles": ["user"]}, "phone": "1"}
+    # No marker -> unchanged; None -> {}.
+    assert credentials_without_admin_home({"phone": "1"}) == {"phone": "1"}
+    assert credentials_without_admin_home(None) == {}
+    # Input is not mutated.
+    original = {"role_switch": {"home_role": "admin"}}
+    credentials_without_admin_home(original)
+    assert original == {"role_switch": {"home_role": "admin"}}
+
+
+async def test_demoted_ex_admin_cannot_self_restore_admin(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """R-1: once the CLI demotes a switched-away admin, the home marker is
+    gone, so POST /me/role {admin} no longer self-restores admin."""
+    data = await login_user(client, telegram_id=88213, first_name="ExBoss")
+    token = data["session_token"]
+    await _set_role(db_session, 88213, "admin")
+
+    # Admin switches away -> round-trip marker recorded.
+    response = await _switch(client, token, "user")
+    assert response.status_code == 200
+    user = await _get_user(db_session, 88213)
+    assert (user.credentials or {}).get("role_switch", {}).get(
+        "home_role"
+    ) == "admin"
+
+    # CLI demotion (velo setrole U) clears the marker.
+    await _cli_demote_to_user(db_session, 88213)
+    user = await _get_user(db_session, 88213)
+    assert "home_role" not in (user.credentials or {}).get("role_switch", {})
+
+    # The ex-admin is now a plain user -> cannot switch back to admin.
+    response = await _switch(client, token, "admin")
+    assert response.status_code == 403
+    assert response.json()["error"] == "role_not_allowed"
