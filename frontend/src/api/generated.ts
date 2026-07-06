@@ -43,19 +43,7 @@ export interface AdminMasterActionResponse {
   status: string
 }
 
-/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
-export interface AdminMasterListItem {
-  id: string
-  telegram_id?: number | null
-  first_name?: string | null
-  last_name?: string | null
-  avatar_url?: string | null
-  role: UserRole
-  is_active: boolean
-  master_status: string
-}
-
-/** GET /api/v1/admin/masters/{id} -- single master with profile detail (T3). Extends the list item with the profile fields the admin review screen shows: `methods` (editable via PATCH /admin/masters/{id}/methods), plus `experience_years` and `bio` (display-only). All read from MasterProfile.data.profile (additive, no migration). */
+/** GET /api/v1/admin/masters/{id} -- single master with profile detail (T3). Extends the list item with the profile fields the admin review screen shows: ``methods`` (editable via PATCH /admin/masters/{id}/methods), plus ``experience_years`` and ``bio`` (display-only). All read from MasterProfile.data.profile (additive, no migration). */
 export interface AdminMasterDetail {
   id: string
   telegram_id?: number | null
@@ -70,9 +58,16 @@ export interface AdminMasterDetail {
   bio?: string | null
 }
 
-/** PATCH /admin/masters/{user_id}/methods -- new flat method set (T3). Admin-authored direct edit of a master's methods during review. Mirrors the apply-side rule (min 1, max 20). Distinct from the master's own method-change request (M3). */
-export interface EditMasterMethodsRequest {
-  methods: string[]
+/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
+export interface AdminMasterListItem {
+  id: string
+  telegram_id?: number | null
+  first_name?: string | null
+  last_name?: string | null
+  avatar_url?: string | null
+  role: UserRole
+  is_active: boolean
+  master_status: string
 }
 
 /** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */
@@ -441,6 +436,11 @@ export interface DismissReportRequest {
   resolution_note?: string | null
 }
 
+/** PATCH /admin/masters/{user_id}/methods -- new flat method set (T3). Admin-authored direct edit of a master's methods during review. Mirrors the apply-side rule (min 1, max 20). Distinct from the master's own method-change request (M3). */
+export interface EditMasterMethodsRequest {
+  methods: string[]
+}
+
 /** Returned when user tries to create a duplicate report. Contains the existing report + a message suggesting to edit it. */
 export interface ExistingReportResponse {
   message?: string
@@ -487,7 +487,7 @@ export interface IncomeResponse {
   delta_pct: number | null
 }
 
-/** POST /admin/masters/invite -- the composed generic invite link. Account-agnostic (no target); no expiry field by design -- the link lives in Redis until the first claim burns it. */
+/** POST /admin/masters/invite -- the composed generic invite link. Account-agnostic: the link is not bound to a target user. No expiry field by design -- the link lives in Redis until the first claim burns it (or a Redis flush drops it, after which the admin regenerates). */
 export interface InviteMasterResponse {
   invite_link: string
   issued_at: string
@@ -499,6 +499,12 @@ export interface LowCheckinPractice {
   title: string
   checkin_rate_pct: number
   total: number
+}
+
+/** The user's master-application state, read from MasterProfile.data.account. Surfaced on UserResponse (T5) so a role='user' applicant can see the verdict of their application (pending / verified / rejected + the rejection reason) without the master-only GET /masters/me endpoint. Set by the GET /users/me router from the same MasterProfile load used for master capability. */
+export interface MasterApplicationInfo {
+  status: string
+  rejection_reason?: string | null
 }
 
 /** Step 2 of master application -- professional background. */
@@ -1195,12 +1201,6 @@ export interface UpdateReportRequest {
 }
 
 /** User representation in API responses. onboarding_completed is derived from the credentials JSONB sandbox rather than a dedicated column (schema-on-read pattern). The raw credentials blob is pulled in only to compute that single boolean and is never serialized -- see _credentials below. Mechanism (kept deliberately simple -- one carrier field + one computed_field): _credentials is filled from the ORM object's `credentials` attribute via validation_alias under from_attributes, but excluded from output; onboarding_completed reads from it. */
-/** The user's master-application state (status + rejection reason), read from MasterProfile.data.account. Surfaced on UserResponse (T5) so a role='user' applicant can see the verdict of their application (pending / verified / rejected + the rejection reason) without the master-only GET /masters/me endpoint. */
-export interface MasterApplicationInfo {
-  status: string
-  rejection_reason?: string | null
-}
-
 export interface UserResponse {
   id: string
   telegram_id: number | null
@@ -1214,6 +1214,7 @@ export interface UserResponse {
   balance_cents: number
   created_at: string
   last_login_at: string | null
+  master_application?: MasterApplicationInfo | null
   onboarding_completed: boolean
   master_onboarding_completed: boolean
   phone: string | null
@@ -1222,7 +1223,6 @@ export interface UserResponse {
   notifications: NotificationSettings
   master_notifications: MasterNotificationSettings | null
   role_switch: RoleSwitchInfo | null
-  master_application?: MasterApplicationInfo | null
 }
 
 /** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */
