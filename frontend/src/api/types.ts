@@ -127,6 +127,7 @@ export type {
   UpdateDiaryEntryRequest,
   UpdatePracticeRequest,
   UpdateReportRequest,
+  MasterApplicationInfo,
   UserResponse,
   UserRole,
   UserStatsResponse,

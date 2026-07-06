@@ -335,3 +335,24 @@ async def user_has_master_capability(
     if profile is None:
         return False
     return profile.data.get("account", {}).get("status") == "verified"
+
+
+async def get_master_account(
+    user: User,
+    session: AsyncSession,
+) -> dict | None:
+    """Return the user's MasterProfile ``data.account`` block, or None (T5).
+
+    One indexed SELECT (same shape as user_has_master_capability). The GET
+    /users/me path uses this to derive BOTH master capability
+    (status=="verified") AND the application state (status + rejection_reason)
+    surfaced to a role='user' applicant, from a single profile load. None when
+    the user has no MasterProfile.
+    """
+    stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        return None
+    account = profile.data.get("account")
+    return account if isinstance(account, dict) else None

@@ -30,6 +30,18 @@ async def test_get_me_success(client: AsyncClient) -> None:
     assert "created_at" in body
 
 
+async def test_get_me_master_application_null_for_plain_user(
+    client: AsyncClient,
+) -> None:
+    """T5: a user who never applied has master_application = null on /me."""
+    data = await login_user(client, telegram_id=88002, first_name="NoApp")
+    response = await client.get(
+        "/api/v1/users/me", headers=auth_headers(data["session_token"])
+    )
+    assert response.status_code == 200
+    assert response.json()["master_application"] is None
+
+
 async def test_get_me_no_auth(client: AsyncClient) -> None:
     """Request without token → 401."""
     response = await client.get("/api/v1/users/me")

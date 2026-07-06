@@ -29,12 +29,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
-from app.modules.users.schemas import RoleSwitchRequest, UserResponse, UserUpdate
+from app.modules.users.schemas import (
+    MasterApplicationInfo,
+    RoleSwitchRequest,
+    UserResponse,
+    UserUpdate,
+)
 from app.modules.users.service import (
+    get_master_account,
     reset_user_to_onboarding,
     switch_user_role,
     update_user,
-    user_has_master_capability,
 )
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -56,9 +61,16 @@ async def _user_response_with_capability(
     capability lookup is a plain SELECT and works on either.
     """
     response = UserResponse.model_validate(user)
-    response.master_capability_in = await user_has_master_capability(
-        user, session
-    )
+    # One MasterProfile load feeds BOTH the capability gate and the T5
+    # application state (status + rejection reason) surfaced to a role='user'
+    # applicant so the pending/reject screen renders without /masters/me.
+    account = await get_master_account(user, session)
+    response.master_capability_in = (account or {}).get("status") == "verified"
+    if account is not None:
+        response.master_application = MasterApplicationInfo(
+            status=account.get("status", "pending"),
+            rejection_reason=account.get("rejection_reason"),
+        )
     return response
 
 

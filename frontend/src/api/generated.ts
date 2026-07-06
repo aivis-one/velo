@@ -1200,6 +1200,12 @@ export interface UpdateReportRequest {
 }
 
 /** User representation in API responses. onboarding_completed is derived from the credentials JSONB sandbox rather than a dedicated column (schema-on-read pattern). The raw credentials blob is pulled in only to compute that single boolean and is never serialized -- see _credentials below. Mechanism (kept deliberately simple -- one carrier field + one computed_field): _credentials is filled from the ORM object's `credentials` attribute via validation_alias under from_attributes, but excluded from output; onboarding_completed reads from it. */
+/** The user's master-application state (status + rejection reason), read from MasterProfile.data.account. Surfaced on UserResponse (T5) so a role='user' applicant can see the verdict of their application (pending / verified / rejected + the rejection reason) without the master-only GET /masters/me endpoint. */
+export interface MasterApplicationInfo {
+  status: string
+  rejection_reason?: string | null
+}
+
 export interface UserResponse {
   id: string
   telegram_id: number | null
@@ -1221,6 +1227,7 @@ export interface UserResponse {
   notifications: NotificationSettings
   master_notifications: MasterNotificationSettings | null
   role_switch: RoleSwitchInfo | null
+  master_application?: MasterApplicationInfo | null
 }
 
 /** GET /api/v1/bookings/me/stats -- current user's practice stats. Powers the two stat cards on the main profile screen: - practices_attended: how many practices the user actually attended. - hours_attended: total attended duration in hours (one decimal). */

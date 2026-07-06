@@ -117,6 +117,10 @@ const switching = ref(false)
 const profileStatus = computed(() => {
   if (authStore.role === 'master') return masterStore.profile?.status ?? 'pending'
   if (authStore.allowedRoles.includes('master')) return 'verified'
+  // T5: a rejected applicant stays role='user' with no capability; the verdict
+  // is surfaced on GET /users/me (master_application) so the reject screen is
+  // reachable without the master-only /masters/me endpoint.
+  if (authStore.masterApplication?.status === 'rejected') return 'rejected'
   return 'pending'
 })
 
@@ -127,7 +131,8 @@ const rejectionReason = computed((): string => {
   if (profileStatus.value !== 'rejected') return ''
   return (
     masterStore.profile?.rejection_reason ??
-    'Заявка не прошла верификацию. Пожалуйста, подайте повторную заявку с актуальными данными.'
+    authStore.masterApplication?.rejection_reason ??
+    'Заявка не прошла верификацию. Свяжитесь с поддержкой для повторной заявки.'
   )
 })
 

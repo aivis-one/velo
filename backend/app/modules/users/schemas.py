@@ -326,6 +326,19 @@ def derive_allowed_roles(
     return [UserRole.USER]
 
 
+class MasterApplicationInfo(BaseModel):
+    """The user's master-application state, read from MasterProfile.data.account.
+
+    Surfaced on UserResponse (T5) so a role='user' applicant can see the verdict
+    of their application (pending / verified / rejected + the rejection reason)
+    without the master-only GET /masters/me endpoint. Set by the GET /users/me
+    router from the same MasterProfile load used for master capability.
+    """
+
+    status: str  # "pending" | "verified" | "rejected"
+    rejection_reason: str | None = None
+
+
 class UserResponse(BaseModel):
     """User representation in API responses.
 
@@ -371,6 +384,12 @@ class UserResponse(BaseModel):
     # to False, so any UserResponse built without the router (e.g. an admin
     # user list) simply reports master_notifications=None.
     master_capability_in: bool = Field(default=False, exclude=True)
+
+    # T5: the user's master-application state (status + rejection reason), so a
+    # rejected/pending role='user' applicant sees the verdict without the
+    # master-only /masters/me endpoint. Set by the GET /users/me router after
+    # model_validate (needs a MasterProfile lookup); None when never applied.
+    master_application: MasterApplicationInfo | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property

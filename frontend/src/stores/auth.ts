@@ -17,7 +17,14 @@ import { ref, computed } from 'vue'
 import { api, setAuthToken, setOnUnauthorized, ApiResponseError } from '@/api/client'
 import { getMe, updateMe, switchRole as apiSwitchRole } from '@/api/users'
 import { platform } from '@/platform'
-import type { AuthResponse, RoleSwitchInfo, UserResponse, UserRole, UserUpdate } from '@/api/types'
+import type {
+  AuthResponse,
+  MasterApplicationInfo,
+  RoleSwitchInfo,
+  UserResponse,
+  UserRole,
+  UserUpdate,
+} from '@/api/types'
 
 const TOKEN_KEY = 'velo_token'
 
@@ -41,6 +48,16 @@ export const useAuthStore = defineStore('auth', () => {
   const allowedRoles = computed<UserRole[]>(() => {
     const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)?.role_switch
     return rs?.allowed_roles ?? []
+  })
+
+  // T5: the user's master-application state (status + rejection reason), so a
+  // rejected/pending role='user' applicant can see the verdict without the
+  // master-only /masters/me endpoint. Same structural read as allowedRoles.
+  const masterApplication = computed<MasterApplicationInfo | null>(() => {
+    return (
+      (user.value as { master_application?: MasterApplicationInfo | null } | null)
+        ?.master_application ?? null
+    )
   })
 
   function _setToken(newToken: string | null): void {
@@ -186,6 +203,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     role,
     allowedRoles,
+    masterApplication,
     loginViaTelegram,
     restoreSession,
     fetchMe,
