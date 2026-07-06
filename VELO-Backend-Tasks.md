@@ -45,6 +45,56 @@ capability gate delivered). Everything else unchanged, no regression. One-glance
 
 ---
 
+## ⏱ SELF-BUILT THIS BATCH — 2026-07-06 (T1–T5 + Bug2, HELD ahead-8 on `54bdf0a`; coordination, NOT Zod work — do not rebuild)
+
+We self-built the following this session under the backend-exception (additive / JSONB / config,
+no migration). Recorded here so Zod sees the new surfaces and avoids collision. Deploy delta
+`ca66e0e..54bdf0a` = 11 commits (our 8 + Zod's Z-7 zoom-factory `0e3f280` / R-1 clear-admin-marker
+`da98d56` / regen `39bdc31`). **Zero migration** across all 11.
+
+**Additive endpoints / contract (self-built, live after deploy):**
+- `POST /admin/users/{id}/make-master` (T2) — explicit admin grant: create-or-re-verify the
+  `MasterProfile` **and** set `role=master` **and** clear the switched-away-admin marker
+  (`credentials_without_admin_home`, shared with R-1). `409 already_master` if already master.
+- `GET /admin/masters/{id}` → `AdminMasterDetail` (T3) — real methods / experience / bio for review.
+- `PATCH /admin/masters/{id}/methods` → `EditMasterMethodsRequest` (T3) — admin edits a master's
+  flat method set during review (min 1 / max 20). Distinct from the M3 master-side change-request.
+- `UserResponse.master_application: MasterApplicationInfo | None` on `GET /me` (T5) — reject-visibility
+  so a role=`user` applicant sees the verdict (reason) on `MasterPendingView`.
+- **Generic Redis invite (T5, replaces the account-bound ID-invite):** `POST /admin/masters/invite`
+  now takes **no body** (was `{telegram_id}`), stores `master_invite:{sha256(token)}` → `{issued_by,
+  issued_at}` in Redis with **no TTL**, returns the composed `?startapp=master_onboarding__<token>`
+  link (`503 bot_url_not_configured` if `TELEGRAM_BOT_URL` unset). `POST /masters/invite/claim` burns
+  the token atomically (`GETDEL`; first-claim-wins, unknown/consumed → `404 invite_invalid`); any
+  authenticated opener may claim. The account-bound `credentials.master_invite` writer/reader path is
+  **removed** (schema `InviteMasterRequest` deleted; own-marker hash-compare gone).
+
+**T4 role/capability pivot (behavior change, no contract field):** `verify_master` (application
+approval) now sets `status=verified` **ONLY** — it no longer flips `User.role`. The applicant gains
+master *capability* and self-switches via the existing `POST /users/me/role` (`derive_allowed_roles`
+keys on `status=="verified"`). `get_current_master` still requires `role=master` AND verified, so a
+verified-but-not-switched account is correctly gated. `make_master` (T2) is the one path that flips
+role (explicit grant).
+
+**generated.ts hand-adds reconciling at deploy regen (zero expected type-drift):** added
+`AdminMasterDetail`, `EditMasterMethodsRequest`, `MasterApplicationInfo`; removed `InviteMasterRequest`.
+All have backing backend schemas (or, for the removal, none), so a clean OpenAPI regen matches.
+
+**Known FOLLOW-UPS (self / later — NOT asking Zod to action now):**
+- **Consistency semaphore 1.3 redefinition.** T4 creates a valid `verified` profile with `role=user`
+  (approved-but-not-yet-self-switched). Semaphore `1.3_master_users_eq_verified_profiles`
+  (`role∈{master,admin}` count == verified-profile count) therefore diverges in that transient window
+  — a **monitoring-only ALERT** on the (parked) admin DB-integrity screen; no functional/test impact
+  (no test approves-then-asserts-OK). When that screen is un-parked, redefine 1.3 to count the
+  pending-self-switch state (verified profile whose owner is still role=user).
+- **Free-text custom-method add** in the T3 methods editor (currently pick from the fixed set).
+- **Cross-session persistent reject indicator** in the user zone (today the verdict shows via
+  `/me master_application` on the pending screen only).
+- **Durable `MasterInvite` table** if the Redis-ephemeral invite proves insufficient (a Redis flush
+  drops unburned tokens; acceptable for now — admin regenerates).
+
+---
+
 ## Environment note — admin/finance seed data
 
 Originally the admin/finance domains had no seed, so admin screens rendered empty even where the

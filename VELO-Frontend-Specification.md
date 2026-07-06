@@ -1,7 +1,7 @@
 # VELO — Техническое задание: Frontend
 
-**Версия:** 2.5
-**Дата:** 5 июля 2026
+**Версия:** 2.6
+**Дата:** 6 июля 2026
 **Статус:** Active
 
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников **навсегда**.
@@ -9,6 +9,9 @@
 > экрана**; всякое UI-значение через DS-токен `--velo-*` / DS-компонент (DS-first).
 > Фаза-история ниже (F0–F11) и упоминания «из мокапов» / Figma-node — исторический
 > отчёт о первоначальной сборке, НЕ действующий источник дизайна.
+
+> **v2.6 (мастер-роль/capability батч T1–T5 + Bug2, 6 июля 2026, база `54bdf0a` — held ahead-8 [эта сессия] поверх задеплоенного `ca66e0e`, НЕ задеплоено; деплой-дельта = 11 коммитов, вкл. 3 Зода [Z-7/R-1/реген]):**
+> Флоу end-to-end этого батча. **Мастер (заявка→капабилити):** `MasterApplyView` — шаг документов **можно пропустить** (аплоуд недоступен, honest-skip), поле **«О себе» обязательно** (T1) → `pending` → админ **одобряет** → `MasterPendingView` показывает «Одобрено» и CTA **«перейти в режим мастера»**: апрув даёт master-**capability**, НЕ роль (роль остаётся `user`), пользователь **сам переключается** через `POST /users/me/role` (в Настройках «Переключение роли») → мастер-дашборд; `roleGuard('master')` держит зону закрытой до свитча (T4). **Админ:** `AdminUsersView` (все юзеры) → **«Сделать мастером»** с confirm (`POST /admin/users/{id}/make-master`, ЯВНЫЙ грант — флипает роль сразу, отдельно от апрув-пути); `AdminMasterReviewView` — реальные методы/опыт/«О себе» (`GET /admin/masters/{id}`) + **редактор методов** в ревью (`PATCH …/methods`); **одобрить** (status=verified, роль НЕ трогается) / **отклонить** (причина). **Generic одноразовый инвайт** (заменяет account-bound ID-инвайт): админ жмёт «Создать ссылку» (без цели, `POST /admin/masters/invite` → Redis, без TTL) → отправляет ссылку → приглашённый открывает диплинк → claim (`POST /masters/invite/claim`, атомарный GETDEL, first-claim-wins) → визард заявки → далее общий апрув-путь. **Reject-visibility:** отклонённый заявитель с role=`user` видит вердикт через `GET /me` `master_application`. Детали — Фронтовый Кодекс v1.13.
 
 > **v2.5 (M3 методы-через-модерацию + языки/e-mail/attention + keyboard-fog VARIANT-3 + участник-X removal, 5 июля 2026, база `87387d4` — held ahead-24 поверх задеплоенного `97cb445`, НЕ задеплоено):**
 > **M3 (E19 FLAT-ветка)** — «Методы» edit-profile: locked-чипы → редактируемый плоский набор → авто change-request (`POST /masters/me/method-change-request`) → бейдж «Ожидает подтверждения»; новый админ-экран `AdminMethodRequestsView` (список pending → одобрить/отклонить-с-причиной) + вход с админ-дашборда; JSONB `data.profile.method_change_request` (additive, без миграции). **Отменяет honest-stub «Методы = locked flat-chip / E19 НЕ построена» из F15/PE-3.** Двухуровневая таксономия Направление→Вид (мокап PE-3) — ОТЛОЖЕНА (F-M3-1=А). **E16 языки** — стаб `langRu`/`langEn` теперь УХОДИТ (`experience.languages`) + блок «Языки практик» на профиле, свободно редактируемый (`PATCH /masters/me/languages`, Q2=А), `utils/languages.ts`; закрывает **TD-FE-E16-APPLY-LANGS**. **E11 e-mail** — disabled-заглушка → редактируемое поле; `UserResponse.email`/`UserUpdate.email` (credentials JSONB, паттерн phone/bio, без миграции); self-built в users/ (reconcile-before-push). **E1 attention** — `getMasterReviews(…, attention)` + `AnalyticsView` `attention=true` (бэк уже задеплоен; «нет фильтра» было устаревшим). **OT-A keyboard-fog VARIANT-3** — на fog-экранах верхний dissolve сохранён, убран только нижний (было `mask:none` целиком) + `#app::before` `min-height:100lvh` против webview-ресайза; в покое/non-fog байт-идентично. **OT-B** — stub-крестик отмены записи на ростере детали практики удалён (строки read-only). **PACK#1/#2** — U1/U2/U4 + M1/M2/M5-M7. Детали — Фронтовый Кодекс v1.12.
