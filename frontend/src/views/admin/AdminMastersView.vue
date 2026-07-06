@@ -164,7 +164,10 @@ async function load(): Promise<void> {
   error.value = false
   try {
     // Fetch all masters once; filter + count client-side (the list is small).
-    const res = await getMastersList(undefined, 200, 0)
+    // Limit is clamped to the backend page cap (le=100 on /admin/masters/list);
+    // 200 was 422-rejected. Alpha: 100 is enough — add pagination when the
+    // master count approaches 100 (operator ruling, ПРОМТ №289).
+    const res = await getMastersList(undefined, 100, 0)
     masters.value = res.items
     total.value = res.total
   } catch (e) {
