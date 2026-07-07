@@ -40,28 +40,35 @@ router = APIRouter()
 @router.get("/metrics/check-in", response_model=CheckinMetricResponse)
 async def checkin_metric_endpoint(
     period: Literal["week", "month"] = Query(default="week"),
+    offset: int = Query(default=0),
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
 ) -> CheckinMetricResponse:
-    """Check-in rate, weekly series, and low-check-in practices."""
-    return await get_checkin_metric(period, session)
+    """Check-in rate, weekly series, and low-check-in practices.
+
+    `offset` steps the period (0 = current, -1 = previous, ...) — same as the
+    dashboard stepper.
+    """
+    return await get_checkin_metric(period, session, offset=offset)
 
 
 @router.get("/metrics/feedback", response_model=FeedbackMetricResponse)
 async def feedback_metric_endpoint(
     period: Literal["week", "month"] = Query(default="week"),
+    offset: int = Query(default=0),
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
 ) -> FeedbackMetricResponse:
     """Feedback rate and rating distribution."""
-    return await get_feedback_metric(period, session)
+    return await get_feedback_metric(period, session, offset=offset)
 
 
 @router.get("/metrics/return", response_model=ReturnMetricResponse)
 async def return_metric_endpoint(
     period: Literal["week", "month"] = Query(default="week"),
+    offset: int = Query(default=0),
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
 ) -> ReturnMetricResponse:
     """Return rate and top loyal users."""
-    return await get_return_metric(period, session)
+    return await get_return_metric(period, session, offset=offset)
