@@ -82,6 +82,11 @@
           </VChip>
         </div>
       </section>
+
+      <!-- Reset: clears all drafts, stays open (closing the sheet applies). -->
+      <VButton variant="ghost" block :disabled="!hasActiveFilters" @click="resetFilters">
+        Сбросить
+      </VButton>
     </div>
   </VModal>
 
@@ -97,7 +102,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { VModal, VChip } from '@/components/ui'
+import { VModal, VChip, VButton } from '@/components/ui'
 import { IconFilter } from '@/components/icons'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { formatRelative } from '@/utils/adminHelpers'
@@ -158,6 +163,23 @@ function toggle(list: string[], v: string): void {
   const i = list.indexOf(v)
   if (i === -1) list.push(v)
   else list.splice(i, 1)
+}
+
+const hasActiveFilters = computed<boolean>(
+  () =>
+    draftCats.value.length > 0 ||
+    draftPrio.value.length > 0 ||
+    draftStatus.value.length > 0 ||
+    draftDate.value !== '',
+)
+
+// «Сбросить»: clear every filter to its default and STAY open. Closing the sheet
+// then applies the cleared draft (the design has no «Применить» — close = apply).
+function resetFilters(): void {
+  draftCats.value = []
+  draftPrio.value = []
+  draftStatus.value = []
+  draftDate.value = ''
 }
 
 // Design has no «Применить» — closing the sheet applies the current draft.
