@@ -135,39 +135,33 @@
 
       <!-- История заявок -->
       <VCard class="mreview__hist" padding="none">
-        <button
-          type="button"
-          class="mreview__acc"
-          :aria-expanded="historyOpen"
-          @click="historyOpen = !historyOpen"
-        >
-          <span class="mreview__acc-ic"><IconClock :size="20" /></span>
-          <span class="mreview__acc-t">История заявок</span>
-          <svg
-            class="mreview__acc-ch"
-            :class="{ 'mreview__acc-ch--open': historyOpen }"
-            width="20"
-            height="12"
-            viewBox="0 0 24 14"
-            fill="none"
-          >
-            <path
-              d="M2 2l10 10L22 2"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-        <div v-if="historyOpen" class="mreview__acc-body">
+        <VAccordion title="История заявок">
+          <template #icon><IconClock :size="20" /></template>
+          <template #chevron="{ open }">
+            <svg
+              class="mreview__acc-ch"
+              :class="{ 'mreview__acc-ch--open': open }"
+              width="20"
+              height="12"
+              viewBox="0 0 24 14"
+              fill="none"
+            >
+              <path
+                d="M2 2l10 10L22 2"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </template>
           <div v-for="(h, i) in history" :key="i" class="mreview__hist-entry">
             <div class="mreview__hist-when">{{ h.when }}</div>
             <div class="mreview__hist-title">{{ h.title }}</div>
             <div v-if="h.comment" class="mreview__hist-q">«{{ h.comment }}»</div>
           </div>
           <p v-if="!history.length" class="mreview__first">Заявка подаётся впервые.</p>
-        </div>
+        </VAccordion>
       </VCard>
 
       <!-- Actions -->
@@ -245,6 +239,7 @@ import {
   VEmptyState,
   VBottomSheet,
   VConfirmDialog,
+  VAccordion,
 } from '@/components/ui'
 import { IconIdCard, IconEdit, IconView, IconClock } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
@@ -282,9 +277,6 @@ const methodsError = ref('')
 const showReject = ref(false)
 const rejectReason = ref('')
 const rejectError = ref('')
-
-// History accordion.
-const historyOpen = ref(false)
 
 // Honest skeleton (operator В): rich fields are not on AdminMasterListItem → «—» /
 // empty until Zod extends the endpoint. Sample data lives in the design preview only.
@@ -685,31 +677,37 @@ onMounted(loadMaster)
   overflow: hidden;
 }
 
-.mreview__acc {
-  display: flex;
-  align-items: center;
-  gap: var(--velo-gap-21);
-  width: 100%;
+/* History uses the shared VAccordion (extended with #icon + #chevron slots).
+   These :deep overrides preserve this screen's design (row padding, icon+title
+   gap, base-size title, warning-tint body) without touching the DS default. */
+:deep(.v-accordion) {
+  border-bottom: none;
+}
+
+:deep(.v-accordion__header) {
   padding: var(--velo-gap-15) var(--velo-inset-row);
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-.mreview__acc-ic {
-  display: flex;
-  flex-shrink: 0;
-  color: var(--velo-text-primary);
-}
-
-.mreview__acc-t {
-  flex: 1;
   font-size: var(--text-base);
+}
+
+:deep(.v-accordion__lead) {
+  gap: var(--velo-gap-21);
+}
+
+:deep(.v-accordion__title) {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
+:deep(.v-accordion__icon),
+:deep(.v-accordion__arrow) {
+  color: var(--velo-text-primary);
+}
+
+:deep(.v-accordion__body) {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+/* Slotted chevron (down-caret) — its own 180° open rotation. */
 .mreview__acc-ch {
   flex-shrink: 0;
   color: var(--velo-text-primary);
@@ -718,10 +716,6 @@ onMounted(loadMaster)
 
 .mreview__acc-ch--open {
   transform: rotate(180deg);
-}
-
-.mreview__acc-body {
-  padding: 0 var(--space-4) var(--space-4);
 }
 
 .mreview__hist-entry {
