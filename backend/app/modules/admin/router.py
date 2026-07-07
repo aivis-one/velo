@@ -12,6 +12,7 @@
 #   - metrics/      -- engagement metrics drill-ins (E9/4a)
 #   - revenue/      -- platform revenue drill-in (E9/4b)
 #   - practices/    -- global practices oversight (E9/4c)
+#   - participants/ -- global participants list (E1)
 #
 # Direct endpoints on this router:
 #   - POST /templates/reload -- reload notification templates (Phase 7.3)
@@ -26,6 +27,7 @@ from fastapi import APIRouter, Depends
 
 from app.modules.admin.masters.router import router as masters_router
 from app.modules.admin.metrics.router import router as metrics_router
+from app.modules.admin.participants.router import router as participants_router
 from app.modules.admin.practices.router import router as practices_router
 from app.modules.admin.revenue.router import router as revenue_router
 from app.modules.admin.promos.router import router as promos_router
@@ -57,6 +59,7 @@ router.include_router(promos_router)
 router.include_router(metrics_router)        # E9/4a
 router.include_router(revenue_router)        # E9/4b
 router.include_router(practices_router)      # E9/4c
+router.include_router(participants_router)   # E1
 
 
 # ---------------------------------------------------------------------------

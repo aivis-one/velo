@@ -82,6 +82,17 @@ export interface AdminMethodChangeItem {
   submitted_at: string
 }
 
+/** One participant (platform user) in the global admin list. */
+export interface AdminParticipant {
+  id: string
+  name: string
+  telegram_id?: number | null
+  avatar_url?: string | null
+  practices_count: number
+  created_at: string
+  last_login_at?: string | null
+}
+
 /** GET /api/v1/admin/practices/{id} -- detail + attendance + roster. */
 export interface AdminPracticeDetailResponse {
   id: string
@@ -749,6 +760,14 @@ export interface PaginatedMastersResponse {
 /** GET /admin/masters/method-change-requests -- paginated pending list. */
 export interface PaginatedMethodChangeRequestsResponse {
   items: AdminMethodChangeItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /api/v1/admin/participants -- paginated participant list. */
+export interface PaginatedParticipantsResponse {
+  items: AdminParticipant[]
   total: number
   limit: number
   offset: number

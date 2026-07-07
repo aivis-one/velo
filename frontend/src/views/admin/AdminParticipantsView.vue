@@ -5,11 +5,12 @@
   «Участников» stat card. Header (back + count badge) + VSegment filter
   (Все / Новые / Активные) + participant rows + load-more.
 
-  STUB (operator Q2=А — honest skeleton): there is no admin participants API yet
-  -> the list is empty ("Данных пока нет"); the header count + the «Все» badge show
-  the real total from /admin/stats (users_count). The row / avatar / message-button
-  design is built and ready for data. Roadmap for Zod: GET /admin/participants
-  (filters new/active, counts, joined + last-active labels) + admin->user messaging.
+  DATA (E1): GET /api/v1/admin/participants — filter=all|new|active over the
+  current week (new = created_at≥start, active = last_login_at≥start, coarse
+  "opened ≥1×" using User.last_login_at, operator Q2=В). Rows show name · ID ·
+  practices_count · joined («с Дек 2025») + last-active labels (formatted on the
+  FE from created_at / last_login_at). Header count + «Все» badge still show the
+  platform total from /admin/stats. admin->user messaging is still a stub toast.
 -->
 
 <template>
@@ -31,13 +32,12 @@
           </span>
           <span class="prow__text">
             <span class="prow__name">{{ p.name }}</span>
-            <span class="prow__sub">{{ p.email }}</span>
+            <span v-if="p.telegram_id" class="prow__sub">ID {{ p.telegram_id }}</span>
             <span class="prow__meta">
-              Практик: {{ p.practices_count
-              }}<template v-if="p.joined_label"> • с {{ p.joined_label }}</template>
+              Практик: {{ p.practices_count }} • с {{ joinedLabel(p.created_at) }}
             </span>
-            <span v-if="p.last_active_label" class="prow__meta"
-              >Последняя: {{ p.last_active_label }}</span
+            <span v-if="p.last_login_at" class="prow__meta"
+              >Последняя: {{ lastActiveLabel(p.last_login_at) }}</span
             >
           </span>
           <button type="button" class="prow__msg" aria-label="Написать" @click="messageStub">
@@ -51,45 +51,42 @@
       </div>
     </template>
 
-    <VCard v-else>
+    <VCard v-else-if="!loading">
       <p class="admin-list__empty">Данных пока нет</p>
     </VCard>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { VBackButton, VSegment, VButton, VCard } from '@/components/ui'
 import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import { IconProfile, IconMessages } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
+import { getParticipants } from '@/api/admin'
+import type { AdminParticipant } from '@/api/types'
+import { dayLabelOf } from '@/utils/format'
 
-interface AdminParticipant {
-  id: string
-  name: string
-  email: string
-  avatar_url?: string
-  practices_count: number
-  /** "Дек 2025" — omitted when unknown. */
-  joined_label?: string
-  /** "вчера" / "сегодня" — present in the Активные filter. */
-  last_active_label?: string
-}
+const PAGE = 100
 
 const router = useRouter()
 const toast = useToast()
 const adminStore = useAdminStore()
 
-// Filter scopes the future API query (Zod). Visual-only until /admin/participants.
-const filter = ref('all')
+// Все / Новые / Активные. new+active window on the current week (backend
+// filter over created_at / last_login_at). Changing it refetches from page 0.
+type ParticipantFilter = 'all' | 'new' | 'active'
+const filter = ref<ParticipantFilter>('all')
 
-// Stub list -> Zod. Honest skeleton (Q2=А): empty until the API exists.
 const participants = ref<AdminParticipant[]>([])
-const hasMore = ref(false)
+const total = ref(0)
+const loading = ref(false)
+const hasMore = computed<boolean>(() => participants.value.length < total.value)
 
-// Real aggregate from /admin/stats (loaded by AdminShell). Header + «Все» badge.
+// Header + «Все» badge show the real platform total from /admin/stats (loaded
+// by AdminShell) — a stable count independent of the current filter/page.
 const totalCount = computed<number | null>(() => adminStore.stats?.users_count ?? null)
 const headerCount = computed<string>(() =>
   totalCount.value !== null ? String(totalCount.value) : '—',
@@ -101,14 +98,45 @@ const segOptions = computed<SegmentOption[]>(() => [
   { value: 'active', label: 'Активные' },
 ])
 
-// No messaging endpoint yet -> stub toast (build-full-design). Roadmap: Zod.
-function messageStub(): void {
-  toast.info('Сообщения пока недоступны')
+async function load(reset: boolean): Promise<void> {
+  if (loading.value) return
+  loading.value = true
+  try {
+    const pageOffset = reset ? 0 : participants.value.length
+    const res = await getParticipants(filter.value, 'week', 0, PAGE, pageOffset)
+    total.value = res.total
+    participants.value = reset ? res.items : [...participants.value, ...res.items]
+  } catch {
+    toast.error('Не удалось загрузить участников')
+  } finally {
+    loading.value = false
+  }
 }
 
-// No participants API yet -> inert until Zod wires pagination.
+onMounted(() => load(true))
+watch(filter, () => load(true))
+
 function loadMore(): void {
-  toast.info('Раздел пока недоступен')
+  load(false)
+}
+
+// "Дек 2025" — registration month, from created_at (UTC).
+function joinedLabel(iso: string): string {
+  const d = new Date(iso)
+  const month = new Intl.DateTimeFormat('ru-RU', { month: 'short', timeZone: 'UTC' })
+    .format(d)
+    .replace('.', '')
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${d.getUTCFullYear()}`
+}
+
+// "Сегодня" / "Вчера" / "24 января" — last app-open, from last_login_at.
+function lastActiveLabel(iso: string): string {
+  return dayLabelOf(iso)
+}
+
+// No admin->user messaging endpoint yet -> stub toast (build-full-design).
+function messageStub(): void {
+  toast.info('Сообщения пока недоступны')
 }
 </script>
 

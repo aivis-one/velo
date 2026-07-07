@@ -20,6 +20,7 @@
 //   GET  /api/v1/admin/metrics/check-in     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/feedback     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/return       -- engagement metric (E9)
+//   GET  /api/v1/admin/participants         -- global participants list (E1)
 //   GET  /api/v1/admin/practices            -- global practices list (E9)
 //   GET  /api/v1/admin/practices/{id}       -- practice detail + roster (E9)
 //   GET  /api/v1/admin/revenue              -- revenue/commission/payout (E9)
@@ -49,6 +50,7 @@ import type {
   AdminRevenueResponse,
   InviteMasterResponse,
   PaginatedUsersResponse,
+  PaginatedParticipantsResponse,
   AdminMasterDetail,
   RevokeMasterAdvisory,
 } from '@/api/types'
@@ -132,6 +134,22 @@ export function getUsersList(
 ): Promise<PaginatedUsersResponse> {
   const query = buildQuery({ limit, offset, role })
   return api.get<PaginatedUsersResponse>(`/api/v1/admin/users${query}`)
+}
+
+/**
+ * Global participants list (all platform users) for the «Участников» screen.
+ * `filter` = all | new | active; new/active window on `period` (+ `offset`
+ * stepper, parity with the dashboard). Paginated (limit/page_offset).
+ */
+export function getParticipants(
+  filter: 'all' | 'new' | 'active' = 'all',
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+  limit = 100,
+  page_offset = 0,
+): Promise<PaginatedParticipantsResponse> {
+  const query = buildQuery({ filter, period, offset, limit, page_offset })
+  return api.get<PaginatedParticipantsResponse>(`/api/v1/admin/participants${query}`)
 }
 
 /**
