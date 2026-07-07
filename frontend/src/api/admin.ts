@@ -299,20 +299,33 @@ export function rejectWithdrawal(
 }
 
 // ============================================================================
-// Engagement metrics (E9). Absolute values only — period-over-period deltas
-// need E7 (not delivered), so the views leave the delta fields blank.
+// Engagement metrics (E9). Per-distinct-practice rates (D4/D5), period + offset
+// scoped (0 = current, -1 = previous week/month) — same window as the dashboard
+// stepper. Omitting the args = current week (drill-in views).
 // ============================================================================
 
-export function getCheckinMetric(): Promise<CheckinMetricResponse> {
-  return api.get<CheckinMetricResponse>('/api/v1/admin/metrics/check-in')
+export function getCheckinMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<CheckinMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<CheckinMetricResponse>(`/api/v1/admin/metrics/check-in${query}`)
 }
 
-export function getFeedbackMetric(): Promise<FeedbackMetricResponse> {
-  return api.get<FeedbackMetricResponse>('/api/v1/admin/metrics/feedback')
+export function getFeedbackMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<FeedbackMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<FeedbackMetricResponse>(`/api/v1/admin/metrics/feedback${query}`)
 }
 
-export function getReturnMetric(): Promise<ReturnMetricResponse> {
-  return api.get<ReturnMetricResponse>('/api/v1/admin/metrics/return')
+export function getReturnMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<ReturnMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<ReturnMetricResponse>(`/api/v1/admin/metrics/return${query}`)
 }
 
 // ============================================================================

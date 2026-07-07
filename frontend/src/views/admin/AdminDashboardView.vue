@@ -303,10 +303,12 @@ const feedbackRate = ref<number | null>(null)
 const returnRate = ref<number | null>(null)
 
 async function loadEngagement(): Promise<void> {
+  const p = period.value
+  const off = periodOffset.value
   const [checkin, feedback, ret, revenue] = await Promise.allSettled([
-    getCheckinMetric(),
-    getFeedbackMetric(),
-    getReturnMetric(),
+    getCheckinMetric(p, off),
+    getFeedbackMetric(p, off),
+    getReturnMetric(p, off),
     getAdminRevenue(),
   ])
   if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
@@ -333,9 +335,11 @@ const periodRange = computed((): string => {
   return m.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
 })
 
-// Refetch the overview whenever the period or the stepper offset changes (D1/D3).
+// Refetch the overview + engagement rates whenever the period or the stepper
+// offset changes (D1/D3 cards + D4/D5 engagement share one window).
 watch([period, periodOffset], () => {
   void adminStore.fetchOverview(period.value, periodOffset.value)
+  void loadEngagement()
 })
 
 onMounted(() => {
