@@ -430,9 +430,9 @@ onMounted(() => {
   display: flex;
   gap: var(--velo-gap-2);
   background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
+  border: var(--velo-border-width) solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
-  padding: 2px;
+  padding: var(--velo-gap-2);
 }
 
 .admin-dashboard__period-btn {
@@ -468,8 +468,8 @@ onMounted(() => {
 }
 
 .admin-dashboard__week-nav {
-  width: 60px;
-  height: 35px;
+  width: var(--velo-size-60);
+  height: var(--velo-size-35);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-xl);
@@ -509,7 +509,7 @@ onMounted(() => {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
   color: var(--velo-text-primary);
-  letter-spacing: 0.64px;
+  letter-spacing: var(--velo-letter-spacing-064);
   line-height: 1.1;
 }
 

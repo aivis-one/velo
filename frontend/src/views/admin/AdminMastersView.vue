@@ -214,8 +214,8 @@ onMounted(load)
 }
 
 .admin-list__count {
-  min-width: 48px;
-  height: 36px;
+  min-width: var(--velo-size-48);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);
@@ -253,7 +253,7 @@ onMounted(load)
 .mcard {
   width: 100%;
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
+  border: var(--velo-border-width) solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   display: flex;
@@ -317,7 +317,7 @@ onMounted(load)
   justify-content: space-between;
   gap: var(--space-2);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--velo-border-light);
+  border-top: var(--velo-border-width) solid var(--velo-border-light);
 }
 
 .mcard__foot-key,

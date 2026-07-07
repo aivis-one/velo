@@ -164,8 +164,8 @@ function messageStub(): void {
 }
 
 .admin-list__count {
-  min-width: 48px;
-  height: 36px;
+  min-width: var(--velo-size-48);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);
@@ -203,7 +203,7 @@ function messageStub(): void {
 .prow {
   width: 100%;
   background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
+  border: var(--velo-border-width) solid var(--velo-border-card);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   display: flex;
@@ -214,8 +214,8 @@ function messageStub(): void {
 }
 
 .prow__avatar {
-  width: 41px;
-  height: 41px;
+  width: var(--velo-size-41);
+  height: var(--velo-size-41);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-blue-300);

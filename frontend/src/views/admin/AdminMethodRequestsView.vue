@@ -274,8 +274,8 @@ onMounted(loadInitial)
 }
 
 .amr__count {
-  min-width: 38px;
-  height: 36px;
+  min-width: var(--velo-size-38);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);

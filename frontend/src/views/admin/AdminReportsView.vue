@@ -252,8 +252,8 @@ onMounted(loadInitial)
 }
 
 .admin-reports__count {
-  min-width: 38px;
-  height: 36px;
+  min-width: var(--velo-size-38);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);
@@ -275,7 +275,7 @@ onMounted(loadInitial)
   width: 100%;
   height: var(--velo-size-50);
   padding: 0 var(--space-5);
-  border: 1px solid var(--velo-glass-border);
+  border: var(--velo-border-width) solid var(--velo-glass-border);
   border-radius: var(--radius-xl);
   background: var(--velo-primary);
   color: var(--velo-white);
@@ -290,7 +290,7 @@ onMounted(loadInitial)
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: -4px 2px;
+  margin: calc(-1 * var(--space-1)) var(--velo-gap-2);
 }
 
 .admin-reports__loader {

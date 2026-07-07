@@ -266,7 +266,7 @@ onMounted(loadReport)
   font-size: var(--text-xs);
   color: var(--velo-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--velo-letter-spacing-05);
   margin-bottom: var(--space-2);
 }
 
@@ -285,7 +285,7 @@ onMounted(loadReport)
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--velo-border-light);
+  border-bottom: var(--velo-border-width) solid var(--velo-border-light);
   gap: var(--space-2);
 }
 

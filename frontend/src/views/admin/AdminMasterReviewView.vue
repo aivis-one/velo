@@ -518,9 +518,9 @@ onMounted(loadMaster)
 }
 
 .mreview__photo {
-  width: 104px;
-  height: 104px;
-  border-radius: 14px;
+  width: var(--velo-size-104);
+  height: var(--velo-size-104);
+  border-radius: var(--velo-radius-14);
   object-fit: cover;
   margin-bottom: var(--space-2);
 }
@@ -548,12 +548,12 @@ onMounted(loadMaster)
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: 2px 2px -6px;
+  margin: var(--velo-gap-2) var(--velo-gap-2) calc(-1 * var(--velo-gap-6));
 }
 
 /* -- Информация -- */
 .mreview__info {
-  padding: var(--space-1) 18px;
+  padding: var(--space-1) var(--velo-inset-row);
 }
 
 .mreview__row {
@@ -562,7 +562,7 @@ onMounted(loadMaster)
 }
 
 .mreview__row + .mreview__row {
-  border-top: 1px solid var(--velo-border);
+  border-top: var(--velo-border-width) solid var(--velo-border);
 }
 
 .mreview__k {
@@ -631,8 +631,8 @@ onMounted(loadMaster)
 .mreview__docs {
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: var(--space-3) 15px;
+  gap: var(--velo-gap-11);
+  padding: var(--space-3) var(--velo-gap-15);
 }
 
 .mreview__doc {
@@ -643,7 +643,7 @@ onMounted(loadMaster)
   padding: 0 var(--space-3);
   border-radius: var(--velo-radius-9);
   background: var(--velo-glass-teal-30);
-  border: 1px solid var(--velo-teal-400);
+  border: var(--velo-border-width) solid var(--velo-teal-400);
   color: var(--velo-teal-700);
 }
 
@@ -688,9 +688,9 @@ onMounted(loadMaster)
 .mreview__acc {
   display: flex;
   align-items: center;
-  gap: 21px;
+  gap: var(--velo-gap-21);
   width: 100%;
-  padding: 15px 18px;
+  padding: var(--velo-gap-15) var(--velo-inset-row);
   background: none;
   border: none;
   text-align: left;
@@ -727,7 +727,7 @@ onMounted(loadMaster)
 .mreview__hist-entry {
   background: var(--velo-warning-bg);
   border-radius: var(--radius-md);
-  padding: 18px 15px;
+  padding: var(--velo-inset-row) var(--velo-gap-15);
 }
 
 .mreview__hist-entry + .mreview__hist-entry {

@@ -164,8 +164,8 @@ onMounted(load)
 }
 
 .admin-list__count {
-  min-width: 48px;
-  height: 36px;
+  min-width: var(--velo-size-48);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);
