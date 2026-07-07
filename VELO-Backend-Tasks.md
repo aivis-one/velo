@@ -734,3 +734,68 @@ behavior:
 
 If you add a durable revoke/suspension concept later, reconcile with this JSONB soft-freeze so CLI +
 admin + your path agree on `status=="suspended"` as the parked state.
+
+---
+
+## 2026-07-07 — admin F-batch deferred to Zod (F2/F6, F4)
+
+The admin F-batch shipped its self/FE parts (F1/F5/F3 masters status filter, F7 moderation reset).
+Two items are backend-blocked and recorded here.
+
+### F2/F6 — master card + detail must show «Направление» + «Вид» — FOLD into E19 + E20. **P2. STATUS: OPEN — Zod.**
+
+**Reality (recon 2026-07-07).** A master profile stores only a **flat `methods: list[str]`**
+(`masters/service.py:81-90` `_build_data` → `data.profile.methods`; input `MasterApplyExperience`
+`masters/schemas.py:60-70`). There is **no** `direction` / `type` / `вид` / `subtype` / `category`
+field anywhere under `data.profile`. `AdminMasterReviewView` merely *relabels* the flat list
+"Направления практик" — cosmetic, no second «Вид» axis. Direction/type exist only on **Practice**
+(`data.taxonomy.direction` + `PracticeType`), not on masters.
+
+**What F2/F6 needs (all Zod):**
+1. A master-profile taxonomy shape — `direction` + `subtype (вид)` (two-level, mirroring E19's
+   «Направление»→«Вид»), JSONB-additive under `data.profile` (no column migration) — or the E20
+   `catalog_entries` route.
+2. A master-facing way to SET them: extend `MasterApplyExperience` (apply) + the M3 change-request
+   (`MethodChangeRequestSubmit` `masters/schemas.py:168-176`, currently flat `proposed_methods`) +
+   the **admin edit-master-fields** endpoint already tracked at the §E19-area row
+   `| admin edit-master-fields | NEW | save Направление / Вид | P2 | OPEN |` (line ~497).
+3. THEN the admin **card + detail** (`AdminMastersView`, `AdminMasterReviewView`, and the
+   `AdminMasterDetail` schema `admin/users/schemas.py:38-49`) render «Направление» + «Вид». Today
+   they show honest `«—»` stubs — the FE structure is already built for the values to drop in.
+
+**Cross-ref:** this IS the deferred **E19** (two-level Направление→Вид taxonomy, shipped FLAT M3
+instead) + **E20** (admin-editable catalog `catalog_entries`, kind ∈ {direction, practice_type,
+method}). F2/F6 cannot ship presentational — a faked taxonomy violates the E19 no-fake rule.
+**Operator fork:** (B) minimal real `data.profile.direction`+`subtype` now, hardcoded option lists;
+or (C) fold into E19+E20 catalog (correct, larger, unblocks CreatePractice/EditProfile picklists).
+
+### F4 — self-deleted master candidate → `cancelled_by_user` archival. **NEW. P2. STATUS: OPEN — Zod (backend) + FE branch.**
+
+**Target.** When a user with a **pending** master application deletes their account, the application
+row STAYS in the DB, flips to auto-status `cancelled_by_user`, and the admin moderation queue shows
+«Аккаунт удалён» with Approve/Reject **disabled**.
+
+**Reality (recon 2026-07-07).** The precondition does **not** exist: `DELETE /api/v1/users/me`
+(`users/router.py:139`) → `reset_user_to_onboarding` (`users/service.py:283`) is a documented
+**no-op** — it only clears `onboarding_completed`; `is_active` untouched, all data stays, the account
+still logs in. Nothing writes `cancelled_by_user` for masters (it is only a booking/diary event
+today). No «Аккаунт удалён» UI branch exists.
+
+**What F4 needs:**
+1. **Backend — real deletion hook** (the single change-point is already earmarked inside
+   `reset_user_to_onboarding`, `users/service.py:287-299`): on account deletion, find the user's
+   MasterProfile and if `data.account.status == "pending"` write `status = "cancelled_by_user"`
+   (JSONB deepcopy + `set_jsonb`, mirroring `reject_master` `admin/masters/service.py:298-303`).
+   ⚠ **`MasterProfile.user_id` FK is `ondelete="CASCADE"` (`masters/models.py:59`)** — a real
+   hard-delete of the User would DROP the profile row (opposite of the target). So either soft-delete
+   the User (needs an `is_deleted`/`deleted_at` column = migration) or leave the User row and only
+   flip the status (no migration). Decide the deletion semantics first.
+2. **Frontend (self, ready to wire once the status exists):** `masterStatusLabel` already maps
+   `cancelled_by_user → «Аккаунт удалён»` and the masters filter has an «Удалены» tab (F3, currently
+   count 0). Still to add: an `isCancelledByUser` branch in `AdminMasterReviewView` that shows
+   «Аккаунт удалён» and disables Approve/Reject (note `verify/reject_master` already 409 on
+   non-pending via `_load_pending_profile`, so the guard exists server-side — the UI must disable
+   rather than call).
+
+**Dependency:** F3's «Удалены» tab stays empty until this ships; «Заблокированы» already populates
+from A1's `suspended`.
