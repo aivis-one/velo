@@ -105,6 +105,28 @@ def _build_data(body: MasterApplyRequest) -> dict:
     }
 
 
+def _build_verified_data(body: MasterApplyRequest) -> dict:
+    """Build VERIFIED JSONB data for master self-provision (ПРОМТ №307).
+
+    A role=master account with NO profile (in practice an admin who switched
+    into master mode, or a CLI-promoted account) fills the same apply form and
+    is verified IMMEDIATELY -- no approval loop (operator ruling). Mirrors
+    _build_data but flips account.status to 'verified', stamps a self-provision
+    verification block, and opens availability so the master zone is usable at
+    once. Same profile fields (methods / experience / bio) as the pending path.
+    """
+    now_iso = datetime.now(UTC).isoformat()
+    data = _build_data(body)
+    data["account"]["status"] = "verified"
+    data["account"]["verification"] = {
+        "verified_at": now_iso,
+        "verified_by": "self_provision",
+        "notes": None,
+    }
+    data["availability"]["is_accepting"] = True
+    return data
+
+
 def _build_reapply_data(
     existing_data: dict, body: MasterApplyRequest
 ) -> dict:
@@ -141,7 +163,39 @@ async def apply_for_master(
 
     Creates a new MasterProfile or updates an existing rejected one.
     """
-    # Only regular users can apply.
+    # Self-provision (ПРОМТ №307): a role=master account WITHOUT a profile --
+    # an admin who switched into master mode, or a CLI-promoted account -- fills
+    # this same form and gets a VERIFIED profile immediately (no approval loop).
+    # A role=master WITH a profile is already a master -> 409. Real masters
+    # (invite -> apply -> approve -> switch) always have a profile, so they never
+    # reach the verified-create branch.
+    if user.role == UserRole.MASTER:
+        stmt = (
+            select(MasterProfile)
+            .where(MasterProfile.user_id == user.id)
+            .with_for_update()
+        )
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+        if existing is not None:
+            raise ConflictError(
+                message="Already a master", code="already_master"
+            )
+        profile = MasterProfile(
+            user_id=user.id,
+            data=_build_verified_data(body),
+        )
+        session.add(profile)
+        try:
+            async with session.begin_nested():
+                await session.flush()
+        except IntegrityError:
+            raise ConflictError(
+                message="Already a master", code="already_master"
+            )
+        logger.info("master_self_provisioned", user_id=str(user.id))
+        return profile
+
+    # Only regular users can apply (the normal application path).
     if user.role != UserRole.USER:
         raise ForbiddenError("Only users with role 'user' can apply")
 

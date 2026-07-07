@@ -237,9 +237,11 @@ import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
 import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
+import { useMasterStore } from '@/stores/master'
 
 const router = useRouter()
 const toast = useToast()
+const masterStore = useMasterStore()
 
 // -- Step state --
 const step = ref(1)
@@ -405,7 +407,7 @@ async function submit(skipDocuments = false): Promise<void> {
 
   submitting.value = true
   try {
-    await applyMaster({
+    const res = await applyMaster({
       profile: {
         display_name: form.display_name.trim(),
         email: form.email.trim() || null,
@@ -421,11 +423,23 @@ async function submit(skipDocuments = false): Promise<void> {
       documents: [],
     })
 
-    // Mark this session as an actual applicant so the master-pending guard lets
-    // a still-role='user' applicant through (backend promotes role later).
-    sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
-    toast.success('Заявка отправлена!')
-    router.push({ name: 'master-pending' })
+    if (res.status === 'verified') {
+      // Self-provision (ПРОМТ №307): a no-profile role='master' account (an
+      // admin who switched into master mode) is verified immediately -- go
+      // straight to the master zone, no pending screen, no applicant marker.
+      // Refresh the store so masterNoProfileGuard sees the fresh profile
+      // instead of the stale profileMissing from the earlier 403.
+      await masterStore.fetchMyProfile(true)
+      toast.success('Профиль создан')
+      router.push({ name: 'master-dashboard' })
+    } else {
+      // Normal application (role='user') -> pending verdict flow. Mark this
+      // session as an actual applicant so the master-pending guard lets a
+      // still-role='user' applicant through (backend promotes role later).
+      sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
+      toast.success('Заявка отправлена!')
+      router.push({ name: 'master-pending' })
+    }
   } catch (e) {
     const message = e instanceof ApiResponseError ? e.detail : 'Не удалось отправить заявку'
     toast.error(message)
