@@ -46,6 +46,7 @@ from app.core.periods import (
     calendar_period_bounds,
     period_delta_pct,
     rate_delta_pp,
+    shift_anchor,
 )
 from app.modules.admin.stats.overview_schemas import AdminStatsOverviewResponse
 from app.modules.bookings.models import Booking, BookingStatus
@@ -282,10 +283,18 @@ def _rate_with_delta(
 async def get_admin_stats_overview(
     period: str,
     session: AsyncSession,
+    *,
+    offset: int = 0,
 ) -> AdminStatsOverviewResponse:
-    """Period-scoped platform overview + deltas for the admin dashboard."""
+    """Period-scoped platform overview + deltas for the admin dashboard.
+
+    `offset` steps the window by whole periods (0 = current, -1 = previous
+    week/month, +1 = next) for the dashboard stepper. The delta is still vs the
+    period immediately before the navigated one. Default 0 preserves behavior.
+    """
     now = datetime.now(UTC)
-    cur_start, cur_end, prev_start = calendar_period_bounds(period, now)
+    anchor = shift_anchor(period, now, offset)
+    cur_start, cur_end, prev_start = calendar_period_bounds(period, anchor)
 
     # -- growth counts (current + previous) --
     new_users = await _count_new_users(cur_start, cur_end, session)

@@ -63,6 +63,25 @@ def calendar_period_bounds(
     return cur_start, cur_end, prev_start
 
 
+def shift_anchor(period: str, now: datetime, offset: int) -> datetime:
+    """Shift `now` by `offset` whole periods (weeks or months).
+
+    offset 0 -> now; -1 -> the previous week/month; +1 -> the next. Used by the
+    admin-overview stepper: the returned anchor is fed to calendar_period_bounds,
+    so the navigated period's delta is still measured against the period
+    immediately before it. Pure date math -- default offset 0 is a no-op.
+    """
+    if offset == 0:
+        return now
+    if period == "week":
+        return now + timedelta(weeks=offset)
+    # month: shift year/month arithmetically; pin to day 1 to avoid day-overflow
+    # (calendar_period_bounds re-pins day=1 anyway).
+    total = now.year * 12 + (now.month - 1) + offset
+    year, month0 = divmod(total, 12)
+    return now.replace(year=year, month=month0 + 1, day=1)
+
+
 def period_delta_pct(current: int, previous: int) -> int | None:
     """Signed percent change of `current` vs `previous`, or None.
 
