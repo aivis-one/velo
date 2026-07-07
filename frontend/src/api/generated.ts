@@ -162,6 +162,7 @@ export interface AdminStatsResponse {
   masters_count: number
   practices_count: number
   pending_verifications: number
+  pending_method_changes: number
 }
 
 /** Single withdrawal record for admin view. */
@@ -317,15 +318,6 @@ export interface ClaimMasterInviteRequest {
 /** POST /masters/invite/claim -- claim confirmation. Claiming only validates + consumes the one-time marker; becoming a master still goes through the regular apply wizard + admin approval. */
 export interface ClaimMasterInviteResponse {
   claimed_at: string
-}
-
-/** GET /api/v1/admin/consistency -- response body. */
-export interface ConsistencyResponse {
-  items: SemaphoreResult[]
-  total: number
-  ok_count: number
-  alert_count: number
-  run_at: string
 }
 
 /** POST /api/v1/bookings -- request body. Phase 6.7: optional promo_code for discount. Existing clients that omit promo_code continue to work unchanged. */
@@ -1081,17 +1073,6 @@ export interface RoleSwitchInfo {
 /** POST /api/v1/users/me/role — target role to switch into. A production endpoint (always on; A1=Б). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service via derive_allowed_roles() -- the capability-derived policy (own role + a VERIFIED MasterProfile + the switched-away-admin marker), the single source of truth shared with the GET /users/me read path. Legacy seeded credentials.role_switch.allowed_roles lists grant nothing. */
 export interface RoleSwitchRequest {
   role: UserRole
-}
-
-/** Single semaphore check result. name: machine-readable identifier (e.g. "1.1_bookings_eq_purchases"). category: one of 5 categories from VELO-Data-Consistency-Semaphores.md. status: OK if expected == actual, ALERT otherwise. expected: what the check expects (human-readable string or number). actual: what was found. details: optional dict with extra context (e.g. mismatched IDs). criticality: how severe an ALERT is. */
-export interface SemaphoreResult {
-  name: string
-  category: string
-  status: 'OK' | 'ALERT'
-  expected: string
-  actual: string
-  details?: Record<string, unknown> | null
-  criticality: 'critical' | 'warning' | 'info'
 }
 
 /** One bar in the check-in weekly chart (label = bucket date, value = %). */
