@@ -50,6 +50,7 @@ import type {
   InviteMasterResponse,
   PaginatedUsersResponse,
   AdminMasterDetail,
+  RevokeMasterAdvisory,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
@@ -60,6 +61,7 @@ export type {
   AdminMasterDetail,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  RevokeMasterAdvisory,
   PaginatedUsersResponse,
   UserResponse,
   AdminMethodChangeItem,
@@ -169,6 +171,23 @@ export function verifyMaster(userId: string): Promise<AdminMasterActionResponse>
 
 export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {
   return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/reject`, { reason })
+}
+
+/**
+ * Advisory signals shown in the revoke confirm dialog (A1, read-only): future
+ * scheduled/live practices, balance, pending withdrawals — WARN-not-block.
+ */
+export function getRevokePreview(userId: string): Promise<RevokeMasterAdvisory> {
+  return api.get<RevokeMasterAdvisory>(`/api/v1/admin/masters/${userId}/revoke-preview`)
+}
+
+/**
+ * Revoke a master's capability (A1, operator Б): role -> user + profile
+ * soft-frozen (status=suspended, is_accepting=false); all data preserved.
+ * Re-grant via makeMaster ("Сделать мастером"). Never blocks on the advisory.
+ */
+export function revokeMaster(userId: string): Promise<RevokeMasterAdvisory> {
+  return api.post<RevokeMasterAdvisory>(`/api/v1/admin/masters/${userId}/revoke`)
 }
 
 /**

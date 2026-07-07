@@ -44,6 +44,7 @@ export function masterStatusLabel(status: string): string {
   if (status === 'pending') return 'Ожидает'
   if (status === 'verified') return 'Верифицирован'
   if (status === 'rejected') return 'Отклонён'
+  if (status === 'suspended') return 'Отозван'
   return status
 }
 

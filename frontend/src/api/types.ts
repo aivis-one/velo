@@ -109,6 +109,7 @@ export type {
   RejectMasterRequest,
   RejectMethodChangeRequest,
   RejectWithdrawalRequest,
+  RevokeMasterAdvisory,
   ReportResponse,
   ResolveReportRequest,
   ReturnMetricResponse,

@@ -177,9 +177,22 @@
           Одобрить
         </VButton>
       </div>
-      <VCard v-else class="mreview__processed">
-        Заявка уже обработана — статус: <strong>{{ statusLabel }}</strong>
-      </VCard>
+      <template v-else>
+        <VCard class="mreview__processed">
+          Заявка уже обработана — статус: <strong>{{ statusLabel }}</strong>
+        </VCard>
+        <!-- A1: revoke a verified master (soft-freeze, data preserved) -->
+        <div v-if="isVerified" class="mreview__foot">
+          <VButton
+            variant="danger"
+            :loading="revoking"
+            :disabled="anyLoading"
+            @click="openRevoke"
+          >
+            Отозвать мастера
+          </VButton>
+        </div>
+      </template>
     </template>
 
     <!-- Not found -->
@@ -205,6 +218,17 @@
         :error="rejectError"
       />
     </VBottomSheet>
+
+    <!-- Revoke confirm (A1): advisory surfaced, never blocks -->
+    <VConfirmDialog
+      :open="showRevoke"
+      :message="revokeMessage"
+      confirm-label="Отозвать"
+      danger
+      :loading="revoking"
+      @confirm="onRevoke"
+      @cancel="showRevoke = false"
+    />
   </div>
 </template>
 
@@ -220,11 +244,19 @@ import {
   VLoader,
   VEmptyState,
   VBottomSheet,
+  VConfirmDialog,
 } from '@/components/ui'
 import { IconIdCard, IconEdit, IconView, IconClock } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { getMasterById, verifyMaster, rejectMaster, editMasterMethods } from '@/api/admin'
-import type { AdminMasterListItem, AdminMasterDetail } from '@/api/admin'
+import {
+  getMasterById,
+  verifyMaster,
+  rejectMaster,
+  editMasterMethods,
+  getRevokePreview,
+  revokeMaster,
+} from '@/api/admin'
+import type { AdminMasterListItem, AdminMasterDetail, RevokeMasterAdvisory } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
 import { AVAILABLE_METHODS } from '@/utils/methods'
@@ -280,10 +312,61 @@ const documents = ref<{ name: string }[]>([])
 const history = ref<{ when: string; title: string; comment?: string }[]>([])
 
 const isPending = computed<boolean>(() => master.value?.master_status === 'pending')
+const isVerified = computed<boolean>(() => master.value?.master_status === 'verified')
 const statusLabel = computed<string>(() =>
   master.value ? masterStatusLabel(master.value.master_status) : '',
 )
-const anyLoading = computed<boolean>(() => verifying.value || rejecting.value)
+const anyLoading = computed<boolean>(() => verifying.value || rejecting.value || revoking.value)
+
+// -- Revoke master (A1): confirm dialog surfaces the advisory (WARN-not-block) --
+const showRevoke = ref(false)
+const revoking = ref(false)
+const revokeAdvisory = ref<RevokeMasterAdvisory | null>(null)
+
+const revokeMessage = computed<string>(() => {
+  const base =
+    `Мастер ${displayName.value} снова станет обычным пользователем. Все данные ` +
+    `(профиль, практики, история) сохраняются — доступ можно вернуть кнопкой ` +
+    `«Сделать мастером».`
+  const a = revokeAdvisory.value
+  if (!a || !a.has_warnings) return base
+  const warns: string[] = []
+  if (a.scheduled_or_live_practices > 0) {
+    warns.push(`${a.scheduled_or_live_practices} практик(и) в расписании`)
+  }
+  if (a.available_cents > 0 || a.frozen_cents > 0) warns.push('ненулевой баланс')
+  if (a.pending_withdrawals > 0) {
+    warns.push(`${a.pending_withdrawals} выплат(ы) в ожидании`)
+  }
+  return `${base} Внимание: ${warns.join(', ')} — отзыв не блокируется, данные останутся.`
+})
+
+async function openRevoke(): Promise<void> {
+  revokeAdvisory.value = null
+  showRevoke.value = true
+  // Best-effort: fill the advisory numbers into the dialog (WARN-not-block).
+  try {
+    revokeAdvisory.value = await getRevokePreview(masterId)
+  } catch {
+    // Leave the base message; the revoke itself does not depend on the preview.
+  }
+}
+
+async function onRevoke(): Promise<void> {
+  if (revoking.value) return
+  revoking.value = true
+  try {
+    await revokeMaster(masterId)
+    if (master.value) master.value.master_status = 'suspended'
+    showRevoke.value = false
+    toast.success('Мастер отозван — аккаунт стал пользователем')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось отозвать мастера'
+    toast.error(msg)
+  } finally {
+    revoking.value = false
+  }
+}
 
 async function loadMaster(): Promise<void> {
   // The list hands a subset (AdminMasterListItem) via router state for an
