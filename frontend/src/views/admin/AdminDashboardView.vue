@@ -161,7 +161,7 @@
         />
       </VCard>
 
-      <!-- Система: восстановленный вход в «Семафоры» (data-consistency, audit O-2) -->
+      <!-- Система: пользователи + заявки на смену методов -->
       <div class="admin-dashboard__section">
         <span class="admin-dashboard__section-title">Система</span>
       </div>
@@ -179,15 +179,12 @@
         clickable
         @click="router.push({ name: 'admin-method-requests' })"
       >
-        <template #trailing><IconArrowRight :size="20" /></template>
-      </VListRow>
-      <VListRow
-        title="Семафоры"
-        subtitle="21 проверка целостности данных"
-        clickable
-        @click="router.push({ name: 'admin-consistency' })"
-      >
-        <template #trailing><IconArrowRight :size="20" /></template>
+        <template #trailing>
+          <span class="admin-dashboard__row-trailing">
+            <VBadge v-if="pendingMethodChanges > 0" variant="error">{{ pendingMethodChanges }}</VBadge>
+            <IconArrowRight :size="20" />
+          </span>
+        </template>
       </VListRow>
     </template>
   </div>
@@ -196,7 +193,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VStatCard, VCard, VLoader, VProgressRow, VListRow } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
@@ -215,6 +212,8 @@ const loading = computed((): boolean => adminStore.loading && !adminStore.stats)
 
 const pendingVerifications = computed((): number => adminStore.pendingVerifications)
 const pendingModeration = computed((): number => adminStore.pendingModeration)
+// A2: unread indicator for incoming master method-change requests.
+const pendingMethodChanges = computed((): number => adminStore.pendingMethodChanges)
 
 // Russian plural picker: [one, few, many].
 function plural(n: number, forms: [string, string, string]): string {
@@ -365,6 +364,13 @@ onMounted(() => {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
+}
+
+/* A2: trailing badge + chevron on the method-requests row */
+.admin-dashboard__row-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* -- Period toggle (user/master dashboard pattern) -- */

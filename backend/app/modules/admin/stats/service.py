@@ -10,6 +10,8 @@
 #   - practices_count:      COUNT(*) from practices (Phase 4.1)
 #   - pending_verifications: COUNT(*) from master_profiles
 #                            WHERE data->'account'->>'status' = 'pending'
+#   - pending_method_changes: COUNT(*) from master_profiles WHERE
+#       data->'profile'->'method_change_request'->>'status' = 'pending'  (A2)
 # =============================================================================
 
 import structlog
@@ -49,6 +51,20 @@ async def get_stats(session: AsyncSession) -> AdminStatsResponse:
     )
     pending_verifications = pending_result.scalar_one()
 
+    # -- Pending master method-change requests (JSONB filter, A2) --
+    # Mirrors pending_verifications: sequential scan on the small master_profiles
+    # table, no index needed for MVP. Feeds the dashboard "Заявки на смену
+    # методов" red badge.
+    method_changes_result = await session.execute(
+        select(func.count(MasterProfile.user_id)).where(
+            MasterProfile.data["profile"]["method_change_request"][
+                "status"
+            ].as_string()
+            == "pending"
+        )
+    )
+    pending_method_changes = method_changes_result.scalar_one()
+
     # -- Total practices --
     practices_result = await session.execute(select(func.count(Practice.id)))
     practices_count = practices_result.scalar_one()
@@ -59,6 +75,7 @@ async def get_stats(session: AsyncSession) -> AdminStatsResponse:
         masters=masters_count,
         practices=practices_count,
         pending=pending_verifications,
+        pending_method_changes=pending_method_changes,
     )
 
     return AdminStatsResponse(
@@ -66,4 +83,5 @@ async def get_stats(session: AsyncSession) -> AdminStatsResponse:
         masters_count=masters_count,
         practices_count=practices_count,
         pending_verifications=pending_verifications,
+        pending_method_changes=pending_method_changes,
     )

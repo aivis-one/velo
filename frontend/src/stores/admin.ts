@@ -27,6 +27,8 @@ export const useAdminStore = defineStore('admin', () => {
 
   const pendingVerifications = computed((): number => stats.value?.pending_verifications ?? 0)
   const pendingModeration = computed((): number => pendingReports.value)
+  // A2: pending master method-change requests -> red badge on the dashboard row.
+  const pendingMethodChanges = computed((): number => stats.value?.pending_method_changes ?? 0)
 
   // Load the dashboard data set (stats + pending-reports count) once. Idempotent:
   // skips while in flight and after a successful load unless `force` is passed.
@@ -54,6 +56,7 @@ export const useAdminStore = defineStore('admin', () => {
     loaded,
     pendingVerifications,
     pendingModeration,
+    pendingMethodChanges,
     fetchDashboard,
   }
 })
