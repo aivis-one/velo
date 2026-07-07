@@ -1,18 +1,5 @@
 # ZOD BACKEND TASKS — consolidated backend wishlist (user / master / admin)
 
-> **Provenance.** This document is the result of a full transition-trace audit of all three
-> zones (Orchestrator-9, PROMPT #38 master / #39 admin / #40 user) cross-referenced with
-> `master-ds-zod-roadmap.md` (per-screen findings, Screens 1–18 + the ADMIN section) and verified
-> against the live backend contract in `frontend/src/api/generated.ts` and the `api/*.ts` wrappers.
-> Every stub that today shows a «недоступно» (unavailable) toast, an em-dash «—», or a
-> captured-only form field is recorded here as a backend task.
->
-> **How the frontend got here.** The UI is built to the operator's approved design *in full*,
-> following the project rule "build the full design now, stub the missing backend". Where a
-> control has no backend, the frontend does not fake a result — it renders the real layout and
-> the tap raises a «недоступно» (unavailable) toast, or the value renders «—». This document is the
-> list of those gaps, for the backend (Zod) to close.
->
 > **Priority legend.**
 > - **P0** — a screen that is already built does **not function** without this. Highest urgency.
 > - **P1** — the endpoint exists or the screen partly works; this **enriches** a partially-working screen.
