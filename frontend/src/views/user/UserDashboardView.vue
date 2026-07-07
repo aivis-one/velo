@@ -74,7 +74,7 @@
       <h3 class="dashboard__section-title">Ближайшие практики</h3>
 
       <!-- Loading -->
-      <div v-if="bookingsStore.loading && nearestBookings.length === 0" class="dashboard__loader">
+      <div v-if="bookingsStore.upcomingLoading && nearestBookings.length === 0" class="dashboard__loader">
         <VLoader />
       </div>
 
@@ -333,7 +333,7 @@ const reflectionAlert = computed((): BookingWithPracticeResponse | null => {
  * re-ranks on the 60s clock tick.
  */
 const nearestBookings = computed((): BookingWithPracticeResponse[] =>
-  selectNearestBookings(bookingsStore.bookings, now.value),
+  selectNearestBookings(bookingsStore.upcoming, now.value),
 )
 
 /**
@@ -469,6 +469,7 @@ function goToReflection(practiceId: string): void {
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
+  void bookingsStore.fetchUpcoming()
   void loadStats()
   clockInterval = setInterval(() => {
     now.value = Date.now()

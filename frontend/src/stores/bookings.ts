@@ -14,6 +14,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import {
   getMyBookings,
+  getUpcomingBookings,
   getBooking,
   cancelBooking as apiCancelBooking,
   joinBooking as apiJoinBooking,
@@ -46,6 +47,13 @@ export const useBookingsStore = defineStore('bookings', () => {
   const pagination = usePagination<BookingWithPracticeResponse>((limit, offset) =>
     getMyBookings(statusFilter.value, limit, offset),
   )
+
+  // -- Live-or-upcoming set for the dashboard «Ближайшая практика» widget --
+  // Separate from the paginated list: fetched from the dedicated
+  // /bookings/me/upcoming endpoint (confirmed + not-ended, scheduled_at ASC) so
+  // the nearest-selection is not capped/mis-sorted by the created_at page (B1).
+  const upcoming = ref<BookingWithPracticeResponse[]>([])
+  const upcomingLoading = ref(false)
 
   // -- Single booking detail (screen 18) --
   const selectedBooking = ref<BookingDetailResponse | null>(null)
@@ -97,6 +105,21 @@ export const useBookingsStore = defineStore('bookings', () => {
   async function fetchMyBookings(): Promise<void> {
     if (pagination.items.value.length > 0) return
     await pagination.refresh()
+  }
+
+  /**
+   * Load the live-or-upcoming set for the dashboard nearest widget.
+   * Always refetches (cheap, bounded list; scheduled times shift with `now`).
+   */
+  async function fetchUpcoming(): Promise<void> {
+    upcomingLoading.value = true
+    try {
+      upcoming.value = await getUpcomingBookings()
+    } catch {
+      upcoming.value = []
+    } finally {
+      upcomingLoading.value = false
+    }
   }
 
   /**
@@ -191,6 +214,11 @@ export const useBookingsStore = defineStore('bookings', () => {
     fetchMyBookings,
     loadMore: pagination.loadMore,
     refreshBookings: pagination.refresh,
+
+    // Live-or-upcoming set for the dashboard nearest widget (B1)
+    upcoming,
+    upcomingLoading,
+    fetchUpcoming,
 
     // Single booking detail (screen 18)
     selectedBooking,
