@@ -13,7 +13,11 @@
 -->
 
 <template>
-  <div class="v-segment" :class="{ 'v-segment--compact': compact }" role="tablist">
+  <div
+    class="v-segment"
+    :class="{ 'v-segment--compact': compact, 'v-segment--scrollable': scrollable }"
+    role="tablist"
+  >
     <button
       v-for="opt in options"
       :key="opt.value"
@@ -54,8 +58,15 @@ withDefaults(
      * filter-strip behaviour used by the admin list screens.
      */
     compact?: boolean
+    /**
+     * Scrollable variant: lay the tabs on ONE line and scroll horizontally
+     * instead of wrapping/clipping when there are more tabs than fit (e.g. the
+     * 6-status masters filter). Items become content-sized + `nowrap`; the
+     * scrollbar is hidden. Composes with `compact`. Default false.
+     */
+    scrollable?: boolean
   }>(),
-  { compact: false },
+  { compact: false, scrollable: false },
 )
 
 defineEmits<{
@@ -130,5 +141,29 @@ defineEmits<{
   color: var(--velo-white);
   background: var(--velo-primary);
   border-color: var(--velo-primary);
+}
+
+/* -- Scrollable variant --
+ * Many tabs on one line: horizontal scroll instead of wrap/clip. Items are
+ * content-sized + nowrap; the scrollbar is hidden (the pills hint the overflow).
+ * Composes with --compact (which is otherwise content-sized inline-flex — here
+ * it must be bound to the parent width so the overflow actually scrolls). */
+.v-segment--scrollable {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.v-segment--scrollable::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
+.v-segment--scrollable .v-segment__item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.v-segment--compact.v-segment--scrollable {
+  display: flex;
 }
 </style>

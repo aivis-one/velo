@@ -34,17 +34,24 @@ export function masterStatusVariant(status: string): 'warning' | 'success' | 'er
   if (status === 'pending') return 'warning'
   if (status === 'verified') return 'success'
   if (status === 'rejected') return 'error'
+  if (status === 'suspended') return 'error'
   return 'info'
 }
 
 /**
  * Map master_status to Russian label.
+ *
+ * F3 (2026-07-07): `suspended` shows «Заблокирован» (the masters status filter
+ * groups A1's soft-freeze under «Заблокированы»; the revoke ACTION stays
+ * «Отозвать мастера»). `cancelled_by_user` → «Аккаунт удалён» (F4-ready; no
+ * flow writes it yet, so it renders only once F4 ships).
  */
 export function masterStatusLabel(status: string): string {
   if (status === 'pending') return 'Ожидает'
   if (status === 'verified') return 'Верифицирован'
   if (status === 'rejected') return 'Отклонён'
-  if (status === 'suspended') return 'Отозван'
+  if (status === 'suspended') return 'Заблокирован'
+  if (status === 'cancelled_by_user') return 'Аккаунт удалён'
   return status
 }
 

@@ -2,7 +2,8 @@
   VELO Frontend -- AdminMastersView (Admin DS rebuild 2026-06-14, operator SVGs "1 Masters" all/under-review/verified)
 
   The «Мастера» tab (admin-masters). Rebuilt to the operator design: header (back +
-  count badge) + VSegment filter (Все / На проверке / Верифицированы) + master cards.
+  count badge) + VSegment status filter (F3: Все / Проверка / Верифиц. / Отклонены /
+  Заблок. / Удалены — compact + horizontally scrollable) + master cards.
   A fog-feed tab screen (mandala background, the admin tab bar stays). Tapping a card
   opens the master review (admin-master-review) where verify / reject live.
 
@@ -24,7 +25,7 @@
       <span class="admin-list__count">{{ headerCount }}</span>
     </header>
 
-    <VSegment v-model="filter" :options="segOptions" />
+    <VSegment v-model="filter" :options="segOptions" compact scrollable />
 
     <!-- Batch-INVITE (№258): entry to the one-time invite link screen. -->
     <VButton variant="secondary" block @click="router.push({ name: 'admin-master-invite' })">
@@ -117,32 +118,40 @@ function nameOf(m: AdminMasterListItem): string {
 
 // Filter counts derived from the fetched list (list is small). «Все» uses the API
 // total so the header stays correct even if a cap is hit.
-const pendingCount = computed<number>(
-  () => masters.value.filter((m) => m.master_status === 'pending').length,
-)
-const verifiedCount = computed<number>(
-  () => masters.value.filter((m) => m.master_status === 'verified').length,
-)
+function statusCount(status: string): number | undefined {
+  return masters.value.filter((m) => m.master_status === status).length || undefined
+}
 
 const headerCount = computed<string>(() => (total.value ? String(total.value) : '—'))
 
+// F3: six status tabs. Values map 1:1 to data.account.status. «Заблокированы»
+// populates from A1's `suspended`; «Удалены» stays empty until F4 writes
+// `cancelled_by_user` (the tab exists, count 0 — expected). F5: short labels;
+// the strip is compact + horizontally scrollable (VSegment scrollable).
 const segOptions = computed<SegmentOption[]>(() => [
   { value: 'all', label: 'Все', badge: total.value || undefined },
-  { value: 'pending', label: 'На проверке', badge: pendingCount.value || undefined },
-  { value: 'verified', label: 'Верифицированы', badge: verifiedCount.value || undefined },
+  { value: 'pending', label: 'Проверка', badge: statusCount('pending') },
+  { value: 'verified', label: 'Верифиц.', badge: statusCount('verified') },
+  { value: 'rejected', label: 'Отклонены', badge: statusCount('rejected') },
+  { value: 'suspended', label: 'Заблок.', badge: statusCount('suspended') },
+  { value: 'cancelled_by_user', label: 'Удалены', badge: statusCount('cancelled_by_user') },
 ])
 
-const filtered = computed<AdminMasterListItem[]>(() => {
-  if (filter.value === 'pending') return masters.value.filter((m) => m.master_status === 'pending')
-  if (filter.value === 'verified')
-    return masters.value.filter((m) => m.master_status === 'verified')
-  return masters.value
-})
+const filtered = computed<AdminMasterListItem[]>(() =>
+  filter.value === 'all'
+    ? masters.value
+    : masters.value.filter((m) => m.master_status === filter.value),
+)
 
 const emptyText = computed<string>(() => {
-  if (filter.value === 'pending') return 'Нет мастеров на проверке'
-  if (filter.value === 'verified') return 'Нет верифицированных мастеров'
-  return 'Мастеров пока нет'
+  const byFilter: Record<string, string> = {
+    pending: 'Нет мастеров на проверке',
+    verified: 'Нет верифицированных мастеров',
+    rejected: 'Нет отклонённых мастеров',
+    suspended: 'Нет заблокированных мастеров',
+    cancelled_by_user: 'Нет удалённых аккаунтов',
+  }
+  return byFilter[filter.value] ?? 'Мастеров пока нет'
 })
 
 // Status badge labels match the operator SVG (the shared helper uses shorter ones).
@@ -150,6 +159,8 @@ function badgeLabel(status: string): string {
   if (status === 'verified') return 'Верифицирован'
   if (status === 'pending') return 'Ожидает верификации'
   if (status === 'rejected') return 'Отклонён'
+  if (status === 'suspended') return 'Заблокирован'
+  if (status === 'cancelled_by_user') return 'Аккаунт удалён'
   return status
 }
 
