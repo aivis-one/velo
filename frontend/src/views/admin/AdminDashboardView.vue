@@ -66,22 +66,13 @@
       <!-- Статистика: title + period toggle -->
       <div class="admin-dashboard__section">
         <span class="admin-dashboard__section-title">Статистика</span>
-        <div class="admin-dashboard__period" role="tablist" aria-label="Период статистики">
-          <button
-            class="admin-dashboard__period-btn"
-            :class="{ 'admin-dashboard__period-btn--active': period === 'week' }"
-            @click="selectPeriod('week')"
-          >
-            Неделя
-          </button>
-          <button
-            class="admin-dashboard__period-btn"
-            :class="{ 'admin-dashboard__period-btn--active': period === 'month' }"
-            @click="selectPeriod('month')"
-          >
-            Месяц
-          </button>
-        </div>
+        <VSegment
+          compact
+          :model-value="period"
+          :options="periodOptions"
+          aria-label="Период статистики"
+          @update:model-value="selectPeriod"
+        />
       </div>
 
       <div class="admin-dashboard__stats">
@@ -206,7 +197,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge, VMoreLink } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge, VMoreLink, VSegment } from '@/components/ui'
+import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useAdminStore } from '@/stores/admin'
@@ -220,7 +212,14 @@ const adminStore = useAdminStore()
 const period = ref<'week' | 'month'>('week')
 const periodOffset = ref(0)
 
-function selectPeriod(p: 'week' | 'month'): void {
+const periodOptions: SegmentOption[] = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+]
+
+// VSegment emits a plain string; narrow it back to the period union.
+function selectPeriod(p: string): void {
+  if (p !== 'week' && p !== 'month') return
   periodOffset.value = 0 // switching granularity resets to the current period
   period.value = p
 }
@@ -420,33 +419,6 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-/* -- Period toggle (user/master dashboard pattern) -- */
-.admin-dashboard__period {
-  display: flex;
-  gap: var(--velo-gap-2);
-  background: var(--velo-glass-blue-15);
-  border: var(--velo-border-width) solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: var(--velo-gap-2);
-}
-
-.admin-dashboard__period-btn {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-primary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-xl);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.admin-dashboard__period-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
 }
 
 /* -- Stats grid -- */

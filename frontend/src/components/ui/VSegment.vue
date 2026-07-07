@@ -13,7 +13,7 @@
 -->
 
 <template>
-  <div class="v-segment" role="tablist">
+  <div class="v-segment" :class="{ 'v-segment--compact': compact }" role="tablist">
     <button
       v-for="opt in options"
       :key="opt.value"
@@ -43,10 +43,20 @@ export interface SegmentOption {
   badge?: string | number
 }
 
-defineProps<{
-  modelValue: string
-  options: SegmentOption[]
-}>()
+withDefaults(
+  defineProps<{
+    modelValue: string
+    options: SegmentOption[]
+    /**
+     * Compact/inline variant: the strip is sized to its content (not full-width
+     * `flex:1`) and wrapped in a single glass pill — fits an inline title-row
+     * toggle (e.g. dashboard «Неделя/Месяц»). Default false = the full-width
+     * filter-strip behaviour used by the admin list screens.
+     */
+    compact?: boolean
+  }>(),
+  { compact: false },
+)
 
 defineEmits<{
   'update:modelValue': [value: string]
@@ -90,5 +100,35 @@ defineEmits<{
   font-size: var(--text-xs);
   padding: 1px 6px;
   border-radius: var(--radius-full);
+}
+
+/* -- Compact/inline variant --
+ * Content-sized single glass pill (not the full-width filter strip). The pill
+ * frame lives on the container; the items are borderless transparent buttons so
+ * only the active one fills. Matches the dashboard period-toggle idiom. */
+.v-segment--compact {
+  display: inline-flex;
+  gap: var(--velo-gap-2);
+  padding: var(--velo-gap-2);
+  background: var(--velo-glass-blue-15);
+  border: var(--velo-border-width) solid var(--velo-glass-border);
+  border-radius: var(--radius-xl);
+}
+
+.v-segment--compact .v-segment__item {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--velo-text-primary);
+  background: transparent;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.v-segment--compact .v-segment__item--active {
+  color: var(--velo-white);
+  background: var(--velo-primary);
+  border-color: var(--velo-primary);
 }
 </style>
