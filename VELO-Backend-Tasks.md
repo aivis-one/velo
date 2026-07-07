@@ -666,3 +666,49 @@ pre-push gate skips pytest, so a stale key-set only fails at deploy, not locally
 `stores/diary.ts::submitReflection` (the stub to flip to a real `upsertReflection` call),
 `stores/bookings.ts::dismissedReflections`, dashboard `reflectionAlert` + banner, route
 `user-reflection`. `generated.ts` UNTOUCHED by the frontend batch.
+
+---
+
+### E20 — Admin-editable catalog (directions / practice types / methods). **P2. STATUS: OPEN — Zod.**
+
+**(a) Why.** Today the taxonomy is code-frozen: adding a practice **direction**, a **practice
+type**, or a master **method** requires a code edit + redeploy (see `core/config.py:112`,
+`docs/seed-context.md:208-212`). The operator wants an **admin catalog section** to add / edit /
+remove entries at runtime — WITHOUT a heavy relational join-table redesign (operator decision **Б:
+config-driven editable catalog, grandfather existing data**).
+
+**(b) Screens.** A new admin **«Каталог»** editor (three lists: Направления / Виды практик /
+Методы, each with add-edit-remove); the picklists it feeds — `CreatePracticeView`/`EditPracticeView`
+(direction + type), `MasterApplyView`/`EditProfileView` (methods).
+
+**(c) What exists today (all code-level constants, NONE are tables — recon ПРОМТ №314):**
+- **Directions:** Python `PracticeDirection(StrEnum)` `practices/models.py:67-88` + runtime allow-list
+  `settings.practice_allowed_directions` `core/config.py:139`; stored per-practice in JSONB
+  `data.taxonomy.direction` (not a column). FE mirrors: `utils/practiceOptions.ts` `DIRECTION_OPTIONS`,
+  `utils/displayHelpers.ts` `DIRECTION_LABEL`, `api/types.ts` `PracticeDirection`.
+- **Practice types:** Python `PracticeType(StrEnum)` `practices/models.py:43-53` + allow-list
+  `settings.practice_allowed_types` `core/config.py:113`; persisted as a validated `String(20)` column.
+- **Methods:** free `list[ShortStr]` (1–200 chars, **no catalog enforcement**) `masters/schemas.py:63`,
+  stored JSONB `data.profile.methods`. The only "catalog" is a **frontend-only** const
+  `utils/methods.ts` (6 RU strings) — the backend accepts arbitrary strings today.
+
+**(d) Backend — decision Б (config-driven, minimal migration):**
+1. **Catalog store.** A single persisted, admin-mutable catalog for the three lists — a small
+   `catalog_entries` table (`kind ∈ {direction, practice_type, method}`, `value`, `label`,
+   `active`, `sort`) **or** a JSONB config row — seeded from the current enum / settings values so
+   day-one behaviour is identical. No per-practice/per-master data migration.
+2. **Rewire the validators** that currently read `settings.practice_allowed_directions` /
+   `_types` (`practices/schemas.py:290,466`, `practices/router.py:100`) to read the catalog store
+   instead. **⚠ Collision flag:** these validators gate practice creation — changing their source
+   is the load-bearing risk; a bad catalog row would reject valid `POST /practices`.
+3. **CRUD + admin auth.** `GET/POST/PATCH/DELETE /admin/catalog/{kind}` (+ the FE editor screen).
+4. **Grandfather / soft enforcement (operator Б):** existing master free-text `methods` stay VALID;
+   the catalog drives the **picklist for NEW selections only**; the backend still ACCEPTS
+   already-stored off-catalog values (no forced migration, no hard "catalog-only" rejection).
+   Strict enforcement (reject off-catalog) = a **later toggle**, not now.
+
+**(e) Notes.** Removing a catalog entry must NOT orphan practices/masters already using it (soft
+delete / `active=false` so historical rows still render their label). Directions additionally carry a
+FE icon map (`DIRECTION_ICON`, Partial+fallback) — a new direction with no icon falls back gracefully
+(`TD-CAL-DIRECTIONS-EXPAND`), so the catalog can add directions ahead of icons. This epic supersedes
+the "manual code edit + migration" note in `docs/seed-context.md:208-212` once shipped.
