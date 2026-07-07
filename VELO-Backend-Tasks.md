@@ -712,3 +712,25 @@ delete / `active=false` so historical rows still render their label). Directions
 FE icon map (`DIRECTION_ICON`, Partial+fallback) — a new direction with no icon falls back gracefully
 (`TD-CAL-DIRECTIONS-EXPAND`), so the catalog can add directions ahead of icons. This epic supersedes
 the "manual code edit + migration" note in `docs/seed-context.md:208-212` once shipped.
+
+---
+
+## 2026-07-07 — admin «Revoke master» self-added (heads-up for YOUR role lane, A1)
+
+**Self-built (additive, JSONB, NO migration) — do not rebuild, avoid colliding in the role/auth
+lane.** New admin endpoints mirror CLI `scripts/set_role.py to_user` **exactly** so the two stay one
+behavior:
+- `POST /api/v1/admin/masters/{user_id}/revoke` — soft-freeze: `User.role -> user` (only if currently
+  master) + clear the switched-away-admin marker (`credentials_without_admin_home`, R-1); profile
+  `data.account.status -> "suspended"`, `data.availability.is_accepting -> False`. **Every row is
+  preserved** (no delete). Capability keys on `status=="verified"` (`users/service.user_has_master_
+  capability`), so suspending drops it → the account logs in user-only.
+- `GET /api/v1/admin/masters/{user_id}/revoke-preview` → `RevokeMasterAdvisory` (future scheduled/live
+  practices, balance, pending withdrawals). Operator decision **Б: WARN-not-block** — the CLI's
+  downgrade guard is surfaced as advisory only; the revoke never blocks.
+- **Re-grant** reuses the EXISTING `make_master` re-verify branch (`admin/users/service.py:282-296`,
+  the "Сделать мастером" button): a `suspended` profile → `status="verified"` + `role=master`, data
+  intact. Verified end-to-end; no change needed there.
+
+If you add a durable revoke/suspension concept later, reconcile with this JSONB soft-freeze so CLI +
+admin + your path agree on `status=="suspended"` as the parked state.
