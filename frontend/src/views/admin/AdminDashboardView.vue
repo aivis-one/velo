@@ -139,10 +139,7 @@
         <div class="admin-dashboard__revenue-amount">{{ revenueValue }}</div>
         <div v-if="revenueDelta" class="admin-dashboard__revenue-delta">{{ revenueDelta }}</div>
       </VCard>
-      <button class="admin-dashboard__morelink" @click="router.push({ name: 'admin-revenue' })">
-        <span>Баланс по мастерам</span>
-        <IconArrowRight :size="20" />
-      </button>
+      <VMoreLink label="Баланс по мастерам" @click="router.push({ name: 'admin-revenue' })" />
       <VListRow
         title="Выплаты"
         subtitle="Запросы мастеров на вывод"
@@ -209,7 +206,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge, VMoreLink } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
 import { useAdminStore } from '@/stores/admin'
@@ -517,25 +514,6 @@ onMounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-teal-600);
-}
-
-.admin-dashboard__morelink {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  padding: 0;
-}
-
-.admin-dashboard__morelink:active {
-  opacity: 0.8;
 }
 
 /* -- Engagement -- */
