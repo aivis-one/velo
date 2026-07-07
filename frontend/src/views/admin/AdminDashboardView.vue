@@ -13,12 +13,14 @@
     - Выручка: amount card + "Баланс по мастерам" link.
     - Engagement: 3 VProgressRow (Check-in / Feedback / Return rate).
 
-  STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
-    - Real: practices/masters/users counts + pending verification/moderation
-      counts (the 3 stat cards + both banners + both tab badges).
-    - Stub: stat deltas, revenue, engagement rates, the Неделя/Месяц period scoping
-      + week stepper, the eye button, "Баланс по мастерам". Rendered, but "—" /
-      visual-only / toast on tap.
+  DATA SOURCES:
+    - Stat cards (Практик/Мастеров/Участников) + percent deltas + revenue come
+      from the period-scoped /admin/stats/overview (E7), refetched on the
+      Неделя/Месяц toggle and the ← / → period stepper (offset).
+    - Alert banners + tab badges come from /admin/stats (cumulative pending
+      counts) via adminStore.fetchDashboard.
+    - Engagement rates (Check-in/Feedback/Return) still use the per-metric
+      endpoints here; they are rewired to period+offset in a follow-up.
 -->
 
 <template>
@@ -68,14 +70,14 @@
           <button
             class="admin-dashboard__period-btn"
             :class="{ 'admin-dashboard__period-btn--active': period === 'week' }"
-            @click="period = 'week'"
+            @click="selectPeriod('week')"
           >
             Неделя
           </button>
           <button
             class="admin-dashboard__period-btn"
             :class="{ 'admin-dashboard__period-btn--active': period === 'month' }"
-            @click="period = 'month'"
+            @click="selectPeriod('month')"
           >
             Месяц
           </button>
@@ -87,30 +89,44 @@
           :value="practicesValue"
           label="Практик"
           :delta="practicesDelta"
+          :delta-tone="practicesDeltaTone"
           clickable
           @click="router.push({ name: 'admin-practices' })"
         />
-        <VStatCard :value="mastersValue" label="Мастеров" :delta="mastersDelta" />
+        <VStatCard
+          :value="mastersValue"
+          label="Мастеров"
+          :delta="mastersDelta"
+          :delta-tone="mastersDeltaTone"
+          clickable
+          @click="router.push({ name: 'admin-masters' })"
+        />
         <VStatCard
           :value="participantsValue"
           label="Участников"
           :delta="participantsDelta"
+          :delta-tone="participantsDeltaTone"
           clickable
           @click="router.push({ name: 'admin-participants' })"
         />
       </div>
 
-      <!-- Week stepper (visual-only until a period-scoped stats API exists) -->
+      <!-- Period stepper: ← / → over the navigated week/month (D3) -->
       <div class="admin-dashboard__week">
         <button
           class="admin-dashboard__week-nav admin-dashboard__week-nav--prev"
-          aria-label="Предыдущая неделя"
-          @click="stub"
+          aria-label="Предыдущий период"
+          @click="stepPrev"
         >
           <IconArrowRight :size="20" />
         </button>
-        <span class="admin-dashboard__week-range">{{ weekRange }}</span>
-        <button class="admin-dashboard__week-nav" aria-label="Следующая неделя" @click="stub">
+        <span class="admin-dashboard__week-range">{{ periodRange }}</span>
+        <button
+          class="admin-dashboard__week-nav"
+          aria-label="Следующий период"
+          :disabled="!canStepNext"
+          @click="stepNext"
+        >
           <IconArrowRight :size="20" />
         </button>
       </div>
@@ -191,22 +207,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge } from '@/components/ui'
 import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
-import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
 import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
 import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
-const toast = useToast()
 const adminStore = useAdminStore()
 
-// Period toggle. Visual-only until a period-scoped stats API exists (roadmap).
+// Period toggle (Неделя/Месяц) + stepper offset (0 = current, -1 = previous …).
 const period = ref<'week' | 'month'>('week')
+const periodOffset = ref(0)
+
+function selectPeriod(p: 'week' | 'month'): void {
+  periodOffset.value = 0 // switching granularity resets to the current period
+  period.value = p
+}
+function stepPrev(): void {
+  periodOffset.value -= 1
+}
+function stepNext(): void {
+  if (periodOffset.value < 0) periodOffset.value += 1 // no stepping into the future
+}
+const canStepNext = computed((): boolean => periodOffset.value < 0)
 
 const loading = computed((): boolean => adminStore.loading && !adminStore.stats)
 
@@ -234,15 +261,31 @@ const moderationTitle = computed(
 )
 
 // =========================================================================
-// Stats. The 3 counts are real (GET /admin/stats). Deltas have no backend yet
-// -> empty (VStatCard hides the trend line when delta is empty). Roadmap: Zod.
+// Stat cards (period-new, option А): values + percent deltas come from the
+// period-scoped overview (E7). Практик = practices scheduled in period,
+// Мастеров = new masters, Участников = new users. Deltas are period-over-period
+// percent (green up / rose down); null (no prior base) hides the trend line.
 // =========================================================================
-const practicesValue = computed((): string => String(adminStore.stats?.practices_count ?? '—'))
-const mastersValue = computed((): string => String(adminStore.stats?.masters_count ?? '—'))
-const participantsValue = computed((): string => String(adminStore.stats?.users_count ?? '—'))
-const practicesDelta = computed((): string => '')
-const mastersDelta = computed((): string => '')
-const participantsDelta = computed((): string => '')
+const overview = computed(() => adminStore.overview)
+
+function pctDelta(v: number | null | undefined): string {
+  if (v === null || v === undefined) return ''
+  return `${v >= 0 ? '+' : ''}${v}%`
+}
+function pctTone(v: number | null | undefined): 'up' | 'down' | 'muted' {
+  if (v === null || v === undefined) return 'muted'
+  return v >= 0 ? 'up' : 'down'
+}
+
+const practicesValue = computed((): string => String(overview.value?.practices_count ?? '—'))
+const mastersValue = computed((): string => String(overview.value?.new_masters ?? '—'))
+const participantsValue = computed((): string => String(overview.value?.new_users ?? '—'))
+const practicesDelta = computed((): string => pctDelta(overview.value?.practices_delta_pct))
+const mastersDelta = computed((): string => pctDelta(overview.value?.new_masters_delta_pct))
+const participantsDelta = computed((): string => pctDelta(overview.value?.new_users_delta_pct))
+const practicesDeltaTone = computed(() => pctTone(overview.value?.practices_delta_pct))
+const mastersDeltaTone = computed(() => pctTone(overview.value?.new_masters_delta_pct))
+const participantsDeltaTone = computed(() => pctTone(overview.value?.new_users_delta_pct))
 
 // Revenue (E9). Weekly GMV from /admin/revenue, best-effort. €0.00 while seed
 // practices are free (priced templates land with the seed-pricing task). Delta
@@ -272,27 +315,32 @@ async function loadEngagement(): Promise<void> {
   if (revenue.status === 'fulfilled') revenueCents.value = revenue.value.revenue_cents
 }
 
-// Current ISO week range (Mon–Sun), client-side. The period toggle + week steps
-// are visual-only until a period-scoped stats API exists (roadmap for Zod).
-const weekRange = computed((): string => {
+// Navigated period label, client-side: week -> "Mon - Sun", month -> "Июль 2026",
+// both shifted by periodOffset. Cosmetic mirror of the backend UTC calendar bounds.
+const periodRange = computed((): string => {
   const now = new Date()
-  const dow = (now.getDay() + 6) % 7 // Mon = 0
-  const mon = new Date(now)
-  mon.setDate(now.getDate() - dow)
-  const sun = new Date(mon)
-  sun.setDate(mon.getDate() + 6)
-  const fmt = (d: Date): string =>
-    d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
-  return `${fmt(mon)} - ${fmt(sun)}`
+  if (period.value === 'week') {
+    const dow = (now.getDay() + 6) % 7 // Mon = 0
+    const mon = new Date(now)
+    mon.setDate(now.getDate() - dow + periodOffset.value * 7)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    const fmt = (d: Date): string =>
+      d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
+    return `${fmt(mon)} - ${fmt(sun)}`
+  }
+  const m = new Date(now.getFullYear(), now.getMonth() + periodOffset.value, 1)
+  return m.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
 })
 
-// Stub taps (no backend / no target screen yet -> toast; build-full-design).
-function stub(): void {
-  toast.info('Раздел пока недоступен')
-}
+// Refetch the overview whenever the period or the stepper offset changes (D1/D3).
+watch([period, periodOffset], () => {
+  void adminStore.fetchOverview(period.value, periodOffset.value)
+})
 
 onMounted(() => {
   void adminStore.fetchDashboard()
+  void adminStore.fetchOverview(period.value, periodOffset.value)
   void loadEngagement()
 })
 </script>

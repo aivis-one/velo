@@ -25,6 +25,7 @@ export type {
   AdminRevenueResponse,
   AdminRosterEntry,
   AdminStatsResponse,
+  AdminStatsOverviewResponse,
   AdminWithdrawalResponse,
   ApproveWithdrawalRequest,
   AttendanceItemResponse,

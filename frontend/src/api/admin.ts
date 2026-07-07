@@ -7,6 +7,7 @@
 //
 // ENDPOINTS:
 //   GET  /api/v1/admin/stats
+//   GET  /api/v1/admin/stats/overview        -- period-scoped growth + deltas (E7)
 //   GET  /api/v1/admin/masters/pending
 //   GET  /api/v1/admin/masters/list
 //   GET  /api/v1/admin/masters/{id}          -- single master (W-1 fix)
@@ -28,6 +29,7 @@ import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
   AdminStatsResponse,
+  AdminStatsOverviewResponse,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
   PaginatedMethodChangeRequestsResponse,
@@ -53,6 +55,7 @@ import type {
 // Re-export for views that import from api/admin.ts directly.
 export type {
   AdminStatsResponse,
+  AdminStatsOverviewResponse,
   AdminMasterListItem,
   AdminMasterDetail,
   PaginatedMastersResponse,
@@ -78,6 +81,20 @@ export type {
 
 export function getAdminStats(): Promise<AdminStatsResponse> {
   return api.get<AdminStatsResponse>('/api/v1/admin/stats')
+}
+
+/**
+ * Period-scoped platform overview (E7): growth counts + percent deltas + revenue
+ * + engagement rates for one calendar period. `offset` steps the window by whole
+ * periods (0 = current, -1 = previous week/month, +1 = next) for the dashboard
+ * stepper. Deltas are always vs the period immediately before the navigated one.
+ */
+export function getAdminStatsOverview(
+  period: 'week' | 'month',
+  offset = 0,
+): Promise<AdminStatsOverviewResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<AdminStatsOverviewResponse>(`/api/v1/admin/stats/overview${query}`)
 }
 
 // ============================================================================
