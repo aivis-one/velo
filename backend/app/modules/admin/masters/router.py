@@ -25,15 +25,18 @@ from app.modules.admin.masters.schemas import (
     PaginatedMethodChangeRequestsResponse,
     RejectMasterRequest,
     RejectMethodChangeRequest,
+    RevokeMasterAdvisory,
     VerifyMasterRequest,
 )
 from app.modules.admin.masters.service import (
     approve_method_change,
     edit_master_methods,
+    get_revoke_advisory,
     issue_master_invite,
     list_pending_method_changes,
     reject_master,
     reject_method_change,
+    revoke_master,
     verify_master,
 )
 from app.modules.auth.dependencies import get_current_admin
@@ -108,6 +111,40 @@ async def verify_master_endpoint(
         user_id=profile.user_id,
         status=profile.data["account"]["status"],
     )
+
+
+@router.get(
+    "/{user_id}/revoke-preview",
+    response_model=RevokeMasterAdvisory,
+)
+async def revoke_master_preview_endpoint(
+    user_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_reader),
+) -> RevokeMasterAdvisory:
+    """Advisory signals shown in the revoke confirm dialog (A1, read-only)."""
+    return await get_revoke_advisory(user_id, session)
+
+
+@router.post(
+    "/{user_id}/revoke",
+    response_model=RevokeMasterAdvisory,
+)
+async def revoke_master_endpoint(
+    user_id: UUID,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> RevokeMasterAdvisory:
+    """Revoke a master's capability, preserving all data (A1, operator Б).
+
+    Mirrors CLI `velo setrole <tg> user` (set_role.py to_user): role -> user
+    (if master) + profile soft-frozen (status=suspended, is_accepting=false).
+    Never blocks on the advisory guard signals. Re-grant = the existing
+    "Сделать мастером" make_master re-verify branch.
+    """
+    advisory = await revoke_master(user_id, admin, session)
+    await session.flush()
+    return advisory
 
 
 @router.patch(

@@ -64,6 +64,22 @@ class AdminMasterActionResponse(BaseModel):
     status: str
 
 
+class RevokeMasterAdvisory(BaseModel):
+    """Advisory signals for revoke-preview + revoke (A1, WARN-not-block).
+
+    Mirrors the CLI `set_role.py to_user` downgrade guard, but the admin endpoint
+    does NOT block on them (operator decision Б): a revoke soft-freezes the
+    profile and preserves every row regardless. Surfaced so the admin sees what
+    stays behind before confirming.
+    """
+
+    scheduled_or_live_practices: int
+    available_cents: int
+    frozen_cents: int
+    pending_withdrawals: int
+    has_warnings: bool
+
+
 class InviteMasterResponse(BaseModel):
     """POST /admin/masters/invite -- the composed generic invite link.
 

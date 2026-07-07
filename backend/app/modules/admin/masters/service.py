@@ -46,9 +46,13 @@ from app.core.redis import get_redis
 from app.modules.admin.masters.schemas import (
     AdminMethodChangeItem,
     PaginatedMethodChangeRequestsResponse,
+    RevokeMasterAdvisory,
 )
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
+from app.modules.users.schemas import credentials_without_admin_home
+from app.modules.withdrawals.models import Withdrawal, WithdrawalStatus
 
 logger = structlog.get_logger()
 
@@ -129,6 +133,152 @@ async def verify_master(
     )
 
     return profile
+
+
+async def _load_verified_master(
+    user_id: UUID,
+    session: AsyncSession,
+    *,
+    for_update: bool,
+) -> tuple[User, MasterProfile]:
+    """Load a VERIFIED master's (User, MasterProfile) for revoke/preview (A1).
+
+    for_update takes SELECT FOR UPDATE on the mutating path (P-07). Raises
+    NotFoundError if profile/user missing, ConflictError if not verified (revoke
+    only makes sense on a live capability — status=="verified").
+    """
+    stmt = select(MasterProfile).where(MasterProfile.user_id == user_id)
+    if for_update:
+        stmt = stmt.with_for_update()
+    profile = (await session.execute(stmt)).scalar_one_or_none()
+    if not profile:
+        raise NotFoundError("Master profile not found")
+    status = (profile.data or {}).get("account", {}).get("status")
+    if status != "verified":
+        raise ConflictError("Master is not verified")
+    user = await session.get(User, user_id)
+    if not user:
+        raise NotFoundError("User not found")
+    return user, profile
+
+
+async def _build_revoke_advisory(
+    user_id: UUID,
+    profile: MasterProfile,
+    session: AsyncSession,
+) -> RevokeMasterAdvisory:
+    """CLI-style downgrade signals (WARN-not-block, operator Б).
+
+    Mirrors set_role.py to_user's guard queries (scheduled/live practices,
+    balance, pending withdrawals) but is advisory only -- never blocks.
+    """
+    scheduled = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Practice)
+                .where(
+                    Practice.master_id == user_id,
+                    Practice.status.in_(
+                        [
+                            PracticeStatus.SCHEDULED.value,
+                            PracticeStatus.LIVE.value,
+                        ]
+                    ),
+                )
+            )
+        ).scalar_one()
+    )
+    pending = int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(Withdrawal)
+                .where(
+                    Withdrawal.user_id == user_id,
+                    Withdrawal.status == WithdrawalStatus.PENDING.value,
+                )
+            )
+        ).scalar_one()
+    )
+    available = profile.available_cents
+    frozen = profile.frozen_cents
+    return RevokeMasterAdvisory(
+        scheduled_or_live_practices=scheduled,
+        available_cents=available,
+        frozen_cents=frozen,
+        pending_withdrawals=pending,
+        has_warnings=(
+            scheduled > 0 or available > 0 or frozen > 0 or pending > 0
+        ),
+    )
+
+
+async def get_revoke_advisory(
+    user_id: UUID,
+    session: AsyncSession,
+) -> RevokeMasterAdvisory:
+    """Read-only preview of the revoke advisory (for the confirm dialog)."""
+    _, profile = await _load_verified_master(
+        user_id, session, for_update=False
+    )
+    return await _build_revoke_advisory(user_id, profile, session)
+
+
+async def revoke_master(
+    user_id: UUID,
+    admin: User,
+    session: AsyncSession,
+) -> RevokeMasterAdvisory:
+    """Revoke a master's capability, preserving all data (A1, operator Б).
+
+    Mirrors CLI `set_role.py to_user` EXACTLY (one behavior across CLI + admin):
+      - User.role -> user, ONLY if currently master (+ clear the switched-away
+        admin round-trip marker, R-1);
+      - profile data.account.status -> "suspended",
+        data.availability.is_accepting -> False.
+    Capability keys on status=="verified" (users/service.user_has_master_
+    capability), so suspending drops it -> the account logs in user-only. Every
+    row is kept: re-grant via the existing make_master re-verify branch restores
+    status="verified" + role=master. The CLI-style guard signals are computed
+    and returned as advisory but NEVER block (operator Б).
+    """
+    user, profile = await _load_verified_master(
+        user_id, session, for_update=True
+    )
+    advisory = await _build_revoke_advisory(user_id, profile, session)
+
+    # -- role reset (mirror set_role._set_role): only if currently master --
+    if user.role == UserRole.MASTER.value:
+        user.role = UserRole.USER.value
+        cleared = credentials_without_admin_home(user.credentials)
+        if cleared != (user.credentials or {}):
+            user.set_jsonb("credentials", cleared)
+
+    # -- soft-freeze the profile (mirror set_role to_user, P-03) --
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("account", {})["status"] = "suspended"
+    new_data.setdefault("availability", {})["is_accepting"] = False
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_revoked",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"advisory": advisory.model_dump()},
+        session=session,
+    )
+    logger.info(
+        "master_revoked",
+        user_id=str(user_id),
+        admin_id=str(admin.id),
+        scheduled_or_live=advisory.scheduled_or_live_practices,
+        pending_withdrawals=advisory.pending_withdrawals,
+        has_warnings=advisory.has_warnings,
+    )
+    return advisory
 
 
 async def reject_master(
