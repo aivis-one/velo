@@ -1027,6 +1027,15 @@ export interface RejectWithdrawalRequest {
   note: string
 }
 
+/** Advisory signals for revoke-preview + revoke (A1, WARN-not-block). */
+export interface RevokeMasterAdvisory {
+  scheduled_or_live_practices: number
+  available_cents: number
+  frozen_cents: number
+  pending_withdrawals: number
+  has_warnings: boolean
+}
+
 /** Single report -- returned to both user and admin. */
 export interface ReportResponse {
   id: string
