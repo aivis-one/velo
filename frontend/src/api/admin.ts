@@ -16,7 +16,6 @@
 //   GET  /api/v1/admin/reports/{id}          -- single report (W-2 fix)
 //   POST /api/v1/admin/reports/{id}/resolve
 //   POST /api/v1/admin/reports/{id}/dismiss
-//   GET  /api/v1/admin/consistency
 //   GET  /api/v1/admin/metrics/check-in     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/feedback     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/return       -- engagement metric (E9)
@@ -37,7 +36,6 @@ import type {
   PaginatedReportsResponse,
   ReportStatusFilter,
   ReportTargetTypeFilter,
-  ConsistencyResponse,
   AdminWithdrawalResponse,
   PaginatedAdminWithdrawalsResponse,
   WithdrawalStatus,
@@ -68,8 +66,6 @@ export type {
   PaginatedReportsResponse,
   ReportStatusFilter,
   ReportTargetTypeFilter,
-  ConsistencyResponse,
-  SemaphoreResult,
   AdminWithdrawalResponse,
   PaginatedAdminWithdrawalsResponse,
   WithdrawalStatus,
@@ -233,14 +229,6 @@ export function dismissReport(reportId: string, resolutionNote?: string): Promis
   return api.post<ReportResponse>(`/api/v1/admin/reports/${reportId}/dismiss`, {
     resolution_note: resolutionNote ?? null,
   })
-}
-
-// ============================================================================
-// Consistency semaphores
-// ============================================================================
-
-export function getConsistency(): Promise<ConsistencyResponse> {
-  return api.get<ConsistencyResponse>('/api/v1/admin/consistency')
 }
 
 // ============================================================================

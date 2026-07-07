@@ -419,11 +419,6 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminReportDetailView.vue'),
         },
         {
-          path: 'consistency',
-          name: 'admin-consistency',
-          component: () => import('@/views/admin/AdminConsistencyView.vue'),
-        },
-        {
           path: 'profile',
           name: 'admin-profile',
           component: () => import('@/views/admin/AdminProfileView.vue'),
