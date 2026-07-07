@@ -121,6 +121,7 @@ export interface AdminPracticeListItem {
   booked: number
   capacity: number | null
   status: string
+  timezone: string
 }
 
 /** One master's earnings + payouts within the period. */

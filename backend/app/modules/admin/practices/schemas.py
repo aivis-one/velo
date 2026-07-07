@@ -35,6 +35,7 @@ class AdminPracticeListItem(BaseModel):
     booked: int
     capacity: int | None
     status: str  # "upcoming" | "past"
+    timezone: str  # IANA tz of the practice; FE renders local wall-clock time
 
 
 class PaginatedAdminPracticesResponse(BaseModel):
