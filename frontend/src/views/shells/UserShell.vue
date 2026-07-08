@@ -45,15 +45,20 @@ const activeTab = computed(() => {
   return match?.to ?? USER_TABS[0]?.to ?? ''
 })
 
-// Chat-style screens that manage their own internal scroll + a fixed bottom
-// composer use the layout's fill mode. Currently only the diary feed.
-const isFillRoute = computed(() => route.name === 'user-diary')
-
 // The diary is an immersive full-screen mode: no bottom tab bar (the feed,
 // the entry view and the check-in/feedback detail all hide it). Exit is via
 // the "..." menu inside the diary, not tab navigation.
 const DIARY_ROUTES = ['user-diary', 'user-diary-entry', 'user-diary-detail']
 const isDiaryRoute = computed(() => DIARY_ROUTES.includes(route.name as string))
+
+// All three diary screens render in the layout's fill mode: each owns its
+// internal scroll (a body with overflow-y:auto) plus an inline header, which is
+// exactly the fill contract (padding:0 + flex column, no reserved floating-header
+// clearance). The feed was already fill; the entry + check-in/feedback detail
+// join it. Non-fill previously reserved a phantom ~104px header fallback (no
+// VHeader teleports on these screens) that collapsed their content into a
+// cramped, pushed-down box (G2: «Запись» скукоженный).
+const isFillRoute = computed(() => DIARY_ROUTES.includes(route.name as string))
 
 // Focused full-screen form flows (check-in / feedback) hide the tab bar too:
 // they have their own "Close" + submit/skip actions, and an in-flow tab bar
