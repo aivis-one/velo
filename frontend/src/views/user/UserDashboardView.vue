@@ -9,8 +9,8 @@
                               first, then up to 2 soonest upcoming (max 3), each
                               with Zoom + Check-in
     - "Ваш прогресс"       -- attended count + hours, from GET /bookings/me/stats
-    - "AI-саммари"         -- placeholder card with week/month toggle,
-                              mood trend indicator and a "Подробнее" link
+    - "AI-саммари"         -- placeholder card with week/month toggle + mood
+                              trend indicator; the whole card is tappable
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
@@ -19,7 +19,7 @@
   practices_attended + hours_attended), a server-side aggregate over ALL attended
   bookings -- so the numbers are complete, not limited to the first bookings page.
 
-  Screen 16 (AI-summary): the "Подробнее" link navigates to 'user-ai-summary'
+  Screen 16 (AI-summary): tapping the summary card navigates to 'user-ai-summary'
   (currently a placeholder screen -- the user AI backend does not exist yet).
   The mood trend indicator stays static (illustration, not a control).
 -->
@@ -170,7 +170,11 @@
         </div>
       </div>
 
-      <VCard>
+      <!-- Whole card is the tap target → AI-summary screen (16). VCard `clickable`
+           supplies role="button" + tabindex + Enter/Space + cursor (DS a11y). The
+           Неделя/Месяц toggle lives in the header ABOVE, outside this card, so it
+           keeps switching the period independently (G3, replaces «Подробнее»). -->
+      <VCard clickable @click="router.push({ name: 'user-ai-summary' })">
         <p class="dashboard__ai-text">
           <template v-if="aiPeriod === 'week'">
             На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
@@ -191,12 +195,6 @@
           <span class="dashboard__ai-mood-label">до</span>
         </div>
       </VCard>
-
-      <!-- "Подробнее" -> AI-summary screen (16). Единый VMoreLink (слово +
-           белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
-      <div class="dashboard__ai-more">
-        <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
-      </div>
     </section>
   </div>
 </template>
@@ -207,7 +205,7 @@ import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
 import { getMyStats } from '@/api/bookings'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/components/ui'
+import { VLoader, VButton, VBadge, VStatCard, VCard } from '@/components/ui'
 import {
   IconClock,
   IconFeedback,
@@ -638,11 +636,5 @@ onUnmounted(() => {
 
 .dashboard__ai-mood-arrow {
   color: var(--velo-text-muted);
-}
-
-/* "Подробнее" -> AI-summary screen (16). Сам контрол — общий VMoreLink;
- * здесь только отступ от карточки AI-саммари над ним. */
-.dashboard__ai-more {
-  margin-top: var(--space-4);
 }
 </style>
