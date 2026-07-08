@@ -43,6 +43,21 @@ export interface AdminMasterActionResponse {
   status: string
 }
 
+/** GET /api/v1/admin/masters/{id} -- single master with profile detail (T3). Extends the list item with the profile fields the admin review screen shows: ``methods`` (editable via PATCH /admin/masters/{id}/methods), plus ``experience_years`` and ``bio`` (display-only). All read from MasterProfile.data.profile (additive, no migration). */
+export interface AdminMasterDetail {
+  id: string
+  telegram_id?: number | null
+  first_name?: string | null
+  last_name?: string | null
+  avatar_url?: string | null
+  role: UserRole
+  is_active: boolean
+  master_status: string
+  methods?: string[]
+  experience_years?: number
+  bio?: string | null
+}
+
 /** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
 export interface AdminMasterListItem {
   id: string
@@ -53,6 +68,29 @@ export interface AdminMasterListItem {
   role: UserRole
   is_active: boolean
   master_status: string
+}
+
+/** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */
+export interface AdminMethodChangeItem {
+  user_id: string
+  display_name?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  avatar_url?: string | null
+  current_methods?: string[]
+  proposed_methods?: string[]
+  submitted_at: string
+}
+
+/** One participant (platform user) in the global admin list. */
+export interface AdminParticipant {
+  id: string
+  name: string
+  telegram_id?: number | null
+  avatar_url?: string | null
+  practices_count: number
+  created_at: string
+  last_login_at?: string | null
 }
 
 /** GET /api/v1/admin/practices/{id} -- detail + attendance + roster. */
@@ -83,6 +121,7 @@ export interface AdminPracticeListItem {
   booked: number
   capacity: number | null
   status: string
+  timezone: string
 }
 
 /** One master's earnings + payouts within the period. */
@@ -135,6 +174,7 @@ export interface AdminStatsResponse {
   masters_count: number
   practices_count: number
   pending_verifications: number
+  pending_method_changes: number
 }
 
 /** Single withdrawal record for admin view. */
@@ -282,13 +322,14 @@ export interface CheckinResponse {
   updated_at: string | null
 }
 
-/** GET /api/v1/admin/consistency -- response body. */
-export interface ConsistencyResponse {
-  items: SemaphoreResult[]
-  total: number
-  ok_count: number
-  alert_count: number
-  run_at: string
+/** POST /masters/invite/claim -- the token from the deeplink. The generic token is looked up in Redis and burned by the first claim; an unknown or already-consumed token 404s (invite_invalid). */
+export interface ClaimMasterInviteRequest {
+  token: string
+}
+
+/** POST /masters/invite/claim -- claim confirmation. Claiming only validates + consumes the one-time marker; becoming a master still goes through the regular apply wizard + admin approval. */
+export interface ClaimMasterInviteResponse {
+  claimed_at: string
 }
 
 /** POST /api/v1/bookings -- request body. Phase 6.7: optional promo_code for discount. Existing clients that omit promo_code continue to work unchanged. */
@@ -399,6 +440,11 @@ export interface DismissReportRequest {
   resolution_note?: string | null
 }
 
+/** PATCH /admin/masters/{user_id}/methods -- new flat method set (T3). Admin-authored direct edit of a master's methods during review. Mirrors the apply-side rule (min 1, max 20). Distinct from the master's own method-change request (M3). */
+export interface EditMasterMethodsRequest {
+  methods: string[]
+}
+
 /** Returned when user tries to create a duplicate report. Contains the existing report + a message suggesting to edit it. */
 export interface ExistingReportResponse {
   message?: string
@@ -445,6 +491,12 @@ export interface IncomeResponse {
   delta_pct: number | null
 }
 
+/** POST /admin/masters/invite -- the composed generic invite link. Account-agnostic: the link is not bound to a target user. No expiry field by design -- the link lives in Redis until the first claim burns it (or a Redis flush drops it, after which the admin regenerates). */
+export interface InviteMasterResponse {
+  invite_link: string
+  issued_at: string
+}
+
 /** A practice with a low check-in rate in the period. */
 export interface LowCheckinPractice {
   id: string
@@ -453,12 +505,19 @@ export interface LowCheckinPractice {
   total: number
 }
 
+/** The user's master-application state, read from MasterProfile.data.account. Surfaced on UserResponse (T5) so a role='user' applicant can see the verdict of their application (pending / verified / rejected + the rejection reason) without the master-only GET /masters/me endpoint. Set by the GET /users/me router from the same MasterProfile load used for master capability. */
+export interface MasterApplicationInfo {
+  status: string
+  rejection_reason?: string | null
+}
+
 /** Step 2 of master application -- professional background. */
 export interface MasterApplyExperience {
   methods: string[]
   experience_years: number
   bio?: string | null
   certifications?: string[]
+  languages?: string[]
 }
 
 /** Step 1 of master application -- basic profile. */
@@ -480,6 +539,11 @@ export interface MasterApplyResponse {
   user_id: string
   status: string
   created_at: string
+}
+
+/** PATCH /api/v1/masters/me/languages -- freely-editable language set (E16). Q2=А: no moderation (unlike methods). Replaces data.profile.languages wholesale with the sent flat list. Empty list clears it. */
+export interface MasterLanguagesUpdate {
+  languages?: string[]
 }
 
 /** Master notification preferences (under credentials.master_notifications). Nine on/off toggles grouped by the master notifications screen (bookings / participants / messages / analytics) plus a delivery `schedule`. All toggles default True except monthly_report. RESPONSE shape returned inside UserResponse.master_notifications (only when role=master). */
@@ -517,6 +581,7 @@ export interface MasterProfileResponse {
   display_name?: string | null
   bio?: string | null
   methods?: string[]
+  languages?: string[]
   experience_years?: number | null
   frozen_cents: number
   available_cents: number
@@ -526,6 +591,7 @@ export interface MasterProfileResponse {
   created_at: string
   updated_at?: string | null
   rejection_reason: string | null
+  method_change_request?: MethodChangeRequest | null
 }
 
 /** User-facing master profile -- safe public subset + live counters. Returned by GET /api/v1/masters/{user_id} for any authenticated user. Used by the practice detail "Подробнее" link (frame 4) and the master profile screen (node 541:2065). SECURITY: this schema is the isolation boundary between public and private master data. It MUST NOT carry any financial fields (frozen_cents, available_cents, payout, withdrawal limits) or contact fields (email, phone). Only a verified master is exposed; pending / rejected / non-master ids resolve to 404 in the service (we do not reveal the existence of an unverified application). practices_count and reviews_count are LIVE ORM aggregates computed in the service, NOT read from the stale data.stats JSONB cache: practices_count -- Practice rows for this master, excluding draft and deleted statuses. reviews_count -- Feedback rows across all of this master's practices (every feedback, regardless of text). */
@@ -568,6 +634,27 @@ export interface MasterTransactionItem {
   created_at: string
   counterparty_name: string | null
   amount_cents: number
+}
+
+/** Response for approve/reject method-change actions. status is the resulting request state: "approved" (methods updated, request cleared) or "rejected". */
+export interface MethodChangeActionResponse {
+  user_id: string
+  status: string
+}
+
+/** Embedded method change-request, projected onto MasterProfileResponse. Stored at data.profile.method_change_request. status is one of "pending" | "rejected" (approved requests are cleared once the master's methods are updated, so the field returns to None). None on the response means the master has no outstanding or recently-rejected request. */
+export interface MethodChangeRequest {
+  status: string
+  proposed_methods?: string[]
+  submitted_at: string
+  decided_at?: string | null
+  decided_by?: string | null
+  reject_reason?: string | null
+}
+
+/** POST /masters/me/method-change-request -- proposed flat method set. M3 ships FLAT: the request carries a plain list of method strings (same shape/limits as MasterApplyExperience.methods). The two-level direction->kind taxonomy (E19) is deferred / out of scope. */
+export interface MethodChangeRequestSubmit {
+  proposed_methods: string[]
 }
 
 /** Check-in mood counts for a practice, bucketed by score range. mood is a 1..10 score; counts are grouped into three buckets: low = scores 1-3 mid = scores 4-7 high = scores 8-10 CR-01: fields are required (no default=0). This is a response-only schema -- the service always provides concrete values. */
@@ -666,6 +753,22 @@ export interface PaginatedMasterReviewsResponse {
 /** GET /api/v1/admin/masters -- paginated master list. */
 export interface PaginatedMastersResponse {
   items: AdminMasterListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /admin/masters/method-change-requests -- paginated pending list. */
+export interface PaginatedMethodChangeRequestsResponse {
+  items: AdminMethodChangeItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+/** GET /api/v1/admin/participants -- paginated participant list. */
+export interface PaginatedParticipantsResponse {
+  items: AdminParticipant[]
   total: number
   limit: number
   offset: number
@@ -934,6 +1037,11 @@ export interface RejectMasterRequest {
   reason: string
 }
 
+/** POST /admin/masters/{user_id}/method-change-request/reject -- body. */
+export interface RejectMethodChangeRequest {
+  reason: string
+}
+
 /** POST /admin/withdrawals/{id}/reject -- reason required. */
 export interface RejectWithdrawalRequest {
   note: string
@@ -977,25 +1085,23 @@ export interface ReviewItem {
   created_at: string
 }
 
-/** Tester role-switch capability (TEST-ONLY). Present in GET /users/me ONLY when settings.role_switch_enabled is True AND the user was seeded with credentials.role_switch.allowed_roles. The list is the set of roles this tester may switch their own account to via POST /users/me/role. Absent (null) for everyone else and on production. */
+/** Advisory signals for revoke-preview + revoke (A1, WARN-not-block). Mirrors the CLI `set_role.py to_user` downgrade guard, but the admin endpoint does NOT block on them (operator decision Б): a revoke soft-freezes the profile and preserves every row regardless. Surfaced so the admin sees what stays behind before confirming. */
+export interface RevokeMasterAdvisory {
+  scheduled_or_live_practices: number
+  available_cents: number
+  frozen_cents: number
+  pending_withdrawals: number
+  has_warnings: boolean
+}
+
+/** Self role-switch capability (capability-derived, A1=Б). Present in GET /users/me when the derived set contains more than just USER (i.e. there is actually something to switch to). The list is the set of roles this account may switch itself to via POST /users/me/role, derived by derive_allowed_roles() -- the single source of truth shared with the write path. Null when the user can only be a plain user. */
 export interface RoleSwitchInfo {
   allowed_roles: UserRole[]
 }
 
-/** POST /api/v1/users/me/role — target role to switch into (TEST-only). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service against their seeded allowed_roles set. */
+/** POST /api/v1/users/me/role — target role to switch into. A production endpoint (always on; A1=Б). Pydantic validates `role` against UserRole (user/master/admin); anything else is a 422. Whether the caller may actually switch to it is enforced in the service via derive_allowed_roles() -- the capability-derived policy (own role + a VERIFIED MasterProfile + the switched-away-admin marker), the single source of truth shared with the GET /users/me read path. Legacy seeded credentials.role_switch.allowed_roles lists grant nothing. */
 export interface RoleSwitchRequest {
   role: UserRole
-}
-
-/** Single semaphore check result. name: machine-readable identifier (e.g. "1.1_bookings_eq_purchases"). category: one of 5 categories from VELO-Data-Consistency-Semaphores.md. status: OK if expected == actual, ALERT otherwise. expected: what the check expects (human-readable string or number). actual: what was found. details: optional dict with extra context (e.g. mismatched IDs). criticality: how severe an ALERT is. */
-export interface SemaphoreResult {
-  name: string
-  category: string
-  status: 'OK' | 'ALERT'
-  expected: string
-  actual: string
-  details?: Record<string, unknown> | null
-  criticality: 'critical' | 'warning' | 'info'
 }
 
 /** One bar in the check-in weekly chart (label = bucket date, value = %). */
@@ -1118,9 +1224,12 @@ export interface UserResponse {
   balance_cents: number
   created_at: string
   last_login_at: string | null
+  master_application?: MasterApplicationInfo | null
   onboarding_completed: boolean
+  master_onboarding_completed: boolean
   phone: string | null
   bio: string | null
+  email: string | null
   notifications: NotificationSettings
   master_notifications: MasterNotificationSettings | null
   role_switch: RoleSwitchInfo | null
@@ -1139,8 +1248,10 @@ export interface UserUpdate {
   timezone?: string | null
   language?: string | null
   onboarding_completed?: boolean | null
+  master_onboarding_completed?: boolean | null
   phone?: string | null
   bio?: string | null
+  email?: string | null
   notifications?: NotificationSettingsUpdate | null
   master_notifications?: MasterNotificationSettingsUpdate | null
 }

@@ -281,7 +281,7 @@ async function onReject(): Promise<void> {
 .wd__rows {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3) 18px;
+  padding: var(--space-3) var(--velo-inset-row);
 }
 
 .wd__row {

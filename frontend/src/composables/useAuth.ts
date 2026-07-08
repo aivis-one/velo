@@ -63,7 +63,8 @@ const READY_TIMEOUT_MS = 10_000
  * Returns null if the parameter is absent or unrecognized.
  *
  * Supported formats:
- *   open_practice__{uuid} -> { name: 'practice-detail', params: { id: uuid } }
+ *   open_practice__{uuid}       -> { name: 'practice-detail', params: { id } }
+ *   master_onboarding__{token}  -> { name: 'master-invite', params: { token } }
  */
 function parseStartParam(
   startParam: string | null,
@@ -73,6 +74,14 @@ function parseStartParam(
   const practiceMatch = startParam.match(/^open_practice__([0-9a-f-]{36})$/)
   if (practiceMatch?.[1]) {
     return { name: 'practice-detail', params: { id: practiceMatch[1] } }
+  }
+
+  // Batch-INVITE (№258): one-time master invite link issued by an admin.
+  // Token charset = secrets.token_urlsafe (url-safe base64); length-bounded
+  // to match the backend's ClaimMasterInviteRequest (16..128).
+  const inviteMatch = startParam.match(/^master_onboarding__([A-Za-z0-9_-]{16,128})$/)
+  if (inviteMatch?.[1]) {
+    return { name: 'master-invite', params: { token: inviteMatch[1] } }
   }
 
   return null

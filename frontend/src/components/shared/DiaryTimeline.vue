@@ -55,6 +55,7 @@
 import { computed } from 'vue'
 import DiaryThreadCard from '@/components/shared/DiaryThreadCard.vue'
 import { IconDecor, IconDecor2 } from '@/components/icons'
+import { dayKeyOf, dayLabelOf } from '@/utils/format'
 import type { DiaryFeedItem } from '@/api/types'
 
 const props = defineProps<{
@@ -67,35 +68,6 @@ const emit = defineEmits<{
 }>()
 
 const tz = computed(() => props.timezone ?? 'UTC')
-
-// -- day key + label in the user's timezone ----------------------------------
-
-// YYYY-MM-DD in the target tz, used to detect calendar-day boundaries.
-function dayKeyOf(iso: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: tz.value,
-  }).format(new Date(iso))
-}
-
-// "Сегодня" / "Вчера" / "24 января" for the date node.
-function dayLabelOf(iso: string): string {
-  const key = dayKeyOf(iso)
-  const todayKey = dayKeyOf(new Date().toISOString())
-  const yesterday = new Date()
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayKey = dayKeyOf(yesterday.toISOString())
-
-  if (key === todayKey) return 'Сегодня'
-  if (key === yesterdayKey) return 'Вчера'
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    timeZone: tz.value,
-  }).format(new Date(iso))
-}
 
 // -- group into days ---------------------------------------------------------
 
@@ -115,9 +87,9 @@ const dayGroups = computed<DayGroup[]>(() => {
   const chronological = [...props.items].reverse()
 
   for (const item of chronological) {
-    const key = dayKeyOf(item.occurred_at)
+    const key = dayKeyOf(item.occurred_at, tz.value)
     if (!current || current.dayKey !== key) {
-      current = { dayKey: key, label: dayLabelOf(item.occurred_at), items: [] }
+      current = { dayKey: key, label: dayLabelOf(item.occurred_at, tz.value), items: [] }
       groups.push(current)
     }
     current.items.push(item)

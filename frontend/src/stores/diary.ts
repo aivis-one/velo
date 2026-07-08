@@ -112,6 +112,40 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   // ===========================================================================
+  // Reflection submit (ReflectionView, no-show) -- STUB (TD-REFLECTION)
+  // ===========================================================================
+
+  const reflectionSubmitting = ref(false)
+
+  /**
+   * Submit a no-show reflection for a practice.
+   *
+   * STUB (TD-REFLECTION, ПРОМТ №269): the backend endpoint
+   * `POST /api/v1/practices/{id}/reflection` does not exist yet (see
+   * VELO-Backend-Tasks.md). This resolves ok WITHOUT any network call so the UI
+   * flow completes honestly — nothing is persisted server-side and no "saved"
+   * claim is made. When the endpoint lands, swap the no-op body for an
+   * `upsertReflection(practiceId, body)` call + refreshAfterDiaryMutation(),
+   * exactly like submitFeedback.
+   */
+  async function submitReflection(
+    practiceId: string,
+    body: { comment: string | null },
+  ): Promise<SubmitResult> {
+    if (reflectionSubmitting.value) return { ok: false, error: '' }
+    reflectionSubmitting.value = true
+    try {
+      // No API yet — intentionally a no-op. `practiceId` / `body` are the shape
+      // the real persist call will take (TD-REFLECTION).
+      void practiceId
+      void body
+      return { ok: true, error: '' }
+    } finally {
+      reflectionSubmitting.value = false
+    }
+  }
+
+  // ===========================================================================
   // Unified feed (DiaryFeedView)
   //
   // Cursor pagination over GET /api/v1/diary/feed. Filters live alongside the
@@ -361,6 +395,8 @@ export const useDiaryStore = defineStore('diary', () => {
     submitCheckin,
     feedbackSubmitting,
     submitFeedback,
+    reflectionSubmitting,
+    submitReflection,
 
     // Unified feed
     feedItems: feed.items,

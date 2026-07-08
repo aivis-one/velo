@@ -93,11 +93,14 @@
       </section>
 
       <!-- Zoom (Batch 6: ported from BookingDetailView). Only while the
-             booking is active -- a past/cancelled booking has no live link. -->
+             booking is active -- a past/cancelled booking has no live link.
+             F2 (№263): honest copy — the link is revealed by booking status
+             (confirmed), not by a 10-minute timer; it lives on the dashboard
+             card and the live screen. -->
       <section v-if="showZoom" class="detail__section">
         <h3 class="detail__section-title">ZOOM</h3>
         <VCard class="detail__zoom-card">
-          Ссылка будет отправлена за 10 минут до начала практики
+          Ссылка на Zoom доступна после записи — на главном экране и в практике
         </VCard>
       </section>
 
@@ -217,6 +220,7 @@ import Banner from '@/components/shared/Banner.vue'
 import { formatDate, formatDuration, formatMoney, formatParticipants, isFull } from '@/utils/format'
 import { IconCheck, IconClose, IconWarning } from '@/components/icons'
 import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
+import { hasEnded } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { BookingStatus, BookingWithPracticeResponse, PracticeDifficulty } from '@/api/types'
 
@@ -454,12 +458,21 @@ const bookButtonText = computed(() => {
 const cancelling = ref(false)
 
 /**
- * Booking is cancellable when status is confirmed or pending.
- * attended/no_show/cancelled are not cancellable.
+ * Booking is cancellable when status is confirmed or pending AND the practice
+ * has not yet ended. attended/no_show/cancelled are not cancellable.
+ *
+ * G4: the backend keeps a booking `confirmed` until FINALIZE (master action or
+ * the +24h backstop), so a held-but-not-finalized practice would otherwise still
+ * show «Отменить бронирование» on an already-over practice. Gate additionally on
+ * hasEnded (scheduled_at + duration ≤ now) using the reactive `now` (60s tick),
+ * so the action hides live the moment the practice ends. FE-hide only — the
+ * backend late-cancel/no-refund path stays sanctioned (operator).
  */
 const canCancel = computed((): boolean => {
   if (!myBooking.value) return false
-  return myBooking.value.status === 'confirmed' || myBooking.value.status === 'pending'
+  const activeStatus =
+    myBooking.value.status === 'confirmed' || myBooking.value.status === 'pending'
+  return activeStatus && !hasEnded(myBooking.value, now.value)
 })
 
 function onBook(): void {

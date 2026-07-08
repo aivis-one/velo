@@ -21,7 +21,7 @@
        instead of being eaten by the fog (G-1). Elsewhere (shell-less screens,
        admin) `floating` is false and it renders inline exactly as before. -->
   <Teleport defer to=".mobile-layout__island" :disabled="!floating">
-    <header class="v-header" :class="{ 'v-header--floating': floating, 'v-header--solid': solid }">
+    <header class="v-header" :class="{ 'v-header--floating': floating }">
       <div class="v-header__left">
         <VBackButton
           v-if="showBack"
@@ -53,19 +53,12 @@ withDefaults(
     showBack?: boolean
     backLabel?: string
     badge?: string | number
-    /** Opt-in SOLID (filled) variant of the floating header: an opaque plate that
-     *  OCCLUDES the feed scrolling under it, instead of relying on the fog fade for
-     *  separation. Default OFF, so every existing call-site is byte-identical.
-     *  Used only on PracticeReviewsView (reviews ghosted under the transparent
-     *  title). */
-    solid?: boolean
   }>(),
   {
     title: '',
     showBack: false,
     backLabel: 'Назад',
     badge: undefined,
-    solid: false,
   },
 )
 
@@ -101,18 +94,6 @@ defineEmits<{
 
 .v-header--floating :where(button, a, [role='button']),
 .v-header--floating .v-header__right {
-  pointer-events: auto;
-}
-
-/* Opt-in SOLID (filled) variant: an opaque plate that OCCLUDES the masked feed
-   scrolling under the floating header, so content no longer ghosts through the
-   transparent title (PracticeReviewsView). Fill = the white card surface from the
-   operator comp (5 Practice (past).svg — flat-white canvas, no distinct strip).
-   Opaque ⇒ catch taps (no click-through onto the now-hidden content). Geometry
-   unchanged: background fill + pointer-events only. Placed AFTER --floating so it
-   wins the equal-specificity pointer-events override. */
-.v-header--solid {
-  background: var(--velo-bg-card-solid);
   pointer-events: auto;
 }
 

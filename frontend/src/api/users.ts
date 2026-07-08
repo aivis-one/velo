@@ -51,11 +51,13 @@ export function deleteMe(): Promise<void> {
 }
 
 /**
- * Switch the authenticated user's own role (TEST-ONLY tester tool).
+ * Switch the authenticated user's own role (capability-derived, A1=Б).
  *
- * Backend: POST /api/v1/users/me/role. Only works when the server has
- * ROLE_SWITCH_ENABLED on (404 otherwise) and `role` is in the caller's
- * seeded allow-list (403 otherwise). Returns the updated profile.
+ * Backend: POST /api/v1/users/me/role — always on (the ROLE_SWITCH_ENABLED
+ * flag is gone, №256). The allowed target set is derived server-side from
+ * the caller's role + master capability (verified master ↔ user; admin —
+ * all three via the home_role round-trip marker); targets outside the
+ * derived set → 403 role_not_allowed. Returns the updated profile.
  */
 export function switchRole(role: UserRole): Promise<UserResponse> {
   return api.post<UserResponse>('/api/v1/users/me/role', { role })

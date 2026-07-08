@@ -26,17 +26,20 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
-from app.core.exceptions import NotFoundError
 from app.modules.auth.dependencies import get_current_user, get_current_user_write
 from app.modules.users.models import User
-from app.modules.users.schemas import RoleSwitchRequest, UserResponse, UserUpdate
+from app.modules.users.schemas import (
+    MasterApplicationInfo,
+    RoleSwitchRequest,
+    UserResponse,
+    UserUpdate,
+)
 from app.modules.users.service import (
+    get_master_account,
     reset_user_to_onboarding,
     switch_user_role,
     update_user,
-    user_has_master_capability,
 )
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -58,9 +61,16 @@ async def _user_response_with_capability(
     capability lookup is a plain SELECT and works on either.
     """
     response = UserResponse.model_validate(user)
-    response.master_capability_in = await user_has_master_capability(
-        user, session
-    )
+    # One MasterProfile load feeds BOTH the capability gate and the T5
+    # application state (status + rejection reason) surfaced to a role='user'
+    # applicant so the pending/reject screen renders without /masters/me.
+    account = await get_master_account(user, session)
+    response.master_capability_in = (account or {}).get("status") == "verified"
+    if account is not None:
+        response.master_application = MasterApplicationInfo(
+            status=account.get("status", "pending"),
+            rejection_reason=account.get("rejection_reason"),
+        )
     return response
 
 
@@ -106,22 +116,22 @@ async def switch_my_role(
     user: User = Depends(get_current_user_write),
     session: AsyncSession = Depends(get_db_session),
 ) -> UserResponse:
-    """Switch the caller's own role (TEST-ONLY tester tool).
+    """Switch the caller's own role (capability-derived, A1=Б).
 
-    Gated by settings.role_switch_enabled: when off (always so on production)
-    the endpoint returns 404, hiding its existence. When on, the caller may
-    switch to any role in their seeded credentials.role_switch.allowed_roles
-    set (else 403); switching to master requires a verified MasterProfile
-    (else 409). The role is rewritten on the User row in place, so every
-    existing role guard keeps working unchanged on subsequent requests.
+    Always on -- no feature flag. Security rests on the derived policy in
+    switch_user_role: the allowed target set is computed from the caller's
+    current role and master capability (derive_allowed_roles, shared with the
+    role_switch block in GET /me). A plain user derives {USER} only, so the
+    endpoint grants nothing; a non-admin can never switch to ADMIN. Targets
+    outside the derived set -> 403. The role is rewritten on the User row in
+    place, so every existing role guard keeps working unchanged on
+    subsequent requests.
 
     get_current_user_write + Depends(get_db_session) share one session
     (TD-029), so the mutation and the user load use the same connection. The
     response gates master_notifications by master capability (a verified
     MasterProfile), which is role-independent, like GET /me.
     """
-    if not settings.role_switch_enabled:
-        raise NotFoundError()
     updated = await switch_user_role(user, body.role, session)
     return await _user_response_with_capability(updated, session)
 

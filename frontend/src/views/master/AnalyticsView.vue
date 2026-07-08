@@ -247,7 +247,12 @@ import { VHeader } from '@/components/layout'
 import VRatingDistribution from '@/components/shared/VRatingDistribution.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
-import { IconRatingFire, IconRatingGood, IconRatingConfused, IconMessages } from '@/components/icons'
+import {
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+  IconMessages,
+} from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
 import { formatMoney } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
@@ -396,7 +401,11 @@ const reviews = ref<MasterReviewItem[]>([])
 
 async function loadReviews(): Promise<void> {
   try {
-    const res = await getMasterReviews(REVIEWS_PAGE, 0)
+    // E1: fetch the negative (confused) bucket server-side — the «Требуют
+    // внимания» block is the only consumer, so a full page of low-rated
+    // reviews beats a mixed page where negatives may be sparse. The period
+    // cutoff still narrows client-side (no period param on the endpoint).
+    const res = await getMasterReviews(REVIEWS_PAGE, 0, true)
     reviews.value = res.items
   } catch {
     /* leave the section empty on error */

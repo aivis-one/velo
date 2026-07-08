@@ -13,12 +13,14 @@
     - Выручка: amount card + "Баланс по мастерам" link.
     - Engagement: 3 VProgressRow (Check-in / Feedback / Return rate).
 
-  STUBS (no backend yet -> roadmap for Zod; non-working taps show a toast):
-    - Real: practices/masters/users counts + pending verification/moderation
-      counts (the 3 stat cards + both banners + both tab badges).
-    - Stub: stat deltas, revenue, engagement rates, the Неделя/Месяц period scoping
-      + week stepper, the eye button, "Баланс по мастерам". Rendered, but "—" /
-      visual-only / toast on tap.
+  DATA SOURCES:
+    - Stat cards (Практик/Мастеров/Участников) + percent deltas + revenue come
+      from the period-scoped /admin/stats/overview (E7), refetched on the
+      Неделя/Месяц toggle and the ← / → period stepper (offset).
+    - Alert banners + tab badges come from /admin/stats (cumulative pending
+      counts) via adminStore.fetchDashboard.
+    - Engagement rates (Check-in/Feedback/Return) still use the per-metric
+      endpoints here; they are rewired to period+offset in a follow-up.
 -->
 
 <template>
@@ -64,22 +66,13 @@
       <!-- Статистика: title + period toggle -->
       <div class="admin-dashboard__section">
         <span class="admin-dashboard__section-title">Статистика</span>
-        <div class="admin-dashboard__period" role="tablist" aria-label="Период статистики">
-          <button
-            class="admin-dashboard__period-btn"
-            :class="{ 'admin-dashboard__period-btn--active': period === 'week' }"
-            @click="period = 'week'"
-          >
-            Неделя
-          </button>
-          <button
-            class="admin-dashboard__period-btn"
-            :class="{ 'admin-dashboard__period-btn--active': period === 'month' }"
-            @click="period = 'month'"
-          >
-            Месяц
-          </button>
-        </div>
+        <VSegment
+          compact
+          :model-value="period"
+          :options="periodOptions"
+          aria-label="Период статистики"
+          @update:model-value="selectPeriod"
+        />
       </div>
 
       <div class="admin-dashboard__stats">
@@ -87,30 +80,44 @@
           :value="practicesValue"
           label="Практик"
           :delta="practicesDelta"
+          :delta-tone="practicesDeltaTone"
           clickable
           @click="router.push({ name: 'admin-practices' })"
         />
-        <VStatCard :value="mastersValue" label="Мастеров" :delta="mastersDelta" />
+        <VStatCard
+          :value="mastersValue"
+          label="Мастеров"
+          :delta="mastersDelta"
+          :delta-tone="mastersDeltaTone"
+          clickable
+          @click="router.push({ name: 'admin-masters' })"
+        />
         <VStatCard
           :value="participantsValue"
           label="Участников"
           :delta="participantsDelta"
+          :delta-tone="participantsDeltaTone"
           clickable
           @click="router.push({ name: 'admin-participants' })"
         />
       </div>
 
-      <!-- Week stepper (visual-only until a period-scoped stats API exists) -->
+      <!-- Period stepper: ← / → over the navigated week/month (D3) -->
       <div class="admin-dashboard__week">
         <button
           class="admin-dashboard__week-nav admin-dashboard__week-nav--prev"
-          aria-label="Предыдущая неделя"
-          @click="stub"
+          aria-label="Предыдущий период"
+          @click="stepPrev"
         >
           <IconArrowRight :size="20" />
         </button>
-        <span class="admin-dashboard__week-range">{{ weekRange }}</span>
-        <button class="admin-dashboard__week-nav" aria-label="Следующая неделя" @click="stub">
+        <span class="admin-dashboard__week-range">{{ periodRange }}</span>
+        <button
+          class="admin-dashboard__week-nav"
+          aria-label="Следующий период"
+          :disabled="!canStepNext"
+          @click="stepNext"
+        >
           <IconArrowRight :size="20" />
         </button>
       </div>
@@ -123,10 +130,7 @@
         <div class="admin-dashboard__revenue-amount">{{ revenueValue }}</div>
         <div v-if="revenueDelta" class="admin-dashboard__revenue-delta">{{ revenueDelta }}</div>
       </VCard>
-      <button class="admin-dashboard__morelink" @click="router.push({ name: 'admin-revenue' })">
-        <span>Баланс по мастерам</span>
-        <IconArrowRight :size="20" />
-      </button>
+      <VMoreLink label="Баланс по мастерам" @click="router.push({ name: 'admin-revenue' })" />
       <VListRow
         title="Выплаты"
         subtitle="Запросы мастеров на вывод"
@@ -161,44 +165,78 @@
         />
       </VCard>
 
-      <!-- Система: восстановленный вход в «Семафоры» (data-consistency, audit O-2) -->
+      <!-- Система: пользователи + заявки на смену методов -->
       <div class="admin-dashboard__section">
         <span class="admin-dashboard__section-title">Система</span>
       </div>
       <VListRow
-        title="Семафоры"
-        subtitle="21 проверка целостности данных"
+        title="Пользователи"
+        subtitle="Все пользователи · назначение мастеров"
         clickable
-        @click="router.push({ name: 'admin-consistency' })"
+        @click="router.push({ name: 'admin-users' })"
       >
         <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
+      <VListRow
+        title="Заявки на смену методов"
+        subtitle="Мастера меняют свои направления"
+        clickable
+        @click="router.push({ name: 'admin-method-requests' })"
+      >
+        <template #trailing>
+          <span class="admin-dashboard__row-trailing">
+            <VBadge v-if="pendingMethodChanges > 0" variant="error">{{ pendingMethodChanges }}</VBadge>
+            <IconArrowRight :size="20" />
+          </span>
+        </template>
       </VListRow>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VStatCard, VCard, VLoader, VProgressRow, VListRow } from '@/components/ui'
+import { VStatCard, VCard, VLoader, VProgressRow, VListRow, VBadge, VMoreLink, VSegment } from '@/components/ui'
+import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/components/icons'
-import { useToast } from '@/composables/useToast'
 import { useAdminStore } from '@/stores/admin'
 import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
 import { formatMoney } from '@/utils/format'
 
 const router = useRouter()
-const toast = useToast()
 const adminStore = useAdminStore()
 
-// Period toggle. Visual-only until a period-scoped stats API exists (roadmap).
+// Period toggle (Неделя/Месяц) + stepper offset (0 = current, -1 = previous …).
 const period = ref<'week' | 'month'>('week')
+const periodOffset = ref(0)
+
+const periodOptions: SegmentOption[] = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+]
+
+// VSegment emits a plain string; narrow it back to the period union.
+function selectPeriod(p: string): void {
+  if (p !== 'week' && p !== 'month') return
+  periodOffset.value = 0 // switching granularity resets to the current period
+  period.value = p
+}
+function stepPrev(): void {
+  periodOffset.value -= 1
+}
+function stepNext(): void {
+  if (periodOffset.value < 0) periodOffset.value += 1 // no stepping into the future
+}
+const canStepNext = computed((): boolean => periodOffset.value < 0)
 
 const loading = computed((): boolean => adminStore.loading && !adminStore.stats)
 
 const pendingVerifications = computed((): number => adminStore.pendingVerifications)
 const pendingModeration = computed((): number => adminStore.pendingModeration)
+// A2: unread indicator for incoming master method-change requests.
+const pendingMethodChanges = computed((): number => adminStore.pendingMethodChanges)
 
 // Russian plural picker: [one, few, many].
 function plural(n: number, forms: [string, string, string]): string {
@@ -219,15 +257,31 @@ const moderationTitle = computed(
 )
 
 // =========================================================================
-// Stats. The 3 counts are real (GET /admin/stats). Deltas have no backend yet
-// -> empty (VStatCard hides the trend line when delta is empty). Roadmap: Zod.
+// Stat cards (period-new, option А): values + percent deltas come from the
+// period-scoped overview (E7). Практик = practices scheduled in period,
+// Мастеров = new masters, Участников = new users. Deltas are period-over-period
+// percent (green up / rose down); null (no prior base) hides the trend line.
 // =========================================================================
-const practicesValue = computed((): string => String(adminStore.stats?.practices_count ?? '—'))
-const mastersValue = computed((): string => String(adminStore.stats?.masters_count ?? '—'))
-const participantsValue = computed((): string => String(adminStore.stats?.users_count ?? '—'))
-const practicesDelta = computed((): string => '')
-const mastersDelta = computed((): string => '')
-const participantsDelta = computed((): string => '')
+const overview = computed(() => adminStore.overview)
+
+function pctDelta(v: number | null | undefined): string {
+  if (v === null || v === undefined) return ''
+  return `${v >= 0 ? '+' : ''}${v}%`
+}
+function pctTone(v: number | null | undefined): 'up' | 'down' | 'muted' {
+  if (v === null || v === undefined) return 'muted'
+  return v >= 0 ? 'up' : 'down'
+}
+
+const practicesValue = computed((): string => String(overview.value?.practices_count ?? '—'))
+const mastersValue = computed((): string => String(overview.value?.new_masters ?? '—'))
+const participantsValue = computed((): string => String(overview.value?.new_users ?? '—'))
+const practicesDelta = computed((): string => pctDelta(overview.value?.practices_delta_pct))
+const mastersDelta = computed((): string => pctDelta(overview.value?.new_masters_delta_pct))
+const participantsDelta = computed((): string => pctDelta(overview.value?.new_users_delta_pct))
+const practicesDeltaTone = computed(() => pctTone(overview.value?.practices_delta_pct))
+const mastersDeltaTone = computed(() => pctTone(overview.value?.new_masters_delta_pct))
+const participantsDeltaTone = computed(() => pctTone(overview.value?.new_users_delta_pct))
 
 // Revenue (E9). Weekly GMV from /admin/revenue, best-effort. €0.00 while seed
 // practices are free (priced templates land with the seed-pricing task). Delta
@@ -245,10 +299,12 @@ const feedbackRate = ref<number | null>(null)
 const returnRate = ref<number | null>(null)
 
 async function loadEngagement(): Promise<void> {
+  const p = period.value
+  const off = periodOffset.value
   const [checkin, feedback, ret, revenue] = await Promise.allSettled([
-    getCheckinMetric(),
-    getFeedbackMetric(),
-    getReturnMetric(),
+    getCheckinMetric(p, off),
+    getFeedbackMetric(p, off),
+    getReturnMetric(p, off),
     getAdminRevenue(),
   ])
   if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
@@ -257,27 +313,34 @@ async function loadEngagement(): Promise<void> {
   if (revenue.status === 'fulfilled') revenueCents.value = revenue.value.revenue_cents
 }
 
-// Current ISO week range (Mon–Sun), client-side. The period toggle + week steps
-// are visual-only until a period-scoped stats API exists (roadmap for Zod).
-const weekRange = computed((): string => {
+// Navigated period label, client-side: week -> "Mon - Sun", month -> "Июль 2026",
+// both shifted by periodOffset. Cosmetic mirror of the backend UTC calendar bounds.
+const periodRange = computed((): string => {
   const now = new Date()
-  const dow = (now.getDay() + 6) % 7 // Mon = 0
-  const mon = new Date(now)
-  mon.setDate(now.getDate() - dow)
-  const sun = new Date(mon)
-  sun.setDate(mon.getDate() + 6)
-  const fmt = (d: Date): string =>
-    d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
-  return `${fmt(mon)} - ${fmt(sun)}`
+  if (period.value === 'week') {
+    const dow = (now.getDay() + 6) % 7 // Mon = 0
+    const mon = new Date(now)
+    mon.setDate(now.getDate() - dow + periodOffset.value * 7)
+    const sun = new Date(mon)
+    sun.setDate(mon.getDate() + 6)
+    const fmt = (d: Date): string =>
+      d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
+    return `${fmt(mon)} - ${fmt(sun)}`
+  }
+  const m = new Date(now.getFullYear(), now.getMonth() + periodOffset.value, 1)
+  return m.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
 })
 
-// Stub taps (no backend / no target screen yet -> toast; build-full-design).
-function stub(): void {
-  toast.info('Раздел пока недоступен')
-}
+// Refetch the overview + engagement rates whenever the period or the stepper
+// offset changes (D1/D3 cards + D4/D5 engagement share one window).
+watch([period, periodOffset], () => {
+  void adminStore.fetchOverview(period.value, periodOffset.value)
+  void loadEngagement()
+})
 
 onMounted(() => {
   void adminStore.fetchDashboard()
+  void adminStore.fetchOverview(period.value, periodOffset.value)
   void loadEngagement()
 })
 </script>
@@ -351,31 +414,11 @@ onMounted(() => {
   letter-spacing: 0.02em;
 }
 
-/* -- Period toggle (user/master dashboard pattern) -- */
-.admin-dashboard__period {
-  display: flex;
-  gap: var(--velo-gap-2);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: 2px;
-}
-
-.admin-dashboard__period-btn {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-primary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-xl);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.admin-dashboard__period-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
+/* A2: trailing badge + chevron on the method-requests row */
+.admin-dashboard__row-trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* -- Stats grid -- */
@@ -394,8 +437,8 @@ onMounted(() => {
 }
 
 .admin-dashboard__week-nav {
-  width: 60px;
-  height: 35px;
+  width: var(--velo-size-60);
+  height: var(--velo-size-35);
   flex-shrink: 0;
   border: none;
   border-radius: var(--radius-xl);
@@ -435,7 +478,7 @@ onMounted(() => {
   font-family: var(--font-heading);
   font-size: var(--text-xl);
   color: var(--velo-text-primary);
-  letter-spacing: 0.64px;
+  letter-spacing: var(--velo-letter-spacing-064);
   line-height: 1.1;
 }
 
@@ -443,25 +486,6 @@ onMounted(() => {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-teal-600);
-}
-
-.admin-dashboard__morelink {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--velo-text-primary);
-  letter-spacing: 0.02em;
-  padding: 0;
-}
-
-.admin-dashboard__morelink:active {
-  opacity: 0.8;
 }
 
 /* -- Engagement -- */

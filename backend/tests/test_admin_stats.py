@@ -16,7 +16,7 @@ from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user, full_cleanup_range
+from tests.helpers import auth_headers, login_user, full_cleanup_range, switch_self_to_master
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -139,6 +139,7 @@ async def _make_verified_master(
     assert verify_resp.status_code == 200
 
     # Re-login so session reflects master role.
+    await switch_self_to_master(client, auth["session_token"])
     auth = await login_user(
         client,
         telegram_id=master_telegram_id,
@@ -244,7 +245,14 @@ async def test_stats_masters_count_after_verify(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Verifying a master increases masters_count, decreases pending."""
+    """Admin-verify grants master CAPABILITY, not role (T4, ПРОМТ №295).
+
+    verify sets the profile status=verified but does NOT flip User.role, so
+    masters_count (COUNT role=='master') is UNCHANGED at verify -- only the
+    pending application clears. The count rises only once the applicant enters
+    master mode (self-switch via POST /users/me/role), exercised here with the
+    shared switch_self_to_master helper.
+    """
     admin_token = await _make_admin(client, db_session)
 
     # Create applicant and submit application.
@@ -263,7 +271,7 @@ async def test_stats_masters_count_after_verify(
     )
     before = resp1.json()
 
-    # Verify the applicant.
+    # Verify the applicant (grants capability; role stays 'user').
     user_id = applicant_auth["user"]["id"]
     verify_resp = await client.post(
         f"/api/v1/admin/masters/{user_id}/verify",
@@ -272,14 +280,29 @@ async def test_stats_masters_count_after_verify(
     )
     assert verify_resp.status_code == 200
 
-    # Stats after verification.
+    # After verify: masters_count UNCHANGED (no role flip); pending clears.
     resp2 = await client.get(
         STATS_URL, headers=auth_headers(admin_token)
     )
-    after = resp2.json()
+    after_verify = resp2.json()
+    assert after_verify["masters_count"] == before["masters_count"]
+    assert (
+        after_verify["pending_verifications"]
+        == before["pending_verifications"] - 1
+    )
 
-    assert after["masters_count"] == before["masters_count"] + 1
-    assert after["pending_verifications"] == before["pending_verifications"] - 1
+    # The applicant self-switches into master mode -> now role='master'.
+    await switch_self_to_master(client, applicant_auth["session_token"])
+
+    resp3 = await client.get(
+        STATS_URL, headers=auth_headers(admin_token)
+    )
+    after_switch = resp3.json()
+    assert after_switch["masters_count"] == before["masters_count"] + 1
+    assert (
+        after_switch["pending_verifications"]
+        == before["pending_verifications"] - 1
+    )
 
 
 # ---------------------------------------------------------------------------

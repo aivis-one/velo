@@ -14,3 +14,6 @@ class AdminStatsResponse(BaseModel):
     pending_verifications: int = Field(
         description="Master applications awaiting admin review",
     )
+    pending_method_changes: int = Field(
+        description="Master method-change requests awaiting admin review",
+    )

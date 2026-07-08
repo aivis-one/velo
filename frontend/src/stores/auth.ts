@@ -17,7 +17,14 @@ import { ref, computed } from 'vue'
 import { api, setAuthToken, setOnUnauthorized, ApiResponseError } from '@/api/client'
 import { getMe, updateMe, switchRole as apiSwitchRole } from '@/api/users'
 import { platform } from '@/platform'
-import type { AuthResponse, RoleSwitchInfo, UserResponse, UserRole, UserUpdate } from '@/api/types'
+import type {
+  AuthResponse,
+  MasterApplicationInfo,
+  RoleSwitchInfo,
+  UserResponse,
+  UserRole,
+  UserUpdate,
+} from '@/api/types'
 
 const TOKEN_KEY = 'velo_token'
 
@@ -32,14 +39,25 @@ export const useAuthStore = defineStore('auth', () => {
   // positives in v-if="role === 'user'" guards for anonymous visitors.
   const role = computed(() => user.value?.role ?? null)
 
-  // TEST-ONLY role switch: the roles this account may switch into, surfaced by
-  // the backend in UserResponse.role_switch only when the server flag is on.
-  // Read structurally (generated.ts may not carry the field locally yet); empty
-  // for normal users and on production. The settings UI shows a switch button
-  // per allowed role except the current one.
+  // Self role-switch: the roles this account may switch into, surfaced by the
+  // backend in UserResponse.role_switch (capability-derived since №256: null
+  // for plain users, [user, master] for verified masters, all three for
+  // admins — no feature flag). Read structurally (generated.ts may not carry
+  // the field locally yet). The settings UI shows a switch button per allowed
+  // role except the current one.
   const allowedRoles = computed<UserRole[]>(() => {
     const rs = (user.value as { role_switch?: RoleSwitchInfo | null } | null)?.role_switch
     return rs?.allowed_roles ?? []
+  })
+
+  // T5: the user's master-application state (status + rejection reason), so a
+  // rejected/pending role='user' applicant can see the verdict without the
+  // master-only /masters/me endpoint. Same structural read as allowedRoles.
+  const masterApplication = computed<MasterApplicationInfo | null>(() => {
+    return (
+      (user.value as { master_application?: MasterApplicationInfo | null } | null)
+        ?.master_application ?? null
+    )
   })
 
   function _setToken(newToken: string | null): void {
@@ -185,6 +203,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     role,
     allowedRoles,
+    masterApplication,
     loginViaTelegram,
     restoreSession,
     fetchMe,

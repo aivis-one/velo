@@ -7,19 +7,18 @@
 // full-screen overlay on first master-dashboard entry. Kept framework-free so
 // the gate is unit-testable.
 //
-// The gating flag `master_onboarding_completed` is NOT yet on the generated
-// UserResponse type (Zod task E15). It is read DEFENSIVELY here (absent /
-// undefined -> not completed -> show once); generated.ts stays untouched.
+// E15 SHIPPED (ПРОМТ №256/257): `master_onboarding_completed` is persisted by
+// the backend and typed on UserResponse. The reader below stays null-tolerant
+// (absent / undefined / null -> false) so it accepts a not-yet-loaded user.
 // =============================================================================
 
 import type { UserRole } from '@/api/types'
 
 /**
- * Defensive read of the not-yet-typed `master_onboarding_completed` flag.
+ * Null-tolerant read of the `master_onboarding_completed` flag (E15).
  *
- * Mirrors the role_switch cast precedent in stores/auth.ts: the field lives in
- * the backend credentials JSONB but is not surfaced on the autogen UserResponse
- * until Zod ships E15. Absent / undefined / null -> false (not completed).
+ * The field is now on the typed UserResponse; the loose parameter keeps the
+ * helper usable with a still-null auth user and framework-free in unit tests.
  */
 export function isMasterOnboardingCompleted(user: unknown): boolean {
   return (
@@ -33,31 +32,23 @@ export interface MasterOnboardingGateInput {
   role: UserRole | null
   /** Master profile verification status ('verified' once the admin approves). */
   profileStatus: string | null | undefined
-  /** Defensive server-flag read (isMasterOnboardingCompleted). */
+  /** Persisted server-flag read (isMasterOnboardingCompleted, E15). */
   completed: boolean
   /** Per-session suppression (set on done/skip; cleared on logout). */
   shownThisSession: boolean
-  /**
-   * TEST-only force (role-switch replay): bypasses `completed` +
-   * `shownThisSession` so a tester can re-watch the carousel. Still requires a
-   * verified master — you cannot onboard a non-verified one. Default false.
-   */
-  forced?: boolean
 }
 
 /**
  * Show the post-approval carousel exactly once: only to a VERIFIED master who
- * has neither completed it (server flag) nor dismissed it this session.
- *
- * The session guard is what makes the honest-stub interim safe: until E15 ships
- * the server flag never persists, so without it the overlay would re-trigger on
- * every dashboard re-entry within a session. With it, the carousel re-shows only
- * on a fresh session (next app open) -- the expected interim, not a loop.
+ * has neither completed it (the persisted E15 server flag) nor dismissed it
+ * this session. No forced replays — the tester scaffolding was stripped in
+ * №260; the natural prod trigger is the only trigger.
  */
 export function shouldShowMasterOnboarding(input: MasterOnboardingGateInput): boolean {
   return (
     input.role === 'master' &&
     input.profileStatus === 'verified' &&
-    (input.forced === true || (!input.completed && !input.shownThisSession))
+    !input.completed &&
+    !input.shownThisSession
   )
 }

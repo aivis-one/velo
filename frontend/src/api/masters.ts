@@ -16,6 +16,7 @@
 import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
+  ClaimMasterInviteResponse,
   MasterApplyRequest,
   MasterApplyResponse,
   MasterProfileResponse,
@@ -41,12 +42,43 @@ export function applyMaster(body: MasterApplyRequest): Promise<MasterApplyRespon
 }
 
 /**
+ * Claim a one-time master invite (deeplink master_onboarding__<token>).
+ * Binds to the caller's own account; consumes the token on success
+ * (Batch-INVITE, №258).
+ */
+export function claimMasterInvite(token: string): Promise<ClaimMasterInviteResponse> {
+  return api.post<ClaimMasterInviteResponse>('/api/v1/masters/invite/claim', { token })
+}
+
+/**
  * Fetch the current master's profile.
  * Only callable by users with role='master'.
  * F7: response now includes payout field (null if not configured).
  */
 export function getMyMasterProfile(): Promise<MasterProfileResponse> {
   return api.get<MasterProfileResponse>('/api/v1/masters/me')
+}
+
+/**
+ * Submit a method change-request (M3, FLAT). The verified master proposes a
+ * new flat method set; it is stored pending admin moderation and does NOT
+ * change the live methods until approved. Returns the refreshed profile so
+ * the caller sees method_change_request projected. 409 if one is pending.
+ */
+export function submitMethodChangeRequest(
+  proposedMethods: string[],
+): Promise<MasterProfileResponse> {
+  return api.post<MasterProfileResponse>('/api/v1/masters/me/method-change-request', {
+    proposed_methods: proposedMethods,
+  })
+}
+
+/**
+ * Replace the master's languages (E16, freely editable — no moderation).
+ * Returns the refreshed profile. Empty array clears the set.
+ */
+export function updateMasterLanguages(languages: string[]): Promise<MasterProfileResponse> {
+  return api.patch<MasterProfileResponse>('/api/v1/masters/me/languages', { languages })
 }
 
 /**
@@ -186,7 +218,11 @@ export function getMasterStats(period: 'week' | 'month' = 'week'): Promise<Maste
 export function getMasterReviews(
   limit = 20,
   offset = 0,
+  attention = false,
 ): Promise<PaginatedMasterReviewsResponse> {
-  const query = buildQuery({ limit, offset })
+  // attention=true narrows the feed to the negative (confused) bucket
+  // server-side (E1) so the «Требуют внимания» block sees a full page of
+  // low-rated reviews, not only those that fall in the first mixed page.
+  const query = buildQuery({ limit, offset, attention: attention || undefined })
   return api.get<PaginatedMasterReviewsResponse>(`/api/v1/masters/me/reviews${query}`)
 }

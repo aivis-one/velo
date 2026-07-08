@@ -65,6 +65,9 @@ from app.core.database import dispose_engine, get_session_factory  # noqa: E402
 from app.modules.masters.models import MasterProfile  # noqa: E402
 from app.modules.practices.models import Practice, PracticeStatus  # noqa: E402
 from app.modules.users.models import User, UserRole  # noqa: E402
+from app.modules.users.schemas import (  # noqa: E402
+    credentials_without_admin_home,
+)
 from app.modules.withdrawals.models import Withdrawal, WithdrawalStatus  # noqa: E402
 
 # -- Console output ----------------------------------------------------------
@@ -312,8 +315,19 @@ def _build_verified_data(fields: dict) -> dict:
 
 
 def _set_role(user: User, role: UserRole) -> None:
-    """Assign the role, storing the plain string (column is String(20))."""
+    """Assign the role and clear any switched-away-admin round-trip marker.
+
+    Stores the plain string (column is String(20)). An authoritative CLI role
+    change makes THIS role the account's new home, so a stale
+    credentials.role_switch.home_role="admin" must not survive -- otherwise a
+    demoted ex-admin (-> user) could self-restore admin via POST /users/me/role,
+    which derive_allowed_roles() would honour (R-1). Writes credentials only
+    when the marker was actually present, to avoid a needless UPDATE.
+    """
     user.role = role.value
+    cleared = credentials_without_admin_home(user.credentials)
+    if cleared != (user.credentials or {}):
+        user.set_jsonb("credentials", cleared)
 
 
 # -- Transition handlers (each returns True if a change needs committing) -----

@@ -1,4 +1,7 @@
 #!/bin/bash
+# -u: abort on unset variables. pipefail: a pipeline fails if any stage fails.
+# (No -e: the ERR trap defined below already aborts on any command error.)
+set -uo pipefail
 
 # ==============================================================================
 # VELO Platform — VPS Installation & Management Script
@@ -425,11 +428,27 @@ generate_env() {
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Get token from @BotFather in Telegram.${NC}"
-    echo -e "${YELLOW}Leave empty to skip (you can add later in backend/.env).${NC}"
+    echo -e "${YELLOW}The bot username is fetched from Telegram automatically.${NC}"
     echo ""
     read -p "TELEGRAM_BOT_TOKEN: " TELEGRAM_BOT_TOKEN
-    read -p "TELEGRAM_BOT_USERNAME (e.g. velo_testbot): " TELEGRAM_BOT_USERNAME
-    TELEGRAM_BOT_USERNAME="${TELEGRAM_BOT_USERNAME#@}"
+
+    # Fetch the bot username from Telegram (getMe) rather than asking for it:
+    # removes a hand-typed value that could be mistyped or mismatch the token.
+    # Parse the JSON with grep/sed to avoid a jq dependency.
+    echo "Verifying token with Telegram (getMe)..."
+    local TELEGRAM_BOT_USERNAME GETME
+    GETME=$(curl -s --max-time 15 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" || true)
+    if ! echo "$GETME" | grep -q '"ok":true'; then
+        error "Telegram getMe failed — invalid token or no network."
+        error "Response: ${GETME:-<empty>}"
+        exit 1
+    fi
+    TELEGRAM_BOT_USERNAME=$(echo "$GETME" | grep -o '"username":"[^"]*"' | head -1 | sed 's/"username":"//; s/"//' || true)
+    if [ -z "$TELEGRAM_BOT_USERNAME" ]; then
+        error "Could not parse bot username from getMe response: $GETME"
+        exit 1
+    fi
+    success "Bot: @${TELEGRAM_BOT_USERNAME}"
     echo ""
 
     cat > "$ENV_FILE" << EOF
@@ -463,6 +482,8 @@ CORS_ORIGINS=https://${DOMAIN_FRONTEND}
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+# Bot URL for notification deep links. Username resolved via Telegram getMe.
+TELEGRAM_BOT_URL=https://t.me/${TELEGRAM_BOT_USERNAME}
 
 # --- Session ---
 SESSION_TTL_DAYS=30

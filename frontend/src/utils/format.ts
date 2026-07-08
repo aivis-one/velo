@@ -145,6 +145,41 @@ export function isToday(isoString: string, timezone = 'UTC'): boolean {
 }
 
 /**
+ * Calendar-day key 'YYYY-MM-DD' in the target timezone — the day boundary used
+ * to tell whether two datetimes fall on the same calendar day. Single source of
+ * truth for the diary day-grouping and the "Сегодня/Вчера" relative label.
+ */
+export function dayKeyOf(isoString: string, timezone = 'UTC'): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: timezone,
+  }).format(new Date(isoString))
+}
+
+/**
+ * Relative day label «Сегодня» / «Вчера» / «24 января» for a datetime, computed
+ * in the target timezone. Extracted verbatim from DiaryList/DiaryTimeline
+ * (ПРОМТ №267) so the dashboard feedback banner and the diary share one
+ * implementation instead of hardcoding the day.
+ */
+export function dayLabelOf(isoString: string, timezone = 'UTC'): string {
+  const key = dayKeyOf(isoString, timezone)
+  const todayKey = dayKeyOf(new Date().toISOString(), timezone)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayKey = dayKeyOf(yesterday.toISOString(), timezone)
+  if (key === todayKey) return 'Сегодня'
+  if (key === yesterdayKey) return 'Вчера'
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: timezone,
+  }).format(new Date(isoString))
+}
+
+/**
  * Today's calendar date as a LOCAL-time ISO string 'YYYY-MM-DD' (zero-padded).
  *
  * Unlike `new Date().toISOString().slice(0, 10)` (which is UTC), this reads the

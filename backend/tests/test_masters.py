@@ -185,15 +185,21 @@ async def test_apply_master_no_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_apply_master_already_master(
+async def test_apply_master_self_provision_no_profile_creates_verified(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """User with role=master cannot reapply → 403."""
-    auth = await login_user(client, telegram_id=55004, first_name="AlreadyMaster")
+    """role=master with NO profile self-provisions a VERIFIED profile (№307).
+
+    An admin who switched into master mode (role=master, no MasterProfile) fills
+    the apply form -> the profile is created status=verified immediately (no
+    approval loop), with the submitted methods/experience/bio and open
+    availability so the master zone works at once.
+    """
+    auth = await login_user(client, telegram_id=55004, first_name="SelfProvision")
     token = auth["session_token"]
 
-    # Upgrade role to MASTER directly in DB.
+    # Switch into master mode: role=master, but no MasterProfile yet.
     user_id = auth["user"]["id"]
     await db_session.execute(
         update(User).where(User.id == user_id).values(role=UserRole.MASTER.value)
@@ -205,7 +211,49 @@ async def test_apply_master_already_master(
         json=_valid_apply_body(),
         headers=auth_headers(token),
     )
-    assert response.status_code == 403
+    assert response.status_code == 201
+    assert response.json()["status"] == "verified"
+
+    # The persisted profile is verified, self-provision-stamped, open, and
+    # carries the fields the form collected.
+    profile = (
+        await db_session.execute(
+            select(MasterProfile).where(MasterProfile.user_id == user_id)
+        )
+    ).scalar_one()
+    assert profile.data["account"]["status"] == "verified"
+    assert profile.data["account"]["verification"]["verified_by"] == "self_provision"
+    assert profile.data["availability"]["is_accepting"] is True
+    assert profile.data["profile"]["methods"] == ["meditation"]
+    assert profile.data["profile"]["bio"] == "Experienced meditation teacher"
+
+
+@pytest.mark.asyncio
+async def test_apply_master_self_provision_existing_profile_conflict(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """role=master WITH an existing profile is already a master -> 409 (№307)."""
+    auth = await login_user(client, telegram_id=55014, first_name="AlreadyMaster")
+    token = auth["session_token"]
+
+    # Switch into master mode and self-provision once (creates the profile).
+    user_id = auth["user"]["id"]
+    await db_session.execute(
+        update(User).where(User.id == user_id).values(role=UserRole.MASTER.value)
+    )
+    await db_session.commit()
+    first = await client.post(
+        APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token)
+    )
+    assert first.status_code == 201
+
+    # A second apply now finds an existing profile -> 409 already_master.
+    second = await client.post(
+        APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token)
+    )
+    assert second.status_code == 409
+    assert second.json()["error"] == "already_master"
 
 
 # ---------------------------------------------------------------------------

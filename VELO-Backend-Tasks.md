@@ -1,18 +1,5 @@
 # ZOD BACKEND TASKS — consolidated backend wishlist (user / master / admin)
 
-> **Provenance.** This document is the result of a full transition-trace audit of all three
-> zones (Orchestrator-9, PROMPT #38 master / #39 admin / #40 user) cross-referenced with
-> `master-ds-zod-roadmap.md` (per-screen findings, Screens 1–18 + the ADMIN section) and verified
-> against the live backend contract in `frontend/src/api/generated.ts` and the `api/*.ts` wrappers.
-> Every stub that today shows a «недоступно» (unavailable) toast, an em-dash «—», or a
-> captured-only form field is recorded here as a backend task.
->
-> **How the frontend got here.** The UI is built to the operator's approved design *in full*,
-> following the project rule "build the full design now, stub the missing backend". Where a
-> control has no backend, the frontend does not fake a result — it renders the real layout and
-> the tap raises a «недоступно» (unavailable) toast, or the value renders «—». This document is the
-> list of those gaps, for the backend (Zod) to close.
->
 > **Priority legend.**
 > - **P0** — a screen that is already built does **not function** without this. Highest urgency.
 > - **P1** — the endpoint exists or the screen partly works; this **enriches** a partially-working screen.
@@ -34,7 +21,7 @@ capability gate delivered). Everything else unchanged, no regression. One-glance
   **E8** ⬆ (master-notifications contract `MasterNotificationSettings` gen:486 + on UserResponse gen:1118
   /UserUpdate gen:1138 + master-capability gate DELIVERED; push-delivery worker + unread bell-feed open) ·
   **E9** (rich masters/reports/withdrawals open) · **E10** (POST done; GET-list + DELETE open) ·
-  **E11** (real `DELETE /users/me` done; rest open) · **E1** (cross-practice needs-attention *filter* open).
+  **E11** (real `DELETE /users/me` + `UserResponse.email` done №280; rest open) · **E1** (cross-practice needs-attention *filter* DONE №280).
 - **OPEN (untouched, field absent on `4713c60`):** **E4** messaging · **E6** weekly summary ·
   **E12** checkin_count · **E13** apply-doc/photo-upload · **E14** application rejection_reason ·
   **E15** master_onboarding_completed · **E16** apply languages · **E17** master web-auth (PARKED).
@@ -42,6 +29,56 @@ capability gate delivered). Everything else unchanged, no regression. One-glance
   **W-6/W-7** (user dashboard full attended-stats + bookings load-more, commit `028ae7e`); plus
   frontend/test self-fixes (`StudentDetailResponse.name/avatar`, admin-metrics test isolation) — for
   coordination, not Zod work.
+
+---
+
+## ⏱ SELF-BUILT THIS BATCH — 2026-07-06 (T1–T5 + Bug2, HELD ahead-8 on `54bdf0a`; coordination, NOT Zod work — do not rebuild)
+
+We self-built the following this session under the backend-exception (additive / JSONB / config,
+no migration). Recorded here so Zod sees the new surfaces and avoids collision. Deploy delta
+`ca66e0e..54bdf0a` = 11 commits (our 8 + Zod's Z-7 zoom-factory `0e3f280` / R-1 clear-admin-marker
+`da98d56` / regen `39bdc31`). **Zero migration** across all 11.
+
+**Additive endpoints / contract (self-built, live after deploy):**
+- `POST /admin/users/{id}/make-master` (T2) — explicit admin grant: create-or-re-verify the
+  `MasterProfile` **and** set `role=master` **and** clear the switched-away-admin marker
+  (`credentials_without_admin_home`, shared with R-1). `409 already_master` if already master.
+- `GET /admin/masters/{id}` → `AdminMasterDetail` (T3) — real methods / experience / bio for review.
+- `PATCH /admin/masters/{id}/methods` → `EditMasterMethodsRequest` (T3) — admin edits a master's
+  flat method set during review (min 1 / max 20). Distinct from the M3 master-side change-request.
+- `UserResponse.master_application: MasterApplicationInfo | None` on `GET /me` (T5) — reject-visibility
+  so a role=`user` applicant sees the verdict (reason) on `MasterPendingView`.
+- **Generic Redis invite (T5, replaces the account-bound ID-invite):** `POST /admin/masters/invite`
+  now takes **no body** (was `{telegram_id}`), stores `master_invite:{sha256(token)}` → `{issued_by,
+  issued_at}` in Redis with **no TTL**, returns the composed `?startapp=master_onboarding__<token>`
+  link (`503 bot_url_not_configured` if `TELEGRAM_BOT_URL` unset). `POST /masters/invite/claim` burns
+  the token atomically (`GETDEL`; first-claim-wins, unknown/consumed → `404 invite_invalid`); any
+  authenticated opener may claim. The account-bound `credentials.master_invite` writer/reader path is
+  **removed** (schema `InviteMasterRequest` deleted; own-marker hash-compare gone).
+
+**T4 role/capability pivot (behavior change, no contract field):** `verify_master` (application
+approval) now sets `status=verified` **ONLY** — it no longer flips `User.role`. The applicant gains
+master *capability* and self-switches via the existing `POST /users/me/role` (`derive_allowed_roles`
+keys on `status=="verified"`). `get_current_master` still requires `role=master` AND verified, so a
+verified-but-not-switched account is correctly gated. `make_master` (T2) is the one path that flips
+role (explicit grant).
+
+**generated.ts hand-adds reconciling at deploy regen (zero expected type-drift):** added
+`AdminMasterDetail`, `EditMasterMethodsRequest`, `MasterApplicationInfo`; removed `InviteMasterRequest`.
+All have backing backend schemas (or, for the removal, none), so a clean OpenAPI regen matches.
+
+**Known FOLLOW-UPS (self / later — NOT asking Zod to action now):**
+- **Consistency semaphore 1.3 redefinition.** T4 creates a valid `verified` profile with `role=user`
+  (approved-but-not-yet-self-switched). Semaphore `1.3_master_users_eq_verified_profiles`
+  (`role∈{master,admin}` count == verified-profile count) therefore diverges in that transient window
+  — a **monitoring-only ALERT** on the (parked) admin DB-integrity screen; no functional/test impact
+  (no test approves-then-asserts-OK). When that screen is un-parked, redefine 1.3 to count the
+  pending-self-switch state (verified profile whose owner is still role=user).
+- **Free-text custom-method add** in the T3 methods editor (currently pick from the fixed set).
+- **Cross-session persistent reject indicator** in the user zone (today the verdict shows via
+  `/me master_application` on the pending screen only).
+- **Durable `MasterInvite` table** if the Redis-ephemeral invite proves insufficient (a Redis flush
+  drops unburned tokens; acceptable for now — admin regenerates).
 
 ---
 
@@ -89,7 +126,7 @@ missing just because a less-seeded screen looks thin.
 Minor gaps closed by us (backend projection + manual `generated.ts` + frontend wire), NOT Zod:
 - **E18** `zoom_link` on `PracticeSummary` — from_attributes projection (no migration); `generated.ts` + Zoom wired (user dashboard / live / master dashboard).
 - **E14** `rejection_reason` on `MasterProfileResponse` — projected from `data.account.rejection_reason` in the router; `MasterPendingView` shows the real reason.
-- **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter remainder still open — see E1; AnalyticsView attention card left on its existing message action pending operator UX call.)*
+- **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter DONE №280: `getMasterReviews(…, attention)` + AnalyticsView «Требуют внимания» fetches `attention=true`; the backend param was already deployed. AnalyticsView attention card left on its existing message action pending operator UX call.)*
 - **E10** GET `list_my_promos` + PATCH deactivate were already delivered by Zod — frontend now wired (`api/promos.ts` + `MasterPromocodesView`, active-list + soft-deactivate); no hard DELETE added.
 
 TARGETED Zod one-liners (small, but in Zod-hot files — Zod to slot; we did NOT touch these):
@@ -116,9 +153,12 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   (gen:663), `ReviewItem` (gen:922), `getPracticeReviews` practices.ts:170. The **cross-practice**
   needs-attention feed (the former internal "#3") is also DELIVERED: `GET /masters/me/reviews` →
   `PaginatedMasterReviewsResponse` (gen:615) with `MasterReviewItem.practice_title` (gen:521).
-  **OPEN remainder:** the cross-practice feed has **no negative-only/attention filter param** (only
-  limit/offset) — add `attention=true` (or a rating filter) so «Требуют внимания» shows only the
-  low-rated. **Also OPEN: `MasterReviewItem` (gen:521) / `ReviewItem` (gen:922) carry no `user_id`** —
+  **CORRECTION (2026-07-04, ПРОМТ №280): the attention param was STALE-OPEN — it already ships.**
+  `GET /masters/me/reviews?attention=true` narrows to the negative (confused) bucket server-side
+  (`reviews_router.py` `attention: bool = Query`, `reviews_service.list_master_reviews`,
+  `Feedback.rating <= ATTENTION_RATING_MAX`) and is LIVE on origin/test. E1-attention = **frontend
+  wiring, now DONE**: `getMasterReviews(..., attention)` passes it; `AnalyticsView` «Требуют внимания»
+  fetches `attention=true`. **Also OPEN: `MasterReviewItem` (gen:521) / `ReviewItem` (gen:922) carry no `user_id`** —
   the reviewer is name-only, so a review card cannot navigate to that student's profile. Add a reviewer
   `user_id` to the review item so the frontend can link a review → student profile. *(The per-practice
   `attention` filter EXISTS on the backend — test-verified — but the frontend wrapper doesn't pass it;
@@ -289,6 +329,15 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   expose it on the profile — contract undefined → define + spec (frontend defers, does not invent). **P2** (recon item E3).
 - NEW i18n EN catalog + language render layer + date-format pref + formatter. **P2.**
 - EXTEND `PracticeResponse` per-card `{ attended, no_show }` aggregate. **P2.**
+- **STATUS (2026-07-04, email SELF-BUILT — PACK#3, ПРОМТ №280):** `UserResponse.email` capture+expose
+  is DONE, additive credentials-JSONB (phone/bio pattern, NO column, NO migration): `"email"` added to
+  `_JSONB_CREDENTIAL_FIELDS`, `UserResponse.email` computed_field, `UserUpdate.email` (soft
+  email-validator; "" clears). `EditProfileView` email field enabled. Regenerated generated.ts.
+  **ZOD HEADS-UP (Q1=А collision note):** Velo orc self-built this in `users/` (Zod's nominal E8 lane).
+  It is **additive only** (one credentials key + one response field + one PATCH field) — no schema/
+  column/migration, no conflict with E8's `master_notifications`. users/ was re-checked remote-cold at
+  build (origin/main 0-ahead vs test, no in-flight users/ push). Reconcile-before-push still mandatory
+  at deploy. The OTHER E11 one-offs below remain OPEN.
 - **STATUS (2026-06-24): PARTIAL.** DELIVERED: real `DELETE /users/me` (forfeit) — users.ts:50.
   **OPEN:** master-delete-participant booking; support-ticket intake + upload; connection-link;
   `DELETE /masters/me/payout` (only PATCH); `UserResponse.email` (gen:1059 has none); per-card
@@ -354,7 +403,11 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **(c) Breaks.** `MasterApplyExperience` / `MasterApplyRequest` (gen:472) has no `languages` field;
   `MasterProfileResponse` (gen:486) has no `languages`. The control persists nothing until added.
 - **Request.** Add `languages: string[]` to the apply experience intake + surface on the profile.
-- **STATUS (2026-06-27): OPEN.** (Frontend stub built under build-full-design.)
+- **STATUS (2026-07-04): SELF-BUILT (PACK#3, ПРОМТ №280).** Additive JSONB `data.profile.languages`
+  (mirror `methods`, NO migration): `MasterApplyExperience.languages` (default []) + on
+  `MasterProfileResponse`; apply UI wired (`langRu`/`langEn` → experience.languages). Q2=А: FREELY
+  editable on the profile (no moderation) via new `PATCH /api/v1/masters/me/languages` +
+  `EditProfileView` languages chips. Regenerated generated.ts. HELD (accumulate-then-deploy).
 
 ### E17 — Master web auth (Phase A) (NEW slice-3 2026-06-27). **P3 (future web build).**
 - **(a) Why.** The Figma Phase A is a standalone WEB master portal: Landing / Login (email+password) /
@@ -406,8 +459,17 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **Request.** Design + build the taxonomy model + change-request + admin-approval + pending status; image 2
   (PE-3) is the visual spec. Then the frontend upgrades the locked flat-chip display into the mockup's
   editable-with-approval rows. Until then the honest locked display stands.
-- **STATUS (2026-07-01): OPEN.** (Frontend keeps the honest locked flat-methods display; full mockup gated on
-  this backend — no fake data built.)
+- **STATUS (2026-07-04): SELF-BUILT FLAT (M3, ПРОМТ №278) — two-level taxonomy DEFERRED / out of scope.**
+  Operator locked F-M3-1=А (FLAT `string[]`, no direction→kind nesting) after recon surfaced that this E19
+  entry contradicted the flat decision. Shipped additively (no migration): JSONB
+  `data.profile.method_change_request` + 4 endpoints mirroring the master-application verify/reject loop
+  — `POST /masters/me/method-change-request` (master submit), `GET /admin/masters/method-change-requests`
+  (admin list-pending), `POST /admin/masters/{id}/method-change-request/approve|reject`. Exposed on
+  `MasterProfileResponse.method_change_request` (optional). Frontend: `EditProfileView` master methods block
+  upgraded from locked-chips to an editable flat set + «Ожидает подтверждения» pending badge + auto-submit
+  note; new admin `AdminMethodRequestsView` moderation screen. The **two-level Направление→Вид taxonomy**
+  from the operator's PE-3 mockup (per-method pencil-edit, per-method pending) remains **OPEN / deferred** —
+  revisit if the operator re-prioritises the nested design.
 
 ---
 
@@ -416,7 +478,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | Endpoint (method + path) | NEW/EXTEND | Fields | Prio | Status (2026-06-24) |
 |---|---|---|---|---|
 | GET /practices/{id}/reviews | NEW | reviewer_name, avatar, rating, comment, date; attention | P0 | DELIVERED (gen:663) |
-| GET /masters/me/reviews (cross-practice feed) | NEW | + practice_title; attention filter | P1 | PARTIAL — feed done (gen:615), attention param OPEN |
+| GET /masters/me/reviews (cross-practice feed) | NEW | + practice_title; attention filter | P1 | DELIVERED — feed + attention param (gen:615); FE wired №280 (AnalyticsView attention=true) |
 | GET /masters/me/income?period | NEW | income_cents, delta | P0 | DELIVERED (gen:442) |
 | GET /masters/me/transactions | NEW | title, date, counterparty, amount (signed) | P0 | DELIVERED (gen:536/679) |
 | GET /masters/me/students (+/{id}) | NEW | name, avatar, counts, checkins[], feedbacks[] | P0 | DELIVERED (gen:671/966) |
@@ -445,7 +507,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | connection-link auto-gen | NEW | link generation + delivery | P2 | OPEN |
 | DELETE /masters/me/payout | NEW | remove payout method | P2 | OPEN |
 | DELETE /users/me (real) | EXTEND | forfeit balance + erase semantics | P2 | DELIVERED (users.ts:50) |
-| UserResponse.email | EXTEND | email capture + expose | P1 | OPEN (gen:1059) |
+| UserResponse.email | EXTEND | email capture + expose | P1 | SELF-BUILT №280 (credentials JSONB, no column/migration; UserUpdate.email) |
 | i18n EN + date-format pref | NEW | locale catalog + format pref + formatter | P2 | OPEN |
 | PracticeResponse {attended, no_show} | EXTEND | per-practice card aggregate | P2 | OPEN |
 | PracticeResponse.checkin_count (E12) | EXTEND | «😊 N/M» aggregate | P1 | OPEN (gen:740/775) |
@@ -508,3 +570,232 @@ E12–E17 OPEN (E17 PARKED — master web-auth, future web build). **Only delta 
 PARTIAL** (master-notifications contract + capability gate delivered; push/feed open). No regression.
 Auto-complete-by-duration + W-6/W-7 (user dashboard) delivered outside the epic set. This is the current
 state to hand to Zod against his own numbering.
+
+---
+
+## 2026-07-03 — ROLE_SWITCH_ENABLED removed (heads-up for YOUR docs)
+
+**What changed (commit `15d5b0d`, held batch on `d01f6f9`, ПРОМТ №256):** the TEST-only
+`ROLE_SWITCH_ENABLED` flag is REMOVED entirely (config field, the 404 router gate on
+`POST /users/me/role`, the W-4 startup warning + its test file, and the seeded
+`credentials.role_switch.allowed_roles` allow-lists — now ignored). Role-switch security is
+capability-derived (`derive_allowed_roles` in `app/modules/users/schemas.py`, single source of
+truth for the write path AND the `role_switch` block in `GET /users/me`): USER always ·
++MASTER with a verified MasterProfile · admin keeps all three via a server-written
+`credentials.role_switch.home_role` round-trip marker; a non-admin can NEVER switch to admin
+(CLI `velo setrole` only). The endpoint is always on; a plain user derives `{USER}` and can do
+nothing. `ROLE_SWITCH_ENABLED=False` in the TEST `.env` is inert and can be dropped.
+
+**Stale references left in YOUR docs (we don't edit them — please align on your next pass):**
+- `VELO-Backend.md:36` — W-4 summary line («громкий security-WARNING при `role_switch_enabled=True`») — the flag and the warning no longer exist.
+- `VELO-Backend.md:1202` — same W-4 warning note.
+- `VELO-Backend.md:1244` — «эндпоинт 404 в проде при `role_switch_enabled=False`» — the 404 gate is gone; security = derived policy.
+- `VELO-Technical-Specification.md:2726` — W-4 checklist entry.
+- `VELO-Technical-Specification.md:3146` — W-4 mention in the hardening summary list.
+
+**Optional one-line follow-up in YOUR `set_role.py`:** demoting an admin (→user/master) while
+they are role-switched away leaves a stale `credentials.role_switch.home_role="admin"` marker
+(they could self-return to admin via the switch). Clearing the marker in your demote path
+closes the edge; operator accepted the edge as-is for now (№257 ruling), so this is optional.
+
+---
+
+## 2026-07-03 — zoom_link exposure matrix: test-debt cells (tied to your E18/M-3/Z-6/Z-7 batch)
+
+Pre-push audit (ПРОМТ №262) mapped `test_zoom_link_visibility.py` onto the full exposure matrix.
+The gate itself verified fail-closed (only the two builders set the field). Six cells have NO test —
+small additive cases, your file/conventions:
+
+1. `GET /bookings/{id}` — the booking-detail response wipes zoom_link via
+   `model_copy(update={"zoom_link": None})` (bookings/router.py:281) — untested.
+2. Finalize response — same wipe at bookings/router.py:392-395 — untested.
+3. Practice detail for an ATTENDED booking — only CONFIRMED is asserted today
+   (test_detail_zoom_link_gated_by_booking); the ATTENDED branch of
+   ZOOM_VISIBLE_BOOKING_STATUSES on the DETAIL surface is uncovered.
+4. NO_SHOW booking — not asserted on any surface (should be None everywhere).
+5. Public catalog list (`GET /practices`) for a user who HAS a confirmed booking —
+   the list is unconditionally None even for eligible users (list builder never
+   passes visibility); asserting that pins the design.
+6. Admin surfaces — zoom_link is structurally absent from all admin serializers
+   (grep-verified); one assert would guard against a future admin schema gaining it.
+
+Note: we added the owner-mutation-response cells ourselves in №263
+(`test_owner_create_response_shows_zoom_link` / `test_owner_update_response_shows_zoom_link`)
+after making the four owner-only CRUD responses in practices/router.py pass
+`zoom_link_visible=True` (F1) — consistent with your Z-6 owner-always-sees rule.
+
+---
+
+## 2026-07-03 — U4 no-show reflection: persist endpoint + booking flag (frontend shipped on a stub, ПРОМТ №269)
+
+The User frontend now has a full **no-show reflection** flow, built entirely on a
+**stub** (no backend calls). A booking with `status = no_show` («Не состоялась») now shows
+a dashboard banner → `/user/reflection/:practiceId` → `ReflectionView` (FormShell, comment
+only, NO rating) → submit. The submit path is a client no-op
+(`diaryStore.submitReflection`, `TD-REFLECTION`) that resolves ok and dismisses the banner
+**client-side for the session only** (`bookingsStore.dismissedReflections`, mirrors the
+existing `dismissedCheckins`). Nothing persists yet. Please wire the backend to make it real:
+
+**1. Persist endpoint — mirror the feedback endpoint shape.**
+- `POST /api/v1/practices/{practice_id}/reflection` — body `{ "comment": string | null }`
+  (NO rating — a no-show reflection does not rate the practice).
+- Upsert semantics, one per `(practice, user)`, like feedback.
+- **Eligibility (mirror the feedback gate, inverted status):** `booking.status == no_show`,
+  within the window `scheduled_at + duration_minutes .. + 72h`
+  (`FEEDBACK_WINDOW_H`, identical to feedback — frontend uses `isInFeedbackWindow`).
+- Response can mirror `FeedbackResponse` (a `ReflectionResponse` sibling); the frontend does
+  not yet read the response body, so its exact shape is your call.
+- May project a diary-feed event (like feedback/check-in) — optional; the frontend does not
+  depend on it for the stub.
+
+**2. Booking flag — `has_reflection: bool` on `BookingWithPracticeResponse`.**
+- Mirror `has_feedback`: `true` once the user has submitted a reflection for that booking.
+- This **replaces** the client-only session dismiss. When the field ships, the frontend will
+  switch the dashboard `reflectionAlert` computed from `dismissedReflections.includes(...)`
+  to `!b.has_reflection` (one-line swap, symmetrical to `feedbackAlert` reading
+  `has_feedback`), and `generated.ts` regenerates then (NOT now — the stub adds no types).
+
+**⚠ DEPLOY-GATE WARNING (has burned us before):** adding `has_reflection` to
+`BookingWithPracticeResponse` grows the response key-set. **Before** you add the field,
+`grep backend/tests` for frozen **exact-key-set** assertions on the bookings serializers
+(e.g. `assert set(data.keys()) == {...}`) and update them in the same commit — the local
+pre-push gate skips pytest, so a stale key-set only fails at deploy, not locally.
+
+**Frontend wiring already in place (nothing for you to touch there):**
+`utils/reflectionVariants.ts` (copy pool, stable per practiceId), `ReflectionView.vue`,
+`stores/diary.ts::submitReflection` (the stub to flip to a real `upsertReflection` call),
+`stores/bookings.ts::dismissedReflections`, dashboard `reflectionAlert` + banner, route
+`user-reflection`. `generated.ts` UNTOUCHED by the frontend batch.
+
+---
+
+### E20 — Admin-editable catalog (directions / practice types / methods). **P2. STATUS: OPEN — Zod.**
+
+**(a) Why.** Today the taxonomy is code-frozen: adding a practice **direction**, a **practice
+type**, or a master **method** requires a code edit + redeploy (see `core/config.py:112`,
+`docs/seed-context.md:208-212`). The operator wants an **admin catalog section** to add / edit /
+remove entries at runtime — WITHOUT a heavy relational join-table redesign (operator decision **Б:
+config-driven editable catalog, grandfather existing data**).
+
+**(b) Screens.** A new admin **«Каталог»** editor (three lists: Направления / Виды практик /
+Методы, each with add-edit-remove); the picklists it feeds — `CreatePracticeView`/`EditPracticeView`
+(direction + type), `MasterApplyView`/`EditProfileView` (methods).
+
+**(c) What exists today (all code-level constants, NONE are tables — recon ПРОМТ №314):**
+- **Directions:** Python `PracticeDirection(StrEnum)` `practices/models.py:67-88` + runtime allow-list
+  `settings.practice_allowed_directions` `core/config.py:139`; stored per-practice in JSONB
+  `data.taxonomy.direction` (not a column). FE mirrors: `utils/practiceOptions.ts` `DIRECTION_OPTIONS`,
+  `utils/displayHelpers.ts` `DIRECTION_LABEL`, `api/types.ts` `PracticeDirection`.
+- **Practice types:** Python `PracticeType(StrEnum)` `practices/models.py:43-53` + allow-list
+  `settings.practice_allowed_types` `core/config.py:113`; persisted as a validated `String(20)` column.
+- **Methods:** free `list[ShortStr]` (1–200 chars, **no catalog enforcement**) `masters/schemas.py:63`,
+  stored JSONB `data.profile.methods`. The only "catalog" is a **frontend-only** const
+  `utils/methods.ts` (6 RU strings) — the backend accepts arbitrary strings today.
+
+**(d) Backend — decision Б (config-driven, minimal migration):**
+1. **Catalog store.** A single persisted, admin-mutable catalog for the three lists — a small
+   `catalog_entries` table (`kind ∈ {direction, practice_type, method}`, `value`, `label`,
+   `active`, `sort`) **or** a JSONB config row — seeded from the current enum / settings values so
+   day-one behaviour is identical. No per-practice/per-master data migration.
+2. **Rewire the validators** that currently read `settings.practice_allowed_directions` /
+   `_types` (`practices/schemas.py:290,466`, `practices/router.py:100`) to read the catalog store
+   instead. **⚠ Collision flag:** these validators gate practice creation — changing their source
+   is the load-bearing risk; a bad catalog row would reject valid `POST /practices`.
+3. **CRUD + admin auth.** `GET/POST/PATCH/DELETE /admin/catalog/{kind}` (+ the FE editor screen).
+4. **Grandfather / soft enforcement (operator Б):** existing master free-text `methods` stay VALID;
+   the catalog drives the **picklist for NEW selections only**; the backend still ACCEPTS
+   already-stored off-catalog values (no forced migration, no hard "catalog-only" rejection).
+   Strict enforcement (reject off-catalog) = a **later toggle**, not now.
+
+**(e) Notes.** Removing a catalog entry must NOT orphan practices/masters already using it (soft
+delete / `active=false` so historical rows still render their label). Directions additionally carry a
+FE icon map (`DIRECTION_ICON`, Partial+fallback) — a new direction with no icon falls back gracefully
+(`TD-CAL-DIRECTIONS-EXPAND`), so the catalog can add directions ahead of icons. This epic supersedes
+the "manual code edit + migration" note in `docs/seed-context.md:208-212` once shipped.
+
+---
+
+## 2026-07-07 — admin «Revoke master» self-added (heads-up for YOUR role lane, A1)
+
+**Self-built (additive, JSONB, NO migration) — do not rebuild, avoid colliding in the role/auth
+lane.** New admin endpoints mirror CLI `scripts/set_role.py to_user` **exactly** so the two stay one
+behavior:
+- `POST /api/v1/admin/masters/{user_id}/revoke` — soft-freeze: `User.role -> user` (only if currently
+  master) + clear the switched-away-admin marker (`credentials_without_admin_home`, R-1); profile
+  `data.account.status -> "suspended"`, `data.availability.is_accepting -> False`. **Every row is
+  preserved** (no delete). Capability keys on `status=="verified"` (`users/service.user_has_master_
+  capability`), so suspending drops it → the account logs in user-only.
+- `GET /api/v1/admin/masters/{user_id}/revoke-preview` → `RevokeMasterAdvisory` (future scheduled/live
+  practices, balance, pending withdrawals). Operator decision **Б: WARN-not-block** — the CLI's
+  downgrade guard is surfaced as advisory only; the revoke never blocks.
+- **Re-grant** reuses the EXISTING `make_master` re-verify branch (`admin/users/service.py:282-296`,
+  the "Сделать мастером" button): a `suspended` profile → `status="verified"` + `role=master`, data
+  intact. Verified end-to-end; no change needed there.
+
+If you add a durable revoke/suspension concept later, reconcile with this JSONB soft-freeze so CLI +
+admin + your path agree on `status=="suspended"` as the parked state.
+
+---
+
+## 2026-07-07 — admin F-batch deferred to Zod (F2/F6, F4)
+
+The admin F-batch shipped its self/FE parts (F1/F5/F3 masters status filter, F7 moderation reset).
+Two items are backend-blocked and recorded here.
+
+### F2/F6 — master card + detail must show «Направление» + «Вид» — FOLD into E19 + E20. **P2. STATUS: OPEN — Zod.**
+
+**Reality (recon 2026-07-07).** A master profile stores only a **flat `methods: list[str]`**
+(`masters/service.py:81-90` `_build_data` → `data.profile.methods`; input `MasterApplyExperience`
+`masters/schemas.py:60-70`). There is **no** `direction` / `type` / `вид` / `subtype` / `category`
+field anywhere under `data.profile`. `AdminMasterReviewView` merely *relabels* the flat list
+"Направления практик" — cosmetic, no second «Вид» axis. Direction/type exist only on **Practice**
+(`data.taxonomy.direction` + `PracticeType`), not on masters.
+
+**What F2/F6 needs (all Zod):**
+1. A master-profile taxonomy shape — `direction` + `subtype (вид)` (two-level, mirroring E19's
+   «Направление»→«Вид»), JSONB-additive under `data.profile` (no column migration) — or the E20
+   `catalog_entries` route.
+2. A master-facing way to SET them: extend `MasterApplyExperience` (apply) + the M3 change-request
+   (`MethodChangeRequestSubmit` `masters/schemas.py:168-176`, currently flat `proposed_methods`) +
+   the **admin edit-master-fields** endpoint already tracked at the §E19-area row
+   `| admin edit-master-fields | NEW | save Направление / Вид | P2 | OPEN |` (line ~497).
+3. THEN the admin **card + detail** (`AdminMastersView`, `AdminMasterReviewView`, and the
+   `AdminMasterDetail` schema `admin/users/schemas.py:38-49`) render «Направление» + «Вид». Today
+   they show honest `«—»` stubs — the FE structure is already built for the values to drop in.
+
+**Cross-ref:** this IS the deferred **E19** (two-level Направление→Вид taxonomy, shipped FLAT M3
+instead) + **E20** (admin-editable catalog `catalog_entries`, kind ∈ {direction, practice_type,
+method}). F2/F6 cannot ship presentational — a faked taxonomy violates the E19 no-fake rule.
+**Operator fork:** (B) minimal real `data.profile.direction`+`subtype` now, hardcoded option lists;
+or (C) fold into E19+E20 catalog (correct, larger, unblocks CreatePractice/EditProfile picklists).
+
+### F4 — self-deleted master candidate → `cancelled_by_user` archival. **NEW. P2. STATUS: OPEN — Zod (backend) + FE branch.**
+
+**Target.** When a user with a **pending** master application deletes their account, the application
+row STAYS in the DB, flips to auto-status `cancelled_by_user`, and the admin moderation queue shows
+«Аккаунт удалён» with Approve/Reject **disabled**.
+
+**Reality (recon 2026-07-07).** The precondition does **not** exist: `DELETE /api/v1/users/me`
+(`users/router.py:139`) → `reset_user_to_onboarding` (`users/service.py:283`) is a documented
+**no-op** — it only clears `onboarding_completed`; `is_active` untouched, all data stays, the account
+still logs in. Nothing writes `cancelled_by_user` for masters (it is only a booking/diary event
+today). No «Аккаунт удалён» UI branch exists.
+
+**What F4 needs:**
+1. **Backend — real deletion hook** (the single change-point is already earmarked inside
+   `reset_user_to_onboarding`, `users/service.py:287-299`): on account deletion, find the user's
+   MasterProfile and if `data.account.status == "pending"` write `status = "cancelled_by_user"`
+   (JSONB deepcopy + `set_jsonb`, mirroring `reject_master` `admin/masters/service.py:298-303`).
+   ⚠ **`MasterProfile.user_id` FK is `ondelete="CASCADE"` (`masters/models.py:59`)** — a real
+   hard-delete of the User would DROP the profile row (opposite of the target). So either soft-delete
+   the User (needs an `is_deleted`/`deleted_at` column = migration) or leave the User row and only
+   flip the status (no migration). Decide the deletion semantics first.
+2. **Frontend (self, ready to wire once the status exists):** `masterStatusLabel` already maps
+   `cancelled_by_user → «Аккаунт удалён»` and the masters filter has an «Удалены» tab (F3, currently
+   count 0). Still to add: an `isCancelledByUser` branch in `AdminMasterReviewView` that shows
+   «Аккаунт удалён» and disables Approve/Reject (note `verify/reject_master` already 409 on
+   non-pending via `_load_pending_profile`, so the guard exists server-side — the UI must disable
+   rather than call).
+
+**Dependency:** F3's «Удалены» tab stays empty until this ships; «Заблокированы» already populates
+from A1's `suspended`.

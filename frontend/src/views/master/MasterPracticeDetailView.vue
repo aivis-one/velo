@@ -8,17 +8,18 @@
     - PAST branch (completed / cancelled): read-only review — hero + attendance
       stats + participant reviews + finance + Check-ins / Посещаемость CTAs.
     - UPCOMING branch (draft / scheduled / live) = WI-B hub: PracticeHeroCard +
-      Записалось/Мест/Цена stat cards + «Записались» roster (each row removable) +
+      Записалось/Мест/Цена stat cards + «Записались» roster (read-only rows) +
       description/contraindications accordions + «Начать практику» + Check-ins,
       with a «…» menu (Изменить / отменить|удалить). Replaces the former redirect
       to the edit screen. EditPracticeView is untouched (reached via «…» → Изменить).
 
   Decisions (operator, WI-B, all Г=А):
-    FORK1 — the per-participant X opens a "Cancel a reservation" modal; confirm
-            raises a «недоступно» toast: there is NO master-removes-participant
-            endpoint (cancelBooking is self-only) → backend ask in
-            master-ds-zod-roadmap (E11). FORK2 — the recurrence-days hero line is
-            HIDDEN (no recurrence model). FORK3 — NO «Опубликовать» on the hub
+    FORK1 — REMOVED (ПРОМТ post-№280): the per-participant «отменить запись» X was a
+            stub (no master-removes-participant endpoint — cancelBooking is self-only)
+            so the operator asked to drop it entirely until the backend exists. The
+            roster rows are now read-only. Re-add the X when the remove-participant
+            endpoint ships (E11, master-ds-zod-roadmap). FORK2 — the recurrence-days
+            hero line is HIDDEN (no recurrence model). FORK3 — NO «Опубликовать» on the hub
             (draft→scheduled stays in EditPracticeView). FORK4 — the hub hero
             reuses the shared PracticeHeroCard.
 
@@ -27,8 +28,8 @@
           «Начать практику» (updatePractice status='live') · отменить
           (cancelPractice) · удалить draft (deletePractice). PAST rating badges +
           stats as before (getAttendance + anonymous insights).
-    STUB → Zod: remove-one-participant (no endpoint) → toast; «Доход» (no
-          income/ledger API) → «—»; «Отзывы участников» (insights are anonymous).
+    STUB → Zod: remove-one-participant (no endpoint) → the X was REMOVED (not faked);
+          «Доход» (no income/ledger API) → «—»; «Отзывы участников» (insights anonymous).
 -->
 
 <template>
@@ -113,9 +114,6 @@
               <template v-else>{{ initials(item) }}</template>
             </span>
             <span class="pd-prow__name">{{ displayName(item) }}</span>
-            <button class="pd-prow__x" aria-label="Отменить запись" @click="openCancelRes(item)">
-              <IconClose :size="16" />
-            </button>
           </div>
           <VShowMore
             v-if="!rosterExpanded && hiddenRosterCount > 0"
@@ -139,7 +137,13 @@
               @click="descOpen = !descOpen"
             >
               <span class="pd-acc__title">Описание</span>
-              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <svg
+                class="pd-acc__chev"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+              >
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -158,7 +162,13 @@
               @click="contraOpen = !contraOpen"
             >
               <span class="pd-acc__title">Противопоказания</span>
-              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <svg
+                class="pd-acc__chev"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+              >
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -173,7 +183,13 @@
               @click="prepOpen = !prepOpen"
             >
               <span class="pd-acc__title">Что подготовить</span>
-              <svg class="pd-acc__chev" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <svg
+                class="pd-acc__chev"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+              >
                 <path d="M6 9l6 6 6-6" />
               </svg>
             </button>
@@ -270,29 +286,6 @@
       @confirm="doDelete"
       @cancel="showDelete = false"
     />
-
-    <!-- Cancel a reservation (per participant) — FORK1: stub, no endpoint → toast. -->
-    <VModal
-      :open="showCancelRes"
-      :show-close="false"
-      :close-on-overlay="true"
-      @close="showCancelRes = false"
-    >
-      <div class="pd-cres">
-        <h2 class="pd-cres__title">Отменить запись?</h2>
-        <div class="pd-cres__pcard">
-          <span class="pd-cres__ava">{{ resInitials }}</span>
-          <span class="pd-cres__name">{{ resName }}</span>
-        </div>
-        <Banner variant="warning" body="Участнику вернётся оплата и придёт уведомление об отмене.">
-          <template #icon><IconWarning :size="28" /></template>
-        </Banner>
-        <div class="pd-cres__actions">
-          <VButton variant="primary" @click="showCancelRes = false">Не отменять</VButton>
-          <VButton variant="danger" @click="confirmCancelRes">Отменить запись</VButton>
-        </div>
-      </div>
-    </VModal>
   </div>
 </template>
 
@@ -314,7 +307,6 @@ import {
   VButton,
   VLoader,
   VEmptyState,
-  VModal,
   VConfirmDialog,
   VMenu,
   VMenuItem,
@@ -324,15 +316,7 @@ import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import CancelPracticeDialog from '@/components/shared/CancelPracticeDialog.vue'
-import Banner from '@/components/shared/Banner.vue'
-import {
-  IconClose,
-  IconWarning,
-  IconRatingFire,
-  IconRatingGood,
-  IconRatingConfused,
-  IconEdit,
-} from '@/components/icons'
+import { IconRatingFire, IconRatingGood, IconRatingConfused, IconEdit } from '@/components/icons'
 // IconTrash is not re-exported from the icons barrel; import the component
 // directly (same as EntryView).
 import IconTrash from '@/components/icons/IconTrash.vue'
@@ -569,22 +553,6 @@ async function doDelete(): Promise<void> {
   }
 }
 
-// -- Cancel a reservation (per participant) — FORK1 stub (no endpoint) --
-const showCancelRes = ref(false)
-const resName = ref('')
-const resInitials = ref('?')
-function openCancelRes(item: AttendanceItemResponse): void {
-  resName.value = displayName(item)
-  resInitials.value = initials(item)
-  showCancelRes.value = true
-}
-function confirmCancelRes(): void {
-  // No master-removes-participant endpoint (cancelBooking is self-only) → stub.
-  // Recorded for Zod in master-ds-zod-roadmap (E11).
-  showCancelRes.value = false
-  toast.info('недоступно')
-}
-
 // -- Load --
 async function load(): Promise<void> {
   loading.value = true
@@ -739,25 +707,6 @@ onMounted(load)
   color: var(--velo-text-primary);
 }
 
-.pd-prow__x {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  border: none;
-  cursor: pointer;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-15);
-  color: var(--velo-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.pd-prow__x:hover {
-  color: var(--velo-danger-text);
-}
-
 /* ===== Review card (PAST) ===== */
 .practice-detail__review {
   background: var(--velo-bg-card-solid);
@@ -812,58 +761,5 @@ onMounted(load)
   flex-direction: column;
   gap: var(--space-3);
   margin-top: var(--space-1);
-}
-
-/* ===== Cancel-a-reservation modal ===== */
-.pd-cres {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.pd-cres__title {
-  font-family: var(--font-heading);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  color: var(--velo-text-primary);
-  text-align: center;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-
-.pd-cres__pcard {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  border: 1px solid var(--velo-primary);
-  border-radius: var(--radius-md);
-  padding: var(--velo-card-padding-y) var(--space-4);
-}
-
-.pd-cres__ava {
-  width: var(--velo-size-44);
-  height: var(--velo-size-44);
-  flex-shrink: 0;
-  border-radius: var(--radius-full);
-  background: var(--velo-glass-blue-60);
-  color: var(--velo-text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-base);
-}
-
-.pd-cres__name {
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-}
-
-.pd-cres__actions {
-  display: flex;
-  gap: var(--space-3);
-}
-
-.pd-cres__actions > * {
-  flex: 1;
 }
 </style>

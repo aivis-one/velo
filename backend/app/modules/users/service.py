@@ -27,10 +27,14 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import ConflictError, ForbiddenError
+from app.core.exceptions import ForbiddenError
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User, UserRole
-from app.modules.users.schemas import UserUpdate
+from app.modules.users.schemas import (
+    UserUpdate,
+    derive_allowed_roles,
+    has_admin_home,
+)
 
 logger = structlog.get_logger()
 
@@ -38,11 +42,18 @@ logger = structlog.get_logger()
 # credentials JSONB sandbox instead of via setattr.
 #
 # onboarding_completed: bool flag (welcome flow).
-# phone / bio: profile fields (schema-on-read). They allow an empty string
-#   "" as a valid stored value (means "cleared"); None is still dropped
+# master_onboarding_completed: bool flag (master-zone welcome flow, E15) --
+#   the exact same lifecycle as onboarding_completed, persisted so the master
+#   onboarding survives re-login.
+# phone / bio / email: profile fields (schema-on-read). They allow an empty
+#   string "" as a valid stored value (means "cleared"); None is still dropped
 #   below, so clearing is done by sending "", not null. This reuses the
 #   exact same write path as onboarding_completed -- no special-casing.
-_JSONB_CREDENTIAL_FIELDS = frozenset({"onboarding_completed", "phone", "bio"})
+#   email (E11): Telegram provides none, so it is captured via the profile
+#   edit form and stored here (additive JSONB, no column, no migration).
+_JSONB_CREDENTIAL_FIELDS = frozenset(
+    {"onboarding_completed", "master_onboarding_completed", "phone", "bio", "email"}
+)
 
 
 async def update_user(
@@ -202,47 +213,60 @@ async def switch_user_role(
     target_role: UserRole,
     session: AsyncSession,
 ) -> User:
-    """Switch a tester's own role in place (TEST-ONLY tester tool).
+    """Switch the caller's own role in place (capability-derived, A1=Б).
 
-    The feature flag gate (settings.role_switch_enabled) is enforced in the
-    router; this function assumes the feature is on and enforces the per-user
-    authorization:
+    Authorization is derived, not seeded: derive_allowed_roles() (shared with
+    UserResponse.role_switch -- single source of truth) computes the allowed
+    target set from
+      - the current role (an admin may take any of the three roles, including
+        MASTER without a master profile -- №254 Q4=А),
+      - master capability (a VERIFIED MasterProfile unlocks MASTER),
+      - the switched-away-admin marker (see below).
+    A target outside the derived set -> 403. In particular a non-admin can
+    NEVER switch to ADMIN (admin is granted only via CLI/DB), and a switch to
+    MASTER without capability is a plain 403 (the old 409
+    master_profile_required is gone together with the seeded allow-lists).
 
-      1. target_role must be in the caller's seeded allow-list
-         (credentials.role_switch.allowed_roles) -> else 403.
-      2. Switching to MASTER requires a verified MasterProfile, otherwise the
-         master role guard (get_current_master) would 403 on every subsequent
-         request -> ConflictError (409) if absent/unverified.
+    Round-trip marker: when an admin switches away, credentials.role_switch.
+    home_role = "admin" is recorded so the derivation keeps ADMIN in their
+    set and they can come back; the marker is cleared on the switch back.
+    It is server-written only -- "role_switch" is not PATCHable.
 
-    The role is rewritten directly on the User row (same mechanism as
-    admin master-verify), so all existing role guards keep working unchanged.
-    Switching to the current role is a harmless no-op as long as it is allowed.
+    The role is rewritten directly on the User row (same mechanism as admin
+    master-verify), so all existing role guards keep working unchanged.
+    Switching to the current role is a harmless no-op (USER/own role is
+    always in the set).
 
     The user object must already be bound to the provided write session
     (ensured by get_current_user_write in the router).
     """
-    role_switch = (user.credentials or {}).get("role_switch") or {}
-    stored = role_switch.get("allowed_roles")
-    allowed = {str(r) for r in stored} if isinstance(stored, list) else set()
+    is_admin_home = has_admin_home(user.credentials)
+    allowed = derive_allowed_roles(
+        user.role,
+        await user_has_master_capability(user, session),
+        admin_home=is_admin_home,
+    )
 
-    if target_role.value not in allowed:
+    if target_role not in allowed:
         raise ForbiddenError(
             "Role not allowed for this account",
             code="role_not_allowed",
         )
 
-    if target_role == UserRole.MASTER:
-        stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
-        result = await session.execute(stmt)
-        profile = result.scalar_one_or_none()
-        profile_status = (
-            profile.data.get("account", {}).get("status") if profile else None
-        )
-        if profile_status != "verified":
-            raise ConflictError(
-                "No verified master profile to switch into",
-                code="master_profile_required",
-            )
+    # Maintain the admin round-trip marker (see docstring).
+    was_admin = user.role == UserRole.ADMIN or is_admin_home
+    if was_admin:
+        new_credentials = dict(user.credentials or {})
+        role_switch = dict(new_credentials.get("role_switch") or {})
+        if target_role == UserRole.ADMIN:
+            role_switch.pop("home_role", None)
+        else:
+            role_switch["home_role"] = UserRole.ADMIN.value
+        if role_switch:
+            new_credentials["role_switch"] = role_switch
+        else:
+            new_credentials.pop("role_switch", None)
+        user.set_jsonb("credentials", new_credentials)
 
     user.role = target_role
     await session.flush()
@@ -311,3 +335,24 @@ async def user_has_master_capability(
     if profile is None:
         return False
     return profile.data.get("account", {}).get("status") == "verified"
+
+
+async def get_master_account(
+    user: User,
+    session: AsyncSession,
+) -> dict | None:
+    """Return the user's MasterProfile ``data.account`` block, or None (T5).
+
+    One indexed SELECT (same shape as user_has_master_capability). The GET
+    /users/me path uses this to derive BOTH master capability
+    (status=="verified") AND the application state (status + rejection_reason)
+    surfaced to a role='user' applicant, from a single profile load. None when
+    the user has no MasterProfile.
+    """
+    stmt = select(MasterProfile).where(MasterProfile.user_id == user.id)
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+    if profile is None:
+        return None
+    account = profile.data.get("account")
+    return account if isinstance(account, dict) else None

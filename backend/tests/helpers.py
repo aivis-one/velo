@@ -115,6 +115,26 @@ def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def switch_self_to_master(client: AsyncClient, token: str) -> None:
+    """Self-switch the caller (a verified applicant) into master mode (T4).
+
+    Since ПРОМТ №295 admin approval sets status=verified but does NOT flip the
+    user's role; the account gains master *capability* and self-switches via
+    POST /users/me/role. Test factories that mint a master via apply + admin
+    verify call this afterwards so the resulting session resolves role=master
+    (the proven capability path, mirrors tests/test_role_switch.py). The
+    endpoint commits, so a subsequent request / re-login sees role=master.
+    """
+    resp = await client.post(
+        "/api/v1/users/me/role",
+        headers=auth_headers(token),
+        json={"role": "master"},
+    )
+    assert resp.status_code == 200, (
+        f"self-switch to master failed: {resp.status_code} {resp.text}"
+    )
+
+
 async def cleanup_range(
     session: AsyncSession,
     tid_min: int,

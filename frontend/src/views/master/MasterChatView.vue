@@ -76,6 +76,17 @@ function onSend(): void {
   min-height: 0;
 }
 
+/* Keyboard-safe composer (M2, ПРОМТ №273): fill mode opts OUT of the shared
+   keyboard shrink (global.css targets `.mobile-layout__main:not(--fill)`), so
+   .chat kept its full pre-keyboard height and the absolute composer stayed at the
+   old bottom — mid-screen, under the keyboard. Constrain .chat to the visible
+   viewport (--velo-vvh, published by useBackgroundStabilizer) while the keyboard
+   is open so the composer pins just above it. Reads the existing signal only —
+   no new global machinery. */
+html.is-keyboard-open .chat {
+  height: var(--velo-vvh);
+}
+
 /* Internal-scroll thread: an absolute layer under the floating header + the pinned
    composer. Its own top/bottom fog mask (the MC-1 header-overlap fix, now view-side)
    dissolves the thread under the floating title on scroll and behind the composer.

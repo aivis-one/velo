@@ -30,8 +30,13 @@ router = APIRouter()
 @router.get("/stats/overview", response_model=AdminStatsOverviewResponse)
 async def stats_overview_endpoint(
     period: Literal["week", "month"] = Query(default="week"),
+    offset: int = Query(default=0),
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_reader),
 ) -> AdminStatsOverviewResponse:
-    """Period-scoped platform overview + deltas vs the previous period."""
-    return await get_admin_stats_overview(period, session)
+    """Period-scoped platform overview + deltas vs the previous period.
+
+    `offset` steps the window by whole periods (0 = current, -1 = previous,
+    +1 = next) for the dashboard stepper; default 0 = current period.
+    """
+    return await get_admin_stats_overview(period, session, offset=offset)

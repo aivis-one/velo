@@ -18,6 +18,7 @@ import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
   PaginatedBookingsResponse,
+  BookingWithPracticeResponse,
   BookingStatus,
   BookingResponse,
   BookingDetailResponse,
@@ -71,6 +72,18 @@ export function getMyBookings(
     offset,
   })
   return api.get<PaginatedBookingsResponse>(`/api/v1/bookings/me${query}`)
+}
+
+/**
+ * Fetch the current user's live-or-upcoming confirmed bookings, soonest first.
+ *
+ * Dedicated endpoint for the dashboard «Ближайшая практика» widget: the backend
+ * filters to confirmed + not-ended and orders by scheduled_at ASC, so the
+ * nearest-selection sees the truly-soonest practice (fixes the >20-bookings
+ * mis-select where the paginated /me list only carried the newest-BOOKED page).
+ */
+export function getUpcomingBookings(): Promise<BookingWithPracticeResponse[]> {
+  return api.get<BookingWithPracticeResponse[]>('/api/v1/bookings/me/upcoming')
 }
 
 /**

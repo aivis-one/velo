@@ -12,6 +12,7 @@ import { ref } from 'vue'
 import { getMyMasterProfile, getMyPractices } from '@/api/masters'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
+import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
 import type { MasterProfileResponse, PracticeResponse } from '@/api/types'
 
@@ -27,6 +28,13 @@ export const useMasterStore = defineStore('master', () => {
   // Tracks whether at least one successful fetch has completed.
   // Used by masterStatusGuard to skip redundant network calls.
   const profileLoaded = ref(false)
+
+  // CONFIRMED "no application at all" (№257 honest entry): the backend
+  // answered 403 code=master_profile_not_found (distinct from
+  // master_profile_not_verified -- a pending/rejected application). Keyed on
+  // the machine code, NOT on profile===null, so a transient network error
+  // never routes a real master into the apply wizard.
+  const profileMissing = ref(false)
 
   // Per-session suppression for the post-approval onboarding carousel
   // (MasterOnboardingView, Phase D). Set true on done/skip so the overlay does
@@ -53,8 +61,11 @@ export const useMasterStore = defineStore('master', () => {
     try {
       profile.value = await getMyMasterProfile()
       profileLoaded.value = true
+      profileMissing.value = false
     } catch (e) {
       profileError.value = extractApiError(e, 'Не удалось загрузить профиль мастера')
+      profileMissing.value =
+        e instanceof ApiResponseError && e.code === 'master_profile_not_found'
     } finally {
       profileLoading.value = false
     }
@@ -100,6 +111,7 @@ export const useMasterStore = defineStore('master', () => {
     profileLoading.value = false
     profileError.value = null
     profileLoaded.value = false
+    profileMissing.value = false
     onboardingShownThisSession.value = false
     pagination.items.value = []
     pagination.total.value = 0
@@ -114,6 +126,7 @@ export const useMasterStore = defineStore('master', () => {
     profileLoading,
     profileError,
     profileLoaded,
+    profileMissing,
     onboardingShownThisSession,
     fetchMyProfile,
 

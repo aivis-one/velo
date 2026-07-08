@@ -44,6 +44,7 @@
         :key="p.id"
         :practice="p"
         :when="whenLabel(p)"
+        :when-time="whenTime(p)"
         :duration="durationLabel(p)"
         :show-verified="p.master_verified"
         @click="openDetail(p)"
@@ -72,7 +73,7 @@ import { IconGroup } from '@/components/icons'
 import { useAdminStore } from '@/stores/admin'
 import { getAdminPractices, type AdminPracticeScope } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
-import { formatDateShort } from '@/utils/format'
+import { formatDateShort, formatTime } from '@/utils/format'
 import type { AdminPracticeListItem } from '@/api/types'
 
 const router = useRouter()
@@ -96,7 +97,12 @@ const segOptions = computed<SegmentOption[]>(() => [
 ])
 
 function whenLabel(p: AdminPracticeListItem): string {
-  return formatDateShort(p.scheduled_at)
+  // Day label in the practice's own timezone so «Сегодня/Завтра» agrees with
+  // the local time shown alongside it (whenTime).
+  return formatDateShort(p.scheduled_at, p.timezone)
+}
+function whenTime(p: AdminPracticeListItem): string {
+  return formatTime(p.scheduled_at, p.timezone)
 }
 function durationLabel(p: AdminPracticeListItem): string {
   return `${p.duration_minutes} мин`
@@ -158,8 +164,8 @@ onMounted(load)
 }
 
 .admin-list__count {
-  min-width: 48px;
-  height: 36px;
+  min-width: var(--velo-size-48);
+  height: var(--velo-size-36);
   padding: 0 var(--velo-inset-12);
   flex-shrink: 0;
   border-radius: var(--radius-md);

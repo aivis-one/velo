@@ -31,6 +31,10 @@ seed_practices.py
   --dry-run            -- флаг к любому режиму. Показывает план без записи в БД.
   --yes                -- пропустить интерактивное подтверждение (для скриптинга).
 
+  Без явного --scenario/--source команды seed/--reset сеют мегапак-сценарий по
+  умолчанию ('default', ~300 практик / 12 мастеров) — перед записью запрашивается
+  typed-подтверждение (обходится через --yes / --dry-run).
+
 Запуск:
   docker compose exec app python scripts/seed_practices.py
   docker compose exec app python scripts/seed_practices.py --reset
@@ -551,15 +555,25 @@ def load_source(scenario: str = DEFAULT_SCENARIO,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Подтверждение destructive
+# Подтверждение (destructive / мегапак-сценарий по умолчанию)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def confirm_destructive(action: str) -> bool:
-    print()
-    print(f"!! Деструктивная операция: {action.upper()}")
-    print(f"   Удалится всё, что принадлежит служебным мастерам с маркером")
-    print(f"   data.seed.source == '{SEED_SOURCE}' (TID {TID_MIN}..{TID_MAX}).")
-    print(f"   Это включает связанные bookings, purchases, ledger-записи и т.д.")
+def confirm_gates(destructive_action: str | None, megapack: bool) -> bool:
+    """Единый confirm-prompt перед стартом: печатает применимые предупреждения
+    (destructive-снос и/или заливка мегапак-сценария по умолчанию) и спрашивает
+    "yes" РОВНО один раз за запуск. --yes / --dry-run обходят гейт у вызова."""
+    if destructive_action:
+        print()
+        print(f"!! Деструктивная операция: {destructive_action.upper()}")
+        print(f"   Удалится всё, что принадлежит служебным мастерам с маркером")
+        print(f"   data.seed.source == '{SEED_SOURCE}' (TID {TID_MIN}..{TID_MAX}).")
+        print(f"   Это включает связанные bookings, purchases, ledger-записи и т.д.")
+    if megapack:
+        print()
+        print(f"!! Сценарий не указан — будет засеян МЕГАПАК '{DEFAULT_SCENARIO}':")
+        print(f"   ~300 практик / 12 служебных мастеров. На чистом стенде это")
+        print(f"   убивает данные теста. Явный --scenario NAME (или --yes)")
+        print(f"   пропускает этот вопрос.")
     print()
     response = input('   Введите "yes" для подтверждения: ').strip().lower()
     return response == "yes"
@@ -2641,11 +2655,20 @@ async def cmd_promote_master(
 async def main() -> int:
     args = parse_args()
 
-    # Деструктивные операции требуют подтверждения (если не --yes и не --dry-run).
-    if args.command in ("reset", "clean") and not args.yes and not args.dry_run:
-        if not confirm_destructive(args.command):
-            print("Отменено.")
-            return 1
+    # Деструктивные операции и заливка мегапак-сценария по умолчанию требуют
+    # подтверждения (если не --yes и не --dry-run). Оба предупреждения — в
+    # ОДНОМ prompt'е: максимум один вопрос за запуск.
+    if not args.yes and not args.dry_run:
+        destructive = args.command in ("reset", "clean")
+        megapack = (
+            args.command in ("seed", "reset")
+            and args.source is None
+            and args.scenario == DEFAULT_SCENARIO
+        )
+        if destructive or megapack:
+            if not confirm_gates(args.command if destructive else None, megapack):
+                print("Отменено.")
+                return 1
 
     # promote-master не деструктивна, но меняет роль реального аккаунта —
     # лёгкое подтверждение (если не --yes/--dry-run).

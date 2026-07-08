@@ -69,6 +69,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.config import settings
 from app.modules.practices.models import (
+    Practice,
     PracticeStatus,
     PracticeType,
 )
@@ -122,6 +123,25 @@ def _validate_style_for_direction(direction: str | None, style: str | None) -> N
             f"style for direction '{direction}' must be one of {allowed}, "
             f"got '{style}'"
         )
+
+
+# -- Zoom link validation (manual field; no Zoom integration / auto-gen) --
+# zoom_link is optional and hand-entered by the master. A non-empty value MUST
+# be an https:// URL: mirrors the frontend guard (CreatePracticeView) and the
+# live-view usability check (AUDIT-0520-02), enforced on the backend -- the
+# source of truth -- so a direct API call cannot store a non-https /
+# javascript: link. Empty / None means "no link". "https://" is a fixed
+# protocol requirement, not a business value, so it is not sourced from config.
+_ZOOM_LINK_REQUIRED_PREFIX = "https://"
+
+
+def _validate_zoom_link(v: str | None) -> str | None:
+    """Reject a non-empty zoom_link that is not an https:// URL."""
+    if v and not v.startswith(_ZOOM_LINK_REQUIRED_PREFIX):
+        raise ValueError(
+            f"zoom_link must start with '{_ZOOM_LINK_REQUIRED_PREFIX}'"
+        )
+    return v
 
 
 # -- Recurrence spec (E3, series only) --
@@ -256,6 +276,12 @@ class CreatePracticeRequest(BaseModel):
                 f"practice_type must be one of {allowed}, got '{v}'"
             )
         return v
+
+    @field_validator("zoom_link")
+    @classmethod
+    def zoom_link_must_be_https(cls, v: str | None) -> str | None:
+        """Manually-entered zoom_link must be an https:// URL (or empty)."""
+        return _validate_zoom_link(v)
 
     @field_validator("direction")
     @classmethod
@@ -422,6 +448,12 @@ class UpdatePracticeRequest(BaseModel):
                 f"practice_type must be one of {allowed}, got '{v}'"
             )
         return v
+
+    @field_validator("zoom_link")
+    @classmethod
+    def zoom_link_must_be_https(cls, v: str | None) -> str | None:
+        """Manually-entered zoom_link must be an https:// URL (or empty)."""
+        return _validate_zoom_link(v)
 
     @field_validator("direction")
     @classmethod
@@ -648,6 +680,13 @@ class PracticeResponse(BaseModel):
     created_at: datetime
     updated_at: datetime | None
 
+    # zoom_link (M-3 access gate) is handled at the response-building layer,
+    # NOT with a model_validator: FastAPI re-validates the returned model
+    # against response_model, which would re-run an "after" validator and wipe
+    # any value the service set. practice_to_response() therefore assigns
+    # zoom_link explicitly -- the real link only on the authorized path, None
+    # everywhere else. Direct model_validate(practice) callers (booking detail,
+    # finalize) null it themselves.
     model_config = {"from_attributes": True}
 
 
@@ -704,10 +743,36 @@ class PracticeSummary(BaseModel):
     price_cents: int
     currency: str
 
-    # E18: zoom_link surfaced on the summary so the dashboard nearest-card
-    # "Войти" / Zoom button opens the link with no extra GET /practices/{id}.
-    # Nullable ORM column on Practice; picked up via from_attributes, no
-    # population code needed (same pattern as timezone / status / direction).
+    # E18 + M-3 + Z-7: zoom_link on the summary powers the dashboard
+    # nearest-card "Войти" / Zoom button. It is access-gated (M-3): it must
+    # reach only a user with a CONFIRMED / ATTENDED booking on the practice.
+    # The gate is enforced in from_practice() below -- the SINGLE construction
+    # point for every list-view consumer -- which defaults it to None
+    # (fail-closed). A schema model_validator cannot be used: FastAPI
+    # re-validates the response and would re-run it, wiping the value the
+    # builder set.
     zoom_link: str | None = None
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_practice(
+        cls,
+        practice: Practice,
+        *,
+        master_name: str | None = None,
+        zoom_link_visible: bool = False,
+    ) -> "PracticeSummary":
+        """Build a summary from a Practice ORM row -- the single construction
+        point for all list-view consumers (bookings / waitlist / purchases).
+
+        zoom_link is FAIL-CLOSED (Z-7): None unless the caller explicitly
+        passes zoom_link_visible=True (warranted only by the requester's own
+        CONFIRMED / ATTENDED booking). Because every summary is built here, no
+        builder can forget to null it. master_name is filled here too -- it has
+        no ORM source on the practice row (it lives on the joined user).
+        """
+        summary = cls.model_validate(practice)
+        summary.master_name = master_name
+        summary.zoom_link = practice.zoom_link if zoom_link_visible else None
+        return summary

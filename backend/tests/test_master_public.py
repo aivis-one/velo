@@ -35,7 +35,7 @@ from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.diary.models import Feedback
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
-from tests.helpers import auth_headers, login_user, full_cleanup_range
+from tests.helpers import auth_headers, login_user, full_cleanup_range, switch_self_to_master
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -122,6 +122,7 @@ async def _make_verified_master(
     assert verify_resp.status_code == 200
 
     # Re-login to pick up master role in session.
+    await switch_self_to_master(client, auth["session_token"])
     return await login_user(
         client, telegram_id=telegram_id, first_name="Master",
     )

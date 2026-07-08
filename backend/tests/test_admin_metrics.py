@@ -202,8 +202,11 @@ async def test_checkin_metric_basic(
     ).json()
 
     master_id = await _make_master(client, db_session, 92800)
+    # PAST practice (ended 1h ago: started 2h ago, 60min long) so it counts as a
+    # "past practice in period" (D5 wall-clock filter).
     practice = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
     )
 
     _u1, b1 = await _attend(client, db_session, practice, 92001)
@@ -214,8 +217,9 @@ async def test_checkin_metric_basic(
     resp = await client.get(CHECKIN_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    # We added 2 attended bookings, 1 of them with a check-in.
-    assert data["total_records"] - base["total_records"] == 2
+    # New formula (per distinct PAST practice): +1 past practice, and it has
+    # >=1 check-in -> total_records +1, checked_in +1 (was +2/+1 per-booking).
+    assert data["total_records"] - base["total_records"] == 1
     assert data["checked_in"] - base["checked_in"] == 1
     assert len(data["series"]) == 7
     assert {"label", "value"} == set(data["series"][0].keys())
@@ -263,8 +267,10 @@ async def test_checkin_metric_month_period(
     """Month period is accepted and returns weekly buckets."""
     token = await _make_admin(client, db_session)
     master_id = await _make_master(client, db_session, 92801)
+    # PAST practice (ended) so it lands in the month's past-practice denominator.
     practice = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
     )
     _u, b = await _attend(client, db_session, practice, 92010)
     await _add_checkin(db_session, practice, _u, b)
@@ -303,8 +309,10 @@ async def test_feedback_metric_basic_and_distribution(
     ).json()
 
     master_id = await _make_master(client, db_session, 92802)
+    # PAST practice (ended) -> counts as a past practice in the period.
     practice = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
     )
 
     _u1, b1 = await _attend(client, db_session, practice, 92020)
@@ -317,9 +325,11 @@ async def test_feedback_metric_basic_and_distribution(
     resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    # 3 attended bookings; 2 left feedback (1 fire, 1 confused).
-    assert data["visited"] - base["visited"] == 3
-    assert data["left_review"] - base["left_review"] == 2
+    # New formula (per distinct PAST practice): +1 past practice (visited), and
+    # it has >=1 feedback -> left_review +1 (was +3/+2 per-booking). Distribution
+    # counts both feedbacks on the practice (1 fire, 1 confused).
+    assert data["visited"] - base["visited"] == 1
+    assert data["left_review"] - base["left_review"] == 1
     dist, bdist = data["distribution"], base["distribution"]
     assert dist["fire"] - bdist["fire"] == 1
     assert dist["good"] - bdist["good"] == 0
@@ -341,8 +351,10 @@ async def test_feedback_metric_good_bucket(
     ).json()
 
     master_id = await _make_master(client, db_session, 92803)
+    # PAST practice (ended) so its feedback counts in the period distribution.
     practice = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
     )
     _u, b = await _attend(client, db_session, practice, 92030)
     await _add_feedback(db_session, practice, _u, b, rating=6)
@@ -360,11 +372,11 @@ async def test_feedback_metric_good_bucket(
 
 
 @pytest.mark.asyncio
-async def test_feedback_metric_excludes_non_attended(
+async def test_feedback_metric_rate_capped_per_practice(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """W-3: a feedback without an attended booking is not counted (rate <= 100%)."""
+    """Per-practice rate is <=100% structurally; distribution counts all feedbacks."""
     token = await _make_admin(client, db_session)
     await db_session.commit()  # admin must be visible to the endpoint
 
@@ -374,31 +386,33 @@ async def test_feedback_metric_excludes_non_attended(
     ).json()
 
     master_id = await _make_master(client, db_session, 92804)
+    # PAST practice (ended) -> one past practice in the period.
     practice = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
     )
 
-    # Attended + feedback -> counts.
+    # Two feedbacks on the SAME practice (an attended and a no_show booker).
     u1, b1 = await _attend(client, db_session, practice, 92040)
-    await _add_feedback(db_session, practice, u1, b1, rating=9)
-
-    # no_show booking + feedback on it -> must NOT count toward left_review.
+    await _add_feedback(db_session, practice, u1, b1, rating=9)   # fire
     u2, b2 = await _attend(
         client, db_session, practice, 92041,
         status=BookingStatus.NO_SHOW.value,
     )
-    await _add_feedback(db_session, practice, u2, b2, rating=8)
+    await _add_feedback(db_session, practice, u2, b2, rating=8)   # fire
     await db_session.commit()
 
     resp = await client.get(FEEDBACK_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    # Only the attended booking + its feedback count; the no_show row (a fire
-    # rating) is excluded -> deltas are +1, not +2 (W-3 intent preserved).
+    # New formula is per DISTINCT PAST practice: +1 practice (visited), and it
+    # has >=1 feedback -> left_review +1 (so rate is <=100% structurally, the
+    # old W-3 concern is now inherent). Distribution counts BOTH feedbacks on the
+    # practice -> fire +2 (no longer booking-status-gated).
     assert data["visited"] - base["visited"] == 1
     assert data["left_review"] - base["left_review"] == 1
     dist, bdist = data["distribution"], base["distribution"]
-    assert dist["fire"] - bdist["fire"] == 1
+    assert dist["fire"] - bdist["fire"] == 2
     assert dist["good"] - bdist["good"] == 0
     assert dist["confused"] - bdist["confused"] == 0
 
@@ -413,7 +427,7 @@ async def test_return_metric_basic(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """returning = period users who also attended before the period start."""
+    """New formula: returning = users with >=2 distinct bookings in the period."""
     token = await _make_admin(client, db_session)
     await db_session.commit()  # admin must be visible to the endpoint
 
@@ -423,31 +437,36 @@ async def test_return_metric_basic(
     ).json()
 
     master_id = await _make_master(client, db_session, 92804)
-    this_week = await _create_practice(
-        db_session, master_id, scheduled_at=datetime.now(UTC),
-    )
-    before = await _create_practice(
+    # Two practices scheduled IN the current period (return counts bookings in
+    # period, not "past" -- no ended filter here).
+    p1 = await _create_practice(
         db_session, master_id,
-        scheduled_at=datetime.now(UTC) - timedelta(days=14),
+        scheduled_at=datetime.now(UTC) - timedelta(hours=2),
+    )
+    p2 = await _create_practice(
+        db_session, master_id,
+        scheduled_at=datetime.now(UTC) - timedelta(hours=3),
     )
 
-    # User A: attended before AND this period -> returning.
-    await _attend(client, db_session, this_week, 92040)
-    await _attend(client, db_session, before, 92040)
-    # User B: attended only this period -> not returning.
-    await _attend(client, db_session, this_week, 92041)
+    # User A books BOTH period practices -> 2 in-period bookings -> returning.
+    await _attend(client, db_session, p1, 92040)
+    await _attend(client, db_session, p2, 92040)
+    # User B books ONE -> 1 in-period booking -> not returning.
+    await _attend(client, db_session, p1, 92041)
     await db_session.commit()
 
     resp = await client.get(RETURN_URL, headers=auth_headers(token))
     assert resp.status_code == 200
     data = resp.json()
-    # 2 new period-users (A, B); A also attended before the period -> +1 returning.
+    # 2 period bookers (A, B); A has >=2 distinct in-period practices -> +1
+    # returning. B has 1 -> counts toward total only.
     assert data["total_users"] - base["total_users"] == 2
     assert data["returning"] - base["returning"] == 1
-    # top_users is platform-wide all-time (seed users may rank above the test
-    # users), so assert shape + descending order rather than an exact head.
+    # top_users is period-scoped now (top 50); seed users may still rank above
+    # the test users, so assert shape + descending order rather than an exact head.
     counts = [u["practices_count"] for u in data["top_users"]]
     assert counts == sorted(counts, reverse=True)
+    assert len(data["top_users"]) <= 50
     assert set(data["top_users"][0].keys()) == {"id", "name", "practices_count"}
 
 

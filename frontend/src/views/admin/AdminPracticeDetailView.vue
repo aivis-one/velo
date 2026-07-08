@@ -209,8 +209,8 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: var(--velo-size-16);
+  height: var(--velo-size-16);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-text-primary);
@@ -255,8 +255,8 @@ onMounted(load)
 }
 
 .admin-detail__avatar {
-  width: 41px;
-  height: 41px;
+  width: var(--velo-size-41);
+  height: var(--velo-size-41);
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--velo-blue-300);

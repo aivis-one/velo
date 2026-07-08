@@ -22,6 +22,7 @@ from tests.helpers import auth_headers, login_user, full_cleanup_range
 # Constants
 # ---------------------------------------------------------------------------
 USERS_URL = "/api/v1/admin/users"
+MAKE_MASTER_URL = "/api/v1/admin/users/{user_id}/make-master"
 MASTERS_LIST_URL = "/api/v1/admin/masters/list"
 MASTERS_PENDING_URL = "/api/v1/admin/masters/pending"
 MASTERS_REJECTED_URL = "/api/v1/admin/masters/rejected"
@@ -301,3 +302,93 @@ async def test_masters_list_verified_filter(
     assert data["total"] >= 1
     for item in data["items"]:
         assert item["master_status"] == "verified"
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/users/{user_id}/make-master (ПРОМТ №292)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_make_master_no_auth(client: AsyncClient) -> None:
+    """No token: 401."""
+    resp = await client.post(MAKE_MASTER_URL.format(user_id=1))
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_make_master_non_admin(client: AsyncClient) -> None:
+    """Regular user: 403."""
+    auth = await login_user(client, telegram_id=58051, first_name="NotAdmin")
+    resp = await client.post(
+        MAKE_MASTER_URL.format(user_id=auth["user"]["id"]),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_make_master_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Admin promotes a plain user: 200, status verified, role becomes master."""
+    token = await _make_admin(client, db_session)
+
+    target = await login_user(
+        client, telegram_id=58052, first_name="Promote"
+    )
+    user_id = target["user"]["id"]
+
+    resp = await client.post(
+        MAKE_MASTER_URL.format(user_id=user_id), headers=auth_headers(token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["user_id"] == user_id
+    assert data["status"] == "verified"
+
+    # The user now appears in the verified masters list.
+    masters = await client.get(
+        f"{MASTERS_LIST_URL}?status=verified", headers=auth_headers(token)
+    )
+    ids = [m["id"] for m in masters.json()["items"]]
+    assert user_id in ids
+
+
+@pytest.mark.asyncio
+async def test_make_master_already_master_conflict(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Promoting an already-master user: 409 already_master."""
+    token = await _make_admin(client, db_session)
+
+    target = await login_user(
+        client, telegram_id=58053, first_name="Twice"
+    )
+    user_id = target["user"]["id"]
+
+    first = await client.post(
+        MAKE_MASTER_URL.format(user_id=user_id), headers=auth_headers(token)
+    )
+    assert first.status_code == 200
+
+    second = await client.post(
+        MAKE_MASTER_URL.format(user_id=user_id), headers=auth_headers(token)
+    )
+    assert second.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_make_master_nonexistent_user(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Unknown user_id: 404."""
+    token = await _make_admin(client, db_session)
+    resp = await client.post(
+        MAKE_MASTER_URL.format(
+            user_id="00000000-0000-0000-0000-000000000000"
+        ),
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 404

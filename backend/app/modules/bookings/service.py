@@ -974,6 +974,91 @@ async def list_user_bookings(
     return items, total
 
 
+async def list_upcoming_bookings(
+    user: User,
+    session: AsyncSession,
+    *,
+    limit: int = 10,
+) -> list[tuple[Booking, Practice, bool, bool]]:
+    """Confirmed bookings that are live-or-upcoming, soonest first.
+
+    Feeds the dashboard «Ближайшая практика» widget. Unlike list_user_bookings
+    (paginated by created_at DESC for the full list), this filters to CONFIRMED
+    bookings and orders by ``Practice.scheduled_at ASC`` so the client's
+    nearest-selection sees the truly-soonest practice -- fixing the >20-bookings
+    mis-select, where the nearest widget only saw the newest-BOOKED page.
+
+    "Not ended" is bounded portably: a practice cannot exceed
+    ``practice_max_duration_minutes``, so any practice scheduled at or after
+    ``now - max_duration`` may still be live. The client applies the exact
+    per-row ``scheduled_at + duration_minutes`` ceiling (nearestBookings.ts).
+
+    Returns the same (Booking, Practice, has_feedback, has_checkin) row shape as
+    list_user_bookings so the router reuses one response builder.
+    """
+    from app.modules.diary.models import Checkin, CheckType, Feedback
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=settings.practice_max_duration_minutes)
+
+    stmt = (
+        select(Booking, Practice)
+        .join(Practice, Booking.practice_id == Practice.id)
+        .where(
+            Booking.user_id == user.id,
+            Booking.status == BookingStatus.CONFIRMED.value,
+            Practice.scheduled_at >= cutoff,
+        )
+        .order_by(Practice.scheduled_at.asc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    page = [(row[0], row[1]) for row in result.all()]
+
+    practice_ids = [b.practice_id for b, _ in page]
+    booking_ids = [b.id for b, _ in page]
+
+    feedback_practice_ids: set[UUID] = set()
+    if practice_ids:
+        feedback_practice_ids = set(
+            (
+                await session.execute(
+                    select(Feedback.practice_id)
+                    .where(
+                        Feedback.user_id == user.id,
+                        Feedback.practice_id.in_(practice_ids),
+                    )
+                    .distinct()
+                )
+            ).scalars().all()
+        )
+
+    checkin_booking_ids: set[UUID] = set()
+    if booking_ids:
+        checkin_booking_ids = set(
+            (
+                await session.execute(
+                    select(Checkin.booking_id)
+                    .where(
+                        Checkin.booking_id.in_(booking_ids),
+                        Checkin.check_type == CheckType.PRE.value,
+                    )
+                    .distinct()
+                )
+            ).scalars().all()
+        )
+
+    return [
+        (
+            booking,
+            practice,
+            booking.practice_id in feedback_practice_ids,
+            booking.id in checkin_booking_ids,
+        )
+        for booking, practice in page
+    ]
+
+
 async def get_booking_by_id(
     booking_id: UUID,
     user: User,

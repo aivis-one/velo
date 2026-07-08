@@ -10,7 +10,13 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useMasterStore } from '@/stores/master'
-import { roleRedirect, roleGuard, masterStatusGuard, masterPendingGuard } from '@/router/guards'
+import {
+  roleRedirect,
+  roleGuard,
+  masterStatusGuard,
+  masterPendingGuard,
+  masterNoProfileGuard,
+} from '@/router/guards'
 import { waitUntilReady } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 
@@ -30,11 +36,6 @@ const applyGuard = async () => {
     return { path: '/auth-error' }
   }
 
-  // TEST-only apply-flow preview: skip the verified-master redirect so a tester
-  // can open the wizard. Fires only while previewApplyFlow is set, which is
-  // prod-unreachable (see stores/ui.ts).
-  if (useUiStore().previewApplyFlow) return true
-
   if (auth.role !== 'master') return true
 
   const masterStore = useMasterStore()
@@ -44,10 +45,6 @@ const applyGuard = async () => {
   }
   return true
 }
-
-// Route names that make up the TEST-only apply-flow preview. Navigating to any
-// route OUTSIDE this set clears the preview signal (see the global guard below).
-const PREVIEW_ROUTE_NAMES = new Set(['auth-landing', 'master-apply', 'master-pending'])
 
 const router = createRouter({
   history: createWebHistory(),
@@ -149,6 +146,11 @@ const router = createRouter({
           component: () => import('@/views/user/FeedbackView.vue'),
         },
         {
+          path: 'reflection/:practiceId',
+          name: 'user-reflection',
+          component: () => import('@/views/user/ReflectionView.vue'),
+        },
+        {
           path: 'practice-live/:practiceId',
           name: 'practice-live',
           component: () => import('@/views/user/PracticeLiveView.vue'),
@@ -191,6 +193,9 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'master-dashboard',
+          // №257 honest entry: a master with NO application is led to the
+          // apply wizard; pending/rejected keep the dashboard as before.
+          beforeEnter: masterNoProfileGuard,
           component: () => import('@/views/master/MasterDashboardView.vue'),
         },
         {
@@ -339,6 +344,16 @@ const router = createRouter({
     },
 
     {
+      // Batch-INVITE (№258): landing for the one-time master invite deeplink
+      // (startapp=master_onboarding__<token>). Standalone like /master/apply;
+      // applyGuard bounces verified masters to the dashboard, everyone else
+      // (incl. the invited plain user) reaches the claim.
+      path: '/master/invite/:token',
+      name: 'master-invite',
+      beforeEnter: applyGuard,
+      component: () => import('@/views/master/MasterInviteClaimView.vue'),
+    },
+    {
       path: '/master/apply',
       name: 'master-apply',
       beforeEnter: applyGuard,
@@ -370,9 +385,28 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMastersView.vue'),
         },
         {
+          // All-users list + explicit make-master (ПРОМТ №292).
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('@/views/admin/AdminUsersView.vue'),
+        },
+        {
+          // Batch-INVITE (№258): one-time master invite link issue screen.
+          // Declared BEFORE masters/:id so the literal segment wins.
+          path: 'masters/invite',
+          name: 'admin-master-invite',
+          component: () => import('@/views/admin/AdminMasterInviteView.vue'),
+        },
+        {
           path: 'masters/:id',
           name: 'admin-master-review',
           component: () => import('@/views/admin/AdminMasterReviewView.vue'),
+        },
+        {
+          // M3: master methods change-request moderation queue.
+          path: 'method-requests',
+          name: 'admin-method-requests',
+          component: () => import('@/views/admin/AdminMethodRequestsView.vue'),
         },
         {
           path: 'reports',
@@ -383,11 +417,6 @@ const router = createRouter({
           path: 'reports/:id',
           name: 'admin-report-detail',
           component: () => import('@/views/admin/AdminReportDetailView.vue'),
-        },
-        {
-          path: 'consistency',
-          name: 'admin-consistency',
-          component: () => import('@/views/admin/AdminConsistencyView.vue'),
         },
         {
           path: 'profile',
@@ -505,14 +534,6 @@ router.beforeEach(async (to) => {
     if (timedOut) {
       console.warn('[router] auth initialization timed out on first navigation')
     }
-  }
-
-  // TEST-only: clear the apply-flow preview signal whenever navigation leaves the
-  // preview route set (back-gesture, «Закрыть», or any stray nav), so a stale
-  // signal can never leak into a normal session. No-op in prod (never set there).
-  const uiStore = useUiStore()
-  if (uiStore.previewApplyFlow && !PREVIEW_ROUTE_NAMES.has(to.name as string)) {
-    uiStore.clearPreviewApplyFlow()
   }
 
   if (to.name !== 'user-dashboard' && to.path !== '/user' && to.path !== '/user/') {

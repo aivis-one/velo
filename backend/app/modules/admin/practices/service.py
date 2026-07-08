@@ -123,6 +123,7 @@ async def list_admin_practices(
             booked=booked_map.get(practice.id, 0),
             capacity=practice.max_participants,
             status=_temporal_status(practice.scheduled_at, now),
+            timezone=practice.timezone,
         )
         for practice, profile, user in rows
     ]

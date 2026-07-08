@@ -166,22 +166,50 @@ function compactBottomFog() {
   return compactBottomFogCache
 }
 
-// Screens on the compact-bottom fog above (soft top, short bottom fade).
-const COMPACT_BOTTOM_FOG_ROUTES = [
-  'master-practice-detail',
-  'master-practice-new',
-  'master-practice-edit',
-  'master-promocode-new',
-]
+// Screens on the compact-bottom fog above (soft top, short bottom fade). Now just
+// practice-detail — the forms moved to formFog() (M7, taller top-hard). Detail
+// keeps the softer 60 top-hard (FOG-2): its transparent header over the soft hero
+// is intentional, unlike the forms' crisp fields.
+const COMPACT_BOTTOM_FOG_ROUTES = ['master-practice-detail']
 
-// master-dashboard (DB-1, 2026-06-30): the greeting was removed, leaving an
-// oversized top band; shrink the top clearance from the default --velo-fog-z1 (16)
-// to --space-2 (8). Per-screen, reuses an existing token; tunable on device.
+// Form-only fog (M7, ПРОМТ №275): the create / edit practice + new promocode FORMS
+// carry a TRANSPARENT floating VHeader (~88px). The shared pd-top-hard (60) is
+// shorter than the header, so form content ghosted UNDER the header's lower half on
+// scroll (operator «наезжает заголовок при скролле»). Same tuning as
+// compactBottomFog but with the taller --velo-fog-pd-top-hard-form so content fully
+// dissolves before the header. practice-detail stays on compactBottomFog. Reuses
+// the fogPx reader; the header stays transparent (no solid plate).
+const FORM_FOG_ROUTES = ['master-practice-new', 'master-practice-edit', 'master-promocode-new']
+let formFogCache: {
+  topGap: number
+  fogTopHard: number
+  fogBotFade: number
+  fogBotHard: number
+} | null = null
+function formFog() {
+  if (formFogCache) return formFogCache
+  const cs = getComputedStyle(document.documentElement)
+  formFogCache = {
+    topGap: fogPx(cs, '--velo-fog-pd-top-gap', 25),
+    fogTopHard: fogPx(cs, '--velo-fog-pd-top-hard-form', 88),
+    fogBotFade: fogPx(cs, '--velo-fog-list-z3', 48),
+    fogBotHard: fogPx(cs, '--velo-fog-list-z4', 0),
+  }
+  return formFogCache
+}
+
+// master-dashboard (DB-1, 2026-06-30 → DB-1b, ПРОМТ №273): the greeting was
+// removed, leaving an oversized top band. The hub is HEADERLESS (bell lives in the
+// content, no VHeader → islandH=0), so the 88px HEADER_FALLBACK dominates and the
+// earlier +8 (--space-2) gap only trimmed 8px off it (88+8=96px). Pull the band
+// down with the reusable short-top-fog token --velo-fog-z1-short (negative top-gap,
+// top = 88 + this ⇒ ~48px), mirroring the headerless master-profile fix. Tunable
+// in variables.css.
 let dashFogCache: { topGap: number } | null = null
 function dashboardFog() {
   if (dashFogCache) return dashFogCache
   const cs = getComputedStyle(document.documentElement)
-  dashFogCache = { topGap: fogPx(cs, '--space-2', 8) }
+  dashFogCache = { topGap: fogPx(cs, '--velo-fog-z1-short', -40) }
   return dashFogCache
 }
 
@@ -202,6 +230,7 @@ function masterProfileFog() {
 
 const fogTuning = computed(() => {
   const name = route.name as string
+  if (FORM_FOG_ROUTES.includes(name)) return formFog()
   if (COMPACT_BOTTOM_FOG_ROUTES.includes(name)) return compactBottomFog()
   if (name === 'master-dashboard') return dashboardFog()
   if (name === 'master-profile') return masterProfileFog()

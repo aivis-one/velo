@@ -726,11 +726,17 @@ async function submit(): Promise<void> {
     await updatePractice(created.id, { status: 'scheduled' })
 
     toast.success('Практика создана!')
-    // Invalidate cached list so it reloads on practices view
-    await masterStore.refreshMyPractices()
-    // Open the new practice's detail screen; replace (not push) so «назад» from
-    // it lands on the origin (practices / dashboard), not back on this form (#1).
-    router.replace({ name: 'master-practice-detail', params: { id: created.id } })
+    // Redirect to the master's practices list — it defaults to the «Предстоящие»
+    // (upcoming) tab, and the practice we just published is status='scheduled', so
+    // it lands there. replace() (not push) so «назад» returns to the origin
+    // (practices / dashboard), not back onto this filled form (#1). Navigate
+    // BEFORE the refresh so a failing refresh can never divert to catch and strand
+    // the user on the form still showing «Практика создана!» (G1).
+    router.replace({ name: 'master-practices' })
+    // Invalidate the cached list so it reloads with the new practice. Fire-and-
+    // forget + swallow: master-practices loads its own list on mount, so a missed
+    // refresh is harmless and must not turn a successful create into an error path.
+    void masterStore.refreshMyPractices().catch(() => {})
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать практику')
   } finally {

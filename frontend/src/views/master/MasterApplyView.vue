@@ -101,9 +101,10 @@
 
         <VTextarea
           v-model="form.bio"
-          label="О себе (опционально)"
+          label="О себе *"
           placeholder="Расскажите о вашем опыте и подходе к практикам…"
           :rows="4"
+          :error="errors.bio"
         />
 
         <!-- Язык проведения практик — honest stub (no backend field, Zod E16):
@@ -130,6 +131,17 @@
           Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации.
           Удостоверение личности удаляется через 30 дней после верификации.
         </p>
+
+        <!-- Documents are OPTIONAL right now: file upload/storage is not built
+             yet (E13 / S3 — SELF-later, see the onUpload stub + submit()). The
+             applicant MUST be able to proceed without uploading, otherwise the
+             required-looking passport «*» + a disabled upload traps them and
+             nobody can become a master. «Пропустить» below submits with an
+             empty documents list (the backend already accepts that). -->
+        <VCard class="apply-view__skip-note" padding="none">
+          Загрузка документов пока недоступна. Вы можете отправить заявку без
+          документов и пройти верификацию позже — нажмите «Пропустить».
+        </VCard>
 
         <!-- Passport -->
         <div class="apply-view__field">
@@ -180,9 +192,24 @@
           size="lg"
           class="apply-view__next"
           :loading="submitting"
-          @click="submit"
+          @click="submit()"
         >
           Отправить
+        </VButton>
+
+        <!-- Skip the (currently unavailable) document upload. Submits with an
+             empty documents list; bypasses the docs-consent gate since there is
+             nothing uploaded to consent to. Steps 1-2 (name/methods/experience)
+             stay mandatory. Remove this button once E13 file upload ships. -->
+        <VButton
+          variant="ghost"
+          block
+          size="lg"
+          class="apply-view__skip"
+          :disabled="submitting"
+          @click="submit(true)"
+        >
+          Пропустить
         </VButton>
       </template>
     </div>
@@ -205,28 +232,22 @@ import {
 } from '@/components/ui'
 import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { useUiStore } from '@/stores/ui'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
+import { AVAILABLE_METHODS } from '@/utils/methods'
+import { LANGUAGES } from '@/utils/languages'
+import { useMasterStore } from '@/stores/master'
 
 const router = useRouter()
 const toast = useToast()
-const uiStore = useUiStore()
+const masterStore = useMasterStore()
 
 // -- Step state --
 const step = ref(1)
 const submitting = ref(false)
 
-// -- Available practice methods (full set, FORK-6 — incl. «Кундалини йога») --
-const AVAILABLE_METHODS = [
-  'Медитация',
-  'Mindfulness / MBSR',
-  'Дыхательные практики',
-  'Йога',
-  'Кундалини йога',
-  'Звукотерапия',
-]
+// -- Available practice methods (shared source, incl. «Кундалини йога») --
 
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [
@@ -258,9 +279,16 @@ const otherMethodText = ref('')
 // Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
 
-// Language — honest stub (Zod E16): local only, not sent with the application.
+// Languages the master runs practices in (E16). Sent with the application as
+// experience.languages (flat list); surfaced + freely editable on the profile.
 const langRu = ref(true)
 const langEn = ref(false)
+const selectedLanguages = computed((): string[] => {
+  const langs: string[] = []
+  if (langRu.value) langs.push(LANGUAGES[0]) // Русский
+  if (langEn.value) langs.push(LANGUAGES[1]) // English
+  return langs
+})
 
 // Certificates chip list — empty until E13 file storage ships (no faked data).
 const uploadedCerts = ref<string[]>([])
@@ -271,6 +299,7 @@ const errors = reactive({
   privacy: '',
   methods: '',
   experience_years: '',
+  bio: '',
   docs: '',
 })
 
@@ -339,6 +368,7 @@ function goToStep2(): void {
 function goToStep3(): void {
   errors.methods = ''
   errors.experience_years = ''
+  errors.bio = ''
   if (allMethods.value.length === 0) {
     errors.methods = 'Выберите хотя бы одно направление'
     return
@@ -347,33 +377,37 @@ function goToStep3(): void {
     errors.experience_years = 'Выберите опыт преподавания'
     return
   }
+  if (!form.bio.trim()) {
+    errors.bio = 'Пожалуйста, расскажите о себе'
+    return
+  }
   step.value = 3
 }
 
 // -- Final submit --
 // FP-04: double-submit guard must come before validation — parallel clicks both
 // pass the consent check before the guard fires.
-async function submit(): Promise<void> {
+//
+// `skipDocuments` (the «Пропустить» button): the applicant proceeds WITHOUT
+// documents. File upload/storage is not built yet (E13 / S3 — SELF-later; the
+// onUpload() stub only toasts «недоступно»), so requiring a document — or the
+// consent-to-process-documents checkbox — would trap every applicant. The
+// backend already accepts an empty documents list, so skip is a pure
+// client-side path: it bypasses the docs-consent gate. Steps 1-2
+// (name / methods / experience) were already enforced by goToStep2 /
+// goToStep3 and are untouched.
+async function submit(skipDocuments = false): Promise<void> {
   if (submitting.value) return
 
   errors.docs = ''
-  if (!form.docsConsent) {
+  if (!skipDocuments && !form.docsConsent) {
     errors.docs = 'Необходимо дать согласие на обработку документов'
-    return
-  }
-
-  // TEST-only apply-flow preview: no application is filed — skip the real POST +
-  // applicant marker and go straight to the "sent" screen so the tester can
-  // confirm it renders. Never set in prod (see stores/ui.ts); the genuine
-  // applicant path below is untouched.
-  if (uiStore.previewApplyFlow) {
-    router.push({ name: 'master-pending' })
     return
   }
 
   submitting.value = true
   try {
-    await applyMaster({
+    const res = await applyMaster({
       profile: {
         display_name: form.display_name.trim(),
         email: form.email.trim() || null,
@@ -381,6 +415,7 @@ async function submit(): Promise<void> {
       },
       experience: {
         methods: allMethods.value,
+        languages: selectedLanguages.value,
         experience_years: experienceYears.value,
         bio: form.bio.trim() || null,
         certifications: [],
@@ -388,11 +423,23 @@ async function submit(): Promise<void> {
       documents: [],
     })
 
-    // Mark this session as an actual applicant so the master-pending guard lets
-    // a still-role='user' applicant through (backend promotes role later).
-    sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
-    toast.success('Заявка отправлена!')
-    router.push({ name: 'master-pending' })
+    if (res.status === 'verified') {
+      // Self-provision (ПРОМТ №307): a no-profile role='master' account (an
+      // admin who switched into master mode) is verified immediately -- go
+      // straight to the master zone, no pending screen, no applicant marker.
+      // Refresh the store so masterNoProfileGuard sees the fresh profile
+      // instead of the stale profileMissing from the earlier 403.
+      await masterStore.fetchMyProfile(true)
+      toast.success('Профиль создан')
+      router.push({ name: 'master-dashboard' })
+    } else {
+      // Normal application (role='user') -> pending verdict flow. Mark this
+      // session as an actual applicant so the master-pending guard lets a
+      // still-role='user' applicant through (backend promotes role later).
+      sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
+      toast.success('Заявка отправлена!')
+      router.push({ name: 'master-pending' })
+    }
   } catch (e) {
     const message = e instanceof ApiResponseError ? e.detail : 'Не удалось отправить заявку'
     toast.error(message)
@@ -552,5 +599,18 @@ async function submit(): Promise<void> {
 
 .apply-view__next {
   margin-top: auto;
+}
+
+/* Skip-documents info note (documents optional until E13 upload ships). */
+.apply-view__skip-note {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  line-height: 1.4;
+}
+
+/* «Пропустить» — secondary path directly under «Отправить». */
+.apply-view__skip {
+  margin-top: var(--space-2);
 }
 </style>

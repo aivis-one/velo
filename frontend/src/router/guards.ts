@@ -33,7 +33,6 @@
 import type { NavigationGuardWithThis } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { useUiStore } from '@/stores/ui'
 import { waitUntilReady, pendingDeepLink } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
@@ -104,12 +103,51 @@ export function roleGuard(
 }
 
 /**
+ * Shared no-application check (№257 honest entry, operator Q4=А).
+ *
+ * A role=master account with NO master profile at all (confirmed by the
+ * backend's 403 code=master_profile_not_found -- e.g. an admin who switched
+ * into master, or a CLI-promoted account without a profile) is LED to the
+ * application wizard instead of a mute degraded dashboard / a false
+ * "заявка отправлена" screen. Distinct from pending/rejected applications,
+ * which keep their existing /master/pending verdict flow.
+ *
+ * Admins browsing /master/* keep today's path (pending -> admin bounce), and
+ * a transient fetch error never triggers the redirect (profileMissing is
+ * keyed on the machine code, not on profile===null).
+ */
+async function noProfileMasterRedirect(): Promise<{ path: string } | null> {
+  const auth = useAuthStore()
+  if (auth.role !== 'master') return null
+
+  const masterStore = useMasterStore()
+  // Lazy-fetch profile (skips network if already loaded this session).
+  await masterStore.fetchMyProfile()
+
+  return masterStore.profileMissing ? { path: '/master/apply' } : null
+}
+
+/**
+ * Lead a no-application master to the apply wizard on dashboard entry.
+ *
+ * Applied to: /master/dashboard (which has no status guard -- pending /
+ * rejected masters may sit on it, byte-identical to before №257).
+ */
+export const masterNoProfileGuard: NavigationGuardWithThis<undefined> = async () =>
+  (await noProfileMasterRedirect()) ?? true
+
+/**
  * Require verified master profile before accessing protected master routes.
  *
  * Applied to: practices/*, finance (routes that require active master status).
  * Not applied to: /master/profile, /master/apply, /master/pending.
+ * №257: a confirmed no-application master goes to /master/apply (honest
+ * entry); everything else non-verified keeps the /master/pending redirect.
  */
 export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () => {
+  const redirect = await noProfileMasterRedirect()
+  if (redirect) return redirect
+
   const masterStore = useMasterStore()
 
   // Lazy-fetch profile (skips network if already loaded this session).
@@ -144,11 +182,6 @@ export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () =
   if (timedOut && auth.role === null) {
     return { path: '/auth-error' }
   }
-
-  // TEST-only apply-flow preview: admit the preview to the "sent" screen without
-  // a real applicant marker. Fires only while previewApplyFlow is set, which is
-  // prod-unreachable (see stores/ui.ts).
-  if (useUiStore().previewApplyFlow) return true
 
   if (auth.role === 'admin') return { path: '/admin/dashboard' }
   if (auth.role === 'master') return true

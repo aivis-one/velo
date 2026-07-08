@@ -35,6 +35,8 @@
 #   the stale data.stats JSONB cache.
 # =============================================================================
 
+import copy
+import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -43,7 +45,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.audit import record_audit
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
+from app.core.redis import get_redis
 from app.modules.diary.models import Feedback
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import MasterApplyRequest, MasterPublicResponse
@@ -80,6 +84,7 @@ def _build_data(body: MasterApplyRequest) -> dict:
             "phone": body.profile.phone,
             "bio": body.experience.bio,
             "methods": body.experience.methods,
+            "languages": body.experience.languages,
             "experience_years": body.experience.experience_years,
             "certifications": body.experience.certifications,
         },
@@ -98,6 +103,28 @@ def _build_data(body: MasterApplyRequest) -> dict:
             "avg_rating": None,
         },
     }
+
+
+def _build_verified_data(body: MasterApplyRequest) -> dict:
+    """Build VERIFIED JSONB data for master self-provision (ПРОМТ №307).
+
+    A role=master account with NO profile (in practice an admin who switched
+    into master mode, or a CLI-promoted account) fills the same apply form and
+    is verified IMMEDIATELY -- no approval loop (operator ruling). Mirrors
+    _build_data but flips account.status to 'verified', stamps a self-provision
+    verification block, and opens availability so the master zone is usable at
+    once. Same profile fields (methods / experience / bio) as the pending path.
+    """
+    now_iso = datetime.now(UTC).isoformat()
+    data = _build_data(body)
+    data["account"]["status"] = "verified"
+    data["account"]["verification"] = {
+        "verified_at": now_iso,
+        "verified_by": "self_provision",
+        "notes": None,
+    }
+    data["availability"]["is_accepting"] = True
+    return data
 
 
 def _build_reapply_data(
@@ -136,7 +163,39 @@ async def apply_for_master(
 
     Creates a new MasterProfile or updates an existing rejected one.
     """
-    # Only regular users can apply.
+    # Self-provision (ПРОМТ №307): a role=master account WITHOUT a profile --
+    # an admin who switched into master mode, or a CLI-promoted account -- fills
+    # this same form and gets a VERIFIED profile immediately (no approval loop).
+    # A role=master WITH a profile is already a master -> 409. Real masters
+    # (invite -> apply -> approve -> switch) always have a profile, so they never
+    # reach the verified-create branch.
+    if user.role == UserRole.MASTER:
+        stmt = (
+            select(MasterProfile)
+            .where(MasterProfile.user_id == user.id)
+            .with_for_update()
+        )
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+        if existing is not None:
+            raise ConflictError(
+                message="Already a master", code="already_master"
+            )
+        profile = MasterProfile(
+            user_id=user.id,
+            data=_build_verified_data(body),
+        )
+        session.add(profile)
+        try:
+            async with session.begin_nested():
+                await session.flush()
+        except IntegrityError:
+            raise ConflictError(
+                message="Already a master", code="already_master"
+            )
+        logger.info("master_self_provisioned", user_id=str(user.id))
+        return profile
+
+    # Only regular users can apply (the normal application path).
     if user.role != UserRole.USER:
         raise ForbiddenError("Only users with role 'user' can apply")
 
@@ -361,3 +420,133 @@ async def get_public_master_profile(
         practices_count=practices_count,
         reviews_count=reviews_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# E16: master updates their languages (freely editable, no moderation)
+# ---------------------------------------------------------------------------
+
+
+async def update_master_languages(
+    profile: MasterProfile,
+    languages: list[str],
+    session: AsyncSession,
+) -> MasterProfile:
+    """Replace the master's language set (E16, Q2=А -- no moderation).
+
+    Writes data.profile.languages wholesale. The profile must be bound to the
+    caller's write session (the router re-loads it via session.get, mirroring
+    update_payout_details). Caller does flush + refresh.
+    """
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("profile", {})
+    new_data["profile"]["languages"] = list(languages)
+    profile.set_jsonb("data", new_data)
+
+    logger.info(
+        "master_languages_updated",
+        user_id=str(profile.user_id),
+        count=len(languages),
+    )
+
+    return profile
+
+
+# ---------------------------------------------------------------------------
+# M3 (E19-FLAT): master submits a method change-request
+# ---------------------------------------------------------------------------
+
+
+async def submit_method_change_request(
+    profile: MasterProfile,
+    proposed_methods: list[str],
+    session: AsyncSession,
+) -> MasterProfile:
+    """Record a pending method change-request on the master's profile.
+
+    FLAT branch (M3): stores the proposed flat method list under
+    data.profile.method_change_request with status "pending". Does NOT touch
+    data.profile.methods -- the live method set only changes when an admin
+    approves (admin/masters/service.approve_method_change).
+
+    The profile must be bound to the caller's write session (the router
+    re-loads it via session.get, mirroring update_payout_details).
+
+    Raises:
+        ConflictError (method_change_pending): a request is already pending.
+    """
+    prof = profile.data.get("profile", {})
+    existing = prof.get("method_change_request")
+    if isinstance(existing, dict) and existing.get("status") == "pending":
+        raise ConflictError(
+            "A method change request is already pending",
+            code="method_change_pending",
+        )
+
+    # P-03: deepcopy + set_jsonb for safe JSONB mutation.
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("profile", {})
+    new_data["profile"]["method_change_request"] = {
+        "status": "pending",
+        "proposed_methods": list(proposed_methods),
+        "submitted_at": datetime.now(UTC).isoformat(),
+        "decided_at": None,
+        "decided_by": None,
+        "reject_reason": None,
+    }
+    profile.set_jsonb("data", new_data)
+
+    await record_audit(
+        event="master_method_change_requested",
+        actor_id=profile.user_id,
+        actor_type="master",
+        target_type="master_profile",
+        target_id=profile.user_id,
+        data={"proposed_methods": list(proposed_methods)},
+        session=session,
+    )
+
+    logger.info(
+        "master_method_change_requested",
+        user_id=str(profile.user_id),
+    )
+
+    return profile
+
+
+# ---------------------------------------------------------------------------
+# Batch-INVITE: claim a generic one-time master invite (Redis, atomic burn)
+# ---------------------------------------------------------------------------
+# Prefix duplicated from admin/masters/service.MASTER_INVITE_KEY_PREFIX to avoid
+# a cross-module import -- keep the two literals in sync.
+MASTER_INVITE_KEY_PREFIX = "master_invite:"
+
+
+async def claim_master_invite(token: str) -> datetime:
+    """Validate + burn a generic one-time master invite (atomic).
+
+    The supplied token is hashed and looked up in Redis under
+    MASTER_INVITE_KEY_PREFIX. GETDEL burns it atomically -- the first claim
+    wins; any later claim of the same token 404s (consumed). Becoming a
+    master still goes through the regular apply wizard + admin approval loop;
+    nothing is verified here. The caller is already auto-registered at login,
+    so any authenticated opener may claim.
+
+    Raises:
+        NotFoundError (invite_invalid): token unknown / already consumed.
+    """
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+
+    redis = get_redis()
+    # Atomic single-command read-and-delete: no interleave between the check
+    # and the burn, so two concurrent claims can never both succeed.
+    stored = await redis.getdel(f"{MASTER_INVITE_KEY_PREFIX}{token_hash}")
+    if stored is None:
+        raise NotFoundError(
+            "Invite link is invalid or already used",
+            code="invite_invalid",
+        )
+
+    logger.info("master_invite_claimed")
+
+    return datetime.now(UTC)

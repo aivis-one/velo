@@ -32,19 +32,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.core.exceptions import BadRequestError
-from app.modules.auth.dependencies import get_current_master, get_current_user
+from app.modules.auth.dependencies import (
+    get_current_master,
+    get_current_user,
+)
 from app.modules.masters.models import MasterProfile
 from app.modules.masters.schemas import (
+    ClaimMasterInviteRequest,
+    ClaimMasterInviteResponse,
     MasterApplyRequest,
     MasterApplyResponse,
+    MasterLanguagesUpdate,
     MasterProfileResponse,
     MasterPublicResponse,
+    MethodChangeRequest,
+    MethodChangeRequestSubmit,
     PayoutDetails,
     PayoutDetailsUpdate,
 )
 from app.modules.masters.service import (
     apply_for_master,
+    claim_master_invite,
     get_public_master_profile,
+    submit_method_change_request,
+    update_master_languages,
 )
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
@@ -80,12 +91,19 @@ def _make_profile_response(
     payout_raw = data.get("payout")
     payout = PayoutDetails(**payout_raw) if payout_raw else None
 
+    # M3: project the pending / recently-rejected method-change request.
+    mcr_raw = prof.get("method_change_request")
+    method_change_request = (
+        MethodChangeRequest(**mcr_raw) if mcr_raw else None
+    )
+
     return MasterProfileResponse(
         user_id=profile.user_id,
         status=account.get("status", "pending"),
         display_name=prof.get("display_name"),
         bio=prof.get("bio"),
         methods=prof.get("methods", []),
+        languages=prof.get("languages", []),
         experience_years=prof.get("experience_years"),
         frozen_cents=profile.frozen_cents,
         available_cents=profile.available_cents,
@@ -97,6 +115,8 @@ def _make_profile_response(
         # E14: surface the admin-captured reason from data.account so the
         # applicant's «Отказ» screen shows why (None unless rejected).
         rejection_reason=account.get("rejection_reason"),
+        # M3: pending / recently-rejected method-change request (None if none).
+        method_change_request=method_change_request,
     )
 
 
@@ -128,6 +148,31 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+# ===================================================================
+# Batch-INVITE: POST /invite/claim -- claim a one-time invite
+# ===================================================================
+
+
+@router.post(
+    "/invite/claim",
+    response_model=ClaimMasterInviteResponse,
+)
+async def claim_master_invite_endpoint(
+    body: ClaimMasterInviteRequest,
+    _user: User = Depends(get_current_user),
+) -> ClaimMasterInviteResponse:
+    """Claim a generic one-time master invite (deeplink master_onboarding__<token>).
+
+    Any authenticated opener (auto-registered at login) may claim; the token
+    is burned atomically in Redis (first claim wins, later claims 404). The
+    application itself then goes through the regular apply wizard + admin
+    approval loop -- nothing is verified here. get_current_user only pins the
+    request to an authenticated user; no DB write happens.
+    """
+    claimed_at = await claim_master_invite(body.token)
+    return ClaimMasterInviteResponse(claimed_at=claimed_at)
 
 
 # ===================================================================
@@ -209,6 +254,88 @@ async def update_payout_details(
     )
 
     return PayoutDetails(**payout_data)
+
+
+# ===================================================================
+# E16: PATCH /me/languages -- freely edit the master's language set
+# ===================================================================
+
+
+@router.patch(
+    "/me/languages",
+    response_model=MasterProfileResponse,
+)
+async def update_languages(
+    body: MasterLanguagesUpdate,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> MasterProfileResponse:
+    """Replace the master's languages (E16, freely editable -- no moderation).
+
+    Unlike methods (admin-approved), languages are a plain profile field:
+    the sent flat list replaces data.profile.languages wholesale.
+    """
+    user, _profile = master_tuple
+
+    # Re-load in the writer session (mirrors update_payout_details).
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    await update_master_languages(profile, body.languages, session)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return _make_profile_response((user, profile))
+
+
+# ===================================================================
+# M3 (E19-FLAT): POST /me/method-change-request -- request method change
+# ===================================================================
+
+
+@router.post(
+    "/me/method-change-request",
+    response_model=MasterProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_method_change(
+    body: MethodChangeRequestSubmit,
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> MasterProfileResponse:
+    """Submit a method change-request (FLAT branch, M3).
+
+    A verified master proposes a new flat method set. It is stored pending
+    under data.profile.method_change_request until an admin approves/rejects;
+    the live data.profile.methods is NOT changed here. 409
+    method_change_pending if one is already outstanding.
+
+    Returns the refreshed profile so the caller sees the pending request
+    projected on method_change_request.
+    """
+    user, _profile = master_tuple
+
+    # Re-load in the writer session (mirrors update_payout_details): the
+    # dependency loaded the profile via the reader, but flush()/refresh()
+    # need the object bound to THIS write session.
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    await submit_method_change_request(
+        profile, body.proposed_methods, session
+    )
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return _make_profile_response((user, profile))
 
 
 # ===================================================================

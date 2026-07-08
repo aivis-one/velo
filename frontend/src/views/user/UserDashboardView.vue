@@ -9,8 +9,8 @@
                               first, then up to 2 soonest upcoming (max 3), each
                               with Zoom + Check-in
     - "Ваш прогресс"       -- attended count + hours, from GET /bookings/me/stats
-    - "AI-саммари"         -- placeholder card with week/month toggle,
-                              mood trend indicator and a "Подробнее" link
+    - "AI-саммари"         -- placeholder card with week/month toggle + mood
+                              trend indicator; the whole card is tappable
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
@@ -19,7 +19,7 @@
   practices_attended + hours_attended), a server-side aggregate over ALL attended
   bookings -- so the numbers are complete, not limited to the first bookings page.
 
-  Screen 16 (AI-summary): the "Подробнее" link navigates to 'user-ai-summary'
+  Screen 16 (AI-summary): tapping the summary card navigates to 'user-ai-summary'
   (currently a placeholder screen -- the user AI backend does not exist yet).
   The mood trend indicator stays static (illustration, not a control).
 -->
@@ -46,12 +46,25 @@
       v-if="feedbackAlert"
       variant="success"
       title="Оставьте feedback!"
-      :body="`${feedbackAlert.practice.title} • Вчера`"
+      :body="`${feedbackAlert.practice.title} • ${dayLabelOf(feedbackAlert.practice.scheduled_at, viewerTz)}`"
       :clickable="true"
       class="dashboard__alert"
       @click="goToFeedback(feedbackAlert.practice_id)"
     >
       <template #icon><IconFeedback :size="28" /></template>
+    </Banner>
+
+    <!-- No-show reflection banner (shared Banner; copy rotates per booking) -->
+    <Banner
+      v-if="reflectionAlert"
+      variant="success"
+      :title="pickReflectionVariant(reflectionAlert.practice_id).bannerTitle"
+      :body="`${reflectionAlert.practice.title} • ${dayLabelOf(reflectionAlert.practice.scheduled_at, viewerTz)}`"
+      :clickable="true"
+      class="dashboard__alert"
+      @click="goToReflection(reflectionAlert.practice_id)"
+    >
+      <template #icon><IconReflection :size="28" /></template>
     </Banner>
 
     <!-- ================================================================
@@ -61,7 +74,7 @@
       <h3 class="dashboard__section-title">Ближайшие практики</h3>
 
       <!-- Loading -->
-      <div v-if="bookingsStore.loading && nearestBookings.length === 0" class="dashboard__loader">
+      <div v-if="bookingsStore.upcomingLoading && nearestBookings.length === 0" class="dashboard__loader">
         <VLoader />
       </div>
 
@@ -97,7 +110,18 @@
 
           <!-- Action buttons (outside the card, per Figma) -->
           <div class="dashboard__practice-actions">
-            <VButton variant="secondary" block @click="onZoomClick(b)"> Zoom </VButton>
+            <!-- R1 (№263): honest state — the backend status-gates zoom_link
+                 (null unless this booking is confirmed/attended), so a dead
+                 clickable button would read as broken. Disabled mirrors the
+                 MasterDashboardView null-handling pattern. -->
+            <VButton
+              variant="secondary"
+              block
+              :disabled="!hasZoom(b)"
+              @click="onZoomClick(b)"
+            >
+              Zoom
+            </VButton>
             <VButton
               variant="primary"
               block
@@ -146,7 +170,11 @@
         </div>
       </div>
 
-      <VCard>
+      <!-- Whole card is the tap target → AI-summary screen (16). VCard `clickable`
+           supplies role="button" + tabindex + Enter/Space + cursor (DS a11y). The
+           Неделя/Месяц toggle lives in the header ABOVE, outside this card, so it
+           keeps switching the period independently (G3, replaces «Подробнее»). -->
+      <VCard clickable @click="router.push({ name: 'user-ai-summary' })">
         <p class="dashboard__ai-text">
           <template v-if="aiPeriod === 'week'">
             На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
@@ -167,12 +195,6 @@
           <span class="dashboard__ai-mood-label">до</span>
         </div>
       </VCard>
-
-      <!-- "Подробнее" -> AI-summary screen (16). Единый VMoreLink (слово +
-           белый pill со стрелкой) — один вид «Подробнее» на весь проект. -->
-      <div class="dashboard__ai-more">
-        <VMoreLink @click="router.push({ name: 'user-ai-summary' })" />
-      </div>
     </section>
   </div>
 </template>
@@ -183,10 +205,11 @@ import { useRouter } from 'vue-router'
 import { useBookingsStore } from '@/stores/bookings'
 import { getMyStats } from '@/api/bookings'
 import { useToast } from '@/composables/useToast'
-import { VLoader, VButton, VBadge, VMoreLink, VStatCard, VCard } from '@/components/ui'
+import { VLoader, VButton, VBadge, VStatCard, VCard } from '@/components/ui'
 import {
   IconClock,
   IconFeedback,
+  IconReflection,
   IconCheck,
   IconArrowRight,
   IconMoodMid,
@@ -194,11 +217,12 @@ import {
 } from '@/components/icons'
 import PracticeListCard from '@/components/shared/PracticeListCard.vue'
 import Banner from '@/components/shared/Banner.vue'
-import { formatDateShort, formatTime, formatDuration } from '@/utils/format'
+import { formatDateShort, formatTime, formatDuration, dayLabelOf } from '@/utils/format'
 import { platform } from '@/platform'
 import { isInCheckinWindow, isInFeedbackWindow } from '@/composables/usePracticeWindows'
 import { isLiveNow, isFree } from '@/utils/bookingStatus'
 import { selectNearestBookings } from '@/utils/nearestBookings'
+import { pickReflectionVariant } from '@/utils/reflectionVariants'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { CHECKIN_WINDOW_H } from '@/utils/constants'
 import type { BookingWithPracticeResponse, UserStatsResponse } from '@/api/types'
@@ -268,6 +292,23 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
   )
 })
 
+/**
+ * First no-show booking still in the reflection window, not yet reflected this
+ * session. Mirrors feedbackAlert but for `no_show` (F4=А: same 72h window as
+ * feedback). Session dismiss only — no backend `has_reflection` flag yet
+ * (TD-REFLECTION); the client `dismissedReflections` set hides it after submit.
+ */
+const reflectionAlert = computed((): BookingWithPracticeResponse | null => {
+  return (
+    bookingsStore.bookings.find((b) => {
+      if (b.status !== 'no_show') return false
+      if (bookingsStore.dismissedReflections.includes(b.practice_id)) return false
+      const scheduledMs = new Date(b.practice.scheduled_at).getTime()
+      return isInFeedbackWindow(scheduledMs, b.practice.duration_minutes, now.value)
+    }) ?? null
+  )
+})
+
 // =========================================================================
 // Nearest practice
 // =========================================================================
@@ -290,7 +331,7 @@ const feedbackAlert = computed((): BookingWithPracticeResponse | null => {
  * re-ranks on the 60s clock tick.
  */
 const nearestBookings = computed((): BookingWithPracticeResponse[] =>
-  selectNearestBookings(bookingsStore.bookings, now.value),
+  selectNearestBookings(bookingsStore.upcoming, now.value),
 )
 
 /**
@@ -323,12 +364,18 @@ function practiceTitle(b: BookingWithPracticeResponse): string {
  * (mirrors PracticeLiveView). `zoom_link` is now on PracticeSummary (E18), so no
  * per-click GET is needed. Empty/invalid link → truthful "link coming" toast.
  */
+/** R1 (№263): valid-link presence check gating the Zoom button. */
+function hasZoom(b: BookingWithPracticeResponse): boolean {
+  return !!b.practice.zoom_link?.startsWith('https://')
+}
+
 function onZoomClick(b: BookingWithPracticeResponse): void {
   const url = b.practice.zoom_link
   if (url && url.startsWith('https://')) {
     platform.openLink(url)
   } else {
-    toast.info('Ссылка появится ближе к началу')
+    // Backstop only — the button is disabled in this state (R1).
+    toast.info('Ссылка пока не добавлена мастером')
   }
 }
 
@@ -410,12 +457,17 @@ function goToFeedback(practiceId: string): void {
   router.push({ name: 'user-feedback', params: { practiceId } })
 }
 
+function goToReflection(practiceId: string): void {
+  router.push({ name: 'user-reflection', params: { practiceId } })
+}
+
 // =========================================================================
 // Lifecycle
 // =========================================================================
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
+  void bookingsStore.fetchUpcoming()
   void loadStats()
   clockInterval = setInterval(() => {
     now.value = Date.now()
@@ -584,11 +636,5 @@ onUnmounted(() => {
 
 .dashboard__ai-mood-arrow {
   color: var(--velo-text-muted);
-}
-
-/* "Подробнее" -> AI-summary screen (16). Сам контрол — общий VMoreLink;
- * здесь только отступ от карточки AI-саммари над ним. */
-.dashboard__ai-more {
-  margin-top: var(--space-4);
 }
 </style>

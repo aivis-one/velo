@@ -238,6 +238,15 @@
   --velo-fog-pd-top-hard: 60px;
   --velo-fog-pd-bot-fade: 50px;
   --velo-fog-pd-bot-hard: 90px;
+  /* Form-only top-hard variant (M7, ПРОМТ №275): the compact-fog CREATE/EDIT/
+     promocode forms carry a TRANSPARENT floating VHeader (~88px, the
+     HEADER_FALLBACK estimate). The shared pd-top-hard (60) is shorter than the
+     header, so content in the 60–88px band ghosted UNDER the header's lower half
+     on scroll. This taller fully-transparent zone covers the header so content
+     dissolves before it — WITHOUT touching practice-detail, whose softer 60
+     top-hard over its hero is intentional (FOG-2). Read by MasterShell.formFog();
+     tune here to the measured header height. */
+  --velo-fog-pd-top-hard-form: 88px;
   /* master-profile top clearance (operator PE-1, 2026-07-01): the profile hub is
      HEADERLESS (no VHeader → islandH=0), so MobileLayout applies the 88px
      HEADER_FALLBACK + the default z1 gap ≈104px empty band above the first card.
@@ -246,6 +255,15 @@
      paddingTop. Scoped to master-profile via MasterShell.masterProfileFog(); tune
      the gap here (−40 ⇒ ~48px). Does NOT touch MobileLayout / HEADER_FALLBACK. */
   --velo-fog-mp-top-gap: -40px;
+  /* Reusable SHORT top-fog clearance for HEADERLESS list heads (operator DB-1b,
+     ПРОМТ №273). A dashboard-style screen with no VHeader has islandH=0, so
+     MobileLayout applies the 88px HEADER_FALLBACK + the default z1 gap ≈104px —
+     an oversized empty band above the first row. This NEGATIVE top-gap pulls that
+     fallback band down (top = 88 + this), the same mechanism as the
+     master-profile-only --velo-fog-mp-top-gap but as a shared token other
+     headerless heads can adopt. Read via MasterShell.dashboardFog(); tune here
+     (−40 ⇒ ~48px top). Does NOT touch MobileLayout / the HEADER_FALLBACK constant. */
+  --velo-fog-z1-short: -40px;
   /* Header-island clearance (G-1) is no longer a fixed token pair: MobileLayout
      MEASURES the floating island's height (ResizeObserver) and clears exactly
      that much, so any island (short greeting or tall title+weekstrip) gets the
@@ -383,6 +401,38 @@
   --velo-gap-2: 2px;
   --velo-gap-3: 3px;
   --velo-gap-6: 6px;
+  --velo-gap-11: 11px; /* master-review photo/text row gap */
   --velo-gap-15: 15px; /* cross-component flex gap (dashboard / master-review / withdrawal) */
+  --velo-gap-21: 21px; /* master-review history accordion header gap */
   --velo-inset-12: 12px; /* admin filter / list row horizontal inset */
+
+  /* =========================================================================
+   * E3 admin-zone DS-compliance tokens (appearance-preserving; value = prior
+   * literal). Same philosophy as the WS-3 block above: off-scale admin-view
+   * literals routed through the DS with ZERO visual change, value-named. Dark
+   * theme is intentionally NOT addressed here (separate future task).
+   * ========================================================================= */
+  /* Spacing — fills the 24(--space-5)→33(--space-8) ramp gap. Was previously
+     REFERENCED as var(--space-6) in 6 admin drill-in views but never DEFINED, so
+     the browser dropped `padding: var(--space-6) 0;` (padding silently lost).
+     Defining it restores that padding. */
+  --space-6: 28px;
+  /* Border width — hairline stroke, below --velo-banner-border-width(2) /
+     --velo-divider-width(3). The default 1px border/divider across admin lists. */
+  --velo-border-width: 1px;
+  /* Radius — master-review photo corner (between --velo-radius-9=9 / --radius-md=15). */
+  --velo-radius-14: 14px;
+  /* Letter-spacing — uppercase admin labels (value-named, per --text-NN convention). */
+  --velo-letter-spacing-05: 0.5px;   /* report-detail label tracking */
+  --velo-letter-spacing-064: 0.64px; /* dashboard section-label tracking */
+  /* Component-size ramp (value-named; extends --velo-size-40/44/46/50 above).
+     Admin count-badges, avatars, id circles, week-nav button, review photo. */
+  --velo-size-16: 16px;   /* practice-detail id circle */
+  --velo-size-35: 35px;   /* dashboard week-nav button height */
+  --velo-size-36: 36px;   /* list count-badge height */
+  --velo-size-38: 38px;   /* reports / method-requests count-badge min-width */
+  --velo-size-41: 41px;   /* participant / roster avatar square */
+  --velo-size-48: 48px;   /* list count-badge min-width */
+  --velo-size-60: 60px;   /* dashboard week-nav button width */
+  --velo-size-104: 104px; /* master-review photo square (= --velo-card-height-list value, distinct role) */
 }

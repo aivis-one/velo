@@ -7,6 +7,7 @@
 //
 // ENDPOINTS:
 //   GET  /api/v1/admin/stats
+//   GET  /api/v1/admin/stats/overview        -- period-scoped growth + deltas (E7)
 //   GET  /api/v1/admin/masters/pending
 //   GET  /api/v1/admin/masters/list
 //   GET  /api/v1/admin/masters/{id}          -- single master (W-1 fix)
@@ -16,10 +17,10 @@
 //   GET  /api/v1/admin/reports/{id}          -- single report (W-2 fix)
 //   POST /api/v1/admin/reports/{id}/resolve
 //   POST /api/v1/admin/reports/{id}/dismiss
-//   GET  /api/v1/admin/consistency
 //   GET  /api/v1/admin/metrics/check-in     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/feedback     -- engagement metric (E9)
 //   GET  /api/v1/admin/metrics/return       -- engagement metric (E9)
+//   GET  /api/v1/admin/participants         -- global participants list (E1)
 //   GET  /api/v1/admin/practices            -- global practices list (E9)
 //   GET  /api/v1/admin/practices/{id}       -- practice detail + roster (E9)
 //   GET  /api/v1/admin/revenue              -- revenue/commission/payout (E9)
@@ -29,14 +30,15 @@ import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
 import type {
   AdminStatsResponse,
-  AdminMasterListItem,
+  AdminStatsOverviewResponse,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  PaginatedMethodChangeRequestsResponse,
+  MethodChangeActionResponse,
   ReportResponse,
   PaginatedReportsResponse,
   ReportStatusFilter,
   ReportTargetTypeFilter,
-  ConsistencyResponse,
   AdminWithdrawalResponse,
   PaginatedAdminWithdrawalsResponse,
   WithdrawalStatus,
@@ -46,20 +48,31 @@ import type {
   PaginatedAdminPracticesResponse,
   AdminPracticeDetailResponse,
   AdminRevenueResponse,
+  InviteMasterResponse,
+  PaginatedUsersResponse,
+  PaginatedParticipantsResponse,
+  AdminMasterDetail,
+  RevokeMasterAdvisory,
 } from '@/api/types'
 
 // Re-export for views that import from api/admin.ts directly.
 export type {
   AdminStatsResponse,
+  AdminStatsOverviewResponse,
   AdminMasterListItem,
+  AdminMasterDetail,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
+  RevokeMasterAdvisory,
+  PaginatedUsersResponse,
+  UserResponse,
+  AdminMethodChangeItem,
+  PaginatedMethodChangeRequestsResponse,
+  MethodChangeActionResponse,
   ReportResponse,
   PaginatedReportsResponse,
   ReportStatusFilter,
   ReportTargetTypeFilter,
-  ConsistencyResponse,
-  SemaphoreResult,
   AdminWithdrawalResponse,
   PaginatedAdminWithdrawalsResponse,
   WithdrawalStatus,
@@ -72,6 +85,20 @@ export type {
 
 export function getAdminStats(): Promise<AdminStatsResponse> {
   return api.get<AdminStatsResponse>('/api/v1/admin/stats')
+}
+
+/**
+ * Period-scoped platform overview (E7): growth counts + percent deltas + revenue
+ * + engagement rates for one calendar period. `offset` steps the window by whole
+ * periods (0 = current, -1 = previous week/month, +1 = next) for the dashboard
+ * stepper. Deltas are always vs the period immediately before the navigated one.
+ */
+export function getAdminStatsOverview(
+  period: 'week' | 'month',
+  offset = 0,
+): Promise<AdminStatsOverviewResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<AdminStatsOverviewResponse>(`/api/v1/admin/stats/overview${query}`)
 }
 
 // ============================================================================
@@ -92,12 +119,68 @@ export function getMastersList(
   return api.get<PaginatedMastersResponse>(`/api/v1/admin/masters/list${query}`)
 }
 
+// ============================================================================
+// Users (all-users list + explicit make-master, ПРОМТ №292)
+// ============================================================================
+
+/**
+ * List all users (any role). No server-side search — the screen filters the
+ * fetched page client-side. Limit clamped to the backend cap (le=100).
+ */
+export function getUsersList(
+  role?: 'user' | 'master' | 'admin',
+  limit = 100,
+  offset = 0,
+): Promise<PaginatedUsersResponse> {
+  const query = buildQuery({ limit, offset, role })
+  return api.get<PaginatedUsersResponse>(`/api/v1/admin/users${query}`)
+}
+
+/**
+ * Global participants list (all platform users) for the «Участников» screen.
+ * `filter` = all | new | active; new/active window on `period` (+ `offset`
+ * stepper, parity with the dashboard). Paginated (limit/page_offset).
+ */
+export function getParticipants(
+  filter: 'all' | 'new' | 'active' = 'all',
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+  limit = 100,
+  page_offset = 0,
+): Promise<PaginatedParticipantsResponse> {
+  const query = buildQuery({ filter, period, offset, limit, page_offset })
+  return api.get<PaginatedParticipantsResponse>(`/api/v1/admin/participants${query}`)
+}
+
+/**
+ * Explicitly promote a user to master (creates a verified MasterProfile if
+ * missing). 409 already_master if they are already a master. Distinct from the
+ * application-approval verify path.
+ */
+export function makeMaster(userId: string): Promise<AdminMasterActionResponse> {
+  return api.post<AdminMasterActionResponse>(`/api/v1/admin/users/${userId}/make-master`, {})
+}
+
 /**
  * Fetch a single master by user_id.
  * Fallback for AdminMasterReviewView when router state is unavailable.
  */
-export function getMasterById(userId: string): Promise<AdminMasterListItem> {
-  return api.get<AdminMasterListItem>(`/api/v1/admin/masters/${userId}`)
+export function getMasterById(userId: string): Promise<AdminMasterDetail> {
+  return api.get<AdminMasterDetail>(`/api/v1/admin/masters/${userId}`)
+}
+
+/**
+ * Admin edits a master's methods during review (T3). Overwrites the flat method
+ * list (min 1). Distinct from the master's own method-change request (M3).
+ */
+export function editMasterMethods(
+  userId: string,
+  methods: string[],
+): Promise<AdminMasterActionResponse> {
+  return api.patch<AdminMasterActionResponse>(
+    `/api/v1/admin/masters/${userId}/methods`,
+    { methods },
+  )
 }
 
 export function verifyMaster(userId: string): Promise<AdminMasterActionResponse> {
@@ -106,6 +189,66 @@ export function verifyMaster(userId: string): Promise<AdminMasterActionResponse>
 
 export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {
   return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/reject`, { reason })
+}
+
+/**
+ * Advisory signals shown in the revoke confirm dialog (A1, read-only): future
+ * scheduled/live practices, balance, pending withdrawals — WARN-not-block.
+ */
+export function getRevokePreview(userId: string): Promise<RevokeMasterAdvisory> {
+  return api.get<RevokeMasterAdvisory>(`/api/v1/admin/masters/${userId}/revoke-preview`)
+}
+
+/**
+ * Revoke a master's capability (A1, operator Б): role -> user + profile
+ * soft-frozen (status=suspended, is_accepting=false); all data preserved.
+ * Re-grant via makeMaster ("Сделать мастером"). Never blocks on the advisory.
+ */
+export function revokeMaster(userId: string): Promise<RevokeMasterAdvisory> {
+  return api.post<RevokeMasterAdvisory>(`/api/v1/admin/masters/${userId}/revoke`)
+}
+
+/**
+ * Issue a generic one-time master invite link (Batch-INVITE). No target: the
+ * link works for any authenticated opener until the first claim burns it.
+ * 503 bot_url_not_configured if telegram_bot_url is unset on the server.
+ */
+export function inviteMaster(): Promise<InviteMasterResponse> {
+  return api.post<InviteMasterResponse>('/api/v1/admin/masters/invite', {})
+}
+
+// ============================================================================
+// Method change-requests (M3, FLAT) — master methods moderation
+// ============================================================================
+
+/** List masters with a pending method change-request (newest first). */
+export function getMethodChangeRequests(
+  limit = 20,
+  offset = 0,
+): Promise<PaginatedMethodChangeRequestsResponse> {
+  const query = buildQuery({ limit, offset })
+  return api.get<PaginatedMethodChangeRequestsResponse>(
+    `/api/v1/admin/masters/method-change-requests${query}`,
+  )
+}
+
+/** Approve a master's pending method change-request (methods become live). */
+export function approveMethodChange(userId: string): Promise<MethodChangeActionResponse> {
+  return api.post<MethodChangeActionResponse>(
+    `/api/v1/admin/masters/${userId}/method-change-request/approve`,
+    {},
+  )
+}
+
+/** Reject a master's pending method change-request (with a reason). */
+export function rejectMethodChange(
+  userId: string,
+  reason: string,
+): Promise<MethodChangeActionResponse> {
+  return api.post<MethodChangeActionResponse>(
+    `/api/v1/admin/masters/${userId}/method-change-request/reject`,
+    { reason },
+  )
 }
 
 // ============================================================================
@@ -143,14 +286,6 @@ export function dismissReport(reportId: string, resolutionNote?: string): Promis
 }
 
 // ============================================================================
-// Consistency semaphores
-// ============================================================================
-
-export function getConsistency(): Promise<ConsistencyResponse> {
-  return api.get<ConsistencyResponse>('/api/v1/admin/consistency')
-}
-
-// ============================================================================
 // Withdrawals (payout approval)
 // ============================================================================
 
@@ -182,20 +317,33 @@ export function rejectWithdrawal(
 }
 
 // ============================================================================
-// Engagement metrics (E9). Absolute values only — period-over-period deltas
-// need E7 (not delivered), so the views leave the delta fields blank.
+// Engagement metrics (E9). Per-distinct-practice rates (D4/D5), period + offset
+// scoped (0 = current, -1 = previous week/month) — same window as the dashboard
+// stepper. Omitting the args = current week (drill-in views).
 // ============================================================================
 
-export function getCheckinMetric(): Promise<CheckinMetricResponse> {
-  return api.get<CheckinMetricResponse>('/api/v1/admin/metrics/check-in')
+export function getCheckinMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<CheckinMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<CheckinMetricResponse>(`/api/v1/admin/metrics/check-in${query}`)
 }
 
-export function getFeedbackMetric(): Promise<FeedbackMetricResponse> {
-  return api.get<FeedbackMetricResponse>('/api/v1/admin/metrics/feedback')
+export function getFeedbackMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<FeedbackMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<FeedbackMetricResponse>(`/api/v1/admin/metrics/feedback${query}`)
 }
 
-export function getReturnMetric(): Promise<ReturnMetricResponse> {
-  return api.get<ReturnMetricResponse>('/api/v1/admin/metrics/return')
+export function getReturnMetric(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<ReturnMetricResponse> {
+  const query = buildQuery({ period, offset })
+  return api.get<ReturnMetricResponse>(`/api/v1/admin/metrics/return${query}`)
 }
 
 // ============================================================================

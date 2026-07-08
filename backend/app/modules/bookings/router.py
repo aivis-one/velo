@@ -58,6 +58,7 @@ from app.modules.bookings.service import (
     get_user_practice_stats,
     join_booking,
     leave_booking,
+    list_upcoming_bookings,
     list_user_bookings,
     skip_checkin,
 )
@@ -169,6 +170,10 @@ async def list_my_bookings_endpoint(
     # Fill it here with the same helper the single-booking/detail responses use.
     # Dedup by master_id so a master repeated across the page is looked up once.
     from app.modules.masters.service import get_master_display_name
+    # M-3 gate: expose zoom_link only for confirmed/attended bookings. Imported
+    # locally to match this file's cross-service import style (get_master_-
+    # display_name above) and sidestep any module-load import cycle.
+    from app.modules.practices.service import ZOOM_VISIBLE_BOOKING_STATUSES
 
     master_names: dict[UUID, str] = {}
     for row in items:
@@ -193,8 +198,14 @@ async def list_my_bookings_endpoint(
                 updated_at=booking.updated_at,
                 has_feedback=has_feedback,
                 has_checkin=has_checkin,
-                practice=PracticeSummary.model_validate(practice).model_copy(
-                    update={"master_name": master_names[practice.master_id]},
+                # zoom_link (M-3): exposed only for this user's confirmed /
+                # attended booking; the fail-closed factory nulls it otherwise.
+                practice=PracticeSummary.from_practice(
+                    practice,
+                    master_name=master_names[practice.master_id],
+                    zoom_link_visible=(
+                        booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                    ),
                 ),
             )
             for booking, practice, has_feedback, has_checkin in items
@@ -208,6 +219,60 @@ async def list_my_bookings_endpoint(
 # ===================================================================
 # Frontend Backlog: GET /{booking_id} -- booking detail
 # ===================================================================
+
+
+@router.get(
+    "/me/upcoming",
+    response_model=list[BookingWithPracticeResponse],
+)
+async def list_my_upcoming_bookings_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_reader),
+) -> list[BookingWithPracticeResponse]:
+    """Confirmed live-or-upcoming bookings, soonest first (dashboard widget).
+
+    Dedicated from GET /me (which paginates by created_at DESC) so the
+    «Ближайшая практика» card always sees the truly-soonest practice, not the
+    nearest within the first created_at page (>20-bookings mis-select fix, B1).
+    Declared before GET /{booking_id} so "me/upcoming" is not parsed as a UUID.
+    """
+    items = await list_upcoming_bookings(user, session)
+
+    from app.modules.masters.service import get_master_display_name
+    from app.modules.practices.service import ZOOM_VISIBLE_BOOKING_STATUSES
+
+    master_names: dict[UUID, str] = {}
+    for row in items:
+        mid = row[1].master_id
+        if mid not in master_names:
+            master_names[mid] = await get_master_display_name(mid, session)
+
+    return [
+        BookingWithPracticeResponse(
+            id=booking.id,
+            practice_id=booking.practice_id,
+            user_id=booking.user_id,
+            status=booking.status,
+            purchase_id=booking.purchase_id,
+            cancelled_at=booking.cancelled_at,
+            cancellation_reason=booking.cancellation_reason,
+            joined_at=booking.joined_at,
+            left_at=booking.left_at,
+            checkin_skipped=booking.checkin_skipped,
+            created_at=booking.created_at,
+            updated_at=booking.updated_at,
+            has_feedback=has_feedback,
+            has_checkin=has_checkin,
+            practice=PracticeSummary.from_practice(
+                practice,
+                master_name=master_names[practice.master_id],
+                zoom_link_visible=(
+                    booking.status in ZOOM_VISIBLE_BOOKING_STATUSES
+                ),
+            ),
+        )
+        for booking, practice, has_feedback, has_checkin in items
+    ]
 
 
 @router.get(
@@ -265,7 +330,12 @@ async def get_booking_detail_endpoint(
         left_at=booking.left_at,
         created_at=booking.created_at,
         updated_at=booking.updated_at,
-        practice=PracticeResponse.model_validate(practice),
+        # zoom_link (M-3): not exposed on the booking-detail response -- no UI
+        # reads it here, and an authorized viewer gets the link via the
+        # practice detail / dashboard. Nulled explicitly (no schema validator).
+        practice=PracticeResponse.model_validate(practice).model_copy(
+            update={"zoom_link": None},
+        ),
     )
 
 
@@ -374,7 +444,11 @@ async def finalize_practice_endpoint(
     )
     await session.flush()
     await session.refresh(practice)
-    return PracticeResponse.model_validate(practice)
+    # zoom_link (M-3): not exposed on the finalize response (owner-only, no UI
+    # consumer). Nulled explicitly since there is no schema validator.
+    return PracticeResponse.model_validate(practice).model_copy(
+        update={"zoom_link": None},
+    )
 
 
 @practices_attendance_router.get(

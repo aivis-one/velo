@@ -48,40 +48,42 @@
       <!-- Информация -->
       <div class="mreview__seclabel">Информация</div>
       <VCard class="mreview__info" padding="none">
-        <!-- Направление (editable stub) -->
+        <!-- Направления практик — REAL methods, admin-editable (T3) -->
         <div class="mreview__row">
-          <div class="mreview__k">Направление</div>
-          <div v-if="editing === 'direction'" class="mreview__edit">
-            <VInput v-model="directionDraft" />
-            <button type="button" class="mreview__ok" @click="saveEdit">ОК</button>
+          <div class="mreview__k">Направления практик</div>
+          <div v-if="editingMethods" class="mreview__methods-edit">
+            <div class="mreview__chips">
+              <VChip
+                v-for="m in methodOptions"
+                :key="m"
+                size="md"
+                clickable
+                :active="methodsDraft.includes(m)"
+                @click="toggleMethodDraft(m)"
+              >
+                {{ m }}
+              </VChip>
+            </div>
+            <p v-if="methodsError" class="mreview__methods-err">{{ methodsError }}</p>
+            <div class="mreview__methods-actions">
+              <VButton variant="ghost" size="sm" :disabled="savingMethods" @click="cancelMethods">
+                Отмена
+              </VButton>
+              <VButton variant="primary" size="sm" :loading="savingMethods" @click="saveMethods">
+                Сохранить
+              </VButton>
+            </div>
           </div>
           <template v-else>
-            <div class="mreview__v">{{ direction }}</div>
+            <div class="mreview__v mreview__chips">
+              <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
+              <span v-if="!methods.length" class="mreview__muted">—</span>
+            </div>
             <button
               type="button"
               class="mreview__pen"
-              aria-label="Изменить направление"
-              @click="startEdit('direction')"
-            >
-              <IconEdit :size="22" />
-            </button>
-          </template>
-        </div>
-
-        <!-- Вид (editable stub) -->
-        <div class="mreview__row">
-          <div class="mreview__k">Вид</div>
-          <div v-if="editing === 'kind'" class="mreview__edit">
-            <VInput v-model="kindDraft" />
-            <button type="button" class="mreview__ok" @click="saveEdit">ОК</button>
-          </div>
-          <template v-else>
-            <div class="mreview__v">{{ kind }}</div>
-            <button
-              type="button"
-              class="mreview__pen"
-              aria-label="Изменить вид"
-              @click="startEdit('kind')"
+              aria-label="Изменить направления"
+              @click="startMethods"
             >
               <IconEdit :size="22" />
             </button>
@@ -133,39 +135,33 @@
 
       <!-- История заявок -->
       <VCard class="mreview__hist" padding="none">
-        <button
-          type="button"
-          class="mreview__acc"
-          :aria-expanded="historyOpen"
-          @click="historyOpen = !historyOpen"
-        >
-          <span class="mreview__acc-ic"><IconClock :size="20" /></span>
-          <span class="mreview__acc-t">История заявок</span>
-          <svg
-            class="mreview__acc-ch"
-            :class="{ 'mreview__acc-ch--open': historyOpen }"
-            width="20"
-            height="12"
-            viewBox="0 0 24 14"
-            fill="none"
-          >
-            <path
-              d="M2 2l10 10L22 2"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-        <div v-if="historyOpen" class="mreview__acc-body">
+        <VAccordion title="История заявок">
+          <template #icon><IconClock :size="20" /></template>
+          <template #chevron="{ open }">
+            <svg
+              class="mreview__acc-ch"
+              :class="{ 'mreview__acc-ch--open': open }"
+              width="20"
+              height="12"
+              viewBox="0 0 24 14"
+              fill="none"
+            >
+              <path
+                d="M2 2l10 10L22 2"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </template>
           <div v-for="(h, i) in history" :key="i" class="mreview__hist-entry">
             <div class="mreview__hist-when">{{ h.when }}</div>
             <div class="mreview__hist-title">{{ h.title }}</div>
             <div v-if="h.comment" class="mreview__hist-q">«{{ h.comment }}»</div>
           </div>
           <p v-if="!history.length" class="mreview__first">Заявка подаётся впервые.</p>
-        </div>
+        </VAccordion>
       </VCard>
 
       <!-- Actions -->
@@ -175,9 +171,22 @@
           Одобрить
         </VButton>
       </div>
-      <VCard v-else class="mreview__processed">
-        Заявка уже обработана — статус: <strong>{{ statusLabel }}</strong>
-      </VCard>
+      <template v-else>
+        <VCard class="mreview__processed">
+          Заявка уже обработана — статус: <strong>{{ statusLabel }}</strong>
+        </VCard>
+        <!-- A1: revoke a verified master (soft-freeze, data preserved) -->
+        <div v-if="isVerified" class="mreview__foot">
+          <VButton
+            variant="danger"
+            :loading="revoking"
+            :disabled="anyLoading"
+            @click="openRevoke"
+          >
+            Отозвать мастера
+          </VButton>
+        </div>
+      </template>
     </template>
 
     <!-- Not found -->
@@ -203,6 +212,17 @@
         :error="rejectError"
       />
     </VBottomSheet>
+
+    <!-- Revoke confirm (A1): advisory surfaced, never blocks -->
+    <VConfirmDialog
+      :open="showRevoke"
+      :message="revokeMessage"
+      confirm-label="Отозвать"
+      danger
+      :loading="revoking"
+      @confirm="onRevoke"
+      @cancel="showRevoke = false"
+    />
   </div>
 </template>
 
@@ -212,19 +232,29 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   VBackButton,
   VCard,
-  VInput,
+  VChip,
   VTextarea,
   VButton,
   VLoader,
   VEmptyState,
   VBottomSheet,
+  VConfirmDialog,
+  VAccordion,
 } from '@/components/ui'
 import { IconIdCard, IconEdit, IconView, IconClock } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
-import { getMasterById, verifyMaster, rejectMaster } from '@/api/admin'
-import type { AdminMasterListItem } from '@/api/admin'
+import {
+  getMasterById,
+  verifyMaster,
+  rejectMaster,
+  editMasterMethods,
+  getRevokePreview,
+  revokeMaster,
+} from '@/api/admin'
+import type { AdminMasterListItem, AdminMasterDetail, RevokeMasterAdvisory } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
+import { AVAILABLE_METHODS } from '@/utils/methods'
 
 const route = useRoute()
 const router = useRouter()
@@ -232,52 +262,112 @@ const toast = useToast()
 
 const masterId = route.params.id as string
 
-const master = ref<AdminMasterListItem | null>(null)
+const master = ref<AdminMasterDetail | null>(null)
 const loading = ref(false)
 const verifying = ref(false)
 const rejecting = ref(false)
 
-// Inline edit (stub — no save endpoint yet, see header note → Zod).
-const editing = ref<'direction' | 'kind' | null>(null)
-const directionDraft = ref('')
-const kindDraft = ref('')
+// Methods editor (T3 — real, admin-editable via PATCH /admin/masters/:id/methods).
+const editingMethods = ref(false)
+const methodsDraft = ref<string[]>([])
+const savingMethods = ref(false)
+const methodsError = ref('')
 
 // Reject reason sheet.
 const showReject = ref(false)
 const rejectReason = ref('')
 const rejectError = ref('')
 
-// History accordion.
-const historyOpen = ref(false)
-
 // Honest skeleton (operator В): rich fields are not on AdminMasterListItem → «—» /
 // empty until Zod extends the endpoint. Sample data lives in the design preview only.
+// Honest skeleton (operator В): email / language / documents / history are not
+// on the detail endpoint yet → «—» / empty. methods / experience / bio are REAL
+// (T3 — pulled from data.profile via GET /admin/masters/:id).
 const PLACEHOLDER = '—'
 const displayName = computed<string>(() => (master.value ? masterDisplayName(master.value) : ''))
 const email = computed<string>(() => PLACEHOLDER)
-const direction = computed<string>(() => PLACEHOLDER)
-const kind = computed<string>(() => PLACEHOLDER)
-const experience = computed<string>(() => PLACEHOLDER)
 const language = computed<string>(() => PLACEHOLDER)
-const bio = computed<string>(() => PLACEHOLDER)
+const methods = computed<string[]>(() => master.value?.methods ?? [])
+const experience = computed<string>(() =>
+  master.value ? `${master.value.experience_years ?? 0} лет` : PLACEHOLDER,
+)
+const bio = computed<string>(() => master.value?.bio || PLACEHOLDER)
+
+// Editor chips = the shared taxonomy plus any custom methods the master already
+// has (so a custom entry can be kept/removed, not silently dropped).
+const methodOptions = computed<string[]>(() => {
+  const set = new Set<string>(AVAILABLE_METHODS)
+  for (const m of methods.value) set.add(m)
+  return [...set]
+})
 const documents = ref<{ name: string }[]>([])
 const history = ref<{ when: string; title: string; comment?: string }[]>([])
 
 const isPending = computed<boolean>(() => master.value?.master_status === 'pending')
+const isVerified = computed<boolean>(() => master.value?.master_status === 'verified')
 const statusLabel = computed<string>(() =>
   master.value ? masterStatusLabel(master.value.master_status) : '',
 )
-const anyLoading = computed<boolean>(() => verifying.value || rejecting.value)
+const anyLoading = computed<boolean>(() => verifying.value || rejecting.value || revoking.value)
+
+// -- Revoke master (A1): confirm dialog surfaces the advisory (WARN-not-block) --
+const showRevoke = ref(false)
+const revoking = ref(false)
+const revokeAdvisory = ref<RevokeMasterAdvisory | null>(null)
+
+const revokeMessage = computed<string>(() => {
+  const base =
+    `Мастер ${displayName.value} снова станет обычным пользователем. Все данные ` +
+    `(профиль, практики, история) сохраняются — доступ можно вернуть кнопкой ` +
+    `«Сделать мастером».`
+  const a = revokeAdvisory.value
+  if (!a || !a.has_warnings) return base
+  const warns: string[] = []
+  if (a.scheduled_or_live_practices > 0) {
+    warns.push(`${a.scheduled_or_live_practices} практик(и) в расписании`)
+  }
+  if (a.available_cents > 0 || a.frozen_cents > 0) warns.push('ненулевой баланс')
+  if (a.pending_withdrawals > 0) {
+    warns.push(`${a.pending_withdrawals} выплат(ы) в ожидании`)
+  }
+  return `${base} Внимание: ${warns.join(', ')} — отзыв не блокируется, данные останутся.`
+})
+
+async function openRevoke(): Promise<void> {
+  revokeAdvisory.value = null
+  showRevoke.value = true
+  // Best-effort: fill the advisory numbers into the dialog (WARN-not-block).
+  try {
+    revokeAdvisory.value = await getRevokePreview(masterId)
+  } catch {
+    // Leave the base message; the revoke itself does not depend on the preview.
+  }
+}
+
+async function onRevoke(): Promise<void> {
+  if (revoking.value) return
+  revoking.value = true
+  try {
+    await revokeMaster(masterId)
+    if (master.value) master.value.master_status = 'suspended'
+    showRevoke.value = false
+    toast.success('Мастер отозван — аккаунт стал пользователем')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось отозвать мастера'
+    toast.error(msg)
+  } finally {
+    revoking.value = false
+  }
+}
 
 async function loadMaster(): Promise<void> {
-  // Handed via router state by the list (our `history` ref shadows the global
-  // History, so reach it through window.history.state).
+  // The list hands a subset (AdminMasterListItem) via router state for an
+  // instant paint (our `history` ref shadows the global History, so reach it
+  // through window.history.state). Always fetch the detail afterwards to fill
+  // the real methods / experience / bio (T3).
   const handed = (window.history.state as { master?: AdminMasterListItem }).master
-  if (handed && handed.id === masterId) {
-    master.value = handed
-    return
-  }
-  loading.value = true
+  if (handed && handed.id === masterId) master.value = handed
+  if (!master.value) loading.value = true
   try {
     master.value = await getMasterById(masterId)
   } catch (e) {
@@ -288,16 +378,43 @@ async function loadMaster(): Promise<void> {
   }
 }
 
-function startEdit(field: 'direction' | 'kind'): void {
-  editing.value = field
-  if (field === 'direction') directionDraft.value = direction.value
-  else kindDraft.value = kind.value
+// -- Methods editor (T3) --
+function startMethods(): void {
+  methodsDraft.value = [...methods.value]
+  methodsError.value = ''
+  editingMethods.value = true
 }
 
-// Stub: admin editing of master profile fields has no backend yet → Zod.
-function saveEdit(): void {
-  editing.value = null
-  toast.info('Редактирование пока недоступно')
+function toggleMethodDraft(m: string): void {
+  const i = methodsDraft.value.indexOf(m)
+  if (i === -1) methodsDraft.value.push(m)
+  else methodsDraft.value.splice(i, 1)
+}
+
+function cancelMethods(): void {
+  if (savingMethods.value) return
+  editingMethods.value = false
+}
+
+async function saveMethods(): Promise<void> {
+  if (savingMethods.value) return
+  methodsError.value = ''
+  if (methodsDraft.value.length === 0) {
+    methodsError.value = 'Выберите хотя бы одно направление'
+    return
+  }
+  savingMethods.value = true
+  try {
+    await editMasterMethods(masterId, methodsDraft.value)
+    if (master.value) master.value.methods = [...methodsDraft.value]
+    editingMethods.value = false
+    toast.success('Направления обновлены')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить направления'
+    toast.error(msg)
+  } finally {
+    savingMethods.value = false
+  }
 }
 
 // Stub: document viewing has no backend yet → Zod (documents are empty until then).
@@ -393,9 +510,9 @@ onMounted(loadMaster)
 }
 
 .mreview__photo {
-  width: 104px;
-  height: 104px;
-  border-radius: 14px;
+  width: var(--velo-size-104);
+  height: var(--velo-size-104);
+  border-radius: var(--velo-radius-14);
   object-fit: cover;
   margin-bottom: var(--space-2);
 }
@@ -423,12 +540,12 @@ onMounted(loadMaster)
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
-  margin: 2px 2px -6px;
+  margin: var(--velo-gap-2) var(--velo-gap-2) calc(-1 * var(--velo-gap-6));
 }
 
 /* -- Информация -- */
 .mreview__info {
-  padding: var(--space-1) 18px;
+  padding: var(--space-1) var(--velo-inset-row);
 }
 
 .mreview__row {
@@ -437,7 +554,7 @@ onMounted(loadMaster)
 }
 
 .mreview__row + .mreview__row {
-  border-top: 1px solid var(--velo-border);
+  border-top: var(--velo-border-width) solid var(--velo-border);
 }
 
 .mreview__k {
@@ -469,39 +586,45 @@ onMounted(loadMaster)
   cursor: pointer;
 }
 
-.mreview__edit {
+/* -- Methods (Направления практик) display + editor (T3) -- */
+.mreview__chips {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  margin-top: var(--space-1);
 }
 
-.mreview__edit :deep(.v-input) {
+.mreview__muted {
+  color: var(--velo-text-muted);
+}
+
+.mreview__methods-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.mreview__methods-err {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--velo-error);
+}
+
+.mreview__methods-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.mreview__methods-actions :deep(.v-btn) {
   flex: 1;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.mreview__ok {
-  flex-shrink: 0;
-  width: 60px;
-  height: 41px;
-  border-radius: var(--velo-radius-badge);
-  background: var(--velo-primary);
-  color: var(--velo-white);
-  border: none;
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  letter-spacing: 0.02em;
-  cursor: pointer;
 }
 
 /* -- Документы -- */
 .mreview__docs {
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: var(--space-3) 15px;
+  gap: var(--velo-gap-11);
+  padding: var(--space-3) var(--velo-gap-15);
 }
 
 .mreview__doc {
@@ -512,7 +635,7 @@ onMounted(loadMaster)
   padding: 0 var(--space-3);
   border-radius: var(--velo-radius-9);
   background: var(--velo-glass-teal-30);
-  border: 1px solid var(--velo-teal-400);
+  border: var(--velo-border-width) solid var(--velo-teal-400);
   color: var(--velo-teal-700);
 }
 
@@ -554,31 +677,37 @@ onMounted(loadMaster)
   overflow: hidden;
 }
 
-.mreview__acc {
-  display: flex;
-  align-items: center;
-  gap: 21px;
-  width: 100%;
-  padding: 15px 18px;
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
+/* History uses the shared VAccordion (extended with #icon + #chevron slots).
+   These :deep overrides preserve this screen's design (row padding, icon+title
+   gap, base-size title, warning-tint body) without touching the DS default. */
+:deep(.v-accordion) {
+  border-bottom: none;
 }
 
-.mreview__acc-ic {
-  display: flex;
-  flex-shrink: 0;
-  color: var(--velo-text-primary);
-}
-
-.mreview__acc-t {
-  flex: 1;
+:deep(.v-accordion__header) {
+  padding: var(--velo-gap-15) var(--velo-inset-row);
   font-size: var(--text-base);
+}
+
+:deep(.v-accordion__lead) {
+  gap: var(--velo-gap-21);
+}
+
+:deep(.v-accordion__title) {
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
 }
 
+:deep(.v-accordion__icon),
+:deep(.v-accordion__arrow) {
+  color: var(--velo-text-primary);
+}
+
+:deep(.v-accordion__body) {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+/* Slotted chevron (down-caret) — its own 180° open rotation. */
 .mreview__acc-ch {
   flex-shrink: 0;
   color: var(--velo-text-primary);
@@ -589,14 +718,10 @@ onMounted(loadMaster)
   transform: rotate(180deg);
 }
 
-.mreview__acc-body {
-  padding: 0 var(--space-4) var(--space-4);
-}
-
 .mreview__hist-entry {
   background: var(--velo-warning-bg);
   border-radius: var(--radius-md);
-  padding: 18px 15px;
+  padding: var(--velo-inset-row) var(--velo-gap-15);
 }
 
 .mreview__hist-entry + .mreview__hist-entry {

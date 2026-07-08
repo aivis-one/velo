@@ -198,6 +198,7 @@ async def test_practices_list_shape(
     assert {
         "id", "title", "direction", "master_name", "master_verified",
         "scheduled_at", "duration_minutes", "booked", "capacity", "status",
+        "timezone",
     } == set(item.keys())
     assert all(it["status"] in ("upcoming", "past") for it in data["items"])
 
