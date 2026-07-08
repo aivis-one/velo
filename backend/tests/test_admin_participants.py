@@ -208,9 +208,17 @@ async def test_participants_list_shape_and_count(
 async def test_participants_filter_new_excludes_old(
     client: AsyncClient, db_session: AsyncSession,
 ) -> None:
-    """filter=new (current week) excludes a user created last month."""
+    """filter=new (current week) includes a fresh user, excludes an old one.
+
+    Asserts on the `new` filter directly (not `all`): `all` is ordered
+    created_at DESC and page-capped, so a back-dated user legitimately falls
+    off page 1 on a populated DB. `new` excludes the old user via its
+    created_at >= week_start WHERE clause (page-position-independent), and the
+    fresh user — being the newest row at request time — is always on page 1.
+    """
     token = await _make_admin(client, db_session)
-    old_id = await _make_user(client, 97002, "OldJoin")
+    fresh_id = await _make_user(client, 97002, "FreshJoin")  # created now
+    old_id = await _make_user(client, 97004, "OldJoin")
     # Push created_at into the previous month -> outside the current-week window.
     await db_session.execute(
         update(User)
@@ -219,21 +227,15 @@ async def test_participants_filter_new_excludes_old(
     )
     await db_session.commit()
 
-    all_resp = await client.get(
-        PARTICIPANTS_URL,
-        params={"filter": "all", "limit": 100},
-        headers=auth_headers(token),
-    )
     new_resp = await client.get(
         PARTICIPANTS_URL,
         params={"filter": "new", "period": "week", "limit": 100},
         headers=auth_headers(token),
     )
-    assert all_resp.status_code == 200 and new_resp.status_code == 200
-    all_ids = {p["id"] for p in all_resp.json()["items"]}
+    assert new_resp.status_code == 200
     new_ids = {p["id"] for p in new_resp.json()["items"]}
-    assert old_id in all_ids
-    assert old_id not in new_ids
+    assert fresh_id in new_ids  # created this week -> included
+    assert old_id not in new_ids  # created last month -> excluded by the window
 
 
 @pytest.mark.asyncio

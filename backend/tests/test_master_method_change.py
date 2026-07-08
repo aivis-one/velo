@@ -209,13 +209,16 @@ async def test_admin_list_shows_pending_request(
 
     admin_auth = await _make_admin_auth(client, db_session)
     resp = await client.get(
-        LIST_URL, headers=auth_headers(admin_auth["session_token"])
+        LIST_URL,
+        params={"limit": 100},
+        headers=auth_headers(admin_auth["session_token"]),
     )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["total"] == 1
-    item = body["items"][0]
-    assert item["user_id"] == master_id
+    # Self-scoped: the moderation list is GLOBAL, so an unrelated pending
+    # request elsewhere in the (shared) DB must not break this test — find OUR
+    # row by user_id rather than asserting an exact global total.
+    item = next(it for it in body["items"] if it["user_id"] == master_id)
     assert item["current_methods"] == ["Медитация", "Йога"]
     assert item["proposed_methods"] == ["Йога", "Звукотерапия"]
 
@@ -264,11 +267,13 @@ async def test_admin_approve_updates_methods_and_clears_request(
     assert body["methods"] == ["Йога", "Звукотерапия"]
     assert body["method_change_request"] is None
 
-    # List is empty again.
+    # Our master no longer appears in the (global) list — request cleared.
     empty = await client.get(
-        LIST_URL, headers=auth_headers(admin_auth["session_token"])
+        LIST_URL,
+        params={"limit": 100},
+        headers=auth_headers(admin_auth["session_token"]),
     )
-    assert empty.json()["total"] == 0
+    assert master_id not in {it["user_id"] for it in empty.json()["items"]}
 
 
 async def test_approve_without_pending_is_404(
@@ -322,11 +327,13 @@ async def test_admin_reject_keeps_methods_and_records_reason(
     assert mcr["status"] == "rejected"
     assert mcr["reject_reason"] == "Недостаточно опыта в этом направлении"
 
-    # No longer pending -> not in the admin list.
+    # No longer pending -> our master not in the (global) list.
     empty = await client.get(
-        LIST_URL, headers=auth_headers(admin_auth["session_token"])
+        LIST_URL,
+        params={"limit": 100},
+        headers=auth_headers(admin_auth["session_token"]),
     )
-    assert empty.json()["total"] == 0
+    assert master_id not in {it["user_id"] for it in empty.json()["items"]}
 
 
 async def test_reject_requires_reason(
