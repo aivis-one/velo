@@ -1047,15 +1047,6 @@ export interface RejectWithdrawalRequest {
   note: string
 }
 
-/** Advisory signals for revoke-preview + revoke (A1, WARN-not-block). */
-export interface RevokeMasterAdvisory {
-  scheduled_or_live_practices: number
-  available_cents: number
-  frozen_cents: number
-  pending_withdrawals: number
-  has_warnings: boolean
-}
-
 /** Single report -- returned to both user and admin. */
 export interface ReportResponse {
   id: string
@@ -1092,6 +1083,15 @@ export interface ReviewItem {
   rating: 'fire' | 'good' | 'confused'
   comment: string | null
   created_at: string
+}
+
+/** Advisory signals for revoke-preview + revoke (A1, WARN-not-block). Mirrors the CLI `set_role.py to_user` downgrade guard, but the admin endpoint does NOT block on them (operator decision Б): a revoke soft-freezes the profile and preserves every row regardless. Surfaced so the admin sees what stays behind before confirming. */
+export interface RevokeMasterAdvisory {
+  scheduled_or_live_practices: number
+  available_cents: number
+  frozen_cents: number
+  pending_withdrawals: number
+  has_warnings: boolean
 }
 
 /** Self role-switch capability (capability-derived, A1=Б). Present in GET /users/me when the derived set contains more than just USER (i.e. there is actually something to switch to). The list is the set of roles this account may switch itself to via POST /users/me/role, derived by derive_allowed_roles() -- the single source of truth shared with the write path. Null when the user can only be a plain user. */
