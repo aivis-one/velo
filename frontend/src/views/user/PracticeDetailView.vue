@@ -220,6 +220,7 @@ import Banner from '@/components/shared/Banner.vue'
 import { formatDate, formatDuration, formatMoney, formatParticipants, isFull } from '@/utils/format'
 import { IconCheck, IconClose, IconWarning } from '@/components/icons'
 import { DIFFICULTY_DOTS, DIFFICULTY_LABEL } from '@/utils/displayHelpers'
+import { hasEnded } from '@/utils/bookingStatus'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import type { BookingStatus, BookingWithPracticeResponse, PracticeDifficulty } from '@/api/types'
 
@@ -457,12 +458,21 @@ const bookButtonText = computed(() => {
 const cancelling = ref(false)
 
 /**
- * Booking is cancellable when status is confirmed or pending.
- * attended/no_show/cancelled are not cancellable.
+ * Booking is cancellable when status is confirmed or pending AND the practice
+ * has not yet ended. attended/no_show/cancelled are not cancellable.
+ *
+ * G4: the backend keeps a booking `confirmed` until FINALIZE (master action or
+ * the +24h backstop), so a held-but-not-finalized practice would otherwise still
+ * show «Отменить бронирование» on an already-over practice. Gate additionally on
+ * hasEnded (scheduled_at + duration ≤ now) using the reactive `now` (60s tick),
+ * so the action hides live the moment the practice ends. FE-hide only — the
+ * backend late-cancel/no-refund path stays sanctioned (operator).
  */
 const canCancel = computed((): boolean => {
   if (!myBooking.value) return false
-  return myBooking.value.status === 'confirmed' || myBooking.value.status === 'pending'
+  const activeStatus =
+    myBooking.value.status === 'confirmed' || myBooking.value.status === 'pending'
+  return activeStatus && !hasEnded(myBooking.value, now.value)
 })
 
 function onBook(): void {
