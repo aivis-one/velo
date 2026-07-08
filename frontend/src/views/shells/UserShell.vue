@@ -47,7 +47,8 @@ const activeTab = computed(() => {
 
 // The diary is an immersive full-screen mode: no bottom tab bar (the feed,
 // the entry view and the check-in/feedback detail all hide it). Exit is via
-// the "..." menu inside the diary, not tab navigation.
+// the "..." menu inside the diary, not tab navigation. These same three routes
+// are also the fill-mode routes (see isFillRoute below) — keep the two in sync.
 const DIARY_ROUTES = ['user-diary', 'user-diary-entry', 'user-diary-detail']
 const isDiaryRoute = computed(() => DIARY_ROUTES.includes(route.name as string))
 
