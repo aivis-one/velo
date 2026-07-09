@@ -18,6 +18,7 @@ export type {
   AdminMasterActionResponse,
   AdminMasterDetail,
   AdminMasterListItem,
+  AdminMasterProfileUpdate,
   AdminParticipant,
   EditMasterMethodsRequest,
   AdminPracticeDetailResponse,

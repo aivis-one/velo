@@ -52,6 +52,7 @@ import type {
   PaginatedUsersResponse,
   PaginatedParticipantsResponse,
   AdminMasterDetail,
+  AdminMasterProfileUpdate,
   RevokeMasterAdvisory,
 } from '@/api/types'
 
@@ -61,6 +62,7 @@ export type {
   AdminStatsOverviewResponse,
   AdminMasterListItem,
   AdminMasterDetail,
+  AdminMasterProfileUpdate,
   PaginatedMastersResponse,
   AdminMasterActionResponse,
   RevokeMasterAdvisory,
@@ -180,6 +182,23 @@ export function editMasterMethods(
   return api.patch<AdminMasterActionResponse>(
     `/api/v1/admin/masters/${userId}/methods`,
     { methods },
+  )
+}
+
+/**
+ * Admin edits any master-authored profile field (batch H). Partial update:
+ * only the keys present in `body` are applied — to both MasterProfile.data.profile
+ * (display_name / bio / email / phone / methods / experience_years /
+ * certifications / languages) and the User account name (first_name / last_name).
+ * Works on a master in ANY status.
+ */
+export function editMasterProfile(
+  userId: string,
+  body: AdminMasterProfileUpdate,
+): Promise<AdminMasterActionResponse> {
+  return api.patch<AdminMasterActionResponse>(
+    `/api/v1/admin/masters/${userId}/profile`,
+    body,
   )
 }
 

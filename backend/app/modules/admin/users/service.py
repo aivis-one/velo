@@ -187,6 +187,13 @@ async def get_master_by_id(
         methods=prof.get("methods", []),
         experience_years=prof.get("experience_years", 0),
         bio=prof.get("bio"),
+        # Batch H: additional admin-editable fields (display_name = визитка;
+        # email/phone/certifications admin-only, not public).
+        display_name=prof.get("display_name"),
+        email=prof.get("email"),
+        phone=prof.get("phone"),
+        languages=prof.get("languages", []),
+        certifications=prof.get("certifications", []),
     )
 
 

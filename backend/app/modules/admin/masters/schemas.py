@@ -10,9 +10,10 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
 
 from app.core.config import settings
+from app.modules.masters.schemas import ShortStr
 
 # Constrained method string, mirroring masters/schemas.ShortStr (defined here
 # to avoid a cross-module import). Non-empty, capped at 200 chars.
@@ -52,6 +53,47 @@ class EditMasterMethodsRequest(BaseModel):
     """
 
     methods: list[_MethodStr] = Field(min_length=1, max_length=20)
+
+
+class AdminMasterProfileUpdate(BaseModel):
+    """PATCH /admin/masters/{user_id}/profile -- partial admin edit of EVERY
+    master-authored field (batch H).
+
+    ALL fields optional; only the keys the client actually SENDS are applied
+    (the service reads model_dump(exclude_unset=True)), so a partial PATCH never
+    clobbers an unsent sibling. Constraints are reused from the apply form
+    (MasterApplyProfile / MasterApplyExperience, masters/schemas.py:49-70) and
+    users/me (UserUpdate first/last, users/schemas.py:577-578) so admin-edit
+    validation can never drift from what the master could originally submit.
+
+    Field homes:
+      display_name / email / phone / bio / methods / experience_years /
+      certifications / languages  -> MasterProfile.data.profile.*
+      first_name / last_name      -> User.* (the account name shown in admin lists)
+    """
+
+    # -- data.profile.* (JSONB) --
+    display_name: str | None = Field(default=None, min_length=1, max_length=100)
+    email: EmailStr | None = Field(default=None)
+    phone: str | None = Field(default=None, max_length=30)
+    bio: str | None = Field(default=None, max_length=2000)
+    # Non-nullable: experience is always an int (0-50); a null is rejected (422)
+    # rather than written, which would break the non-optional detail read
+    # (AdminMasterDetail.experience_years: int). Unsent -> omitted via exclude_unset.
+    experience_years: int = Field(default=0, ge=0, le=50)
+    # List fields use default_factory (not | None) so the generated TS type is
+    # `string[]` (matching the apply schemas + MasterLanguagesUpdate). A partial
+    # PATCH still omits an unsent list via exclude_unset; sending [] for methods
+    # is rejected (min 1, the apply rule); [] clears languages/certifications.
+    methods: list[ShortStr] = Field(
+        default_factory=list, min_length=1, max_length=20
+    )
+    certifications: list[ShortStr] = Field(default_factory=list, max_length=20)
+    languages: list[ShortStr] = Field(default_factory=list, max_length=10)
+
+    # -- User.* (account name, В1=В: both names editable) --
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 # ---------------------------------------------------------------------------

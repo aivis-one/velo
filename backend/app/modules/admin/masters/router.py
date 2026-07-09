@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import (
     AdminMasterActionResponse,
+    AdminMasterProfileUpdate,
     EditMasterMethodsRequest,
     InviteMasterResponse,
     MethodChangeActionResponse,
@@ -31,6 +32,7 @@ from app.modules.admin.masters.schemas import (
 from app.modules.admin.masters.service import (
     approve_method_change,
     edit_master_methods,
+    edit_master_profile,
     get_revoke_advisory,
     issue_master_invite,
     list_pending_method_changes,
@@ -163,6 +165,34 @@ async def edit_master_methods_endpoint(
     Distinct from the master's own method-change request (M3 approve/reject).
     """
     profile = await edit_master_methods(user_id, body.methods, admin, session)
+
+    await session.flush()
+    await session.refresh(profile)
+
+    return AdminMasterActionResponse(
+        user_id=profile.user_id,
+        status=profile.data["account"]["status"],
+    )
+
+
+@router.patch(
+    "/{user_id}/profile",
+    response_model=AdminMasterActionResponse,
+)
+async def edit_master_profile_endpoint(
+    user_id: UUID,
+    body: AdminMasterProfileUpdate,
+    admin: User = Depends(get_current_admin),
+    session: AsyncSession = Depends(get_db_session),
+) -> AdminMasterActionResponse:
+    """Admin edits ANY master-authored profile field (batch H).
+
+    Partial update: only the keys the client sends are applied, to both
+    MasterProfile.data.profile.* and User.first_name/last_name. Works on a master
+    in ANY status (mirrors edit_master_methods, no gate). Distinct from the
+    master's own edits (languages / method-change request) and from verify/reject.
+    """
+    profile = await edit_master_profile(user_id, body, admin, session)
 
     await session.flush()
     await session.refresh(profile)

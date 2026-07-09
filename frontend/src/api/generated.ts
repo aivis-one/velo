@@ -56,6 +56,11 @@ export interface AdminMasterDetail {
   methods?: string[]
   experience_years?: number
   bio?: string | null
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
+  languages?: string[]
+  certifications?: string[]
 }
 
 /** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
@@ -68,6 +73,20 @@ export interface AdminMasterListItem {
   role: UserRole
   is_active: boolean
   master_status: string
+}
+
+/** PATCH /admin/masters/{user_id}/profile -- partial admin edit of EVERY master-authored field (batch H). ALL fields optional; only the keys the client actually SENDS are applied (the service reads model_dump(exclude_unset=True)), so a partial PATCH never clobbers an unsent sibling. Constraints are reused from the apply form (MasterApplyProfile / MasterApplyExperience, masters/schemas.py:49-70) and users/me (UserUpdate first/last, users/schemas.py:577-578) so admin-edit validation can never drift from what the master could originally submit. Field homes: display_name / email / phone / bio / methods / experience_years / certifications / languages -> MasterProfile.data.profile.* first_name / last_name -> User.* (the account name shown in admin lists) */
+export interface AdminMasterProfileUpdate {
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
+  bio?: string | null
+  experience_years?: number
+  methods?: string[]
+  certifications?: string[]
+  languages?: string[]
+  first_name?: string | null
+  last_name?: string | null
 }
 
 /** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */
