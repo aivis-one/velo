@@ -57,7 +57,7 @@
       <section class="support__section">
         <h2 class="support__title">Тема</h2>
         <div class="support__card">
-          <VRadioGroup v-model="topic" :options="TOPICS" />
+          <VRadioGroup v-model="topic" :options="topicOptions" />
           <div v-if="topic === 'other'" class="support__other">
             <input
               v-model="otherText"
@@ -140,15 +140,26 @@ const router = useRouter()
 // Scroll the «Сообщение» textarea above the soft keyboard once it settles (M5).
 const { onFieldFocus } = useKeyboardFieldScroll()
 
-// -- Topic ------------------------------------------------------------------
-const TOPICS = [
-  { value: 'withdrawal', label: 'Проблема с выводом' },
-  { value: 'practices', label: 'Вопрос по практикам' },
-  { value: 'technical', label: 'Технические проблемы' },
-  { value: 'add_direction', label: 'Добавить направление практики' },
-  { value: 'rejected', label: 'Вопрос по отклоненной заявке' },
-  { value: 'other', label: 'Другое' },
+// -- Topic catalog (L7) -----------------------------------------------------
+// Mirrors the user SupportView pattern: each topic carries an INTERNAL priority
+// (P0/P1/P2 — future routing/sort signal) that is deliberately NOT rendered to
+// the master. «Добавить направление практики» is a PLAIN free-text topic (no
+// special form/route). «Вопрос по отклоненной заявке» removed (operator L7).
+type SupportPriority = 'P0' | 'P1' | 'P2'
+interface SupportTopic {
+  value: string
+  label: string
+  priority: SupportPriority
+}
+const TOPICS: SupportTopic[] = [
+  { value: 'withdrawal', label: 'Проблема с выводом', priority: 'P0' },
+  { value: 'practices', label: 'Вопрос по практикам', priority: 'P1' },
+  { value: 'technical', label: 'Технические проблемы', priority: 'P2' },
+  { value: 'add_direction', label: 'Добавить направление практики', priority: 'P2' },
+  { value: 'other', label: 'Другое', priority: 'P2' },
 ]
+// VRadioGroup only needs {value,label}; priority stays off the rendered options.
+const topicOptions = TOPICS.map((t) => ({ value: t.value, label: t.label }))
 const topic = ref('withdrawal')
 const otherText = ref('')
 const message = ref('')
