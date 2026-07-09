@@ -63,11 +63,11 @@
       <div v-if="isMaster" class="edit-profile__methods">
         <label class="edit-profile__methods-label">Методы</label>
 
-        <!-- Pending: the proposed set is locked while an admin reviews it. -->
+        <!-- Pending: the proposed set is locked while an admin reviews it —
+             shown in the SAME направление→вид white cards (batch L, readonly
+             picker), not a flat chip row. Unmatched strings drop (Q3). -->
         <template v-if="methodRequestPending">
-          <div class="edit-profile__methods-chips">
-            <VChip v-for="m in pendingProposedMethods" :key="m" size="sm">{{ m }}</VChip>
-          </div>
+          <MethodTaxonomyPicker :model-value="pendingProposedMethods" readonly />
           <div class="edit-profile__methods-status">
             <VBadge variant="warning">Ожидает подтверждения</VBadge>
           </div>
