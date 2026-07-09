@@ -44,8 +44,22 @@
         </button>
       </div>
 
+      <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
+      <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
+      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
+
+      <!-- E-mail (E11: captured here — Telegram provides none) -->
+      <VInput
+        v-model="form.email"
+        label="E-mail"
+        type="email"
+        placeholder="you@example.com"
+        @focus="onFieldFocus"
+      />
+      <p v-if="emailError" class="edit-profile__field-error">{{ emailError }}</p>
+
       <!-- Методы практик (мастер): flat set + admin-approved change-request (M3).
-           Positioned below the profile picture per the operator. -->
+           Order (L2): below Имя/Фамилия/E-mail, above Языки/О себе. -->
       <div v-if="isMaster" class="edit-profile__methods">
         <label class="edit-profile__methods-label">Методы</label>
 
@@ -115,20 +129,6 @@
           Сохранить языки
         </VButton>
       </div>
-
-      <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
-      <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
-      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
-
-      <!-- E-mail (E11: captured here — Telegram provides none) -->
-      <VInput
-        v-model="form.email"
-        label="E-mail"
-        type="email"
-        placeholder="you@example.com"
-        @focus="onFieldFocus"
-      />
-      <p v-if="emailError" class="edit-profile__field-error">{{ emailError }}</p>
 
       <!-- About -->
       <VTextarea
