@@ -56,6 +56,11 @@ export interface AdminMasterDetail {
   methods?: string[]
   experience_years?: number
   bio?: string | null
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
+  languages?: string[]
+  certifications?: string[]
 }
 
 /** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
@@ -68,6 +73,20 @@ export interface AdminMasterListItem {
   role: UserRole
   is_active: boolean
   master_status: string
+}
+
+/** PATCH /admin/masters/{user_id}/profile -- partial admin edit of every master-authored field (batch H). All fields optional; only the keys the client sends are applied. */
+export interface AdminMasterProfileUpdate {
+  display_name?: string | null
+  email?: string | null
+  phone?: string | null
+  bio?: string | null
+  experience_years?: number
+  methods?: string[]
+  certifications?: string[]
+  languages?: string[]
+  first_name?: string | null
+  last_name?: string | null
 }
 
 /** One pending method change-request in the admin moderation list. Carries the master's identity + the current vs proposed flat method sets so the admin can decide without a second fetch. */

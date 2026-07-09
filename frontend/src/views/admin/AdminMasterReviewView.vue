@@ -45,10 +45,155 @@
         <div class="mreview__email">{{ email }}</div>
       </VCard>
 
-      <!-- Информация -->
+      <!-- Информация — every master-authored field is admin-editable (batch H).
+           TWO distinct names: «Имя-визитка» (data.profile.display_name, shown to
+           users) vs «Имя аккаунта» (User.first/last, shown in admin lists). -->
       <div class="mreview__seclabel">Информация</div>
       <VCard class="mreview__info" padding="none">
-        <!-- Направления практик — REAL methods, admin-editable (T3) -->
+        <!-- Имя-визитка = data.profile.display_name (text) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Имя-визитка</div>
+          <template v-if="editing === 'display_name'">
+            <div class="mreview__edit">
+              <VInput v-model="draftText" placeholder="Имя, видимое пользователям" :error="fieldError" />
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveDisplayName">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v">{{ displayNameField }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить имя-визитку" @click="startField('display_name')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Имя аккаунта = User.first_name / last_name (two-part text) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Имя аккаунта</div>
+          <template v-if="editing === 'account_name'">
+            <div class="mreview__edit">
+              <VInput v-model="draftFirst" placeholder="Имя" />
+              <VInput v-model="draftLast" placeholder="Фамилия" />
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveAccountName">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v">{{ accountName }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить имя аккаунта" @click="startField('account_name')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- О себе = bio (textarea) -->
+        <div class="mreview__row">
+          <div class="mreview__k">О себе</div>
+          <template v-if="editing === 'bio'">
+            <div class="mreview__edit">
+              <VTextarea v-model="draftText" placeholder="О себе" :rows="3" />
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveBio">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v mreview__v--bio">{{ bio }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить о себе" @click="startField('bio')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Email (text) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Email</div>
+          <template v-if="editing === 'email'">
+            <div class="mreview__edit">
+              <VInput v-model="draftText" type="email" placeholder="you@example.com" :error="fieldError" />
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveEmail">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v">{{ email }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить email" @click="startField('email')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Телефон (text) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Телефон</div>
+          <template v-if="editing === 'phone'">
+            <div class="mreview__edit">
+              <VInput v-model="draftText" placeholder="+7…" />
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="savePhone">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v">{{ phone }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить телефон" @click="startField('phone')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Опыт = experience_years (number) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Опыт</div>
+          <template v-if="editing === 'experience_years'">
+            <div class="mreview__edit">
+              <VInput v-model="draftText" type="number" placeholder="Лет опыта (0–50)" :error="fieldError" />
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveExperience">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v">{{ experience }}</div>
+            <button type="button" class="mreview__pen" aria-label="Изменить опыт" @click="startField('experience_years')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Язык практик = languages (chip toggle, fixed set + custom) -->
+        <div class="mreview__row">
+          <div class="mreview__k">Язык практик</div>
+          <template v-if="editing === 'languages'">
+            <div class="mreview__edit">
+              <div class="mreview__chips">
+                <VChip
+                  v-for="l in languageOptions"
+                  :key="l"
+                  size="md"
+                  clickable
+                  :active="draftLangs.includes(l)"
+                  @click="toggleDraft(draftLangs, l)"
+                >
+                  {{ l }}
+                </VChip>
+              </div>
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveLanguages">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v mreview__chips">
+              <VChip v-for="l in languages" :key="l" size="md">{{ l }}</VChip>
+              <span v-if="!languages.length" class="mreview__muted">—</span>
+            </div>
+            <button type="button" class="mreview__pen" aria-label="Изменить языки" @click="startField('languages')"><IconEdit :size="22" /></button>
+          </template>
+        </div>
+
+        <!-- Направления практик = methods (chip toggle, own endpoint, unchanged) -->
         <div class="mreview__row">
           <div class="mreview__k">Направления практик</div>
           <div v-if="editingMethods" class="mreview__methods-edit">
@@ -90,17 +235,39 @@
           </template>
         </div>
 
+        <!-- Сертификаты = certifications (free-text add/remove chips) -->
         <div class="mreview__row">
-          <div class="mreview__k">Опыт</div>
-          <div class="mreview__v">{{ experience }}</div>
-        </div>
-        <div class="mreview__row">
-          <div class="mreview__k">Язык практик</div>
-          <div class="mreview__v">{{ language }}</div>
-        </div>
-        <div class="mreview__row">
-          <div class="mreview__k">О себе</div>
-          <div class="mreview__v mreview__v--bio">{{ bio }}</div>
+          <div class="mreview__k">Сертификаты</div>
+          <template v-if="editing === 'certifications'">
+            <div class="mreview__edit">
+              <div v-if="draftCerts.length" class="mreview__chips">
+                <VChip
+                  v-for="(c, i) in draftCerts"
+                  :key="`${c}-${i}`"
+                  size="md"
+                  clickable
+                  @click="draftCerts.splice(i, 1)"
+                >
+                  {{ c }} ✕
+                </VChip>
+              </div>
+              <div class="mreview__cert-add">
+                <VInput v-model="certInput" placeholder="Добавить сертификат + Enter" @keydown.enter.prevent="addCert" />
+                <VButton variant="ghost" size="sm" :disabled="!certInput.trim()" @click="addCert">Добавить</VButton>
+              </div>
+              <div class="mreview__edit-actions">
+                <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
+                <VButton variant="primary" size="sm" :loading="savingField" @click="saveCertifications">Сохранить</VButton>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="mreview__v mreview__chips">
+              <VChip v-for="(c, i) in certifications" :key="`${c}-${i}`" size="md">{{ c }}</VChip>
+              <span v-if="!certifications.length" class="mreview__muted">—</span>
+            </div>
+            <button type="button" class="mreview__pen" aria-label="Изменить сертификаты" @click="startField('certifications')"><IconEdit :size="22" /></button>
+          </template>
         </div>
       </VCard>
 
@@ -233,6 +400,7 @@ import {
   VBackButton,
   VCard,
   VChip,
+  VInput,
   VTextarea,
   VButton,
   VLoader,
@@ -248,13 +416,20 @@ import {
   verifyMaster,
   rejectMaster,
   editMasterMethods,
+  editMasterProfile,
   getRevokePreview,
   revokeMaster,
 } from '@/api/admin'
-import type { AdminMasterListItem, AdminMasterDetail, RevokeMasterAdvisory } from '@/api/admin'
+import type {
+  AdminMasterListItem,
+  AdminMasterDetail,
+  AdminMasterProfileUpdate,
+  RevokeMasterAdvisory,
+} from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
 import { AVAILABLE_METHODS } from '@/utils/methods'
+import { LANGUAGES } from '@/utils/languages'
 
 const route = useRoute()
 const router = useRouter()
@@ -284,14 +459,29 @@ const rejectError = ref('')
 // on the detail endpoint yet → «—» / empty. methods / experience / bio are REAL
 // (T3 — pulled from data.profile via GET /admin/masters/:id).
 const PLACEHOLDER = '—'
+// «Имя аккаунта» = User first/last (also the profile-card header + revoke msg).
 const displayName = computed<string>(() => (master.value ? masterDisplayName(master.value) : ''))
-const email = computed<string>(() => PLACEHOLDER)
-const language = computed<string>(() => PLACEHOLDER)
+const accountName = displayName
+// «Имя-визитка» = data.profile.display_name (shown to users on the public page).
+const displayNameField = computed<string>(() => master.value?.display_name || PLACEHOLDER)
+// Batch H: real fields now returned by the detail endpoint.
+const email = computed<string>(() => master.value?.email || PLACEHOLDER)
+const phone = computed<string>(() => master.value?.phone || PLACEHOLDER)
+const languages = computed<string[]>(() => master.value?.languages ?? [])
+const certifications = computed<string[]>(() => master.value?.certifications ?? [])
 const methods = computed<string[]>(() => master.value?.methods ?? [])
 const experience = computed<string>(() =>
   master.value ? `${master.value.experience_years ?? 0} лет` : PLACEHOLDER,
 )
 const bio = computed<string>(() => master.value?.bio || PLACEHOLDER)
+
+// Language chip options = the fixed set + any custom the master already has, so a
+// non-standard entry can be kept/removed (mirrors methodOptions).
+const languageOptions = computed<string[]>(() => {
+  const set = new Set<string>(LANGUAGES)
+  for (const l of languages.value) set.add(l)
+  return [...set]
+})
 
 // Editor chips = the shared taxonomy plus any custom methods the master already
 // has (so a custom entry can be kept/removed, not silently dropped).
@@ -378,8 +568,9 @@ async function loadMaster(): Promise<void> {
   }
 }
 
-// -- Methods editor (T3) --
+// -- Methods editor (T3) -- keeps its own endpoint (editMasterMethods). --
 function startMethods(): void {
+  editing.value = null // close any generic-field editor first
   methodsDraft.value = [...methods.value]
   methodsError.value = ''
   editingMethods.value = true
@@ -415,6 +606,147 @@ async function saveMethods(): Promise<void> {
   } finally {
     savingMethods.value = false
   }
+}
+
+// =========================================================================
+// Batch H: generic per-field editor for every OTHER master-authored field,
+// wired to PATCH /admin/masters/{id}/profile (editMasterProfile). One field is
+// edited at a time; each save sends only its own key (partial update).
+// =========================================================================
+type ProfileField =
+  | 'display_name'
+  | 'account_name'
+  | 'bio'
+  | 'email'
+  | 'phone'
+  | 'experience_years'
+  | 'languages'
+  | 'certifications'
+
+const editing = ref<ProfileField | null>(null)
+const savingField = ref(false)
+const fieldError = ref('')
+const draftText = ref('') // display_name / bio / email / phone / experience_years
+const draftFirst = ref('') // account name
+const draftLast = ref('')
+const draftLangs = ref<string[]>([])
+const draftCerts = ref<string[]>([])
+const certInput = ref('')
+
+function startField(field: ProfileField): void {
+  editingMethods.value = false // close the methods editor first
+  fieldError.value = ''
+  editing.value = field
+  switch (field) {
+    case 'display_name':
+      draftText.value = master.value?.display_name ?? ''
+      break
+    case 'bio':
+      draftText.value = master.value?.bio ?? ''
+      break
+    case 'email':
+      draftText.value = master.value?.email ?? ''
+      break
+    case 'phone':
+      draftText.value = master.value?.phone ?? ''
+      break
+    case 'experience_years':
+      draftText.value = String(master.value?.experience_years ?? 0)
+      break
+    case 'account_name':
+      draftFirst.value = master.value?.first_name ?? ''
+      draftLast.value = master.value?.last_name ?? ''
+      break
+    case 'languages':
+      draftLangs.value = [...languages.value]
+      break
+    case 'certifications':
+      draftCerts.value = [...certifications.value]
+      certInput.value = ''
+      break
+  }
+}
+
+function cancelField(): void {
+  if (savingField.value) return
+  editing.value = null
+  fieldError.value = ''
+}
+
+/** Toggle a value in a draft chip list (in-place, reactive). */
+function toggleDraft(list: string[], value: string): void {
+  const i = list.indexOf(value)
+  if (i === -1) list.push(value)
+  else list.splice(i, 1)
+}
+
+function addCert(): void {
+  const v = certInput.value.trim()
+  if (v && !draftCerts.value.includes(v)) draftCerts.value.push(v)
+  certInput.value = ''
+}
+
+/** Send a partial patch; reflect it locally + toast. Returns on error with the
+ *  message surfaced inline (fieldError). */
+async function saveProfile(patch: AdminMasterProfileUpdate): Promise<void> {
+  if (savingField.value) return
+  savingField.value = true
+  fieldError.value = ''
+  try {
+    await editMasterProfile(masterId, patch)
+    if (master.value) Object.assign(master.value, patch)
+    editing.value = null
+    toast.success('Сохранено')
+  } catch (e) {
+    fieldError.value = e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить'
+  } finally {
+    savingField.value = false
+  }
+}
+
+async function saveDisplayName(): Promise<void> {
+  const v = draftText.value.trim()
+  if (!v) {
+    fieldError.value = 'Введите имя-визитку'
+    return
+  }
+  await saveProfile({ display_name: v })
+}
+
+async function saveBio(): Promise<void> {
+  await saveProfile({ bio: draftText.value.trim() || null })
+}
+
+async function saveEmail(): Promise<void> {
+  await saveProfile({ email: draftText.value.trim() || null })
+}
+
+async function savePhone(): Promise<void> {
+  await saveProfile({ phone: draftText.value.trim() || null })
+}
+
+async function saveExperience(): Promise<void> {
+  const n = Number(draftText.value)
+  if (!Number.isInteger(n) || n < 0 || n > 50) {
+    fieldError.value = 'Опыт: целое число 0–50'
+    return
+  }
+  await saveProfile({ experience_years: n })
+}
+
+async function saveAccountName(): Promise<void> {
+  await saveProfile({
+    first_name: draftFirst.value.trim() || null,
+    last_name: draftLast.value.trim() || null,
+  })
+}
+
+async function saveLanguages(): Promise<void> {
+  await saveProfile({ languages: [...draftLangs.value] })
+}
+
+async function saveCertifications(): Promise<void> {
+  await saveProfile({ certifications: [...draftCerts.value] })
 }
 
 // Stub: document viewing has no backend yet → Zod (documents are empty until then).
@@ -616,6 +948,39 @@ onMounted(loadMaster)
 }
 
 .mreview__methods-actions :deep(.v-btn) {
+  flex: 1;
+}
+
+/* -- Batch H: generic per-field inline editor (text / number / chips) -- */
+.mreview__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.mreview__edit-err {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--velo-error);
+}
+
+.mreview__edit-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.mreview__edit-actions :deep(.v-btn) {
+  flex: 1;
+}
+
+.mreview__cert-add {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.mreview__cert-add :deep(.v-input) {
   flex: 1;
 }
 
