@@ -71,67 +71,14 @@
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Направления практик — TWO-LEVEL taxonomy (J2c/J2d), reusing the
-             practiceOptions source shared with CreatePractice (single source of
-             truth, no backend field). Level 1 = direction chips; level 2 = the
-             styles of each selected direction that has them. Both multi-select,
-             each in a white VCard подложка. -->
+        <!-- Направления практик — TWO-LEVEL taxonomy, extracted into the shared
+             MethodTaxonomyPicker (batch L, single source of truth). The outer
+             label + validation error stay here; the picker owns the direction
+             chips, the per-direction style cards and «Свой вариант». v-model is
+             the flat `methods: string[]` payload (unchanged schema). -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-
-          <!-- Level 1: directions (multi-select) -->
-          <VCard class="apply-view__chip-card" padding="none">
-            <div class="apply-view__chips">
-              <VChip
-                v-for="dir in DIRECTION_OPTIONS"
-                :key="dir.value"
-                size="md"
-                clickable
-                :active="selectedDirections.includes(dir.value)"
-                @click="toggleDirection(dir.value)"
-              >
-                {{ dir.label }}
-              </VChip>
-              <VChip size="md" clickable :active="otherMethodEnabled" @click="toggleOtherMethod">
-                Свой вариант
-              </VChip>
-            </div>
-          </VCard>
-
-          <!-- Level 2: per selected direction that HAS styles, its виды —
-               labeled by direction so which вид belongs to which направление
-               is unambiguous. Directions without styles contribute themselves. -->
-          <template v-for="dir in selectedDirections" :key="`styles-${dir}`">
-            <VCard
-              v-if="directionHasStyles(dir)"
-              class="apply-view__chip-card apply-view__styles"
-              padding="none"
-            >
-              <span class="apply-view__styles-title">{{ directionLabel(dir) }}</span>
-              <div class="apply-view__chips">
-                <VChip
-                  v-for="st in stylesForDirection(dir)"
-                  :key="st.value"
-                  size="md"
-                  clickable
-                  :active="(selectedStyles[dir] ?? []).includes(st.value)"
-                  @click="toggleStyle(dir, st.value)"
-                >
-                  {{ st.label }}
-                </VChip>
-              </div>
-            </VCard>
-          </template>
-
-          <!-- «Свой вариант»: a custom DIRECTION not in the base ten. @focus lifts
-               it above the soft keyboard once it settles (J2e). -->
-          <VInput
-            v-if="otherMethodEnabled"
-            v-model="otherMethodText"
-            placeholder="Укажите направление…"
-            class="apply-view__other"
-            @focus="onFieldFocus"
-          />
+          <MethodTaxonomyPicker v-model="methods" />
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
 
@@ -277,7 +224,6 @@ import {
   VSelect,
   VCard,
   VCheckbox,
-  VChip,
   VPaginationDots,
 } from '@/components/ui'
 import { IconCheck, IconFile } from '@/components/icons'
@@ -285,16 +231,9 @@ import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
-import {
-  DIRECTION_OPTIONS,
-  STYLE_LABEL,
-  stylesForDirection,
-  directionHasStyles,
-} from '@/utils/practiceOptions'
 import { LANGUAGES } from '@/utils/languages'
-import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
 import { useMasterStore } from '@/stores/master'
-import type { PracticeDirection } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -303,8 +242,6 @@ const masterStore = useMasterStore()
 // -- Step state --
 const step = ref(1)
 const submitting = ref(false)
-
-// -- Available practice methods (shared source, incl. «Кундалини йога») --
 
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [
@@ -328,48 +265,11 @@ const form = reactive({
   docsConsent: false,
 })
 
-// -- Two-level taxonomy selection (J2d) --------------------------------------
-// Reuses practiceOptions (the same DIRECTION_OPTIONS / STYLE_OPTIONS_BY_DIRECTION
-// source CreatePractice uses). selectedDirections holds chosen direction values;
-// selectedStyles holds the chosen style values per direction (only for
-// directions that have styles). On submit both collapse into the flat
-// `methods: string[]` payload (unchanged schema) via allMethods below.
-const selectedDirections = ref<PracticeDirection[]>([])
-const selectedStyles = reactive<Record<string, string[]>>({})
-
-// Direction value -> Russian label (for the level-2 group heading + payload).
-const DIRECTION_LABEL: Record<string, string> = Object.fromEntries(
-  DIRECTION_OPTIONS.map((o) => [o.value, o.label]),
-)
-function directionLabel(dir: string): string {
-  return DIRECTION_LABEL[dir] ?? dir
-}
-
-function toggleDirection(dir: PracticeDirection): void {
-  const idx = selectedDirections.value.indexOf(dir)
-  if (idx === -1) {
-    selectedDirections.value.push(dir)
-  } else {
-    selectedDirections.value.splice(idx, 1)
-    // Deselecting a direction drops any styles picked under it.
-    delete selectedStyles[dir]
-  }
-}
-
-function toggleStyle(dir: PracticeDirection, style: string): void {
-  const list = selectedStyles[dir] ?? (selectedStyles[dir] = [])
-  const idx = list.indexOf(style)
-  if (idx === -1) list.push(style)
-  else list.splice(idx, 1)
-}
-
-// "Свой вариант" — a custom DIRECTION not in the base ten.
-const otherMethodEnabled = ref(false)
-const otherMethodText = ref('')
-
-// Lift the focused custom-variant field above the soft keyboard once it settles
-// (J2e — shared batch-I composable).
-const { onFieldFocus } = useKeyboardFieldScroll()
+// -- Method selection (batch L) ----------------------------------------------
+// The two-level направление→вид taxonomy now lives in MethodTaxonomyPicker; this
+// view only holds the flat `methods: string[]` payload it emits (v-model). The
+// picker owns seeding/flattening, «Свой вариант» and its own focus-scroll.
+const methods = ref<string[]>([])
 
 // Tap a non-interactive blank area to dismiss the soft keyboard (J1e / J2b —
 // port of FormShell / CreatePracticeView; the text fields have no «Готово» key).
@@ -405,35 +305,6 @@ const errors = reactive({
   experience_years: '',
   bio: '',
   docs: '',
-})
-
-function toggleOtherMethod(): void {
-  otherMethodEnabled.value = !otherMethodEnabled.value
-  if (!otherMethodEnabled.value) {
-    otherMethodText.value = ''
-  }
-}
-
-// -- Flatten the two-level selection into the payload `methods: string[]` --
-// A direction with chosen styles emits «Направление — Вид» per style; a
-// direction with no chosen style emits «Направление»; the custom variant is
-// emitted verbatim. Back-compat with the existing free-string schema (no
-// backend change).
-const allMethods = computed((): string[] => {
-  const result: string[] = []
-  for (const dir of selectedDirections.value) {
-    const label = directionLabel(dir)
-    const styles = selectedStyles[dir] ?? []
-    if (styles.length > 0) {
-      for (const st of styles) result.push(`${label} — ${STYLE_LABEL[st] ?? st}`)
-    } else {
-      result.push(label)
-    }
-  }
-  if (otherMethodEnabled.value && otherMethodText.value.trim()) {
-    result.push(otherMethodText.value.trim())
-  }
-  return result
 })
 
 // -- Experience years numeric value --
@@ -476,7 +347,7 @@ function goToStep3(): void {
   errors.methods = ''
   errors.experience_years = ''
   errors.bio = ''
-  if (allMethods.value.length === 0) {
+  if (methods.value.length === 0) {
     errors.methods = 'Выберите хотя бы одно направление'
     return
   }
@@ -521,7 +392,7 @@ async function submit(skipDocuments = false): Promise<void> {
         phone: form.phone.trim() || null,
       },
       experience: {
-        methods: allMethods.value,
+        methods: methods.value,
         languages: selectedLanguages.value,
         experience_years: experienceYears.value,
         bio: form.bio.trim() || null,
@@ -659,34 +530,6 @@ async function submit(skipDocuments = false): Promise<void> {
 .apply-view__field-error {
   font-size: var(--text-sm);
   color: var(--velo-error);
-}
-
-/* -- Method chips (two-level taxonomy in white VCard подложки, J2c/J2d) -- */
-.apply-view__chip-card {
-  padding: var(--space-3);
-}
-
-.apply-view__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-/* Level-2 (виды) card: a small direction heading above its style chips. */
-.apply-view__styles {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.apply-view__styles-title {
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  letter-spacing: 0.02em;
-}
-
-.apply-view__other {
-  margin-top: var(--space-1);
 }
 
 /* -- Language stub card -- */
