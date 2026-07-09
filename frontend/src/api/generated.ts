@@ -75,7 +75,7 @@ export interface AdminMasterListItem {
   master_status: string
 }
 
-/** PATCH /admin/masters/{user_id}/profile -- partial admin edit of every master-authored field (batch H). All fields optional; only the keys the client sends are applied. */
+/** PATCH /admin/masters/{user_id}/profile -- partial admin edit of EVERY master-authored field (batch H). ALL fields optional; only the keys the client actually SENDS are applied (the service reads model_dump(exclude_unset=True)), so a partial PATCH never clobbers an unsent sibling. Constraints are reused from the apply form (MasterApplyProfile / MasterApplyExperience, masters/schemas.py:49-70) and users/me (UserUpdate first/last, users/schemas.py:577-578) so admin-edit validation can never drift from what the master could originally submit. Field homes: display_name / email / phone / bio / methods / experience_years / certifications / languages -> MasterProfile.data.profile.* first_name / last_name -> User.* (the account name shown in admin lists) */
 export interface AdminMasterProfileUpdate {
   display_name?: string | null
   email?: string | null
