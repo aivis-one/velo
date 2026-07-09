@@ -49,7 +49,7 @@
         type="number"
         min="1"
         placeholder="10"
-        @focus="scrollFieldIntoView"
+        @focus="onFieldFocus"
       />
 
       <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
@@ -76,10 +76,15 @@ import { VInput, VSelect, VButton } from '@/components/ui'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { useToast } from '@/composables/useToast'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import { formatShortDate, todayLocalISO } from '@/utils/format'
 
 const router = useRouter()
 const toast = useToast()
+
+// Lift the focused field above the soft keyboard once it settles (shared M5
+// composable — replaces the bespoke racing vv.resize→scrollIntoView listener, K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 const DISCOUNT_OPTIONS = [
   { value: '10', label: '10%' },
@@ -118,28 +123,6 @@ watch(
 function onCreate(): void {
   // No promocodes backend yet -> stub per the operator rule. -> Zod.
   toast.info('Промокоды пока недоступны')
-}
-
-// «Лимит использований» sits low on the form, where the soft keyboard covers it on
-// focus. The keyboard animates in over several frames, so a fixed timeout races it and
-// the field can still land under the keyboard (operator PC-1). Instead react to the
-// visual viewport: centre the field on focus AND on each subsequent visualViewport
-// resize while the keyboard settles, then detach on blur. Coordinates with the e95e05a
-// keyboard-aware system — reads the same window.visualViewport signal, writes none of
-// its shared state. Desktop / no visualViewport → the original deferred scroll.
-function scrollFieldIntoView(e: FocusEvent): void {
-  const el = e.target as HTMLElement | null
-  if (!el) return
-  const bring = (): void => el.scrollIntoView({ block: 'center' })
-  const vv = window.visualViewport
-  if (!vv) {
-    window.setTimeout(bring, 300)
-    return
-  }
-  const onResize = (): void => bring()
-  vv.addEventListener('resize', onResize)
-  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
-  bring()
 }
 
 // Tap a blank area of the form to dismiss the soft keyboard (number/text inputs have

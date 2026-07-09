@@ -233,7 +233,7 @@
                 min="1"
                 class="create-practice__end-control create-practice__count-input"
                 placeholder="Число повторений"
-                @focus="scrollFieldIntoView"
+                @focus="onFieldFocus"
               />
             </VCard>
             <span
@@ -327,7 +327,7 @@
         <h2 class="velo-section-title">Подключение</h2>
 
         <div class="create-practice__railed">
-          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="scrollFieldIntoView" />
+          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="onFieldFocus" />
         </div>
       </div>
 
@@ -389,10 +389,15 @@ import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import { ApiResponseError } from '@/api/client'
 import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { PracticeDirection, RecurrenceSpec, PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
+
+// Lift the focused field above the soft keyboard once it settles (shared M5
+// composable — replaces the bespoke 300ms scrollFieldIntoView, K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 // Back/cancel: return to the real origin. Create opens from BOTH the dashboard
 // empty-state CTA and Практики's «+» (goNew) — router.back() lands on whichever
@@ -404,19 +409,6 @@ function onBack(): void {
   else router.push({ name: 'master-practices' })
 }
 
-// The bottom-most fields («Число повторений», «Ссылка на Zoom») sit low on the
-// long form, where the soft keyboard covers them on focus. Center the focused
-// field in the (keyboard-shrunk) viewport so it stays visible while typing. The
-// delay lets the keyboard finish opening — scrolling before the visualViewport
-// shrinks would aim at the old, taller viewport. iOS/Telegram-webview behaviour,
-// so this is device-verified on TEST (desktop has no soft keyboard).
-function scrollFieldIntoView(e: FocusEvent): void {
-  const el = e.target as HTMLElement | null
-  if (!el) return
-  window.setTimeout(() => {
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, 300)
-}
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
