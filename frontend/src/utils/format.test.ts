@@ -66,22 +66,26 @@ describe('formatMoney', () => {
 // formatDuration
 // -----------------------------------------------------------------------
 describe('formatDuration', () => {
-  it('formats minutes under 60', () => {
+  it('formats minutes under 60 (full «мин»)', () => {
     expect(formatDuration(45)).toBe('45 мин')
   })
 
-  it('formats exact hours', () => {
-    expect(formatDuration(60)).toBe('1 ч')
+  it('spells out exactly one hour, short «ч» for multi-hour', () => {
+    expect(formatDuration(60)).toBe('1 час')
     expect(formatDuration(120)).toBe('2 ч')
   })
 
-  it('formats hours and minutes', () => {
-    expect(formatDuration(90)).toBe('1 ч 30 мин')
-    expect(formatDuration(150)).toBe('2 ч 30 мин')
+  it('formats hours and minutes with short «м»', () => {
+    expect(formatDuration(90)).toBe('1 ч 30 м')
+    expect(formatDuration(150)).toBe('2 ч 30 м')
   })
 
   it('handles single minute', () => {
     expect(formatDuration(1)).toBe('1 мин')
+  })
+
+  it('handles zero minutes', () => {
+    expect(formatDuration(0)).toBe('0 мин')
   })
 })
 

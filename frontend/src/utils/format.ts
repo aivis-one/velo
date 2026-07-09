@@ -276,19 +276,23 @@ export function formatFeedDateTime(isoString: string, timezone = 'UTC', locale =
 }
 
 /**
- * Format duration in minutes into a readable string.
+ * Format duration in minutes into a SHORT readable string. Compact so lines like
+ * «12:30 · 1 ч 30 м» stay on one line (booking cards). Note the deliberate
+ * asymmetry: minutes-only keeps the full «мин», while the combined form uses the
+ * short «м» (operator spec, batch I).
  *
  * Examples:
- *   formatDuration(45)  -> "45 мин"
- *   formatDuration(90)  -> "1 ч 30 мин"
- *   formatDuration(120) -> "2 ч"
+ *   formatDuration(45)  -> "45 мин"    (minutes only, full «мин»)
+ *   formatDuration(60)  -> "1 час"     (exactly one hour, spelled out)
+ *   formatDuration(90)  -> "1 ч 30 м"  (hours + minutes, short «м»)
+ *   formatDuration(120) -> "2 ч"       (exact multi-hour, no plural declension)
  */
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} мин`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (m === 0) return `${h} ч`
-  return `${h} ч ${m} мин`
+  if (m === 0) return h === 1 ? '1 час' : `${h} ч`
+  return `${h} ч ${m} м`
 }
 
 /**
