@@ -26,12 +26,18 @@
 
 <template>
   <div class="apply-view">
-    <VHeader title="Заявка" show-back @back="onBack" />
+    <!-- Non-scrolling top block: «Заявка» header + step dots float ABOVE the
+         fogged feed, so scrolling body text can never ride up over them (J2g). -->
+    <div class="apply-view__top">
+      <VHeader title="Заявка" show-back @back="onBack" />
+      <!-- Canonical step dots, top-left (operator 2026-06-27). -->
+      <VPaginationDots :total="3" :active="step - 1" class="apply-view__dots" />
+    </div>
 
-    <!-- Canonical step dots, top-left (operator 2026-06-27). -->
-    <VPaginationDots :total="3" :active="step - 1" class="apply-view__dots" />
-
-    <div class="apply-view__content">
+    <!-- Scrolling feed: top fog-mask dissolves content at the header edge (reuses
+         the dashboard/diary island gradient). Tap on a blank area dismisses the
+         soft keyboard (J1e / J2b — port of FormShell/CreatePractice). -->
+    <div class="apply-view__content" @click="dismissKeyboardOnBlank">
       <!-- ================================================================
            STEP 1: Профиль
            ================================================================ -->
@@ -40,22 +46,22 @@
 
         <VInput
           v-model="form.display_name"
-          label="Имя *"
-          placeholder="Alex Mindful"
+          floating-label
+          label="Имя"
           :error="errors.display_name"
         />
-        <VInput v-model="form.email" label="E-mail" type="email" placeholder="alex@example.com" />
-        <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (999) 123-45-67" />
+        <VInput v-model="form.email" floating-label label="E-mail" type="email" />
+        <VInput v-model="form.phone" floating-label label="Телефон" type="tel" />
 
         <VCard class="apply-view__consent" padding="none">
-          <VCheckbox v-model="form.privacyAccepted">
+          <VCheckbox v-model="form.privacyAccepted" size="sm">
             Я принимаю Условия использования и ознакомлен(а) с Политикой конфиденциальности
           </VCheckbox>
         </VCard>
         <p v-if="errors.privacy" class="apply-view__field-error">{{ errors.privacy }}</p>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
-          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
+          Далее
         </VButton>
       </template>
 
@@ -65,29 +71,66 @@
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Направления практик — VChip pills (full method set, FORK-6) -->
+        <!-- Направления практик — TWO-LEVEL taxonomy (J2c/J2d), reusing the
+             practiceOptions source shared with CreatePractice (single source of
+             truth, no backend field). Level 1 = direction chips; level 2 = the
+             styles of each selected direction that has them. Both multi-select,
+             each in a white VCard подложка. -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-          <div class="apply-view__chips">
-            <VChip
-              v-for="method in AVAILABLE_METHODS"
-              :key="method"
-              size="md"
-              clickable
-              :active="form.methods.includes(method)"
-              @click="toggleMethod(method)"
+
+          <!-- Level 1: directions (multi-select) -->
+          <VCard class="apply-view__chip-card" padding="none">
+            <div class="apply-view__chips">
+              <VChip
+                v-for="dir in DIRECTION_OPTIONS"
+                :key="dir.value"
+                size="md"
+                clickable
+                :active="selectedDirections.includes(dir.value)"
+                @click="toggleDirection(dir.value)"
+              >
+                {{ dir.label }}
+              </VChip>
+              <VChip size="md" clickable :active="otherMethodEnabled" @click="toggleOtherMethod">
+                Свой вариант
+              </VChip>
+            </div>
+          </VCard>
+
+          <!-- Level 2: per selected direction that HAS styles, its виды —
+               labeled by direction so which вид belongs to which направление
+               is unambiguous. Directions without styles contribute themselves. -->
+          <template v-for="dir in selectedDirections" :key="`styles-${dir}`">
+            <VCard
+              v-if="directionHasStyles(dir)"
+              class="apply-view__chip-card apply-view__styles"
+              padding="none"
             >
-              {{ method }}
-            </VChip>
-            <VChip size="md" clickable :active="otherMethodEnabled" @click="toggleOtherMethod">
-              Свой вариант
-            </VChip>
-          </div>
+              <span class="apply-view__styles-title">{{ directionLabel(dir) }}</span>
+              <div class="apply-view__chips">
+                <VChip
+                  v-for="st in stylesForDirection(dir)"
+                  :key="st.value"
+                  size="md"
+                  clickable
+                  :active="(selectedStyles[dir] ?? []).includes(st.value)"
+                  @click="toggleStyle(dir, st.value)"
+                >
+                  {{ st.label }}
+                </VChip>
+              </div>
+            </VCard>
+          </template>
+
+          <!-- «Свой вариант»: a custom DIRECTION not in the base ten. @focus lifts
+               it above the soft keyboard once it settles (J2e). -->
           <VInput
             v-if="otherMethodEnabled"
             v-model="otherMethodText"
             placeholder="Укажите направление…"
             class="apply-view__other"
+            @focus="onFieldFocus"
           />
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
@@ -118,7 +161,7 @@
         </div>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
-          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
+          Далее
         </VButton>
       </template>
 
@@ -128,8 +171,9 @@
       <template v-else>
         <h3 class="apply-view__step-title">Шаг 3: Документы</h3>
         <p class="apply-view__intro">
-          Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации.
-          Удостоверение личности удаляется через 30 дней после верификации.
+          Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации
+          вашей квалификации. Удостоверение личности используется только для подтверждения
+          личности и автоматически удаляется через 30 дней после верификации.
         </p>
 
         <!-- Documents are OPTIONAL right now: file upload/storage is not built
@@ -147,10 +191,12 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Загрузить документ</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Загрузить документ</span>
+            </button>
+          </VCard>
         </div>
 
         <!-- Certificates (multi-file UI; chip list renders once E13 stores files) -->
@@ -161,10 +207,12 @@
             <IconCheck :size="18" />
             <span class="apply-view__filechip-name">{{ cert }}</span>
           </div>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Добавить сертификат</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Добавить сертификат</span>
+            </button>
+          </VCard>
         </div>
 
         <!-- Profile photo -->
@@ -173,10 +221,12 @@
           <p class="apply-view__hint">
             Будет использовано на платформе в открытом доступе для участников.
           </p>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Загрузить фото</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Загрузить фото</span>
+            </button>
+          </VCard>
         </div>
 
         <VCard class="apply-view__consent" padding="none">
@@ -230,14 +280,21 @@ import {
   VChip,
   VPaginationDots,
 } from '@/components/ui'
-import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
+import { IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { MASTER_APPLIED_KEY } from '@/utils/constants'
-import { AVAILABLE_METHODS } from '@/utils/methods'
+import {
+  DIRECTION_OPTIONS,
+  STYLE_LABEL,
+  stylesForDirection,
+  directionHasStyles,
+} from '@/utils/practiceOptions'
 import { LANGUAGES } from '@/utils/languages'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import { useMasterStore } from '@/stores/master'
+import type { PracticeDirection } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -266,15 +323,62 @@ const form = reactive({
   phone: '',
   privacyAccepted: false,
   // Step 2
-  methods: [] as string[],
   bio: '',
   // Step 3
   docsConsent: false,
 })
 
-// "Свой вариант" custom method
+// -- Two-level taxonomy selection (J2d) --------------------------------------
+// Reuses practiceOptions (the same DIRECTION_OPTIONS / STYLE_OPTIONS_BY_DIRECTION
+// source CreatePractice uses). selectedDirections holds chosen direction values;
+// selectedStyles holds the chosen style values per direction (only for
+// directions that have styles). On submit both collapse into the flat
+// `methods: string[]` payload (unchanged schema) via allMethods below.
+const selectedDirections = ref<PracticeDirection[]>([])
+const selectedStyles = reactive<Record<string, string[]>>({})
+
+// Direction value -> Russian label (for the level-2 group heading + payload).
+const DIRECTION_LABEL: Record<string, string> = Object.fromEntries(
+  DIRECTION_OPTIONS.map((o) => [o.value, o.label]),
+)
+function directionLabel(dir: string): string {
+  return DIRECTION_LABEL[dir] ?? dir
+}
+
+function toggleDirection(dir: PracticeDirection): void {
+  const idx = selectedDirections.value.indexOf(dir)
+  if (idx === -1) {
+    selectedDirections.value.push(dir)
+  } else {
+    selectedDirections.value.splice(idx, 1)
+    // Deselecting a direction drops any styles picked under it.
+    delete selectedStyles[dir]
+  }
+}
+
+function toggleStyle(dir: PracticeDirection, style: string): void {
+  const list = selectedStyles[dir] ?? (selectedStyles[dir] = [])
+  const idx = list.indexOf(style)
+  if (idx === -1) list.push(style)
+  else list.splice(idx, 1)
+}
+
+// "Свой вариант" — a custom DIRECTION not in the base ten.
 const otherMethodEnabled = ref(false)
 const otherMethodText = ref('')
+
+// Lift the focused custom-variant field above the soft keyboard once it settles
+// (J2e — shared batch-I composable).
+const { onFieldFocus } = useKeyboardFieldScroll()
+
+// Tap a non-interactive blank area to dismiss the soft keyboard (J1e / J2b —
+// port of FormShell / CreatePracticeView; the text fields have no «Готово» key).
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
+}
 
 // Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
@@ -303,16 +407,6 @@ const errors = reactive({
   docs: '',
 })
 
-// -- Methods helpers --
-function toggleMethod(method: string): void {
-  const idx = form.methods.indexOf(method)
-  if (idx === -1) {
-    form.methods.push(method)
-  } else {
-    form.methods.splice(idx, 1)
-  }
-}
-
 function toggleOtherMethod(): void {
   otherMethodEnabled.value = !otherMethodEnabled.value
   if (!otherMethodEnabled.value) {
@@ -320,9 +414,22 @@ function toggleOtherMethod(): void {
   }
 }
 
-// -- All methods including "other" text --
+// -- Flatten the two-level selection into the payload `methods: string[]` --
+// A direction with chosen styles emits «Направление — Вид» per style; a
+// direction with no chosen style emits «Направление»; the custom variant is
+// emitted verbatim. Back-compat with the existing free-string schema (no
+// backend change).
 const allMethods = computed((): string[] => {
-  const result = [...form.methods]
+  const result: string[] = []
+  for (const dir of selectedDirections.value) {
+    const label = directionLabel(dir)
+    const styles = selectedStyles[dir] ?? []
+    if (styles.length > 0) {
+      for (const st of styles) result.push(`${label} — ${STYLE_LABEL[st] ?? st}`)
+    } else {
+      result.push(label)
+    }
+  }
   if (otherMethodEnabled.value && otherMethodText.value.trim()) {
     result.push(otherMethodText.value.trim())
   }
@@ -451,11 +558,22 @@ async function submit(skipDocuments = false): Promise<void> {
 
 <style scoped>
 .apply-view {
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Bounded to AppFrame's height (its `> *` rule gives flex:1; min-height:0), so
+     the inner feed scrolls instead of the whole page — the precondition for the
+     header fog (J2g). */
+  height: 100%;
+  min-height: 0;
   background: transparent;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Non-scrolling top block — header + dots sit above the fogged feed (J2g). */
+.apply-view__top {
+  flex-shrink: 0;
+  position: relative;
+  z-index: var(--z-sticky);
 }
 
 /* Step dots — top-left at the screen rail (standalone route, WS-1 24px rail). */
@@ -463,14 +581,39 @@ async function submit(skipDocuments = false): Promise<void> {
   padding: var(--space-2) var(--velo-rail-pad-x) 0;
 }
 
-/* -- Content area -- */
+/* -- Content area (the scrolling feed) -- */
 .apply-view__content {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Scrollbar hidden (app-wide convention) so content rides the single 24px rail. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Top fog-mask: content dissolves at the header edge on scroll (reuses the
+     dashboard/diary island gradient — not a new mechanism). The fade sits inside
+     the top padding, so at rest the first block is fully crisp (layout
+     unchanged). Bottom stays crisp — the «Далее/Отправить» actions must not fade. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-4), #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-4), #000 100%);
   /* Standalone route (outside MobileLayout) — apply the screen rail directly. */
   padding: var(--space-4) var(--velo-rail-pad-x) var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* Tightened inter-block spacing per the right mockup (J1d / J2a). */
+  gap: var(--space-3);
+}
+
+.apply-view__content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tightened spacing (J1d / J2a): the DS field wrappers carry their own
+   margin-bottom, which would stack on top of the flex gap. Zero it here so the
+   single gap governs the rhythm. */
+.apply-view__content :deep(.v-input),
+.apply-view__content :deep(.v-select),
+.apply-view__content :deep(.v-textarea) {
+  margin-bottom: 0;
 }
 
 .apply-view__step-title {
@@ -485,7 +628,9 @@ async function submit(skipDocuments = false): Promise<void> {
 
 .apply-view__intro {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  /* Brightened from --velo-text-muted → secondary so the privacy copy is legible
+     over the photo background (J3a). */
+  color: var(--velo-text-secondary);
   line-height: 1.4;
   margin: 0;
 }
@@ -516,11 +661,28 @@ async function submit(skipDocuments = false): Promise<void> {
   color: var(--velo-error);
 }
 
-/* -- Method chips -- */
+/* -- Method chips (two-level taxonomy in white VCard подложки, J2c/J2d) -- */
+.apply-view__chip-card {
+  padding: var(--space-3);
+}
+
 .apply-view__chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* Level-2 (виды) card: a small direction heading above its style chips. */
+.apply-view__styles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.apply-view__styles-title {
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  letter-spacing: 0.02em;
 }
 
 .apply-view__other {
@@ -535,13 +697,19 @@ async function submit(skipDocuments = false): Promise<void> {
   padding: var(--space-3);
 }
 
-/* -- Upload zones (stub) -- */
+/* -- Upload zones (stub) — each wrapped in a white VCard подложка (J3b) -- */
+.apply-view__upload-card {
+  /* The white plate; the bespoke dropzone button sits inside it. */
+  padding: var(--space-2);
+}
+
 .apply-view__upload {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--velo-gap-6);
+  width: 100%;
   height: 80px;
   border: 1px solid var(--velo-text-primary);
   border-radius: var(--velo-radius-9);
@@ -589,12 +757,6 @@ async function submit(skipDocuments = false): Promise<void> {
 /* -- Consent cards -- */
 .apply-view__consent {
   padding: var(--space-3);
-}
-
-/* Forward arrow on the "Далее" step buttons (currentColor = white). */
-.apply-view__btn-arrow {
-  margin-left: var(--space-2);
-  vertical-align: middle;
 }
 
 .apply-view__next {
