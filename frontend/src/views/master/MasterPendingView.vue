@@ -21,9 +21,10 @@
 
 <template>
   <div class="pending-view">
-    <VHeader title="Заявка" />
-
-    <div class="pending-view__content">
+    <div
+      class="pending-view__content"
+      :class="{ 'pending-view__content--centered': !masterStore.profileLoading && isPending }"
+    >
       <template v-if="masterStore.profileLoading">
         <VLoader size="lg" />
       </template>
@@ -42,7 +43,7 @@
         </p>
         <div class="pending-view__actions">
           <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
-            Перейти в режим мастера
+            Войти в кабинет
           </VButton>
         </div>
       </template>
@@ -69,20 +70,14 @@
         </div>
       </template>
 
-      <!-- ================= SENT (pending) ================= -->
+      <!-- ================= SENT (pending) =================
+           White VCard подложка, no buttons, vertically centered (K2). -->
       <template v-else>
-        <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
-        <h2 class="pending-view__title">Заявка отправлена!</h2>
-        <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
-
-        <div class="pending-view__actions">
-          <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
-            Обновить статус
-          </VButton>
-          <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
-            Вернуться к каталогу
-          </VButton>
-        </div>
+        <VCard class="pending-view__card">
+          <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
+          <h2 class="pending-view__title">Заявка отправлена!</h2>
+          <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
+        </VCard>
       </template>
     </div>
   </div>
@@ -91,8 +86,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VButton, VLoader } from '@/components/ui'
+import { VButton, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
@@ -102,7 +96,6 @@ const toast = useToast()
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
-const refreshing = ref(false)
 const switching = ref(false)
 
 // -- Derived application status --
@@ -123,6 +116,10 @@ const profileStatus = computed(() => {
   if (authStore.masterApplication?.status === 'rejected') return 'rejected'
   return 'pending'
 })
+
+// Pending is the only state that centers on a bare card (K2); approved/rejected
+// keep their card + CTA layout.
+const isPending = computed(() => profileStatus.value === 'pending')
 
 // Real rejection reason from the profile (E14: surfaced on MasterProfileResponse
 // from data.account.rejection_reason). Falls back to a generic line when the
@@ -161,26 +158,6 @@ async function enterMasterMode(): Promise<void> {
   }
 }
 
-// -- Refresh status -- (re-checks the approval: role flip OR capability grant)
-async function refreshStatus(): Promise<void> {
-  if (refreshing.value) return
-  refreshing.value = true
-  try {
-    // Re-fetch the account: covers both a role='master' promotion and the T4
-    // capability grant (allowedRoles gains 'master' on approval).
-    await authStore.fetchMe()
-    if (authStore.role === 'master') {
-      await masterStore.fetchMyProfile(true)
-    } else if (!authStore.allowedRoles.includes('master')) {
-      toast.info('Заявка ещё на рассмотрении')
-    }
-    // else: approved — profileStatus flips to 'verified' reactively.
-  } catch {
-    toast.error('Не удалось проверить статус')
-  } finally {
-    refreshing.value = false
-  }
-}
 </script>
 
 <style scoped>
@@ -201,6 +178,22 @@ async function refreshStatus(): Promise<void> {
      so content matches the app's 24px rail (WS-1, 2026-06-19). */
   padding: var(--space-8) var(--velo-rail-pad-x) var(--space-5);
   gap: var(--space-4);
+}
+
+/* Pending (K2d): vertically center the card, drop the top-heavy padding. */
+.pending-view__content--centered {
+  justify-content: center;
+  padding-top: var(--space-5);
+}
+
+/* Pending card подложка (K2b): icon + title + subtext on a white plate. */
+.pending-view__card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-5);
 }
 
 /* -- Verdict illustration (extracted from the design SVGs) -- */
