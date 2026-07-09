@@ -53,7 +53,9 @@
   </ResultScreen>
 
   <!-- ===== FORM SCREEN ===== -->
-  <div v-else class="form-shell">
+  <!-- Tapping a non-interactive blank area dismisses the soft keyboard (the
+       textarea has no «Готово» key) — batch I, port from CreatePracticeView. -->
+  <div v-else class="form-shell" @click="dismissKeyboardOnBlank">
     <!-- Header -->
     <VHeader show-back :back-label="backLabel" @back="emit('back')" />
 
@@ -90,12 +92,14 @@
         <slot name="selection" />
       </div>
 
-      <!-- Comment textarea -->
+      <!-- Comment textarea. @focus scrolls it above the soft keyboard once the
+           keyboard settles (batch I — shared useKeyboardFieldScroll). -->
       <VTextarea
         :model-value="comment"
         placeholder="Добавьте комментарий..."
         :rows="3"
         maxlength="1000"
+        @focus="onFieldFocus"
         @update:model-value="emit('update:comment', $event)"
       />
 
@@ -127,7 +131,25 @@ import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import ResultScreen from '@/components/shared/ResultScreen.vue'
 import { cleanPracticeTitle } from '@/utils/format'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { PracticeResponse } from '@/api/types'
+
+// Lift the focused textarea above the soft keyboard after it settles (M5 shared
+// composable). Bound to the textarea's @focus below.
+const { onFieldFocus } = useKeyboardFieldScroll()
+
+/**
+ * Tap a non-interactive blank area to dismiss the soft keyboard — the comment
+ * textarea has no «Готово» key on iOS/Telegram. Port of CreatePracticeView's
+ * dismissKeyboardOnBlank: only blur when the tap didn't land on an interactive
+ * element, so buttons / the back button / the field itself keep working.
+ */
+function dismissKeyboardOnBlank(e: MouseEvent): void {
+  const t = e.target as HTMLElement
+  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+  }
+}
 
 const props = defineProps<{
   backLabel: string
