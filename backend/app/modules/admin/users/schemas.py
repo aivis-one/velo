@@ -47,6 +47,16 @@ class AdminMasterDetail(AdminMasterListItem):
     methods: list[str] = Field(default_factory=list)
     experience_years: int = 0
     bio: str | None = None
+    # Batch H: the remaining master-authored fields the admin edits, read from
+    # data.profile. display_name is the profile «визитка» name (distinct from the
+    # account first/last on the base item). email/phone/certifications are
+    # ADMIN-ONLY -- they MUST NOT be added to the public MasterPublicResponse
+    # (test_master_public forbids them on GET /masters/{id}).
+    display_name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    languages: list[str] = Field(default_factory=list)
+    certifications: list[str] = Field(default_factory=list)
 
 
 class PaginatedMastersResponse(BaseModel):

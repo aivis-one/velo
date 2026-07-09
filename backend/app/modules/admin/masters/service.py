@@ -44,6 +44,7 @@ from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, VeloError
 from app.core.redis import get_redis
 from app.modules.admin.masters.schemas import (
+    AdminMasterProfileUpdate,
     AdminMethodChangeItem,
     PaginatedMethodChangeRequestsResponse,
     RevokeMasterAdvisory,
@@ -496,6 +497,81 @@ async def edit_master_methods(
         "master_methods_edited",
         user_id=str(user_id),
         admin_id=str(admin.id),
+    )
+
+    return profile
+
+
+# Keys that live under data.profile.* (JSONB). first_name/last_name are NOT
+# here -- they live on the User row and are handled separately below.
+_EDITABLE_PROFILE_KEYS = (
+    "display_name",
+    "email",
+    "phone",
+    "bio",
+    "methods",
+    "experience_years",
+    "certifications",
+    "languages",
+)
+
+
+async def edit_master_profile(
+    user_id: UUID,
+    body: AdminMasterProfileUpdate,
+    admin: User,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Admin partial-edit of EVERY master-authored field (batch H).
+
+    Mirrors edit_master_methods (deepcopy -> set_jsonb -> audit, NO status gate)
+    but writes the full data.profile.* set AND the account name on the User row.
+    Only the keys the client actually sent (model_dump(exclude_unset=True)) are
+    applied, so a partial PATCH never clobbers an unsent sibling (e.g. an existing
+    method_change_request or availability block). No User.role / status change.
+    Caller does flush + refresh.
+    """
+    profile = await session.get(MasterProfile, user_id)
+    if profile is None:
+        raise NotFoundError("Master not found")
+
+    sent = body.model_dump(exclude_unset=True)
+
+    # -- data.profile.* (JSONB) -- P-03: deepcopy + set_jsonb --
+    new_data = copy.deepcopy(profile.data)
+    prof = new_data.setdefault("profile", {})
+    for key in _EDITABLE_PROFILE_KEYS:
+        if key in sent:
+            prof[key] = sent[key]
+    profile.set_jsonb("data", new_data)
+
+    # -- User.* (account name, В1=В) -- load + write only when a name was sent --
+    if "first_name" in sent or "last_name" in sent:
+        user = await session.get(User, user_id)
+        if user is None:
+            raise NotFoundError("User not found")
+        if "first_name" in sent:
+            user.first_name = sent["first_name"]
+        if "last_name" in sent:
+            user.last_name = sent["last_name"]
+
+    # Audit the field NAMES only (not values -- avoids spilling email/phone PII
+    # into the audit log; the admin action + target are what matters).
+    await record_audit(
+        event="master_profile_edited",
+        actor_id=admin.id,
+        actor_type="admin",
+        target_type="master_profile",
+        target_id=user_id,
+        data={"fields": sorted(sent.keys())},
+        session=session,
+    )
+
+    logger.info(
+        "master_profile_edited",
+        user_id=str(user_id),
+        admin_id=str(admin.id),
+        fields=sorted(sent.keys()),
     )
 
     return profile

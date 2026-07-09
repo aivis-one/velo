@@ -26,6 +26,7 @@ from tests.helpers import auth_headers, cleanup_range, login_user
 VERIFY_URL = "/api/v1/admin/masters/{user_id}/verify"
 REJECT_URL = "/api/v1/admin/masters/{user_id}/reject"
 METHODS_URL = "/api/v1/admin/masters/{user_id}/methods"
+PROFILE_URL = "/api/v1/admin/masters/{user_id}/profile"
 DETAIL_URL = "/api/v1/admin/masters/{user_id}"
 APPLY_URL = "/api/v1/masters/apply"
 
@@ -491,6 +492,225 @@ async def test_edit_methods_non_admin(client: AsyncClient) -> None:
     resp = await client.patch(
         METHODS_URL.format(user_id=auth["user"]["id"]),
         json={"methods": ["yoga"]},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /admin/masters/{user_id} -- detail carries ALL editable fields (batch H)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_master_detail_carries_all_editable_fields(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """The detail endpoint returns email / phone / languages / certifications."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56050)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.get(
+        DETAIL_URL.format(user_id=user_id), headers=auth_headers(admin_token)
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # _valid_apply_body seeds display_name/email/phone/certifications; languages [].
+    assert data["display_name"] == "Verify Test Master"
+    assert data["email"] == "verify@test.com"
+    assert data["phone"] == "+1234567890"
+    assert data["certifications"] == ["Cert A"]
+    assert data["languages"] == []
+
+
+# ---------------------------------------------------------------------------
+# PATCH /admin/masters/{user_id}/profile (batch H)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_edit_profile_partial_update_preserves_siblings(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A partial PATCH writes only the sent keys; unsent siblings survive."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56051)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=user_id),
+        json={"display_name": "New Name", "bio": "Rewritten bio"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["user_id"] == user_id
+
+    profile = await db_session.get(MasterProfile, user_id)
+    await db_session.refresh(profile)
+    prof = profile.data["profile"]
+    # Sent keys applied.
+    assert prof["display_name"] == "New Name"
+    assert prof["bio"] == "Rewritten bio"
+    # Unsent siblings untouched (methods/experience/email/phone/certifications).
+    assert prof["methods"] == ["meditation"]
+    assert prof["experience_years"] == 5
+    assert prof["email"] == "verify@test.com"
+    assert prof["phone"] == "+1234567890"
+    assert prof["certifications"] == ["Cert A"]
+    # account block (status) never touched by a profile edit.
+    assert profile.data["account"]["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_all_fields(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Every editable data.profile.* field can be written in one call."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56052)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=user_id),
+        json={
+            "display_name": "Full Edit",
+            "email": "new@test.com",
+            "phone": "+79990001122",
+            "bio": "Full bio",
+            "methods": ["yoga", "breathwork"],
+            "experience_years": 12,
+            "certifications": ["Cert X", "Cert Y"],
+            "languages": ["Русский", "English"],
+        },
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+
+    profile = await db_session.get(MasterProfile, user_id)
+    await db_session.refresh(profile)
+    prof = profile.data["profile"]
+    assert prof["display_name"] == "Full Edit"
+    assert prof["email"] == "new@test.com"
+    assert prof["phone"] == "+79990001122"
+    assert prof["bio"] == "Full bio"
+    assert prof["methods"] == ["yoga", "breathwork"]
+    assert prof["experience_years"] == 12
+    assert prof["certifications"] == ["Cert X", "Cert Y"]
+    assert prof["languages"] == ["Русский", "English"]
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_updates_account_name(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """first_name / last_name write to the User row (В1=В both names)."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56053)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=user_id),
+        json={"first_name": "Ivan", "last_name": "Petrov"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+
+    user = await db_session.get(User, user_id)
+    await db_session.refresh(user)
+    assert user.first_name == "Ivan"
+    assert user.last_name == "Petrov"
+
+    # Detail (admin list name) reflects the updated account name.
+    detail = await client.get(
+        DETAIL_URL.format(user_id=user_id), headers=auth_headers(admin_token)
+    )
+    assert detail.json()["first_name"] == "Ivan"
+    assert detail.json()["last_name"] == "Petrov"
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_works_on_verified_master(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """The edit works post-verification (ANY status, no gate)."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56054)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+
+    # Verify first -> status=verified.
+    verify = await client.post(
+        VERIFY_URL.format(user_id=user_id),
+        json={"notes": "ok"},
+        headers=auth_headers(admin_token),
+    )
+    assert verify.json()["status"] == "verified"
+
+    # Now edit the verified master's profile.
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=user_id),
+        json={"bio": "Edited after verification"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+
+    profile = await db_session.get(MasterProfile, user_id)
+    await db_session.refresh(profile)
+    assert profile.data["profile"]["bio"] == "Edited after verification"
+    # Status stays verified -- a profile edit never changes account status.
+    assert profile.data["account"]["status"] == "verified"
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_validation_rejects(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Bad email / out-of-range experience / over-long name are 422."""
+    applicant_auth, _ = await _create_applicant(client, telegram_id=56055)
+    _, admin_token = await _make_admin(client, db_session)
+    user_id = applicant_auth["user"]["id"]
+    url = PROFILE_URL.format(user_id=user_id)
+    headers = auth_headers(admin_token)
+
+    assert (
+        await client.patch(url, json={"email": "not-an-email"}, headers=headers)
+    ).status_code == 422
+    assert (
+        await client.patch(url, json={"experience_years": 99}, headers=headers)
+    ).status_code == 422
+    assert (
+        await client.patch(url, json={"display_name": "x" * 101}, headers=headers)
+    ).status_code == 422
+    # methods, if provided, still obeys the >=1 apply rule.
+    assert (
+        await client.patch(url, json={"methods": []}, headers=headers)
+    ).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_not_found(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Editing a non-master user_id is a 404."""
+    _, admin_token = await _make_admin(client, db_session)
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=uuid4()),
+        json={"bio": "x"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_edit_profile_non_admin(client: AsyncClient) -> None:
+    """A non-admin caller is forbidden."""
+    auth = await login_user(client, telegram_id=56056, first_name="NotAdmin")
+    resp = await client.patch(
+        PROFILE_URL.format(user_id=auth["user"]["id"]),
+        json={"bio": "x"},
         headers=auth_headers(auth["session_token"]),
     )
     assert resp.status_code == 403
