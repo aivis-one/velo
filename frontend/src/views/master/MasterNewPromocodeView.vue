@@ -10,7 +10,7 @@
   <div class="new-promo">
     <VHeader title="Новый промокод" show-back @back="router.back()" />
 
-    <div class="new-promo__content" @click="dismissKeyboardOnBlank">
+    <div class="new-promo__content">
       <!-- Required-fields legend (DS, Phase-3). -->
       <div class="new-promo__legend">
         <IconRequired class="new-promo__legend-seal" :size="22" />
@@ -123,15 +123,6 @@ watch(
 function onCreate(): void {
   // No promocodes backend yet -> stub per the operator rule. -> Zod.
   toast.info('Промокоды пока недоступны')
-}
-
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs have
-// no «Готово» key). Pattern ported from CreatePracticeView.
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
 }
 </script>
 

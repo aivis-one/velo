@@ -76,7 +76,7 @@
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
       </div>
 
-      <div class="edit-practice__content" @click="dismissKeyboardOnBlank">
+      <div class="edit-practice__content">
         <!-- ================================================================
              FORM (editable for draft / scheduled only)
              ================================================================ -->
@@ -309,15 +309,6 @@ function onBack(): void {
   if (window.history.state?.back)
     router.back()
   else router.push({ name: 'master-practice-detail', params: { id: practiceId } })
-}
-
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
-// like «Максимум мест» have no «Готово» key) — operator 2026-06-17.
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
 }
 
 // -- Practice data --

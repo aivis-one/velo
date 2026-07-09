@@ -35,7 +35,7 @@
     <!-- Header -->
     <VHeader title="Новая практика" show-back @back="onBack" />
 
-    <div class="create-practice__content" @click="dismissKeyboardOnBlank">
+    <div class="create-practice__content">
       <!-- Required-fields legend (DS banner, Phase-3). -->
       <div class="create-practice__legend">
         <IconRequired class="create-practice__legend-seal" :size="22" />
@@ -431,15 +431,6 @@ function friendlyDate(iso: string): string {
 }
 const dateDisplay = computed((): string => friendlyDate(form.date))
 const endDateDisplay = computed((): string => friendlyDate(form.recurrence_end_date))
-
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
-// like «Максимум мест» have no «Готово» key) — operator 2026-06-18 (port from edit).
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
 
 // -- Recurrence period options (Повторение). The on/off toggle drives
 // practice_type (series/live); when on, period/days/end build a RecurrenceSpec

@@ -54,6 +54,7 @@ import { useAuth } from '@/composables/useAuth'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import { useBackgroundStabilizer } from '@/composables/useBackgroundStabilizer'
+import { useKeyboardDismiss } from '@/composables/useKeyboardDismiss'
 import { VToast } from '@/components/ui'
 import AppFrame from '@/components/layout/AppFrame.vue'
 import LoadingView from '@/views/auth/LoadingView.vue'
@@ -68,6 +69,10 @@ const toast = useToast()
 // Pin the fixed photo-background against the iOS/Telegram keyboard viewport
 // shift (the "dancing background"). Mounted once here, on the app root.
 useBackgroundStabilizer()
+
+// GLOBAL tap-to-dismiss keyboard (batch L, B1): one app-level owner replacing
+// the per-view dismissKeyboardOnBlank copies. Installed once here.
+useKeyboardDismiss()
 
 /** Entry stage after a successful auth. Starts at the welcome screen. */
 type EntryStage = 'welcome' | 'onboarding' | 'app'

@@ -17,7 +17,7 @@
   Route: /user/support (name 'user-support').
 -->
 <template>
-  <div class="support" @click="dismissKeyboardOnBlank">
+  <div class="support">
     <!-- Header hidden on the terminal screen (no back — «На главную» is the exit). -->
     <VHeader v-if="!submitted" title="Поддержка" show-back @back="router.back()" />
 
@@ -98,17 +98,6 @@ const router = useRouter()
 
 // Lift the «Сообщение» textarea above the soft keyboard once it settles (shared M5).
 const { onFieldFocus } = useKeyboardFieldScroll()
-
-/**
- * Tap a non-interactive blank area to dismiss the soft keyboard (the textarea has
- * no «Готово» key on iOS/Telegram). Port of CreatePracticeView.dismissKeyboardOnBlank.
- */
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
 
 // -- Topic catalog (batch I). priority is INTERNAL routing/sort metadata — it is
 //    deliberately NOT rendered to the user. --

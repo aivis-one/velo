@@ -35,7 +35,7 @@
   <div class="edit-profile">
     <VHeader title="Редактировать профиль" show-back @back="router.back()" />
 
-    <div class="edit-profile__content" @click="dismissKeyboardOnBlank">
+    <div class="edit-profile__content">
       <!-- Avatar + change photo (stub) -->
       <div class="edit-profile__avatar-block">
         <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" size="xl" />
@@ -379,13 +379,6 @@ const hasErrors = computed(() => !!bioError.value || !!emailError.value)
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
   toast.info('Опция временно недоступна')
-}
-
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
 }
 
 const saving = ref(false)

@@ -53,9 +53,8 @@
   </ResultScreen>
 
   <!-- ===== FORM SCREEN ===== -->
-  <!-- Tapping a non-interactive blank area dismisses the soft keyboard (the
-       textarea has no «Готово» key) — batch I, port from CreatePracticeView. -->
-  <div v-else class="form-shell" @click="dismissKeyboardOnBlank">
+  <!-- Tap-to-dismiss keyboard is now app-global (useKeyboardDismiss, B1). -->
+  <div v-else class="form-shell">
     <!-- Header -->
     <VHeader show-back :back-label="backLabel" @back="emit('back')" />
 
@@ -137,19 +136,6 @@ import type { PracticeResponse } from '@/api/types'
 // Lift the focused textarea above the soft keyboard after it settles (M5 shared
 // composable). Bound to the textarea's @focus below.
 const { onFieldFocus } = useKeyboardFieldScroll()
-
-/**
- * Tap a non-interactive blank area to dismiss the soft keyboard — the comment
- * textarea has no «Готово» key on iOS/Telegram. Port of CreatePracticeView's
- * dismissKeyboardOnBlank: only blur when the tap didn't land on an interactive
- * element, so buttons / the back button / the field itself keep working.
- */
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
 
 const props = defineProps<{
   backLabel: string

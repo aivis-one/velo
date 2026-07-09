@@ -35,9 +35,9 @@
     </div>
 
     <!-- Scrolling feed: top fog-mask dissolves content at the header edge (reuses
-         the dashboard/diary island gradient). Tap on a blank area dismisses the
-         soft keyboard (J1e / J2b — port of FormShell/CreatePractice). -->
-    <div class="apply-view__content" @click="dismissKeyboardOnBlank">
+         the dashboard/diary island gradient). Tap-to-dismiss keyboard is
+         app-global now (useKeyboardDismiss, B1). -->
+    <div class="apply-view__content">
       <!-- ================================================================
            STEP 1: Профиль
            ================================================================ -->
@@ -270,15 +270,6 @@ const form = reactive({
 // view only holds the flat `methods: string[]` payload it emits (v-model). The
 // picker owns seeding/flattening, «Свой вариант» and its own focus-scroll.
 const methods = ref<string[]>([])
-
-// Tap a non-interactive blank area to dismiss the soft keyboard (J1e / J2b —
-// port of FormShell / CreatePracticeView; the text fields have no «Готово» key).
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
 
 // Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
