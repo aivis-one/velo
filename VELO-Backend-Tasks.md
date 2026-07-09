@@ -799,3 +799,39 @@ today). No «Аккаунт удалён» UI branch exists.
 
 **Dependency:** F3's «Удалены» tab stays empty until this ships; «Заблокированы» already populates
 from A1's `suspended`.
+
+---
+
+## 2026-07-09 — USER SUPPORT screen shipped (frontend-only stub) → needs a ticket backend (P1)
+
+**Frontend shipped this batch (I3, no backend touch):** a real user Support screen at route
+`user-support` (`frontend/src/views/user/SupportView.vue`), reached from the profile hub «Поддержка»
+(previously a stub toast). Topic picker + message + honest terminal screen. **No server call** — submit
+logs a future-ready payload and points to `mailto:support@velo.app` as the live channel (mirrors the
+MasterSupportView stub; it does NOT claim server delivery).
+
+**Topic catalog (user-facing labels) + INTERNAL priority** (priority is NOT shown to the user — it is
+our routing/sort signal):
+
+| value | label | priority |
+|---|---|---|
+| `payment` | Проблема с оплатой / транзакцией | P1 |
+| `complaint_master` | Жалоба на мастера | **P0** |
+| `practice` | Проблема с практикой | P1 |
+| `technical` | Технический вопрос | P2 |
+| `other` (+ free-text) | Другое | P2 |
+
+**What Zod needs to build (ticket intake):**
+- A `SupportTicket` model + migration with at least: `id`, `user_id`, `topic` (the value above),
+  `priority` (**a real column** — `P0|P1|P2` or an int severity — so the queue can route/sort by it),
+  `custom_topic` (nullable, for `other`), `message`, `status` (open/…); optional attachments later.
+- `POST /api/v1/support/tickets` (auth = current user) accepting `{topic, message, custom_topic?}`;
+  the server derives/validates `priority` from the topic (do NOT trust a client-sent priority — the
+  frontend sends it only as a future-ready hint; the server is the source of truth for routing).
+- Admin queue to list/sort tickets by `priority` (P0 first). MasterSupportView is the SAME stub and can
+  share the ticket model once this exists.
+- When live: wire `SupportView.onSubmit` to the real POST (replace the console.info stub + the honest
+  terminal copy can then legitimately say the request was received).
+
+The MASTER support form (`MasterSupportView`) is the same stub and should fold into this ticket model
+too (its topics are master-oriented: withdrawal / add_direction / rejected — keep both catalogs).

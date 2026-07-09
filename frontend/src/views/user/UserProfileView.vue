@@ -183,10 +183,9 @@ function onLanguageTimezone(): void {
 }
 
 function onSupport(): void {
-  // Техподдержки пока нет (бот не готов, тест на малой выборке) — кнопка
-  // никуда не ведёт, показываем заглушку (operator 2026-06-04). Когда сервис
-  // появится — впишем сюда переход на бота/общий чат.
-  toast.info('Техподдержка пока недоступна')
+  // User support screen (batch I): topic picker + message + honest stub submit
+  // (no support backend yet — see SupportView / VELO-Backend-Tasks.md).
+  router.push({ name: 'user-support' })
 }
 
 function onShare(): void {
@@ -229,6 +228,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* This screen is headerless (no VHeader teleports), but MobileLayout still
+     reserves a fixed ~104px top clearance for a floating header (HEADER_FALLBACK
+     88 + topGap 16, see MobileLayout.vue:178/188) — leaving a big empty band
+     above the avatar card. Cancel that clearance and keep a 50px residual so the
+     card sits just under the top fog (operator-dialed via
+     .tmp/i1-profile-spacing.html). The 104px mirrors MobileLayout's headerless
+     fallback. */
+  margin-top: calc(50px - 104px);
 }
 
 /* Header: white profile card */
