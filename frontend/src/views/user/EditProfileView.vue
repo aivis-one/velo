@@ -74,20 +74,12 @@
           <p class="edit-profile__methods-note">{{ METHOD_CHANGE_NOTE }}</p>
         </template>
 
-        <!-- Editable: toggle the flat method set, then submit a change-request. -->
+        <!-- Editable: two-level направление→вид picker (batch L, shared
+             MethodTaxonomyPicker), seeded from the master's current methods
+             (drop-unmatched, Q3). On submit the flat new-vocabulary methods[]
+             goes to submitMethodChangeRequest (schema unchanged). -->
         <template v-else>
-          <div class="edit-profile__methods-chips">
-            <VChip
-              v-for="m in AVAILABLE_METHODS"
-              :key="m"
-              size="md"
-              clickable
-              :active="selectedMethods.includes(m)"
-              @click="toggleMethod(m)"
-            >
-              {{ m }}
-            </VChip>
-          </div>
+          <MethodTaxonomyPicker v-model="selectedMethods" />
           <p v-if="methodRejectReason" class="edit-profile__methods-reject">
             Прошлый запрос отклонён: {{ methodRejectReason }}
           </p>
@@ -217,8 +209,9 @@ import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
 import { submitMethodChangeRequest, updateMasterLanguages } from '@/api/masters'
 import { formatMoney } from '@/utils/format'
-import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
+import { flattenMethods, parseMethods } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
@@ -233,8 +226,10 @@ const masterStore = useMasterStore()
 const user = computed(() => authStore.user)
 const isMaster = computed(() => authStore.role === 'master')
 
-// -- Master methods (M3): editable flat set gated by admin approval ---------
-// FLAT branch: plain human-readable strings (shared AVAILABLE_METHODS source).
+// -- Master methods: two-level направление→вид picker gated by admin approval
+// (batch L). Selection is held as the flat «Направление — Вид» methods[] the
+// shared MethodTaxonomyPicker emits; the change-request payload/schema is
+// unchanged (still a flat string[] to submitMethodChangeRequest).
 const METHOD_CHANGE_NOTE =
   'Изменение методов практики требует подтверждения администратора. ' +
   'Запрос отправляется автоматически. Обработка запроса обычно занимает ' +
@@ -242,6 +237,12 @@ const METHOD_CHANGE_NOTE =
 
 // The master's current live methods (from the profile).
 const currentMethods = computed((): string[] => masterStore.profile?.methods ?? [])
+
+// Normalised current = the live methods run through the two-level taxonomy
+// (drop-unmatched, Q3). This is the baseline the picker seeds to and that
+// `methodsChanged` compares against — so opening the screen shows «no change»
+// even when the stored set contained strings outside the taxonomy.
+const normalizedCurrent = computed((): string[] => flattenMethods(parseMethods(currentMethods.value)))
 
 // The outstanding / recently-decided change-request (null when none).
 const methodRequest = computed(() => masterStore.profile?.method_change_request ?? null)
@@ -255,24 +256,19 @@ const methodRejectReason = computed((): string =>
 // whenever the profile (re)loads.
 const selectedMethods = ref<string[]>([])
 watch(
-  currentMethods,
+  normalizedCurrent,
   (next) => {
     selectedMethods.value = [...next]
   },
   { immediate: true },
 )
 
-function toggleMethod(method: string): void {
-  const idx = selectedMethods.value.indexOf(method)
-  if (idx === -1) selectedMethods.value.push(method)
-  else selectedMethods.value.splice(idx, 1)
-}
-
-// Order-insensitive: the proposed set must be non-empty and differ from live.
+// Order-insensitive: the proposed set must be non-empty and differ from the
+// normalised baseline (both in the two-level vocabulary).
 const methodsChanged = computed((): boolean => {
   const sel = selectedMethods.value
   if (sel.length === 0) return false
-  const cur = currentMethods.value
+  const cur = normalizedCurrent.value
   if (sel.length !== cur.length) return true
   const curSet = new Set(cur)
   return sel.some((m) => !curSet.has(m))
