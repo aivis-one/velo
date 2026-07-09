@@ -15,7 +15,7 @@
     role="checkbox"
     :aria-checked="modelValue"
     class="v-checkbox"
-    :class="{ 'v-checkbox--disabled': disabled }"
+    :class="{ 'v-checkbox--disabled': disabled, 'v-checkbox--sm': size === 'sm' }"
     :disabled="disabled"
     @click="toggle"
   >
@@ -36,11 +36,15 @@ const props = withDefaults(
     modelValue?: boolean
     label?: string
     disabled?: boolean
+    /** 'sm' reduces the label font (batch J J1b, e.g. consent copy). Default =
+     *  current size, so existing callers are unchanged. */
+    size?: 'sm' | 'md'
   }>(),
   {
     modelValue: false,
     label: '',
     disabled: false,
+    size: 'md',
   },
 )
 
@@ -95,5 +99,11 @@ function toggle(): void {
 .v-checkbox__label {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
+}
+
+/* Compact variant (batch J): smaller label copy (e.g. consent text). */
+.v-checkbox--sm .v-checkbox__label {
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 </style>

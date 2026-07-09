@@ -13,12 +13,34 @@
 
 <template>
   <div class="v-input" :class="{ 'v-input--error': !!error }">
-    <label v-if="label" class="v-input__label">{{ label }}</label>
+    <!-- External label — hidden in floating mode (the label lives inside the field). -->
+    <label v-if="label && !floatingLabel" class="v-input__label">{{ label }}</label>
 
     <div class="v-input__row">
+      <!-- Floating-label path (DS variant): the label sits inside the empty field
+           as a placeholder, then floats up small on focus/fill and stays (batch J
+           J1a). Additive — only when `floatingLabel`; every other caller is
+           untouched. Not combined with the affix slots. -->
+      <div
+        v-if="floatingLabel && !$slots.prefix && !$slots.suffix"
+        class="v-input__float"
+        :class="{ 'v-input__float--filled': !!modelValue }"
+      >
+        <input
+          ref="inputEl"
+          class="v-input__field v-input__field--float"
+          :type="type"
+          :value="modelValue"
+          :disabled="disabled"
+          v-bind="$attrs"
+          @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        />
+        <label class="v-input__float-label">{{ label }}</label>
+      </div>
+
       <!-- Affix path: prefix/suffix slots (€ amount, inline action, …). The box
            carries the border/bg; the input goes bare inside. -->
-      <div v-if="$slots.prefix || $slots.suffix" class="v-input__box">
+      <div v-else-if="$slots.prefix || $slots.suffix" class="v-input__box">
         <span v-if="$slots.prefix" class="v-input__affix"><slot name="prefix" /></span>
         <input
           ref="inputEl"
@@ -81,6 +103,10 @@ withDefaults(
     disabled?: boolean
     /** Show the pink IconRequired seal in the right gutter (DS required marker). */
     required?: boolean
+    /** Floating-label variant (batch J): render `label` inside the field; it
+     *  floats up small on focus/fill. Default OFF — all existing callers keep the
+     *  external-label layout. Ignored when prefix/suffix slots are used. */
+    floatingLabel?: boolean
   }>(),
   {
     modelValue: '',
@@ -90,6 +116,7 @@ withDefaults(
     error: '',
     disabled: false,
     required: false,
+    floatingLabel: false,
   },
 )
 
@@ -199,6 +226,46 @@ defineExpose({ focus: () => inputEl.value?.focus() })
 
 .v-input__field--bare:disabled {
   background: transparent;
+}
+
+/* -- Floating-label variant (batch J) -- */
+.v-input__float {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Taller plate so the floated label + input text both fit; extra top padding
+   reserves the row the label rises into. Shares the white-plate base above. */
+.v-input__field--float {
+  width: 100%;
+  height: var(--velo-size-56);
+  padding: 20px var(--space-4) 0;
+}
+
+.v-input__float-label {
+  position: absolute;
+  left: calc(var(--space-4) + 2px);
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-muted);
+  pointer-events: none;
+  transition:
+    top var(--transition-fast),
+    font-size var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+/* Floated state: focused OR filled → small label pinned near the top. */
+.v-input__float:focus-within .v-input__float-label,
+.v-input__float--filled .v-input__float-label {
+  top: 9px;
+  transform: none;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
 }
 
 /* Required seal — sits beside the field, never shrinks, gutter always reserved
