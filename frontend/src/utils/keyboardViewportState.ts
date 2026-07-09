@@ -13,19 +13,17 @@
 // =============================================================================
 
 /**
- * Restore the at-rest values the stabilizer publishes: bg-shift 0px, no
- * `is-keyboard-open` / `is-field-focused` class, cleared `--velo-vvh`. These are
- * exactly the values a screen has when no keyboard is open, so calling this on an
- * at-rest navigation is a no-op (0px→0px, absent classes, ''→''). No-op under SSR
- * (no document) and safe when #app is absent.
+ * Restore the at-rest keyboard-layout state the stabilizer publishes: no
+ * `is-keyboard-open` class, cleared `--velo-vvh`. These are exactly the values a
+ * screen has when no keyboard is open, so calling this on an at-rest navigation is
+ * a no-op (absent class, ''→''). No-op under SSR (no document).
+ *
+ * (Batch K: the bg is now decoupled structurally — no `--velo-bg-shift` /
+ * `is-field-focused` to reset anymore.)
  */
 export function resetKeyboardViewportState(): void {
   if (typeof document === 'undefined') return
-  document.getElementById('app')?.style.setProperty('--velo-bg-shift', '0px')
   const root = document.documentElement
   root.classList.remove('is-keyboard-open')
-  // Focus-driven early bg-freeze class (SP-3): cleared here too so a route change
-  // while a field is focused can't leave the photo frozen on the next screen.
-  root.classList.remove('is-field-focused')
   root.style.setProperty('--velo-vvh', '')
 }
