@@ -79,7 +79,7 @@
              (drop-unmatched, Q3). On submit the flat new-vocabulary methods[]
              goes to submitMethodChangeRequest (schema unchanged). -->
         <template v-else>
-          <MethodTaxonomyPicker v-model="selectedMethods" />
+          <MethodTaxonomyPicker v-model="selectedMethods" :allow-custom="false" />
           <p v-if="methodRejectReason" class="edit-profile__methods-reject">
             Прошлый запрос отклонён: {{ methodRejectReason }}
           </p>
