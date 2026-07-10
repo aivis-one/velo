@@ -149,19 +149,19 @@
           label="Check-in rate"
           :value="checkinRate"
           clickable
-          @click="router.push({ name: 'admin-checkin-rate' })"
+          @click="router.push({ name: 'admin-checkin-rate', query: engagementQuery })"
         />
         <VProgressRow
           label="Feedback rate"
           :value="feedbackRate"
           clickable
-          @click="router.push({ name: 'admin-feedback-rate' })"
+          @click="router.push({ name: 'admin-feedback-rate', query: engagementQuery })"
         />
         <VProgressRow
           label="Return rate"
           :value="returnRate"
           clickable
-          @click="router.push({ name: 'admin-return-rate' })"
+          @click="router.push({ name: 'admin-return-rate', query: engagementQuery })"
         />
       </VCard>
 
@@ -204,6 +204,7 @@ import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/compone
 import { useAdminStore } from '@/stores/admin'
 import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
 import { formatMoney } from '@/utils/format'
+import { formatPeriodRange } from '@/utils/periodRange'
 
 const router = useRouter()
 const adminStore = useAdminStore()
@@ -313,23 +314,16 @@ async function loadEngagement(): Promise<void> {
   if (revenue.status === 'fulfilled') revenueCents.value = revenue.value.revenue_cents
 }
 
-// Navigated period label, client-side: week -> "Mon - Sun", month -> "Июль 2026",
-// both shifted by periodOffset. Cosmetic mirror of the backend UTC calendar bounds.
-const periodRange = computed((): string => {
-  const now = new Date()
-  if (period.value === 'week') {
-    const dow = (now.getDay() + 6) % 7 // Mon = 0
-    const mon = new Date(now)
-    mon.setDate(now.getDate() - dow + periodOffset.value * 7)
-    const sun = new Date(mon)
-    sun.setDate(mon.getDate() + 6)
-    const fmt = (d: Date): string =>
-      d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
-    return `${fmt(mon)} - ${fmt(sun)}`
-  }
-  const m = new Date(now.getFullYear(), now.getMonth() + periodOffset.value, 1)
-  return m.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
-})
+// Navigated period label (shared util so the Engagement drill-in shows the same
+// week — batch P, P1).
+const periodRange = computed((): string => formatPeriodRange(period.value, periodOffset.value))
+
+// Query carried into the Engagement drill-in views so they fetch the SELECTED
+// week/month, not the current one (P1). offset is stringified for the URL.
+const engagementQuery = computed(() => ({
+  period: period.value,
+  offset: String(periodOffset.value),
+}))
 
 // Refetch the overview + engagement rates whenever the period or the stepper
 // offset changes (D1/D3 cards + D4/D5 engagement share one window).

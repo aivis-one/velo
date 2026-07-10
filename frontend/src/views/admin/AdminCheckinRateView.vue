@@ -14,6 +14,7 @@
     <header class="admin-detail__top">
       <VBackButton @click="router.back()" />
       <span class="admin-detail__title">Check-in rate</span>
+      <span class="admin-detail__range">{{ rangeLabel }}</span>
     </header>
 
     <div v-if="loading" class="admin-detail__loader"><VLoader size="lg" /></div>
@@ -49,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   VBackButton,
   VMetricHero,
@@ -64,9 +65,18 @@ import {
 import { IconCheck } from '@/components/icons'
 import { getCheckinMetric } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
+import { formatPeriodRange } from '@/utils/periodRange'
 import type { CheckinMetricResponse, SeriesPoint } from '@/api/types'
 
 const router = useRouter()
+
+// Selected week/month carried from the dashboard drill-in (P1). Defaults to the
+// current week on a direct link (no query).
+const route = useRoute()
+const period: 'week' | 'month' = route.query.period === 'month' ? 'month' : 'week'
+const rawOffset = Number.parseInt(String(route.query.offset ?? ''), 10)
+const offset = Number.isFinite(rawOffset) ? rawOffset : 0
+const rangeLabel = formatPeriodRange(period, offset)
 
 const data = ref<CheckinMetricResponse | null>(null)
 const loading = ref(false)
@@ -88,7 +98,7 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    data.value = await getCheckinMetric()
+    data.value = await getCheckinMetric(period, offset)
   } catch (e) {
     error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
   } finally {
@@ -115,6 +125,13 @@ onMounted(load)
   font-family: var(--font-body);
   font-size: var(--text-sm);
   color: var(--velo-text-primary);
+  letter-spacing: 0.02em;
+}
+.admin-detail__range {
+  margin-left: auto;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
   letter-spacing: 0.02em;
 }
 .admin-detail__loader {
