@@ -190,6 +190,14 @@
           </span>
         </template>
       </VListRow>
+      <VListRow
+        title="Каталог практик"
+        subtitle="Направления и виды практик"
+        clickable
+        @click="router.push({ name: 'admin-catalog' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
     </template>
   </div>
 </template>

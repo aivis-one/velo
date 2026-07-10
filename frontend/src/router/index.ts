@@ -414,6 +414,13 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMethodRequestsView.vue'),
         },
         {
+          // P2: read-only practice directions/styles catalog. Editing lands with
+          // the catalog backend (A4/Zod); for now it's a view of the taxonomy.
+          path: 'catalog',
+          name: 'admin-catalog',
+          component: () => import('@/views/admin/AdminCatalogView.vue'),
+        },
+        {
           path: 'reports',
           name: 'admin-reports',
           component: () => import('@/views/admin/AdminReportsView.vue'),
