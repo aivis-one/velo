@@ -55,6 +55,7 @@
               type="text"
               class="support__other-input"
               placeholder="Укажите ваш вариант"
+              @focus="onFieldFocus"
             />
           </div>
         </div>

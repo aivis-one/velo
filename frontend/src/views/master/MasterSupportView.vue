@@ -61,6 +61,7 @@
               type="text"
               class="support__other-input"
               placeholder="Укажите ваш вариант"
+              @focus="onFieldFocus"
             />
             <IconArrowRight :size="18" class="support__other-arrow" />
           </div>
