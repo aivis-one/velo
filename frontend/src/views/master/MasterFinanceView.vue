@@ -116,16 +116,18 @@
           />
         </template>
 
-        <!-- Card transfer (operator SVG «8 Withdrawal (add card)»). No card-payout
-             backend (card storage + one-time use) yet → «Сохранить» stubs. -> Zod. -->
+        <!-- Card transfer (operator SVG «8 Withdrawal (add card)»). В1=А: only the
+             card NUMBER is persisted as the payout method (no CVV, no expiry) via
+             the same freeform PATCH /me/payout the other methods use. Имя владельца
+             stays a display-only field. -->
         <template v-else-if="payoutForm.method === 'card'">
-          <VInput v-model="payoutForm.cardNumber" label="Номер карты" placeholder="0000 0000 0000 0000" />
-          <VInput v-model="payoutForm.cardHolder" label="Имя владельца" placeholder="IVAN IVANOV" />
-          <VCheckbox
-            v-model="payoutForm.saveCard"
-            label="Сохранить карту"
-            class="finance-view__save-card"
+          <VInput
+            v-model="payoutForm.cardNumber"
+            label="Номер карты"
+            placeholder="0000 0000 0000 0000"
+            :error="formErrors.card"
           />
+          <VInput v-model="payoutForm.cardHolder" label="Имя владельца" placeholder="IVAN IVANOV" />
         </template>
 
         <div class="finance-view__form-actions">
@@ -241,7 +243,7 @@
 import { ref, computed, reactive, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
-import { VButton, VLoader, VInput, VSelect, VCheckbox } from '@/components/ui'
+import { VButton, VLoader, VInput, VSelect } from '@/components/ui'
 import { IconCheck, IconClose, IconPending, IconRequired } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
@@ -297,18 +299,19 @@ const payoutForm = reactive({
   swift: '',
   email: '',
   tag: '',
-  // Card transfer (stub → Zod). saveCard unchecked ⇒ one-time use, not stored.
+  // Card transfer (М4, В1=А): only cardNumber is persisted; cardHolder is
+  // display-only.
   cardNumber: '',
   cardHolder: '',
-  saveCard: true,
 })
 
-const formErrors = reactive({ iban: '', email: '', tag: '' })
+const formErrors = reactive({ iban: '', email: '', tag: '', card: '' })
 
 function clearFormErrors(): void {
   formErrors.iban = ''
   formErrors.email = ''
   formErrors.tag = ''
+  formErrors.card = ''
 }
 
 /** Open the payout form, pre-filling from the existing payout when editing. */
@@ -323,6 +326,7 @@ function openPayoutForm(editing: boolean): void {
     payoutForm.swift = d['swift'] ?? ''
     payoutForm.email = d['email'] ?? ''
     payoutForm.tag = d['tag'] ?? d['phone'] ?? ''
+    payoutForm.cardNumber = d['card_number'] ?? ''
   } else {
     payoutForm.method = 'bank_transfer'
     payoutForm.iban = ''
@@ -330,11 +334,10 @@ function openPayoutForm(editing: boolean): void {
     payoutForm.swift = ''
     payoutForm.email = ''
     payoutForm.tag = ''
+    payoutForm.cardNumber = ''
   }
-  // Card fields are never persisted (no backend) — always reset on open.
-  payoutForm.cardNumber = ''
+  // cardHolder is display-only (never persisted — В1=А stores only the number).
   payoutForm.cardHolder = ''
-  payoutForm.saveCard = true
   showPayoutForm.value = true
 }
 
@@ -376,17 +379,20 @@ function buildPayoutBody(): PayoutDetails | null {
     const key = value.startsWith('+') ? 'phone' : 'tag'
     return { method: 'revolut', details: { [key]: value } }
   }
+  if (payoutForm.method === 'card') {
+    // В1=А: persist ONLY the card number (no CVV, no expiry). Digits only.
+    const digits = payoutForm.cardNumber.replace(/\D/g, '')
+    if (digits.length < 12 || digits.length > 19) {
+      formErrors.card = 'Введите корректный номер карты'
+      return null
+    }
+    return { method: 'card', details: { card_number: digits } }
+  }
   return null
 }
 
 async function savePayout(): Promise<void> {
   if (savingPayout.value) return
-  // Card transfer has no backend yet (card storage + one-time payout). Build the
-  // full form per the SVG, but stub the save. -> Zod (roadmap Screen 17).
-  if (payoutForm.method === 'card') {
-    toast.info('Выплата по номеру карты появится позже')
-    return
-  }
   const body = buildPayoutBody()
   if (!body) return
   savingPayout.value = true
@@ -419,6 +425,11 @@ function maskedDetails(payout: PayoutDetails): string {
     }
     case 'revolut':
       return d['tag'] ?? d['phone'] ?? 'Настроено'
+    case 'card': {
+      const num = (d['card_number'] ?? '').replace(/\s/g, '')
+      const last4 = num.slice(-4)
+      return last4 ? `Карта ···· ${last4}` : 'Карта настроена'
+    }
     default:
       return 'Настроено'
   }
@@ -706,11 +717,6 @@ onMounted(async () => {
 .finance-view__payout-form {
   display: flex;
   flex-direction: column;
-}
-
-/* «Сохранить карту» checkbox sits between the card fields and the form actions. */
-.finance-view__save-card {
-  margin-bottom: var(--space-4);
 }
 
 .finance-view__form-actions {
