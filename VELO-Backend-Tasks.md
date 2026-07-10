@@ -713,6 +713,29 @@ FE icon map (`DIRECTION_ICON`, Partial+fallback) — a new direction with no ico
 (`TD-CAL-DIRECTIONS-EXPAND`), so the catalog can add directions ahead of icons. This epic supersedes
 the "manual code edit + migration" note in `docs/seed-context.md:208-212` once shipped.
 
+**(f) Deep-scout confirmation (ПРОМТ №360) + FE read-only ALREADY SHIPPED (batch P).**
+Forensic re-verify of the self-vs-Zod hinge — all confirmed:
+- The `PracticeDirection` enum is **NOT a gate**: it appears only as docstring/typing mirror
+  (`practices/models.py:14,67,75`, `core/config.py:137`) — never a DB column type, `server_default`,
+  CHECK, or `PracticeDirection(v)` coercion. Direction is stored as JSONB `data.taxonomy.direction`
+  (schema-on-read `@property`, `models.py:201`). New directions store/validate without touching the enum.
+- Validation is **soft, per-request**: `v not in settings.practice_allowed_directions /
+  _styles_by_direction` inside per-request validators (`schemas.py:290,466,114`, `router.py:100`,
+  `_flat_allowed_styles` `schemas.py:84`) — read at REQUEST time, so the read SOURCE can be swapped.
+- **No config/settings/kv store exists** (migrations are all domain tables) → a migration is unavoidable.
+- **Minimal Zod scope (4 parts):** (1) store = 1 migration (config-singleton JSONB row OR the small
+  `catalog_entries` table in (d.1)), seeded from current settings/enum so day-one is identical;
+  (2) endpoints = `GET /catalog` (public/master) + admin write (`PUT /admin/catalog` or the CRUD in
+  (d.3)); (3) validation source-swap = the 4 validator call sites read the runtime catalog (cached,
+  invalidated on edit) union/instead of `settings.practice_allowed_*` — the load-bearing risk in (d.2);
+  (4) FE = `practiceOptions` becomes async-fetched, and `displayHelpers.DIRECTION_LABEL/DIRECTION_ICON`
+  + all consumers tolerate unknown directions (fallback).
+- **FE read-only ALREADY SHIPPED (batch P, this session):** `admin-catalog` route + `AdminCatalogView.vue`
+  (read-only list of directions→styles from `practiceOptions`, honest "редактирование появится с бэкендом
+  каталога" note, NO dead controls) + a «Каталог практик» dashboard row. Taxonomy is built in one
+  `buildCatalog()` = the **single swap point**: when `GET /catalog` lands, point it at the endpoint and
+  the UI renders unchanged. Wiring the editable controls + persistence is Zod's part.
+
 ---
 
 ## 2026-07-07 — admin «Revoke master» self-added (heads-up for YOUR role lane, A1)
