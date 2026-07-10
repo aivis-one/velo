@@ -246,7 +246,7 @@ import { IconCheck, IconClose, IconPending, IconRequired } from '@/components/ic
 import { useToast } from '@/composables/useToast'
 import { useViewerTimezone } from '@/composables/useViewerTimezone'
 import { useMasterStore } from '@/stores/master'
-import { getMyWithdrawals, createWithdrawal, updatePayoutDetails } from '@/api/masters'
+import { getMyWithdrawals, createWithdrawal, updatePayoutDetails, deletePayout } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import { formatMoney, formatDateShort } from '@/utils/format'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
@@ -430,10 +430,22 @@ function payoutHolder(payout: PayoutDetails): string {
   return d['account_holder'] ?? ''
 }
 
-/** Remove the saved method (X on the card). No delete-payout endpoint exists
- *  (only update) — don't fake a removal. Stub → Zod (roadmap Screen 17). */
-function removePayout(): void {
-  toast.info('Удаление способа выплаты появится позже')
+/** Remove the saved payout method (X on the card) — real DELETE /me/payout (M3).
+ *  Idempotent server-side; on success the local profile.payout is cleared so the
+ *  UI reverts to the «не настроен» state. */
+async function removePayout(): Promise<void> {
+  if (savingPayout.value) return
+  savingPayout.value = true
+  try {
+    await deletePayout()
+    if (masterStore.profile) masterStore.profile.payout = null
+    toast.success('Способ выплаты удалён')
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось удалить способ выплаты'
+    toast.error(msg)
+  } finally {
+    savingPayout.value = false
+  }
 }
 
 // ---------------------------------------------------------------------------

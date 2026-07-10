@@ -118,6 +118,15 @@ export function updatePayoutDetails(body: PayoutDetails): Promise<PayoutDetails>
 }
 
 /**
+ * Clear the master's configured payout method (M3). Idempotent server-side
+ * (204 even when nothing is configured). The profile's `payout` then reads
+ * null — the caller updates its local profile state.
+ */
+export function deletePayout(): Promise<void> {
+  return api.delete('/api/v1/masters/me/payout')
+}
+
+/**
  * Create a withdrawal request.
  * Freezes amount_cents from available balance until admin decision.
  * Returns 201 on success.

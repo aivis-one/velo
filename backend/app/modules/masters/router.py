@@ -257,6 +257,45 @@ async def update_payout_details(
 
 
 # ===================================================================
+# M3 (batch M): DELETE /me/payout -- clear the configured payout
+# ===================================================================
+
+
+@router.delete(
+    "/me/payout",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_payout_details(
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Clear the master's configured payout details (remove data["payout"]).
+
+    Mirrors update_payout_details' JSONB persist pattern (deepcopy + set_jsonb).
+    Idempotent: a no-op when no payout is configured. Afterwards the profile's
+    ``payout`` field projects as None (F7). Past withdrawals keep their own
+    snapshotted payout_details, so clearing here does not touch history.
+    """
+    user, _profile = master_tuple
+
+    # Re-load the profile in THIS writer session (mirrors update_payout_details).
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    # P-03: deepcopy + set_jsonb for safe JSONB mutation.
+    data = copy.deepcopy(profile.data)
+    data.pop("payout", None)
+    profile.set_jsonb("data", data)
+
+    await session.flush()
+
+    logger.info("payout_details_deleted", user_id=str(user.id))
+
+
+# ===================================================================
 # E16: PATCH /me/languages -- freely edit the master's language set
 # ===================================================================
 

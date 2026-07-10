@@ -591,3 +591,44 @@ async def test_profile_payout_returned_after_update(
     assert profile["payout"] is not None
     assert profile["payout"]["method"] == "paypal"
     assert profile["payout"]["details"]["email"] == "master@example.com"
+
+
+# ===================================================================
+# M3 (batch M): DELETE /me/payout -- clear the configured payout
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_payout_delete_clears_method(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """DELETE /me/payout clears the configured payout (profile.payout -> None)."""
+    master = await _make_verified_master(client, db_session)
+    headers = auth_headers(master["session_token"])
+
+    # Configure, then delete.
+    await client.patch(
+        PAYOUT_URL,
+        json={"method": "paypal", "details": {"email": "master@example.com"}},
+        headers=headers,
+    )
+    resp = await client.delete(PAYOUT_URL, headers=headers)
+    assert resp.status_code == 204
+
+    # Profile now reports no payout.
+    profile = (await client.get("/api/v1/masters/me", headers=headers)).json()
+    assert profile["payout"] is None
+
+
+@pytest.mark.asyncio
+async def test_payout_delete_idempotent_when_unset(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """DELETE /me/payout is a no-op (204) when nothing is configured."""
+    master = await _make_verified_master(client, db_session)
+    resp = await client.delete(
+        PAYOUT_URL, headers=auth_headers(master["session_token"]),
+    )
+    assert resp.status_code == 204
