@@ -202,7 +202,7 @@
           <div v-if="transactions.length > 0" class="analytics__txns">
             <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
               <div class="analytics__txn-info">
-                <div class="analytics__txn-title">{{ t.title }}</div>
+                <div class="analytics__txn-title">{{ txnTitle(t) }}</div>
                 <div class="analytics__txn-meta">
                   {{ formatShortDate(t.created_at)
                   }}<template v-if="t.counterparty_name"> · {{ t.counterparty_name }}</template>
@@ -469,6 +469,15 @@ const incomeDelta = computed((): string => {
 function formatTxnAmount(cents: number): string {
   const sign = cents >= 0 ? '+' : '−'
   return `${sign}${formatMoney(Math.abs(cents), 'EUR', 'ru', true)}`
+}
+
+// M5: show the practice NAME instead of the generic stored label («Оплата за
+// практику»). practice_title is added by the backend join; read it defensively
+// because generated.ts is regenerated at deploy (not hand-edited here), so the
+// field may be absent from the local type until then.
+function txnTitle(t: MasterTransactionItem): string {
+  const withPractice = t as MasterTransactionItem & { practice_title?: string | null }
+  return withPractice.practice_title || t.title
 }
 
 async function loadIncome(): Promise<void> {

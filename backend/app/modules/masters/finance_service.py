@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.periods import calendar_period_bounds, period_delta_pct
 from app.modules.payments.models import LedgerStatus, MasterLedger
+from app.modules.practices.models import Practice
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -128,9 +129,14 @@ async def list_master_transactions(
 
     Returns (items, total). Each item is a dict ready for MasterTransactionItem.
     """
+    # M5: outerjoin Practice on the ledger row's practice_id (nullable, SET NULL)
+    # so the feed can show the practice NAME instead of the generic stored title.
+    # practice_title is None when the row has no practice_id or the practice was
+    # deleted. The join is 1:1 (practice_id FK), so it never multiplies rows.
     base = (
-        select(MasterLedger, User)
+        select(MasterLedger, User, Practice.title)
         .outerjoin(User, MasterLedger.counterparty_id == User.id)
+        .outerjoin(Practice, MasterLedger.practice_id == Practice.id)
         .where(
             MasterLedger.user_id == user_id,
             MasterLedger.status == LedgerStatus.DONE.value,
@@ -158,8 +164,9 @@ async def list_master_transactions(
             "created_at": entry.created_at,
             "counterparty_name": _counterparty_name(counterparty),
             "amount_cents": entry.amount_cents,
+            "practice_title": practice_title,
         }
-        for entry, counterparty in rows
+        for entry, counterparty, practice_title in rows
     ]
 
     return items, total
