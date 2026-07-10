@@ -65,8 +65,9 @@ defineEmits<{
 .admin-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Shell fills AppFrame's stable height — never dvh/vh (collapse on keyboard).
+     Mirrors MobileLayout (min-height:100%). Canon §2. */
+  min-height: 100%;
   background: transparent;
   /* Anchor for the floating (position:absolute) VAdminTabBar. */
   position: relative;

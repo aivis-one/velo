@@ -107,6 +107,32 @@ ol {
   border-radius: var(--radius-full);
 }
 
+/* =============================================================================
+   VIEWPORT-HEIGHT + KEYBOARD CANON (batch N — read before adding a screen)
+   -----------------------------------------------------------------------------
+   The photo background can NEVER jump on keyboard-open if every screen obeys
+   these three rules (the "dancing background" was 4 recurrences of breaking one):
+
+   1. BACKGROUND: the fog lives on `#app::before` — position:absolute; inset:0,
+      anchored to `#app`'s min-height:100lvh box (below). NEVER make the bg
+      position:fixed (it would track the VISUAL viewport = the original dance),
+      and NEVER give it a per-frame transform / counter-shift.
+
+   2. HEIGHT UNITS: NEVER `dvh`/`svh` (nor plain-`vh`-only) on a screen root or
+      wrapper — they collapse when the keyboard shrinks the viewport. A screen
+      that fills the shell (AppFrame / MobileLayout __main / AdminLayout) uses
+      `min-height:100%`. A root that genuinely needs standalone viewport height
+      uses `100lvh` (stable). The ONLY `vh` allowed is the `100vh -> 100lvh`
+      fallback PAIR on the anchors themselves (`#app` here, `.app-frame`).
+
+   3. KEYBOARD: handled centrally — useBackgroundStabilizer publishes `--velo-vvh`
+      (visual-viewport height) + toggles `html.is-keyboard-open`; the gated rules
+      below cap the SCROLL container / modal to `--velo-vvh`. Screens do NOT
+      invent their own keyboard height logic. (index.html's
+      interactive-widget=resizes-visual keeps the layout viewport — and lvh —
+      stable while the visual viewport still shrinks, so these signals work.)
+   ============================================================================= */
+
 /* === Photo background layer === */
 /* #app is the full-width mount root (AppFrame is only 402px, so anchoring the bg
    here keeps it covering the side gutters on wide viewports). Pinned to the STABLE

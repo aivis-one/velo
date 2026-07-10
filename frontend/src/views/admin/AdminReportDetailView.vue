@@ -234,7 +234,8 @@ onMounted(loadReport)
 
 <style scoped>
 .report-detail {
-  min-height: 100dvh;
+  /* Fill AdminLayout's scroll area — never dvh (collapses on keyboard). Canon §2. */
+  min-height: 100%;
 }
 
 .report-detail__content {

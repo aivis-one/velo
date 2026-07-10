@@ -162,8 +162,8 @@ async function enterMasterMode(): Promise<void> {
 
 <style scoped>
 .pending-view {
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Fill AppFrame's stable height — never dvh/vh (collapse on keyboard). Canon §2. */
+  min-height: 100%;
   background: transparent;
   display: flex;
   flex-direction: column;

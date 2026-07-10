@@ -49,8 +49,8 @@ async function handleLogout(): Promise<void> {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill AppFrame's stable height — never dvh (collapses on keyboard). Canon §2. */
+  min-height: 100%;
   padding: var(--space-5);
   text-align: center;
   background: transparent;

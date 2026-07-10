@@ -23,8 +23,8 @@ const router = useRouter()
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fill AppFrame's stable height — never dvh (collapses on keyboard). Canon §2. */
+  min-height: 100%;
   text-align: center;
   padding: var(--space-5);
   background: transparent;
