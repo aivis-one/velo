@@ -647,9 +647,10 @@ export interface MasterStatsResponse {
   income_delta_pct: number | null
 }
 
-/** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). */
+/** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). practice_title (M5) is the name of the practice the movement belongs to, joined from the ledger row's practice_id — null when the row has no practice or it was deleted; the client falls back to `title` then. */
 export interface MasterTransactionItem {
   title: string
+  practice_title: string | null
   created_at: string
   counterparty_name: string | null
   amount_cents: number
