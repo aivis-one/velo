@@ -300,6 +300,15 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   (`ReportResponse` gen:895 = reporter_id + status/target_type filters only); masters `/{id}` rich
   application profile + `documents[]` (returns minimal `AdminMasterListItem` gen:47) + edit-master-fields;
   `AdminWithdrawalResponse` (gen:141) `master_display_name` + real 2FA; participants rich fields + filters.
+- **Q1 (batch Q, 2026-07-12) — admin masters LIST card rich fields.** `AdminMasterListItem` (gen:67)
+  carries only id / name / avatar / role / `master_status` → the `AdminMastersView` cards render EVERY
+  rich field as an honest «—» stub (**methods** · Практик/Учеников · К выводу [payout] · Опыт · Заявка
+  [applied-at]). EXTEND the LIST response with these so the card fills in (the FE structure already
+  consumes them). Priority field: add **`methods: list[str]`** (already stored in `data.profile.methods`)
+  so the list card can show **направление + вид** via the batch-L `methodTaxonomy` parse — the SAME
+  two-level readonly render now shipped on the master DETAIL (Q2, `AdminMasterReviewView`). Target = the
+  operator's rich-card screenshot. ⚠ Adding fields to the list response → grep frozen key-sets in
+  `backend/tests` first + regen `generated.ts`.
 
 ### E10 — Promo module (verify-only). **P2.**
 - **(a) Why.** Mostly already built; flagged so the small gap (a master's own list + delete) is closed.
