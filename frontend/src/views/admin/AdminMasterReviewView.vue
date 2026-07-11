@@ -220,9 +220,16 @@
             </div>
           </div>
           <template v-else>
-            <div class="mreview__v mreview__chips">
-              <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
-              <span v-if="!methods.length" class="mreview__muted">—</span>
+            <div class="mreview__v">
+              <!-- Q2: render the flat «Направление — Вид» methods as the batch-L
+                   two-level readonly picker (direction heading + вид chips) so both
+                   направление AND вид show. Fully-legacy methods that don't map to
+                   the taxonomy fall back to verbatim chips; empty → «—». -->
+              <MethodTaxonomyPicker v-if="hasParsedMethods" :model-value="methods" readonly />
+              <div v-else-if="methods.length" class="mreview__chips">
+                <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
+              </div>
+              <span v-else class="mreview__muted">—</span>
             </div>
             <button
               type="button"
@@ -430,6 +437,8 @@ import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
 import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
+import { parseMethods, flattenMethods } from '@/utils/methodTaxonomy'
 
 const route = useRoute()
 const router = useRouter()
@@ -470,6 +479,12 @@ const phone = computed<string>(() => master.value?.phone || PLACEHOLDER)
 const languages = computed<string[]>(() => master.value?.languages ?? [])
 const certifications = computed<string[]>(() => master.value?.certifications ?? [])
 const methods = computed<string[]>(() => master.value?.methods ?? [])
+// Q2: true when at least one method maps to the direction/вид taxonomy — then the
+// two-level readonly picker has something to render; otherwise (fully-legacy flat
+// methods) we fall back to verbatim chips so nothing vanishes.
+const hasParsedMethods = computed<boolean>(
+  () => flattenMethods(parseMethods(methods.value)).length > 0,
+)
 const experience = computed<string>(() =>
   master.value ? `${master.value.experience_years ?? 0} лет` : PLACEHOLDER,
 )
