@@ -309,6 +309,11 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   two-level readonly render now shipped on the master DETAIL (Q2, `AdminMasterReviewView`). Target = the
   operator's rich-card screenshot. ⚠ Adding fields to the list response → grep frozen key-sets in
   `backend/tests` first + regen `generated.ts`.
+- **NEW `GET /admin/users/{id}` — admin single-user detail (ПРОМТ №372, 2026-07-12).** Today
+  `/admin/users` (list) and `/admin/users/{id}/make-master` (action) exist, but there is no
+  single-user GET. This blocks `AdminReportDetailView`'s clickable-target fix (master/practice
+  targets already link out; `target_type=user` stays plain text — no user-detail screen to
+  navigate to). **P2.**
 
 ### E10 — Promo module (verify-only). **P2.**
 - **(a) Why.** Mostly already built; flagged so the small gap (a master's own list + delete) is closed.
@@ -506,6 +511,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | admin edit-master-fields | NEW | save Направление / Вид | P2 | OPEN |
 | GET /admin/reports | EXTEND | category, priority, date, reporter_name | P1 | OPEN (gen:895 reporter_id only) |
 | GET /admin/users (participants) | EXTEND | practices_attended, last_active, joined, filters | P1 | OPEN |
+| GET /admin/users/{id} | NEW | single-user detail; unblocks report user-target link | P2 | OPEN |
 | AdminWithdrawalResponse + 2FA | EXTEND + NEW | master_display_name; real 2FA step | P2 | OPEN (gen:141) |
 | GET /admin/metrics/check-in\|feedback\|return | NEW | rate, totals, series, low/distribution/top | P0 | DELIVERED |
 | GET /admin/revenue | NEW | revenue, commission, payable, per-master (= E2) | P0 | DELIVERED (gen:97) |
