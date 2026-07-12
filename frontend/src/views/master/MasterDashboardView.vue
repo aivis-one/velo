@@ -96,16 +96,15 @@
       </VButton>
 
       <!-- ================================================================
-           САММАРИ НЕДЕЛИ (placeholder — no master-AI backend yet)
+           САММАРИ НЕДЕЛИ (honest placeholder — no master-AI backend yet;
+           honesty-cleanup 2026-07-12: dropped the fabricated insight text)
            ================================================================ -->
       <h2 class="velo-section-title">Саммари недели</h2>
       <!-- The whole block opens the full summary on tap (operator tester-fix
-           2026-06-17; «Подробнее» button removed). When a summary exists the
-           teaser is clamped to 2 lines with an ellipsis so it reads as "tap to
-           expand" — same idiom as the diary feed card (Variant B). The new
-           master has nothing to open, so it keeps a plain placeholder. -->
+           2026-06-17; «Подробнее» button removed) — the target screen still has
+           real content («Требуют внимания»), so the tap-through stays. -->
       <VCard v-if="!isNewMaster" clickable @click="router.push({ name: 'master-summary' })">
-        <p class="master-dashboard__summary-text">{{ WEEKLY_SUMMARY_INSIGHT }}</p>
+        <p class="master-dashboard__summary-text">Сводка появится с аналитикой</p>
       </VCard>
       <VCard v-else>
         <p class="master-dashboard__empty-text">Данных пока нет — создайте первую практику</p>
@@ -229,7 +228,6 @@ import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { practiceHasEnded } from '@/utils/practiceStatus'
-import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import { getMasterStats } from '@/api/masters'
 import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 

@@ -1,13 +1,13 @@
 <!--
-  VELO Frontend -- MasterSummaryView (Master DS, 2026-06-11)
+  VELO Frontend -- MasterSummaryView (Master DS, 2026-06-11; honesty-cleanup 2026-07-12)
 
   "Саммари недели" — the master's AI weekly insights, reached from the dashboard
   summary card ("Подробнее"). Rendered inside MasterShell.
 
-  STUB: no master-AI / feedback-aggregation backend. Placeholder data below;
-  documents the contract for Zod (roadmap: Agent-Velo/master-ds-zod-roadmap.md):
-    insight (string), key_feedbacks [{ rating, name, comment }],
-    needs_attention [{ name, reason }].
+  HONEST STUB: no master-AI / feedback-aggregation backend for the insight or key
+  feedbacks -> both render honest placeholders (no fabricated numbers/names).
+  Documents the contract for Zod: insight (string), key_feedbacks [{ rating, name,
+  comment }]. «Требуют внимания» below is REAL (E5) and unaffected by this cleanup.
 -->
 
 <template>
@@ -15,23 +15,15 @@
     <VHeader title="Саммари недели" show-back @back="router.push({ name: 'master-dashboard' })" />
 
     <div class="summary__content">
-      <!-- AI insight -->
+      <!-- AI insight (honest placeholder — no master-AI backend yet) -->
       <h2 class="velo-section-title">AI-инсайты за неделю</h2>
       <VCard>
         <p class="summary__insight">{{ insight }}</p>
       </VCard>
 
-      <!-- Key feedbacks -->
+      <!-- Key feedbacks (honest empty-state — no feedback-aggregation backend yet) -->
       <h2 class="velo-section-title">Ключевые отзывы</h2>
-      <div v-for="fb in keyFeedbacks" :key="fb.id" class="summary__fb">
-        <span class="summary__fb-ic" :class="`summary__fb-ic--${fb.rating}`">
-          <component :is="fb.rating === 'fire' ? IconRatingFire : IconRatingConfused" :size="30" />
-        </span>
-        <div class="summary__fb-body">
-          <div class="summary__fb-name">{{ fb.name }}</div>
-          <div class="summary__fb-text">{{ fb.comment }}</div>
-        </div>
-      </div>
+      <VEmptyState variant="note" title="Отзывы появятся здесь, когда будут собраны" />
 
       <!-- Needs attention (REAL: the master's students with needs_attention).
            Each row taps through to the real student profile; the message button
@@ -90,24 +82,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VCard, VAvatar, VLoader, VEmptyState, VButton } from '@/components/ui'
-import { IconRatingFire, IconRatingConfused, IconMessages, IconWarning } from '@/components/icons'
+import { IconMessages, IconWarning } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import { getStudents } from '@/api/masters'
-import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import type { StudentListItem } from '@/api/types'
 
 const router = useRouter()
 
-// -- STUB data (no master-AI / feedback-aggregation backend → roadmap for Zod).
-//    The insight + key feedbacks stay stub; «Ключевые отзывы» is NOT tappable
-//    (MasterReviewItem carries no user_id → nothing to navigate to; → Zod). --
-const insight = ref(WEEKLY_SUMMARY_INSIGHT)
-const keyFeedbacks = ref<
-  Array<{ id: number; rating: 'fire' | 'confused'; name: string; comment: string }>
->([
-  { id: 1, rating: 'fire', name: 'Мария К.', comment: '«Лучшая практика за месяц!»' },
-  { id: 2, rating: 'confused', name: 'Анна П.', comment: '«Хотела бы индивидуальную практику»' },
-])
+// -- HONEST STUB (no master-AI / feedback-aggregation backend → roadmap for
+//    Zod). No fabricated numbers/names — see VEmptyState below for key
+//    feedbacks. --
+const insight = ref('Сводка появится, когда подключится аналитика')
 
 // -- «Требуют внимания» — REAL (E5: GET /masters/me/students). Same source as
 //    MasterStudentsView; show only students flagged needs_attention. --
@@ -172,48 +157,6 @@ function openMessage(name: string): void {
   font-size: var(--text-xs);
   color: var(--velo-text-primary);
   line-height: 1.55;
-}
-
-/* -- Key feedback card -- */
-.summary__fb {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  background: var(--velo-bg-card-solid);
-  border: 1px solid var(--velo-border-card);
-  border-radius: var(--radius-md);
-  padding: var(--velo-card-padding-y) var(--space-4);
-}
-
-.summary__fb-ic {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-}
-
-.summary__fb-ic--fire {
-  color: var(--velo-peach-500);
-}
-.summary__fb-ic--confused {
-  color: var(--velo-text-primary);
-}
-
-.summary__fb-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.summary__fb-name {
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  color: var(--velo-text-primary);
-}
-
-.summary__fb-text {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
-  margin-top: var(--velo-gap-3);
 }
 
 /* Loader while the students fetch is in flight. */
