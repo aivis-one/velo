@@ -29,7 +29,7 @@
           >
             <IconClose :size="16" />
           </button>
-          <div class="v-modal__scroll">
+          <div class="v-modal__scroll velo-kbd-scroll">
             <slot />
           </div>
         </div>

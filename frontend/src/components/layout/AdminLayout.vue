@@ -23,7 +23,7 @@
   <div class="admin-layout">
     <slot name="header" />
     <main
-      class="admin-layout__main"
+      class="admin-layout__main velo-kbd-scroll"
       :class="{
         'admin-layout__main--rail': fog || hideTabBar,
         'admin-layout__main--fog': fog,
@@ -75,6 +75,11 @@ defineEmits<{
 
 .admin-layout__main {
   flex: 1;
+  /* ROOT-LOCK: without min-height:0 a flex item's default min-size is its
+     content size, which would let this grow taller than .admin-layout instead
+     of scrolling internally -- now load-bearing (html/body/#app no longer
+     absorb overflow at all). */
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* Legacy default (pre-rebuild admin screens): 16px box, clears the tab bar. */
