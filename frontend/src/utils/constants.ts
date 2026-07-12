@@ -17,22 +17,12 @@
 /**
  * Hours before scheduled_at during which check-in is allowed.
  * Mirrors backend config.py checkin_window_hours (24). Changed 3 -> 24
- * (customer request 2026-06-03). NB: this equals PRACTICE_MAX_DURATION_H by
- * coincidence -- they are different settings (window-open vs finished-ceiling),
- * do not merge them.
+ * (customer request 2026-06-03).
  */
 export const CHECKIN_WINDOW_H = 24
 
 /** Hours after practice ends during which feedback is allowed. */
 export const FEEDBACK_WINDOW_H = 72
-
-/**
- * Hard ceiling (hours after scheduled_at) past which a practice is considered
- * finished even if its master never closed it. Mirrors the backend
- * practice_max_duration_hours (config.py) used by the auto-finalizer. The
- * dashboard uses it to stop showing a booking once the practice has ended.
- */
-export const PRACTICE_MAX_DURATION_H = 24
 
 // ---------------------------------------------------------------------------
 // Finance constants (TD-FE-W6)

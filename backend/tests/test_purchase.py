@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.bookings.service import auto_finalize_practice
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
     CompanyLedger,
@@ -79,7 +80,6 @@ async def _do_cleanup(session: AsyncSession) -> None:
 PURCHASE_URL = "/api/v1/practices/{practice_id}/purchase"
 BOOKINGS_URL = "/api/v1/bookings"
 PRACTICES_URL = "/api/v1/practices"
-FINALIZE_URL = "/api/v1/practices/{practice_id}/finalize"
 
 
 async def _make_verified_master(
@@ -377,11 +377,9 @@ async def test_finalize_paid_practice_commission(
     )
 
     # Finalize.
-    resp = await client.post(
-        FINALIZE_URL.format(practice_id=practice_id),
-        headers=auth_headers(master_data["session_token"]),
-    )
-    assert resp.status_code == 200
+    # Finalize via the system auto-close path (the manual endpoint was removed).
+    await auto_finalize_practice(UUID(practice_id), db_session)
+    await db_session.commit()
 
     # Verify purchase completed with commission.
     db_session.expire_all()
@@ -445,11 +443,8 @@ async def test_finalize_free_practice_zero_commission(
         f"{BOOKINGS_URL}/{booking_id}/join",
         headers=auth_headers(user_data["session_token"]),
     )
-    resp = await client.post(
-        FINALIZE_URL.format(practice_id=practice_id),
-        headers=auth_headers(master_data["session_token"]),
-    )
-    assert resp.status_code == 200
+    await auto_finalize_practice(UUID(practice_id), db_session)
+    await db_session.commit()
 
     # Verify zero-amount commission entries.
     db_session.expire_all()
@@ -556,10 +551,8 @@ async def test_semaphore_double_entry_sum_zero_after_finalize(
         f"{BOOKINGS_URL}/{booking_id}/join",
         headers=auth_headers(user_data["session_token"]),
     )
-    await client.post(
-        FINALIZE_URL.format(practice_id=practice_id),
-        headers=auth_headers(master_data["session_token"]),
-    )
+    await auto_finalize_practice(UUID(practice_id), db_session)
+    await db_session.commit()
 
     # Check per-practice double-entry.
     # user_ledger (purchase debit) + master_ledger (sale + commission)
@@ -726,13 +719,10 @@ async def test_configurable_commission_percent(
         headers=auth_headers(user_data["session_token"]),
     )
 
-    # Finalize with custom commission (20%).
+    # Finalize with custom commission (20%) via the system auto-close path.
     with patch.object(settings, "commission_percent", 20):
-        resp = await client.post(
-            FINALIZE_URL.format(practice_id=practice_id),
-            headers=auth_headers(master_data["session_token"]),
-        )
-    assert resp.status_code == 200
+        await auto_finalize_practice(UUID(practice_id), db_session)
+        await db_session.commit()
 
     db_session.expire_all()
     stmt = select(Purchase).where(Purchase.booking_id == booking_id)

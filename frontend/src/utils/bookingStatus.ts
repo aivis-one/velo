@@ -7,13 +7,14 @@
 // the two never drift.
 //
 // Active-cycle states (before/while the practice runs) are decided by CLIENT
-// TIME (scheduled_at + duration_minutes), NOT by practice.status — the backend
-// sets status='live' only when the master manually flips it, and status=
-// 'completed'/booking='attended' only at FINALIZE (master action or +24h
-// backstop). Driving the live/ended cycle off the clock makes the card update
-// the moment the practice actually starts/ends, with no dependency on a manual
-// flip or a cron. The FINAL statuses (attended/no_show/cancelled) still come
-// from the backend booking.status — they carry settlement truth.
+// TIME (scheduled_at + duration_minutes), NOT by practice.status. The backend
+// now drives status='live' and status='completed' automatically by the clock
+// (the lifecycle worker: live at scheduled_at, completed at scheduled_at +
+// duration), but on a poll interval — so status can lag the real moment by a
+// few seconds. Driving the live/ended cycle off the clock here makes the card
+// flip the instant the practice actually starts/ends, with no dependency on the
+// worker's lag. The FINAL statuses (attended/no_show/cancelled) still come from
+// the backend booking.status — they carry settlement truth.
 //
 // "now" is passed in (epoch ms) so callers control reactivity: the dashboard
 // feeds a 60s clock ref; one-shot views can pass Date.now().

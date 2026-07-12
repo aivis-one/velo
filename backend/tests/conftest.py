@@ -47,7 +47,7 @@ async def setup_infrastructure():
     # which is always after this session-scoped fixture) reads these flags and
     # skips create_task(run_processor) / create_task(run_autofinalizer). Tests
     # drive the notification stages (_stage_resolve/_stage_deliver/_stage_rollup)
-    # and finalize_practice / auto_finalize_practice manually; a live background
+    # and auto_start_practice / auto_finalize_practice manually; a live background
     # loop would race them via FOR UPDATE SKIP LOCKED and cause flaky results
     # (e.g. a notification stuck at processing, or a test practice finalized out
     # from under an assertion).

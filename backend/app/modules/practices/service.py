@@ -35,17 +35,26 @@
 #   get_practice() applies visibility rules: draft/deleted only for owner.
 #
 # STATE MACHINE:
-#   draft      -> scheduled, deleted
-#   scheduled  -> live
-#   live       -> completed
-#   completed  -> (terminal)
-#   cancelled  -> (terminal)
-#   deleted    -> (terminal)
+#   draft          -> scheduled, deleted   (via PATCH)
+#   scheduled      -> live                  (auto, by schedule -- NOT via PATCH)
+#   scheduled/live -> completed             (auto, by schedule -- NOT via PATCH)
+#   completed      -> (terminal)
+#   cancelled      -> (terminal)
+#   deleted        -> (terminal)
 #
 # IMPORTANT (Phase 6.5):
-#   scheduled -> cancelled and live -> cancelled are NO LONGER allowed
-#   via PATCH. The ONLY path to cancelled is through
-#   cancel_practice() which handles refunds for all active bookings.
+#   scheduled -> cancelled and live -> cancelled are NOT allowed via PATCH.
+#   The ONLY path to cancelled is through cancel_practice() which handles
+#   refunds for all active bookings.
+#
+# IMPORTANT (Batch 1 -- lifecycle automation):
+#   scheduled -> live and live -> completed are NO LONGER allowed via PATCH
+#   either. Both are performed by the background lifecycle worker
+#   (bookings/autofinalize.py) as the system, driven by the clock:
+#     start:  scheduled -> live      once scheduled_at passes;
+#     finish: scheduled/live -> completed once scheduled_at + duration passes
+#             (auto_finalize_practice runs the full settlement core).
+#   So PATCH only ever drives draft -> scheduled (publish) and draft -> deleted.
 #
 # PRICING (Phase 4.3/4.4):
 #   is_free=True  -> price_cents forced to 0 (service overrides any value)
@@ -112,21 +121,20 @@ _FEED_STATUSES = {
     PracticeStatus.LIVE.value,
 }
 
-# Valid state transitions via PATCH. Terminal states have no outgoing edges.
-# Phase 6.5: cancelled is removed from scheduled/live transitions.
-# The ONLY way to reach cancelled is via cancel_practice() which
-# handles refunds. This prevents accidental PATCH status=cancelled
-# that would skip refund logic.
+# Valid state transitions via PATCH. Terminal states (and states whose only
+# remaining transitions are automated) have no outgoing edges here.
+# Phase 6.5: cancelled is removed -- the ONLY way to reach cancelled is via
+# cancel_practice() which handles refunds, preventing an accidental PATCH
+# status=cancelled that would skip refund logic.
+# Batch 1: scheduled -> live and live -> completed are removed too -- both are
+# driven by the clock by the lifecycle worker (bookings/autofinalize.py:
+# auto_start_practice / auto_finalize_practice) as the system, not by PATCH.
+# So the ONLY PATCH-driven transitions left are draft -> scheduled (publish)
+# and draft -> deleted.
 _VALID_TRANSITIONS: dict[str, set[str]] = {
     PracticeStatus.DRAFT.value: {
         PracticeStatus.SCHEDULED.value,
         PracticeStatus.DELETED.value,
-    },
-    PracticeStatus.SCHEDULED.value: {
-        PracticeStatus.LIVE.value,
-    },
-    PracticeStatus.LIVE.value: {
-        PracticeStatus.COMPLETED.value,
     },
 }
 

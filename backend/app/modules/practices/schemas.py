@@ -519,10 +519,12 @@ class UpdatePracticeRequest(BaseModel):
     ) -> str | None:
         """Validate status against patch-allowed values from config.
 
-        I-04: 'cancelled' is excluded from practice_patch_allowed_statuses.
-        The only path to cancelled is POST /practices/{id}/cancel (handles
-        refunds). Pydantic raises ValueError here -> FastAPI returns 422,
-        signalling schema-level rejection before the service layer.
+        I-04: 'cancelled' is excluded from practice_patch_allowed_statuses
+        (the only path to cancelled is POST /practices/{id}/cancel, which
+        handles refunds). Batch 1: 'live' and 'completed' are excluded too --
+        they are driven by the clock by the lifecycle worker, never by PATCH.
+        Pydantic raises ValueError here -> FastAPI returns 422, signalling
+        schema-level rejection before the service layer.
         """
         if v is None:
             return v

@@ -9,7 +9,6 @@
 #   DELETE /api/v1/bookings/{id}         -- cancel booking
 #   POST   /api/v1/bookings/{id}/join    -- check-in (Phase 5.4)
 #   POST   /api/v1/bookings/{id}/leave   -- check-out (Phase 5.4)
-#   POST   /api/v1/practices/{id}/finalize   -- finalize (Phase 5.4)
 #   GET    /api/v1/practices/{id}/attendance  -- attendance list (Phase 5.4)
 #
 # Phase 6.7 Batch 4: POST /bookings now accepts optional promo_code
@@ -52,7 +51,6 @@ from app.modules.bookings.schemas import (
 from app.modules.bookings.service import (
     cancel_booking,
     create_booking,
-    finalize_practice,
     get_attendance,
     get_booking_by_id,
     get_user_practice_stats,
@@ -424,31 +422,6 @@ async def skip_checkin_endpoint(
 # ===================================================================
 # Phase 5.4: Attendance (practice-level)
 # ===================================================================
-
-
-@practices_attendance_router.post(
-    "/{practice_id}/finalize",
-    response_model=PracticeResponse,
-)
-async def finalize_practice_endpoint(
-    practice_id: UUID,
-    master_tuple: tuple[User, MasterProfile] = Depends(
-        get_current_master,
-    ),
-    session: AsyncSession = Depends(get_db_session),
-) -> PracticeResponse:
-    """Finalize a practice -- resolve attendance + financial settlement."""
-    user, _profile = master_tuple
-    practice = await finalize_practice(
-        practice_id, user, session,
-    )
-    await session.flush()
-    await session.refresh(practice)
-    # zoom_link (M-3): not exposed on the finalize response (owner-only, no UI
-    # consumer). Nulled explicitly since there is no schema validator.
-    return PracticeResponse.model_validate(practice).model_copy(
-        update={"zoom_link": None},
-    )
 
 
 @practices_attendance_router.get(

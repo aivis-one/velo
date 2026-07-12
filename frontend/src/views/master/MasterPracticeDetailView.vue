@@ -9,9 +9,13 @@
       stats + participant reviews + finance + Check-ins / Посещаемость CTAs.
     - UPCOMING branch (draft / scheduled / live) = WI-B hub: PracticeHeroCard +
       Записалось/Мест/Цена stat cards + «Записались» roster (read-only rows) +
-      description/contraindications accordions + «Начать практику» + Check-ins,
+      description/contraindications accordions + Check-ins,
       with a «…» menu (Изменить / отменить|удалить). Replaces the former redirect
       to the edit screen. EditPracticeView is untouched (reached via «…» → Изменить).
+      NB: there is deliberately NO «Начать практику» button. Going live is
+      AUTOMATIC (backend lifecycle worker flips scheduled -> live at scheduled_at,
+      and -> completed at scheduled_at + duration). PATCH status='live' is rejected
+      by the backend (422), so never wire such a button here.
 
   Decisions (operator, WI-B, all Г=А):
     FORK1 — REMOVED (ПРОМТ post-№280): the per-participant «отменить запись» X was a
@@ -25,9 +29,11 @@
 
   Data reality:
     REAL: header (getPractice) · Записалось/Мест/Цена + roster (getAttendance) ·
-          «Начать практику» (updatePractice status='live') · отменить
-          (cancelPractice) · удалить draft (deletePractice). PAST rating badges +
-          stats as before (getAttendance + anonymous insights).
+          отменить (cancelPractice) · удалить draft (deletePractice). PAST rating
+          badges + stats as before (getAttendance + anonymous insights).
+          Status transitions scheduled -> live -> completed are NOT driven from
+          here -- the backend lifecycle worker does them by the clock, so the PAST
+          branch starts rendering on its own once the practice's duration elapses.
     STUB → Zod: remove-one-participant (no endpoint) → the X was REMOVED (not faked);
           «Доход» (no income/ledger API) → «—»; «Отзывы участников» (insights anonymous).
 -->

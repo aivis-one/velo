@@ -585,7 +585,9 @@ async def test_update_practice_invalid_transition(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Cannot transition from draft to completed: 400."""
+    """completed is not a PATCH-able status (Batch 1: it is reached only by the
+    lifecycle worker), so PATCH status=completed is rejected at the schema
+    layer -> 422."""
     auth = await _make_verified_master(client, db_session)
 
     create_resp = await client.post(
@@ -601,7 +603,51 @@ async def test_update_practice_invalid_transition(
         json={"status": "completed"},
         headers=auth_headers(auth["session_token"]),
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_practice_manual_start_and_finish_forbidden(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Batch 1: scheduled -> live and live -> completed are no longer PATCH-able
+    (both are driven by the lifecycle worker). PATCH status="live"/"completed"
+    is rejected at the schema layer (422). Publishing (draft -> scheduled) still
+    works."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    # Publish: draft -> scheduled (this PATCH is still allowed).
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert pub.status_code == 200
+
+    # Manual start is forbidden: "live" is not a patch-allowed status -> 422.
+    start = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "live"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert start.status_code == 422
+
+    # Manual finish is forbidden too: "completed" -> 422.
+    finish = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "completed"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert finish.status_code == 422
 
 
 # ---------------------------------------------------------------------------

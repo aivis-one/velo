@@ -174,12 +174,16 @@ class Settings(BaseSettings):
     practice_time_evening_start_hour: int = 17
 
     # Statuses allowed in PATCH /practices/{id} (I-04).
-    # "cancelled" is intentionally excluded: the only path to cancelled is
+    # "cancelled" is excluded: the only path to cancelled is
     # POST /practices/{id}/cancel which handles refunds.
+    # "live" and "completed" are excluded too (Batch 1): scheduled -> live and
+    # scheduled/live -> completed are driven by the clock by the lifecycle
+    # worker (bookings/autofinalize.py), never by PATCH. So PATCH only ever
+    # drives draft -> scheduled (publish) and draft -> deleted.
     # Pydantic @field_validator raises ValueError -> FastAPI returns 422,
     # which is the correct signal: schema-level rejection, not business logic.
     practice_patch_allowed_statuses: list[str] = [
-        "draft", "scheduled", "live", "completed", "deleted",
+        "draft", "scheduled", "deleted",
     ]
 
     # String field limits for Practice -- sourced here so that DB column sizes,
@@ -251,40 +255,40 @@ class Settings(BaseSettings):
     # FOR UPDATE SKIP LOCKED and a delivery can be skipped (attempts stays 0).
     notification_processor_enabled: bool = True
 
-    # -- Practice auto-finalization (Batch 1) --
-    # A master normally finalizes a practice by hand ("Закрыть"). If they
-    # forget, the practice would otherwise stay scheduled/live forever, its
-    # bookings stuck at confirmed and the master's money frozen. A background
-    # worker (app/modules/bookings/autofinalize.py) closes any practice that
-    # started more than practice_max_duration_hours ago, running the SAME
-    # finalization core as the manual path (attendance + ledger settlement +
-    # diary projection) from the system actor.
+    # -- Practice lifecycle automation (Batch 1, extended) --
+    # Practices are driven entirely by the clock -- the master no longer starts
+    # or finishes a practice by hand. A single background worker
+    # (app/modules/bookings/autofinalize.py) runs two time-based transitions as
+    # the system actor:
+    #   * start:  scheduled -> live       once scheduled_at has passed
+    #                                     (and the end has not yet passed).
+    #   * finish: scheduled/live -> completed once the scheduled END has passed
+    #             (scheduled_at + duration_minutes + buffer), running the full
+    #             settlement core (attendance + ledger unfreeze/commission +
+    #             diary projection + feedback push) from the system actor.
     #
-    # Legacy hard ceiling (scheduled_at + this). SUPERSEDED 2026-06-09 by the
-    # per-practice end+buffer auto-finalize below; end+buffer always fires first
-    # (max practice duration is 8h). Kept for reference / extreme fallback.
-    practice_max_duration_hours: int = 24
     # Auto-finalize a practice this many minutes after its scheduled END
-    # (scheduled_at + duration_minutes + buffer). Role-status unification: the
-    # master no longer has to press «Завершить» — completion / settlement /
-    # feedback push happen on time. WARNING FINANCIAL TIMING: purchase unfreeze +
-    # commission now settle ~at the practice end, not +24h — review with Zod
-    # before deploying.
-    practice_autofinalize_buffer_minutes: int = 15
+    # (scheduled_at + duration_minutes + buffer). Customer requirement: a
+    # practice finishes STRICTLY when its master-set duration elapses, so the
+    # buffer is 0 (end == scheduled_at + duration_minutes). Raise only if a
+    # technical grace period is ever needed. FINANCIAL TIMING: purchase unfreeze
+    # + commission settle ~at the practice end.
+    practice_autofinalize_buffer_minutes: int = 0
     # Worker polling interval in seconds (resets on work found, backs off when
-    # idle). Mirrors notification_poll_interval_seconds.
-    practice_autofinalize_poll_interval_seconds: int = 300
+    # idle). Kept short so start/finish (and the feedback prompt that fires on
+    # finish) happen close to the actual moment, not up to a poll late.
+    practice_autofinalize_poll_interval_seconds: int = 30
     # Max backoff when no practice is due (exponential up to this).
     practice_autofinalize_max_backoff_seconds: int = 600
     # Background worker toggle. True in prod (the lifespan task polls and
-    # finalizes). Disabled in tests so manual finalize_practice / auto_finalize
-    # calls are the only code touching practices -- otherwise the background
-    # loop races them via FOR UPDATE SKIP LOCKED and a test practice can be
-    # finalized out from under the assertion. Same rationale as
-    # notification_processor_enabled above.
+    # starts/finalizes). Disabled in tests so the manual auto_start_practice /
+    # auto_finalize_practice calls are the only code touching practices --
+    # otherwise the background loop races them via FOR UPDATE SKIP LOCKED and a
+    # test practice can be transitioned out from under an assertion. Same
+    # rationale as notification_processor_enabled above.
     practice_autofinalize_enabled: bool = True
-    # How many overdue practices to claim per poll cycle. Throttles each tick
-    # so a large backlog is drained in batches rather than one giant locked
+    # How many due practices to claim per poll cycle, per phase. Throttles each
+    # tick so a large backlog is drained in batches rather than one giant locked
     # SELECT. Internal tuning knob -- rarely changed by the operator.
     practice_autofinalize_batch_size: int = 50
 
