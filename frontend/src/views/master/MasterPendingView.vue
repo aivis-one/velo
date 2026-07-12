@@ -13,8 +13,12 @@
        a single «Войти в кабинет» CTA → master dashboard (which chains into the
        post-approval onboarding carousel). Replaces the old auto-redirect.
     3. «Отказ» (rejected) — SVG-8. Amber, generic reason until rejection_reason
-       is exposed (Zod E14); TWO CTAs (FORK-4): «Написать в поддержку» AND
-       «Подать новую заявку» (the re-apply path is kept).
+       is exposed (Zod E14); TWO CTAs (FORK-4, restored 2026-07-12): «Написать
+       в поддержку» AND «Подать новую заявку» — reapply is backend-supported
+       (POST /masters/apply updates the existing rejected profile in place,
+       see test_apply_master_reapply_after_rejection) and /master/apply is
+       reachable for a rejected role='user' (applyGuard only intercepts
+       role='master').
 
   Illustrations extracted from the design SVGs to public/onboarding/master-verdict-*.svg.
 -->
@@ -66,6 +70,9 @@
         <div class="pending-view__actions">
           <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
             Написать в поддержку
+          </VButton>
+          <VButton variant="outline" block @click="router.push({ name: 'master-apply' })">
+            Подать новую заявку
           </VButton>
         </div>
       </template>
