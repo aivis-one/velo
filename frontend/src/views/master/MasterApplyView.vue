@@ -37,7 +37,7 @@
     <!-- Scrolling feed: top fog-mask dissolves content at the header edge (reuses
          the dashboard/diary island gradient). Tap-to-dismiss keyboard is
          app-global now (useKeyboardDismiss, B1). -->
-    <div class="apply-view__content">
+    <div class="apply-view__content velo-kbd-scroll">
       <!-- ================================================================
            STEP 1: Профиль
            ================================================================ -->
@@ -513,7 +513,10 @@ async function submit(skipDocuments = false): Promise<void> {
 
 .apply-view__hint {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  /* MA2 (operator 2026-07-12): brightened to match .apply-view__intro so the
+     Step-3 upload captions (Паспорт/Сертификаты/Фото профиля) read at the same
+     legibility as the top privacy paragraph, not the fainter muted tone. */
+  color: var(--velo-text-secondary);
   line-height: 1.4;
   margin: 0;
 }
