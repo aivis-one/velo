@@ -58,6 +58,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.bookings.service import auto_finalize_practice
 from app.modules.masters.models import MasterProfile
 from app.modules.payments.models import (
     CompanyLedger,
@@ -113,7 +114,6 @@ async def _do_cleanup(session: AsyncSession) -> None:
 PURCHASE_URL = "/api/v1/practices/{practice_id}/purchase"
 PREVIEW_URL = "/api/v1/practices/{practice_id}/preview-purchase"
 BOOKINGS_URL = "/api/v1/bookings"
-FINALIZE_URL = "/api/v1/practices/{practice_id}/finalize"
 
 
 async def _make_verified_master(
@@ -514,15 +514,14 @@ async def test_company_promo_finalize_commission_on_paid(
     assert resp.status_code == 201
     booking_id = resp.json()["booking_id"]
 
-    # Join + finalize.
+    # Join, then let the system finalize (the manual endpoint was removed --
+    # completion is driven by the lifecycle worker at scheduled_at + duration).
     await client.post(
         f"{BOOKINGS_URL}/{booking_id}/join",
         headers=auth_headers(user_data["session_token"]),
     )
-    await client.post(
-        FINALIZE_URL.format(practice_id=practice_id),
-        headers=auth_headers(master_data["session_token"]),
-    )
+    await auto_finalize_practice(UUID(practice_id), db_session)
+    await db_session.commit()
 
     # Commission should be 15% of 5000 (paid) = 750, not 15% of 10000.
     db_session.expire_all()
@@ -797,15 +796,14 @@ async def test_promo_first_purchase_only(
     assert resp.status_code == 201
     booking_id = resp.json()["booking_id"]
 
-    # Join + finalize first practice so purchase is COMPLETED.
+    # Join, then let the system finalize the first practice so its purchase
+    # becomes COMPLETED (that is what first_purchase_only checks against).
     await client.post(
         f"{BOOKINGS_URL}/{booking_id}/join",
         headers=auth_headers(user_data["session_token"]),
     )
-    await client.post(
-        FINALIZE_URL.format(practice_id=practice1_id),
-        headers=auth_headers(master_data["session_token"]),
-    )
+    await auto_finalize_practice(UUID(practice1_id), db_session)
+    await db_session.commit()
 
     # Second purchase with first_purchase_only promo -> 400.
     resp = await client.post(

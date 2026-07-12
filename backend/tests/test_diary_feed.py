@@ -27,6 +27,9 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from uuid import UUID
+
+from app.modules.bookings.service import auto_finalize_practice
 from app.modules.diary.models import DiaryEvent
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
@@ -373,12 +376,10 @@ async def test_finalize_projects_outcome_for_attended_and_no_show(
     )
     assert resp.status_code == 200, resp.text
 
-    # Master finalizes the practice.
-    resp = await client.post(
-        f"{PRACTICES_URL}/{pid}/finalize",
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 200, resp.text
+    # Practice is finalized by the system (the manual endpoint was removed --
+    # completion is now driven by the lifecycle worker at scheduled_at + duration).
+    await auto_finalize_practice(UUID(pid), db_session)
+    await db_session.commit()
 
     # Attendee sees outcome with status attended.
     att_feed = await _feed(
