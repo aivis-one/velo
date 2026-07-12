@@ -65,6 +65,7 @@
         :placeholder="placeholder"
         :disabled="disabled"
         v-bind="$attrs"
+        @focus="onFieldFocus"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
 
@@ -88,10 +89,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 
 // inheritAttrs:false — forward native attrs (min/max/step/inputmode/…) onto the
 // inner <input>, not the wrapper div. Keeps VInput at parity with VSelect/VTextarea.
 defineOptions({ inheritAttrs: false })
+
+// DS-wide default keyboard focus-scroll (root-static batch): every VInput
+// scrolls itself above the keyboard on focus, closing the "some fields never
+// got the per-field treatment" gap (diary search, Language/Timezone, MasterApply
+// Step 1/2, …). If a caller ALSO passes its own `@focus`, Vue's v-bind merge
+// behavior fires BOTH handlers (no override, no crash) -- calling
+// scrollIntoView twice is harmless. Callers may drop their own wiring later;
+// not required for this to work.
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 withDefaults(
   defineProps<{

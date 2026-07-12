@@ -19,6 +19,7 @@
       :rows="rows"
       :disabled="disabled"
       v-bind="$attrs"
+      @focus="onFieldFocus"
       @input="onInput"
     />
     <span v-if="error" class="v-textarea__error">{{ error }}</span>
@@ -27,10 +28,16 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, nextTick } from 'vue'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 
 // inheritAttrs:false — forward native attrs (maxlength/inputmode/…) onto the
 // inner <textarea>, not the wrapper div. Parity with VInput/VSelect.
 defineOptions({ inheritAttrs: false })
+
+// DS-wide default keyboard focus-scroll (root-static batch) — see VInput.vue
+// for the rationale; same merge-safe pattern (Vue fires both handlers if a
+// caller also passes its own `@focus`).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 const props = withDefaults(
   defineProps<{
