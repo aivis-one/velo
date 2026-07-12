@@ -52,6 +52,11 @@ const { contentSafeTop } = useSafeArea()
   flex-direction: column;
   box-sizing: border-box;
   background: transparent;
+  /* ROOT-LOCK: nothing may push this frame taller than its own definite
+     height (that would drag #app -- and #app::before's bg -- along with it).
+     Every screen mounted here owns its OWN internal .velo-kbd-scroll
+     container for overflow; the frame itself never scrolls. */
+  overflow: hidden;
 }
 
 /* The single child (one of the gated screens) fills the remaining height. */
