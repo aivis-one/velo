@@ -4,11 +4,13 @@
   Drill-in from the dashboard "Баланс по мастерам" link. Platform revenue +
   commission + payout + per-master earnings.
 
-  WIRED (E9, 2026-06-16): GET /api/v1/admin/revenue?period=month — revenue (GMV),
-  commission, payout + per-master breakdown (loading/error/empty states).
-  Money via formatMoney(..., 'EUR', 'ru', true) so €0.00 renders honestly: seed
-  practices are currently free, so totals read 0 until priced templates land
-  (seed-pricing task, operator D2=В, queued next). No fabricated figures.
+  WIRED (E9, 2026-06-16): GET /api/v1/admin/revenue?period=week|month — revenue
+  (GMV), commission, payout + per-master breakdown (loading/error/empty states).
+  Неделя/Месяц toggle (mirrors AdminDashboardView's period segment), default
+  'week' to match the backend default. Money via formatMoney(..., 'EUR', 'ru',
+  true) so €0.00 renders honestly: seed practices are currently free, so totals
+  read 0 until priced templates land (seed-pricing task, operator D2=В, queued
+  next). No fabricated figures.
 -->
 
 <template>
@@ -17,6 +19,14 @@
       <VBackButton @click="router.back()" />
       <span class="admin-detail__title">Выручка</span>
     </header>
+
+    <VSegment
+      compact
+      :model-value="period"
+      :options="periodOptions"
+      aria-label="Период выручки"
+      @update:model-value="selectPeriod"
+    />
 
     <div v-if="loading" class="admin-detail__loader"><VLoader size="lg" /></div>
 
@@ -30,7 +40,7 @@
     </VEmptyState>
 
     <template v-else-if="data">
-      <VMetricHero :value="revenueLabel" label="Выручка за месяц">
+      <VMetricHero :value="revenueLabel" :label="revenueHeroLabel">
         <template #icon><IconFinance :size="28" /></template>
       </VMetricHero>
 
@@ -58,10 +68,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   VBackButton,
+  VSegment,
   VMetricHero,
   VStatCard,
   VCard,
@@ -70,6 +81,7 @@ import {
   VEmptyState,
   VButton,
 } from '@/components/ui'
+import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import { IconFinance } from '@/components/icons'
 import { getAdminRevenue } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
@@ -81,6 +93,22 @@ const router = useRouter()
 const data = ref<AdminRevenueResponse | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
+
+// Период (Неделя/Месяц), default 'week' matches the backend default.
+const period = ref<'week' | 'month'>('week')
+const periodOptions: SegmentOption[] = [
+  { value: 'week', label: 'Неделя' },
+  { value: 'month', label: 'Месяц' },
+]
+const revenueHeroLabel = computed<string>(() =>
+  period.value === 'week' ? 'Выручка за неделю' : 'Выручка за месяц',
+)
+
+// VSegment emits a plain string; narrow it back to the period union.
+function selectPeriod(p: string): void {
+  if (p !== 'week' && p !== 'month') return
+  period.value = p
+}
 
 // allowZero=true: free-seed totals must show €0.00, not "Бесплатно".
 function money(cents: number): string {
@@ -97,7 +125,7 @@ async function load(): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    data.value = await getAdminRevenue('month')
+    data.value = await getAdminRevenue(period.value)
   } catch (e) {
     error.value = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки'
   } finally {
@@ -106,6 +134,7 @@ async function load(): Promise<void> {
 }
 
 onMounted(load)
+watch(period, load)
 </script>
 
 <style scoped>
