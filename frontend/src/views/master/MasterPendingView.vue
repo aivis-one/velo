@@ -26,7 +26,7 @@
 <template>
   <div class="pending-view">
     <div
-      class="pending-view__content"
+      class="pending-view__content velo-kbd-scroll"
       :class="{ 'pending-view__content--centered': !masterStore.profileLoading && isPending }"
     >
       <template v-if="masterStore.profileLoading">
@@ -178,6 +178,9 @@ async function enterMasterMode(): Promise<void> {
 
 .pending-view__content {
   flex: 1;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

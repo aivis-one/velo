@@ -15,7 +15,7 @@ Verified masters never reach here: applyGuard bounces them to the dashboard.
 
 <template>
   <div class="invite-claim">
-    <div class="invite-claim__content">
+    <div class="invite-claim__content velo-kbd-scroll">
       <!-- Claiming -->
       <template v-if="claiming">
         <VLoader size="lg" />
@@ -87,6 +87,9 @@ onMounted(async () => {
 
 .invite-claim__content {
   flex: 1;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

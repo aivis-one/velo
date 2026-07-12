@@ -7,7 +7,7 @@
 -->
 
 <template>
-  <div class="stub">
+  <div class="stub velo-kbd-scroll">
     <div class="stub__logo">
       <VeloLogo :size="120" />
     </div>
@@ -35,6 +35,8 @@ const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testb
   /* Fill AppFrame's content area (it owns viewport height + safe-area once,
      app-wide). A fresh 100dvh here double-applies and makes content jump. */
   min-height: 100%;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  overflow-y: auto;
   padding: var(--space-5);
   background: transparent;
   text-align: center;

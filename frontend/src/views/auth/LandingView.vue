@@ -12,7 +12,7 @@
 -->
 
 <template>
-  <div class="auth">
+  <div class="auth velo-kbd-scroll">
     <VeloLogo variant="lockup" :size="120" class="auth__logo" />
     <h1 class="auth__title">Станьте мастером</h1>
     <p class="auth__brand">VELΘ</p>
@@ -78,6 +78,8 @@ function goLogin(): void {
   flex-direction: column;
   align-items: center;
   min-height: 100%;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  overflow-y: auto;
   padding: var(--space-8) var(--velo-screen-padding);
   background: transparent;
   text-align: center;

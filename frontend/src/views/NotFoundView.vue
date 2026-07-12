@@ -3,7 +3,7 @@
 -->
 
 <template>
-  <div class="not-found">
+  <div class="not-found velo-kbd-scroll">
     <IconSearch :size="64" class="not-found__icon" />
     <h1 class="not-found__title">404</h1>
     <p class="not-found__text">Страница не найдена</p>
@@ -25,6 +25,8 @@ const router = useRouter()
   justify-content: center;
   /* Fill AppFrame's stable height — never dvh (collapses on keyboard). Canon §2. */
   min-height: 100%;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  overflow-y: auto;
   text-align: center;
   padding: var(--space-5);
   background: transparent;
