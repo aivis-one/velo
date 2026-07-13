@@ -1,7 +1,7 @@
 <!--
-  VELO Frontend -- TEMPORARY bg-bug diagnostic HUD (ПРОМТ №380/381-AMEND, held
-  -- NOT for deploy beyond a throwaway TEST commit). Deletable in one step:
-  remove this file + the `v-if="bgDebugEnabled"` mount in App.vue.
+  VELO Frontend -- TEMPORARY bg-bug diagnostic HUD (ПРОМТ №380/381-AMEND/382,
+  throwaway TEST-only build). Deletable in one step: remove this file + the
+  `<BgDebugHud />` mount in App.vue.
 
   Purpose: a SINGLE screenshot taken with the keyboard open must reveal
   everything -- so every metric is shown as BASE (latched once at mount, while
@@ -15,7 +15,11 @@
   reads the screenshot. The poll is the source of truth for "what does the
   screen show right now"; listeners only make it react a beat faster.
 
-  Gated behind `?bgdebug=1` so it never renders unless explicitly requested.
+  ALWAYS-ON (ПРОМТ №382): a `?bgdebug=1` query gate is unreachable in a real
+  Telegram Mini App (bot-fixed URL, startapp payload lands in
+  tgWebAppStartParam, not location.search) -- renders unconditionally until
+  the device read is done, then this whole component + its App.vue wiring
+  gets reverted.
 -->
 <template>
   <div class="bg-debug-hud">
