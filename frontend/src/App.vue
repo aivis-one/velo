@@ -46,6 +46,11 @@
   </AppFrame>
   <!-- VToast teleports to body (overlay); kept outside the frame. -->
   <VToast />
+  <!-- TEMPORARY (ПРОМТ №380, held -- not for deploy): bg-bug diagnostic HUD,
+       gated behind ?bgdebug=1 so it never renders unless explicitly requested.
+       Remove this line + the BgDebugHud import/component once the bg bug is
+       instrumented and understood. -->
+  <BgDebugHud v-if="bgDebugEnabled" />
 </template>
 
 <script setup lang="ts">
@@ -61,6 +66,11 @@ import LoadingView from '@/views/auth/LoadingView.vue'
 import StandaloneStubView from '@/views/auth/StandaloneStubView.vue'
 import WelcomeView from '@/views/auth/WelcomeView.vue'
 import OnboardingView from '@/views/auth/OnboardingView.vue'
+import BgDebugHud from '@/components/dev/BgDebugHud.vue'
+
+// TEMPORARY (ПРОМТ №380, held): ?bgdebug=1 opt-in for the bg-bug diagnostic
+// HUD. Read once -- this is a one-shot device-verify tool, not a live toggle.
+const bgDebugEnabled = new URLSearchParams(window.location.search).get('bgdebug') === '1'
 
 const { isReady, isAuthenticated, isStandalone, isLoggingOut, initAuth } = useAuth()
 const authStore = useAuthStore()
