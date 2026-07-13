@@ -46,14 +46,6 @@
   </AppFrame>
   <!-- VToast teleports to body (overlay); kept outside the frame. -->
   <VToast />
-  <!-- TEMPORARY (ПРОМТ №382, throwaway): bg-bug diagnostic HUD, ALWAYS-ON.
-       A ?bgdebug=1 query gate is unreachable in a real Telegram Mini App (the
-       bot-fixed URL never carries it -- startapp payload lands in
-       tgWebAppStartParam, not location.search), so this renders unconditionally
-       until the device read is done. Revert this line + the BgDebugHud
-       import/component + the whole components/dev/ dir after the bg bug is
-       instrumented and understood. -->
-  <BgDebugHud />
 </template>
 
 <script setup lang="ts">
@@ -69,7 +61,6 @@ import LoadingView from '@/views/auth/LoadingView.vue'
 import StandaloneStubView from '@/views/auth/StandaloneStubView.vue'
 import WelcomeView from '@/views/auth/WelcomeView.vue'
 import OnboardingView from '@/views/auth/OnboardingView.vue'
-import BgDebugHud from '@/components/dev/BgDebugHud.vue'
 
 const { isReady, isAuthenticated, isStandalone, isLoggingOut, initAuth } = useAuth()
 const authStore = useAuthStore()
