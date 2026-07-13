@@ -112,10 +112,11 @@
           <div v-for="item in visibleRoster" :key="item.booking_id" class="pd-prow">
             <span class="pd-prow__ava">
               <img
-                v-if="item.user_avatar_url"
+                v-if="item.user_avatar_url && !brokenAvatars.has(item.booking_id)"
                 :src="item.user_avatar_url"
                 alt=""
                 class="pd-prow__ava-img"
+                @error="brokenAvatars.add(item.booking_id)"
               />
               <template v-else>{{ initials(item) }}</template>
             </span>
@@ -432,6 +433,13 @@ function initials(item: AttendanceItemResponse): string {
   const name = (item.user_display_name || item.user_id).trim()
   return (name.charAt(0) || '?').toUpperCase()
 }
+
+// 2026-07-14: this roster paints <img> directly instead of going through
+// VAvatar, so it needs its own broken-image guard. A dead avatar host (t.me was
+// pulled at the registry level, taking every Telegram userpic with it) would
+// otherwise render a broken glyph while initials() sits right there, unused.
+// Keyed by booking_id -- one bad avatar must not blank out the whole roster.
+const brokenAvatars = ref(new Set<string>())
 
 // -- Past: rating distribution badges (REAL, anonymous insights) --
 const totalFeedbacks = computed((): number => {

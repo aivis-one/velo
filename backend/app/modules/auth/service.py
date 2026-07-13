@@ -49,6 +49,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.redis import get_redis
+from app.core.telegram_links import normalize_telegram_url
 from app.modules.notifications.template_engine import normalize_language
 from app.modules.users.models import User
 
@@ -233,9 +234,18 @@ async def upsert_user_on_login(
     telegram_id = telegram_user["id"]
     now = datetime.now(UTC)
 
+    # Telegram hands us photo_url on a host that may be dead (t.me was pulled
+    # at the registry level on 2026-07-13). Rewrite it onto the live host ONCE,
+    # here, at the only point where an avatar enters the system -- so nothing
+    # downstream (schemas, views, the DB) ever sees a dead host.
+    # See app/core/telegram_links.py.
+    photo_url = normalize_telegram_url(
+        telegram_user.get("photo_url"), settings.telegram_link_domain
+    )
+
     credentials = {
         "telegram_username": telegram_user.get("username"),
-        "telegram_photo_url": telegram_user.get("photo_url"),
+        "telegram_photo_url": photo_url,
         "language_code": telegram_user.get("language_code"),
     }
 
@@ -253,7 +263,7 @@ async def upsert_user_on_login(
             telegram_id=telegram_id,
             first_name=telegram_user.get("first_name"),
             last_name=telegram_user.get("last_name"),
-            avatar_url=telegram_user.get("photo_url"),
+            avatar_url=photo_url,
             language=normalized_lang,
             credentials=credentials,
             last_login_at=now,
@@ -282,7 +292,7 @@ async def upsert_user_on_login(
             set_={
                 "first_name": telegram_user.get("first_name"),
                 "last_name": telegram_user.get("last_name"),
-                "avatar_url": telegram_user.get("photo_url"),
+                "avatar_url": photo_url,
                 "credentials": func.coalesce(
                     User.credentials, text("'{}'::jsonb")
                 ).op("||")(credentials),

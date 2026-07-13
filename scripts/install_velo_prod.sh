@@ -40,6 +40,15 @@ GITHUB_REPO="aivis-one/velo"
 GIT_BRANCH="main"  # Branch to clone and track (production). Must already exist on origin.
 DEPLOY_USER="velo"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
+# Host serving Telegram links. t.me was pulled at the .me registry level on
+# 2026-07-13 (NXDOMAIN worldwide, not a block), so bot links and avatars must
+# ride an alias. telegram.me and telegram.dog are official aliases of t.me --
+# see https://core.telegram.org/api/links.
+#
+# SINGLE POINT OF TRUTH for this script: every Telegram URL below is built from
+# it. Escape hatch if telegram.me dies too: telegram.dog sits in a different
+# TLD, outside the Montenegrin .me registry.
+TELEGRAM_LINK_DOMAIN="telegram.me"
 
 # === Colors ===
 RED='\033[0;31m'
@@ -483,7 +492,10 @@ CORS_ORIGINS=https://${DOMAIN_FRONTEND}
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 # Bot URL for notification deep links. Username resolved via Telegram getMe.
-TELEGRAM_BOT_URL=https://t.me/${TELEGRAM_BOT_USERNAME}
+TELEGRAM_BOT_URL=https://${TELEGRAM_LINK_DOMAIN}/${TELEGRAM_BOT_USERNAME}
+# Live Telegram link host. The backend rewrites every Telegram URL onto it --
+# both this bot URL and the avatar URLs Telegram sends in initData.
+TELEGRAM_LINK_DOMAIN=${TELEGRAM_LINK_DOMAIN}
 
 # --- Session ---
 SESSION_TTL_DAYS=30
@@ -502,7 +514,7 @@ EOF
     # Save VITE build args -- used by start_stack() and velo update.
     cat > "$INSTALL_BASE/vite.env" << EOF
 VITE_API_BASE_URL=https://${DOMAIN_API}
-VITE_TELEGRAM_BOT_URL=https://t.me/${TELEGRAM_BOT_USERNAME}
+VITE_TELEGRAM_BOT_URL=https://${TELEGRAM_LINK_DOMAIN}/${TELEGRAM_BOT_USERNAME}
 EOF
     success "vite.env saved"
 }

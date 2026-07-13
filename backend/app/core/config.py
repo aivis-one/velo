@@ -30,6 +30,8 @@
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.telegram_links import normalize_telegram_url
+
 
 class Settings(BaseSettings):
     """Application settings, loaded from environment variables.
@@ -73,8 +75,21 @@ class Settings(BaseSettings):
     # but tests mock validation anyway. (P-4)
     telegram_bot_token: str = ""
     # Bot URL for deep link buttons in notifications (Phase 7.3).
-    # Example: "https://t.me/velo_testbot"
+    # Example: "https://telegram.me/veloappbot"
+    #
+    # The host of this URL is normalized at startup (see the validator below):
+    # a stale .env still carrying the dead t.me host is repaired in memory, so
+    # a domain swap does NOT require touching every server's .env by hand.
     telegram_bot_url: str = ""
+    # Host currently serving Telegram links (t.me died at the registry level on
+    # 2026-07-13 -- see app/core/telegram_links.py for the full story).
+    #
+    # THIS IS THE ONLY PLACE IN THE BACKEND THAT NAMES A TELEGRAM DOMAIN.
+    # Every Telegram URL -- the bot URL from .env and every avatar URL arriving
+    # from initData -- is rewritten onto this host. If telegram.me ever dies
+    # too, set TELEGRAM_LINK_DOMAIN=telegram.dog in .env (different TLD, not
+    # subject to the Montenegrin .me registry) and restart. Nothing else changes.
+    telegram_link_domain: str = "telegram.me"
 
     # -- Sessions --
     # How long a session token lives in Redis (days).
@@ -412,6 +427,17 @@ class Settings(BaseSettings):
                     "TELEGRAM_BOT_TOKEN is required in production. "
                     "Get it from BotFather."
                 )
+
+        # TELEGRAM_BOT_URL: repair a stale host (2026-07-14).
+        # Servers provisioned before t.me died still carry
+        # TELEGRAM_BOT_URL=https://t.me/<bot> in their .env. Rewriting the host
+        # here means deep links and master invites keep working WITHOUT anyone
+        # editing .env on every box -- and it is the reason formatters.py and
+        # admin/masters/service.py need no changes at all: they read an already
+        # normalized settings.telegram_bot_url.
+        self.telegram_bot_url = normalize_telegram_url(
+            self.telegram_bot_url, self.telegram_link_domain
+        ) or ""
 
         # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)
         if not self.stripe_success_url:

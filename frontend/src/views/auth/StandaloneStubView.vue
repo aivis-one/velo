@@ -1,9 +1,20 @@
 <!--
-  VELO Frontend -- Standalone Stub View (DS-6)
+  VELO Frontend -- Standalone Stub View (DS-6, fixed 2026-07-14)
 
   Shown when user opens app outside Telegram (no initData).
   Directs them to open via the bot.
   Matches 01_Welcome.png mockup style — glassmorphism buttons, pill shape.
+
+  Two fixes on 2026-07-14:
+    - target="_blank" removed. This is a universal link: on iOS Safari and
+      Android Chrome the hand-off into the Telegram app is only reliable when
+      the navigation happens in the SAME tab, from a direct user gesture. In a
+      new tab the browser often keeps the link to itself and the user lands on
+      a web page (or a blank tab) instead of the app. Unnoticeable on desktop,
+      "the button is broken" on a phone.
+    - The hardcoded fallback pointed at the dead t.me host AND at velo_testbot,
+      which is not the production bot. It now mirrors the real default. The
+      fallback only fires when VITE_TELEGRAM_BOT_URL is missing from the build.
 -->
 
 <template>
@@ -13,7 +24,7 @@
     </div>
     <h1 class="stub__title">VELΘ</h1>
     <p class="stub__message">Пространство для практики<br />и внутреннего развития</p>
-    <a :href="botUrl" class="stub__button stub__button--primary" target="_blank" rel="noopener">
+    <a :href="botUrl" class="stub__button stub__button--primary" rel="noopener">
       Открыть в Telegram
     </a>
     <p class="stub__hint">Нажмите кнопку «Открыть VELO» в чате с ботом</p>
@@ -23,7 +34,7 @@
 <script setup lang="ts">
 import VeloLogo from '@/components/ui/VeloLogo.vue'
 
-const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://t.me/velo_testbot'
+const botUrl = import.meta.env.VITE_TELEGRAM_BOT_URL || 'https://telegram.me/veloappbot'
 </script>
 
 <style scoped>

@@ -1,8 +1,12 @@
 <!--
-  VELO Frontend -- VAvatar Component (Phase F2.1)
+  VELO Frontend -- VAvatar Component (Phase F2.1, hardened 2026-07-14)
 
   Circular avatar. Shows image if url provided, otherwise initials from name.
   Matches mockup avatar patterns (student-avatar, user-avatar, master-avatar).
+
+  A url that is SET but fails to load also falls back to initials (see
+  loadFailed below) -- without that, a dead image host paints a broken-image
+  glyph and the initials path is never reached.
 
   Usage:
     <VAvatar name="Мария К." size="md" />
@@ -11,13 +15,19 @@
 
 <template>
   <div class="v-avatar" :class="`v-avatar--${size}`">
-    <img v-if="url" :src="url" :alt="name" class="v-avatar__img" />
+    <img
+      v-if="url && !loadFailed"
+      :src="url"
+      :alt="name"
+      class="v-avatar__img"
+      @error="loadFailed = true"
+    />
     <span v-else class="v-avatar__initials">{{ initials }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = withDefaults(
   defineProps<{
@@ -28,6 +38,23 @@ const props = withDefaults(
   {
     url: '',
     size: 'md',
+  },
+)
+
+// 2026-07-14: an avatar URL can be perfectly valid in the DB and still be dead
+// on the network -- t.me was pulled at the registry level and every Telegram
+// userpic died with it. `v-if="url"` alone keeps the <img> mounted, so the user
+// gets a broken-image icon while the initials fallback right below sits unused.
+// Falling back on `error` makes ANY dead avatar host (this one or the next)
+// degrade into clean initials instead of a broken glyph.
+const loadFailed = ref(false)
+
+// A fresh URL deserves a fresh attempt: Vue recycles this component across list
+// rows, so without this reset one broken avatar would poison the next row.
+watch(
+  () => props.url,
+  () => {
+    loadFailed.value = false
   },
 )
 

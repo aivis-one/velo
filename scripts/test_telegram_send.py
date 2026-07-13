@@ -50,7 +50,11 @@ async def send_test_message(bot: Bot, chat_id: int) -> bool:
             [
                 InlineKeyboardButton(
                     text="Open VELO",
-                    url="https://t.me/velo_testbot",
+                    # Was hardcoded to https://t.me/velo_testbot -- a dead host
+                    # AND the wrong bot. settings.telegram_bot_url is already
+                    # host-normalized by config.py, so this button follows the
+                    # live domain automatically.
+                    url=settings.telegram_bot_url,
                 ),
             ],
         ],
@@ -80,7 +84,15 @@ async def main() -> None:
         print("Set a real bot token in .env to run this test.")
         sys.exit(1)
 
+    # The inline button now takes its URL from settings -- an empty value would
+    # make aiogram reject the keyboard, so fail loudly and early instead.
+    if not settings.telegram_bot_url:
+        print("ERROR: TELEGRAM_BOT_URL is not set in .env.")
+        print(f"Expected something like https://{settings.telegram_link_domain}/veloappbot")
+        sys.exit(1)
+
     print(f"Bot token: ...{token[-8:]}")
+    print(f"Bot URL:   {settings.telegram_bot_url}")
     print(f"Sending to {len(TEST_ACCOUNTS)} accounts:\n")
 
     bot = Bot(token=token)
