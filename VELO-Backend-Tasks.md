@@ -751,6 +751,36 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   `buildCatalog()` = the **single swap point**: when `GET /catalog` lands, point it at the endpoint and
   the UI renders unchanged. Wiring the editable controls + persistence is Zod's part.
 
+### E21 — Zoom attendance tracking (NEW 2026-07-12, operator). **P0. DEADLINE 2026-07-17.**
+- **(a) Why.** Attendance today is inferred by the clock-driven lifecycle (Zod's recent
+  `feat(practices)!: drive practice lifecycle by the clock` — a scheduled practice auto-finalizes on
+  schedule and currently ASSUMES every booked participant attended). The operator wants REAL per-meeting
+  attendance from Zoom itself (join/leave events), replacing the assumption with ground truth.
+- **(b) Screens/consumers (FE, after the contract lands).** Nothing to build FE-side yet — this is a
+  pure backend/data epic. Once shipped, existing FE surfaces that already display attendance-derived
+  data become live instead of clock-inferred: master analytics hours/practices-attended counts,
+  the user dashboard check-in/feedback-vs-reflection branching, the diary состоялась/не-состоялась
+  indicator on past entries.
+- **(c) What's needed.**
+  1. Zoom webhook/API integration: capture `meeting.participant_joined` / `meeting.participant_left`
+     (or equivalent) per scheduled practice's Zoom meeting.
+  2. Map Zoom participant identity → the platform's booking/user record for that practice (join by
+     email/display-name-token or a pre-generated per-booking join link — TBD, needs a Zoom-side
+     identification strategy).
+  3. Derive a real attended/no_show verdict per booking from the join/leave timeline against a
+     duration threshold (e.g. "present for ≥N% of the scheduled duration" — **threshold value TBD**,
+     operator to confirm).
+  4. Feed the verdict into `booking.status` at finalize time, REPLACING the current clock-driven
+     "assume attended" default (the lifecycle-by-clock auto-finalizer becomes the fallback only when
+     Zoom data is unavailable, not the primary source).
+- **(d) Downstream (what starts being REAL once this ships, not before):** hours-practiced count ·
+  practices-attended count · feedback-request branching (attended → feedback prompt / no_show →
+  reflection prompt) · diary "состоялась / не состоялась" indicator on past entries. **FE does not
+  build speculative UI for this now** — the existing surfaces already render whatever `booking.status`
+  says (clock-inferred today); they pick up the real signal automatically once this epic changes what
+  populates that field. No FE ticket needed until the contract (exact field/enum) is defined.
+- **STATUS: OPEN — Zod. Deadline 2026-07-17 (operator-set).**
+
 ---
 
 ## 2026-07-07 — admin «Revoke master» self-added (heads-up for YOUR role lane, A1)
