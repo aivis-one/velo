@@ -77,9 +77,15 @@
         <!-- Editable: two-level направление→вид picker (batch L, shared
              MethodTaxonomyPicker), seeded from the master's current methods
              (drop-unmatched, Q3). On submit the flat new-vocabulary methods[]
-             goes to submitMethodChangeRequest (schema unchanged). -->
+             goes to submitMethodChangeRequest (schema unchanged). PC3
+             (2026-07-12): «Свой вариант» re-enabled (default allowCustom=true,
+             same as the apply wizard) -- the custom string flows through the
+             SAME flattenMethods()/submitMethodChangeRequest() path already
+             used here, and the backend's proposed_methods field has no
+             taxonomy validation (ShortStr list, length-only) -- it already
+             accepts off-taxonomy strings pending admin approval. -->
         <template v-else>
-          <MethodTaxonomyPicker v-model="selectedMethods" :allow-custom="false" />
+          <MethodTaxonomyPicker v-model="selectedMethods" />
           <p v-if="methodRejectReason" class="edit-profile__methods-reject">
             Прошлый запрос отклонён: {{ methodRejectReason }}
           </p>
