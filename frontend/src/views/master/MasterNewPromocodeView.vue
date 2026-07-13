@@ -1,9 +1,10 @@
 <!--
   VELO Frontend -- MasterNewPromocodeView (create-promocode form, 2026-06-13)
 
-  Route /master/promocodes/new, built to the «5 New promo code» design. STUB: no
-  promocodes backend → «Создать промокод» toasts «недоступно». Reuses the Phase-3
-  required-seal pattern (`required` prop on VInput/VSelect + legend). -> Zod.
+  Route /master/promocodes/new, built to the «5 New promo code» design. WIRED
+  (PC1, 2026-07-12): POST /api/v1/masters/me/promos has been live since E10 --
+  this form just never called it. Reuses the Phase-3 required-seal pattern
+  (`required` prop on VInput/VSelect + legend).
 -->
 
 <template>
@@ -52,7 +53,13 @@
         @focus="onFieldFocus"
       />
 
-      <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
+      <VButton
+        variant="primary"
+        block
+        class="new-promo__submit"
+        :loading="creating"
+        @click="onCreate"
+      >
         Создать промокод
       </VButton>
     </div>
@@ -78,6 +85,8 @@ import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { useToast } from '@/composables/useToast'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import { formatShortDate, todayLocalISO } from '@/utils/format'
+import { createPromo } from '@/api/promos'
+import { ApiResponseError } from '@/api/client'
 
 const router = useRouter()
 const toast = useToast()
@@ -120,9 +129,36 @@ watch(
   },
 )
 
-function onCreate(): void {
-  // No promocodes backend yet -> stub per the operator rule. -> Zod.
-  toast.info('Промокоды пока недоступны')
+const creating = ref(false)
+
+async function onCreate(): Promise<void> {
+  if (creating.value) return
+  if (!form.code.trim()) {
+    toast.error('Введите код промокода')
+    return
+  }
+  if (!form.until) {
+    toast.error('Укажите дату окончания действия')
+    return
+  }
+  creating.value = true
+  try {
+    await createPromo({
+      code: form.code.trim(),
+      discount_percent: Number(form.discount),
+      // End of the selected local day, sent as UTC ISO (mirrors untilDisplay's
+      // own noon-anchoring pattern -- avoids day-boundary drift near midnight).
+      valid_until: new Date(`${form.until}T23:59:59`).toISOString(),
+      max_uses: form.limit ? Number(form.limit) : null,
+    })
+    toast.success('Промокод создан')
+    router.push({ name: 'master-promocodes' })
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось создать промокод'
+    toast.error(msg)
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
