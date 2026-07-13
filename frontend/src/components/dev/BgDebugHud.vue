@@ -1,5 +1,5 @@
 <!--
-  VELO Frontend -- TEMPORARY bg-bug diagnostic HUD (ПРОМТ №380/381-AMEND/382,
+  VELO Frontend -- TEMPORARY bg-bug diagnostic HUD (ПРОМТ №380/381-AMEND/382/383,
   throwaway TEST-only build). Deletable in one step: remove this file + the
   `<BgDebugHud />` mount in App.vue.
 
@@ -7,7 +7,12 @@
   everything -- so every metric is shown as BASE (latched once at mount, while
   the keyboard is closed) / LIVE (refreshed continuously) / Δ (LIVE - BASE).
   A nonzero Δ on vv.top or a negative #app.top is PAN; a shrinking #app.height
-  with #app.top staying 0 is RESIZE.
+  with #app.top staying 0 is RESIZE. Diagnosis locked (№383): it's neither --
+  the ROOT itself is force-scrolled to reveal a focused input, dragging
+  #app.top negative while #app.height stays frozen. `bg.top`/`bg.height`
+  (added №383) measure the NEW `#app-bg` fixed layer that replaced
+  `#app::before` -- proof-of-fix is `bg.top` staying ~0 (Δ 0) while `app.top`
+  is still allowed to move.
 
   LIVE is driven by a 200ms poll, not just event listeners: a native Android
   pan may fire no JS event at all (no resize, no scroll, no visualViewport
@@ -87,6 +92,14 @@ function readSdkViewport(): { height?: number; stableHeight?: number } | null {
 
 function appRect(): DOMRect | null {
   return document.getElementById('app')?.getBoundingClientRect() ?? null
+}
+
+function bgRect(): DOMRect | null {
+  // ПРОМТ №383: the new body-level fixed layer (index.html #app-bg). If it's
+  // fixed correctly, this should read top≈0/height≈frozen on every poll tick,
+  // completely independent of #app's own rect (which the root's forced
+  // focus-scroll still legitimately moves).
+  return document.getElementById('app-bg')?.getBoundingClientRect() ?? null
 }
 
 // One read() per metric -- BASE latches these once at mount, LIVE reruns them
@@ -179,6 +192,20 @@ const metrics: Metric[] = [
     numeric: true,
     highlight: true,
     read: () => Math.round(appRect()?.height ?? 0),
+  },
+  {
+    key: 'bgTop',
+    label: 'bg.top',
+    numeric: true,
+    highlight: true,
+    read: () => Math.round(bgRect()?.top ?? 0),
+  },
+  {
+    key: 'bgH',
+    label: 'bg.height',
+    numeric: true,
+    highlight: true,
+    read: () => Math.round(bgRect()?.height ?? 0),
   },
 ]
 

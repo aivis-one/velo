@@ -408,17 +408,25 @@ onUnmounted(() => {
 
 <style scoped>
 /* Full-screen onboarding overlay. Replicates the app's photo background
-   (#app::before in global.css) so it obscures the dashboard behind it and the
-   transparent carousel reads exactly like the user OnboardingView. Below the
-   toast layer (--z-toast) so error toasts still surface.
+   (ПРОМТ №383: now `#app-bg` in global.css, was `#app::before`) so it obscures
+   the dashboard behind it and the transparent carousel reads exactly like the
+   user OnboardingView. Below the toast layer (--z-toast) so error toasts
+   still surface. This is a SEPARATE, intentional second paint of the same
+   image -- not a bug: `#app-bg` sits BEHIND `#app` (z-index:-1), and this
+   overlay sits ABOVE `#app` (z-index:var(--z-popup)) to obscure it, so it
+   can't just show `#app-bg` through a transparent background -- it needs its
+   own opaque copy. Audited №383: this view has no focusable inputs (a
+   read-only carousel), so it never triggers the Android
+   focus-scroll-bypasses-overflow-hidden path that #app::before was vulnerable
+   to -- safe as `position:absolute` against body's frozen box.
    position:absolute (was fixed, bg-freeze batch): this is Teleported to
    <body>, so a `fixed` layer tracked the visual viewport directly -- on a
    platform where the keyboard resizes that viewport, this SECOND copy of the
-   mandala moved independently of the real #app::before background underneath
-   it (a confirmed jump vector, audit ПРОМТ №378). `body` is now
-   position:relative (global.css) with a frozen height, so `absolute; inset:0`
-   here resolves against that stable box instead -- full-bleed coverage,
-   immune to the keyboard, on every platform. */
+   mandala moved independently of the real background underneath it (a
+   confirmed jump vector, audit ПРОМТ №378). `body` is now position:relative
+   (global.css) with a frozen height, so `absolute; inset:0` here resolves
+   against that stable box instead -- full-bleed coverage, immune to the
+   keyboard, on every platform. */
 .master-onboarding-overlay {
   position: absolute;
   inset: 0;
