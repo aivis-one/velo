@@ -97,6 +97,7 @@ import { VButton, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
+import { MASTER_APPROVED_SEEN_KEY } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
@@ -157,6 +158,10 @@ async function enterMasterMode(): Promise<void> {
   switching.value = true
   try {
     await authStore.switchRole('master')
+    // MA3: mark this celebratory screen as seen (persists across sessions) so
+    // future self-switches (RoleSwitchSection) go straight to the dashboard
+    // instead of detouring back through here.
+    localStorage.setItem(MASTER_APPROVED_SEEN_KEY, '1')
     router.push({ name: 'master-dashboard' })
   } catch {
     toast.error('Не удалось переключиться в режим мастера')

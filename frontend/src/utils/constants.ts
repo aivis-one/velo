@@ -49,6 +49,18 @@ export const WITHDRAWAL_FEE_EUROS = 2
  */
 export const MASTER_APPLIED_KEY = 'velo:master-applied'
 
+/**
+ * localStorage marker (MA3, persists across sessions -- unlike the sessionStorage
+ * MASTER_APPLIED_KEY above): set once the master has actually seen/entered
+ * through the "Ваша заявка одобрена!" screen (MasterPendingView.enterMasterMode).
+ * RoleSwitchSection reads it to decide whether a role='user'->master self-switch
+ * should detour through the approved screen first (not seen yet) or go straight
+ * to the dashboard (already seen). Not cleared on logout -- it is a one-time
+ * "have they ever seen this celebratory screen" fact about the account/device,
+ * not per-session state.
+ */
+export const MASTER_APPROVED_SEEN_KEY = 'velo:master-approved-seen'
+
 // ---------------------------------------------------------------------------
 // Keyboard / visual-viewport (keyboard-aware layout)
 // ---------------------------------------------------------------------------

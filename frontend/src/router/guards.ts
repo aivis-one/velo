@@ -173,7 +173,13 @@ export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () =>
  *   - user + marker     -> allow (an actual applicant — still role='user' until
  *                         the backend promotes them; MASTER_APPLIED_KEY is set
  *                         on a successful application submit)
- *   - user, no marker   -> redirect to /user/dashboard (never applied)
+ *   - user + capability -> allow (MA3: an already-approved role='user' account
+ *                         detoured here by RoleSwitchSection so it sees the
+ *                         "Ваша заявка одобрена!" screen before switching — same
+ *                         authoritative signal the view's own profileStatus
+ *                         computed already trusts, not the sessionStorage marker
+ *                         which only covers the fresh-submit path)
+ *   - user, neither     -> redirect to /user/dashboard (never applied)
  */
 export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () => {
   const { timedOut }: ReadyResult = await waitUntilReady()
@@ -187,6 +193,7 @@ export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () =
   if (auth.role === 'master') return true
 
   if (sessionStorage.getItem(MASTER_APPLIED_KEY) === '1') return true
+  if (auth.allowedRoles.includes('master')) return true
 
   return { path: '/user/dashboard' }
 }
