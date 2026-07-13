@@ -410,9 +410,17 @@ onUnmounted(() => {
 /* Full-screen onboarding overlay. Replicates the app's photo background
    (#app::before in global.css) so it obscures the dashboard behind it and the
    transparent carousel reads exactly like the user OnboardingView. Below the
-   toast layer (--z-toast) so error toasts still surface. */
+   toast layer (--z-toast) so error toasts still surface.
+   position:absolute (was fixed, bg-freeze batch): this is Teleported to
+   <body>, so a `fixed` layer tracked the visual viewport directly -- on a
+   platform where the keyboard resizes that viewport, this SECOND copy of the
+   mandala moved independently of the real #app::before background underneath
+   it (a confirmed jump vector, audit ПРОМТ №378). `body` is now
+   position:relative (global.css) with a frozen height, so `absolute; inset:0`
+   here resolves against that stable box instead -- full-bleed coverage,
+   immune to the keyboard, on every platform. */
 .master-onboarding-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: var(--z-popup);
   background: url('/bg/background.png') center / cover no-repeat;
