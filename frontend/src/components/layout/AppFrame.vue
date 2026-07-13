@@ -33,12 +33,16 @@ const { contentSafeTop } = useSafeArea()
      (fill-mode screens like the diary need a bounded height to scroll their
      inner body instead of growing the whole frame). box-sizing:border-box keeps
      the safe-area padding inside this height. */
-  height: 100vh; /* fallback for browsers without lvh */
-  /* lvh (large viewport height), NOT dvh: the *stable* large height that does
-     not shrink when the iOS keyboard opens. With dvh the frame reflowed on
-     keyboard open, re-anchoring the fixed #app::before bg layer (the "dancing
-     background"). Paired with useBackgroundStabilizer's counter-shift. */
+  height: 100vh; /* pre-JS-paint fallback for browsers without lvh */
+  /* lvh (large viewport height), NOT dvh: pre-JS-paint fallback only now --
+     `lvh`'s keyboard-immunity isn't guaranteed on every platform (some Android
+     WebViews resize the rendering surface itself, bypassing interactive-widget
+     entirely). --velo-frozen-vh is a literal px snapshot captured once at mount
+     by useBackgroundStabilizer.freezeAppHeight(), immune to any live viewport
+     signal -- that's what actually decouples the frame (and #app::before's bg)
+     from the keyboard on every platform, not `lvh` itself. */
   height: 100lvh;
+  height: var(--velo-frozen-vh, 100lvh);
   min-height: 100vh;
   /* Fixed mobile design frame (Figma 402px). Content never grows wider than the
      design width, so the absolute px geometry taken from the 402px mockups stays
