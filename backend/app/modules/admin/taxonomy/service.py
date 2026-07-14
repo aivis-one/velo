@@ -3,9 +3,14 @@
 # =============================================================================
 #
 # CRUD over the DB-backed direction/style catalog (practice_directions /
-# practice_styles). Admin-only (enforced in the router). MASTER-METHODS
-# scope only -- practice-creation taxonomy validation is untouched (still
-# settings.practice_allowed_directions / practice_allowed_styles_by_direction).
+# practice_styles). MASTER-METHODS scope only -- practice-creation taxonomy
+# validation is untouched (still settings.practice_allowed_directions /
+# practice_allowed_styles_by_direction).
+#
+# list_taxonomy / create_* / update_* are admin-only (enforced in
+# admin/taxonomy/router.py). list_active_taxonomy (R5 stage 3a) is the one
+# exception -- it backs a non-admin-gated route in
+# practices/taxonomy_router.py, reused from here rather than duplicated.
 #
 # Deactivation is a partial PATCH with is_active=false -- there is no
 # hard-delete path (existing masters' stored methods strings must keep
@@ -27,6 +32,7 @@ from app.modules.admin.taxonomy.schemas import (
     CreateStyleRequest,
     TaxonomyDirectionResponse,
     TaxonomyListResponse,
+    TaxonomyStyleResponse,
     UpdateTaxonomyItemRequest,
 )
 from app.modules.practices.taxonomy_models import TaxonomyDirection, TaxonomyStyle
@@ -53,6 +59,36 @@ async def list_taxonomy(session: AsyncSession) -> TaxonomyListResponse:
             for d in directions
         ]
     )
+
+
+async def list_active_taxonomy(session: AsyncSession) -> TaxonomyListResponse:
+    """Active-only catalog, for authenticated non-admin consumers (R5 stage 3a
+    -- the master methods picker). An inactive direction is dropped entirely
+    (its styles too); an active direction keeps only its active styles.
+
+    Reused by GET /api/v1/taxonomy (practices/taxonomy_router.py) -- that
+    route lives outside the admin package (any authenticated user, not just
+    admins, needs to read the active catalog) but imports this function
+    directly rather than duplicating the query.
+    """
+    stmt = (
+        select(TaxonomyDirection)
+        .where(TaxonomyDirection.is_active.is_(True))
+        .options(selectinload(TaxonomyDirection.styles))
+        .order_by(TaxonomyDirection.display_order)
+    )
+    directions = (await session.execute(stmt)).scalars().all()
+
+    result: list[TaxonomyDirectionResponse] = []
+    for d in directions:
+        item = TaxonomyDirectionResponse.model_validate(d, from_attributes=True)
+        item.styles = [
+            TaxonomyStyleResponse.model_validate(s, from_attributes=True)
+            for s in d.styles
+            if s.is_active
+        ]
+        result.append(item)
+    return TaxonomyListResponse(directions=result)
 
 
 async def create_direction(

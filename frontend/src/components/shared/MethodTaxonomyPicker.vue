@@ -21,6 +21,17 @@
     - readonly    : render as a non-interactive summary — only the SELECTED
                     directions/styles, as filled non-clickable chips, no custom
                     control. Used by the pending «ожидают подтверждения» display.
+
+  R5 stage 3b: the OPTIONS offered (which directions/styles render as chips)
+  are fetched from the DB-backed catalog (GET /api/v1/taxonomy, active-only)
+  on mount, falling back to the hardcoded DIRECTION_OPTIONS/
+  STYLE_OPTIONS_BY_DIRECTION on fetch failure -- never blocks the picker.
+  The SELECTION mechanics (parseMethods/flattenMethods, i.e. how a chosen
+  chip round-trips to the stored `methods: string[]`) are UNCHANGED --
+  still keyed against the hardcoded taxonomy internally. The catalog's seed
+  is byte-identical to those consts, so this is safe today; a later stage
+  can teach methodTaxonomy.ts itself to read the catalog if the two ever
+  diverge (e.g. once stage-4 auto-promote adds a genuinely new value).
 -->
 
 <template>
@@ -87,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { VCard, VChip, VInput } from '@/components/ui'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import {
@@ -102,6 +113,7 @@ import {
   directionLabel,
   type MethodSelection,
 } from '@/utils/methodTaxonomy'
+import { getActiveTaxonomy, type TaxonomyListResponse } from '@/api/taxonomy'
 import type { PracticeDirection } from '@/api/types'
 
 const props = withDefaults(
@@ -158,13 +170,44 @@ function emitChange(): void {
   emit('update:modelValue', flattenMethods(selection))
 }
 
+// -- R5 stage 3b: DB-backed catalog, offline/error fallback to the hardcoded
+// consts. null until the fetch resolves (or if it fails) -- callers below
+// treat null the same as "use the fallback", so nothing blocks on this.
+const catalog = ref<TaxonomyListResponse | null>(null)
+
+onMounted(async () => {
+  try {
+    catalog.value = await getActiveTaxonomy()
+  } catch {
+    catalog.value = null // offline/error -- fall back to DIRECTION_OPTIONS below
+  }
+})
+
+/** All directions, catalog-first. Cast is safe: the seeded catalog is
+ *  byte-identical to DIRECTION_OPTIONS today (see header comment). */
+function allDirectionOptions(): DirectionOption[] {
+  if (!catalog.value) return [...DIRECTION_OPTIONS]
+  return catalog.value.directions.map((d) => ({
+    value: d.value as PracticeDirection,
+    label: d.label,
+  }))
+}
+
+/** Styles for one direction, catalog-first. */
+function catalogStylesForDirection(dir: PracticeDirection): StyleOption[] {
+  if (!catalog.value) return stylesForDirection(dir)
+  const entry = catalog.value.directions.find((d) => d.value === dir)
+  return entry ? entry.styles.map((s) => ({ value: s.value, label: s.label })) : []
+}
+
 // -- Level 1 (directions) ----------------------------------------------------
 // Editable: the whole taxonomy. Readonly: only the chosen directions.
-const level1Directions = computed<DirectionOption[]>(() =>
-  props.readonly
-    ? DIRECTION_OPTIONS.filter((o) => selection.directions.includes(o.value))
-    : [...DIRECTION_OPTIONS],
-)
+const level1Directions = computed<DirectionOption[]>(() => {
+  const all = allDirectionOptions()
+  return props.readonly
+    ? all.filter((o) => selection.directions.includes(o.value))
+    : all
+})
 
 // -- Level 2 (styles per selected direction) ---------------------------------
 // Editable: every style of the direction (active ones highlighted). Readonly:
@@ -174,7 +217,7 @@ const styleCards = computed<{ dir: PracticeDirection; label: string; styles: Sty
   () => {
     const cards: { dir: PracticeDirection; label: string; styles: StyleOption[] }[] = []
     for (const dir of selection.directions) {
-      const all = stylesForDirection(dir)
+      const all = catalogStylesForDirection(dir)
       if (all.length === 0) continue
       const chosen = selection.styles[dir] ?? []
       const styles = props.readonly ? all.filter((s) => chosen.includes(s.value)) : all
