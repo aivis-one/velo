@@ -18,9 +18,10 @@ from collections.abc import AsyncGenerator
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.practices.taxonomy_models import TaxonomyDirection
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, full_cleanup_range, login_user, switch_self_to_master
 
@@ -50,7 +51,14 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
 
 
 async def _do_cleanup(session: AsyncSession) -> None:
+    # full_cleanup_range rolls back first (TD-032) -- must run before our own
+    # deletes below (same ordering note as test_admin_taxonomy.py).
     await full_cleanup_range(session, 56600, 56699, delete_users=False)
+    # R5 stage 4: promote-created directions always get a "custom_" value
+    # prefix (service.py _promote_custom_methods) -- clean those up too.
+    await session.execute(
+        delete(TaxonomyDirection).where(TaxonomyDirection.value.like("custom_%"))
+    )
     await session.commit()
 
 
@@ -290,6 +298,120 @@ async def test_approve_without_pending_is_404(
         headers=auth_headers(admin_auth["session_token"]),
     )
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Approve + promote (R5 stage 4, operator decision 3=Б)
+# ---------------------------------------------------------------------------
+async def test_approve_without_promote_leaves_catalog_unchanged(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A bare {} approve body (every pre-stage-4 caller) writes nothing to
+    the taxonomy catalog -- identical to before stage 4."""
+    before = (
+        await db_session.execute(select(TaxonomyDirection.id))
+    ).scalars().all()
+
+    master = await _make_verified_master(client, db_session)
+    master_id = master["user"]["id"]
+    await client.post(
+        SUBMIT_URL,
+        json={"proposed_methods": ["Ченнелинг"]},
+        headers=auth_headers(master["session_token"]),
+    )
+
+    admin_auth = await _make_admin_auth(client, db_session)
+    approve = await client.post(
+        APPROVE_URL.format(user_id=master_id),
+        json={},
+        headers=auth_headers(admin_auth["session_token"]),
+    )
+    assert approve.status_code == 200
+
+    after = (
+        await db_session.execute(select(TaxonomyDirection.id))
+    ).scalars().all()
+    assert set(after) == set(before)
+
+
+async def test_approve_with_promote_creates_custom_direction(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """promote=[label] inserts a new source='custom' direction AND still
+    approves the master's methods exactly as submitted."""
+    master = await _make_verified_master(client, db_session)
+    master_id = master["user"]["id"]
+    master_headers = auth_headers(master["session_token"])
+    await client.post(
+        SUBMIT_URL,
+        json={"proposed_methods": ["Ченнелинг"]},
+        headers=master_headers,
+    )
+
+    admin_auth = await _make_admin_auth(client, db_session)
+    approve = await client.post(
+        APPROVE_URL.format(user_id=master_id),
+        json={"promote": ["Ченнелинг"]},
+        headers=auth_headers(admin_auth["session_token"]),
+    )
+    assert approve.status_code == 200
+    assert approve.json()["status"] == "approved"
+
+    # Methods approved as submitted, independent of the promote outcome.
+    me = await client.get(ME_URL, headers=master_headers)
+    assert me.json()["methods"] == ["Ченнелинг"]
+
+    row = (
+        await db_session.execute(
+            select(TaxonomyDirection).where(TaxonomyDirection.label == "Ченнелинг")
+        )
+    ).scalar_one()
+    assert row.source == "custom"
+    assert row.is_active is True
+    assert row.value.startswith("custom_")
+
+
+async def test_approve_with_promote_dedups_existing_label(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Promoting a label that already exists in the catalog (seeded or a
+    prior promote) does not create a duplicate row."""
+    existing_count = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(
+                TaxonomyDirection.label == "Медитация"
+            )
+        )
+    ).scalars().all()
+    assert len(existing_count) == 1  # the R5-seeded "meditation" direction
+
+    master = await _make_verified_master(client, db_session)
+    master_id = master["user"]["id"]
+    await client.post(
+        SUBMIT_URL,
+        json={"proposed_methods": ["Медитация"]},
+        headers=auth_headers(master["session_token"]),
+    )
+
+    admin_auth = await _make_admin_auth(client, db_session)
+    approve = await client.post(
+        APPROVE_URL.format(user_id=master_id),
+        json={"promote": ["Медитация"]},
+        headers=auth_headers(admin_auth["session_token"]),
+    )
+    assert approve.status_code == 200
+
+    after_count = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(
+                TaxonomyDirection.label == "Медитация"
+            )
+        )
+    ).scalars().all()
+    assert len(after_count) == 1  # still just the one seeded row -- no dup
 
 
 # ---------------------------------------------------------------------------

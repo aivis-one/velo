@@ -20,6 +20,7 @@ from app.core.database import get_db_reader, get_db_session
 from app.modules.admin.masters.schemas import (
     AdminMasterActionResponse,
     AdminMasterProfileUpdate,
+    ApproveMethodChangeRequest,
     EditMasterMethodsRequest,
     InviteMasterResponse,
     MethodChangeActionResponse,
@@ -234,14 +235,17 @@ async def reject_master_endpoint(
 )
 async def approve_method_change_endpoint(
     user_id: UUID,
+    body: ApproveMethodChangeRequest = ApproveMethodChangeRequest(),
     admin: User = Depends(get_current_admin),
     session: AsyncSession = Depends(get_db_session),
 ) -> MethodChangeActionResponse:
     """Approve a master's pending method change-request.
 
     Copies the proposed methods into the live set and clears the request.
+    body.promote (R5 stage 4): optional custom method labels to add to the
+    taxonomy catalog -- absent/empty is identical to pre-stage-4 behavior.
     """
-    await approve_method_change(user_id, admin, session)
+    await approve_method_change(user_id, admin, session, promote=body.promote)
 
     await session.flush()
 

@@ -32,11 +32,13 @@ import copy
 import hashlib
 import json
 import secrets
+import uuid as uuid_module
 from datetime import UTC, datetime
 from uuid import UUID
 
 import structlog
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit import record_audit
@@ -51,6 +53,7 @@ from app.modules.admin.masters.schemas import (
 )
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.practices.taxonomy_models import TaxonomyDirection
 from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import credentials_without_admin_home
 from app.modules.withdrawals.models import Withdrawal, WithdrawalStatus
@@ -420,16 +423,74 @@ async def list_pending_method_changes(
     )
 
 
+async def _promote_custom_methods(
+    labels: list[str],
+    session: AsyncSession,
+) -> list[str]:
+    """Insert each label as a new custom TaxonomyDirection (R5 stage 4).
+
+    source='custom', is_active=True. Dedups case-insensitively against every
+    existing direction label (seeded or already-promoted) -- never inserts a
+    duplicate. Returns the labels actually inserted (skips the rest).
+
+    Scope: the auto-promote path only ever produces bare custom DIRECTIONS.
+    The picker's "Свой вариант" is a single free-text field with no
+    direction+style structure, so there is no reachable case today where a
+    custom entry is a style under an existing direction -- that would need a
+    UI affordance that doesn't exist yet.
+
+    value is a synthetic slug (Cyrillic labels have no natural ASCII slug,
+    and nothing reads `value` for a custom row -- every consumer displays
+    `label`).
+    """
+    if not labels:
+        return []
+
+    existing_labels = (
+        (await session.execute(select(TaxonomyDirection.label))).scalars().all()
+    )
+    seen_lower = {label.lower() for label in existing_labels}
+
+    promoted: list[str] = []
+    for raw in labels:
+        label = raw.strip()
+        if not label or label.lower() in seen_lower:
+            continue
+        direction = TaxonomyDirection(
+            value=f"custom_{uuid_module.uuid4().hex[:8]}",
+            label=label,
+            source="custom",
+        )
+        try:
+            async with session.begin_nested():
+                session.add(direction)
+                await session.flush()
+        except IntegrityError:
+            # Slug collision (astronomically unlikely) or a racing duplicate
+            # insert -- skip rather than fail the whole approval.
+            continue
+        seen_lower.add(label.lower())
+        promoted.append(label)
+    return promoted
+
+
 async def approve_method_change(
     user_id: UUID,
     admin: User,
     session: AsyncSession,
+    promote: list[str] | None = None,
 ) -> MasterProfile:
     """Approve a pending method change-request.
 
     Copies proposed_methods into the live data.profile.methods and CLEARS the
     request (so the profile response returns method_change_request=None). No
     User.role change. Caller does flush + refresh.
+
+    promote (R5 stage 4, operator decision 3=Б): optional list of custom
+    method labels the admin chose to add to the taxonomy catalog, so future
+    masters can pick them from MethodTaxonomyPicker instead of retyping
+    free text. Absent/empty -> no catalog write, identical to pre-stage-4
+    behavior. Deduped against existing rows (_promote_custom_methods).
     """
     profile = await _load_profile_with_pending_method_change(user_id, session)
 
@@ -442,13 +503,15 @@ async def approve_method_change(
     new_data["profile"].pop("method_change_request", None)
     profile.set_jsonb("data", new_data)
 
+    promoted = await _promote_custom_methods(promote or [], session)
+
     await record_audit(
         event="master_method_change_approved",
         actor_id=admin.id,
         actor_type="admin",
         target_type="master_profile",
         target_id=user_id,
-        data={"methods": proposed},
+        data={"methods": proposed, "promoted_to_catalog": promoted},
         session=session,
     )
 
@@ -456,6 +519,7 @@ async def approve_method_change(
         "master_method_change_approved",
         user_id=str(user_id),
         admin_id=str(admin.id),
+        promoted_to_catalog=promoted,
     )
 
     return profile

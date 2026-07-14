@@ -174,6 +174,19 @@ class RejectMethodChangeRequest(BaseModel):
     )
 
 
+class ApproveMethodChangeRequest(BaseModel):
+    """POST /admin/masters/{user_id}/method-change-request/approve -- body.
+
+    R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to
+    empty, so a bare `{}` body (every caller before this stage, and every
+    approval where the admin didn't pick "add to catalog") behaves exactly
+    as before -- no catalog write. Each entry becomes a new custom
+    direction in the taxonomy catalog (deduped against existing rows).
+    """
+
+    promote: list[str] = Field(default_factory=list)
+
+
 class MethodChangeActionResponse(BaseModel):
     """Response for approve/reject method-change actions.
 

@@ -251,11 +251,17 @@ export function getMethodChangeRequests(
   )
 }
 
-/** Approve a master's pending method change-request (methods become live). */
-export function approveMethodChange(userId: string): Promise<MethodChangeActionResponse> {
+/** Approve a master's pending method change-request (methods become live).
+ *  promote (R5 stage 4, operator decision 3=Б): optional custom method
+ *  labels to add to the taxonomy catalog. Omitted/empty -> no catalog
+ *  write, identical to pre-stage-4 behavior. */
+export function approveMethodChange(
+  userId: string,
+  promote?: string[],
+): Promise<MethodChangeActionResponse> {
   return api.post<MethodChangeActionResponse>(
     `/api/v1/admin/masters/${userId}/method-change-request/approve`,
-    {},
+    promote && promote.length ? { promote } : {},
   )
 }
 

@@ -111,6 +111,17 @@
         :error="rejectError"
       />
     </VBottomSheet>
+
+    <!-- Custom method not in the catalog (R5 stage 4, operator decision 3=Б) -->
+    <VConfirmDialog
+      :open="!!promoteTarget"
+      :message="`Метода «${promoteLabel}» нет в каталоге — добавить для всех мастеров?`"
+      confirm-label="Добавить в каталог"
+      cancel-label="Только этому мастеру"
+      :loading="!!promoteTarget && busyId === promoteTarget.user_id"
+      @confirm="onPromoteConfirm"
+      @cancel="onPromoteCancel"
+    />
   </div>
 </template>
 
@@ -127,12 +138,14 @@ import {
   VChip,
   VBottomSheet,
   VTextarea,
+  VConfirmDialog,
 } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { getMethodChangeRequests, approveMethodChange, rejectMethodChange } from '@/api/admin'
 import type { AdminMethodChangeItem } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, formatRelative } from '@/utils/adminHelpers'
+import { parseMethods } from '@/utils/methodTaxonomy'
 
 const LIMIT = 20
 
@@ -153,6 +166,15 @@ const busyId = ref<string | null>(null)
 const rejectTarget = ref<AdminMethodChangeItem | null>(null)
 const rejectReason = ref('')
 const rejectError = ref('')
+
+// R5 stage 4 (operator decision 3=Б): a proposed_methods entry that doesn't
+// match the taxonomy (parseMethods surfaces it as customText) pauses the
+// approval on a confirm -- add the custom label to the catalog, or approve
+// as-is (this master only, today's behavior). Dismissing the dialog (overlay
+// tap) is treated the same as "this master only" -- it always still
+// approves, it just never fails to act on an accidental dismiss.
+const promoteTarget = ref<AdminMethodChangeItem | null>(null)
+const promoteLabel = ref('')
 
 const headerCount = computed<string>(() => (total.value ? String(total.value) : '—'))
 
@@ -200,11 +222,24 @@ function removeItem(userId: string): void {
   total.value = Math.max(0, total.value - 1)
 }
 
-async function onApprove(item: AdminMethodChangeItem): Promise<void> {
+/** Tap "Одобрить": pause on a confirm if any proposed method doesn't match
+ *  the taxonomy (custom/unmatched), else approve immediately (unchanged). */
+function onApprove(item: AdminMethodChangeItem): void {
+  if (busyId.value) return
+  const parsed = parseMethods(item.proposed_methods ?? [])
+  if (parsed.customEnabled && parsed.customText) {
+    promoteTarget.value = item
+    promoteLabel.value = parsed.customText
+    return
+  }
+  void doApprove(item)
+}
+
+async function doApprove(item: AdminMethodChangeItem, promote?: string[]): Promise<void> {
   if (busyId.value) return
   busyId.value = item.user_id
   try {
-    await approveMethodChange(item.user_id)
+    await approveMethodChange(item.user_id, promote)
     toast.success('Методы обновлены')
     removeItem(item.user_id)
   } catch (e) {
@@ -212,7 +247,22 @@ async function onApprove(item: AdminMethodChangeItem): Promise<void> {
     toast.error(msg)
   } finally {
     busyId.value = null
+    promoteTarget.value = null
   }
+}
+
+/** «Добавить в каталог» -- approve AND promote the custom label. */
+function onPromoteConfirm(): void {
+  const item = promoteTarget.value
+  if (!item) return
+  void doApprove(item, [promoteLabel.value])
+}
+
+/** «Только этому мастеру» (or dialog dismissed) -- approve, no promote. */
+function onPromoteCancel(): void {
+  const item = promoteTarget.value
+  if (!item) return
+  void doApprove(item)
 }
 
 function openReject(item: AdminMethodChangeItem): void {
