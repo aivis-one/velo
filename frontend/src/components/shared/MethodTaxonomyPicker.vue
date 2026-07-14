@@ -47,6 +47,14 @@
         >
           Свой вариант
         </VChip>
+        <!-- Readonly display of the custom variant (R3/R4 fix, ПРОМТ №391):
+             parseMethods now SURFACES an unmatched string instead of
+             dropping it (Q3=А, was Q3=В) -- this chip is what actually shows
+             it, matching the selected-direction chips above rather than
+             bespoke markup. -->
+        <VChip v-if="readonly && selection.customEnabled" size="md" :active="true">
+          {{ selection.customText }}
+        </VChip>
       </div>
     </VCard>
 

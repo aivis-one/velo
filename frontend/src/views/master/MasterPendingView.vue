@@ -33,48 +33,55 @@
         <VLoader size="lg" />
       </template>
 
-      <!-- ================= APPROVED (verified) ================= -->
+      <!-- ================= APPROVED (verified) =================
+           White VCard подложка (R1 fix, ПРОМТ №391 — operator-approved preview
+           .tmp/batch-r/r1-application-states.html): was rendering directly on
+           the transparent fog bg, unlike SENT below which already had it. -->
       <template v-else-if="profileStatus === 'verified'">
-        <img
-          src="/onboarding/master-verdict-approved.svg"
-          alt=""
-          class="pending-view__illu pending-view__illu--lg"
-        />
-        <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
-        <p class="pending-view__subtitle">
-          Переключитесь в режим мастера, чтобы открыть кабинет. Вернуться в режим
-          пользователя можно в любой момент из настроек.
-        </p>
-        <div class="pending-view__actions">
-          <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
-            Войти в кабинет
-          </VButton>
-        </div>
+        <VCard class="pending-view__card">
+          <img
+            src="/onboarding/master-verdict-approved.svg"
+            alt=""
+            class="pending-view__illu pending-view__illu--lg"
+          />
+          <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
+          <p class="pending-view__subtitle">
+            Переключитесь в режим мастера, чтобы открыть кабинет. Вернуться в режим
+            пользователя можно в любой момент из настроек.
+          </p>
+          <div class="pending-view__actions">
+            <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
+              Войти в кабинет
+            </VButton>
+          </div>
+        </VCard>
       </template>
 
-      <!-- ================= REJECTED ================= -->
+      <!-- ================= REJECTED ================= (R1 fix, same as above) -->
       <template v-else-if="profileStatus === 'rejected'">
-        <img
-          src="/onboarding/master-verdict-reject.svg"
-          alt=""
-          class="pending-view__illu pending-view__illu--lg"
-        />
-        <h2 class="pending-view__title">Спасибо за заявку!</h2>
-        <p class="pending-view__subtitle">К сожалению, мы пока не можем одобрить вашу заявку.</p>
+        <VCard class="pending-view__card">
+          <img
+            src="/onboarding/master-verdict-reject.svg"
+            alt=""
+            class="pending-view__illu pending-view__illu--lg"
+          />
+          <h2 class="pending-view__title">Спасибо за заявку!</h2>
+          <p class="pending-view__subtitle">К сожалению, мы пока не можем одобрить вашу заявку.</p>
 
-        <div class="pending-view__reason">
-          <div class="pending-view__reason-label">Причина:</div>
-          <div class="pending-view__reason-text">{{ rejectionReason }}</div>
-        </div>
+          <div class="pending-view__reason">
+            <div class="pending-view__reason-label">Причина:</div>
+            <div class="pending-view__reason-text">{{ rejectionReason }}</div>
+          </div>
 
-        <div class="pending-view__actions">
-          <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
-            Написать в поддержку
-          </VButton>
-          <VButton variant="outline" block @click="router.push({ name: 'master-apply' })">
-            Подать новую заявку
-          </VButton>
-        </div>
+          <div class="pending-view__actions">
+            <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
+              Написать в поддержку
+            </VButton>
+            <VButton variant="outline" block @click="router.push({ name: 'master-apply' })">
+              Подать новую заявку
+            </VButton>
+          </div>
+        </VCard>
       </template>
 
       <!-- ================= SENT (pending) =================

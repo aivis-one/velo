@@ -9,12 +9,27 @@
 // selection) sides, so the create wizard, the edit-profile picker and the
 // pending-request display all round-trip through the SAME logic.
 //
-// DECISION Q3 = В (DROP-UNMATCHED, operator-locked, ПРОМТ №349): any stored
-// string that does NOT map to a known direction (or direction + style) is
-// DROPPED on parse — not preserved, not shown as a custom variant. Prod is
-// still test-grade with no real masters (new methods are provisioned via
-// admin), so there is zero real data loss. Round-trip for MATCHED strings is
-// lossless (set-preserving; order normalises to the taxonomy encounter order).
+// DECISION Q3 = А (SURFACE-UNMATCHED, operator-reversed 2026-07-13, ПРОМТ
+// №391 — was Q3=В DROP-UNMATCHED, ПРОМТ №349): any stored string that does
+// NOT map to a known direction (or direction + style) is now SURFACED as the
+// custom variant instead of dropped. The original DROP-UNMATCHED rationale
+// ("prod is still test-grade with no real masters, zero real data loss") no
+// longer held once the operator started actually using «Свой вариант» —
+// submitted custom methods were being saved correctly by the backend but
+// silently vanishing from every display (pending-request card AND the live
+// «Методы» box after admin approval), which read as data loss even though
+// none had actually occurred server-side.
+//
+// customText carries the surfaced value(s). The picker UI only ever edits
+// ONE custom string at a time (a single "Свой вариант" toggle + text input),
+// so flattenMethods only ever emits 0 or 1 unmatched entry in normal use —
+// but parseMethods defensively handles the (should-not-happen) case of
+// multiple unmatched strings by joining them with ", " rather than dropping
+// all but one, so no text is ever lost even from unexpected/legacy data.
+// Round-trip for MATCHED strings remains lossless (set-preserving; order
+// normalises to the taxonomy encounter order); round-trip for the custom
+// variant is lossless for the single-string case and text-preserving (not
+// structure-preserving) for the multi-string edge case.
 //
 // The flatten side is byte-identical to the wizard's previous inline
 // `allMethods` (same directionLabel map, same STYLE_LABEL, same « — »
@@ -87,15 +102,19 @@ export function flattenMethods(sel: MethodSelection): string[] {
 }
 
 /**
- * Parse a stored `methods: string[]` back into a selection (DROP-UNMATCHED,
- * Q3=В). An entry with the « — » separator must match BOTH a known direction
- * and a known style under it; a bare entry must match a known direction label.
- * Anything else is dropped. Never reconstructs the custom variant (an unknown
- * string is dropped, not surfaced).
+ * Parse a stored `methods: string[]` back into a selection (SURFACE-UNMATCHED,
+ * Q3=А, ПРОМТ №391 — was DROP-UNMATCHED, Q3=В, ПРОМТ №349). An entry with the
+ * « — » separator must match BOTH a known direction and a known style under
+ * it to be treated as a direction+style pair; a bare entry must match a known
+ * direction label. Anything else (including a « — » entry where either half
+ * doesn't match) is surfaced verbatim as the custom variant instead of being
+ * dropped — see the module header for why, and for how multiple unmatched
+ * strings are handled (joined, not truncated to one).
  */
 export function parseMethods(methods: string[]): MethodSelection {
   const directions: PracticeDirection[] = []
   const styles: Record<string, string[]> = {}
+  const unmatched: string[] = []
 
   const addDirection = (d: PracticeDirection): void => {
     if (!directions.includes(d)) directions.push(d)
@@ -111,19 +130,29 @@ export function parseMethods(methods: string[]): MethodSelection {
       const dirLabel = s.slice(0, sepIdx)
       const styleLabel = s.slice(sepIdx + SEP.length)
       const dirValue = DIRECTION_VALUE_BY_LABEL[dirLabel]
-      if (!dirValue) continue
-      const styleValue = STYLE_VALUE_BY_LABEL[dirValue]?.[styleLabel]
-      if (!styleValue) continue
+      const styleValue = dirValue ? STYLE_VALUE_BY_LABEL[dirValue]?.[styleLabel] : undefined
+      if (!dirValue || !styleValue) {
+        unmatched.push(s)
+        continue
+      }
       addDirection(dirValue)
       const list = styles[dirValue] ?? (styles[dirValue] = [])
       if (!list.includes(styleValue)) list.push(styleValue)
     } else {
-      // Bare «Направление» (no style).
+      // Bare «Направление» (no style) -- or, if it doesn't match, custom text.
       const dirValue = DIRECTION_VALUE_BY_LABEL[s]
-      if (!dirValue) continue
+      if (!dirValue) {
+        unmatched.push(s)
+        continue
+      }
       addDirection(dirValue)
     }
   }
 
-  return { directions, styles, customEnabled: false, customText: '' }
+  return {
+    directions,
+    styles,
+    customEnabled: unmatched.length > 0,
+    customText: unmatched.join(', '),
+  }
 }

@@ -65,7 +65,8 @@
 
         <!-- Pending: the proposed set is locked while an admin reviews it —
              shown in the SAME направление→вид white cards (batch L, readonly
-             picker), not a flat chip row. Unmatched strings drop (Q3). -->
+             picker), not a flat chip row. Unmatched (custom) strings now
+             surface as their own chip (Q3=А, ПРОМТ №391 — was drop, Q3=В). -->
         <template v-if="methodRequestPending">
           <MethodTaxonomyPicker :model-value="pendingProposedMethods" readonly />
           <div class="edit-profile__methods-status">
@@ -76,7 +77,8 @@
 
         <!-- Editable: two-level направление→вид picker (batch L, shared
              MethodTaxonomyPicker), seeded from the master's current methods
-             (drop-unmatched, Q3). On submit the flat new-vocabulary methods[]
+             (surface-unmatched as custom, Q3=А). On submit the flat
+             new-vocabulary methods[]
              goes to submitMethodChangeRequest (schema unchanged). PC3
              (2026-07-12): «Свой вариант» re-enabled (default allowCustom=true,
              same as the apply wizard) -- the custom string flows through the
