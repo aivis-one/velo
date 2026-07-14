@@ -385,8 +385,13 @@ export function getAdminPracticeDetail(id: string): Promise<AdminPracticeDetailR
   return api.get<AdminPracticeDetailResponse>(`/api/v1/admin/practices/${id}`)
 }
 
-/** Platform revenue/commission/payout + per-master breakdown for the period. */
-export function getAdminRevenue(period: 'week' | 'month' = 'week'): Promise<AdminRevenueResponse> {
-  const query = buildQuery({ period })
+/** Platform revenue/commission/payout + per-master breakdown for the period.
+ * offset (W9, ПРОМТ №387): steps the window by whole periods, same stepper
+ * convention as getCheckinMetric/getFeedbackMetric/getReturnMetric below. */
+export function getAdminRevenue(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<AdminRevenueResponse> {
+  const query = buildQuery({ period, offset })
   return api.get<AdminRevenueResponse>(`/api/v1/admin/revenue${query}`)
 }

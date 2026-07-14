@@ -314,7 +314,7 @@ async function loadEngagement(): Promise<void> {
     getCheckinMetric(p, off),
     getFeedbackMetric(p, off),
     getReturnMetric(p, off),
-    getAdminRevenue(),
+    getAdminRevenue(p, off),
   ])
   if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
   if (feedback.status === 'fulfilled') feedbackRate.value = feedback.value.rate_pct

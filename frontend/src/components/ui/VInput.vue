@@ -33,6 +33,7 @@
           :value="modelValue"
           :disabled="disabled"
           v-bind="$attrs"
+          @focus="onFieldFocus"
           @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         />
         <label class="v-input__float-label">{{ label }}</label>
@@ -50,6 +51,7 @@
           :placeholder="placeholder"
           :disabled="disabled"
           v-bind="$attrs"
+          @focus="onFieldFocus"
           @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         />
         <span v-if="$slots.suffix" class="v-input__affix"><slot name="suffix" /></span>
@@ -102,6 +104,12 @@ defineOptions({ inheritAttrs: false })
 // behavior fires BOTH handlers (no override, no crash) -- calling
 // scrollIntoView twice is harmless. Callers may drop their own wiring later;
 // not required for this to work.
+//
+// W10 fix (ПРОМТ №387): the original batch only wired `@focus` on the PLAIN
+// render path (below) -- the floating-label path (`floating-label` prop,
+// e.g. MasterApplyView Step 1's display_name/email/phone) and the affix path
+// (prefix/suffix slots) each render their OWN <input>, so they silently
+// didn't inherit it. Same fix, same reasoning, applied to all 3 paths now.
 const { onFieldFocus } = useKeyboardFieldScroll()
 
 withDefaults(
