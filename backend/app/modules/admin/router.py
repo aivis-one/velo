@@ -13,6 +13,7 @@
 #   - revenue/      -- platform revenue drill-in (E9/4b)
 #   - practices/    -- global practices oversight (E9/4c)
 #   - participants/ -- global participants list (E1)
+#   - taxonomy/     -- direction/style catalog CRUD (R5, batch R)
 #
 # Direct endpoints on this router:
 #   - POST /templates/reload -- reload notification templates (Phase 7.3)
@@ -36,6 +37,7 @@ from app.modules.admin.stats.router import router as stats_router
 from app.modules.admin.stats.overview_router import (              # E7
     router as stats_overview_router,
 )
+from app.modules.admin.taxonomy.router import router as taxonomy_router  # R5
 from app.modules.admin.users.router import router as users_router
 from app.modules.admin.withdrawals.router import router as withdrawals_router
 from app.modules.auth.dependencies import get_current_admin
@@ -60,6 +62,7 @@ router.include_router(metrics_router)        # E9/4a
 router.include_router(revenue_router)        # E9/4b
 router.include_router(practices_router)      # E9/4c
 router.include_router(participants_router)   # E1
+router.include_router(taxonomy_router)       # R5
 
 
 # ---------------------------------------------------------------------------
