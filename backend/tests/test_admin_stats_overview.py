@@ -23,7 +23,7 @@
 # =============================================================================
 
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -439,6 +439,67 @@ async def test_rates_shape(
         assert 0 <= body[key] <= 100
     for key in ("checkin_rate_delta", "feedback_rate_delta", "return_rate_delta"):
         assert body[key] is None or isinstance(body[key], int)
+
+
+async def test_checkin_and_feedback_count_before_autofinalize(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """W3 regression (ПРОМТ №387): a check-in/feedback on a still-CONFIRMED
+    booking (autofinalize hasn't flipped it to ATTENDED yet) for a practice
+    that has already ENDED by wall-clock must still count toward the
+    checkin/feedback rate. Before the fix, both gated on
+    Booking.status==ATTENDED, so this exact scenario (the normal state during
+    the autofinalize lag window) silently contributed 0.
+
+    Calls the private _checkin_counts/_feedback_counts directly with a
+    razor-thin [scheduled_at, scheduled_at+1s) window containing only this
+    one practice, rather than through the full overview endpoint -- the
+    endpoint only exposes a platform-wide PERCENTAGE (no raw counts), which
+    the shared test DB's seed data would make un-assertable precisely (see
+    this file's own header note on baseline/delta); the (numerator,
+    denominator) tuple these helpers return is directly and unambiguously
+    checkable instead.
+    """
+    from app.modules.admin.stats.overview_service import (
+        _checkin_counts,
+        _feedback_counts,
+    )
+
+    master_id = await _make_master(client, db_session, 94804)
+
+    # Scheduled well in the past, 60min duration -> definitely ended by now,
+    # but the booking below is deliberately left CONFIRMED (not ATTENDED) to
+    # simulate the pre-autofinalize window.
+    scheduled_at = datetime.now(UTC) - timedelta(hours=2)
+    practice = await _create_practice(
+        db_session, master_id, scheduled_at=scheduled_at,
+    )
+
+    participant = await login_user(client, telegram_id=94031, first_name="Part")
+    user_id = participant["user"]["id"]
+    booking = Booking(
+        practice_id=practice.id,
+        user_id=UUID(user_id),
+        status=BookingStatus.CONFIRMED.value,  # NOT attended yet.
+    )
+    db_session.add(booking)
+    await db_session.flush()
+    await db_session.commit()
+
+    await _add_checkin(db_session, practice, user_id, booking)
+    await _add_feedback(db_session, practice, user_id, booking, rating=9)
+
+    window_start = scheduled_at - timedelta(seconds=1)
+    window_end = scheduled_at + timedelta(seconds=1)
+    now = datetime.now(UTC)
+
+    checked, total = await _checkin_counts(window_start, window_end, now, db_session)
+    assert (checked, total) == (1, 1)
+
+    left_review, visited = await _feedback_counts(
+        window_start, window_end, now, db_session,
+    )
+    assert (left_review, visited) == (1, 1)
 
 
 # ===================================================================

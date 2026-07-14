@@ -680,3 +680,82 @@ async def test_deactivate_not_admin(
         headers=auth_headers(user["session_token"]),
     )
     assert resp2.status_code == 403
+
+
+# ===================================================================
+# CreateCompanyPromoRequest.valid_from -- default-on-omit regression
+# (C2, ПРОМТ №387): pydantic v2 does NOT run a mode="before" validator
+# against a field's default unless validate_default=True is set. Omitting
+# valid_from silently left it None instead of defaulting to now(UTC).
+# ===================================================================
+
+
+class TestValidFromDefaultsOnOmit:
+    """CreateCompanyPromoRequest.valid_from must default to now(UTC) when
+    the field is omitted entirely -- not just when it's explicitly null."""
+
+    def test_omitted_defaults_to_now(self) -> None:
+        """Field absent from the payload -> defaults to current UTC time."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        before = datetime.now(timezone.utc)
+        req = CreateCompanyPromoRequest(code="OMITTED1", discount_percent=10)
+        after = datetime.now(timezone.utc)
+
+        assert req.valid_from is not None
+        assert before <= req.valid_from <= after
+
+    def test_explicit_null_defaults_to_now(self) -> None:
+        """Field explicitly sent as null -> also defaults to current UTC
+        time (this case already worked before the fix; must keep working)."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        before = datetime.now(timezone.utc)
+        req = CreateCompanyPromoRequest(
+            code="EXPLNULL1", discount_percent=10, valid_from=None
+        )
+        after = datetime.now(timezone.utc)
+
+        assert req.valid_from is not None
+        assert before <= req.valid_from <= after
+
+    def test_explicit_datetime_is_kept(self) -> None:
+        """An explicit valid_from is passed through unchanged, not
+        overridden by the default-to-now behavior."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        explicit = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        req = CreateCompanyPromoRequest(
+            code="EXPLDT1", discount_percent=10, valid_from=explicit
+        )
+
+        assert req.valid_from == explicit
+
+
+@pytest.mark.asyncio
+async def test_create_company_promo_omitted_valid_from_defaults_to_now(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """End-to-end (C2 regression): POSTing a company promo with no
+    valid_from key at all in the JSON body must succeed and the created
+    promo's valid_from must be ~now, not null -- omitting the field is the
+    documented, intended way to create an "active immediately" promo."""
+    admin = await _make_admin(client, db_session)
+
+    body = _valid_company_promo_body("TEST80OMIT")
+    del body["valid_from"]
+
+    before = datetime.now(timezone.utc)
+    resp = await client.post(
+        ADMIN_PROMOS_URL,
+        json=body,
+        headers=auth_headers(admin["session_token"]),
+    )
+    after = datetime.now(timezone.utc)
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["valid_from"] is not None
+    valid_from = datetime.fromisoformat(data["valid_from"])
+    assert before <= valid_from <= after

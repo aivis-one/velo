@@ -40,6 +40,7 @@ class CreateCompanyPromoRequest(BaseModel):
     )
     valid_from: datetime | None = Field(
         default=None,
+        validate_default=True,
         description=(
             "Start of validity window (UTC). "
             "Defaults to current time when omitted."

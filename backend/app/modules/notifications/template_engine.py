@@ -23,6 +23,7 @@
 #   Variables come from Notification.action_data JSONB.
 # =============================================================================
 
+import html
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,25 @@ class SafeDict(dict):
 
     def __missing__(self, key: str) -> str:
         return "{" + key + "}"
+
+
+def _escape_string_values(variables: dict[str, Any]) -> dict[str, Any]:
+    """HTML-escape every string value in `variables` before it's interpolated
+    into a template. Non-string values (counts, etc.) pass through unchanged --
+    only user-controlled text (practice titles, display names, ...) needs
+    escaping. The template markup itself (the `<b>`/`<i>` tags surrounding
+    `{placeholder}` in the YAML) is untouched -- this only escapes the
+    SUBSTITUTED values, never the template string.
+
+    Without this, a practice title or display name containing `&`/`<`/`>`
+    either breaks Telegram's HTML parser (send_message rejects the whole
+    message) or, worse, renders as live markup (e.g. an injected `<a href>`
+    link) inside a notification sent to someone else.
+    """
+    return {
+        key: html.escape(value) if isinstance(value, str) else value
+        for key, value in variables.items()
+    }
 
 
 # ===================================================================
@@ -195,7 +215,7 @@ def render(
         )
         return None
 
-    safe_vars = SafeDict(variables or {})
+    safe_vars = SafeDict(_escape_string_values(variables or {}))
 
     try:
         title = template["title"].format_map(safe_vars)
