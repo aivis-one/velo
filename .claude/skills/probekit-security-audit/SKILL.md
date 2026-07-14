@@ -1,22 +1,23 @@
 ---
 name: probekit-security-audit
-description: "Security-focused code review. Scans for OWASP Top 10 vulnerabilities, hardcoded secrets, insecure defaults, auth/authz gaps, and API security issues — all by reading source code. Deeper than code-audit Section 4. Triggers on: 'security audit', 'security review', 'find vulnerabilities', 'check for secrets', '/probekit-security-audit', 'пробкит безопасность', 'пробкит секьюрити'."
+description: "Security code review scanning source for OWASP Top 10, hardcoded secrets, insecure defaults, and auth/authz gaps. Use for a security audit or to find vulnerabilities."
 ---
 
-# security-audit v1.1.0
+# security-audit v1.3.0
 
-Security-focused code review for Claude Code.
-Scans source code for OWASP Top 10 vulnerabilities, hardcoded secrets,
-insecure defaults, and auth/authz gaps. Produces a scored report with
+**Triggers:** `security audit`, `security review`, `find vulnerabilities`, `check for secrets`, `/probekit-security-audit`, `пробкит безопасность`, `пробкит секьюрити`.
+
+Security-focused code review for Claude Code. Produces a scored report with
 severity markers and concrete fix recommendations.
 
-**Scope**: code-level security only. Does NOT cover infrastructure,
-network security, or runtime scanning — only what Claude Code can detect
-by reading source files.
+**Scope**: code-level security only. Does NOT cover infrastructure, network
+security, or runtime scanning — only what Claude Code detects by reading source.
 
 ## Configuration
 
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №386, sweep): CBS's docs/01_refer path replaced with a
+     git-untracked scratch dir; VELO has no docs/01_refer/ or ENVIRONMENT.md. -->
+report_dir: .tmp/probekit-review
 
 ## Execution Steps
 
@@ -28,6 +29,9 @@ Parse the user's request to extract:
 - If no target → ask: "What should I audit? Provide a file path, directory, or describe the scope."
 
 Read `ENVIRONMENT.md` if it exists — extract project language, framework.
+(VELO note, ПРОМТ №386: no ENVIRONMENT.md in this repo -- language/framework is known:
+Vue 3 + TS frontend, FastAPI + Python backend. Shell is Windows Git-Bash/PowerShell;
+no docker/VPS locally.)
 
 **Step 2 — Detect environment**
 Detect project language and framework from imports and file extensions.
@@ -48,7 +52,7 @@ For each applicable OWASP category, scan target files for detection patterns:
 - A09: Logging Failures — missing security event logging, PII in logs
 - A10: SSRF — unvalidated URL fetching from user input
 
-For each finding: record severity (🔴/🟡), file:line, OWASP category, CWE, fix suggestion.
+For each finding: record severity (🔴/🟡 per `references/severity-format.md`), file:line, OWASP category, CWE, fix suggestion.
 
 **Step 3.5 — Data Flow Tracing**
 
@@ -126,17 +130,11 @@ Append entry with: skill=`security-audit`, key findings count by OWASP category.
 
 ## Relationship to code-audit
 
-security-audit is **deeper** than code-audit Section 4 (Security):
-- code-audit Section 4: ~5 checks, surface-level, part of broader review
-- security-audit: full OWASP Top 10 with CWE mapping, secret scanning with 15+ regex patterns, auth/authz matrix, insecure defaults catalog
-
-They do NOT conflict: code-audit flags obvious security issues; security-audit provides dedicated deep analysis.
-
-## Quick Reference
-
+Deeper than code-audit Section 4: full OWASP Top 10 with CWE mapping, secret
+scanning, auth/authz matrix, and insecure-defaults catalog. They do not conflict.
 See `references/user-guide.md` for invocation examples.
 
 ## Anchor
 
-[*] security-audit v1.1.0 * ready
+[*] security-audit v1.2.0 * ready
 [>] | NEXT: user command

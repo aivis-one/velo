@@ -147,6 +147,46 @@ Targets:
 - Simplify: over-engineered solutions
 - Alternative architecture: only when current approach has structural problems
 
+**Contract-change safety (additive-first).** When a recommendation touches a shared
+contract (schema model, message shape, port/connection wiring, config keys), prefer the
+additive-safe form: new OPTIONAL fields with behavior-preserving defaults, new keys rather
+than repurposed ones, raw-dict retention where live data shapes vary, and staged
+enforcement (retain first, prove round-trip on all live data, validate later). A
+recommendation that requires existing consumers to change simultaneously is a migration,
+not a refactor — mark it as such and demand a consumer inventory first.
+Canonical case: BOGame S19 P102 `framework/schemas/motherboard.py` — `from_port`/`to_port`
+added as typed Optional (zero live boards used ports → zero regression; None preserves prior
+behavior), `execution_settings`/`stalemate_detection` kept as raw Optional dicts because a
+typed sub-model would truncate variant board shapes, and `schema_version` validation shipped
+one step AFTER field retention was proven on all 11 live boards.
+
+---
+
+## Section 10 — Validator Regex / Parser vs Spec-Defined Input Class
+
+When code contains a validator (regex, enum, schema, parser) for an input category that's **specified elsewhere** (ADR, API spec, JSON schema, interface definition), the validator must cover every spec-declared form of that input. A gap opens when the spec evolves to add a new input form and the validator doesn't follow.
+
+**Targets:**
+- `re.compile(...)` patterns matching identifiers, paths, IDs, tokens, filenames
+- Enum classes enumerating categories defined in a spec document
+- Pydantic / dataclass field validators
+- YAML / JSON schema reference sections
+- Manual parsers for structured content (e.g. markdown sections, config keys)
+
+**Review procedure:**
+1. For each validator, identify the **spec source** — what document defines the valid input class? (ADR, API spec, interface contract, naming-convention doc.) If no spec source exists, this is its own finding: "validator without spec anchor" — either write the spec or remove the validator's restrictiveness.
+2. Enumerate the spec's declared input categories (lowercase-only, hyphens-allowed, specific prefixes, …).
+3. For each category, verify the validator accepts at least one concrete example.
+4. Find recent spec evolutions (ADR updates, naming-convention changes) and check that the validator's test coverage includes a fixture matching each new category.
+
+**Finding format:**
+
+> **Validator vs spec drift:** `<file>:<line>` — `<validator_name>` regex `<pattern>` does not accept `<spec-declared-input-category>` per `<spec-doc>:<section>`. Concrete fix: relax regex to `<proposed>` and add positive test case for `<example>`. Related: any catalog that evolved to match the new category should be cross-checked (fixtures, ADR tables, doc references).
+
+**Severity:** 🔴 CRITICAL if spec and validator conflict on a production-exercised input (validator rejects valid catalog entries). 🟡 WARNING if the spec category is only theoretical / future. 🟢 SUGGESTION for validators without spec anchors when the restrictiveness is justified by code hygiene alone.
+
+**Canonical case study:** BOGame C383 NAME_PATTERN. `framework/services/registry.py` validated service names with `^[a-z_][a-z0-9_]*(:[a-z_][a-z0-9_]*)?$` — written in P81 C366 when all project IDs were snake_case. ADR-032 D2 (2026-04-21) formalized lowercase-kebab project IDs (hyphens allowed). Commit 999ddad6 split `projects/bogame/` into `projects/bogame-selfdev/` + `projects/bogame-marketing/` per ADR-032 D2. Registry regex didn't follow. Production deploy failed with `ValueError: Invalid service name 'telegram:bogame-marketing'` — 9 recovery cycles (C383 chain) to diagnose and fix. Root cause: no explicit coupling between regex and the ADR that defines its input category. The regex needed a positive test for each ADR-032 D2 project-id class from day one.
+
 ---
 
 ## Section 9 — Minor Improvements and Polish

@@ -3,8 +3,8 @@
 ## What It Does
 
 Evaluates the structural quality of any codebase against universal architecture principles.
-Checks 10 dimensions: modularity, coupling, cohesion, layering, consistency, error design,
-data flow, scalability, testability, and evolvability.
+Checks 13 dimensions: modularity, coupling, cohesion, layering, consistency, error design,
+data flow, scalability, testability, evolvability, concurrency, observability, and operational health.
 
 ## How to Invoke
 
@@ -18,10 +18,10 @@ data flow, scalability, testability, and evolvability.
 ## What You Get
 
 - **Architecture Snapshot:** Brief structural overview
-- **10-Section Analysis:** Module boundaries, dependencies, coupling, layers, patterns,
-  errors, data flow, scalability, testability, evolution readiness
+- **12-Section Analysis:** Module boundaries, dependencies, coupling, layers, patterns,
+  errors, data flow, scalability, testability, evolvability, and more
 - **Pattern Quality Scan:** Diamond patterns (good) and anti-patterns (bad)
-- **Balance Scorecard:** 10-dimension score with weighted average
+- **Balance Scorecard:** 13-dimension score with weighted average
 - **Quality Gate:** PASS / WARN / FAIL with reasoning
 - **Top Recommendations:** 3 most impactful improvements
 
