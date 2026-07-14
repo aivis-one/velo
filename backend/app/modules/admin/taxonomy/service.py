@@ -116,6 +116,13 @@ async def create_direction(
             f"Direction '{body.value}' already exists"
         ) from None
 
+    # `styles` is a lazy relationship, unloaded on a freshly created object --
+    # TaxonomyDirectionResponse serializes it, and an implicit lazy load
+    # during Pydantic validation crashes (MissingGreenlet) in async
+    # SQLAlchemy. Explicitly load it now (resolves to [] for a brand new
+    # direction) so the caller can safely model_validate the returned object.
+    await session.refresh(direction, attribute_names=["styles"])
+
     await record_audit(
         event="taxonomy_direction_created",
         actor_id=admin.id,
@@ -199,6 +206,11 @@ async def update_direction(
     for field, value in changes.items():
         setattr(direction, field, value)
     await session.flush()
+
+    # Same lazy-load trap as create_direction -- `styles` may not be loaded
+    # on this object (e.g. it was fetched via session.get(), which does not
+    # eager-load relationships), and TaxonomyDirectionResponse serializes it.
+    await session.refresh(direction, attribute_names=["styles"])
 
     await record_audit(
         event="taxonomy_direction_updated",
