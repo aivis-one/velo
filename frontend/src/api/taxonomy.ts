@@ -1,5 +1,5 @@
 // =============================================================================
-// VELO Frontend -- Taxonomy API (R5 stage 3a/3b)
+// VELO Frontend -- Taxonomy API (R5 stage 3a/3b/3c)
 // =============================================================================
 //
 // GET /api/v1/taxonomy -- active-only direction/style catalog, any
@@ -7,12 +7,14 @@
 // sourced options (R5 stage 3b), with the hardcoded practiceOptions.ts
 // consts kept as the offline/error fallback.
 //
-// This is a BRAND NEW endpoint -- generated.ts has no type for it yet (not
-// regenerated locally, no docker/backend here). TaxonomyListResponse below
-// is hand-written to match the backend response shape byte-for-byte
-// (admin/taxonomy/schemas.py TaxonomyListResponse). Swap this import to
-// generated.ts once the deploy bot resyncs it -- same follow-up pattern as
-// R8's RichMaster/richOf().
+// GET/POST/PATCH /api/v1/admin/taxonomy/* -- admin CRUD (R5 stage 3c),
+// backs the editable AdminCatalogView.vue.
+//
+// These are BRAND NEW endpoints -- generated.ts has no types for them yet
+// (not regenerated locally, no docker/backend here). Everything below is
+// hand-written to match the backend response shape byte-for-byte
+// (admin/taxonomy/schemas.py). Swap these imports to generated.ts once the
+// deploy bot resyncs it -- same follow-up pattern as R8's RichMaster/richOf().
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -45,4 +47,64 @@ export interface TaxonomyListResponse {
  *  failure -- callers that need an offline fallback must catch. */
 export function getActiveTaxonomy(): Promise<TaxonomyListResponse> {
   return api.get<TaxonomyListResponse>('/api/v1/taxonomy')
+}
+
+// -----------------------------------------------------------------------
+// Admin CRUD (R5 stage 3c) -- admin-only, includes inactive rows.
+// -----------------------------------------------------------------------
+
+export interface CreateDirectionRequest {
+  value: string
+  label: string
+  display_order?: number
+}
+
+export interface CreateStyleRequest {
+  value: string
+  label: string
+  display_order?: number
+}
+
+export interface UpdateTaxonomyItemRequest {
+  label?: string
+  display_order?: number
+  is_active?: boolean
+}
+
+/** Full catalog, including inactive rows (admin management view). */
+export function getFullTaxonomy(): Promise<TaxonomyListResponse> {
+  return api.get<TaxonomyListResponse>('/api/v1/admin/taxonomy')
+}
+
+export function createTaxonomyDirection(
+  body: CreateDirectionRequest,
+): Promise<TaxonomyDirectionItem> {
+  return api.post<TaxonomyDirectionItem>('/api/v1/admin/taxonomy/directions', body)
+}
+
+export function updateTaxonomyDirection(
+  directionId: string,
+  body: UpdateTaxonomyItemRequest,
+): Promise<TaxonomyDirectionItem> {
+  return api.patch<TaxonomyDirectionItem>(
+    `/api/v1/admin/taxonomy/directions/${directionId}`,
+    body,
+  )
+}
+
+export function createTaxonomyStyle(
+  directionId: string,
+  body: CreateStyleRequest,
+): Promise<TaxonomyStyleItem> {
+  return api.post<TaxonomyStyleItem>(
+    `/api/v1/admin/taxonomy/directions/${directionId}/styles`,
+    body,
+  )
+}
+
+export function updateTaxonomyStyle(
+  styleId: string,
+  body: UpdateTaxonomyItemRequest,
+): Promise<TaxonomyStyleItem> {
+  return api.patch<TaxonomyStyleItem>(`/api/v1/admin/taxonomy/styles/${styleId}`, body)
 }
