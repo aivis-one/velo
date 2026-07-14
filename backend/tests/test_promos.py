@@ -231,6 +231,35 @@ async def test_create_promo_valid_until_before_valid_from(
     assert "valid_until" in resp.json()["message"]
 
 
+async def test_create_promo_omitted_valid_from_defaults_to_now(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """R6 regression (ПРОМТ №390): POSTing a master promo with NO valid_from
+    key at all in the JSON body must succeed (201), not 500. Before the fix,
+    pydantic's before-validator never ran against the omitted default (needs
+    validate_default=True), so valid_from stayed None all the way to
+    `valid_until <= body.valid_from` in promos/service.py -- a guaranteed
+    TypeError, since MasterNewPromocodeView.vue's real request never sends
+    valid_from and always sends valid_until.
+    """
+    master = await _create_verified_master(client, db_session)
+    body = _valid_promo_body("TESTOMIT1")
+    del body["valid_from"]
+
+    before = datetime.now(timezone.utc)
+    resp = await client.post(
+        PROMOS_URL, json=body,
+        headers=auth_headers(master["session_token"]),
+    )
+    after = datetime.now(timezone.utc)
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["valid_from"] is not None
+    valid_from = datetime.fromisoformat(data["valid_from"])
+    assert before <= valid_from <= after
+
+
 async def test_create_promo_not_master(
     client: AsyncClient,
 ) -> None:

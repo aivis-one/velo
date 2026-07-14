@@ -42,6 +42,7 @@ class CreateMasterPromoRequest(BaseModel):
     )
     valid_from: datetime | None = Field(
         default=None,
+        validate_default=True,
         description=(
             "Start of validity window (UTC). "
             "Defaults to current time when omitted."
@@ -64,6 +65,15 @@ class CreateMasterPromoRequest(BaseModel):
         Guarantees downstream code always receives a concrete datetime,
         so service-layer comparisons (valid_until <= valid_from) work
         without None checks.
+
+        R6 fix (ПРОМТ №390): pydantic v2 does NOT run a mode="before"
+        validator against a field's own default unless validate_default=True
+        is also set on the Field -- without it, omitting valid_from (which
+        MasterNewPromocodeView.vue always does) left it None all the way
+        through to promos/service.py:74 (`valid_until <= body.valid_from`),
+        a guaranteed TypeError since valid_until is always sent. Same bug
+        class as C2 (admin/promos/schemas.py's CreateCompanyPromoRequest),
+        mirrored here for this sibling schema.
         """
         if v is None:
             return datetime.now(timezone.utc)

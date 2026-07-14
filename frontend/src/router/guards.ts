@@ -179,6 +179,16 @@ export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () =>
  *                         authoritative signal the view's own profileStatus
  *                         computed already trusts, not the sessionStorage marker
  *                         which only covers the fresh-submit path)
+ *   - user + rejected   -> allow (R2 fix, ПРОМТ №390: a rejected applicant is
+ *                         role='user' with no capability and no session marker
+ *                         by the time a decision lands (24-48h later, a
+ *                         different session) — without this branch every
+ *                         rejected applicant fell through to the "neither"
+ *                         case below and got bounced to /user/dashboard
+ *                         before MasterPendingView could ever show the
+ *                         rejection screen. masterApplication is populated
+ *                         from GET /users/me (T5), same source the view's own
+ *                         profileStatus computed already trusts.)
  *   - user, neither     -> redirect to /user/dashboard (never applied)
  */
 export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () => {
@@ -194,6 +204,7 @@ export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () =
 
   if (sessionStorage.getItem(MASTER_APPLIED_KEY) === '1') return true
   if (auth.allowedRoles.includes('master')) return true
+  if (auth.masterApplication?.status === 'rejected') return true
 
   return { path: '/user/dashboard' }
 }
