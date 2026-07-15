@@ -111,6 +111,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         json_logs=settings.app_env == "production",
     )
 
+    # W6 fix: WARNING-5 (core/config.py) documents this guard as living here
+    # because config.py is imported by Alembic before app startup -- it was
+    # never actually added. Without it, STRIPE_SECRET_KEY="TEST" left over in
+    # a production .env silently free-credits every topup (stub mode skips
+    # Stripe and instantly succeeds) with no warning anywhere.
+    if settings.app_env != "development" and settings.is_stripe_stub:
+        raise RuntimeError(
+            "STRIPE_SECRET_KEY='TEST' (stub mode) is not allowed outside "
+            "development -- set a real Stripe secret key."
+        )
+
     processor_task: asyncio.Task | None = None
     autofinalizer_task: asyncio.Task | None = None
     try:

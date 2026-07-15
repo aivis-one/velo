@@ -24,7 +24,8 @@
 #
 # WARNING-5: STRIPE_STUB is disallowed in production.
 #   If STRIPE_SECRET_KEY="TEST", webhook signature verification is skipped.
-#   The validator below raises at startup if this happens in production.
+#   lifespan() in main.py raises at startup if this happens in production
+#   (not here -- this module is imported by Alembic before app startup).
 # =============================================================================
 
 from pydantic import model_validator
