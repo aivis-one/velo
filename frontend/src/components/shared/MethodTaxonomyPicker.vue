@@ -197,7 +197,7 @@ function allDirectionOptions(): DirectionOption[] {
 function catalogStylesForDirection(dir: PracticeDirection): StyleOption[] {
   if (!catalog.value) return stylesForDirection(dir)
   const entry = catalog.value.directions.find((d) => d.value === dir)
-  return entry ? entry.styles.map((s) => ({ value: s.value, label: s.label })) : []
+  return entry ? (entry.styles ?? []).map((s) => ({ value: s.value, label: s.label })) : []
 }
 
 // -- Level 1 (directions) ----------------------------------------------------

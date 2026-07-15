@@ -10,38 +10,25 @@
 // GET/POST/PATCH /api/v1/admin/taxonomy/* -- admin CRUD (R5 stage 3c),
 // backs the editable AdminCatalogView.vue.
 //
-// These are BRAND NEW endpoints -- generated.ts has no types for them yet
-// (not regenerated locally, no docker/backend here). Everything below is
-// hand-written to match the backend response shape byte-for-byte
-// (admin/taxonomy/schemas.py). Swap these imports to generated.ts once the
-// deploy bot resyncs it -- same follow-up pattern as R8's RichMaster/richOf().
+// Types sourced from generated.ts (regenerated at deploy c1dbe08) -- both
+// endpoints share the same admin/taxonomy/schemas.py response shape, so one
+// set of generated types covers both. Re-exported under the item names
+// existing consumers already import.
 // =============================================================================
 
 import { api } from '@/api/client'
+import type {
+  TaxonomyDirectionResponse,
+  TaxonomyStyleResponse,
+  TaxonomyListResponse,
+  CreateDirectionRequest,
+  CreateStyleRequest,
+  UpdateTaxonomyItemRequest,
+} from '@/api/generated'
 
-export interface TaxonomyStyleItem {
-  id: string
-  direction_id: string
-  value: string
-  label: string
-  display_order: number
-  is_active: boolean
-  source: string
-}
-
-export interface TaxonomyDirectionItem {
-  id: string
-  value: string
-  label: string
-  display_order: number
-  is_active: boolean
-  source: string
-  styles: TaxonomyStyleItem[]
-}
-
-export interface TaxonomyListResponse {
-  directions: TaxonomyDirectionItem[]
-}
+export type TaxonomyStyleItem = TaxonomyStyleResponse
+export type TaxonomyDirectionItem = TaxonomyDirectionResponse
+export type { TaxonomyListResponse, CreateDirectionRequest, CreateStyleRequest, UpdateTaxonomyItemRequest }
 
 /** Active-only catalog (is_active=true). Throws (ApiResponseError) on
  *  failure -- callers that need an offline fallback must catch. */
@@ -52,24 +39,6 @@ export function getActiveTaxonomy(): Promise<TaxonomyListResponse> {
 // -----------------------------------------------------------------------
 // Admin CRUD (R5 stage 3c) -- admin-only, includes inactive rows.
 // -----------------------------------------------------------------------
-
-export interface CreateDirectionRequest {
-  value: string
-  label: string
-  display_order?: number
-}
-
-export interface CreateStyleRequest {
-  value: string
-  label: string
-  display_order?: number
-}
-
-export interface UpdateTaxonomyItemRequest {
-  label?: string
-  display_order?: number
-  is_active?: boolean
-}
 
 /** Full catalog, including inactive rows (admin management view). */
 export function getFullTaxonomy(): Promise<TaxonomyListResponse> {

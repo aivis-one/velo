@@ -107,9 +107,9 @@
       </div>
 
       <template v-if="dir.is_active">
-        <div v-if="dir.styles.length" class="admin-catalog__chips">
+        <div v-if="(dir.styles ?? []).length" class="admin-catalog__chips">
           <VChip
-            v-for="st in dir.styles"
+            v-for="st in dir.styles ?? []"
             :key="st.id"
             size="sm"
             :class="{ 'admin-catalog__chip--inactive': !st.is_active }"
