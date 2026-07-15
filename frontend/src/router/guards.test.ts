@@ -27,7 +27,7 @@ import {
 } from '@/router/guards'
 import { useAuthStore } from '@/stores/auth'
 import { resetAuthState, __setReadyForTest, pendingDeepLink } from '@/composables/useAuth'
-import { MASTER_APPLIED_KEY } from '@/utils/constants'
+import { MASTER_APPLIED_KEY, masterRejectionSeenKey } from '@/utils/constants'
 import type { UserResponse } from '@/api/types'
 
 // Guards ignore (to, from, next) entirely at runtime -- call bare, matching
@@ -74,6 +74,7 @@ describe('router/guards', () => {
     setActivePinia(createPinia())
     resetAuthState()
     sessionStorage.clear()
+    localStorage.clear()
     masterStoreState.profileMissing = false
     masterStoreState.profile = null
     fetchMyProfile.mockClear()
@@ -127,6 +128,46 @@ describe('router/guards', () => {
       const promise = call(roleRedirect)
       await vi.advanceTimersByTimeAsync(10_000)
       expect(await promise).toEqual({ path: '/master/dashboard' })
+    })
+
+    // -- Bug 1 (ПРОМТ №405): rejected applicant routing --------------------
+    it('rejected applicant, not yet seen -> routed to /master/pending', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ role: 'user', master_application: { status: 'rejected' } })
+      expect(await call(roleRedirect)).toEqual({ path: '/master/pending' })
+    })
+
+    it('rejected applicant, already seen -> /user/dashboard like an ordinary user', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ id: 'user_1', role: 'user', master_application: { status: 'rejected' } })
+      localStorage.setItem(masterRejectionSeenKey('user_1'), '1')
+      expect(await call(roleRedirect)).toEqual({ path: '/user/dashboard' })
+    })
+
+    it('rejected applicant with a pending deep link -> the deep link wins', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ role: 'user', master_application: { status: 'rejected' } })
+      pendingDeepLink.value = { name: 'practice-detail', params: { id: 'p1' } }
+
+      const result = await call(roleRedirect)
+
+      expect(result).toEqual({ name: 'practice-detail', params: { id: 'p1' } })
+      expect(pendingDeepLink.value).toBeNull()
+    })
+
+    it('a plain user with no application is unaffected -> /user/dashboard', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ role: 'user' })
+      expect(await call(roleRedirect)).toEqual({ path: '/user/dashboard' })
+    })
+
+    it('the seen key is scoped per user -- user B still gets routed after user A is marked seen', async () => {
+      __setReadyForTest(true)
+      localStorage.setItem(masterRejectionSeenKey('user_a'), '1')
+
+      setAuthUser({ id: 'user_b', role: 'user', master_application: { status: 'rejected' } })
+
+      expect(await call(roleRedirect)).toEqual({ path: '/master/pending' })
     })
   })
 

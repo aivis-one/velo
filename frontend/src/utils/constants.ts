@@ -61,6 +61,24 @@ export const MASTER_APPLIED_KEY = 'velo:master-applied'
  */
 export const MASTER_APPROVED_SEEN_KEY = 'velo:master-approved-seen'
 
+/**
+ * localStorage marker key, PER-USER (bug 1, ПРОМТ №405 -- operator device
+ * testing 2026-07-15): set once a rejected applicant has actually seen the
+ * «Отказ» screen (MasterPendingView), read by roleRedirect to decide whether
+ * a returning role='user' rejected applicant is routed to /master/pending
+ * (not yet seen) or straight to /user/dashboard (already seen -- operator
+ * decision: show once, then treat them as an ordinary user; rejection is not
+ * captivity). Scoped by userId in the key itself -- W18 (unscoped
+ * localStorage) is what made MASTER_APPROVED_SEEN_KEY above a flat key that
+ * leaks across accounts on a shared device; embedding userId avoids that
+ * from the start rather than reproducing it. Not cleared on logout, same
+ * lifetime-fact semantics as MASTER_APPROVED_SEEN_KEY -- self-isolating per
+ * user via the key name, so no explicit clear-on-logout is needed either.
+ */
+export function masterRejectionSeenKey(userId: string): string {
+  return `velo:master-rejection-seen:${userId}`
+}
+
 // ---------------------------------------------------------------------------
 // Keyboard / visual-viewport (keyboard-aware layout)
 // ---------------------------------------------------------------------------

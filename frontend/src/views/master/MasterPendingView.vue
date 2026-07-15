@@ -104,7 +104,7 @@ import { VButton, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { MASTER_APPROVED_SEEN_KEY } from '@/utils/constants'
+import { MASTER_APPROVED_SEEN_KEY, masterRejectionSeenKey } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
@@ -156,6 +156,13 @@ onMounted(async () => {
     await masterStore.fetchMyProfile(true)
   } else {
     await authStore.fetchMe()
+  }
+  // Bug 1 fix (ПРОМТ №405): mark the per-user key once the rejection screen
+  // has actually rendered, mirroring MASTER_APPROVED_SEEN_KEY's placement for
+  // the approved case, so roleRedirect stops routing here on future opens
+  // (operator decision: show the verdict once, then treat as an ordinary user).
+  if (profileStatus.value === 'rejected' && authStore.user?.id) {
+    localStorage.setItem(masterRejectionSeenKey(authStore.user.id), '1')
   }
 })
 
