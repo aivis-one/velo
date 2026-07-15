@@ -22,7 +22,22 @@ Verified masters never reach here: applyGuard bounces them to the dashboard.
         <p class="invite-claim__subtitle">Проверяем приглашение…</p>
       </template>
 
-      <!-- Honest failure: consumed / wrong / garbage token -->
+      <!-- W11 fix (ПРОМТ №409): a network blip / timeout is not the same claim
+           as "this one-time link is burned" -- offer a retry instead of telling
+           the user their invite is dead when it might just be their connection. -->
+      <template v-else-if="transientError">
+        <h2 class="invite-claim__title">Не удалось проверить приглашение</h2>
+        <p class="invite-claim__subtitle">
+          Проблема с соединением. Проверьте интернет и попробуйте ещё раз.
+        </p>
+        <div class="invite-claim__actions">
+          <VButton variant="primary" block :loading="claiming" @click="claim">
+            Повторить
+          </VButton>
+        </div>
+      </template>
+
+      <!-- Honest failure: consumed / wrong / garbage token (genuine invite_invalid) -->
       <template v-else-if="errorTitle">
         <h2 class="invite-claim__title">{{ errorTitle }}</h2>
         <p class="invite-claim__subtitle">{{ errorDescription }}</p>
@@ -44,6 +59,7 @@ Verified masters never reach here: applyGuard bounces them to the dashboard.
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { claimMasterInvite } from '@/api/masters'
+import { ApiResponseError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import VButton from '@/components/ui/VButton.vue'
 import VLoader from '@/components/ui/VLoader.vue'
@@ -53,27 +69,39 @@ const router = useRouter()
 const toast = useToast()
 
 const claiming = ref(true)
+const transientError = ref(false)
 const errorTitle = ref('')
 const errorDescription = ref('')
 
-onMounted(async () => {
+async function claim(): Promise<void> {
+  claiming.value = true
+  transientError.value = false
+  errorTitle.value = ''
   const token = String(route.params.token ?? '')
   try {
     await claimMasterInvite(token)
     // Claimed (one-time, burned) — hand off to the regular apply wizard.
     toast.success('Приглашение принято!')
     void router.replace({ name: 'master-apply' })
-  } catch {
-    // invite_invalid (wrong / already used) and anything else network-shaped:
-    // one honest message, no oracle about which.
-    errorTitle.value = 'Ссылка недействительна'
-    errorDescription.value =
-      'Приглашение одноразовое: возможно, оно уже использовано или ссылка ' +
-      'повреждена. Запросите новую ссылку у администратора.'
+  } catch (e) {
+    // W11 fix: only a genuine invite_invalid (backend actually looked the
+    // token up and it's unknown/consumed) is the dead-link state. A network
+    // blip, timeout, or any other unexpected error is transient -- offer a
+    // retry instead of telling the user their one-time link is burned.
+    if (e instanceof ApiResponseError && e.code === 'invite_invalid') {
+      errorTitle.value = 'Ссылка недействительна'
+      errorDescription.value =
+        'Приглашение одноразовое: возможно, оно уже использовано или ссылка ' +
+        'повреждена. Запросите новую ссылку у администратора.'
+    } else {
+      transientError.value = true
+    }
   } finally {
     claiming.value = false
   }
-})
+}
+
+onMounted(claim)
 </script>
 
 <style scoped>
