@@ -418,8 +418,17 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   rejected screen REACHABLE and the re-apply path allowed after rejection.
 - **STATUS (2026-07-01): SELF-FIXED (batch №227) — see SELF-FIX LOG.** `rejection_reason` projected onto
   `MasterProfileResponse` from `data.account.rejection_reason`; `MasterPendingView` renders the real reason.
-- **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E14-reject.** `rejection_reason` had ALREADY
-  shipped (see above); the real bug was a frontend router-guard, now fixed. Nothing owed to Zod.
+- **CLOSED-BY-NAV (batch R, 2026-07-14 + follow-up 2026-07-15, LIVE) — E14-reject.**
+  `rejection_reason` had ALREADY shipped (see above; re-verified 2026-07-15 at
+  `backend/app/modules/users/router.py:63-73` → `MasterPendingView.vue:131,145` -- genuinely reaches
+  the frontend, not a doc-trust claim). R2 (batch R, `cb6d8bf`, 2026-07-14) fixed a real
+  `masterPendingGuard` gap — but that was NOT the whole bug, as the operator's own device testing
+  found on 2026-07-15: R2 only ALLOWED a rejected applicant onto `/master/pending` if they reached it;
+  nothing actually ROUTED them there. A returning rejected applicant (different session, 24-48h later)
+  landed on `/user/dashboard` and never saw the screen the guard now permitted. Closed 2026-07-15:
+  `roleRedirect` now routes a rejected, not-yet-seen applicant to `/master/pending` once (operator
+  decision: show the verdict, then treat them as an ordinary user). Nothing owed to Zod — both gaps
+  were frontend-only.
 
 ### E15 — Master-onboarding "completed" flag (NEW 2026-06-26). **P2.**
 - **(a) Why.** A freshly-verified master currently lands straight on `MasterDashboardView` with no intro.
