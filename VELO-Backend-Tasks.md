@@ -18,10 +18,17 @@ it ships through the messaging module Zod is building, so it stays his — a pla
 endpoint is not, on its own, grounds to reassign it. E21 stays his too, by explicit operator call, even
 though attendance-tracking is not itself messaging/notifications.
 
+**Exception, same date: E13 (master-application document upload) is ALSO Zod's, for a different
+reason than the four lane items above.** It fails the delivery-through-messaging test outright —
+document upload is not his kind of feature. It is reassigned anyway (operator decision, 2026-07-15)
+because its blocker is **infrastructure Zod owns and has not yet built: S3 is not connected, and there
+is no file storage anywhere in this project.** The exception is to the blocker, not the feature — see
+E13's own STATUS line for the same reasoning. Revisit if storage ever lands independently of Zod's build.
+
 Any marker elsewhere in this doc that still says "OPEN — Zod" / "Zod's part" / "Zod add" etc. for
-anything OUTSIDE that four-item lane is stale and should be corrected on sight, not treated as current.
-This block is the single source of truth for the boundary — do not re-derive it from scattered epic
-text.
+anything OUTSIDE the four-item lane above OR the E13 exception is stale and should be corrected on
+sight, not treated as current. This block is the single source of truth for the boundary — do not
+re-derive it from scattered epic text.
 
 ---
 
@@ -404,7 +411,12 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **EXTEND (slice-2 2026-06-27):** the redesigned Step-3 also adds a **profile photo** (public) upload
   — no `photo_url` on `MasterProfileResponse` (gen:486). Build the UI (drop-zone + uploaded-chip),
   tap = honest «недоступно» until storage ships. Add `photo_url` intake on apply + surface on profile.
-- **STATUS (2026-06-24): OPEN.** **LANE (2026-07-15):** OWNED-BY-NAV — not messaging/notifications.
+- **STATUS (2026-06-24): OPEN — Zod (exception to the 2026-07-15 lane rule — see below). P2.**
+- **REASSIGNED (operator exception, 2026-07-15):** back to Zod, but NOT because document upload is his
+  kind of feature — it is not messaging/notifications, and under the lane rule above would otherwise
+  stay OWNED-BY-NAV. It is Zod's because its blocker is infrastructure he owns and has not yet built:
+  **S3 is not connected, and there is no file storage anywhere in this project.** Revisit if storage
+  ever lands independently of Zod's build.
 
 ### E14 — Master-application rejection reason, surfaced (NEW post-audit). **P2.**
 - **(a) Why.** A rejected applicant should see *why* (`MasterPendingView` shows a hardcoded «Причина: …»).
