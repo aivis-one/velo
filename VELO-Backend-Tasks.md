@@ -690,7 +690,7 @@ pre-push gate skips pytest, so a stale key-set only fails at deploy, not locally
 
 ---
 
-### E20 — Admin-editable catalog (directions / practice types / methods). **P2. STATUS: OPEN — Zod.**
+### E20 — Admin-editable catalog (directions / practice types / methods). **P2. STATUS: OWNED-BY-NAV (navigator tail T2) — NOT Zod's lane. Do not start.**
 
 **(a) Why.** Today the taxonomy is code-frozen: adding a practice **direction**, a **practice
 type**, or a master **method** requires a code edit + redeploy (see `core/config.py:112`,
@@ -713,15 +713,25 @@ config-driven editable catalog, grandfather existing data**).
   stored JSONB `data.profile.methods`. The only "catalog" is a **frontend-only** const
   `utils/methods.ts` (6 RU strings) — the backend accepts arbitrary strings today.
 
-**(d) Backend — decision Б (config-driven, minimal migration):**
+**(d) Backend — decision Б (config-driven, minimal migration). SUPERSEDED 2026-07-14 by the
+operator's R5 Decision 1 = А: TWO FK-linked tables (`practice_directions` + `practice_styles`), on the
+grounds that a style is never nested deeper than one level under a direction, so the tree-shaped
+`catalog_entries` design below is overkill. The live schema (seed + admin CRUD + read endpoint +
+editable admin UI + auto-promote-with-confirm) shipped in batch R, LIVE at c1dbe08 — see the
+CLOSED-BY-NAV note at the end of this epic. Building `catalog_entries` now would add a THIRD schema
+on top of the two already live. The (d.1)-(d.4) text below is kept as historical record, not a live
+spec:**
 1. **Catalog store.** A single persisted, admin-mutable catalog for the three lists — a small
    `catalog_entries` table (`kind ∈ {direction, practice_type, method}`, `value`, `label`,
    `active`, `sort`) **or** a JSONB config row — seeded from the current enum / settings values so
    day-one behaviour is identical. No per-practice/per-master data migration.
 2. **Rewire the validators** that currently read `settings.practice_allowed_directions` /
    `_types` (`practices/schemas.py:290,466`, `practices/router.py:100`) to read the catalog store
-   instead. **⚠ Collision flag:** these validators gate practice creation — changing their source
-   is the load-bearing risk; a bad catalog row would reject valid `POST /practices`.
+   instead. **⚠ Collision flag: CLEARED (2026-07-15) — the lane is OWNED-BY-NAV (T2), not Zod's, so
+   two agents will not be in these validators at once;** `practices/schemas.py:290,466` and
+   `practices/router.py:100` are T2's working surface, same as (d.1)-(d.4) above. The underlying
+   technical risk stands regardless of who holds the lane: these validators gate practice creation —
+   changing their source is load-bearing; a bad catalog row would reject valid `POST /practices`.
 3. **CRUD + admin auth.** `GET/POST/PATCH/DELETE /admin/catalog/{kind}` (+ the FE editor screen).
 4. **Grandfather / soft enforcement (operator Б):** existing master free-text `methods` stay VALID;
    the catalog drives the **picklist for NEW selections only**; the backend still ACCEPTS
@@ -760,7 +770,8 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   DB-backed taxonomy self-built: 2 tables (directions/styles) + seed + admin CRUD + read endpoint +
   picker consuming it + editable admin UI + custom-method auto-promote with admin confirmation. Scope
   is master **methods** only — **practice-creation taxonomy (directions/types, (b)/(d) above) still
-  runs on the old code-level config and remains OPEN — Zod.** Do not rebuild the methods side.
+  runs on the old code-level config and remains OPEN — planned SELF (navigator tail T2, batch R
+  follow-up) — NOT Zod's lane.** Do not rebuild the methods side.
 
 ### E21 — Zoom attendance tracking (NEW 2026-07-12, operator). **P0. DEADLINE 2026-07-17.**
 - **(a) Why.** Attendance today is inferred by the clock-driven lifecycle (Zod's recent
