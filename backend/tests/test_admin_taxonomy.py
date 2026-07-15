@@ -122,15 +122,22 @@ async def test_taxonomy_list_returns_seed(
         assert directions[value]["is_active"] is True
 
     # Directions with styles carry the right style values (label spot-check).
+    # Subset, not exact equality (ПРОМТ №411/№412): an admin can add a new
+    # style under meditation via this very CRUD endpoint (that is R5's whole
+    # point), so asserting the seed set is the WHOLE set fails the moment the
+    # feature it's meant to guard actually gets used -- the identical bug
+    # that took test_taxonomy.py's sibling test red.
     med_styles = {s["value"]: s["label"] for s in directions["meditation"]["styles"]}
-    assert med_styles == {
+    assert med_styles.items() >= {
         "silence": "Медитация молчания",
         "presence": "Медитация присутствия",
         "sound": "Звуковая медитация",
         "taoist": "Даосская медитация",
-    }
-    # A direction with no styles has an empty list, not missing.
-    assert directions["breathwork"]["styles"] == []
+    }.items()
+    # styles is always a list (never null/missing) -- a shape guarantee, not a
+    # claim that breathwork (or any other named direction) can never gain one.
+    for d in directions.values():
+        assert isinstance(d["styles"], list)
 
 
 # ---------------------------------------------------------------------------
