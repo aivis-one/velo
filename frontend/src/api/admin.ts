@@ -54,7 +54,31 @@ import type {
   AdminMasterDetail,
   AdminMasterProfileUpdate,
   RevokeMasterAdvisory,
+  PromoResponse,
 } from '@/api/types'
+
+// ============================================================================
+// T5 admin promos -- TEMP local types (pre-regen)
+// ============================================================================
+// AdminPromoResponse/AdminPaginatedPromosResponse mirror new backend schemas
+// (admin/promos/schemas.py) that are not yet in generated.ts -- `make
+// gen-types` needs a live backend, unavailable in this environment. Delete
+// this block and import both from '@/api/types' once the next deploy
+// regenerates generated.ts (same one-time gap AdminMasterListItem's R8
+// fields went through before that regen landed).
+export interface AdminPromoResponse extends PromoResponse {
+  master_first_name: string | null
+  master_last_name: string | null
+}
+
+export interface AdminPaginatedPromosResponse {
+  items: AdminPromoResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export type AdminPromoTypeFilter = 'company' | 'master'
 
 // Re-export for views that import from api/admin.ts directly.
 export type {
@@ -400,4 +424,23 @@ export function getAdminRevenue(
 ): Promise<AdminRevenueResponse> {
   const query = buildQuery({ period, offset })
   return api.get<AdminRevenueResponse>(`/api/v1/admin/revenue${query}`)
+}
+
+// ============================================================================
+// Promos (T5) -- admin sees + deactivates every master's promos, plus its own
+// company-wide ones. Company creation (POST) stays out of this batch's scope.
+// ============================================================================
+
+export function getAdminPromos(
+  type?: AdminPromoTypeFilter,
+  isActive?: boolean,
+  limit = 20,
+  offset = 0,
+): Promise<AdminPaginatedPromosResponse> {
+  const query = buildQuery({ type, is_active: isActive, limit, offset })
+  return api.get<AdminPaginatedPromosResponse>(`/api/v1/admin/promos${query}`)
+}
+
+export function deactivateAdminPromo(promoId: string): Promise<PromoResponse> {
+  return api.patch<PromoResponse>(`/api/v1/admin/promos/${promoId}/deactivate`)
 }

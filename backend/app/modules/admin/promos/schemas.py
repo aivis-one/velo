@@ -1,13 +1,18 @@
 # =============================================================================
-# VELO Backend -- Admin Promo Schemas (Phase 6.7, Batch 3)
+# VELO Backend -- Admin Promo Schemas (Phase 6.7, Batch 3 + T5)
 # =============================================================================
 #
 # CreateCompanyPromoRequest: admin creates a platform-wide promo code.
 #   Company promos are always global (practice_id=None, master_id=None).
 #   The company pays for the discount from the marketing budget.
 #
-# Response schemas are reused from promos/schemas.py:
-#   PromoResponse, PaginatedPromosResponse.
+# The create/company-only request reuses promos/schemas.py: PromoResponse,
+# PaginatedPromosResponse (POST /admin/promos still returns a plain
+# PromoResponse -- it only ever creates company promos, no master to name).
+#
+# T5: the LIST endpoint (admin sees every master's promos too) needs
+# AdminPromoResponse/AdminPaginatedPromosResponse below -- PromoResponse's
+# master_id is a bare UUID, not presentable on a card.
 #
 # CR-01: valid_from changed from required to optional (same as
 #   CreateMasterPromoRequest). Defaults to utcnow() via validator.
@@ -16,6 +21,8 @@
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, field_validator
+
+from app.modules.promos.schemas import PromoResponse
 
 
 class CreateCompanyPromoRequest(BaseModel):
@@ -67,3 +74,25 @@ class CreateCompanyPromoRequest(BaseModel):
         if v is None:
             return datetime.now(timezone.utc)
         return v
+
+
+class AdminPromoResponse(PromoResponse):
+    """PromoResponse + the owning master's name, for the admin all-promos view.
+
+    Company promos (master_id=None) leave both name fields None. Raw
+    first_name/last_name parts, not a pre-joined display string -- mirrors
+    AdminMasterListItem, formatted client-side via the same
+    masterDisplayName() helper so name formatting lives in one place.
+    """
+
+    master_first_name: str | None = None
+    master_last_name: str | None = None
+
+
+class AdminPaginatedPromosResponse(BaseModel):
+    """Paginated list of promos for the admin all-promos view (T5)."""
+
+    items: list[AdminPromoResponse]
+    total: int
+    limit: int
+    offset: int

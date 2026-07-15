@@ -139,6 +139,14 @@
       >
         <template #trailing><IconArrowRight :size="20" /></template>
       </VListRow>
+      <VListRow
+        title="Промокоды"
+        subtitle="Все промокоды: платформы и мастеров"
+        clickable
+        @click="router.push({ name: 'admin-promos' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
 
       <!-- Engagement -->
       <div class="admin-dashboard__section">

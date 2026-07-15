@@ -21,9 +21,9 @@
 #     - pagination (limit/offset)
 #   DEACTIVATE:
 #     - success (company promo)
+#     - success (master promo, T5 -- widened from company-only)
 #     - already inactive (409)
 #     - not found (404)
-#     - master promo rejected (400)
 #     - non-admin user (403)
 # =============================================================================
 
@@ -401,6 +401,47 @@ async def test_list_promos_with_items(
 
 
 @pytest.mark.asyncio
+async def test_list_promos_carries_master_name(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """T5: master-type items carry the owning master's name; company items don't.
+
+    login_user's default first_name is "TestUser" (no last_name set) --
+    asserted against that, not a hardcoded fixture name.
+    """
+    admin = await _make_admin(client, db_session)
+    admin_headers = auth_headers(admin["session_token"])
+
+    await client.post(
+        ADMIN_PROMOS_URL,
+        json=_valid_company_promo_body("TEST80NAME"),
+        headers=admin_headers,
+    )
+
+    master = await _make_verified_master(client, db_session, telegram_id=80002)
+    await client.post(
+        MASTER_PROMOS_URL,
+        json={
+            "code": "TEST80MNAME",
+            "discount_percent": 5,
+            "valid_from": (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            ).isoformat(),
+        },
+        headers=auth_headers(master["session_token"]),
+    )
+
+    resp = await client.get(ADMIN_PROMOS_URL, headers=admin_headers)
+    assert resp.status_code == 200
+    items = {p["code"]: p for p in resp.json()["items"]}
+
+    assert items["TEST80NAME"]["master_first_name"] is None
+    assert items["TEST80NAME"]["master_last_name"] is None
+    assert items["TEST80MNAME"]["master_first_name"] == "TestUser"
+
+
+@pytest.mark.asyncio
 async def test_list_promos_filter_by_type(
     client: AsyncClient,
     db_session: AsyncSession,
@@ -637,11 +678,15 @@ async def test_deactivate_not_found(
 
 
 @pytest.mark.asyncio
-async def test_deactivate_master_promo_rejected(
+async def test_deactivate_master_promo_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Admin cannot deactivate a master promo: 400."""
+    """T5: admin CAN deactivate a master's promo (widened from company-only).
+
+    Operator's explicit ask (2026-07-14): admin sees and deactivates every
+    master's promos, not just company ones.
+    """
     # Create a master promo.
     master = await _make_verified_master(client, db_session)
     master_body = {
@@ -659,14 +704,15 @@ async def test_deactivate_master_promo_rejected(
     assert resp.status_code == 201
     master_promo_id = resp.json()["id"]
 
-    # Admin tries to deactivate it.
+    # Admin deactivates it.
     admin = await _make_admin(client, db_session, telegram_id=80902)
     resp2 = await client.patch(
         DEACTIVATE_URL.format(promo_id=master_promo_id),
         headers=auth_headers(admin["session_token"]),
     )
-    assert resp2.status_code == 400
-    assert "company promos" in resp2.json()["message"].lower()
+    assert resp2.status_code == 200
+    assert resp2.json()["is_active"] is False
+    assert resp2.json()["type"] == "master"
 
 
 @pytest.mark.asyncio

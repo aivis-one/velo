@@ -79,6 +79,7 @@ const DETAIL_ROUTES = [
   'admin-master-review',
   'admin-withdrawal-detail',
   'admin-withdrawals',
+  'admin-promos',
   'admin-profile',
 ]
 const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))

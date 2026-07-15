@@ -481,6 +481,11 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminWithdrawalDetailView.vue'),
         },
         {
+          path: 'promos',
+          name: 'admin-promos',
+          component: () => import('@/views/admin/AdminPromosView.vue'),
+        },
+        {
           path: '',
           redirect: { name: 'admin-dashboard' },
         },
