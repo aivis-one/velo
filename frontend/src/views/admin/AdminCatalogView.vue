@@ -351,10 +351,19 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* Bug 6b (ПРОМТ №408, operator-approved .tmp/promt407-bug4-bug6-preview.html):
+     lets the toggle button drop to its own line when the title's real width
+     doesn't leave room for it, instead of the title painting through the
+     source badge (see .admin-catalog__dir-title below for why). */
+  flex-wrap: wrap;
 }
 
 .admin-catalog__dir-title {
-  flex: 1;
+  /* flex-basis: auto (was `flex: 1` = 0%) so an unbreakable long Cyrillic
+     label's real content width counts toward the flex-wrap decision above --
+     basis:0% hides it from that decision entirely, which is why the row
+     never wrapped and the title just painted through the badge next to it. */
+  flex: 1 1 auto;
   min-width: 0;
   font-family: var(--font-body);
   font-size: var(--text-base);
