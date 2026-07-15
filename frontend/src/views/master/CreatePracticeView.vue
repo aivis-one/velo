@@ -81,11 +81,12 @@
 
         <VInput v-model="form.title" placeholder="Название" :error="errors.title" required />
 
-        <!-- Направление = дисциплина (meditation/yoga/…). Подпись = плейсхолдер. -->
+        <!-- Направление = дисциплина (meditation/yoga/…). Подпись = плейсхолдер.
+             Options catalog-first (T2 stage 2) -- see directionOptions. -->
         <VSelect
           v-model="form.direction"
           placeholder="Направление практики"
-          :options="DIRECTION_OPTIONS"
+          :options="directionOptions"
           :error="errors.direction"
           required
           @update:modelValue="onDirectionChange"
@@ -406,9 +407,11 @@ import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
 import Banner from '@/components/shared/Banner.vue'
 import { ApiResponseError } from '@/api/client'
-import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
+import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
+import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
-import type { PracticeDirection, RecurrenceSpec, PracticeResponse } from '@/api/types'
+import type { TaxonomyListResponse } from '@/api/taxonomy'
+import type { RecurrenceSpec, PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
@@ -432,8 +435,17 @@ const masterStore = useMasterStore()
 
 // Load the master's practices so «Использовать шаблон» can offer them as
 // templates (no-op if already loaded from the practices list / dashboard).
+// T2 stage 2 (2026-07-15): prime the taxonomy catalog IN PARALLEL, on entry --
+// "close the flash, not just shrink it" (operator). Rides the shared cache
+// (ensureTaxonomyCatalog(): zero network call if another screen already
+// warmed it this session); if cold, fetched here before the master is likely
+// to have opened the Направление select.
+const catalog = ref<TaxonomyListResponse | null>(null)
 onMounted(() => {
   void masterStore.fetchMyPractices()
+  void ensureTaxonomyCatalog().then((c) => {
+    catalog.value = c
+  })
 })
 
 const submitting = ref(false)
@@ -535,9 +547,15 @@ const templatePractices = computed((): PracticeResponse[] =>
   [...masterStore.practices].sort((a, b) => b.created_at.localeCompare(a.created_at)),
 )
 
+// Direction options, catalog-first (T2 stage 2) -- falls back to the
+// hardcoded DIRECTION_OPTIONS while catalog.value is cold/unreachable.
+const directionOptions = computed(() => catalogDirectionOptions(catalog.value))
+
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
-const styleOptionsForForm = computed(() => stylesForDirection(form.direction as PracticeDirection))
+// Catalog-first (T2 stage 2) -- falls back to the hardcoded
+// STYLE_OPTIONS_BY_DIRECTION while catalog.value is cold/unreachable.
+const styleOptionsForForm = computed(() => catalogStylesForDirection(catalog.value, form.direction))
 
 /** Reset style when direction changes — the previous value is likely
  *  invalid for the new direction. */

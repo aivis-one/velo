@@ -97,6 +97,17 @@ let catalogStyleValueByLabel: Record<string, Record<string, string>> | null = nu
 // the bug 2 fix already added for directions but never mirrored for styles.
 let catalogStyleLabelByValue: Record<string, Record<string, string>> | null = null
 
+// Raw catalog response, alongside the derived label maps above. Populated by
+// applyTaxonomyCatalog() too (whoever primes the label maps also primes this),
+// so ANY screen that has already warmed the cache -- via this module's own
+// ensureTaxonomyCatalog() below, or via MethodTaxonomyPicker/EditProfileView/
+// admin screens calling applyTaxonomyCatalog()/primeMethodTaxonomyCatalog() --
+// makes the full catalog available for building OPTION LISTS (not just label
+// lookups) with zero extra network call (T2 stage 2, 2026-07-15: CreatePractice-
+// View / EditPracticeView / CalendarFilterModal need the actual direction/style
+// rows to render as selectable options, not just a value->label map).
+let cachedCatalog: TaxonomyListResponse | null = null
+
 /**
  * Populate the module-level catalog cache from an already-fetched taxonomy
  * response, without fetching it again. Pulled out of primeMethodTaxonomyCatalog
@@ -123,6 +134,7 @@ export function applyTaxonomyCatalog(catalog: TaxonomyListResponse): void {
   catalogDirectionLabelByValue = directionLabelByValue
   catalogStyleValueByLabel = styleValueByLabel
   catalogStyleLabelByValue = styleLabelByValue
+  cachedCatalog = catalog
 }
 
 /**
@@ -141,6 +153,27 @@ export async function primeMethodTaxonomyCatalog(): Promise<void> {
     // Offline/error -- leave whatever the cache already held (null on a
     // first-ever failure); parseMethods/flattenMethods fall back to the
     // hardcoded maps only, same as before this fix existed.
+  }
+}
+
+/**
+ * Return the already-warm catalog with NO network call if any screen this
+ * session already primed it (MethodTaxonomyPicker, EditProfileView, the admin
+ * master screens, or a prior call to this same function) -- "close the flash,
+ * not just shrink it" (operator, T2 stage 2). Otherwise fetches once, primes
+ * the shared cache (so later callers/screens ride it too), and returns it.
+ * Never throws: a failed fetch returns null, same offline/error contract as
+ * primeMethodTaxonomyCatalog() -- callers fall back to their own hardcoded
+ * options.
+ */
+export async function ensureTaxonomyCatalog(): Promise<TaxonomyListResponse | null> {
+  if (cachedCatalog) return cachedCatalog
+  try {
+    const catalog = await getActiveTaxonomy()
+    applyTaxonomyCatalog(catalog)
+    return catalog
+  } catch {
+    return null
   }
 }
 

@@ -167,11 +167,17 @@ import CalendarFilterModal from '@/components/shared/CalendarFilterModal.vue'
 import { IconCheck, IconClock } from '@/components/icons'
 import { formatDateShort } from '@/utils/format'
 import {
-  DIRECTION_LABEL,
   DIFFICULTY_LABEL,
   DURATION_BUCKET_LABEL,
   TIME_OF_DAY_LABEL,
 } from '@/utils/displayHelpers'
+// T2 stage 2 (2026-07-15): direction chip label goes through directionLabel()
+// (hardcoded first, catalog second, raw value last resort), NOT the strict
+// DIRECTION_LABEL[Record<PracticeDirection,string>] -- a catalog-only
+// direction (CalendarFilterModal now offers one) is not a member of that
+// closed union and would render as undefined. Warmed by CalendarFilterModal's
+// own onMounted catalog fetch (this view's direct child, mounted alongside).
+import { directionLabel } from '@/utils/methodTaxonomy'
 import type { PracticeResponse } from '@/api/types'
 import type { CalendarFacetFilters } from '@/stores/calendar'
 
@@ -228,7 +234,7 @@ const activeChips = computed<ActiveChip[]>(() => {
   const chips: ActiveChip[] = []
 
   for (const v of f.direction ?? []) {
-    chips.push({ key: `dir:${v}`, kind: 'direction', value: v, label: DIRECTION_LABEL[v] })
+    chips.push({ key: `dir:${v}`, kind: 'direction', value: v, label: directionLabel(v) })
   }
   for (const v of f.difficulty ?? []) {
     chips.push({ key: `dif:${v}`, kind: 'difficulty', value: v, label: DIFFICULTY_LABEL[v] })

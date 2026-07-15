@@ -2,6 +2,7 @@
 // Used by CreatePracticeView and EditPracticeView to avoid duplication (W-2).
 
 import type { PracticeDirection } from '@/api/types'
+import type { TaxonomyListResponse } from '@/api/taxonomy'
 
 export const DURATION_OPTIONS: { label: string; value: string }[] = [
   { label: '30 минут', value: '30' },
@@ -241,3 +242,46 @@ export const STYLE_LABEL: Record<string, string> = Object.fromEntries(
     .flat()
     .map((opt) => [opt.value, opt.label]),
 )
+
+// -- Catalog-first options (T2 stage 2, 2026-07-15) -------------------------
+//
+// The backend now accepts a direction/style from the DB catalog OR this
+// module's hardcoded lists (union, batch T2 stage 1). These two functions are
+// the frontend's other half: build the OPTIONS a picker actually offers,
+// catalog-first, falling back to the hardcoded consts above when the catalog
+// is cold (not yet fetched) or unreachable (offline/error) -- same
+// offline/error contract api/taxonomy.ts documents for its own consumers, so
+// a failed fetch degrades to today's list, never to an empty picker.
+// Callers fetch/cache the catalog themselves (methodTaxonomy.ts's
+// ensureTaxonomyCatalog(), which "rides" the same shared cache
+// MethodTaxonomyPicker/EditProfileView/admin screens already warm) and pass
+// the result in -- these two functions are pure, no fetching of their own.
+//
+// A catalog row's `value` is NOT a member of the closed PracticeDirection
+// union -- the cast mirrors the SAME tolerance MethodTaxonomyPicker.vue's own
+// catalog-first options list already applies (`allDirectionOptions()`,
+// `d.value as PracticeDirection`). Contained here and in that one other spot;
+// PracticeDirection itself is NOT widened.
+
+/** Direction options, catalog-first with a fallback to the hardcoded
+ *  DIRECTION_OPTIONS when the catalog is cold or unreachable. */
+export function catalogDirectionOptions(catalog: TaxonomyListResponse | null): DirectionOption[] {
+  if (!catalog) return DIRECTION_OPTIONS
+  return catalog.directions.map((d) => ({ value: d.value as PracticeDirection, label: d.label }))
+}
+
+/** Styles for one direction, catalog-first with a fallback to the hardcoded
+ *  stylesForDirection() when the catalog is cold or unreachable. When the
+ *  catalog IS warm but the direction isn't found in it (should not happen --
+ *  the catalog is a superset of the hardcoded directions), returns [] rather
+ *  than falling back, mirroring MethodTaxonomyPicker.vue's own
+ *  catalogStylesForDirection(). */
+export function catalogStylesForDirection(
+  catalog: TaxonomyListResponse | null,
+  direction: string | undefined | null,
+): StyleOption[] {
+  if (!direction) return []
+  if (!catalog) return stylesForDirection(direction as PracticeDirection)
+  const entry = catalog.directions.find((d) => d.value === direction)
+  return entry ? (entry.styles ?? []).map((s) => ({ value: s.value, label: s.label })) : []
+}
