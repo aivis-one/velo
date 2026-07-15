@@ -81,7 +81,7 @@ export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
   // there -- roleRedirect switched on role alone and always sent role='user'
   // to /user/dashboard, so a returning rejected applicant never saw the
   // screen the guard now permits. MasterPendingView marks the per-user key
-  // seen once the screen actually renders (mirrors MASTER_APPROVED_SEEN_KEY's
+  // seen once the screen actually renders (mirrors masterApprovedSeenKey's
   // placement for the approved case).
   if (
     auth.role === 'user' &&

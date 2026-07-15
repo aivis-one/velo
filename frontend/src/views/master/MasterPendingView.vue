@@ -104,7 +104,7 @@ import { VButton, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { MASTER_APPROVED_SEEN_KEY, masterRejectionSeenKey } from '@/utils/constants'
+import { masterApprovedSeenKey, masterRejectionSeenKey } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
@@ -158,7 +158,7 @@ onMounted(async () => {
     await authStore.fetchMe()
   }
   // Bug 1 fix (ПРОМТ №405): mark the per-user key once the rejection screen
-  // has actually rendered, mirroring MASTER_APPROVED_SEEN_KEY's placement for
+  // has actually rendered, mirroring masterApprovedSeenKey's placement for
   // the approved case, so roleRedirect stops routing here on future opens
   // (operator decision: show the verdict once, then treat as an ordinary user).
   if (profileStatus.value === 'rejected' && authStore.user?.id) {
@@ -175,7 +175,9 @@ async function enterMasterMode(): Promise<void> {
     // MA3: mark this celebratory screen as seen (persists across sessions) so
     // future self-switches (RoleSwitchSection) go straight to the dashboard
     // instead of detouring back through here.
-    localStorage.setItem(MASTER_APPROVED_SEEN_KEY, '1')
+    if (authStore.user?.id) {
+      localStorage.setItem(masterApprovedSeenKey(authStore.user.id), '1')
+    }
     router.push({ name: 'master-dashboard' })
   } catch {
     toast.error('Не удалось переключиться в режим мастера')

@@ -50,16 +50,21 @@ export const WITHDRAWAL_FEE_EUROS = 2
 export const MASTER_APPLIED_KEY = 'velo:master-applied'
 
 /**
- * localStorage marker (MA3, persists across sessions -- unlike the sessionStorage
- * MASTER_APPLIED_KEY above): set once the master has actually seen/entered
- * through the "Ваша заявка одобрена!" screen (MasterPendingView.enterMasterMode).
- * RoleSwitchSection reads it to decide whether a role='user'->master self-switch
- * should detour through the approved screen first (not seen yet) or go straight
- * to the dashboard (already seen). Not cleared on logout -- it is a one-time
- * "have they ever seen this celebratory screen" fact about the account/device,
- * not per-session state.
+ * localStorage marker key, PER-USER (W18 fix, ПРОМТ №408 -- was a flat
+ * `MASTER_APPROVED_SEEN_KEY` constant that leaked across accounts on a shared
+ * device, same class of bug masterRejectionSeenKey below was built to avoid
+ * from the start). Set once the master has actually seen/entered through the
+ * "Ваша заявка одобрена!" screen (MasterPendingView.enterMasterMode).
+ * RoleSwitchSection reads it to decide whether a role='user'->master
+ * self-switch should detour through the approved screen first (not seen yet)
+ * or go straight to the dashboard (already seen). Not cleared on logout -- it
+ * is a one-time "have they ever seen this celebratory screen" fact about the
+ * account/device, not per-session state; self-isolating per user via the key
+ * name, so no explicit clear-on-logout is needed either.
  */
-export const MASTER_APPROVED_SEEN_KEY = 'velo:master-approved-seen'
+export function masterApprovedSeenKey(userId: string): string {
+  return `velo:master-approved-seen:${userId}`
+}
 
 /**
  * localStorage marker key, PER-USER (bug 1, ПРОМТ №405 -- operator device
@@ -69,11 +74,12 @@ export const MASTER_APPROVED_SEEN_KEY = 'velo:master-approved-seen'
  * (not yet seen) or straight to /user/dashboard (already seen -- operator
  * decision: show once, then treat them as an ordinary user; rejection is not
  * captivity). Scoped by userId in the key itself -- W18 (unscoped
- * localStorage) is what made MASTER_APPROVED_SEEN_KEY above a flat key that
- * leaks across accounts on a shared device; embedding userId avoids that
- * from the start rather than reproducing it. Not cleared on logout, same
- * lifetime-fact semantics as MASTER_APPROVED_SEEN_KEY -- self-isolating per
- * user via the key name, so no explicit clear-on-logout is needed either.
+ * localStorage) is what made the old flat MASTER_APPROVED_SEEN_KEY a trap
+ * that leaked across accounts on a shared device; embedding userId avoids
+ * that from the start rather than reproducing it. Not cleared on logout,
+ * same lifetime-fact semantics as masterApprovedSeenKey above -- self-
+ * isolating per user via the key name, so no explicit clear-on-logout is
+ * needed either.
  */
 export function masterRejectionSeenKey(userId: string): string {
   return `velo:master-rejection-seen:${userId}`
