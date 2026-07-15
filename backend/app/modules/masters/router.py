@@ -3,11 +3,12 @@
 # =============================================================================
 #
 # Endpoints:
-#   POST  /api/v1/masters/apply          -- submit master application
-#   GET   /api/v1/masters/me             -- my master profile (Frontend Backlog)
-#   PATCH /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
-#   GET   /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
-#   GET   /api/v1/masters/{user_id}      -- public master profile (S-4)
+#   POST   /api/v1/masters/apply          -- submit master application
+#   DELETE /api/v1/masters/me/application -- withdraw a pending application (F4)
+#   GET    /api/v1/masters/me             -- my master profile (Frontend Backlog)
+#   PATCH  /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
+#   GET    /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
+#   GET    /api/v1/masters/{user_id}      -- public master profile (S-4)
 #
 # F7: _make_profile_response() now includes payout field extracted from
 #   MasterProfile.data.get("payout"). Returns None when not configured.
@@ -57,6 +58,7 @@ from app.modules.masters.service import (
     get_public_master_profile,
     submit_method_change_request,
     update_master_languages,
+    withdraw_master_application,
 )
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import list_master_practices
@@ -149,6 +151,28 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+@router.delete(
+    "/me/application",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def withdraw_master_application_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Withdraw the caller's own pending master application (F4).
+
+    get_current_user, not get_current_master: a pending applicant is still
+    role='user' (role only escalates on self-switch after approval), so
+    get_current_master's verified-only gate would reject them.
+
+    Status flip only -- see withdraw_master_application's docstring for the
+    product decision. 204, mirroring DELETE /users/me and DELETE
+    /masters/me/payout.
+    """
+    await withdraw_master_application(user, session)
+    await session.flush()
 
 
 # ===================================================================

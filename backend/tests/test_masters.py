@@ -180,6 +180,120 @@ async def test_apply_master_no_auth(client: AsyncClient) -> None:
 
 
 # ---------------------------------------------------------------------------
+# DELETE /masters/me/application — F4 withdraw
+# ---------------------------------------------------------------------------
+
+WITHDRAW_URL = "/api/v1/masters/me/application"
+
+
+@pytest.mark.asyncio
+async def test_withdraw_application_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A pending applicant can withdraw: status flips, User row is untouched.
+
+    Operator decision (F4): status flip ONLY -- role, is_active, and every
+    other User column stay exactly as they were.
+    """
+    auth = await login_user(client, telegram_id=55004, first_name="Withdrawer")
+    token = auth["session_token"]
+
+    apply_resp = await client.post(
+        APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token),
+    )
+    assert apply_resp.status_code == 201
+
+    withdraw_resp = await client.delete(WITHDRAW_URL, headers=auth_headers(token))
+    assert withdraw_resp.status_code == 204
+
+    user_id = auth["user"]["id"]
+    profile = (
+        await db_session.execute(
+            select(MasterProfile).where(MasterProfile.user_id == user_id)
+        )
+    ).scalar_one()
+    assert profile.data["account"]["status"] == "cancelled_by_user"
+
+    user = (
+        await db_session.execute(select(User).where(User.id == user_id))
+    ).scalar_one()
+    assert user.role == UserRole.USER
+    assert user.is_active is True
+
+
+@pytest.mark.asyncio
+async def test_withdraw_application_no_application_404(client: AsyncClient) -> None:
+    """Withdrawing with no application on file → 404."""
+    auth = await login_user(client, telegram_id=55005, first_name="NoApp")
+    response = await client.delete(WITHDRAW_URL, headers=auth_headers(auth["session_token"]))
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_withdraw_application_not_pending_conflict(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A verified (or otherwise non-pending) application can't be withdrawn → 409."""
+    auth = await login_user(client, telegram_id=55006, first_name="Verified")
+    token = auth["session_token"]
+
+    apply_resp = await client.post(
+        APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token),
+    )
+    assert apply_resp.status_code == 201
+
+    user_id = auth["user"]["id"]
+    profile = (
+        await db_session.execute(
+            select(MasterProfile).where(MasterProfile.user_id == user_id)
+        )
+    ).scalar_one()
+    verified_data = copy.deepcopy(profile.data)
+    verified_data["account"]["status"] = "verified"
+    profile.set_jsonb("data", verified_data)
+    await db_session.commit()
+
+    response = await client.delete(WITHDRAW_URL, headers=auth_headers(token))
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_withdraw_application_no_auth(client: AsyncClient) -> None:
+    """Unauthenticated withdraw → 401."""
+    response = await client.delete(WITHDRAW_URL)
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_reapply_after_withdrawal_succeeds(client: AsyncClient) -> None:
+    """PIN: a withdrawn applicant can re-apply with zero special-casing.
+
+    apply_for_master's reapply branch only special-cases "pending"/"verified"
+    -- anything else (including "cancelled_by_user") falls through to the
+    generic reapply path. This test pins that behavior so a future change to
+    that branch can't silently reintroduce a block on re-applying after
+    withdrawal.
+    """
+    auth = await login_user(client, telegram_id=55007, first_name="Reapplier")
+    token = auth["session_token"]
+
+    assert (
+        await client.post(APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token))
+    ).status_code == 201
+    assert (
+        await client.delete(WITHDRAW_URL, headers=auth_headers(token))
+    ).status_code == 204
+
+    reapply_resp = await client.post(
+        APPLY_URL, json=_valid_apply_body(), headers=auth_headers(token),
+    )
+    assert reapply_resp.status_code == 201
+    assert reapply_resp.json()["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
 # POST /masters/apply — master role forbidden
 # ---------------------------------------------------------------------------
 

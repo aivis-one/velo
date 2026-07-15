@@ -254,6 +254,63 @@ async def apply_for_master(
     return profile
 
 
+# ---------------------------------------------------------------------------
+# F4: candidate withdraws their own PENDING application
+# ---------------------------------------------------------------------------
+#
+# PRODUCT DECISION (operator, 2026-07-15): "человек отозвал заявку, а не
+# аккаунт" -- status flip ONLY. The User row, role, and history are
+# untouched; the applicant is still an ordinary user and can re-apply at any
+# time (apply_for_master's reapply branch handles any non-pending/verified
+# status generically, so no special-casing is needed for it to work again).
+# Only a "pending" application can be withdrawn -- once verified/rejected the
+# admin has already acted, and there is nothing left to withdraw.
+
+
+async def withdraw_master_application(
+    user: User,
+    session: AsyncSession,
+) -> MasterProfile:
+    """Withdraw the caller's own pending master application.
+
+    Flips MasterProfile.data.account.status to "cancelled_by_user" -- the
+    same JSONB-status-write shape as reject/verify, just from the applicant
+    side. FOR UPDATE mirrors the reapply race guard (RACE-06): two concurrent
+    withdraw/apply requests must not interleave.
+
+    Raises:
+        NotFoundError: no application exists for this user.
+        ConflictError: the application is not "pending" (already verified,
+            rejected, or already withdrawn -- nothing to withdraw).
+    """
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user.id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    profile = result.scalar_one_or_none()
+
+    if profile is None:
+        raise NotFoundError("No master application found")
+
+    account_status = profile.data.get("account", {}).get("status")
+    if account_status != "pending":
+        raise ConflictError("Only a pending application can be withdrawn")
+
+    new_data = copy.deepcopy(profile.data)
+    new_data.setdefault("account", {})
+    new_data["account"]["status"] = "cancelled_by_user"
+    profile.set_jsonb("data", new_data)
+
+    logger.info(
+        "master_application_withdrawn",
+        user_id=str(user.id),
+    )
+
+    return profile
+
+
 async def get_master_profile(
     user_id: UUID,
     session: AsyncSession,
