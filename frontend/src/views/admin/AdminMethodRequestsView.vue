@@ -145,7 +145,7 @@ import { getMethodChangeRequests, approveMethodChange, rejectMethodChange } from
 import type { AdminMethodChangeItem } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, formatRelative } from '@/utils/adminHelpers'
-import { parseMethods } from '@/utils/methodTaxonomy'
+import { parseMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 
 const LIMIT = 20
 
@@ -189,7 +189,10 @@ async function loadInitial(): Promise<void> {
   total.value = 0
   hasMore.value = false
   try {
-    const res = await getMethodChangeRequests(LIMIT, 0)
+    // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
+    // requests fetch, so a proposed method already promoted from an earlier
+    // approval renders as a recognized chip instead of "custom".
+    const [res] = await Promise.all([getMethodChangeRequests(LIMIT, 0), primeMethodTaxonomyCatalog()])
     items.value = res.items
     total.value = res.total
     hasMore.value = res.items.length < res.total

@@ -128,7 +128,7 @@ import { IconCheck, IconPending, IconClose } from '@/components/icons'
 import { getMastersList } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
 import { masterDisplayName, masterStatusVariant } from '@/utils/adminHelpers'
-import { parseMethods, directionLabel } from '@/utils/methodTaxonomy'
+import { parseMethods, directionLabel, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { STYLE_LABEL } from '@/utils/practiceOptions'
 import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
@@ -242,7 +242,10 @@ async function load(): Promise<void> {
     // Limit is clamped to the backend page cap (le=100 on /admin/masters/list);
     // 200 was 422-rejected. Alpha: 100 is enough — add pagination when the
     // master count approaches 100 (operator ruling, ПРОМТ №289).
-    const res = await getMastersList(undefined, 100, 0)
+    // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
+    // masters fetch so a promoted custom method already resolves to a plain
+    // chip on first render instead of flashing "custom".
+    const [res] = await Promise.all([getMastersList(undefined, 100, 0), primeMethodTaxonomyCatalog()])
     masters.value = res.items
     total.value = res.total
   } catch (e) {

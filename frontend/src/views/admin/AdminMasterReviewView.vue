@@ -438,7 +438,7 @@ import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
 import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
-import { parseMethods, flattenMethods } from '@/utils/methodTaxonomy'
+import { parseMethods, flattenMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 
 const route = useRoute()
 const router = useRouter()
@@ -574,7 +574,13 @@ async function loadMaster(): Promise<void> {
   if (handed && handed.id === masterId) master.value = handed
   if (!master.value) loading.value = true
   try {
-    master.value = await getMasterById(masterId)
+    // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
+    // detail fetch so a promoted custom method already resolves to a plain
+    // chip. Note: the `handed` instant-paint above can still render one frame
+    // of stale (pre-catalog) chips before this resolves -- that flash predates
+    // this fix and is a property of the instant-paint design, not this bug.
+    const [detail] = await Promise.all([getMasterById(masterId), primeMethodTaxonomyCatalog()])
+    master.value = detail
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки данных'
     toast.error(msg)

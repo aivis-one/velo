@@ -7,8 +7,11 @@
 // picker instead of silently vanishing after submit / after admin approval.
 // =============================================================================
 
-import { describe, it, expect } from 'vitest'
-import { flattenMethods, parseMethods } from '@/utils/methodTaxonomy'
+import { describe, it, expect, vi } from 'vitest'
+import { flattenMethods, parseMethods, directionLabel, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import { getActiveTaxonomy } from '@/api/taxonomy'
+
+vi.mock('@/api/taxonomy')
 
 describe('parseMethods', () => {
   it('matches a bare direction label', () => {
@@ -81,5 +84,100 @@ describe('parseMethods -> flattenMethods round-trip', () => {
     // Second round-trip must reproduce the exact same result (no further drift).
     const second = flattenMethods(parseMethods(first))
     expect(second).toEqual(first)
+  })
+})
+
+// =============================================================================
+// Bug 2 (ПРОМТ №405): a value auto-promoted into the DB catalog (admin
+// approves a master's «Свой вариант» with "добавить в каталог") must resolve
+// as a MATCHED direction, not stay "unmatched -> custom" forever.
+//
+// primeMethodTaxonomyCatalog() mutates MODULE-LEVEL state (the whole point --
+// a lazy, session-lifetime cache, same lifecycle as production). Tests below
+// are ORDER-DEPENDENT by design: the fetch-failure/fallback case must run
+// BEFORE any successful prime, or it would just be observing an
+// already-warm cache from an earlier test rather than a genuinely cold one.
+// Declaration order = execution order (no shuffle configured) -- do not
+// reorder these two describe blocks relative to each other.
+// =============================================================================
+describe('primeMethodTaxonomyCatalog (cold-cache fallback, must run before any successful prime)', () => {
+  it('on fetch failure, parseMethods still only matches the hardcoded map', async () => {
+    vi.mocked(getActiveTaxonomy).mockRejectedValueOnce(new Error('network error'))
+
+    await primeMethodTaxonomyCatalog()
+
+    const parsed = parseMethods(['Терапия'])
+    expect(parsed.directions).toEqual([])
+    expect(parsed.customEnabled).toBe(true)
+    expect(parsed.customText).toBe('Терапия')
+  })
+})
+
+describe('primeMethodTaxonomyCatalog (warm cache)', () => {
+  it('after a successful prime, a promoted catalog direction is matched -- not custom', async () => {
+    vi.mocked(getActiveTaxonomy).mockResolvedValueOnce({
+      directions: [
+        {
+          id: 'd1',
+          value: 'custom_abc123',
+          label: 'Терапия',
+          display_order: 0,
+          is_active: true,
+          source: 'custom',
+          styles: [],
+        },
+      ],
+    })
+
+    await primeMethodTaxonomyCatalog()
+    const parsed = parseMethods(['Терапия'])
+
+    expect(parsed.directions).toEqual(['custom_abc123'])
+    expect(parsed.styles).toEqual({})
+    expect(parsed.customEnabled).toBe(false)
+    expect(parsed.customText).toBe('')
+  })
+
+  it('directionLabel resolves a catalog-only value back to its label (chip rendering)', () => {
+    // Cache is warm from the previous test (module-level, session-lifetime).
+    expect(directionLabel('custom_abc123')).toBe('Терапия')
+  })
+
+  it('flattenMethods round-trips a catalog-matched direction back to the original stored string', () => {
+    const original = ['Терапия']
+    expect(flattenMethods(parseMethods(original))).toEqual(original)
+  })
+
+  it('a catalog direction WITH a style is matched as a direction+style pair', async () => {
+    vi.mocked(getActiveTaxonomy).mockResolvedValueOnce({
+      directions: [
+        {
+          id: 'd2',
+          value: 'yoga',
+          label: 'Йога',
+          display_order: 0,
+          is_active: true,
+          source: 'seed',
+          styles: [
+            {
+              id: 's1',
+              direction_id: 'd2',
+              value: 'restorative',
+              label: 'Восстановительная',
+              display_order: 0,
+              is_active: true,
+              source: 'custom',
+            },
+          ],
+        },
+      ],
+    })
+
+    await primeMethodTaxonomyCatalog()
+    const parsed = parseMethods(['Йога — Восстановительная'])
+
+    expect(parsed.directions).toEqual(['yoga'])
+    expect(parsed.styles).toEqual({ yoga: ['restorative'] })
+    expect(parsed.customEnabled).toBe(false)
   })
 })

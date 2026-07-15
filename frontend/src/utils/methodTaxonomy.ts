@@ -38,6 +38,7 @@
 
 import type { PracticeDirection } from '@/api/types'
 import { DIRECTION_OPTIONS, STYLE_OPTIONS_BY_DIRECTION, STYLE_LABEL } from '@/utils/practiceOptions'
+import { getActiveTaxonomy } from '@/api/taxonomy'
 
 /** The two-level picker's selection state. Mirrors the fields the wizard held
  *  inline (selectedDirections / selectedStyles / otherMethod*). */
@@ -73,9 +74,72 @@ const STYLE_VALUE_BY_LABEL: Partial<Record<PracticeDirection, Record<string, str
     ]),
   )
 
-/** direction value -> Russian label, falling back to the raw value. */
+// -- R5-stage-4 catalog cache (bug 2 fix, ПРОМТ №405) -------------------------
+//
+// parseMethods/flattenMethods matched ONLY the hardcoded maps above -- a
+// value auto-promoted into the DB catalog (admin approves a master's «Свой
+// вариант» submission with "добавить в каталог") was NEVER recognized as
+// matched, so it stayed rendered as unmatched/custom forever even after
+// promotion (MethodTaxonomyPicker.vue's own header comment predicted exactly
+// this divergence). Lazy module-level cache, consulted IN ADDITION TO the
+// hardcoded maps above, never replacing them -- on fetch failure the cache
+// stays as its last good state (null on first failure) and matching falls
+// back to the hardcoded maps only, same offline/error contract api/taxonomy.ts
+// documents for its own consumers.
+let catalogDirectionValueByLabel: Record<string, string> | null = null
+let catalogDirectionLabelByValue: Record<string, string> | null = null
+let catalogStyleValueByLabel: Record<string, Record<string, string>> | null = null
+
+/**
+ * Fetch the active taxonomy catalog and prime the module-level cache used by
+ * parseMethods/flattenMethods/directionLabel. Call once per screen, on entry,
+ * BEFORE the screen's own data becomes visible (e.g. alongside the screen's
+ * primary data fetch in Promise.all) so the first parse already sees a warm
+ * cache instead of flashing "custom" for a promoted value. Idempotent --
+ * safe to call multiple times or from multiple screens (shared module state).
+ */
+export async function primeMethodTaxonomyCatalog(): Promise<void> {
+  try {
+    const catalog = await getActiveTaxonomy()
+    const directionValueByLabel: Record<string, string> = {}
+    const directionLabelByValue: Record<string, string> = {}
+    const styleValueByLabel: Record<string, Record<string, string>> = {}
+    for (const dir of catalog.directions) {
+      directionValueByLabel[dir.label] = dir.value
+      directionLabelByValue[dir.value] = dir.label
+      const styles = dir.styles ?? []
+      if (styles.length > 0) {
+        styleValueByLabel[dir.value] = Object.fromEntries(styles.map((s) => [s.label, s.value]))
+      }
+    }
+    catalogDirectionValueByLabel = directionValueByLabel
+    catalogDirectionLabelByValue = directionLabelByValue
+    catalogStyleValueByLabel = styleValueByLabel
+  } catch {
+    // Offline/error -- leave whatever the cache already held (null on a
+    // first-ever failure); parseMethods/flattenMethods fall back to the
+    // hardcoded maps only, same as before this fix existed.
+  }
+}
+
+/** Direction label -> value, hardcoded first, catalog second (bug 2 fix). A
+ *  catalog-only value (e.g. a promoted custom direction's synthetic slug) is
+ *  not a member of the closed PracticeDirection union -- the cast mirrors
+ *  the SAME tolerance MethodTaxonomyPicker.vue's catalog-first options list
+ *  already applies (`allDirectionOptions()`, `d.value as PracticeDirection`). */
+function resolveDirectionValue(label: string): PracticeDirection | undefined {
+  return DIRECTION_VALUE_BY_LABEL[label] ?? (catalogDirectionValueByLabel?.[label] as PracticeDirection | undefined)
+}
+
+/** Style label -> value under a resolved direction, hardcoded first, catalog second. */
+function resolveStyleValue(dirValue: PracticeDirection, label: string): string | undefined {
+  return STYLE_VALUE_BY_LABEL[dirValue]?.[label] ?? catalogStyleValueByLabel?.[dirValue]?.[label]
+}
+
+/** direction value -> Russian label, hardcoded first, catalog second (bug 2
+ *  fix), falling back to the raw value if neither knows it. */
 export function directionLabel(dir: string): string {
-  return DIRECTION_LABEL[dir] ?? dir
+  return DIRECTION_LABEL[dir] ?? catalogDirectionLabelByValue?.[dir] ?? dir
 }
 
 /**
@@ -129,8 +193,8 @@ export function parseMethods(methods: string[]): MethodSelection {
       // «Направление — Вид»: both halves must map to the taxonomy.
       const dirLabel = s.slice(0, sepIdx)
       const styleLabel = s.slice(sepIdx + SEP.length)
-      const dirValue = DIRECTION_VALUE_BY_LABEL[dirLabel]
-      const styleValue = dirValue ? STYLE_VALUE_BY_LABEL[dirValue]?.[styleLabel] : undefined
+      const dirValue = resolveDirectionValue(dirLabel)
+      const styleValue = dirValue ? resolveStyleValue(dirValue, styleLabel) : undefined
       if (!dirValue || !styleValue) {
         unmatched.push(s)
         continue
@@ -140,7 +204,7 @@ export function parseMethods(methods: string[]): MethodSelection {
       if (!list.includes(styleValue)) list.push(styleValue)
     } else {
       // Bare «Направление» (no style) -- or, if it doesn't match, custom text.
-      const dirValue = DIRECTION_VALUE_BY_LABEL[s]
+      const dirValue = resolveDirectionValue(s)
       if (!dirValue) {
         unmatched.push(s)
         continue

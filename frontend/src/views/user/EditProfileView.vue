@@ -219,7 +219,7 @@ import { submitMethodChangeRequest, updateMasterLanguages } from '@/api/masters'
 import { formatMoney } from '@/utils/format'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
-import { flattenMethods, parseMethods } from '@/utils/methodTaxonomy'
+import { flattenMethods, parseMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
@@ -349,9 +349,12 @@ async function onSaveLanguages(): Promise<void> {
 
 // Load the master profile so the delete modal can show the balance to forfeit
 // and the methods/languages blocks reflect the current set + any pending request.
+// Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache in parallel so a
+// promoted custom method already resolves to a plain chip on first render
+// instead of flashing "custom".
 onMounted(() => {
   if (isMaster.value) {
-    void masterStore.fetchMyProfile()
+    void Promise.all([masterStore.fetchMyProfile(), primeMethodTaxonomyCatalog()])
   }
 })
 
