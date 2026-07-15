@@ -1,13 +1,24 @@
 <!--
-  VELO Frontend -- MasterSummaryView (Master DS, 2026-06-11; honesty-cleanup 2026-07-12)
+  VELO Frontend -- MasterSummaryView (Master DS, 2026-06-11; E6 wiring ПРОМТ №420)
 
-  "Саммари недели" — the master's AI weekly insights, reached from the dashboard
+  "Саммари недели" — the master's weekly summary, reached from the dashboard
   summary card ("Подробнее"). Rendered inside MasterShell.
 
-  HONEST STUB: no master-AI / feedback-aggregation backend for the insight or key
-  feedbacks -> both render honest placeholders (no fabricated numbers/names).
-  Documents the contract for Zod: insight (string), key_feedbacks [{ rating, name,
-  comment }]. «Требуют внимания» below is REAL (E5) and unaffected by this cleanup.
+  E6 = three pieces (insight + key feedbacks + needs attention). Recon
+  (ПРОМТ №420) found two of three already real, just not wired together on
+  this one screen:
+    - insight: HONEST STUB. No AI provider exists in this project (backend/
+      app/modules/ai/ is a Protocol + MockAIService, explicitly out-of-MVP-
+      scope) -- operator 2026-07-15: AI work is Zod's, once the infra exists.
+    - key feedbacks: REAL as of this batch. GET /masters/me/reviews
+      (MasterReviewItem) already carries a real reviewer user_id (E1
+      "remainder", already shipped -- the roadmap doc calling this open was
+      stale), so cards are fully navigable to the student profile. No new
+      backend needed -- same endpoint AnalyticsView's «Требуют внимания»
+      already calls, just without the attention=true filter (this section
+      wants a highlight reel, not only the negative bucket).
+    - needs attention: was ALREADY real (E5, GET /masters/me/students) before
+      this batch -- untouched here.
 -->
 
 <template>
@@ -15,15 +26,54 @@
     <VHeader title="Саммари недели" show-back @back="router.push({ name: 'master-dashboard' })" />
 
     <div class="summary__content">
-      <!-- AI insight (honest placeholder — no master-AI backend yet) -->
+      <!-- AI insight (honest placeholder — no AI provider exists in this
+           project yet; Zod builds this once the infra lands). -->
       <h2 class="velo-section-title">AI-инсайты за неделю</h2>
       <VCard>
         <p class="summary__insight">{{ insight }}</p>
       </VCard>
 
-      <!-- Key feedbacks (honest empty-state — no feedback-aggregation backend yet) -->
+      <!-- Key feedbacks (REAL: GET /masters/me/reviews, cross-practice named
+           feed, E1's user_id makes each card navigable). -->
       <h2 class="velo-section-title">Ключевые отзывы</h2>
-      <VEmptyState variant="note" title="Отзывы появятся здесь, когда будут собраны" />
+      <div v-if="feedbacksLoading" class="summary__attn-state">
+        <VLoader />
+      </div>
+      <VEmptyState
+        v-else-if="feedbacksError"
+        icon="warning"
+        title="Не удалось загрузить"
+        :description="feedbacksError"
+      >
+        <VButton size="sm" variant="outline" @click="loadFeedbacks">Повторить</VButton>
+      </VEmptyState>
+      <template v-else>
+        <div
+          v-for="(item, i) in keyFeedbacks"
+          :key="i"
+          class="summary__feedback"
+          role="button"
+          tabindex="0"
+          @click="goStudentFromReview(item)"
+          @keydown.enter.space.prevent="goStudentFromReview(item)"
+        >
+          <component
+            :is="RATING_ICON[item.rating as FeedbackRating]"
+            :size="36"
+            :style="{ color: RATING_ICON_COLOR[item.rating as FeedbackRating] }"
+          />
+          <div class="summary__feedback-body">
+            <div class="summary__feedback-name">{{ item.reviewer_name }}</div>
+            <div class="summary__feedback-practice">{{ item.practice_title }}</div>
+            <div v-if="item.comment" class="summary__feedback-quote">«{{ item.comment }}»</div>
+          </div>
+        </div>
+        <VEmptyState
+          v-if="keyFeedbacks.length === 0"
+          variant="note"
+          title="Отзывы появятся здесь, когда будут собраны"
+        />
+      </template>
 
       <!-- Needs attention (REAL: the master's students with needs_attention).
            Each row taps through to the real student profile; the message button
@@ -78,21 +128,67 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VCard, VAvatar, VLoader, VEmptyState, VButton } from '@/components/ui'
-import { IconMessages, IconWarning } from '@/components/icons'
+import {
+  IconMessages,
+  IconWarning,
+  IconRatingFire,
+  IconRatingGood,
+  IconRatingConfused,
+} from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
-import { getStudents } from '@/api/masters'
-import type { StudentListItem } from '@/api/types'
+import { getStudents, getMasterReviews } from '@/api/masters'
+import { RATING_ICON_COLOR } from '@/utils/displayHelpers'
+import type { StudentListItem, MasterReviewItem, FeedbackRating } from '@/api/types'
 
 const router = useRouter()
 
-// -- HONEST STUB (no master-AI / feedback-aggregation backend → roadmap for
-//    Zod). No fabricated numbers/names — see VEmptyState below for key
-//    feedbacks. --
+// -- HONEST STUB: no AI provider exists in this project (backend/app/
+//    modules/ai/ is a Protocol + MockAIService, explicitly out-of-MVP-scope)
+//    -- operator 2026-07-15: AI work is Zod's, once that infra lands. --
 const insight = ref('Сводка появится, когда подключится аналитика')
+
+// -- Key feedbacks — REAL (E6, ПРОМТ №420): GET /masters/me/reviews, same
+//    cross-practice named feed AnalyticsView's «Требуют внимания» uses, but
+//    WITHOUT the attention=true filter -- this section is a highlight reel
+//    (positive included), not only the negative bucket. Rating icon + color
+//    mirror AnalyticsView's RATING_ICON map (kept local, only 3 entries). --
+const RATING_ICON: Record<FeedbackRating, Component> = {
+  fire: IconRatingFire,
+  good: IconRatingGood,
+  confused: IconRatingConfused,
+}
+
+const FEEDBACKS_PAGE = 3
+const keyFeedbacks = ref<MasterReviewItem[]>([])
+const feedbacksLoading = ref(true)
+const feedbacksError = ref('')
+
+async function loadFeedbacks(): Promise<void> {
+  feedbacksLoading.value = true
+  feedbacksError.value = ''
+  try {
+    const res = await getMasterReviews(FEEDBACKS_PAGE, 0, false)
+    keyFeedbacks.value = res.items
+  } catch {
+    feedbacksError.value = 'Попробуйте ещё раз'
+  } finally {
+    feedbacksLoading.value = false
+  }
+}
+
+// user_id is real on MasterReviewItem (E1 remainder, already shipped) --
+// mirrors AnalyticsView.goStudent.
+function goStudentFromReview(item: MasterReviewItem): void {
+  router.push({
+    name: 'master-student-profile',
+    params: { id: item.user_id },
+    query: { name: item.reviewer_name },
+  })
+}
 
 // -- «Требуют внимания» — REAL (E5: GET /masters/me/students). Same source as
 //    MasterStudentsView; show only students flagged needs_attention. --
@@ -112,7 +208,10 @@ async function loadStudents(): Promise<void> {
     attnLoading.value = false
   }
 }
-onMounted(loadStudents)
+onMounted(() => {
+  void loadStudents()
+  void loadFeedbacks()
+})
 
 const needsAttention = computed((): StudentListItem[] =>
   students.value.filter((s) => s.needs_attention),
@@ -157,6 +256,54 @@ function openMessage(name: string): void {
   font-size: var(--text-xs);
   color: var(--velo-text-primary);
   line-height: 1.55;
+}
+
+/* -- Key feedbacks (tappable card → student profile; mirrors AnalyticsView's
+   .analytics__attention shape, no message-button action here). -- */
+.summary__feedback {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  background: var(--velo-bg-card-solid);
+  border: 1px solid var(--velo-border-card);
+  border-radius: var(--radius-md);
+  padding: var(--velo-card-padding-y) var(--velo-card-padding-x);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  transition: opacity var(--transition-fast);
+}
+
+.summary__feedback:active {
+  opacity: 0.85;
+}
+
+.summary__feedback-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.summary__feedback-name {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--velo-text-primary);
+}
+
+.summary__feedback-practice {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+}
+
+.summary__feedback-quote {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-secondary);
+  font-style: italic;
 }
 
 /* Loader while the students fetch is in flight. */
