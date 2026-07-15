@@ -56,28 +56,14 @@ import type {
   RevokeMasterAdvisory,
   PromoResponse,
 } from '@/api/types'
+// T5: AdminPromoResponse/AdminPaginatedPromosResponse are natively in
+// generated.ts as of the b56944d regen -- imported directly from there
+// (not api/types), same convention taxonomy.ts uses for its generated
+// types. Field-checked against the hand-written stand-in this replaced:
+// identical shape, nothing kept back.
+import type { AdminPromoResponse, AdminPaginatedPromosResponse } from '@/api/generated'
 
-// ============================================================================
-// T5 admin promos -- TEMP local types (pre-regen)
-// ============================================================================
-// AdminPromoResponse/AdminPaginatedPromosResponse mirror new backend schemas
-// (admin/promos/schemas.py) that are not yet in generated.ts -- `make
-// gen-types` needs a live backend, unavailable in this environment. Delete
-// this block and import both from '@/api/types' once the next deploy
-// regenerates generated.ts (same one-time gap AdminMasterListItem's R8
-// fields went through before that regen landed).
-export interface AdminPromoResponse extends PromoResponse {
-  master_first_name: string | null
-  master_last_name: string | null
-}
-
-export interface AdminPaginatedPromosResponse {
-  items: AdminPromoResponse[]
-  total: number
-  limit: number
-  offset: number
-}
-
+export type { AdminPromoResponse, AdminPaginatedPromosResponse }
 export type AdminPromoTypeFilter = 'company' | 'master'
 
 // Re-export for views that import from api/admin.ts directly.
