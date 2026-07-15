@@ -10,8 +10,11 @@ and service boundaries. Produces passing test files and a scored coverage report
 
 ## Configuration
 
-test_output_dir: tests/integration
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №402): same fix as probekit-unit-test -- no tests/
+     directory exists in this repo; every test is colocated next to its
+     source. report_dir matches the other 6 VELO-tuned skills. -->
+test_output_dir: colocated -- same directory as the source file, *.test.ts suffix. NOT a separate tree.
+report_dir: .tmp/probekit-review
 
 ## Execution Steps
 
@@ -65,7 +68,8 @@ Generate test files following detected project conventions.
 
 File placement rules:
 - Match existing test structure if found
-- Otherwise use: `{{test_output_dir}}/test_[module_name].py` (or language equivalent)
+- Otherwise use: `{{test_output_dir}}/test_[module_name].py` (or language equivalent) — for a
+  colocated `test_output_dir` (VELO/TS): `[module_name].test.ts` in the SAME directory as the source.
 - Always generate `conftest.py` (or equivalent) for shared fixtures if not already present
 - Never overwrite existing test files — append or create versioned file (`test_[module]_v2.py`)
 
@@ -74,7 +78,12 @@ Every generated test must:
 - Use proper setup/teardown (fixtures, not bare setUp/tearDown)
 - Clean up after itself (rollback transactions, delete created records, close connections)
 - Test the real DB when possible — use in-memory/temp DB, not mocks, for DB layer tests
-- Mock only unmanaged dependencies (external HTTP APIs, email services, payment gateways)
+- Mock only unmanaged dependencies (external HTTP APIs, email services, payment gateways) — for
+  VELO/Vitest frontend-layer integration tests specifically, the "unmanaged dependency" is the backend
+  API itself: mock at `@/api/client` (or the relevant `@/api/*.ts` wrapper) via `vi.mock(seam, async
+  (importOriginal) => ({ ...await importOriginal(), api: { get: vi.fn(), ... } }))`, keeping real error
+  classes importable. See `frontend/src/stores/auth.test.ts` for a multi-seam example (client + two
+  wrapper modules + two unrelated store/composable mocks).
 - Include both happy path AND at least one failure/edge case per endpoint or function
 
 **Step 5 — Run tests and iterate**
