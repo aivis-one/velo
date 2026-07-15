@@ -539,7 +539,12 @@ async def edit_master_methods(
     method-change request (M3). No User.role / status change. Caller does
     flush + refresh.
     """
-    profile = await session.get(MasterProfile, user_id)
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user_id)
+        .with_for_update()
+    )
+    profile = (await session.execute(stmt)).scalar_one_or_none()
     if profile is None:
         raise NotFoundError("Master not found")
 
@@ -595,7 +600,12 @@ async def edit_master_profile(
     method_change_request or availability block). No User.role / status change.
     Caller does flush + refresh.
     """
-    profile = await session.get(MasterProfile, user_id)
+    stmt = (
+        select(MasterProfile)
+        .where(MasterProfile.user_id == user_id)
+        .with_for_update()
+    )
+    profile = (await session.execute(stmt)).scalar_one_or_none()
     if profile is None:
         raise NotFoundError("Master not found")
 
