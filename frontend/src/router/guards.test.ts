@@ -169,6 +169,40 @@ describe('router/guards', () => {
 
       expect(await call(roleRedirect)).toEqual({ path: '/master/pending' })
     })
+
+    // ПРОМТ №406: the seen key is a per-user LIFETIME flag, not per-rejection
+    // -- without a re-arm on re-apply, a second rejection would be invisible
+    // forever. MasterApplyView.vue's submit handler clears the key via the
+    // same masterRejectionSeenKey(userId) + localStorage.removeItem() call
+    // exercised directly here (mounting the 3-step wizard just to reach that
+    // one line would be disproportionate and isn't this codebase's test
+    // idiom); what matters is proving the ROUND TRIP through roleRedirect,
+    // not the mechanical fact that a key got removed.
+    it('re-apply re-arms the screen: seen -> dashboard, re-apply clears it, second rejection shows again', async () => {
+      __setReadyForTest(true)
+      setAuthUser({ id: 'user_1', role: 'user', master_application: { status: 'rejected' } })
+
+      // First rejection: not yet seen -> routed to the verdict screen, then
+      // MasterPendingView marks it seen (simulated directly, same call it makes).
+      expect(await call(roleRedirect)).toEqual({ path: '/master/pending' })
+      localStorage.setItem(masterRejectionSeenKey('user_1'), '1')
+
+      // Seen -> subsequent opens go straight to the dashboard, not captivity.
+      expect(await call(roleRedirect)).toEqual({ path: '/user/dashboard' })
+
+      // Re-apply: status leaves 'rejected' -> 'pending' (proven server-side at
+      // masters/service.py:76 _build_data, reused by _build_reapply_data), so
+      // roleRedirect's rejection branch cannot fire in the interim -- and the
+      // submit handler clears the seen key (MasterApplyView.vue).
+      setAuthUser({ id: 'user_1', role: 'user', master_application: { status: 'pending' } })
+      localStorage.removeItem(masterRejectionSeenKey('user_1'))
+      expect(await call(roleRedirect)).toEqual({ path: '/user/dashboard' })
+
+      // A genuine second rejection lands -- the re-armed key means it is
+      // visible again, not silently swallowed by the first rejection's flag.
+      setAuthUser({ id: 'user_1', role: 'user', master_application: { status: 'rejected' } })
+      expect(await call(roleRedirect)).toEqual({ path: '/master/pending' })
+    })
   })
 
   describe('roleGuard', () => {

@@ -230,14 +230,16 @@ import { IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
-import { MASTER_APPLIED_KEY } from '@/utils/constants'
+import { MASTER_APPLIED_KEY, masterRejectionSeenKey } from '@/utils/constants'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
 import { useMasterStore } from '@/stores/master'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
+const authStore = useAuthStore()
 
 // -- Step state --
 const step = ref(1)
@@ -406,6 +408,17 @@ async function submit(skipDocuments = false): Promise<void> {
       // session as an actual applicant so the master-pending guard lets a
       // still-role='user' applicant through (backend promotes role later).
       sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
+      // Bug 1 follow-up (ПРОМТ №406): re-arm the rejection screen for this new
+      // application. Without this, a second rejection would be invisible
+      // forever -- the per-user seen-key set by the FIRST rejection would
+      // still be there. Safe: the backend always resets status to "pending"
+      // on submit/resubmit (masters/service.py:76 _build_data, reused by
+      // _build_reapply_data), so roleRedirect's `status === 'rejected'` check
+      // cannot fire in the interim -- this only re-arms visibility for a
+      // genuine future rejection, it does not resurrect the old screen.
+      if (authStore.user?.id) {
+        localStorage.removeItem(masterRejectionSeenKey(authStore.user.id))
+      }
       toast.success('Заявка отправлена!')
       router.push({ name: 'master-pending' })
     }
