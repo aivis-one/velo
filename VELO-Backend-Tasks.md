@@ -129,10 +129,12 @@ Minor gaps closed by us (backend projection + manual `generated.ts` + frontend w
 - **E1 (increment)** `user_id` on `MasterReviewItem` + diary `ReviewItem` — projected from the joined `User`; per-practice review cards (`PracticeReviewsView`) navigate to the student profile. *(Attention-filter DONE №280: `getMasterReviews(…, attention)` + AnalyticsView «Требуют внимания» fetches `attention=true`; the backend param was already deployed. AnalyticsView attention card left on its existing message action pending operator UX call.)*
 - **E10** GET `list_my_promos` + PATCH deactivate were already delivered by Zod — frontend now wired (`api/promos.ts` + `MasterPromocodesView`, active-list + soft-deactivate); no hard DELETE added.
 
-TARGETED Zod one-liners (small, but in Zod-hot files — Zod to slot; we did NOT touch these):
-- **E12** add a grouped-COUNT `checkin_count` to `PracticeResponse`/`PracticeSummary`, batched like `_series_meta_for_practices` (practices/service.py:372). Zod-hot: practices/service.py (E3).
-- **E15** mirror `onboarding_completed` → `master_onboarding_completed` on `UserResponse` + accept on PATCH-self (users/, credentials JSONB, service.py:45 frozenset). Zod-hot: users/ (E8).
-- **E3a** add `Practice.status != PracticeStatus.DELETED.value` to the occurrence-count filter (practices/service.py:427) — soft-deleted occurrences currently inflate `total_sessions`. Zod-hot: E3 engine.
+**REASSIGNED (operator policy, 2026-07-15) — OWNED-BY-NAV, NOT Zod's lane.** These three were
+originally deferred as small-but-Zod-hot one-liners; none of the three files is messaging/notifications,
+so under the narrowed Zod lane (messaging + notifications only) they are ours:
+- **E12** add a grouped-COUNT `checkin_count` to `PracticeResponse`/`PracticeSummary`, batched like `_series_meta_for_practices` (practices/service.py:372). OWNED-BY-NAV: practices/service.py (E3).
+- **E15** mirror `onboarding_completed` → `master_onboarding_completed` on `UserResponse` + accept on PATCH-self (users/, credentials JSONB, service.py:45 frozenset). OWNED-BY-NAV: users/.
+- **E3a** add `Practice.status != PracticeStatus.DELETED.value` to the occurrence-count filter (practices/service.py:427) — soft-deleted occurrences currently inflate `total_sessions`. OWNED-BY-NAV: E3 engine.
 
 ## A) EPICS
 
@@ -255,6 +257,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   weekly-summary endpoint. *(Frontend now renders «Требуют внимания» from the real `getStudents`
   feed + navigates; «Ключевые отзывы» stays non-navigable until a `student_id` / reviewer `user_id`
   lands — see E1.)*
+- **LANE (2026-07-15):** OWNED-BY-NAV — not messaging/notifications, not Zod's under the narrowed lane.
 
 ### E7 — Period-scoped stats + deltas. **P1.**
 - **(a) Why.** Master + admin dashboards show stat cards with a Неделя/Месяц toggle + a delta vs the
@@ -369,7 +372,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   (gen:775).
 - **Request.** ADD `checkin_count` to the practice/list aggregate (groups with `recurrence_days` /
   `total_sessions` / `completed_sessions`, E3).
-- **STATUS (2026-06-24): OPEN.**
+- **STATUS (2026-06-24): OPEN.** **LANE (2026-07-15):** OWNED-BY-NAV — see the SELF-FIX LOG
+  REASSIGNED note above; same item, same reassignment.
 
 ### E13 — Master-application document upload (NEW post-audit). **P2.**
 - **(a) Why.** The master-application flow shows document tiles, but there is no upload.
@@ -382,7 +386,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **EXTEND (slice-2 2026-06-27):** the redesigned Step-3 also adds a **profile photo** (public) upload
   — no `photo_url` on `MasterProfileResponse` (gen:486). Build the UI (drop-zone + uploaded-chip),
   tap = honest «недоступно» until storage ships. Add `photo_url` intake on apply + surface on profile.
-- **STATUS (2026-06-24): OPEN.**
+- **STATUS (2026-06-24): OPEN.** **LANE (2026-07-15):** OWNED-BY-NAV — not messaging/notifications.
 
 ### E14 — Master-application rejection reason, surfaced (NEW post-audit). **P2.**
 - **(a) Why.** A rejected applicant should see *why* (`MasterPendingView` shows a hardcoded «Причина: …»).
@@ -415,6 +419,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   credentials JSONB.
 - **Request.** Add the field to `UserResponse` + accept it on PATCH-self, mirroring `onboarding_completed`.
 - **STATUS (2026-06-26): OPEN.** (Frontend built against it under build-full-design; deploy gate with the batch.)
+- **LANE (2026-07-15):** OWNED-BY-NAV — see the SELF-FIX LOG REASSIGNED note above; same item.
 
 ### E16 — Master-application "languages" field (NEW slice-2 2026-06-27). **P2.**
 - **(a) Why.** The redesigned Step-2 «Опыт» adds a «Язык проведения практик» control (Русский /
@@ -441,6 +446,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 - **Request.** When the standalone web build is real: email/password registration + login + session +
   password-reset email. Wire the parked `/auth/*` screens to it. Entirely a future web-build concern.
 - **STATUS (2026-06-27): OPEN — PARKED.** (Frontend inert screens built; not wired; no Telegram impact.)
+- **LANE (2026-07-15):** OWNED-BY-NAV when unparked — not messaging/notifications. Stays parked/P3;
+  no urgency, recorded only so it isn't mis-assigned to Zod if it ever moves.
 
 ### E18 — Zoom link on `PracticeSummary` (NEW 2026-07-01). **P2.**
 - **(a) Why.** The user «Ближайшая практика» (dashboard) + «Мои бронирования» booking cards have a Zoom
@@ -556,7 +563,10 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   wrapper `getPracticeReviews` (practices.ts) just doesn't pass it. Do NOT rebuild it. *(The genuine
   backend gap is the cross-practice **filter param** on `/masters/me/reviews` — see E1 STATUS.)*
 - **Promo wiring** — the backend POST/list DTOs exist (E10); the `api/promos.ts` GET/DELETE wrappers +
-  view connection are frontend. Only the GET-list / DELETE endpoints (E10) are a small Zod add.
+  view connection are frontend. **Stale as written — corrected (2026-07-15):** `GET /masters/me/promos`
+  was already delivered by Zod and is frontend-wired (see E10 STATUS); the `DELETE` was deliberately
+  NOT built (PATCH-deactivate covers it, per the E10-promo CLOSED-BY-NAV note). Nothing left here for
+  anyone — not a live task, Zod's or ours.
 - **E2 income attribution** — income/transactions are consumed by `AnalyticsView`, NOT
   `MasterFinanceView` (Finance = payout/withdrawal). Frontend-coordination note, no backend change.
 - **Currency ₽ / €, SHELL debts, standalone top-up entry, withdrawal «Выплаты» list (option Б over the
@@ -581,7 +591,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
     ships no hack that would hide a non-completed practice from both tabs.
 - **#1 (self-fix, NOT Zod):** `StudentDetailResponse.name` + `avatar_url` added (deployed).
 - **#2 (self-fix, NOT Zod):** `test_admin_metrics.py` made seed-tolerant (test-isolation, not a contract
-  bug). Optional Zod follow-up: harden `conftest` isolation (transactional rollback / clean DB).
+  bug). Optional follow-up (LANE 2026-07-15: OWNED-BY-NAV, not messaging/notifications): harden
+  `conftest` isolation (transactional rollback / clean DB).
 
 ---
 
@@ -765,7 +776,10 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   (read-only list of directions→styles from `practiceOptions`, honest "редактирование появится с бэкендом
   каталога" note, NO dead controls) + a «Каталог практик» dashboard row. Taxonomy is built in one
   `buildCatalog()` = the **single swap point**: when `GET /catalog` lands, point it at the endpoint and
-  the UI renders unchanged. Wiring the editable controls + persistence is Zod's part.
+  the UI renders unchanged. **Stale as written — corrected (2026-07-15):** batch R already delivered
+  exactly this for the master-**methods** side (editable controls + persistence, DB-backed, LIVE
+  c1dbe08 — see the CLOSED-BY-NAV note immediately below). Only the practice-creation side
+  (directions/types, this `GET /catalog` swap point) remains, and it is navigator tail T2, not Zod's.
 - **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E20-catalog, MASTER-METHODS SCOPE ONLY.**
   DB-backed taxonomy self-built: 2 tables (directions/styles) + seed + admin CRUD + read endpoint +
   picker consuming it + editable admin UI + custom-method auto-promote with admin confirmation. Scope
@@ -801,7 +815,20 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   build speculative UI for this now** — the existing surfaces already render whatever `booking.status`
   says (clock-inferred today); they pick up the real signal automatically once this epic changes what
   populates that field. No FE ticket needed until the contract (exact field/enum) is defined.
-- **STATUS: OPEN — Zod. Deadline 2026-07-17 (operator-set).**
+- **STATUS: PENDING-LANE-CHECK (navigator, 2026-07-15).** Not messaging/notifications, so by the
+  2026-07-15 lane policy it would default to OWNED-BY-NAV — but NOT reassigned here: the P0 deadline is
+  2026-07-17 (two days out) and the epic text above references "Zod's recent `feat(practices)!: drive
+  practice lifecycle by the clock`", so Zod may already be mid-build. Reassigning now risks wasted work
+  + two agents in the same files. Read-only check performed (2026-07-15): no Zoom-webhook/attendance
+  code, models, endpoints, or tests found anywhere under `backend/app/`; latest migration is our own
+  `migrations/versions/2026_07_14_..._create_practice_taxonomy_tables.py` (batch R), nothing
+  attendance/Zoom-named; `git log --all --since=2026-07-12 -- backend/` shows nothing touching
+  Zoom/attendance beyond the pre-existing clock-lifecycle commits this epic itself references (which
+  predate and motivate E21, not implement it). **Could NOT determine:** anything Zod has locally
+  uncommitted or on an unpushed branch — a read-only local/origin check cannot see that by design; only
+  what has reached `origin` is visible. Net: no evidence of in-flight work reachable from here, but
+  absence of evidence is not evidence of absence — operator/navigator should confirm with Zod directly
+  before either side touches this.
 
 ---
 
@@ -827,12 +854,17 @@ admin + your path agree on `status=="suspended"` as the parked state.
 
 ---
 
-## 2026-07-07 — admin F-batch deferred to Zod (F2/F6, F4)
+## 2026-07-07 — admin F-batch backend-blocked items (F2/F6, F4) — REASSIGNED OWNED-BY-NAV 2026-07-15
 
 The admin F-batch shipped its self/FE parts (F1/F5/F3 masters status filter, F7 moderation reset).
-Two items are backend-blocked and recorded here.
+Two items were backend-blocked and originally deferred to Zod; both are OWNED-BY-NAV now (2026-07-15
+lane policy — neither is messaging/notifications). Recorded here, historical heading kept for context.
 
-### F2/F6 — master card + detail must show «Направление» + «Вид» — FOLD into E19 + E20. **P2. STATUS: OPEN — Zod.**
+### F2/F6 — master card + detail must show «Направление» + «Вид» — FOLD into E19 + E20. **P2. STATUS: OWNED-BY-NAV (2026-07-15, resolved by operator) — NOT Zod's lane.** ⚠ Recon flag (ПРОМТ №402):
+this section's own analysis below predates batch R's `MethodTaxonomyPicker`/`methodTaxonomy.ts`
+client-side two-level parse-over-flat-list mechanism — much of what this section asks for may already
+be delivered by a different mechanism than the one specced here. Treat the text below as historical
+until re-verified; do not build off it blind.
 
 **Reality (recon 2026-07-07).** A master profile stores only a **flat `methods: list[str]`**
 (`masters/service.py:81-90` `_build_data` → `data.profile.methods`; input `MasterApplyExperience`
@@ -841,7 +873,7 @@ field anywhere under `data.profile`. `AdminMasterReviewView` merely *relabels* t
 "Направления практик" — cosmetic, no second «Вид» axis. Direction/type exist only on **Practice**
 (`data.taxonomy.direction` + `PracticeType`), not on masters.
 
-**What F2/F6 needs (all Zod):**
+**What F2/F6 needs (all OWNED-BY-NAV — historical spec, see recon flag above):**
 1. A master-profile taxonomy shape — `direction` + `subtype (вид)` (two-level, mirroring E19's
    «Направление»→«Вид»), JSONB-additive under `data.profile` (no column migration) — or the E20
    `catalog_entries` route.
@@ -859,7 +891,7 @@ method}). F2/F6 cannot ship presentational — a faked taxonomy violates the E19
 **Operator fork:** (B) minimal real `data.profile.direction`+`subtype` now, hardcoded option lists;
 or (C) fold into E19+E20 catalog (correct, larger, unblocks CreatePractice/EditProfile picklists).
 
-### F4 — self-deleted master candidate → `cancelled_by_user` archival. **NEW. P2. STATUS: OPEN — Zod (backend) + FE branch.**
+### F4 — self-deleted master candidate → `cancelled_by_user` archival. **NEW. P2. STATUS: OWNED-BY-NAV (backend, 2026-07-15) + FE branch (self, unchanged).**
 
 **Target.** When a user with a **pending** master application deletes their account, the application
 row STAYS in the DB, flips to auto-status `cancelled_by_user`, and the admin moderation queue shows
