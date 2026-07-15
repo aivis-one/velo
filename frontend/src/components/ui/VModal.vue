@@ -41,6 +41,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
 import { IconClose } from '@/components/icons'
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(
   defineProps<{
@@ -70,11 +71,22 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-// Lock body scroll when modal is open.
+// Lock body scroll when modal is open. Ref-counted (W16, ПРОМТ №409) so a
+// second overlay (e.g. a VBottomSheet opened from inside this modal) closing
+// first doesn't unlock the body while this one is still open. `locked` tracks
+// whether THIS instance currently holds the lock, so lock/unlock stay paired
+// 1:1 even if unmounted mid-open.
+let locked = false
 watch(
   () => props.open,
   (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen && !locked) {
+      locked = true
+      lockBodyScroll()
+    } else if (!isOpen && locked) {
+      locked = false
+      unlockBodyScroll()
+    }
   },
 )
 
@@ -84,8 +96,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  // Ensure scroll is restored if component unmounts while open.
-  document.body.style.overflow = ''
+  // Ensure the lock is released if the component unmounts while open.
+  if (locked) {
+    locked = false
+    unlockBodyScroll()
+  }
 })
 </script>
 

@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(
   defineProps<{
@@ -63,18 +64,30 @@ function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape' && props.open) emit('close')
 }
 
-// Lock body scroll while open.
+// Lock body scroll while open. Ref-counted (W16, ПРОМТ №409) -- see
+// VModal.vue's identical comment for why (two overlays open at once, whoever
+// closes first must not unlock the body out from under the other).
+let locked = false
 watch(
   () => props.open,
   (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen && !locked) {
+      locked = true
+      lockBodyScroll()
+    } else if (!isOpen && locked) {
+      locked = false
+      unlockBodyScroll()
+    }
   },
 )
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  document.body.style.overflow = ''
+  if (locked) {
+    locked = false
+    unlockBodyScroll()
+  }
 })
 </script>
 
