@@ -7,6 +7,24 @@
 
 ---
 
+## ⚡ LANE BOUNDARY (operator, 2026-07-15) — read this before assigning anything below
+
+**Zod's lane is: messaging · notifications · E21 Zoom-attendance-tracking · support-ticket intake
+(rides the messaging module). Everything else in this document is OWNED-BY-NAV.**
+
+The test is **delivery-through-the-messaging-module**, not "does it involve text" or "does it look
+like a small backend one-liner". Support-ticket intake reads like a standalone form in isolation, but
+it ships through the messaging module Zod is building, so it stays his — a plausible-looking table and
+endpoint is not, on its own, grounds to reassign it. E21 stays his too, by explicit operator call, even
+though attendance-tracking is not itself messaging/notifications.
+
+Any marker elsewhere in this doc that still says "OPEN — Zod" / "Zod's part" / "Zod add" etc. for
+anything OUTSIDE that four-item lane is stale and should be corrected on sight, not treated as current.
+This block is the single source of truth for the boundary — do not re-derive it from scattered epic
+text.
+
+---
+
 ## ⏱ STATUS — actualized 2026-06-28 (re-verified against live `generated.ts` on `origin/test=4713c60`)
 
 Each epic carries a **STATUS** line. Numbering / names unchanged so they map 1:1 to Zod's version.
@@ -765,13 +783,32 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   _styles_by_direction` inside per-request validators (`schemas.py:290,466,114`, `router.py:100`,
   `_flat_allowed_styles` `schemas.py:84`) — read at REQUEST time, so the read SOURCE can be swapped.
 - **No config/settings/kv store exists** (migrations are all domain tables) → a migration is unavoidable.
-- **Minimal Zod scope (4 parts):** (1) store = 1 migration (config-singleton JSONB row OR the small
-  `catalog_entries` table in (d.1)), seeded from current settings/enum so day-one is identical;
-  (2) endpoints = `GET /catalog` (public/master) + admin write (`PUT /admin/catalog` or the CRUD in
-  (d.3)); (3) validation source-swap = the 4 validator call sites read the runtime catalog (cached,
-  invalidated on edit) union/instead of `settings.practice_allowed_*` — the load-bearing risk in (d.2);
-  (4) FE = `practiceOptions` becomes async-fetched, and `displayHelpers.DIRECTION_LABEL/DIRECTION_ICON`
-  + all consumers tolerate unknown directions (fallback).
+  **⚠ Historical claim, since overtaken — see below:** this was true when written (ПРОМТ №360); a
+  store now exists (batch R). Kept for context, not as a live statement.
+- **T2 scope (navigator, was "Minimal Zod scope" — re-headed 2026-07-15, each part re-verified against
+  current code before carrying forward):**
+  1. ~~store = 1 migration~~ — **DEAD, already live.** The store this item asked for already exists:
+     `practice_directions` + `practice_styles` (batch R migration
+     `2026_07_14_1a2b3c4d5e6f_create_practice_taxonomy_tables.py`, LIVE c1dbe08), seeded with values
+     matching the `PracticeDirection` enum exactly (`meditation`, `yoga`, …) — table names and seed
+     values confirm it was built as the shared taxonomy store, not a methods-only table. T2 does not
+     create anything here; it points the practice-creation side at what already exists.
+  2. **endpoints — mostly already exist, verify scope not build fresh.** `GET /api/v1/taxonomy`
+     (public/master read) and `GET/POST/PATCH /api/v1/admin/taxonomy/*` (admin CRUD) already exist
+     (R5) on the SAME tables. T2's work here is confirming these already cover the direction+style
+     axis for practice-creation, not standing up `GET /catalog` from scratch.
+  3. **validation source-swap — VERIFIED STILL OPEN (2026-07-15).** Checked current code:
+     `practices/schemas.py:286-289` and `:463-467` (`direction_must_be_valid`) and
+     `practices/router.py:97-105` (`_validate_directions`) still read `settings.practice_allowed_directions`
+     directly — none have been rewired to the taxonomy tables. This part is real, unstarted work.
+     ⚠ Load-bearing: these validators gate `POST /practices`; a bad read source rejects valid creates.
+  4. **FE async-fetch — VERIFIED STILL OPEN (2026-07-15).** Checked current code: `CreatePracticeView.vue`
+     does not call `getActiveTaxonomy` (`api/taxonomy.ts`); `utils/practiceOptions.ts:170`
+     (`DIRECTION_OPTIONS`) is still a hardcoded const. This part is real, unstarted work.
+  - **Scope caveat, not covered by (1)-(4) above:** the taxonomy tables only cover the
+    direction+style axis. `PracticeType` (session **format** — a separate axis, validated in
+    `router.py`'s `_validate_types`, persisted as a real `String(20)` column, see (c) above) has NO
+    table and NO seed at all — closing (2)-(4) does not close the `practice_type` half of this epic.
 - **FE read-only ALREADY SHIPPED (batch P, this session):** `admin-catalog` route + `AdminCatalogView.vue`
   (read-only list of directions→styles from `practiceOptions`, honest "редактирование появится с бэкендом
   каталога" note, NO dead controls) + a «Каталог практик» dashboard row. Taxonomy is built in one
@@ -815,20 +852,8 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   build speculative UI for this now** — the existing surfaces already render whatever `booking.status`
   says (clock-inferred today); they pick up the real signal automatically once this epic changes what
   populates that field. No FE ticket needed until the contract (exact field/enum) is defined.
-- **STATUS: PENDING-LANE-CHECK (navigator, 2026-07-15).** Not messaging/notifications, so by the
-  2026-07-15 lane policy it would default to OWNED-BY-NAV — but NOT reassigned here: the P0 deadline is
-  2026-07-17 (two days out) and the epic text above references "Zod's recent `feat(practices)!: drive
-  practice lifecycle by the clock`", so Zod may already be mid-build. Reassigning now risks wasted work
-  + two agents in the same files. Read-only check performed (2026-07-15): no Zoom-webhook/attendance
-  code, models, endpoints, or tests found anywhere under `backend/app/`; latest migration is our own
-  `migrations/versions/2026_07_14_..._create_practice_taxonomy_tables.py` (batch R), nothing
-  attendance/Zoom-named; `git log --all --since=2026-07-12 -- backend/` shows nothing touching
-  Zoom/attendance beyond the pre-existing clock-lifecycle commits this epic itself references (which
-  predate and motivate E21, not implement it). **Could NOT determine:** anything Zod has locally
-  uncommitted or on an unpushed branch — a read-only local/origin check cannot see that by design; only
-  what has reached `origin` is visible. Net: no evidence of in-flight work reachable from here, but
-  absence of evidence is not evidence of absence — operator/navigator should confirm with Zod directly
-  before either side touches this.
+- **STATUS: OPEN — Zod. Deadline 2026-07-17 (operator-set). Lane confirmed by operator 2026-07-15
+  (stays Zod's despite the 2026-07-15 lane policy — attendance rides his module).**
 
 ---
 
@@ -943,7 +968,9 @@ our routing/sort signal):
 | `technical` | Технический вопрос | P2 |
 | `other` (+ free-text) | Другое | P2 |
 
-**What Zod needs to build (ticket intake):**
+**What Zod needs to build (ticket intake):** **Lane (operator, 2026-07-15): stays Zod's** — support is
+delivered THROUGH the messaging module Zod is building, not a standalone form; it is a consumer of
+that module. The lane test is "ships through the messaging module", not "contains text".
 - A `SupportTicket` model + migration with at least: `id`, `user_id`, `topic` (the value above),
   `priority` (**a real column** — `P0|P1|P2` or an int severity — so the queue can route/sort by it),
   `custom_topic` (nullable, for `other`), `message`, `status` (open/…); optional attachments later.
