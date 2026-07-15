@@ -142,6 +142,45 @@ describe('usePagination', () => {
     expect(items.value[0]!.id).toBe(1)
   })
 
+  // W17 (ПРОМТ №409): a refresh() firing while an EARLIER loadMore() is still
+  // in flight used to be blocked by that earlier call's `loading` guard (so
+  // refresh's own fetch never ran), then the earlier call's stale response
+  // landed on top of the just-cleared state once it resolved.
+  it('a stale in-flight loadMore response does not clobber state after a concurrent refresh (W17)', async () => {
+    const resolvers: Array<(v: PaginatedResult<Item>) => void> = []
+    const fetchFn = vi.fn(
+      () => new Promise<PaginatedResult<Item>>((resolve) => resolvers.push(resolve)),
+    )
+
+    const { items, total, loading, loadMore, refresh } = usePagination(fetchFn, 3)
+
+    // Page 1 of the OLD query starts loading -- stays pending.
+    const stalePromise = loadMore()
+    await nextTick()
+    expect(fetchFn).toHaveBeenCalledTimes(1)
+
+    // A refresh happens while it's still in flight (e.g. a filter changed).
+    // This must NOT be blocked by the stale call's `loading` guard.
+    const refreshPromise = refresh()
+    await nextTick()
+    expect(fetchFn).toHaveBeenCalledTimes(2)
+
+    // The STALE (first) request resolves now, with data for the OLD query.
+    resolvers[0]!({ items: [{ id: 99, name: 'stale' }], total: 99, limit: 3, offset: 0 })
+    await stalePromise
+
+    // Must be discarded, not applied on top of the refreshed (cleared) state.
+    expect(items.value.some((i) => i.id === 99)).toBe(false)
+
+    // refresh()'s OWN request resolves with the real data.
+    resolvers[1]!({ items: [{ id: 1, name: 'fresh' }], total: 1, limit: 3, offset: 0 })
+    await refreshPromise
+
+    expect(items.value).toEqual([{ id: 1, name: 'fresh' }])
+    expect(total.value).toBe(1)
+    expect(loading.value).toBe(false)
+  })
+
   // -----------------------------------------------------------------------
   // Error handling
   // -----------------------------------------------------------------------
