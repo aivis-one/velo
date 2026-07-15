@@ -108,6 +108,14 @@ export interface AdminMethodChangeItem {
   submitted_at: string
 }
 
+/** Paginated list of promos for the admin all-promos view (T5). */
+export interface AdminPaginatedPromosResponse {
+  items: AdminPromoResponse[]
+  total: number
+  limit: number
+  offset: number
+}
+
 /** One participant (platform user) in the global admin list. */
 export interface AdminParticipant {
   id: string
@@ -148,6 +156,26 @@ export interface AdminPracticeListItem {
   capacity: number | null
   status: string
   timezone: string
+}
+
+/** PromoResponse + the owning master's name, for the admin all-promos view. Company promos (master_id=None) leave both name fields None. Raw first_name/last_name parts, not a pre-joined display string -- mirrors AdminMasterListItem, formatted client-side via the same masterDisplayName() helper so name formatting lives in one place. */
+export interface AdminPromoResponse {
+  id: string
+  code: string
+  type: string
+  master_id: string | null
+  practice_id: string | null
+  discount_percent: number
+  max_uses: number | null
+  used_count: number
+  valid_from: string
+  valid_until: string | null
+  first_purchase_only: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string | null
+  master_first_name?: string | null
+  master_last_name?: string | null
 }
 
 /** One master's earnings + payouts within the period. */
