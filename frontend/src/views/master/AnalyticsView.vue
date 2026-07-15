@@ -138,7 +138,7 @@
               <div class="analytics__pcard-info">
                 <div class="analytics__pcard-title">{{ p.title }}</div>
                 <div class="analytics__pcard-meta">
-                  {{ formatShortDate(p.scheduled_at) }} · {{ p.current_participants }} участников
+                  {{ formatShortDate(p.scheduled_at, p.timezone) }} · {{ p.current_participants }} участников
                 </div>
               </div>
             </div>
@@ -254,7 +254,7 @@ import {
   IconMessages,
 } from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
-import { formatMoney } from '@/utils/format'
+import { formatMoney, formatShortDate } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import type {
@@ -517,10 +517,6 @@ watch(period, () => {
 // =========================================================================
 // Helpers
 // =========================================================================
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-}
 
 // Eager-load insights for the visible page -- feeds both the aggregate stats and
 // the inline practice-card badges. loadInsights() skips already-cached ids, so
