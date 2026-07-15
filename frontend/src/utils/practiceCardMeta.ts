@@ -4,29 +4,35 @@
 // Inline meta rendered under a practice card's title: check-in count, series
 // recurrence, remaining sessions. Extracted from MasterPracticesView so the
 // master dashboard's «Ближайшие практики» card renders identical meta (DB-2,
-// 2026-06-30) WITHOUT duplicating the formatting logic. The data source (the
-// anonymous-insights cache) is the shared diaryStore.insightsCache, passed in.
+// 2026-06-30) WITHOUT duplicating the formatting logic.
 //
-// NB: check-in COUNTS are the E12 path — the per-id figure equals whatever the
-// insights endpoint returns today; data-correctness is a separate Zod thread.
+// E12 swap (ПРОМТ №419, operator 2026-07-15): checkinLabel used to read the
+// anonymous-insights mood tally (checkins.high/mid/low) as a stand-in check-in
+// count. That number answers "how many diary entries were written" -- it
+// double-counts a person who checks in AND writes again later, so a card
+// could read more attendees than were actually coming. checkin_count
+// (practices/schemas.py, owner-only) answers the real question -- distinct
+// PRE check-ins -- so it replaces the insights source entirely. No more
+// InsightsCache param: this file no longer touches diaryStore data.
 // =============================================================================
 
 import { recurrenceDaysLabel } from './displayHelpers'
-import type { PracticeResponse, PracticeInsightsResponse } from '@/api/types'
+import type { PracticeResponse } from '@/api/types'
 
-type InsightsCache = Map<string, PracticeInsightsResponse>
-
-/** Total submitted check-ins for a practice from its insights; 0 when uncached. */
-function totalCheckins(id: string, cache: InsightsCache): number {
-  const i = cache.get(id)
-  return i ? i.checkins.high + i.checkins.mid + i.checkins.low : 0
-}
-
-/** Check-in count "10/20" (submitted check-ins / capacity). Always a fraction —
- * "0/N" before anyone has checked in (operator: never a bare «—»). */
-export function checkinLabel(p: PracticeResponse, cache: InsightsCache): string {
+/** Check-in count "N/M" (distinct PRE check-ins / capacity), owner-only.
+ *
+ * checkin_count is null for a non-owner (public feed, someone else's
+ * detail) -- there is nothing honest to show there, so this returns null
+ * and the caller omits the badge entirely (same v-if idiom as
+ * recurrenceLabel/remainingSessionsLabel below). It must NOT render "0/M"
+ * for null: that would fabricate a count for a viewer who isn't entitled to
+ * one. A real 0 (owner, nobody checked in yet) DOES render as "0/M" -- the
+ * operator's fraction rule holds whenever the number is real.
+ */
+export function checkinLabel(p: PracticeResponse): string | null {
+  if (p.checkin_count == null) return null
   const denom = p.max_participants ?? p.current_participants
-  return `${totalCheckins(p.id, cache)}/${denom}`
+  return `${p.checkin_count}/${denom}`
 }
 
 /** Series recurrence: weekday list / «Ежедневно» from recurrence_days, falling

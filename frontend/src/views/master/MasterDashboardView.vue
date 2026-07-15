@@ -153,8 +153,8 @@
                 <IconGroup :size="16" />
                 {{ formatParticipants(practice.current_participants, practice.max_participants) }}
               </span>
-              <span class="master-dashboard__meta-item">
-                <IconCheckin :size="16" /> {{ checkinLabel(practice, insightsCache) }}
+              <span v-if="checkinLabel(practice)" class="master-dashboard__meta-item">
+                <IconCheckin :size="16" /> {{ checkinLabel(practice) }}
               </span>
               <span v-if="recurrenceLabel(practice)" class="master-dashboard__meta-item">
                 <IconRepeat :size="16" /> {{ recurrenceLabel(practice) }}
@@ -218,7 +218,6 @@ import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/c
 import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
-import { useDiaryStore } from '@/stores/diary'
 import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
@@ -234,10 +233,6 @@ import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 const router = useRouter()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
-const diaryStore = useDiaryStore()
-// Anonymous-insights cache (shared store) — feeds the nearest-practice card's
-// check-in count, identical source to MasterPracticesView (DB-2).
-const insightsCache = diaryStore.insightsCache
 const { contentSafeTop } = useSafeArea()
 const toast = useToast()
 
@@ -396,9 +391,9 @@ onMounted(async () => {
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
-  // Eager-load insights for the visible nearest cards so the check-in meta shows
-  // without a tap (≤2 ids; loadInsights skips cached ones). DB-2.
-  await Promise.all(nearestPractices.value.map((p) => diaryStore.loadInsights(p.id)))
+  // E12 swap (ПРОМТ №419): the check-in meta now reads checkin_count straight
+  // off the practice (already on masterStore.practices) -- the insights
+  // eager-load that used to feed it is gone, one fewer network round-trip.
 })
 
 onUnmounted(() => {
