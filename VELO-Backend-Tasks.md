@@ -18,17 +18,35 @@ it ships through the messaging module Zod is building, so it stays his — a pla
 endpoint is not, on its own, grounds to reassign it. E21 stays his too, by explicit operator call, even
 though attendance-tracking is not itself messaging/notifications.
 
-**Exception, same date: E13 (master-application document upload) is ALSO Zod's, for a different
-reason than the four lane items above.** It fails the delivery-through-messaging test outright —
-document upload is not his kind of feature. It is reassigned anyway (operator decision, 2026-07-15)
-because its blocker is **infrastructure Zod owns and has not yet built: S3 is not connected, and there
-is no file storage anywhere in this project.** The exception is to the blocker, not the feature — see
-E13's own STATUS line for the same reasoning. Revisit if storage ever lands independently of Zod's build.
+**Second rule, same date, orthogonal to the lane above: Zod owns anything blocked on infrastructure
+that does not exist yet in this project, regardless of what feature it sits under.** The lane test above
+is about *domain* (is it messaging/notifications/Zoom/support); this test is about *missing plumbing*
+(does building it require standing up something — a provider, a service, a store — that isn't there).
+Neither test cares whether the other says otherwise; an item can fail the lane test and still be Zod's
+because of this rule. Two items currently qualify:
+- **E13 (master-application document upload).** Fails the lane test outright — document upload isn't
+  messaging-shaped. Zod's anyway because **S3 is not connected and there is no file storage anywhere in
+  this project.** See E13's own STATUS line.
+- **E6's insight portion (the generated weekly-summary prose, not the whole epic).** Also fails the
+  lane test. Zod's anyway because **there is no AI provider in this project** — `backend/app/modules/ai/`
+  is a `Protocol` (`AIServiceProtocol.generate_summary`) + `MockAIService` returning a static
+  placeholder, its own header marking the real implementation out-of-MVP-scope pending "an external LLM
+  API". Operator, 2026-07-15: *«Всё, что связано с ИИ, будет делать потом Зод, а мы делаем то, что
+  можем сделать»* — everything else in E6 (key feedbacks, needs-attention) is plain aggregation over
+  data that already exists, so it is OWNED-BY-NAV and does NOT fall under this rule. See E6's own
+  STATUS line.
+
+This is written as a **rule**, not a growing exception list — do not add a third bullet under it without
+also checking whether it's actually a THIRD instance of the same infrastructure-missing pattern (a
+provider/service/store that plain aggregation code cannot substitute for) rather than a new one-off.
+When the missing infrastructure lands (S3 connected, an LLM provider wired), the specific item it was
+blocking moves back to OWNED-BY-NAV on its own — the rule does not need to be re-litigated, only the
+item's STATUS line updated.
 
 Any marker elsewhere in this doc that still says "OPEN — Zod" / "Zod's part" / "Zod add" etc. for
-anything OUTSIDE the four-item lane above OR the E13 exception is stale and should be corrected on
-sight, not treated as current. This block is the single source of truth for the boundary — do not
-re-derive it from scattered epic text.
+anything OUTSIDE the lane above OR this infrastructure rule is stale and should be corrected on sight,
+not treated as current. This block is the single source of truth for the boundary — do not re-derive it
+from scattered epic text.
 
 ---
 
@@ -256,7 +274,7 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   Persist the user's «запрос мастеру» (today `TD-ASK-MASTER`, not persisted) + add a `request` field to
   the check-in item (the 4 check-in/request states).
 - **STATUS (2026-06-24): OPEN** — no conversation/message DTO or endpoint exists.
-- **⟳ ENRICHED 2026-06-25 (master student-profile request-states — ex «item-3», precise contract).** The «запрос мастеру» must also surface on the MASTER's student profile (`MasterStudentProfileView`), not only as a chat thread. Verified now against `generated.ts`: (1) **No ask-master endpoint exists** — `BookingConfirmedView.onSendRequest` only fires a toast and **discards** the text (`TD-ASK-MASTER`); nothing is persisted. Need: persist it as **ONE request per booking, attached to that practice**, created from the booking-confirmed flow. (2) **The master cannot render it** — `StudentDetailResponse` (gen:966) / `StudentCheckinItem` (gen:959 = `{mood, comment, created_at}`) carry **no request field and no practice link**. Need the student-profile recent items to be **practice-keyed** so one row can carry check-in AND/OR request — e.g. add `request_text` + `practice_id` to `StudentCheckinItem`, or a parallel `recent_requests[]` on `StudentDetailResponse`. (3) Add the reviewer/student **`user_id`** (same gap as E1 gen:521/922 + E6) so a profile row can navigate to the student. **Frontend status:** until this lands, `MasterStudentProfileView` renders the **check-in state only** (real data); the request states are **deferred, not faked** (with the data contract undefined we render the real state, spec the contract here, and defer the dependent states rather than invent a shape or wire a POST to a non-existent endpoint).
+- **⟳ ENRICHED 2026-06-25 (master student-profile request-states — ex «item-3», precise contract).** The «запрос мастеру» must also surface on the MASTER's student profile (`MasterStudentProfileView`), not only as a chat thread. Verified now against `generated.ts`: (1) **No ask-master endpoint exists** — `BookingConfirmedView.onSendRequest` only fires a toast and **discards** the text (`TD-ASK-MASTER`); nothing is persisted. Need: persist it as **ONE request per booking, attached to that practice**, created from the booking-confirmed flow. (2) **The master cannot render it** — `StudentDetailResponse` (gen:966) / `StudentCheckinItem` (gen:959 = `{mood, comment, created_at}`) carry **no request field and no practice link**. Need the student-profile recent items to be **practice-keyed** so one row can carry check-in AND/OR request — e.g. add `request_text` + `practice_id` to `StudentCheckinItem`, or a parallel `recent_requests[]` on `StudentDetailResponse`. (3) Add the reviewer/student **`user_id`** to `StudentCheckinItem`/`recent_requests[]` so a profile row can navigate to the student — this is a DIFFERENT field on a DIFFERENT response than E1/E6's; that gap (`MasterReviewItem`/`ReviewItem.user_id`) is CLOSED as of ПРОМТ №420, this one (student-profile check-ins/requests) is still open on its own merits, not by analogy. **Frontend status:** until this lands, `MasterStudentProfileView` renders the **check-in state only** (real data); the request states are **deferred, not faked** (with the data contract undefined we render the real state, spec the contract here, and defer the dependent states rather than invent a shape or wire a POST to a non-existent endpoint).
 - **⟳ 2026-06-30 (user «Сообщения» entry built — honest stub).** Profile ▸ «Аккаунт» now has a «Сообщения» row → `UserMessagesView` (route `user-messages`), an honest **empty-state** («Здесь появятся ваши переписки с мастерами» / «Функция в разработке») — **no fake threads**, no chat route, no send box. It is the swap point for the real conversations list once `GET /conversations` (above) lands; the profile-row unread badge stays OFF until `GET /conversations/unread-total` exists. **Known cleanup (deferred, F2=А):** `MasterMessagesView` / `MasterChatView` still render hardcoded fake conversations (pre-existing seed-only stub) — convert them to real data / honest empty-state when the API lands.
 
 ### E5 — Students / CRM aggregate. **P0.**
@@ -269,20 +287,41 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   `StudentListItem`(+needs_attention) (gen:984), `StudentDetailResponse` (gen:966); `getStudents`/
   `getStudent` masters.ts:120/130.
 
-### E6 — Weekly AI summary (master + user). **P2.**
+### E6 — Weekly summary (master + user). **P2.**
 - **(a) Why.** A weekly personalised summary (insight + key feedbacks + who needs attention). The
   existing AI summary is per-practice and mock.
 - **(b) Screens.** Master dashboard → «Саммари» + `MasterSummaryView`; user → «Подробнее» + `AiSummaryView`.
-- **(c) Breaks.** Placeholder over no data.
-- **(d) Backend.** `GET /practices/{id}/ai-summary` is mock + per-practice.
-- **Requests.** NEW `GET /masters/me/weekly-summary`; NEW `GET /users/me/weekly-summary`. Each
-  `key_feedbacks[]` / `needs_attention[]` item must carry a `student_id` (not just a name) so the
-  summary cards can navigate to the student profile (`MasterSummaryView`).
-- **STATUS (2026-06-24): OPEN** — only the per-practice `AISummaryResponse` (gen:33) exists; no
-  weekly-summary endpoint. *(Frontend now renders «Требуют внимания» from the real `getStudents`
-  feed + navigates; «Ключевые отзывы» stays non-navigable until a `student_id` / reviewer `user_id`
-  lands — see E1.)*
-- **LANE (2026-07-15):** OWNED-BY-NAV — not messaging/notifications, not Zod's under the narrowed lane.
+- **(c) Breaks.** Nothing, as of ПРОМТ №420 — see STATUS.
+- **(d) Backend.** `GET /practices/{id}/ai-summary` is mock + per-practice (unrelated to this epic; a
+  different feature entirely, kept for its own sake, not a stand-in for the weekly summary).
+- **STATUS (2026-07-15, ПРОМТ №420): DELIVERED except the insight, which is Zod's (see LANE below).**
+  Recon before building found two of the three pieces already real and just not wired to this one
+  screen — no new backend was needed for either:
+  - **needs attention: DELIVERED, pre-existing (E5).** `MasterSummaryView` already filters the real
+    `GET /masters/me/students` feed (`StudentListItem.needs_attention`) and navigates on the real
+    student `id` — this was already E6-complete before this batch touched anything.
+  - **key feedbacks: DELIVERED, wired this batch.** `GET /masters/me/reviews` (E1's cross-practice named
+    feed, `MasterReviewItem`) already carries a real reviewer `user_id` — the doc's prior note below
+    calling this blocked on a missing `student_id` was **stale**; the field shipped as an "E1 remainder"
+    without this doc being updated. `MasterSummaryView`'s "Ключевые отзывы" now calls the same endpoint
+    AnalyticsView's «Требуют внимания» uses, without the `attention=true` filter (a highlight reel, not
+    only the negative bucket), fully navigable. No new endpoint, no new backend field — pure frontend
+    wiring onto an endpoint that already existed.
+  - **insight: genuinely open, and it is Zod's** — not because of the lane above (it isn't messaging),
+    but because there is no AI provider in this project to generate it. See the infrastructure rule in
+    the LANE BOUNDARY block at the top of this doc. Stays an honest static placeholder
+    (`MasterSummaryView`/`AiSummaryView`) until that provider exists.
+  - *Prior note, now corrected: this doc used to describe a dedicated `GET /masters/me/weekly-summary` /
+    `GET /users/me/weekly-summary` pair as the request. Neither was built or is needed — the two real
+    pieces are served directly from their own existing endpoints (`/masters/me/students`,
+    `/masters/me/reviews`) on the summary screen, the same pattern `MasterSummaryView` already used for
+    needs-attention before this batch. A combining endpoint would be indirection with no consumer
+    benefit. If a future need justifies one (e.g. a single round-trip matters on a slow connection),
+    reopen this as its own decision — do not resurrect the old request lines below as-is.*
+- **STATUS (2026-06-24, historical — see 2026-07-15 above for current):** only the per-practice
+  `AISummaryResponse` (gen:33) existed; no weekly-summary endpoint.
+- **LANE (2026-07-15):** SPLIT — needs attention + key feedbacks are OWNED-BY-NAV (delivered, see
+  above); the insight is Zod's under the infrastructure rule (missing AI provider), not the domain lane.
 
 ### E7 — Period-scoped stats + deltas. **P1.**
 - **(a) Why.** Master + admin dashboards show stat cards with a Неделя/Месяц toggle + a delta vs the
@@ -549,8 +588,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
 | GET /masters/me/transactions | NEW | title, date, counterparty, amount (signed) | P0 | DELIVERED (gen:536/679) |
 | GET /masters/me/students (+/{id}) | NEW | name, avatar, counts, checkins[], feedbacks[] | P0 | DELIVERED (gen:671/966) |
 | GET /masters/me/stats?period | NEW | practices, participants, income + deltas | P1 | DELIVERED (gen:526) |
-| GET /masters/me/weekly-summary | NEW | insight, key_feedbacks[], needs_attention[] | P2 | OPEN |
-| GET /users/me/weekly-summary | NEW | insight, … | P2 | OPEN |
+| ~~GET /masters/me/weekly-summary~~ | — | superseded 2026-07-15 (ПРОМТ №420) — not built, not needed; `MasterSummaryView` calls the two existing endpoints below directly | — | see E6 STATUS |
+| ~~GET /users/me/weekly-summary~~ | — | superseded 2026-07-15 — insight is the only piece, stays a static placeholder (no AI provider); see E6 STATUS | — | see E6 STATUS |
 | POST /practices (recurrence) | EXTEND | recurrence{…} + generation | P1 | DELIVERED (gen:350/876) |
 | PATCH /practices/{id} (recurrence) | EXTEND | add recurrence to UpdatePracticeRequest + regen | P1 | OPEN (gen:1032 lacks it) |
 | POST /practices/{id}/cancel (scope) | EXTEND | scope: this \| this_and_future | P1 | DELIVERED (gen:253) |
