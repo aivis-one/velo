@@ -8,8 +8,15 @@
 // =============================================================================
 
 import { describe, it, expect, vi } from 'vitest'
-import { flattenMethods, parseMethods, directionLabel, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import {
+  flattenMethods,
+  parseMethods,
+  directionLabel,
+  primeMethodTaxonomyCatalog,
+  applyTaxonomyCatalog,
+} from '@/utils/methodTaxonomy'
 import { getActiveTaxonomy } from '@/api/taxonomy'
+import type { PracticeDirection } from '@/api/types'
 
 vi.mock('@/api/taxonomy')
 
@@ -179,5 +186,103 @@ describe('primeMethodTaxonomyCatalog (warm cache)', () => {
     expect(parsed.directions).toEqual(['yoga'])
     expect(parsed.styles).toEqual({ yoga: ['restorative'] })
     expect(parsed.customEnabled).toBe(false)
+  })
+})
+
+// =============================================================================
+// Bug 5 leak 2 (ПРОМТ №408): flattenMethods against a catalog-only style.
+//
+// The bug 2 fix (ПРОМТ №405) above taught directionLabel/parseMethods about
+// the catalog, but flattenMethods' style branch (`STYLE_LABEL[st] ?? st`) was
+// never made catalog-aware in any screen -- a catalog-created style
+// flattened straight to its raw slug (e.g. "Йога тест — custom_l40lb6fj")
+// because there was no value->label reverse map for styles, only the
+// label->value forward map parseMethods needs. applyTaxonomyCatalog() (pulled
+// out of primeMethodTaxonomyCatalog so MethodTaxonomyPicker can feed the SAME
+// fetch into this cache -- see MethodTaxonomyPicker.vue's onMounted) now
+// builds that reverse map too. Uses applyTaxonomyCatalog directly (no network
+// mock needed) since these tests only care about the cache-consuming side.
+// =============================================================================
+describe('flattenMethods against a catalog-only style (bug 5 leak 2)', () => {
+  it('a catalog-created direction (no styles) flattens to its label, not its slug', () => {
+    applyTaxonomyCatalog({
+      directions: [
+        {
+          id: 'd3',
+          value: 'custom_vwxosjci',
+          label: 'Гвоздестояние',
+          display_order: 0,
+          is_active: true,
+          source: 'custom',
+          styles: [],
+        },
+      ],
+    })
+
+    const flattened = flattenMethods({
+      directions: ['custom_vwxosjci' as PracticeDirection],
+      styles: {},
+      customEnabled: false,
+      customText: '',
+    })
+
+    expect(flattened).toEqual(['Гвоздестояние'])
+  })
+
+  it('a catalog-created style flattens to its label, not its slug', () => {
+    applyTaxonomyCatalog({
+      directions: [
+        {
+          id: 'd4',
+          value: 'custom_abcxyz01',
+          label: 'Йога тест',
+          display_order: 0,
+          is_active: true,
+          source: 'custom',
+          styles: [
+            {
+              id: 's2',
+              direction_id: 'd4',
+              value: 'custom_l40lb6fj',
+              label: 'Продвинутый',
+              display_order: 0,
+              is_active: true,
+              source: 'custom',
+            },
+          ],
+        },
+      ],
+    })
+
+    const flattened = flattenMethods({
+      directions: ['custom_abcxyz01' as PracticeDirection],
+      styles: { custom_abcxyz01: ['custom_l40lb6fj'] },
+      customEnabled: false,
+      customText: '',
+    })
+
+    expect(flattened).toEqual(['Йога тест — Продвинутый'])
+  })
+
+  it('the hardcoded/seeded path is unchanged (yoga + hatha still flattens via STYLE_LABEL)', () => {
+    const flattened = flattenMethods({
+      directions: ['yoga'],
+      styles: { yoga: ['hatha'] },
+      customEnabled: false,
+      customText: '',
+    })
+
+    expect(flattened).toEqual(['Йога — Хатха-йога'])
+  })
+
+  it('a style matching neither the hardcoded map nor a catalog entry for its direction falls back to the raw value, not a throw', () => {
+    const flattened = flattenMethods({
+      directions: ['yoga'],
+      styles: { yoga: ['totally_unknown_style'] },
+      customEnabled: false,
+      customText: '',
+    })
+
+    expect(flattened).toEqual(['Йога — totally_unknown_style'])
   })
 })

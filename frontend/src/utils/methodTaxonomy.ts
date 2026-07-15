@@ -38,7 +38,7 @@
 
 import type { PracticeDirection } from '@/api/types'
 import { DIRECTION_OPTIONS, STYLE_OPTIONS_BY_DIRECTION, STYLE_LABEL } from '@/utils/practiceOptions'
-import { getActiveTaxonomy } from '@/api/taxonomy'
+import { getActiveTaxonomy, type TaxonomyListResponse } from '@/api/taxonomy'
 
 /** The two-level picker's selection state. Mirrors the fields the wizard held
  *  inline (selectedDirections / selectedStyles / otherMethod*). */
@@ -89,6 +89,41 @@ const STYLE_VALUE_BY_LABEL: Partial<Record<PracticeDirection, Record<string, str
 let catalogDirectionValueByLabel: Record<string, string> | null = null
 let catalogDirectionLabelByValue: Record<string, string> | null = null
 let catalogStyleValueByLabel: Record<string, Record<string, string>> | null = null
+// Style value -> label, per direction (reverse of catalogStyleValueByLabel).
+// Added for bug 5 leak 2 (ПРОМТ №408): flattenMethods' style branch only ever
+// consulted the hardcoded STYLE_LABEL, so a catalog-only style (created in
+// AdminCatalogView, or auto-promoted) flattened straight to its raw slug --
+// the direction-side analogue of catalogDirectionLabelByValue below, which
+// the bug 2 fix already added for directions but never mirrored for styles.
+let catalogStyleLabelByValue: Record<string, Record<string, string>> | null = null
+
+/**
+ * Populate the module-level catalog cache from an already-fetched taxonomy
+ * response, without fetching it again. Pulled out of primeMethodTaxonomyCatalog
+ * so a caller that already has the catalog (MethodTaxonomyPicker fetches its
+ * own copy for the options it renders) can feed the SAME cache directly,
+ * instead of every screen having to remember a separate prime call (bug 5
+ * leak 1, ПРОМТ №408) -- see MethodTaxonomyPicker.vue's onMounted.
+ */
+export function applyTaxonomyCatalog(catalog: TaxonomyListResponse): void {
+  const directionValueByLabel: Record<string, string> = {}
+  const directionLabelByValue: Record<string, string> = {}
+  const styleValueByLabel: Record<string, Record<string, string>> = {}
+  const styleLabelByValue: Record<string, Record<string, string>> = {}
+  for (const dir of catalog.directions) {
+    directionValueByLabel[dir.label] = dir.value
+    directionLabelByValue[dir.value] = dir.label
+    const styles = dir.styles ?? []
+    if (styles.length > 0) {
+      styleValueByLabel[dir.value] = Object.fromEntries(styles.map((s) => [s.label, s.value]))
+      styleLabelByValue[dir.value] = Object.fromEntries(styles.map((s) => [s.value, s.label]))
+    }
+  }
+  catalogDirectionValueByLabel = directionValueByLabel
+  catalogDirectionLabelByValue = directionLabelByValue
+  catalogStyleValueByLabel = styleValueByLabel
+  catalogStyleLabelByValue = styleLabelByValue
+}
 
 /**
  * Fetch the active taxonomy catalog and prime the module-level cache used by
@@ -101,20 +136,7 @@ let catalogStyleValueByLabel: Record<string, Record<string, string>> | null = nu
 export async function primeMethodTaxonomyCatalog(): Promise<void> {
   try {
     const catalog = await getActiveTaxonomy()
-    const directionValueByLabel: Record<string, string> = {}
-    const directionLabelByValue: Record<string, string> = {}
-    const styleValueByLabel: Record<string, Record<string, string>> = {}
-    for (const dir of catalog.directions) {
-      directionValueByLabel[dir.label] = dir.value
-      directionLabelByValue[dir.value] = dir.label
-      const styles = dir.styles ?? []
-      if (styles.length > 0) {
-        styleValueByLabel[dir.value] = Object.fromEntries(styles.map((s) => [s.label, s.value]))
-      }
-    }
-    catalogDirectionValueByLabel = directionValueByLabel
-    catalogDirectionLabelByValue = directionLabelByValue
-    catalogStyleValueByLabel = styleValueByLabel
+    applyTaxonomyCatalog(catalog)
   } catch {
     // Offline/error -- leave whatever the cache already held (null on a
     // first-ever failure); parseMethods/flattenMethods fall back to the
@@ -136,6 +158,12 @@ function resolveStyleValue(dirValue: PracticeDirection, label: string): string |
   return STYLE_VALUE_BY_LABEL[dirValue]?.[label] ?? catalogStyleValueByLabel?.[dirValue]?.[label]
 }
 
+/** Style value -> label under a direction, hardcoded first, catalog second
+ *  (bug 5 leak 2 fix), falling back to the raw value if neither knows it. */
+function resolveStyleLabel(dirValue: string, styleValue: string): string {
+  return STYLE_LABEL[styleValue] ?? catalogStyleLabelByValue?.[dirValue]?.[styleValue] ?? styleValue
+}
+
 /** direction value -> Russian label, hardcoded first, catalog second (bug 2
  *  fix), falling back to the raw value if neither knows it. */
 export function directionLabel(dir: string): string {
@@ -154,7 +182,7 @@ export function flattenMethods(sel: MethodSelection): string[] {
     const label = directionLabel(dir)
     const styles = sel.styles[dir] ?? []
     if (styles.length > 0) {
-      for (const st of styles) result.push(`${label}${SEP}${STYLE_LABEL[st] ?? st}`)
+      for (const st of styles) result.push(`${label}${SEP}${resolveStyleLabel(dir, st)}`)
     } else {
       result.push(label)
     }

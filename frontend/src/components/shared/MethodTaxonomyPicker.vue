@@ -111,6 +111,7 @@ import {
   flattenMethods,
   parseMethods,
   directionLabel,
+  applyTaxonomyCatalog,
   type MethodSelection,
 } from '@/utils/methodTaxonomy'
 import { getActiveTaxonomy, type TaxonomyListResponse } from '@/api/taxonomy'
@@ -178,6 +179,13 @@ const catalog = ref<TaxonomyListResponse | null>(null)
 onMounted(async () => {
   try {
     catalog.value = await getActiveTaxonomy()
+    // Bug 5 leak 1 fix (ПРОМТ №408): feed the SAME fetch into methodTaxonomy.ts's
+    // shared module cache. Every screen embeds this picker, so this is what
+    // actually warms parseMethods/flattenMethods/directionLabel for a
+    // catalog-only value -- a screen no longer has to separately remember its
+    // own primeMethodTaxonomyCatalog() call (MasterApplyView never did, which
+    // is exactly how «custom_vwxosjci» leaked into the applicant's methods).
+    applyTaxonomyCatalog(catalog.value)
   } catch {
     catalog.value = null // offline/error -- fall back to DIRECTION_OPTIONS below
   }
