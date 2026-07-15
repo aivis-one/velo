@@ -1505,6 +1505,7 @@ async def list_master_practices(
     session: AsyncSession,
     limit: int = 20,
     offset: int = 0,
+    status: str | None = None,
 ) -> PaginatedPracticesResponse:
     """List practices owned by the current master.
 
@@ -1512,11 +1513,17 @@ async def list_master_practices(
     consistent with list_public_practices().
 
     Excludes deleted practices. Master sees their own drafts.
+
+    E3a: optional exact-status filter (draft/scheduled/live/completed/
+    cancelled), mirroring list_public_practices' explicit `status` param.
+    None (default) keeps the prior behavior -- every non-deleted status.
     """
     base_filter = (
         Practice.master_id == user.id,
         Practice.status != PracticeStatus.DELETED.value,
     )
+    if status is not None:
+        base_filter = (*base_filter, Practice.status == status)
 
     # -- Total count --
     count_query = select(func.count(Practice.id)).where(*base_filter)

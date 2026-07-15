@@ -23,6 +23,7 @@
 # =============================================================================
 
 import copy
+from typing import Literal
 from uuid import UUID
 
 import structlog
@@ -395,11 +396,19 @@ async def list_my_practices(
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    status_filter: Literal[
+        "draft", "scheduled", "live", "completed", "cancelled",
+    ] | None = Query(default=None, alias="status"),
 ) -> PaginatedPracticesResponse:
-    """List practices owned by the current master (newest first)."""
+    """List practices owned by the current master (newest first).
+
+    E3a: optional ?status= exact-match filter (never "deleted" -- that
+    status is already excluded unconditionally). Omitted -> unfiltered,
+    same as before this param existed.
+    """
     user, _profile = master_tuple
     return await list_master_practices(
-        user, session, limit=limit, offset=offset,
+        user, session, limit=limit, offset=offset, status=status_filter,
     )
 
 

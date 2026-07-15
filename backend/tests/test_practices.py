@@ -712,6 +712,70 @@ async def test_list_master_practices(
     assert "offset" in data
 
 
+# ---------------------------------------------------------------------------
+# GET /masters/me/practices -- E3a status filter
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_master_practices_status_filter(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """?status= restricts the master's own list to an exact status match.
+
+    One practice stays "draft" (the create default), the other is published
+    to "scheduled". Omitting the filter still returns both (unchanged
+    behavior); each explicit status returns only its own practice.
+    """
+    auth = await _make_verified_master(client, db_session)
+
+    draft_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert draft_resp.status_code == 201
+
+    scheduled_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert scheduled_resp.status_code == 201
+    scheduled_id = scheduled_resp.json()["id"]
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{scheduled_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert pub.status_code == 200
+
+    unfiltered = await client.get(
+        MY_PRACTICES_URL,
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert unfiltered.json()["total"] == 2
+
+    draft_only = await client.get(
+        MY_PRACTICES_URL,
+        params={"status": "draft"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert draft_only.status_code == 200
+    draft_data = draft_only.json()
+    assert draft_data["total"] == 1
+    assert draft_data["items"][0]["status"] == "draft"
+
+    scheduled_only = await client.get(
+        MY_PRACTICES_URL,
+        params={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert scheduled_only.status_code == 200
+    scheduled_data = scheduled_only.json()
+    assert scheduled_data["total"] == 1
+    assert scheduled_data["items"][0]["id"] == scheduled_id
+
+
 # ===================================================================
 # PHASE 4.3/4.4 TESTS -- PRICING
 # ===================================================================
