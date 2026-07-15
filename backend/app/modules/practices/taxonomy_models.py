@@ -2,13 +2,20 @@
 # VELO Backend -- Practice Taxonomy Models (R5, batch R stage 1)
 # =============================================================================
 #
-# DB-backed catalog of направления (directions) and виды (styles), replacing
+# DB-backed catalog of направления (directions) and виды (styles). Governs
+# MASTER METHODS (data.profile.methods) since R5, AND practice-creation
+# taxonomy (Practice.data.taxonomy) since T2 (2026-07-15) -- as a UNION with
 # the static settings.practice_allowed_directions /
-# practice_allowed_styles_by_direction (core/config.py:154-171) as the source
-# of truth for MASTER METHODS only (data.profile.methods). Practice-creation
-# taxonomy validation is UNCHANGED by this table -- that stays on config/enum
-# (operator decision, ПРОМТ №394: scope this to master methods, not practice
-# taxonomy, to keep the blast radius small).
+# practice_allowed_styles_by_direction (core/config.py:154-171), never a
+# replace: a value is accepted if it's in EITHER source, so the catalog can
+# only ever widen what's accepted, never narrow it below today's config-only
+# behavior. See practices/service.py: _validate_taxonomy() /
+# _validate_style_choice().
+#
+# ПРОМТ №394 originally scoped this table to master-methods-only "to keep the
+# blast radius small" -- that was an explicit DEFERRAL, not a permanent
+# boundary (operator roadmap tail T2, DS-build-plan.md OPEN THREADS): unify
+# once the catalog was proven live on TEST. T2 is that deferred batch.
 #
 # Two FK'd tables (not self-referential): a style is always scoped to exactly
 # one direction and never nests further, so a plain FK is simpler than a

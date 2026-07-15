@@ -12,9 +12,13 @@
   shows which rows came from the R5 migration vs were added here or
   auto-promoted (R5 stage 4) from an approved custom method.
 
-  Scope: MASTER METHODS catalog only. Does not touch practice-creation
-  taxonomy (settings.practice_allowed_directions / config) -- unrelated,
-  untouched by this screen (operator decision, batch R R5).
+  Scope: governs the MASTER METHODS picker (R5) AND, since T2 (2026-07-15,
+  backend practices/service.py: _validate_taxonomy()), practice-creation
+  taxonomy too -- as a UNION with settings.practice_allowed_directions/
+  practice_allowed_styles_by_direction (config), so adding a direction/style
+  here now also reaches POST/PATCH /api/v1/practices, not just the methods
+  picker. The practice-CREATE screen itself (CreatePracticeView) does not yet
+  read this catalog -- that is stage 2, a separate follow-up batch.
 
   Every mutation refetches the full catalog rather than patching local state
   -- simplest correct approach for a low-traffic admin screen with a nested

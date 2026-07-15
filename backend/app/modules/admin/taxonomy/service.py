@@ -3,9 +3,11 @@
 # =============================================================================
 #
 # CRUD over the DB-backed direction/style catalog (practice_directions /
-# practice_styles). MASTER-METHODS scope only -- practice-creation taxonomy
-# validation is untouched (still settings.practice_allowed_directions /
-# practice_allowed_styles_by_direction).
+# practice_styles). Governs MASTER METHODS (R5) and, since T2 (2026-07-15,
+# practices/service.py: _validate_taxonomy()), practice-creation taxonomy too
+# -- as a UNION with settings.practice_allowed_directions /
+# practice_allowed_styles_by_direction, so a row added/edited/deactivated
+# here now also affects what POST/PATCH /api/v1/practices accepts.
 #
 # list_taxonomy / create_* / update_* are admin-only (enforced in
 # admin/taxonomy/router.py). list_active_taxonomy (R5 stage 3a) is the one

@@ -100,8 +100,8 @@ from app.modules.practices.schemas import (
     PaginatedPracticesResponse,
     PracticeResponse,
     UpdatePracticeRequest,
-    _validate_style_for_direction,
 )
+from app.modules.practices.taxonomy_models import TaxonomyDirection, TaxonomyStyle
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
 
@@ -224,6 +224,117 @@ def _build_taxonomy(
         "difficulty": difficulty,
         "style": style,
     }
+
+
+# ===================================================================
+# Taxonomy union validation (T2, 2026-07-15)
+# ===================================================================
+#
+# direction / style are valid if they're in config OR the active DB catalog
+# (practice_directions / practice_styles) -- UNION, never replace (operator
+# decision): the catalog was seeded 1:1 from this same config, so today both
+# give identical results, but union can never reject a config-valid value
+# while a replace could. Each VALUE is checked against config FIRST,
+# unconditionally -- a config hit returns valid without touching the DB at
+# all, so a broken/empty catalog can never affect a config-valid create/
+# update. Only on a config MISS is the catalog queried, and that query is
+# wrapped so ANY read error degrades to "not found" rather than propagating
+# -- the only thing an outage can cost is a catalog-only value. Only ACTIVE
+# catalog rows count, matching GET /api/v1/taxonomy's own contract.
+# difficulty has no catalog table and is validated in schemas.py, unchanged.
+
+
+async def _direction_in_catalog(
+    direction: str,
+    session: AsyncSession,
+) -> bool:
+    """Active-catalog fallback for direction membership (config already missed)."""
+    try:
+        stmt = select(TaxonomyDirection.id).where(
+            TaxonomyDirection.value == direction,
+            TaxonomyDirection.is_active.is_(True),
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+    except Exception:
+        logger.warning(
+            "taxonomy_catalog_direction_read_failed", direction=direction,
+        )
+        return False
+
+
+async def _catalog_styles_for_direction(
+    direction: str,
+    session: AsyncSession,
+) -> set[str]:
+    """Active catalog style values under one active direction."""
+    try:
+        stmt = (
+            select(TaxonomyStyle.value)
+            .join(
+                TaxonomyDirection,
+                TaxonomyStyle.direction_id == TaxonomyDirection.id,
+            )
+            .where(
+                TaxonomyDirection.value == direction,
+                TaxonomyDirection.is_active.is_(True),
+                TaxonomyStyle.is_active.is_(True),
+            )
+        )
+        result = await session.execute(stmt)
+        return set(result.scalars().all())
+    except Exception:
+        logger.warning(
+            "taxonomy_catalog_style_read_failed", direction=direction,
+        )
+        return set()
+
+
+async def _validate_style_choice(
+    direction: str | None,
+    style: str | None,
+    session: AsyncSession,
+) -> None:
+    """Validate style membership for an ALREADY-valid direction (union).
+
+    Does not re-check direction membership -- callers use this either for a
+    direction just validated by _validate_taxonomy(), or for a practice's
+    STORED direction (accepted back when the practice was created/last set).
+    """
+    if style is None:
+        return
+    config_styles = settings.practice_allowed_styles_by_direction.get(
+        direction, (),
+    )
+    if style in config_styles:
+        return
+    catalog_styles = await _catalog_styles_for_direction(direction, session)
+    if style in catalog_styles:
+        return
+    allowed = sorted(set(config_styles) | catalog_styles)
+    if allowed:
+        raise BadRequestError(
+            f"style for direction '{direction}' must be one of {allowed}, "
+            f"got '{style}'"
+        )
+    raise BadRequestError(
+        f"direction '{direction}' does not admit a style; got '{style}'"
+    )
+
+
+async def _validate_taxonomy(
+    direction: str,
+    style: str | None,
+    session: AsyncSession,
+) -> None:
+    """Validate a direction + optional style pair against the union."""
+    if direction not in settings.practice_allowed_directions:
+        if not await _direction_in_catalog(direction, session):
+            raise BadRequestError(
+                f"direction must be one of "
+                f"{settings.practice_allowed_directions}, got '{direction}'"
+            )
+    await _validate_style_choice(direction, style, session)
 
 
 async def _has_active_bookings(
@@ -596,8 +707,11 @@ async def create_practice(
 
     Calendar taxonomy (direction / difficulty / style) is written into the
     data.taxonomy JSONB sandbox via set_jsonb() -- direction and difficulty
-    are required by the schema, style is optional.
+    are required by the schema, style is optional. direction/style membership
+    (T2, 2026-07-15) is validated here against the config+catalog union --
+    difficulty stays schema-validated (config only, no catalog table).
     """
+    await _validate_taxonomy(body.direction, body.style, session)
     price_cents = _enforce_pricing(body.is_free, body.price_cents)
 
     practice = Practice(
@@ -1075,22 +1189,29 @@ async def update_practice(
     # deepcopy + set_jsonb so SQLAlchemy detects the change. Only the keys
     # actually sent are overwritten; the rest of data.taxonomy is preserved.
     if taxonomy_updates:
-        # W-1: when style is changed WITHOUT direction in the same request,
-        # the Pydantic model validator only checked it against the flattened
-        # union (it has no stored direction context), so a style valid for a
-        # DIFFERENT direction would slip through (e.g. setting "silence", a
-        # meditation style, on a stored yoga practice). Re-validate here
-        # against the direction actually stored on the practice. When direction
-        # IS part of this update, the model validator already checked the pair.
-        if "style" in taxonomy_updates and "direction" not in taxonomy_updates:
+        # T2 (2026-07-15): direction/style membership is no longer checked by
+        # Pydantic (it can't reach the async catalog), so both are validated
+        # here, against the config+catalog union.
+        if "direction" in taxonomy_updates:
+            new_direction = taxonomy_updates["direction"]
+            # Style paired with this same request validates against the NEW
+            # direction (None if style isn't part of this update -- a no-op).
+            await _validate_taxonomy(
+                new_direction, taxonomy_updates.get("style"), session,
+            )
+        elif "style" in taxonomy_updates:
+            # W-1: style changed WITHOUT direction in the same request --
+            # validate against the direction actually STORED on the practice
+            # (a style valid for a DIFFERENT direction, e.g. "silence" -- a
+            # meditation style -- on a stored yoga practice, must still be
+            # rejected). A direction change alone, without a style in the same
+            # request, does not re-check the stored style -- unchanged from
+            # before T2.
             stored_taxonomy = (practice.data or {}).get("taxonomy", {})
             stored_direction = stored_taxonomy.get("direction")
-            try:
-                _validate_style_for_direction(
-                    stored_direction, taxonomy_updates["style"],
-                )
-            except ValueError as exc:
-                raise BadRequestError(str(exc)) from exc
+            await _validate_style_choice(
+                stored_direction, taxonomy_updates["style"], session,
+            )
 
         data = copy.deepcopy(practice.data) if practice.data else {}
         taxonomy = data.get("taxonomy", {})
