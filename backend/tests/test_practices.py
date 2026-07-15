@@ -1406,14 +1406,17 @@ async def test_filter_style_multi(
     assert titles == ["H", "V"]
 
 
-# NOTE (B-4): a style-validation HTTP test was prototyped (
-# test_filter_style_validation_rejects_unknown) but FastAPI's AfterValidator
-# behaviour on a `list[str] | None` Query param turned out not to raise the
-# expected 422 in our setup — invalid styles simply return an empty result
-# set via `.in_()`. The `_validate_styles` validator still rejects them at
-# the dict level (and the frontend chips UI is constrained to allowed
-# values), so this is defence-in-depth, not a security boundary. The
-# multi-select happy path is covered by test_filter_style_multi above.
+# NOTE (B-4, superseded by T2 follow-up 2026-07-15): a style-validation HTTP
+# test was prototyped (test_filter_style_validation_rejects_unknown) but
+# FastAPI's AfterValidator behaviour on a `list[str] | None` Query param
+# turned out not to raise the expected 422 in our setup -- invalid styles
+# already silently returned an empty result set via `.in_()`, regardless of
+# the validator. T2 made that the deliberate, documented contract instead of
+# an accidental one: direction/style filters are no longer membership-
+# validated at all (practices/router.py's query-param comment block), on the
+# grounds that a filter is a query, not a security boundary -- so there is
+# nothing left here to keep "defence-in-depth" for. The multi-select happy
+# path is covered by test_filter_style_multi above.
 
 
 # ---------------------------------------------------------------------------

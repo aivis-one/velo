@@ -50,7 +50,6 @@ from app.modules.practices.schemas import (
     PaginatedPracticesResponse,
     PracticeResponse,
     UpdatePracticeRequest,
-    _flat_allowed_styles,
 )
 from app.modules.practices.service import (
     cancel_practice,
@@ -73,10 +72,24 @@ router = APIRouter(
 # ------------------------------------------------------------------
 # The list-feed endpoint historically hardcoded Literal[...] inline for
 # practice_type / direction / difficulty. That duplicated the source of
-# truth (settings.practice_allowed_*) and went out of sync the moment those
-# lists were extended (422 on the new directions). The three helpers below
-# read the same settings lists that CreatePracticeRequest field-validators
-# use (practices/schemas.py), so create and list now share one source.
+# truth and went out of sync the moment those lists were extended (422 on
+# new values). practice_type / difficulty have no catalog table (out of
+# T2's scope) and stay membership-validated below against
+# settings.practice_allowed_* -- unchanged.
+#
+# direction / style are NOT membership-validated here (T2 stage 1 follow-up,
+# 2026-07-15). This is a sync AfterValidator on a query param -- it cannot
+# query the async DB catalog, the exact wall that moved CREATE/UPDATE
+# validation into practices/service.py (_validate_taxonomy()). Teaching this
+# validator the same trick (query the catalog on a config miss) would add a
+# DB round-trip to every feed request that filters by direction/style, for
+# no behavioral gain: a filter is a query, not a security boundary. Passing
+# a direction/style that matches no stored practice is not an error -- it is
+# correctly an EMPTY result, because list_public_practices() filters with a
+# plain `.in_()` against Practice.data["taxonomy"] (JSONB) that naturally
+# returns zero rows for a value nothing has. Dropping the check here also
+# removes a class of bug permanently: it can never again drift out of sync
+# with the create/update union (there is nothing left to keep in sync).
 # duration_bucket / time_of_day / status_filter / sort_by / sort_order
 # stay as inline Literal -- those are closed, by-design vocabularies that
 # are not config-driven.
@@ -94,18 +107,6 @@ def _validate_practice_types(v: list[str] | None) -> list[str] | None:
     return v
 
 
-def _validate_directions(v: list[str] | None) -> list[str] | None:
-    if not v:
-        return v
-    allowed = settings.practice_allowed_directions
-    bad = [x for x in v if x not in allowed]
-    if bad:
-        raise ValueError(
-            f"direction must be one of {allowed}, got {bad}"
-        )
-    return v
-
-
 def _validate_difficulties(v: list[str] | None) -> list[str] | None:
     if not v:
         return v
@@ -114,23 +115,6 @@ def _validate_difficulties(v: list[str] | None) -> list[str] | None:
     if bad:
         raise ValueError(
             f"difficulty must be one of {allowed}, got {bad}"
-        )
-    return v
-
-
-def _validate_styles(v: list[str] | None) -> list[str] | None:
-    """B-4 (2026-05-29): styles are direction-conditional in the source
-    of truth (practice_allowed_styles_by_direction), but the feed filter
-    accepts any combination (e.g. ['hatha', 'silence'] selects practices
-    of either yoga/hatha or meditation/silence). We validate against the
-    flat union of all allowed style values."""
-    if not v:
-        return v
-    allowed = _flat_allowed_styles()
-    bad = [x for x in v if x not in allowed]
-    if bad:
-        raise ValueError(
-            f"style must be one of {allowed}, got {bad}"
         )
     return v
 
@@ -148,15 +132,13 @@ async def list_practices_endpoint(
     practice_type: Annotated[
         list[str] | None, AfterValidator(_validate_practice_types),
     ] = Query(default=None),
-    direction: Annotated[
-        list[str] | None, AfterValidator(_validate_directions),
-    ] = Query(default=None),
+    # direction / style: no membership AfterValidator (T2 follow-up,
+    # 2026-07-15) -- see the comment block above. Type/shape only.
+    direction: list[str] | None = Query(default=None),
     difficulty: Annotated[
         list[str] | None, AfterValidator(_validate_difficulties),
     ] = Query(default=None),
-    style: Annotated[
-        list[str] | None, AfterValidator(_validate_styles),
-    ] = Query(default=None),
+    style: list[str] | None = Query(default=None),
     duration_bucket: Literal["short", "long"] | None = Query(default=None),
     time_of_day: Literal[
         "night", "morning", "day", "evening",

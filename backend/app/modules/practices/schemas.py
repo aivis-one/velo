@@ -83,26 +83,6 @@ from app.modules.practices.models import (
 )
 
 
-# -- Style validation helpers --
-# _flat_allowed_styles is config-only by design: it backs the GET feed's
-# style query-param filter (practices/router.py: _validate_styles), which
-# accepts any direction/style combination across the whole feed and is
-# explicitly OUT OF SCOPE for the T2 catalog union (2026-07-15) -- unlike
-# create/update, that filter isn't validating a single practice's taxonomy
-# against the catalog. Direction-conditional style validation for
-# create/update now lives in the service (see VALIDATION above).
-
-
-def _flat_allowed_styles() -> list[str]:
-    """All allowed style values, flattened across directions. Used when
-    direction is not present in the request (Update with only style)."""
-    return [
-        s
-        for styles in settings.practice_allowed_styles_by_direction.values()
-        for s in styles
-    ]
-
-
 # -- Zoom link validation (manual field; no Zoom integration / auto-gen) --
 # zoom_link is optional and hand-entered by the master. A non-empty value MUST
 # be an https:// URL: mirrors the frontend guard (CreatePracticeView) and the

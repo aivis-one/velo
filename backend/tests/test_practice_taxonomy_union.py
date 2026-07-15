@@ -17,6 +17,12 @@
 #     NEVER reject an already-config-valid value (checked first, unconditio-
 #     nally, with zero DB access), and it never lets an unrelated exception
 #     escape past the union check
+#   - GET /api/v1/practices feed filter (T2 follow-up, 2026-07-15): direction/
+#     style are NOT membership-validated there at all (practices/router.py) --
+#     a filter is a query, not a security boundary, so a catalog-only value
+#     is accepted and MATCHES, and a value in neither source is accepted too
+#     but correctly returns an EMPTY result (no 422) via the existing `.in_()`
+#     filter in list_public_practices().
 #
 # telegram_id range (own cleanup band, no overlap with other suites): 99500-99599.
 # Catalog rows created here are prefixed "zz_test_" and cleaned up before/after
@@ -164,6 +170,26 @@ async def _add_catalog_style(
     style = TaxonomyStyle(direction_id=direction_id, value=value, label=label, source="custom")
     session.add(style)
     await session.commit()
+
+
+async def _create_and_publish(
+    client: AsyncClient, auth: dict, **overrides: object,
+) -> str:
+    """Create a practice and transition it to scheduled (visible in the
+    default feed, which only shows scheduled/live practices in the future)."""
+    create = await client.post(
+        PRACTICES_URL, json=_valid_practice_body(**overrides),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create.status_code == 201
+    pid = create.json()["id"]
+    patch = await client.patch(
+        f"{PRACTICES_URL}/{pid}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert patch.status_code == 200
+    return pid
 
 
 # ---------------------------------------------------------------------------
@@ -405,3 +431,128 @@ async def test_catalog_only_style_degrades_to_rejected_on_read_failure() -> None
     assert styles == set()
     with pytest.raises(BadRequestError):
         await _validate_style_choice("yoga", "zz_test_whatever", broken_session)
+
+
+# ===========================================================================
+# GET /api/v1/practices feed filter (T2 follow-up, 2026-07-15)
+# ===========================================================================
+#
+# direction/style are NOT membership-validated on the feed filter at all
+# (practices/router.py) -- neither against config nor the catalog. A filter
+# is a query, not a security boundary: a catalog-only value is accepted and
+# MATCHES; a value in NEITHER source is also accepted (no 422) and correctly
+# returns an empty result, because list_public_practices() filters with a
+# plain `.in_()` against the JSONB taxonomy that naturally matches nothing.
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_feed_filter_catalog_only_direction_accepted_and_matches(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    await _add_catalog_direction(db_session)
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+
+    await _create_and_publish(
+        client, auth, direction="zz_test_therapy", difficulty="beginner", title="T",
+    )
+    await _create_and_publish(
+        client, auth, direction="meditation", difficulty="beginner", title="M",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=zz_test_therapy&master_id={master_id}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "T"
+
+
+@pytest.mark.asyncio
+async def test_feed_filter_catalog_only_style_accepted_and_matches(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    yoga_id = await _get_seed_direction_id(db_session, "yoga")
+    await _add_catalog_style(db_session, yoga_id)
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+
+    await _create_and_publish(
+        client, auth, direction="yoga", style="zz_test_powerflow", title="P",
+    )
+    await _create_and_publish(
+        client, auth, direction="yoga", style="hatha", title="H",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?style=zz_test_powerflow&master_id={master_id}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "P"
+
+
+@pytest.mark.asyncio
+async def test_feed_filter_direction_in_neither_source_is_empty_not_422(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """A direction in neither config nor catalog is accepted (no 422) and
+    correctly returns an empty result -- a filter is a query, not a guard."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(client, auth, direction="meditation", title="M")
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=zz_test_nonexistent&master_id={master_id}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_feed_filter_style_in_neither_source_is_empty_not_422(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(
+        client, auth, direction="yoga", style="hatha", title="H",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?style=zz_test_nonexistent&master_id={master_id}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_feed_filter_config_only_path_unchanged(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """Sanity: a pure-config direction+style filter still works exactly as
+    before -- dropping the membership check doesn't touch the happy path
+    (already broadly covered by test_practices.py's filter suite, unmodified;
+    this is the T2-scoped confirmation)."""
+    auth = await _make_verified_master(client, db_session)
+    master_id = auth["user"]["id"]
+    await _create_and_publish(
+        client, auth, direction="yoga", style="kundalini", title="K",
+    )
+    await _create_and_publish(
+        client, auth, direction="meditation", title="M",
+    )
+
+    resp = await client.get(
+        f"{PRACTICES_URL}?direction=yoga&style=kundalini&master_id={master_id}",
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "K"
