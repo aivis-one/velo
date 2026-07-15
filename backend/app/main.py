@@ -227,6 +227,7 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
             code=exc.code,
             message=exc.message,
             path=request.url.path,
+            exc_info=exc,
         )
     else:
         logger.warning(
@@ -253,6 +254,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         exc_message=str(exc),
         path=request.url.path,
         method=request.method,
+        exc_info=exc,
     )
     return JSONResponse(
         status_code=500,
