@@ -449,7 +449,12 @@ function goToReflection(practiceId: string): void {
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
-  void bookingsStore.fetchUpcoming()
+  // W15 fix (ПРОМТ №409): fetchUpcoming used to swallow its error entirely
+  // (an empty result looked identical to "genuinely nothing upcoming") --
+  // surface it via toast instead of leaving the widget silently blank.
+  void bookingsStore.fetchUpcoming().then(() => {
+    if (bookingsStore.upcomingError) toast.error(bookingsStore.upcomingError)
+  })
   void loadStats()
   clockInterval = setInterval(() => {
     now.value = Date.now()

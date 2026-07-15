@@ -54,6 +54,7 @@ export const useBookingsStore = defineStore('bookings', () => {
   // the nearest-selection is not capped/mis-sorted by the created_at page (B1).
   const upcoming = ref<BookingWithPracticeResponse[]>([])
   const upcomingLoading = ref(false)
+  const upcomingError = ref('')
 
   // -- Single booking detail (screen 18) --
   const selectedBooking = ref<BookingDetailResponse | null>(null)
@@ -132,10 +133,15 @@ export const useBookingsStore = defineStore('bookings', () => {
    */
   async function fetchUpcoming(): Promise<void> {
     upcomingLoading.value = true
+    upcomingError.value = ''
     try {
       upcoming.value = await getUpcomingBookings()
-    } catch {
+    } catch (e) {
+      // W15 fix (ПРОМТ №409): used to swallow the error entirely (empty array
+      // looks identical to "genuinely nothing upcoming") -- keep the same
+      // fallback but record the error so the caller can surface it.
       upcoming.value = []
+      upcomingError.value = extractApiError(e, 'Не удалось загрузить ближайшую практику')
     } finally {
       upcomingLoading.value = false
     }
@@ -237,6 +243,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     // Live-or-upcoming set for the dashboard nearest widget (B1)
     upcoming,
     upcomingLoading,
+    upcomingError,
     fetchUpcoming,
 
     // Single booking detail (screen 18)
