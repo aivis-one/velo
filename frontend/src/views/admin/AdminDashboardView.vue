@@ -213,9 +213,11 @@ import { useAdminStore } from '@/stores/admin'
 import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
 import { formatMoney } from '@/utils/format'
 import { formatPeriodRange } from '@/utils/periodRange'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const adminStore = useAdminStore()
+const toast = useToast()
 
 // Period toggle (Неделя/Месяц) + stepper offset (0 = current, -1 = previous …).
 const period = ref<'week' | 'month'>('week')
@@ -335,14 +337,24 @@ const engagementQuery = computed(() => ({
 
 // Refetch the overview + engagement rates whenever the period or the stepper
 // offset changes (D1/D3 cards + D4/D5 engagement share one window).
+// W14 fix (ПРОМТ №409): fetchOverview used to be an unhandled rejection on
+// failure -- the stat cards just silently stayed stale. Toast here (the sole
+// caller of fetchOverview, so no double-toast risk with AdminShell's own
+// fetchDashboard toast).
+function loadOverview(): void {
+  void adminStore.fetchOverview(period.value, periodOffset.value).then(() => {
+    if (adminStore.overviewError) toast.error(adminStore.overviewError)
+  })
+}
+
 watch([period, periodOffset], () => {
-  void adminStore.fetchOverview(period.value, periodOffset.value)
+  loadOverview()
   void loadEngagement()
 })
 
 onMounted(() => {
   void adminStore.fetchDashboard()
-  void adminStore.fetchOverview(period.value, periodOffset.value)
+  loadOverview()
   void loadEngagement()
 })
 </script>

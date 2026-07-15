@@ -28,10 +28,12 @@ import { AdminLayout } from '@/components/layout'
 import { ADMIN_TABS } from '@/router/tabs'
 import type { TabItem } from '@/components/layout/VTabBar.vue'
 import { useAdminStore } from '@/stores/admin'
+import { useToast } from '@/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 const adminStore = useAdminStore()
+const toast = useToast()
 
 const activeTab = computed(() => {
   const path = route.path
@@ -82,6 +84,13 @@ const DETAIL_ROUTES = [
 const isDetailRoute = computed(() => DETAIL_ROUTES.includes(route.name as string))
 
 onMounted(() => {
-  void adminStore.fetchDashboard()
+  // W14 fix (ПРОМТ №409): fetchDashboard used to be an unhandled rejection on
+  // failure -- badges just silently never updated. Toast here since this shell
+  // wraps every /admin/* route and is always the first to actually run the
+  // fetch (AdminDashboardView's own onMounted call is a no-op while this one
+  // is in flight or already succeeded).
+  void adminStore.fetchDashboard().then(() => {
+    if (adminStore.dashboardError) toast.error(adminStore.dashboardError)
+  })
 })
 </script>

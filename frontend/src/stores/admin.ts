@@ -17,17 +17,20 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getAdminStats, getAdminStatsOverview, getReports } from '@/api/admin'
 import type { AdminStatsResponse, AdminStatsOverviewResponse } from '@/api/admin'
+import { extractApiError } from '@/composables/useApiError'
 
 export const useAdminStore = defineStore('admin', () => {
   const stats = ref<AdminStatsResponse | null>(null)
   const pendingReports = ref(0)
   const loading = ref(false)
   const loaded = ref(false)
+  const dashboardError = ref('')
 
   // Period-scoped overview (E7) for the 3 stat cards + percent deltas. Refetched
   // on period/offset change; always refetches (cheap, and the window shifts).
   const overview = ref<AdminStatsOverviewResponse | null>(null)
   const overviewLoading = ref(false)
+  const overviewError = ref('')
 
   const pendingVerifications = computed((): number => stats.value?.pending_verifications ?? 0)
   const pendingModeration = computed((): number => pendingReports.value)
@@ -40,6 +43,7 @@ export const useAdminStore = defineStore('admin', () => {
     if (loading.value) return
     if (loaded.value && !force) return
     loading.value = true
+    dashboardError.value = ''
     try {
       const [s, reports] = await Promise.all([
         getAdminStats(),
@@ -48,6 +52,12 @@ export const useAdminStore = defineStore('admin', () => {
       stats.value = s
       pendingReports.value = reports.total
       loaded.value = true
+    } catch (e) {
+      // W14 fix (ПРОМТ №409): every caller fires this with `void` and no
+      // .catch(), so an uncaught error here used to be a completely silent
+      // unhandled rejection -- badges/stats just never updated, with nothing
+      // telling the admin why. Record it so a caller can surface it.
+      dashboardError.value = extractApiError(e, 'Не удалось загрузить статистику')
     } finally {
       loading.value = false
     }
@@ -59,8 +69,12 @@ export const useAdminStore = defineStore('admin', () => {
     offset = 0,
   ): Promise<void> {
     overviewLoading.value = true
+    overviewError.value = ''
     try {
       overview.value = await getAdminStatsOverview(period, offset)
+    } catch (e) {
+      // W14 fix: same silent-unhandled-rejection issue as fetchDashboard above.
+      overviewError.value = extractApiError(e, 'Не удалось загрузить статистику за период')
     } finally {
       overviewLoading.value = false
     }
@@ -71,12 +85,14 @@ export const useAdminStore = defineStore('admin', () => {
     pendingReports,
     loading,
     loaded,
+    dashboardError,
     pendingVerifications,
     pendingModeration,
     pendingMethodChanges,
     fetchDashboard,
     overview,
     overviewLoading,
+    overviewError,
     fetchOverview,
   }
 })
