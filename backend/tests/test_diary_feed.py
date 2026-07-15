@@ -272,6 +272,57 @@ async def test_checkin_projects_event_and_is_immutable(
     assert checkin_events[0]["snapshot"]["mood"] == 2
 
 
+@pytest.mark.asyncio
+async def test_checkin_master_name_matches_telegram_name_not_display_name(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """W7 fix: diary events use the master's Telegram name, same as practice
+    cards -- a custom MasterProfile.display_name must NOT leak into the
+    diary feed and disagree with what the practice list shows."""
+    master = await _make_verified_master(client, db_session)
+    await db_session.execute(
+        update(MasterProfile)
+        .where(MasterProfile.user_id == master["user"]["id"])
+        .values(
+            data={
+                "account": {"status": "verified"},
+                "profile": {
+                    "bio": "bio",
+                    "methods": ["meditation"],
+                    "display_name": "Custom Display Name",
+                },
+            },
+        )
+    )
+    await db_session.commit()
+
+    pid = await _create_scheduled_practice(client, master)
+    booker = await _book(client, pid, telegram_id=90004)
+    token = booker["auth"]["session_token"]
+
+    await db_session.execute(
+        update(Practice)
+        .where(Practice.id == pid)
+        .values(scheduled_at=datetime.now(UTC) + timedelta(hours=1))
+    )
+    await db_session.commit()
+
+    resp = await client.post(
+        CHECKIN_URL.format(practice_id=pid),
+        json={"mood": 3, "comment": "ok"},
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 200, resp.text
+
+    body = await _feed(client, token, category="checkins")
+    checkin_events = [i for i in body["items"] if i["kind"] == "checkin"]
+    assert len(checkin_events) == 1
+    # Telegram first_name ("MasterMind", set in _make_verified_master), NOT
+    # the custom display_name -- matches practices/service._master_full_name.
+    assert checkin_events[0]["snapshot"]["master_name"] == "MasterMind"
+
+
 # ===================================================================
 # Projection: diary entry note/dream + soft delete
 # ===================================================================

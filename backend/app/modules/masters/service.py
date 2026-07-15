@@ -351,6 +351,27 @@ async def get_master_display_name(
     return "Master"
 
 
+async def get_master_full_name(
+    master_id: UUID,
+    session: AsyncSession,
+) -> str:
+    """Get master's "First Last" name from Telegram profile data (W7 fix).
+
+    Mirrors practices/service._master_full_name's convention exactly
+    (Telegram first_name + last_name, ignoring MasterProfile.display_name),
+    so the same practice shows the same master name in the diary feed as
+    it does on practice cards. Previously the diary feed used
+    get_master_display_name (which prefers MasterProfile.display_name) --
+    the two disagreed whenever a master had set a custom display name.
+    """
+    user = await session.get(User, master_id)
+    if user is None:
+        return "Мастер"
+
+    parts = [p for p in (user.first_name, user.last_name) if p]
+    return " ".join(parts) if parts else "Мастер"
+
+
 async def is_master_verified(
     master_id: UUID,
     session: AsyncSession,

@@ -55,7 +55,7 @@ from app.modules.diary.projections import (
     upsert_entry_event,
     upsert_feedback_event,
 )
-from app.modules.masters.service import get_master_display_name
+from app.modules.masters.service import get_master_full_name
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.helpers import display_name
 from app.modules.users.models import User
@@ -193,7 +193,7 @@ async def upsert_checkin(
     )
 
     # Diary feed: project the new check-in onto the user's timeline.
-    master_name = await get_master_display_name(practice.master_id, session)
+    master_name = await get_master_full_name(practice.master_id, session)
     await upsert_checkin_event(
         session,
         checkin=checkin,
@@ -447,7 +447,7 @@ async def upsert_feedback(
     )
 
     # Diary feed: project the new feedback onto the user's timeline.
-    master_name = await get_master_display_name(practice.master_id, session)
+    master_name = await get_master_full_name(practice.master_id, session)
     await upsert_feedback_event(
         session,
         feedback=feedback,
