@@ -309,6 +309,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   two-level readonly render now shipped on the master DETAIL (Q2, `AdminMasterReviewView`). Target = the
   operator's rich-card screenshot. ⚠ Adding fields to the list response → grep frozen key-sets in
   `backend/tests` first + regen `generated.ts`.
+- **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E9-rich.** `AdminMasterListItem` rich card
+  (methods + Практик/Ученики/К-выводу stats) delivered additively, self-built. Do not rebuild.
 - **NEW `GET /admin/users/{id}` — admin single-user detail (ПРОМТ №372, 2026-07-12).** Today
   `/admin/users` (list) and `/admin/users/{id}/make-master` (action) exist, but there is no
   single-user GET. This blocks `AdminReportDetailView`'s clickable-target fix (master/practice
@@ -325,6 +327,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   (list_my_promos, router.py:72) + **`PATCH /masters/me/promos/{id}/deactivate`** (router.py:88) all exist;
   frontend wired (`api/promos.ts`, `MasterPromocodesView` active-list + soft-deactivate). A hard `DELETE`
   was NOT added (PATCH-deactivate covers it) — reopen only if a real hard-delete need surfaces.
+- **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E10-promo.** Master-promo create crash fixed.
+  Delete remains a soft-deactivate by design; no hard-delete endpoint is needed.
 
 ### E11 — One-offs.
 - NEW master-side `DELETE` of a participant's booking (refund + notify) — `cancelBooking` is self-only. **P1.**
@@ -392,6 +396,8 @@ Each epic states **(a) why · (b) screens · (c) what breaks · (d) backend stat
   rejected screen REACHABLE and the re-apply path allowed after rejection.
 - **STATUS (2026-07-01): SELF-FIXED (batch №227) — see SELF-FIX LOG.** `rejection_reason` projected onto
   `MasterProfileResponse` from `data.account.rejection_reason`; `MasterPendingView` renders the real reason.
+- **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E14-reject.** `rejection_reason` had ALREADY
+  shipped (see above); the real bug was a frontend router-guard, now fixed. Nothing owed to Zod.
 
 ### E15 — Master-onboarding "completed" flag (NEW 2026-06-26). **P2.**
 - **(a) Why.** A freshly-verified master currently lands straight on `MasterDashboardView` with no intro.
@@ -750,6 +756,11 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   каталога" note, NO dead controls) + a «Каталог практик» dashboard row. Taxonomy is built in one
   `buildCatalog()` = the **single swap point**: when `GET /catalog` lands, point it at the endpoint and
   the UI renders unchanged. Wiring the editable controls + persistence is Zod's part.
+- **CLOSED-BY-NAV (batch R, 2026-07-14, LIVE c1dbe08) — E20-catalog, MASTER-METHODS SCOPE ONLY.**
+  DB-backed taxonomy self-built: 2 tables (directions/styles) + seed + admin CRUD + read endpoint +
+  picker consuming it + editable admin UI + custom-method auto-promote with admin confirmation. Scope
+  is master **methods** only — **practice-creation taxonomy (directions/types, (b)/(d) above) still
+  runs on the old code-level config and remains OPEN — Zod.** Do not rebuild the methods side.
 
 ### E21 — Zoom attendance tracking (NEW 2026-07-12, operator). **P0. DEADLINE 2026-07-17.**
 - **(a) Why.** Attendance today is inferred by the clock-driven lifecycle (Zod's recent
