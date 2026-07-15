@@ -54,6 +54,7 @@ from uuid import UUID
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select, delete, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -1161,3 +1162,130 @@ async def test_purchase_empty_body_backward_compat(
     )
     assert resp.status_code == 201
     assert resp.json()["promo_id"] is None
+
+
+# ===================================================================
+# DB-LEVEL CHECK CONSTRAINTS
+# ===================================================================
+#
+# These bypass the API/Pydantic layer entirely (direct ORM construction) to
+# prove the DB itself rejects an out-of-range value. NOT VALID only skips
+# validating rows that already existed when a migration ran; every new
+# insert is still checked.
+#
+# The next two test a constraint from migration 2026_02_21_d0e1f2a3b4c5
+# (ck_promos_discount_percent_positive), NOT the W5 migration
+# (2026_07_16_d6e7f8a9b0c1) -- W5's initial draft almost re-added this
+# constraint under a different name before a migration-history grep showed
+# it already existed since February. Kept here (previously untested at the
+# DB-bypass level) but labeled honestly as February's coverage.
+
+
+@pytest.mark.asyncio
+async def test_promo_discount_percent_zero_rejected_by_db(
+    db_session: AsyncSession,
+) -> None:
+    """A 0% promo bypasses app validation but is rejected by the DB
+    (ck_promos_discount_percent_positive, since 2026-02-21)."""
+    with pytest.raises(IntegrityError):
+        await _create_promo(
+            db_session, code="TEST81ZEROPCT", discount_percent=0,
+        )
+    await db_session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_promo_discount_percent_over_100_rejected_by_db(
+    db_session: AsyncSession,
+) -> None:
+    """A >100% promo bypasses app validation but is rejected by the DB
+    (ck_promos_discount_percent_positive, since 2026-02-21)."""
+    with pytest.raises(IntegrityError):
+        await _create_promo(
+            db_session, code="TEST81OVER100", discount_percent=101,
+        )
+    await db_session.rollback()
+
+
+# The next three test the W5 migration's own constraints
+# (ck_purchases_amount_cents_non_negative / _paid_cents_non_negative /
+# _commission_cents_non_negative). discount_cents is deliberately excluded
+# -- ck_purchases_discount_cents_non_negative already existed since
+# 2026-02-21 and is not something this migration owns.
+
+
+@pytest.mark.asyncio
+async def test_purchase_negative_paid_cents_rejected_by_db(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A negative paid_cents bypasses app validation but is rejected by
+    the DB. amount_cents/discount_cents are chosen so the pre-existing
+    ck_purchases_paid_equals_amount_minus_discount invariant (50 - 100 =
+    -50) is satisfied -- this isolates the W5 paid_cents constraint as
+    the one actually firing, not February's equality check."""
+    master_data = await _make_verified_master(client, db_session, 81080)
+    practice_id = await _create_practice(client, master_data, is_free=True)
+    user_data = await login_user(client, telegram_id=81081, first_name="Buyer")
+
+    booking = Booking(
+        practice_id=UUID(practice_id),
+        user_id=UUID(user_data["user"]["id"]),
+        status=BookingStatus.CONFIRMED.value,
+    )
+    db_session.add(booking)
+    await db_session.flush()
+
+    with pytest.raises(IntegrityError):
+        db_session.add(
+            Purchase(
+                user_id=UUID(user_data["user"]["id"]),
+                practice_id=UUID(practice_id),
+                booking_id=booking.id,
+                amount_cents=50,
+                discount_cents=100,
+                paid_cents=-50,
+                commission_cents=0,
+                status=PurchaseStatus.PENDING.value,
+            )
+        )
+        await db_session.commit()
+    await db_session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_purchase_zero_cents_free_practice_still_succeeds_at_db(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """The regression the W5 constraints must NOT cause: a free practice's
+    all-zero Purchase row (amount/discount/paid/commission_cents=0) is
+    legitimate and must still insert cleanly under >= 0 (not > 0, unlike
+    withdrawals) constraints. Mirrors test_free_practice_with_promo, but
+    asserts directly at the ORM/DB layer rather than through the HTTP
+    response. This is the test that matters -- the one a > 0 constraint
+    would have broken."""
+    master_data = await _make_verified_master(client, db_session, 81082)
+    practice_id = await _create_practice(client, master_data, is_free=True)
+    user_data = await login_user(client, telegram_id=81083, first_name="Buyer")
+
+    booking = Booking(
+        practice_id=UUID(practice_id),
+        user_id=UUID(user_data["user"]["id"]),
+        status=BookingStatus.CONFIRMED.value,
+    )
+    db_session.add(booking)
+    await db_session.flush()
+
+    purchase = Purchase(
+        user_id=UUID(user_data["user"]["id"]),
+        practice_id=UUID(practice_id),
+        booking_id=booking.id,
+        amount_cents=0,
+        discount_cents=0,
+        paid_cents=0,
+        commission_cents=0,
+        status=PurchaseStatus.PENDING.value,
+    )
+    db_session.add(purchase)
+    await db_session.commit()  # must NOT raise
