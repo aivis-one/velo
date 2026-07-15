@@ -85,26 +85,44 @@
       </template>
 
       <!-- ================= SENT (pending) =================
-           White VCard подложка, no buttons, vertically centered (K2). -->
+           White VCard подложка, vertically centered (K2). A discreet text
+           link (F4, not a block button -- ПРОМТ №418: this screen exists so
+           a person waits calmly; a full-width button would read as an
+           invitation to leave). -->
       <template v-else>
         <VCard class="pending-view__card">
           <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
           <h2 class="pending-view__title">Заявка отправлена!</h2>
           <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
+          <button type="button" class="pending-view__withdraw-link" @click="confirmWithdrawOpen = true">
+            Отозвать заявку
+          </button>
         </VCard>
       </template>
     </div>
+
+    <VConfirmDialog
+      :open="confirmWithdrawOpen"
+      message="Отозвать заявку? Вы вернётесь к обычному аккаунту пользователя. Подать новую заявку можно в любой момент."
+      confirm-label="Отозвать"
+      danger
+      :loading="withdrawing"
+      @confirm="onWithdraw"
+      @cancel="confirmWithdrawOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VButton, VLoader, VCard } from '@/components/ui'
+import { VButton, VLoader, VCard, VConfirmDialog } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
-import { masterApprovedSeenKey, masterRejectionSeenKey } from '@/utils/constants'
+import { withdrawMasterApplication } from '@/api/masters'
+import { ApiResponseError } from '@/api/client'
+import { MASTER_APPLIED_KEY, masterApprovedSeenKey, masterRejectionSeenKey } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
@@ -119,6 +137,11 @@ const switching = ref(false)
 // in authStore.allowedRoles (GET /users/me role_switch). So:
 //   role='master'                    -> the loaded profile status.
 //   role='user' + capability(master) -> approved ('verified').
+//   role='user' + cancelled_by_user  -> withdrawn (F4: onMounted bounces this
+//                                       to /user/dashboard, same destination
+//                                       masterPendingGuard's "neither" case
+//                                       already sends a never-applied user to
+//                                       -- no dedicated card, see onMounted).
 //   otherwise                        -> 'pending'.
 // (A rejected applicant is role='user' with no capability -> shows 'pending'
 //  here; surfacing the rejection to a role='user' account is deferred to T5.)
@@ -129,6 +152,7 @@ const profileStatus = computed(() => {
   // is surfaced on GET /users/me (master_application) so the reject screen is
   // reachable without the master-only /masters/me endpoint.
   if (authStore.masterApplication?.status === 'rejected') return 'rejected'
+  if (authStore.masterApplication?.status === 'cancelled_by_user') return 'withdrawn'
   return 'pending'
 })
 
@@ -164,6 +188,13 @@ onMounted(async () => {
   if (profileStatus.value === 'rejected' && authStore.user?.id) {
     localStorage.setItem(masterRejectionSeenKey(authStore.user.id), '1')
   }
+  // F4: a withdrawn application has nothing left to show here -- bounce to
+  // the ordinary user dashboard, same destination masterPendingGuard already
+  // sends a never-applied user to. Covers a stale/second tab that lands on
+  // this route after the withdraw button (below) already navigated away.
+  if (profileStatus.value === 'withdrawn') {
+    router.replace({ name: 'user-dashboard' })
+  }
 })
 
 // -- Enter master mode -- (T4: approved applicant self-switches role user->master)
@@ -183,6 +214,36 @@ async function enterMasterMode(): Promise<void> {
     toast.error('Не удалось переключиться в режим мастера')
   } finally {
     switching.value = false
+  }
+}
+
+// -- Withdraw application -- (F4: candidate pulls back their own pending
+// application; status flip only, the account stays an ordinary user)
+const confirmWithdrawOpen = ref(false)
+const withdrawing = ref(false)
+
+async function onWithdraw(): Promise<void> {
+  if (withdrawing.value) return
+  withdrawing.value = true
+  try {
+    await withdrawMasterApplication()
+    // Drop the applicant marker so a future load of this route (or the
+    // guard) doesn't mistake a stale session for a still-pending applicant.
+    sessionStorage.removeItem(MASTER_APPLIED_KEY)
+    toast.success('Заявка отозвана')
+    router.replace({ name: 'user-dashboard' })
+  } catch (e) {
+    // 409 means someone else (e.g. an admin) already acted on it between
+    // opening this dialog and confirming -- a generic message covers both
+    // that race and any other failure without guessing which happened.
+    const msg =
+      e instanceof ApiResponseError
+        ? e.detail
+        : 'Не удалось отозвать заявку'
+    toast.error(msg)
+  } finally {
+    withdrawing.value = false
+    confirmWithdrawOpen.value = false
   }
 }
 
@@ -255,6 +316,20 @@ async function enterMasterMode(): Promise<void> {
   max-width: 300px;
   line-height: 1.5;
   margin: 0;
+}
+
+/* -- Withdraw link (F4): deliberately quiet -- text button, not a CTA. -- */
+.pending-view__withdraw-link {
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 /* -- Rejection reason (amber) -- */
