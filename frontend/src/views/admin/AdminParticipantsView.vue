@@ -51,6 +51,18 @@
       </div>
     </template>
 
+    <!-- W12 fix (ПРОМТ №409): a failed load used to fall through to the same
+         "нет данных" empty state as a genuinely empty list -- indistinguishable
+         to the admin, who'd read it as "no participants" rather than "retry". -->
+    <VEmptyState
+      v-else-if="error"
+      icon="warning"
+      title="Не удалось загрузить участников"
+      description="Проверьте соединение и попробуйте ещё раз"
+    >
+      <template #action><VButton variant="primary" @click="load(true)">Повторить</VButton></template>
+    </VEmptyState>
+
     <VCard v-else-if="!loading">
       <p class="admin-list__empty">Данных пока нет</p>
     </VCard>
@@ -60,7 +72,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { VBackButton, VSegment, VButton, VCard } from '@/components/ui'
+import { VBackButton, VSegment, VButton, VCard, VEmptyState } from '@/components/ui'
 import type { SegmentOption } from '@/components/ui/VSegment.vue'
 import { IconProfile, IconMessages } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
@@ -83,6 +95,7 @@ const filter = ref<ParticipantFilter>('all')
 const participants = ref<AdminParticipant[]>([])
 const total = ref(0)
 const loading = ref(false)
+const error = ref(false)
 const hasMore = computed<boolean>(() => participants.value.length < total.value)
 
 // Header + «Все» badge show the real platform total from /admin/stats (loaded
@@ -101,6 +114,7 @@ const segOptions = computed<SegmentOption[]>(() => [
 async function load(reset: boolean): Promise<void> {
   if (loading.value) return
   loading.value = true
+  if (reset) error.value = false
   try {
     const pageOffset = reset ? 0 : participants.value.length
     const res = await getParticipants(filter.value, 'week', 0, PAGE, pageOffset)
@@ -108,6 +122,11 @@ async function load(reset: boolean): Promise<void> {
     participants.value = reset ? res.items : [...participants.value, ...res.items]
   } catch {
     toast.error('Не удалось загрузить участников')
+    // A failed initial/filter load (reset) means the list below is genuinely
+    // unknown, not empty -- render the real error state (W12) instead of
+    // falling through to "Данных пока нет". A failed loadMore leaves the
+    // already-loaded page visible; the toast is enough there.
+    if (reset) error.value = true
   } finally {
     loading.value = false
   }
