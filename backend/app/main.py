@@ -116,10 +116,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # never actually added. Without it, STRIPE_SECRET_KEY="TEST" left over in
     # a production .env silently free-credits every topup (stub mode skips
     # Stripe and instantly succeeds) with no warning anywhere.
-    if settings.app_env != "development" and settings.is_stripe_stub:
+    #
+    # W6 hotfix: the first version of this guard used
+    # `app_env != "development"`, which took down TEST -- the TEST server's
+    # own .env sets APP_ENV=production, so the env name can't distinguish
+    # TEST (where the stub is intentional) from real prod. The gate is now
+    # the explicit ALLOW_STRIPE_STUB flag (settings.is_stripe_stub_blocked),
+    # set on TEST only. Prod has a real Stripe key, so is_stripe_stub is
+    # False there and the flag is never consulted -- nothing to forget.
+    if settings.is_stripe_stub_blocked:
         raise RuntimeError(
-            "STRIPE_SECRET_KEY='TEST' (stub mode) is not allowed outside "
-            "development -- set a real Stripe secret key."
+            "STRIPE_SECRET_KEY='TEST' (stub mode) is not allowed here -- "
+            "set a real Stripe secret key, or set ALLOW_STRIPE_STUB=true "
+            "if this is genuinely a test server."
         )
 
     processor_task: asyncio.Task | None = None

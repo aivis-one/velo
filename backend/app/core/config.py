@@ -22,10 +22,13 @@
 #   have no defaults -- the app refuses to start without a proper .env.
 #   In development, safe defaults are provided for convenience.
 #
-# WARNING-5: STRIPE_STUB is disallowed in production.
+# WARNING-5 / W6: STRIPE_STUB is disallowed unless explicitly opted in.
 #   If STRIPE_SECRET_KEY="TEST", webhook signature verification is skipped.
-#   lifespan() in main.py raises at startup if this happens in production
-#   (not here -- this module is imported by Alembic before app startup).
+#   lifespan() in main.py raises at startup if is_stripe_stub_blocked is
+#   True (not here -- this module is imported by Alembic before app
+#   startup). The gate is NOT app_env: the TEST server's own .env sets
+#   APP_ENV=production, so an env-name check can't tell TEST from prod.
+#   See allow_stripe_stub / is_stripe_stub_blocked below for the real gate.
 # =============================================================================
 
 from pydantic import model_validator
@@ -228,6 +231,17 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_success_url: str = ""
     stripe_cancel_url: str = ""
+    # W6 hotfix: explicit opt-in for running with the Stripe stub outside a
+    # dev laptop. Defaults to False on purpose -- forget to set it and the
+    # app refuses to start, never the other way around. app_env cannot be
+    # used for this decision: the TEST server's own .env sets
+    # APP_ENV=production (it calls itself "production"), so a check keyed
+    # off the env name blocks TEST as if it were prod. Set
+    # ALLOW_STRIPE_STUB=true only on servers where the stub is genuinely
+    # intentional (TEST). Never set it where a real Stripe key belongs --
+    # prod has a real key, so is_stripe_stub is False there and this flag
+    # is never consulted.
+    allow_stripe_stub: bool = False
 
     # -- Topup limits (Phase 6.3) --
     # All amounts in EUR cents.
@@ -466,10 +480,12 @@ class Settings(BaseSettings):
                     "provide your Telegram WebApp cancel page URL."
                 )
 
-        # WARNING-5: STRIPE_STUB check is intentionally NOT here.
+        # WARNING-5 / W6: STRIPE_STUB check is intentionally NOT here.
         # config.py is imported by Alembic migrations before app startup,
         # so a startup-only guard must live in main.py lifespan, not here.
-        # See: lifespan() in main.py for the actual runtime enforcement.
+        # See: is_stripe_stub_blocked above, enforced in lifespan() in
+        # main.py. Two prior comments here claimed this guard existed
+        # when it never did (the W6 incident) -- it now actually does.
 
         # CORS_ORIGINS: must not be wildcard in production (S-04).
         if not is_dev and self.cors_origins == "*":
@@ -517,6 +533,15 @@ class Settings(BaseSettings):
     def is_stripe_stub(self) -> bool:
         """True when Stripe is not configured (keys set to 'TEST')."""
         return self.stripe_secret_key.upper() == "TEST"
+
+    @property
+    def is_stripe_stub_blocked(self) -> bool:
+        """True when startup must refuse: stubbed Stripe, not a dev laptop,
+        and not explicitly allowed via ALLOW_STRIPE_STUB. See
+        allow_stripe_stub above for why app_env alone can't make this call.
+        """
+        is_dev = self.app_env == "development"
+        return not is_dev and self.is_stripe_stub and not self.allow_stripe_stub
 
 
 # Singleton: one Settings instance for the entire application.
