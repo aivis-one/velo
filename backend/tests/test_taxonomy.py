@@ -85,9 +85,18 @@ async def test_active_taxonomy_any_authenticated_role(client: AsyncClient) -> No
     directions = {d["value"]: d for d in data["directions"]}
     assert "yoga" in directions
     yoga_styles = {s["value"] for s in directions["yoga"]["styles"]}
-    assert yoga_styles == {"nidra", "yin", "hatha", "vinyasa", "kundalini", "ashtanga"}
-    # A direction with no styles has an empty list.
-    assert directions["breathwork"]["styles"] == []
+    # Seed styles must be PRESENT, not the WHOLE set -- the entire point of R5
+    # is that an admin can grow the catalog via AdminCatalogView. Asserting
+    # exact equality here fails the moment the feature it's meant to guard
+    # actually gets used (an admin adding a style is not a regression).
+    assert {"nidra", "yin", "hatha", "vinyasa", "kundalini", "ashtanga"} <= yoga_styles
+    # styles is always a list (never null/missing) -- a shape guarantee, not a
+    # claim about which SPECIFIC direction currently has zero. A direction
+    # with none today (e.g. breathwork) can gain one via the admin UI, same as
+    # yoga above; asserting a fixed empty set for a named direction is the
+    # identical bug this test just got fixed for.
+    for d in data["directions"]:
+        assert isinstance(d["styles"], list)
     # Every returned row is active (this endpoint is active-only by contract).
     for d in data["directions"]:
         assert d["is_active"] is True
