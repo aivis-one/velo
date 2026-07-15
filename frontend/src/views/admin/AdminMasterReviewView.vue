@@ -197,18 +197,12 @@
         <div class="mreview__row">
           <div class="mreview__k">Направления практик</div>
           <div v-if="editingMethods" class="mreview__methods-edit">
-            <div class="mreview__chips">
-              <VChip
-                v-for="m in methodOptions"
-                :key="m"
-                size="md"
-                clickable
-                :active="methodsDraft.includes(m)"
-                @click="toggleMethodDraft(m)"
-              >
-                {{ m }}
-              </VChip>
-            </div>
+            <!-- T4/F2-F6 (ПРОМТ №409): swapped the flat legacy AVAILABLE_METHODS
+                 toggle for the writable two-level picker, mirroring the swap
+                 already done in EditProfileView.vue -- an admin can now pick a
+                 fresh Направление→Вид pair from the R5 DB catalog, not just
+                 toggle among pre-existing flat strings. -->
+            <MethodTaxonomyPicker v-model="methodsDraft" />
             <p v-if="methodsError" class="mreview__methods-err">{{ methodsError }}</p>
             <div class="mreview__methods-actions">
               <VButton variant="ghost" size="sm" :disabled="savingMethods" @click="cancelMethods">
@@ -435,7 +429,6 @@ import type {
 } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
-import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
 import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
 import { parseMethods, flattenMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
@@ -498,13 +491,6 @@ const languageOptions = computed<string[]>(() => {
   return [...set]
 })
 
-// Editor chips = the shared taxonomy plus any custom methods the master already
-// has (so a custom entry can be kept/removed, not silently dropped).
-const methodOptions = computed<string[]>(() => {
-  const set = new Set<string>(AVAILABLE_METHODS)
-  for (const m of methods.value) set.add(m)
-  return [...set]
-})
 const documents = ref<{ name: string }[]>([])
 const history = ref<{ when: string; title: string; comment?: string }[]>([])
 
@@ -595,12 +581,6 @@ function startMethods(): void {
   methodsDraft.value = [...methods.value]
   methodsError.value = ''
   editingMethods.value = true
-}
-
-function toggleMethodDraft(m: string): void {
-  const i = methodsDraft.value.indexOf(m)
-  if (i === -1) methodsDraft.value.push(m)
-  else methodsDraft.value.splice(i, 1)
 }
 
 function cancelMethods(): void {
