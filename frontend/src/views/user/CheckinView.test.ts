@@ -470,7 +470,10 @@ describe('CheckinView', () => {
   })
 
   // ===========================================================================
-  // GATE 2 -- alreadyCheckedIn (.vue:128, :137). The one-shot rule.
+  // GATE 2 -- alreadyCheckedIn (.vue:128, :137). A UI gate over a PERMISSIVE api:
+  // upsertCheckin is an upsert and would accept a second call, overwriting the
+  // recorded mood/comment (api/diary.ts:50-55). So the backend will not catch a
+  // bug here and these tests are the only thing holding the gate.
   // ===========================================================================
   describe('one check-in per booking', () => {
     it('an existing check-in replaces the FORM with the success screen at mount', async () => {

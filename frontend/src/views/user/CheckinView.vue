@@ -122,9 +122,20 @@ const windowClosed = computed<boolean>(() => {
   return nowMs.value > new Date(s).getTime()
 })
 
-// One check-in per booking (hard rule). The booking list already carries
-// `has_checkin`, so we read it from there instead of an extra request.
-// When true, the form is replaced by the success screen and submit is blocked.
+// One check-in per booking -- OUR product decision, NOT an API constraint. The
+// endpoint is an upsert and would happily accept a second one, overwriting the
+// mood/comment already recorded (api/diary.ts:50-55). We block it because a
+// check-in is a moment, not a document: it says how you felt before the
+// practice, and letting it be rewritten later makes it worth less.
+//
+// So this is a UI gate over a permissive API, and the backend will NOT catch a
+// bug here. Do not read it as "the server enforces one" -- an earlier version of
+// this comment called it a "hard rule" and that wording alone got the screen's
+// risk scored wrong (№443).
+//
+// The booking list already carries `has_checkin`, so we read it from there
+// instead of an extra request. When true, the form is replaced by the success
+// screen and submit is blocked.
 const alreadyCheckedIn = computed<boolean>(() =>
   bookingsStore.bookings.some((b) => b.practice_id === practiceId && b.has_checkin),
 )
