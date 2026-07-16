@@ -22,6 +22,24 @@ TOKENS_CSS = 'frontend/src/styles/variables.css'
 OUT = '.tmp/design-questions.html'
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# The app's REAL backdrop (global.css:236). Cards must be shown standing on THIS,
+# not on white -- see BACKDROP below.
+BG_SRC = 'frontend/public/bg/background.png'
+BG_DST = '.tmp/_bg.png'
+
+# BACKDROP -- the bug that made the first build of this page look broken
+# (ПРОМТ №437). VELO's cards are white (--velo-bg-card-solid #ffffff) with a
+# WHITE rim (--velo-border-card #ffffff). The first version of this page put
+# them on a white panel, so card and rim and panel were all #ffffff and the
+# "today" card rendered as literally nothing -- the flat-vs-elevated comparison
+# had an empty left column and read as a broken page.
+#
+# It was not a CSS mistake so much as a CONTEXT mistake: the app does not stand
+# its cards on white. body paints url('/bg/background.png') (global.css:236), and
+# the white rim is what separates a white card FROM THAT PHOTO. Shown on the real
+# backdrop the rim does visible work, and "are the shadows switched off or
+# deliberate?" becomes an honest question instead of a leading one.
+
 
 def strip_css_comments(t):
     return re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), t, flags=re.S)
@@ -122,8 +140,11 @@ def main():
   .banner { display:flex; gap:12px; border:1px solid; border-radius:10px;
             padding:14px 16px; }
   .banner b { display:block; font-weight:600; margin-bottom:2px; }
-  .card { background:#fff; border:1px solid %(bordercard)s; border-radius:12px;
-          padding:18px; }
+  /* The app's real backdrop -- cards MUST stand on this, not on white. */
+  .stage { background:url('_bg.png') center/cover no-repeat; border-radius:10px;
+           padding:20px; border:1px solid #dae2ec; }
+  .card { background:%(cardbg)s; border:1px solid %(bordercard)s;
+          border-radius:12px; padding:18px; color:#243447; }
   .stack { display:flex; flex-direction:column; gap:16px; }
   .note { color:#5b6b80; font-size:13.5px; margin-top:10px; }
 </style>
@@ -132,7 +153,7 @@ def main():
 <p class="lede">Здесь только то, что нельзя решить по хекс-кодам: надо посмотреть.
 Значения прочитаны прямо из <code>variables.css</code> — страница не может разойтись
 с системой. Ничего не изменено, это вопросы.</p>
-''' % {'bordercard': val('--velo-border-card')}
+''' % {'bordercard': val('--velo-border-card'), 'cardbg': val('--velo-bg-card-solid')}
 
     # ---- 1. shadows
     html += '''
@@ -142,24 +163,25 @@ def main():
   Но два компонента ТРЕБУЮТ тень и получают пустоту:
   <b>модальное окно</b> (<code>VModal</code> просит <code>--shadow-xl</code>) и
   <b>карточка-цифра</b> (<code>VStatCard</code> просит <code>--shadow-md</code>).
-  Модалка висит над контентом без единой тени. Слева — как сейчас, справа — с тенью.
-  Что правильно?</div>
+  Карточки стоят на настоящем фоне приложения — белый кант карточки отделяет её
+  от фото. Вопрос: канта достаточно, или модалке нужна тень, чтобы оторваться от
+  контента?</div>
   <div class="row">
     <div class="col">
       <p class="cap">Сейчас (тень = none)</p>
-      <div class="stack">
+      <div class="stage"><div class="stack">
         <div class="card">
           <b>Всего практик</b><div style="font-size:30px">128</div>
         </div>
         <div class="card" style="box-shadow:none">
           <b>Модальное окно</b>
-          <div class="note">Граница есть, тени нет — окно «лежит» на фоне.</div>
+          <div class="note">Только белый кант. Тени нет.</div>
         </div>
-      </div>
+      </div></div>
     </div>
     <div class="col">
       <p class="cap">Если тень включить</p>
-      <div class="stack">
+      <div class="stage"><div class="stack">
         <div class="card" style="box-shadow:0 1px 3px rgba(36,52,71,.14)">
           <b>Всего практик</b><div style="font-size:30px">128</div>
         </div>
@@ -167,11 +189,13 @@ def main():
           <b>Модальное окно</b>
           <div class="note">Окно отрывается от фона.</div>
         </div>
-      </div>
+      </div></div>
     </div>
   </div>
   <p class="note">Свечение при этом работает: <code>--velo-shadow-glow</code>
-  (<code>%s</code>) используется на 15 экранах. Выключена именно лесенка теней.</p>
+  (<code>%s</code>) используется на 15 экранах. Выключена именно лесенка теней.
+  Поэтому «плоско задумано» — правдоподобный ответ: кант уже делает работу.
+  Но тогда почему <code>VModal</code> просит <code>--shadow-xl</code>?</p>
 </section>''' % val('--velo-shadow-glow')
 
     # ---- 2. error banner trap
@@ -235,6 +259,12 @@ def main():
   он покрасит и фон. Показываем, чтобы ты это видел, а не чтобы менять.
   Исключение — <code>--velo-bg-end</code> внизу: он не используется нигде,
   то есть градиент фона «из белого в белый» просто не существует.</div>
+  <p class="cap">Белый кант на настоящем фоне — он делает видимую работу</p>
+  <div class="stage" style="margin-bottom:18px">
+    <div class="card"><b>Карточка практики</b>
+    <div class="note">Белый фон + белый кант. На фото это читается как край карточки —
+    поэтому шесть «одинаковых» белых не одно и то же.</div></div>
+  </div>
 ''' + ''.join(sw(n) for n in white) + '</section>'
 
     html += '''
@@ -243,8 +273,28 @@ def main():
 </div>'''
 
     os.makedirs('.tmp', exist_ok=True)
+
+    # Copy the app's real backdrop next to the page. The page is served from
+    # .tmp by the tmp-static launch entry, which cannot reach frontend/public.
+    import shutil
+    if os.path.exists(BG_SRC):
+        shutil.copyfile(BG_SRC, BG_DST)
+    else:
+        print('WARNING: %s missing -- cards will render on a flat panel and the '
+              'white rim will be invisible. Fix the path, do not ship this.' % BG_SRC)
+
+    # SELF-CHECK: refuse to ship a page whose demo cards are invisible. This is
+    # the exact bug that shipped in the first build -- card, rim and panel all
+    # #ffffff, so the "today" column rendered as nothing and the page read as
+    # broken. Cheap guard against showing the operator a lie.
+    if val('--velo-bg-card-solid').lower() == val('--velo-border-card').lower() \
+            and not os.path.exists(BG_DST):
+        print('ABORT: card background == card border and no backdrop to stand them on.')
+        sys.exit(1)
+
     io.open(OUT, 'w', encoding='utf-8', newline='').write(html)
     print('wrote %s (%d bytes)' % (OUT, len(html)))
+    print('backdrop: %s' % ('copied ' + BG_DST if os.path.exists(BG_DST) else 'MISSING'))
 
 
 if __name__ == '__main__':
