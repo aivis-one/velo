@@ -1224,7 +1224,18 @@ Triggered by velo update on commit $NEW_COMMIT" || {
         # -- 4. Build and start frontend (with fresh types) --
         echo ""
         echo "Building frontend (tests run during build)..."
-        $COMPOSE_CMD build frontend
+        # The frontend Dockerfile runs `npm run test` before bundling, so a red
+        # test aborts THIS build. Without checking the exit code the script would
+        # fall through to `up -d` and silently restart the PREVIOUS image while
+        # printing success -- the gate would exist but never fire. manage.sh has
+        # no `set -e`, so the check must be explicit (same shape as the backend
+        # test gate above).
+        if ! $COMPOSE_CMD build frontend; then
+            echo -e "${RED}✗ FRONTEND BUILD FAILED (unit tests run inside the build)${NC}"
+            echo "Nothing was deployed -- the previous frontend image is still running."
+            echo "Fix the code and run: velo update"
+            exit 1
+        fi
         $COMPOSE_CMD up -d frontend
 
         # Health check
