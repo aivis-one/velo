@@ -3,7 +3,7 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.3.0
+# screen-test v1.4.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
@@ -109,6 +109,13 @@ Getting this wrong produces a test that mocks the wrong layer and asserts nothin
 
 Before writing, grep the screen for each and plan a seam:
 
+**Prove ABSENCE too, and say so in the banner.** Most screens have none of these. If you grepped
+`v-show`, the wall clock, `formatMoney` or an overlay and found nothing, write that in the banner —
+otherwise the next agent cargo-cults `vi.setSystemTime` and an overlay purge onto a screen with
+neither, and dead setup carrying a false justification is worse than no setup. Precedent:
+`MasterPracticesView.test.ts` (records that its panes are `v-if`, unlike AnalyticsView's `v-show`, so
+nobody copies the scoping across).
+
 | Found | Do this |
 |---|---|
 | `useRouter` / `useRoute` | mock `vue-router` → `{ push: vi.fn(), back: vi.fn(), replace: vi.fn() }`. Never build a real router. |
@@ -178,5 +185,5 @@ any real finds, any screens rejected as untestable and why.
 
 ## Anchor
 
-[*] screen-test v1.3.0 * ready
+[*] screen-test v1.4.0 * ready
 [>] | NEXT: user command

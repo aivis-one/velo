@@ -168,3 +168,32 @@ function reviewsPane(): HTMLElement { return host.querySelector('.analytics__bod
 ```
 Live case: `AnalyticsView.vue:54,175` — currently the only `v-show` tabs in `views/`, so grep
 `v-show` before assuming a screen is safe. Precedent: `AnalyticsView.test.ts`.
+
+**The tab STRIP is a second, subtler instance.** Even on a `v-if` screen the tab buttons are always
+mounted, so `expect(text()).toContain('Прошедшие')` is unfailable — it matches the button, not the
+pane. Read the active tab off `aria-selected` or the rendered list. Live: `MasterPracticesView.test.ts`
+(a `v-if` screen where SC-14 does *not* bite the panes but *does* bite the strip).
+
+## SC-15 — Negative-space assertion over a possibly-empty list
+The natural way to prove a filter excludes something:
+```ts
+expect(titles()).not.toContain('Отменённая')   // <- also passes if NOTHING rendered
+```
+A `not.toContain` is satisfied by a mount that rendered nothing at all — a broken fixture, a failed
+flush, a wrong tab. The test then guards a filter that may not even run. This is the natural failure
+mode of **any screen whose behaviour IS a filter**, which is most list screens.
+
+**Instead:** pin the positive set FIRST, then the exclusion is real:
+```ts
+expect(titles()).toEqual(['Завтрашняя', 'Через неделю'])   // proves the list rendered AND excluded
+```
+Precedent: `MasterPracticesView.test.ts`.
+
+## SC-16 — A fixture longer than the screen's own preview cap
+A screen that caps its list (`slice(0, 5)`, "показать ещё") will silently drop the tail of your
+fixture. Build a 4-case boundary fixture on a 3-row cap and the case you actually care about — the
+last one — never mounts. The test passes, having proven nothing about it.
+
+**Instead:** assert the row COUNT first, or expand before asserting per-row derivations. `toEqual` on
+the full set catches it; `toContain` passes vacuously. Live: `MasterStudentProfileView.test.ts`, where
+a 4-rating boundary fixture rendered 3 rows and the `8 → Огонь!` case never existed.

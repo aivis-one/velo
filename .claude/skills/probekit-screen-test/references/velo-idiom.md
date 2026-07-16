@@ -172,6 +172,17 @@ vi.mock('@/stores/master', () => ({
 ```
 Same trick for a mutable platform name (`stores/auth.test.ts:30-59`).
 
+**The getter is load-bearing against a TDZ crash, not just a convenience.** `vi.mock` factories are
+HOISTED above the test file's `const`s. A factory referencing a spy at its TOP level —
+`vi.mock('@/platform', () => ({ platform: { openLink } }))` — throws *"Cannot access 'openLink'
+before initialization"* as soon as the mocked module is imported EAGERLY (`stores/auth.ts` imports
+`@/platform`, so the factory runs during the `.vue` import, before your consts exist).
+
+The `vue-router` / `useToast` factories survive identically-shaped code only because their spies sit
+inside a nested arrow nobody calls until mount. The rule: **a spy referenced at factory top level
+needs the getter; one referenced inside a returned function does not.** Found on
+`MasterDashboardView.test.ts`.
+
 ## §6 Router: mock `vue-router`, never build one
 
 No test builds a router. Guards are called **bare** through a cast helper
@@ -276,3 +287,17 @@ Live precedent: `MasterFinanceView.test.ts:123-135`, `AdminRevenueView.test.ts:9
 normalise THREE space variants — NBSP (`\u00A0`), narrow NBSP (`\u202F`), thin space
 (`\u2009`) — because the exact codepoint Intl emits varies by Node/ICU build. Pinning a
 single one writes a test that breaks on a runtime upgrade for no reason.
+
+### Writing the escapes is harder than knowing the rule — plan for it
+Four agents have now typed literal NBSPs into the very `norm()` written to defeat them, each having
+just read this section. Knowing the rule does not save you; the characters are invisible.
+- **Patch via a SCRIPT FILE, not an inline shell command.** A quoted heredoc or `python -c` collapses
+  `\\u00A0` into a real NBSP before your code ever sees it — the fix silently writes the bug back in.
+- **The Edit tool cannot reliably match a literal NBSP** in `old_string`, so a file that already has
+  them resists the obvious repair. Rewrite the region from a script instead.
+- **Verify by CODEPOINT SCAN, never by reading.** Reading the file back shows a space either way:
+```python
+bad = [n+1 for n,l in enumerate(open(p, encoding='utf-8').read().split(chr(10)))
+       if any(c in l for c in (chr(0xA0), chr(0x202F), chr(0x2009)))]
+```
+- ESLint's `no-irregular-whitespace` also catches it — but only if you run it.
