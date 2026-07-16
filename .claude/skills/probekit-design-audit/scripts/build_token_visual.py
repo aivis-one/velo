@@ -89,7 +89,22 @@ def main():
         return R.get(n, '')
 
     def sw(n):
-        """One swatch: the colour, its name, its value, and who paints it."""
+        """One swatch: the colour, its name, its value, and who paints it.
+
+        A token this page names may since have been DELETED (ПРОМТ №437 removed
+        24 of them). val() would then return '' and the chip would render with no
+        background -- an invisible swatch, the same class of bug that made the
+        first build of this page look broken. Say «удалён» out loud instead."""
+        if n not in R:
+            return '''
+      <div class="sw">
+        <div class="chip" style="background:repeating-linear-gradient(45deg,#eef2f7,#eef2f7 6px,#dae2ec 6px,#dae2ec 12px)"></div>
+        <div class="meta">
+          <code>%s</code>
+          <span class="val">удалён — ПРОМТ №437</span>
+          <div class="use"><span class="none">токена больше нет в системе</span></div>
+        </div>
+      </div>''' % n
         return '''
       <div class="sw">
         <div class="chip" style="background:%s"></div>
@@ -201,41 +216,44 @@ def main():
     # ---- 2. error banner trap
     html += '''
 <section>
-  <h2>2. Ошибка выглядит как предупреждение</h2>
-  <div class="q">Текст ошибки и текст предупреждения — один и тот же коричневый
-  <code>%(brown)s</code>. Ниже баннеры нарисованы ровно так, как их рисует код.
-  Отличается только фон; надпись одного цвета.
-  <b>Сегодня этого никто не видит</b> — <code>variant="error"</code> не отрисован
-  ни на одном экране. Это ловушка: сработает у того, кто первым сделает
-  error-баннер. Какого цвета должна быть ошибка?</div>
+  <h2>2. Ошибка выглядит как предупреждение — ИСПРАВЛЕНО</h2>
+  <div class="verdict">РЕШЕНО (ПРОМТ №437): ошибка теперь красная.
+  <code>--velo-error-text</code> был коричневым <code>#a16124</code> — тем же, что
+  у предупреждения; отличался только фон. Теперь это алиас
+  <code>--velo-danger-text</code>, красного, который в продукте уже означает
+  «плохо». Визуально сегодня не изменилось ничего: <code>variant="error"</code>
+  не отрисован ни на одном экране — ловушка закрыта до того, как в неё попали.
+  Ниже — что стало и что было.</div>
   <div class="row">
     <div class="col">
-      <p class="cap">Предупреждение — так выглядит сейчас</p>
+      <p class="cap">Предупреждение</p>
       <div class="banner" style="background:%(wbg)s;border-color:%(wbd)s">
-        <div><b style="color:%(brown)s">Внимание</b>
+        <div><b style="color:%(wtitle)s">Внимание</b>
         <span style="color:%(wbody)s">Практика начнётся через 10 минут</span></div>
       </div>
     </div>
     <div class="col">
-      <p class="cap">Ошибка — так выглядела бы</p>
+      <p class="cap">Ошибка — как сейчас, после правки</p>
       <div class="banner" style="background:%(ebg)s;border-color:%(ebd)s">
-        <div><b style="color:%(brown)s">Ошибка</b>
-        <span style="color:%(brown)s">Не удалось сохранить изменения</span></div>
+        <div><b style="color:%(etext)s">Ошибка</b>
+        <span style="color:%(etext)s">Не удалось сохранить изменения</span></div>
       </div>
     </div>
   </div>
-  <p class="note">Розовая рамка и розовый фон — а буквы коричневые, из палитры
-  предупреждения. Для сравнения — красный, который в системе уже есть
-  (<code>--velo-danger-text %(danger)s</code>, используется на кнопках «Выйти» / «Удалить»):</p>
+  <p class="note">Каждый баннер нарисован своими настоящими токенами из
+  <code>Banner.vue</code>: предупреждение — <code>--velo-peach-700</code>,
+  ошибка — <code>--velo-error-text</code> (теперь алиас
+  <code>--velo-danger-text %(etext)s</code>). Ниже — как ошибка выглядела ДО
+  правки: тот же коричневый, что у предупреждения, отличался только фон.</p>
   <div class="banner" style="background:%(ebg)s;border-color:%(ebd)s;margin-top:10px">
-    <div><b style="color:%(danger)s">Ошибка</b>
-    <span style="color:%(danger)s">Не удалось сохранить изменения</span></div>
+    <div><b style="color:%(wtitle)s">Ошибка</b>
+    <span style="color:%(wtitle)s">Не удалось сохранить изменения</span></div>
   </div>
 </section>''' % {
-        'brown': val('--velo-error-text'), 'wbg': val('--velo-glass-peach-40'),
+        'wtitle': val('--velo-peach-700'), 'wbg': val('--velo-glass-peach-40'),
         'wbd': val('--velo-warning-border'), 'wbody': val('--velo-peach-500'),
         'ebg': val('--velo-error-bg'), 'ebd': val('--velo-error-border'),
-        'danger': val('--velo-danger-text'),
+        'etext': val('--velo-error-text'),
     }
     html += '<section><h2>Тот же коричневый под тремя именами</h2>' \
             + ''.join(sw(n) for n in brown) + '</section>'
