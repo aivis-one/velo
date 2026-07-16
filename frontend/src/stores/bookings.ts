@@ -23,8 +23,14 @@ import {
 } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
-// Lazy cross-store use (called only inside actions) -- mirrors diary.ts using
-// useBookingsStore(); avoids a top-level circular evaluation.
+// One-way dependency: bookings -> diary. Used only inside actions, never at
+// module scope or in the store's setup body -- keep it that way.
+//
+// W27 (ПРОМТ №438): this comment used to read «mirrors diary.ts using
+// useBookingsStore(); avoids a top-level circular evaluation» -- true when
+// written, false now. diary.ts no longer imports this store (its
+// refreshBookings() call was redundant; the views already do it), so there is no
+// cycle left to avoid and nothing to mirror.
 import { useDiaryStore } from '@/stores/diary'
 import type { BookingWithPracticeResponse, BookingDetailResponse, BookingStatus } from '@/api/types'
 
