@@ -129,7 +129,10 @@ onUnmounted(() => {
   /* Плавающая шторка (overlay даёт отступ со всех сторон) -> скругляем ВСЕ
      углы. Радиус из DS-токена (--radius-md=15), а не сырой 20px. */
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xl);
+  /* box-shadow: var(--shadow-xl) removed ПРОМТ №437 (operator ruling: VELO is
+     flat). --shadow-xl was `none`, so this asked for a shadow and got nothing --
+     a leftover from before the flat decision. Removing it renders identically.
+     The modal is separated by its white rim + the scrim behind it. */
 }
 
 /* Inner scroll area: holds the padding and owns the vertical scroll, so the

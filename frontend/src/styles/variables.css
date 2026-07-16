@@ -7,6 +7,23 @@
  * F8-fix (W-4): Added semantic tint variables (bg, border, text) for
  * warning / error / success / alert states. Admin views use these instead
  * of hardcoded hex values.
+ *
+ * ---------------------------------------------------------------------------
+ * NAMING RULE (ПРОМТ №437, operator ruling) — FROZEN, NOT UNIFIED
+ *
+ * EVERY NEW TOKEN GETS THE --velo-* PREFIX. No exceptions.
+ *
+ * This file carries two styles: 161 tokens named --velo-*, and 43 bare ones
+ * (--space-*, --text-*, --radius-*, --shadow-*, --z-*, --font-*, --size-*,
+ * --transition-*). The bare ones are NOT being renamed and are NOT deprecated:
+ * they are correct, load-bearing, and heavily used (--font-body in 105 files,
+ * --space-2 in 102). Renaming them would touch 149 files and 1110 call sites —
+ * ~60% of the frontend — and buy exactly zero pixels and zero prevented bugs.
+ * That is churn on working code, and it was ruled out deliberately.
+ *
+ * So the split is FROZEN, not fixed: it stops growing, and what exists stays.
+ * Do not "tidy" the bare tokens. Do not add a 44th.
+ * ---------------------------------------------------------------------------
  * =========================================================================== */
 
 :root {
@@ -15,8 +32,10 @@
   --velo-primary-dark: #4c6589;
 
   /* === Colors: Background === */
+  /* --velo-bg-end removed ПРОМТ №437 (operator ruling): it was #ffffff with ZERO
+     consumers -- a «white to white» gradient that never existed. --velo-bg-start
+     stays: it is body's base colour (global.css:54) under the photo backdrop. */
   --velo-bg-start: #ffffff;
-  --velo-bg-end: #ffffff;
   --velo-bg-subtle: rgba(98, 122, 156, 0.06);
   /* --velo-bg-card (glass blue) removed 2026-06-03 — legacy, 0 uses; white cards
      use --velo-bg-card-solid; glass surfaces use --velo-glass-*. */
@@ -36,7 +55,11 @@
   --velo-success: #76dde6;
   --velo-warning: #fbc088;
   --velo-error: #f795a2;
-  --velo-info: #76dde6;
+  /* --velo-info removed ПРОМТ №437 (operator ruling). It was #76dde6 -- a
+     byte-identical copy of --velo-success -- with ZERO consumers, so «info» was
+     a semantic distinction that existed only in the name. The real info banner
+     paints itself blue (--velo-glass-blue-15, Banner.vue), which IS the live
+     semantic. --velo-info-bg / --velo-info-text went with it. */
   /* Filled required-marker green (IconRequiredDone «✓»). A distinct green — the
      palette had none; --velo-success is teal, a different brand colour. Operator-
      approved 2026-06-23. */
@@ -61,18 +84,30 @@
   --velo-error-bg-strong: rgba(247, 149, 162, 0.25);
   --velo-error-bg-subtle: #fff5f5;
   --velo-error-border: #f795a2;
-  --velo-error-text: #a16124;
-  /* Destructive-action text/icon (Выйти, Удалить) — stronger red than the soft
-     error-text above; from the profile / delete-account designs. */
+  /* Destructive-action text/icon (Выйти, Удалить) — the product's red. Also the
+     source for --velo-error-text below. */
   --velo-danger-text: #ad3444;
+  /* ПРОМТ №437 (operator ruling): error text was #a16124 -- the SAME brown as
+     --velo-warning-text and --velo-peach-700 -- so an error banner read as a
+     warning: identical letters, only the background differed. Almost certainly a
+     copy-paste from the warning block above.
+     Aliased to the red that already carries «this is bad» in this product,
+     rather than copying its hex: one edit re-themes both, and the intent is
+     stated instead of coincidental. (Declared AFTER its source, matching this
+     file's convention -- var() resolution does not care, readers do.)
+     Zero visual change TODAY -- the only consumer is Banner.vue:172's
+     `.banner--error`, and <Banner variant="error"> is rendered on no screen. This
+     closes the trap before the first error banner walks into it.
+     If «ошибка» and «удалить» should ever differ, give this its own value -- that
+     would then be a decision, not a leftover. */
+  --velo-error-text: var(--velo-danger-text);
 
   /* Success (green) */
   --velo-success-bg: rgba(118, 221, 230, 0.4);
   --velo-success-text: #26767d;
 
-  /* Info (blue) */
-  --velo-info-bg: rgba(118, 221, 230, 0.4);
-  --velo-info-text: #2f9ea8;
+  /* Info tints removed ПРОМТ №437 with --velo-info above -- zero consumers, and
+     --velo-info-bg duplicated --velo-success-bg byte for byte. */
 
   /* === Colors: Mood (Phase F9) === */
   --velo-mood-low: #f795a2;
@@ -132,11 +167,21 @@
   --radius-full: 9999px;
   --velo-radius-badge: 5px; /* единый радиус карточных бейджей-статусов (rect) */
 
-  /* === Shadows === */
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --shadow-xl: none;
+  /* === Shadows ===
+   * The elevation ladder (--shadow-sm/md/lg/xl + --velo-effect-elevation-1..3,
+   * all `none`) was REMOVED here, ПРОМТ №437, operator ruling: VELO is flat by
+   * design. This was already the documented intent -- the DS layer below carried
+   * «Effects — flat (elevation→none; depth = glow)» -- but seven tokens stayed
+   * behind resolving to `none`, so `var(--shadow-lg)` silently bought nothing.
+   * VModal and VStatCard still asked for a shadow (box-shadow: var(--shadow-xl)
+   * / var(--shadow-md)); those two declarations were vestigial and are gone too.
+   * Zero visual change: `none` and no declaration render identically.
+   *
+   * Depth in VELO = --velo-shadow-glow (below, live on 15 screens) + the white
+   * card rim (--velo-border-card) against the photo backdrop (global.css:236).
+   * If a drop shadow is ever wanted, it is a design decision -- do not
+   * reintroduce a `none` placeholder.
+   */
 
   /* === Transitions === */
   --transition-fast: 0.15s ease;
@@ -196,14 +241,15 @@
    * differently. Read by NAME via getComputedStyle (same idiom as the fog
    * tokens in MobileLayout), because the SDK takes a string, not a CSS var.
    *
-   * NOTE, not a bug and deliberately NOT changed: --velo-tg-bg (#f8fafc) is a
-   * slightly different white from --velo-bg-start (#ffffff) -- the webview
-   * behind the app is faintly cooler than the app itself. Visible only on
-   * overscroll, if at all. Reconciling them WOULD be a visual change, so it is
-   * the operator's call, not ours.
+   * --velo-tg-bg WAS #f8fafc -- a faintly cooler white than --velo-bg-start
+   * (#ffffff), so the webview behind the app did not match the app itself. Set
+   * to #ffffff, ПРОМТ №437 (operator ruling): one white, no seam on overscroll.
+   * This is the one change in this batch that CAN alter a pixel -- only where
+   * the Telegram webview shows through, i.e. overscroll.
+   * Keep this in step with --velo-bg-start: they are the same surface to a user.
    */
   --velo-tg-header: #334d6e;
-  --velo-tg-bg: #f8fafc;
+  --velo-tg-bg: #ffffff;
 
   /* === VELΘ: Glow shadow === */
   --velo-shadow-glow: 0px 0px 20.9px 7px #ffffff;
@@ -368,28 +414,25 @@
   --velo-pink-50: #fff5f5; /* NO SOURCE name (= error-bg-subtle) */
   --velo-pink-500: #d66674; /* NO SOURCE name (= rating-good) */
 
-  /* Motion primitives — fast/base/slow have source (= --transition-* durations);
-     instant/slower + all easings NO SOURCE (catalog; --transition-* keep `ease`) */
-  --velo-duration-instant: 100ms; /* NO SOURCE */
-  --velo-duration-fast: 150ms;
-  --velo-duration-base: 200ms;
-  --velo-duration-slow: 300ms;
-  --velo-duration-slower: 500ms; /* NO SOURCE */
-  --velo-ease-standard: cubic-bezier(0.2, 0, 0, 1); /* NO SOURCE */
-  --velo-ease-out: cubic-bezier(0, 0, 0.2, 1); /* NO SOURCE */
-  --velo-ease-in: cubic-bezier(0.4, 0, 1, 1); /* NO SOURCE */
-  --velo-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2); /* NO SOURCE */
+  /* MOTION SCALE REMOVED — ПРОМТ №437, operator ruling.
+   *
+   * 13 tokens deleted: --velo-duration-instant/fast/base/slow/slower,
+   * --velo-ease-standard/out/in/emphasized, --velo-motion-micro/quick/moderate/
+   * deliberate. A whole catalog imported from the retired DS showcase and never
+   * wired to anything: every easing and every motion pair had ZERO consumers,
+   * and the durations were alive only because the (dead) motion pairs aliased
+   * them. A dead chain end to end. Zero visual change.
+   *
+   * ⚠ NOT the same family as --transition-fast/base/slow ABOVE, which are VERY
+   * much alive (49 / 15 / 2 files). Those are VELO's real animation seam. If you
+   * came here to add motion, use --transition-*; do not re-import a parallel
+   * scale that nothing consumes.
+   */
 
-  /* Semantic motion pairs (catalog) */
-  --velo-motion-micro: var(--velo-duration-instant);
-  --velo-motion-quick: var(--velo-duration-fast);
-  --velo-motion-moderate: var(--velo-duration-base);
-  --velo-motion-deliberate: var(--velo-duration-slow);
-
-  /* Effects — flat (elevation→none; depth = glow); focus ring NO SOURCE */
-  --velo-effect-elevation-1: none;
-  --velo-effect-elevation-2: none;
-  --velo-effect-elevation-3: none;
+  /* Effects — flat by design: elevation is not a thing in VELO, depth = glow +
+     the white card rim. The three --velo-effect-elevation-* tokens (all `none`,
+     zero consumers) were removed ПРОМТ №437 together with --shadow-sm/md/lg/xl;
+     see the Shadows block above. */
   --velo-effect-glow: var(--velo-shadow-glow);
   --velo-effect-focus: 0 0 0 2px var(--velo-blue-500); /* NO SOURCE; 4.39:1 vs white */
 

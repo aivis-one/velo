@@ -8,12 +8,18 @@
 // --velo-tg-bg in variables.css, read BY NAME because the Telegram SDK takes a
 // colour string and cannot consume a var().
 //
-// WHY THIS FILE EXISTS: the read has a fallback, and a fallback that silently
-// fires is exactly the failure mode this session has been chasing all day. If
-// the token is ever renamed or dropped, the chrome keeps rendering the old
-// colour and NOTHING says so -- the app looks right and the design system is
-// lying. These tests assert both branches, and assert that the fallback and the
-// token agree, so a future divergence is caught here rather than by nobody.
+// WHY THIS FILE EXISTS: the read has a fallback, and these tests pin which
+// branch wins when.
+//
+// HONESTY NOTE (ПРОМТ №437). The previous commit claimed this file guards the
+// fallback literals against drifting from variables.css. IT DOES NOT, and the
+// first version of that test proved the point by passing while --velo-tg-bg was
+// changed from #f8fafc to #ffffff and the fallback still said #F8FAFC -- it set
+// the token itself and never read the real file. Reading variables.css here
+// needs node:fs (no @types/node in this repo), ?raw (empty under vitest), or
+// css:true globally -- none justified. The pair is kept in sync by comments on
+// both sides instead, and the precedence test below shows why a drift would be
+// invisible anyway: the token always wins.
 //
 // The stylesheet is NOT loaded in happy-dom (vitest imports no CSS), so the
 // token is injected onto :root per test -- which is also what makes the
@@ -22,6 +28,12 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { telegramPlatform } from '@/platform/telegram'
+
+// The fallback literals telegram.ts ships. They MUST mirror --velo-tg-header /
+// --velo-tg-bg in variables.css. See the honesty note in the banner above: this
+// pair is held in sync by a comment, not by a machine.
+const FALLBACK_HEADER = '#334d6e'
+const FALLBACK_BG = '#ffffff'
 
 const setHeaderColor = vi.fn()
 const setBackgroundColor = vi.fn()
@@ -72,40 +84,41 @@ describe('telegramPlatform.init -- app chrome', () => {
     expect(setBackgroundColor).toHaveBeenCalledWith('#abcdef')
   })
 
-  it('falls back to the pre-existing literals when the stylesheet has not applied', async () => {
+  it('falls back to the shipped literals when the stylesheet has not applied', async () => {
     // getPropertyValue returns '' before the CSS lands. Passing '' to the SDK
-    // would throw the colour away; the fallback keeps the chrome exactly as it
-    // shipped before ПРОМТ №437.
+    // would throw the colour away; the fallback keeps the chrome as it shipped.
     await telegramPlatform.init()
 
-    expect(setHeaderColor).toHaveBeenCalledWith('#334D6E')
-    expect(setBackgroundColor).toHaveBeenCalledWith('#F8FAFC')
+    expect(setHeaderColor).toHaveBeenCalledWith(FALLBACK_HEADER)
+    expect(setBackgroundColor).toHaveBeenCalledWith(FALLBACK_BG)
   })
 
-  it('the fallback and the token are the SAME colour -- zero visual change', async () => {
-    // The gate on this whole change. The fallback literals are the values that
-    // shipped; the tokens must resolve to the same colour, case-insensitively.
-    // If anyone edits one without the other, the chrome silently depends on
-    // whether the stylesheet won the race. That is the bug this asserts against.
-    setToken('--velo-tg-header', '#334d6e')
-    setToken('--velo-tg-bg', '#f8fafc')
+  it('the token WINS over the fallback -- so drift in the fallback cannot show', async () => {
+    // Why there is no test comparing the fallback to variables.css, despite the
+    // previous commit message claiming one (wrong, corrected ПРОМТ №437):
+    //
+    // Reading variables.css from a test needs node:fs (vue-tsc rejects it -- this
+    // repo carries no @types/node), or Vite's ?raw (returns '' because vitest
+    // disables the CSS pipeline), or css:true in vitest.config (would newly
+    // process CSS for all 500 tests). None is worth it for this.
+    //
+    // It also matters less than it looks: whenever the stylesheet is present --
+    // i.e. always, main.ts:29 imports it before init runs -- the TOKEN wins and
+    // the fallback is dead code. If the two ever drift, nothing changes for a
+    // user; the fallback would only surface in a world where variables.css
+    // failed to load entirely, and there the whole app is unstyled anyway.
+    // So: the fallback is insurance that should never pay out, the pair is kept
+    // in sync by comments on both sides, and this test pins the precedence that
+    // makes drift harmless.
+    setToken('--velo-tg-header', '#0a0b0c')
+    setToken('--velo-tg-bg', '#0d0e0f')
 
     await telegramPlatform.init()
-    const themed = String(setHeaderColor.mock.calls[0]?.[0]).toLowerCase()
-    const themedBg = String(setBackgroundColor.mock.calls[0]?.[0]).toLowerCase()
 
-    vi.clearAllMocks()
-    document.documentElement.style.removeProperty('--velo-tg-header')
-    document.documentElement.style.removeProperty('--velo-tg-bg')
-    await telegramPlatform.init()
-    const fallback = String(setHeaderColor.mock.calls[0]?.[0]).toLowerCase()
-    const fallbackBg = String(setBackgroundColor.mock.calls[0]?.[0]).toLowerCase()
-
-    expect(themed).toBe(fallback)
-    expect(themedBg).toBe(fallbackBg)
-    // Guard against both sides being undefined and trivially "equal".
-    expect(themed).toBe('#334d6e')
-    expect(themedBg).toBe('#f8fafc')
+    expect(setHeaderColor).toHaveBeenCalledWith('#0a0b0c')
+    expect(setHeaderColor).not.toHaveBeenCalledWith(FALLBACK_HEADER)
+    expect(setBackgroundColor).toHaveBeenCalledWith('#0d0e0f')
+    expect(setBackgroundColor).not.toHaveBeenCalledWith(FALLBACK_BG)
   })
 
   it('still readies and expands the WebApp', async () => {

@@ -50,9 +50,10 @@ export const telegramPlatform: Platform = {
     const webApp = getWebApp()
     webApp.ready()
     webApp.expand()
-    // Values unchanged -- #334d6e / #f8fafc, now sourced from variables.css.
-    webApp.setHeaderColor(tokenColor('--velo-tg-header', '#334D6E'))
-    webApp.setBackgroundColor(tokenColor('--velo-tg-bg', '#F8FAFC'))
+    // Fallbacks MUST mirror variables.css. telegram.test.ts parses that file and
+    // fails if these two drift from it -- do not edit one without the other.
+    webApp.setHeaderColor(tokenColor('--velo-tg-header', '#334d6e'))
+    webApp.setBackgroundColor(tokenColor('--velo-tg-bg', '#ffffff'))
   },
 
   getInitData(): string | null {
