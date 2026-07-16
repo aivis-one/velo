@@ -197,3 +197,35 @@ last one — never mounts. The test passes, having proven nothing about it.
 **Instead:** assert the row COUNT first, or expand before asserting per-row derivations. `toEqual` on
 the full set catches it; `toContain` passes vacuously. Live: `MasterStudentProfileView.test.ts`, where
 a 4-rating boundary fixture rendered 3 rows and the `8 → Огонь!` case never existed.
+
+### SC-14b — sibling sections that share their strings (a `v-show` grep will NOT save you)
+The SC-14 tripwires (`v-show`, tabs) can come back clean and the hazard still be there. A flat
+template with two `v-if` sections that reuse the same loader class and the same error copy makes
+`expect(text()).toContain('...')` pass when **either** section failed. The test cannot tell them
+apart, so it cannot fail for the right reason.
+
+**Detection:** two or more `<h2>`-delimited sections sharing an error/loader string. **Instead:**
+partition the DOM by heading and scope every query to one section. Live: `MasterSummaryView.test.ts`,
+whose `section()` helper partitions `.summary__content` because the template offers no wrapper to
+scope on. Its independence tests are self-proving — they assert `errored(FEEDBACKS) === true` AND
+`errored(ATTENTION) === false` against the same DOM.
+
+## SC-17 — The re-entry double-click that proves the wrong mechanism
+The standard guard test — click, `await nextTick()`, click again, expect one POST — is
+**self-defeating in this design system**. `VButton.vue:27` binds `:disabled="disabled || loading"`,
+so by the second click the DOM is already disabled and the click is swallowed. The test passes on the
+**disabled attribute** while its comment invariably credits the `saving` / `cancelling` /
+`withdrawing` **ref** guard. Rip the ref out and the test still passes. Every re-entry test in this
+repo currently has this shape.
+
+**Instead:** click twice with **no tick between them**, so the DOM has not re-rendered and the ref is
+the only thing standing:
+```ts
+btn.click(); btn.click()          // no await between -- the ref guard is the only defence
+await flush()
+expect(cancelPractice).toHaveBeenCalledTimes(1)
+```
+Then assert the disabled rung SEPARATELY, as its own test, so both mechanisms are proven and each is
+attributed to the right one. This is SC-02's cousin: asserting the wrong mechanism. It generalises to
+any `:loading`-bound control in this design system. Live: `MasterPendingView.test.ts`, which caught it
+in its own first-run-all-green output.
