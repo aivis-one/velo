@@ -272,3 +272,42 @@ bending the test.
 
 This generalises past slots: **any `v-if` in a shared parent silently gates everything a child passes
 into it**, and the child's own source looks unconditional.
+
+## SC-20 — A lookup keyed by a ZONE, indexed with a RAW SCORE (no typechecker can see it)
+SC-18b's inverse. There the typechecker caught a lying fixture; here **nothing** catches it.
+
+```ts
+const MOOD_LABEL: Record<string, string> = { low: '...', mid: '...', high: '...' }
+const label = MOOD_LABEL[checkin.mood] ?? ''      // mood is a NUMBER, 1..10
+```
+`MOOD_LABEL[9]` is `undefined`, the `?? ''` swallows it, and the pill renders a bare
+«Check-in» for **every** score. `vue-tsc` is structurally blind: `Record<string, string>` legally
+accepts a numeric index (TS coerces), and the `?? fallback` reads as sensible defensive code rather
+than the thing hiding the bug. The suite is green, the types are green, and the screen says nothing.
+
+**Tripwire:** a screen indexes a `Record<string, X>` with a field typed `number`, and a `?? fallback`
+sits on the lookup. Then grep for a `*FromScore` / `*FromValue` converter — if one exists, this screen
+is bypassing it. Live: `DetailView.vue:137-153` bypasses `moodZoneFromScore` / `moodLabelFromScore`
+(`displayHelpers.ts:69,83`) that its own parent `useDiaryCardModel.ts:120,178` uses correctly.
+
+**Assert the LABEL, never the lookup.** `expect(pill()).toBe('Check-in: Огонь!')` catches this;
+`expect(pill()).toContain('Check-in')` passes forever.
+
+## The habit — five instances, and it now generalises past guards
+The repo's most reliable defect shape: **written on one path, forgotten on its neighbour.** Confirmed
+five times in two days:
+1. `MasterPracticesView.vue:50` guards the loading rung on `length === 0`; `:57` guards the error rung
+   on nothing. One line apart.
+2. `VInput`'s earlier fix landed on one render path of three — self-documented in its own W10 comment.
+3. `EntryView.vue:263` guards `onSave` with `saving`; `:287` guarded `onDelete` with nothing. Twenty
+   lines apart.
+4. `stores/diary.ts:386` `$reset()` clears two of three sibling `*Submitting` refs and skips the third.
+5. `DetailView` bypasses the score→zone converters its own parent uses (SC-20 above).
+
+The first four are guards; the fifth is a shared derivation helper — so the rule is wider than it
+looked: **when you find any shared mechanism (a guard, a converter, a reset, a prop), grep its
+siblings before assuming it is applied consistently.** The sibling that has it right is the best
+evidence the neighbour is wrong, and it is also the fix's own specification.
+
+A hunt across every user and master view (№445) found the guards otherwise clean — so this is a real,
+bounded shape, not a general suspicion. Hunt it deliberately; report the negative when it is clean.
