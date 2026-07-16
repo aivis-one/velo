@@ -3,13 +3,16 @@
 // =============================================================================
 //
 // WHY: the biggest screen in the user zone (902 lines) and the LAST known
-// instance of the silent-load-more bug class chased all session. It is also the
-// worst instance: MyBookingsView at least has a «Показать ещё» button the user
-// can tap again, and since №442 it toasts. Here page-N is fired by an
-// IntersectionObserver sentinel (.vue:583), so a failed older page leaves the
-// user scrolling at a feed that simply never grows, with no control to retry and
-// nothing on screen to explain it. See "THE SILENCE" below -- it is pinned, not
-// fixed.
+// instance of the silent-load-more bug class chased all session -- and the worst
+// instance: MyBookingsView at least had a «Показать ещё» button the user could
+// tap again. Here page-N fires from an IntersectionObserver sentinel (.vue:583),
+// so a failed older page left the user scrolling at a feed that simply never
+// grew, with no control to retry and nothing on screen to explain it.
+//
+// This file's tripwire is what opened the gate on that fix: the screen was
+// covered first (№443), then useCursorPagination was given the same
+// error/loadMoreError split usePagination got in №442, and the tripwire went red
+// on cue and was flipped. The feed now toasts. See "THE SPLIT" below.
 //
 // PATTERN A (store-backed): every rung lives in useDiaryStore (feedItems /
 // feedLoading / feedError / feedHasMore / feedFilters via storeToRefs, .vue:282),
@@ -69,16 +72,17 @@
 //  - window.visualViewport is undefined in happy-dom; DiaryComposer reaches it
 //    only through `?.` (DiaryComposer.vue:163,215), so it needs no stub.
 //
-// THE SILENCE (the deliverable -- read before "fixing" a failure here):
-// useCursorPagination has NO first-page/later-page error split -- unlike
-// usePagination, which grew `loadMoreError` in №442. Its loadMore() catch
-// (useCursorPagination.ts:60-63) writes e.message into the SAME `error` ref for
-// every page. The screen binds that ref in exactly one place, behind
-// `v-else-if="feedError && items.length === 0"` (.vue:172), and nowhere else --
-// no toast, no inline strip, no retry. So a failed page-2 sets feedError, renders
-// NOTHING, and the sentinel will not re-fire on its own. `silence tripwire`
-// below PINS that as today's behaviour. It is deliberately worded as a tripwire:
-// when the fix lands it MUST go red. Update it then -- do not weaken it (SC-10).
+// THE SPLIT (read before touching a failure assertion here):
+// useCursorPagination routes a failure by WHICH page failed -- `error` when
+// nothing is on screen (the rung is owed), `loadMoreError` when the feed is
+// intact and must stay (a toast is owed). Before №443 it had one shared `error`
+// for both, and the screen bound it in exactly one place, behind
+// `v-else-if="feedError && items.length === 0"` (.vue:172) and nowhere else -- so
+// a failed page-2 set feedError, rendered NOTHING, and the sentinel would not
+// re-fire on its own. Two tests below hold that split from both sides: a page-N
+// failure must toast and never touch the rung, and an INITIAL failure must fill
+// the rung and never toast. The second is what stops the fix degenerating into a
+// blanket redirect that silences the first page too.
 // =============================================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
@@ -87,7 +91,7 @@ import { setActivePinia, createPinia, type Pinia } from 'pinia'
 import DiaryFeedView from '@/views/user/DiaryFeedView.vue'
 import * as diaryApi from '@/api/diary'
 // The REAL store, read where the assertion is about which ref a failure landed
-// in -- the whole point of the silence tripwire.
+// in -- the whole point of the error/loadMoreError split.
 import { useDiaryStore } from '@/stores/diary'
 // Stays REAL: vi.mock('@/api/diary') does not touch @/api/client, so the
 // restore-failure test drives the real error class rather than a re-implemented
@@ -556,12 +560,11 @@ describe('DiaryFeedView', () => {
       expect(diaryApi.listDiaryFeed).toHaveBeenCalledTimes(1)
     })
 
-    it('SILENCE TRIPWIRE: a failed older page tells the user NOTHING (pinned, not endorsed)', async () => {
-      // ================= READ THE BANNER BEFORE TOUCHING THIS =================
-      // This asserts a BUG as current behaviour, on purpose, so the fix cannot
-      // land unnoticed. When feedError is surfaced for page-N (a toast, an inline
-      // strip, a retry control -- anything), THIS TEST GOES RED. That is the
-      // point: update it to assert the new surface. Do NOT weaken it (SC-10).
+    it('a failed older page KEEPS the feed and TELLS the user (was the silence tripwire; fixed №443)', async () => {
+      // This was pinned as a BUG in the previous commit -- the last known instance
+      // of the silence we chased all session -- and it went red the moment
+      // useCursorPagination learned to split the two failures. Flipped, not
+      // weakened (SC-10). Both halves are asserted; drop either and it fails.
       vi.mocked(diaryApi.listDiaryFeed).mockResolvedValue(
         page(
           [feedItem('n1', 'note', '2026-07-16T10:00:00Z', { content_preview: 'уцелевшая' })],
@@ -579,24 +582,37 @@ describe('DiaryFeedView', () => {
       await flush()
 
       const store = useDiaryStore()
-      // The failure IS recorded...
-      expect(store.feedError).toBe('Сеть отвалилась')
-      // ...and useCursorPagination has no loadMoreError to route it to -- unlike
-      // usePagination after №442, this ref is shared by page 1 and page N.
-      expect('loadMoreError' in store).toBe(false)
+      // The failure routes to loadMoreError, NOT to the rung's error. That split
+      // is what makes the surviving feed structural rather than a guard the
+      // screen has to remember.
+      expect(store.feedError).toBeNull()
+      expect(store.feedLoadMoreError).toBe('Сеть отвалилась')
 
-      // ...and the user is told NOTHING. Each of these four is a channel the
-      // screen could have used and does not:
-      expect(bodyText()).not.toContain('Не удалось загрузить дневник') // rung: gated on items.length===0
-      expect(bodyText()).not.toContain('Сеть отвалилась') // message: bound nowhere
-      expect(bodyText()).not.toContain('Проверьте соединение') // hardcoded copy: unreachable here
-      expect(toastError).not.toHaveBeenCalled() // toast: this screen has none on the feed path
+      // The user is TOLD, with the real message. This is the channel that did not
+      // exist before: the feed loads from a sentinel, so there is no button left
+      // looking broken -- the toast is the only thing standing between the reader
+      // and a feed that has silently stopped.
+      expect(toastError).toHaveBeenCalledWith('Сеть отвалилась')
 
-      // The content survives (correct -- the guard at .vue:172 doing its job), so
-      // the screen looks perfectly healthy while the feed has silently stopped.
+      // ...and the rung still does NOT hijack the screen -- the content survives.
+      expect(bodyText()).not.toContain('Не удалось загрузить дневник')
       expect(cardPreviews()).toEqual(['уцелевшая'])
-      // And no loader is left spinning to hint that anything happened.
       expect(feedBody().querySelector('.diary-feed__state--more')).toBeNull()
+    })
+
+    it('an INITIAL feed failure still fills `error` and shows the rung, not a toast', async () => {
+      // The other side of the split: it must not become a blanket redirect that
+      // silences the first page too. Without this, routing everything to
+      // loadMoreError would pass the test above.
+      vi.mocked(diaryApi.listDiaryFeed).mockRejectedValue(new Error('Сеть отвалилась'))
+      mount()
+      await flush()
+
+      const store = useDiaryStore()
+      expect(store.feedError).toBe('Сеть отвалилась')
+      expect(store.feedLoadMoreError).toBeNull()
+      expect(bodyText()).toContain('Не удалось загрузить дневник')
+      expect(toastError).not.toHaveBeenCalled()
     })
 
     it('after a silent failure the feed is not even wedged -- a later hit retries, but only the observer can fire it', async () => {

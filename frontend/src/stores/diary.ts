@@ -412,6 +412,7 @@ export const useDiaryStore = defineStore('diary', () => {
     feedItems: feed.items,
     feedLoading: feed.loading,
     feedError: feed.error,
+    feedLoadMoreError: feed.loadMoreError,
     feedHasMore: feed.hasMore,
     feedFilters,
     feedScrollTop,

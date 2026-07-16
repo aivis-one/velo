@@ -601,6 +601,11 @@ async function onLoadMore(): Promise<void> {
   const prevHeight = el?.scrollHeight ?? 0
   const prevTop = el?.scrollTop ?? 0
   await diaryStore.loadMoreFeed()
+  // The feed survives a failed page (the rung is initial-load-only, :172), but
+  // this fires from a scroll sentinel -- there is no button left sitting there
+  // to look broken, so without a toast the user just scrolls into nothing and
+  // is told nothing at all.
+  if (diaryStore.feedLoadMoreError) toast.error(diaryStore.feedLoadMoreError)
   await nextTick()
   if (el) el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
 }
