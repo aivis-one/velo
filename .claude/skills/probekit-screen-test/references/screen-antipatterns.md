@@ -107,3 +107,31 @@ overlay component will not be listed here. Precedent: `MasterNewPromocodeView.te
 
 *(Three separate test files independently rediscovered this and hand-rolled the same purge before
 it was ever written down. That is the cost of leaving a finding in an orc's head.)*
+
+### SC-13b — the same mechanism, from the other side: asserting the overlay is GONE
+The corollary, and it bites even when you HAVE the purge. To prove a dialog closes, the obvious
+assertion is:
+```ts
+expect(document.body.querySelector('.v-modal__overlay')).toBeNull()   // <- never true
+```
+It never passes. The overlay is not removed — it is parked at `v-modal-leave-active` awaiting the
+`transitionend` happy-dom will not fire. **The product is correct; the assertion is wrong.** The
+danger is that this failure looks exactly like "the dismiss handler is broken", so the reflex is to
+go debug a healthy screen, and the second reflex — after the screen turns out fine — is to delete
+the assertion, which is SC-10.
+
+**Instead**, assert the leave *started*, and pin the negative case so it cannot always-pass:
+```ts
+function dialogDismissed(): boolean {
+  return !!document.body.querySelector('.v-modal-leave-active')
+}
+expect(dialogDismissed()).toBe(false)   // while open -- guards against a vacuous test
+// ... dismiss ...
+expect(dialogDismissed()).toBe(true)
+```
+Or sidestep it: assert that the *action* did not fire (`expect(cancelPractice).not.toHaveBeenCalled()`)
+rather than that the DOM vanished. Both are live in the repo — `MasterPracticeDetailView.test.ts`
+takes the first, `EditPracticeView.test.ts` the second.
+
+*(Two agents hit this independently on the same evening, both with SC-13 already in front of them —
+which is why it is written out here rather than left as an inference from the mechanism.)*
