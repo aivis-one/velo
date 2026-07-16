@@ -75,7 +75,7 @@
            then re-groups into the two sections above. store.loading guards a
            double-tap; the button hides once every page is loaded. -->
       <div v-if="store.hasMore" class="bookings__more">
-        <VButton variant="ghost" block :loading="store.loading" @click="store.loadMore()">
+        <VButton variant="ghost" block :loading="store.loading" @click="onLoadMore">
           Показать ещё
         </VButton>
       </div>
@@ -89,12 +89,22 @@ import { useRouter } from 'vue-router'
 import { VLoader, VEmptyState, VButton } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import { useBookingsStore } from '@/stores/bookings'
+import { useToast } from '@/composables/useToast'
 import BookingCard, { type BookingBadge } from '@/components/shared/BookingCard.vue'
 import { isLiveNow, hasEnded as endedByClock } from '@/utils/bookingStatus'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 const router = useRouter()
+const toast = useToast()
 const store = useBookingsStore()
+
+// A failed «Показать ещё» keeps the list (the error rung is initial-load-only,
+// :28) -- which, until now, meant the tap did nothing and NOTHING said why.
+// Toast it, as the six admin lists do.
+async function onLoadMore(): Promise<void> {
+  await store.loadMore()
+  if (store.loadMoreError) toast.error(store.loadMoreError)
+}
 
 // -- Grouping --
 

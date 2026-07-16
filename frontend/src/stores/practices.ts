@@ -119,6 +119,7 @@ export const usePracticesStore = defineStore('practices', () => {
     total: pagination.total,
     loading: pagination.loading,
     error: pagination.error,
+    loadMoreError: pagination.loadMoreError,
     hasMore: pagination.hasMore,
     filters,
     fetchPractices,

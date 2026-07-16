@@ -30,6 +30,9 @@ import { createApp, nextTick, type App } from 'vue'
 import { setActivePinia, createPinia, type Pinia } from 'pinia'
 import MyBookingsView from '@/views/user/MyBookingsView.vue'
 import * as bookingsApi from '@/api/bookings'
+// The REAL store, read where the assertion is about which error ref a failure
+// landed in -- the distinction the №442 root fix introduced.
+import { useBookingsStore } from '@/stores/bookings'
 import type { BookingWithPracticeResponse } from '@/api/types'
 
 vi.mock('@/api/bookings')
@@ -44,6 +47,13 @@ vi.mock('vue-router', () => ({
 // wholesale so nothing from that store's own network path evaluates here.
 vi.mock('@/stores/diary', () => ({
   useDiaryStore: () => ({ refreshFeed: vi.fn() }),
+}))
+
+// A failed «Показать ещё» toasts (.vue:onLoadMore) -- the toast IS the entire
+// user-facing half of that path, so it has to be a real assertion seam.
+const toastError = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({ error: toastError, success: vi.fn(), info: vi.fn() }),
 }))
 
 const NOW = new Date('2026-07-20T12:00:00Z')
@@ -199,10 +209,13 @@ describe('MyBookingsView', () => {
       expect(text()).not.toContain('Бронирований нет')
     })
 
-    it('a load-more failure keeps content visible instead of replacing it with the error state', async () => {
-      // MyBookingsView.vue:22,28 gate loading/error on `&& bookings.length === 0`
-      // on purpose -- once a page has landed, a later failure must not blank the
-      // list. Proves the guard, not just the happy path.
+    it('a load-more failure keeps content visible AND tells the user (№442)', async () => {
+      // Half of this was already true and half of it was the bug. The list
+      // surviving is the guard at .vue:22,28 doing its job. But until №442 the
+      // failure was NEVER surfaced: `store.error` appears nowhere outside that
+      // guarded rung, so the tap did nothing and nothing said why -- the silent
+      // variant the whole session has been chasing. The toast is the other half;
+      // drop it and this test fails.
       vi.mocked(bookingsApi.getMyBookings).mockResolvedValue(
         page([booking('b1', {}, { title: 'Утренняя практика' })], 40),
       )
@@ -219,6 +232,43 @@ describe('MyBookingsView', () => {
 
       expect(text()).toContain('Утренняя практика')
       expect(text()).not.toContain('Ошибка загрузки')
+      expect(toastError).toHaveBeenCalledWith('Сеть отвалилась')
+    })
+
+    it('routes the load-more failure to loadMoreError, leaving the rung error null', async () => {
+      // The root fix (usePagination): `error` = first page, `loadMoreError` =
+      // later page. `error` staying null is what makes the surviving list
+      // structural rather than a guard each screen has to remember.
+      vi.mocked(bookingsApi.getMyBookings).mockResolvedValue(
+        page([booking('b1', {}, { title: 'Утренняя практика' })], 40),
+      )
+      mount()
+      await flush()
+
+      vi.mocked(bookingsApi.getMyBookings).mockRejectedValue(new Error('Сеть отвалилась'))
+      Array.from(host?.querySelectorAll('button') ?? [])
+        .find((b) => b.textContent?.includes('Показать ещё'))
+        ?.click()
+      await flush()
+
+      const store = useBookingsStore()
+      expect(store.error).toBeNull()
+      expect(store.loadMoreError).toBe('Сеть отвалилась')
+    })
+
+    it('an INITIAL-load failure still fills `error`, not loadMoreError', async () => {
+      // The other side of the split: it must not become a blanket redirect that
+      // silences the first page too. Without this, routing everything to
+      // loadMoreError would pass every other test in this file.
+      vi.mocked(bookingsApi.getMyBookings).mockRejectedValue(new Error('Сервис недоступен'))
+      mount()
+      await flush()
+
+      const store = useBookingsStore()
+      expect(store.error).toBe('Сервис недоступен')
+      expect(store.loadMoreError).toBeNull()
+      expect(text()).toContain('Сервис недоступен')
+      expect(toastError).not.toHaveBeenCalled()
     })
   })
 

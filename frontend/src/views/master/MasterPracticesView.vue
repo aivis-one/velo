@@ -301,14 +301,11 @@ function goDetail(id: string): void {
 
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
-  // The error rung is initial-load-only, so a failed page-N would otherwise be
-  // SILENT. Surface it the way the admin lists do (AdminPromosView.vue:219-221 et
-  // al: toast, keep the list), then clear it -- usePagination holds one `error`
-  // for both load kinds, so a leftover value would suppress a later genuine
-  // initial-load error.
-  if (masterStore.practicesError) {
-    toast.error(masterStore.practicesError)
-    masterStore.practicesError = null
+  // A failed page-N keeps the list (usePagination routes it away from `error`)
+  // but would be SILENT without this. Toast it, as the six admin lists do.
+  // No manual clearing: the composable resets loadMoreError on the next attempt.
+  if (masterStore.practicesLoadMoreError) {
+    toast.error(masterStore.practicesLoadMoreError)
   }
   await loadTabData()
 }

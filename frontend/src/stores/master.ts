@@ -135,6 +135,7 @@ export const useMasterStore = defineStore('master', () => {
     practicesTotal: pagination.total,
     practicesLoading: pagination.loading,
     practicesError: pagination.error,
+    practicesLoadMoreError: pagination.loadMoreError,
     practicesHasMore: pagination.hasMore,
     fetchMyPractices,
     refreshMyPractices,

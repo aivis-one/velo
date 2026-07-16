@@ -1145,11 +1145,12 @@ describe('MasterPracticesView', () => {
       expect(text()).toContain('Сеть недоступна')
     })
 
-    it('clears the load-more error so it cannot suppress a later initial-load error', async () => {
-      // usePagination holds ONE `error` for both load kinds (usePagination.ts:33),
-      // so a leftover value from a toasted load-more failure would sit in the
-      // store. .vue:301-306 nulls it after toasting; without that, a later
-      // refresh-into-empty would find the rung already primed with a stale message.
+    it('routes a load-more failure to loadMoreError, never to the rung error (№442 root fix)', async () => {
+      // usePagination now splits the two failures at the source (usePagination.ts:
+      // `error` = first page, `loadMoreError` = later page), so the screen no
+      // longer has to null anything out by hand. `practicesError` staying null is
+      // the proof the rung can never be primed by a page-N failure -- that used to
+      // be one shared ref, which is what produced the destroy-the-list bug.
       vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([U_SCHED], 2, 0))
       mount()
       await flush()
@@ -1162,6 +1163,31 @@ describe('MasterPracticesView', () => {
 
       expect(toastError).toHaveBeenCalledWith('Сеть недоступна')
       expect(useMasterStore().practicesError).toBeNull()
+      expect(useMasterStore().practicesLoadMoreError).toBe('Сеть недоступна')
+    })
+
+    it('clears loadMoreError on the next attempt, so a stale message cannot re-toast', async () => {
+      // The composable resets it at the START of each loadMore -- the reason the
+      // screen carries no manual clearing any more.
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([U_SCHED], 2, 0))
+      mount()
+      await flush()
+
+      vi.mocked(mastersApi.getMyPractices).mockRejectedValue(
+        new ApiResponseError(503, 'Сеть недоступна', 'net_down'),
+      )
+      buttonWith('Показать ещё')?.click()
+      await flush()
+      expect(useMasterStore().practicesLoadMoreError).toBe('Сеть недоступна')
+
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(
+        page([practice('p-ok', { title: 'Догруженная', status: 'scheduled' })], 2, 1),
+      )
+      buttonWith('Показать ещё')?.click()
+      await flush()
+
+      expect(useMasterStore().practicesLoadMoreError).toBeNull()
+      expect(toastError).toHaveBeenCalledTimes(1)
     })
   })
 

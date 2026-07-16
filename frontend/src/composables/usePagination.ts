@@ -30,7 +30,27 @@ export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
   const total = ref(0)
   const offset = ref(0)
   const loading = ref(false)
+
+  // TWO errors, because a failed page 1 and a failed page N are not the same
+  // event and a consumer that cannot tell them apart cannot render either one
+  // correctly. One shared `error` produced three behaviours across the app,
+  // two of them wrong: destroy-the-list (MasterPracticesView, №441) and
+  // swallow-it-silently (MyBookingsView, DiaryFeedView).
+  //
+  //   error         -- the FIRST page failed. There is nothing on screen; the
+  //                    screen owes the user a full error rung. Never set while
+  //                    items exist, so binding it to a rung is initial-load-only
+  //                    BY DEFAULT -- no `&& items.length === 0` guard needed.
+  //   loadMoreError -- a LATER page failed. The list is intact and must stay on
+  //                    screen; the screen owes the user a non-destructive signal
+  //                    (a toast -- the pattern proven on the six admin lists).
+  //
+  // Splitting them here is what makes "don't destroy the list" the default
+  // rather than each screen's private achievement. Surfacing stays the screen's
+  // job: this composable holds data, not UI, and an inline banner is as valid as
+  // a toast.
   const error = ref<string | null>(null)
+  const loadMoreError = ref<string | null>(null)
 
   const hasMore = computed(() => offset.value < total.value)
 
@@ -47,13 +67,22 @@ export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
   /**
    * Load the next page of results. Appends to existing items.
    * Returns false if already loading or no more items.
+   *
+   * A failure routes to `error` when this was the FIRST page and to
+   * `loadMoreError` when it was a later one -- see the refs' own note.
    */
   async function loadMore(): Promise<boolean> {
     if (loading.value) return false
     if (items.value.length > 0 && !hasMore.value) return false
 
+    // Captured BEFORE the await: `items` can change while the request is in
+    // flight, and which error this failure belongs to is decided by the state
+    // the request STARTED from, not the state it happens to land in.
+    const isFirstPage = items.value.length === 0
+
     loading.value = true
-    error.value = null
+    if (isFirstPage) error.value = null
+    else loadMoreError.value = null
     const myRequestId = ++requestId
     const requestOffset = offset.value
 
@@ -66,7 +95,9 @@ export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
       return true
     } catch (e) {
       if (myRequestId !== requestId) return false
-      error.value = e instanceof Error ? e.message : 'Unknown error'
+      const message = e instanceof Error ? e.message : 'Unknown error'
+      if (isFirstPage) error.value = message
+      else loadMoreError.value = message
       return false
     } finally {
       if (myRequestId === requestId) loading.value = false
@@ -84,6 +115,7 @@ export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
     total.value = 0
     offset.value = 0
     error.value = null
+    loadMoreError.value = null
     loading.value = false
   }
 
@@ -100,6 +132,7 @@ export function usePagination<T>(fetchFn: FetchFn<T>, pageSize = 20) {
     total,
     loading,
     error,
+    loadMoreError,
     hasMore,
     loadMore,
     reset,

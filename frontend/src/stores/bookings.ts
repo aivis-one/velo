@@ -241,6 +241,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     total: pagination.total,
     loading: pagination.loading,
     error: pagination.error,
+    loadMoreError: pagination.loadMoreError,
     hasMore: pagination.hasMore,
     fetchMyBookings,
     loadMore: pagination.loadMore,
