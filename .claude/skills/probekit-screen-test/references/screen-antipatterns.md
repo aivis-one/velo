@@ -229,3 +229,26 @@ Then assert the disabled rung SEPARATELY, as its own test, so both mechanisms ar
 attributed to the right one. This is SC-02's cousin: asserting the wrong mechanism. It generalises to
 any `:loading`-bound control in this design system. Live: `MasterPendingView.test.ts`, which caught it
 in its own first-run-all-green output.
+
+## SC-18 — A fixture factory that silently ignores its overrides
+A factory that drops `...overrides`:
+```ts
+function practice(overrides: Partial<P> = {}): P {
+  return { id: 'p1', title: 'Дневная', status: 'scheduled' } as P   // <- spread missing
+}
+```
+does not fail the tests that pass overrides. It fails only the ones whose override happens to
+**differ** from the default — every test where `override === default` still passes, asserting the
+default while believing it asserted its own input. One red test and four green liars.
+
+**Instead:** make fixture defaults **differ from every value any test overrides**. Then a dropped
+spread fails loudly instead of silently agreeing with you. Found on `EntryView.test.ts`, where a
+dropped spread went red in one test and passed in four others.
+
+### SC-18b — a fixture value no test depends on can still be a lie
+The other half, and only the TYPECHECKER catches it: `practice_type: 'online'` where
+`PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'`. No test read the field, so the whole
+suite was green — the fixture simply described a record the backend **cannot send**, and every
+assertion around it was made against a fiction. `npm run test` cannot see this. **Run `vue-tsc` and
+treat a fixture cast that does not typecheck as a fixture that is wrong**, not as a cast to widen.
+Live case: `CheckinView.test.ts` (reported "vue-tsc clean"; it was exit 2).

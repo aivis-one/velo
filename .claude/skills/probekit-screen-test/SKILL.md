@@ -3,7 +3,7 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.6.0
+# screen-test v1.7.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
@@ -62,7 +62,7 @@ test_command: `cd frontend && npm run test`
 
 | Signal | Weight | How to detect |
 |---|---|---|
-| Irreversible action | +5 | the screen fires an action the user cannot undo: approve/reject a payout, delete, publish, cancel a booking. A bug here cannot be walked back by reloading — it is the highest weight for that reason. `AdminWithdrawalDetailView` (approve → money leaves) is the type case. Detect: a `POST`/`DELETE` to an endpoint with no inverse. |
+| Irreversible action | +5 | the screen fires an action the user cannot undo: approve/reject a payout, delete, publish, cancel a booking. A bug here cannot be walked back by reloading — it is the highest weight for that reason. `AdminWithdrawalDetailView` (approve → money leaves) is the type case. **Detect it by following the call to the API wrapper and the backend — NEVER from a comment, a button label, or the word "delete".** This is the ONE signal most likely to be scored wrong, because "irreversible" is a property of the endpoint, not of the UI: `EntryView`'s delete looks final and is a SOFT delete with `restoreDiaryEntry` as its inverse (`api/diary.ts:249`); `CheckinView.vue:125` claims "One check-in per booking (hard rule)" while `api/diary.ts:51-55` documents the same call as an **upsert** — "repeated calls overwrite". Both were scored +5 from the UI and both were wrong. An action with an inverse is not irreversible, however permanent the button looks. |
 | Touches money | +4 | imports `@/api/payments`, `@/stores/payments`, balance/topup/promo/withdrawal in path or imports. **Also a hard signal for the NBSP trap — see velo-idiom §11.** |
 | Has a real state ladder | +3 | template has `v-if` on `loading` AND (`error` OR empty) |
 | Store- or API-backed | +2 | imports `@/stores/*` or `@/api/*` |
@@ -187,5 +187,5 @@ any real finds, any screens rejected as untestable and why.
 
 ## Anchor
 
-[*] screen-test v1.6.0 * ready
+[*] screen-test v1.7.0 * ready
 [>] | NEXT: user command
