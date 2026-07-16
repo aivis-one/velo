@@ -79,8 +79,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createApp, nextTick, type App } from 'vue'
 import { setActivePinia, createPinia, type Pinia } from 'pinia'
 import MasterPracticesView from '@/views/master/MasterPracticesView.vue'
-// The REAL store, read in exactly one test -- to show that a failed load-more
-// leaves the data intact while the template hides it (the finding below).
+// The REAL store, read in two tests -- the data always survived a failed
+// load-more; it was the template that hid it (fixed №441, see «Показать ещё»).
 import { useMasterStore } from '@/stores/master'
 import * as mastersApi from '@/api/masters'
 import * as diaryApi from '@/api/diary'
@@ -108,6 +108,13 @@ vi.mock('vue-router', () => ({
       return routeQuery
     },
   }),
+}))
+
+// The load-more failure path toasts rather than blanking the list (.vue:301-306),
+// so the toast IS the master-facing half of that behaviour and has to be asserted.
+const toastError = vi.fn()
+vi.mock('@/composables/useToast', () => ({
+  useToast: () => ({ error: toastError, success: vi.fn(), info: vi.fn() }),
 }))
 
 // -----------------------------------------------------------------------------
@@ -1070,22 +1077,18 @@ describe('MasterPracticesView', () => {
       expect(host?.querySelector('.v-btn--loading')).not.toBeNull()
     })
 
-    it('a FAILED load-more destroys the list the master already had', async () => {
-      // ============ ASSERTED AS-IS. THIS IS A REAL DEFECT. ============
-      // The error rung has NO `&& practices.length === 0` guard (.vue:57),
-      // unlike its loading twin one line above (.vue:50) and unlike
-      // MyBookingsView, which guards both (SC-06). usePagination keeps the
-      // already-loaded items on a failed loadMore (usePagination.ts:67-70) --
-      // they are still in the store, intact -- but this template hides them
-      // behind a full-screen error the moment `practicesError` is truthy.
+    it('a FAILED load-more KEEPS the list and tells the master (fixed №441)', async () => {
+      // Was the tripwire for a REAL DEFECT found in №440, fixed in №441. The
+      // error rung had no `&& practices.length === 0` guard (.vue:57) while its
+      // loading twin one line above (.vue:50) did, so a blipped «Показать ещё»
+      // replaced the practices the master was reading with a full-screen error
+      // -- while usePagination still held them, intact (usePagination.ts:67-70).
       //
-      // So: page 1 loads, the master taps «Показать ещё», the network blips,
-      // and the practices they were reading VANISH. The only way back is
-      // «Повторить», which is a full refresh.
-      //
-      // Reported, NOT fixed (product code is out of bounds here). This test is
-      // the tripwire: when the guard is added, it goes red and gets rewritten
-      // to assert the list survives.
+      // The guard alone would have traded that loud-wrong behaviour for a SILENT
+      // one (list stays, failure never surfaces -- which is what MyBookingsView
+      // actually does). So this follows the admin lists instead
+      // (AdminPromosView.vue:219-221): keep the list AND toast. Both halves are
+      // asserted below; drop either and this test fails.
       vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([U_SCHED], 2, 0))
       mount()
       await flush()
@@ -1097,15 +1100,68 @@ describe('MasterPracticesView', () => {
       buttonWith('Показать ещё')?.click()
       await flush()
 
-      expect(cards()).toHaveLength(0)
+      // The list SURVIVES -- no full-screen error swap.
+      expect(cardTitles()).toEqual(['Завтрашняя'])
+      expect(text()).not.toContain('Не удалось загрузить практики')
+
+      // ...and the master is TOLD, with the real backend message, not silently.
+      expect(toastError).toHaveBeenCalledWith('Сеть недоступна')
+
+      // The store's data was never the problem and still is not.
+      expect(useMasterStore().practices.map((p) => p.title)).toEqual(['Завтрашняя'])
+    })
+
+    it('the error rung is initial-load-only: an error over a POPULATED list never hides it', async () => {
+      // This drives the store directly (Pattern A) rather than through the
+      // load-more path, and it has to: onLoadMore nulls the error immediately
+      // after toasting, so the template never observes it truthy and the
+      // `&& practices.length === 0` guard (.vue:57) looks redundant from that
+      // angle -- a mutation removing the guard still passed the toast tests.
+      //
+      // The guard is what makes the behaviour structural instead of dependent on
+      // Vue's scheduler racing the clear. Setting the state the template reads is
+      // the only way to prove it: error truthy + list non-empty => list wins.
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([U_SCHED], 2, 0))
+      mount()
+      await flush()
+
+      useMasterStore().practicesError = 'Сеть недоступна'
+      await flush()
+
+      expect(cardTitles()).toEqual(['Завтрашняя'])
+      expect(text()).not.toContain('Не удалось загрузить практики')
+    })
+
+    it('the error rung STILL renders when the list is empty (the guard is not a blanket mute)', async () => {
+      // The other side of the guard, so it cannot be "fixed" by deleting the rung.
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([], 0, 0))
+      mount()
+      await flush()
+
+      useMasterStore().practicesError = 'Сеть недоступна'
+      await flush()
+
       expect(text()).toContain('Не удалось загрузить практики')
       expect(text()).toContain('Сеть недоступна')
+    })
 
-      // The proof that this is a TEMPLATE guard defect and not data loss: the
-      // practice is still sitting in the store, intact, while the master looks
-      // at an error page. Adding `&& practices.length === 0` to .vue:57 -- the
-      // guard .vue:50 already has one line above -- would render the list.
-      expect(useMasterStore().practices.map((p) => p.title)).toEqual(['Завтрашняя'])
+    it('clears the load-more error so it cannot suppress a later initial-load error', async () => {
+      // usePagination holds ONE `error` for both load kinds (usePagination.ts:33),
+      // so a leftover value from a toasted load-more failure would sit in the
+      // store. .vue:301-306 nulls it after toasting; without that, a later
+      // refresh-into-empty would find the rung already primed with a stale message.
+      vi.mocked(mastersApi.getMyPractices).mockResolvedValue(page([U_SCHED], 2, 0))
+      mount()
+      await flush()
+
+      vi.mocked(mastersApi.getMyPractices).mockRejectedValue(
+        new ApiResponseError(503, 'Сеть недоступна', 'net_down'),
+      )
+      buttonWith('Показать ещё')?.click()
+      await flush()
+
+      expect(toastError).toHaveBeenCalledWith('Сеть недоступна')
+      expect(useMasterStore().practicesError).toBeNull()
     })
   })
 

@@ -53,8 +53,13 @@
       <VLoader size="lg" />
     </div>
 
-    <!-- Error -->
-    <div v-else-if="masterStore.practicesError" class="master-practices__content">
+    <!-- Error (INITIAL load only -- a failed page-N is toasted by onLoadMore and
+         must not replace the pages already on screen; mirrors the loading rung
+         above and MyBookingsView.vue:28) -->
+    <div
+      v-else-if="masterStore.practicesError && masterStore.practices.length === 0"
+      class="master-practices__content"
+    >
       <VEmptyState
         icon="warning"
         title="Не удалось загрузить практики"
@@ -180,6 +185,7 @@ import {
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
+import { useToast } from '@/composables/useToast'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { formatDateShort, formatShortDate, formatTime, localSortKey } from '@/utils/format'
@@ -187,6 +193,7 @@ import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const masterStore = useMasterStore()
 const diaryStore = useDiaryStore()
 
@@ -294,6 +301,15 @@ function goDetail(id: string): void {
 
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
+  // The error rung is initial-load-only, so a failed page-N would otherwise be
+  // SILENT. Surface it the way the admin lists do (AdminPromosView.vue:219-221 et
+  // al: toast, keep the list), then clear it -- usePagination holds one `error`
+  // for both load kinds, so a leftover value would suppress a later genuine
+  // initial-load error.
+  if (masterStore.practicesError) {
+    toast.error(masterStore.practicesError)
+    masterStore.practicesError = null
+  }
   await loadTabData()
 }
 
