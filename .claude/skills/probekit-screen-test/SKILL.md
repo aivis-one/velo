@@ -3,7 +3,7 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.5.0
+# screen-test v1.6.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
@@ -127,6 +127,8 @@ nobody copies the scoping across).
 | `navigator.clipboard` | **absent in happy-dom** — `navigator.clipboard.writeText(...)` throws `Cannot read properties of undefined`. It is not a stub-if-you-like; the mount or the click dies without it. Define it: `Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn() }, configurable: true })`. Live cases: `MasterPromocodesView.vue`, `AdminMasterInviteView.vue`. |
 | `window.history.state` read at **setup or `onMounted`** | **Seed it BEFORE mount** — the screen reads it while mounting, so seeding after is too late and it sees `null`. VELO hands whole objects between routes this way. Live cases (verified): `AdminWithdrawalDetailView.vue:117` (a `ref()` initialiser), `AdminReportDetailView.vue:199` (`onMounted(loadReport)`), `AdminMasterReviewView.vue:559` (`onMounted(loadMaster)`). |
 | `window.history.state` read in an **event handler** | Seed any time before the click — "before mount" is not required. The `onBack()` family reads it only when tapped: `CreatePracticeView.vue:428`, `EditPracticeView.vue:327`, `FeedbackView.vue:137`, `ReflectionView.vue:120`. *(v1.1.0 lumped these in with the row above, having grepped for `history.state` without checking WHEN it is read. Corrected in v1.3.0 — the grep found the string; the truth was one level down, inside the function.)* |
+| `IntersectionObserver` / `ResizeObserver` | **PRESENT in happy-dom but INERT — presence is not the test.** `typeof IntersectionObserver === 'function'` passes, `new IntersectionObserver(...)` succeeds, `observe()` succeeds — and the callback fires **ZERO** times, forever (no layout engine to intersect with). This is nastier than a missing global: a missing one throws and you notice, whereas this one lets a sentinel-driven test drive **nothing** and pass vacuously. Stub it with a capturing class that hands you the callback, then fire it by hand — that is TEST setup, not product code. Verified by direct probe; live case: `DiaryFeedView.test.ts` (infinite-scroll feed). |
+| `scrollHeight` / `scrollTop` / any layout read | happy-dom has **no layout**: `scrollHeight` is hard `0`. Scroll-compensation branches therefore "pass" while proving nothing — do not assert on them, and say so in the banner (`DiaryFeedView.test.ts` does). |
 | `getComputedStyle` / `visualViewport` | happy-dom returns empty strings / undefined. Only matters if read during mount — check. |
 | `waitUntilReady()` transitively | `__setReadyForTest(true)` — testTimeout is 5s, READY_TIMEOUT_MS is 10s |
 | money rendered anywhere (`formatMoney`) | the ru locale groups thousands with U+00A0 — normalise before asserting (velo-idiom §11). Any amount over 999 fails a normally-typed assertion. |
@@ -185,5 +187,5 @@ any real finds, any screens rejected as untestable and why.
 
 ## Anchor
 
-[*] screen-test v1.5.0 * ready
+[*] screen-test v1.6.0 * ready
 [>] | NEXT: user command
