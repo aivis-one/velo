@@ -339,29 +339,18 @@ describe('TopupView', () => {
       expect(paymentsApi.createTopup).not.toHaveBeenCalled()
     })
 
-    it('KNOWN DEFECT: the wiped negative stays visible in the field (state/DOM desync)', async () => {
-      // ---- REAL FIND (T8/ПРОМТ №432), asserted as-is, NOT fixed ----
-      // TopupView.vue:158-162 says "Prevent negative values in UI" -- it does not.
-      // The state is wiped but the FIELD still shows «-5».
+    it('the wiped negative is gone from the FIELD too, not just from the state', async () => {
+      // REGRESSION GUARD (T8, find from ПРОМТ №432, fixed in №434).
+      // TopupView.vue:158-162 says "Prevent negative values in UI" -- and it did
+      // not: the state was wiped but the field still showed «-5», leaving a
+      // confusing dead end (no error text, since validationError bails on empty
+      // at TopupView.vue:125, and a disabled «Пополнить» with no amount).
       //
-      // Why: VInput binds the native input with :value="modelValue" + @input
-      // (VInput.vue:46-56), NOT with v-model. Within one tick customValue goes
-      // '' -> '-5' (v-model) -> '' (onCustomInput), so Vue re-renders with
-      // value='' while the PREVIOUS vnode also held value='' -- patchProp sees no
-      // change and skips the DOM write. The user's typed '-5' is never overwritten.
-      // (Vue's own vModelText directive force-syncs for exactly this reason; the
-      // manual :value/@input pair does not.) This is Vue runtime behaviour, not a
-      // happy-dom artifact -- it reproduces in a real browser.
-      //
-      // Impact: LOW, and deliberately not money. No negative amount can be
-      // submitted (see the test above). The user sees «-5» in the field, NO error
-      // text (validationError bails on empty, TopupView.vue:125), and a disabled
-      // «Пополнить» with no amount -- a confusing dead-end, not a wrong charge.
-      //
-      // Product code is out of scope for this prompt, so this test PINS the
-      // current behaviour. When the defect is fixed, this test goes red on
-      // purpose: delete it and flip the assertion in the test above to
-      // expect(input?.value).toBe('').
+      // The cause was in VInput, not here: when a parent rejects a value back to
+      // the one it already held, `modelValue` does not change, Vue skips the
+      // child update, and the typed text is never overwritten. VInput now
+      // re-asserts the parent's value onto the DOM (VInput.vue onInput); the
+      // component-level contract is pinned in VInput.test.ts.
       mount()
       await flush()
       toggleCustom()
@@ -370,7 +359,7 @@ describe('TopupView', () => {
       await flush()
 
       const input = host?.querySelector<HTMLInputElement>('.topup__custom input')
-      expect(input?.value).toBe('-5')
+      expect(input?.value).toBe('')
       expect(text()).not.toContain('Минимальная сумма')
     })
   })

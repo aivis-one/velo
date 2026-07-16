@@ -34,7 +34,7 @@
           :disabled="disabled"
           v-bind="$attrs"
           @focus="onFieldFocus"
-          @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+          @input="onInput"
         />
         <label class="v-input__float-label">{{ label }}</label>
       </div>
@@ -52,7 +52,7 @@
           :disabled="disabled"
           v-bind="$attrs"
           @focus="onFieldFocus"
-          @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+          @input="onInput"
         />
         <span v-if="$slots.suffix" class="v-input__affix"><slot name="suffix" /></span>
       </div>
@@ -68,7 +68,7 @@
         :disabled="disabled"
         v-bind="$attrs"
         @focus="onFieldFocus"
-        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @input="onInput"
       />
 
       <!-- Required marker (DS): the gutter is ALWAYS reserved while `required`, so
@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 
@@ -112,7 +112,7 @@ defineOptions({ inheritAttrs: false })
 // didn't inherit it. Same fix, same reasoning, applied to all 3 paths now.
 const { onFieldFocus } = useKeyboardFieldScroll()
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     modelValue?: string
     label?: string
@@ -139,7 +139,7 @@ withDefaults(
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
@@ -147,6 +147,35 @@ defineEmits<{
 // (e.g. autofocus on reveal). Works for both the plain and affix paths.
 const inputEl = ref<HTMLInputElement | null>(null)
 defineExpose({ focus: () => inputEl.value?.focus() })
+
+/**
+ * Emit, then re-assert the parent's value onto the DOM.
+ *
+ * Without the re-assert this field is not actually controlled. When a parent
+ * REJECTS or NORMALISES what was typed and lands back on the value it already
+ * held, `modelValue` does not change between renders, so Vue's
+ * shouldUpdateComponent skips this child entirely and the inner <input> is never
+ * patched. The typed text survives because nothing overwrites it, and the field
+ * then shows something the state does not agree with. (It is NOT that Vue
+ * "skips the value patch" -- Vue always patches `value`; the child simply never
+ * re-renders. Verified on a bare VInput, ПРОМТ №434.)
+ *
+ * Two sites do this today, both money-adjacent -- TopupView's negative-amount
+ * reject and MasterNewPromocodeView's usage-limit clamp; both are covered in
+ * VInput.test.ts and in their own view tests.
+ *
+ * The `!==` guard is load-bearing: on the overwhelmingly common path the parent
+ * accepts the value, DOM and prop already agree, and nothing is written -- so
+ * this cannot disturb the caret for anyone typing normally. It only writes on
+ * the divergence it exists to repair.
+ */
+function onInput(e: Event): void {
+  emit('update:modelValue', (e.target as HTMLInputElement).value)
+  nextTick(() => {
+    const el = inputEl.value
+    if (el && el.value !== props.modelValue) el.value = props.modelValue
+  })
+}
 </script>
 
 <style scoped>

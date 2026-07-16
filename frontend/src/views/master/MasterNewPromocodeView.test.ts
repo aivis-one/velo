@@ -360,6 +360,49 @@ describe('MasterNewPromocodeView', () => {
       expect(host?.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('1')
     })
 
+    it('clamps AGAIN when the field is already at 1 -- the second clamp is the one that used to break', async () => {
+      // REGRESSION GUARD (T8, second site of the ПРОМТ №432 defect, found and
+      // fixed in №434). This one was live and NOTHING caught it: the tests above
+      // only ever exercise the FIRST clamp, where form.limit genuinely changes
+      // ('' -> '0' -> '1'), so the child re-renders and the DOM syncs.
+      //
+      // Type 0 when the field ALREADY holds '1' and form.limit goes '1' -> '0' ->
+      // '1' -- unchanged across the render. VInput's modelValue never changed, so
+      // Vue skipped the child entirely and the field kept showing «0» while the
+      // state said 1. The master then submits max_uses: 1 while looking at a 0.
+      // Fixed in VInput (onInput re-asserts); contract pinned in VInput.test.ts.
+      mount()
+      await flush()
+
+      typeLimit('0')
+      await flush()
+      expect(host?.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('1')
+
+      typeLimit('0')
+      await flush()
+      expect(host?.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('1')
+    })
+
+    it('the clamped value is what actually reaches the API', async () => {
+      // The field and the POST body must agree. While the desync was live the
+      // master could be looking at «0» and shipping max_uses: 1.
+      mount()
+      await flush()
+      typeCode('SUMMER')
+      await flush()
+      typeLimit('0')
+      await flush()
+      typeLimit('0')
+      await flush()
+      await pickDay(25)
+
+      button('Создать промокод')?.click()
+      await flush()
+
+      expect(host?.querySelector<HTMLInputElement>('input[type="number"]')?.value).toBe('1')
+      expect(sentBody().max_uses).toBe(1)
+    })
+
     it('leaves an empty limit empty -- empty means unlimited, not 1', async () => {
       // The watch bails on '' (MasterNewPromocodeView.vue:128). Clamping empty to
       // 1 would silently cap every promo the master left blank at a single use.
