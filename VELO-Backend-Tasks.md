@@ -9,18 +9,26 @@
 
 ## ⚡ LANE BOUNDARY (operator, 2026-07-15) — read this before assigning anything below
 
-**Zod's lane is: messaging · notifications · E21 Zoom-attendance-tracking · support-ticket intake
+**Zod's lane is: messaging · notifications · support-ticket intake
 (rides the messaging module). Everything else in this document is OWNED-BY-NAV.**
+
+> **⚠ AMENDED 2026-07-16 (explicit operator call, supersedes the 07-15 boundary below): E21
+> Zoom-attendance-tracking is REMOVED from Zod's lane and is now OWNED-BY-NAV.** We build it
+> ourselves, end to end (web research → design → implementation); Zod's only role on E21 is to
+> REVIEW. **The 2026-07-17 deadline is CANCELLED** — E21 is sequenced after the probekit skills
+> work (T8) and the full test round. See the E21 section below. Do not start E21.
 
 The test is **delivery-through-the-messaging-module**, not "does it involve text" or "does it look
 like a small backend one-liner". Support-ticket intake reads like a standalone form in isolation, but
 it ships through the messaging module Zod is building, so it stays his — a plausible-looking table and
-endpoint is not, on its own, grounds to reassign it. E21 stays his too, by explicit operator call, even
-though attendance-tracking is not itself messaging/notifications.
+endpoint is not, on its own, grounds to reassign it. ~~E21 stays his too, by explicit operator call,
+even though attendance-tracking is not itself messaging/notifications.~~ **← REVERSED 2026-07-16 by a
+later operator call: E21 is OWNED-BY-NAV. See the amendment above.**
 
 **Second rule, same date, orthogonal to the lane above: Zod owns anything blocked on infrastructure
 that does not exist yet in this project, regardless of what feature it sits under.** The lane test above
-is about *domain* (is it messaging/notifications/Zoom/support); this test is about *missing plumbing*
+is about *domain* (is it messaging/notifications/support — Zoom left this list 07-16); this test is
+about *missing plumbing*
 (does building it require standing up something — a provider, a service, a store — that isn't there).
 Neither test cares whether the other says otherwise; an item can fail the lane test and still be Zod's
 because of this rule. Two items currently qualify:
@@ -884,7 +892,7 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   runs on the old code-level config and remains OPEN — planned SELF (navigator tail T2, batch R
   follow-up) — NOT Zod's lane.** Do not rebuild the methods side.
 
-### E21 — Zoom attendance tracking (NEW 2026-07-12, operator). **P0. DEADLINE 2026-07-17.**
+### E21 — Zoom attendance tracking (NEW 2026-07-12, operator). **OWNED-BY-NAV since 2026-07-16. DEADLINE CANCELLED. DO NOT START — this is not Zod's.**
 - **(a) Why.** Attendance today is inferred by the clock-driven lifecycle (Zod's recent
   `feat(practices)!: drive practice lifecycle by the clock` — a scheduled practice auto-finalizes on
   schedule and currently ASSUMES every booked participant attended). The operator wants REAL per-meeting
@@ -912,8 +920,17 @@ Forensic re-verify of the self-vs-Zod hinge — all confirmed:
   build speculative UI for this now** — the existing surfaces already render whatever `booking.status`
   says (clock-inferred today); they pick up the real signal automatically once this epic changes what
   populates that field. No FE ticket needed until the contract (exact field/enum) is defined.
-- **STATUS: OPEN — Zod. Deadline 2026-07-17 (operator-set). Lane confirmed by operator 2026-07-15
-  (stays Zod's despite the 2026-07-15 lane policy — attendance rides his module).**
+- **STATUS: OPEN — OWNED-BY-NAV (reassigned by explicit operator call 2026-07-16, superseding the
+  07-15 lane confirmation). The 2026-07-17 deadline is CANCELLED. Zod: do NOT start this epic; your
+  only role on E21 is REVIEW once we ship it.**
+- **Sequencing (operator, 2026-07-16):** E21 runs AFTER (1) the manual test round, (2) the T8 probekit
+  skills rework, (3) the full test round. It is a large standalone task, not a bolt-on.
+- **Method (operator, 2026-07-16) — research BEFORE code.** The operator has a **corporate Zoom**
+  account, and the stated preference is to integrate **WITHOUT the Zoom SDK**. So the epic OPENS with
+  web research + design: what corporate Zoom actually exposes (server-to-server OAuth, webhooks, REST),
+  which identification strategy fits our booking model, and what the right shape is FOR THIS PROJECT —
+  then implementation. The (c) list below is the 07-12 sketch, kept as input, NOT as an agreed design.
+  Treat every "TBD" in it as an open research question, not a gap to fill in blind.
 
 ---
 
