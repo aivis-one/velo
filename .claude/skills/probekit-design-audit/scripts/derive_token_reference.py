@@ -69,24 +69,36 @@ def resolve(value, tokens, seen=None):
 def source_files():
     for dp, _, fs in os.walk(SRC):
         for f in fs:
-            if f.endswith(('.vue', '.ts', '.css')):
+            if f.endswith(('.vue', '.ts', '.js', '.css', '.html', '.svg')):
                 yield os.path.join(dp, f).replace(SEP, '/')
 
 def scan_usage(tokens):
     var_use = defaultdict(list)     # path (a): var(--x)
     name_use = defaultdict(list)    # path (b): '--x' as a string
     referenced = set()
+    token_use = defaultdict(list)   # path (c): consumed by ANOTHER TOKEN
     for p in source_files():
-        if p.endswith('variables.css'):
-            continue
         t = io.open(p, encoding='utf-8').read()
+        if p.endswith('variables.css'):
+            # THE ALIAS RULE (ПРОМТ №437): variables.css references its OWN tokens
+            # 10 times -- --velo-motion-* are aliases of --velo-duration-*, and
+            # --velo-effect-focus consumes --velo-blue-500. Skipping this file (as
+            # this script did until now) reports those sources as ZERO-USE. Deleting
+            # one on that advice breaks the token that aliases it. Counted, and kept
+            # SEPARATE: "consumed only by another token" is its own category, because
+            # if the alias is itself dead the whole chain may be dead together.
+            clean = strip_css_comments(t)
+            for m in re.finditer(r'var\(\s*(--[A-Za-z0-9_-]+)', clean):
+                token_use[m.group(1)].append(p)
+                referenced.add(m.group(1))
+            continue
         for m in re.finditer(r'var\(\s*(--[A-Za-z0-9_-]+)', t):
             var_use[m.group(1)].append(p)
             referenced.add(m.group(1))
         for m in re.finditer(r'[\'"](--[A-Za-z0-9_-]+)[\'"]', t):
             name_use[m.group(1)].append(p)
             referenced.add(m.group(1))
-    return var_use, name_use, referenced
+    return var_use, name_use, referenced, token_use
 
 def px_literals():
     """Dimensional bypass: NNpx written inline in .vue, outside comments."""
@@ -127,11 +139,15 @@ def hex_in_css(tokens):
 # ---------------------------------------------------------------- analyse
 def main():
     tokens, raw = parse_tokens(TOKENS_CSS)
-    var_use, name_use, referenced = scan_usage(tokens)
+    var_use, name_use, referenced, token_use = scan_usage(tokens)
     resolved = {n: resolve(d['value'], tokens) for n, d in tokens.items()}
 
     def uses(n):
-        return len(var_use.get(n, [])) + len(name_use.get(n, []))
+        # All THREE paths. Missing any one of them produces a confident lie.
+        return len(var_use.get(n, [])) + len(name_use.get(n, [])) + len(token_use.get(n, []))
+
+    def consumers(n):
+        return sorted({f for f in var_use.get(n, []) + name_use.get(n, []) + token_use.get(n, [])})
 
     # duplicates by RESOLVED value
     by_val = defaultdict(list)
@@ -140,6 +156,8 @@ def main():
     dupes = {v: sorted(ns) for v, ns in by_val.items() if len(ns) > 1}
 
     zero = sorted(n for n in tokens if uses(n) == 0)
+    alias_only = sorted(n for n in tokens
+                        if token_use.get(n) and not var_use.get(n) and not name_use.get(n))
     single = sorted(n for n in tokens if uses(n) == 1)
     dangling = sorted(r for r in referenced if r not in tokens and r.startswith('--velo'))
     # THE MIRROR RULE: a token written via setProperty() is defined, just not here.
@@ -173,6 +191,8 @@ def main():
         'tokens_defined': len(tokens),
         'tokens_used_any': sum(1 for n in tokens if uses(n) > 0),
         'zero_use': zero,
+        'alias_only': {n: consumers(n) for n in alias_only},
+        'consumers': {n: consumers(n) for n in tokens},
         'single_use': single,
         'name_only_reads': name_only,
         'undefined_but_referenced': undefined,
@@ -198,7 +218,11 @@ def main():
     print()
     print('== QUESTIONS (flagged, NOT decided) ==')
     print('  duplicate-value groups   : %d' % len(dupes))
-    print('  zero-use tokens          : %d' % len(zero))
+    print('  zero-use tokens (all 3 paths): %d' % len(zero))
+    print('  consumed ONLY by another token: %d  <- deleting these breaks their alias'
+          % len(alias_only))
+    for n in alias_only:
+        print('      %-28s <- %s' % (n, ', '.join(x.split('/')[-1] for x in consumers(n))))
     print('  single-use tokens        : %d' % len(single))
     print('  RUNTIME-defined (setProperty, not dangling): %d  %s' % (len(runtime), runtime or ''))
     print('  genuinely undefined      : %d  %s' % (len(undefined), undefined or ''))
