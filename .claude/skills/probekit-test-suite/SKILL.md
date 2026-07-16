@@ -10,7 +10,27 @@ Runs testing skills in logical sequence, gates on quality, auto-fixes safe CRITI
 
 ## Configuration
 
-report_dir: docs/01_reference/KNOWLEDGE/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №435): CBS's path replaced with the git-untracked scratch
+     dir the rest of the family already uses (dda9a6f, ПРОМТ №385). Note this
+     one pointed at docs/01_reference/KNOWLEDGE/, a DIFFERENT stale path from
+     the docs/01_refer/ARCHIVES/ the other skills carried -- neither exists in
+     VELO.
+
+     INERT STAGES against VELO -- marked, NOT rewired (ПРОМТ №435). This
+     orchestrator dispatches to the skills below; two of them cannot do anything
+     here, so in `full` mode expect them to no-op:
+       - Stage 11 e2e-bdd-test -- VELO has no Playwright/Cypress/Cucumber and no
+         tests/e2e tree. Nothing to run, nothing to audit.
+       - Stage 12 perf-test -- no local API. The only reachable targets are the
+         shared TEST and PROD servers; do NOT load them without the operator's
+         explicit go.
+     Their silence is NOT a pass. See each skill's own Configuration note.
+
+     NOT WIRED IN: probekit-screen-test, the VELO-native skill that covers Vue
+     screens via Vitest + happy-dom (the seam this repo actually uses). It is
+     absent from the pipeline below because adding a stage is a pipeline
+     decision, not a path fix. Raise it before trusting `full` as "everything". -->
+report_dir: .tmp/probekit-review
 
 ## Pipeline
 

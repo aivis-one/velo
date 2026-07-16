@@ -11,8 +11,22 @@ Also audits existing test suites for quality, coverage gaps, and anti-patterns.
 
 ## Configuration
 
+<!-- VELO-tuned (ПРОМТ №435): CBS's docs/01_refer path replaced with the
+     git-untracked scratch dir the rest of the family already uses (dda9a6f,
+     ПРОМТ №385). VELO has no docs/01_refer/.
+
+     NO RUNNER, NO SUITE -- read this before running (ПРОМТ №435). VELO has no
+     Playwright, no Cypress and no Cucumber in frontend/package.json, and no
+     tests/e2e tree. This skill therefore CANNOT run or audit anything here
+     today; the `--audit` mode has nothing to read. Standing it up means adding
+     a browser runner and a way to drive a Telegram Mini App (Telegram
+     WebApp auth is not a plain login form) -- a sized decision, not a tuning
+     detail. `test_output_dir` below is where a suite WOULD go; it does not
+     exist. VELO's real test seam today is Vitest + happy-dom, colocated --
+     see probekit-screen-test, which is the VELO-native way to exercise a
+     screen without a browser. -->
 test_output_dir: tests/e2e
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+report_dir: .tmp/probekit-review
 
 ## Execution Steps
 

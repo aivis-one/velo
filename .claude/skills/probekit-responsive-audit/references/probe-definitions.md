@@ -1,6 +1,7 @@
 # Responsive Audit — Probe Definitions
 
-CBS HOME responsive layout probes. Device breakpoints: phone (≤480px), tablet (481-1024px), desktop (>1024px).
+Responsive layout probes for VELO's Telegram Mini App frontend (VELO-tuned, ПРОМТ №435).
+Breakpoints: phone (≤480px) is the tier VELO ships to; tablet (481-1024px) and desktop (>1024px) are informational.
 Read severity from `probekit-core/references/severity-format.md`.
 
 ## P1: Viewport Meta (CRITICAL)
@@ -68,26 +69,38 @@ Verify headers and tab bars use `position: sticky`, NOT `position: fixed`.
 grep -rn 'position:\s*fixed' src/components/ --include='*.vue'
 ```
 
-## P6: RTL Layout (MEDIUM)
+## P6: RTL Layout — DROPPED for VELO (ПРОМТ №435)
 
-Verify RTL compatibility for Arabic locale.
+Upstream this probe verified RTL compatibility for CBS's Arabic locale. VELO
+ships no Arabic and no RTL locale, and has no i18n surface at all today
+(`LanguageTimezoneView.vue:13`), so every check here was guaranteed to be
+vacuous: there is no `[dir="rtl"]` to find and nothing to override.
 
-**Checks:**
-- Flex direction respected (no hardcoded `margin-left` without RTL override)
-- Text alignment uses `start`/`end` not `left`/`right` where possible
-- `[dir="rtl"]` selectors present for directional components
+Dropped rather than left inert, because unlike the other inert probes this one
+is not one config away from meaning something — it needs a whole RTL locale to
+exist first. If VELO ever ships one, restore it from the upstream CBS skill
+rather than reconstructing it from this note.
 
-**Detection:**
-```bash
-grep -rn 'margin-left\|padding-left\|text-align:\s*left' src/components/ --include='*.vue'
-```
+The probe count is now P1–P5 + P7–P8. Numbering is deliberately NOT renumbered:
+P7/P8 keep their identities so older reports stay readable.
+
+Removed detection, kept verbatim so a future restore is a copy-paste and not a
+reconstruction — the checks were: flex direction respected (no hardcoded
+`margin-left` without an RTL override); text alignment uses `start`/`end` rather
+than `left`/`right`; `[dir="rtl"]` selectors present for directional components.
+Detection was `grep -rn 'margin-left\|padding-left\|text-align:\s*left'` over
+`src/components/`.
 
 ## P7: Breakpoint Consistency (MEDIUM)
 
-If media queries used, verify breakpoints match CBS HOME device specs.
+If media queries are used, verify breakpoints match VELO's device reality.
 
-**CBS HOME breakpoints (from livemockup-studio):**
-- Phone: ≤ 480px
+<!-- VELO-tuned (ПРОМТ №435): CBS's livemockup-studio desktop-first breakpoints
+     replaced. VELO is a Telegram Mini App -- it renders in a phone-sized webview,
+     so the tablet/desktop tiers below are informational, not a target. The
+     phone tier is the one that matters. -->
+**Breakpoints:**
+- Phone: ≤ 480px — the tier VELO actually ships to
 - Tablet: 481px – 1024px
 - Desktop: > 1024px
 

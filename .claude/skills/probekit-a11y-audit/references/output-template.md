@@ -7,7 +7,7 @@ Save to: `{{review_dir}}/A11Y-AUDIT-{{target}}-{{YYYYMMDD}}.md`
 ## Template
 
 ```markdown
-# Accessibility Audit Report — CBS HOME Frontend
+# Accessibility Audit Report — VELO Frontend
 Date: {{date}}
 Target: {{source_dir}}
 WCAG Level: 2.1 AA
