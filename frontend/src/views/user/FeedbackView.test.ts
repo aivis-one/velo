@@ -145,6 +145,9 @@ import { createApp, nextTick, type App } from 'vue'
 import { setActivePinia, createPinia, type Pinia } from 'pinia'
 import FeedbackView from '@/views/user/FeedbackView.vue'
 import { usePracticesStore } from '@/stores/practices'
+// The REAL store, read where the assertion is about the has_feedback gate reading
+// the live list rather than a fixture the test handed it.
+import { useBookingsStore } from '@/stores/bookings'
 import { useDiaryStore } from '@/stores/diary'
 import { ApiResponseError } from '@/api/client'
 import { upsertFeedback, listDiaryFeed } from '@/api/diary'
@@ -227,6 +230,48 @@ function practice(overrides: Partial<PracticeResponse> = {}): PracticeResponse {
     difficulty: null,
     ...overrides,
   } as PracticeResponse
+}
+
+/**
+ * SC-18: `has_feedback` defaults FALSE and every gate test overrides it to true,
+ * so a dropped `...overrides` fails loudly instead of quietly asserting the
+ * default. `status: 'completed'` mirrors what this screen actually meets -- a
+ * feedback is post-practice.
+ */
+function booking(overrides: Partial<BookingWithPracticeResponse> = {}): BookingWithPracticeResponse {
+  return {
+    id: 'b1',
+    practice_id: 'p1',
+    user_id: 'u1',
+    status: 'confirmed',
+    purchase_id: null,
+    cancelled_at: null,
+    cancellation_reason: null,
+    joined_at: null,
+    left_at: null,
+    checkin_skipped: false,
+    created_at: '2026-07-01T00:00:00.000Z',
+    updated_at: null,
+    has_feedback: false,
+    has_checkin: false,
+    ...overrides,
+    practice: {
+      id: 'p1',
+      title: 'Утренняя практика',
+      practice_type: 'live',
+      status: 'completed',
+      scheduled_at: '2026-07-20T13:00:00.000Z',
+      duration_minutes: 60,
+      timezone: 'UTC',
+      master_id: 'm1',
+      master_name: 'Мастер Аня',
+      direction: null,
+      is_free: false,
+      price_cents: 2500,
+      currency: 'EUR',
+      zoom_link: null,
+    },
+  } as BookingWithPracticeResponse
 }
 
 function bookingsPage(items: BookingWithPracticeResponse[] = []) {
@@ -494,6 +539,101 @@ describe('FeedbackView', () => {
   // The write itself. VALUES, not mock calls (SC-02): every assertion below is
   // on the exact body the backend would receive.
   // ===========================================================================
+  // ===========================================================================
+  // ONE FEEDBACK PER PRACTICE (№446). A UI gate over a PERMISSIVE api: the
+  // endpoint is an upsert and would accept a second call, overwriting the rating
+  // already recorded. The backend will NOT catch a bug here, so these tests are
+  // the only thing holding the gate.
+  //
+  // Why it is a gate and not an edit feature: the overwrite happened SILENTLY,
+  // by navigating back into this screen, and the person never learned they had
+  // erased their own earlier review. Feedback feeds the master's analytics too --
+  // a "three stars" a master already read could quietly become five, with no trace.
+  //
+  // The mechanism mirrors CheckinView exactly (its :148 / :157 / :216 / :234).
+  // Sibling screens diverging is the habit that has bitten this repo four times.
+  // ===========================================================================
+  describe('one feedback per practice', () => {
+    it('an existing feedback replaces the FORM with the success screen at mount', async () => {
+      getMyBookingsMock.mockResolvedValue(bookingsPage([booking({ has_feedback: true })]))
+      mount()
+      await flush()
+
+      expect(successTitle()).toBe('Спасибо за feedback!')
+      expect(text()).not.toContain('Как прошла практика?')
+      expect(submitBtn()).toBeUndefined()
+    })
+
+    it('a booking with NO feedback still renders the form (the gate is not always-on)', async () => {
+      // The non-vacuous half: gate on a constant and every test above passes while
+      // the screen is permanently unusable.
+      getMyBookingsMock.mockResolvedValue(bookingsPage([booking({ has_feedback: false })]))
+      mount()
+      await flush()
+
+      expect(text()).toContain('Как прошла практика?')
+      expect(submitBtn()).toBeDefined()
+      expect(successTitle()).toBe('')
+    })
+
+    it('reads has_feedback for THIS practice, not just any booking', async () => {
+      // The id match in the computed. Without it, one reviewed practice anywhere in
+      // the list would lock every feedback form the user opens.
+      getMyBookingsMock.mockResolvedValue(
+        bookingsPage([booking({ id: 'b9', practice_id: 'p-other', has_feedback: true })]),
+      )
+      mount()
+      await flush()
+
+      expect(text()).toContain('Как прошла практика?')
+      expect(submitBtn()).toBeDefined()
+    })
+
+    it('the onSubmit gate holds even when the button is still on screen (SC-17 race)', async () => {
+      // THIS TEST EXISTS BECAUSE A MUTATION CAUGHT ITS FIRST VERSION. The gate is
+      // DOUBLE-gated -- once at the DOM (the watch swaps in the success screen, so
+      // the button vanishes) and once inside onSubmit. The first version flipped
+      // the flag, awaited, and asserted `not.toHaveBeenCalled()` WITHOUT CLICKING:
+      // it passed with the onSubmit gate deleted, because nothing had happened at
+      // all. SC-15's shape exactly.
+      //
+      // So reach the second rung the only way it can be reached: flip the flag
+      // with NO await, so Vue has not repainted and the button is still live, then
+      // tap. The pre-assertions pin that the button really is there and enabled in
+      // that frame, so this cannot pass vacuously either.
+      getMyBookingsMock.mockResolvedValue(bookingsPage([booking({ has_feedback: false })]))
+      mount()
+      await flush()
+
+      const btn = submitBtn()
+      expect(btn).toBeDefined()
+      expect(btn?.disabled).toBe(false)
+
+      // No await: the ref is true, the DOM is stale, the button is still clickable.
+      useBookingsStore().bookings[0]!.has_feedback = true
+      btn!.click()
+      await flush()
+
+      expect(upsertFeedbackMock).not.toHaveBeenCalled()
+      expect(successTitle()).toBe('Спасибо за feedback!')
+    })
+
+    it('the flag flipping while the form is OPEN swaps to the success screen', async () => {
+      // The watch (mirrors CheckinView:216). Another screen refreshing the list
+      // must not leave a live form standing over a review that already exists.
+      getMyBookingsMock.mockResolvedValue(bookingsPage([booking({ has_feedback: false })]))
+      mount()
+      await flush()
+      expect(text()).toContain('Как прошла практика?')
+
+      useBookingsStore().bookings[0]!.has_feedback = true
+      await flush()
+
+      expect(successTitle()).toBe('Спасибо за feedback!')
+      expect(submitBtn()).toBeUndefined()
+    })
+  })
+
   describe('submitting the feedback', () => {
     it('sends the DEFAULT rating and a null comment, and shows the success screen', async () => {
       // ratingScore defaults to 6 -- the middle «Хорошо» zone (.vue:106) -- so a
@@ -596,16 +736,20 @@ describe('FeedbackView', () => {
       // W27 (diary.ts:218-233): the store deliberately STOPPED refreshing bookings
       // on the grounds that this view does it itself (.vue:127). If that ever
       // regresses, has_feedback stays stale and the dashboard keeps offering a
-      // feedback the user already left. Unlike CheckinView this screen never loads
-      // bookings at mount, so the count is a clean 0 -> 1.
+      // feedback the user already left.
+      //
+      // The count is 1 -> 2, not 0 -> 1: since №446 this screen loads bookings at
+      // MOUNT too, because that list is what the has_feedback gate reads. The
+      // mount call is asserted first so the post-submit call is the delta and not
+      // an off-by-one hiding a missing refresh.
       mount()
       await flush()
-      expect(getMyBookingsMock).not.toHaveBeenCalled()
+      expect(getMyBookingsMock).toHaveBeenCalledTimes(1)
 
       submitBtn()?.click()
       await flush()
 
-      expect(getMyBookingsMock).toHaveBeenCalledTimes(1)
+      expect(getMyBookingsMock).toHaveBeenCalledTimes(2)
     })
 
     it('refreshes the diary feed too -- the feedback is a timeline event', async () => {
@@ -668,14 +812,18 @@ describe('FeedbackView', () => {
     })
 
     it('a FAILED submit does NOT refresh the bookings -- nothing changed', async () => {
+      // The mount load (1) must still be the ONLY call: a failed write refreshes
+      // nothing. Asserting `not.toHaveBeenCalled()` would be wrong now and would
+      // fail for the wrong reason -- the point is no SECOND call.
       upsertFeedbackMock.mockRejectedValue(new ApiResponseError(400, 'Feedback window has closed'))
       mount()
       await flush()
+      expect(getMyBookingsMock).toHaveBeenCalledTimes(1)
 
       submitBtn()?.click()
       await flush()
 
-      expect(getMyBookingsMock).not.toHaveBeenCalled()
+      expect(getMyBookingsMock).toHaveBeenCalledTimes(1)
     })
 
     it('a non-API failure falls back to the store\'s own message', async () => {

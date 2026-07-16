@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePracticesStore } from '@/stores/practices'
 import { useBookingsStore } from '@/stores/bookings'
@@ -110,8 +110,27 @@ const ratingScore = ref<number>(6)
 const comment = ref('')
 const submitted = ref(false)
 
+// One feedback per practice -- OUR product decision, NOT an API constraint. The
+// endpoint is an upsert and would accept a second one, overwriting the rating
+// already recorded. We block it because the overwrite is SILENT: it happens by
+// navigating back into this screen, and the person never learns they erased their
+// own earlier review. Feedback also feeds the master's analytics, so a "three
+// stars" a master already read can quietly become five with no trace.
+//
+// So this is a UI gate over a permissive API and the backend will NOT catch a bug
+// here -- its tests are the only thing holding it. Revisable reviews, if we ever
+// want them, are a deliberate feature with an honest "edit your review" button and
+// a warning, not a side effect of pressing back.
+//
+// Mirrors CheckinView:148 exactly, down to reading the flag off the already-loaded
+// booking list rather than an extra request. Sibling screens diverging is the habit
+// that has bitten this repo four times; matching the shape IS the fix.
+const alreadyGaveFeedback = computed<boolean>(() =>
+  bookingsStore.bookings.some((b) => b.practice_id === practiceId && b.has_feedback),
+)
+
 async function onSubmit(): Promise<void> {
-  if (diaryStore.feedbackSubmitting) return
+  if (diaryStore.feedbackSubmitting || alreadyGaveFeedback.value) return
 
   const result = await diaryStore.submitFeedback(practiceId, {
     rating: ratingScore.value,
@@ -160,9 +179,25 @@ function loadPractice(): void {
   void practicesStore.fetchPractice(practiceId)
 }
 
-onMounted(() => {
+// If the flag flips while the form is open -- another screen refreshes the list,
+// or the post-submit refreshBookings lands -- swap to the success screen rather
+// than leave a live form over a review that already exists. Mirrors CheckinView:216.
+watch(alreadyGaveFeedback, (done) => {
+  if (done) submitted.value = true
+})
+
+onMounted(async () => {
   if (practicesStore.selected?.id !== practiceId) {
     loadPractice()
+  }
+  // Ensure bookings are loaded so `has_feedback` is available -- this screen did
+  // not load them at all before, which is why it had no gate to build on.
+  // fetchMyBookings is a no-op when the list is already populated (arriving from
+  // the dashboard); on a direct deep-link it performs the initial load
+  // (bookings.ts:132). Mirrors CheckinView:234.
+  await bookingsStore.fetchMyBookings()
+  if (alreadyGaveFeedback.value) {
+    submitted.value = true
   }
 })
 </script>
