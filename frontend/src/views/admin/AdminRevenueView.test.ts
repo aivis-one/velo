@@ -11,15 +11,17 @@
 // getAdminRevenue() in onMounted + a watch on `period`
 // (AdminRevenueView.vue:124-137). No store, so no pinia -- the seam is @/api/admin.
 //
-// Note the contrast with AdminWithdrawalsView, which is the SAME kind of screen
-// but got two things right that its sibling did not:
-//   - the retry button is in VEmptyState's DEFAULT slot (AdminRevenueView.vue:39),
-//     so it actually renders -- see the REAL FIND pinned in
-//     AdminWithdrawalsView.test.ts, where `<template #action>` silently drops it;
-//   - it binds :description="error" (AdminRevenueView.vue:37), so the REAL
-//     backend message reaches the card rather than only a toast.
-// Both are asserted below, deliberately, because they are the behaviours the
-// broken screens should be repaired TO.
+// This screen binds :description="error" (AdminRevenueView.vue:37), so the REAL
+// backend message reaches the card rather than only a toast -- asserted below.
+// Several sibling admin screens swallow it into a toast instead; this is the
+// behaviour they should be repaired TO.
+//
+// Its retry button sits in VEmptyState's DEFAULT slot (AdminRevenueView.vue:39).
+// That is one of 24 such sites and it has always worked. The 11 sites that used
+// `<template #action>` did NOT -- VEmptyState never declared that slot and Vue
+// dropped it silently (found ПРОМТ №432, fixed №433: `action` is now declared,
+// and both slots render into .v-empty__action). Migrating these 24 onto the
+// named slot was scoped in №433 and NOT done -- see that report.
 //
 // No time pinning needed -- this screen reads no clock.
 // =============================================================================
@@ -147,9 +149,9 @@ describe('AdminRevenueView', () => {
     })
 
     it('error retry: «Повторить» RENDERS and recovers into content', async () => {
-      // The default slot, so VEmptyState actually renders it
-      // (VEmptyState.vue:36-38). Contrast AdminWithdrawalsView, where the same
-      // button is passed via #action and vanishes.
+      // The default slot, which VEmptyState has always rendered. Kept as the
+      // guard for THIS site's spelling; AdminWithdrawalsView.test.ts guards the
+      // `#action` spelling that used to vanish.
       vi.mocked(adminApi.getAdminRevenue).mockRejectedValueOnce(new TypeError('boom'))
       mount()
       await flush()

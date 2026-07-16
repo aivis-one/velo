@@ -162,50 +162,35 @@ describe('AdminWithdrawalsView', () => {
       expect(toastError).toHaveBeenCalledWith('Ошибка загрузки выплат')
     })
 
-    it('REAL FIND: the «Повторить» retry button DOES NOT RENDER -- the error state is a dead end', async () => {
-      // ---- REAL FIND (T8/ПРОМТ №432), asserted as-is, NOT fixed ----
-      // AdminWithdrawalsView.vue:40-42 passes the retry button through
-      // `<template #action>`. VEmptyState declares NO `action` slot -- it renders
-      // only `<slot name="icon">` and the DEFAULT slot, which it wraps in
-      // .v-empty__action (VEmptyState.vue:31-39). Vue drops an unmatched named
-      // slot SILENTLY: no warning, no error, no button.
+    it('error retry: the «Повторить» button RENDERS', async () => {
+      // REGRESSION GUARD (T8, find from ПРОМТ №432, fixed in №433).
+      // This screen passes its retry button through `<template #action>`
+      // (AdminWithdrawalsView.vue:40-42). VEmptyState did not declare an `action`
+      // slot, and Vue drops an unmatched named slot SILENTLY -- no warning, no
+      // error, no button. The admin hit a failed payout queue with nothing to
+      // click and no way out but to leave the screen.
       //
-      // Effect: when the payout queue fails to load, the admin sees «Не удалось
-      // загрузить / Проверьте соединение и попробуйте ещё раз» and has NOTHING to
-      // click. The only way out is to leave the screen and come back.
-      //
-      // NOT local to this screen. The same #action-on-VEmptyState mistake is in
-      // 11 views (AdminCatalog, AdminMasters, AdminMethodRequests,
-      // AdminParticipants, AdminPromos, AdminReports, AdminUsers, AdminWithdrawals,
-      // DetailView, DiaryFeedView, EntryView). MasterPromocodesView.vue:27-29 is
-      // the contrast that works: it puts the button in the DEFAULT slot.
-      //
-      // Product code is out of scope for this prompt, so this test PINS the
-      // current behaviour. When VEmptyState gains an `action` slot (or the callers
-      // move to the default slot), this test goes red on purpose: replace it with
-      // the retry-and-recover test that MasterPromocodesView.test.ts already has.
+      // VEmptyState now declares `action` (VEmptyState.vue:~40). This asserts the
+      // button is BACK -- the failure it guards against is invisible by nature,
+      // so it has to be caught here rather than by anyone looking at the screen.
       vi.mocked(adminApi.getAdminWithdrawals).mockRejectedValue(new TypeError('boom'))
       mount()
       await flush()
 
       expect(text()).toContain('Не удалось загрузить')
-      expect(button('Повторить')).toBeUndefined()
-      expect(host?.querySelector('.v-empty__action')).toBeNull()
+      expect(button('Повторить')).toBeDefined()
+      expect(host?.querySelector('.v-empty__action')).not.toBeNull()
     })
 
-    it('loadInitial DOES recover when re-invoked -- the handler is fine, only its button is missing', async () => {
-      // Proves the find above is a wiring defect and nothing worse: the retry
-      // PATH works, so restoring the slot is all that is needed. Driven through
-      // a remount, which is what the admin is forced to do today.
+    it('error retry: «Повторить» re-fetches and recovers into content', async () => {
+      // The other half: the button exists AND is wired to loadInitial.
       vi.mocked(adminApi.getAdminWithdrawals).mockRejectedValueOnce(new TypeError('boom'))
       mount()
       await flush()
       expect(text()).toContain('Не удалось загрузить')
 
-      app?.unmount()
-      host?.remove()
       vi.mocked(adminApi.getAdminWithdrawals).mockResolvedValue(page([wd('w1')]))
-      mount()
+      button('Повторить')?.click()
       await flush()
 
       expect(rows()).toHaveLength(1)

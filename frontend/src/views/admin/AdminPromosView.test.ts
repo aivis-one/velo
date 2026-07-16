@@ -175,24 +175,27 @@ describe('AdminPromosView', () => {
       expect(toastError).toHaveBeenCalledWith('Ошибка загрузки промокодов')
     })
 
-    it('REAL FIND: the «Повторить» retry button DOES NOT RENDER -- the error state is a dead end', async () => {
-      // ---- REAL FIND (T8/ПРОМТ №432), asserted as-is, NOT fixed ----
-      // Same defect as AdminWithdrawalsView: AdminPromosView.vue:42-44 passes the
-      // retry button through `<template #action>`, and VEmptyState declares no
-      // `action` slot (VEmptyState.vue:31-39). Vue drops the unmatched named slot
-      // SILENTLY, so the admin gets an error card with nothing to click.
-      //
-      // 11 views share this mistake -- the full list and the working contrast
-      // (VEmptyState's DEFAULT slot, as used by AdminRevenueView.vue:39) are in
-      // AdminWithdrawalsView.test.ts. When it is fixed this test goes red on
-      // purpose: replace it with a retry-and-recover test.
-      vi.mocked(adminApi.getAdminPromos).mockRejectedValue(new TypeError('boom'))
+    it('error retry: the «Повторить» button RENDERS and re-fetches', async () => {
+      // REGRESSION GUARD (T8, find from ПРОМТ №432, fixed in №433).
+      // Same defect as AdminWithdrawalsView: this screen passes its retry button
+      // through `<template #action>` (AdminPromosView.vue:42-44), a slot
+      // VEmptyState did not declare -- so Vue dropped it silently and the admin
+      // got an error card with nothing to click. VEmptyState now declares
+      // `action` (VEmptyState.vue:~40).
+      vi.mocked(adminApi.getAdminPromos).mockRejectedValueOnce(new TypeError('boom'))
       mount()
       await flush()
 
       expect(text()).toContain('Не удалось загрузить промокоды')
-      expect(button('Повторить')).toBeUndefined()
-      expect(host?.querySelector('.v-empty__action')).toBeNull()
+      const retry = button('Повторить')
+      expect(retry).toBeDefined()
+
+      vi.mocked(adminApi.getAdminPromos).mockResolvedValue(page([promo('p1', { code: 'BACK' })]))
+      retry?.click()
+      await flush()
+
+      expect(text()).toContain('BACK')
+      expect(text()).not.toContain('Не удалось загрузить промокоды')
     })
 
     it('empty: shows the empty state when there are no promos at all', async () => {

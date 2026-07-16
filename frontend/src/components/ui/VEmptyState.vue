@@ -20,6 +20,19 @@
   NO icon, NO title/desc split, NO action. The single message comes from `title`
   (or the default slot). Replaces the bespoke `__empty` plates in the master views.
     <VEmptyState variant="note" title="Данных пока нет" />
+
+  The action button takes EITHER slot — both render into `.v-empty__action`:
+    <VEmptyState icon="warning" title="Ошибка">
+      <template #action><VButton @click="load">Повторить</VButton></template>
+    </VEmptyState>
+
+  Why both (T8, ПРОМТ №433): 11 views were already written against `#action`, a
+  slot this component did not declare. Vue drops an unmatched named slot SILENTLY
+  — no warning, no error — so all eleven rendered an error state with no button
+  and no way out. 24 other sites use the default slot for the same purpose and
+  work. `action` is now declared and is the canonical spelling; the default slot
+  stays supported so those 24 keep working and because `note` renders its MESSAGE
+  through it. Do not remove the default fallback without migrating all 24 first.
 -->
 
 <template>
@@ -33,7 +46,8 @@
     </span>
     <p class="v-empty__title">{{ title }}</p>
     <p v-if="description" class="v-empty__desc">{{ description }}</p>
-    <div v-if="$slots.default" class="v-empty__action">
+    <div v-if="$slots.action || $slots.default" class="v-empty__action">
+      <slot name="action" />
       <slot />
     </div>
   </div>
