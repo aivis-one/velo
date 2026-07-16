@@ -28,11 +28,11 @@
 // NO money: nothing here renders formatMoney, so the ru-NBSP trap is absent.
 // Asserted strings contain only ordinary spaces (verified by codepoint).
 //
-// REAL BUG found while writing this file: formatShortDate() zero-pads days 1..9
-// ("09 июня") despite documenting "9 июня" — an en-CA format-matcher resolution,
-// not this screen's fault, affecting ~11 call sites app-wide. Pinned as ACTUAL
-// behaviour in the feedbackRows block below, NOT fixed. Read that block before
-// "correcting" any date assertion here.
+// REAL BUG found while writing this file, FIXED in №441: formatShortDate()
+// zero-padded days 1..9 ("09 июня") despite documenting "9 июня" — an en-CA
+// format-matcher resolution, not this screen's fault, affecting 13 surfaces
+// app-wide. The tripwire in the feedbackRows block below now asserts the
+// CORRECT output and is the screen-level proof the util fix reaches the DOM.
 //
 // TRAP -- the ?name= query is NOT what its comment claims. .vue:117-124 says the
 // list forwards ?name= "for an instant pre-fetch render". It cannot: the hero is
@@ -554,32 +554,26 @@ describe('MasterStudentProfileView', () => {
       expect(fbRows()[0]?.querySelector('.profile__fb-text')?.textContent).toBe('Лучшая практика')
       // `v-if="fb.comment"` (.vue:75) -- '' from the ?? '' is falsy, so no empty node.
       expect(fbRows()[1]?.querySelector('.profile__fb-text')).toBeNull()
-      // "01 мая", NOT "1 мая" -- see the leading-zero defect pinned below.
-      expect(fbRows()[0]?.querySelector('.profile__fb-date')?.textContent).toBe('01 мая')
+      // "1 мая" -- the leading zero was the format.ts:118 defect, fixed in №441.
+      expect(fbRows()[0]?.querySelector('.profile__fb-date')?.textContent).toBe('1 мая')
     })
 
     // -----------------------------------------------------------------------
-    // REAL BUG, pinned not fixed -- formatShortDate() leading zero.
+    // Was a pinned REAL BUG (found №440, FIXED №441) -- formatShortDate()'s
+    // leading zero. It asked Intl for `day:'numeric'` but en-CA's format matcher
+    // resolved the day+month skeleton to `MM-dd` -- resolvedOptions() really did
+    // return `{month:'2-digit', day:'2-digit'}` -- so every day 1..9 rendered
+    // zero-padded ("01 мая", "09 июня") against a docstring promising "9 июня".
+    // Days 10..31 were correct, which is why it survived: a shared util across
+    // 13 view/card surfaces, wrong for nine days of every month.
     //
-    // format.ts:94-95 documents its own contract as «"9 июня" / "12 сент."».
-    // It does not honour it. formatShortDate asks Intl for `day:'numeric'` but
-    // in the **en-CA** locale (format.ts:120) ICU's format matcher resolves the
-    // day+month skeleton to en-CA's `MM-dd` pattern -- resolvedOptions() comes
-    // back `{month:'2-digit', day:'2-digit'}` -- so every day 1..9 is emitted
-    // zero-padded: "01 мая", "09 июня", "05 янв.". Only days 10..31 match the
-    // documented output, which is why it has gone unnoticed.
-    //
-    // NOT this screen's bug and NOT fixed here (product code is out of bounds
-    // for this task). It is a SHARED util: 8 views + BookingCard,
-    // PracticeListCard and CalendarPracticeCard all render dates through it, so
-    // roughly a third of all card dates in the app are affected. format.test.ts
-    // exists but has never covered formatShortDate, which is how the gap
-    // survived. Reported to the operator.
-    //
-    // Pinned as ACTUAL behaviour so this suite is green and so a future fix
-    // fails HERE and gets noticed, rather than being weakened away (SC-10).
+    // The fix parses the day with Number() instead of rendering ICU's string,
+    // so no locale or ICU build can pad it back. This test was written as a
+    // TRIPWIRE against the broken output and is now flipped to the correct one
+    // -- kept, not deleted, because it is the screen-level proof that the util
+    // fix reaches rendered DOM. Unit-level boundaries live in format.test.ts.
     // -----------------------------------------------------------------------
-    it('BUG(format.ts:118): single-digit days render zero-padded — "09 июня", not the documented "9 июня"', async () => {
+    it('renders single-digit days with NO leading zero — the documented "9 июня" (format.ts:118, fixed №441)', async () => {
       vi.mocked(mastersApi.getStudent).mockResolvedValue(
         detail({
           recent_checkins: [checkin({ comment: 'x', created_at: '2026-06-09T10:00:00Z' })],
@@ -589,8 +583,8 @@ describe('MasterStudentProfileView', () => {
       mount()
       await flush()
 
-      expect(ciRows()[0]?.querySelector('.profile__ci-date')?.textContent).toBe('09 июня')
-      expect(fbRows()[0]?.querySelector('.profile__fb-date')?.textContent).toBe('05 янв.')
+      expect(ciRows()[0]?.querySelector('.profile__ci-date')?.textContent).toBe('9 июня')
+      expect(fbRows()[0]?.querySelector('.profile__fb-date')?.textContent).toBe('5 янв.')
     })
   })
 

@@ -122,7 +122,14 @@ export function formatShortDate(isoString: string, timezone = 'UTC'): string {
     month: 'numeric',
     timeZone: timezone,
   }).formatToParts(date)
-  const day = parts.find((p) => p.type === 'day')?.value ?? ''
+  // Parse the day rather than rendering ICU's string: en-CA's format matcher
+  // resolves this day+month skeleton to MM-dd and pads both to two digits no
+  // matter that we asked for `numeric` (resolvedOptions().day === '2-digit').
+  // Number() normalises whatever padding any locale/ICU build hands back, so
+  // this cannot silently drift back to "09 июня". The month below was always
+  // immune for exactly this reason.
+  const dayRaw = parts.find((p) => p.type === 'day')?.value ?? ''
+  const day = dayRaw === '' ? '' : String(Number(dayRaw))
   const monthNum = Number(parts.find((p) => p.type === 'month')?.value ?? '1')
   const month = VELO_SHORT_MONTHS[monthNum - 1] ?? ''
   return `${day} ${month}`.trim()
