@@ -3,7 +3,7 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.7.0
+# screen-test v1.8.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
@@ -187,5 +187,5 @@ any real finds, any screens rejected as untestable and why.
 
 ## Anchor
 
-[*] screen-test v1.7.0 * ready
+[*] screen-test v1.8.0 * ready
 [>] | NEXT: user command

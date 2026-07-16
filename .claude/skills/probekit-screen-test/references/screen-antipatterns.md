@@ -252,3 +252,23 @@ suite was green — the fixture simply described a record the backend **cannot s
 assertion around it was made against a fiction. `npm run test` cannot see this. **Run `vue-tsc` and
 treat a fixture cast that does not typecheck as a fixture that is wrong**, not as a cast to widen.
 Live case: `CheckinView.test.ts` (reported "vue-tsc clean"; it was exit 2).
+
+## SC-19 — A slot's fallback that the SHELL's `v-if` makes unreachable
+You are testing a screen that passes `#practice-meta` to a shared shell. The slot has a sensible
+fallback (`master_name ?? 'Мастером'`), so you assert that a failed load degrades to it. It does not
+— and the screen is right.
+
+The slot is **nested inside the shell's own `v-if`**: `FormShell.vue:78-91` puts `#practice-meta`
+inside `<PracticeHeroCard v-if="practice">`, so a null practice takes the master, the status, the
+title AND the slot's fallback with it. The failed state is **barer** than the slot's own code
+suggests. Reading the screen tells you nothing about this: the screen passes the slot
+unconditionally, and the gate lives one file away.
+
+**Instead:** grep the SHELL's nesting for the slot, not just the slot's own definition, before
+asserting anything about a degraded state. And note the fallback is usually not dead — it fires for a
+LOADED record with a null field, a different case entirely. Live: `ReflectionView.test.ts`, where an
+agent asserted the fallback on a failed load, went red, and followed it into FormShell rather than
+bending the test.
+
+This generalises past slots: **any `v-if` in a shared parent silently gates everything a child passes
+into it**, and the child's own source looks unconditional.
