@@ -35,6 +35,31 @@ afterEach(() => {
 })
 ```
 
+**MANDATORY for any screen that opens a modal or a bottom sheet — reap the overlay.**
+`app.unmount()` does NOT remove a CLOSED teleported overlay; it stays parked on
+`document.body` and the next test clicks the dead node. Add the purge to `afterEach`
+(full mechanism: `screen-antipatterns.md` SC-13):
+
+```ts
+afterEach(() => {
+  app?.unmount()
+  host?.remove()
+  app = null
+  host = null
+
+  // A closed teleported overlay survives unmount -- the <Transition> leave awaits
+  // a transitionend happy-dom never fires. Without this, the first sheet test in
+  // the file passes and every later one fails against a DEAD node. SC-13.
+  document.body.querySelectorAll('.v-sheet__overlay').forEach((el) => el.remove())
+  document.body.querySelectorAll('.v-modal__overlay').forEach((el) => el.remove())
+
+  vi.clearAllMocks()
+})
+```
+Purge the class the component actually teleports: `.v-sheet__overlay` for `VBottomSheet`
+(`VBottomSheet.vue:20`), `.v-modal__overlay` for `VModal` (`VModal.vue:22`). Grep the child
+rather than trusting this list — a new overlay component will not be in it.
+
 Props and event handlers both go in `createApp`'s second arg; handlers arrive as `onFoo`
 props (`MethodTaxonomyPicker.test.ts:41-44`):
 
@@ -61,20 +86,34 @@ test that proves nothing.
 (`findChip('Терапия')`, `.click()`). Do the same. If a child is genuinely unmountable,
 that is a finding to report, not a reason to reach for `global.stubs`.
 
-## §3 Flush async with repeated `nextTick`
+## §3 Flush async with repeated `nextTick` — COUNT THE AWAITS, do not copy a number
 
-`CalendarFilterModal.test.ts:71-74` awaits `nextTick()` **three times**, commented
-"Flush the onMounted async catalog fetch + its .then continuation." An `onMounted` that
-awaits an API call needs more than one tick: one for the mount, one for the promise
-continuation, one for the re-render. Prefer an explicit helper:
+**Three is not the rule. Three was one screen's answer.** `CalendarFilterModal.test.ts:71-74`
+awaits `nextTick()` three times because ITS chain is three deep: the mount, the promise
+continuation, the re-render. Screens go deeper. Measured in this repo:
+
+| Screen | Ticks needed |
+|---|---|
+| `CalendarFilterModal` (leaf, one fetch) | 3 |
+| `TopupSuccessView` | **5** (`TopupSuccessView.test.ts:60-62`) |
+| `MasterFinanceView` | **6** (`MasterFinanceView.test.ts:119-121`) |
+
+The count is **one tick per `await` in the chain the mount kicks off, plus one for the final
+re-render**. A screen whose `onMounted` awaits a store action that awaits an API wrapper that
+awaits the client has already spent four before it renders. Derive it: read the chain and
+count, or raise the loop until the assertion goes green and then confirm you understand WHY
+that number — a tick count you cannot explain is a race that will fail on someone else's
+machine.
+
+Use a loop, not a copied stack of calls, so the count is a number a reader can see and change:
 
 ```ts
 async function flush(): Promise<void> {
-  await nextTick()
-  await nextTick()
-  await nextTick()
+  for (let i = 0; i < 5; i++) await nextTick()   // <- count YOUR chain
 }
 ```
+An under-count fails loudly (the DOM has not re-rendered). An over-count is harmless. When in
+doubt, go higher — but write down what you counted.
 
 ## §4 Mock at the seam the code actually imports
 
@@ -205,3 +244,35 @@ No shuffle is configured; declaration order is execution order.
 Every test file opens with a `====` banner explaining WHY it exists, what it proves, which
 prompt/stage produced it, and any trap a later reader would trip on. Match that density.
 State constraints the code cannot show; do not narrate what the next line does.
+
+## §11 The ru NBSP trap — every money assertion, without exception
+
+`formatMoney` (`utils/format.ts:27-40`) is `Intl.NumberFormat('ru', {style:'currency'})`. The
+ru locale groups thousands with **U+00A0 (NBSP)**, not the space on your keyboard — what
+looks like `1 234,56 EUR` is really `1` + `U+00A0` + `234,56` + `U+00A0` + `€`. A normally
+typed assertion passes on `9,99` and fails on every amount over 999, so the trap hides until a
+fixture crosses a thousand — and the failure reads as a wrong VALUE rather than a wrong
+space, which sends you hunting the screen instead of the assertion. It bit this skill's first
+user twice.
+
+This section deliberately NAMES the codepoint rather than showing it: a literal NBSP is exactly
+as invisible in prose as it is in code.
+
+This is not an edge case. **"Touches money" is the ranking's +4 signal (Step 2), so the screens
+this skill is aimed at FIRST are precisely the ones that hit it.** Normalise before asserting:
+
+```ts
+// Written as ESCAPES, never as literal characters -- a literal NBSP is invisible
+// in a diff, and the next editor "tidies" it into a plain space without ever
+// seeing what they broke.
+function norm(s: string | null | undefined): string {
+  return (s ?? '').replace(/[\u00A0\u202F\u2009]/g, ' ')
+}
+
+expect(norm(text())).toContain('1 234,56')   // plain space -- norm() made it one
+```
+
+Live precedent: `MasterFinanceView.test.ts:123-135`, `AdminRevenueView.test.ts:92`. Both
+normalise THREE space variants — NBSP (`\u00A0`), narrow NBSP (`\u202F`), thin space
+(`\u2009`) — because the exact codepoint Intl emits varies by Node/ICU build. Pinning a
+single one writes a test that breaks on a runtime upgrade for no reason.

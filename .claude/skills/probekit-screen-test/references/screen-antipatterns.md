@@ -43,10 +43,22 @@ Read the guard before asserting the rung.
 Modals `Teleport to="body"`. `host.querySelector` finds nothing; the test concludes "not
 rendered". Query `document.body` (`CalendarFilterModal.test.ts:48-52`).
 
-## SC-08 — One tick
-A single `await nextTick()` after mounting a screen whose `onMounted` awaits an API call.
-The DOM has not re-rendered yet. Needs the mount tick, the promise continuation, and the
-re-render (§3 of velo-idiom.md).
+**SC-07 is about READING teleported content. Reaping it is a separate obligation — SC-13.
+Doing SC-07 correctly does not save you from SC-13.**
+
+## SC-08 — Too few ticks, or a tick count copied rather than counted
+A single `await nextTick()` after mounting a screen whose `onMounted` awaits an API call: the
+DOM has not re-rendered yet.
+
+But the sharper version of this bug is **copying "three"** out of §3 because a leaf component
+needed three. Three is not the rule — it was one screen's answer. `TopupSuccessView` needs
+**5**, `MasterFinanceView` needs **6**. The count is one tick per `await` in the chain the
+mount kicks off, plus one for the final re-render; a store action awaiting an API wrapper
+awaiting the client has already spent four before it paints.
+
+**Instead:** count YOUR chain (velo-idiom §3). A tick count you cannot explain is a race that
+passes here and fails on a colleague's machine. Under-counting fails loudly; over-counting is
+harmless — when unsure, go higher and write down what you counted.
 
 ## SC-09 — Testing an inert stub as if it were live
 `views/auth/*` are dormant, unlinked stubs (`router/index.ts:496-502`); every handler is a
@@ -67,3 +79,31 @@ space (`guards.test.ts:241-245` — the guard must not touch stores it has no bu
 ## SC-12 — Stubbing children to make a mount work
 Reaching for stubs because a child component throws. The repo stubs nothing. A child that
 cannot mount is a finding worth reporting — it may be a real defect in that child.
+
+## SC-13 — Teleported overlay left un-reaped after unmount *(the expensive one)*
+A **closed** teleported overlay survives `app.unmount()`. `VBottomSheet` and `VModal` wrap the
+overlay in a `<Transition>` (`VBottomSheet.vue:19-20`, `VModal.vue:21-22`); when `open` flips to
+`false`, Vue holds the leaving element pending a `transitionend` that **happy-dom never fires**,
+and `unmount()` does not reap it. It stays parked directly on `document.body`, outliving the app
+that created it.
+
+The next test then finds the **DEAD** overlay first in document order, clicks it, and nothing
+happens — the handler belongs to an unmounted app. Every downstream assertion fails while the
+screen under test is perfectly healthy.
+
+**Signature — learn this one, it is unmistakable:** *the first sheet/modal test in a file passes
+and every later one fails.* If you see that shape, do not debug the screen. You are clicking a
+corpse. Confirmed on `MasterNewPromocodeView` and `AdminWithdrawalDetailView`.
+
+**Instead:** purge in `afterEach`, unconditionally, in every file whose screen can open an
+overlay — cheap, idempotent, and invisible when unnecessary:
+```ts
+document.body.querySelectorAll('.v-sheet__overlay').forEach((el) => el.remove())
+document.body.querySelectorAll('.v-modal__overlay').forEach((el) => el.remove())
+```
+Purge the class the child actually teleports — grep it rather than trusting this pair; a new
+overlay component will not be listed here. Precedent: `MasterNewPromocodeView.test.ts:159-173`,
+`AdminPromosView.test.ts:132-142`, `AdminWithdrawalDetailView.test.ts:164-176`.
+
+*(Three separate test files independently rediscovered this and hand-rolled the same purge before
+it was ever written down. That is the cost of leaving a finding in an orc's head.)*

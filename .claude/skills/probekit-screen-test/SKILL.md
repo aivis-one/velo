@@ -3,11 +3,18 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.0.0
+# screen-test v1.1.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
 not templates. Runs them and iterates until green.
+
+<!-- v1.1.0 (ПРОМТ №439): folded in the seven gaps that cost the skill's first outside
+     user (11 screens, ПРОМТ №432-434) real time. Each was re-verified against the repo
+     before being written here. The expensive ones: SC-13 (teleported overlays survive
+     unmount), Step 3's Pattern C, and the NBSP trap. Knowledge an orc paid for belongs
+     in this file, not in its head. -->
+
 
 Scope boundary vs the rest of the family:
 - `probekit-unit-test` — pure modules (utils, stores, composables). Already covers those.
@@ -55,7 +62,8 @@ test_command: `cd frontend && npm run test`
 
 | Signal | Weight | How to detect |
 |---|---|---|
-| Touches money | +4 | imports `@/api/payments`, `@/stores/payments`, balance/topup/promo/withdrawal in path or imports |
+| Irreversible action | +5 | the screen fires an action the user cannot undo: approve/reject a payout, delete, publish, cancel a booking. A bug here cannot be walked back by reloading — it is the highest weight for that reason. `AdminWithdrawalDetailView` (approve → money leaves) is the type case. Detect: a `POST`/`DELETE` to an endpoint with no inverse. |
+| Touches money | +4 | imports `@/api/payments`, `@/stores/payments`, balance/topup/promo/withdrawal in path or imports. **Also a hard signal for the NBSP trap — see velo-idiom §11.** |
 | Has a real state ladder | +3 | template has `v-if` on `loading` AND (`error` OR empty) |
 | Store- or API-backed | +2 | imports `@/stores/*` or `@/api/*` |
 | Behind a role guard | +2 | its route has `beforeEnter` in `router/index.ts` |
@@ -68,16 +76,32 @@ Report the ranking to the operator before generating in bulk. Never silently pic
 
 **Step 3 — Classify the screen's pattern** *(this decides the whole test's shape)*
 
-Read the `<script setup>` block. VELO has exactly two screen patterns — identify which:
+Read the `<script setup>` block. VELO has THREE screen patterns — identify which:
 
 - **Pattern A — store-backed.** State lives in a Pinia store (`store.loading`, `store.error`,
   `store.items`). Example: `views/user/MyBookingsView.vue`.
   → Use a REAL Pinia store (`setActivePinia(createPinia())`), mock the **API seam the store
   imports**, drive the ladder by setting store state directly.
+  → **A real Pinia must be installed even when you mock every store the screen reads.**
+    Children are not stubbed (velo-idiom §2) and they resolve stores of their OWN; with no
+    active Pinia they throw `getActivePinia() was called but there was no active Pinia` and
+    the mount dies before the first assertion. Mocked stores never reach Pinia, so the two
+    coexist: mocks for what this screen reads, a real Pinia underneath so the real children
+    mount. Verified on `PracticeDetailView.test.ts:191-204`.
 - **Pattern B — local-ref.** State lives in the component (`const loading = ref(true)`), fed by
   a direct `@/api/*` call in `onMounted`. Example: `views/master/MasterStudentsView.vue`.
   → No pinia needed. Mock the `@/api/*` module the screen imports. Drive the ladder by
   controlling the mock's resolve/reject.
+- **Pattern C — HYBRID: store-backed data + a local-ref form.** The screen reads server data
+  from a store AND owns local form state in its own refs. Examples: `views/user/TopupView.vue`
+  (`useBalanceStore` + `selectedCents`/`customMode`/`customValue` refs, `.vue:88-139`),
+  `views/master/MasterFinanceView.vue` (`useMasterStore` + `showPayoutForm`/`submitting`/
+  `historyOffset` refs, `.vue:250-530`).
+  → Treat the two layers SEPARATELY: mock the store seam for the data half, drive the form
+  half by real DOM interaction (type into the input, click the chip). **Mocking one layer for
+  both guts the test** — mock the form's state and you assert your own fixture; drive the data
+  through the DOM and you have no seam to fail. This misclassification is what a Pattern-C
+  screen punishes you for.
 
 Getting this wrong produces a test that mocks the wrong layer and asserts nothing.
 
@@ -91,9 +115,13 @@ Before writing, grep the screen for each and plan a seam:
 | `useToast` | mock `@/composables/useToast` and assert the call |
 | `Date.now()` / `new Date()` | `vi.setSystemTime(new Date('...'))` — a FIXED instant, or badges/sorting are nondeterministic |
 | `Intl.DateTimeFormat` with `timeZone` | pin the timezone in fixtures; assert on a fixed tz |
-| a `Teleport to="body"` child (modals) | query `document.body`, not the mount root (`CalendarFilterModal.test.ts:49`) |
+| a `Teleport to="body"` child (modals, sheets) | TWO separate obligations: **query** `document.body`, not the mount root (SC-07, `CalendarFilterModal.test.ts:49`) — AND **reap** it in `afterEach`, because a closed overlay survives `app.unmount()` (SC-13). Skipping the reap is the single most expensive mistake in this skill's history. |
+| `window.location.href = …` | happy-dom does not navigate, but assigning still throws or warns depending on the value. Stub it: `Object.defineProperty(window, 'location', { value: { href: '' }, writable: true })` and assert the href the screen set. Live case: `TopupView.vue` (redirect to the payment provider). |
+| `navigator.clipboard` | **absent in happy-dom** — `navigator.clipboard.writeText(...)` throws `Cannot read properties of undefined`. It is not a stub-if-you-like; the mount or the click dies without it. Define it: `Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn() }, configurable: true })`. Live cases: `MasterPromocodesView.vue`, `AdminMasterInviteView.vue`. |
+| `window.history.state` | **must be seeded BEFORE mount** — the screen reads it during `setup`, so seeding it after mounting is too late and the screen sees `null`. VELO hands whole objects between routes this way. Live cases: `AdminWithdrawalDetailView.vue`, `AdminReportDetailView.vue`, `CreatePracticeView.vue`, `EditPracticeView.vue`, `FeedbackView.vue`, `ReflectionView.vue`. |
 | `getComputedStyle` / `visualViewport` | happy-dom returns empty strings / undefined. Only matters if read during mount — check. |
 | `waitUntilReady()` transitively | `__setReadyForTest(true)` — testTimeout is 5s, READY_TIMEOUT_MS is 10s |
+| money rendered anywhere (`formatMoney`) | the ru locale groups thousands with U+00A0 — normalise before asserting (velo-idiom §11). Any amount over 999 fails a normally-typed assertion. |
 
 **Step 5 — Generate** (read references/velo-idiom.md and follow it exactly)
 
@@ -130,9 +158,11 @@ any real finds, any screens rejected as untestable and why.
 
 - `references/velo-idiom.md` — the mount/mock idiom, verbatim from the repo. Read before generating.
 - `references/screen-antipatterns.md` — what makes a screen test worthless.
-- `references/severity-format.md` — family format (probekit-core).
+- `../probekit-core/references/severity-format.md` — family format. *(This skill has no local
+  copy, unlike its siblings; v1.0.0 pointed at a `references/severity-format.md` that does not
+  exist here. Path corrected to the real file rather than duplicating it.)*
 
 ## Anchor
 
-[*] screen-test v1.0.0 * ready
+[*] screen-test v1.1.0 * ready
 [>] | NEXT: user command
