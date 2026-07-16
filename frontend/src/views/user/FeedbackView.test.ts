@@ -45,27 +45,30 @@
 // (velo-idiom §3); an under-count would fail loudly on the toEqual bodies.
 //
 // ============================================================================
-// THE GAP THIS FILE PINS -- read this before "fixing" a red test below.
+// THE GAP THIS FILE PINNED, AND THEN CLOSED -- read before touching the rung tests.
 // ============================================================================
-// №444 gave FormShell an optional `loadError` prop + a `retry` emit
-// (FormShell.vue:68-74, :164, :187) and wired CheckinView to them
-// (CheckinView.vue:16, :29, :107). FeedbackView is NOT wired: it never reads
-// `practicesStore.selectedError`, passes no `:load-error`, binds no `@retry`,
-// and hard-codes `:submit-disabled="false"`. So a deep link whose practice fetch
-// FAILS still renders a live, submittable form for a POST the backend will
-// refuse (feedback requires booking.status == attended AND practice.status ==
-// completed -- api/diary.ts:99-101). This is the IDENTICAL latent gap CheckinView
-// carried before №444.
+// №444 gave FormShell an optional `loadError` prop + a `retry` emit and wired
+// CheckinView to them, deliberately leaving FeedbackView and ReflectionView
+// unwired because they were uncovered -- wiring behaviour you cannot test is how
+// the next silent bug ships. This file was that coverage; №445 then wired it.
 //
-// The three tests under «THE FORMSHELL GAP (TRIPWIRE)» assert that CURRENT
-// behaviour ON PURPOSE. They are not endorsements. When the wiring lands they
-// MUST go red -- that is their job -- and the fix is to invert them against
-// CheckinView.test.ts:484-520, not to weaken them (SC-10).
+// Before the wiring, a deep link whose practice fetch FAILED rendered a live,
+// submittable form for a POST the backend would refuse (feedback requires
+// booking.status == attended AND practice.status == completed --
+// api/diary.ts:99-101). Of the three FormShell consumers, THIS screen's gap was
+// the only one a user could actually reach: the POST really left. `submit-disabled`
+// is still the literal `false` (.vue:20) and that is correct -- there is no window
+// gate here, unlike CheckinView; the rung is what stands in for it now.
 //
-// ReflectionView.vue is the THIRD sibling and is unwired the same way (.vue:24-25,
-// no selectedError read); ReflectionView.test.ts already pins it with the same
-// kind of tripwire, so all three consumers are now accounted for: CheckinView
-// FIXED, the other two PINNED.
+// FIXED in №445, the prompt after this file landed: covering the screen is what
+// opened the gate, exactly as with DiaryFeedView. The three tests that pinned the
+// gap were rehearsed first (temporarily wiring :load-error turned EXACTLY those
+// three red and nothing else), then inverted when the wiring landed for real --
+// not weakened (SC-10). They now assert the rung.
+//
+// ReflectionView.vue is the THIRD sibling and was unwired the same way; it was
+// covered and wired in the same pass, so all three FormShell consumers now render
+// the rung and the class is closed rather than left two-thirds done.
 //
 // But the three are NOT equally urgent, and the difference is this screen's whole
 // point. ReflectionView's gap is LATENT -- its submit is a stub that reaches no
@@ -410,74 +413,80 @@ describe('FeedbackView', () => {
   })
 
   // ===========================================================================
-  // THE FORMSHELL GAP (TRIPWIRE) -- these assert CURRENT behaviour, which is the
-  // BUG SHAPE №444 fixed on CheckinView and has not yet fixed here. They are
-  // labelled so that the wiring lands them RED and they get inverted, not
-  // deleted. Full rationale in the banner.
+  // THE FORMSHELL GAP -- was the tripwire (№445), now the fix. These asserted the
+  // BUG SHAPE that №444 fixed on CheckinView and deliberately left here until this
+  // screen was covered. The wiring landed them red on cue; they are inverted, not
+  // deleted (SC-10).
+  //
+  // This screen's gap was the only one of the three REACHABLE by a user: the POST
+  // really left and the backend really refused it. ReflectionView's twin is latent
+  // (its submit is a stub with no endpoint).
   // ===========================================================================
-  describe('TRIPWIRE: a FAILED practice load is not surfaced (the №444 gap, still open)', () => {
-    it('TODAY: the store HOLDS the error and the screen never reads it', async () => {
-      // The two halves that make this a gap rather than a design: the data IS
-      // there (practicesStore.selectedError, set by stores/practices.ts:101), and
-      // the shell CAN render it (FormShell.vue:68, an optional prop). Only the
-      // one-line binding is missing. Asserting the store side is what proves this
-      // is unread wiring rather than an absent capability.
+  describe('a FAILED practice load renders the error rung, not a form (№445)', () => {
+    it('surfaces the REAL backend message the store holds', async () => {
+      // The two halves that made this a gap rather than a design: the data was
+      // always there (practicesStore.selectedError, stores/practices.ts:101) and
+      // the shell could always render it (FormShell.vue:68) -- only the binding was
+      // missing. Asserting the store side still proves the rung shows the REAL
+      // message rather than a constant of its own (SC-05).
       getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
       mount()
       await flush()
 
-      // The store did its job.
       expect(usePracticesStore().selectedError).toBe('Практика не найдена')
-
-      // SC-15: pin the POSITIVE set first, or every exclusion below is satisfied
-      // by a mount that rendered nothing at all.
-      expect(text()).toContain('Как прошла практика?')
-      expect(submitBtn()).toBeDefined()
-
-      // ...and the screen renders none of it. FLIP THESE WHEN THE WIRING LANDS.
-      expect(errorRung()).toBeNull()
-      expect(text()).not.toContain('Не удалось загрузить практику')
-      expect(text()).not.toContain('Практика не найдена')
-      expect(button('Повторить')).toBeUndefined()
+      expect(errorRung()).not.toBeNull()
+      expect(text()).toContain('Не удалось загрузить практику')
+      expect(text()).toContain('Практика не найдена')
+      expect(button('Повторить')).toBeDefined()
     })
 
-    it('TODAY: the form renders HEADERLESS and fully live after a failed load', async () => {
-      // What the user actually meets: no practice card (v-if="practice" is false,
-      // FormShell.vue:78), no loader (the fetch settled), no error -- just a
-      // context-free rating form. The button is not merely present but ENABLED,
-      // because `:submit-disabled` is the literal `false` (.vue:20) and no
-      // windowClosed equivalent exists here.
+    it('replaces the form entirely -- no context-free rating form is offered', async () => {
       getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
       mount()
       await flush()
 
-      expect(text()).toContain('Как прошла практика?')
+      expect(text()).not.toContain('Как прошла практика?')
+      expect(submitBtn()).toBeUndefined()
       expect(host?.querySelector('.hero-card')).toBeNull()
       expect(host?.querySelector('.form-shell__loader')).toBeNull()
-      expect(errorRung()).toBeNull()
-      expect(submitBtn()?.disabled).toBe(false)
     })
 
-    it('TODAY: the POST actually LEAVES for a practice that failed to load', async () => {
-      // The sharp end, and the reason this tripwire is worth its lines. The
+    it('the POST can no longer LEAVE for a practice that failed to load', async () => {
+      // The sharp end, and why this was worth fixing rather than tolerating. The
       // feedback endpoint requires booking.status == attended AND practice.status
-      // == completed (api/diary.ts:99-101) -- facts this screen does not have,
-      // because the fetch that would carry them failed. So the request is fired
-      // into a refusal and the user is handed the backend's error toast for a
-      // failure the screen could have named up front.
+      // == completed (api/diary.ts:99-101) -- facts this screen does not have when
+      // the fetch failed. It used to fire into that refusal and hand the user the
+      // backend's error toast for a failure it could have named up front.
       getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
       mount()
       await flush()
 
-      const btn = submitBtn()
-      expect(btn).toBeDefined()
-      expect(btn?.disabled).toBe(false)
+      expect(submitBtn()).toBeUndefined()
+      expect(upsertFeedbackMock).not.toHaveBeenCalled()
+    })
 
-      btn?.click()
+    it('«Повторить» re-fetches -- the rung is not a dead end', async () => {
+      // A dead-end error state was its own bug class here (11 of them, 22dc824).
+      getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
+      mount()
+      await flush()
+      getPracticeMock.mockClear()
+
+      button('Повторить')!.click()
       await flush()
 
-      expect(upsertFeedbackMock).toHaveBeenCalledTimes(1)
-      expect(upsertFeedbackMock).toHaveBeenCalledWith('p1', { rating: 6, comment: null })
+      expect(getPracticeMock).toHaveBeenCalledWith('p1')
+    })
+
+    it('a HEALTHY load still renders the form -- the rung is not a blanket takeover', async () => {
+      // Non-vacuous half: if loadError were bound to something always truthy, every
+      // test above would pass and the screen would be permanently broken.
+      mount()
+      await flush()
+
+      expect(errorRung()).toBeNull()
+      expect(text()).toContain('Как прошла практика?')
+      expect(submitBtn()).toBeDefined()
     })
   })
 

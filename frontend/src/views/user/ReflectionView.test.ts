@@ -45,7 +45,7 @@
 // an under-count would fail loudly on the toEqual/text assertions.
 //
 // THE GAP, pinned deliberately (the deliverable of this file):
-//   `a FAILED practice load STILL renders a live form (NOT wired -- tripwire)`
+//   `a FAILED practice load renders the error rung, not a form` (wired №445)
 //   and its two neighbours below. Today `practicesStore.selectedError` holds the
 //   real backend message and the screen ignores it: no error rung, no «Повторить»,
 //   submit fully enabled, and the submit "succeeds" onto the thank-you screen for
@@ -512,80 +512,62 @@ describe('ReflectionView', () => {
   // tests assert TODAY'S behaviour and are BUILT TO GO RED when the wiring lands.
   // Invert them against CheckinView.test.ts:484-520 when they do.
   // ===========================================================================
-  describe('a FAILED practice load (NOT wired -- tripwire, see the banner)', () => {
-    it('TRIPWIRE: renders a live form and NO error rung, though the store HAS the message', async () => {
+  describe('a FAILED practice load renders the error rung, not a form (№445)', () => {
+    it('surfaces the REAL backend message the store holds', async () => {
+      // The two halves that made this a gap rather than a missing feature: the data
+      // was always there (practicesStore.selectedError, one property from the
+      // template) and FormShell could always render it (:68) -- only the binding was
+      // missing. Asserting the store side still proves the rung shows the REAL
+      // message and not a constant of its own (SC-05).
       getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
       mount()
       await flush()
 
-      // The store did its half: the real backend message is sitting right there,
-      // one property away from the template. This assertion is what makes the rest
-      // of the test a GAP rather than a missing feature -- the data exists and the
-      // screen does not read it.
       expect(usePracticesStore().selectedError).toBe('Практика не найдена')
+      expect(errorRung()).not.toBeNull()
+      expect(text()).toContain('Не удалось загрузить практику')
+      expect(text()).toContain('Практика не найдена')
+      expect(button('Повторить')).toBeDefined()
+    })
 
-      // SC-15: pin the positive first, so the two `not`s below cannot pass on an
-      // empty mount.
+    it('replaces the form entirely -- no context-free reflection form is offered', async () => {
+      // This screen's gap was LATENT, not reachable: its submit is a stub with no
+      // endpoint, so nothing was ever fired into a refusal. It is fixed anyway,
+      // because the day TD-REFLECTION lands it becomes CheckinView's №444 bug
+      // verbatim -- and by then nobody would remember to look.
+      getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
+      mount()
+      await flush()
+
+      expect(host?.querySelector('.form-shell__question')).toBeNull()
+      expect(submitBtn()).toBeUndefined()
+      expect(host?.querySelectorAll('textarea').length).toBe(0)
+      expect(host?.querySelector('.hero-card')).toBeNull()
+      expect(host?.querySelector('.form-shell__loader')).toBeNull()
+    })
+
+    it('«Повторить» re-fetches -- the rung is not a dead end', async () => {
+      // A dead-end error state was its own bug class here (11 of them, 22dc824).
+      getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
+      mount()
+      await flush()
+      getPracticeMock.mockClear()
+
+      button('Повторить')!.click()
+      await flush()
+
+      expect(getPracticeMock).toHaveBeenCalledWith('p1')
+    })
+
+    it('a HEALTHY load still renders the form -- the rung is not a blanket takeover', async () => {
+      // Non-vacuous half: bind loadError to anything always-truthy and every test
+      // above passes while the screen is permanently broken.
+      mount()
+      await flush()
+
+      expect(errorRung()).toBeNull()
       expect(questionTitle()).toBe('Иногда тело просит паузы')
       expect(submitBtn()).toBeDefined()
-      expect(submitBtn()?.disabled).toBe(false)
-
-      // ...and today NONE of №444's rung appears. Wire `:load-error` -> red.
-      expect(errorRung()).toBeNull()
-      expect(text()).not.toContain('Не удалось загрузить практику')
-      expect(button('Повторить')).toBeUndefined()
-
-      // Neither loader nor hero card: the form floats with no practice at all.
-      expect(host?.querySelector('.form-shell__loader')).toBeNull()
-      expect(host?.querySelector('.hero-card')).toBeNull()
-    })
-
-    it('TRIPWIRE: submitting over a failed load still reaches the thank-you screen', async () => {
-      // The consequence of the rung above being absent. Harmless TODAY -- the stub
-      // reaches no endpoint, so there is no POST to be refused (which is why this
-      // is pinned, not reported as a live bug). The day TD-REFLECTION lands, this
-      // is CheckinView's №444 bug verbatim: a form offered for a write the backend
-      // will reject, thanked as if it succeeded.
-      getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
-      mount()
-      await flush()
-
-      typeComment('Было тяжело')
-      await flush()
-      submitBtn()?.click()
-      await flush()
-
-      expect(successTitle()).toBe('Спасибо, что поделились')
-      expect(toastError).not.toHaveBeenCalled()
-    })
-
-    it('TRIPWIRE: the failed form renders with NO practice context whatsoever', async () => {
-      // How the failure actually reaches the user, verified one level down rather
-      // than assumed. My first guess was that the meta line degrades to its
-      // «Мастером» fallback (.vue:42) -- it does not, and the truth is starker:
-      // FormShell nests the whole #practice-meta slot INSIDE
-      // `<PracticeHeroCard v-if="practice">` (FormShell.vue:78-91), so a null
-      // practice takes the master, the «Не состоялась» status and the title with
-      // it. What is left on screen is a question, a textarea and a live button,
-      // floating free of any practice at all -- with nothing anywhere saying a
-      // request failed.
-      //
-      // (The «Мастером» fallback is NOT dead: it fires for a LOADED practice whose
-      // master_name is null -- covered in the ladder above. It just cannot cover
-      // this case, which is what makes the case invisible.)
-      getPracticeMock.mockRejectedValue(new ApiResponseError(500, 'Сервер недоступен'))
-      mount()
-      await flush()
-
-      // SC-15: pin what IS there first, so the exclusions below are real.
-      expect(questionTitle()).toBe('Иногда тело просит паузы')
-      expect(submitBtn()?.disabled).toBe(false)
-      expect(host?.querySelectorAll('textarea').length).toBe(1)
-
-      expect(text()).not.toContain('Мастером')
-      expect(text()).not.toContain('Не состоялась')
-      expect(host?.querySelector('.hero-card')).toBeNull()
-      expect(errorRung()).toBeNull()
     })
   })
 

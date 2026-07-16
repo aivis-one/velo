@@ -13,6 +13,7 @@
     back-label="Feedback"
     :practice="practice"
     :practice-loading="practiceLoading"
+    :load-error="practiceLoadError"
     question-title="Как прошла практика?"
     question-subtitle="Оцените своё состояние после"
     v-model:comment="comment"
@@ -24,6 +25,7 @@
     success-title="Спасибо за feedback!"
     success-text="Ваш отзыв поможет нам улучшить практики"
     @back="onBack"
+    @retry="loadPractice"
     @submit="onSubmit"
   >
     <!-- Practice meta — две колонки (Figma 2266:2988): мастер | статус. -->
@@ -102,6 +104,7 @@ const practiceId = route.params.practiceId as string
 
 const practice = computed(() => practicesStore.selected)
 const practiceLoading = computed(() => practicesStore.selectedLoading)
+const practiceLoadError = computed(() => practicesStore.selectedError)
 
 const ratingScore = ref<number>(6)
 const comment = ref('')
@@ -150,9 +153,16 @@ function goToDashboard(): void {
   router.push({ name: 'user-dashboard' })
 }
 
+// Named so the error rung's «Повторить» can re-run exactly what onMounted ran.
+// Unconditional: the guard below is a cache check for the mount path, but a retry
+// means the last attempt FAILED, so there is nothing cached to skip for.
+function loadPractice(): void {
+  void practicesStore.fetchPractice(practiceId)
+}
+
 onMounted(() => {
   if (practicesStore.selected?.id !== practiceId) {
-    practicesStore.fetchPractice(practiceId)
+    loadPractice()
   }
 })
 </script>
