@@ -172,4 +172,36 @@ describe('diary store', () => {
       expect(vi.mocked(diaryApi.listDiaryFeed).mock.calls).toHaveLength(1)
     })
   })
+
+  // ===========================================================================
+  // $reset -- THE HABIT: three sibling refs, and one of them was forgotten.
+  // ===========================================================================
+  describe('$reset', () => {
+    it('clears ALL THREE submitting refs, not just the two someone remembered', async () => {
+      // Found by coverage in №445, fixed in №446. $reset cleared checkinSubmitting
+      // (:387) and feedbackSubmitting (:388) and silently skipped
+      // reflectionSubmitting (:117) -- three sibling refs declared together, two
+      // reset, one forgotten. The same shape as MasterPracticesView :50 vs :57,
+      // VInput's fix landing on one render path of three, and EntryView's onSave
+      // vs onDelete twenty lines apart. It is a habit of this codebase.
+      //
+      // It was INERT when found -- the reflection endpoint is a stub that never
+      // holds the ref across an await -- which is exactly why it was worth one line
+      // now rather than a blind hunt the day TD-REFLECTION lands and a logout
+      // leaves the reflection form permanently wedged.
+      //
+      // Asserted by SETTING all three first: reading three falses on a fresh store
+      // would pass with $reset deleted entirely.
+      const store = useDiaryStore()
+      store.checkinSubmitting = true
+      store.feedbackSubmitting = true
+      store.reflectionSubmitting = true
+
+      store.$reset()
+
+      expect(store.checkinSubmitting).toBe(false)
+      expect(store.feedbackSubmitting).toBe(false)
+      expect(store.reflectionSubmitting).toBe(false)
+    })
+  })
 })

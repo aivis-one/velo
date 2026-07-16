@@ -386,6 +386,7 @@ export const useDiaryStore = defineStore('diary', () => {
   function $reset(): void {
     checkinSubmitting.value = false
     feedbackSubmitting.value = false
+    reflectionSubmitting.value = false
     feed.reset()
     feedFilters.categories = []
     feedFilters.date_from = undefined
