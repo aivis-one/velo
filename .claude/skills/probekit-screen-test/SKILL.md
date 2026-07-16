@@ -3,7 +3,7 @@ name: probekit-screen-test
 description: "Generate and audit Vitest tests for Vue 3 screens (views) and route-transition logic. Mounts real SFCs in happy-dom, asserts the loading/error/empty/content ladder, and exercises route guards bare. No browser, no server, no network. Use when: writing tests for a view/screen, covering an untested view, auditing screen tests, testing route guards or role transitions. Triggers on: 'test this screen', 'screen tests', 'view tests', 'покрой экран тестами', 'тесты экрана', '/probekit-screen-test', 'пробкит экран'."
 ---
 
-# screen-test v1.2.0
+# screen-test v1.3.0
 
 Generates working Vitest tests for VELO's screens (`frontend/src/views/**`) and its
 route-transition logic (`frontend/src/router/guards.ts`). Produces real, passing tests —
@@ -118,7 +118,8 @@ Before writing, grep the screen for each and plan a seam:
 | a `Teleport to="body"` child (modals, sheets) | TWO separate obligations: **query** `document.body`, not the mount root (SC-07, `CalendarFilterModal.test.ts:49`) — AND **reap** it in `afterEach`, because a closed overlay survives `app.unmount()` (SC-13). Skipping the reap is the single most expensive mistake in this skill's history. |
 | `window.location.href = …` | happy-dom does not navigate, but assigning still throws or warns depending on the value. Stub it: `Object.defineProperty(window, 'location', { value: { href: '' }, writable: true })` and assert the href the screen set. Live case: `TopupView.vue` (redirect to the payment provider). |
 | `navigator.clipboard` | **absent in happy-dom** — `navigator.clipboard.writeText(...)` throws `Cannot read properties of undefined`. It is not a stub-if-you-like; the mount or the click dies without it. Define it: `Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn() }, configurable: true })`. Live cases: `MasterPromocodesView.vue`, `AdminMasterInviteView.vue`. |
-| `window.history.state` | **must be seeded BEFORE mount** — the screen reads it during `setup`, so seeding it after mounting is too late and the screen sees `null`. VELO hands whole objects between routes this way. Live cases: `AdminWithdrawalDetailView.vue`, `AdminReportDetailView.vue`, `CreatePracticeView.vue`, `EditPracticeView.vue`, `FeedbackView.vue`, `ReflectionView.vue`. |
+| `window.history.state` read at **setup or `onMounted`** | **Seed it BEFORE mount** — the screen reads it while mounting, so seeding after is too late and it sees `null`. VELO hands whole objects between routes this way. Live cases (verified): `AdminWithdrawalDetailView.vue:117` (a `ref()` initialiser), `AdminReportDetailView.vue:199` (`onMounted(loadReport)`), `AdminMasterReviewView.vue:559` (`onMounted(loadMaster)`). |
+| `window.history.state` read in an **event handler** | Seed any time before the click — "before mount" is not required. The `onBack()` family reads it only when tapped: `CreatePracticeView.vue:428`, `EditPracticeView.vue:327`, `FeedbackView.vue:137`, `ReflectionView.vue:120`. *(v1.1.0 lumped these in with the row above, having grepped for `history.state` without checking WHEN it is read. Corrected in v1.3.0 — the grep found the string; the truth was one level down, inside the function.)* |
 | `getComputedStyle` / `visualViewport` | happy-dom returns empty strings / undefined. Only matters if read during mount — check. |
 | `waitUntilReady()` transitively | `__setReadyForTest(true)` — testTimeout is 5s, READY_TIMEOUT_MS is 10s |
 | money rendered anywhere (`formatMoney`) | the ru locale groups thousands with U+00A0 — normalise before asserting (velo-idiom §11). Any amount over 999 fails a normally-typed assertion. |
@@ -135,6 +136,19 @@ Screens — assert the ladder, one `it()` per rung:
 4. **content** — renders what the store/API actually said (assert on real values, not counts alone)
 5. **behaviour** — the screen's own logic: sorting, badges, filtering, the preview cap
 6. **navigation** — a click pushes the RIGHT route with the RIGHT params
+
+**The ladder assumes a screen that FETCHES A RECORD. A pure create form has none** — there is no
+loading rung because there is nothing to load. Do not manufacture one, and do not skip the step:
+assert the **inverse**, which is the real property such a screen has —
+
+7. **the form is never gated by its dependencies** — an in-flight or FAILING dependency (the
+   taxonomy catalog, a template list) must not block, blank, or disable the form. The user can
+   still fill it in and submit.
+8. **what can NEVER reach the API** — every validation gate, asserted as "the endpoint was not
+   called", plus the exact request body via one `toEqual` when it IS called. For a create form
+   this is the whole point: it is the last thing standing between a typo and a live record.
+
+Live precedent: `CreatePracticeView.test.ts` (no ladder; gates + body), `MasterNewPromocodeView.test.ts`.
 
 Guards — assert both directions, per `guards.test.ts`:
 1. right role passes (`toBe(true)`)
@@ -164,5 +178,5 @@ any real finds, any screens rejected as untestable and why.
 
 ## Anchor
 
-[*] screen-test v1.2.0 * ready
+[*] screen-test v1.3.0 * ready
 [>] | NEXT: user command

@@ -135,3 +135,36 @@ takes the first, `EditPracticeView.test.ts` the second.
 
 *(Two agents hit this independently on the same evening, both with SC-13 already in front of them —
 which is why it is written out here rather than left as an inference from the mechanism.)*
+
+### SC-13c — the corpse that parks MID-test, where `afterEach` cannot reach
+The `afterEach` purge (SC-13) handles corpses BETWEEN tests. It does nothing for a screen that opens
+**two or three overlays inside a single test** — a date sheet, then a time sheet, then a series
+end-date sheet. Each close parks a corpse on `document.body` immediately, so
+`document.body.querySelector('.v-sheet__save')` finds the DEAD one first, in document order, while
+the live sheet sits behind it.
+
+**Instead**, scope every body query to exclude the leaving element:
+```ts
+function liveSheet(): HTMLElement | null {
+  return document.body.querySelector('.v-sheet__overlay:not(.v-sheet-leave-active)')
+}
+```
+This is robust in both worlds: if the leave ever does resolve (a real browser, or a future happy-dom),
+the selector still finds the live overlay. Live precedent: `CreatePracticeView.test.ts`, which opens
+three sheets in one test.
+
+## SC-14 — Whole-host assertions on a `v-show` screen (a test that cannot fail)
+`v-if` removes; **`v-show` only sets `display:none`**. Both panes stay in the DOM forever, so
+`host.textContent` spans BOTH tabs at once and a class like `.analytics__loader` matches either one.
+```ts
+expect(host.textContent).toContain('Платежи')   // <- true before you even switch tabs
+```
+The test passes whatever the screen does. It is SC-01's cousin: not a weak assertion, an *impossible*
+one. Worse than a smoke test, because it looks specific.
+
+**Instead:** scope every query to the pane under test.
+```ts
+function reviewsPane(): HTMLElement { return host.querySelector('.analytics__body')! }
+```
+Live case: `AnalyticsView.vue:54,175` — currently the only `v-show` tabs in `views/`, so grep
+`v-show` before assuming a screen is safe. Precedent: `AnalyticsView.test.ts`.
