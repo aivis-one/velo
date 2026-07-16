@@ -303,18 +303,49 @@ describe('CheckinView', () => {
       expect(host?.querySelector('.hero-card')).toBeNull()
     })
 
-    it('the form is NOT gated by the practice load -- it is fillable and submittable while it is in flight', async () => {
-      // The inverse rung (SKILL Step 5 #7). The practice is decoration on this
-      // screen: the check-in is about the USER's state, and the practiceId comes
-      // from the route, not from the fetch. Blanking or disabling the form
-      // behind a slow catalog request would be the bug.
+    it('the form still RENDERS while the practice is in flight, but submit is held (№444)', async () => {
+      // Half of this survived №444 and half of it was inverted, deliberately.
+      //
+      // The form is still fillable -- the check-in is about the USER's state and
+      // the practiceId comes from the route, not the fetch, so blanking it behind
+      // a slow catalog request would be the bug.
+      //
+      // But submit is now HELD while the start time is unknown, because
+      // windowClosed fails CLOSED (.vue:130). The button is disabled here because
+      // we do not KNOW the window, not because it is shut -- which is exactly why
+      // the hint must stay empty (see below). It re-enables the moment the
+      // practice lands.
       getPracticeMock.mockReturnValue(new Promise(() => {}))
       mount()
       await flush()
 
       expect(text()).toContain('Как вы себя чувствуете?')
       expect(submitBtn()).toBeDefined()
+      expect(submitBtn()?.disabled).toBe(true)
+    })
+
+    it('while loading, the disabled button does NOT claim the practice already started', async () => {
+      // The hint is gated on `practice` (.vue:22). Without that gate, failing
+      // closed would make the screen assert «Check-in закрыт — практика уже
+      // началась» about a practice it has not even loaded -- trading a live
+      // button for a confident lie. Disabled-and-silent is the honest state.
+      getPracticeMock.mockReturnValue(new Promise(() => {}))
+      mount()
+      await flush()
+
+      expect(submitBtn()?.disabled).toBe(true)
+      expect(disabledHint()).toBe('')
+    })
+
+    it('a loaded practice inside the window RE-ENABLES submit (the fail-closed default lifts)', async () => {
+      // The non-vacuous other side: if windowClosed simply returned true forever,
+      // every test above would still pass. This is what proves the default lifts.
+      getPracticeMock.mockResolvedValue(practice())
+      mount()
+      await flush()
+
       expect(submitBtn()?.disabled).toBe(false)
+      expect(disabledHint()).toBe('')
     })
 
     it('content: renders the practice the store actually holds', async () => {
@@ -450,21 +481,58 @@ describe('CheckinView', () => {
       expect(disabledHint()).toBe('Check-in закрыт — практика уже началась')
     })
 
-    it('an UNKNOWN start time leaves the window OPEN -- the client gate fails open', async () => {
-      // `if (!s) return false` (.vue:121). Pinning actual behaviour, not
-      // endorsing it: when the practice fetch fails the screen renders no error
-      // rung at all (FormShell has no error state and .vue never reads
-      // practicesStore.selectedError), and submit stays live with the window
-      // unknown. The POST is still gated server-side ("Window has closed"), so
-      // the worst case is the error toast the .vue:114 comment says it wants to
-      // avoid -- not a bad write. Reported as an observation.
+    it('a FAILED practice load renders the error rung with the real message, not a form (№444)', async () => {
+      // Both halves of the ruling, and they are halves: the rung alone would leave
+      // the button live while loading, and failing closed alone would leave a dead
+      // button and a mystery. Previously this pinned the opposite -- no rung at all
+      // (FormShell had no error state and .vue never read selectedError) and submit
+      // live with the window unknown.
       getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
       mount()
       await flush()
 
+      // The rung is there and carries the REAL backend message, not a constant.
+      expect(text()).toContain('Не удалось загрузить практику')
+      expect(text()).toContain('Практика не найдена')
+      // ...and the form is gone rather than offered for a POST that cannot land.
+      expect(text()).not.toContain('Как вы себя чувствуется?')
+      expect(submitBtn()).toBeUndefined()
       expect(host?.querySelector('.hero-card')).toBeNull()
       expect(host?.querySelector('.form-shell__loader')).toBeNull()
+    })
+
+    it('the error rung is not a dead end -- «Повторить» re-fetches', async () => {
+      // A dead-end error state was its own bug class in this repo (11 of them,
+      // fixed in 22dc824). Not adding a twelfth.
+      getPracticeMock.mockRejectedValue(new ApiResponseError(404, 'Практика не найдена'))
+      mount()
+      await flush()
+      getPracticeMock.mockClear()
+
+      const retry = Array.from(host?.querySelectorAll('button') ?? []).find((b) =>
+        b.textContent?.includes('Повторить'),
+      )
+      expect(retry).toBeDefined()
+      retry!.click()
+      await flush()
+
+      expect(getPracticeMock).toHaveBeenCalledWith('p1')
+    })
+
+    it('an UNKNOWN start time now fails CLOSED -- no data, no submit (№444)', async () => {
+      // `if (!s) return true` (.vue:130). Driven through the store directly so the
+      // window gate is proven on its own, independently of the error rung above --
+      // otherwise the rung hiding the button would be doing all the work and this
+      // would prove nothing about windowClosed.
+      getPracticeMock.mockResolvedValue(practice())
+      mount()
+      await flush()
       expect(submitBtn()?.disabled).toBe(false)
+
+      usePracticesStore().selected = null
+      await flush()
+
+      expect(submitBtn()?.disabled).toBe(true)
       expect(disabledHint()).toBe('')
     })
   })
@@ -905,9 +973,9 @@ describe('CheckinView', () => {
   //    plus fake timers can show the handle is cleared, but not that a leaked
   //    interval would cost anything, so the assertion would be circular.
   //
-  // 3. Any error RUNG for a failed practice load. There is none to test: the
-  //    screen never reads practicesStore.selectedError and FormShell has no
-  //    error state. The "an UNKNOWN start time leaves the window OPEN" test pins
-  //    what actually happens instead, and the gap is reported rather than
-  //    asserted away.
+  // 3. [CLOSED in №444] There used to be no error rung to test -- the screen never
+  //    read practicesStore.selectedError and FormShell had no error state, so a
+  //    failed deep link rendered a live form for a POST the backend would refuse.
+  //    Both halves are now covered above: the rung (with the real message and a
+  //    working «Повторить»), and windowClosed failing CLOSED.
 })

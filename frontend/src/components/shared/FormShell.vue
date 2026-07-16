@@ -59,6 +59,21 @@
     <VHeader show-back :back-label="backLabel" @back="emit('back')" />
 
     <div class="form-shell__body">
+      <!-- Load failed: say so instead of rendering a form that cannot land. The
+           sibling of the loader rung below -- it was missing, so a deep link whose
+           practice fetch failed rendered a headerless form the backend would
+           refuse (№444). Optional: a consumer that passes no loadError renders
+           exactly as before. -->
+      <VEmptyState
+        v-if="loadError"
+        icon="warning"
+        title="Не удалось загрузить практику"
+        :description="loadError"
+      >
+        <VButton size="sm" @click="emit('retry')">Повторить</VButton>
+      </VEmptyState>
+
+      <template v-else>
       <!-- Practice info — общий PracticeHeroCard в form-варианте (F-3). -->
       <PracticeHeroCard
         v-if="practice"
@@ -119,13 +134,14 @@
         </p>
         <VButton v-if="showSkip" variant="ghost" block @click="emit('skip')"> Пропустить </VButton>
       </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { VButton, VLoader, VTextarea } from '@/components/ui'
+import { VButton, VLoader, VTextarea, VEmptyState } from '@/components/ui'
 import { VHeader } from '@/components/layout'
 import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import ResultScreen from '@/components/shared/ResultScreen.vue'
@@ -141,6 +157,11 @@ const props = defineProps<{
   backLabel: string
   practice: PracticeResponse | null
   practiceLoading: boolean
+  /** Optional: the practice fetch failed. When set, the body renders an error
+   *  rung with this message INSTEAD of the form -- a form whose practice never
+   *  loaded cannot be submitted (the backend refuses it), so offering it wastes
+   *  the user's time. Omit it and this shell renders exactly as it always has. */
+  loadError?: string | null
   questionTitle: string
   questionSubtitle: string
   comment: string
@@ -163,6 +184,7 @@ const emit = defineEmits<{
   back: []
   submit: []
   skip: []
+  retry: []
   'update:comment': [value: string]
 }>()
 

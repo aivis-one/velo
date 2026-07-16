@@ -13,18 +13,20 @@
     back-label="Check-in"
     :practice="practice"
     :practice-loading="practiceLoading"
+    :load-error="practiceLoadError"
     question-title="Как вы себя чувствуете?"
     question-subtitle="Оцените своё состояние перед практикой"
     v-model:comment="comment"
     :submitting="diaryStore.checkinSubmitting"
     :submit-disabled="windowClosed"
-    :disabled-hint="windowClosed ? 'Check-in закрыт — практика уже началась' : ''"
+    :disabled-hint="practice && windowClosed ? 'Check-in закрыт — практика уже началась' : ''"
     submit-label="Отправить"
     :show-skip="true"
     :submitted="submitted"
     success-title="Check-in отправлен"
     success-text="Ваше состояние записано, хорошей практики!"
     @back="onBack"
+    @retry="loadPractice"
     @submit="onSubmit"
     @skip="onSkip"
   >
@@ -102,6 +104,7 @@ const practiceId = route.params.practiceId as string
 
 const practice = computed(() => practicesStore.selected)
 const practiceLoading = computed(() => practicesStore.selectedLoading)
+const practiceLoadError = computed(() => practicesStore.selectedError)
 
 // Slider score 1..10. Default 6 = middle "Нормально" zone, so the slider
 // opens in a neutral position (the user can still submit immediately).
@@ -118,7 +121,13 @@ let tickHandle: ReturnType<typeof setInterval> | null = null
 
 const windowClosed = computed<boolean>(() => {
   const s = practice.value?.scheduled_at
-  if (!s) return false
+  // FAIL CLOSED (№444): no practice, no submit. This used to return false --
+  // "the window is open" -- on the strength of data we did not have, so a
+  // deep link whose fetch failed offered a live button for a POST the backend
+  // was always going to refuse. The hint is gated on `practice` in the template
+  // for the same reason: while we have no data, the button is disabled because
+  // we do not KNOW, and claiming "практика уже началась" would be a guess.
+  if (!s) return true
   return nowMs.value > new Date(s).getTime()
 })
 
@@ -208,9 +217,16 @@ watch(alreadyCheckedIn, (done) => {
   if (done) submitted.value = true
 })
 
+// Named so the error rung's «Повторить» can re-run exactly what onMounted ran.
+// Unconditional: the guard below is a cache check for the mount path, but a retry
+// means the last attempt FAILED, so there is nothing cached to skip for.
+function loadPractice(): void {
+  void practicesStore.fetchPractice(practiceId)
+}
+
 onMounted(async () => {
   if (practicesStore.selected?.id !== practiceId) {
-    practicesStore.fetchPractice(practiceId)
+    loadPractice()
   }
   // Ensure bookings are loaded so `has_checkin` is available. fetchMyBookings
   // is a no-op when the list is already populated (e.g. arriving from the
