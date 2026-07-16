@@ -186,6 +186,25 @@
   --velo-blue-400: #619cd2; /* analytics rating-bar "Есть вопросы"; operator SVG 2026-06-11 (no prior token) */
   --velo-sand-100: #fdf3e2;
 
+  /* === VELΘ: Telegram app chrome (ПРОМТ №437) ===
+   * The Mini App's own header/background, set through the Telegram SDK rather
+   * than by CSS (platform/telegram.ts init). These two lived as bare hex in that
+   * file and existed in NO token -- so the chrome the user sees around every
+   * screen was outside the design system and invisible to any re-theme.
+   *
+   * Values are the EXACT literals telegram.ts already used: nothing renders
+   * differently. Read by NAME via getComputedStyle (same idiom as the fog
+   * tokens in MobileLayout), because the SDK takes a string, not a CSS var.
+   *
+   * NOTE, not a bug and deliberately NOT changed: --velo-tg-bg (#f8fafc) is a
+   * slightly different white from --velo-bg-start (#ffffff) -- the webview
+   * behind the app is faintly cooler than the app itself. Visible only on
+   * overscroll, if at all. Reconciling them WOULD be a visual change, so it is
+   * the operator's call, not ours.
+   */
+  --velo-tg-header: #334d6e;
+  --velo-tg-bg: #f8fafc;
+
   /* === VELΘ: Glow shadow === */
   --velo-shadow-glow: 0px 0px 20.9px 7px #ffffff;
 
