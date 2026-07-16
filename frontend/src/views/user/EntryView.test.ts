@@ -791,11 +791,16 @@ describe('EntryView', () => {
       expect(diaryApi.deleteDiaryEntry).toHaveBeenCalledWith('e7')
     })
 
-    it('and the trash is not even marked destructive -- same fill as the pencil', async () => {
-      // VMenuItem ships a `danger` prop that paints the pink --velo-error fill
-      // (VMenuItem.vue:35,63-65). EntryView passes it on neither item (.vue:51-60),
-      // so the button that destroys the entry is visually identical to the one that
-      // edits it. Compounds the finding above: no confirm AND no signal.
+    it('the trash is marked destructive and the pencil is not (danger added №444)', async () => {
+      // VMenuItem ships `danger?: boolean` (VMenuItem.vue:36, default false) painting
+      // `.v-menu-item--danger` (:16,63). EntryView passed it on NEITHER item until
+      // №444, so the control that destroys the entry looked identical to the one that
+      // edits it. Deliberately NO confirm dialog (operator ruling): the undo bar IS
+      // the confirm -- that is what the soft delete is for -- so this colour is the
+      // whole of the signal and is worth asserting.
+      //
+      // The pencil assertion is the non-vacuous half: `danger` on BOTH would make
+      // the first line pass while proving nothing about distinguishing them.
       mount()
       await flush()
 
@@ -803,7 +808,7 @@ describe('EntryView', () => {
       await flush()
 
       expect(menuItem('Удалить')).toBeDefined()
-      expect(menuItem('Удалить')?.classList.contains('v-menu-item--danger')).toBe(false)
+      expect(menuItem('Удалить')?.classList.contains('v-menu-item--danger')).toBe(true)
       expect(menuItem('Редактировать')?.classList.contains('v-menu-item--danger')).toBe(false)
     })
 
@@ -869,24 +874,24 @@ describe('EntryView', () => {
       expect(replace).not.toHaveBeenCalled()
     })
 
-    it('FINDING: two taps with no tick between them fire TWO DELETEs -- onDelete has no re-entry guard', async () => {
-      // SC-17's shape, and here it comes back RED-in-spirit: onDelete (.vue:286-297)
-      // declares no `deleting` ref and checks nothing before calling the store --
-      // unlike onSave right above it (`if (... || saving.value) return`, .vue:263),
-      // unlike DiaryFeedView's undo (`undoing`), unlike every mutation in
-      // EditPracticeView. It is the one destructive path in this repo with no guard.
+    it('re-entry: two taps with NO tick between them fire ONE DELETE (guard added №444)', async () => {
+      // Was the FINDING from №443, fixed by operator ruling: onDelete had no
+      // `deleting` ref while onSave twenty lines up had `saving` (.vue:263) -- the
+      // one destructive path in the repo without a guard.
       //
-      // Reachable: the trash is a 40x40 icon button, and `close()` only flips
-      // `open` -- with no tick, the panel and its handler are still live, so a real
-      // double-tap re-enters. The store cannot save it either: deleteEntry nulls
-      // selectedEntry only AFTER its await (stores/diary.ts:317-320), long after the
-      // second call has read `entry.value` and gone.
+      // THE REF IS THE ONLY DEFENCE HERE, and that is what makes this test honest
+      // rather than SC-17-shaped. VMenuItem ships NO `disabled` prop at all
+      // (VMenuItem.vue -- grepped), so there is no disabled attribute that could be
+      // quietly doing the work, the way VButton's `:disabled="disabled || loading"`
+      // does elsewhere. And `close()` only flips `open`, which takes effect on the
+      // NEXT render -- so with no tick between the taps the panel and its handler
+      // are still live and the second tap genuinely re-enters onDelete. The store
+      // cannot save it either: deleteEntry nulls selectedEntry only AFTER its await
+      // (stores/diary.ts:317-320), long after a second call would have read
+      // `entry.value` and gone.
       //
-      // Consequence is bounded, which is why this is pinned rather than escalated:
-      // the delete is soft and idempotent-ish, so the damage is a second DELETE and
-      // a spurious error toast racing the undo bar -- not a lost entry. Pinned as
-      // ACTUAL behaviour (SC-10: not weakened to green, not fixed here). Flip this
-      // to toHaveBeenCalledTimes(1) the day a guard lands.
+      // Mutation-verified: removing `|| deleting.value` from .vue:287 turns this
+      // back to 2 and fails. Nothing else in the file catches that.
       vi.mocked(diaryApi.deleteDiaryEntry).mockReturnValue(new Promise(() => {}))
       mount()
       await flush()
@@ -899,7 +904,33 @@ describe('EntryView', () => {
       trash!.click()
       await flush()
 
-      expect(diaryApi.deleteDiaryEntry).toHaveBeenCalledTimes(2)
+      expect(diaryApi.deleteDiaryEntry).toHaveBeenCalledTimes(1)
+    })
+
+    it('a failed delete releases the guard so the user can retry', async () => {
+      // The other side: latching `deleting` forever on failure would leave the entry
+      // undeletable until a remount. Not reset on SUCCESS -- there we navigate away
+      // and staying latched is what stops a double handoff mid-navigation.
+      vi.mocked(diaryApi.deleteDiaryEntry).mockRejectedValueOnce(
+        new ApiResponseError(500, 'Не удалось удалить запись', 'server_error'),
+      )
+      mount()
+      await flush()
+
+      openMenu()
+      await flush()
+      menuItem('Удалить')!.click()
+      await flush()
+      expect(toastError).toHaveBeenCalledWith('Не удалось удалить запись')
+
+      vi.mocked(diaryApi.deleteDiaryEntry).mockClear()
+      vi.mocked(diaryApi.deleteDiaryEntry).mockResolvedValue(undefined as never)
+      openMenu()
+      await flush()
+      menuItem('Удалить')!.click()
+      await flush()
+
+      expect(diaryApi.deleteDiaryEntry).toHaveBeenCalledTimes(1)
     })
   })
 

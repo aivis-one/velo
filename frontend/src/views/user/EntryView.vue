@@ -51,6 +51,7 @@
           <VMenuItem
             :icon="IconTrash"
             ariaLabel="Удалить"
+            danger
             @click="
               () => {
                 onDelete()
@@ -239,6 +240,7 @@ onMounted(reload)
 const editTitle = ref('')
 const editContent = ref('')
 const saving = ref(false)
+const deleting = ref(false)
 const editEl = ref<HTMLTextAreaElement | null>(null)
 
 const canSave = computed(() => editContent.value.trim().length > 0)
@@ -283,11 +285,18 @@ function entryEditTitleTrimmed(): string {
 
 // -- delete (soft) + undo handoff to the feed --------------------------------
 
+// `deleting` mirrors onSave's `saving` guard twenty lines up. VMenuItem has no
+// `disabled` prop, and the menu's own close() only takes effect on the next
+// render -- so two taps in one frame both reach here, and this ref is the ONLY
+// thing between them and two DELETEs. Not reset on success: we navigate away,
+// and staying latched keeps the handoff from firing twice mid-navigation.
 async function onDelete(): Promise<void> {
-  if (!entry.value) return
+  if (!entry.value || deleting.value) return
+  deleting.value = true
   const id = entry.value.id
   const result = await diaryStore.deleteEntry(id)
   if (!result.ok) {
+    deleting.value = false
     toast.error(result.error)
     return
   }
