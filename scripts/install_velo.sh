@@ -475,6 +475,10 @@ STRIPE_WEBHOOK_SECRET=TEST
 STRIPE_PUBLISHABLE_KEY=TEST
 STRIPE_SUCCESS_URL=TEST
 STRIPE_CANCEL_URL=TEST
+# false = refuse to start with a stub Stripe key above (the safe default).
+# Set to true ONLY on a test stand where fake payments are intentional.
+# Prod gets a real STRIPE_SECRET_KEY above and never needs this.
+ALLOW_STRIPE_STUB=false
 EOF
 
     chmod 600 "$ENV_FILE"

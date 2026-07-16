@@ -506,6 +506,11 @@ STRIPE_WEBHOOK_SECRET=TEST
 STRIPE_PUBLISHABLE_KEY=TEST
 STRIPE_SUCCESS_URL=TEST
 STRIPE_CANCEL_URL=TEST
+# This is the test-stand installer: fake payments are the point here,
+# so this is deliberately true, not a leftover. The generic
+# (install_velo.sh) and prod (install_velo_prod.sh) installers default
+# this to false on purpose -- they don't know what they're installing.
+ALLOW_STRIPE_STUB=true
 EOF
 
     chmod 600 "$ENV_FILE"
