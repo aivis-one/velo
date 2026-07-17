@@ -98,7 +98,12 @@ import { extractApiError } from '@/composables/useApiError'
 import { getCheckin, getFeedback } from '@/api/diary'
 import { getPractice } from '@/api/practices'
 import { formatFeedDateTime, formatDuration, formatTime } from '@/utils/format'
-import { MOOD_LABEL, RATING_LABEL } from '@/utils/displayHelpers'
+import {
+  moodZoneFromScore,
+  ratingZoneFromScore,
+  moodLabelFromScore,
+  ratingLabelFromScore,
+} from '@/utils/displayHelpers'
 import type { CheckinResponse, FeedbackResponse, PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -136,19 +141,19 @@ const RATING_ICON: Record<string, Component> = {
 }
 const leadIcon = computed<Component>(() => {
   if (detailType.value === 'checkin') {
-    return MOOD_ICON[checkin.value?.mood ?? 'mid'] ?? IconMoodMid
+    return MOOD_ICON[moodZoneFromScore(checkin.value?.mood ?? 6)] ?? IconMoodMid
   }
-  return RATING_ICON[feedback.value?.rating ?? 'good'] ?? IconRatingGood
+  return RATING_ICON[ratingZoneFromScore(feedback.value?.rating ?? 6)] ?? IconRatingGood
 })
 
 const pillTitle = computed(() => {
   if (detailType.value === 'checkin') {
     const mood = checkin.value?.mood
-    const label = mood ? (MOOD_LABEL[mood] ?? '') : ''
+    const label = mood !== undefined ? moodLabelFromScore(mood) : ''
     return label ? `Check-in: ${label}` : 'Check-in'
   }
   const rating = feedback.value?.rating
-  const label = rating ? (RATING_LABEL[rating] ?? '') : ''
+  const label = rating !== undefined ? ratingLabelFromScore(rating) : ''
   return label ? `Feedback: ${label}` : 'Feedback'
 })
 

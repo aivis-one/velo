@@ -9,44 +9,48 @@
 // this screen forks on `detailType`, and a test that exercises one kind proves
 // nothing about the other. Both kinds are driven through every derivation below.
 //
-// ⚠ THE FINDING THIS FILE EXISTS TO PIN -- «the pill is a constant».
-// `pillTitle` (.vue:144-153) and `leadIcon` (.vue:137-142) index the ZONE maps
-// (MOOD_LABEL/MOOD_ICON keyed 'low'|'mid'|'high', RATING_* keyed
+// ⚠ THE FINDING THIS FILE PINNED -- «the pill is a constant» -- IS NOW FIXED.
+// `pillTitle` (.vue:149-158) and `leadIcon` (.vue:142-147) USED TO index the ZONE
+// maps (MOOD_LABEL/MOOD_ICON keyed 'low'|'mid'|'high', RATING_* keyed
 // 'fire'|'good'|'confused') with the RAW SCORE off the wire. But
 // CheckinResponse.mood and FeedbackResponse.rating are `number` -- a 1..10 score
 // (generated.ts:377, :554; displayHelpers.ts:64-66 "mood and rating are stored
-// as a 1..10 score now"). `MOOD_LABEL[8]` is undefined, so `?? ''` fires, so the
-// pill reads a bare «Check-in» / «Feedback» for EVERY score, and the face is
-// always IconMoodMid / IconRatingGood. The screen renders the user's mood as a
+// as a 1..10 score now"). `MOOD_LABEL[8]` is undefined, so `?? ''` fired, so the
+// pill read a bare «Check-in» / «Feedback» for EVERY score, and the face was
+// always IconMoodMid / IconRatingGood. The screen rendered the user's mood as a
 // shrug no matter what they logged.
 //
-// It is the sibling-guard shape (four confirmed instances in this repo): this
+// It was the sibling-guard shape (five confirmed instances in this repo): this
 // screen's OWN PARENT gets it right. useDiaryCardModel.ts:120,124 does
 // `moodLabelFromScore(mood)` and :178,180 does `MOOD_ICON[moodZoneFromScore(...)]`
-// -- so the feed card you tapped says «Check-in: Огонь!» over a beaming face, and
-// the detail you land on says «Check-in» over a shrug. The conversion helpers
-// DetailView needed were already imported one file away.
+// -- so the feed card you tapped said «Check-in: Огонь!» over a beaming face, and
+// the detail you landed on said «Check-in» over a shrug. The conversion helpers
+// DetailView needed were already imported one file away. THE FIX is the parent's
+// own line, `?? 6` default included (.vue:144,146,152,156).
 //
 // The TYPECHECKER CANNOT SEE THIS and that is why it shipped: `Record<string,
 // string>` accepts a numeric index (TS coerces), and `noUncheckedIndexedAccess`
 // (tsconfig:20) types the lookup `string | undefined`, so the author's `?? ''`
-// looks like correct defensive code instead of the thing swallowing the bug.
-// vue-tsc is clean on .vue:144-153 today. Only a rendered assertion catches it.
+// looked like correct defensive code instead of the thing swallowing the bug.
+// vue-tsc was clean on the bug and is clean on the fix -- equally silent either
+// way. ONLY the rendered assertions below tell the two apart, which is why they
+// are the whole guard here and not a formality.
 //
-// PINNED AS TODAY'S BEHAVIOUR, NOT FIXED -- this file does not touch product
-// code. The tests below assert what the screen ACTUALLY renders, each marked
-// FINDING with the value it SHOULD render. When the fix lands they go red, and
-// the red is the changelog. See «the pill carries zero information» for the
-// sharpest form: the same assertion across all three zones.
+// THE FOUR TESTS BELOW WERE WRITTEN INVERTED, pinning the wrong behaviour so the
+// bug could not be fixed silently. They went red on the fix, and that red WAS the
+// changelog. They now assert the CORRECT behaviour, and each still names the old
+// output in a `not.toBe` / `not.toEqual`, so a regression is reported as itself
+// rather than as an anonymous mismatch. Mutation-checked: revert the conversion
+// in .vue and these four -- and only these four -- go red again.
 //
 // PATTERN B (local-ref), with a store DEPENDENCY. Verified, not assumed:
-// `loading`/`loadError` are the screen's own refs (.vue:120-121), `checkin` and
-// `feedback` are refs (.vue:116-117) fed by direct getCheckin/getFeedback in
-// onMounted(reload) (.vue:191,195,214), and the practice header is a direct
-// getPractice (.vue:201). There is NO store holding this screen's state -- the
+// `loading`/`loadError` are the screen's own refs (.vue:125-126), `checkin` and
+// `feedback` are refs (.vue:121-122) fed by direct getCheckin/getFeedback in
+// onMounted(reload) (.vue:196,200,219), and the practice header is a direct
+// getPractice (.vue:206). There is NO store holding this screen's state -- the
 // header comment's "No store: this is a one-shot read" (.vue:18-19) checks out.
 // So the seams are the two @/api/* wrappers, and useAuthStore is a DEPENDENCY
-// read for exactly one thing -- `user?.timezone` (.vue:108) -- mocked wholesale
+// read for exactly one thing -- `user?.timezone` (.vue:113) -- mocked wholesale
 // behind a getter (velo-idiom §5), no state built in it.
 //
 // NO PINIA IS INSTALLED, and that is a CHECKED claim, not an omission. The
@@ -71,7 +75,7 @@
 //
 // TRAPS PRESENT:
 //  - WALL CLOCK / TIMEZONE, the big one here. dateLine and practiceTime are Intl
-//    output keyed on `authStore.user?.timezone ?? 'UTC'` (.vue:108). Pinned
+//    output keyed on `authStore.user?.timezone ?? 'UTC'` (.vue:113). Pinned
 //    THREE WAYS APART on purpose, so no assertion can pass by coincidence:
 //      user tz   = Europe/Moscow (UTC+3)  <- the only right answer
 //      RUNNER tz = Asia/Tbilisi  (UTC+4)  <- probed, not assumed
@@ -96,7 +100,7 @@
 //    mistaken for proof of the other.
 //  - The two DIVERGENT master fallbacks, asserted together in one test because
 //    they are one screen's answer to one missing field: contextLine says
-//    «Мастером» (.vue:175) and PracticeListCard's own masterName says «Мастер»
+//    «Мастером» (.vue:180) and PracticeListCard's own masterName says «Мастер»
 //    (PracticeListCard.vue:133). Both correct, both live, neither a typo.
 //
 // TRAPS ABSENT (proved by grep, so the next reader does not cargo-cult setup):
@@ -135,7 +139,7 @@
 // `path: 'diary/:type(checkin|feedback)/:id'` -- the regex is really there and
 // really is that. So `/diary/banana/1` cannot match this route and never
 // constructs this component. The screen's `route.params.type === 'feedback' ?
-// 'feedback' : 'checkin'` (.vue:109-111) collapses everything-not-feedback to
+// 'feedback' : 'checkin'` (.vue:114-116) collapses everything-not-feedback to
 // checkin, which would be a real hazard on an unconstrained param -- but the
 // param is constrained, so the only inputs that exist are the two tested below.
 // NOT TESTED, because it is not reachable: see «NOT COVERED, deliberately».
@@ -369,7 +373,7 @@ describe('DetailView', () => {
 
     it('«Повторить» re-fetches and replaces the rung with the row', async () => {
       // reload() is bound straight to the retry button (.vue:48) and re-runs the
-      // whole load, including nulling the previous refs (.vue:185-187).
+      // whole load, including nulling the previous refs (.vue:190-192).
       vi.mocked(diaryApi.getCheckin).mockRejectedValue(new TypeError('boom'))
       mount()
       await flush()
@@ -386,7 +390,7 @@ describe('DetailView', () => {
 
   describe('the two row kinds -- the :type branch IS the product', () => {
     it('type=checkin reads the CHECK-IN endpoint by the route id, and never the feedback one', async () => {
-      // detailType (.vue:109-111) forks reload (.vue:190-198). Hitting the wrong
+      // detailType (.vue:114-116) forks reload (.vue:195-203). Hitting the wrong
       // endpoint would 404 on an id that exists -- the two id spaces are separate.
       routeParams.type = 'checkin'
       routeParams.id = 'c42'
@@ -416,46 +420,47 @@ describe('DetailView', () => {
     })
   })
 
-  describe('⚠ the pill: FINDING -- score indexed into a zone map (see the banner)', () => {
-    it('FINDING: a check-in pill drops the mood label -- «Check-in», never «Check-in: Хорошо»', async () => {
-      // SHOULD BE: «Check-in: Хорошо» + the high face, for mood 9 (displayHelpers
-      // .ts:69-73, 8-10 -> high). IS: the bare kind + the mid face, because
-      // MOOD_LABEL[9] / MOOD_ICON[9] are undefined -- the maps are keyed
-      // 'low'|'mid'|'high' and mood is a 1..10 score (generated.ts:377).
-      // Pinned as shipped behaviour; this file does not touch product code.
+  describe('the pill: the score reaches the screen as its zone (see the banner)', () => {
+    it('a check-in pill carries the mood label -- «Check-in: Хорошо» + the high face', async () => {
+      // mood 9 -> high (displayHelpers.ts:69-73, 8-10 -> high) -> «Хорошо».
+      // The `not.toBe` lines pin the OLD BUG's exact output -- the bare kind over
+      // the mid face, which is what MOOD_LABEL[9] / MOOD_ICON[9] returning
+      // undefined used to produce. Revert .vue:144,152 to a raw-score index and
+      // this test names the regression instead of merely failing.
       routeParams.type = 'checkin'
       vi.mocked(diaryApi.getCheckin).mockResolvedValue(checkin({ mood: 9 }))
       mount()
       await flush()
 
-      expect(pillTitle()).toBe('Check-in')
-      expect(pillTitle()).not.toBe('Check-in: Хорошо')
-      expect(leadFace()).toBe('mood-mid')
-      expect(leadFace()).not.toBe('mood-high')
+      expect(pillTitle()).toBe('Check-in: Хорошо')
+      expect(pillTitle()).not.toBe('Check-in')
+      expect(leadFace()).toBe('mood-high')
+      expect(leadFace()).not.toBe('mood-mid')
     })
 
-    it('FINDING: a feedback pill drops the rating label -- «Feedback», never «Feedback: Огонь!»', async () => {
-      // SHOULD BE: «Feedback: Огонь!» + the fire glyph, for rating 10
-      // (displayHelpers.ts:76-80, 8-10 -> fire). IS: the bare kind + the good
-      // glyph. Same mechanism, the other half of the branch -- which is exactly
-      // why both kinds are driven: one test would have proven nothing about the
-      // other, and the bug is duplicated across both maps.
+    it('a feedback pill carries the rating label -- «Feedback: Огонь!» + the fire glyph', async () => {
+      // rating 10 -> fire (displayHelpers.ts:76-80, 8-10 -> fire) -> «Огонь!».
+      // Same mechanism, the other half of the branch -- which is exactly why both
+      // kinds are driven: one test would prove nothing about the other, and the
+      // bug was duplicated across both maps, so the fix had to be too
+      // (.vue:146,156).
       routeParams.type = 'feedback'
       vi.mocked(diaryApi.getFeedback).mockResolvedValue(feedback({ rating: 10 }))
       mount()
       await flush()
 
-      expect(pillTitle()).toBe('Feedback')
-      expect(pillTitle()).not.toBe('Feedback: Огонь!')
-      expect(leadFace()).toBe('rating-good')
-      expect(leadFace()).not.toBe('rating-fire')
+      expect(pillTitle()).toBe('Feedback: Огонь!')
+      expect(pillTitle()).not.toBe('Feedback')
+      expect(leadFace()).toBe('rating-fire')
+      expect(leadFace()).not.toBe('rating-good')
     })
 
-    it('FINDING, sharpest form: the check-in pill carries ZERO information -- identical across every mood zone', async () => {
-      // The two tests above could each be read as one unlucky fixture. This one
+    it('sharpest form: the check-in pill MOVES with the mood zone -- low / mid / high all differ', async () => {
+      // The two tests above could each be read as one lucky fixture. This one
       // cannot: it walks all three zones (1 -> low, 5 -> mid, 10 -> high) and the
-      // pill NEVER MOVES. The user's worst morning and their best render the same
-      // shrug over the same word. THIS is the finding, in one assertion.
+      // pill must move on EVERY one. This is the assertion that was inverted while
+      // the bug stood -- the user's worst morning and their best rendered the same
+      // shrug over the same word. Now they render three different answers.
       routeParams.type = 'checkin'
       const seen: Array<{ mood: number; title: string | undefined; face: string }> = []
       for (const mood of [1, 5, 10]) {
@@ -470,15 +475,16 @@ describe('DetailView', () => {
       }
 
       expect(seen).toEqual([
-        { mood: 1, title: 'Check-in', face: 'mood-mid' },
-        { mood: 5, title: 'Check-in', face: 'mood-mid' },
-        { mood: 10, title: 'Check-in', face: 'mood-mid' },
+        { mood: 1, title: 'Check-in: Не очень', face: 'mood-low' },
+        { mood: 5, title: 'Check-in: Нормально', face: 'mood-mid' },
+        { mood: 10, title: 'Check-in: Хорошо', face: 'mood-high' },
       ])
-      // The three answers the zone maps hold and the screen never reaches.
-      expect(seen.map((s) => s.face)).not.toEqual(['mood-low', 'mood-mid', 'mood-high'])
+      // The constant the screen used to render, in one line: three identical
+      // shrugs. A regression collapses straight back to this.
+      expect(seen.map((s) => s.face)).not.toEqual(['mood-mid', 'mood-mid', 'mood-mid'])
     })
 
-    it('FINDING, sharpest form: the feedback pill carries ZERO information -- identical across every rating zone', async () => {
+    it('sharpest form: the feedback pill MOVES with the rating zone -- confused / good / fire all differ', async () => {
       routeParams.type = 'feedback'
       const seen: Array<{ rating: number; title: string | undefined; face: string }> = []
       for (const rating of [2, 5, 9]) {
@@ -493,15 +499,11 @@ describe('DetailView', () => {
       }
 
       expect(seen).toEqual([
-        { rating: 2, title: 'Feedback', face: 'rating-good' },
-        { rating: 5, title: 'Feedback', face: 'rating-good' },
-        { rating: 9, title: 'Feedback', face: 'rating-good' },
+        { rating: 2, title: 'Feedback: Есть вопросы', face: 'rating-confused' },
+        { rating: 5, title: 'Feedback: Хорошо', face: 'rating-good' },
+        { rating: 9, title: 'Feedback: Огонь!', face: 'rating-fire' },
       ])
-      expect(seen.map((s) => s.face)).not.toEqual([
-        'rating-confused',
-        'rating-good',
-        'rating-fire',
-      ])
+      expect(seen.map((s) => s.face)).not.toEqual(['rating-good', 'rating-good', 'rating-good'])
     })
 
     it('the pill renders at all, and only on the content rung', async () => {
@@ -520,7 +522,7 @@ describe('DetailView', () => {
   describe('the date line is the READER\'s clock', () => {
     it('renders created_at in the user\'s timezone -- not the runner\'s, not UTC', async () => {
       // dateLine = formatFeedDateTime(created_at, tz) where tz is
-      // `authStore.user?.timezone ?? 'UTC'` (.vue:108,158-160). Pinned three ways
+      // `authStore.user?.timezone ?? 'UTC'` (.vue:113,163-165). Pinned three ways
       // apart (see the banner): 22:30Z is 01:30 on the 17th in MOSCOW (right),
       // 02:30 on the 17th in the RUNNER's Asia/Tbilisi, and 22:30 on the 16th in
       // UTC. So a screen that ignored tz shows the user the wrong DAY they wrote
@@ -540,7 +542,7 @@ describe('DetailView', () => {
     })
 
     it('falls back to UTC when the user has no timezone at all', async () => {
-      // `authStore.user?.timezone ?? 'UTC'` (.vue:108). A user row with no zone
+      // `authStore.user?.timezone ?? 'UTC'` (.vue:113). A user row with no zone
       // must still get a date, not a crash or an "Invalid Date".
       authState.user = null
       vi.mocked(diaryApi.getCheckin).mockResolvedValue(
@@ -555,7 +557,7 @@ describe('DetailView', () => {
     })
 
     it('a feedback\'s date line comes off ITS created_at, through the same clock', async () => {
-      // createdAt (.vue:157) coalesces checkin ?? feedback. The feedback half of
+      // createdAt (.vue:162) coalesces checkin ?? feedback. The feedback half of
       // the branch must reach the same formatter with the same zone.
       routeParams.type = 'feedback'
       authState.user = { timezone: 'Europe/Moscow' }
@@ -598,7 +600,7 @@ describe('DetailView', () => {
     })
 
     it('a feedback\'s null comment takes the same fallback -- the coalesce does not leak the other kind', async () => {
-      // comment = `checkin?.comment ?? feedback?.comment ?? null` (.vue:155). On
+      // comment = `checkin?.comment ?? feedback?.comment ?? null` (.vue:160). On
       // the feedback branch `checkin` is null, so the chain must fall THROUGH to
       // feedback rather than short-circuit. Asserted on the null case because
       // that is where a mis-ordered coalesce would show.
@@ -614,7 +616,7 @@ describe('DetailView', () => {
 
   describe('the linked practice header', () => {
     it('fetches THAT practice by the row\'s practice_id and renders it above the pill', async () => {
-      // The id must come from the ROW's practice_id (.vue:193,197,201) -- fetching
+      // The id must come from the ROW's practice_id (.vue:198,202,206) -- fetching
       // anything else would head a private entry with a stranger's class.
       vi.mocked(diaryApi.getCheckin).mockResolvedValue(checkin({ practice_id: 'p7' }))
       vi.mocked(practicesApi.getPractice).mockResolvedValue(
@@ -635,7 +637,7 @@ describe('DetailView', () => {
 
     it('the practice time is shown in the READER\'s zone, not the practice\'s own', async () => {
       // practiceTime = formatTime(scheduled_at, tz) where tz is the USER's
-      // (.vue:164-166) -- deliberately NOT practice.timezone, which is what
+      // (.vue:169-171) -- deliberately NOT practice.timezone, which is what
       // EditPracticeView uses (a master edits in the practice's zone; a reader
       // reads in their own). The fixture is pinned to Asia/Tokyo precisely so the
       // two answers differ: 10:00Z is 19:00 in Tokyo and 13:00 in Moscow.
@@ -681,7 +683,7 @@ describe('DetailView', () => {
 
   describe('the context line -- the other half of the :type branch', () => {
     it('a CHECK-IN reads «Перед практикой», because it was written before', async () => {
-      // contextLine (.vue:173-178). The preposition is the whole point: a check-in
+      // contextLine (.vue:178-183). The preposition is the whole point: a check-in
       // is the pre-practice row and a feedback the post-practice one, and the line
       // is the only thing on this screen that says which.
       routeParams.type = 'checkin'
@@ -714,7 +716,7 @@ describe('DetailView', () => {
     it('a nameless master degrades to TWO DIFFERENT words -- «Мастером» in the line, «Мастер» on the card', async () => {
       // Not a typo on either side, and asserted together because they are one
       // screen's answer to one missing field. contextLine builds a Russian
-      // instrumental case for "с ..." (.vue:175 -> «с Мастером»), while
+      // instrumental case for "с ..." (.vue:180 -> «с Мастером»), while
       // PracticeListCard's own masterName fallback is the nominative
       // (PracticeListCard.vue:133 -> «Мастер»). Assert one alone and the next
       // editor "fixes" the mismatch by making them agree, breaking the grammar of
@@ -736,7 +738,7 @@ describe('DetailView', () => {
     })
 
     it('a FAILED practice fetch degrades to the bare row -- the entry still renders', async () => {
-      // .vue:200-205, best-effort by design: a deleted or forbidden practice must
+      // .vue:205-210, best-effort by design: a deleted or forbidden practice must
       // never cost the user their own entry. Positive set pinned FIRST (SC-15) --
       // a mount that rendered nothing would satisfy the three absences for free.
       vi.mocked(diaryApi.getCheckin).mockResolvedValue(
@@ -760,7 +762,7 @@ describe('DetailView', () => {
 
   describe('navigation', () => {
     it('back returns to the diary feed', async () => {
-      // goBack pushes a NAMED route (.vue:218-220) rather than router.back() --
+      // goBack pushes a NAMED route (.vue:223-225) rather than router.back() --
       // this screen is reachable by deep link, where there is no history to pop.
       mount()
       await flush()
@@ -807,12 +809,12 @@ describe('DetailView', () => {
 //   EntryView's "no practice link" test), CheckinResponse.practice_id and
 //   FeedbackResponse.practice_id are NON-NULLABLE `string` (generated.ts:374,
 //   :551) -- a check-in exists only against a booking, so it always has one. The
-//   `if (practiceId)` guard (.vue:199) is therefore unreachable from any record
+//   `if (practiceId)` guard (.vue:204) is therefore unreachable from any record
 //   the backend can send. The header's ABSENCE is covered where it is genuinely
 //   reachable: the FAILED getPractice test above.
 // - THE FOURTH LADDER STATE (loading false, loadError null, loaded false -> an
-//   empty body). `loading` initialises to FALSE (.vue:120) and onMounted fires
-//   reload (.vue:214), so this state exists for exactly the first render, before
+//   empty body). `loading` initialises to FALSE (.vue:125) and onMounted fires
+//   reload (.vue:219), so this state exists for exactly the first render, before
 //   any tick, and reload always lands in row-or-error thereafter. Not a state a
 //   user can observe and not one a seam here can hold open.
 // - PracticeListCard's own internals (the direction icon via practiceIconFor, the
