@@ -198,13 +198,13 @@ function openFilter(): void {
 // Practices on the selected day (already sorted by the store).
 const dayPractices = computed<PracticeResponse[]>(() => store.selectedDayPractices)
 
-// Section header for the selected day ("Сегодня" / "Завтра" / "28 января").
-// Derived from the first practice (its timezone) or the selected date itself.
+// Section header for the selected day ("Сегодня" / "Завтра" / "28 января"),
+// derived from the first practice's own timezone. dayLabel is only read from
+// the template's content branch (v-else, gated on dayPractices.length > 0),
+// so a first practice is always present here.
 const dayLabel = computed<string>(() => {
-  const first = dayPractices.value[0]
-  if (first) return formatDateShort(first.scheduled_at, first.timezone)
-  // Fallback: format the selected local day at noon UTC for a stable label.
-  return formatDateShort(`${store.selectedDate}T12:00:00.000Z`, 'UTC')
+  const first = dayPractices.value[0]!
+  return formatDateShort(first.scheduled_at, first.timezone)
 })
 
 // -- Active filter chips (display + removal) --

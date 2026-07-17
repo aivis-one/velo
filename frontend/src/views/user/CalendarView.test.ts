@@ -50,19 +50,15 @@
 // rule: a
 // real find is reported, not silently patched inside a test task).
 //
-// TIMEZONE NEST, two distinct facts, not one: (1) dayLabel derives from the
-// FIRST rendered practice's OWN `.timezone` field (.vue:205) -- NOT the
-// viewer's profile timezone, NOT the browser's. A fixture below deliberately
-// carries a practice timezone that differs from BOTH the viewer's profile tz
-// and UTC, so only reading the practice's own field produces the expected
-// label. (2) The "no practices" fallback branch of dayLabel (.vue:206-207,
-// `formatDateShort(selectedDate+T12:00 UTC, 'UTC')`) is DEAD CODE: dayLabel
-// is rendered ONLY inside the template's `v-else` content block (.vue:138),
-// which is reachable only when `dayPractices.length > 0` -- so
-// `dayPractices.value[0]` inside the computed is ALWAYS truthy at the one
-// site that reads it. Confirmed by grep (dayLabel used nowhere else) --
-// noted, not chased as a bug (it never renders wrong; it never renders at
-// all).
+// TIMEZONE: dayLabel derives from the FIRST rendered practice's OWN
+// `.timezone` field (.vue:205) -- NOT the viewer's profile timezone, NOT the
+// browser's. A fixture below deliberately carries a practice timezone that
+// differs from BOTH the viewer's profile tz and UTC, so only reading the
+// practice's own field produces the expected label. (dayLabel previously had
+// a "no practices" fallback branch that was dead code -- unreachable because
+// dayLabel is rendered ONLY inside the template's `v-else` content block,
+// gated on `dayPractices.length > 0` -- removed in the batch that added this
+// banner note.)
 //
 // NAME TRAP (per the operator's explicit warning): this screen's OWN dayLabel
 // uses formatDateShort (utils/format.ts). CalendarPracticeCard.vue -- the
