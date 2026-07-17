@@ -20,46 +20,47 @@
 // the real wiring instead of calling the handler off a fixture.
 //
 // ============================================================================
-// A REAL BUG, FOUND BY THIS FILE AND MUTATION-CONFIRMED -- not fixed here (see
-// the report; a separate commit per the operator's "no bundling" rule).
+// A REAL BUG, FOUND BY THIS FILE, MUTATION-CONFIRMED, AND NOW FIXED (this same
+// commit -- source + assertions together, unlike the coverage-only pass that
+// found it).
 // ============================================================================
-// .vue:59 writes BOTH `v-model="selectedTimezone"` AND an explicit
+// .vue:59 used to write BOTH `v-model="selectedTimezone"` AND an explicit
 // `@update:modelValue="onTimezoneChange"` on the SAME <TimezoneCityPicker>
-// tag. Compiling that template (checked directly via
-// @vue/compiler-sfc's compileTemplate) shows Vue merges them into an ARRAY of
-// two `onUpdate:modelValue` handlers: the auto-generated v-model setter
+// tag. Compiling that template (checked directly via @vue/compiler-sfc's
+// compileTemplate) showed Vue merging them into an ARRAY of two
+// `onUpdate:modelValue` handlers: the auto-generated v-model setter
 // (`selectedTimezone.value = $event`) FIRST, then `onTimezoneChange` SECOND.
 // Vue invokes array-valued emit handlers in that order, unconditionally, on
-// every single emission of the event -- there is no way for `onTimezoneChange`
-// to run before the raw setter has already applied the new value.
+// every emission -- `onTimezoneChange` never got to run before the raw setter
+// had already applied the new value.
 //
-// Two consequences, both mutation-confirmed live against this component
-// (temporarily edited, run, reverted -- not left in the tree):
-//   (a) The revert-on-failure logic is DEAD CODE. `const previous =
-//       selectedTimezone.value` (.vue:148) runs AFTER the raw setter already
-//       moved `selectedTimezone` to the NEW value, so `previous` is never the
-//       true previous value -- it equals the new value. `selectedTimezone.value
-//       = previous` on the catch path (.vue:156) is therefore a no-op.
-//       CONFIRMED: deleting .vue:156 entirely and re-running the failing-save
-//       test below produces a BYTE-IDENTICAL failure (same assertion, same
-//       line, same false/true) -- the line changes nothing observable.
-//   (b) The `saving` reentrancy guard (.vue:147) only blocks a SECOND api call
-//       -- it does NOT block the raw setter from applying a second, later
-//       click's value to the display while the first save is still in flight.
-//       Double-tapping two different cities can leave the UI showing the
-//       SECOND city (with the FIRST city's "saved" toast having just fired)
-//       while the backend actually persisted the FIRST. CONFIRMED: commenting
-//       out .vue:147's guard flips `updateMe` from 1 call to 2 -- the guard
-//       itself is real and load-bearing for the API-call count, it just does
-//       not protect the displayed value the way the header comment
-//       (.vue:155, "Revert the selection so the UI matches the server on
-//       failure") claims.
-// Both tests below assert the CURRENT, OBSERVED behaviour (bug included), not
-// the intended one -- per this repo's changelog-as-red precedent
-// (FeedbackView/EditProfileView-delete-stub): the day someone splits the dual
-// binding (e.g. drops the explicit @update:modelValue and reads the new value
-// off the v-model'd ref inside a watcher, or reorders so onTimezoneChange owns
-// the assignment), these are what should go red as the fix.
+// Two consequences, both mutation-confirmed BEFORE the fix (temporarily
+// edited the source, ran the suite, reverted -- see the prior commit's test
+// banner for the full before-state):
+//   (a) `const previous = selectedTimezone.value` (.vue:148) captured the
+//       ALREADY-NEW value, so the catch-path `selectedTimezone.value =
+//       previous` (.vue:156) was a no-op -- deleting it changed nothing.
+//   (b) The `saving` guard (.vue:147) blocked a second API call but not the
+//       raw setter, so a second tap mid-save could leave the UI showing the
+//       second city while the first was what actually got persisted.
+//
+// THE FIX (.vue:59): `v-model="selectedTimezone"` -> `:model-value=
+// "selectedTimezone"`, keeping the explicit `@update:modelValue=
+// "onTimezoneChange"`. One-way binding removes the auto-generated setter
+// entirely -- `onTimezoneChange` is now the ONLY writer of `selectedTimezone`,
+// so `previous` (.vue:148) is the true prior value, the revert (.vue:156) is
+// live, and the `saving` guard (.vue:147) now short-circuits BEFORE .vue:149
+// ever runs, protecting the display too. Confirmed independently before
+// editing: `selectedTimezone` has exactly one reader (init, .vue:142) and is
+// written only inside `onTimezoneChange` (.vue:149,156) -- no other code
+// relied on the implicit v-model setter.
+//
+// RE-MUTATED AFTER THE FIX, for the discriminating proof: deleting .vue:156
+// now turns the revert test RED (was byte-identical GREEN before the fix --
+// see the prior commit) -- proof the fix revived the line rather than the
+// test merely re-asserting a claim. Guard-removal at .vue:147 still turns the
+// reentrancy test RED (call count AND, now, the display-stays assertion).
+// Both re-verified live, then restored -- not left in the tree.
 // ============================================================================
 //
 // TIMEZONE_CITIES ITSELF DOES DOUBLE DUTY as the isValidIana probe. Its
@@ -229,7 +230,7 @@ describe('LanguageTimezoneView', () => {
       expect(cityRow('Берлин')?.classList.contains('tz-picker__row--active')).toBe(true)
     })
 
-    it('BUG (see banner): on failure the error toast still fires, but the selection does NOT revert -- it stays on the failed city', async () => {
+    it('failure: reverts the selection to the previous city and toasts the error (fixed -- see banner)', async () => {
       vi.mocked(usersApi.updateMe).mockRejectedValue(new Error('ECONNRESET'))
       mount()
       await flush()
@@ -240,14 +241,14 @@ describe('LanguageTimezoneView', () => {
       await flush()
 
       expect(toastError).toHaveBeenCalledWith('Не удалось сохранить часовой пояс')
-      // Intended behaviour (per .vue:155's own comment) would put Moscow back
-      // here. It does not: Berlin -- the value that just failed to save --
-      // stays selected. Mutation-confirmed dead code, see banner.
-      expect(cityRow('Берлин')?.classList.contains('tz-picker__row--active')).toBe(true)
-      expect(cityRow('Москва')?.classList.contains('tz-picker__row--active')).toBe(false)
+      // The :model-value fix restores the revert: `previous` is now the true
+      // prior value, so the catch path (.vue:156) puts Moscow back and Berlin
+      // -- the value that failed to save -- is no longer shown as selected.
+      expect(cityRow('Москва')?.classList.contains('tz-picker__row--active')).toBe(true)
+      expect(cityRow('Берлин')?.classList.contains('tz-picker__row--active')).toBe(false)
     })
 
-    it('saving guard: a second selection while the first save is in flight makes no second API call', async () => {
+    it('saving guard: a second selection while the first save is in flight is fully ignored -- no second API call, display stays on the first (committed) city', async () => {
       let resolveUpdate!: (u: UserResponse) => void
       vi.mocked(usersApi.updateMe).mockReset().mockImplementation(
         () =>
@@ -273,15 +274,14 @@ describe('LanguageTimezoneView', () => {
       resolveUpdate(user({ timezone: 'Europe/Berlin' }))
       await flush()
 
-      // BUG (see banner), consequence (b): the guard does NOT hold for the
-      // DISPLAY. London's raw v-model setter ran unconditionally on the
-      // second click (before onTimezoneChange's own guard could see it), so
-      // London -- not Berlin -- ends up shown as selected, even though the
-      // toast that just fired says the save succeeded and Berlin is what was
-      // actually persisted to the backend.
+      // Fixed (see banner): with the raw setter gone, the second click's
+      // ONLY effect was `onTimezoneChange` reading `saving.value === true`
+      // and returning immediately (.vue:147) -- it never touched
+      // `selectedTimezone`. Berlin, the first (and only persisted) tap, stays
+      // shown as selected; London never gets applied to the display either.
       expect(toastInfo).toHaveBeenCalledWith('Часовой пояс сохранён')
-      expect(cityRow('Лондон')?.classList.contains('tz-picker__row--active')).toBe(true)
-      expect(cityRow('Берлин')?.classList.contains('tz-picker__row--active')).toBe(false)
+      expect(cityRow('Берлин')?.classList.contains('tz-picker__row--active')).toBe(true)
+      expect(cityRow('Лондон')?.classList.contains('tz-picker__row--active')).toBe(false)
     })
   })
 
