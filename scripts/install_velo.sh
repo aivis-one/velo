@@ -1,39 +1,58 @@
 #!/bin/bash
+# -u: abort on unset variables. pipefail: a pipeline fails if any stage fails.
+# (No -e: the ERR trap defined below already aborts on any command error.)
+set -uo pipefail
 
 # ==============================================================================
-# VELO Platform — VPS Installation & Management Script
+# VELO Platform — VPS Installation Script
 # ==============================================================================
 #
 # WHAT THIS SCRIPT DOES:
-#   1. Installs system dependencies (Docker, Nginx, Certbot, UFW)
-#   2. Creates a deploy user (not root)
-#   3. Sets up SSH deploy key for GitHub
-#   4. Clones the repository
-#   5. Generates secure .env with random passwords
-#   6. Configures Nginx reverse proxy + SSL
-#   7. Starts the Docker stack (app + postgres + redis)
-#   8. Creates "velo" management command
+#   1. Asks which server this is and the values that make it THIS server
+#      (branch, domains, Stripe key) -- see ask_config() below
+#   2. Installs system dependencies (Docker, Nginx, Certbot, UFW)
+#   3. Creates a deploy user (not root)
+#   4. Sets up SSH deploy key for GitHub
+#   5. Clones the repository
+#   6. Generates secure .env with random passwords (skips if one already
+#      exists -- re-running this installer must never mint new database
+#      secrets against a volume that still holds the old ones)
+#   7. Configures Nginx reverse proxy + SSL
+#   8. Starts the Docker stack (app + postgres + redis + frontend)
+#   9. Installs the "velo" command as a thin shim onto the tracked
+#      scripts/velo-manage.sh -- see that file for why
+#
+# ONE installer, not three (2026-07-17, owner ruling: "тестовый и
+# продуктовый — одинаковы"). This used to be three ~1500-line near-copies
+# (install_velo.sh / install_velo_prod.sh / install_velo_test.sh), one per
+# server. The copies had already diverged in ways that were bugs, not
+# variants: one was missing `set -uo pipefail` entirely, a safety check
+# (PIPESTATUS on the backup dump) had been added to only one copy, one was
+# missing the `setrole` command outright. Three texts claiming to describe
+# the same thing is what let them quietly stop agreeing. There is one text
+# now. The only two things that legitimately differ per server -- which
+# branch to track, which domains to serve, and whether a real Stripe key
+# exists -- are asked for below, not hardcoded.
 #
 # USAGE:
-#   First time:   bash install_velo.sh
-#   After that:   velo status | velo logs | velo update | ...
+#   First time:   sudo bash install_velo.sh
+#   After that:   velo status | velo logs | velo update | velo version | ...
 #
 # REQUIREMENTS:
-#   - Ubuntu 22.04+ (fresh VPS)
-#   - Root access
-#   - DNS A-records pointing to this server:
-#       vel-app.com     → 37.1.204.171
-#       api.vel-app.com → 37.1.204.171
+#   - Ubuntu 22.04+ (fresh VPS), root access
+#   - GitHub deploy key with WRITE access ("velo update" pushes regenerated
+#     types back onto the tracked branch)
+#   - DNS A-records for both domains already pointing at this server
+#     (asked for below; the script prints this server's own IP to compare
+#     against before you confirm)
 # ==============================================================================
 
-# === Configuration ===
+# === Fixed configuration (does not vary by server) ===
 INSTALL_BASE="/opt/velo"
-DOMAIN_FRONTEND="vel-app.com"
-DOMAIN_API="api.vel-app.com"
-REPO_URL=""  # Set after SSH key setup
 GITHUB_REPO="aivis-one/velo"
 DEPLOY_USER="velo"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
+REPO_URL=""  # set after SSH key setup
 # Host serving Telegram links. t.me was pulled at the .me registry level on
 # 2026-07-13 (NXDOMAIN worldwide, not a block), so bot links and avatars must
 # ride an alias. telegram.me and telegram.dog are official aliases of t.me --
@@ -43,6 +62,13 @@ DOCKER_COMPOSE_FILE="docker-compose.yml"
 # it. Escape hatch if telegram.me dies too: telegram.dog sits in a different
 # TLD, outside the Montenegrin .me registry.
 TELEGRAM_LINK_DOMAIN="telegram.me"
+
+# === Per-server configuration -- filled in by ask_config(), not hardcoded ===
+VELO_ROLE=""
+GIT_BRANCH=""
+DOMAIN_FRONTEND=""
+DOMAIN_API=""
+SERVER_IP=""
 
 # === Colors ===
 RED='\033[0;31m'
@@ -72,6 +98,57 @@ if [ "$EUID" -ne 0 ]; then
     error "Please run as root: sudo bash install_velo.sh"
     exit 1
 fi
+
+# ==============================================================================
+# ASK CONFIG -- the ONE place per-server values come from
+# ==============================================================================
+
+ask_config() {
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  Which server is this?                        ${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo ""
+    echo "  1) test        — fake data, test payments, safe to break"
+    echo "  2) production  — the real thing, once anything is deployed here"
+    echo ""
+    while true; do
+        read -p "Choose 1 or 2: " ROLE_CHOICE
+        case "$ROLE_CHOICE" in
+            1) VELO_ROLE="test"; GIT_BRANCH="test"; break ;;
+            2) VELO_ROLE="prod"; GIT_BRANCH="main"; break ;;
+            *) echo "Please type 1 or 2." ;;
+        esac
+    done
+    echo ""
+
+    if [ "$VELO_ROLE" = "prod" ]; then
+        warn "You chose PRODUCTION."
+        read -p "Type YES (all caps) to confirm: " CONFIRM_PROD
+        if [ "$CONFIRM_PROD" != "YES" ]; then
+            error "Not confirmed. Re-run the installer and choose again."
+            exit 1
+        fi
+        echo ""
+    fi
+
+    echo -e "${CYAN}Git branch${NC}"
+    read -p "Branch to clone and track [$GIT_BRANCH]: " BRANCH_INPUT
+    GIT_BRANCH="${BRANCH_INPUT:-$GIT_BRANCH}"
+    echo ""
+
+    echo -e "${CYAN}Domains${NC}"
+    echo -e "${YELLOW}Both need a DNS A-record pointing at this server already.${NC}"
+    read -p "Frontend domain (e.g. app.example.com): " DOMAIN_FRONTEND
+    read -p "API domain      (e.g. api.example.com): " DOMAIN_API
+    if [ -z "$DOMAIN_FRONTEND" ] || [ -z "$DOMAIN_API" ]; then
+        error "Both domains are required."
+        exit 1
+    fi
+    echo ""
+
+    success "Role: $VELO_ROLE · Branch: $GIT_BRANCH · Domains: $DOMAIN_FRONTEND / $DOMAIN_API"
+    echo ""
+}
 
 # ==============================================================================
 # PRE-FLIGHT CHECKS
@@ -108,7 +185,7 @@ preflight_checks() {
     fi
 
     # Check DNS for both domains
-    local SERVER_IP=$(curl -s ifconfig.me 2>/dev/null)
+    SERVER_IP=$(curl -s ifconfig.me 2>/dev/null)
 
     for CHECK_DOMAIN in "$DOMAIN_FRONTEND" "$DOMAIN_API"; do
         local RESOLVED_IP=$(dig +short "$CHECK_DOMAIN" 2>/dev/null | tail -1)
@@ -130,6 +207,7 @@ echo -e "${CYAN}║       VELO Platform — VPS Installation        ║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════╝${NC}"
 echo ""
 
+ask_config
 preflight_checks
 echo ""
 
@@ -140,8 +218,8 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 echo -e "  Type  Name                Value"
 echo -e "  ────  ──────────────────  ─────────────────"
-echo -e "  A     vel-app.com         37.1.204.171"
-echo -e "  A     api.vel-app.com     37.1.204.171"
+echo -e "  A     $DOMAIN_FRONTEND    $SERVER_IP"
+echo -e "  A     $DOMAIN_API         $SERVER_IP"
 echo ""
 echo -e "${YELLOW}Both records must resolve to this server before SSL setup.${NC}"
 echo ""
@@ -356,6 +434,8 @@ setup_ssh() {
     echo ""
     echo -e "${YELLOW}Go to: https://github.com/$GITHUB_REPO/settings/keys${NC}"
     echo -e "${YELLOW}Click 'Add deploy key', paste the key above.${NC}"
+    echo -e "${RED}IMPORTANT: tick 'Allow write access'.${NC}"
+    echo -e "${YELLOW}'velo update' commits & pushes regenerated generated.ts to branch '$GIT_BRANCH'.${NC}"
     echo ""
     read -p "Press ENTER after adding the deploy key to GitHub..."
 
@@ -393,15 +473,17 @@ setup_ssh
 # ==============================================================================
 
 clone_repo() {
-    log "Cloning repository..."
+    log "Cloning repository (branch: $GIT_BRANCH)..."
 
     mkdir -p "$INSTALL_BASE"
-    git clone "$REPO_URL" "$INSTALL_BASE/repo"
+    # Clone the target branch directly so the first build + migrations run on
+    # the right code (avoids a full rebuild after a manual `git checkout`).
+    git clone -b "$GIT_BRANCH" "$REPO_URL" "$INSTALL_BASE/repo"
 
     # Set ownership
     chown -R root:root "$INSTALL_BASE"
 
-    success "Repository cloned to $INSTALL_BASE/repo"
+    success "Repository cloned to $INSTALL_BASE/repo (branch: $GIT_BRANCH)"
 }
 
 clone_repo
@@ -412,6 +494,25 @@ clone_repo
 
 generate_env() {
     local ENV_FILE="$INSTALL_BASE/repo/backend/.env"
+
+    # The .env destroyer, fixed 2026-07-17: this function used to mint a NEW
+    # random Postgres/Redis/SECRET_KEY on every run and write them with no
+    # existence check. Re-running the installer against a server that was
+    # already up would put new passwords in the file while the Postgres
+    # volume kept the OLD ones -- an outage on next start -- and would erase
+    # any hand edits made on the live server (exactly what happened here:
+    # the owner's own manual fix to a different generated file). An installer
+    # that can destroy a running database by being run twice is not
+    # shippable, so this is now a hard no-op when the file exists.
+    if [ -f "$ENV_FILE" ]; then
+        warn "backend/.env already exists at $ENV_FILE -- NOT regenerating."
+        warn "Re-running this installer must never mint new database secrets"
+        warn "against a volume that still holds the old ones, and must never"
+        warn "overwrite hand edits made on a live server."
+        warn "Delete the file yourself first if you really want fresh secrets"
+        warn "(and are prepared to reset the database to match)."
+        return 0
+    fi
 
     log "Generating .env with secure passwords..."
 
@@ -427,16 +528,65 @@ generate_env() {
     echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
     echo ""
     echo -e "${YELLOW}Get token from @BotFather in Telegram.${NC}"
-    echo -e "${YELLOW}Leave empty to skip (you can add later in backend/.env).${NC}"
+    echo -e "${YELLOW}The bot username is fetched from Telegram automatically.${NC}"
     echo ""
     read -p "TELEGRAM_BOT_TOKEN: " TELEGRAM_BOT_TOKEN
-    read -p "TELEGRAM_BOT_USERNAME (e.g. velo_testbot): " TELEGRAM_BOT_USERNAME
-    TELEGRAM_BOT_USERNAME="${TELEGRAM_BOT_USERNAME#@}"
+
+    # Fetch the bot username from Telegram (getMe) rather than asking for it:
+    # removes a hand-typed value that could be mistyped or mismatch the token.
+    # Parse the JSON with grep/sed to avoid a jq dependency.
+    echo "Verifying token with Telegram (getMe)..."
+    local TELEGRAM_BOT_USERNAME GETME
+    GETME=$(curl -s --max-time 15 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" || true)
+    if ! echo "$GETME" | grep -q '"ok":true'; then
+        error "Telegram getMe failed — invalid token or no network."
+        error "Response: ${GETME:-<empty>}"
+        exit 1
+    fi
+    TELEGRAM_BOT_USERNAME=$(echo "$GETME" | grep -o '"username":"[^"]*"' | head -1 | sed 's/"username":"//; s/"//' || true)
+    if [ -z "$TELEGRAM_BOT_USERNAME" ]; then
+        error "Could not parse bot username from getMe response: $GETME"
+        exit 1
+    fi
+    success "Bot: @${TELEGRAM_BOT_USERNAME}"
+    echo ""
+
+    # Ask for Stripe -- re-derived 2026-07-17, not inherited. The 07-16 default
+    # (prod=false, test=true) was reasoned from "prod has a real key" -- that
+    # was never true (Stripe has never been connected on EITHER server,
+    # owner-confirmed). The honest question was never "which server is this",
+    # it is "do you actually have a real key" -- asked directly, of whoever is
+    # installing, regardless of role.
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}  Stripe${NC}"
+    echo -e "${CYAN}═══════════════════════════════════════════════${NC}"
+    echo ""
+    read -p "Do you have a REAL Stripe secret key for this server? (y/n): " -n 1 -r
+    echo
+    local STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_PUBLISHABLE_KEY
+    local STRIPE_SUCCESS_URL STRIPE_CANCEL_URL ALLOW_STRIPE_STUB
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        read -p "STRIPE_SECRET_KEY: " STRIPE_SECRET_KEY
+        read -p "STRIPE_WEBHOOK_SECRET: " STRIPE_WEBHOOK_SECRET
+        read -p "STRIPE_PUBLISHABLE_KEY: " STRIPE_PUBLISHABLE_KEY
+        STRIPE_SUCCESS_URL="https://${DOMAIN_FRONTEND}/topup/success"
+        STRIPE_CANCEL_URL="https://${DOMAIN_FRONTEND}/topup/cancel"
+        ALLOW_STRIPE_STUB=false
+        success "Real Stripe key recorded — payments will be REAL on this server."
+    else
+        STRIPE_SECRET_KEY=TEST
+        STRIPE_WEBHOOK_SECRET=TEST
+        STRIPE_PUBLISHABLE_KEY=TEST
+        STRIPE_SUCCESS_URL=TEST
+        STRIPE_CANCEL_URL=TEST
+        ALLOW_STRIPE_STUB=true
+        warn "No real key — payments will run in STUB mode (fake, no money moves)."
+    fi
     echo ""
 
     cat > "$ENV_FILE" << EOF
 # ===========================================================================
-# VELO Backend — Production Environment
+# VELO Backend — Environment ($VELO_ROLE)
 # Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 # Server: $(hostname) ($(curl -s ifconfig.me 2>/dev/null))
 # ===========================================================================
@@ -465,20 +615,25 @@ CORS_ORIGINS=https://${DOMAIN_FRONTEND}
 
 # --- Telegram ---
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+# Bot URL for notification deep links. Username resolved via Telegram getMe.
+TELEGRAM_BOT_URL=https://${TELEGRAM_LINK_DOMAIN}/${TELEGRAM_BOT_USERNAME}
+# Live Telegram link host. The backend rewrites every Telegram URL onto it --
+# both this bot URL and the avatar URLs Telegram sends in initData.
+TELEGRAM_LINK_DOMAIN=${TELEGRAM_LINK_DOMAIN}
 
 # --- Session ---
 SESSION_TTL_DAYS=30
 
-# --- Stripe (placeholders) ---
-STRIPE_SECRET_KEY=TEST
-STRIPE_WEBHOOK_SECRET=TEST
-STRIPE_PUBLISHABLE_KEY=TEST
-STRIPE_SUCCESS_URL=TEST
-STRIPE_CANCEL_URL=TEST
-# false = refuse to start with a stub Stripe key above (the safe default).
-# Set to true ONLY on a test stand where fake payments are intentional.
-# Prod gets a real STRIPE_SECRET_KEY above and never needs this.
-ALLOW_STRIPE_STUB=false
+# --- Stripe ---
+STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL}
+STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL}
+# true = allow the stub Stripe path (fake payments, no money moves). Set from
+# whether a REAL key was entered above, not from which server this is -- see
+# the comment on the prompt.
+ALLOW_STRIPE_STUB=${ALLOW_STRIPE_STUB}
 EOF
 
     chmod 600 "$ENV_FILE"
@@ -501,15 +656,20 @@ generate_env
 setup_nginx() {
     log "Configuring Nginx reverse proxy..."
 
+    # The heredoc delimiter stays QUOTED ('NGINX_EOF'): this file is full of
+    # NGINX's OWN $host / $remote_addr / $scheme variables, which must reach
+    # nginx literally, not get expanded by bash. Domains are placeholders,
+    # filled in by sed right after -- the only safe way to parameterize a
+    # heredoc that also carries a different language's own variables.
     cat > /etc/nginx/sites-available/velo << 'NGINX_EOF'
 # VELO — Nginx reverse proxy
-# vel-app.com     → frontend (:3000)
-# api.vel-app.com → backend  (:8000)
+# __DOMAIN_FRONTEND__ → frontend (:3000)
+# __DOMAIN_API__      → backend  (:8000)
 
 # Frontend
 server {
     listen 80;
-    server_name vel-app.com;
+    server_name __DOMAIN_FRONTEND__;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -527,7 +687,7 @@ server {
 # API
 server {
     listen 80;
-    server_name api.vel-app.com;
+    server_name __DOMAIN_API__;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -543,6 +703,9 @@ server {
 }
 NGINX_EOF
 
+    sed -i "s/__DOMAIN_FRONTEND__/${DOMAIN_FRONTEND}/g; s/__DOMAIN_API__/${DOMAIN_API}/g" \
+        /etc/nginx/sites-available/velo
+
     # Enable site
     ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/
     rm -f /etc/nginx/sites-enabled/default
@@ -550,8 +713,14 @@ NGINX_EOF
     # Create certbot webroot
     mkdir -p /var/www/certbot
 
-    # Test and reload
-    nginx -t
+    # Test and reload -- explicitly checked (this was silently unguarded
+    # before 2026-07-17: `nginx -t` and `systemctl reload nginx` ran
+    # unconditionally, so a generated config that failed validation was
+    # reported the same as one that passed).
+    if ! nginx -t; then
+        error "Generated Nginx config failed validation — aborting."
+        exit 1
+    fi
     systemctl reload nginx
 
     success "Nginx configured"
@@ -577,16 +746,18 @@ setup_ssl() {
 
         success "SSL certificate obtained"
 
-        # Update nginx config with SSL — two separate server blocks
+        # Update nginx config with SSL — two separate server blocks.
+        # Same placeholder + sed approach as setup_nginx(), same reason:
+        # nginx's own $host / $scheme must not be bash-expanded.
         cat > /etc/nginx/sites-available/velo << 'SSL_NGINX_EOF'
 # VELO — Nginx reverse proxy with SSL
-# vel-app.com     → frontend (:3000)
-# api.vel-app.com → backend  (:8000)
+# __DOMAIN_FRONTEND__ → frontend (:3000)
+# __DOMAIN_API__      → backend  (:8000)
 
-# ── vel-app.com: HTTP → HTTPS ──────────────────────────────────────────────
+# ── __DOMAIN_FRONTEND__: HTTP → HTTPS ──────────────────────────────────────
 server {
     listen 80;
-    server_name vel-app.com;
+    server_name __DOMAIN_FRONTEND__;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -597,13 +768,13 @@ server {
     }
 }
 
-# ── vel-app.com: HTTPS → frontend ─────────────────────────────────────────
+# ── __DOMAIN_FRONTEND__: HTTPS → frontend ──────────────────────────────────
 server {
     listen 443 ssl http2;
-    server_name vel-app.com;
+    server_name __DOMAIN_FRONTEND__;
 
-    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/__DOMAIN_FRONTEND__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN_FRONTEND__/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
@@ -620,10 +791,10 @@ server {
     }
 }
 
-# ── api.vel-app.com: HTTP → HTTPS ─────────────────────────────────────────
+# ── __DOMAIN_API__: HTTP → HTTPS ────────────────────────────────────────────
 server {
     listen 80;
-    server_name api.vel-app.com;
+    server_name __DOMAIN_API__;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -634,13 +805,13 @@ server {
     }
 }
 
-# ── api.vel-app.com: HTTPS → backend ──────────────────────────────────────
+# ── __DOMAIN_API__: HTTPS → backend ─────────────────────────────────────────
 server {
     listen 443 ssl http2;
-    server_name api.vel-app.com;
+    server_name __DOMAIN_API__;
 
-    ssl_certificate /etc/letsencrypt/live/vel-app.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vel-app.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/__DOMAIN_FRONTEND__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN_FRONTEND__/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
@@ -658,8 +829,21 @@ server {
 }
 SSL_NGINX_EOF
 
-        nginx -t && systemctl reload nginx
-        success "Nginx updated with SSL"
+        sed -i "s/__DOMAIN_FRONTEND__/${DOMAIN_FRONTEND}/g; s/__DOMAIN_API__/${DOMAIN_API}/g" \
+            /etc/nginx/sites-available/velo
+
+        # Explicitly checked -- this used to run unconditionally, printing
+        # "Nginx updated with SSL" even when `nginx -t` failed and the reload
+        # never happened.
+        if nginx -t && systemctl reload nginx; then
+            success "Nginx updated with SSL"
+        else
+            error "New Nginx config failed validation — SSL was NOT enabled."
+            error "The file on disk is now the broken SSL config, but nginx"
+            error "did not reload, so it is still SERVING the previous config."
+            error "Fix /etc/nginx/sites-available/velo by hand, then: velo nginx reload"
+            exit 1
+        fi
 
         # Auto-renewal cron
         if ! crontab -l 2>/dev/null | grep -q "certbot renew"; then
@@ -689,7 +873,15 @@ start_stack() {
 
     # -- 1. Build and start backend + infrastructure --
     log "Building backend..."
-    docker compose build --no-cache app
+    # Explicitly checked: a failed image build must not fall through to
+    # `up -d`, which would start whatever image (if any) already existed
+    # under that tag while reporting the stack as started.
+    if ! docker compose build --no-cache app; then
+        error "Backend image build FAILED — stack was not started."
+        error "Fix the code / .env, then re-run this installer, or:"
+        error "  cd $INSTALL_BASE/repo && docker compose build app"
+        exit 1
+    fi
     docker compose up -d app postgres redis
 
     # Wait for backend health before generating types.
@@ -715,16 +907,31 @@ start_stack() {
 
     # -- 2. Generate frontend types from live backend OpenAPI --
     log "Generating frontend API types from backend OpenAPI..."
-    curl -s http://127.0.0.1:8000/openapi.json > /tmp/openapi.json
-    python3 "$INSTALL_BASE/repo/backend/scripts/generate_ts_types.py" \
+    # -f (fail on HTTP error) is required, not cosmetic: without it curl exits
+    # 0 on a 500 and writes the error body to the file instead of failing here.
+    if ! curl -sf http://127.0.0.1:8000/openapi.json > /tmp/openapi.json; then
+        error "Could not fetch openapi.json from the backend — is it healthy?"
+        rm -f /tmp/openapi.json
+        exit 1
+    fi
+    if ! python3 "$INSTALL_BASE/repo/backend/scripts/generate_ts_types.py" \
         /tmp/openapi.json \
-        "$INSTALL_BASE/repo/frontend/src/api/generated.ts"
+        "$INSTALL_BASE/repo/frontend/src/api/generated.ts"; then
+        error "Type generation FAILED."
+        rm -f /tmp/openapi.json
+        exit 1
+    fi
     rm -f /tmp/openapi.json
     success "Frontend types generated"
 
     # -- 3. Build and start frontend (picks up fresh generated.ts) --
     log "Building frontend..."
-    docker compose build --no-cache frontend
+    if ! docker compose build --no-cache frontend; then
+        error "Frontend image build FAILED (unit tests run inside the build)."
+        error "Fix the code, then re-run this installer, or:"
+        error "  cd $INSTALL_BASE/repo && docker compose build frontend"
+        exit 1
+    fi
     docker compose up -d frontend
 
     log "Waiting for frontend..."
@@ -733,748 +940,49 @@ start_stack() {
     info "Health check response:"
     curl -s "$HEALTH_URL" | python3 -m json.tool 2>/dev/null || curl -s "$HEALTH_URL"
     echo ""
-
-    success "VELO stack is running!"
 }
 
 start_stack
 
 # ==============================================================================
-# DATABASE MIGRATIONS
+# MANAGEMENT COMMAND
 # ==============================================================================
 
-run_migrations() {
-    log "Running database migrations..."
+install_management_shim() {
+    log "Installing the velo management command..."
 
-    cd "$INSTALL_BASE/repo"
-    docker compose exec -T app python -m alembic upgrade head || {
-        error "Migration failed! Check logs: docker compose logs app"
-        return 1
-    }
+    mkdir -p "$INSTALL_BASE/scripts"
+    chmod +x "$INSTALL_BASE/repo/scripts/velo-manage.sh"
 
-    success "Database migrations applied"
-}
-
-run_migrations
-
-# ==============================================================================
-# MANAGEMENT SCRIPT
-# ==============================================================================
-
-create_management_script() {
-    log "Creating management script..."
-
-    cat > "$INSTALL_BASE/scripts/manage.sh" << 'MANAGE_EOF'
+    # A THIN SHIM, not a copy. Real management logic lives entirely in the
+    # tracked scripts/velo-manage.sh inside the repo checkout, which `velo
+    # update` pulls like any other file (git replaces the file's inode on
+    # checkout, so this shim's own already-running process is never affected
+    # by that pull -- verified locally before this was built). This shim
+    # itself never needs to change again: it has nothing to fix or drift,
+    # because it does nothing but point at the repo.
+    cat > "$INSTALL_BASE/scripts/manage.sh" << EOF
 #!/bin/bash
-
-# ==============================================================================
-# VELO Management Script v1.4
-# Usage: velo {command} [options]
-# ==============================================================================
-
-INSTALL_BASE="/opt/velo"
-COMPOSE_DIR="$INSTALL_BASE/repo"
-COMPOSE_CMD="docker compose"
-DOMAIN_FRONTEND="vel-app.com"
-DOMAIN_API="api.vel-app.com"
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-# Ensure we're in the right directory for docker compose
-cd_compose() {
-    cd "$COMPOSE_DIR" || {
-        echo -e "${RED}ERROR: $COMPOSE_DIR not found${NC}"
-        exit 1
-    }
-}
-
-# Run frontend tests in a throwaway builder container.
-# Uses `docker build --target builder` to get a container with node + source,
-# then runs `npm run test` inside it.
-run_frontend_tests() {
-    echo "Running frontend tests..."
-    cd "$COMPOSE_DIR"
-    docker build --target builder -t velo-frontend-test -f frontend/Dockerfile frontend/ -q > /dev/null 2>&1
-    if docker run --rm velo-frontend-test npm run test; then
-        echo -e "${GREEN}✓ Frontend tests passed${NC}"
-        return 0
-    else
-        echo -e "${RED}✗ Frontend tests FAILED${NC}"
-        return 1
-    fi
-}
-
-# Poll the backend /health endpoint until it responds, or fail after timeout.
-# Avoids a race where we hit the API (openapi.json / health) before the `app`
-# container is actually listening -- previously masked by the test step that
-# happened to give the backend time to boot. 30 attempts x 1s = 30s max.
-wait_for_backend() {
-    local attempts=30
-    echo "Waiting for backend to become healthy..."
-    for i in $(seq 1 "$attempts"); do
-        if curl -sf http://127.0.0.1:8000/health > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ Backend is healthy (after ${i}s)${NC}"
-            return 0
-        fi
-        sleep 1
-    done
-    echo -e "${RED}✗ Backend did not become healthy in ${attempts}s${NC}"
-    echo "Check logs: velo logs app"
-    return 1
-}
-
-case "${1:-}" in
-
-    # === Service Management ===
-
-    start)
-        echo "Starting VELO..."
-        cd_compose
-        $COMPOSE_CMD up -d
-        echo -e "${GREEN}✓ Started${NC}"
-        ;;
-
-    stop)
-        echo "Stopping VELO..."
-        cd_compose
-        $COMPOSE_CMD down
-        echo -e "${GREEN}✓ Stopped${NC}"
-        ;;
-
-    restart)
-        case "${2:-all}" in
-            app)
-                echo "Restarting app only..."
-                cd_compose
-                $COMPOSE_CMD restart app
-                ;;
-            *)
-                echo "Restarting all services..."
-                cd_compose
-                $COMPOSE_CMD down
-                $COMPOSE_CMD up -d
-                ;;
-        esac
-        echo -e "${GREEN}✓ Restarted${NC}"
-        ;;
-
-    status)
-        echo "=== VELO Service Status ==="
-        echo ""
-        cd_compose
-        $COMPOSE_CMD ps
-        echo ""
-
-        # Health check
-        echo "=== Health Check ==="
-        HEALTH=$(curl -s http://127.0.0.1:8000/health 2>/dev/null)
-        if [ -n "$HEALTH" ]; then
-            echo "$HEALTH" | python3 -m json.tool 2>/dev/null || echo "$HEALTH"
-        else
-            echo -e "${RED}API not responding${NC}"
-        fi
-        echo ""
-
-        # External check
-        echo "=== External Access ==="
-        EXT_HEALTH=$(curl -s "https://$DOMAIN_API/health" 2>/dev/null)
-        if [ -n "$EXT_HEALTH" ]; then
-            echo -e "${GREEN}✓ https://$DOMAIN_API/health is accessible${NC}"
-        else
-            echo -e "${YELLOW}⚠ https://$DOMAIN_API/health not accessible${NC}"
-        fi
-        echo ""
-
-        # Disk & memory
-        echo "=== Resources ==="
-        echo "Disk: $(df -h /opt | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}')"
-        echo "Memory: $(free -h | awk '/Mem:/ {print $3 "/" $2}')"
-        echo "Docker images: $(docker images --format '{{.Size}}' | head -5 | paste -sd+ | bc 2>/dev/null || echo 'N/A')"
-        ;;
-
-    # === Logs ===
-
-    logs)
-        cd_compose
-        case "${2:-app}" in
-            app)
-                $COMPOSE_CMD logs -f --tail=100 app
-                ;;
-            db|postgres)
-                $COMPOSE_CMD logs -f --tail=100 postgres
-                ;;
-            redis)
-                $COMPOSE_CMD logs -f --tail=100 redis
-                ;;
-            frontend)
-                $COMPOSE_CMD logs -f --tail=100 frontend
-                ;;
-            all|"")
-                $COMPOSE_CMD logs -f --tail=100
-                ;;
-            *)
-                echo "Usage: velo logs [app|db|redis|frontend|all]"
-                exit 1
-                ;;
-        esac
-        ;;
-
-    # === Testing & Linting ===
-
-    test)
-        FAILED=0
-        case "${2:-all}" in
-            backend)
-                echo "=== Backend Tests ==="
-                cd_compose
-                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-                    FAILED=1
-                fi
-                ;;
-            frontend)
-                echo "=== Frontend Tests ==="
-                if ! run_frontend_tests; then
-                    FAILED=1
-                fi
-                ;;
-            all|"")
-                echo "=== Backend Tests ==="
-                cd_compose
-                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-                    FAILED=1
-                fi
-                echo ""
-                echo "=== Frontend Tests ==="
-                if ! run_frontend_tests; then
-                    FAILED=1
-                fi
-                ;;
-            *)
-                echo "Usage: velo test [backend|frontend|all]"
-                exit 1
-                ;;
-        esac
-
-        echo ""
-        if [ $FAILED -ne 0 ]; then
-            echo -e "${RED}✗ Some tests failed${NC}"
-            exit 1
-        else
-            echo -e "${GREEN}✓ All tests passed${NC}"
-        fi
-        ;;
-
-    lint)
-        cd_compose
-        $COMPOSE_CMD exec -T app python -m ruff check app/ tests/
-        ;;
-
-    # === Update & Deploy ===
-
-    update|deploy)
-        # Parse optional flags (order-independent).
-        #   --skip-tests      Skip the backend test suite (keep everything else).
-        #   --frontend-only   Skip the entire backend cycle: backend build,
-        #                     full compose restart, migrations, backend tests
-        #                     and `app` container restart. Only frontend gets
-        #                     rebuilt. Refuses to run if backend/ changed in
-        #                     the pulled commits (fool-proof guard).
-        SKIP_TESTS=0
-        FRONTEND_ONLY=0
-        shift  # drop "update" / "deploy"
-        while [ $# -gt 0 ]; do
-            case "$1" in
-                --skip-tests)    SKIP_TESTS=1 ;;
-                --frontend-only) FRONTEND_ONLY=1 ;;
-                *)
-                    echo -e "${RED}Unknown option: $1${NC}"
-                    echo "Usage: velo update [--skip-tests] [--frontend-only]"
-                    exit 1
-                    ;;
-            esac
-            shift
-        done
-
-        # --frontend-only implies --skip-tests (no backend cycle = no tests).
-        if [ $FRONTEND_ONLY -eq 1 ]; then
-            SKIP_TESTS=1
-        fi
-
-        echo "=== Updating VELO ==="
-        if [ $FRONTEND_ONLY -eq 1 ]; then
-            echo -e "${CYAN}Mode: frontend-only (backend cycle skipped)${NC}"
-        elif [ $SKIP_TESTS -eq 1 ]; then
-            echo -e "${CYAN}Mode: skip-tests (backend tests skipped)${NC}"
-        fi
-        echo ""
-
-        cd "$INSTALL_BASE/repo"
-
-        # Save current state
-        CURRENT_COMMIT=$(git rev-parse --short HEAD)
-        BRANCH=$(git branch --show-current)
-        echo "Current: $CURRENT_COMMIT ($BRANCH)"
-
-        # Check for uncommitted changes
-        if ! git diff-index --quiet HEAD -- 2>/dev/null; then
-            echo -e "${YELLOW}⚠ Uncommitted changes detected:${NC}"
-            git status --short
-            echo ""
-            read -p "Discard local changes and update? (y/n): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                echo "Update cancelled"
-                exit 1
-            fi
-            git checkout -- .
-        fi
-
-        # Fetch and check
-        git fetch origin
-        if git diff --quiet HEAD "origin/$BRANCH" 2>/dev/null; then
-            echo -e "${GREEN}✓ Already up to date${NC}"
-            exit 0
-        fi
-
-        # Pull
-        echo "Pulling updates..."
-        if ! git pull origin "$BRANCH"; then
-            echo -e "${RED}Pull failed. Resetting to origin/$BRANCH...${NC}"
-            git reset --hard "origin/$BRANCH"
-        fi
-
-        NEW_COMMIT=$(git rev-parse --short HEAD)
-        echo "Updated: $CURRENT_COMMIT → $NEW_COMMIT"
-        echo ""
-
-        # Fool-proof guard for --frontend-only:
-        # if backend/ changed between CURRENT_COMMIT and NEW_COMMIT, refuse hard.
-        if [ $FRONTEND_ONLY -eq 1 ]; then
-            if ! git diff --quiet "$CURRENT_COMMIT" "$NEW_COMMIT" -- backend/; then
-                echo -e "${RED}✗ Detected changes in backend/ between $CURRENT_COMMIT and $NEW_COMMIT${NC}"
-                echo -e "${RED}  Refusing to run with --frontend-only.${NC}"
-                echo ""
-                echo "Changed backend files:"
-                git diff --name-only "$CURRENT_COMMIT" "$NEW_COMMIT" -- backend/ | sed 's/^/  /'
-                echo ""
-                echo "Run: velo update            (full cycle)"
-                echo "  or velo update --skip-tests  (full cycle without tests)"
-                exit 1
-            fi
-            echo -e "${GREEN}✓ No backend/ changes -- proceeding frontend-only${NC}"
-            echo ""
-        fi
-
-        cd "$COMPOSE_DIR"
-        set -a; source "$INSTALL_BASE/vite.env"; set +a
-
-        if [ $FRONTEND_ONLY -eq 0 ]; then
-            # -- 1. Build backend --
-            echo "Building backend..."
-            $COMPOSE_CMD build app
-
-            # -- 2. Stop everything, start backend + infra --
-            echo ""
-            echo "Restarting services..."
-            $COMPOSE_CMD down
-            $COMPOSE_CMD up -d app postgres redis
-
-            # Run migrations
-            echo ""
-            echo "Running database migrations..."
-            sleep 5
-            $COMPOSE_CMD exec -T app python -m alembic upgrade head || {
-                echo -e "${RED}✗ Migration failed!${NC}"
-                echo "Check logs: velo logs app"
-                exit 1
-            }
-            echo -e "${GREEN}✓ Migrations applied${NC}"
-
-            # Run backend tests (unless --skip-tests)
-            if [ $SKIP_TESTS -eq 0 ]; then
-                echo ""
-                echo "Running backend tests..."
-                if ! $COMPOSE_CMD exec -T app python -m pytest tests/ -v --tb=short; then
-                    echo -e "${RED}✗ BACKEND TESTS FAILED${NC}"
-                    echo "Fix the code and run: velo update"
-                    exit 1
-                fi
-                echo -e "${GREEN}✓ All backend tests passed${NC}"
-            else
-                echo ""
-                echo -e "${YELLOW}⊘ Backend tests skipped (--skip-tests)${NC}"
-            fi
-        else
-            echo -e "${YELLOW}⊘ Backend build / restart / migrate / tests skipped (--frontend-only)${NC}"
-        fi
-
-        # -- 3. Generate frontend types from live backend --
-        # Make sure the backend is actually up before hitting its OpenAPI
-        # endpoint (otherwise curl returns empty and the generator crashes).
-        echo ""
-        wait_for_backend || exit 1
-
-        echo ""
-        echo "Generating frontend API types from backend OpenAPI..."
-        if ! curl -sf http://127.0.0.1:8000/openapi.json > /tmp/openapi.json; then
-            echo -e "${RED}✗ Failed to fetch openapi.json from backend${NC}"
-            echo "Check logs: velo logs app"
-            rm -f /tmp/openapi.json
-            exit 1
-        fi
-        if ! python3 "$COMPOSE_DIR/backend/scripts/generate_ts_types.py" \
-            /tmp/openapi.json \
-            "$COMPOSE_DIR/frontend/src/api/generated.ts"; then
-            echo -e "${RED}✗ Type generation failed${NC}"
-            rm -f /tmp/openapi.json
-            exit 1
-        fi
-        rm -f /tmp/openapi.json
-        echo -e "${GREEN}✓ Frontend types generated${NC}"
-
-        # -- 3a. Commit & push regenerated generated.ts if it drifted --
-        #
-        # generated.ts is a committed build artifact: the backend OpenAPI is
-        # the single source of truth, and this file is regenerated on every
-        # update. If regeneration changed it, velo-bot commits and pushes so
-        # the next `velo update` on any environment pulls up-to-date types via
-        # plain git -- otherwise the file shows up as an uncommitted change on
-        # the next run and gets discarded by the "Discard local changes?" step.
-        #
-        # Push uses the SSH config alias (origin -> git@github.com-velo:...),
-        # which already binds the velo deploy key, so no GIT_SSH_COMMAND needed.
-        #
-        # Frontend developers MUST NOT edit generated.ts by hand -- it is
-        # overwritten here. Frontend-only types live in frontend/src/api/types.ts.
-        cd "$COMPOSE_DIR"
-        if [ -n "$(git status --porcelain frontend/src/api/generated.ts)" ]; then
-            echo ""
-            echo "Schema drift detected -- committing regenerated generated.ts"
-
-            git add frontend/src/api/generated.ts
-            git -c user.name="velo-bot" -c user.email="bot@velo.local" commit -m \
-"chore(types): regenerate generated.ts
-
-Triggered by velo update on commit $NEW_COMMIT" || {
-                echo -e "${RED}✗ Bot commit failed${NC}"
-                exit 1
-            }
-
-            # Push with one retry: if a parallel push grabbed the branch first,
-            # rebase on it once and retry. Beyond that warrants manual review.
-            PUSH_OK=0
-            for attempt in 1 2; do
-                if git push origin "$BRANCH"; then
-                    PUSH_OK=1
-                    break
-                fi
-                if [ "$attempt" = "1" ]; then
-                    echo "Push failed (likely a parallel push). Rebasing and retrying..."
-                    git pull --rebase origin "$BRANCH" || break
-                fi
-            done
-
-            if [ "$PUSH_OK" = "0" ]; then
-                echo -e "${RED}✗ Failed to push regenerated types to GitHub${NC}"
-                echo "  velo-bot commit exists locally in $COMPOSE_DIR but is not on origin."
-                echo "  Resolve manually:"
-                echo "    cd $COMPOSE_DIR && git push origin $BRANCH"
-                exit 1
-            fi
-            echo -e "${GREEN}✓ velo-bot pushed regenerated types${NC}"
-        else
-            echo -e "${GREEN}✓ Types are in sync, no commit needed${NC}"
-        fi
-
-        # -- 4. Build and start frontend (with fresh types) --
-        echo ""
-        echo "Building frontend (tests run during build)..."
-        # The frontend Dockerfile runs `npm run test` before bundling, so a red
-        # test aborts THIS build. Without checking the exit code the script would
-        # fall through to `up -d` and silently restart the PREVIOUS image while
-        # printing success -- the gate would exist but never fire. manage.sh has
-        # no `set -e`, so the check must be explicit (same shape as the backend
-        # test gate above).
-        if ! $COMPOSE_CMD build frontend; then
-            echo -e "${RED}✗ FRONTEND BUILD FAILED (unit tests run inside the build)${NC}"
-            echo "Nothing was deployed -- the previous frontend image is still running."
-            echo "Fix the code and run: velo update"
-            exit 1
-        fi
-        $COMPOSE_CMD up -d frontend
-
-        # Health check
-        echo ""
-        echo "Waiting for health check..."
-        sleep 5
-        HEALTH=$(curl -s http://127.0.0.1:8000/health 2>/dev/null)
-        if echo "$HEALTH" | grep -q '"status"'; then
-            echo ""
-            echo -e "${GREEN}✓ Update complete. API is healthy.${NC}"
-            echo "$HEALTH" | python3 -m json.tool 2>/dev/null || echo "$HEALTH"
-        else
-            echo -e "${RED}⚠ API health check failed after update${NC}"
-            echo "Check logs: velo logs app"
-        fi
-
-        # -- 5. Lightweight cleanup --
-        # Frequent updates (this is a test server, often many per day) pile up
-        # Docker layers and dangling images. Reap only what's safe: dangling
-        # (<none>) images and build cache older than 24h. Recent cache is kept
-        # so same-day rebuilds stay fast. Volumes are never touched here.
-        echo ""
-        echo "Cleaning up Docker leftovers..."
-        docker image prune -f > /dev/null 2>&1 || true
-        docker builder prune -f --filter until=24h > /dev/null 2>&1 || true
-        echo -e "${GREEN}✓ Cleanup done${NC}"
-        ;;
-
-    # === Backup ===
-
-    backup)
-        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-        BACKUP_DIR="$INSTALL_BASE/backups"
-        mkdir -p "$BACKUP_DIR"
-
-        echo "Creating backup..."
-
-        # Dump PostgreSQL from Docker container
-        cd_compose
-        $COMPOSE_CMD exec -T postgres pg_dump -U velo velo > "$BACKUP_DIR/velo_db_$TIMESTAMP.sql"
-
-        # Backup .env
-        cp "$COMPOSE_DIR/backend/.env" "$BACKUP_DIR/env_$TIMESTAMP.bak" 2>/dev/null || true
-
-        # Create archive
-        cd "$BACKUP_DIR"
-        tar -czf "backup_$TIMESTAMP.tar.gz" "velo_db_$TIMESTAMP.sql" "env_$TIMESTAMP.bak" 2>/dev/null
-        rm -f "velo_db_$TIMESTAMP.sql" "env_$TIMESTAMP.bak"
-
-        echo -e "${GREEN}✓ Backup created: $BACKUP_DIR/backup_$TIMESTAMP.tar.gz${NC}"
-
-        # Rotate old backups (keep last 7 days)
-        find "$BACKUP_DIR" -name "backup_*.tar.gz" -mtime +7 -delete
-        BACKUP_COUNT=$(find "$BACKUP_DIR" -name "backup_*.tar.gz" | wc -l)
-        echo "Total backups: $BACKUP_COUNT (auto-rotating after 7 days)"
-        ;;
-
-    # === Database ===
-
-    db)
-        cd_compose
-        case "${2:-}" in
-            connect|psql)
-                echo "Connecting to PostgreSQL..."
-                $COMPOSE_CMD exec postgres psql -U velo velo
-                ;;
-            dump)
-                TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-                OUTPUT="$INSTALL_BASE/backups/db_dump_$TIMESTAMP.sql"
-                mkdir -p "$INSTALL_BASE/backups"
-                echo "Dumping database..."
-                $COMPOSE_CMD exec -T postgres pg_dump -U velo velo > "$OUTPUT"
-                echo -e "${GREEN}✓ Dump saved: $OUTPUT${NC}"
-                ;;
-            restore)
-                if [ -z "${3:-}" ]; then
-                    echo "Usage: velo db restore <dump_file>"
-                    exit 1
-                fi
-                echo -e "${RED}⚠ This will OVERWRITE the current database!${NC}"
-                read -p "Are you sure? (y/n): " -n 1 -r
-                echo
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                    echo "Restoring database..."
-                    cat "$3" | $COMPOSE_CMD exec -T postgres psql -U velo velo
-                    echo -e "${GREEN}✓ Database restored${NC}"
-                fi
-                ;;
-            migrate)
-                echo "Running Alembic migrations..."
-                $COMPOSE_CMD exec -T app python -m alembic upgrade head
-                echo -e "${GREEN}✓ Migrations complete${NC}"
-                ;;
-            *)
-                echo "Database commands:"
-                echo "  velo db connect        — Connect to PostgreSQL (psql)"
-                echo "  velo db dump           — Create database dump"
-                echo "  velo db restore <file> — Restore from dump"
-                echo "  velo db migrate        — Run Alembic migrations"
-                ;;
-        esac
-        ;;
-
-    # === SSL ===
-
-    ssl)
-        case "${2:-}" in
-            renew)
-                echo "Renewing SSL certificate..."
-                certbot renew --quiet --post-hook 'systemctl reload nginx'
-                echo -e "${GREEN}✓ Done${NC}"
-                ;;
-            status)
-                echo "SSL certificate status:"
-                certbot certificates 2>/dev/null || echo "No certificates found"
-                ;;
-            *)
-                echo "SSL commands:"
-                echo "  velo ssl renew  — Renew SSL certificate"
-                echo "  velo ssl status — Show certificate info"
-                ;;
-        esac
-        ;;
-
-    # === Version ===
-
-    version)
-        echo "VELO Management Script v1.4"
-        echo ""
-        cd "$INSTALL_BASE/repo" 2>/dev/null && {
-            echo -n "Commit: "
-            git rev-parse --short HEAD 2>/dev/null || echo "unknown"
-            echo -n "Branch: "
-            git branch --show-current 2>/dev/null || echo "unknown"
-            echo -n "Date: "
-            git log -1 --format="%ci" 2>/dev/null || echo "unknown"
-        }
-        echo ""
-        cd_compose
-        echo "Docker containers:"
-        $COMPOSE_CMD ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || $COMPOSE_CMD ps
-        ;;
-
-    # === Seed ===
-
-    seed)
-        echo "Running database seed..."
-        cd_compose
-        SEED_ARGS=""
-        if [ "${2:-}" = "--reset" ]; then
-            SEED_ARGS="--reset"
-        fi
-        $COMPOSE_CMD exec app python scripts/seed.py $SEED_ARGS
-        ;;
-
-    seed-practices)
-        echo "Running seed_practices..."
-        cd_compose
-        # Прокидываем все аргументы (--reset / --clean / --dry-run / --yes
-        # и их комбинации) напрямую в скрипт — он сам их парсит через argparse.
-        shift  # отбрасываем "seed-practices"
-        $COMPOSE_CMD exec app python scripts/seed_practices.py "$@"
-        ;;
-
-    # === Nginx ===
-
-    nginx)
-        case "${2:-}" in
-            reload)
-                echo "Reloading Nginx..."
-                nginx -t && systemctl reload nginx
-                echo -e "${GREEN}✓ Nginx reloaded${NC}"
-                ;;
-            status)
-                systemctl status nginx --no-pager -l
-                ;;
-            *)
-                echo "Nginx commands:"
-                echo "  velo nginx reload — Reload Nginx config"
-                echo "  velo nginx status — Show Nginx status"
-                ;;
-        esac
-        ;;
-
-    # === Generate Types ===
-
-    gen-types)
-        echo "Generating frontend types from backend OpenAPI..."
-        cd_compose
-        curl -s http://127.0.0.1:8000/openapi.json > /tmp/openapi.json || {
-            echo -e "${RED}✗ Cannot reach backend API. Is it running?${NC}"
-            exit 1
-        }
-        python3 "$COMPOSE_DIR/backend/scripts/generate_ts_types.py" \
-            /tmp/openapi.json \
-            "$COMPOSE_DIR/frontend/src/api/generated.ts"
-        rm -f /tmp/openapi.json
-        echo -e "${GREEN}✓ generated.ts updated${NC}"
-
-        # Manual regeneration does NOT commit or push -- that is `velo update`'s
-        # job (it commits as velo-bot and pushes). Here we only write the file
-        # and flag drift, so a developer iterating on a Pydantic schema on the
-        # VPS can refresh types without a full deploy.
-        if [ -n "$(git status --porcelain frontend/src/api/generated.ts)" ]; then
-            echo -e "${YELLOW}⚠ generated.ts changed -- not committed${NC}"
-            echo "  Run 'velo update' to commit & push, or commit by hand."
-        else
-            echo -e "${GREEN}✓ generated.ts is already in sync${NC}"
-        fi
-        ;;
-
-    # === Help ===
-
-    *)
-        echo -e "${CYAN}VELO Management Script${NC}"
-        echo "Usage: velo {command} [options]"
-        echo ""
-        echo "Service Management:"
-        echo "  start               — Start all services"
-        echo "  stop                — Stop all services"
-        echo "  restart [app]       — Restart all (or just app)"
-        echo "  status              — Show status + health check"
-        echo ""
-        echo "Logs:"
-        echo "  logs [app|db|redis|frontend] — View logs (default: app)"
-        echo ""
-        echo "Testing:"
-        echo "  test                — Run all tests (backend + frontend)"
-        echo "  test backend        — Run backend tests only"
-        echo "  test frontend       — Run frontend tests only"
-        echo "  lint                — Run linter (ruff)"
-        echo ""
-        echo "Deployment:"
-        echo "  update              — Pull, rebuild, migrate, test, restart"
-        echo "    --skip-tests        Skip backend tests (everything else runs)"
-        echo "    --frontend-only     Skip whole backend cycle; refuses if backend/ changed"
-        echo "  gen-types           — Regenerate frontend types from backend"
-        echo ""
-        echo "Database:"
-        echo "  db connect          — Open psql session"
-        echo "  db dump             — Create SQL dump"
-        echo "  db restore <file>   — Restore from dump"
-        echo "  db migrate          — Run Alembic migrations"
-        echo "  seed                — Populate DB with test data"
-        echo "  seed --reset        — Clean seed data & re-seed"
-        echo "  seed-practices      — Sync practice schedule from seed_practices.json"
-        echo "  seed-practices --reset    — Clean own data & re-seed from JSON"
-        echo "  seed-practices --clean    — Clean own data only (no re-seed)"
-        echo "  seed-practices --dry-run  — Show plan without writing to DB"
-        echo ""
-        echo "Maintenance:"
-        echo "  backup              — Backup DB + .env"
-        echo "  ssl renew           — Renew SSL certificate"
-        echo "  ssl status          — Show certificate info"
-        echo "  nginx reload        — Reload Nginx config"
-        echo "  version             — Show version info"
-        ;;
-esac
-MANAGE_EOF
-
+# VELO management shim -- do not hand-edit the logic here.
+# The real script is scripts/velo-manage.sh, tracked in the repo; it updates
+# with \`velo update\` like any other file. This file only execs it.
+exec "$INSTALL_BASE/repo/scripts/velo-manage.sh" "\$@"
+EOF
     chmod +x "$INSTALL_BASE/scripts/manage.sh"
 
-    # Create symlink for easy access
+    # The two values velo-manage.sh cannot get from the repo, because they
+    # are not code -- they are what makes this server THIS server.
+    cat > "$INSTALL_BASE/velo.conf" << EOF
+DOMAIN_FRONTEND=${DOMAIN_FRONTEND}
+DOMAIN_API=${DOMAIN_API}
+EOF
+
     ln -sf "$INSTALL_BASE/scripts/manage.sh" /usr/local/bin/velo
 
-    success "Management script created (use 'velo' command)"
+    success "Management command installed (use 'velo' command)"
 }
 
-mkdir -p "$INSTALL_BASE/scripts"
-create_management_script
+install_management_shim
 
 # ==============================================================================
 # BACKUP CRON
@@ -1494,15 +1002,13 @@ setup_backup_cron
 # POST-INSTALLATION
 # ==============================================================================
 
-SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || echo "unknown")
-
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║    VELO Installation Completed Successfully!  ║${NC}"
 echo -e "${GREEN}╚═══════════════════════════════════════════════╝${NC}"
 echo ""
 
-info "Server: $SERVER_IP"
+info "Server: $SERVER_IP ($VELO_ROLE, branch $GIT_BRANCH)"
 info "Frontend: https://$DOMAIN_FRONTEND"
 info "API:      https://$DOMAIN_API"
 info "Health:   https://$DOMAIN_API/health"
@@ -1510,15 +1016,14 @@ echo ""
 
 info "Directory structure:"
 echo "  $INSTALL_BASE/"
-echo "  ├── repo/              # Git repository"
-echo "  │   ├── backend/       # FastAPI backend"
-echo "  │   ├── frontend/      # Vue frontend"
-echo "  │   └── docker-compose.yml"
-echo "  ├── scripts/           # Management script"
-echo "  └── backups/           # Daily backups"
+echo "  ├── repo/              # Git repository (scripts/velo-manage.sh lives here)"
+echo "  ├── scripts/manage.sh  # thin shim -- do not hand-edit, see the file"
+echo "  ├── velo.conf          # this server's domains"
+echo "  └── backups/           # daily backups"
 
 log "Management commands:"
 echo -e "  ${CYAN}velo status${NC}          — Check everything"
+echo -e "  ${CYAN}velo version${NC}         — What is ACTUALLY running + drift check"
 echo -e "  ${CYAN}velo logs${NC}            — View app logs"
 echo -e "  ${CYAN}velo test${NC}            — Run all tests (backend + frontend)"
 echo -e "  ${CYAN}velo update${NC}          — Pull + rebuild + migrate + test"
@@ -1530,6 +1035,7 @@ echo ""
 
 warn "Next steps:"
 echo "  1. Verify: velo status"
-echo "  2. Check:  curl https://$DOMAIN_API/health"
-echo "  3. Open:   https://$DOMAIN_FRONTEND"
+echo "  2. Verify: velo version   (confirms the script matches git, no drift)"
+echo "  3. Check:  curl https://$DOMAIN_API/health"
+echo "  4. Open:   https://$DOMAIN_FRONTEND"
 echo ""
