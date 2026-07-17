@@ -82,7 +82,7 @@ function booking(
     practice: {
       id: `practice_${id}`,
       title: `Practice ${id}`,
-      practice_type: 'online',
+      practice_type: 'live',
       status: 'scheduled',
       scheduled_at: '2026-07-25T10:00:00Z',
       duration_minutes: 60,
