@@ -182,7 +182,14 @@ case "${1:-}" in
         echo "=== Resources ==="
         echo "Disk: $(df -h /opt | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}')"
         echo "Memory: $(free -h | awk '/Mem:/ {print $3 "/" $2}')"
-        echo "Docker images: $(docker images --format '{{.Size}}' | head -5 | paste -sd+ | bc 2>/dev/null || echo 'N/A')"
+        # `docker images --format '{{.Size}}'` emits human-readable sizes
+        # ("1.2GB", "450MB") with the unit baked into the string -- summing
+        # those with `bc` (a plain number calculator) never parsed anything
+        # real; it printed a stray number with no unit, from nowhere. `docker
+        # system df` already computes a real total and formats it itself, so
+        # there is nothing left to add or convert.
+        DOCKER_IMAGES_SIZE=$(docker system df --format '{{.Type}} {{.Size}}' 2>/dev/null | awk '$1 == "Images" {print $2}')
+        echo "Docker images: ${DOCKER_IMAGES_SIZE:-unknown} on disk"
         ;;
 
     # === Logs ===
@@ -377,10 +384,33 @@ case "${1:-}" in
                 exit 1
             fi
 
-            # -- 2. Stop everything, start backend + infra --
+            # -- 2. Recreate backend + infra -- frontend is DELIBERATELY not
+            # named here, and there is deliberately no `down` first.
+            #
+            # `down` used to run here, stopping and removing EVERY container
+            # in the project -- including frontend, which nothing in this
+            # branch touches until step 4 builds a new frontend image. That
+            # took the site down for the whole backend cycle on EVERY
+            # successful update (minutes: build + migrate + tests), and
+            # indefinitely if the frontend build then failed -- the message
+            # at the bottom of this function ("the previous frontend image is
+            # still running") was false: the IMAGE survived, the CONTAINER
+            # did not (found live, 2026-07-17, via `velo status` showing no
+            # velo-frontend right after a red run).
+            #
+            # `docker compose up -d <service>...` reconciles: it recreates a
+            # NAMED service only if ITS OWN image/config actually changed
+            # (app's image just did, at the build above), and leaves
+            # postgres/redis alone if theirs did not. Nothing here makes
+            # frontend a dependent of that recreation -- `frontend` depends
+            # ON `app` in docker-compose.yml, not the other way around -- so
+            # it is simply never touched by this line, in either direction:
+            # it keeps serving its CURRENT image through the whole backend
+            # cycle, and is only ever recreated at step 4, once a NEW image
+            # exists and has passed its own build. A failed frontend build
+            # now leaves the site exactly as it was a moment before.
             echo ""
-            echo "Restarting services..."
-            $COMPOSE_CMD down
+            echo "Restarting backend services..."
             $COMPOSE_CMD up -d app postgres redis
 
             # Run migrations
