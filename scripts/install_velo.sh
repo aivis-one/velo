@@ -656,55 +656,14 @@ generate_env
 setup_nginx() {
     log "Configuring Nginx reverse proxy..."
 
-    # The heredoc delimiter stays QUOTED ('NGINX_EOF'): this file is full of
-    # NGINX's OWN $host / $remote_addr / $scheme variables, which must reach
-    # nginx literally, not get expanded by bash. Domains are placeholders,
-    # filled in by sed right after -- the only safe way to parameterize a
-    # heredoc that also carries a different language's own variables.
-    cat > /etc/nginx/sites-available/velo << 'NGINX_EOF'
-# VELO — Nginx reverse proxy
-# __DOMAIN_FRONTEND__ → frontend (:3000)
-# __DOMAIN_API__      → backend  (:8000)
-
-# Frontend
-server {
-    listen 80;
-    server_name __DOMAIN_FRONTEND__;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# API
-server {
-    listen 80;
-    server_name __DOMAIN_API__;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-NGINX_EOF
-
-    sed -i "s/__DOMAIN_FRONTEND__/${DOMAIN_FRONTEND}/g; s/__DOMAIN_API__/${DOMAIN_API}/g" \
-        /etc/nginx/sites-available/velo
+    # render_nginx_http (scripts/nginx-render.sh) carries the template + the
+    # placeholder substitution that used to be inline here as a heredoc +
+    # separate `sed -i` pass -- moved to a shared, tracked function so
+    # `velo doctor` can call the exact same renderer read-only, instead of
+    # a detector carrying its own second copy of this text that could drift
+    # from this one. Proven byte-identical to the old two-step pipeline for
+    # fixed domain inputs before this line ever ran.
+    render_nginx_http "$DOMAIN_FRONTEND" "$DOMAIN_API" > /etc/nginx/sites-available/velo
 
     # Enable site
     ln -sf /etc/nginx/sites-available/velo /etc/nginx/sites-enabled/
@@ -746,91 +705,13 @@ setup_ssl() {
 
         success "SSL certificate obtained"
 
-        # Update nginx config with SSL — two separate server blocks.
-        # Same placeholder + sed approach as setup_nginx(), same reason:
-        # nginx's own $host / $scheme must not be bash-expanded.
-        cat > /etc/nginx/sites-available/velo << 'SSL_NGINX_EOF'
-# VELO — Nginx reverse proxy with SSL
-# __DOMAIN_FRONTEND__ → frontend (:3000)
-# __DOMAIN_API__      → backend  (:8000)
-
-# ── __DOMAIN_FRONTEND__: HTTP → HTTPS ──────────────────────────────────────
-server {
-    listen 80;
-    server_name __DOMAIN_FRONTEND__;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-
-# ── __DOMAIN_FRONTEND__: HTTPS → frontend ──────────────────────────────────
-server {
-    listen 443 ssl http2;
-    server_name __DOMAIN_FRONTEND__;
-
-    ssl_certificate /etc/letsencrypt/live/__DOMAIN_FRONTEND__/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN_FRONTEND__/privkey.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-
-    # add_header Strict-Transport-Security "max-age=63072000" always;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-# ── __DOMAIN_API__: HTTP → HTTPS ────────────────────────────────────────────
-server {
-    listen 80;
-    server_name __DOMAIN_API__;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 301 https://$host$request_uri;
-    }
-}
-
-# ── __DOMAIN_API__: HTTPS → backend ─────────────────────────────────────────
-server {
-    listen 443 ssl http2;
-    server_name __DOMAIN_API__;
-
-    ssl_certificate /etc/letsencrypt/live/__DOMAIN_FRONTEND__/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN_FRONTEND__/privkey.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-
-    # add_header Strict-Transport-Security "max-age=63072000" always;
-
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-SSL_NGINX_EOF
-
-        sed -i "s/__DOMAIN_FRONTEND__/${DOMAIN_FRONTEND}/g; s/__DOMAIN_API__/${DOMAIN_API}/g" \
-            /etc/nginx/sites-available/velo
+        # render_nginx_ssl (scripts/nginx-render.sh) -- same shared renderer
+        # as setup_nginx() above, same reason: one tracked copy of this text,
+        # readable read-only by `velo doctor` instead of a second copy that
+        # can drift from this one. Proven byte-identical to the old inline
+        # heredoc + `sed -i` pipeline for fixed domain inputs before this
+        # line ever ran.
+        render_nginx_ssl "$DOMAIN_FRONTEND" "$DOMAIN_API" > /etc/nginx/sites-available/velo
 
         # Explicitly checked -- this used to run unconditionally, printing
         # "Nginx updated with SSL" even when `nginx -t` failed and the reload
@@ -856,6 +737,12 @@ SSL_NGINX_EOF
         warn "Keeping HTTP-only config for now"
     fi
 }
+
+# Sourced here, not at the top of the file: nginx-render.sh lives in the
+# repo clone_repo() just created ($INSTALL_BASE/repo), so it does not exist
+# yet earlier in this script.
+# shellcheck source=/dev/null
+source "$INSTALL_BASE/repo/scripts/nginx-render.sh"
 
 setup_nginx
 setup_ssl
