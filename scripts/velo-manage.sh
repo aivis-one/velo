@@ -667,10 +667,21 @@ Triggered by velo update on commit $NEW_COMMIT" || {
             git rev-parse --short HEAD 2>/dev/null || echo "unknown"
             echo -n "Branch:      "
             git branch --show-current 2>/dev/null || echo "unknown"
-            echo -n "Commit date: "
-            git log -1 --format="%ci" 2>/dev/null || echo "unknown"
-            echo -n "This script last changed: "
-            git log -1 --format="%h (%ci)" -- scripts/velo-manage.sh 2>/dev/null || echo "unknown"
+
+            # `git log` is one of git's paging commands -- unlike rev-parse
+            # and branch above, it can hand its output to a pager (less)
+            # instead of the terminal when stdout is a real tty (which it is
+            # here: `velo version` is run interactively), regardless of how
+            # short the output is. Captured into a variable first: a command
+            # substitution's stdout is a pipe, never a tty, so git never
+            # invokes a pager for it, and the label is echoed together with
+            # the value in one statement -- there is no longer a separate
+            # `echo -n` for a pager to run ahead of or hide.
+            COMMIT_DATE=$(git --no-pager log -1 --format="%ci" 2>/dev/null)
+            echo "Commit date: ${COMMIT_DATE:-unknown}"
+
+            SCRIPT_LAST_CHANGED=$(git --no-pager log -1 --format="%h (%ci)" -- scripts/velo-manage.sh 2>/dev/null)
+            echo "This script last changed: ${SCRIPT_LAST_CHANGED:-unknown}"
 
             # The honest check, in place of a hand-bumped label: this file
             # only ever runs the code that is actually checked out, so the one
