@@ -23,46 +23,41 @@
 //    PracticeLiveView, covered only by the root roleRedirect already tested
 //    in guards.test.ts). Not duplicated here.
 //
-// ⭐ THE ACTUAL PRIZE -- the combined error/missing rung (.vue:32,
-// `store.selectedError || !practice`), asked to be examined for the exact bug
-// class just fixed on CalendarView (a guard reading "is there ANY data" where
-// it should read "is there the RIGHT data for what's on screen"). Two DISTINCT
-// findings below, of different severity:
+// ⭐ THE COMBINED ERROR/MISSING RUNG (.vue:34, `store.selectedError ||
+// !practice`) -- the exact bug class just fixed on CalendarView (a guard
+// reading "is there ANY data" where it should read "is there the RIGHT data
+// for what's on screen"). TWO findings were surfaced against this rung
+// (ПРОМТ №464); this file now reflects the outcome of BOTH:
 //
-//  (a) STRUCTURAL, NOT USER-VISIBLE: the guard's own literal DEFAULTS
+//  (a) STRUCTURAL, NOT USER-VISIBLE -- STILL PRESENT, NOT FIXED (out of scope,
+//      the owner's call): the guard's own literal DEFAULTS
 //      (selectedLoading=false, selected=null, selectedError=null -- the
 //      state before onMounted has run at all) satisfy `!practice` and fail
-//      the loading guard (needs loading=true) -- so on the FIRST synchronous
-//      render, before onMounted's fetchPractice() call has had a chance to
-//      flip `loading` to true, the DOM technically matches the error rung.
-//      Reproduced in test (querying the DOM with ZERO awaits after mount()).
-//      BUT: fetchPractice's `loading.value = true` write happens SYNCHRONOUSLY
-//      inside onMounted, which Vue calls synchronously as part of the SAME
-//      app.mount() call that produced the first render -- the resulting
-//      re-render is only QUEUED (Vue's scheduler flushes via a Promise
-//      microtask), and browsers drain the microtask queue before the next
-//      paint. There is no real async boundary (no network delay) between the
-//      "wrong" state and the flip to loading=true -- unlike CalendarView's bug,
-//      which spanned an actual pending HTTP request a user waits through. A
-//      real browser would very likely never paint this frame. Documented as a
-//      structural note, not asserted as a user-facing bug.
-//  (b) REAL AND BOUNDED: `practice` (.vue:91) is just `store.selected` with NO
-//      check that it belongs to THIS screen's route practiceId. usePracticesStore
-//      is a session-lifetime singleton; if the user reaches this URL (a
-//      supported entry per the header comment -- "works on direct navigation /
-//      deep link") while `store.selected` still holds a DIFFERENT practice
-//      from an earlier screen, THAT stale-but-non-null value satisfies
-//      `!practice` = false for the ENTIRE duration of the real fetch for the
-//      new id -- so the loading guard is skipped and the (harmless, since
-//      static) success card renders while the actual confirmation is still in
-//      flight. If that fetch then fails, the screen shows "Практика
-//      забронирована!" BEFORE flipping to "Практика не найдена" for a
-//      practice that was never confirmed. Bounded by (a) no data ever states
-//      the WRONG practice's details, since none render, and (b) it requires a
-//      stale singleton-store value from a different id, not the primary
-//      "reached from a payment redirect" path -- but it is real, reproduced
-//      with an actual pending/rejecting fetch (real async boundary, unlike
-//      finding (a)), and worth the navigator's read.
+//      the loading guard -- so on the FIRST synchronous render, before
+//      onMounted's fetchPractice() call has flipped `loading`, the DOM
+//      technically matches the error rung. Reproduced below (zero-tick
+//      assertion). BUT: the flip to loading=true happens within the SAME
+//      microtask-flush cycle as the initial mount (no real network delay
+//      between the "wrong" state and the fix), and browsers drain microtasks
+//      before paint -- unlike CalendarView's bug, a real browser would very
+//      likely never paint this frame. Left as a documented structural note.
+//
+//  (b) REAL AND BOUNDED -- FIXED HERE (ПРОМТ №466). `practice` (.vue:91) used
+//      to be bare `store.selected`, with NO check that it belongs to THIS
+//      screen's route practiceId. usePracticesStore is a session-lifetime
+//      singleton; a stale DIFFERENT practice left in store.selected by an
+//      earlier screen satisfied `!practice = false` for the entire duration
+//      of a fetch for a NEW id, skipping the loader and letting the
+//      (harmless, since static) success card render while the real
+//      confirmation was still in flight -- or, on a failing fetch, flashing
+//      "Практика забронирована!" before "Практика не найдена" for a practice
+//      that was never confirmed. FIX: `practice` now reads
+//      `store.selected?.id === practiceId ? store.selected : null` -- a
+//      stale different-id value is treated as not-yet-loaded, not as
+//      content. The two tests below that used to document the bug now assert
+//      the FIXED behavior and serve as its regression test, mutation-proved
+//      (revert the fix -> both go red -> restore -- git diff clean before
+//      commit).
 //
 // TICKS: fetchPractice's own chain is one `await getPractice(id)` (not
 // awaited by onMounted itself, fire-and-forget) + a final re-render -- flush()
@@ -280,8 +275,8 @@ describe('BookingConfirmedView', () => {
   })
 
   // ===========================================================================
-  describe('⭐ finding (b): cross-practice staleness of the shared singleton store', () => {
-    it('a stale DIFFERENT practice already in store.selected fools the loading guard: content (harmless -- static) renders while the real fetch for THIS practice is still in flight', async () => {
+  describe('⭐ regression (finding b, №464, fixed №466): a stale different-id store.selected no longer fools the loading guard', () => {
+    it('a stale DIFFERENT practice already in store.selected: the loader shows (not stale content) while the real fetch for THIS practice is in flight', async () => {
       // Populate store.selected with a DIFFERENT practice first, exactly as a
       // real session would after viewing/purchasing it on another screen.
       const store = usePracticesStore()
@@ -296,13 +291,14 @@ describe('BookingConfirmedView', () => {
       mount()
       await nextTick() // let loading=true flush -- same one tick as the plain loading test
 
-      // The guard reads `!practice`, and practice is still the STALE p_other --
-      // truthy -- so despite loading being true, content renders, not the loader.
-      expect(loader()).toBeNull()
-      expect(content()).not.toBeNull()
+      // FIXED: `practice` now requires store.selected.id === practiceId, so
+      // the stale p_other no longer counts as "we have data" -- the loader
+      // correctly shows instead of the stale success card.
+      expect(loader()).not.toBeNull()
+      expect(content()).toBeNull()
     })
 
-    it('...and if that in-flight fetch then fails, the screen shows the success card BEFORE flipping to "not found" for a practice that was never actually confirmed', async () => {
+    it('...and if that in-flight fetch then fails, the screen goes straight to the error rung -- it never shows "Практика забронирована!" for a practice that was never confirmed', async () => {
       const store = usePracticesStore()
       getPracticeMock.mockResolvedValue(practice({ id: 'p_other' }))
       await store.fetchPractice('p_other')
@@ -314,14 +310,15 @@ describe('BookingConfirmedView', () => {
       mount()
       await nextTick()
 
-      // Confirmed above: content shows, not the loader, while genuinely pending.
-      expect(content()).not.toBeNull()
+      // FIXED: still genuinely loading -- the loader shows, not the stale content.
+      expect(loader()).not.toBeNull()
+      expect(content()).toBeNull()
       expect(emptyState()).toBeNull()
 
       reject(new ApiResponseError(404, 'Практика не существует', 'not_found'))
       await flush()
 
-      // Only NOW does the screen catch up to reality.
+      // The screen goes DIRECTLY to the error rung -- no "success" flash ever happened.
       expect(emptyTitle()).toBe('Практика не найдена')
       expect(content()).toBeNull()
     })
