@@ -484,6 +484,27 @@ describe('CalendarView', () => {
       expect(practicesApi.getPractices).toHaveBeenCalledTimes(2)
       expect(prevWeekBtn()?.disabled).toBe(false) // now one window ahead -- prev is live
     })
+
+    it('next-week loading: while the shifted week\'s fetch is in flight, the loader shows and stale old-week data does not flash "Нет практик" (regression, BUG №461)', async () => {
+      // shiftWindow() moves selectedDate SYNCHRONOUSLY; weekPractices still
+      // holds the OLD week's (non-empty) items until the new fetch resolves.
+      // A guard keyed on weekPractices.length would read that stale non-empty
+      // list as "not loading" and fall through to dayPractices (now filtered
+      // against the NEW date -- always empty, since a 7-day shift never
+      // overlaps the old week) -- rendering "Нет практик" while genuinely
+      // still loading.
+      mount()
+      await flush()
+      expect(practiceCards()).toHaveLength(1) // sanity: current week has content
+
+      vi.mocked(practicesApi.getPractices).mockReturnValue(new Promise(() => {}))
+      nextWeekBtn()?.click()
+      await flush()
+
+      expect(loader()).not.toBeNull()
+      expect(emptyByTitle('Нет практик')).toBeUndefined()
+      expect(practiceCards()).toHaveLength(0)
+    })
   })
 
   // ===========================================================================

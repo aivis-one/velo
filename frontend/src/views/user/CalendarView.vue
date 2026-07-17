@@ -111,7 +111,7 @@
     </div>
 
     <!-- Loading (initial) -->
-    <div v-if="store.loading && store.weekPractices.length === 0" class="calendar__loader">
+    <div v-if="store.loading && dayPractices.length === 0" class="calendar__loader">
       <VLoader />
     </div>
 
