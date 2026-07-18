@@ -17,21 +17,32 @@
 // `role_switch: null`, so it renders nothing -- confirmed by asserting zero
 // `.role-switch` elements once, matching this repo's existing convention.
 //
-// CORRECTION TO RECON -- READ, NOT ASSUMED, ARGUING BACK: `onLogout` (.vue:
-// 79-87) is described in the prompt as "guarded by `loggingOut`". Reading
-// the function body, there is NO `if (loggingOut.value) return` at all --
-// `loggingOut.value = true` is set UNCONDITIONALLY at the top:
-//   async function onLogout(): Promise<void> {
-//     loggingOut.value = true
-//     try { await authStore.logout(); router.replace(...) }
-//     finally { loggingOut.value = false }
-//   }
-// EXACTLY the same shape as this round's OTHER finding on
-// AdminMasterInviteView.onCreate (see that file's banner) -- the only real
-// defense is VButton's own `:disabled="disabled || loading"` reacting to
-// `:loading="loggingOut"`, a template binding defeated by a same-tick double
-// click before Vue's microtask-batched DOM update paints. Proven below, not
-// assumed. REPORTED as a real finding, not fixed here.
+// FIXED in №487 -- root cause + before/after (same discipline as №468/№478/
+// №481/№483): `onLogout` (.vue:79-88) was described in №486's prompt as
+// "guarded by `loggingOut`", but reading the function body showed there was
+// NO `if (loggingOut.value) return` at all -- `loggingOut.value = true` was
+// set UNCONDITIONALLY at the top:
+//   BEFORE:  async function onLogout(): Promise<void> {
+//              loggingOut.value = true
+//              try { await authStore.logout(); router.replace(...) }
+//              finally { loggingOut.value = false }
+//            }
+//   AFTER:   async function onLogout(): Promise<void> {
+//              if (loggingOut.value) return
+//              loggingOut.value = true
+//              try { ... } finally { loggingOut.value = false }
+//            }
+// EXACTLY the same shape as this round's OTHER fix on
+// AdminMasterInviteView.onCreate (see that file's banner) -- before the fix,
+// the only defense was VButton's own `:disabled="disabled || loading"`
+// reacting to `:loading="loggingOut"`, a template binding defeated by a
+// same-tick double click before Vue's microtask-batched DOM update paints --
+// a plain double-tap on ONE button, not a two-button latent race, so a human
+// hits it. Consequence: a double logout call. Modeled on the sibling in the
+// SAME BATCH that already had the guard right, AdminParticipantsView.load
+// (.vue:115, `if (loading.value) return`). The `:disabled`/`:loading`
+// binding is UNCHANGED -- same reasoning as №481/№483b, real UX feedback,
+// not a redundant guard layer.
 //
 // displayName (.vue:66-70) fallbacks covered the way UserProfileView's
 // analogous computed was in №470: no user -> "Администратор"; first+last ->
@@ -277,7 +288,7 @@ describe('AdminProfileView', () => {
       await flush()
     })
 
-    it('REAL FINDING: a same-tick double click calls authStore.logout() TWICE -- no handler-level guard exists (see banner)', async () => {
+    it('FIXED: a same-tick double click is now blocked at the handler layer -- authStore.logout() is called ONCE', async () => {
       let resolveLogout!: () => void
       const authStore = useAuthStore()
       vi.spyOn(authStore, 'logout').mockImplementation(
@@ -294,7 +305,7 @@ describe('AdminProfileView', () => {
       btn.click() // no await -- the disabled attribute has not painted yet
       await flush()
 
-      expect(authStore.logout).toHaveBeenCalledTimes(2)
+      expect(authStore.logout).toHaveBeenCalledTimes(1)
       resolveLogout()
       await flush()
     })

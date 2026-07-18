@@ -6,29 +6,35 @@
 // button. No store, no ladder in the generic list/detail sense -- just a
 // form-card that always renders, plus a result-card gated on `inviteLink`.
 //
-// CORRECTION TO RECON -- READ, NOT ASSUMED, ARGUING BACK: `onCreate` (.vue:
-// 66-78) is described in the prompt as "guarded by `creating`". Reading the
-// function body, there is NO `if (creating.value) return` at all --
-// `creating.value = true` is set UNCONDITIONALLY at the top, with no
-// re-entrancy check before it:
-//   async function onCreate(): Promise<void> {
-//     creating.value = true
-//     try { ... } finally { creating.value = false }
-//   }
-// The ONLY thing standing between a double-click and a double `inviteMaster`
-// call is VButton's OWN `:disabled="disabled || loading"` binding
-// (VButton.vue:27) reacting to `:loading="creating"` (.vue:35) -- a template
-// binding, not a handler guard, and Vue's reactive DOM update is
-// microtask-batched, not synchronous. A SAME-TICK double click (no `await`
-// between the two `.click()` calls) reaches `onCreate` twice before that
-// `disabled` attribute has painted -- proven below, not assumed. This is
-// THE SAME SHAPE this whole admin zone has repeatedly found (AdminReportDetail
-// View pre-№481, 2 of AdminMasterReviewView's 3 guards pre-№483) -- except
-// here there is no handler-level check to even partially rely on. REPORTED
-// as a real finding, NOT fixed here (owner's call, per protocol). Contrast
-// tests below cover both: the realistic with-a-tick interaction (genuinely
-// blocked, because the real DOM button really is disabled once painted) AND
-// the same-tick programmatic gap (reaches the handler twice).
+// FIXED in №487 -- root cause + before/after (same discipline as №468/№478/
+// №481/№483): `onCreate` (.vue:66-79) was described in №486's prompt as
+// "guarded by `creating`", but reading the function body showed there was NO
+// `if (creating.value) return` at all -- `creating.value = true` was set
+// UNCONDITIONALLY at the top, with no re-entrancy check before it:
+//   BEFORE:  async function onCreate(): Promise<void> {
+//              creating.value = true
+//              try { ... } finally { creating.value = false }
+//            }
+//   AFTER:   async function onCreate(): Promise<void> {
+//              if (creating.value) return
+//              creating.value = true
+//              try { ... } finally { creating.value = false }
+//            }
+// Before the fix, the ONLY thing standing between a double-click and a
+// double `inviteMaster` call was VButton's OWN `:disabled="disabled ||
+// loading"` binding (VButton.vue:27) reacting to `:loading="creating"`
+// (.vue:35) -- a template binding, not a handler guard, and Vue's reactive
+// DOM update is microtask-batched, not synchronous, so a SAME-TICK double
+// click (no `await` between the two `.click()` calls) reached `onCreate`
+// twice before that `disabled` attribute had painted -- this is a plain
+// double-tap on ONE button, not a two-button latent race, so a human hits
+// it. Consequence: two one-time invite links minted instead of one (an
+// extra live invite left in the wild). Modeled on the sibling in the SAME
+// BATCH that already had the guard right, AdminParticipantsView.load
+// (.vue:115, `if (loading.value) return`). The `:disabled`/`:loading`
+// binding is UNCHANGED -- same reasoning as №481/№483b, it is real UX
+// feedback, not a redundant guard layer; the two tests below now cover BOTH
+// layers on purpose, not by accident.
 //
 // THE LINK ONLY APPEARS AFTER A SUCCESSFUL CREATE: `<VCard v-if="inviteLink">`
 // (.vue:43) -- `inviteLink` starts `''` (falsy) and is only ever assigned
@@ -252,7 +258,7 @@ describe('AdminMasterInviteView', () => {
       await flush()
     })
 
-    it('REAL FINDING: a same-tick double click reaches onCreate TWICE -- no handler-level guard exists (see banner)', async () => {
+    it('FIXED: a same-tick double click is now blocked at the handler layer -- inviteMaster is called ONCE', async () => {
       let resolveCreate!: (v: InviteMasterResponse) => void
       vi.mocked(adminApi.inviteMaster).mockImplementation(
         () =>
@@ -268,7 +274,7 @@ describe('AdminMasterInviteView', () => {
       btn.click() // no await -- the disabled attribute has not painted yet
       await flush()
 
-      expect(adminApi.inviteMaster).toHaveBeenCalledTimes(2)
+      expect(adminApi.inviteMaster).toHaveBeenCalledTimes(1)
       resolveCreate(inviteResponse())
       await flush()
     })

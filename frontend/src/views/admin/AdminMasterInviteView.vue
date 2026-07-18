@@ -64,6 +64,7 @@ const creating = ref(false)
 const inviteLink = ref('')
 
 async function onCreate(): Promise<void> {
+  if (creating.value) return
   creating.value = true
   try {
     const res = await inviteMaster()
