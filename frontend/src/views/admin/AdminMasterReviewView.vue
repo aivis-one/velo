@@ -538,7 +538,7 @@ async function openRevoke(): Promise<void> {
 }
 
 async function onRevoke(): Promise<void> {
-  if (revoking.value) return
+  if (anyLoading.value) return
   revoking.value = true
   try {
     await revokeMaster(masterId)
@@ -784,7 +784,7 @@ async function onVerify(): Promise<void> {
 }
 
 async function onReject(): Promise<void> {
-  if (rejecting.value) return
+  if (anyLoading.value) return
   rejectError.value = ''
   if (!rejectReason.value.trim()) {
     rejectError.value = 'Укажите причину отказа'

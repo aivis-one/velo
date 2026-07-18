@@ -63,24 +63,25 @@
 // mutation-PROVEN, not just present.
 //
 // THE THREE GUARDS -- READ, NOT GREPPED, EXACTLY AS THE OPERATOR ASKED (the
-// recon's suspicion is CONFIRMED as real, not assumed):
+// recon's suspicion was CONFIRMED as real, not assumed, in №482 -- and FIXED
+// in №483):
 //   - onVerify (.vue:769): `if (anyLoading.value) return` -- checks the FULL
-//     cross-block computed (verifying || rejecting || revoking).
-//   - onReject (.vue:785): `if (rejecting.value) return` -- checks ONLY ITS
-//     OWN flag.
-//   - onRevoke (.vue:539): `if (revoking.value) return` -- checks ONLY ITS
-//     OWN flag.
+//     cross-block computed (verifying || rejecting || revoking). Unchanged,
+//     already correct.
+//   - onReject (.vue:785): FIXED -- was `if (rejecting.value) return` (own
+//     flag only), now `if (anyLoading.value) return`.
+//   - onRevoke (.vue:539): FIXED -- was `if (revoking.value) return` (own
+//     flag only), now `if (anyLoading.value) return`.
 // THE HABIT, again: a cross-block guard written and honoured on ONE of three
 // siblings, forgotten on the other two -- the exact shape fixed in №481 for
-// AdminReportDetailView's pair. Structural note verified before asserting
-// anything: isPending and isVerified are mutually exclusive (both read
-// master_status), so verify/reject NEVER coexist on screen with revoke --
-// revoke's asymmetry can't race against verify or reject through the UI.
-// Verify and reject DO coexist (both render together while pending), so THAT
-// pair is the one worth measuring for real reachability -- see the
-// "THE THREE GUARDS" describe block for what was actually found (both same-
-// function reentrancy AND the cross-pair race, tested and reported, not
-// assumed). Fixed in №483 -- see that describe block for the FIXED assertion.
+// AdminReportDetailView's pair, now fixed here too. Structural note verified
+// before asserting anything: isPending and isVerified are mutually exclusive
+// (both read master_status), so verify/reject NEVER coexist on screen with
+// revoke -- revoke's own asymmetry could never actually race against verify
+// or reject through the UI, but the fix is applied anyway for consistency
+// (the operator's call, №483). Verify and reject DO coexist (both render
+// together while pending), so THAT pair was the one with real reachability --
+// see the "THE THREE GUARDS" describe block, now asserting BLOCKED.
 //
 // A SECOND FINDING, FIXED in №483, found by reading every field row's
 // template (.vue:54-272): the fieldError produced by a failed saveProfile
@@ -787,7 +788,7 @@ describe('AdminMasterReviewView', () => {
     // This test proves the PROGRAMMATIC/handler-level gap (what a scripted
     // client or a future UI change without the overlay could hit), not a
     // claim that a real fingertip can reach it today.
-    it('REAL FINDING: verify-in-flight does not block a reject submit -- onReject never checks anyLoading', async () => {
+    it('FIXED: verify-in-flight now blocks a reject submit -- onReject checks anyLoading', async () => {
       let resolveVerify!: (v: AdminMasterActionResponse) => void
       vi.mocked(adminApi.verifyMaster).mockImplementation(
         () =>
@@ -811,10 +812,10 @@ describe('AdminMasterReviewView', () => {
       await flush()
       setValue(sheetTextarea(), 'Причина')
       await flush()
-      sheetBtn('Отклонить заявку')?.click() // onReject only checks `rejecting` (false)
+      sheetBtn('Отклонить заявку')?.click() // onReject now checks anyLoading (verifying is true)
       await flush()
 
-      expect(adminApi.rejectMaster).toHaveBeenCalledTimes(1) // reached despite verify in flight
+      expect(adminApi.rejectMaster).not.toHaveBeenCalled() // blocked -- verify still in flight
 
       resolveVerify({ user_id: 'm_pending', status: 'ok' })
       await flush()
