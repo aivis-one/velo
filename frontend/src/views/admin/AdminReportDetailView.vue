@@ -221,7 +221,7 @@ async function onResolve(): Promise<void> {
     resolveError.value = 'Введите примечание к решению'
     return
   }
-  if (resolving.value) return
+  if (anyLoading.value) return
   resolving.value = true
   try {
     await resolveReport(reportId, resolveNote.value.trim())
@@ -237,7 +237,7 @@ async function onResolve(): Promise<void> {
 }
 
 async function onDismiss(): Promise<void> {
-  if (dismissing.value) return
+  if (anyLoading.value) return
   dismissing.value = true
   try {
     await dismissReport(reportId, dismissNote.value.trim() || undefined)

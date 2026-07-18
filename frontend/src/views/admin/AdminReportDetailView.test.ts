@@ -409,8 +409,19 @@ describe('AdminReportDetailView', () => {
 
   // ===========================================================================
   // CROSS-ACTION GUARD (anyLoading = resolving || dismissing, .vue:182). Built
-  // to actually isolate what protects the cross-case, not assume it -- see the
-  // ГОТОВО report for what this revealed.
+  // to actually isolate what protects the cross-case, not assume it. FIXED in
+  // №481 (this commit's fix -- see the source diff): onResolve/onDismiss
+  // (.vue:224,240) originally checked ONLY their own flag (`resolving.value` /
+  // `dismissing.value`), so a same-tick cross-click (before the template's
+  // `:disabled="anyLoading"`, .vue:99,120, could paint) reached the handler
+  // body unblocked -- confirmed live in №480's coverage pass, reported as a
+  // real finding, not fixed there. Root cause: `anyLoading` (.vue:182) already
+  // existed and expressed exactly the cross-block intent, but the handlers
+  // never consulted it -- they only checked their OWN flag. Closed by
+  // swapping both checks to `if (anyLoading.value) return`. The `:disabled`
+  // binding stays (owner's ruling, №481) -- it is real UX feedback (the
+  // button visibly greys out), not a redundant second layer; the two tests
+  // below now cover BOTH layers on purpose, not by accident.
   describe('cross-action guard (anyLoading, .vue:182)', () => {
     it('REALISTIC interaction: once resolving has painted, the Dismiss button is a real disabled <button> -- a click on it is a no-op', async () => {
       let resolveResolve!: (v: ReportResponse) => void
@@ -438,16 +449,11 @@ describe('AdminReportDetailView', () => {
       await flush()
     })
 
-    // Neither onResolve nor onDismiss's OWN guard checks the OTHER flag --
-    // onResolve only checks `resolving.value` (.vue:224), onDismiss only
-    // checks `dismissing.value` (.vue:240) -- confirmed by reading both
-    // handlers. The cross-action block exists ONLY as the template's
-    // `:disabled="anyLoading"` (.vue:99,120), with NO handler-level backing.
-    // Proven, not assumed: firing the second click in the SAME tick (before
-    // that attribute paints) reaches onDismiss's body, and its own guard does
-    // NOT stop it. This is a REAL FINDING -- reported, not fixed here (a
-    // fix is a separate commit on the word).
-    it('REAL FINDING: bypassing the :disabled paint (same-tick click) reaches onDismiss anyway -- no handler-level cross-guard exists', async () => {
+    // FIXED (№481, this commit -- source + test together): onResolve/onDismiss
+    // now check `anyLoading.value` instead of only their own flag (.vue:224,240),
+    // so a same-tick cross-click is blocked at the handler layer too, not just
+    // by the (still present, still the UX feedback layer) :disabled paint.
+    it('FIXED: a same-tick cross-click is now blocked at the handler layer -- dismissReport is NOT called', async () => {
       let resolveResolve!: (v: ReportResponse) => void
       vi.mocked(adminApi.resolveReport).mockImplementation(
         () =>
@@ -466,7 +472,7 @@ describe('AdminReportDetailView', () => {
       dismissBtn().click() // no await -- anyLoading is true reactively, but unpainted
       await flush()
 
-      expect(adminApi.dismissReport).toHaveBeenCalledTimes(1)
+      expect(adminApi.dismissReport).not.toHaveBeenCalled()
 
       resolveResolve(REPORT_RESOLVED)
       await flush()
