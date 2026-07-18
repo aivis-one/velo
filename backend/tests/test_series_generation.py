@@ -584,7 +584,7 @@ async def test_series_generation_idempotent(
 
     from app.core.database import get_session_factory
     from app.modules.practices.models import Practice
-    from app.modules.practices.service import _generate_series_occurrences
+    from app.modules.practices.series_service import _generate_series_occurrences
 
     factory = get_session_factory()
     async with factory() as s:

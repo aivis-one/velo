@@ -44,6 +44,8 @@ from app.modules.auth.dependencies import (
     get_current_user,
 )
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.cancel_service import cancel_practice
+from app.modules.practices.listing_service import list_public_practices
 from app.modules.practices.schemas import (
     CancelPracticeRequest,
     CreatePracticeRequest,
@@ -52,11 +54,9 @@ from app.modules.practices.schemas import (
     UpdatePracticeRequest,
 )
 from app.modules.practices.service import (
-    cancel_practice,
     create_practice,
     delete_practice,
     get_practice_detail,
-    list_public_practices,
     practice_to_response,
     update_practice,
 )

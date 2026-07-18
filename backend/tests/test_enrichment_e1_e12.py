@@ -529,7 +529,7 @@ async def test_attendance_counts_no_n_plus_one(
     from sqlalchemy.engine import Engine
 
     from app.core.database import get_session_factory
-    from app.modules.practices.service import _attendance_counts_for_practices
+    from app.modules.practices.enrichment_service import _attendance_counts_for_practices
 
     factory = get_session_factory()
     async with factory() as s:

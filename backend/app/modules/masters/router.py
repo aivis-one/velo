@@ -60,8 +60,8 @@ from app.modules.masters.service import (
     update_master_languages,
     withdraw_master_application,
 )
+from app.modules.practices.listing_service import list_master_practices
 from app.modules.practices.schemas import PaginatedPracticesResponse
-from app.modules.practices.service import list_master_practices
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
