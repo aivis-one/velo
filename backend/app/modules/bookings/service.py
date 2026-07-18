@@ -835,8 +835,8 @@ async def get_attendance(
     """
     # Local import keeps the bookings -> diary dependency one-way (diary
     # already imports from bookings), same pattern as list_user_bookings.
+    from app.modules.diary.checkins_service import get_pre_checkins_for_bookings
     from app.modules.diary.models import Checkin
-    from app.modules.diary.service import get_pre_checkins_for_bookings
 
     practice = await session.get(Practice, practice_id)
 

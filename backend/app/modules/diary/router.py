@@ -31,6 +31,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db_reader, get_db_session
 from app.modules.auth.dependencies import get_current_user
+from app.modules.diary.checkins_service import (
+    get_checkin,
+    list_user_checkins,
+    upsert_checkin,
+)
+from app.modules.diary.feed_service import list_diary_feed
+from app.modules.diary.insights_service import (
+    get_practice_insights,
+    list_practice_reviews,
+)
 from app.modules.diary.schemas import (
     CheckinRequest,
     CheckinResponse,
@@ -51,18 +61,12 @@ from app.modules.diary.schemas import (
 from app.modules.diary.service import (
     create_diary_entry,
     delete_diary_entry,
-    get_checkin,
     get_diary_entry,
     get_feedback,
-    get_practice_insights,
-    list_diary_feed,
-    list_practice_reviews,
-    list_user_checkins,
     list_user_diary_entries,
     list_user_feedbacks,
     restore_diary_entry,
     update_diary_entry,
-    upsert_checkin,
     upsert_feedback,
 )
 from app.modules.users.models import User

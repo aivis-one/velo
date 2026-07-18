@@ -31,8 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.diary.insights_service import ATTENTION_RATING_MAX
 from app.modules.diary.models import Checkin, Feedback
-from app.modules.diary.service import ATTENTION_RATING_MAX
 from app.modules.practices.models import Practice
 from app.modules.users.helpers import display_name
 from app.modules.users.models import User
