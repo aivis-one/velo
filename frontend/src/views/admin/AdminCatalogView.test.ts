@@ -43,13 +43,24 @@
 // those two are discriminated by WHICH api function was called, not by the
 // toast text (the text alone cannot tell them apart).
 //
-// A REAL FINDING: saveDirectionLabel (.vue:250-261) has NO reentrancy guard
-// at all -- no busy ref, no `:disabled` on the Save icon-button (unlike EVERY
-// other mutating action on this screen, which all gate on a busy/loading
-// ref AND disable their trigger). A rapid double-click on Save genuinely
-// fires updateTaxonomyDirection TWICE. Asserted below as the real (unguarded)
-// behavior, not "fixed" by a wishful single-call assertion -- reported, not
-// touched (out of this task's scope; a fix is a separate commit on the word).
+// FIXED (№478, this commit -- source + test together): saveDirectionLabel
+// (.vue:250-263) used to have NO reentrancy guard at all -- no busy ref, no
+// `:disabled` on the Save icon-button (unlike EVERY other mutating action on
+// this screen, which all gate on a busy/loading ref AND disable their
+// trigger via `:loading`). THE HABIT: a guard written on four sibling paths
+// (addDirection/addStyle/toggleDirectionActive/toggleStyleActive), forgotten
+// on the fifth. Root cause confirmed by the operator at file:line before this
+// fix landed. Closed with a VERBATIM copy of addStyle's guard shape
+// (.vue:220-234): a new `savingDirectionId` ref, `if (!label ||
+// savingDirectionId.value) return`, and a `finally` resetting it -- ONE layer
+// only, deliberately NOT adding a `:disabled` binding to the Save button
+// (owner's ruling: this zone already produced three genuinely redundant
+// second layers -- stepNext's guard vs its own `:disabled`, the
+// `loading && length` conjunct, the doubled busyId guards across
+// №474-№477 -- not adding a fourth candidate here). Before this commit, a
+// rapid double-click fired updateTaxonomyDirection TWICE (asserted then,
+// pinned as the changelog); the test below now asserts the fixed, single-call
+// behavior.
 //
 // MUTATION DISCIPLINE (per operator correction from №476): a green mutation
 // result is investigated and reported as a finding (redundant guard,
@@ -552,12 +563,20 @@ describe('AdminCatalogView', () => {
       expect(toastError).toHaveBeenCalledWith('Не удалось сохранить')
     })
 
-    // REAL FINDING (see file banner): unlike every other mutation on this
-    // screen, saveDirectionLabel has NO busy guard and the Save button has NO
-    // `:disabled` binding -- a rapid double-click genuinely fires the PATCH
-    // twice. Asserted as the real, current (unguarded) behavior.
-    it('REAL FINDING: a rapid double-click on Save has NO reentrancy guard -- fires TWICE', async () => {
-      vi.mocked(taxonomyApi.updateTaxonomyDirection).mockResolvedValue(direction())
+    // FIXED (see file banner, №478): saveDirectionLabel now carries
+    // `savingDirectionId`, a verbatim copy of addStyle's guard shape --
+    // ONE layer only, no `:disabled` added to the Save button (owner's
+    // ruling: this zone already has three genuinely redundant second layers,
+    // not adding a fourth candidate). A rapid double-click now fires the
+    // PATCH once.
+    it('saveDirectionLabel reentrancy guard: a rapid double-click on Save makes no second api call', async () => {
+      let resolveSave!: (v: TaxonomyDirectionItem) => void
+      vi.mocked(taxonomyApi.updateTaxonomyDirection).mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSave = resolve
+          }),
+      )
       mount()
       await flush()
 
@@ -569,10 +588,13 @@ describe('AdminCatalogView', () => {
 
       const saveBtn = iconBtn(cardA, 'Сохранить')!
       saveBtn.click()
-      saveBtn.click()
+      saveBtn.click() // no await -- no :disabled exists to block this at the DOM level
       await flush()
 
-      expect(taxonomyApi.updateTaxonomyDirection).toHaveBeenCalledTimes(2)
+      expect(taxonomyApi.updateTaxonomyDirection).toHaveBeenCalledTimes(1)
+
+      resolveSave(direction())
+      await flush()
     })
   })
 

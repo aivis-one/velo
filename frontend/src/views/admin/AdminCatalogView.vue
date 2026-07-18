@@ -237,6 +237,7 @@ async function addStyle(dir: TaxonomyDirectionItem): Promise<void> {
 //    from this screen; deactivate/reactivate covers the common style edit) --
 const editingDirectionId = ref<string | null>(null)
 const draftLabel = ref('')
+const savingDirectionId = ref<string | null>(null)
 
 function startEditDirection(dir: TaxonomyDirectionItem): void {
   editingDirectionId.value = dir.id
@@ -249,7 +250,8 @@ function cancelEdit(): void {
 
 async function saveDirectionLabel(dir: TaxonomyDirectionItem): Promise<void> {
   const label = draftLabel.value.trim()
-  if (!label) return
+  if (!label || savingDirectionId.value) return
+  savingDirectionId.value = dir.id
   try {
     await updateTaxonomyDirection(dir.id, { label })
     editingDirectionId.value = null
@@ -257,6 +259,8 @@ async function saveDirectionLabel(dir: TaxonomyDirectionItem): Promise<void> {
     await load()
   } catch (e) {
     toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось сохранить')
+  } finally {
+    savingDirectionId.value = null
   }
 }
 
