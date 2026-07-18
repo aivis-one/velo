@@ -13,6 +13,7 @@
 #   - Projection on check-in        -> checkin event (append-once, immutable)
 #   - Projection on diary entry      -> note/dream event
 #   - Soft-delete entry             -> event drops out of feed
+#   - Restore soft-deleted entry     -> event re-projected back into feed
 #   - Projection on finalize         -> practice_outcome events (attended/no_show)
 #   - GET /diary/feed: newest-first, category filter, search, cursor paging
 #   - Isolation: a user never sees another user's events
@@ -401,6 +402,47 @@ async def test_soft_delete_hides_entry_from_feed(
     # Gone after soft delete.
     after = await _feed(client, token)
     assert all(i["source_id"] != entry_id for i in after["items"])
+
+
+@pytest.mark.asyncio
+async def test_restore_reprojects_entry_into_feed(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Restoring a soft-deleted entry brings its event back into the feed.
+
+    Mirrors test_soft_delete_hides_entry_from_feed above: restore_diary_entry
+    re-projects via upsert_entry_event, which sets is_hidden = entry.is_deleted
+    (now False). This is the assertion that would catch a split silently
+    dropping that re-projection call.
+    """
+    auth = await login_user(client, telegram_id=90014, first_name="Writer3")
+    token = auth["session_token"]
+
+    resp = await client.post(
+        DIARY_URL,
+        json={"content": "Almost lost thought."},
+        headers=auth_headers(token),
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.delete(
+        f"{DIARY_URL}/{entry_id}", headers=auth_headers(token),
+    )
+    assert resp.status_code == 204, resp.text
+
+    # Gone while deleted.
+    hidden = await _feed(client, token)
+    assert all(i["source_id"] != entry_id for i in hidden["items"])
+
+    resp = await client.post(
+        f"{DIARY_URL}/{entry_id}/restore", headers=auth_headers(token),
+    )
+    assert resp.status_code == 200, resp.text
+
+    # Back after restore.
+    after = await _feed(client, token)
+    assert any(i["source_id"] == entry_id for i in after["items"])
 
 
 # ===================================================================
