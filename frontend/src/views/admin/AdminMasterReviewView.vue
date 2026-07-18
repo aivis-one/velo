@@ -130,7 +130,7 @@
           <div class="mreview__k">Телефон</div>
           <template v-if="editing === 'phone'">
             <div class="mreview__edit">
-              <VInput v-model="draftText" placeholder="+7…" />
+              <VInput v-model="draftText" placeholder="+7…" :error="fieldError" />
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="savePhone">Сохранить</VButton>
@@ -178,6 +178,7 @@
                   {{ l }}
                 </VChip>
               </div>
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="saveLanguages">Сохранить</VButton>
@@ -256,6 +257,7 @@
                 <VInput v-model="certInput" placeholder="Добавить сертификат + Enter" @keydown.enter.prevent="addCert" />
                 <VButton variant="ghost" size="sm" :disabled="!certInput.trim()" @click="addCert">Добавить</VButton>
               </div>
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="saveCertifications">Сохранить</VButton>

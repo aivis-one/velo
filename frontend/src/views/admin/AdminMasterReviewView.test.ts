@@ -80,20 +80,17 @@
 // pair is the one worth measuring for real reachability -- see the
 // "THE THREE GUARDS" describe block for what was actually found (both same-
 // function reentrancy AND the cross-pair race, tested and reported, not
-// assumed).
+// assumed). Fixed in №483 -- see that describe block for the FIXED assertion.
 //
-// A SECOND REAL FINDING, found by reading every field row's template
-// (.vue:54-272): the fieldError produced by a failed saveProfile
-// (.vue:701-702, NO toast on this path, only `fieldError.value`) has NO
-// VISIBLE UI AT ALL for THREE of the eight fields -- phone (.vue:128-144),
-// languages (.vue:164-194), and certifications (.vue:239-272) render neither
-// a `:error` prop on their VInput nor a `<p class="mreview__edit-err">`
-// paragraph (unlike display_name/email/experience_years, which pass `:error`
-// to VInput, or account_name/bio, which render the `<p>`). A failed save on
-// those three fields sets fieldError.value, the button stops loading, the
-// editor stays open -- but the admin sees NOTHING explaining why. Asserted
-// below as the real, current behaviour (absence of any error text anywhere
-// in those rows), reported as a finding, not fixed here.
+// A SECOND FINDING, FIXED in №483, found by reading every field row's
+// template (.vue:54-272): the fieldError produced by a failed saveProfile
+// (.vue:701-702, NO toast on this path, only `fieldError.value`) had NO
+// VISIBLE UI AT ALL for THREE of the eight fields -- phone (.vue:128-144,
+// now `:error="fieldError"` on its VInput, matching display_name/email/
+// experience_years), languages (.vue:164-194) and certifications
+// (.vue:239-272, both now a `<p class="mreview__edit-err">`, matching
+// account_name/bio -- neither is a VInput, so shape B fits, not shape A).
+// Asserted below as the fixed, current behaviour.
 //
 // A THIRD FINDING, measured (not assumed -- an initial draft of this file
 // guessed wrong and was corrected after a throwaway debug test against the
@@ -1089,8 +1086,8 @@ describe('AdminMasterReviewView', () => {
   })
 
   // ===========================================================================
-  describe('REAL FINDING: THREE fields have NO visible error UI on a failed save (see banner)', () => {
-    it('phone: a failed save shows NO error text anywhere in that row', async () => {
+  describe('FIXED: THREE fields now surface an error on a failed save (see banner)', () => {
+    it('phone: a failed save shows the error text (shape A -- VInput :error, same as display_name/email/experience_years)', async () => {
       vi.mocked(adminApi.editMasterProfile).mockRejectedValue(new Error('ECONNRESET'))
       mount('m_pending')
       await flush()
@@ -1102,11 +1099,11 @@ describe('AdminMasterReviewView', () => {
       saveBtn('Телефон').click()
       await flush()
 
-      expect(rowErrorText('Телефон')).toBe('') // nothing rendered -- the real gap
+      expect(rowErrorText('Телефон')).toBe('Не удалось сохранить')
       expect(host?.querySelector('.mreview__edit')).not.toBeNull() // still stuck in edit mode
     })
 
-    it('languages: a failed save shows NO error text anywhere in that row', async () => {
+    it('languages: a failed save shows the error text (shape B -- <p class="mreview__edit-err">, same as account_name/bio)', async () => {
       vi.mocked(adminApi.editMasterProfile).mockRejectedValue(new Error('ECONNRESET'))
       mount('m_pending')
       await flush()
@@ -1118,10 +1115,10 @@ describe('AdminMasterReviewView', () => {
       saveBtn('Язык практик').click()
       await flush()
 
-      expect(rowErrorText('Язык практик')).toBe('')
+      expect(rowErrorText('Язык практик')).toBe('Не удалось сохранить')
     })
 
-    it('certifications: a failed save shows NO error text anywhere in that row', async () => {
+    it('certifications: a failed save shows the error text (shape B -- <p class="mreview__edit-err">, same as account_name/bio)', async () => {
       vi.mocked(adminApi.editMasterProfile).mockRejectedValue(new Error('ECONNRESET'))
       mount('m_pending')
       await flush()
@@ -1131,7 +1128,7 @@ describe('AdminMasterReviewView', () => {
       saveBtn('Сертификаты').click()
       await flush()
 
-      expect(rowErrorText('Сертификаты')).toBe('')
+      expect(rowErrorText('Сертификаты')).toBe('Не удалось сохранить')
     })
 
     it('CONTRAST: bio DOES show the error paragraph on failure (the same fieldError, different row template)', async () => {
