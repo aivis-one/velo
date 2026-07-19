@@ -1,5 +1,14 @@
 # ZOD BACKEND TASKS — consolidated backend wishlist (user / master / admin)
 
+> **Freshness (PROMPT №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall. This pass corrected: the "Consistency semaphore 1.3" FOLLOW-UP
+> (the feature and the "(parked)" screen it refers to are both gone, deleted 2026-07-07), the
+> admin-consistency mention in the seed-data note, the `GET /admin/consistency` line in the
+> grounding-facts endpoint list, and E12's pointer to `_series_meta_for_practices` (renamed,
+> moved). Everything else below — epic STATUS lines, dates, gen: numbers — is UNVERIFIED this
+> pass; this is a fast-moving live task list, treat anything not explicitly touched above as
+> whatever it said before, not re-confirmed.
+
 > **Priority legend.**
 > - **P0** — a screen that is already built does **not function** without this. Highest urgency.
 > - **P1** — the endpoint exists or the screen partly works; this **enriches** a partially-working screen.
@@ -119,12 +128,14 @@ role (explicit grant).
 All have backing backend schemas (or, for the removal, none), so a clean OpenAPI regen matches.
 
 **Known FOLLOW-UPS (self / later — NOT asking Zod to action now):**
-- **Consistency semaphore 1.3 redefinition.** T4 creates a valid `verified` profile with `role=user`
-  (approved-but-not-yet-self-switched). Semaphore `1.3_master_users_eq_verified_profiles`
-  (`role∈{master,admin}` count == verified-profile count) therefore diverges in that transient window
-  — a **monitoring-only ALERT** on the (parked) admin DB-integrity screen; no functional/test impact
-  (no test approves-then-asserts-OK). When that screen is un-parked, redefine 1.3 to count the
-  pending-self-switch state (verified profile whose owner is still role=user).
+- **Consistency semaphore 1.3 redefinition — MOOT, feature deleted.** T4 creates a valid `verified`
+  profile with `role=user` (approved-but-not-yet-self-switched), which would have diverged semaphore
+  `1.3_master_users_eq_verified_profiles`. **This entire FOLLOW-UP is moot as of 2026-07-07 (`9ca5619`,
+  "remove data-integrity semaphores feature entirely"): the admin DB-integrity screen this note called
+  "(parked)" was deleted whole, not un-parked** — `admin/consistency/` (backend package + tests),
+  `AdminConsistencyView.vue`, and `VELO-Data-Consistency-Semaphores.md` are all gone. No transient-window
+  divergence is monitored by anything today; there is nothing left to redefine. Kept here as a record of
+  a decision that no longer applies, not as live guidance.
 - **Free-text custom-method add** in the T3 methods editor (currently pick from the fixed set).
 - **Cross-session persistent reject indicator** in the user zone (today the verdict shows via
   `/me master_application` on the pending screen only).
@@ -138,9 +149,10 @@ All have backing backend schemas (or, for the removal, none), so a clean OpenAPI
 Originally the admin/finance domains had no seed, so admin screens rendered empty even where the
 contract existed. **UPDATE 2026-06-24:** a priced + `as_master` seed now populates masters / practices
 / participants / check-ins / reviews on TEST, so master + most admin screens render real values. The
-admin **consistency / withdrawals** domains may still need dedicated seed coverage. This is an
-**environment / seed-script gap, not a backend-contract gap** — do not assume an admin endpoint is
-missing just because a less-seeded screen looks thin.
+admin **withdrawals** domain may still need dedicated seed coverage (the **consistency** domain named
+here no longer exists — deleted whole 2026-07-07, `9ca5619`). This is an **environment / seed-script
+gap, not a backend-contract gap** — do not assume an admin endpoint is missing just because a
+less-seeded screen looks thin.
 
 ---
 
@@ -149,8 +161,9 @@ missing just because a less-seeded screen looks thin.
 **Already present in the backend (do NOT rebuild):**
 - `GET /admin/stats` ⟳ now `AdminStatsOverviewResponse` (deltas/revenue/rates/period, gen:113),
   `GET /admin/masters` + verify/reject, `GET /admin/reports`, `GET/POST /admin/withdrawals` +
-  approve/reject, `GET /admin/consistency`, `GET /admin/users`. ⟳ NEW since: `GET /admin/practices`
+  approve/reject, `GET /admin/users`. ⟳ NEW since: `GET /admin/practices`
   (+/{id}) gen:567/59, `GET /admin/revenue` gen:97, `/admin/metrics/{check-in,feedback,return}`.
+  (`GET /admin/consistency` REMOVED 2026-07-07 `9ca5619` — do not rebuild it, no longer a target.)
 - Promo module: `POST /admin/promos`, `POST /masters/me/promos` (gen:320), `PaginatedPromosResponse`
   (gen:639), `promo_code` on booking. (GET-own-list + DELETE still absent — E10.)
 - `email` exists on the master-application interface but ⟳ still NOT on `UserResponse` (gen:1059) — E11.
@@ -183,7 +196,7 @@ Minor gaps closed by us (backend projection + manual `generated.ts` + frontend w
 **REASSIGNED (operator policy, 2026-07-15) — OWNED-BY-NAV, NOT Zod's lane.** These three were
 originally deferred as small-but-Zod-hot one-liners; none of the three files is messaging/notifications,
 so under the narrowed Zod lane (messaging + notifications only) they are ours:
-- **E12** add a grouped-COUNT `checkin_count` to `PracticeResponse`/`PracticeSummary`, batched like `_series_meta_for_practices` (practices/service.py:372). OWNED-BY-NAV: practices/service.py (E3).
+- **E12** add a grouped-COUNT `checkin_count` to `PracticeResponse`/`PracticeSummary`, batched like `series_meta_for_practices` (practices/enrichment_service.py:59 — renamed from `_series_meta_for_practices`, moved from service.py; verified ПРОМТ №510). OWNED-BY-NAV: practices/service.py (E3).
 - **E15** mirror `onboarding_completed` → `master_onboarding_completed` on `UserResponse` + accept on PATCH-self (users/, credentials JSONB, service.py:45 frozenset). OWNED-BY-NAV: users/.
 - **E3a** add `Practice.status != PracticeStatus.DELETED.value` to the occurrence-count filter (practices/service.py:427) — soft-deleted occurrences currently inflate `total_sessions`. OWNED-BY-NAV: E3 engine.
 
