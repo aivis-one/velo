@@ -1,6 +1,17 @@
 # VELΘ Design Migration Plan v4
 # Старт от main. Никаких ссылок на старые ветки.
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall — NOT rewritten this round (no specific line-level correction
+> was in scope for this pass). Flagging the overall problem instead: this entire document's
+> premise — design tokens sourced from mockups/Figma via a `design/veltheta` migration
+> branch — predates and conflicts with the 2026-06-10 operator ruling that dropped Figma
+> permanently in favor of an operator-sent SVG-per-screen source (canon in
+> `VELO-Frontend-Specification.md` header, `VELO-Frontend.md` header). Whether the concrete
+> file list / CSS values below were ever applied, and how much has since drifted, is
+> UNVERIFIED as of this pass. Treat this document as historical process description, not a
+> current migration plan to execute.
+
 > **Рабочая ветка:** создать `design/veltheta` от `main`
 > **Деплой теста:** VPS переключить на `design/veltheta`, `velo update`
 > **Все задания выполняет Claude Code** в рабочей ветке

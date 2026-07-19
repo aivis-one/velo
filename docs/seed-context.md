@@ -1,5 +1,15 @@
 # VELO seed_practices_v2 — Complete Project Context (v2.3)
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall — NOT rewritten this round; no specific line-level correction
+> was in scope for this pass, and none of this pass's four named contradictions touch this
+> file. This document is dated 2026-05-27 (v2.3) and describes `seed_practices.py` /
+> `seed_practices.json` / `install_velo.sh` state as of that date; two months of subsequent
+> commits are UNVERIFIED against it. Do not treat any command, file path, module import, or
+> "DONE" checklist item below as current without re-confirming against the live repo first —
+> this document's own text warns of exactly this drift (§"Verify, don't trust, uploaded
+> files").
+
 Handoff document. Contains everything needed to continue work at any
 later point: for yourself a month from now, for a new AI chat, for
 the backend developer, for any participant.
