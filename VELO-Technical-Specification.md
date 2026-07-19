@@ -4,6 +4,14 @@
 **Дата:** 29 мая 2026
 **Статус:** Active
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall. This pass corrected one item: §6.8 (Data Consistency
+> Semaphores) marked "done" with a live file inventory — the whole feature was deleted
+> 2026-07-07 (`9ca5619`). Section kept as a historical record, not current behavior.
+> Everything else in this ~2900-line document is UNVERIFIED as of this pass — this is a
+> large, versioned, mostly-superseded spec; do not treat any other phase/status marker as
+> current without a direct check.
+
 ---
 
 ## 1. Обзор проекта
@@ -1844,8 +1852,9 @@ backend/tests/
 
 > **Архитектурное правило:** Каждая финансовая операция создаёт ЧЁТНОЕ количество
 > ledger-записей. Всегда. Даже для бесплатных практик (paid_cents=0). Нулевые
-> записи доказывают, что транзакция прошла полный путь, и поддерживают целостность
-> семафоров (COUNT(bookings) = COUNT(purchases), SUM(all ledgers) = 0).
+> записи доказывают, что транзакция прошла полный путь, и поддерживают инвариант
+> COUNT(bookings) = COUNT(purchases), SUM(all ledgers) = 0 (изначально проверялось
+> consistency-семафорами; семафоры удалены 2026-07-07 `9ca5619`, инвариант в коде остался).
 
 **Задачи:**
 - [x] app/modules/payments/purchase.py -- create_purchase_for_booking(), finalize_purchases()
@@ -1944,7 +1953,7 @@ backend/tests/
 
 **Решения, принятые при реализации:**
 
-- **Purchase для КАЖДОГО booking** -- даже бесплатного. Semaphore 1.1 требует COUNT(bookings) == COUNT(purchases) для active records. Нулевые записи — это не мусор, а proof of path
+- **Purchase для КАЖДОГО booking** -- даже бесплатного, для инварианта COUNT(bookings) == COUNT(purchases) на active records (изначально проверялось Semaphore 1.1; семафоры удалены 2026-07-07 `9ca5619`). Нулевые записи — это не мусор, а proof of path
 - **booking_id UNIQUE** -- одна покупка на один booking. Двойная покупка невозможна ни на уровне кода (purchase создаётся внутри create_booking), ни на уровне БД (UNIQUE constraint)
 - **FOR UPDATE на User** (P-07) -- `session.get(User, id, with_for_update=True)` перед проверкой баланса. Конкурентные покупки сериализуются через row-level lock
 - **Commission — pure integer math** -- `paid_cents * commission_percent // 100`. Без float промежуточных значений, без Decimal. Центы — целые числа (L-07 fix, консистентно с refund.py)
@@ -2194,9 +2203,18 @@ backend/migrations/versions/
 
 ---
 
-### 6.8: Data Consistency Semaphores ✅
+### 6.8: Data Consistency Semaphores ✅ — [REMOVED 2026-07-07, `9ca5619`]
 
-**Цель:** Автоматические проверки консистентности данных — 21 семафор по 5 категориям.
+**Built here (Phase 6.8), then deleted whole in `9ca5619`** ("chore(admin): remove
+data-integrity semaphores feature entirely (A3)", operator call). Deleted: this package
+(`backend/app/modules/admin/consistency/`), `AdminConsistencyView.vue`,
+`test_admin_consistency.py`, `backend/scripts/repair_semaphore_2x.py`, and
+`VELO-Data-Consistency-Semaphores.md` (the "Полная документация" this section points to
+below no longer exists). `GET /api/v1/admin/consistency` is gone; nothing in the current
+codebase runs these checks. **Everything below this line is a historical record of what
+was built and later removed — not a description of current behavior.**
+
+**Цель (as built):** Автоматические проверки консистентности данных — 21 семафор по 5 категориям.
 
 **Задачи:**
 - [x] GET /api/v1/admin/consistency — запуск всех семафоров
@@ -2273,11 +2291,11 @@ backend/tests/
 
 **Аудит:** 3 бага найдены и закрыты. P-01 (no commit), P-10 (structlog), P-11 (Literal types) пройдены.
 
-**Критерий готовности:** Семафоры запускаются и показывают OK/ALERT. 300 тестов (3 skipped), 0 warnings. ✅
+**Критерий готовности (at the time):** Семафоры запускаются и показывают OK/ALERT. 300 тестов (3 skipped), 0 warnings. ✅ **Moot since 2026-07-07 — feature removed, no longer applicable.**
 
 ---
 
-**Полная документация:** `VELO-Data-Consistency-Semaphores.md`
+**Полная документация:** ~~`VELO-Data-Consistency-Semaphores.md`~~ **[deleted 2026-07-07, `9ca5619` — file no longer exists]**
 
 ---
 
@@ -2287,9 +2305,11 @@ backend/tests/
 
 **Цель:** Хранение уведомлений.
 
-> **Из Phase 6.8:** После создания таблицы notification_deliveries добавить
-> семафор 4.5 (orphan detection) в admin/consistency/service.py.
-> Также добавить Telegram-алерты при ALERT (сейчас только structlog).
+> **Из Phase 6.8 (MOOT — Phase 6.8 removed 2026-07-07, `9ca5619`):** ~~После создания таблицы
+> notification_deliveries добавить семафор 4.5 (orphan detection) в
+> admin/consistency/service.py.~~ `admin/consistency/` no longer exists; there is nothing to
+> add this semaphore to. ~~Также добавить Telegram-алерты при ALERT (сейчас только
+> structlog).~~ Also moot for the same reason.
 
 **Задачи:**
 - [x] app/modules/notifications/models.py
