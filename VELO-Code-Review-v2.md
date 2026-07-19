@@ -4,6 +4,14 @@
 **Ревьюер:** Senior Software Engineer (Claude Code)
 **Стек:** Python 3.12 / FastAPI / SQLAlchemy async / PostgreSQL / Redis / Vue 3 / TypeScript / Pinia
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall — this pass corrected two specific items: the CRITICAL-3
+> semaphore reference (feature removed 2026-07-07) and WARNING-5's file pointer + status
+> (the guard it asks for already exists, in a different file than named; the operational
+> risk it warns about is real and current — see WARNING-5). The doc's overall "8.5/10" score,
+> the closed-count ("17 из 19… 9 из 12"), and every other open item below are UNVERIFIED this
+> pass — do not treat them as current without re-checking against today's code.
+
 **Оценка: 8.5/10** (Backend: 9/10, Frontend: 8/10)
 
 Закрыто: 17 из 19 бэкенд-замечаний, 9 из 12 фронтенд-замечаний.
@@ -18,7 +26,9 @@
 **Файл:** `backend/app/modules/payments/service.py`
 
 Когда `MasterProfile` не найден, функция создаёт ledger entry но НЕ обновляет cached balance
-→ расхождение в семафорах 3.2/3.3.
+→ расхождение между `master_ledger` и cached balance (раньше это ловили семафоры 3.2/3.3;
+consistency-семафоры удалены 2026-07-07 `9ca5619` — сейчас это расхождение ничем не
+мониторится).
 
 **Исправление:** Бросать `BadRequestError` вместо silent continue.
 
@@ -45,14 +55,27 @@ Redis-сессий за 5-минутное окно → OOM Redis.
 
 ---
 
-### 🟡 WARNING-5: `STRIPE_STUB=true` в production
+### 🟡 WARNING-5: `STRIPE_SECRET_KEY=TEST` (stub-режим) в production
 
-**Файл:** `backend/app/modules/payments/webhook.py`
+**Файл:** `backend/app/core/config.py` (`Settings.is_stripe_stub_blocked`) + guard в
+`backend/app/main.py` (`lifespan()`) — **не** `payments/webhook.py` (this file doesn't exist;
+the webhook module is `payments/webhook_router.py`, and its signature check
+(`payments/stripe.py::verify_webhook_signature`) is unconditional — stub mode never touches
+it. Stub mode instead makes topup skip Stripe entirely at session-creation time
+(`payments/stripe.py::_create_stub_topup`), so no webhook is even involved when stub is on.
 
-Stripe webhook signature verification отключена при `STRIPE_STUB=true`.
-Нет защиты от случайного деплоя в production со stub-режимом.
+**Corrected 2026-07-19 (ПРОМТ №510):** the guard this finding originally asked for
+already exists — `is_stripe_stub_blocked` raises `RuntimeError` at startup when
+`not is_dev and is_stripe_stub and not allow_stripe_stub`. It is not a gap in the code.
+The operational risk is real and current: per commit `8d4948f` (owner-measured
+2026-07-17), **PROD is right now running `STRIPE_SECRET_KEY=TEST` with no
+`ALLOW_STRIPE_STUB` set** — exactly the state this guard exists to refuse. Prod has not
+crashed only because its currently-deployed build predates the guard. The next prod
+release containing it will raise at startup and refuse to come up.
 
-**Исправление:** При `settings.is_production and STRIPE_STUB` — поднимать startup error.
+**Исправление:** before releasing this code to prod, either set a real Stripe secret key
+on prod, or set `ALLOW_STRIPE_STUB=true` there if the stub is genuinely intended to stay.
+No code change needed — this is an environment fix, and it blocks the next prod release.
 
 ---
 
