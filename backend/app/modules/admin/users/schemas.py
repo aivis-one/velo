@@ -29,9 +29,9 @@ class AdminMasterListItem(BaseModel):
         (zero extra cost -- see list_masters).
       - practices_count / students_count: real all-time aggregates, computed in
         ONE batched query each over the page's master_ids (no N+1, mirrors
-        practices/service.py _attendance_counts_for_practices). None only if a
-        master somehow falls outside the batch (should not happen; honest
-        stub -- FE shows "-").
+        practices/enrichment_service.py attendance_counts_for_practices). None
+        only if a master somehow falls outside the batch (should not happen;
+        honest stub -- FE shows "-").
       - available_cents: MasterProfile.available_cents, a plain column already
         loaded by the list_masters join -- zero extra cost.
     """

@@ -50,7 +50,7 @@
 #   No session.commit() here (P-01). Router handles flush + refresh.
 #
 # B-05: list_user_bookings uses subquery pattern for count (same as
-#   list_user_checkins in diary/service.py). Eliminates parallel
+#   list_user_checkins in diary/checkins_service.py). Eliminates parallel
 #   count_base query that required manual filter duplication.
 # =============================================================================
 
@@ -222,7 +222,7 @@ async def create_booking(
         raise BadRequestError("Practice is not available for booking")
 
     # Time guard: a practice that has already started can no longer be booked.
-    # The public feed (practices/service.py list_public_practices) hides
+    # The public feed (practices/listing_service.py list_public_practices) hides
     # started/past practices, but the booking endpoints are reachable directly
     # by practice_id (e.g. opening a practice from "my bookings" history or a
     # deep link), so the feed filter is not enough. This is the single choke
@@ -892,7 +892,7 @@ async def list_user_bookings(
 
     B-05: count derived from base query subquery instead of maintaining
     a parallel count_base with duplicated filter clauses. Same pattern
-    as list_user_checkins in diary/service.py.
+    as list_user_checkins in diary/checkins_service.py.
 
     Each row also carries two diary-state flags for the dashboard banners:
       - has_feedback: the user already left a feedback for this practice.

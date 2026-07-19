@@ -104,8 +104,9 @@ async def _practices_counts_for_masters(
     """Map master_id -> all-time countable-practice count, for a page.
 
     ONE bounded query regardless of page size (GROUP BY master_id), same
-    read-model shape as practices/service.py _attendance_counts_for_practices.
-    "Countable" mirrors masters/stats_service._count_practices: excludes
+    read-model shape as practices/enrichment_service.py
+    attendance_counts_for_practices. "Countable" mirrors
+    masters/stats_service._count_practices: excludes
     draft/deleted/cancelled (never ran / not real sessions).
     """
     if not master_ids:

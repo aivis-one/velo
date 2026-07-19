@@ -1,7 +1,7 @@
 <!--
   VELO Frontend -- FormShell (WARNING-9)
 
-  Shared full-screen form shell used by CheckinView and FeedbackView.
+  Shared full-screen form shell used by CheckinView, FeedbackView, and ReflectionView.
   Extracts ~200 lines of identical CSS and layout structure.
 
   Layout:
