@@ -103,9 +103,13 @@ async def verify_master_endpoint(
 ) -> AdminMasterActionResponse:
     """Verify a pending master application.
 
-    Updates profile status to 'verified' and promotes user role to MASTER.
+    Updates profile status to 'verified'. body.promote (ПРОМТ №503 commit 3):
+    optional custom method labels to add to the taxonomy catalog -- absent/
+    empty writes nothing, identical to before this field existed.
     """
-    profile = await verify_master(user_id, admin, body.notes, session)
+    profile = await verify_master(
+        user_id, admin, body.notes, session, promote=body.promote
+    )
 
     await session.flush()
     await session.refresh(profile)

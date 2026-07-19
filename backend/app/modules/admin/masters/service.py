@@ -97,6 +97,7 @@ async def verify_master(
     admin: User,
     notes: str | None,
     session: AsyncSession,
+    promote: list[str] | None = None,
 ) -> MasterProfile:
     """Verify a pending master application (T4, ПРОМТ №295).
 
@@ -106,6 +107,18 @@ async def verify_master(
     (derive_allowed_roles keys on status=="verified"). Keeping role='user'
     lands the approved applicant back in the user zone with the switch offered,
     per the locked call-design.
+
+    promote (ПРОМТ №503 commit 3): optional custom method labels from the
+    applicant's own data.profile.methods that the admin chose to promote into
+    the taxonomy catalog, reusing the exact same _promote_custom_methods
+    helper approve_method_change already uses for an already-verified
+    master's later method-change request -- this is the FIRST time that
+    mechanism is reachable from the initial-application path. Absent/empty ->
+    no catalog write, unchanged from before this parameter existed. Does NOT
+    rewrite data.profile.methods itself -- the applicant's stored text is
+    untouched; parseMethods/directionLabel (frontend, ПРОМТ №503 commits 1-2)
+    now resolve it to the promoted chip on the strength of the catalog label
+    matching, the same as any other catalog-matched value.
     """
     profile = await _load_pending_profile(user_id, session)
 
@@ -119,6 +132,8 @@ async def verify_master(
     }
     profile.set_jsonb("data", new_data)
 
+    promoted = await _promote_custom_methods(promote or [], session)
+
     # M-01: audit trail for master verification.
     await record_audit(
         event="master_verified",
@@ -126,7 +141,7 @@ async def verify_master(
         actor_type="admin",
         target_type="master_profile",
         target_id=user_id,
-        data={"notes": notes},
+        data={"notes": notes, "promoted_to_catalog": promoted},
         session=session,
     )
 
@@ -134,6 +149,7 @@ async def verify_master(
         "master_verified",
         user_id=str(user_id),
         admin_id=str(admin.id),
+        promoted_to_catalog=promoted,
     )
 
     return profile

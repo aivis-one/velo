@@ -12,10 +12,11 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.taxonomy_models import TaxonomyDirection
 from app.modules.users.models import User, UserRole
 from tests.helpers import auth_headers, cleanup_range, login_user
 
@@ -40,13 +41,20 @@ async def cleanup(db_session: AsyncSession) -> AsyncGenerator[None, None]:
     await db_session.commit()
     yield
     await cleanup_range(db_session, 56000, 56999)
+    # ПРОМТ №503 commit 3: verify's new promote param can insert custom
+    # TaxonomyDirection rows (same "custom_" value prefix as
+    # _promote_custom_methods' other caller, approve_method_change -- see
+    # test_master_method_change.py's identical cleanup) -- clean those up too.
+    await db_session.execute(
+        delete(TaxonomyDirection).where(TaxonomyDirection.value.like("custom_%"))
+    )
     await db_session.commit()
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-def _valid_apply_body() -> dict:
+def _valid_apply_body(methods: list[str] | None = None) -> dict:
     """Minimal valid master application payload."""
     return {
         "profile": {
@@ -55,7 +63,7 @@ def _valid_apply_body() -> dict:
             "phone": "+1234567890",
         },
         "experience": {
-            "methods": ["meditation"],
+            "methods": methods or ["meditation"],
             "experience_years": 5,
             "bio": "Test master for admin verification",
             "certifications": ["Cert A"],
@@ -68,6 +76,7 @@ async def _create_applicant(
     client: AsyncClient,
     telegram_id: int,
     first_name: str = "Applicant",
+    methods: list[str] | None = None,
 ) -> tuple[dict, str]:
     """Create a user and submit a master application. Returns (auth_data, token)."""
     auth = await login_user(
@@ -77,7 +86,7 @@ async def _create_applicant(
 
     resp = await client.post(
         APPLY_URL,
-        json=_valid_apply_body(),
+        json=_valid_apply_body(methods=methods),
         headers=auth_headers(token),
     )
     assert resp.status_code == 201
@@ -174,6 +183,117 @@ async def test_verify_master_no_notes(
     profile = await db_session.get(MasterProfile, user_id)
     await db_session.refresh(profile)
     assert profile.data["account"]["verification"]["notes"] is None
+
+
+# ---------------------------------------------------------------------------
+# POST /admin/masters/{user_id}/verify -- promote (ПРОМТ №503 commit 3)
+#
+# Before this, ONLY an already-verified master's later method-change request
+# (approve_method_change) could promote a custom label into the taxonomy
+# catalog -- a brand-new applicant's «Свой вариант» text had NO promotion
+# path at all, no matter what the admin did on verify. These three mirror
+# test_master_method_change.py's approve+promote trio exactly, against the
+# initial-application endpoint instead.
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_verify_without_promote_leaves_catalog_unchanged(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A verify body with no promote (every caller before this field existed)
+    writes nothing to the taxonomy catalog."""
+    before = (await db_session.execute(select(TaxonomyDirection.id))).scalars().all()
+
+    applicant_auth, _ = await _create_applicant(
+        client, telegram_id=56060, methods=["Дыхательные практики"]
+    )
+    _, admin_token = await _make_admin(client, db_session, telegram_id=56960)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.post(
+        VERIFY_URL.format(user_id=user_id),
+        json={"notes": "OK"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+
+    after = (await db_session.execute(select(TaxonomyDirection.id))).scalars().all()
+    assert set(after) == set(before)
+
+
+@pytest.mark.asyncio
+async def test_verify_with_promote_creates_custom_direction(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """promote=[label] on the INITIAL application's verify inserts a new
+    source='custom' direction -- the previously-missing promotion path for a
+    brand-new applicant. Does NOT rewrite the applicant's own stored methods
+    text -- only the catalog gains the row; the frontend resolves the
+    existing text to the new chip via label matching (ПРОМТ №503 commits 1-2)."""
+    applicant_auth, _ = await _create_applicant(
+        client, telegram_id=56061, methods=["Дыхательные практики"]
+    )
+    _, admin_token = await _make_admin(client, db_session, telegram_id=56961)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.post(
+        VERIFY_URL.format(user_id=user_id),
+        json={"promote": ["Дыхательные практики"]},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "verified"
+
+    profile = await db_session.get(MasterProfile, user_id)
+    await db_session.refresh(profile)
+    assert profile.data["profile"]["methods"] == ["Дыхательные практики"]
+
+    row = (
+        await db_session.execute(
+            select(TaxonomyDirection).where(
+                TaxonomyDirection.label == "Дыхательные практики"
+            )
+        )
+    ).scalar_one()
+    assert row.source == "custom"
+    assert row.is_active is True
+    assert row.value.startswith("custom_")
+
+
+@pytest.mark.asyncio
+async def test_verify_with_promote_dedups_existing_label(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Promoting a label that already exists in the catalog (seeded) does
+    not create a duplicate row."""
+    existing = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(TaxonomyDirection.label == "Медитация")
+        )
+    ).scalars().all()
+    assert len(existing) == 1  # the R5-seeded "meditation" direction
+
+    applicant_auth, _ = await _create_applicant(
+        client, telegram_id=56062, methods=["Медитация"]
+    )
+    _, admin_token = await _make_admin(client, db_session, telegram_id=56962)
+    user_id = applicant_auth["user"]["id"]
+
+    resp = await client.post(
+        VERIFY_URL.format(user_id=user_id),
+        json={"promote": ["Медитация"]},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 200
+
+    after = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(TaxonomyDirection.label == "Медитация")
+        )
+    ).scalars().all()
+    assert len(after) == 1  # still just the one seeded row -- no dup
 
 
 # ---------------------------------------------------------------------------
