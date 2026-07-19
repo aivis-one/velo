@@ -212,8 +212,20 @@ export function editMasterProfile(
   )
 }
 
-export function verifyMaster(userId: string): Promise<AdminMasterActionResponse> {
-  return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/verify`, {})
+/**
+ * Verify a pending master application. promote (ПРОМТ №505, mirrors
+ * approveMethodChange below): optional custom method labels to add to the
+ * taxonomy catalog -- absent/empty posts the same bare `{}` every existing
+ * caller already sends, so nothing else changes.
+ */
+export function verifyMaster(
+  userId: string,
+  promote?: string[],
+): Promise<AdminMasterActionResponse> {
+  return api.post<AdminMasterActionResponse>(
+    `/api/v1/admin/masters/${userId}/verify`,
+    promote && promote.length ? { promote } : {},
+  )
 }
 
 export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {

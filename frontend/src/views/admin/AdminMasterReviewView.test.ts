@@ -568,6 +568,150 @@ describe('AdminMasterReviewView', () => {
   })
 
   // ===========================================================================
+  // PROMOTE-ON-VERIFY (ПРОМТ №505): mirrors AdminMethodRequestsView's own
+  // promote-on-approve dialog. `getActiveTaxonomy` is mocked to REJECT in
+  // beforeEach (see banner) -- the catalog cache never warms in this whole
+  // file, so any label outside the hardcoded DIRECTION_OPTIONS/
+  // STYLE_OPTIONS_BY_DIRECTION maps reliably parses as unmatched/custom.
+  // ===========================================================================
+  describe('PROMOTE-ON-VERIFY (.vue: onVerify/doVerify, ПРОМТ №505)', () => {
+    it('no custom text (default fixture, methods: ["Медитация"] matches the taxonomy): verifies immediately, no dialog', async () => {
+      vi.mocked(adminApi.verifyMaster).mockResolvedValue({ user_id: 'm_pending', status: 'ok' })
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+
+      expect(modalIsOpen()).toBe(false)
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+    })
+
+    it('custom/unmatched text: pauses on the confirm dialog INSTEAD of calling verifyMaster', async () => {
+      vi.mocked(adminApi.getMasterById).mockResolvedValue(
+        master({ methods: ['Нестандартный метод'] }),
+      )
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+
+      expect(modalIsOpen()).toBe(true)
+      expect(modalOverlay()?.textContent).toContain(
+        'Метода «Нестандартный метод» нет в каталоге — добавить для всех мастеров?',
+      )
+      expect(adminApi.verifyMaster).not.toHaveBeenCalled()
+    })
+
+    it('confirm ("Добавить в каталог"): verifyMaster called WITH promote, toasts, navigates', async () => {
+      vi.mocked(adminApi.getMasterById).mockResolvedValue(
+        master({ methods: ['Нестандартный метод'] }),
+      )
+      vi.mocked(adminApi.verifyMaster).mockResolvedValue({ user_id: 'm_pending', status: 'ok' })
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+      modalBtn('Добавить в каталог')?.click()
+      await flush()
+
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', ['Нестандартный метод'])
+      expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
+      expect(push).toHaveBeenCalledWith({ name: 'admin-masters' })
+      expect(modalIsOpen()).toBe(false)
+    })
+
+    it('cancel ("Только этому мастеру"): STILL verifies, WITHOUT promote (never blocks)', async () => {
+      vi.mocked(adminApi.getMasterById).mockResolvedValue(
+        master({ methods: ['Нестандартный метод'] }),
+      )
+      vi.mocked(adminApi.verifyMaster).mockResolvedValue({ user_id: 'm_pending', status: 'ok' })
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+      // The dialog must genuinely be open here -- otherwise verifyMaster
+      // below could have already fired straight off the "Одобрить" click,
+      // which would make this test pass for the WRONG reason (the button
+      // click below finding nothing to click is a silent no-op, per the
+      // mutation-checked note at the end of this describe block).
+      expect(modalIsOpen()).toBe(true)
+      expect(adminApi.verifyMaster).not.toHaveBeenCalled()
+      const cancelBtnEl = modalBtn('Только этому мастеру')
+      expect(cancelBtnEl).toBeDefined()
+      cancelBtnEl?.click()
+      await flush()
+
+      // Exactly ONE arg -- same call shape as the no-custom-text path, so
+      // every pre-existing verifyMaster call site is unaffected.
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
+      expect(push).toHaveBeenCalledWith({ name: 'admin-masters' })
+    })
+
+    it('dismiss (overlay tap, NOT the cancel button): STILL verifies, WITHOUT promote -- an accidental dismiss can never fail to act', async () => {
+      vi.mocked(adminApi.getMasterById).mockResolvedValue(
+        master({ methods: ['Нестандартный метод'] }),
+      )
+      vi.mocked(adminApi.verifyMaster).mockResolvedValue({ user_id: 'm_pending', status: 'ok' })
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+      expect(modalIsOpen()).toBe(true)
+
+      // VModal's overlay has @click.self -- dispatching directly on the
+      // overlay element itself (not a descendant button) is the dismiss
+      // path, distinct from clicking "Только этому мастеру".
+      modalOverlay()?.click()
+      await flush()
+
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending')
+      expect(toastSuccess).toHaveBeenCalledWith('Мастер верифицирован')
+    })
+
+    it('failure after confirm: toasts, does NOT navigate, dialog stays closed (not stuck re-open)', async () => {
+      vi.mocked(adminApi.getMasterById).mockResolvedValue(
+        master({ methods: ['Нестандартный метод'] }),
+      )
+      vi.mocked(adminApi.verifyMaster).mockRejectedValue(new Error('ECONNRESET'))
+      mount('m_pending')
+      await flush()
+
+      footBtn('Одобрить')?.click()
+      await flush()
+      expect(modalIsOpen()).toBe(true) // see the mutation-checked note below
+      const confirmBtnEl = modalBtn('Добавить в каталог')
+      expect(confirmBtnEl).toBeDefined()
+      confirmBtnEl?.click()
+      await flush()
+
+      expect(adminApi.verifyMaster).toHaveBeenCalledWith('m_pending', ['Нестандартный метод'])
+      expect(toastError).toHaveBeenCalledWith('Ошибка верификации')
+      expect(push).not.toHaveBeenCalled()
+      expect(modalIsOpen()).toBe(false)
+    })
+
+    // MUTATION-CHECKED (found, not banked): an early draft of "cancel" and
+    // "failure after confirm" above used `modalBtn(...)?.click()` with no
+    // prior modalIsOpen() assertion. Breaking the customEnabled branch in
+    // onVerify (always skip the dialog) made verifyMaster fire straight off
+    // the "Одобрить" click -- and those two tests STILL PASSED, because a
+    // click on a `?.`-chained missing button is a silent no-op, and the
+    // final assertions (verifyMaster called with just the id; the error
+    // toast) look identical whether reached via "dialog opened -> cancel/
+    // confirm clicked" or "dialog skipped entirely". Fixed by asserting
+    // modalIsOpen() (and, for cancel, that verifyMaster had NOT yet been
+    // called) right after the first click, and asserting the target button
+    // actually exists before clicking it -- re-run against the same
+    // mutation below confirms all six cases now fail correctly.
+  })
+
+  // ===========================================================================
   describe('REJECT (.vue:758-804)', () => {
     it('opens the sheet; VALIDATION: an empty/whitespace reason blocks submit with "Укажите причину отказа"', async () => {
       mount('m_pending')

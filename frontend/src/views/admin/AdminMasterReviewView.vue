@@ -20,6 +20,14 @@
 
   Footer only for master_status==='pending'; processed applications show a note. After
   verify/reject → router.push({ name: 'admin-masters' }) (S-1/S-2: fresh list mount).
+
+  PROMOTE-ON-VERIFY (ПРОМТ №505): a custom/unmatched method in the applicant's own
+  methods pauses «Одобрить» on a confirm dialog -- mirrors AdminMethodRequestsView's
+  identical promote-on-approve dialog verbatim (same VConfirmDialog, same copy).
+  Confirming ("Добавить в каталог") or dismissing/cancelling ("Только этому мастеру")
+  both still verify -- never blocks. Closes the loop: verify_master (backend, ПРОМТ
+  №503 commit 3) already accepted `promote`, but nothing on any screen could ever
+  send it -- this is the first and only caller.
 -->
 
 <template>
@@ -392,6 +400,19 @@
       :loading="revoking"
       @confirm="onRevoke"
       @cancel="showRevoke = false"
+    />
+
+    <!-- Custom method not in the catalog (ПРОМТ №505, mirrors
+         AdminMethodRequestsView's identical dialog verbatim -- same copy,
+         same never-blocks contract). -->
+    <VConfirmDialog
+      :open="showPromote"
+      :message="`Метода «${promoteLabel}» нет в каталоге — добавить для всех мастеров?`"
+      confirm-label="Добавить в каталог"
+      cancel-label="Только этому мастеру"
+      :loading="verifying"
+      @confirm="onPromoteConfirm"
+      @cancel="onPromoteCancel"
     />
   </div>
 </template>
@@ -767,11 +788,37 @@ function closeReject(): void {
   showReject.value = false
 }
 
-async function onVerify(): Promise<void> {
+// -- Promote-on-verify (ПРОМТ №505): mirrors AdminMethodRequestsView's own
+// onApprove/doApprove/onPromoteConfirm/onPromoteCancel verbatim, same
+// VConfirmDialog component (already imported+used on this screen for
+// revoke), same copy. A custom/unmatched method in the applicant's own
+// methods (parseMethods, already used for hasParsedMethods above) pauses
+// verify on a confirm; dismissing (overlay tap) and the explicit "Только
+// этому мастеру" button fire the SAME `cancel` event (VConfirmDialog wraps
+// VModal's @close straight into its own @cancel) -- so an accidental
+// dismiss can never fail to verify, by construction, not by a separate
+// guard. No custom text -> straight to doVerify(), unchanged from before.
+const showPromote = ref(false)
+const promoteLabel = ref('')
+
+function onVerify(): void {
   if (anyLoading.value) return
+  const parsed = parseMethods(methods.value)
+  if (parsed.customEnabled && parsed.customText) {
+    promoteLabel.value = parsed.customText
+    showPromote.value = true
+    return
+  }
+  void doVerify()
+}
+
+async function doVerify(promote?: string[]): Promise<void> {
   verifying.value = true
   try {
-    await verifyMaster(masterId)
+    // Exactly one arg when there's nothing to promote -- verifyMaster's
+    // own default (promote?.length ? {promote} : {}) would handle either
+    // shape, but this keeps every pre-existing call site's arity unchanged.
+    await (promote ? verifyMaster(masterId, promote) : verifyMaster(masterId))
     toast.success('Мастер верифицирован')
     // S-1/S-2: push to the list (fresh mount) instead of back().
     router.push({ name: 'admin-masters' })
@@ -780,7 +827,18 @@ async function onVerify(): Promise<void> {
     toast.error(msg)
   } finally {
     verifying.value = false
+    showPromote.value = false
   }
+}
+
+/** «Добавить в каталог» -- verify AND promote the custom label. */
+function onPromoteConfirm(): void {
+  void doVerify([promoteLabel.value])
+}
+
+/** «Только этому мастеру» (or the dialog dismissed) -- verify, no promote. */
+function onPromoteCancel(): void {
+  void doVerify()
 }
 
 async function onReject(): Promise<void> {
