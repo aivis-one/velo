@@ -194,7 +194,40 @@ async def test_verify_master_no_notes(
 # path at all, no matter what the admin did on verify. These three mirror
 # test_master_method_change.py's approve+promote trio exactly, against the
 # initial-application endpoint instead.
+#
+# ПРОМТ №507 POSTMORTEM (deploy gate, first-ever run of these three tests):
+# test_verify_with_promote_creates_custom_direction originally used
+# "Дыхательные практики" as its "creates a NEW row" fixture -- that label is
+# a REAL SEEDED direction (source='seed', migration 1a2b3c4d5e6f, value=
+# 'breathwork'), not an absent one. _promote_custom_methods correctly
+# deduped it (nothing to promote -- `promoted_to_catalog=[]` in the deploy
+# log), and the assertion then queried the PRE-EXISTING seed row and
+# expected its source to be 'custom' -- `assert 'seed' == 'custom'`. A test
+# defect, not a product defect: confirmed independently via (a) the
+# migration's own source, which sets source='seed' on every row in
+# _DIRECTIONS including ("breathwork", "Дыхательные практики"), and (b) the
+# SAME deploy run's test_master_method_change.py::
+# test_approve_with_promote_creates_custom_direction, exercising the exact
+# same _promote_custom_methods helper via its OTHER caller
+# (approve_method_change) with a genuinely novel label ("Ченнелинг", absent
+# from every migration/seed file) -- that test PASSED, proving the shared
+# promotion mechanism itself works in this deploy DB. What that sibling
+# test does NOT prove is that THIS code's new addition -- verify_master's
+# promote parameter, wired in ПРОМТ №503 commit 3 -- threads the value
+# through correctly on its OWN path; only a passing run of the fixed test
+# below (obviously-synthetic label, not a mere "absent today" one) proves
+# that specifically, and it is unproven until the next deploy.
 # ---------------------------------------------------------------------------
+
+# Deliberately synthetic -- not a plausible real practice-direction name a
+# future seed migration could ever add by coincidence (the whole failure
+# above was a real seed colliding with a "must not already exist" fixture).
+# Referencing this prompt number in the label itself is the guard: no
+# legitimate content curator chooses a string like this.
+_NOVEL_CUSTOM_LABEL = "Синтетическое направление ПРОМТ-507 (не реальная практика)"
+_NOVEL_DEDUP_COMPANION_LABEL = "Синтетический компаньон-дедуп ПРОМТ-507"
+
+
 @pytest.mark.asyncio
 async def test_verify_without_promote_leaves_catalog_unchanged(
     client: AsyncClient,
@@ -230,16 +263,34 @@ async def test_verify_with_promote_creates_custom_direction(
     source='custom' direction -- the previously-missing promotion path for a
     brand-new applicant. Does NOT rewrite the applicant's own stored methods
     text -- only the catalog gains the row; the frontend resolves the
-    existing text to the new chip via label matching (ПРОМТ №503 commits 1-2)."""
+    existing text to the new chip via label matching (ПРОМТ №503 commits 1-2).
+
+    Asserts its own premise first (ПРОМТ №507): if this label somehow
+    already existed, a future failure here names that cause directly
+    instead of surfacing as a confusing 'seed' == 'custom' mismatch three
+    assertions later, the way the ПРОМТ №507 deploy failure did.
+    """
+    premise = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(
+                TaxonomyDirection.label == _NOVEL_CUSTOM_LABEL
+            )
+        )
+    ).scalars().all()
+    assert premise == [], (
+        f"premise violated: {_NOVEL_CUSTOM_LABEL!r} already exists in the "
+        "catalog -- this test needs a label that is genuinely absent"
+    )
+
     applicant_auth, _ = await _create_applicant(
-        client, telegram_id=56061, methods=["Дыхательные практики"]
+        client, telegram_id=56061, methods=[_NOVEL_CUSTOM_LABEL]
     )
     _, admin_token = await _make_admin(client, db_session, telegram_id=56961)
     user_id = applicant_auth["user"]["id"]
 
     resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
-        json={"promote": ["Дыхательные практики"]},
+        json={"promote": [_NOVEL_CUSTOM_LABEL]},
         headers=auth_headers(admin_token),
     )
     assert resp.status_code == 200
@@ -247,12 +298,12 @@ async def test_verify_with_promote_creates_custom_direction(
 
     profile = await db_session.get(MasterProfile, user_id)
     await db_session.refresh(profile)
-    assert profile.data["profile"]["methods"] == ["Дыхательные практики"]
+    assert profile.data["profile"]["methods"] == [_NOVEL_CUSTOM_LABEL]
 
     row = (
         await db_session.execute(
             select(TaxonomyDirection).where(
-                TaxonomyDirection.label == "Дыхательные практики"
+                TaxonomyDirection.label == _NOVEL_CUSTOM_LABEL
             )
         )
     ).scalar_one()
@@ -267,7 +318,17 @@ async def test_verify_with_promote_dedups_existing_label(
     db_session: AsyncSession,
 ) -> None:
     """Promoting a label that already exists in the catalog (seeded) does
-    not create a duplicate row."""
+    not create a duplicate row.
+
+    ПРОМТ №507: an earlier version of this test submitted ONLY the existing
+    label and asserted the row count stayed at 1 -- which cannot tell
+    "dedup correctly skipped it" apart from "promote never reached the
+    service at all" (both leave the count at 1; nothing here proves the
+    code path was even exercised). A companion genuinely-novel label in the
+    SAME promote call closes that gap: it can only end up in the catalog if
+    promote genuinely reached _promote_custom_methods and the loop
+    processed every entry, not merely short-circuited on an empty list.
+    """
     existing = (
         await db_session.execute(
             select(TaxonomyDirection.id).where(TaxonomyDirection.label == "Медитация")
@@ -275,15 +336,28 @@ async def test_verify_with_promote_dedups_existing_label(
     ).scalars().all()
     assert len(existing) == 1  # the R5-seeded "meditation" direction
 
+    companion_premise = (
+        await db_session.execute(
+            select(TaxonomyDirection.id).where(
+                TaxonomyDirection.label == _NOVEL_DEDUP_COMPANION_LABEL
+            )
+        )
+    ).scalars().all()
+    assert companion_premise == [], (
+        f"premise violated: {_NOVEL_DEDUP_COMPANION_LABEL!r} already exists"
+    )
+
     applicant_auth, _ = await _create_applicant(
-        client, telegram_id=56062, methods=["Медитация"]
+        client,
+        telegram_id=56062,
+        methods=["Медитация", _NOVEL_DEDUP_COMPANION_LABEL],
     )
     _, admin_token = await _make_admin(client, db_session, telegram_id=56962)
     user_id = applicant_auth["user"]["id"]
 
     resp = await client.post(
         VERIFY_URL.format(user_id=user_id),
-        json={"promote": ["Медитация"]},
+        json={"promote": ["Медитация", _NOVEL_DEDUP_COMPANION_LABEL]},
         headers=auth_headers(admin_token),
     )
     assert resp.status_code == 200
@@ -294,6 +368,18 @@ async def test_verify_with_promote_dedups_existing_label(
         )
     ).scalars().all()
     assert len(after) == 1  # still just the one seeded row -- no dup
+
+    # Proves promote genuinely reached the service on THIS test's own
+    # evidence, not borrowed from a sibling: the companion must now exist.
+    companion_row = (
+        await db_session.execute(
+            select(TaxonomyDirection).where(
+                TaxonomyDirection.label == _NOVEL_DEDUP_COMPANION_LABEL
+            )
+        )
+    ).scalar_one()
+    assert companion_row.source == "custom"
+    assert companion_row.value.startswith("custom_")
 
 
 # ---------------------------------------------------------------------------
