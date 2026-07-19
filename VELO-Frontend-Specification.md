@@ -12,6 +12,12 @@
 
 > **История версий (v2.0–v2.6)** — вынесена в git-лог; фазовые детали каждой версии — в секциях PHASE F0–F16 ниже + Фронтовый Кодекс. Текущая версия — в шапке.
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> STALE-BUT-HARMLESS overall — NOT rewritten this round. Five spots referencing the deleted
+> `AdminConsistencyView` / `/admin/consistency` screen (removed 2026-07-07, `9ca5619`) were
+> corrected: the role table, two tree comments, the route table, and phase F8.3. Everything
+> else in this document is UNVERIFIED as of this pass.
+
 ---
 
 ## 1. Обзор
@@ -54,7 +60,7 @@
 | ------ | ------------------------------------- | ------------------------------------------------- |
 | user   | Дашборд, Календарь, Дневник, Профиль  | Каталог, бронирования, баланс                     |
 | master | Дашборд, Практики, Аналитика, Профиль | Всё user + управление практиками, финансы мастера |
-| admin  | Дашборд, Мастера, Модерация           | Верификация, статистика, семафоры, жалобы         |
+| admin  | Дашборд, Мастера, Модерация           | Верификация, статистика, жалобы         |
 
 Master видит свои user-экраны + мастер-экраны. Переключение через профиль (не отдельное приложение).
 
@@ -116,7 +122,7 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │   ├── bookings.ts        ← Бронирования + purchase + preview
 │   │   │   ├── payments.ts        ← Topup
 │   │   │   ├── masters.ts         ← Apply, profile, payout, withdrawals
-│   │   │   └── admin.ts           ← Stats, verify, reports, consistency
+│   │   │   └── admin.ts           ← Stats, verify, reports (consistency REMOVED 2026-07-07 `9ca5619`)
 │   │   │
 │   │   ├── components/            ← Переиспользуемые UI-компоненты
 │   │   │   ├── ui/                ← Примитивы: VButton, VInput, VCard...
@@ -127,7 +133,7 @@ velo/                              ← GitHub repo root (уже существу
 │   │   │   ├── auth/              ← LoginView, LoadingView
 │   │   │   ├── user/              ← Dashboard, Calendar, Practice, Bookings...
 │   │   │   ├── master/            ← Dashboard, Practices, Analytics, Apply...
-│   │   │   └── admin/             ← Dashboard, Masters, Reports, Consistency...
+│   │   │   └── admin/             ← Dashboard, Masters, Reports... (Consistency REMOVED 2026-07-07 `9ca5619`)
 │   │   │
 │   │   ├── stores/                ← Pinia хранилища
 │   │   │   ├── auth.ts            ← user, token, role, isAuthenticated
@@ -694,7 +700,7 @@ export const api = {
 /admin/masters/:id         → AdminMasterReviewView
 /admin/reports             → AdminReportsView
 /admin/reports/:id         → AdminReportDetailView
-/admin/consistency         → AdminConsistencyView
+[REMOVED 2026-07-07 `9ca5619`] /admin/consistency → AdminConsistencyView
 
 /404                       → NotFoundView
 ```
@@ -1105,11 +1111,11 @@ export const api = {
 
 ---
 
-### F8.3: Модерация + Семафоры ✅
+### F8.3: Модерация + Семафоры ✅ — Семафоры REMOVED 2026-07-07 `9ca5619`
 
-**Цель:** Обработка жалоб и мониторинг целостности данных.
+**Цель (как построено):** Обработка жалоб и мониторинг целостности данных.
 
-**Задачи:**
+**Модерация (жалобы) — ещё живое, не проверялось в этот проход:**
 
 - [x] src/views/admin/AdminReportsView.vue:
   - Список жалоб — GET /api/v1/admin/reports?status=pending
@@ -1123,17 +1129,24 @@ export const api = {
   - Double-submit guard
   - Toast: "Жалоба обработана" / "Жалоба отклонена"
   - После действия: `router.push({ name: 'admin-reports' })` — список перезагружается (S-1/S-2)
-- [x] src/views/admin/AdminConsistencyView.vue:
-  - GET /api/v1/admin/consistency
+
+**Семафоры (мониторинг целостности) — построено, затем удалено целиком 2026-07-07 `9ca5619`
+("remove data-integrity semaphores feature entirely"). Ниже — историческая запись, не текущее
+поведение:**
+
+- [x] ~~src/views/admin/AdminConsistencyView.vue~~ **[DELETED]**:
+  - GET /api/v1/admin/consistency **[REMOVED]**
   - Список из 21 семафора: имя, статус (OK/ALERT), категория, criticality
   - Цветовая индикация: зелёный/красный VBadge
   - ok_count / alert_count / total + время запроса
   - Кнопка "↺ Перезапустить" — отдельный `rerunning` ref (S-3): спиннер на кнопке, результаты остаются видимыми
   - `loading` ref — только для первоначальной загрузки
 
-**Зависимость от бэкенда:** reports + consistency (Phase 3.3 ✅ + Phase 6.8 ✅) + GET /admin/reports/{id} (W-2 добавлен в Phase 3.3 ✅).
+**Зависимость от бэкенда:** reports (Phase 3.3 ✅) + GET /admin/reports/{id} (W-2 добавлен в
+Phase 3.3 ✅). Consistency/Phase 6.8 dependency no longer applies — feature removed.
 
-**Критерий готовности:** Админ обрабатывает жалобы, видит семафоры. ✅
+**Критерий готовности:** Админ обрабатывает жалобы. ✅ (Семафоры — критерий более не
+применим, экран удалён.)
 
 ---
 
@@ -1158,7 +1171,7 @@ export const api = {
 | --- | --------- | -------------------------------------------------------------------------------------------------------------- |
 | S-1 | ✅ CLOSED | `router.back()` → `router.push({ name: 'admin-masters' })` после verify/reject — список всегда перезагружается |
 | S-2 | ✅ CLOSED | `router.back()` → `router.push({ name: 'admin-reports' })` после resolve/dismiss                               |
-| S-3 | ✅ CLOSED | Отдельный `rerunning` ref в `AdminConsistencyView` — кнопка крутится, результаты видны                         |
+| S-3 | ✅ CLOSED (moot) | Отдельный `rerunning` ref в `AdminConsistencyView` — кнопка крутится, результаты видны (view deleted 2026-07-07 `9ca5619`) |
 | S-4 | ✅ CLOSED | `error` ref + `VEmptyState` с кнопкой "Повторить" в `AdminMastersView`                                         |
 | S-5 | ✅ CLOSED | Admin-типы перенесены в `api/types.ts`, re-export из `api/admin.ts` для обратной совместимости                 |
 | S-6 | ➡️ TD     | Clickable divs без `role="button"`, `tabindex`, keyboard handlers → TD-FE-A11Y                                 |
