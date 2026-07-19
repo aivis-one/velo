@@ -736,4 +736,59 @@ describe('AdminCatalogView', () => {
       await flush()
     })
   })
+
+  // ===========================================================================
+  // ПРОМТ №503 commit 4: a long/unbreakable title or style label used to force
+  // this whole screen wider than the viewport (missing overflow-wrap on
+  // .admin-catalog__dir-title, missing wrap-or-truncate on this screen's
+  // VChip usage). happy-dom has NO layout engine -- getComputedStyle returns
+  // empty strings for scoped-style properties here (same limitation noted in
+  // FeedbackView.test.ts), so actual overflow/no-overflow cannot be asserted
+  // in this suite.
+  //
+  // MUTATION-CHECKED, reported not silently trusted: reverting the CSS-only
+  // fix (both .vue files back to pre-commit-4) leaves BOTH tests below green
+  // -- they only assert the long content lands inside the target elements/
+  // selectors (.admin-catalog__dir-title, .admin-catalog__chips > .v-chip),
+  // which was already true before this commit (no template changed, only
+  // <style>). They do NOT prove the CSS fix itself; they guard against a
+  // future refactor silently renaming/moving these classes out from under
+  // the (untestable-here) CSS rules. Real "does it still overflow"
+  // verification is UNVERIFIED by this suite and needs the owner's device
+  // check.
+  // ===========================================================================
+  describe('long/unbreakable content lands in the elements the overflow fix targets (ПРОМТ №503 commit 4)', () => {
+    it('a long single-word direction title renders inside .admin-catalog__dir-title (the overflow-wrap target)', async () => {
+      const longLabel = 'Суперкалифраджилистикэкспиалидоциознейшийпрактикующий'
+      vi.mocked(taxonomyApi.getFullTaxonomy).mockResolvedValue(
+        taxonomy([direction({ id: 'dir_long', label: longLabel, styles: [] })]),
+      )
+      mount()
+      await flush()
+
+      const title = dirCards()[0]!.querySelector('.admin-catalog__dir-title')
+      expect(title).not.toBeNull()
+      expect(title?.textContent).toBe(longLabel)
+    })
+
+    it('a long single-word style label renders as a .v-chip inside .admin-catalog__chips (the wrap-or-truncate target)', async () => {
+      const longLabel = 'Экстраординарноглубокаярасслабляющаяпрактикадыхания'
+      vi.mocked(taxonomyApi.getFullTaxonomy).mockResolvedValue(
+        taxonomy([
+          direction({
+            id: 'dir_a',
+            styles: [style({ id: 'st_long', direction_id: 'dir_a', label: longLabel })],
+          }),
+        ]),
+      )
+      mount()
+      await flush()
+
+      const chipsContainer = dirCards()[0]!.querySelector('.admin-catalog__chips')
+      expect(chipsContainer).not.toBeNull()
+      const chip = chipsContainer?.querySelector('.v-chip')
+      expect(chip).not.toBeNull()
+      expect(chip?.textContent).toContain(longLabel)
+    })
+  })
 })

@@ -373,6 +373,14 @@ onMounted(load)
      never wrapped and the title just painted through the badge next to it. */
   flex: 1 1 auto;
   min-width: 0;
+  /* ПРОМТ №503 commit 4: min-width:0 only lets this item SHRINK below its
+     content size -- it doesn't give the text itself anywhere to break. A
+     single long unbreakable label (admin free text or an auto-promoted
+     custom method has no length cap under 100 chars) still overflowed this
+     box and, with it, the whole .admin-layout__main content area
+     horizontally. overflow-wrap lets it break within the word as a last
+     resort, same as any other real-content flex item in this app. */
+  overflow-wrap: anywhere;
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--velo-text-primary);
@@ -403,6 +411,19 @@ onMounted(load)
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+}
+
+/* ПРОМТ №503 commit 4: VChip's shared default is white-space:nowrap (correct
+   everywhere else it's used -- short, bounded labels). This screen's style
+   labels are admin free text or auto-promoted custom methods with no length
+   cap under 100 chars, so a long one rendered as a single unbreakable pill
+   wider than the viewport -- flex-wrap on the row above only wraps BETWEEN
+   chips, not inside one. Scoped to this screen's chips only via :deep(), so
+   the shared component's nowrap default is untouched everywhere else. */
+.admin-catalog__chips :deep(.v-chip) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .admin-catalog__chip--inactive {
