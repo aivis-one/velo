@@ -529,7 +529,7 @@ async def test_attendance_counts_no_n_plus_one(
     from sqlalchemy.engine import Engine
 
     from app.core.database import get_session_factory
-    from app.modules.practices.enrichment_service import _attendance_counts_for_practices
+    from app.modules.practices.enrichment_service import attendance_counts_for_practices
 
     factory = get_session_factory()
     async with factory() as s:
@@ -552,7 +552,7 @@ async def test_attendance_counts_no_n_plus_one(
 
         event.listen(Engine, "before_cursor_execute", _count)
         try:
-            counts = await _attendance_counts_for_practices(practices, s)
+            counts = await attendance_counts_for_practices(practices, s)
         finally:
             event.remove(Engine, "before_cursor_execute", _count)
 

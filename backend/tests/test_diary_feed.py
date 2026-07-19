@@ -320,7 +320,7 @@ async def test_checkin_master_name_matches_telegram_name_not_display_name(
     checkin_events = [i for i in body["items"] if i["kind"] == "checkin"]
     assert len(checkin_events) == 1
     # Telegram first_name ("MasterMind", set in _make_verified_master), NOT
-    # the custom display_name -- matches practices/service._master_full_name.
+    # the custom display_name -- matches practices/service.master_full_name.
     assert checkin_events[0]["snapshot"]["master_name"] == "MasterMind"
 
 

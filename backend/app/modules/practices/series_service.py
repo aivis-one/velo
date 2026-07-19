@@ -153,7 +153,7 @@ def _build_child_occurrence(
     return child
 
 
-async def _generate_series_occurrences(
+async def generate_series_occurrences(
     root: Practice,
     session: AsyncSession,
 ) -> int:

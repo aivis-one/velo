@@ -5,7 +5,7 @@
 # Master cancels a scheduled/live practice (or a series scope), refunding all
 # active bookings. This is the ONLY path to Practice.status=cancelled (PATCH
 # status=cancelled is intentionally blocked in practices/service.py's
-# _VALID_TRANSITIONS). Imports only _master_full_name from the core.
+# _VALID_TRANSITIONS). Imports only master_full_name from the core.
 # =============================================================================
 
 from datetime import UTC, datetime
@@ -20,7 +20,7 @@ from app.core.exceptions import BadRequestError, NotFoundError
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.payments.refund import refund_all_bookings_for_practice
 from app.modules.practices.models import Practice, PracticeStatus
-from app.modules.practices.service import _master_full_name
+from app.modules.practices.service import master_full_name
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -103,7 +103,7 @@ async def _cancel_one(
     # directly rather than get_master_display_name (notification helper).
     from app.modules.diary.projections import project_practice_cancelled
     master_user = await session.get(User, practice.master_id)
-    master_name = _master_full_name(
+    master_name = master_full_name(
         master_user.first_name if master_user else None,
         master_user.last_name if master_user else None,
     )

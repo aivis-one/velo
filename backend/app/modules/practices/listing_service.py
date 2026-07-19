@@ -17,16 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.practices.enrichment_service import (
-    _attendance_counts_for_practices,
-    _attendance_counts_kwargs,
-    _series_meta_for_practices,
-    _series_meta_kwargs,
+    attendance_counts_for_practices,
+    attendance_counts_kwargs,
+    series_meta_for_practices,
+    series_meta_kwargs,
 )
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.practices.schemas import PaginatedPracticesResponse
 from app.modules.practices.service import (
-    _master_full_name,
-    _user_flags_for_practices,
+    master_full_name,
+    user_flags_for_practices,
     practice_to_response,
 )
 from app.modules.users.models import User
@@ -82,25 +82,25 @@ async def list_master_practices(
 
     # E3 batch 2: series card meta for the practices on this page (2 queries).
     page_practices = [p for p, _first, _last in rows]
-    series_meta = await _series_meta_for_practices(page_practices, session)
+    series_meta = await series_meta_for_practices(page_practices, session)
     # E12 + aggregate: attendance counts for the same page (2 queries). This is
     # the master's own list (get_current_master), so the counts are shown
     # unconditionally here -- the owner-only gate lives on the shared public
     # detail endpoint (get_practice_detail) instead.
-    attendance = await _attendance_counts_for_practices(page_practices, session)
+    attendance = await attendance_counts_for_practices(page_practices, session)
 
     return PaginatedPracticesResponse(
         items=[
             practice_to_response(
                 p,
-                _master_full_name(first, last),
+                master_full_name(first, last),
                 # Z-6: the master's OWN list (get_current_master) -- every row
                 # is owned by the requester, so expose zoom_link (the same owner
                 # rule get_practice_detail applies). The master dashboard's
                 # "Войти" button reads zoom_link from this list.
                 zoom_link_visible=True,
-                **_series_meta_kwargs(series_meta.get(p.id)),
-                **_attendance_counts_kwargs(attendance.get(p.id)),
+                **series_meta_kwargs(series_meta.get(p.id)),
+                **attendance_counts_kwargs(attendance.get(p.id)),
             )
             for p, first, last in rows
         ],
@@ -290,13 +290,13 @@ async def list_public_practices(
 
     # -- Per-user flags for the practices on this page (single query) --
     practice_ids = [p.id for p, _first, _last in rows]
-    flags = await _user_flags_for_practices(user.id, practice_ids, session)
+    flags = await user_flags_for_practices(user.id, practice_ids, session)
 
     return PaginatedPracticesResponse(
         items=[
             practice_to_response(
                 p,
-                _master_full_name(first, last),
+                master_full_name(first, last),
                 is_booked=flags.get(p.id, (False, False))[0],
                 is_paid=flags.get(p.id, (False, False))[1],
             )

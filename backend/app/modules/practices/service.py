@@ -8,7 +8,7 @@
 # MASTER_NAME / MASTER_METHODS (Frontend F3 prep, DS-sprint):
 #   practice_to_response() builds PracticeResponse with master_name and
 #   master_methods. master_name is the full "First Last" name, built by
-#   _master_full_name() from User.first_name + User.last_name in every JOIN /
+#   master_full_name() from User.first_name + User.last_name in every JOIN /
 #   mutation path (MVP rule: Telegram name, surname appended only if present).
 #   master_methods come from MasterProfile.data via OUTER JOIN; get_practice()
 #   outer-joins MasterProfile to return methods. If MasterProfile is missing,
@@ -87,10 +87,10 @@ from app.core.exceptions import (
 )
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.practices.enrichment_service import (
-    _attendance_counts_for_practices,
-    _attendance_counts_kwargs,
-    _series_meta_for_practices,
-    _series_meta_kwargs,
+    attendance_counts_for_practices,
+    attendance_counts_kwargs,
+    series_meta_for_practices,
+    series_meta_kwargs,
 )
 from app.modules.practices.models import Practice, PracticeStatus, PracticeType
 from app.modules.practices.schemas import (
@@ -98,7 +98,7 @@ from app.modules.practices.schemas import (
     PracticeResponse,
     UpdatePracticeRequest,
 )
-from app.modules.practices.series_service import _generate_series_occurrences
+from app.modules.practices.series_service import generate_series_occurrences
 from app.modules.practices.taxonomy_models import TaxonomyDirection, TaxonomyStyle
 from app.modules.masters.models import MasterProfile
 from app.modules.users.models import User
@@ -343,7 +343,7 @@ async def _has_active_bookings(
     return result.scalar_one() > 0
 
 
-def _master_full_name(
+def master_full_name(
     first_name: str | None,
     last_name: str | None,
 ) -> str:
@@ -377,7 +377,7 @@ def practice_to_response(
 ) -> PracticeResponse:
     """Build PracticeResponse from ORM object with master_name and master_methods.
 
-    master_name:       full "First Last" built via _master_full_name() from the
+    master_name:       full "First Last" built via master_full_name() from the
                        User row in the JOIN (or the mutation's User object).
     master_methods:    MasterProfile.data.profile.methods from outer join in
                        get_practice(). List endpoints pass [] (not shown on cards).
@@ -427,7 +427,7 @@ def practice_to_response(
     return resp
 
 
-async def _user_flags_for_practices(
+async def user_flags_for_practices(
     user_id: UUID,
     practice_ids: list[UUID],
     session: AsyncSession,
@@ -579,7 +579,7 @@ async def get_practice(
         raise NotFoundError("Practice not found")
 
     practice, first_name, last_name, master_avatar_url, profile_data = row
-    master_name = _master_full_name(first_name, last_name)
+    master_name = master_full_name(first_name, last_name)
 
     # Draft/deleted visible only to owner (P-08: 404 not 403).
     if (
@@ -607,20 +607,20 @@ async def get_practice_detail(
     Public service entry point for GET /practices/{id}. Encapsulates the
     visibility rules (get_practice), the per-user is_booked/is_paid flags,
     and response assembly so the router stays thin and does not reach into
-    private helpers (C-1: no cross-layer import of _user_flags_for_practices).
+    private helpers (C-1: no cross-layer import of user_flags_for_practices).
     """
     practice, master_name, master_avatar_url, master_methods = (
         await get_practice(practice_id, user, session)
     )
-    flags = await _user_flags_for_practices(user.id, [practice.id], session)
+    flags = await user_flags_for_practices(user.id, [practice.id], session)
     is_booked, is_paid = flags.get(practice.id, (False, False))
-    series_meta = await _series_meta_for_practices([practice], session)
+    series_meta = await series_meta_for_practices([practice], session)
     # E12 + aggregate: OWNER-ONLY on this shared detail endpoint. no_show is
     # sensitive, so a non-owner viewer never sees these -- skip the query and
     # leave all three None. (Series-meta above is innocuous and shown to all.)
     is_owner = practice.master_id == user.id
     attendance = (
-        await _attendance_counts_for_practices([practice], session)
+        await attendance_counts_for_practices([practice], session)
         if is_owner
         else {}
     )
@@ -649,8 +649,8 @@ async def get_practice_detail(
         is_booked=is_booked,
         is_paid=is_paid,
         zoom_link_visible=zoom_visible,
-        **_series_meta_kwargs(series_meta.get(practice.id)),
-        **_attendance_counts_kwargs(attendance.get(practice.id)),
+        **series_meta_kwargs(series_meta.get(practice.id)),
+        **attendance_counts_kwargs(attendance.get(practice.id)),
     )
 
 
@@ -821,7 +821,7 @@ async def update_practice(
         # as practice cards. Load the User directly -- get_master_display_name
         # is for notifications and would return the profile display_name.
         master_user = await session.get(User, practice.master_id)
-        master_name = _master_full_name(
+        master_name = master_full_name(
             master_user.first_name if master_user else None,
             master_user.last_name if master_user else None,
         )
@@ -845,7 +845,7 @@ async def update_practice(
         and practice.practice_type == PracticeType.SERIES.value
         and practice.parent_practice_id is None
     ):
-        await _generate_series_occurrences(practice, session)
+        await generate_series_occurrences(practice, session)
 
     return practice
 

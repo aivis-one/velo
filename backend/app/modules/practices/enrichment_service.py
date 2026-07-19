@@ -40,7 +40,7 @@ def _recurrence_days_from_spec(spec: dict) -> list[int]:
     return sorted({d for d in (spec.get("days") or []) if 1 <= d <= 7})
 
 
-def _series_meta_kwargs(meta: _SeriesMeta | None) -> dict:
+def series_meta_kwargs(meta: _SeriesMeta | None) -> dict:
     """Unpack a series-meta tuple into practice_to_response kwargs.
 
     None (not a series-with-spec) -> empty dict, so the response keeps its None
@@ -56,7 +56,7 @@ def _series_meta_kwargs(meta: _SeriesMeta | None) -> dict:
     }
 
 
-async def _series_meta_for_practices(
+async def series_meta_for_practices(
     practices: list[Practice],
     session: AsyncSession,
 ) -> dict[UUID, _SeriesMeta]:
@@ -143,7 +143,7 @@ async def _series_meta_for_practices(
 _AttendanceCounts = tuple[int, int, int]
 
 
-def _attendance_counts_kwargs(counts: _AttendanceCounts | None) -> dict:
+def attendance_counts_kwargs(counts: _AttendanceCounts | None) -> dict:
     """Unpack an attendance-counts tuple into practice_to_response kwargs.
 
     None (the caller did not resolve counts for this practice -- e.g. the
@@ -160,7 +160,7 @@ def _attendance_counts_kwargs(counts: _AttendanceCounts | None) -> dict:
     }
 
 
-async def _attendance_counts_for_practices(
+async def attendance_counts_for_practices(
     practices: list[Practice],
     session: AsyncSession,
 ) -> dict[UUID, _AttendanceCounts]:

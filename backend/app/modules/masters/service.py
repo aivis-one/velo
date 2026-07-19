@@ -357,7 +357,7 @@ async def get_master_full_name(
 ) -> str:
     """Get master's "First Last" name from Telegram profile data (W7 fix).
 
-    Mirrors practices/service._master_full_name's convention exactly
+    Mirrors practices/service.master_full_name's convention exactly
     (Telegram first_name + last_name, ignoring MasterProfile.display_name),
     so the same practice shows the same master name in the diary feed as
     it does on practice cards. Previously the diary feed used
