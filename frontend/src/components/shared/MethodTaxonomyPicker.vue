@@ -112,6 +112,7 @@ import {
   parseMethods,
   directionLabel,
   applyTaxonomyCatalog,
+  taxonomyCatalogVersion,
   type MethodSelection,
 } from '@/utils/methodTaxonomy'
 import { getActiveTaxonomy, type TaxonomyListResponse } from '@/api/taxonomy'
@@ -150,19 +151,38 @@ function sameSet(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((x) => b.includes(x))
 }
 
-// Seed from the incoming model. Guarded by set-equality so our own emit (which
-// makes the parent's bound value === our flatten output) never triggers a
-// reseed — only a genuine external change (e.g. the profile loading) reseeds.
+// ПРОМТ №503 commit 2: the sameSet() guard above is necessary (without it,
+// our own emitChange -> parent v-model -> this watch would loop) but it was
+// ALSO blocking a legitimate reparse. A value first parsed against a COLD
+// catalog (this component's own onMounted fetch hasn't resolved yet -- the
+// immediate watch below always runs before onMounted) lands in
+// selection.customText verbatim; flattenMethods echoes customText back
+// UNCHANGED regardless of catalog state, so once the catalog warms and the
+// parent re-supplies the exact same text, sameSet() reads "unchanged" and
+// bails forever -- the picker never re-interprets it as the now-matched chip
+// it actually is. That is the exact mechanism behind "Иглоукалывание", a
+// real existing chip, staying stuck in the free-text box.
+//
+// Fix: also watch taxonomyCatalogVersion (bumped once per
+// applyTaxonomyCatalog() call, commit 1) and track which version produced
+// the CURRENT selection. A version bump forces exactly one reparse even when
+// sameSet() says the text is unchanged -- the anti-echo-loop guard still
+// applies within a single catalog version (our own emit never changes the
+// version), so the loop it was written to prevent cannot reappear.
+const parsedAtCatalogVersion = ref<number | null>(null)
 watch(
-  () => props.modelValue,
-  (val) => {
+  [() => props.modelValue, taxonomyCatalogVersion],
+  ([val, version]) => {
     const incoming = val ?? []
-    if (sameSet(flattenMethods(selection), incoming)) return
+    if (parsedAtCatalogVersion.value === version && sameSet(flattenMethods(selection), incoming)) {
+      return
+    }
     const parsed = parseMethods(incoming)
     selection.directions = parsed.directions
     selection.styles = parsed.styles
     selection.customEnabled = parsed.customEnabled
     selection.customText = parsed.customText
+    parsedAtCatalogVersion.value = version
   },
   { immediate: true },
 )

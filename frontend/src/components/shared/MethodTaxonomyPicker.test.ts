@@ -117,3 +117,49 @@ describe('MethodTaxonomyPicker (bug 5 leak 1 -- shared cache warmed on mount)', 
     expect(flattened).toEqual(['Йога тест — Продвинутый'])
   })
 })
+
+// =============================================================================
+// ПРОМТ №503 commit 2: a value cold-parsed as "custom" against a not-yet-warm
+// catalog must reparse to its real chip once the catalog resolves, even
+// though the incoming modelValue TEXT never changes between the cold and
+// warm parse (that's the whole trap -- sameSet() alone can't tell the two
+// apart). This is the exact mechanism behind the owner's decisive repro:
+// "Иглоукалывание" already exists as a real catalog chip, yet renders in the
+// free-text box because the picker's own immediate watch always fires before
+// its onMounted catalog fetch can resolve.
+// =============================================================================
+describe('MethodTaxonomyPicker (ПРОМТ №503 commit 2 -- reparse on catalog warm-up)', () => {
+  it('a value that cold-parses as custom becomes the matched, active chip once the catalog resolves', async () => {
+    vi.mocked(getActiveTaxonomy).mockResolvedValueOnce({
+      directions: [
+        {
+          id: 'd3',
+          value: 'custom_iglo01',
+          label: 'Иглоукалывание',
+          display_order: 0,
+          is_active: true,
+          source: 'custom',
+          styles: [],
+        },
+      ],
+    })
+
+    const el = mount(['Иглоукалывание'])
+
+    // Immediate watch runs synchronously during setup -- strictly before
+    // onMounted's async fetch can have resolved. Must land cold.
+    expect(el.querySelector('.mtp__other')).not.toBeNull()
+
+    // Flush onMounted's fetch + its applyTaxonomyCatalog continuation.
+    await nextTick()
+    await nextTick()
+    await nextTick()
+
+    // Reparsed: free-text box gone, the real catalog chip is active instead.
+    expect(el.querySelector('.mtp__other')).toBeNull()
+    const chips = Array.from(el.querySelectorAll('.v-chip'))
+    const matched = chips.find((c) => c.textContent?.trim() === 'Иглоукалывание')
+    expect(matched).toBeTruthy()
+    expect(matched?.className).toContain('v-chip--active')
+  })
+})
