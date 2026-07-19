@@ -36,7 +36,7 @@ import { useMasterStore } from '@/stores/master'
 import { waitUntilReady, pendingDeepLink } from '@/composables/useAuth'
 import type { ReadyResult } from '@/composables/useAuth'
 import type { UserRole } from '@/api/types'
-import { MASTER_APPLIED_KEY } from '@/utils/constants'
+import { MASTER_APPLIED_KEY, masterRejectionSeenKey } from '@/utils/constants'
 
 /**
  * Redirect `/` to the correct dashboard based on user role.
@@ -46,7 +46,16 @@ import { MASTER_APPLIED_KEY } from '@/utils/constants'
  * before the switch. Without the await, role is always null on first load.
  *
  * TD-F01: if pendingDeepLink is set, redirect there instead of the dashboard
- * and clear the pending link so subsequent navigations go normally.
+ * and clear the pending link so subsequent navigations go normally. A
+ * pending deep link is a deliberate user action (e.g. a shared practice
+ * link) and wins over the rejection redirect below -- the rejection screen
+ * will surface on the next plain open instead.
+ *
+ * Bug 1 (ПРОМТ №405, operator device testing 2026-07-15): a rejected
+ * applicant returning later (role='user', no capability) is routed to
+ * /master/pending ONCE (operator decision: show the verdict, then treat
+ * them as an ordinary user) if they have not already seen it -- see the
+ * masterRejectionSeenKey check below.
  */
 export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
   // Wait for initAuth() to complete so auth.role reflects the real session.
@@ -65,6 +74,22 @@ export const roleRedirect: NavigationGuardWithThis<undefined> = async () => {
     const target = pendingDeepLink.value
     pendingDeepLink.value = null
     return target
+  }
+
+  // Bug 1 fix: R2 (batch R, cb6d8bf) added the masterPendingGuard branch that
+  // ALLOWS a rejected applicant onto /master/pending, but nothing routed them
+  // there -- roleRedirect switched on role alone and always sent role='user'
+  // to /user/dashboard, so a returning rejected applicant never saw the
+  // screen the guard now permits. MasterPendingView marks the per-user key
+  // seen once the screen actually renders (mirrors masterApprovedSeenKey's
+  // placement for the approved case).
+  if (
+    auth.role === 'user' &&
+    auth.masterApplication?.status === 'rejected' &&
+    auth.user?.id &&
+    !localStorage.getItem(masterRejectionSeenKey(auth.user.id))
+  ) {
+    return { path: '/master/pending' }
   }
 
   switch (auth.role) {
@@ -173,7 +198,23 @@ export const masterStatusGuard: NavigationGuardWithThis<undefined> = async () =>
  *   - user + marker     -> allow (an actual applicant — still role='user' until
  *                         the backend promotes them; MASTER_APPLIED_KEY is set
  *                         on a successful application submit)
- *   - user, no marker   -> redirect to /user/dashboard (never applied)
+ *   - user + capability -> allow (MA3: an already-approved role='user' account
+ *                         detoured here by RoleSwitchSection so it sees the
+ *                         "Ваша заявка одобрена!" screen before switching — same
+ *                         authoritative signal the view's own profileStatus
+ *                         computed already trusts, not the sessionStorage marker
+ *                         which only covers the fresh-submit path)
+ *   - user + rejected   -> allow (R2 fix, ПРОМТ №390: a rejected applicant is
+ *                         role='user' with no capability and no session marker
+ *                         by the time a decision lands (24-48h later, a
+ *                         different session) — without this branch every
+ *                         rejected applicant fell through to the "neither"
+ *                         case below and got bounced to /user/dashboard
+ *                         before MasterPendingView could ever show the
+ *                         rejection screen. masterApplication is populated
+ *                         from GET /users/me (T5), same source the view's own
+ *                         profileStatus computed already trusts.)
+ *   - user, neither     -> redirect to /user/dashboard (never applied)
  */
 export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () => {
   const { timedOut }: ReadyResult = await waitUntilReady()
@@ -187,6 +228,8 @@ export const masterPendingGuard: NavigationGuardWithThis<undefined> = async () =
   if (auth.role === 'master') return true
 
   if (sessionStorage.getItem(MASTER_APPLIED_KEY) === '1') return true
+  if (auth.allowedRoles.includes('master')) return true
+  if (auth.masterApplication?.status === 'rejected') return true
 
   return { path: '/user/dashboard' }
 }

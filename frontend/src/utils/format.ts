@@ -122,7 +122,14 @@ export function formatShortDate(isoString: string, timezone = 'UTC'): string {
     month: 'numeric',
     timeZone: timezone,
   }).formatToParts(date)
-  const day = parts.find((p) => p.type === 'day')?.value ?? ''
+  // Parse the day rather than rendering ICU's string: en-CA's format matcher
+  // resolves this day+month skeleton to MM-dd and pads both to two digits no
+  // matter that we asked for `numeric` (resolvedOptions().day === '2-digit').
+  // Number() normalises whatever padding any locale/ICU build hands back, so
+  // this cannot silently drift back to "09 июня". The month below was always
+  // immune for exactly this reason.
+  const dayRaw = parts.find((p) => p.type === 'day')?.value ?? ''
+  const day = dayRaw === '' ? '' : String(Number(dayRaw))
   const monthNum = Number(parts.find((p) => p.type === 'month')?.value ?? '1')
   const month = VELO_SHORT_MONTHS[monthNum - 1] ?? ''
   return `${day} ${month}`.trim()
@@ -276,19 +283,23 @@ export function formatFeedDateTime(isoString: string, timezone = 'UTC', locale =
 }
 
 /**
- * Format duration in minutes into a readable string.
+ * Format duration in minutes into a SHORT readable string. Compact so lines like
+ * «12:30 · 1 ч 30 м» stay on one line (booking cards). Note the deliberate
+ * asymmetry: minutes-only keeps the full «мин», while the combined form uses the
+ * short «м» (operator spec, batch I).
  *
  * Examples:
- *   formatDuration(45)  -> "45 мин"
- *   formatDuration(90)  -> "1 ч 30 мин"
- *   formatDuration(120) -> "2 ч"
+ *   formatDuration(45)  -> "45 мин"    (minutes only, full «мин»)
+ *   formatDuration(60)  -> "1 час"     (exactly one hour, spelled out)
+ *   formatDuration(90)  -> "1 ч 30 м"  (hours + minutes, short «м»)
+ *   formatDuration(120) -> "2 ч"       (exact multi-hour, no plural declension)
  */
 export function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} мин`
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
-  if (m === 0) return `${h} ч`
-  return `${h} ч ${m} мин`
+  if (m === 0) return h === 1 ? '1 час' : `${h} ч`
+  return `${h} ч ${m} м`
 }
 
 /**

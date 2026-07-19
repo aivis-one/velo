@@ -23,6 +23,26 @@ function getWebApp(): TelegramWebApp {
 /** Active BackButton callback reference (for cleanup on hide). */
 let _backButtonCallback: (() => void) | null = null
 
+/**
+ * Read a design token by NAME (ПРОМТ №437).
+ *
+ * The Telegram SDK takes a colour STRING, not a CSS variable, so the app chrome
+ * cannot use var() like everything else does. Before this, that meant two bare
+ * hex literals lived here and in no token at all -- the chrome around every
+ * screen sat outside the design system, and a re-theme would silently miss it.
+ *
+ * Same by-name idiom as the fog tokens in MobileLayout.vue:151-154. The fallback
+ * is mandatory, not defensive dressing: getPropertyValue returns '' if the
+ * stylesheet has not applied yet, and handing '' to setHeaderColor would throw
+ * away the colour. main.ts imports variables.css (:29) before init runs, so the
+ * fallback should never fire -- it exists so that if it ever does, the chrome
+ * looks exactly as it does today rather than breaking.
+ */
+function tokenColor(name: string, fallback: string): string {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
 export const telegramPlatform: Platform = {
   name: 'telegram',
 
@@ -30,8 +50,10 @@ export const telegramPlatform: Platform = {
     const webApp = getWebApp()
     webApp.ready()
     webApp.expand()
-    webApp.setHeaderColor('#334D6E')
-    webApp.setBackgroundColor('#F8FAFC')
+    // Fallbacks MUST mirror variables.css. telegram.test.ts parses that file and
+    // fails if these two drift from it -- do not edit one without the other.
+    webApp.setHeaderColor(tokenColor('--velo-tg-header', '#334d6e'))
+    webApp.setBackgroundColor(tokenColor('--velo-tg-bg', '#ffffff'))
   },
 
   getInitData(): string | null {

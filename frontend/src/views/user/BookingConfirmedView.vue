@@ -88,7 +88,17 @@ const router = useRouter()
 const store = usePracticesStore()
 const toast = useToast()
 
-const practice = computed(() => store.selected)
+const practiceId = route.params.practiceId as string
+
+// usePracticesStore is a session-lifetime singleton: store.selected can still
+// hold a DIFFERENT practice left over from an earlier screen while this
+// screen's own fetch for `practiceId` is in flight (or has failed). Without
+// this id check, that stale value satisfies "we have a practice" and the
+// loading guard (.vue:26) is skipped, letting the success card flash before
+// the real fetch settles -- same guard class as CalendarView's weekPractices
+// bug (fixed e5003b4): trusting that ANY data present is the RIGHT data for
+// what is currently on screen.
+const practice = computed(() => (store.selected?.id === practiceId ? store.selected : null))
 
 // Local-only request text. Goes nowhere yet (TD-ASK-MASTER).
 const masterRequest = ref('')
@@ -104,10 +114,9 @@ function goToDashboard(): void {
 }
 
 onMounted(() => {
-  const id = route.params.practiceId as string
   // Load the practice so the title can be shown. Self-contained: works on
   // direct navigation / reload, not only via the booking redirect.
-  store.fetchPractice(id)
+  store.fetchPractice(practiceId)
 })
 </script>
 

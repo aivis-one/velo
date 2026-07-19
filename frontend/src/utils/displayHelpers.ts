@@ -254,17 +254,6 @@ export const OUTCOME_LABEL: Record<string, string> = {
 // Date helper
 // ---------------------------------------------------------------------------
 
-/**
- * Format ISO datetime to short Russian locale date: "5 янв".
- * No year -- used for recent items in diary / analytics lists.
- */
-export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-  })
-}
-
 /** Short Russian weekday names indexed by ISO weekday − 1 (1=Mon … 7=Sun). */
 const WEEKDAY_ABBR = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const
 

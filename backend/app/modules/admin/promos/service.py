@@ -1,10 +1,10 @@
 # =============================================================================
-# VELO Backend -- Admin Promo Service (Phase 6.7, Batch 3)
+# VELO Backend -- Admin Promo Service (Phase 6.7, Batch 3 + T5)
 # =============================================================================
 #
-# Admin CRUD for company promo codes.
+# Admin CRUD for promo codes.
 #
-# CREATE:
+# CREATE (company only):
 #   1. Validate discount_percent in allowed list.
 #   2. Validate validity window (valid_until > valid_from).
 #   3. Uppercase code, SAVEPOINT for duplicate check (P-05/BUG-11).
@@ -13,13 +13,19 @@
 #
 # LIST ALL:
 #   Admin sees ALL promos (company + master). Optional filters:
-#   type (company|master), is_active (true|false). Paginated.
+#   type (company|master), is_active (true|false). Paginated. T5: also joins
+#   User for the master's name on master-type rows (company rows -> None),
+#   one batched query over the page's master_ids -- no N+1.
 #
-# DEACTIVATE (company only):
+# DEACTIVATE (T5: company OR master):
 #   1. Load promo with FOR UPDATE (P-12).
-#   2. Verify type == company (admin cannot deactivate master promos).
-#   3. Set is_active=False.
-#   4. Audit: promo_deactivated (actor_type="admin").
+#   2. Set is_active=False.
+#   3. Audit: promo_deactivated (actor_type="admin", carries promo type).
+#   Widened from company-only (Batch 3) per the operator's explicit ask
+#   (2026-07-14): "админ должен видеть и деактивировать промокоды ВСЕХ
+#   мастеров". A master's OWN PATCH (promos/service.py) still exists
+#   separately -- that one stays gated on ownership; this is the admin
+#   override, unconditional by design.
 #
 # SESSION RULES:
 #   No session.commit() (P-01). Router calls flush + refresh.
@@ -35,9 +41,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit import record_audit
 from app.core.config import settings
 from app.core.exceptions import BadRequestError, ConflictError, NotFoundError
-from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+from app.modules.admin.promos.schemas import (
+    AdminPaginatedPromosResponse,
+    AdminPromoResponse,
+    CreateCompanyPromoRequest,
+)
 from app.modules.promos.models import Promo, PromoType
-from app.modules.promos.schemas import PaginatedPromosResponse, PromoResponse
+from app.modules.promos.schemas import PromoResponse
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -136,8 +146,12 @@ async def list_all_promos(
     is_active_filter: bool | None = None,
     limit: int = 20,
     offset: int = 0,
-) -> PaginatedPromosResponse:
+) -> AdminPaginatedPromosResponse:
     """List all promos for admin (company + master, paginated).
+
+    T5: joins User for the owning master's name on master-type rows (one
+    extra batched query over the page's master_ids -- company rows have
+    master_id=None and contribute nothing to that query, no N+1).
 
     Args:
         session: Read-only async session.
@@ -174,9 +188,24 @@ async def list_all_promos(
     result = await session.execute(items_stmt)
     rows = result.scalars().all()
 
-    return PaginatedPromosResponse(
+    # T5: batched master-name lookup for the page (skips the query entirely
+    # when the page is all-company / empty).
+    master_ids = {p.master_id for p in rows if p.master_id is not None}
+    names: dict[UUID, tuple[str | None, str | None]] = {}
+    if master_ids:
+        name_stmt = select(User.id, User.first_name, User.last_name).where(
+            User.id.in_(master_ids)
+        )
+        for user_id, first_name, last_name in await session.execute(name_stmt):
+            names[user_id] = (first_name, last_name)
+
+    return AdminPaginatedPromosResponse(
         items=[
-            PromoResponse.model_validate(p, from_attributes=True)
+            AdminPromoResponse(
+                **PromoResponse.model_validate(p, from_attributes=True).model_dump(),
+                master_first_name=names.get(p.master_id, (None, None))[0],
+                master_last_name=names.get(p.master_id, (None, None))[1],
+            )
             for p in rows
         ],
         total=total,
@@ -185,16 +214,18 @@ async def list_all_promos(
     )
 
 
-async def deactivate_company_promo(
+async def deactivate_promo(
     *,
     promo_id: UUID,
     admin: User,
     session: AsyncSession,
 ) -> Promo:
-    """Deactivate a company promo (soft delete).
+    """Deactivate ANY promo -- company or master (soft delete).
 
-    Admin can only deactivate company promos. Master promos are
-    managed by their owners via PATCH /masters/me/promos/{id}/deactivate.
+    T5 (2026-07-15): widened from company-only. The operator's explicit ask
+    was that admin see AND deactivate every master's promos too -- a master's
+    OWN deactivate (promos/service.py, gated on get_current_master +
+    ownership) is unaffected and still exists for self-service.
 
     Args:
         promo_id: Target promo UUID.
@@ -206,18 +237,13 @@ async def deactivate_company_promo(
 
     Raises:
         NotFoundError: Promo not found.
-        BadRequestError: Promo is not a company promo, or already inactive.
+        ConflictError: Promo is already inactive.
     """
     # FOR UPDATE to prevent concurrent deactivation (P-12).
     promo = await session.get(Promo, promo_id, with_for_update=True)
 
     if not promo:
         raise NotFoundError("Promo not found")
-
-    if promo.type != PromoType.COMPANY.value:
-        raise BadRequestError(
-            "Only company promos can be deactivated by admin"
-        )
 
     if not promo.is_active:
         raise ConflictError("Promo is already inactive")
@@ -239,9 +265,10 @@ async def deactivate_company_promo(
     )
 
     logger.info(
-        "company_promo_deactivated",
+        "promo_deactivated_by_admin",
         promo_id=str(promo.id),
         code=promo.code,
+        promo_type=promo.type,
         admin_id=str(admin.id),
     )
 

@@ -13,7 +13,7 @@
 -->
 
 <template>
-  <div class="auth-error">
+  <div class="auth-error velo-kbd-scroll">
     <div class="auth-error__card">
       <div class="auth-error__icon">⏱️</div>
 
@@ -46,6 +46,8 @@ function onRetry(): void {
   /* Fill AppFrame's content area (it owns viewport height + safe-area once,
      app-wide). A fresh 100dvh here double-applies and makes content jump. */
   min-height: 100%;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  overflow-y: auto;
   display: flex;
   align-items: center;
   justify-content: center;

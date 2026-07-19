@@ -46,6 +46,7 @@ from app.modules.masters.stats_router import (                    # E7
 from app.modules.users.router import router as users_router
 from app.modules.reports.router import router as reports_router
 from app.modules.practices.router import router as practices_router
+from app.modules.practices.taxonomy_router import router as taxonomy_router  # R5 stage 3a
 from app.modules.bookings.router import (
     practices_attendance_router,  # Phase 5.4
     router as bookings_router,
@@ -109,6 +110,36 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log_level=settings.log_level,
         json_logs=settings.app_env == "production",
     )
+
+    # W6 fix: WARNING-5 (core/config.py) documents this guard as living here
+    # because config.py is imported by Alembic before app startup -- it was
+    # never actually added. Without it, STRIPE_SECRET_KEY="TEST" left over in
+    # a production .env silently free-credits every topup (stub mode skips
+    # Stripe and instantly succeeds) with no warning anywhere.
+    #
+    # W6 hotfix: the first version of this guard used
+    # `app_env != "development"`, which took down TEST -- the TEST server's
+    # own .env sets APP_ENV=production, so the env name can't distinguish
+    # TEST (where the stub is intentional) from real prod. The gate is now
+    # the explicit ALLOW_STRIPE_STUB flag (settings.is_stripe_stub_blocked
+    # -- see core/config.py, three conditions: not dev, is_stripe_stub, NOT
+    # allow_stripe_stub), set on TEST only.
+    #
+    # ПРОМТ №509 (owner-measured, 2026-07-17): prod is NOT currently running
+    # a real Stripe key -- it has STRIPE_SECRET_KEY=TEST and no
+    # ALLOW_STRIPE_STUB set, i.e. it is in exactly the state this guard
+    # exists to refuse. It only still runs because the currently-deployed
+    # prod build predates this guard; the next prod release with this code
+    # WILL raise the RuntimeError below and refuse to start unless prod's
+    # env is fixed first (real key, or an explicit ALLOW_STRIPE_STUB=true if
+    # the stub is genuinely intended there). Do not release this to prod
+    # without checking that first.
+    if settings.is_stripe_stub_blocked:
+        raise RuntimeError(
+            "STRIPE_SECRET_KEY='TEST' (stub mode) is not allowed here -- "
+            "set a real Stripe secret key, or set ALLOW_STRIPE_STUB=true "
+            "if this is genuinely a test server."
+        )
 
     processor_task: asyncio.Task | None = None
     autofinalizer_task: asyncio.Task | None = None
@@ -189,6 +220,7 @@ app.include_router(masters_stats_router)          # E7
 app.include_router(admin_router)
 app.include_router(reports_router)
 app.include_router(practices_router)
+app.include_router(taxonomy_router)               # R5 stage 3a
 app.include_router(bookings_router)
 app.include_router(practices_waitlist_router)    # Phase 5.3
 app.include_router(waitlist_router)               # Phase 5.3
@@ -225,6 +257,7 @@ async def velo_error_handler(request: Request, exc: VeloError) -> JSONResponse:
             code=exc.code,
             message=exc.message,
             path=request.url.path,
+            exc_info=exc,
         )
     else:
         logger.warning(
@@ -251,6 +284,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         exc_message=str(exc),
         path=request.url.path,
         method=request.method,
+        exc_info=exc,
     )
     return JSONResponse(
         status_code=500,

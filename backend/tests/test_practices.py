@@ -585,7 +585,9 @@ async def test_update_practice_invalid_transition(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Cannot transition from draft to completed: 400."""
+    """completed is not a PATCH-able status (Batch 1: it is reached only by the
+    lifecycle worker), so PATCH status=completed is rejected at the schema
+    layer -> 422."""
     auth = await _make_verified_master(client, db_session)
 
     create_resp = await client.post(
@@ -601,7 +603,51 @@ async def test_update_practice_invalid_transition(
         json={"status": "completed"},
         headers=auth_headers(auth["session_token"]),
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_practice_manual_start_and_finish_forbidden(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Batch 1: scheduled -> live and live -> completed are no longer PATCH-able
+    (both are driven by the lifecycle worker). PATCH status="live"/"completed"
+    is rejected at the schema layer (422). Publishing (draft -> scheduled) still
+    works."""
+    auth = await _make_verified_master(client, db_session)
+
+    create_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert create_resp.status_code == 201
+    practice_id = create_resp.json()["id"]
+
+    # Publish: draft -> scheduled (this PATCH is still allowed).
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert pub.status_code == 200
+
+    # Manual start is forbidden: "live" is not a patch-allowed status -> 422.
+    start = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "live"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert start.status_code == 422
+
+    # Manual finish is forbidden too: "completed" -> 422.
+    finish = await client.patch(
+        f"{PRACTICES_URL}/{practice_id}",
+        json={"status": "completed"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert finish.status_code == 422
 
 
 # ---------------------------------------------------------------------------
@@ -664,6 +710,70 @@ async def test_list_master_practices(
     assert len(data["items"]) == 2
     assert "limit" in data
     assert "offset" in data
+
+
+# ---------------------------------------------------------------------------
+# GET /masters/me/practices -- E3a status filter
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_list_master_practices_status_filter(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """?status= restricts the master's own list to an exact status match.
+
+    One practice stays "draft" (the create default), the other is published
+    to "scheduled". Omitting the filter still returns both (unchanged
+    behavior); each explicit status returns only its own practice.
+    """
+    auth = await _make_verified_master(client, db_session)
+
+    draft_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert draft_resp.status_code == 201
+
+    scheduled_resp = await client.post(
+        PRACTICES_URL,
+        json=_valid_practice_body(),
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert scheduled_resp.status_code == 201
+    scheduled_id = scheduled_resp.json()["id"]
+    pub = await client.patch(
+        f"{PRACTICES_URL}/{scheduled_id}",
+        json={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert pub.status_code == 200
+
+    unfiltered = await client.get(
+        MY_PRACTICES_URL,
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert unfiltered.json()["total"] == 2
+
+    draft_only = await client.get(
+        MY_PRACTICES_URL,
+        params={"status": "draft"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert draft_only.status_code == 200
+    draft_data = draft_only.json()
+    assert draft_data["total"] == 1
+    assert draft_data["items"][0]["status"] == "draft"
+
+    scheduled_only = await client.get(
+        MY_PRACTICES_URL,
+        params={"status": "scheduled"},
+        headers=auth_headers(auth["session_token"]),
+    )
+    assert scheduled_only.status_code == 200
+    scheduled_data = scheduled_only.json()
+    assert scheduled_data["total"] == 1
+    assert scheduled_data["items"][0]["id"] == scheduled_id
 
 
 # ===================================================================
@@ -1360,14 +1470,17 @@ async def test_filter_style_multi(
     assert titles == ["H", "V"]
 
 
-# NOTE (B-4): a style-validation HTTP test was prototyped (
-# test_filter_style_validation_rejects_unknown) but FastAPI's AfterValidator
-# behaviour on a `list[str] | None` Query param turned out not to raise the
-# expected 422 in our setup — invalid styles simply return an empty result
-# set via `.in_()`. The `_validate_styles` validator still rejects them at
-# the dict level (and the frontend chips UI is constrained to allowed
-# values), so this is defence-in-depth, not a security boundary. The
-# multi-select happy path is covered by test_filter_style_multi above.
+# NOTE (B-4, superseded by T2 follow-up 2026-07-15): a style-validation HTTP
+# test was prototyped (test_filter_style_validation_rejects_unknown) but
+# FastAPI's AfterValidator behaviour on a `list[str] | None` Query param
+# turned out not to raise the expected 422 in our setup -- invalid styles
+# already silently returned an empty result set via `.in_()`, regardless of
+# the validator. T2 made that the deliberate, documented contract instead of
+# an accidental one: direction/style filters are no longer membership-
+# validated at all (practices/router.py's query-param comment block), on the
+# grounds that a filter is a query, not a security boundary -- so there is
+# nothing left here to keep "defence-in-depth" for. The multi-select happy
+# path is covered by test_filter_style_multi above.
 
 
 # ---------------------------------------------------------------------------

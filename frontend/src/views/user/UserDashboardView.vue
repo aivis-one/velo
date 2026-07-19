@@ -9,8 +9,15 @@
                               first, then up to 2 soonest upcoming (max 3), each
                               with Zoom + Check-in
     - "Ваш прогресс"       -- attended count + hours, from GET /bookings/me/stats
-    - "AI-саммари"         -- placeholder card with week/month toggle + mood
-                              trend indicator; the whole card is tappable
+    - "AI-саммари"         -- placeholder card, all-time attended count + hours
+                              + mood trend indicator; the whole card is tappable.
+                              (W8 fix, ПРОМТ №387: this used to carry a week/month
+                              toggle that only relabeled the sentence -- the
+                              number never changed, since GET /bookings/me/stats
+                              has no period param and adding one is real backend
+                              work, not this fix's scope. Removed the toggle
+                              rather than ship a control that lies about what
+                              it's showing -- BUILD-FULL-DESIGN honesty.)
 
   Check-in window:  scheduled_at - CHECKIN_WINDOW_H  .. scheduled_at
   Feedback window:  scheduled_at + duration_minutes   .. + FEEDBACK_WINDOW_H
@@ -150,40 +157,18 @@
          AI SUMMARY (placeholder)
          ================================================================ -->
     <section class="dashboard__section">
-      <div class="dashboard__ai-header">
-        <h3 class="dashboard__section-title">AI-саммари</h3>
-        <div class="dashboard__period-toggle">
-          <button
-            class="dashboard__period-btn"
-            :class="{ 'dashboard__period-btn--active': aiPeriod === 'week' }"
-            @click="aiPeriod = 'week'"
-          >
-            Неделя
-          </button>
-          <button
-            class="dashboard__period-btn"
-            :class="{ 'dashboard__period-btn--active': aiPeriod === 'month' }"
-            @click="aiPeriod = 'month'"
-          >
-            Месяц
-          </button>
-        </div>
-      </div>
+      <h3 class="dashboard__section-title">AI-саммари</h3>
 
       <!-- Whole card is the tap target → AI-summary screen (16). VCard `clickable`
-           supplies role="button" + tabindex + Enter/Space + cursor (DS a11y). The
-           Неделя/Месяц toggle lives in the header ABOVE, outside this card, so it
-           keeps switching the period independently (G3, replaces «Подробнее»). -->
+           supplies role="button" + tabindex + Enter/Space + cursor (DS a11y).
+           No period toggle (W8 fix, ПРОМТ №387): the underlying number is an
+           all-time aggregate (GET /bookings/me/stats has no period param), so
+           a week/month switch that only reworded the sentence without changing
+           the number was actively misleading, not just decorative. -->
       <VCard clickable @click="router.push({ name: 'user-ai-summary' })">
         <p class="dashboard__ai-text">
-          <template v-if="aiPeriod === 'week'">
-            На этой неделе вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
-            практике <strong>{{ practiceHours }}</strong> часов.
-          </template>
-          <template v-else>
-            В этом месяце вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
-            практике <strong>{{ practiceHours }}</strong> часов.
-          </template>
+          За всё время вы посетили <strong>{{ attendedCount }}</strong> практик и провели в
+          практике <strong>{{ practiceHours }}</strong> часов.
         </p>
 
         <!-- Mood trend indicator: from -> to. Non-clickable (static). -->
@@ -239,9 +224,6 @@ const toast = useToast()
 // -- Reactive clock: updated every 60s so alert computeds re-evaluate --
 const now = ref(Date.now())
 let clockInterval: ReturnType<typeof setInterval> | null = null
-
-// -- Period toggle for AI summary (visual only, no API) --
-const aiPeriod = ref<'week' | 'month'>('week')
 
 // -- Profile stats (attended count + hours): server-side aggregate over ALL
 // attended bookings -- not derived from the paginated bookings page (W-6). --
@@ -467,7 +449,12 @@ function goToReflection(practiceId: string): void {
 
 onMounted(() => {
   bookingsStore.fetchMyBookings()
-  void bookingsStore.fetchUpcoming()
+  // W15 fix (ПРОМТ №409): fetchUpcoming used to swallow its error entirely
+  // (an empty result looked identical to "genuinely nothing upcoming") --
+  // surface it via toast instead of leaving the widget silently blank.
+  void bookingsStore.fetchUpcoming().then(() => {
+    if (bookingsStore.upcomingError) toast.error(bookingsStore.upcomingError)
+  })
   void loadStats()
   clockInterval = setInterval(() => {
     now.value = Date.now()
@@ -574,43 +561,6 @@ onUnmounted(() => {
 }
 
 /* ===== AI summary ===== */
-.dashboard__ai-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-4);
-}
-
-.dashboard__ai-header .dashboard__section-title {
-  margin-bottom: 0;
-}
-
-.dashboard__period-toggle {
-  display: flex;
-  gap: var(--velo-gap-2);
-  background: var(--velo-glass-blue-15);
-  border: 1px solid var(--velo-glass-border);
-  border-radius: var(--radius-xl);
-  padding: 2px;
-}
-
-.dashboard__period-btn {
-  font-family: var(--font-body);
-  font-size: var(--text-xs);
-  color: var(--velo-text-primary);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-xl);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.dashboard__period-btn--active {
-  background: var(--velo-primary);
-  color: var(--velo-white);
-}
-
 .dashboard__ai-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);

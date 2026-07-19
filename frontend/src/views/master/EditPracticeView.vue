@@ -76,17 +76,34 @@
         <span class="edit-practice__readonly-text">Редактирование недоступно</span>
       </div>
 
-      <div class="edit-practice__content" @click="dismissKeyboardOnBlank">
+      <div class="edit-practice__content">
         <!-- ================================================================
              FORM (editable for draft / scheduled only)
              ================================================================ -->
         <fieldset :disabled="isTerminal || saving" class="edit-practice__fieldset">
           <!-- Реш. В (2026-06-12): поля по SVG Edit (label-above, белая плашка),
-               БЕЗ секций-заголовков. Намеренно опущены направление/уровень/вид/
-               таймзона/цена — они задаются на создании и блокируются после (хранятся
-               в form, уходят на submit неизменными, данные не теряем). Дата и Zoom
-               возвращены по логике (см. комментарии ниже). -->
+               БЕЗ секций-заголовков. Уровень/таймзона/цена по-прежнему опущены —
+               они задаются на создании и блокируются после (хранятся в form,
+               уходят на submit неизменными, данные не теряем). Направление/вид
+               ДОБАВЛЕНЫ (operator, T2, 2026-07-15 — override навигатора: не
+               отдельным батчем позже, а прямо в этом). Дата и Zoom возвращены
+               по логике (см. комментарии ниже). -->
           <VInput v-model="form.title" label="Название" :error="errors.title" />
+
+          <!-- Направление — options catalog-first (T2 stage 2), см. CreatePracticeView. -->
+          <VSelect
+            v-model="form.direction"
+            label="Направление"
+            :options="directionOptions"
+            :error="errors.direction"
+            @update:modelValue="onDirectionChange"
+          />
+
+          <!-- Вид практики — показываем только если у направления есть виды
+               (Q4=А, mirrors CreatePracticeView: без явного «Без вида»). -->
+          <div v-if="styleOptionsForForm.length > 0">
+            <VSelect v-model="form.style" label="Вид практики" :options="styleOptionsForForm" />
+          </div>
 
           <!-- Дата — DS-пикер (реш. В: возвращена по логике — перенос практики
                норм. операция; нативный type=date заменён на брендовый пикер). -->
@@ -291,8 +308,10 @@ import { getPractice, updatePractice, deletePractice, cancelPractice } from '@/a
 import { formatShortDate, todayLocalISO } from '@/utils/format'
 import { masterPracticeBadge } from '@/utils/practiceStatus'
 import { ApiResponseError } from '@/api/client'
-import { DURATION_OPTIONS } from '@/utils/practiceOptions'
+import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
+import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { eurStringToCents, centsToEurString } from '@/utils/currency'
+import type { TaxonomyListResponse } from '@/api/taxonomy'
 import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
@@ -311,15 +330,6 @@ function onBack(): void {
   else router.push({ name: 'master-practice-detail', params: { id: practiceId } })
 }
 
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
-// like «Максимум мест» have no «Готово» key) — operator 2026-06-17.
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
-
 // -- Practice data --
 const practice = ref<PracticeResponse | null>(null)
 const loading = ref(false)
@@ -334,6 +344,11 @@ const deleting = ref(false)
 const showDate = ref(false)
 const showTime = ref(false)
 const cancelModalOpen = ref(false)
+
+// T2 stage 2 (2026-07-15): taxonomy catalog, primed in parallel with the
+// practice fetch below (mirrors CreatePracticeView). Rides the shared cache
+// (ensureTaxonomyCatalog()) -- zero fetch if another screen already warmed it.
+const catalog = ref<TaxonomyListResponse | null>(null)
 
 // W-3: single guard covering all mutually exclusive actions.
 // Every action button and the Save button use :disabled="anyLoading".
@@ -384,6 +399,7 @@ const form = reactive({
 
 const errors = reactive({
   title: '',
+  direction: '',
   max_participants: '',
   zoom_link: '',
 })
@@ -398,6 +414,17 @@ const isTerminal = computed(
 
 // W-6: use eurStringToCents() -- avoids parseFloat(raw) * 100 float precision trap.
 const priceCents = computed((): number => eurStringToCents(form.price_eur_raw))
+
+// Direction/style options, catalog-first (T2 stage 2) -- mirrors
+// CreatePracticeView's directionOptions/styleOptionsForForm.
+const directionOptions = computed(() => catalogDirectionOptions(catalog.value))
+const styleOptionsForForm = computed(() => catalogStylesForDirection(catalog.value, form.direction))
+
+/** Reset style when direction changes — the previous value is likely
+ *  invalid for the new direction (mirrors CreatePracticeView). */
+function onDirectionChange(): void {
+  form.style = ''
+}
 
 // -- Populate form from practice --
 function populateForm(p: PracticeResponse): void {
@@ -428,6 +455,13 @@ function populateForm(p: PracticeResponse): void {
 
 // -- Load practice --
 onMounted(async () => {
+  // T2 stage 2: prime the taxonomy catalog IN PARALLEL with the practice
+  // fetch below, not sequenced after it -- fire-and-forget so it runs
+  // regardless of which branch (cached vs network) the practice load takes.
+  void ensureTaxonomyCatalog().then((c) => {
+    catalog.value = c
+  })
+
   const cached = masterStore.practices.find((p) => p.id === practiceId)
   if (cached) {
     practice.value = cached
@@ -450,11 +484,16 @@ onMounted(async () => {
 function validate(): boolean {
   let ok = true
   errors.title = ''
+  errors.direction = ''
   errors.max_participants = ''
   errors.zoom_link = ''
 
   if (!form.title.trim()) {
     errors.title = 'Введите название'
+    ok = false
+  }
+  if (!form.direction) {
+    errors.direction = 'Выберите направление'
     ok = false
   }
   if (form.max_participants_raw) {

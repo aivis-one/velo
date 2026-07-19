@@ -3,14 +3,22 @@
 // =============================================================================
 //
 // Master promo codes. Backend delivered (promos/router.py):
-//   GET   /api/v1/masters/me/promos               -- list my promos (newest first)
+//   POST  /api/v1/masters/me/promos                 -- create a promo code
+//   GET   /api/v1/masters/me/promos                 -- list my promos (newest first)
 //   PATCH /api/v1/masters/me/promos/{id}/deactivate -- soft-deactivate (is_active=false)
-// (POST create exists too and is used by the create form, not here.)
+// PC1 (2026-07-12): create was live on the backend since E10 but never wired on
+// the frontend -- MasterNewPromocodeView's submit was a pure toast stub with no
+// api import at all, so masters had no way to get a real promo into the list.
 // =============================================================================
 
 import { api } from '@/api/client'
 import { buildQuery } from '@/api/utils'
-import type { PaginatedPromosResponse, PromoResponse } from '@/api/types'
+import type { CreateMasterPromoRequest, PaginatedPromosResponse, PromoResponse } from '@/api/types'
+
+/** Create a new master promo code. */
+export function createPromo(body: CreateMasterPromoRequest): Promise<PromoResponse> {
+  return api.post<PromoResponse>('/api/v1/masters/me/promos', body)
+}
 
 /** List the current master's promo codes (newest first). */
 export function getMyPromos(limit = 50, offset = 0): Promise<PaginatedPromosResponse> {

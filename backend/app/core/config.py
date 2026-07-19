@@ -22,13 +22,19 @@
 #   have no defaults -- the app refuses to start without a proper .env.
 #   In development, safe defaults are provided for convenience.
 #
-# WARNING-5: STRIPE_STUB is disallowed in production.
+# WARNING-5 / W6: STRIPE_STUB is disallowed unless explicitly opted in.
 #   If STRIPE_SECRET_KEY="TEST", webhook signature verification is skipped.
-#   The validator below raises at startup if this happens in production.
+#   lifespan() in main.py raises at startup if is_stripe_stub_blocked is
+#   True (not here -- this module is imported by Alembic before app
+#   startup). The gate is NOT app_env: the TEST server's own .env sets
+#   APP_ENV=production, so an env-name check can't tell TEST from prod.
+#   See allow_stripe_stub / is_stripe_stub_blocked below for the real gate.
 # =============================================================================
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.telegram_links import normalize_telegram_url
 
 
 class Settings(BaseSettings):
@@ -73,8 +79,21 @@ class Settings(BaseSettings):
     # but tests mock validation anyway. (P-4)
     telegram_bot_token: str = ""
     # Bot URL for deep link buttons in notifications (Phase 7.3).
-    # Example: "https://t.me/velo_testbot"
+    # Example: "https://telegram.me/veloappbot"
+    #
+    # The host of this URL is normalized at startup (see the validator below):
+    # a stale .env still carrying the dead t.me host is repaired in memory, so
+    # a domain swap does NOT require touching every server's .env by hand.
     telegram_bot_url: str = ""
+    # Host currently serving Telegram links (t.me died at the registry level on
+    # 2026-07-13 -- see app/core/telegram_links.py for the full story).
+    #
+    # THIS IS THE ONLY PLACE IN THE BACKEND THAT NAMES A TELEGRAM DOMAIN.
+    # Every Telegram URL -- the bot URL from .env and every avatar URL arriving
+    # from initData -- is rewritten onto this host. If telegram.me ever dies
+    # too, set TELEGRAM_LINK_DOMAIN=telegram.dog in .env (different TLD, not
+    # subject to the Montenegrin .me registry) and restart. Nothing else changes.
+    telegram_link_domain: str = "telegram.me"
 
     # -- Sessions --
     # How long a session token lives in Redis (days).
@@ -174,12 +193,16 @@ class Settings(BaseSettings):
     practice_time_evening_start_hour: int = 17
 
     # Statuses allowed in PATCH /practices/{id} (I-04).
-    # "cancelled" is intentionally excluded: the only path to cancelled is
+    # "cancelled" is excluded: the only path to cancelled is
     # POST /practices/{id}/cancel which handles refunds.
+    # "live" and "completed" are excluded too (Batch 1): scheduled -> live and
+    # scheduled/live -> completed are driven by the clock by the lifecycle
+    # worker (bookings/autofinalize.py), never by PATCH. So PATCH only ever
+    # drives draft -> scheduled (publish) and draft -> deleted.
     # Pydantic @field_validator raises ValueError -> FastAPI returns 422,
     # which is the correct signal: schema-level rejection, not business logic.
     practice_patch_allowed_statuses: list[str] = [
-        "draft", "scheduled", "live", "completed", "deleted",
+        "draft", "scheduled", "deleted",
     ]
 
     # String field limits for Practice -- sourced here so that DB column sizes,
@@ -208,6 +231,30 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_success_url: str = ""
     stripe_cancel_url: str = ""
+    # W6 hotfix: explicit opt-in for running with the Stripe stub outside a
+    # dev laptop. Defaults to False on purpose -- forget to set it and the
+    # app refuses to start, never the other way around. app_env cannot be
+    # used for this decision: the TEST server's own .env sets
+    # APP_ENV=production (it calls itself "production"), so a check keyed
+    # off the env name blocks TEST as if it were prod. Set
+    # ALLOW_STRIPE_STUB=true only on servers where the stub is genuinely
+    # intentional (TEST).
+    #
+    # is_stripe_stub_blocked (below) refuses startup when ALL THREE hold:
+    # not dev, is_stripe_stub (STRIPE_SECRET_KEY upper() == "TEST"), and
+    # allow_stripe_stub is NOT set. The guard is correct and deliberate --
+    # do not weaken it.
+    #
+    # ПРОМТ №509 (owner read both servers' env, 2026-07-17): PROD currently
+    # has STRIPE_SECRET_KEY=TEST and NO ALLOW_STRIPE_STUB at all -- i.e. prod
+    # is, right now, in exactly the state this guard exists to refuse. It
+    # has not crashed only because the currently-running prod build predates
+    # this guard. The moment a build containing this guard is released to
+    # prod, startup raises RuntimeError (main.py's lifespan()) and prod does
+    # not come up. Before that release: set a real Stripe secret key on
+    # prod, OR set ALLOW_STRIPE_STUB=true there if the stub is genuinely
+    # intended for longer -- do not let this guard reach prod silently.
+    allow_stripe_stub: bool = False
 
     # -- Topup limits (Phase 6.3) --
     # All amounts in EUR cents.
@@ -251,40 +298,40 @@ class Settings(BaseSettings):
     # FOR UPDATE SKIP LOCKED and a delivery can be skipped (attempts stays 0).
     notification_processor_enabled: bool = True
 
-    # -- Practice auto-finalization (Batch 1) --
-    # A master normally finalizes a practice by hand ("Закрыть"). If they
-    # forget, the practice would otherwise stay scheduled/live forever, its
-    # bookings stuck at confirmed and the master's money frozen. A background
-    # worker (app/modules/bookings/autofinalize.py) closes any practice that
-    # started more than practice_max_duration_hours ago, running the SAME
-    # finalization core as the manual path (attendance + ledger settlement +
-    # diary projection) from the system actor.
+    # -- Practice lifecycle automation (Batch 1, extended) --
+    # Practices are driven entirely by the clock -- the master no longer starts
+    # or finishes a practice by hand. A single background worker
+    # (app/modules/bookings/autofinalize.py) runs two time-based transitions as
+    # the system actor:
+    #   * start:  scheduled -> live       once scheduled_at has passed
+    #                                     (and the end has not yet passed).
+    #   * finish: scheduled/live -> completed once the scheduled END has passed
+    #             (scheduled_at + duration_minutes + buffer), running the full
+    #             settlement core (attendance + ledger unfreeze/commission +
+    #             diary projection + feedback push) from the system actor.
     #
-    # Legacy hard ceiling (scheduled_at + this). SUPERSEDED 2026-06-09 by the
-    # per-practice end+buffer auto-finalize below; end+buffer always fires first
-    # (max practice duration is 8h). Kept for reference / extreme fallback.
-    practice_max_duration_hours: int = 24
     # Auto-finalize a practice this many minutes after its scheduled END
-    # (scheduled_at + duration_minutes + buffer). Role-status unification: the
-    # master no longer has to press «Завершить» — completion / settlement /
-    # feedback push happen on time. WARNING FINANCIAL TIMING: purchase unfreeze +
-    # commission now settle ~at the practice end, not +24h — review with Zod
-    # before deploying.
-    practice_autofinalize_buffer_minutes: int = 15
+    # (scheduled_at + duration_minutes + buffer). Customer requirement: a
+    # practice finishes STRICTLY when its master-set duration elapses, so the
+    # buffer is 0 (end == scheduled_at + duration_minutes). Raise only if a
+    # technical grace period is ever needed. FINANCIAL TIMING: purchase unfreeze
+    # + commission settle ~at the practice end.
+    practice_autofinalize_buffer_minutes: int = 0
     # Worker polling interval in seconds (resets on work found, backs off when
-    # idle). Mirrors notification_poll_interval_seconds.
-    practice_autofinalize_poll_interval_seconds: int = 300
+    # idle). Kept short so start/finish (and the feedback prompt that fires on
+    # finish) happen close to the actual moment, not up to a poll late.
+    practice_autofinalize_poll_interval_seconds: int = 30
     # Max backoff when no practice is due (exponential up to this).
     practice_autofinalize_max_backoff_seconds: int = 600
     # Background worker toggle. True in prod (the lifespan task polls and
-    # finalizes). Disabled in tests so manual finalize_practice / auto_finalize
-    # calls are the only code touching practices -- otherwise the background
-    # loop races them via FOR UPDATE SKIP LOCKED and a test practice can be
-    # finalized out from under the assertion. Same rationale as
-    # notification_processor_enabled above.
+    # starts/finalizes). Disabled in tests so the manual auto_start_practice /
+    # auto_finalize_practice calls are the only code touching practices --
+    # otherwise the background loop races them via FOR UPDATE SKIP LOCKED and a
+    # test practice can be transitioned out from under an assertion. Same
+    # rationale as notification_processor_enabled above.
     practice_autofinalize_enabled: bool = True
-    # How many overdue practices to claim per poll cycle. Throttles each tick
-    # so a large backlog is drained in batches rather than one giant locked
+    # How many due practices to claim per poll cycle, per phase. Throttles each
+    # tick so a large backlog is drained in batches rather than one giant locked
     # SELECT. Internal tuning knob -- rarely changed by the operator.
     practice_autofinalize_batch_size: int = 50
 
@@ -409,6 +456,17 @@ class Settings(BaseSettings):
                     "Get it from BotFather."
                 )
 
+        # TELEGRAM_BOT_URL: repair a stale host (2026-07-14).
+        # Servers provisioned before t.me died still carry
+        # TELEGRAM_BOT_URL=https://t.me/<bot> in their .env. Rewriting the host
+        # here means deep links and master invites keep working WITHOUT anyone
+        # editing .env on every box -- and it is the reason formatters.py and
+        # admin/masters/service.py need no changes at all: they read an already
+        # normalized settings.telegram_bot_url.
+        self.telegram_bot_url = normalize_telegram_url(
+            self.telegram_bot_url, self.telegram_link_domain
+        ) or ""
+
         # STRIPE_SUCCESS_URL: required in production. (Phase 6.3)
         if not self.stripe_success_url:
             if is_dev:
@@ -435,10 +493,12 @@ class Settings(BaseSettings):
                     "provide your Telegram WebApp cancel page URL."
                 )
 
-        # WARNING-5: STRIPE_STUB check is intentionally NOT here.
+        # WARNING-5 / W6: STRIPE_STUB check is intentionally NOT here.
         # config.py is imported by Alembic migrations before app startup,
         # so a startup-only guard must live in main.py lifespan, not here.
-        # See: lifespan() in main.py for the actual runtime enforcement.
+        # See: is_stripe_stub_blocked above, enforced in lifespan() in
+        # main.py. Two prior comments here claimed this guard existed
+        # when it never did (the W6 incident) -- it now actually does.
 
         # CORS_ORIGINS: must not be wildcard in production (S-04).
         if not is_dev and self.cors_origins == "*":
@@ -486,6 +546,15 @@ class Settings(BaseSettings):
     def is_stripe_stub(self) -> bool:
         """True when Stripe is not configured (keys set to 'TEST')."""
         return self.stripe_secret_key.upper() == "TEST"
+
+    @property
+    def is_stripe_stub_blocked(self) -> bool:
+        """True when startup must refuse: stubbed Stripe, not a dev laptop,
+        and not explicitly allowed via ALLOW_STRIPE_STUB. See
+        allow_stripe_stub above for why app_env alone can't make this call.
+        """
+        is_dev = self.app_env == "development"
+        return not is_dev and self.is_stripe_stub and not self.allow_stripe_stub
 
 
 # Singleton: one Settings instance for the entire application.

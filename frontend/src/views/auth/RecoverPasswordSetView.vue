@@ -7,7 +7,7 @@
 -->
 
 <template>
-  <div class="auth">
+  <div class="auth velo-kbd-scroll">
     <VeloLogo variant="lockup" :size="140" class="auth__logo" />
     <h1 class="auth__title">Восстановление пароля</h1>
     <p class="auth__subtitle">Придумайте новый пароль</p>
@@ -52,6 +52,8 @@ function save(): void {
   flex-direction: column;
   align-items: center;
   min-height: 100%;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  overflow-y: auto;
   padding: var(--space-10) var(--velo-screen-padding) var(--space-8);
   background: transparent;
   text-align: center;

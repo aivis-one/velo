@@ -23,8 +23,14 @@ import {
 } from '@/api/bookings'
 import { usePagination } from '@/composables/usePagination'
 import { extractApiError } from '@/composables/useApiError'
-// Lazy cross-store use (called only inside actions) -- mirrors diary.ts using
-// useBookingsStore(); avoids a top-level circular evaluation.
+// One-way dependency: bookings -> diary. Used only inside actions, never at
+// module scope or in the store's setup body -- keep it that way.
+//
+// W27 (ПРОМТ №438): this comment used to read «mirrors diary.ts using
+// useBookingsStore(); avoids a top-level circular evaluation» -- true when
+// written, false now. diary.ts no longer imports this store (its
+// refreshBookings() call was redundant; the views already do it), so there is no
+// cycle left to avoid and nothing to mirror.
 import { useDiaryStore } from '@/stores/diary'
 import type { BookingWithPracticeResponse, BookingDetailResponse, BookingStatus } from '@/api/types'
 
@@ -54,6 +60,7 @@ export const useBookingsStore = defineStore('bookings', () => {
   // the nearest-selection is not capped/mis-sorted by the created_at page (B1).
   const upcoming = ref<BookingWithPracticeResponse[]>([])
   const upcomingLoading = ref(false)
+  const upcomingError = ref('')
 
   // -- Single booking detail (screen 18) --
   const selectedBooking = ref<BookingDetailResponse | null>(null)
@@ -70,14 +77,33 @@ export const useBookingsStore = defineStore('bookings', () => {
     }
   }
 
-  // Practices whose no-show reflection the user SUBMITTED this session — hides
-  // the dashboard reflection banner immediately. Session-only: there is no
-  // backend `has_reflection` flag yet (TD-REFLECTION, VELO-Backend-Tasks.md),
-  // so it is lost on reload. Mirrors dismissedCheckins.
-  const dismissedReflections = ref<string[]>([])
+  // Practices whose no-show reflection the user SUBMITTED — hides the dashboard
+  // reflection banner. STOPGAP (batch O, O1): the dismissal is PERSISTED to
+  // localStorage so a submitted reflection stays dismissed across reloads (the
+  // «Как прошёл ваш день?» card stopped clearing because there is no backend
+  // state). This does NOT fake persistence — the reflection itself is still NOT
+  // saved server-side (honest stub); ONLY the dismissal survives. Swap this gate
+  // to the real backend `has_reflection` flag once TD-REFLECTION lands
+  // (VELO-Backend-Tasks.md), mirroring has_feedback/has_checkin.
+  const DISMISSED_REFLECTIONS_KEY = 'velo:dismissed-reflections'
+  function loadDismissedReflections(): string[] {
+    try {
+      const raw = localStorage.getItem(DISMISSED_REFLECTIONS_KEY)
+      const parsed: unknown = raw ? JSON.parse(raw) : []
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  }
+  const dismissedReflections = ref<string[]>(loadDismissedReflections())
   function dismissReflection(practiceId: string): void {
     if (!dismissedReflections.value.includes(practiceId)) {
       dismissedReflections.value.push(practiceId)
+      try {
+        localStorage.setItem(DISMISSED_REFLECTIONS_KEY, JSON.stringify(dismissedReflections.value))
+      } catch {
+        // Storage full / unavailable — the session ref still hides it this session.
+      }
     }
   }
 
@@ -113,10 +139,15 @@ export const useBookingsStore = defineStore('bookings', () => {
    */
   async function fetchUpcoming(): Promise<void> {
     upcomingLoading.value = true
+    upcomingError.value = ''
     try {
       upcoming.value = await getUpcomingBookings()
-    } catch {
+    } catch (e) {
+      // W15 fix (ПРОМТ №409): used to swallow the error entirely (empty array
+      // looks identical to "genuinely nothing upcoming") -- keep the same
+      // fallback but record the error so the caller can surface it.
       upcoming.value = []
+      upcomingError.value = extractApiError(e, 'Не удалось загрузить ближайшую практику')
     } finally {
       upcomingLoading.value = false
     }
@@ -210,6 +241,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     total: pagination.total,
     loading: pagination.loading,
     error: pagination.error,
+    loadMoreError: pagination.loadMoreError,
     hasMore: pagination.hasMore,
     fetchMyBookings,
     loadMore: pagination.loadMore,
@@ -218,6 +250,7 @@ export const useBookingsStore = defineStore('bookings', () => {
     // Live-or-upcoming set for the dashboard nearest widget (B1)
     upcoming,
     upcomingLoading,
+    upcomingError,
     fetchUpcoming,
 
     // Single booking detail (screen 18)

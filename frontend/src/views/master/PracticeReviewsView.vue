@@ -100,6 +100,7 @@ import PracticeHeroCard from '@/components/shared/PracticeHeroCard.vue'
 import { VHeader } from '@/components/layout'
 import { IconRatingFire, IconRatingGood, IconRatingConfused } from '@/components/icons'
 import { RATING_ICON_COLOR } from '@/utils/displayHelpers'
+import { formatShortDate } from '@/utils/format'
 import type { PracticeResponse, FeedbackRating, ReviewItem } from '@/api/types'
 
 const route = useRoute()
@@ -128,7 +129,7 @@ const insights = computed(() => insightsCache.get(practiceId.value) ?? null)
 const practice = ref<PracticeResponse | null>(null)
 
 const practiceDate = computed((): string =>
-  practice.value ? formatShortDate(practice.value.scheduled_at) : '',
+  practice.value ? formatShortDate(practice.value.scheduled_at, practice.value.timezone) : '',
 )
 
 const participantsLabel = computed((): string => {
@@ -222,14 +223,6 @@ async function loadMoreReviews(): Promise<void> {
   } finally {
     reviewsLoading.value = false
   }
-}
-
-// =========================================================================
-// Helpers
-// =========================================================================
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
 // =========================================================================

@@ -20,6 +20,14 @@
 
   Footer only for master_status==='pending'; processed applications show a note. After
   verify/reject → router.push({ name: 'admin-masters' }) (S-1/S-2: fresh list mount).
+
+  PROMOTE-ON-VERIFY (ПРОМТ №505): a custom/unmatched method in the applicant's own
+  methods pauses «Одобрить» on a confirm dialog -- mirrors AdminMethodRequestsView's
+  identical promote-on-approve dialog verbatim (same VConfirmDialog, same copy).
+  Confirming ("Добавить в каталог") or dismissing/cancelling ("Только этому мастеру")
+  both still verify -- never blocks. Closes the loop: verify_master (backend, ПРОМТ
+  №503 commit 3) already accepted `promote`, but nothing on any screen could ever
+  send it -- this is the first and only caller.
 -->
 
 <template>
@@ -130,7 +138,7 @@
           <div class="mreview__k">Телефон</div>
           <template v-if="editing === 'phone'">
             <div class="mreview__edit">
-              <VInput v-model="draftText" placeholder="+7…" />
+              <VInput v-model="draftText" placeholder="+7…" :error="fieldError" />
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="savePhone">Сохранить</VButton>
@@ -178,6 +186,7 @@
                   {{ l }}
                 </VChip>
               </div>
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="saveLanguages">Сохранить</VButton>
@@ -197,18 +206,12 @@
         <div class="mreview__row">
           <div class="mreview__k">Направления практик</div>
           <div v-if="editingMethods" class="mreview__methods-edit">
-            <div class="mreview__chips">
-              <VChip
-                v-for="m in methodOptions"
-                :key="m"
-                size="md"
-                clickable
-                :active="methodsDraft.includes(m)"
-                @click="toggleMethodDraft(m)"
-              >
-                {{ m }}
-              </VChip>
-            </div>
+            <!-- T4/F2-F6 (ПРОМТ №409): swapped the flat legacy AVAILABLE_METHODS
+                 toggle for the writable two-level picker, mirroring the swap
+                 already done in EditProfileView.vue -- an admin can now pick a
+                 fresh Направление→Вид pair from the R5 DB catalog, not just
+                 toggle among pre-existing flat strings. -->
+            <MethodTaxonomyPicker v-model="methodsDraft" />
             <p v-if="methodsError" class="mreview__methods-err">{{ methodsError }}</p>
             <div class="mreview__methods-actions">
               <VButton variant="ghost" size="sm" :disabled="savingMethods" @click="cancelMethods">
@@ -220,9 +223,16 @@
             </div>
           </div>
           <template v-else>
-            <div class="mreview__v mreview__chips">
-              <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
-              <span v-if="!methods.length" class="mreview__muted">—</span>
+            <div class="mreview__v">
+              <!-- Q2: render the flat «Направление — Вид» methods as the batch-L
+                   two-level readonly picker (direction heading + вид chips) so both
+                   направление AND вид show. Fully-legacy methods that don't map to
+                   the taxonomy fall back to verbatim chips; empty → «—». -->
+              <MethodTaxonomyPicker v-if="hasParsedMethods" :model-value="methods" readonly />
+              <div v-else-if="methods.length" class="mreview__chips">
+                <VChip v-for="m in methods" :key="m" size="md">{{ m }}</VChip>
+              </div>
+              <span v-else class="mreview__muted">—</span>
             </div>
             <button
               type="button"
@@ -255,6 +265,7 @@
                 <VInput v-model="certInput" placeholder="Добавить сертификат + Enter" @keydown.enter.prevent="addCert" />
                 <VButton variant="ghost" size="sm" :disabled="!certInput.trim()" @click="addCert">Добавить</VButton>
               </div>
+              <p v-if="fieldError" class="mreview__edit-err">{{ fieldError }}</p>
               <div class="mreview__edit-actions">
                 <VButton variant="ghost" size="sm" :disabled="savingField" @click="cancelField">Отмена</VButton>
                 <VButton variant="primary" size="sm" :loading="savingField" @click="saveCertifications">Сохранить</VButton>
@@ -390,6 +401,19 @@
       @confirm="onRevoke"
       @cancel="showRevoke = false"
     />
+
+    <!-- Custom method not in the catalog (ПРОМТ №505, mirrors
+         AdminMethodRequestsView's identical dialog verbatim -- same copy,
+         same never-blocks contract). -->
+    <VConfirmDialog
+      :open="showPromote"
+      :message="`Метода «${promoteLabel}» нет в каталоге — добавить для всех мастеров?`"
+      confirm-label="Добавить в каталог"
+      cancel-label="Только этому мастеру"
+      :loading="verifying"
+      @confirm="onPromoteConfirm"
+      @cancel="onPromoteCancel"
+    />
   </div>
 </template>
 
@@ -428,8 +452,9 @@ import type {
 } from '@/api/admin'
 import { ApiResponseError } from '@/api/client'
 import { masterDisplayName, masterStatusLabel } from '@/utils/adminHelpers'
-import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
+import { parseMethods, flattenMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 
 const route = useRoute()
 const router = useRouter()
@@ -470,6 +495,12 @@ const phone = computed<string>(() => master.value?.phone || PLACEHOLDER)
 const languages = computed<string[]>(() => master.value?.languages ?? [])
 const certifications = computed<string[]>(() => master.value?.certifications ?? [])
 const methods = computed<string[]>(() => master.value?.methods ?? [])
+// Q2: true when at least one method maps to the direction/вид taxonomy — then the
+// two-level readonly picker has something to render; otherwise (fully-legacy flat
+// methods) we fall back to verbatim chips so nothing vanishes.
+const hasParsedMethods = computed<boolean>(
+  () => flattenMethods(parseMethods(methods.value)).length > 0,
+)
 const experience = computed<string>(() =>
   master.value ? `${master.value.experience_years ?? 0} лет` : PLACEHOLDER,
 )
@@ -483,13 +514,6 @@ const languageOptions = computed<string[]>(() => {
   return [...set]
 })
 
-// Editor chips = the shared taxonomy plus any custom methods the master already
-// has (so a custom entry can be kept/removed, not silently dropped).
-const methodOptions = computed<string[]>(() => {
-  const set = new Set<string>(AVAILABLE_METHODS)
-  for (const m of methods.value) set.add(m)
-  return [...set]
-})
 const documents = ref<{ name: string }[]>([])
 const history = ref<{ when: string; title: string; comment?: string }[]>([])
 
@@ -535,7 +559,7 @@ async function openRevoke(): Promise<void> {
 }
 
 async function onRevoke(): Promise<void> {
-  if (revoking.value) return
+  if (anyLoading.value) return
   revoking.value = true
   try {
     await revokeMaster(masterId)
@@ -559,7 +583,13 @@ async function loadMaster(): Promise<void> {
   if (handed && handed.id === masterId) master.value = handed
   if (!master.value) loading.value = true
   try {
-    master.value = await getMasterById(masterId)
+    // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
+    // detail fetch so a promoted custom method already resolves to a plain
+    // chip. Note: the `handed` instant-paint above can still render one frame
+    // of stale (pre-catalog) chips before this resolves -- that flash predates
+    // this fix and is a property of the instant-paint design, not this bug.
+    const [detail] = await Promise.all([getMasterById(masterId), primeMethodTaxonomyCatalog()])
+    master.value = detail
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Ошибка загрузки данных'
     toast.error(msg)
@@ -574,12 +604,6 @@ function startMethods(): void {
   methodsDraft.value = [...methods.value]
   methodsError.value = ''
   editingMethods.value = true
-}
-
-function toggleMethodDraft(m: string): void {
-  const i = methodsDraft.value.indexOf(m)
-  if (i === -1) methodsDraft.value.push(m)
-  else methodsDraft.value.splice(i, 1)
 }
 
 function cancelMethods(): void {
@@ -764,11 +788,37 @@ function closeReject(): void {
   showReject.value = false
 }
 
-async function onVerify(): Promise<void> {
+// -- Promote-on-verify (ПРОМТ №505): mirrors AdminMethodRequestsView's own
+// onApprove/doApprove/onPromoteConfirm/onPromoteCancel verbatim, same
+// VConfirmDialog component (already imported+used on this screen for
+// revoke), same copy. A custom/unmatched method in the applicant's own
+// methods (parseMethods, already used for hasParsedMethods above) pauses
+// verify on a confirm; dismissing (overlay tap) and the explicit "Только
+// этому мастеру" button fire the SAME `cancel` event (VConfirmDialog wraps
+// VModal's @close straight into its own @cancel) -- so an accidental
+// dismiss can never fail to verify, by construction, not by a separate
+// guard. No custom text -> straight to doVerify(), unchanged from before.
+const showPromote = ref(false)
+const promoteLabel = ref('')
+
+function onVerify(): void {
   if (anyLoading.value) return
+  const parsed = parseMethods(methods.value)
+  if (parsed.customEnabled && parsed.customText) {
+    promoteLabel.value = parsed.customText
+    showPromote.value = true
+    return
+  }
+  void doVerify()
+}
+
+async function doVerify(promote?: string[]): Promise<void> {
   verifying.value = true
   try {
-    await verifyMaster(masterId)
+    // Exactly one arg when there's nothing to promote -- verifyMaster's
+    // own default (promote?.length ? {promote} : {}) would handle either
+    // shape, but this keeps every pre-existing call site's arity unchanged.
+    await (promote ? verifyMaster(masterId, promote) : verifyMaster(masterId))
     toast.success('Мастер верифицирован')
     // S-1/S-2: push to the list (fresh mount) instead of back().
     router.push({ name: 'admin-masters' })
@@ -777,11 +827,22 @@ async function onVerify(): Promise<void> {
     toast.error(msg)
   } finally {
     verifying.value = false
+    showPromote.value = false
   }
 }
 
+/** «Добавить в каталог» -- verify AND promote the custom label. */
+function onPromoteConfirm(): void {
+  void doVerify([promoteLabel.value])
+}
+
+/** «Только этому мастеру» (or the dialog dismissed) -- verify, no promote. */
+function onPromoteCancel(): void {
+  void doVerify()
+}
+
 async function onReject(): Promise<void> {
-  if (rejecting.value) return
+  if (anyLoading.value) return
   rejectError.value = ''
   if (!rejectReason.value.trim()) {
     rejectError.value = 'Укажите причину отказа'

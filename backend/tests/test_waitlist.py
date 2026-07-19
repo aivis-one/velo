@@ -8,6 +8,7 @@
 #   62900-62999 -- admin users
 # =============================================================================
 
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
 
@@ -551,6 +552,24 @@ async def test_confirm_waitlist_not_owner(
     confirm_resp = await client.post(
         f"{WAITLIST_URL}/{wid}/confirm",
         headers=auth_headers(other["session_token"]),
+    )
+    assert confirm_resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_confirm_waitlist_nonexistent_id(
+    client: AsyncClient,
+) -> None:
+    """Confirming a waitlist id that doesn't exist: 404, not a 500.
+
+    W1 fix regression check: confirm_waitlist now does an unlocked peek
+    for practice_id before locking anything, so a made-up id must still
+    404 cleanly instead of raising on the peek.
+    """
+    user = await login_user(client, telegram_id=62122, first_name="Ghost")
+    confirm_resp = await client.post(
+        f"{WAITLIST_URL}/{uuid.uuid4()}/confirm",
+        headers=auth_headers(user["session_token"]),
     )
     assert confirm_resp.status_code == 404
 

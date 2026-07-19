@@ -139,6 +139,14 @@
       >
         <template #trailing><IconArrowRight :size="20" /></template>
       </VListRow>
+      <VListRow
+        title="Промокоды"
+        subtitle="Все промокоды: платформы и мастеров"
+        clickable
+        @click="router.push({ name: 'admin-promos' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
 
       <!-- Engagement -->
       <div class="admin-dashboard__section">
@@ -149,19 +157,19 @@
           label="Check-in rate"
           :value="checkinRate"
           clickable
-          @click="router.push({ name: 'admin-checkin-rate' })"
+          @click="router.push({ name: 'admin-checkin-rate', query: engagementQuery })"
         />
         <VProgressRow
           label="Feedback rate"
           :value="feedbackRate"
           clickable
-          @click="router.push({ name: 'admin-feedback-rate' })"
+          @click="router.push({ name: 'admin-feedback-rate', query: engagementQuery })"
         />
         <VProgressRow
           label="Return rate"
           :value="returnRate"
           clickable
-          @click="router.push({ name: 'admin-return-rate' })"
+          @click="router.push({ name: 'admin-return-rate', query: engagementQuery })"
         />
       </VCard>
 
@@ -190,6 +198,14 @@
           </span>
         </template>
       </VListRow>
+      <VListRow
+        title="Каталог практик"
+        subtitle="Направления и виды практик"
+        clickable
+        @click="router.push({ name: 'admin-catalog' })"
+      >
+        <template #trailing><IconArrowRight :size="20" /></template>
+      </VListRow>
     </template>
   </div>
 </template>
@@ -204,9 +220,12 @@ import { IconProfile, IconPending, IconWarning, IconArrowRight } from '@/compone
 import { useAdminStore } from '@/stores/admin'
 import { getCheckinMetric, getFeedbackMetric, getReturnMetric, getAdminRevenue } from '@/api/admin'
 import { formatMoney } from '@/utils/format'
+import { formatPeriodRange } from '@/utils/periodRange'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const adminStore = useAdminStore()
+const toast = useToast()
 
 // Period toggle (Неделя/Месяц) + stepper offset (0 = current, -1 = previous …).
 const period = ref<'week' | 'month'>('week')
@@ -305,7 +324,7 @@ async function loadEngagement(): Promise<void> {
     getCheckinMetric(p, off),
     getFeedbackMetric(p, off),
     getReturnMetric(p, off),
-    getAdminRevenue(),
+    getAdminRevenue(p, off),
   ])
   if (checkin.status === 'fulfilled') checkinRate.value = checkin.value.rate_pct
   if (feedback.status === 'fulfilled') feedbackRate.value = feedback.value.rate_pct
@@ -313,34 +332,37 @@ async function loadEngagement(): Promise<void> {
   if (revenue.status === 'fulfilled') revenueCents.value = revenue.value.revenue_cents
 }
 
-// Navigated period label, client-side: week -> "Mon - Sun", month -> "Июль 2026",
-// both shifted by periodOffset. Cosmetic mirror of the backend UTC calendar bounds.
-const periodRange = computed((): string => {
-  const now = new Date()
-  if (period.value === 'week') {
-    const dow = (now.getDay() + 6) % 7 // Mon = 0
-    const mon = new Date(now)
-    mon.setDate(now.getDate() - dow + periodOffset.value * 7)
-    const sun = new Date(mon)
-    sun.setDate(mon.getDate() + 6)
-    const fmt = (d: Date): string =>
-      d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
-    return `${fmt(mon)} - ${fmt(sun)}`
-  }
-  const m = new Date(now.getFullYear(), now.getMonth() + periodOffset.value, 1)
-  return m.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' })
-})
+// Navigated period label (shared util so the Engagement drill-in shows the same
+// week — batch P, P1).
+const periodRange = computed((): string => formatPeriodRange(period.value, periodOffset.value))
+
+// Query carried into the Engagement drill-in views so they fetch the SELECTED
+// week/month, not the current one (P1). offset is stringified for the URL.
+const engagementQuery = computed(() => ({
+  period: period.value,
+  offset: String(periodOffset.value),
+}))
 
 // Refetch the overview + engagement rates whenever the period or the stepper
 // offset changes (D1/D3 cards + D4/D5 engagement share one window).
+// W14 fix (ПРОМТ №409): fetchOverview used to be an unhandled rejection on
+// failure -- the stat cards just silently stayed stale. Toast here (the sole
+// caller of fetchOverview, so no double-toast risk with AdminShell's own
+// fetchDashboard toast).
+function loadOverview(): void {
+  void adminStore.fetchOverview(period.value, periodOffset.value).then(() => {
+    if (adminStore.overviewError) toast.error(adminStore.overviewError)
+  })
+}
+
 watch([period, periodOffset], () => {
-  void adminStore.fetchOverview(period.value, periodOffset.value)
+  loadOverview()
   void loadEngagement()
 })
 
 onMounted(() => {
   void adminStore.fetchDashboard()
-  void adminStore.fetchOverview(period.value, periodOffset.value)
+  loadOverview()
   void loadEngagement()
 })
 </script>

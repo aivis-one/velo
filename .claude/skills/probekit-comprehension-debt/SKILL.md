@@ -1,20 +1,24 @@
 ---
 name: probekit-comprehension-debt
-description: "Comprehension debt audit — git churn, code age, duplication ratio, ownership matrix, context window fitness. Measures the invisible gap between code volume and team understanding. Triggers on: 'comprehension debt', 'comprehension audit', 'churn audit', 'ownership matrix', 'who understands this code', '/probekit-comprehension-debt', 'пробкит понимание', 'пробкит долг понимания'."
+description: "Comprehension debt audit via git: churn, code age, duplication, ownership, context window fitness. Measures the gap between code volume and how well a team understands it. Use when auditing that gap."
 ---
 
-# comprehension-debt v1.1.0
+# comprehension-debt v1.1.1
 
 Measures comprehension debt — the invisible gap between code volume and how much
 of it any human genuinely understands. Based on Addy Osmani's framework (2026),
 GitClear data (211M lines), METR RCT, and Anthropic RCT findings.
+
+**Triggers:** `comprehension debt`, `comprehension audit`, `churn audit`, `ownership matrix`, `who understands this code`, `/probekit-comprehension-debt`, `пробкит понимание`, `пробкит долг понимания`.
 
 Traditional metrics (velocity, coverage, DORA) do not detect comprehension debt.
 This skill provides proxy metrics that make the invisible visible.
 
 ## Configuration
 
-review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №385, trial): CBS's docs/01_refer path replaced with a
+     git-untracked scratch dir; VELO has no docs/01_refer/. -->
+review_dir: .tmp/probekit-review
 
 ## Execution Steps
 
@@ -23,6 +27,8 @@ review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
 Check for ENVIRONMENT.md. Detect OS, shell, git availability.
 All commands use `git log`, `git diff`, `git shortlog` — require a git repository.
 If not a git repository: abort with "comprehension-debt requires a git repository."
+(VELO note, ПРОМТ №385: no ENVIRONMENT.md in this repo -- shell is Windows
+Git-Bash/PowerShell, git is available, `D:/02_Projects/velo` is a git repo.)
 
 **Step 1 — Identify input and scope**
 
@@ -70,7 +76,9 @@ Output: table sorted by risk (Red first), with file path, classification, reason
 
 **Step 5 — Cross-Probe Analysis**
 
-After all probes complete, check for compound issues:
+After all probes complete, write the compound-findings list (L6: name-what-breaks).
+Emit one line per rule below, each marked HIT or CLEAR with the two probe scores that
+decided it — never skip a rule, and an empty list must be stated as "no compounds: all CLEAR":
 - High Churn + Low Code Age = "add it and forget it" pattern (escalate to CRITICAL)
 - High Duplication + Low Context Window Fitness = AI generating without reuse (escalate to CRITICAL)
 - Low Ownership Clarity + High Churn = code nobody owns being constantly rewritten (escalate to CRITICAL)
@@ -136,5 +144,5 @@ Invoke:
 
 ## Anchor
 
-[*] comprehension-debt v1.1.0 * ready
+[*] comprehension-debt v1.1.1 * ready
 [>] | NEXT: user command

@@ -35,7 +35,24 @@
     <!-- Header -->
     <VHeader title="Новая практика" show-back @back="onBack" />
 
-    <div class="create-practice__content" @click="dismissKeyboardOnBlank">
+    <div class="create-practice__content">
+      <!-- Draft restore prompt (B2): a stored draft is NOT auto-filled — the
+           master chooses to restore it or start fresh. -->
+      <Banner
+        v-if="showDraftBanner"
+        variant="info"
+        title="Продолжить черновик?"
+        class="create-practice__draft-banner"
+      >
+        <template #body>
+          <p class="create-practice__draft-text">У вас есть несохранённый черновик практики.</p>
+          <div class="create-practice__draft-actions">
+            <VButton variant="secondary" size="sm" @click="restoreDraft">Восстановить</VButton>
+            <VButton variant="ghost" size="sm" @click="discardDraft">Начать заново</VButton>
+          </div>
+        </template>
+      </Banner>
+
       <!-- Required-fields legend (DS banner, Phase-3). -->
       <div class="create-practice__legend">
         <IconRequired class="create-practice__legend-seal" :size="22" />
@@ -64,11 +81,12 @@
 
         <VInput v-model="form.title" placeholder="Название" :error="errors.title" required />
 
-        <!-- Направление = дисциплина (meditation/yoga/…). Подпись = плейсхолдер. -->
+        <!-- Направление = дисциплина (meditation/yoga/…). Подпись = плейсхолдер.
+             Options catalog-first (T2 stage 2) -- see directionOptions. -->
         <VSelect
           v-model="form.direction"
           placeholder="Направление практики"
-          :options="DIRECTION_OPTIONS"
+          :options="directionOptions"
           :error="errors.direction"
           required
           @update:modelValue="onDirectionChange"
@@ -233,7 +251,7 @@
                 min="1"
                 class="create-practice__end-control create-practice__count-input"
                 placeholder="Число повторений"
-                @focus="scrollFieldIntoView"
+                @focus="onFieldFocus"
               />
             </VCard>
             <span
@@ -327,7 +345,7 @@
         <h2 class="velo-section-title">Подключение</h2>
 
         <div class="create-practice__railed">
-          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="scrollFieldIntoView" />
+          <VInput v-model="form.zoom_link" placeholder="Ссылка на Zoom" @focus="onFieldFocus" />
         </div>
       </div>
 
@@ -364,7 +382,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { DateTime } from 'luxon'
 import { useRouter } from 'vue-router'
 import { VHeader } from '@/components/layout'
@@ -387,12 +405,20 @@ import { formatShortDate, todayLocalISO } from '@/utils/format'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import TimePickerSheet from '@/components/shared/TimePickerSheet.vue'
 import UseTemplateBlock from '@/components/shared/UseTemplateBlock.vue'
+import Banner from '@/components/shared/Banner.vue'
 import { ApiResponseError } from '@/api/client'
-import { DURATION_OPTIONS, DIRECTION_OPTIONS, stylesForDirection } from '@/utils/practiceOptions'
-import type { PracticeDirection, RecurrenceSpec, PracticeResponse } from '@/api/types'
+import { DURATION_OPTIONS, catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
+import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
+import type { TaxonomyListResponse } from '@/api/taxonomy'
+import type { RecurrenceSpec, PracticeResponse } from '@/api/types'
 
 const router = useRouter()
 const toast = useToast()
+
+// Lift the focused field above the soft keyboard once it settles (shared M5
+// composable — replaces the bespoke 300ms scrollFieldIntoView, K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 // Back/cancel: return to the real origin. Create opens from BOTH the dashboard
 // empty-state CTA and Практики's «+» (goNew) — router.back() lands on whichever
@@ -404,26 +430,22 @@ function onBack(): void {
   else router.push({ name: 'master-practices' })
 }
 
-// The bottom-most fields («Число повторений», «Ссылка на Zoom») sit low on the
-// long form, where the soft keyboard covers them on focus. Center the focused
-// field in the (keyboard-shrunk) viewport so it stays visible while typing. The
-// delay lets the keyboard finish opening — scrolling before the visualViewport
-// shrinks would aim at the old, taller viewport. iOS/Telegram-webview behaviour,
-// so this is device-verified on TEST (desktop has no soft keyboard).
-function scrollFieldIntoView(e: FocusEvent): void {
-  const el = e.target as HTMLElement | null
-  if (!el) return
-  window.setTimeout(() => {
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, 300)
-}
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
 // Load the master's practices so «Использовать шаблон» can offer them as
 // templates (no-op if already loaded from the practices list / dashboard).
+// T2 stage 2 (2026-07-15): prime the taxonomy catalog IN PARALLEL, on entry --
+// "close the flash, not just shrink it" (operator). Rides the shared cache
+// (ensureTaxonomyCatalog(): zero network call if another screen already
+// warmed it this session); if cold, fetched here before the master is likely
+// to have opened the Направление select.
+const catalog = ref<TaxonomyListResponse | null>(null)
 onMounted(() => {
   void masterStore.fetchMyPractices()
+  void ensureTaxonomyCatalog().then((c) => {
+    catalog.value = c
+  })
 })
 
 const submitting = ref(false)
@@ -439,15 +461,6 @@ function friendlyDate(iso: string): string {
 }
 const dateDisplay = computed((): string => friendlyDate(form.date))
 const endDateDisplay = computed((): string => friendlyDate(form.recurrence_end_date))
-
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs
-// like «Максимум мест» have no «Готово» key) — operator 2026-06-18 (port from edit).
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
-}
 
 // -- Recurrence period options (Повторение). The on/off toggle drives
 // practice_type (series/live); when on, period/days/end build a RecurrenceSpec
@@ -534,9 +547,15 @@ const templatePractices = computed((): PracticeResponse[] =>
   [...masterStore.practices].sort((a, b) => b.created_at.localeCompare(a.created_at)),
 )
 
+// Direction options, catalog-first (T2 stage 2) -- falls back to the
+// hardcoded DIRECTION_OPTIONS while catalog.value is cold/unreachable.
+const directionOptions = computed(() => catalogDirectionOptions(catalog.value))
+
 // Direction-conditional style options. When the direction has no styles
 // (e.g. breathwork, somatic, tantra, ...) the VSelect is hidden by v-if.
-const styleOptionsForForm = computed(() => stylesForDirection(form.direction as PracticeDirection))
+// Catalog-first (T2 stage 2) -- falls back to the hardcoded
+// STYLE_OPTIONS_BY_DIRECTION while catalog.value is cold/unreachable.
+const styleOptionsForForm = computed(() => catalogStylesForDirection(catalog.value, form.direction))
 
 /** Reset style when direction changes — the previous value is likely
  *  invalid for the new direction. */
@@ -551,6 +570,10 @@ function onDirectionChange(): void {
  * The block collapses itself after selecting.
  */
 function applyTemplate(p: PracticeResponse): void {
+  // Prefill is NOT itself a user draft (B2): suppress the autosave watch across
+  // the assignment, re-enable next tick so the master's own subsequent edits do
+  // get saved.
+  suppressSave = true
   form.title = p.title
   form.direction = p.direction ?? ''
   form.style = p.style ?? ''
@@ -561,7 +584,113 @@ function applyTemplate(p: PracticeResponse): void {
   form.what_to_prepare = p.what_to_prepare ?? ''
   form.contraindications = p.contraindications ?? ''
   // date & time intentionally NOT copied.
+  void nextTick(() => {
+    suppressSave = false
+  })
 }
+
+// -- Draft autosave (L1 / B2) ------------------------------------------------
+// Debounced localStorage draft so a half-filled «Новая практика» survives an
+// accidental navigation-away. Scoped per user. NOT auto-restored: on mount a
+// meaningful draft surfaces a «Продолжить черновик?» banner (restore / start
+// fresh). Cleared on successful submit + on «Начать заново».
+const DRAFT_KEY = computed(() => `velo:create-practice-draft:${authStore.user?.id ?? 'anon'}`)
+
+type DraftShape = Record<string, unknown>
+
+// A draft is worth restoring only when the master actually started composing
+// (some field beyond the empty defaults) — a bare open shouldn't nag next visit.
+function isMeaningfulDraft(d: DraftShape | null): boolean {
+  if (!d) return false
+  const s = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+  return Boolean(
+    s(d.title) ||
+      d.direction ||
+      d.difficulty ||
+      d.style ||
+      d.date ||
+      d.time ||
+      d.duration_minutes ||
+      s(d.max_participants_raw) ||
+      s(d.description) ||
+      s(d.what_to_prepare) ||
+      s(d.contraindications) ||
+      s(d.zoom_link) ||
+      d.is_recurring,
+  )
+}
+
+const showDraftBanner = ref(false)
+let pendingDraft: DraftShape | null = null
+
+// Gates the autosave watch so a template prefill / restore isn't re-persisted as
+// a fresh draft — only genuine user edits are.
+let suppressSave = false
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+
+function scheduleSave(): void {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY.value, JSON.stringify(form))
+    } catch {
+      // storage full / disabled — a lost draft is non-fatal.
+    }
+  }, 500)
+}
+
+function clearDraft(): void {
+  clearTimeout(saveTimer)
+  try {
+    localStorage.removeItem(DRAFT_KEY.value)
+  } catch {
+    // ignore
+  }
+}
+
+watch(
+  form,
+  () => {
+    if (suppressSave) return
+    scheduleSave()
+  },
+  { deep: true },
+)
+
+function restoreDraft(): void {
+  if (pendingDraft) {
+    suppressSave = true
+    Object.assign(form, pendingDraft)
+    void nextTick(() => {
+      suppressSave = false
+    })
+  }
+  showDraftBanner.value = false
+  pendingDraft = null
+}
+
+function discardDraft(): void {
+  clearDraft()
+  showDraftBanner.value = false
+  pendingDraft = null
+}
+
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY.value)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as DraftShape
+    if (isMeaningfulDraft(parsed)) {
+      pendingDraft = parsed
+      showDraftBanner.value = true
+    } else {
+      clearDraft()
+    }
+  } catch {
+    // malformed draft — drop it.
+    clearDraft()
+  }
+})
 
 // -- Validation --
 function validate(): boolean {
@@ -725,6 +854,11 @@ async function submit(): Promise<void> {
     // dashboard «Ближайшая практика» (scheduled/live only) right away.
     await updatePractice(created.id, { status: 'scheduled' })
 
+    // Draft fulfilled — drop it (and block any late debounced save) so it can't
+    // resurrect on the next create.
+    suppressSave = true
+    clearDraft()
+
     toast.success('Практика создана!')
     // Redirect to the master's practices list — it defaults to the «Предстоящие»
     // (upcoming) tab, and the practice we just published is status='scheduled', so
@@ -809,6 +943,20 @@ async function submit(): Promise<void> {
 .create-practice__legend-seal {
   flex-shrink: 0;
   color: var(--velo-rating-good);
+}
+
+/* -- Draft-restore banner (B2) -- */
+.create-practice__draft-text {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--velo-text-secondary);
+  line-height: 1.4;
+}
+
+.create-practice__draft-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 /* Повторение cards (white plates). */

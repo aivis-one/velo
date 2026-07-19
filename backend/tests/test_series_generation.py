@@ -584,12 +584,12 @@ async def test_series_generation_idempotent(
 
     from app.core.database import get_session_factory
     from app.modules.practices.models import Practice
-    from app.modules.practices.service import _generate_series_occurrences
+    from app.modules.practices.series_service import generate_series_occurrences
 
     factory = get_session_factory()
     async with factory() as s:
         root = await s.get(Practice, UUID(root_id))
-        created = await _generate_series_occurrences(root, s)
+        created = await generate_series_occurrences(root, s)
         assert created == 0
         await s.commit()
 

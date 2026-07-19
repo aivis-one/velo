@@ -114,6 +114,11 @@ const router = createRouter({
           component: () => import('@/views/user/UserMessagesView.vue'),
         },
         {
+          path: 'support',
+          name: 'user-support',
+          component: () => import('@/views/user/SupportView.vue'),
+        },
+        {
           path: 'practices/:id',
           name: 'practice-detail',
           component: () => import('@/views/user/PracticeDetailView.vue'),
@@ -409,6 +414,13 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminMethodRequestsView.vue'),
         },
         {
+          // P2: read-only practice directions/styles catalog. Editing lands with
+          // the catalog backend (A4/Zod); for now it's a view of the taxonomy.
+          path: 'catalog',
+          name: 'admin-catalog',
+          component: () => import('@/views/admin/AdminCatalogView.vue'),
+        },
+        {
           path: 'reports',
           name: 'admin-reports',
           component: () => import('@/views/admin/AdminReportsView.vue'),
@@ -467,6 +479,11 @@ const router = createRouter({
           path: 'withdrawals/:id',
           name: 'admin-withdrawal-detail',
           component: () => import('@/views/admin/AdminWithdrawalDetailView.vue'),
+        },
+        {
+          path: 'promos',
+          name: 'admin-promos',
+          component: () => import('@/views/admin/AdminPromosView.vue'),
         },
         {
           path: '',

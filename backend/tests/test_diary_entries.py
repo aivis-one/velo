@@ -10,6 +10,7 @@
 #   - GET /diary/{id} (own entry, other user's entry)
 #   - PATCH /diary/{id} (update content, mood, clear fields, other user)
 #   - DELETE /diary/{id} (own entry, other user's entry)
+#   - POST /diary/{id}/restore (own entry, not found, other user, not deleted)
 #   - Practice link validation (practice exists, user has booking)
 #   - Input validation (content too long, title too long, invalid mood)
 #   - Auth checks (401)
@@ -709,6 +710,141 @@ async def test_delete_entry_other_user(
     resp = await client.delete(
         f"{DIARY_URL}/{entry_id}",
         headers=auth_headers(auth2["session_token"]),
+    )
+    assert resp.status_code == 404
+
+
+# ===================================================================
+# POST /diary/{id}/restore -- own deleted entry (200, undo delete)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_restore_entry_success(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Restore own soft-deleted entry: 200, is_deleted cleared, GET works again.
+
+    Feed re-projection (the entry returning to GET /diary/feed) is pinned
+    separately in test_diary_feed.py, next to the soft-delete-hides test it
+    mirrors.
+    """
+    auth = await login_user(client, telegram_id=87021, first_name="User21")
+    headers = auth_headers(auth["session_token"])
+
+    create_resp = await client.post(
+        DIARY_URL,
+        json={"content": "To be restored."},
+        headers=headers,
+    )
+    entry_id = create_resp.json()["id"]
+
+    del_resp = await client.delete(
+        f"{DIARY_URL}/{entry_id}",
+        headers=headers,
+    )
+    assert del_resp.status_code == 204
+
+    restore_resp = await client.post(
+        f"{DIARY_URL}/{entry_id}/restore",
+        headers=headers,
+    )
+    assert restore_resp.status_code == 200
+    assert restore_resp.json()["is_deleted"] is False
+
+    # get_diary_entry 404s deleted rows -- confirm it's reachable again.
+    get_resp = await client.get(
+        f"{DIARY_URL}/{entry_id}",
+        headers=headers,
+    )
+    assert get_resp.status_code == 200
+
+
+# ===================================================================
+# POST /diary/{id}/restore -- entry does not exist (404)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_restore_entry_not_found(
+    client: AsyncClient,
+) -> None:
+    """Restore a non-existent entry: 404."""
+    auth = await login_user(client, telegram_id=87022, first_name="User22")
+    headers = auth_headers(auth["session_token"])
+
+    resp = await client.post(
+        f"{DIARY_URL}/{uuid4()}/restore",
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+# ===================================================================
+# POST /diary/{id}/restore -- other user's entry (404)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_restore_entry_other_user(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Restore another user's deleted entry: 404 (ownership, not just existence)."""
+    auth1 = await login_user(client, telegram_id=87023, first_name="User23")
+    auth2 = await login_user(client, telegram_id=87024, first_name="User24")
+    headers1 = auth_headers(auth1["session_token"])
+    headers2 = auth_headers(auth2["session_token"])
+
+    create_resp = await client.post(
+        DIARY_URL,
+        json={"content": "User23's entry."},
+        headers=headers1,
+    )
+    entry_id = create_resp.json()["id"]
+
+    del_resp = await client.delete(
+        f"{DIARY_URL}/{entry_id}",
+        headers=headers1,
+    )
+    assert del_resp.status_code == 204
+
+    resp = await client.post(
+        f"{DIARY_URL}/{entry_id}/restore",
+        headers=headers2,
+    )
+    assert resp.status_code == 404
+
+
+# ===================================================================
+# POST /diary/{id}/restore -- entry is not deleted (404, deliberate)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_restore_entry_not_deleted(
+    client: AsyncClient,
+) -> None:
+    """Restore an active (never-deleted) entry: 404.
+
+    Deliberate contract (see restore_diary_entry's docstring): restoring an
+    entry that was never deleted is a no-op the client never needs, so the
+    service 404s instead of silently succeeding.
+    """
+    auth = await login_user(client, telegram_id=87025, first_name="User25")
+    headers = auth_headers(auth["session_token"])
+
+    create_resp = await client.post(
+        DIARY_URL,
+        json={"content": "Never deleted."},
+        headers=headers,
+    )
+    entry_id = create_resp.json()["id"]
+
+    resp = await client.post(
+        f"{DIARY_URL}/{entry_id}/restore",
+        headers=headers,
     )
     assert resp.status_code == 404
 

@@ -1,17 +1,33 @@
 ---
 name: probekit-a11y-audit
-description: "v1.0.0 | CBS HOME accessibility audit. Checks ARIA roles, contrast, keyboard nav, focus management, screen reader, semantic HTML, form labels, skip links. Use when: 'a11y audit', 'accessibility check', 'WCAG check', 'screen reader audit', 'доступность'."
+description: "v1.0.0 | Accessibility audit for VELO's Vue 3 frontend. Checks ARIA roles, contrast, keyboard nav, focus management, screen reader, semantic HTML, form labels, skip links. Use when: 'a11y audit', 'accessibility check', 'WCAG check', 'screen reader audit', 'доступность'."
 ---
 
 # a11y-audit v1.0.0
 
-CBS HOME accessibility compliance audit for Vue 3 frontend.
+Accessibility compliance audit for VELO's Vue 3 frontend.
 Verifies WCAG 2.1 AA compliance across all components and views.
 
 ## Configuration
 
-source_dir: mockups/frontend/src
-index_html: mockups/frontend/index.html
+<!-- VELO-tuned (ПРОМТ №435): CBS's mockups/frontend/* paths swapped for VELO's
+     real tree. review_dir ADDED -- it was referenced by Step 5 below but never
+     defined anywhere in this skill, so the tracker path was undefined.
+
+     WHY THIS SKILL APPLIES HERE, despite the Mini App being RU-only: RU-only is
+     an i18n property, not an accessibility one. Screen readers, keyboard focus
+     order, contrast and form labels are orthogonal to how many languages ship.
+     (Argued and accepted, ПРОМТ №435.)
+
+     ONE INERT STEP -- marked, NOT rewritten: Step 3.4 "Cross-reference with
+     i18n (ARIA labels must be translated)". VELO has no i18n surface today
+     (LanguageTimezoneView.vue:13 says so in the product's own words), so there
+     is nothing to cross-reference and that check silently finds nothing. Its
+     silence is NOT a pass. It comes back when multi-language lands -- see
+     probekit-i18n-audit, which is PAUSED for the same reason. -->
+source_dir: frontend/src
+index_html: frontend/index.html
+review_dir: .tmp/probekit-review
 
 ## Probes
 

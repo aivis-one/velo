@@ -899,6 +899,70 @@ class TestTemplateEngine:
         # Placeholders like {practice_title} appear literally.
         assert "{practice_title}" in body
 
+    def test_render_escapes_ampersand_in_practice_title(self) -> None:
+        """A practice title containing '&' must not break Telegram's HTML
+        parser: the ampersand is escaped to '&amp;' rather than passed
+        through raw (raw '&' outside a recognized entity makes Telegram's
+        send_message reject the whole message)."""
+        load_templates()
+        result = render(
+            "booking_confirmed",
+            "en",
+            {
+                "practice_title": "Yoga & Meditation",
+                "scheduled_at": "2026-03-01 10:00",
+                "master_name": "Anna",
+                "paid_amount": "15.00",
+            },
+        )
+        assert result is not None
+        _, body = result
+        assert "Yoga &amp; Meditation" in body
+        assert "Yoga & Meditation" not in body
+
+    def test_render_escapes_injected_html_in_master_name(self) -> None:
+        """A master_name containing an <a href> tag must render as inert
+        escaped text, not a live clickable link -- otherwise any verified
+        master could inject a phishing link into notifications sent to
+        their students."""
+        load_templates()
+        malicious_name = '<a href="https://phishing.example">Anna</a>'
+        result = render(
+            "booking_confirmed",
+            "en",
+            {
+                "practice_title": "Morning Yoga",
+                "scheduled_at": "2026-03-01 10:00",
+                "master_name": malicious_name,
+                "paid_amount": "15.00",
+            },
+        )
+        assert result is not None
+        _, body = result
+        assert "<a href=" not in body
+        assert "&lt;a href=" in body
+
+    def test_render_all_languages_still_render_with_escaping(self) -> None:
+        """Escaping must not break normal rendering in any of the 4
+        supported languages -- a title with no special characters renders
+        unchanged in every language's booking_confirmed template."""
+        load_templates()
+        for lang in ("en", "ru", "de", "es"):
+            result = render(
+                "booking_confirmed",
+                lang,
+                {
+                    "practice_title": "Morning Yoga",
+                    "scheduled_at": "2026-03-01 10:00",
+                    "master_name": "Anna",
+                    "paid_amount": "15.00",
+                },
+            )
+            assert result is not None, f"render() returned None for lang={lang}"
+            title, body = result
+            assert "Morning Yoga" in body
+            assert title  # non-empty
+
 
 # ===================================================================
 # 7. TelegramFormatter (Phase 7.3, mocked)

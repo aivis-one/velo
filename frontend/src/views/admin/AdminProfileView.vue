@@ -77,6 +77,7 @@ function switchToUserMode(): void {
 
 // -- Logout --
 async function onLogout(): Promise<void> {
+  if (loggingOut.value) return
   loggingOut.value = true
   try {
     await authStore.logout()

@@ -42,14 +42,14 @@
     </div>
 
     <!-- ================= INTRO STEPS (0-2) ================= -->
-    <div v-if="!isTimezoneStep" class="onboarding__body">
+    <div v-if="!isTimezoneStep" class="onboarding__body velo-kbd-scroll">
       <img :src="currentSlide.image" :alt="currentSlide.title" class="onboarding__illustration" />
       <h2 class="onboarding__title">{{ currentSlide.title }}</h2>
       <p class="onboarding__text">{{ currentSlide.text }}</p>
     </div>
 
     <!-- ================= TIMEZONE STEP (3) ================= -->
-    <div v-else class="onboarding__body onboarding__body--form">
+    <div v-else class="onboarding__body onboarding__body--form velo-kbd-scroll">
       <h2 class="onboarding__title">Часовой пояс</h2>
       <p class="onboarding__text">
         Укажите ваш часовой пояс, чтобы мы правильно показывали время практик
@@ -287,6 +287,11 @@ async function finish(): Promise<void> {
 
 .onboarding__body {
   flex: 1;
+  /* ROOT-LOCK: own the scroll so the skip-row/footer stay pinned while long
+     slide text or the timezone picker scrolls (html/body/#app no longer
+     absorb overflow). */
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,44 +1,52 @@
 # =============================================================================
-# VELO Backend -- Practice Auto-Finalizer (Batch 1)
+# VELO Backend -- Practice Lifecycle Worker (Batch 1, extended)
 # =============================================================================
 #
 # Background asyncio.Task that runs inside FastAPI lifespan, mirroring the
 # notification processor (app/modules/notifications/processor.py).
 #
 # WHY:
-#   A master finalizes a practice by hand ("Закрыть"). If they forget, the
-#   practice would stay scheduled/live forever: its confirmed bookings never
-#   resolve to attended/no_show, the master's money stays frozen, and the
-#   practice keeps haunting the catalog / dashboard. This worker closes any
-#   practice whose scheduled END (+ a small buffer) has passed, so completion /
-#   settlement / feedback happen ~at the end without the master pressing
-#   «Завершить» (role-status unification 2026-06-09).
+#   Practices are driven by the clock -- the master no longer starts or finishes
+#   a practice by hand. Without this worker a practice would stay scheduled
+#   forever: it would never go live, its confirmed bookings would never resolve
+#   to attended/no_show, the master's money would stay frozen, and the feedback
+#   prompt would never fire. This worker performs BOTH time-based transitions,
+#   acting as the system actor.
 #
-# HOW:
-#   Poll practices WHERE status IN (scheduled, live) AND
-#   scheduled_at + duration_minutes + buffer <= now. For each, run the SAME
-#   settlement core as
-#   the manual path via bookings.service.auto_finalize_practice (attendance +
-#   ledger unfreeze/commission + diary projection), acting as the system.
+# HOW (two phases per poll, FINISH before START):
+#   FINISH: practices WHERE status IN (scheduled, live) AND
+#           scheduled_at + duration_minutes + buffer <= now. Each runs the full
+#           settlement core via bookings.service.auto_finalize_practice
+#           (attendance + ledger unfreeze/commission + diary projection +
+#           feedback push).
+#   START:  practices WHERE status == scheduled AND scheduled_at <= now AND the
+#           scheduled END has NOT passed. Each moves scheduled -> live via
+#           bookings.service.auto_start_practice (status only -- no bookings,
+#           money or diary are touched).
+#
+#   FINISH runs first on purpose: a practice whose start AND end have both
+#   already passed (e.g. the worker was down for a while) is caught by FINISH
+#   and goes straight to completed -- it never flickers through live. START only
+#   ever sees practices whose end is still in the future.
 #
 # SESSION / ISOLATION:
 #   Runs outside request context -- uses get_session_factory() like the
-#   notification processor and the Stripe webhook. Unlike the notification
-#   processor (which locks and processes a whole batch in one transaction),
-#   each practice here is finalized in its OWN session/transaction: settlement
-#   touches money + diary and is comparatively heavy, so we isolate failures
-#   (one bad practice must not roll back the others) and keep the FOR UPDATE
-#   lock held only for that practice's settlement.
+#   notification processor and the Stripe webhook. Each practice is transitioned
+#   in its OWN session/transaction: FINISH settlement touches money + diary and
+#   is comparatively heavy, so we isolate failures (one bad practice must not
+#   roll back the others) and hold the FOR UPDATE lock only for that practice.
+#   START is light but uses the same per-practice isolation for symmetry.
 #
-#   Selection and settlement use FOR UPDATE SKIP LOCKED so a practice a master
-#   is finalizing by hand right now (its row already locked) is simply skipped
-#   this tick and picked up next time -- no double finalize, no deadlock.
+#   Both phases claim rows with FOR UPDATE SKIP LOCKED, so a row already locked
+#   by the other phase (or a concurrent op) is simply skipped this tick and
+#   picked up next cycle -- no double transition, no deadlock.
 #
 # BACKOFF:
-#   Empty poll -> interval doubles (up to max_backoff). Work found -> reset.
+#   Empty poll (nothing started or finished) -> interval doubles (up to
+#   max_backoff). Any work found -> reset.
 #
 # ERROR HANDLING:
-#   Each practice is finalized independently. One failure is logged and the
+#   Each practice is transitioned independently. One failure is logged and the
 #   loop continues. Unhandled exceptions in the main loop are caught, logged,
 #   and the loop continues after backoff.
 # =============================================================================
@@ -53,7 +61,10 @@ from sqlalchemy.exc import IntegrityError
 from app.core.config import settings
 from app.core.database import get_session_factory
 from app.core.exceptions import BadRequestError, NotFoundError
-from app.modules.bookings.service import auto_finalize_practice
+from app.modules.bookings.service import (
+    auto_finalize_practice,
+    auto_start_practice,
+)
 from app.modules.practices.models import Practice, PracticeStatus
 
 logger = structlog.get_logger()
@@ -117,28 +128,36 @@ async def run_autofinalizer() -> None:
 
 
 async def _poll_cycle() -> bool:
-    """Claim and finalize overdue practices.
+    """Run one lifecycle tick: FINISH overdue practices, then START due ones.
 
-    Returns True if at least one practice was finalized (resets backoff).
+    Returns True if at least one practice was started or finalized (resets
+    backoff).
 
-    Selection runs in its own short transaction: it locks the overdue rows
-    with SKIP LOCKED, collects their ids, and releases immediately. Each id
-    is then finalized in a fresh session so a single failure cannot roll back
-    the rest of the batch.
+    FINISH runs before START so a practice whose start and end have both passed
+    goes straight to completed instead of flickering through live (see module
+    docstring). Each phase claims its rows in a short SKIP LOCKED transaction and
+    then transitions each practice in a fresh session, so a single failure cannot
+    roll back the rest of the batch.
     """
+    # -- FINISH phase: scheduled/live past their end -> completed --
     overdue_ids = await _claim_overdue_ids()
-    if not overdue_ids:
-        return False
-
     finalized = 0
     for practice_id in overdue_ids:
         if await _finalize_one(practice_id):
             finalized += 1
-
     if finalized > 0:
         logger.info("practice_autofinalize_batch", finalized=finalized)
 
-    return finalized > 0
+    # -- START phase: scheduled whose start has passed (end still ahead) -> live --
+    startable_ids = await _claim_startable_ids()
+    started = 0
+    for practice_id in startable_ids:
+        if await _start_one(practice_id):
+            started += 1
+    if started > 0:
+        logger.info("practice_autostart_batch", started=started)
+
+    return bool(finalized or started)
 
 
 async def _claim_overdue_ids() -> list:
@@ -225,6 +244,97 @@ async def _finalize_one(practice_id) -> bool:
         # bad practice never stalls the worker.
         logger.exception(
             "practice_autofinalize_failed",
+            practice_id=str(practice_id),
+        )
+        return False
+
+
+# ===================================================================
+# Start phase (scheduled -> live)
+# ===================================================================
+
+
+async def _claim_startable_ids() -> list:
+    """Return ids of scheduled practices whose start has passed (end still ahead).
+
+    A practice is startable when it is still `scheduled`, its scheduled_at is in
+    the past, and its scheduled END (scheduled_at + duration_minutes) is still in
+    the future -- so only practices genuinely running now go live. Practices
+    whose end has already passed are intentionally left for the FINISH phase
+    (which ran first) so they go straight to completed without flickering through
+    live. FOR UPDATE SKIP LOCKED means rows already locked by the FINISH phase or
+    a concurrent op are skipped this tick and picked up next cycle.
+    """
+    factory = get_session_factory()
+    now = datetime.now(UTC)
+    batch_size = settings.practice_autofinalize_batch_size
+
+    try:
+        async with factory() as session:
+            stmt = (
+                select(Practice.id)
+                .where(
+                    Practice.status == PracticeStatus.SCHEDULED.value,
+                    # Start time has passed...
+                    Practice.scheduled_at <= now,
+                    # ...but the end has NOT (leave fully-past ones to FINISH).
+                    # Per-practice end (duration is a column), so make_interval.
+                    Practice.scheduled_at
+                    + func.make_interval(
+                        0, 0, 0, 0, 0, Practice.duration_minutes,
+                    )
+                    > now,
+                )
+                .order_by(Practice.scheduled_at.asc())
+                .limit(batch_size)
+                .with_for_update(skip_locked=True)
+            )
+            result = await session.execute(stmt)
+            ids = list(result.scalars().all())
+            # Read-only claim: nothing was mutated. Release the SKIP LOCKED locks
+            # now with an explicit rollback rather than at session close.
+            await session.rollback()
+            return ids
+    except Exception:
+        logger.exception("practice_autostart_claim_error")
+        return []
+
+
+async def _start_one(practice_id) -> bool:
+    """Move a single scheduled practice to live in its own transaction.
+
+    Returns True on success. BadRequestError/NotFoundError are expected races
+    (the practice was started, finalized, cancelled or removed between claim and
+    transition) and are logged at info, not error. Any other error is logged and
+    swallowed so the batch continues.
+    """
+    factory = get_session_factory()
+
+    try:
+        async with factory() as session:
+            try:
+                await auto_start_practice(practice_id, session)
+                await session.commit()
+                return True
+            except (BadRequestError, NotFoundError) as exc:
+                # Lost the race (already transitioned/removed) -- not an error.
+                await session.rollback()
+                logger.info(
+                    "practice_autostart_skipped",
+                    practice_id=str(practice_id),
+                    reason=str(exc),
+                )
+                return False
+            except IntegrityError:
+                await session.rollback()
+                logger.exception(
+                    "practice_autostart_integrity_error",
+                    practice_id=str(practice_id),
+                )
+                return False
+    except Exception:
+        logger.exception(
+            "practice_autostart_failed",
             practice_id=str(practice_id),
         )
         return False

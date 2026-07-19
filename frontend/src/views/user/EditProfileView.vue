@@ -35,7 +35,7 @@
   <div class="edit-profile">
     <VHeader title="Редактировать профиль" show-back @back="router.back()" />
 
-    <div class="edit-profile__content" @click="dismissKeyboardOnBlank">
+    <div class="edit-profile__content">
       <!-- Avatar + change photo (stub) -->
       <div class="edit-profile__avatar-block">
         <VAvatar :name="displayName" :url="user?.avatar_url ?? undefined" size="xl" />
@@ -44,36 +44,50 @@
         </button>
       </div>
 
+      <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
+      <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
+      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
+
+      <!-- E-mail (E11: captured here — Telegram provides none) -->
+      <VInput
+        v-model="form.email"
+        label="E-mail"
+        type="email"
+        placeholder="you@example.com"
+        @focus="onFieldFocus"
+      />
+      <p v-if="emailError" class="edit-profile__field-error">{{ emailError }}</p>
+
       <!-- Методы практик (мастер): flat set + admin-approved change-request (M3).
-           Positioned below the profile picture per the operator. -->
+           Order (L2): below Имя/Фамилия/E-mail, above Языки/О себе. -->
       <div v-if="isMaster" class="edit-profile__methods">
         <label class="edit-profile__methods-label">Методы</label>
 
-        <!-- Pending: the proposed set is locked while an admin reviews it. -->
+        <!-- Pending: the proposed set is locked while an admin reviews it —
+             shown in the SAME направление→вид white cards (batch L, readonly
+             picker), not a flat chip row. Unmatched (custom) strings now
+             surface as their own chip (Q3=А, ПРОМТ №391 — was drop, Q3=В). -->
         <template v-if="methodRequestPending">
-          <div class="edit-profile__methods-chips">
-            <VChip v-for="m in pendingProposedMethods" :key="m" size="sm">{{ m }}</VChip>
-          </div>
+          <MethodTaxonomyPicker :model-value="pendingProposedMethods" readonly />
           <div class="edit-profile__methods-status">
             <VBadge variant="warning">Ожидает подтверждения</VBadge>
           </div>
           <p class="edit-profile__methods-note">{{ METHOD_CHANGE_NOTE }}</p>
         </template>
 
-        <!-- Editable: toggle the flat method set, then submit a change-request. -->
+        <!-- Editable: two-level направление→вид picker (batch L, shared
+             MethodTaxonomyPicker), seeded from the master's current methods
+             (surface-unmatched as custom, Q3=А). On submit the flat
+             new-vocabulary methods[]
+             goes to submitMethodChangeRequest (schema unchanged). PC3
+             (2026-07-12): «Свой вариант» re-enabled (default allowCustom=true,
+             same as the apply wizard) -- the custom string flows through the
+             SAME flattenMethods()/submitMethodChangeRequest() path already
+             used here, and the backend's proposed_methods field has no
+             taxonomy validation (ShortStr list, length-only) -- it already
+             accepts off-taxonomy strings pending admin approval. -->
         <template v-else>
-          <div class="edit-profile__methods-chips">
-            <VChip
-              v-for="m in AVAILABLE_METHODS"
-              :key="m"
-              size="md"
-              clickable
-              :active="selectedMethods.includes(m)"
-              @click="toggleMethod(m)"
-            >
-              {{ m }}
-            </VChip>
-          </div>
+          <MethodTaxonomyPicker v-model="selectedMethods" />
           <p v-if="methodRejectReason" class="edit-profile__methods-reject">
             Прошлый запрос отклонён: {{ methodRejectReason }}
           </p>
@@ -115,20 +129,6 @@
           Сохранить языки
         </VButton>
       </div>
-
-      <!-- Name + surname (two explicit fields — operator Q C2=Б) -->
-      <VInput v-model="form.firstName" label="Имя" placeholder="Имя" />
-      <VInput v-model="form.lastName" label="Фамилия" placeholder="Фамилия" @focus="onFieldFocus" />
-
-      <!-- E-mail (E11: captured here — Telegram provides none) -->
-      <VInput
-        v-model="form.email"
-        label="E-mail"
-        type="email"
-        placeholder="you@example.com"
-        @focus="onFieldFocus"
-      />
-      <p v-if="emailError" class="edit-profile__field-error">{{ emailError }}</p>
 
       <!-- About -->
       <VTextarea
@@ -217,8 +217,9 @@ import { useMasterStore } from '@/stores/master'
 import { ApiResponseError } from '@/api/client'
 import { submitMethodChangeRequest, updateMasterLanguages } from '@/api/masters'
 import { formatMoney } from '@/utils/format'
-import { AVAILABLE_METHODS } from '@/utils/methods'
 import { LANGUAGES } from '@/utils/languages'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
+import { flattenMethods, parseMethods, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
 import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { UserUpdate } from '@/api/types'
 
@@ -233,8 +234,10 @@ const masterStore = useMasterStore()
 const user = computed(() => authStore.user)
 const isMaster = computed(() => authStore.role === 'master')
 
-// -- Master methods (M3): editable flat set gated by admin approval ---------
-// FLAT branch: plain human-readable strings (shared AVAILABLE_METHODS source).
+// -- Master methods: two-level направление→вид picker gated by admin approval
+// (batch L). Selection is held as the flat «Направление — Вид» methods[] the
+// shared MethodTaxonomyPicker emits; the change-request payload/schema is
+// unchanged (still a flat string[] to submitMethodChangeRequest).
 const METHOD_CHANGE_NOTE =
   'Изменение методов практики требует подтверждения администратора. ' +
   'Запрос отправляется автоматически. Обработка запроса обычно занимает ' +
@@ -242,6 +245,12 @@ const METHOD_CHANGE_NOTE =
 
 // The master's current live methods (from the profile).
 const currentMethods = computed((): string[] => masterStore.profile?.methods ?? [])
+
+// Normalised current = the live methods run through the two-level taxonomy
+// (drop-unmatched, Q3). This is the baseline the picker seeds to and that
+// `methodsChanged` compares against — so opening the screen shows «no change»
+// even when the stored set contained strings outside the taxonomy.
+const normalizedCurrent = computed((): string[] => flattenMethods(parseMethods(currentMethods.value)))
 
 // The outstanding / recently-decided change-request (null when none).
 const methodRequest = computed(() => masterStore.profile?.method_change_request ?? null)
@@ -255,24 +264,19 @@ const methodRejectReason = computed((): string =>
 // whenever the profile (re)loads.
 const selectedMethods = ref<string[]>([])
 watch(
-  currentMethods,
+  normalizedCurrent,
   (next) => {
     selectedMethods.value = [...next]
   },
   { immediate: true },
 )
 
-function toggleMethod(method: string): void {
-  const idx = selectedMethods.value.indexOf(method)
-  if (idx === -1) selectedMethods.value.push(method)
-  else selectedMethods.value.splice(idx, 1)
-}
-
-// Order-insensitive: the proposed set must be non-empty and differ from live.
+// Order-insensitive: the proposed set must be non-empty and differ from the
+// normalised baseline (both in the two-level vocabulary).
 const methodsChanged = computed((): boolean => {
   const sel = selectedMethods.value
   if (sel.length === 0) return false
-  const cur = currentMethods.value
+  const cur = normalizedCurrent.value
   if (sel.length !== cur.length) return true
   const curSet = new Set(cur)
   return sel.some((m) => !curSet.has(m))
@@ -345,9 +349,12 @@ async function onSaveLanguages(): Promise<void> {
 
 // Load the master profile so the delete modal can show the balance to forfeit
 // and the methods/languages blocks reflect the current set + any pending request.
+// Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache in parallel so a
+// promoted custom method already resolves to a plain chip on first render
+// instead of flashing "custom".
 onMounted(() => {
   if (isMaster.value) {
-    void masterStore.fetchMyProfile()
+    void Promise.all([masterStore.fetchMyProfile(), primeMethodTaxonomyCatalog()])
   }
 })
 
@@ -383,13 +390,6 @@ const hasErrors = computed(() => !!bioError.value || !!emailError.value)
 // -- Actions ----------------------------------------------------------------
 function onChangePhoto(): void {
   toast.info('Опция временно недоступна')
-}
-
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
-  }
 }
 
 const saving = ref(false)

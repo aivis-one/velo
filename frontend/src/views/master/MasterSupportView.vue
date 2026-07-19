@@ -25,21 +25,18 @@
          (operator 2026-06-19); «На главную» is the only exit. -->
     <VHeader v-if="!submitted" title="Поддержка" show-back @back="router.back()" />
 
-    <!-- ===================== SUCCESS ===================== -->
+    <!-- ===================== TERMINAL (honest — no delivery claim) ===========
+         Mirrors the user SupportView: there is no support backend, so we do NOT
+         say «отправлено». Honest coming-soon wording + the real mailto channel. -->
     <div v-if="submitted" class="support__success">
       <div class="support__ok-circle">
-        <svg class="support__ok-check" viewBox="0 0 48 34" fill="none" aria-hidden="true">
-          <path
-            d="M4 18 L18 31 L44 4"
-            stroke="currentColor"
-            stroke-width="6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <IconSupportChat :size="48" />
       </div>
-      <h2 class="support__ok-title">Сообщение отправлено!</h2>
-      <p class="support__ok-text">Скоро свяжемся с вами в личных сообщениях</p>
+      <h2 class="support__ok-title">Спасибо за обращение</h2>
+      <p class="support__ok-text">
+        Поддержка в приложении скоро заработает. Если вопрос срочный — напишите нам на
+        <a :href="emailHref">support@velo.app</a>.
+      </p>
       <VButton variant="primary" block class="support__ok-cta" @click="onGoHome">
         На главную
       </VButton>
@@ -57,13 +54,14 @@
       <section class="support__section">
         <h2 class="support__title">Тема</h2>
         <div class="support__card">
-          <VRadioGroup v-model="topic" :options="TOPICS" />
+          <VRadioGroup v-model="topic" :options="topicOptions" />
           <div v-if="topic === 'other'" class="support__other">
             <input
               v-model="otherText"
               type="text"
               class="support__other-input"
               placeholder="Укажите ваш вариант"
+              @focus="onFieldFocus"
             />
             <IconArrowRight :size="18" class="support__other-arrow" />
           </div>
@@ -140,15 +138,26 @@ const router = useRouter()
 // Scroll the «Сообщение» textarea above the soft keyboard once it settles (M5).
 const { onFieldFocus } = useKeyboardFieldScroll()
 
-// -- Topic ------------------------------------------------------------------
-const TOPICS = [
-  { value: 'withdrawal', label: 'Проблема с выводом' },
-  { value: 'practices', label: 'Вопрос по практикам' },
-  { value: 'technical', label: 'Технические проблемы' },
-  { value: 'add_direction', label: 'Добавить направление практики' },
-  { value: 'rejected', label: 'Вопрос по отклоненной заявке' },
-  { value: 'other', label: 'Другое' },
+// -- Topic catalog (L7) -----------------------------------------------------
+// Mirrors the user SupportView pattern: each topic carries an INTERNAL priority
+// (P0/P1/P2 — future routing/sort signal) that is deliberately NOT rendered to
+// the master. «Добавить направление практики» is a PLAIN free-text topic (no
+// special form/route). «Вопрос по отклоненной заявке» removed (operator L7).
+type SupportPriority = 'P0' | 'P1' | 'P2'
+interface SupportTopic {
+  value: string
+  label: string
+  priority: SupportPriority
+}
+const TOPICS: SupportTopic[] = [
+  { value: 'withdrawal', label: 'Проблема с выводом', priority: 'P0' },
+  { value: 'practices', label: 'Вопрос по практикам', priority: 'P1' },
+  { value: 'technical', label: 'Технические проблемы', priority: 'P2' },
+  { value: 'add_direction', label: 'Добавить направление практики', priority: 'P2' },
+  { value: 'other', label: 'Другое', priority: 'P2' },
 ]
+// VRadioGroup only needs {value,label}; priority stays off the rendered options.
+const topicOptions = TOPICS.map((t) => ({ value: t.value, label: t.label }))
 const topic = ref('withdrawal')
 const otherText = ref('')
 const message = ref('')
@@ -187,9 +196,18 @@ const submitted = ref(false)
 
 function onSubmit(): void {
   if (!canSubmit.value) return
-  // Flow В: show the designed success screen. No support backend yet — the ticket
-  // is NOT actually sent (stub → Zod). The real fallback channel is the mailto:
-  // link above. When the backend lands, POST the topic/message/attachments here.
+  const selected = TOPICS.find((t) => t.value === topic.value)
+  // Honest stub (mirrors user SupportView): no support backend yet (→ Zod). We do
+  // NOT claim delivery; this logs the future-ready ticket shape (topic + INTERNAL
+  // priority + message) the real POST will send once the intake exists. The live
+  // channel meanwhile is the mailto: link (form + terminal screen).
+  const payload = {
+    topic: topic.value,
+    priority: selected?.priority ?? 'P2',
+    custom_topic: topic.value === 'other' ? otherText.value.trim() : null,
+    message: message.value.trim(),
+  }
+  console.info('[support] stub — no backend yet; future ticket payload:', payload)
   submitted.value = true
 }
 
@@ -392,13 +410,8 @@ function onGoHome(): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--velo-success);
-}
-
-/* Bold teal check matching the «Check-in Success» SVG (thick rounded stroke). */
-.support__ok-check {
-  width: 48px;
-  height: 34px;
+  /* Honest stub: a support-chat glyph (not a triumphant «sent» check). */
+  color: var(--velo-primary);
 }
 
 .support__ok-title {
@@ -415,11 +428,13 @@ function onGoHome(): void {
   font-size: var(--text-base);
   color: var(--velo-text-primary);
   line-height: 1.35;
-  /* Wrap to the comp's two centred lines — max-width = the SVG's line-1 width
-     («Скоро свяжемся с вами в личных») so the Marmelad wrap matches the
-     «Check-in Success».svg instead of running edge-to-edge. */
   max-width: 290px;
   margin: var(--space-4) 0 0;
+}
+
+.support__ok-text a {
+  color: var(--velo-primary);
+  text-decoration: none;
 }
 
 .support__ok-cta {

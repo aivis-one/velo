@@ -8,7 +8,12 @@
 #   - timezone must be a valid IANA timezone
 #   - duration_minutes must be within config bounds
 #   - practice_type validated via @field_validator against settings.practice_allowed_types
-#   - direction / difficulty validated against settings.practice_allowed_* lists
+#   - difficulty validated via @field_validator against settings.practice_allowed_difficulties
+#   - direction / style membership is validated in the SERVICE layer, NOT here
+#     (T2, 2026-07-15): Pydantic validators are sync and cannot query the async
+#     taxonomy catalog (practice_directions / practice_styles). See
+#     practices/service.py: _validate_taxonomy() / _validate_style_choice() --
+#     union of settings.practice_allowed_* (config) and the active DB catalog.
 #
 # PRICING VALIDATION (Phase 4.3/4.4):
 #   - is_free=True  -> price_cents forced to 0 in service
@@ -23,10 +28,13 @@
 #   - UpdatePracticeRequest: all three optional (partial PATCH); validated if sent.
 #   - PracticeResponse: surfaced as top-level fields; the service extracts them
 #     from data.taxonomy in practice_to_response().
-#   Allowed values + the style length cap live in config.py:
-#     settings.practice_allowed_directions
-#     settings.practice_allowed_difficulties
-#     settings.practice_allowed_styles_by_direction  (taxonomy v2, 2026-05-28)
+#   Allowed values + the style length cap live in config.py. direction / style
+#   are validated (in the service, see VALIDATION above) against the UNION of
+#   config and the active DB catalog (T2, 2026-07-15); difficulty has no
+#   catalog table and stays config-only:
+#     settings.practice_allowed_directions           (direction, config half)
+#     settings.practice_allowed_difficulties         (difficulty, config-only)
+#     settings.practice_allowed_styles_by_direction  (style, config half; taxonomy v2, 2026-05-28)
 #     settings.practice_style_max_length
 #
 # NO-LITERALS policy:
@@ -73,56 +81,6 @@ from app.modules.practices.models import (
     PracticeStatus,
     PracticeType,
 )
-
-
-# -- Style validation helpers (Calendar taxonomy v2, 2026-05-28) --
-# Style is direction-conditional: only meditation / yoga / circles have
-# styles, the other seven directions accept style=None only. Logic is
-# centralised here so both CreatePracticeRequest and UpdatePracticeRequest
-# can reuse it via @model_validator(mode="after").
-
-def _flat_allowed_styles() -> list[str]:
-    """All allowed style values, flattened across directions. Used when
-    direction is not present in the request (Update with only style)."""
-    return [
-        s
-        for styles in settings.practice_allowed_styles_by_direction.values()
-        for s in styles
-    ]
-
-
-def _validate_style_for_direction(direction: str | None, style: str | None) -> None:
-    """Raise ValueError if style is invalid for the given direction.
-
-    Rules:
-      style is None                                  -> always OK.
-      direction is None (Update without direction)   -> style must be in
-                                                        the flattened union.
-      direction not in styles_by_direction map       -> style MUST be None;
-                                                        if non-None, reject.
-      direction in map                               -> style must be in
-                                                        the direction's list.
-    """
-    if style is None:
-        return
-    if direction is None:
-        # No direction context — fall back to flat membership.
-        flat = _flat_allowed_styles()
-        if style not in flat:
-            raise ValueError(f"style must be one of {flat}, got '{style}'")
-        return
-    by_dir = settings.practice_allowed_styles_by_direction
-    allowed = by_dir.get(direction)
-    if allowed is None:
-        # This direction has no styles -> style must be None.
-        raise ValueError(
-            f"direction '{direction}' does not admit a style; got '{style}'"
-        )
-    if style not in allowed:
-        raise ValueError(
-            f"style for direction '{direction}' must be one of {allowed}, "
-            f"got '{style}'"
-        )
 
 
 # -- Zoom link validation (manual field; no Zoom integration / auto-gen) --
@@ -283,17 +241,6 @@ class CreatePracticeRequest(BaseModel):
         """Manually-entered zoom_link must be an https:// URL (or empty)."""
         return _validate_zoom_link(v)
 
-    @field_validator("direction")
-    @classmethod
-    def direction_must_be_valid(cls, v: str) -> str:
-        """Validate direction against allowed values from config."""
-        allowed = settings.practice_allowed_directions
-        if v not in allowed:
-            raise ValueError(
-                f"direction must be one of {allowed}, got '{v}'"
-            )
-        return v
-
     @field_validator("difficulty")
     @classmethod
     def difficulty_must_be_valid(cls, v: str) -> str:
@@ -305,14 +252,9 @@ class CreatePracticeRequest(BaseModel):
             )
         return v
 
-    @model_validator(mode="after")
-    def _check_style_vs_direction(self) -> "CreatePracticeRequest":
-        """Style is direction-conditional (taxonomy v2, 2026-05-28).
-
-        direction is REQUIRED on create, so this validator always has it.
-        """
-        _validate_style_for_direction(self.direction, self.style)
-        return self
+    # direction / style membership + pairing (taxonomy v2, 2026-05-28) is
+    # validated in the SERVICE layer as of T2 (2026-07-15), not here -- see
+    # VALIDATION at the top of this file for why.
 
     @model_validator(mode="after")
     def _check_recurrence_requires_series(self) -> "CreatePracticeRequest":
@@ -455,21 +397,6 @@ class UpdatePracticeRequest(BaseModel):
         """Manually-entered zoom_link must be an https:// URL (or empty)."""
         return _validate_zoom_link(v)
 
-    @field_validator("direction")
-    @classmethod
-    def direction_must_be_valid(
-        cls, v: str | None,
-    ) -> str | None:
-        """Validate direction against allowed values from config."""
-        if v is None:
-            return v
-        allowed = settings.practice_allowed_directions
-        if v not in allowed:
-            raise ValueError(
-                f"direction must be one of {allowed}, got '{v}'"
-            )
-        return v
-
     @field_validator("difficulty")
     @classmethod
     def difficulty_must_be_valid(
@@ -485,17 +412,12 @@ class UpdatePracticeRequest(BaseModel):
             )
         return v
 
-    @model_validator(mode="after")
-    def _check_style_vs_direction(self) -> "UpdatePracticeRequest":
-        """Style is direction-conditional (taxonomy v2, 2026-05-28).
-
-        On UPDATE, direction is optional — if absent here the validator
-        falls back to a flat membership check (full direction-style match
-        is re-verified in the service layer after merging with the stored
-        practice).
-        """
-        _validate_style_for_direction(self.direction, self.style)
-        return self
+    # direction / style membership + pairing (taxonomy v2, 2026-05-28) is
+    # validated in the SERVICE layer as of T2 (2026-07-15), not here -- see
+    # VALIDATION at the top of this file for why. On UPDATE the service
+    # validates style against whichever direction applies: the incoming one
+    # if this request also changes direction, else the practice's STORED
+    # direction (W-1).
 
     @field_validator("currency")
     @classmethod
@@ -519,10 +441,12 @@ class UpdatePracticeRequest(BaseModel):
     ) -> str | None:
         """Validate status against patch-allowed values from config.
 
-        I-04: 'cancelled' is excluded from practice_patch_allowed_statuses.
-        The only path to cancelled is POST /practices/{id}/cancel (handles
-        refunds). Pydantic raises ValueError here -> FastAPI returns 422,
-        signalling schema-level rejection before the service layer.
+        I-04: 'cancelled' is excluded from practice_patch_allowed_statuses
+        (the only path to cancelled is POST /practices/{id}/cancel, which
+        handles refunds). Batch 1: 'live' and 'completed' are excluded too --
+        they are driven by the clock by the lifecycle worker, never by PATCH.
+        Pydantic raises ValueError here -> FastAPI returns 422, signalling
+        schema-level rejection before the service layer.
         """
         if v is None:
             return v

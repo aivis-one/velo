@@ -181,7 +181,15 @@ export interface ApiError {
 
 export type PracticeType = 'live' | 'series' | 'one_on_one' | 'replay'
 export type PracticeStatus = 'draft' | 'scheduled' | 'live' | 'completed' | 'cancelled' | 'deleted'
-export type PracticeStatusTransition = 'scheduled' | 'live' | 'completed' | 'deleted'
+// Statuses a CLIENT may PATCH a practice into. 'live' and 'completed' were
+// removed (lifecycle automation): going live and completion are now driven by
+// the backend lifecycle worker off the clock (live at scheduled_at, completed at
+// scheduled_at + duration_minutes), never by the client -- the backend rejects
+// them at the schema layer (422). 'cancelled' is absent for the same reason it
+// always was: that path is POST /practices/{id}/cancel (it handles refunds).
+// NB: PracticeStatus above still carries live/completed -- those are real
+// statuses the backend REPORTS, they just cannot be REQUESTED.
+export type PracticeStatusTransition = 'scheduled' | 'deleted'
 
 // -- Calendar taxonomy facets (match backend data.taxonomy values) --
 // Mirror of settings.practice_allowed_directions in backend/app/core/config.py.

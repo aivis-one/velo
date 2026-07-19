@@ -45,7 +45,15 @@
             </div>
             <div class="report-detail__meta-row">
               <span class="report-detail__meta-key">ID цели</span>
-              <span class="report-detail__meta-val report-detail__meta-val--mono">
+              <button
+                v-if="targetRoute"
+                type="button"
+                class="report-detail__meta-val report-detail__meta-val--mono report-detail__meta-val--link"
+                @click="router.push(targetRoute)"
+              >
+                {{ report.target_id.slice(0, 8) }}…
+              </button>
+              <span v-else class="report-detail__meta-val report-detail__meta-val--mono">
                 {{ report.target_id.slice(0, 8) }}…
               </span>
             </div>
@@ -141,6 +149,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import type { RouteLocationRaw } from 'vue-router'
 import { VHeader } from '@/components/layout'
 import { VBadge, VButton, VTextarea, VEmptyState, VLoader, VCard } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
@@ -172,6 +181,20 @@ const resolving = ref(false)
 const dismissing = ref(false)
 const anyLoading = computed(() => resolving.value || dismissing.value)
 
+// Clickable target — only master/practice have a navigable admin detail
+// screen; both fetch by route id independently (no state hand-off needed).
+// user has no GET /admin/users/{id} yet (Zod ledger) -> stays plain text.
+const targetRoute = computed<RouteLocationRaw | null>(() => {
+  if (!report.value) return null
+  if (report.value.target_type === 'master') {
+    return { name: 'admin-master-review', params: { id: report.value.target_id } }
+  }
+  if (report.value.target_type === 'practice') {
+    return { name: 'admin-practice-detail', params: { id: report.value.target_id } }
+  }
+  return null
+})
+
 async function loadReport(): Promise<void> {
   const stateData = (history.state as { report?: ReportResponse }).report
   if (stateData && stateData.id === reportId) {
@@ -198,7 +221,7 @@ async function onResolve(): Promise<void> {
     resolveError.value = 'Введите примечание к решению'
     return
   }
-  if (resolving.value) return
+  if (anyLoading.value) return
   resolving.value = true
   try {
     await resolveReport(reportId, resolveNote.value.trim())
@@ -214,7 +237,7 @@ async function onResolve(): Promise<void> {
 }
 
 async function onDismiss(): Promise<void> {
-  if (dismissing.value) return
+  if (anyLoading.value) return
   dismissing.value = true
   try {
     await dismissReport(reportId, dismissNote.value.trim() || undefined)
@@ -234,7 +257,8 @@ onMounted(loadReport)
 
 <style scoped>
 .report-detail {
-  min-height: 100dvh;
+  /* Fill AdminLayout's scroll area — never dvh (collapses on keyboard). Canon §2. */
+  min-height: 100%;
 }
 
 .report-detail__content {
@@ -313,6 +337,15 @@ onMounted(loadReport)
 .report-detail__meta-val--mono {
   font-family: monospace;
   font-size: var(--text-xs);
+}
+
+.report-detail__meta-val--link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--velo-primary);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .report-detail__meta-note {

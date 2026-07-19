@@ -84,3 +84,67 @@ Reference catalog for code-audit. Flag when found during analysis.
 - List endpoint that loads related data one-by-one
 - **Severity:** 🟡 WARNING (🔴 CRITICAL if in production hot path)
 - **Fix:** Batch query, JOIN, eager loading, or preload
+
+## AP-13: Truthy fallback for nullable config
+- Pattern: `value = CONFIG || "default"` (JS/TS) or `value = cfg or "default"` (Python) applied to nullable config, secrets, or env-vars.
+- Problem: truthy-check fires on empty string `""`, zero `0`, empty array, `False` — NOT just `null`/`undefined`/`None`. Intent is usually "use default only if unset", reality is "use default if unset OR falsy". Most painful when build-time env-var substitution emits `""` (deliberate empty value) and the fallback silently bakes a dev-only URL / sentinel into the artifact.
+- Detection signal:
+
+```grep-check
+pattern: import\.meta\.env\.\w+\s*\|\|
+files: "**/*.{ts,tsx,js,jsx}"
+positive-should-match: true
+negative-should-match: false
+```
+
+- Ancillary signals (not covered by the primary grep-check):
+  - Python: `os.environ.get("X") or`, `config.get("x") or` for string values that legitimately can be empty.
+  - Vite `.env.production` or similar with intentional empty `VAR=` followed by `VAR \|\| "fallback"` consumption.
+- **Severity:** 🟡 WARNING (🔴 CRITICAL if the "truthy fallback" bakes a dev URL, secret placeholder, or sentinel into a production artifact — silently visible only at runtime).
+- **Fix:** Replace with nullish-only check — `??` in JS/TS, `if x is None else default` in Python. Keep `\|\|` / `or` only when all falsy values genuinely should trigger the fallback (rare for config).
+- **Canonical case study:** BOGame P79 C350 — `frontend-web/src/api/client.ts` used `import.meta.env.VITE_API_URL \|\| "http://localhost:8001"`. Setting `VITE_API_URL=` in `.env.production` produced empty string, which is falsy, so Vite baked the dev URL into the production bundle. Fix: one-character change to `??`. ~4 hours lost to the wrong smoke-test path.
+
+## AP-15: Lazy-import-inside-method wrapped in try/except — silent ImportError in prod
+- Pattern: `def method(self): ... try: from <wrong.path> import X ... except Exception as e: logger.error(...); return False`.
+- Problem: the import is **lazy** (inside the method body, not at module top) so it isn't validated at import time. It's also wrapped in a broad `try/except` that logs-and-returns-False. An `ImportError` (typo'd module path, refactor-induced stale reference, packaging change) becomes a silent WARN/ERROR log in prod instead of either a startup failure or a surfaced error response. The service appears "healthy" (container Up, other endpoints serving) while the affected feature is completely non-functional.
+- Detection signal:
+
+```regex-check
+pattern: try:\s*\n\s+from\s+\S+\s+import\s+\S+\s*\n\s*except\s+(?:Exception|ImportError)
+files: "framework/**/*.py"
+positive-should-match: true
+negative-should-match: false
+```
+
+- Ancillary signals (broader triage, not the primary invariant):
+  - `grep -rn "^\s\+from\s\+\w\+\." framework/ --include="*.py"` — non-top-level imports that aren't inside `TYPE_CHECKING` or clearly-conditional-feature blocks.
+  - Top-level `from X import Y` coexisting with lazy `from X.sub import Z` inside methods — hints at stale legacy paths that module-level linters miss.
+- **Severity:** 🔴 CRITICAL when the affected feature is user-facing OR security-relevant. 🟡 WARNING for internal-only features with redundant paths.
+- **Fix:**
+  - Move the import to module top level wherever possible. Lazy imports are justified only for genuine circular-import mitigation or truly optional dependencies — not as a stylistic default.
+  - When a lazy import is unavoidable, the except branch MUST re-raise OR surface via `/health/deep`-style probe — never "log and return False" without observability.
+  - Add a class-wide grep regression test (see `probekit-unit-test` test-generation.md § Protective Regression Test Pattern, Variant 2) to catch recurrence of the bare-path form.
+- **Canonical case study:** BOGame C384 — `framework/services/telegram/telegram_service.py:53,138` used `from services.telegram.handlers import router` (bare; correct form is `framework.services.telegram.handlers`). Wrapped in `try: ... except Exception as e: logger.error(...): return False`. Bot's `initialize()` returned False silently; container reported `Up (healthy)` via `/health/live`. Bot offline in production for ~7 weeks (entire S14 sprint) before surfacing via audit scout. 13 sites across 5 files in the `framework/services/` tree shared the same pattern; all used lazy imports + broad try/except. See also `probekit-deploy-readiness-bogame` Probe 9 (health probe depth) which pairs the detection at deploy-audit time.
+
+## AP-14: Web form missing `autoComplete` attrs on admin / config surfaces
+- Pattern: admin/settings/config form contains a password or secret `<input type="password">` adjacent to plain `<input type="text">` fields, with no explicit `autoComplete` attribute tree.
+- Problem: Chrome (and other browsers) pattern-match the form as a login form and inject saved credentials into the first text input. User sees unexpected value ("admin" or a saved username appearing in a text field with no code path populating it) and reports it as data corruption. It is not — it is autofill pollution. No actual backend data is wrong.
+- Detection signal:
+
+```regex-check
+pattern: <input[^>]*type=["']password["'](?![^>]*autoComplete)
+files: "**/*.{tsx,jsx,html}"
+positive-should-match: true
+negative-should-match: false
+```
+
+- Ancillary signals:
+  - Form with a single `<input type="password">` followed by text fields intended for config values (chat IDs, API base URLs, operator names).
+  - No `<form autoComplete="off">` wrapper and no per-input `autoComplete` on admin/settings pages.
+- **Severity:** 🟡 WARNING (information-display bug; user-reported as data corruption; time-to-diagnose is the real cost).
+- **Fix:**
+  - Password/secret inputs: `autoComplete="new-password"` (hints browser "this is not a login").
+  - Plain text config inputs: `autoComplete="off"`.
+  - Form wrapper: `<form autoComplete="off">` as belt-and-braces.
+  - For truly secret fields that should NEVER be autofilled, combine `autoComplete="new-password"` with `data-lpignore="true"` to cover password-manager extensions.
+- **Canonical case study:** BOGame P79 C350 admin walkthrough — `AdminSettings.tsx` showed `admin` in the Nikita chat ID text field. Initial hypothesis was "login saved wrong value into DB". Reality: Chrome autofill treated password+text layout as a login form and injected saved username. Zero data corruption, pure UX artifact. Filed as UX-BACKLOG-S14-40 before root cause understood.

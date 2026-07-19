@@ -30,6 +30,15 @@ The most critical subsection. A passing test suite with bad tests provides false
 - Testing implementation details instead of behavior:
   tests that break on every refactor even if behavior is unchanged
   (e.g., asserting internal method was called instead of asserting output)
+- Runtime-mutated hash/serialization source: production code hashes or serializes a
+  dict/object that is ALSO mutated at runtime (e.g. a per-execution `_ctx` /
+  `_execution_results` key injected into a config or node-data dict). Two audit checks:
+  (a) does any write path add keys to the same object that a hash/dedup/checkpoint key
+  is later derived from? (b) is there a test proving the hash/serialization uses the
+  CLEAN authored value (underscore/runtime keys stripped) on BOTH the forward path and
+  any reconstructed/resume path? Missing (b) → WARNING: loop-detection / dedup keys drift
+  per-run and never match; serialization can carry non-serializable runtime objects.
+  // discovered S20 P108 (governance.py:150 — `_ctx` poisoned resume-leg loop detection)
 - Tautological tests: `assert x == x`, comparing a value to itself
 - Mocking the system under test: mocking the very function being tested
   means the test never exercises real code
@@ -108,6 +117,51 @@ Only flag if the test suite has 20+ test files or 200+ test functions.
   → slow feedback loop, developers skip running tests locally
 - Missing contract tests: services calling each other with no verification that
   the caller's assumptions match what the callee actually returns
+
+**12.8 — Multi-Failure Triage (`--maxfail=20+` rule)**
+
+When auditing a test suite with many failures, NEVER survey with `--maxfail=1`. A single-failure view hides co-occurring root-cause patterns and produces incorrect repair plans.
+
+- **Rule:** surveying runs use `--maxfail=20` minimum. Classify failures by root-cause signature groups, not by file or by test name.
+- **Why:** one pending-fix story typically flushes many tests simultaneously (NodeRegistry gap → every MB whose entry node isn't registered; approval-pause default flip → every flow relying on the old default; schema rename → every structural test referencing the old field). Each has a recognisable failure signature (error class + message shape + site pattern). Grouping by signature reveals 3 patterns from 14 failures; `--maxfail=1` sees "one test broke."
+- **Procedure:**
+  1. `pytest --maxfail=20 -x- --tb=short` (or higher cap if >20 expected).
+  2. Group failures by signature: Pattern A = first recurring error class + first traceback line shape; Pattern B, C, ... similarly.
+  3. Report in AUDIT: `N failures, M patterns` — where M is the number of independent fix stories.
+- **Anti-pattern:** "14 failures → 14 fix tasks" in the report is a triage failure, not a complexity finding. Collapse to root-cause groups before producing the fix backlog.
+- **Severity:** if audit run was performed with `--maxfail=1` and skipped the triage grouping, flag as SUGGESTION (the audit itself was shallow). Canonical case: BOGame P80 C359 S14-34 — 14 failures collapsed into 3 patterns (A: 6 tests, B: 5 tests, C: 3 tests). Full writeup: `probekit-test-suite/references/scoring-formula.md § Multi-Failure Triage`.
+
+**12.9 — False-Green Guard (un-skip ≠ mechanism proven)**
+
+A test that passes without exercising the mechanism it names is worse than a failing test —
+it converts a live gap into a green checkmark. The audit question for every test guarding a
+mechanism (budget, limit, breaker, timeout, dedup, guard): *would this test still pass if the
+mechanism were deleted?* If yes, it proves nothing.
+
+- **Trigger sites:** un-xfailed / un-skipped batches (removing the marker is not evidence the
+  behavior works); tests asserting only "no exception" around a bounded operation; tests whose
+  fixture never crosses the threshold the mechanism enforces (budget=0 defaults, empty configs).
+- **Rule:** the assertion must FAIL when the mechanism is absent — assert the enforcement
+  outcome (the raised bound-exceeded error, the breaker state flip, the capped count), not the
+  happy path around it. When feasible, verify by mentally (or actually) reverting the mechanism
+  and confirming the test would go red.
+- **Severity:** 🟡 WARNING per false-green test; 🔴 CRITICAL when the false-green guards a
+  safety/spend bound (budget, rate limit, kill switch).
+- **Canonical case:** BOGame S19 C451 — un-xfailing 8 delegated-path governance tests looked
+  like coverage, but none exercised `stalemate_detection.llm_call_budget`; the adapter dropped
+  the field so the budget silently defaulted to unlimited. The real guard asserts
+  `FlowExecutionError("LLM call budget exceeded")` fires on the adapter-produced flow
+  (`tests/executor/test_delegated_stalemate_budget.py`).
+
+**12.9 — Linter baseline tolerance for generated tests**
+
+When generating new tests (or when auditing tests that were just generated), newly-added test files MUST NOT introduce additional linter violations (ruff, mypy, flake8) beyond the project's existing baseline. Existing unchanged files may retain pre-existing violations — those belong to their own cleanup cycle.
+
+- **Rule:** run `ruff check {new_test_files}` isolated to just the new/modified test files. Zero new violations. Pre-existing violations in untouched files are out of scope.
+- **Why:** a generated test file that adds 5 new ruff warnings to a project that already has 100 pre-existing warnings is an invisible regression — CI-wide ruff count goes from 100 to 105 and nobody notices. Scoping to `git diff --name-only {base}..HEAD | grep ^tests/` isolates the regression surface to this cycle's additions.
+- **Severity:** any new ruff/mypy/flake8 violation in a newly-generated test file → WARNING (bundled with the test generation for this cycle).
+- **Anti-pattern:** "ruff baseline is already high, a few more won't hurt" — this is the slow-rot path. Each cycle must leave the baseline ≤ where it started.
+- **Canonical case study:** BOGame `tests/services/test_tier5_services.py` entered the suite with 3 pre-existing ruff violations; those are baseline. Any cycle touching that file inherits the responsibility to not add to the count. Cycles generating entirely new test files start from 0 and must stay at 0.
 
 Severity escalation for Section 12:
 - Assert-free test → WARNING (silently passes always)

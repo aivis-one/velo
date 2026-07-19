@@ -4,6 +4,11 @@
 **Дата:** 6 февраля 2026  
 **Статус:** ✅ Утверждено
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> STALE-BUT-HARMLESS overall — NOT rewritten this round. One addition this pass: §8 below,
+> a current operational risk (Stripe stub mode) this document previously never mentioned.
+> Everything else is UNVERIFIED as of this pass.
+
 ---
 
 ## 1. Общая архитектура: как устроены деньги в системе
@@ -540,6 +545,32 @@ Master Profile: frozen=0, available=$21.25
 | Реферальная программа | 🔌 Розетка | После MVP |
 | Штрафы мастерам за отмены | 🔌 Розетка | По мере необходимости |
 | Антифрод (злоупотребление промокодами) | 🔌 Розетка | По мере необходимости |
+
+---
+
+## 8. Известный операционный риск: Stripe stub-режим
+
+**Добавлено ПРОМТ №510, 2026-07-19.** Топап (§3.1) имеет два режима, переключаемых
+`STRIPE_SECRET_KEY`:
+
+- **Реальный ключ** — обычный Stripe Checkout, webhook подтверждает оплату.
+- **Stub-режим** (`STRIPE_SECRET_KEY=TEST`) — Stripe полностью пропускается,
+  `payments/stripe.py::_create_stub_topup` мгновенно подтверждает топап без реального
+  платежа. Задуман только для TEST-стенда.
+
+Guard против случайного прод-деплоя в stub-режиме уже реализован:
+`Settings.is_stripe_stub_blocked` (`backend/app/core/config.py`) поднимает `RuntimeError`
+при старте (`backend/app/main.py`, `lifespan()`), если одновременно: не dev-окружение,
+`is_stripe_stub` (ключ = `TEST`) и `allow_stripe_stub` НЕ выставлен.
+
+**Текущее состояние прода (owner-measured 2026-07-17, commit `8d4948f`):** прод сейчас
+работает с `STRIPE_SECRET_KEY=TEST` и БЕЗ `ALLOW_STRIPE_STUB` — то есть ровно в том
+состоянии, которое guard должен блокировать. Прод не падает только потому, что текущий
+задеплоенный билд старше этого guard'а. **Следующий прод-релиз с этим guard'ом откажется
+стартовать**, пока прод-окружение не будет исправлено: либо реальный Stripe-ключ, либо явный
+`ALLOW_STRIPE_STUB=true`, если stub-режим на проде действительно нужен дольше.
+
+Это не баг в коде — это факт окружения, который нужно закрыть до релиза `test` → `main`.
 
 ---
 

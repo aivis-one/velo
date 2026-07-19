@@ -23,6 +23,16 @@
   Type CalendarFacetFilters.direction stays as PracticeDirection[] for
   backend compatibility — we just always send 0 or 1 element.
 
+  T2 stage 2 (2026-07-15): direction/style chips are now catalog-first
+  (catalogDirectionOptions/catalogStylesForDirection, @/utils/practiceOptions),
+  falling back to the hardcoded lists on a cold/failed catalog fetch. Rides
+  the shared cache (methodTaxonomy.ts's ensureTaxonomyCatalog()) -- if
+  another screen already warmed it this session, no extra fetch; otherwise
+  primed here on mount, in parallel with nothing else this modal needs to
+  load, so it's warm well before the user taps the funnel icon that opens it
+  (this component itself mounts as soon as CalendarView does — see that
+  view's template, no v-if wrapping this one).
+
   Usage:
     <CalendarFilterModal
       :open="showFilter"
@@ -167,10 +177,12 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, computed } from 'vue'
+import { reactive, watch, computed, onMounted, ref } from 'vue'
 import { VModal, VButton, VChip } from '@/components/ui'
-import { DIRECTION_LABEL, DIFFICULTY_LABEL, TIME_OF_DAY_LABEL } from '@/utils/displayHelpers'
-import { stylesForDirection } from '@/utils/practiceOptions'
+import { DIFFICULTY_LABEL, TIME_OF_DAY_LABEL } from '@/utils/displayHelpers'
+import { catalogDirectionOptions, catalogStylesForDirection } from '@/utils/practiceOptions'
+import { ensureTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import type { TaxonomyListResponse } from '@/api/taxonomy'
 import type { CalendarFacetFilters } from '@/stores/calendar'
 import type { PracticeDirection, PracticeDifficulty, DurationBucket, TimeOfDay } from '@/api/types'
 
@@ -185,20 +197,16 @@ const emit = defineEmits<{
 }>()
 
 // -- Chip option lists (label + value), values match the backend literals --
-const DIRECTION_CHIPS: { value: PracticeDirection; label: string }[] = (
-  [
-    'meditation',
-    'yoga',
-    'breathwork',
-    'somatic',
-    'tantra',
-    'circles',
-    'sound_healing',
-    'art',
-    'narrative',
-    'movement',
-  ] as PracticeDirection[]
-).map((v) => ({ value: v, label: DIRECTION_LABEL[v] }))
+// direction: catalog-first (T2 stage 2), see the header comment.
+const catalog = ref<TaxonomyListResponse | null>(null)
+
+onMounted(async () => {
+  catalog.value = await ensureTaxonomyCatalog()
+})
+
+const DIRECTION_CHIPS = computed<{ value: PracticeDirection; label: string }[]>(() =>
+  catalogDirectionOptions(catalog.value),
+)
 
 const DIFFICULTY_CHIPS: { value: PracticeDifficulty; label: string }[] = (
   ['beginner', 'medium', 'high'] as PracticeDifficulty[]
@@ -238,8 +246,8 @@ const draft = reactive<Draft>({
 const selectedDirection = computed<PracticeDirection | undefined>(() => draft.direction[0])
 
 /** Style options for the currently selected direction (empty when "Все"
- *  or when the direction has no styles). */
-const styleOptions = computed(() => stylesForDirection(selectedDirection.value))
+ *  or when the direction has no styles). Catalog-first (T2 stage 2). */
+const styleOptions = computed(() => catalogStylesForDirection(catalog.value, selectedDirection.value))
 
 /** Sync the draft from incoming filters whenever the modal opens. */
 function syncFromProps(): void {

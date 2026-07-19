@@ -18,10 +18,32 @@
 }
 
 /* === Base === */
+/* ROOT-LOCK (batch root-static, 2026-07-12) + BG-FREEZE (batch bg-freeze,
+   2026-07-13): html/body are physically non-scrollable so the document can
+   never be dragged by a keyboard focus-scroll on ANY platform (root-lock --
+   the iOS-relevant recurrence: a native/OS scroll-into-view moves the
+   document, dragging #app::before along since #app is a normal block in that
+   flow). BG-FREEZE additionally anchors height to `--velo-frozen-vh` instead
+   of `100lvh` -- the Android-relevant recurrence: `lvh`'s keyboard-immunity
+   depends on the platform honouring index.html's `interactive-widget=
+   resizes-visual` (a Chromium-only hint), which some Android WebViews /
+   host-Activity configurations bypass entirely, silently degrading `100lvh`
+   to track the shrunk rendering surface. `--velo-frozen-vh` is a literal px
+   value captured ONCE at mount by useBackgroundStabilizer.freezeAppHeight()
+   -- nothing but that one function's own writes (mount + orientationchange)
+   can ever change it, so `#app`'s box (and #app::before's bg) is now immune
+   to ANY live viewport signal, by construction, on every platform. `100lvh`
+   remains only as the pre-JS-paint fallback (the var() default) for the sub-
+   16ms window before Vue mounts. ALL scrolling moves into inner containers
+   marked `.velo-kbd-scroll` (see the KEYBOARD CANON block below). */
 html {
   font-size: var(--text-base);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  height: 100vh; /* pre-JS-paint fallback for engines without lvh */
+  height: 100lvh; /* pre-JS-paint fallback, overridden by the var below once JS runs */
+  height: var(--velo-frozen-vh, 100lvh);
+  overflow: hidden;
 }
 
 body {
@@ -33,6 +55,18 @@ body {
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  height: 100vh;
+  height: 100lvh;
+  height: var(--velo-frozen-vh, 100lvh);
+  overflow: hidden;
+  /* position:relative (bg-freeze batch): WITHOUT a positioned ancestor, a
+     position:absolute descendant's containing block is the INITIAL containing
+     block, which the spec ties to the viewport -- NOT to body's own (frozen)
+     box. Teleport-to-body full-bleed overlays (e.g. MasterDashboardView's
+     .master-onboarding-overlay) need to size against body's frozen height, not
+     the live viewport, or switching them from fixed to absolute would silently
+     keep them viewport-tracking. This makes body itself the containing block. */
+  position: relative;
 }
 
 /* === Typography === */
@@ -107,100 +141,187 @@ ol {
   border-radius: var(--radius-full);
 }
 
-/* === Photo background layer === */
-#app {
-  position: relative;
-  z-index: 0;
-}
+/* =============================================================================
+   VIEWPORT-HEIGHT + KEYBOARD CANON (batch bg-freeze — read before adding a screen)
+   -----------------------------------------------------------------------------
+   The photo background can NEVER jump on keyboard-open (nor be dragged by any
+   native focus-scroll, nor rescaled by a platform that doesn't honour
+   interactive-widget) if every screen obeys these five rules:
 
-#app::before {
-  content: '';
+   0. ROOT-LOCK: html/body/#app are physically non-scrollable (see the ROOT-LOCK
+      block above html/body, and #app below) — this reduces, but does NOT by
+      itself eliminate, the browser's native "bring focused field into view"
+      behaviour: on Android keyboard-open (adjustResize shrinks the layout
+      viewport), the browser forces a scroll on the root to reveal the focused
+      input, BYPASSING `overflow:hidden` for the purposes of that one
+      auto-scroll (confirmed by on-device HUD data, audit ПРОМТ №383 —
+      `#app`'s own rect.top goes negative while its rect.height stays frozen).
+      This is exactly why rule 2's bg anchor was moved OFF `#app` entirely
+      instead of relying on root-lock to keep it still.
+
+   1. BG-FREEZE: html/body/#app/.app-frame anchor their height to
+      `--velo-frozen-vh` (below the fallback `100lvh`) — a literal px value
+      captured ONCE at mount, immune to ANY live viewport signal on ANY
+      platform (see useBackgroundStabilizer.freezeAppHeight()). `#app-bg`
+      (rule 2 below) reads the SAME var, so both the layout box and the
+      background layer are pinned to one frozen number.
+
+   2. BACKGROUND: the mandala lives on `#app-bg` — a STATIC sibling of `#app`,
+      first child of `<body>` (index.html), NOT `#app::before` anymore.
+      `position:fixed` + an explicit frozen-px height (`top:0`, no `bottom`).
+      This reverses the prior canon ("never fixed") on purpose: `fixed` used to
+      be banned because a live `lvh`/visual-viewport read would let it track a
+      resizing keyboard surface. That's no longer the failure mode — audit
+      №383 proved the bg was never resizing (it rides the frozen height fine);
+      it was riding the ROOT's own forced scroll (rule 0) because it lived
+      INSIDE the scrolled subtree (`#app::before`, a descendant of `#app`).
+      `position:fixed` relative to the INITIAL containing block (the viewport)
+      is immune to ANY ancestor's scrollTop, by spec — which is exactly the
+      property needed once the threat is "the root scrolls", not "the
+      viewport resizes". NEVER give it a per-frame transform / counter-shift.
+
+   3. HEIGHT UNITS: NEVER `dvh`/`svh` (nor plain-`vh`-only) on a screen root or
+      wrapper — they collapse when the keyboard shrinks the viewport. A screen
+      that fills the shell (AppFrame / MobileLayout __main / AdminLayout) uses
+      `min-height:100%`. A root that genuinely needs standalone viewport height
+      uses `100lvh` (stable on platforms that honour interactive-widget). The
+      ONLY `vh` allowed is the `100vh -> 100lvh -> var(--velo-frozen-vh)`
+      fallback chain on the anchors themselves (`html`/`body` here, `#app`,
+      `.app-frame`, `#app-bg`).
+
+   4. SCROLL: every screen-level scroll container carries the `.velo-kbd-scroll`
+      marker (mirrors MasterApplyView's `.apply-view__content`). ALL scrolling
+      lives on marked containers — NEVER on html/body/#app/.app-frame (rule 0)
+      and never invented ad hoc per screen. (The root's own forced auto-scroll
+      per rule 0 is a separate, browser-driven mechanism this rule doesn't
+      govern — it's exactly what rule 2 now structurally sidesteps.)
+
+   5. KEYBOARD: handled centrally — useBackgroundStabilizer publishes `--velo-vvh`
+      (visual-viewport height) + toggles `html.is-keyboard-open`; the gated rule
+      below caps EVERY `.velo-kbd-scroll` container to `--velo-vvh` in one place
+      (fill-mode screens are excluded — they own their keyboard handling
+      directly). Screens do NOT invent their own keyboard height logic.
+      `--velo-vvh` is a SEPARATE, live, keyboard-reactive signal from
+      `--velo-frozen-vh` (rule 1) — it sizes scroll regions for reachability,
+      never the background; the background does not depend on it firing
+      correctly on any platform.
+   ============================================================================= */
+
+/* === Photo background layer (ПРОМТ №383) === */
+/* `#app-bg` is a STATIC element in index.html (first child of <body>, before
+   #app) -- not Vue-rendered -- so it paints at first paint with zero
+   mount-delay flash. Body-level, not `#app::before`: `#app` sits inside a
+   normal-flow box that (rule 0 above) can still have its on-screen position
+   dragged by the root's own forced scroll, and any `#app`-anchored descendant
+   (absolute OR the old fixed-vs-visual-viewport attempts) rides along. A
+   `position:fixed` element's containing block is the INITIAL containing block
+   (the viewport itself) -- completely outside that scrolled subtree, so no
+   ancestor's scrollTop can move it. `top:0` + an explicit frozen-px `height`
+   (NOT `bottom:0`) pins it to the viewport's top edge at a fixed size; it does
+   not "breathe" or reflow. `z-index:-1` keeps it behind `#app` (below,
+   z-index:0) so app content still paints above it -- this is the ONLY element
+   that paints the mandala image (see useBackgroundStabilizer.ts for the
+   frozen-height writer; MasterDashboardView.vue's onboarding overlay is a
+   SEPARATE, intentional reuse of the same image for a different purpose --
+   see its own comment). */
+#app-bg {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh; /* pre-JS-paint fallback for engines without lvh */
+  height: 100lvh; /* pre-JS-paint fallback, overridden by the var below once JS runs */
+  height: var(--velo-frozen-vh, 100lvh);
   z-index: -1;
   background: url('/bg/background.png') center / cover no-repeat;
   pointer-events: none;
-  /* Counter-shift against the keyboard-driven visual-viewport reflow on
-     iOS / Telegram webview (the "dancing background"). The offset is written
-     live by useBackgroundStabilizer; at rest it is 0px -> translateY(0px),
-     i.e. inert / pixel-identical to no transform. */
-  transform: translateY(var(--velo-bg-shift, 0px));
+}
+
+/* #app is the full-width mount root (AppFrame is only 402px, so #app itself
+   still needs to span the full viewport width/height for layout purposes --
+   it no longer paints the bg itself, see #app-bg above). ROOT-LOCK: definite
+   height (not min-height) + overflow:hidden -- #app can NEVER grow taller than
+   its own box; note this does NOT fully prevent the root's own forced
+   focus-scroll (rule 0 above), which is why the bg was moved off #app
+   entirely rather than relying on this alone. */
+#app {
+  position: relative;
+  z-index: 0;
+  height: 100vh; /* pre-JS-paint fallback for engines without lvh */
+  height: 100lvh; /* pre-JS-paint fallback, overridden by the var below once JS runs */
+  height: var(--velo-frozen-vh, 100lvh);
+  overflow: hidden;
 }
 
 /* === Keyboard-aware viewport (device-only — #2/#6/#7) ===
-   The scroll container, sticky composers and the fog mask are sized to the
-   LAYOUT viewport (height:100%), so on a soft-keyboard open they don't shrink to
-   the VISIBLE area: inputs hide under the keyboard, sticky composers float
-   mid-page, fog clips content into a band.
+   Every screen-level scroll container is sized to the LAYOUT viewport
+   (height:100%), so on a soft-keyboard open it doesn't shrink to the VISIBLE
+   area: inputs hide under the keyboard, sticky composers float mid-page, fog
+   clips content into a band.
 
    useBackgroundStabilizer publishes the visual-viewport height as `--velo-vvh`
    (on :root, so teleported modals under <body> inherit it) and toggles
-   `html.is-keyboard-open` (same threshold as useKeyboardOpen). These rules cap
-   the shared chrome to the visible area ONLY while that class is present.
+   `html.is-keyboard-open` (same threshold as useKeyboardOpen). ONE rule caps
+   EVERY container carrying the `.velo-kbd-scroll` marker to the visible area
+   while that class is present — this replaced a growing per-selector list
+   (`.mobile-layout__main`, `.admin-layout__main`, `.v-modal__scroll`,
+   `.apply-view__content`, + every standalone screen's own container) with a
+   single convention: mark it once, it's covered forever.
 
-   AT REST the class is ABSENT → every rule below is inert → the layout / modal /
-   fog are byte-for-byte identical to before. The new behaviour applies ONLY when
-   the keyboard is open. The diary fill-layout is excluded (it owns its keyboard). */
-html.is-keyboard-open .mobile-layout__main:not(.mobile-layout__main--fill) {
-  /* Scroll region (and its %-based fog mask) shrink to the visible area, so the
+   AT REST the class is ABSENT → the rule is inert → layout / modal / fog are
+   byte-for-byte identical to before. The new behaviour applies ONLY when the
+   keyboard is open. Fill-mode screens (diary, master-chat) do NOT carry the
+   marker — they own their keyboard handling directly (diary's own body/composer
+   sizing; MasterChatView is now a static honest-stub with no keyboard reads
+   at all). */
+html.is-keyboard-open .velo-kbd-scroll {
+  /* Scroll region (and its %-based fog mask) shrink to the visible area, so a
      sticky composer sits just above the keyboard and the focused field is
      reachable; the fog fade follows the new bottom instead of clipping a band. */
   max-height: var(--velo-vvh);
 }
 
-html.is-keyboard-open .v-modal__overlay {
+html.is-keyboard-open .v-modal__overlay,
+html.is-keyboard-open .v-sheet__overlay {
   /* Bottom-sheet overlay shrinks to the visible area (pinned to the top of it)
-     so a low field isn't trapped behind the keyboard. */
+     so a low field isn't trapped behind the keyboard. Independent of the
+     .velo-kbd-scroll marker (the overlay itself isn't a marked scroll
+     container — .v-modal__scroll / .v-sheet__panel inside it is; see below).
+     .v-sheet__overlay (VBottomSheet) joins .v-modal__overlay here (bg-freeze
+     batch) -- it previously had no keyboard treatment at all, a real gap since
+     it hosts VTextarea reject-reason fields (admin moderation flows). */
   height: var(--velo-vvh);
   bottom: auto;
 }
 
 html.is-keyboard-open .v-modal__container,
 html.is-keyboard-open .v-modal__scroll {
-  /* Fit the sheet within the shrunk overlay (overrides the at-rest 85vh). */
+  /* Fit the sheet within the shrunk overlay (overrides the at-rest 85vh AND the
+     generic .velo-kbd-scroll max-height above — same specificity, source order
+     wins, so this modal-specific 100%-of-shrunk-overlay rule intentionally
+     comes AFTER the generic rule). .v-modal__scroll also carries
+     .velo-kbd-scroll in markup for documentation/consistency, but its actual
+     keyboard-open sizing is this override, not the generic cap. */
   max-height: 100%;
 }
 
-/* === Dancing background #4 / KB-1…4 (operator Г, ПРОМТ №232) ===
-   While the keyboard is open, FREEZE the fixed photo background: it must stop
-   tracking `--velo-bg-shift` (= visualViewport.offsetTop), which changes every
-   frame as the focused field scrolls into view and makes the photo visibly
-   slide ("прыгает фон"). `transform: none` pins it at its at-rest position (the
-   translateY is 0px at rest anyway), so the photo stays visible but static.
-   AT REST the class is ABSENT → this rule is inert → `#app::before` transform is
-   byte-identical to today. */
-html.is-keyboard-open #app::before {
-  transform: none;
+html.is-keyboard-open .v-sheet__panel {
+  /* Same reasoning as .v-modal__container/__scroll above: fit within the
+     shrunk overlay (overrides the at-rest 90vh AND the generic
+     .velo-kbd-scroll cap the panel also carries -- see VBottomSheet.vue). */
+  max-height: 100%;
 }
 
-/* SP-3 (focus-driven early freeze, ПРОМТ №242): ALSO freeze the photo the instant a
-   text field is focused — BEFORE the keyboard's open-animation shrinks the viewport
-   past the 150px threshold that toggles is-keyboard-open — so #app::before never
-   slides during that window (the "dance", worst on tall forms like Support). Composes
-   with the is-keyboard-open rule above: either class ⇒ transform:none, they don't
-   fight. ONLY the bg-freeze engages on focus; the max-height cap + mask-drop stay on
-   the 150px is-keyboard-open threshold, so there is no premature layout reflow. AT
-   REST (no class) this is inert. `is-field-focused` is toggled by
-   useBackgroundStabilizer on focusin/focusout. */
-html.is-field-focused #app::before {
-  transform: none;
-}
-
-/* Backdrop RESIZE pin (ПРОМТ №282). The transform:none freeze above stops the
-   photo from TRANSLATING, but a webview that RESIZES the layout viewport on
-   keyboard-open shrinks `#app::before` (position:fixed; inset:0 = the layout
-   viewport) and `background: center/cover` then RE-CENTERS the mandala upward.
-   Pinning min-height to the LARGE viewport (100lvh, stable vs the keyboard) while
-   typing keeps the layer full-height → the cover image can't re-anchor. Gated on
-   the same classes as the freeze, so AT REST (no class) it is ABSENT → inset:0
-   governs → byte-identical to today. The 100vh line is a fallback for engines
-   without lvh (on iOS 100vh already = the large viewport). Overlay webviews (iOS
-   default) don't resize, so this only bites resizing ones — device-verified. */
-html.is-keyboard-open #app::before,
-html.is-field-focused #app::before {
-  min-height: 100vh;
-  min-height: 100lvh;
-}
+/* Dancing-background freeze rules (ПРОМТ №232/№242/№282) were REMOVED in batch K;
+   ROOT-LOCK (this file's top) + freeze-px (№379) then targeted RESIZE — but
+   audit №383 proved the root's own forced focus-scroll still dragged
+   #app::before (a descendant of the scrolled subtree) despite both. The bg
+   was therefore moved to `#app-bg`, a `position:fixed` sibling anchored to the
+   viewport itself (see the "Photo background layer" block above) — outside
+   the scrolled subtree entirely, so no ancestor scrollTop can move it. The
+   `is-keyboard-open` scroll-cap + `--velo-vvh` below are retained (they size
+   marked SCROLL regions, not the bg — the bg no longer depends on them at
+   all). */
 
 /* VARIANT 3 (ПРОМТ №282): while typing on a fog screen, keep the TOP fade and
    drop ONLY the BOTTOM fade (was: whole mask → `none`, which made the whole

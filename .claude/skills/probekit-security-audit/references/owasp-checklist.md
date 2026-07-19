@@ -19,8 +19,17 @@ Only includes patterns detectable by reading source code.
 - Route handler without `@login_required` / `authMiddleware`
 - `req.params.id` used directly in DB query without owner check
 - `os.path.join(base, user_input)` without `os.path.realpath` validation
+- Auth/gate check that returns 401/403 but AFTER the handler already ran (state mutated,
+  then rejected). Audit the ORDER: the credential check must precede any payload
+  processing / DB write / side effect.
+- Test smell: a fail-closed test asserts only the status code (401/403) and never asserts
+  the downstream handler was NOT invoked. A correct test asserts
+  `handler.assert_not_called()` (no side effect) on the absent/invalid-credential path.
+  // discovered S20 P110 (domestic-SMS webhook — assert_not_called before processing)
 
-**Severity:** 🔴 for IDOR, missing auth on write ops, path traversal to system files. 🟡 for missing auth on read-only public-like resources.
+**Severity:** 🔴 for IDOR, missing auth on write ops, path traversal to system files,
+and gates that mutate-then-reject (side effect occurs before the 401). 🟡 for missing
+auth on read-only public-like resources.
 
 ---
 
@@ -32,6 +41,7 @@ Only includes patterns detectable by reading source code.
 - TLS verification disabled (`verify=False`, `rejectUnauthorized: false`)
 - `random` module used for security tokens (should use `secrets`/`crypto`)
 - ECB mode in symmetric encryption
+- External webhook endpoints without HMAC/signature verification
 
 **Detection signals:**
 - `hashlib.md5(password)`, `hashlib.sha1(password)`
@@ -39,8 +49,25 @@ Only includes patterns detectable by reading source code.
 - `requests.get(url, verify=False)`
 - `AES.new(key, AES.MODE_ECB)`
 - `random.randint()` for token/OTP generation
+- Route handler accepting provider webhooks (SMS, payments, CI, chat) WITHOUT `hmac.compare_digest` / `crypto.timingSafeEqual` against a provider-specific signature header
 
-**Severity:** 🔴 for plaintext/weak password hashing, hardcoded keys, disabled TLS. 🟡 for weak algorithms in non-critical paths.
+**Severity:** 🔴 for plaintext/weak password hashing, hardcoded keys, disabled TLS, unauthenticated external webhooks. 🟡 for weak algorithms in non-critical paths.
+
+### HMAC defer-don't-guess rule (external webhooks)
+
+When a webhook endpoint is found without signature verification AND the provider's HMAC algorithm / signing-key-header spec is unknown or unavailable to the auditor, **the finding is logged as CRITICAL but the fix is DEFERRED, not auto-generated.** The code-audit pipeline MUST NOT:
+
+- Synthesize an HMAC verification block using a guessed algorithm (e.g. "probably HMAC-SHA256 of raw body with header `X-Signature`"). SMS providers in particular vary: some sign `timestamp + body`, some sign `body` only, some use hex digest, some base64, some prepend `sha256=`. A guessed verifier either accepts everything (algorithm mismatch fails-open on some provider variants) or rejects everything (locks the user out).
+- Provision a placeholder `WEBHOOK_SECRET=CHANGEME` in config and mark the finding resolved. That creates a silent fails-open where every unsigned request passes comparison against the placeholder if the verifier is written wrong.
+- Close the finding with "user to configure HMAC" — the vulnerability persists until actual verification code runs.
+
+**Required deferral shape:**
+1. Keep the finding at CRITICAL severity. Do NOT downgrade.
+2. Route to BACKLOG with explicit entry: provider name, endpoint path, provider doc link (if findable), list of unknowns (algorithm? key-header? payload-canonicalization?).
+3. Block deploy-readiness gate until the backlog item is resolved with provider-confirmed spec — not a probekit guess.
+4. Note in the report methodology: "HMAC verification deferred — provider spec not available to auditor. Guessing the algorithm introduces strictly-worse fails-open / fails-closed failure modes than leaving the known-missing state visible."
+
+Canonical case: BG-S14 Step 6 F4 — domestic SMS webhook endpoint publicly reachable via nginx catch-all, no HMAC verification. Scout directive was "do NOT guess algorithm"; finding deferred as `SEC-S14-85` BACKLOG entry. Rationale: provider's webhook spec + signing key were not provisioned at audit time, and the three plausible HMAC variants (raw-body-sha256, timestamp+body-sha256, form-encoded-fields-signed) have non-overlapping verification code — wrong choice either accepts all unsigned traffic (fails-open) or rejects all legitimate traffic (fails-closed, breaking the integration). Deferred-as-CRITICAL keeps the gap visible; auto-generated-guess would have buried it.
 
 ---
 

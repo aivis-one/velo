@@ -128,6 +128,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     clearTimeout(timeoutId)
   }
 
+  // W29-trimmed: read once, right after the fetch, so every ApiResponseError
+  // construction below can use it. Absent for ApiNetworkError/ApiTimeoutError
+  // above -- those throw before a response exists, so there is honestly no
+  // trace id to show for them. suffixWithTraceId is called exactly once per
+  // throw site below, always on the raw backend-provided message -- never on
+  // an already-suffixed string -- so the suffix can never be appended twice.
+  const traceId = response.headers.get('X-Trace-ID')
+
   // 204 No Content (e.g. logout).
   if (response.status === 204) {
     return undefined as T
@@ -137,14 +145,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   // FIX 10.2: no direct token/sessionStorage mutation here.
   if (response.status === 401) {
     _onUnauthorized?.()
-    throw new ApiResponseError(401, 'Session expired', 'unauthorized')
+    throw new ApiResponseError(401, suffixWithTraceId('Session expired', traceId), 'unauthorized')
   }
 
   let data: unknown
   try {
     data = await response.json()
   } catch {
-    throw new ApiResponseError(response.status, 'Invalid response from server')
+    throw new ApiResponseError(
+      response.status,
+      suffixWithTraceId('Invalid response from server', traceId),
+    )
   }
 
   if (response.ok) {
@@ -162,7 +173,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   // VeloError format: { error, message }
   if (typeof errorData?.message === 'string') {
-    throw new ApiResponseError(response.status, errorData.message, errorData.error ?? 'unknown')
+    throw new ApiResponseError(
+      response.status,
+      suffixWithTraceId(errorData.message, traceId),
+      errorData.error ?? 'unknown',
+    )
   }
 
   // Pydantic 422 format: { detail: string | Array<...> }
@@ -174,7 +189,17 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         ? rawDetail.map((e) => e.msg).join('; ')
         : `Request failed (${response.status})`
 
-  throw new ApiResponseError(response.status, detail, 'validation_error')
+  throw new ApiResponseError(response.status, suffixWithTraceId(detail, traceId), 'validation_error')
+}
+
+// W29-trimmed: append a greppable diagnostic key to a user-facing error
+// message, so a tester's bug report carries the same key as the backend log
+// line (TraceIdMiddleware, backend/app/core/middleware.py). FIRST six chars
+// -- the log line carries the full id, so a prefix match finds it with one
+// grep. No header (network/timeout failures, which never reach this
+// function) -> no suffix; never render an empty or placeholder code.
+function suffixWithTraceId(message: string, traceId: string | null): string {
+  return traceId ? `${message} · код ${traceId.slice(0, 6)}` : message
 }
 
 // -- Public API --

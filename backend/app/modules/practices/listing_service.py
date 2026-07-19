@@ -1,0 +1,308 @@
+# =============================================================================
+# VELO Backend -- Practice Listing Service (W26 split from service.py)
+# =============================================================================
+#
+# Master-facing list (list_master_practices) and public feed
+# (list_public_practices), plus the time_of_day facet helpers. The only area
+# consumed by TWO routers: masters/router.py (list_master_practices) and
+# practices/router.py (list_public_practices).
+# =============================================================================
+
+from datetime import UTC, datetime
+from typing import Literal
+from uuid import UUID
+
+from sqlalchemy import and_, extract, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
+from app.modules.practices.enrichment_service import (
+    attendance_counts_for_practices,
+    attendance_counts_kwargs,
+    series_meta_for_practices,
+    series_meta_kwargs,
+)
+from app.modules.practices.models import Practice, PracticeStatus
+from app.modules.practices.schemas import PaginatedPracticesResponse
+from app.modules.practices.service import (
+    master_full_name,
+    user_flags_for_practices,
+    practice_to_response,
+)
+from app.modules.users.models import User
+
+# Statuses shown in public feed (4.3).
+_FEED_STATUSES = {
+    PracticeStatus.SCHEDULED.value,
+    PracticeStatus.LIVE.value,
+}
+
+
+async def list_master_practices(
+    user: User,
+    session: AsyncSession,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+) -> PaginatedPracticesResponse:
+    """List practices owned by the current master.
+
+    R-04 fix: returns PaginatedPracticesResponse (with total count),
+    consistent with list_public_practices().
+
+    Excludes deleted practices. Master sees their own drafts.
+
+    E3a: optional exact-status filter (draft/scheduled/live/completed/
+    cancelled), mirroring list_public_practices' explicit `status` param.
+    None (default) keeps the prior behavior -- every non-deleted status.
+    """
+    base_filter = (
+        Practice.master_id == user.id,
+        Practice.status != PracticeStatus.DELETED.value,
+    )
+    if status is not None:
+        base_filter = (*base_filter, Practice.status == status)
+
+    # -- Total count --
+    count_query = select(func.count(Practice.id)).where(*base_filter)
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    # -- Paginated items with master name --
+    stmt = (
+        select(Practice, User.first_name, User.last_name)
+        .join(User, Practice.master_id == User.id)
+        .where(*base_filter)
+        .order_by(Practice.scheduled_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    # E3 batch 2: series card meta for the practices on this page (2 queries).
+    page_practices = [p for p, _first, _last in rows]
+    series_meta = await series_meta_for_practices(page_practices, session)
+    # E12 + aggregate: attendance counts for the same page (2 queries). This is
+    # the master's own list (get_current_master), so the counts are shown
+    # unconditionally here -- the owner-only gate lives on the shared public
+    # detail endpoint (get_practice_detail) instead.
+    attendance = await attendance_counts_for_practices(page_practices, session)
+
+    return PaginatedPracticesResponse(
+        items=[
+            practice_to_response(
+                p,
+                master_full_name(first, last),
+                # Z-6: the master's OWN list (get_current_master) -- every row
+                # is owned by the requester, so expose zoom_link (the same owner
+                # rule get_practice_detail applies). The master dashboard's
+                # "Войти" button reads zoom_link from this list.
+                zoom_link_visible=True,
+                **series_meta_kwargs(series_meta.get(p.id)),
+                **attendance_counts_kwargs(attendance.get(p.id)),
+            )
+            for p, first, last in rows
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+def _local_hour(column_tz, column_ts):
+    """Local hour (0-23) of a timestamp in a given timezone.
+
+    `column_tz` may be a column (e.g. Practice.timezone) or a bound string
+    (e.g. the viewer's timezone) -- func.timezone accepts both, and a string
+    is emitted as a bound parameter, not an identifier.
+
+    Postgres: EXTRACT(HOUR FROM (ts AT TIME ZONE tz_name)). Expressed via
+    func.timezone(tz, ts) + extract() so it stays within the ORM (no raw
+    SQL). func.timezone(text, timestamptz) returns the local wall-clock
+    timestamp for that zone, from which we pull the hour.
+    """
+    return extract("hour", func.timezone(column_tz, column_ts))
+
+
+def _time_of_day_filter(time_of_day: str, viewer_tz: str):
+    """Build a half-open local-hour range condition for a time_of_day bucket.
+
+    F5: the local hour is computed in the VIEWER'S timezone (passed in), not
+    the practice's own timezone. The profile decides in which timezone the
+    viewer sees practice times, so the "morning/day/evening" facet must bucket
+    by the same wall-clock the card shows -- otherwise the filter and the
+    displayed time disagree.
+
+    Buckets (config-driven boundaries):
+      night   [night_start,   morning_start)
+      morning [morning_start, day_start)
+      day     [day_start,     evening_start)
+      evening [evening_start, 24)
+    """
+    night = settings.practice_time_night_start_hour
+    morning = settings.practice_time_morning_start_hour
+    day = settings.practice_time_day_start_hour
+    evening = settings.practice_time_evening_start_hour
+
+    ranges = {
+        "night": (night, morning),
+        "morning": (morning, day),
+        "day": (day, evening),
+        "evening": (evening, 24),
+    }
+    low, high = ranges[time_of_day]
+    local_hour = _local_hour(viewer_tz, Practice.scheduled_at)
+    return and_(local_hour >= low, local_hour < high)
+
+
+async def list_public_practices(
+    session: AsyncSession,
+    *,
+    user: User,
+    limit: int = 20,
+    offset: int = 0,
+    master_id: UUID | None = None,
+    practice_type: list[str] | None = None,
+    direction: list[str] | None = None,
+    difficulty: list[str] | None = None,
+    style: list[str] | None = None,
+    duration_bucket: Literal["short", "long"] | None = None,
+    time_of_day: Literal[
+        "night", "morning", "day", "evening",
+    ] | None = None,
+    status: str | None = None,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    sort_by: Literal[
+        "scheduled_at", "price_cents",
+    ] = "scheduled_at",
+    sort_order: Literal["asc", "desc"] = "asc",
+) -> PaginatedPracticesResponse:
+    """List practices visible in the public feed (Calendar feed).
+
+    Default feed shows only UPCOMING bookable practices: status in
+    scheduled/live AND scheduled_at strictly in the future. Practices that
+    already started (including live) or are past are excluded -- they can no
+    longer be booked. Passing an explicit `status` bypasses the time gate and
+    matches that status exactly (no future-only restriction). Supports
+    filtering by master, type, date range, and the Calendar facets
+    (direction / difficulty / style / duration_bucket / time_of_day).
+
+    Multi-value semantics (Calendar "Выбрать практики"):
+      - Within one facet, values are OR-ed (.in_()).
+      - Across facets, conditions are AND-ed (separate filter entries).
+
+    Per-user flags (is_booked / is_paid) are computed for `user` over the
+    practices on the returned page via a single bookings query.
+    """
+    # FIX 5.3: Build filter list once, apply to both queries (DRY).
+    filters: list = []
+
+    if status is not None:
+        # Explicit status request (e.g. internal/master tooling): exact match,
+        # no time gate -- the caller asked for a specific status on purpose.
+        filters.append(Practice.status == status)
+    else:
+        # Default public feed: only practices a user can still BOOK.
+        # "Bookable" = not yet started (scheduled_at strictly in the future).
+        # This drops both past practices and ones that already started (incl.
+        # live) -- you cannot sign up once a practice has begun. Bookings the
+        # user already holds are surfaced elsewhere (dashboard / my bookings)
+        # with a different, end-of-practice cutoff, so this gate does not hide
+        # a practice the user is already attending.
+        filters.append(Practice.status.in_(_FEED_STATUSES))
+        filters.append(Practice.scheduled_at > datetime.now(UTC))
+
+    if master_id is not None:
+        filters.append(Practice.master_id == master_id)
+
+    # practice_type: multi-select (OR within facet).
+    if practice_type:
+        filters.append(Practice.practice_type.in_(practice_type))
+
+    # -- Calendar taxonomy facets (JSONB data.taxonomy, schema-on-read) --
+    # direction / difficulty / style: multi-select (OR within facet).
+    # B-4 (2026-05-29): style switched to list[str] + .in_() — was a single
+    # exact match. Frontend sends one or more selected style chips.
+    if direction:
+        filters.append(
+            Practice.data["taxonomy"]["direction"].as_string().in_(direction)
+        )
+    if difficulty:
+        filters.append(
+            Practice.data["taxonomy"]["difficulty"].as_string().in_(difficulty)
+        )
+    if style:
+        filters.append(
+            Practice.data["taxonomy"]["style"].as_string().in_(style)
+        )
+
+    # duration_bucket: short = < N minutes, long = >= N minutes.
+    if duration_bucket is not None:
+        threshold = settings.practice_duration_long_min_minutes
+        if duration_bucket == "short":
+            filters.append(Practice.duration_minutes < threshold)
+        else:  # "long"
+            filters.append(Practice.duration_minutes >= threshold)
+
+    # time_of_day: local-hour bucket in the VIEWER'S timezone (F5). The
+    # profile decides the display timezone, so the facet buckets by the same
+    # wall-clock the card shows. `or "UTC"` guards an empty profile value with
+    # the same neutral default the frontend format helpers use (never the
+    # practice's own timezone, which would reintroduce the mismatch).
+    if time_of_day is not None:
+        filters.append(_time_of_day_filter(time_of_day, user.timezone or "UTC"))
+
+    if date_from is not None:
+        filters.append(Practice.scheduled_at >= date_from)
+
+    if date_to is not None:
+        filters.append(Practice.scheduled_at <= date_to)
+
+    # -- Sort --
+    sort_column = (
+        Practice.price_cents
+        if sort_by == "price_cents"
+        else Practice.scheduled_at
+    )
+    if sort_order == "desc":
+        sort_column = sort_column.desc()
+    else:
+        sort_column = sort_column.asc()
+
+    # -- Total count --
+    count_query = select(func.count(Practice.id)).where(*filters)
+    total_result = await session.execute(count_query)
+    total = total_result.scalar_one()
+
+    # -- Paginated items with master name --
+    query = (
+        select(Practice, User.first_name, User.last_name)
+        .join(User, Practice.master_id == User.id)
+        .where(*filters)
+        .order_by(sort_column)
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(query)
+    rows = result.all()
+
+    # -- Per-user flags for the practices on this page (single query) --
+    practice_ids = [p.id for p, _first, _last in rows]
+    flags = await user_flags_for_practices(user.id, practice_ids, session)
+
+    return PaginatedPracticesResponse(
+        items=[
+            practice_to_response(
+                p,
+                master_full_name(first, last),
+                is_booked=flags.get(p.id, (False, False))[0],
+                is_paid=flags.get(p.id, (False, False))[1],
+            )
+            for p, first, last in rows
+        ],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

@@ -10,7 +10,7 @@
 -->
 
 <template>
-  <div class="loading">
+  <div class="loading velo-kbd-scroll">
     <div class="loading__logo">
       <VeloLogo variant="white" :size="440" spin />
     </div>
@@ -38,8 +38,10 @@ import VeloLogo from '@/components/ui/VeloLogo.vue'
   background: transparent;
   /* The white logo is intentionally larger than the viewport (Figma bleed,
      same as WelcomeView). Clip horizontal overflow so it bleeds symmetrically
-     instead of producing a horizontal scrollbar. */
+     instead of producing a horizontal scrollbar. ROOT-LOCK: overflow-y:auto so
+     this owns its own scroll (html/body/#app no longer absorb overflow). */
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .loading__logo {

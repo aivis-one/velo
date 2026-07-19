@@ -379,8 +379,10 @@ async def test_transactions_shape_and_counterparty(
 
     item = data["items"][0]
     assert set(item.keys()) == {
-        "title", "created_at", "counterparty_name", "amount_cents",
+        "title", "practice_title", "created_at", "counterparty_name", "amount_cents",
     }
+    # M5: no practice_id on these direct-insert ledger rows → practice_title None.
+    assert item["practice_title"] is None
 
 
 @pytest.mark.asyncio

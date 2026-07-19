@@ -25,6 +25,8 @@ export default defineConfig({
     environment: 'happy-dom',
     // Test file patterns
     include: ['src/**/*.test.ts'],
+    // Runs before every test file -- resets api/client.ts module state (T1 stage 2)
+    setupFiles: ['./src/test-setup.ts'],
     // Global timeout per test (ms)
     testTimeout: 5000,
     // Coverage (optional, run with --coverage)

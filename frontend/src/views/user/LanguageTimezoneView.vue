@@ -56,7 +56,7 @@
         <p class="lang-tz__subtitle">
           Время практик будет отображаться в выбранном часовом поясе
         </p>
-        <TimezoneCityPicker v-model="selectedTimezone" @update:modelValue="onTimezoneChange" />
+        <TimezoneCityPicker :model-value="selectedTimezone" @update:modelValue="onTimezoneChange" />
       </section>
 
       <!-- Date format (captured-only — see header / Zod task) -->

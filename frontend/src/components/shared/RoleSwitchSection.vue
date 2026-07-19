@@ -35,6 +35,7 @@ import { VMenuRow } from '@/components/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useToast } from '@/composables/useToast'
+import { masterApprovedSeenKey } from '@/utils/constants'
 import type { UserRole } from '@/api/types'
 
 const router = useRouter()
@@ -65,6 +66,24 @@ async function onSwitch(target: UserRole): Promise<void> {
   if (switching.value) return
   switching.value = true
   try {
+    // MA3: a role='user' account that just gained master capability (verified
+    // application) never saw "Ваша заявка одобрена!" if it self-switches from
+    // here instead of landing on /master/pending naturally. Detour through it
+    // ONCE — MasterPendingView's own "Войти в кабинет" (enterMasterMode) does
+    // the real switchRole+dashboard-push and marks masterApprovedSeenKey, so
+    // every later self-switch (here or elsewhere) goes straight through as
+    // before. Admins switching INTO master mode (role !== 'user') are
+    // unaffected — that's a preview, not a "freshly verified" moment.
+    const userId = authStore.user?.id
+    if (
+      target === 'master' &&
+      authStore.role === 'user' &&
+      userId &&
+      localStorage.getItem(masterApprovedSeenKey(userId)) !== '1'
+    ) {
+      await router.push({ name: 'master-pending' })
+      return
+    }
     await authStore.switchRole(target)
     // Drop any user-mode preview so the native shell of the new role shows.
     uiStore.setUiMode('default')

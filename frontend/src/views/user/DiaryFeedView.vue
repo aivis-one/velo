@@ -601,6 +601,11 @@ async function onLoadMore(): Promise<void> {
   const prevHeight = el?.scrollHeight ?? 0
   const prevTop = el?.scrollTop ?? 0
   await diaryStore.loadMoreFeed()
+  // The feed survives a failed page (the rung is initial-load-only, :172), but
+  // this fires from a scroll sentinel -- there is no button left sitting there
+  // to look broken, so without a toast the user just scrolls into nothing and
+  // is told nothing at all.
+  if (diaryStore.feedLoadMoreError) toast.error(diaryStore.feedLoadMoreError)
   await nextTick()
   if (el) el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
 }
@@ -865,13 +870,18 @@ onBeforeUnmount(() => {
 }
 
 /* -- Compose write-mode glass --
-   position:fixed so it covers the WHOLE viewport edge-to-edge. While writing it
-   is a WHITENED FROSTED glass (white wash + blur) over the feed -- NOT a dark
-   dim: the content stays faintly visible behind the frost. z 1 puts it above
-   the feed (isolated to its own stacking context below) but BELOW the sticky
-   header/composer islands, so only the chrome stays crisp. */
+   position:absolute (was fixed, bg-freeze batch) so it covers `.diary-feed`
+   edge-to-edge WITHOUT tracking the visual viewport -- a fixed layer resizes
+   with the keyboard on every platform by CSS spec, which visibly diverged from
+   the (now frozen-height) #app::before background underneath it. `.diary-feed`
+   is position:relative (its own root rule), so inset:0 here resolves against
+   that stable box instead. While writing it is a WHITENED FROSTED glass (white
+   wash + blur) over the feed -- NOT a dark dim: the content stays faintly
+   visible behind the frost. z 1 puts it above the feed (isolated to its own
+   stacking context below) but BELOW the sticky header/composer islands, so
+   only the chrome stays crisp. */
 .diary-feed__scrim {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 1;
   background: var(--velo-write-frost);

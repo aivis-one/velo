@@ -1,16 +1,17 @@
 <!--
   VELO Frontend -- MasterNewPromocodeView (create-promocode form, 2026-06-13)
 
-  Route /master/promocodes/new, built to the «5 New promo code» design. STUB: no
-  promocodes backend → «Создать промокод» toasts «недоступно». Reuses the Phase-3
-  required-seal pattern (`required` prop on VInput/VSelect + legend). -> Zod.
+  Route /master/promocodes/new, built to the «5 New promo code» design. WIRED
+  (PC1, 2026-07-12): POST /api/v1/masters/me/promos has been live since E10 --
+  this form just never called it. Reuses the Phase-3 required-seal pattern
+  (`required` prop on VInput/VSelect + legend).
 -->
 
 <template>
   <div class="new-promo">
     <VHeader title="Новый промокод" show-back @back="router.back()" />
 
-    <div class="new-promo__content" @click="dismissKeyboardOnBlank">
+    <div class="new-promo__content">
       <!-- Required-fields legend (DS, Phase-3). -->
       <div class="new-promo__legend">
         <IconRequired class="new-promo__legend-seal" :size="22" />
@@ -49,10 +50,16 @@
         type="number"
         min="1"
         placeholder="10"
-        @focus="scrollFieldIntoView"
+        @focus="onFieldFocus"
       />
 
-      <VButton variant="primary" block class="new-promo__submit" @click="onCreate">
+      <VButton
+        variant="primary"
+        block
+        class="new-promo__submit"
+        :loading="creating"
+        @click="onCreate"
+      >
         Создать промокод
       </VButton>
     </div>
@@ -76,10 +83,17 @@ import { VInput, VSelect, VButton } from '@/components/ui'
 import { IconRequired, IconRequiredDone } from '@/components/icons'
 import DatePickerSheet from '@/components/shared/DatePickerSheet.vue'
 import { useToast } from '@/composables/useToast'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import { formatShortDate, todayLocalISO } from '@/utils/format'
+import { createPromo } from '@/api/promos'
+import { ApiResponseError } from '@/api/client'
 
 const router = useRouter()
 const toast = useToast()
+
+// Lift the focused field above the soft keyboard once it settles (shared M5
+// composable — replaces the bespoke racing vv.resize→scrollIntoView listener, K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 const DISCOUNT_OPTIONS = [
   { value: '10', label: '10%' },
@@ -115,39 +129,35 @@ watch(
   },
 )
 
-function onCreate(): void {
-  // No promocodes backend yet -> stub per the operator rule. -> Zod.
-  toast.info('Промокоды пока недоступны')
-}
+const creating = ref(false)
 
-// «Лимит использований» sits low on the form, where the soft keyboard covers it on
-// focus. The keyboard animates in over several frames, so a fixed timeout races it and
-// the field can still land under the keyboard (operator PC-1). Instead react to the
-// visual viewport: centre the field on focus AND on each subsequent visualViewport
-// resize while the keyboard settles, then detach on blur. Coordinates with the e95e05a
-// keyboard-aware system — reads the same window.visualViewport signal, writes none of
-// its shared state. Desktop / no visualViewport → the original deferred scroll.
-function scrollFieldIntoView(e: FocusEvent): void {
-  const el = e.target as HTMLElement | null
-  if (!el) return
-  const bring = (): void => el.scrollIntoView({ block: 'center' })
-  const vv = window.visualViewport
-  if (!vv) {
-    window.setTimeout(bring, 300)
+async function onCreate(): Promise<void> {
+  if (creating.value) return
+  if (!form.code.trim()) {
+    toast.error('Введите код промокода')
     return
   }
-  const onResize = (): void => bring()
-  vv.addEventListener('resize', onResize)
-  el.addEventListener('blur', () => vv.removeEventListener('resize', onResize), { once: true })
-  bring()
-}
-
-// Tap a blank area of the form to dismiss the soft keyboard (number/text inputs have
-// no «Готово» key). Pattern ported from CreatePracticeView.
-function dismissKeyboardOnBlank(e: MouseEvent): void {
-  const t = e.target as HTMLElement
-  if (!t.closest('input, textarea, select, button, [role="button"], a, label')) {
-    ;(document.activeElement as HTMLElement | null)?.blur()
+  if (!form.until) {
+    toast.error('Укажите дату окончания действия')
+    return
+  }
+  creating.value = true
+  try {
+    await createPromo({
+      code: form.code.trim(),
+      discount_percent: Number(form.discount),
+      // End of the selected local day, sent as UTC ISO (mirrors untilDisplay's
+      // own noon-anchoring pattern -- avoids day-boundary drift near midnight).
+      valid_until: new Date(`${form.until}T23:59:59`).toISOString(),
+      max_uses: form.limit ? Number(form.limit) : null,
+    })
+    toast.success('Промокод создан')
+    router.push({ name: 'master-promocodes' })
+  } catch (e) {
+    const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось создать промокод'
+    toast.error(msg)
+  } finally {
+    creating.value = false
   }
 }
 </script>

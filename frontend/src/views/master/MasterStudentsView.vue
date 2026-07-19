@@ -37,7 +37,12 @@
              backdrop-filter) → no keyboard-focus flicker. Live client-side filter. -->
         <div class="students__search">
           <div class="students__search-field">
-            <VInput v-model="query" placeholder="Искать…" aria-label="Искать ученика" />
+            <VInput
+              v-model="query"
+              placeholder="Искать…"
+              aria-label="Искать ученика"
+              @focus="onFieldFocus"
+            />
           </div>
           <span class="students__search-btn" aria-hidden="true"><IconSearch :size="20" /></span>
         </div>
@@ -106,9 +111,14 @@ import { IconSearch, IconWarning, IconMessages } from '@/components/icons'
 import SendMessageModal from '@/components/shared/SendMessageModal.vue'
 import VShowMore from '@/components/shared/VShowMore.vue'
 import { getStudents } from '@/api/masters'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
 import type { StudentListItem } from '@/api/types'
 
 const router = useRouter()
+
+// Lift the search field above the soft keyboard once it settles (shared M5
+// composable) so it's not left under the keyboard on focus (K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 // -- Students (E5: GET /masters/me/students). Search filters the loaded page
 //    client-side; needs_attention drives the inline warning badge. --

@@ -74,10 +74,17 @@ defineEmits<{
 
 .v-confirm__actions {
   display: flex;
+  /* Wrap only when the buttons' real content width doesn't fit the row (bug
+     4, ПРОМТ №408) -- a global flex-direction: column would restack every
+     caller of this component (7 today), including short pairs that fit fine. */
+  flex-wrap: wrap;
   gap: var(--space-3);
 }
 
 .v-confirm__actions > * {
-  flex: 1;
+  /* flex-basis: auto (was `flex: 1` = 0%) so a button's real content size
+     counts toward the wrap decision above -- basis:0% hides it entirely from
+     the wrap algorithm (same trap fixed in AdminCatalogView, bug 6b below). */
+  flex: 1 1 auto;
 }
 </style>

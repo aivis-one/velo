@@ -41,10 +41,14 @@ class MasterTransactionItem(BaseModel):
 
     amount_cents is signed: positive = credit (sale), negative = debit
     (commission, refund). counterparty_name is the paying student for a
-    sale/refund and null for platform-side rows (commission).
+    sale/refund and null for platform-side rows (commission). practice_title
+    (M5) is the name of the practice the movement belongs to, joined from the
+    ledger row's practice_id — null when the row has no practice or it was
+    deleted; the client falls back to `title` then.
     """
 
     title: str
+    practice_title: str | None
     created_at: datetime
     counterparty_name: str | None
     amount_cents: int

@@ -13,6 +13,7 @@
 #   - Projection on check-in        -> checkin event (append-once, immutable)
 #   - Projection on diary entry      -> note/dream event
 #   - Soft-delete entry             -> event drops out of feed
+#   - Restore soft-deleted entry     -> event re-projected back into feed
 #   - Projection on finalize         -> practice_outcome events (attended/no_show)
 #   - GET /diary/feed: newest-first, category filter, search, cursor paging
 #   - Isolation: a user never sees another user's events
@@ -27,6 +28,9 @@ from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from uuid import UUID
+
+from app.modules.bookings.service import auto_finalize_practice
 from app.modules.diary.models import DiaryEvent
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
@@ -269,6 +273,57 @@ async def test_checkin_projects_event_and_is_immutable(
     assert checkin_events[0]["snapshot"]["mood"] == 2
 
 
+@pytest.mark.asyncio
+async def test_checkin_master_name_matches_telegram_name_not_display_name(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """W7 fix: diary events use the master's Telegram name, same as practice
+    cards -- a custom MasterProfile.display_name must NOT leak into the
+    diary feed and disagree with what the practice list shows."""
+    master = await _make_verified_master(client, db_session)
+    await db_session.execute(
+        update(MasterProfile)
+        .where(MasterProfile.user_id == master["user"]["id"])
+        .values(
+            data={
+                "account": {"status": "verified"},
+                "profile": {
+                    "bio": "bio",
+                    "methods": ["meditation"],
+                    "display_name": "Custom Display Name",
+                },
+            },
+        )
+    )
+    await db_session.commit()
+
+    pid = await _create_scheduled_practice(client, master)
+    booker = await _book(client, pid, telegram_id=90004)
+    token = booker["auth"]["session_token"]
+
+    await db_session.execute(
+        update(Practice)
+        .where(Practice.id == pid)
+        .values(scheduled_at=datetime.now(UTC) + timedelta(hours=1))
+    )
+    await db_session.commit()
+
+    resp = await client.post(
+        CHECKIN_URL.format(practice_id=pid),
+        json={"mood": 3, "comment": "ok"},
+        headers=auth_headers(token),
+    )
+    assert resp.status_code == 200, resp.text
+
+    body = await _feed(client, token, category="checkins")
+    checkin_events = [i for i in body["items"] if i["kind"] == "checkin"]
+    assert len(checkin_events) == 1
+    # Telegram first_name ("MasterMind", set in _make_verified_master), NOT
+    # the custom display_name -- matches practices/service.master_full_name.
+    assert checkin_events[0]["snapshot"]["master_name"] == "MasterMind"
+
+
 # ===================================================================
 # Projection: diary entry note/dream + soft delete
 # ===================================================================
@@ -349,6 +404,47 @@ async def test_soft_delete_hides_entry_from_feed(
     assert all(i["source_id"] != entry_id for i in after["items"])
 
 
+@pytest.mark.asyncio
+async def test_restore_reprojects_entry_into_feed(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Restoring a soft-deleted entry brings its event back into the feed.
+
+    Mirrors test_soft_delete_hides_entry_from_feed above: restore_diary_entry
+    re-projects via upsert_entry_event, which sets is_hidden = entry.is_deleted
+    (now False). This is the assertion that would catch a split silently
+    dropping that re-projection call.
+    """
+    auth = await login_user(client, telegram_id=90014, first_name="Writer3")
+    token = auth["session_token"]
+
+    resp = await client.post(
+        DIARY_URL,
+        json={"content": "Almost lost thought."},
+        headers=auth_headers(token),
+    )
+    entry_id = resp.json()["id"]
+
+    resp = await client.delete(
+        f"{DIARY_URL}/{entry_id}", headers=auth_headers(token),
+    )
+    assert resp.status_code == 204, resp.text
+
+    # Gone while deleted.
+    hidden = await _feed(client, token)
+    assert all(i["source_id"] != entry_id for i in hidden["items"])
+
+    resp = await client.post(
+        f"{DIARY_URL}/{entry_id}/restore", headers=auth_headers(token),
+    )
+    assert resp.status_code == 200, resp.text
+
+    # Back after restore.
+    after = await _feed(client, token)
+    assert any(i["source_id"] == entry_id for i in after["items"])
+
+
 # ===================================================================
 # Projection: finalize -> practice_outcome (attended + no_show)
 # ===================================================================
@@ -373,12 +469,10 @@ async def test_finalize_projects_outcome_for_attended_and_no_show(
     )
     assert resp.status_code == 200, resp.text
 
-    # Master finalizes the practice.
-    resp = await client.post(
-        f"{PRACTICES_URL}/{pid}/finalize",
-        headers=auth_headers(master["session_token"]),
-    )
-    assert resp.status_code == 200, resp.text
+    # Practice is finalized by the system (the manual endpoint was removed --
+    # completion is now driven by the lifecycle worker at scheduled_at + duration).
+    await auto_finalize_practice(UUID(pid), db_session)
+    await db_session.commit()
 
     # Attendee sees outcome with status attended.
     att_feed = await _feed(

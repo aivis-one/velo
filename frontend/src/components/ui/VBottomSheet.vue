@@ -18,7 +18,7 @@
   <Teleport to="body">
     <Transition name="v-sheet">
       <div v-if="open" class="v-sheet__overlay" @click.self="onOverlay">
-        <div class="v-sheet__panel" role="dialog" aria-modal="true">
+        <div class="v-sheet__panel velo-kbd-scroll" role="dialog" aria-modal="true">
           <div class="v-sheet__handle" aria-hidden="true" />
           <h2 v-if="title" class="v-sheet__title">{{ title }}</h2>
           <div class="v-sheet__body">
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue'
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(
   defineProps<{
@@ -63,18 +64,30 @@ function onKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape' && props.open) emit('close')
 }
 
-// Lock body scroll while open.
+// Lock body scroll while open. Ref-counted (W16, ПРОМТ №409) -- see
+// VModal.vue's identical comment for why (two overlays open at once, whoever
+// closes first must not unlock the body out from under the other).
+let locked = false
 watch(
   () => props.open,
   (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen && !locked) {
+      locked = true
+      lockBodyScroll()
+    } else if (!isOpen && locked) {
+      locked = false
+      unlockBodyScroll()
+    }
   },
 )
 
 onMounted(() => document.addEventListener('keydown', onKeydown))
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  document.body.style.overflow = ''
+  if (locked) {
+    locked = false
+    unlockBodyScroll()
+  }
 })
 </script>
 
@@ -90,6 +103,10 @@ onUnmounted(() => {
 }
 
 .v-sheet__panel {
+  /* Keyboard-safe (bg-freeze batch): carries .velo-kbd-scroll so a field
+     focused inside the sheet (e.g. a reject-reason VTextarea) stays reachable
+     -- html.is-keyboard-open .v-sheet__panel (global.css) overrides the
+     at-rest 90vh to fit the keyboard-shrunk overlay, same pattern as VModal. */
   position: relative;
   width: 100%;
   max-width: var(--velo-screen-width);

@@ -29,6 +29,9 @@
       :class="{
         'mobile-layout__main--fill': fill,
         'mobile-layout__main--fog': fog && !fill,
+        // Keyboard-cap marker (root-static): fill-mode screens own their
+        // keyboard handling directly and must NOT be capped by the shared rule.
+        'velo-kbd-scroll': !fill,
       }"
       :style="fill ? undefined : mainStyle"
     >

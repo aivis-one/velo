@@ -21,9 +21,9 @@
 #     - pagination (limit/offset)
 #   DEACTIVATE:
 #     - success (company promo)
+#     - success (master promo, T5 -- widened from company-only)
 #     - already inactive (409)
 #     - not found (404)
-#     - master promo rejected (400)
 #     - non-admin user (403)
 # =============================================================================
 
@@ -342,7 +342,18 @@ async def test_list_promos_empty(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Admin sees empty list when no promos exist."""
+    """The list endpoint returns a well-formed, correctly-paginated response.
+
+    Does NOT assert the database is empty -- /admin/promos is global (every
+    company promo, not scoped to this test's own users), and this is a
+    shared, human-used TEST database: the cleanup fixture above only removes
+    promos it created itself (own users, or code LIKE 'TEST80%') and cannot
+    know about a promo the operator created by hand through the admin UI with
+    an arbitrary code. test_list_promos_with_items below covers the
+    has-our-own-data case; this test only guards the response SHAPE and the
+    documented pagination defaults, which hold regardless of what else is in
+    the table.
+    """
     admin = await _make_admin(client, db_session)
 
     resp = await client.get(
@@ -351,8 +362,9 @@ async def test_list_promos_empty(
     )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["items"] == []
-    assert data["total"] == 0
+    assert isinstance(data["items"], list)
+    assert len(data["items"]) <= data["limit"]
+    assert data["total"] >= len(data["items"])
     assert data["limit"] == 20
     assert data["offset"] == 0
 
@@ -386,6 +398,47 @@ async def test_list_promos_with_items(
     codes = [p["code"] for p in data["items"]]
     assert "TEST80A" in codes
     assert "TEST80B" in codes
+
+
+@pytest.mark.asyncio
+async def test_list_promos_carries_master_name(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """T5: master-type items carry the owning master's name; company items don't.
+
+    login_user's default first_name is "TestUser" (no last_name set) --
+    asserted against that, not a hardcoded fixture name.
+    """
+    admin = await _make_admin(client, db_session)
+    admin_headers = auth_headers(admin["session_token"])
+
+    await client.post(
+        ADMIN_PROMOS_URL,
+        json=_valid_company_promo_body("TEST80NAME"),
+        headers=admin_headers,
+    )
+
+    master = await _make_verified_master(client, db_session, telegram_id=80002)
+    await client.post(
+        MASTER_PROMOS_URL,
+        json={
+            "code": "TEST80MNAME",
+            "discount_percent": 5,
+            "valid_from": (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            ).isoformat(),
+        },
+        headers=auth_headers(master["session_token"]),
+    )
+
+    resp = await client.get(ADMIN_PROMOS_URL, headers=admin_headers)
+    assert resp.status_code == 200
+    items = {p["code"]: p for p in resp.json()["items"]}
+
+    assert items["TEST80NAME"]["master_first_name"] is None
+    assert items["TEST80NAME"]["master_last_name"] is None
+    assert items["TEST80MNAME"]["master_first_name"] == "TestUser"
 
 
 @pytest.mark.asyncio
@@ -625,11 +678,15 @@ async def test_deactivate_not_found(
 
 
 @pytest.mark.asyncio
-async def test_deactivate_master_promo_rejected(
+async def test_deactivate_master_promo_success(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Admin cannot deactivate a master promo: 400."""
+    """T5: admin CAN deactivate a master's promo (widened from company-only).
+
+    Operator's explicit ask (2026-07-14): admin sees and deactivates every
+    master's promos, not just company ones.
+    """
     # Create a master promo.
     master = await _make_verified_master(client, db_session)
     master_body = {
@@ -647,14 +704,15 @@ async def test_deactivate_master_promo_rejected(
     assert resp.status_code == 201
     master_promo_id = resp.json()["id"]
 
-    # Admin tries to deactivate it.
+    # Admin deactivates it.
     admin = await _make_admin(client, db_session, telegram_id=80902)
     resp2 = await client.patch(
         DEACTIVATE_URL.format(promo_id=master_promo_id),
         headers=auth_headers(admin["session_token"]),
     )
-    assert resp2.status_code == 400
-    assert "company promos" in resp2.json()["message"].lower()
+    assert resp2.status_code == 200
+    assert resp2.json()["is_active"] is False
+    assert resp2.json()["type"] == "master"
 
 
 @pytest.mark.asyncio
@@ -680,3 +738,82 @@ async def test_deactivate_not_admin(
         headers=auth_headers(user["session_token"]),
     )
     assert resp2.status_code == 403
+
+
+# ===================================================================
+# CreateCompanyPromoRequest.valid_from -- default-on-omit regression
+# (C2, ПРОМТ №387): pydantic v2 does NOT run a mode="before" validator
+# against a field's default unless validate_default=True is set. Omitting
+# valid_from silently left it None instead of defaulting to now(UTC).
+# ===================================================================
+
+
+class TestValidFromDefaultsOnOmit:
+    """CreateCompanyPromoRequest.valid_from must default to now(UTC) when
+    the field is omitted entirely -- not just when it's explicitly null."""
+
+    def test_omitted_defaults_to_now(self) -> None:
+        """Field absent from the payload -> defaults to current UTC time."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        before = datetime.now(timezone.utc)
+        req = CreateCompanyPromoRequest(code="OMITTED1", discount_percent=10)
+        after = datetime.now(timezone.utc)
+
+        assert req.valid_from is not None
+        assert before <= req.valid_from <= after
+
+    def test_explicit_null_defaults_to_now(self) -> None:
+        """Field explicitly sent as null -> also defaults to current UTC
+        time (this case already worked before the fix; must keep working)."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        before = datetime.now(timezone.utc)
+        req = CreateCompanyPromoRequest(
+            code="EXPLNULL1", discount_percent=10, valid_from=None
+        )
+        after = datetime.now(timezone.utc)
+
+        assert req.valid_from is not None
+        assert before <= req.valid_from <= after
+
+    def test_explicit_datetime_is_kept(self) -> None:
+        """An explicit valid_from is passed through unchanged, not
+        overridden by the default-to-now behavior."""
+        from app.modules.admin.promos.schemas import CreateCompanyPromoRequest
+
+        explicit = datetime(2030, 1, 1, tzinfo=timezone.utc)
+        req = CreateCompanyPromoRequest(
+            code="EXPLDT1", discount_percent=10, valid_from=explicit
+        )
+
+        assert req.valid_from == explicit
+
+
+@pytest.mark.asyncio
+async def test_create_company_promo_omitted_valid_from_defaults_to_now(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """End-to-end (C2 regression): POSTing a company promo with no
+    valid_from key at all in the JSON body must succeed and the created
+    promo's valid_from must be ~now, not null -- omitting the field is the
+    documented, intended way to create an "active immediately" promo."""
+    admin = await _make_admin(client, db_session)
+
+    body = _valid_company_promo_body("TEST80OMIT")
+    del body["valid_from"]
+
+    before = datetime.now(timezone.utc)
+    resp = await client.post(
+        ADMIN_PROMOS_URL,
+        json=body,
+        headers=auth_headers(admin["session_token"]),
+    )
+    after = datetime.now(timezone.utc)
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["valid_from"] is not None
+    valid_from = datetime.fromisoformat(data["valid_from"])
+    assert before <= valid_from <= after

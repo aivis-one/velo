@@ -97,6 +97,17 @@ export function resetAuthState(): void {
   pendingDeepLink.value = null
 }
 
+/**
+ * TEST-ONLY. Force `isReady` without running the real initAuth() bootstrap
+ * (network/platform.init()/auth store calls). Router-guard tests need to
+ * control waitUntilReady()'s resolution synchronously; this is the only
+ * seam for that. Never call from production code -- there is no legitimate
+ * production reason to set readiness without actually being ready.
+ */
+export function __setReadyForTest(ready: boolean): void {
+  isReady.value = ready
+}
+
 /** Result returned by waitUntilReady(). */
 export interface ReadyResult {
   /** True if auth completed normally before the timeout. */

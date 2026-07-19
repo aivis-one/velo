@@ -96,16 +96,15 @@
       </VButton>
 
       <!-- ================================================================
-           САММАРИ НЕДЕЛИ (placeholder — no master-AI backend yet)
+           САММАРИ НЕДЕЛИ (honest placeholder — no master-AI backend yet;
+           honesty-cleanup 2026-07-12: dropped the fabricated insight text)
            ================================================================ -->
       <h2 class="velo-section-title">Саммари недели</h2>
       <!-- The whole block opens the full summary on tap (operator tester-fix
-           2026-06-17; «Подробнее» button removed). When a summary exists the
-           teaser is clamped to 2 lines with an ellipsis so it reads as "tap to
-           expand" — same idiom as the diary feed card (Variant B). The new
-           master has nothing to open, so it keeps a plain placeholder. -->
+           2026-06-17; «Подробнее» button removed) — the target screen still has
+           real content («Требуют внимания»), so the tap-through stays. -->
       <VCard v-if="!isNewMaster" clickable @click="router.push({ name: 'master-summary' })">
-        <p class="master-dashboard__summary-text">{{ WEEKLY_SUMMARY_INSIGHT }}</p>
+        <p class="master-dashboard__summary-text">Сводка появится с аналитикой</p>
       </VCard>
       <VCard v-else>
         <p class="master-dashboard__empty-text">Данных пока нет — создайте первую практику</p>
@@ -154,8 +153,8 @@
                 <IconGroup :size="16" />
                 {{ formatParticipants(practice.current_participants, practice.max_participants) }}
               </span>
-              <span class="master-dashboard__meta-item">
-                <IconCheckin :size="16" /> {{ checkinLabel(practice, insightsCache) }}
+              <span v-if="checkinLabel(practice)" class="master-dashboard__meta-item">
+                <IconCheckin :size="16" /> {{ checkinLabel(practice) }}
               </span>
               <span v-if="recurrenceLabel(practice)" class="master-dashboard__meta-item">
                 <IconRepeat :size="16" /> {{ recurrenceLabel(practice) }}
@@ -219,7 +218,6 @@ import { VButton, VLoader, VStatCard, VCard, VMenuRow, VSegmentTrack } from '@/c
 import { IconBellPlain, IconGroup, IconCheckin, IconRepeat, IconHourglass } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useAuthStore } from '@/stores/auth'
-import { useDiaryStore } from '@/stores/diary'
 import { useSafeArea } from '@/composables/useSafeArea'
 import MasterOnboardingView from '@/views/master/MasterOnboardingView.vue'
 import { isMasterOnboardingCompleted, shouldShowMasterOnboarding } from '@/utils/masterOnboarding'
@@ -229,17 +227,12 @@ import { platform } from '@/platform'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { practiceHasEnded } from '@/utils/practiceStatus'
-import { WEEKLY_SUMMARY_INSIGHT } from '@/utils/masterSummaryStub'
 import { getMasterStats } from '@/api/masters'
 import type { PracticeResponse, MasterStatsResponse } from '@/api/types'
 
 const router = useRouter()
 const masterStore = useMasterStore()
 const authStore = useAuthStore()
-const diaryStore = useDiaryStore()
-// Anonymous-insights cache (shared store) — feeds the nearest-practice card's
-// check-in count, identical source to MasterPracticesView (DB-2).
-const insightsCache = diaryStore.insightsCache
 const { contentSafeTop } = useSafeArea()
 const toast = useToast()
 
@@ -398,9 +391,9 @@ onMounted(async () => {
   // Both calls are lazy -- skip if already populated by guard / prior navigation.
   await masterStore.fetchMyProfile()
   await masterStore.fetchMyPractices()
-  // Eager-load insights for the visible nearest cards so the check-in meta shows
-  // without a tap (≤2 ids; loadInsights skips cached ones). DB-2.
-  await Promise.all(nearestPractices.value.map((p) => diaryStore.loadInsights(p.id)))
+  // E12 swap (ПРОМТ №419): the check-in meta now reads checkin_count straight
+  // off the practice (already on masterStore.practices) -- the insights
+  // eager-load that used to feed it is gone, one fewer network round-trip.
 })
 
 onUnmounted(() => {
@@ -410,11 +403,27 @@ onUnmounted(() => {
 
 <style scoped>
 /* Full-screen onboarding overlay. Replicates the app's photo background
-   (#app::before in global.css) so it obscures the dashboard behind it and the
-   transparent carousel reads exactly like the user OnboardingView. Below the
-   toast layer (--z-toast) so error toasts still surface. */
+   (ПРОМТ №383: now `#app-bg` in global.css, was `#app::before`) so it obscures
+   the dashboard behind it and the transparent carousel reads exactly like the
+   user OnboardingView. Below the toast layer (--z-toast) so error toasts
+   still surface. This is a SEPARATE, intentional second paint of the same
+   image -- not a bug: `#app-bg` sits BEHIND `#app` (z-index:-1), and this
+   overlay sits ABOVE `#app` (z-index:var(--z-popup)) to obscure it, so it
+   can't just show `#app-bg` through a transparent background -- it needs its
+   own opaque copy. Audited №383: this view has no focusable inputs (a
+   read-only carousel), so it never triggers the Android
+   focus-scroll-bypasses-overflow-hidden path that #app::before was vulnerable
+   to -- safe as `position:absolute` against body's frozen box.
+   position:absolute (was fixed, bg-freeze batch): this is Teleported to
+   <body>, so a `fixed` layer tracked the visual viewport directly -- on a
+   platform where the keyboard resizes that viewport, this SECOND copy of the
+   mandala moved independently of the real background underneath it (a
+   confirmed jump vector, audit ПРОМТ №378). `body` is now position:relative
+   (global.css) with a frozen height, so `absolute; inset:0` here resolves
+   against that stable box instead -- full-bleed coverage, immune to the
+   keyboard, on every platform. */
 .master-onboarding-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: var(--z-popup);
   background: url('/bg/background.png') center / cover no-repeat;

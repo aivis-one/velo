@@ -11,8 +11,20 @@ when you look at the **running system**, not just the source code.
 
 ## Configuration
 
+<!-- VELO-tuned (ПРОМТ №435): CBS's docs/01_refer path replaced with the
+     git-untracked scratch dir the rest of the family already uses (dda9a6f,
+     ПРОМТ №385). VELO has no docs/01_refer/.
+
+     INERT PROBES against VELO -- marked, NOT rewritten (ПРОМТ №435):
+     every SQLite probe below (*.db file growth, VACUUM, journal/WAL size,
+     PRAGMA checks). VELO's backend is Postgres in Docker on the VPS; there is
+     no .db file to stat and no local Docker or VPS access from this repo, so
+     those probes find nothing and their silence is NOT a pass. The disk/log/
+     dead-file/config-drift probes still apply to the repo working tree.
+     Rewriting them for Postgres is a separate, sized task -- do not infer a
+     clean bill of health from an inert probe. -->
 ```yaml
-review_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+review_dir: .tmp/probekit-review
 ```
 
 ## Execution Steps

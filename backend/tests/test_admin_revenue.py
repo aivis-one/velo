@@ -245,9 +245,13 @@ async def _add_purchase(
     await db_session.flush()
 
 
-async def _get_revenue(client: AsyncClient, token: str, period: str = "week") -> dict:
+async def _get_revenue(
+    client: AsyncClient, token: str, period: str = "week", offset: int = 0,
+) -> dict:
     resp = await client.get(
-        REVENUE_URL, params={"period": period}, headers=auth_headers(token),
+        REVENUE_URL,
+        params={"period": period, "offset": offset},
+        headers=auth_headers(token),
     )
     assert resp.status_code == 200
     return resp.json()
@@ -349,6 +353,36 @@ async def test_revenue_period_excludes_other_week(
 
     new = await _get_revenue(client, token, "week")
     assert new["commission_cents"] - base["commission_cents"] == 0
+
+
+@pytest.mark.asyncio
+async def test_revenue_offset_navigates_previous_week(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """W9 regression (ПРОМТ №387): offset=-1 shows a commission booked exactly
+    one week ago; offset=0 (current week) does not. Before the fix,
+    getAdminRevenue had no offset parameter at all -- the revenue card
+    silently ignored the dashboard's week-stepper while its sibling metrics
+    (checkin/feedback/return) respected it.
+    """
+    token = await _make_admin(client, db_session)
+    await _make_master(client, db_session)
+    await db_session.commit()
+
+    base_current = await _get_revenue(client, token, "week", offset=0)
+    base_previous = await _get_revenue(client, token, "week", offset=-1)
+
+    await _add_commission(
+        db_session, 9999, created_at=datetime.now(UTC) - timedelta(weeks=1),
+    )
+    await db_session.commit()
+
+    new_current = await _get_revenue(client, token, "week", offset=0)
+    new_previous = await _get_revenue(client, token, "week", offset=-1)
+
+    assert new_current["commission_cents"] - base_current["commission_cents"] == 0
+    assert new_previous["commission_cents"] - base_previous["commission_cents"] == 9999
 
 
 # ===================================================================

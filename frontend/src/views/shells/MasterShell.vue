@@ -117,10 +117,11 @@ function fogPx(cs: CSSStyleDeclaration, name: string, fallback: number): number 
 
 // CTA-safe fog tuning: a softer top dissolve + the full pd bottom via the shared
 // --velo-fog-pd-* tokens, so an in-flow bottom action button clears the bottom
-// fade and stays crisp. Read once + memoized. Finance keeps this full pd bottom;
-// the create/edit/promocode forms moved to the COMPACT bottom (ПРОМТ №233 — the
-// full 140px read as a too-wide fog band; see COMPACT_BOTTOM_FOG_ROUTES).
-const CTA_SAFE_FOG_ROUTES = ['master-finance', 'master-support']
+// fade and stays crisp. Read once + memoized. The create/edit/promocode forms
+// (and now finance, PC2b) moved to the COMPACT bottom (ПРОМТ №233 / 2026-07-12 —
+// the full 140px read as a too-wide fog band; see COMPACT_BOTTOM_FOG_ROUTES /
+// FORM_FOG_ROUTES). Support is the only screen left on the full pd bottom.
+const CTA_SAFE_FOG_ROUTES = ['master-support']
 let pdFogCache: {
   topGap: number
   fogTopHard: number
@@ -172,14 +173,24 @@ function compactBottomFog() {
 // is intentional, unlike the forms' crisp fields.
 const COMPACT_BOTTOM_FOG_ROUTES = ['master-practice-detail']
 
-// Form-only fog (M7, ПРОМТ №275): the create / edit practice + new promocode FORMS
-// carry a TRANSPARENT floating VHeader (~88px). The shared pd-top-hard (60) is
-// shorter than the header, so form content ghosted UNDER the header's lower half on
-// scroll (operator «наезжает заголовок при скролле»). Same tuning as
-// compactBottomFog but with the taller --velo-fog-pd-top-hard-form so content fully
-// dissolves before the header. practice-detail stays on compactBottomFog. Reuses
-// the fogPx reader; the header stays transparent (no solid plate).
-const FORM_FOG_ROUTES = ['master-practice-new', 'master-practice-edit', 'master-promocode-new']
+// Form-only fog (M7, ПРОМТ №275; joined by finance, PC2b 2026-07-12): the create /
+// edit practice + new promocode FORMS carry a TRANSPARENT floating VHeader
+// (~88px). The shared pd-top-hard (60) is shorter than the header, so form
+// content ghosted UNDER the header's lower half on scroll (operator «наезжает
+// заголовок при скролле»). Same tuning as compactBottomFog but with the taller
+// --velo-fog-pd-top-hard-form so content fully dissolves before the header.
+// Finance uses the identical VHeader pattern (`<VHeader title="Вывод средств"
+// show-back />`) and had the same "too much fog" complaint on its bottom pd —
+// moved here rather than to COMPACT_BOTTOM_FOG_ROUTES (that one's tuned for
+// practice-detail's non-VHeader hero header). practice-detail stays on
+// compactBottomFog. Reuses the fogPx reader; the header stays transparent (no
+// solid plate).
+const FORM_FOG_ROUTES = [
+  'master-practice-new',
+  'master-practice-edit',
+  'master-promocode-new',
+  'master-finance',
+]
 let formFogCache: {
   topGap: number
   fogTopHard: number

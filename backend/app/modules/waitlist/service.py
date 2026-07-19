@@ -300,7 +300,29 @@ async def confirm_waitlist(
     expired/spot-taken cases. This ensures get_db_session commits the
     status changes. If we raised, the exception would trigger rollback
     and the changes would be lost.
+
+    W1 fix: locks Practice before Waitlist, same order as join_waitlist /
+    create_booking. An unlocked peek finds which practice the entry
+    belongs to, so Practice can be locked first; the entry itself is then
+    loaded FOR UPDATE (authoritative) for the ownership/status/expiry
+    checks below. The previous Waitlist-then-Practice order here was the
+    reverse of join_waitlist's Practice-then-Waitlist order, a lock-order
+    deadlock risk under concurrent requests.
     """
+    peek_stmt = select(Waitlist.practice_id).where(Waitlist.id == waitlist_id)
+    practice_id = (await session.execute(peek_stmt)).scalar_one_or_none()
+    if practice_id is None:
+        raise NotFoundError("Waitlist entry not found")
+
+    practice_stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    practice = (await session.execute(practice_stmt)).scalar_one_or_none()
+    if not practice:
+        raise NotFoundError("Waitlist entry not found")
+
     stmt = (
         select(Waitlist)
         .where(Waitlist.id == waitlist_id)
@@ -334,16 +356,9 @@ async def confirm_waitlist(
         )
         return entry, None
 
-    # Lock practice and recheck capacity (overbooking prevention).
-    # Between cancel_booking (which freed a spot) and now, a concurrent
-    # create_booking could have taken the spot.
-    practice_stmt = (
-        select(Practice)
-        .where(Practice.id == entry.practice_id)
-        .with_for_update()
-    )
-    practice = (await session.execute(practice_stmt)).scalar_one()
-
+    # Recheck capacity (overbooking prevention) -- practice already locked
+    # above. Between cancel_booking (which freed a spot) and now, a
+    # concurrent create_booking could have taken the spot.
     if practice.max_participants is not None:
         active = await _get_active_booking_count(
             session, entry.practice_id,

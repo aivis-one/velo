@@ -54,7 +54,17 @@ import type {
   AdminMasterDetail,
   AdminMasterProfileUpdate,
   RevokeMasterAdvisory,
+  PromoResponse,
 } from '@/api/types'
+// T5: AdminPromoResponse/AdminPaginatedPromosResponse are natively in
+// generated.ts as of the b56944d regen -- imported directly from there
+// (not api/types), same convention taxonomy.ts uses for its generated
+// types. Field-checked against the hand-written stand-in this replaced:
+// identical shape, nothing kept back.
+import type { AdminPromoResponse, AdminPaginatedPromosResponse } from '@/api/generated'
+
+export type { AdminPromoResponse, AdminPaginatedPromosResponse }
+export type AdminPromoTypeFilter = 'company' | 'master'
 
 // Re-export for views that import from api/admin.ts directly.
 export type {
@@ -202,8 +212,20 @@ export function editMasterProfile(
   )
 }
 
-export function verifyMaster(userId: string): Promise<AdminMasterActionResponse> {
-  return api.post<AdminMasterActionResponse>(`/api/v1/admin/masters/${userId}/verify`, {})
+/**
+ * Verify a pending master application. promote (ПРОМТ №505, mirrors
+ * approveMethodChange below): optional custom method labels to add to the
+ * taxonomy catalog -- absent/empty posts the same bare `{}` every existing
+ * caller already sends, so nothing else changes.
+ */
+export function verifyMaster(
+  userId: string,
+  promote?: string[],
+): Promise<AdminMasterActionResponse> {
+  return api.post<AdminMasterActionResponse>(
+    `/api/v1/admin/masters/${userId}/verify`,
+    promote && promote.length ? { promote } : {},
+  )
 }
 
 export function rejectMaster(userId: string, reason: string): Promise<AdminMasterActionResponse> {
@@ -251,11 +273,17 @@ export function getMethodChangeRequests(
   )
 }
 
-/** Approve a master's pending method change-request (methods become live). */
-export function approveMethodChange(userId: string): Promise<MethodChangeActionResponse> {
+/** Approve a master's pending method change-request (methods become live).
+ *  promote (R5 stage 4, operator decision 3=Б): optional custom method
+ *  labels to add to the taxonomy catalog. Omitted/empty -> no catalog
+ *  write, identical to pre-stage-4 behavior. */
+export function approveMethodChange(
+  userId: string,
+  promote?: string[],
+): Promise<MethodChangeActionResponse> {
   return api.post<MethodChangeActionResponse>(
     `/api/v1/admin/masters/${userId}/method-change-request/approve`,
-    {},
+    promote && promote.length ? { promote } : {},
   )
 }
 
@@ -385,8 +413,32 @@ export function getAdminPracticeDetail(id: string): Promise<AdminPracticeDetailR
   return api.get<AdminPracticeDetailResponse>(`/api/v1/admin/practices/${id}`)
 }
 
-/** Platform revenue/commission/payout + per-master breakdown for the period. */
-export function getAdminRevenue(period: 'week' | 'month' = 'week'): Promise<AdminRevenueResponse> {
-  const query = buildQuery({ period })
+/** Platform revenue/commission/payout + per-master breakdown for the period.
+ * offset (W9, ПРОМТ №387): steps the window by whole periods, same stepper
+ * convention as getCheckinMetric/getFeedbackMetric/getReturnMetric below. */
+export function getAdminRevenue(
+  period: 'week' | 'month' = 'week',
+  offset = 0,
+): Promise<AdminRevenueResponse> {
+  const query = buildQuery({ period, offset })
   return api.get<AdminRevenueResponse>(`/api/v1/admin/revenue${query}`)
+}
+
+// ============================================================================
+// Promos (T5) -- admin sees + deactivates every master's promos, plus its own
+// company-wide ones. Company creation (POST) stays out of this batch's scope.
+// ============================================================================
+
+export function getAdminPromos(
+  type?: AdminPromoTypeFilter,
+  isActive?: boolean,
+  limit = 20,
+  offset = 0,
+): Promise<AdminPaginatedPromosResponse> {
+  const query = buildQuery({ type, is_active: isActive, limit, offset })
+  return api.get<AdminPaginatedPromosResponse>(`/api/v1/admin/promos${query}`)
+}
+
+export function deactivateAdminPromo(promoId: string): Promise<PromoResponse> {
+  return api.patch<PromoResponse>(`/api/v1/admin/promos/${promoId}/deactivate`)
 }

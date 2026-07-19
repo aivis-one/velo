@@ -13,7 +13,6 @@
 //   PATCH  /api/v1/practices/{id}         -- edit / status transition
 //   DELETE /api/v1/practices/{id}         -- soft-delete (draft only -> deleted)
 //   POST   /api/v1/practices/{id}/cancel  -- cancel with full refund
-//   POST   /api/v1/practices/{id}/finalize -- resolve attendance (live/scheduled -> completed)
 //   GET    /api/v1/practices/{id}/attendance -- attendance list + aggregates
 //   GET    /api/v1/practices/{id}/reviews    -- paginated named reviews (E1)
 //
@@ -94,9 +93,10 @@ export function createPractice(body: CreatePracticeRequest): Promise<PracticeRes
  *
  * Status transitions allowed via PATCH:
  *   draft       -> scheduled (publish)
- *   scheduled   -> live      (start)
- *   live        -> completed (end)
  *
+ * scheduled -> live and live -> completed are NO LONGER PATCH-able: they are
+ * driven by the backend lifecycle worker by the clock (start at scheduled_at,
+ * finish at scheduled_at + duration), not by the client.
  * "cancelled" is NOT reachable here -- use cancelPractice() instead.
  * "deleted"   -> use deletePractice() (soft-delete, draft only).
  */
@@ -131,16 +131,6 @@ export function cancelPractice(
     `/api/v1/practices/${id}/cancel`,
     scope ? { scope } : undefined,
   )
-}
-
-/**
- * Finalize a practice: resolve attendance, release frozen funds.
- *
- * Allowed statuses: live, scheduled -> completed.
- * Should be called by master after the session ends.
- */
-export function finalizePractice(id: string): Promise<PracticeResponse> {
-  return api.post<PracticeResponse>(`/api/v1/practices/${id}/finalize`)
 }
 
 /**

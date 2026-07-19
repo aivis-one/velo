@@ -128,7 +128,7 @@ Filename pattern:
 
 ## What the Skill Checks
 
-12 sections per review:
+13 sections per review (10-13 are conditional):
 
 1. General overview + score (1-10)
 2. Critical bugs and logic errors
@@ -142,6 +142,7 @@ Filename pattern:
 10. AI-generated code patterns (slopsquatting, god classes, phantom code, prompt residue, etc.)
 11. Cross-module consistency (multi-file reviews only)
 12. Test quality audit (when test files are present)
+13. Orphan source files (directory reviews only)
 
 ---
 
@@ -187,7 +188,7 @@ Inverted pyramid, no integration layer, missing contract tests, slow/fast test m
 ## Fix Mode (--fix)
 
 When invoked with `--fix`, the skill:
-1. Runs the full audit as usual (all 12 sections)
+1. Runs the full audit as usual (all 13 sections)
 2. Automatically applies CRITICAL and WARNING fixes to source files
 3. Skips SUGGESTION-level items (too subjective for auto-fix)
 4. Re-runs verification on Sections 2 (bugs) and 4 (security) on modified files

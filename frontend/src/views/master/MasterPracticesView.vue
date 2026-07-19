@@ -18,8 +18,10 @@
 
   Data reality (Q4=А):
     REAL  -- participants, date/time/duration, practice icon; check-in count
-             (insights.checkins / max) + rating distribution (insights.feedbacks,
-             reused from diaryStore cache like AnalyticsView).
+             (checkin_count / max, owner-only -- E12 swap, ПРОМТ №419: was
+             insights.checkins mood tally, now distinct PRE check-ins, see
+             practiceCardMeta.ts) + rating distribution (insights.feedbacks,
+             reused from diaryStore cache like AnalyticsView, PAST tab only).
     STUB  -- attended/no-show counts (no aggregate field) → «—»; recurrence days
              («Регулярная» shown for series, exact days TBD); «осталось N из M»
              omitted (no series-session field). All recorded in
@@ -51,8 +53,13 @@
       <VLoader size="lg" />
     </div>
 
-    <!-- Error -->
-    <div v-else-if="masterStore.practicesError" class="master-practices__content">
+    <!-- Error (INITIAL load only -- a failed page-N is toasted by onLoadMore and
+         must not replace the pages already on screen; mirrors the loading rung
+         above and MyBookingsView.vue:28) -->
+    <div
+      v-else-if="masterStore.practicesError && masterStore.practices.length === 0"
+      class="master-practices__content"
+    >
       <VEmptyState
         icon="warning"
         title="Не удалось загрузить практики"
@@ -90,7 +97,9 @@
             </div>
             <div class="mp-card__meta">
               <span class="mp-stat"><IconGroup :size="16" /> {{ participantsLabel(p) }}</span>
-              <span class="mp-stat"><IconCheckin :size="16" /> {{ checkinLabel(p, insightsCache) }}</span>
+              <span v-if="checkinLabel(p)" class="mp-stat"
+                ><IconCheckin :size="16" /> {{ checkinLabel(p) }}</span
+              >
               <span v-if="recurrenceLabel(p)" class="mp-stat"
                 ><IconRepeat :size="16" /> {{ recurrenceLabel(p) }}</span
               >
@@ -176,6 +185,7 @@ import {
 } from '@/components/icons'
 import { useMasterStore } from '@/stores/master'
 import { useDiaryStore } from '@/stores/diary'
+import { useToast } from '@/composables/useToast'
 import { practiceIconFor } from '@/utils/displayHelpers'
 import { checkinLabel, recurrenceLabel, remainingSessionsLabel } from '@/utils/practiceCardMeta'
 import { formatDateShort, formatShortDate, formatTime, localSortKey } from '@/utils/format'
@@ -183,6 +193,7 @@ import type { PracticeResponse } from '@/api/types'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const masterStore = useMasterStore()
 const diaryStore = useDiaryStore()
 
@@ -263,10 +274,14 @@ function ratingPct(id: string, key: 'fire' | 'good' | 'confused'): number {
   return total > 0 ? Math.round((i.feedbacks[key] / total) * 100) : 0
 }
 
-/** Eager-load insights for the visible tab (idempotent: cached ids are skipped). */
+/** Eager-load insights for the visible tab (idempotent: cached ids are skipped).
+ *  E12 swap (ПРОМТ №419): the "Предстоящие" tab's check-in badge now reads
+ *  checkin_count straight off the practice, not insights -- so insights are
+ *  only fetched for "Прошедшие" (rating badges). Upcoming skips the round-trip
+ *  entirely. */
 function loadTabInsights(): Promise<void[]> {
-  const list = activeTab.value === 'upcoming' ? upcomingPractices.value : pastPractices.value
-  return Promise.all(list.map((p) => diaryStore.loadInsights(p.id)))
+  if (activeTab.value !== 'past') return Promise.resolve([])
+  return Promise.all(pastPractices.value.map((p) => diaryStore.loadInsights(p.id)))
 }
 
 /** Eager-load insights for the visible tab. Bounded to the currently-loaded page;
@@ -286,6 +301,12 @@ function goDetail(id: string): void {
 
 async function onLoadMore(): Promise<void> {
   await masterStore.loadMorePractices()
+  // A failed page-N keeps the list (usePagination routes it away from `error`)
+  // but would be SILENT without this. Toast it, as the six admin lists do.
+  // No manual clearing: the composable resets loadMoreError on the next attempt.
+  if (masterStore.practicesLoadMoreError) {
+    toast.error(masterStore.practicesLoadMoreError)
+  }
   await loadTabData()
 }
 

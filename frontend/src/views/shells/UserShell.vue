@@ -89,6 +89,11 @@ const FOG_ROUTES = [
   // focused field scrolls above the keyboard (PE-2c). No solid header — the design
   // has no white plates (operator, no-plate call).
   'user-edit-profile',
+  // Support (batch O, O3 / operator Q3=А): the «Поддержка» screen is a form like
+  // edit-profile — fog dissolves content under the floating header so it no longer
+  // overlaps on scroll. Default form-safe tuning: the submit button + inputs sit
+  // above the bottom fade (the tab-bar clearance), so they stay crisp.
+  'user-support',
 ]
 const isFogRoute = computed(() => FOG_ROUTES.includes(route.name as string))
 

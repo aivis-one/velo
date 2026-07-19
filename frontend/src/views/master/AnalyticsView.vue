@@ -138,7 +138,7 @@
               <div class="analytics__pcard-info">
                 <div class="analytics__pcard-title">{{ p.title }}</div>
                 <div class="analytics__pcard-meta">
-                  {{ formatShortDate(p.scheduled_at) }} · {{ p.current_participants }} участников
+                  {{ formatShortDate(p.scheduled_at, p.timezone) }} · {{ p.current_participants }} участников
                 </div>
               </div>
             </div>
@@ -202,7 +202,7 @@
           <div v-if="transactions.length > 0" class="analytics__txns">
             <div v-for="(t, i) in transactions" :key="i" class="analytics__txn">
               <div class="analytics__txn-info">
-                <div class="analytics__txn-title">{{ t.title }}</div>
+                <div class="analytics__txn-title">{{ txnTitle(t) }}</div>
                 <div class="analytics__txn-meta">
                   {{ formatShortDate(t.created_at)
                   }}<template v-if="t.counterparty_name"> · {{ t.counterparty_name }}</template>
@@ -254,7 +254,7 @@ import {
   IconMessages,
 } from '@/components/icons'
 import { practiceIconFor, RATING_ICON_COLOR } from '@/utils/displayHelpers'
-import { formatMoney } from '@/utils/format'
+import { formatMoney, formatShortDate } from '@/utils/format'
 import { getIncome, getTransactions, getMasterReviews } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
 import type {
@@ -471,6 +471,15 @@ function formatTxnAmount(cents: number): string {
   return `${sign}${formatMoney(Math.abs(cents), 'EUR', 'ru', true)}`
 }
 
+// M5: show the practice NAME instead of the generic stored label («Оплата за
+// практику»). practice_title is added by the backend join; read it defensively
+// because generated.ts is regenerated at deploy (not hand-edited here), so the
+// field may be absent from the local type until then.
+function txnTitle(t: MasterTransactionItem): string {
+  const withPractice = t as MasterTransactionItem & { practice_title?: string | null }
+  return withPractice.practice_title || t.title
+}
+
 async function loadIncome(): Promise<void> {
   incomeData.value = await getIncome(period.value)
 }
@@ -508,10 +517,6 @@ watch(period, () => {
 // =========================================================================
 // Helpers
 // =========================================================================
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
-}
 
 // Eager-load insights for the visible page -- feeds both the aggregate stats and
 // the inline practice-card badges. loadInsights() skips already-cached ids, so

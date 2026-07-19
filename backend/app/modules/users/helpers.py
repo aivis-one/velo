@@ -6,7 +6,7 @@
 # modules. display_name is the platform-wide formatter for a (non-master)
 # person's display name with the neutral "Участник" fallback. Master display
 # names are intentionally NOT routed here -- they fall back to "Мастер" and may
-# prefer a MasterProfile display_name (see practices._master_full_name and
+# prefer a MasterProfile display_name (see practices.master_full_name and
 # admin.practices._master_name), which is a different rule.
 # =============================================================================
 

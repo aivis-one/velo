@@ -23,7 +23,7 @@
   <div class="admin-layout">
     <slot name="header" />
     <main
-      class="admin-layout__main"
+      class="admin-layout__main velo-kbd-scroll"
       :class="{
         'admin-layout__main--rail': fog || hideTabBar,
         'admin-layout__main--fog': fog,
@@ -65,8 +65,9 @@ defineEmits<{
 .admin-layout {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Shell fills AppFrame's stable height — never dvh/vh (collapse on keyboard).
+     Mirrors MobileLayout (min-height:100%). Canon §2. */
+  min-height: 100%;
   background: transparent;
   /* Anchor for the floating (position:absolute) VAdminTabBar. */
   position: relative;
@@ -74,7 +75,24 @@ defineEmits<{
 
 .admin-layout__main {
   flex: 1;
+  /* ROOT-LOCK: without min-height:0 a flex item's default min-size is its
+     content size, which would let this grow taller than .admin-layout instead
+     of scrolling internally -- now load-bearing (html/body/#app no longer
+     absorb overflow at all). */
+  min-height: 0;
   overflow-y: auto;
+  /* ПРОМТ №503 commit 4: per the CSS overflow spec, leaving this axis at its
+     `visible` default while overflow-y is non-visible computes it to `auto`
+     too -- so any descendant even slightly wider than the viewport (an
+     unbreakable label, a missed max-width) turned this WHOLE content area
+     into a horizontal drag-scroll, dragging correctly-positioned siblings
+     (e.g. a screen's own action button further up the column) sideways along
+     with it. Defensive backstop alongside the actual content-width fixes on
+     individual screens (AdminCatalogView) -- clips rather than scrolls a
+     stray overflow instead of leaving every admin screen silently exposed
+     to the same failure mode.
+  */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   /* Legacy default (pre-rebuild admin screens): 16px box, clears the tab bar. */
   padding: var(--space-4) var(--space-4) calc(112px + env(safe-area-inset-bottom, 0px));

@@ -1,6 +1,8 @@
 # Design Audit — Probe Definitions
 
-CBS HOME design system compliance probes. Read severity from `probekit-core/references/severity-format.md`.
+Design system compliance probes for VELO (VELO-tuned, ПРОМТ №436).
+Live probes: P1-P5. P6 is INERT (no dark mode). P7/P8 are DROPPED (CBS-specific).
+Read severity from `probekit-core/references/severity-format.md`.
 
 ## P1: Hardcoded Colors (CRITICAL)
 
@@ -69,7 +71,17 @@ Verify box-shadow uses `var(--shadow-*)`.
 grep -rn --include='*.vue' 'box-shadow' src/ | grep -v 'var(--shadow' | grep -v 'none'
 ```
 
-## P6: Dark Mode Completeness (HIGH)
+## P6: Dark Mode Completeness — INERT for VELO (ПРОМТ №436)
+
+VELO has NO dark mode: zero `prefers-color-scheme` in variables.css or
+global.css, and no theme tokens. This probe finds nothing today and its silence
+is NOT a pass.
+
+Kept, not dropped -- unlike P7/P8 this is one theme away from mattering, and the
+Telegram Mini App webview does expose a colour scheme. NOTE for whoever switches
+it on: `platform/telegram.ts:33-34` already hardcodes `setHeaderColor('#334D6E')`
+and `setBackgroundColor('#F8FAFC')`. Neither hex exists anywhere in
+variables.css, so the app's own chrome is already outside the token system.
 
 Verify components render correctly in both themes.
 
@@ -79,20 +91,23 @@ Verify components render correctly in both themes.
 - Border colors use `--border`
 - No `background: white` or `color: black` literals
 
-## P7: Logo Icon Color (CRITICAL)
+## P7: Logo Icon Color — DROPPED for VELO (ПРОМТ №436)
 
-CBS HOME logo icon background MUST be `--o-primary` (#cc3203), NEVER `--accent` (#E8651A).
+Upstream this enforced CBS HOME's logo rule: icon background must be
+`--o-primary` (#cc3203), never `--accent` (#E8651A). Neither token, neither hex
+and neither brand exists in VELO. The probe could only ever match nothing.
 
-**Detection:**
-```bash
-grep -rn 'logo' src/ --include='*.vue' | grep -i 'accent\|E8651A'
-```
+Dropped rather than marked inert: it is not one config away from meaning
+something — it encodes another product's brand rule. If VELO ever gets a logo
+rule, it comes from the operator as a brand decision, not from this file.
 
-## P8: Token Sync (HIGH)
+## P8: Token Sync — DROPPED for VELO (ПРОМТ №436)
 
-Verify `variables.css` in frontend matches source of truth `mockups/css/variables.css`.
+Upstream this diffed the frontend's `variables.css` against a second copy at
+`mockups/css/variables.css` — CBS kept two and they could drift. VELO has ONE:
+`frontend/src/styles/variables.css`, and it says so itself ("this file is now
+the single source of truth for all visual values", variables.css:4-5). There is
+no second copy to diff, so this probe has nothing to compare and its silence
+would read as "in sync".
 
-**Detection:**
-```bash
-diff mockups/frontend/src/styles/variables.css mockups/css/variables.css
-```
+Dropped, not inert. If a second copy ever appears, that is itself the bug.

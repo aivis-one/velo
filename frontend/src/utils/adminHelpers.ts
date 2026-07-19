@@ -94,17 +94,6 @@ export function reportTargetLabel(type: string): string {
 // ============================================================================
 
 /**
- * Format ISO date string to short Russian locale date.
- */
-export function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-/**
  * Format ISO date string to Russian locale datetime.
  */
 export function formatDateTime(iso: string): string {

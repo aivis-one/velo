@@ -288,3 +288,54 @@ Proxy for whether the author understood what they committed.
 - 5/10: Governance gap 25-50%
 - 3/10: Governance gap > 50%, Tier 1 paths without tests
 - 0/10: No tiering awareness, critical paths treated same as utilities
+
+---
+
+## Probe N+1: Doc-Reality Drift (claims-vs-filesystem)
+
+**Purpose:** Detect when project docs (ARCHITECTURE.md, ROADMAP.md, FILE-TREE.md, phase docs) claim counts or facts that disagree with the current filesystem / git state. Stale claims erode trust and cause downstream miscalibration (e.g., planning based on "25 admin-UI tests" when there are 23).
+
+**Drift classes:**
+
+| Claim class | Doc pattern | Verification |
+|-------------|-------------|--------------|
+| File count | "N modules", "N nodes", "N services" | `ls {path} \| wc -l` or `find {path} -name '*.py' \| wc -l` |
+| Line count | "M lines of code", "LOC < 200 per module" | `wc -l {path}` |
+| Test count | "N unit tests", "N admin-UI tests" | `pytest --collect-only {path} \| tail -1` |
+| Registration count | "N registered services", "N nodes" | grep count of `register(` calls at canonical site |
+| Sprint/phase content | "Phase X delivers A, B, C" | check phase doc cross-references + actual commits |
+| Backlog state | "S14-NN: STATUS" | grep status field in BACKLOG + cross-check commit log |
+| Node/MB inventory | "motherboards include X, Y, Z" | `ls projects/*/motherboards/*.json` |
+
+**Procedure:**
+
+1. Collect all numeric claims from doc cluster (ARCHITECTURE.md, ROADMAP.md, FILE-TREE.md, phase docs, BACKLOG). Regex: `\b\d+\s+(modules|nodes|services|tests|MBs|motherboards|lines?|LOC|rules|patterns)\b`.
+2. For each claim, compute the filesystem-current value using the table above.
+3. Diff. `claim - actual | > tolerance` (tolerance 0 for small counts; 5% for line-count-style claims) → drift finding.
+
+**Red flags:**
+- Doc claims 25 tests; `pytest --collect-only` shows 23 → **WARNING**. Canonical: BOGame P80 phase doc claimed "25 admin-UI tests"; scout collection found 23.
+- ARCHITECTURE.md claims "3-layer architecture"; filesystem has a 4th layer directory → **CRITICAL** (structural drift).
+- ROADMAP claims phase X is "in progress" but cycle docs show CLOSE complete → **WARNING** (stale status).
+- FILE-TREE.md shows files that no longer exist → **WARNING** (dead reference).
+- BACKLOG shows S14-NN as "pending" but commit log shows it landed → **SUGGESTION** (stale status).
+
+**Severity escalation:**
+- Structural drift (layer count, top-level dir count, SPEC protocol count) → CRITICAL.
+- Small count drift (±1-2 on double-digit counts) → WARNING with auto-fix suggestion (rewrite claim to current actual).
+- Status drift (phase pending vs done) → WARNING; critical if decisions are being made based on the stale status.
+
+**Diamond patterns:**
+- Doc with `<!-- AUTO-GENERATED: N from wc -l {path} -->` markers that get regenerated on every major update.
+- Structural claims expressed as SQL-like "SELECT COUNT(*) FROM {registry}" referenced from a single source of truth.
+
+**Scoring:**
+- 10/10: No drift found, or all drift < 2% of claimed values.
+- 8/10: Drift ≤ 3 findings, all WARNING-severity.
+- 5/10: Drift 4-10 findings, mix of severities.
+- 3/10: Drift > 10 findings OR any CRITICAL structural drift.
+- 0/10: Doc cluster as a whole unreliable — majority of numeric claims wrong.
+
+**Integration:** this probe pairs naturally with `probekit-legacy-detection-bogame` (stale references) and `probekit-test-suite/references/output-template.md § test count recount rule`. Comprehension debt audit runs this probe once per audit; test-suite quality gate runs it per-report for test counts specifically.
+
+**Canonical case study:** BOGame P80 C354 findings surfaced multiple doc-reality drift issues in ROADMAP and phase docs. S14-sprint plan referenced motherboard counts that disagreed with `ls projects/*/motherboards/*.json`. This probe would have caught them at comprehension-debt audit time.

@@ -6,12 +6,14 @@
 # These projection functions are the ONLY writers of that table. Source
 # modules call them in the SAME transaction as the originating mutation:
 #
-#   bookings/service.py  -> project_booking_confirmed, project_booking_cancelled,
-#                           project_practice_outcome (fan-out in finalize)
-#   practices/service.py -> project_practice_rescheduled,
-#                           project_practice_cancelled (fan-out)
-#   diary/service.py     -> upsert_checkin_event, upsert_feedback_event,
-#                           upsert_entry_event, hide_entry_event
+#   bookings/service.py            -> project_booking_confirmed,
+#                                      project_booking_cancelled,
+#                                      project_practice_outcome (fan-out in finalize)
+#   practices/service.py           -> project_practice_rescheduled
+#   practices/cancel_service.py    -> project_practice_cancelled (fan-out)
+#   diary/checkins_service.py      -> upsert_checkin_event
+#   diary/service.py               -> upsert_feedback_event, upsert_entry_event,
+#                                      hide_entry_event
 #
 # DEPENDENCY DIRECTION (decoupling):
 #   bookings/practices depend on diary, never the reverse. To avoid an import

@@ -111,7 +111,7 @@
     </div>
 
     <!-- Loading (initial) -->
-    <div v-if="store.loading && store.weekPractices.length === 0" class="calendar__loader">
+    <div v-if="store.loading && dayPractices.length === 0" class="calendar__loader">
       <VLoader />
     </div>
 
@@ -167,11 +167,17 @@ import CalendarFilterModal from '@/components/shared/CalendarFilterModal.vue'
 import { IconCheck, IconClock } from '@/components/icons'
 import { formatDateShort } from '@/utils/format'
 import {
-  DIRECTION_LABEL,
   DIFFICULTY_LABEL,
   DURATION_BUCKET_LABEL,
   TIME_OF_DAY_LABEL,
 } from '@/utils/displayHelpers'
+// T2 stage 2 (2026-07-15): direction chip label goes through directionLabel()
+// (hardcoded first, catalog second, raw value last resort), NOT the strict
+// DIRECTION_LABEL[Record<PracticeDirection,string>] -- a catalog-only
+// direction (CalendarFilterModal now offers one) is not a member of that
+// closed union and would render as undefined. Warmed by CalendarFilterModal's
+// own onMounted catalog fetch (this view's direct child, mounted alongside).
+import { directionLabel } from '@/utils/methodTaxonomy'
 import type { PracticeResponse } from '@/api/types'
 import type { CalendarFacetFilters } from '@/stores/calendar'
 
@@ -192,13 +198,13 @@ function openFilter(): void {
 // Practices on the selected day (already sorted by the store).
 const dayPractices = computed<PracticeResponse[]>(() => store.selectedDayPractices)
 
-// Section header for the selected day ("Сегодня" / "Завтра" / "28 января").
-// Derived from the first practice (its timezone) or the selected date itself.
+// Section header for the selected day ("Сегодня" / "Завтра" / "28 января"),
+// derived from the first practice's own timezone. dayLabel is only read from
+// the template's content branch (v-else, gated on dayPractices.length > 0),
+// so a first practice is always present here.
 const dayLabel = computed<string>(() => {
-  const first = dayPractices.value[0]
-  if (first) return formatDateShort(first.scheduled_at, first.timezone)
-  // Fallback: format the selected local day at noon UTC for a stable label.
-  return formatDateShort(`${store.selectedDate}T12:00:00.000Z`, 'UTC')
+  const first = dayPractices.value[0]!
+  return formatDateShort(first.scheduled_at, first.timezone)
 })
 
 // -- Active filter chips (display + removal) --
@@ -228,7 +234,7 @@ const activeChips = computed<ActiveChip[]>(() => {
   const chips: ActiveChip[] = []
 
   for (const v of f.direction ?? []) {
-    chips.push({ key: `dir:${v}`, kind: 'direction', value: v, label: DIRECTION_LABEL[v] })
+    chips.push({ key: `dir:${v}`, kind: 'direction', value: v, label: directionLabel(v) })
   }
   for (const v of f.difficulty ?? []) {
     chips.push({ key: `dif:${v}`, kind: 'difficulty', value: v, label: DIFFICULTY_LABEL[v] })

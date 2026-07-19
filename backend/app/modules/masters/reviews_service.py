@@ -8,9 +8,10 @@
 #
 # REUSE (consolidate, do not duplicate): the rating-bucket mapping (1-3
 # confused / 4-7 good / 8-10 fire) and the attention threshold come from
-# diary.service; the reviewer's display name comes from the shared
+# diary.insights_service; the reviewer's display name comes from the shared
 # users.display_name formatter (S-1c). Neither import forms a cycle
-# (users.helpers is import-free; diary.service does not import masters reviews).
+# (users.helpers is import-free; diary.insights_service does not import
+# masters reviews).
 #
 # attention=True narrows the feed to the negative (confused) bucket for the
 # dashboard "Требуют внимания" block; attention=False returns the full feed.
@@ -23,11 +24,11 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.diary.models import Feedback
-from app.modules.diary.service import (
+from app.modules.diary.insights_service import (
     ATTENTION_RATING_MAX,
     rating_bucket,
 )
+from app.modules.diary.models import Feedback
 from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.helpers import display_name
 from app.modules.users.models import User

@@ -16,7 +16,7 @@
 
 <template>
   <div class="tz-picker">
-    <VInput v-model="query" :placeholder="placeholder">
+    <VInput v-model="query" :placeholder="placeholder" @focus="onFieldFocus">
       <template #suffix><IconSearch :size="18" /></template>
     </VInput>
 
@@ -52,6 +52,11 @@ import { VInput } from '@/components/ui'
 import { IconSearch, IconCheck } from '@/components/icons'
 import { TIMEZONE_CITIES } from '@/utils/timezoneCities'
 import { formatUtcOffset } from '@/utils/practiceOptions'
+import { useKeyboardFieldScroll } from '@/composables/useKeyboardFieldScroll'
+
+// Lift the city search above the soft keyboard once it settles (shared M5
+// composable) so the field isn't left under the keyboard on focus (K3).
+const { onFieldFocus } = useKeyboardFieldScroll()
 
 withDefaults(
   defineProps<{

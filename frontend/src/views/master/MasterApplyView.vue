@@ -26,12 +26,18 @@
 
 <template>
   <div class="apply-view">
-    <VHeader title="Заявка" show-back @back="onBack" />
+    <!-- Non-scrolling top block: «Заявка» header + step dots float ABOVE the
+         fogged feed, so scrolling body text can never ride up over them (J2g). -->
+    <div class="apply-view__top">
+      <VHeader title="Заявка" show-back @back="onBack" />
+      <!-- Canonical step dots, top-left (operator 2026-06-27). -->
+      <VPaginationDots :total="3" :active="step - 1" class="apply-view__dots" />
+    </div>
 
-    <!-- Canonical step dots, top-left (operator 2026-06-27). -->
-    <VPaginationDots :total="3" :active="step - 1" class="apply-view__dots" />
-
-    <div class="apply-view__content">
+    <!-- Scrolling feed: top fog-mask dissolves content at the header edge (reuses
+         the dashboard/diary island gradient). Tap-to-dismiss keyboard is
+         app-global now (useKeyboardDismiss, B1). -->
+    <div class="apply-view__content velo-kbd-scroll">
       <!-- ================================================================
            STEP 1: Профиль
            ================================================================ -->
@@ -40,22 +46,22 @@
 
         <VInput
           v-model="form.display_name"
-          label="Имя *"
-          placeholder="Alex Mindful"
+          floating-label
+          label="Имя"
           :error="errors.display_name"
         />
-        <VInput v-model="form.email" label="E-mail" type="email" placeholder="alex@example.com" />
-        <VInput v-model="form.phone" label="Телефон" type="tel" placeholder="+7 (999) 123-45-67" />
+        <VInput v-model="form.email" floating-label label="E-mail" type="email" />
+        <VInput v-model="form.phone" floating-label label="Телефон" type="tel" />
 
         <VCard class="apply-view__consent" padding="none">
-          <VCheckbox v-model="form.privacyAccepted">
+          <VCheckbox v-model="form.privacyAccepted" size="sm">
             Я принимаю Условия использования и ознакомлен(а) с Политикой конфиденциальности
           </VCheckbox>
         </VCard>
         <p v-if="errors.privacy" class="apply-view__field-error">{{ errors.privacy }}</p>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep2">
-          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
+          Далее
         </VButton>
       </template>
 
@@ -65,30 +71,14 @@
       <template v-else-if="step === 2">
         <h3 class="apply-view__step-title">Шаг 2: Опыт</h3>
 
-        <!-- Направления практик — VChip pills (full method set, FORK-6) -->
+        <!-- Направления практик — TWO-LEVEL taxonomy, extracted into the shared
+             MethodTaxonomyPicker (batch L, single source of truth). The outer
+             label + validation error stay here; the picker owns the direction
+             chips, the per-direction style cards and «Свой вариант». v-model is
+             the flat `methods: string[]` payload (unchanged schema). -->
         <div class="apply-view__field">
           <label class="apply-view__label">Направления практик *</label>
-          <div class="apply-view__chips">
-            <VChip
-              v-for="method in AVAILABLE_METHODS"
-              :key="method"
-              size="md"
-              clickable
-              :active="form.methods.includes(method)"
-              @click="toggleMethod(method)"
-            >
-              {{ method }}
-            </VChip>
-            <VChip size="md" clickable :active="otherMethodEnabled" @click="toggleOtherMethod">
-              Свой вариант
-            </VChip>
-          </div>
-          <VInput
-            v-if="otherMethodEnabled"
-            v-model="otherMethodText"
-            placeholder="Укажите направление…"
-            class="apply-view__other"
-          />
+          <MethodTaxonomyPicker v-model="methods" />
           <p v-if="errors.methods" class="apply-view__field-error">{{ errors.methods }}</p>
         </div>
 
@@ -118,7 +108,7 @@
         </div>
 
         <VButton variant="primary" block size="lg" class="apply-view__next" @click="goToStep3">
-          Далее<IconArrowRight :size="18" class="apply-view__btn-arrow" />
+          Далее
         </VButton>
       </template>
 
@@ -128,8 +118,9 @@
       <template v-else>
         <h3 class="apply-view__step-title">Шаг 3: Документы</h3>
         <p class="apply-view__intro">
-          Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации.
-          Удостоверение личности удаляется через 30 дней после верификации.
+          Сертификаты хранятся в зашифрованном виде и используются для внутренней верификации
+          вашей квалификации. Удостоверение личности используется только для подтверждения
+          личности и автоматически удаляется через 30 дней после верификации.
         </p>
 
         <!-- Documents are OPTIONAL right now: file upload/storage is not built
@@ -147,10 +138,12 @@
         <div class="apply-view__field">
           <label class="apply-view__label">Паспорт (скан или фото) *</label>
           <p class="apply-view__hint">Для верификации личности. Не публикуется.</p>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Загрузить документ</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Загрузить документ</span>
+            </button>
+          </VCard>
         </div>
 
         <!-- Certificates (multi-file UI; chip list renders once E13 stores files) -->
@@ -161,10 +154,12 @@
             <IconCheck :size="18" />
             <span class="apply-view__filechip-name">{{ cert }}</span>
           </div>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Добавить сертификат</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Добавить сертификат</span>
+            </button>
+          </VCard>
         </div>
 
         <!-- Profile photo -->
@@ -173,10 +168,12 @@
           <p class="apply-view__hint">
             Будет использовано на платформе в открытом доступе для участников.
           </p>
-          <button type="button" class="apply-view__upload" @click="onUpload">
-            <IconFile :size="26" class="apply-view__upload-icon" />
-            <span class="apply-view__upload-text">Загрузить фото</span>
-          </button>
+          <VCard class="apply-view__upload-card" padding="sm">
+            <button type="button" class="apply-view__upload" @click="onUpload">
+              <IconFile :size="26" class="apply-view__upload-icon" />
+              <span class="apply-view__upload-text">Загрузить фото</span>
+            </button>
+          </VCard>
         </div>
 
         <VCard class="apply-view__consent" padding="none">
@@ -227,27 +224,26 @@ import {
   VSelect,
   VCard,
   VCheckbox,
-  VChip,
   VPaginationDots,
 } from '@/components/ui'
-import { IconArrowRight, IconCheck, IconFile } from '@/components/icons'
+import { IconCheck, IconFile } from '@/components/icons'
 import { useToast } from '@/composables/useToast'
 import { applyMaster } from '@/api/masters'
 import { ApiResponseError } from '@/api/client'
-import { MASTER_APPLIED_KEY } from '@/utils/constants'
-import { AVAILABLE_METHODS } from '@/utils/methods'
+import { MASTER_APPLIED_KEY, masterRejectionSeenKey } from '@/utils/constants'
 import { LANGUAGES } from '@/utils/languages'
+import MethodTaxonomyPicker from '@/components/shared/MethodTaxonomyPicker.vue'
 import { useMasterStore } from '@/stores/master'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const toast = useToast()
 const masterStore = useMasterStore()
+const authStore = useAuthStore()
 
 // -- Step state --
 const step = ref(1)
 const submitting = ref(false)
-
-// -- Available practice methods (shared source, incl. «Кундалини йога») --
 
 // -- Experience years options: label -> integer value mapping --
 const EXPERIENCE_OPTIONS = [
@@ -266,15 +262,16 @@ const form = reactive({
   phone: '',
   privacyAccepted: false,
   // Step 2
-  methods: [] as string[],
   bio: '',
   // Step 3
   docsConsent: false,
 })
 
-// "Свой вариант" custom method
-const otherMethodEnabled = ref(false)
-const otherMethodText = ref('')
+// -- Method selection (batch L) ----------------------------------------------
+// The two-level направление→вид taxonomy now lives in MethodTaxonomyPicker; this
+// view only holds the flat `methods: string[]` payload it emits (v-model). The
+// picker owns seeding/flattening, «Свой вариант» and its own focus-scroll.
+const methods = ref<string[]>([])
 
 // Experience years stored as string value label, mapped to int on submit
 const experienceLabel = ref('')
@@ -301,32 +298,6 @@ const errors = reactive({
   experience_years: '',
   bio: '',
   docs: '',
-})
-
-// -- Methods helpers --
-function toggleMethod(method: string): void {
-  const idx = form.methods.indexOf(method)
-  if (idx === -1) {
-    form.methods.push(method)
-  } else {
-    form.methods.splice(idx, 1)
-  }
-}
-
-function toggleOtherMethod(): void {
-  otherMethodEnabled.value = !otherMethodEnabled.value
-  if (!otherMethodEnabled.value) {
-    otherMethodText.value = ''
-  }
-}
-
-// -- All methods including "other" text --
-const allMethods = computed((): string[] => {
-  const result = [...form.methods]
-  if (otherMethodEnabled.value && otherMethodText.value.trim()) {
-    result.push(otherMethodText.value.trim())
-  }
-  return result
 })
 
 // -- Experience years numeric value --
@@ -369,7 +340,7 @@ function goToStep3(): void {
   errors.methods = ''
   errors.experience_years = ''
   errors.bio = ''
-  if (allMethods.value.length === 0) {
+  if (methods.value.length === 0) {
     errors.methods = 'Выберите хотя бы одно направление'
     return
   }
@@ -414,7 +385,7 @@ async function submit(skipDocuments = false): Promise<void> {
         phone: form.phone.trim() || null,
       },
       experience: {
-        methods: allMethods.value,
+        methods: methods.value,
         languages: selectedLanguages.value,
         experience_years: experienceYears.value,
         bio: form.bio.trim() || null,
@@ -437,6 +408,17 @@ async function submit(skipDocuments = false): Promise<void> {
       // session as an actual applicant so the master-pending guard lets a
       // still-role='user' applicant through (backend promotes role later).
       sessionStorage.setItem(MASTER_APPLIED_KEY, '1')
+      // Bug 1 follow-up (ПРОМТ №406): re-arm the rejection screen for this new
+      // application. Without this, a second rejection would be invisible
+      // forever -- the per-user seen-key set by the FIRST rejection would
+      // still be there. Safe: the backend always resets status to "pending"
+      // on submit/resubmit (masters/service.py:76 _build_data, reused by
+      // _build_reapply_data), so roleRedirect's `status === 'rejected'` check
+      // cannot fire in the interim -- this only re-arms visibility for a
+      // genuine future rejection, it does not resurrect the old screen.
+      if (authStore.user?.id) {
+        localStorage.removeItem(masterRejectionSeenKey(authStore.user.id))
+      }
       toast.success('Заявка отправлена!')
       router.push({ name: 'master-pending' })
     }
@@ -451,11 +433,22 @@ async function submit(skipDocuments = false): Promise<void> {
 
 <style scoped>
 .apply-view {
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Bounded to AppFrame's height (its `> *` rule gives flex:1; min-height:0), so
+     the inner feed scrolls instead of the whole page — the precondition for the
+     header fog (J2g). */
+  height: 100%;
+  min-height: 0;
   background: transparent;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+/* Non-scrolling top block — header + dots sit above the fogged feed (J2g). */
+.apply-view__top {
+  flex-shrink: 0;
+  position: relative;
+  z-index: var(--z-sticky);
 }
 
 /* Step dots — top-left at the screen rail (standalone route, WS-1 24px rail). */
@@ -463,14 +456,39 @@ async function submit(skipDocuments = false): Promise<void> {
   padding: var(--space-2) var(--velo-rail-pad-x) 0;
 }
 
-/* -- Content area -- */
+/* -- Content area (the scrolling feed) -- */
 .apply-view__content {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Scrollbar hidden (app-wide convention) so content rides the single 24px rail. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Top fog-mask: content dissolves at the header edge on scroll (reuses the
+     dashboard/diary island gradient — not a new mechanism). The fade sits inside
+     the top padding, so at rest the first block is fully crisp (layout
+     unchanged). Bottom stays crisp — the «Далее/Отправить» actions must not fade. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-4), #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--space-4), #000 100%);
   /* Standalone route (outside MobileLayout) — apply the screen rail directly. */
   padding: var(--space-4) var(--velo-rail-pad-x) var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  /* Tightened inter-block spacing per the right mockup (J1d / J2a). */
+  gap: var(--space-3);
+}
+
+.apply-view__content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Tightened spacing (J1d / J2a): the DS field wrappers carry their own
+   margin-bottom, which would stack on top of the flex gap. Zero it here so the
+   single gap governs the rhythm. */
+.apply-view__content :deep(.v-input),
+.apply-view__content :deep(.v-select),
+.apply-view__content :deep(.v-textarea) {
+  margin-bottom: 0;
 }
 
 .apply-view__step-title {
@@ -485,7 +503,9 @@ async function submit(skipDocuments = false): Promise<void> {
 
 .apply-view__intro {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  /* Brightened from --velo-text-muted → secondary so the privacy copy is legible
+     over the photo background (J3a). */
+  color: var(--velo-text-secondary);
   line-height: 1.4;
   margin: 0;
 }
@@ -506,7 +526,10 @@ async function submit(skipDocuments = false): Promise<void> {
 
 .apply-view__hint {
   font-size: var(--text-xs);
-  color: var(--velo-text-muted);
+  /* MA2 (operator 2026-07-12): brightened to match .apply-view__intro so the
+     Step-3 upload captions (Паспорт/Сертификаты/Фото профиля) read at the same
+     legibility as the top privacy paragraph, not the fainter muted tone. */
+  color: var(--velo-text-secondary);
   line-height: 1.4;
   margin: 0;
 }
@@ -514,17 +537,6 @@ async function submit(skipDocuments = false): Promise<void> {
 .apply-view__field-error {
   font-size: var(--text-sm);
   color: var(--velo-error);
-}
-
-/* -- Method chips -- */
-.apply-view__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.apply-view__other {
-  margin-top: var(--space-1);
 }
 
 /* -- Language stub card -- */
@@ -535,13 +547,19 @@ async function submit(skipDocuments = false): Promise<void> {
   padding: var(--space-3);
 }
 
-/* -- Upload zones (stub) -- */
+/* -- Upload zones (stub) — each wrapped in a white VCard подложка (J3b) -- */
+.apply-view__upload-card {
+  /* The white plate; the bespoke dropzone button sits inside it. */
+  padding: var(--space-2);
+}
+
 .apply-view__upload {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--velo-gap-6);
+  width: 100%;
   height: 80px;
   border: 1px solid var(--velo-text-primary);
   border-radius: var(--velo-radius-9);
@@ -589,12 +607,6 @@ async function submit(skipDocuments = false): Promise<void> {
 /* -- Consent cards -- */
 .apply-view__consent {
   padding: var(--space-3);
-}
-
-/* Forward arrow on the "Далее" step buttons (currentColor = white). */
-.apply-view__btn-arrow {
-  margin-left: var(--space-2);
-  vertical-align: middle;
 }
 
 .apply-view__next {

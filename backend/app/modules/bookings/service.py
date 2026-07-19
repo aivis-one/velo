@@ -12,16 +12,19 @@
 #   no_show   -> (terminal)
 #   cancelled -> (terminal)
 #
-# ATTENDANCE (Phase 5.4):
-#   join_booking:  sets joined_at (status stays confirmed)
-#   leave_booking: sets left_at (requires joined_at)
-#   finalize:      confirmed + joined_at -> attended
-#                  confirmed + no joined_at -> no_show
-#                  practice -> completed
+# ATTENDANCE + LIFECYCLE (Phase 5.4; Batch 1 -- time-driven, no manual path):
+#   join_booking:           sets joined_at (status stays confirmed)
+#   leave_booking:          sets left_at (requires joined_at)
+#   auto_start_practice:    scheduled -> live once the start time has passed
+#                           (system actor; called by the autofinalizer worker)
+#   auto_finalize_practice: scheduled/live -> completed once the end has passed
+#                           confirmed + (joined_at OR PRE check-in) -> attended
+#                           confirmed + neither                     -> no_show
+#                           (system actor; shared core _finalize_practice_core)
 #
 # PURCHASE INTEGRATION (Phase 6.4):
-#   create_booking: creates Purchase + double-entry ledger (always, even free)
-#   finalize:       finalizes Purchases (unfreeze + commission)
+#   create_booking:         creates Purchase + double-entry ledger (always, even free)
+#   auto_finalize_practice: finalizes Purchases (unfreeze + commission)
 #
 # PROMO INTEGRATION (Phase 6.7 Batch 4):
 #   create_booking: optional promo param, passed to create_purchase_for_booking.
@@ -47,7 +50,7 @@
 #   No session.commit() here (P-01). Router handles flush + refresh.
 #
 # B-05: list_user_bookings uses subquery pattern for count (same as
-#   list_user_checkins in diary/service.py). Eliminates parallel
+#   list_user_checkins in diary/checkins_service.py). Eliminates parallel
 #   count_base query that required manual filter duplication.
 # =============================================================================
 
@@ -151,7 +154,7 @@ async def recalculate_participants(
     Called after every booking status change:
       - create_booking (bookings/service.py)
       - cancel_booking (bookings/service.py)
-      - finalize_practice (bookings/service.py)
+      - auto_finalize_practice (bookings/service.py, via _finalize_practice_core)
       - confirm_waitlist (waitlist/service.py)
       - refund_all_bookings_for_practice (payments/refund.py)
 
@@ -219,7 +222,7 @@ async def create_booking(
         raise BadRequestError("Practice is not available for booking")
 
     # Time guard: a practice that has already started can no longer be booked.
-    # The public feed (practices/service.py list_public_practices) hides
+    # The public feed (practices/listing_service.py list_public_practices) hides
     # started/past practices, but the booking endpoints are reachable directly
     # by practice_id (e.g. opening a practice from "my bookings" history or a
     # deep link), so the feed filter is not enough. This is the single choke
@@ -589,11 +592,12 @@ async def _finalize_practice_core(
 
     Caller MUST pass a practice that is already loaded FOR UPDATE and already
     validated to be in a finalizable state (_FINALIZABLE_PRACTICE_STATUSES).
-    This is the single source of truth for what "finalizing a practice" means,
-    shared by the manual master path (finalize_practice) and the system
-    auto-close path (auto_finalize_practice). Keeping one core guarantees the
-    two paths can never drift in how attendance, money, or the diary are
-    settled.
+    This is the single source of truth for what "finalizing a practice" means.
+    It is reached only through the system auto-close path
+    (auto_finalize_practice), invoked by the lifecycle worker once the practice's
+    scheduled end has passed (the manual master finalize was removed in Batch 1).
+    Keeping one core means attendance, money, and the diary are always settled
+    the same way.
 
     Transitions (W-1: presence is proven by a Zoom join OR a PRE check-in):
     - confirmed + (joined_at IS NOT NULL OR has PRE check-in) -> attended
@@ -601,7 +605,7 @@ async def _finalize_practice_core(
     - Practice status -> completed
     - All pending purchases -> completed (unfreeze + commission)
 
-    `actor` is logged only (e.g. "master" / "system") -- it does not change
+    `actor` is logged only (currently always "system") -- it does not change
     behavior. Session rules unchanged (P-01): no commit here.
     """
     practice_id = practice.id
@@ -696,8 +700,7 @@ async def _finalize_practice_core(
     # attendees. Hooked here so the audience is exactly the just-resolved
     # attendees — target=practice resolves to confirmed/attended bookings, and
     # after this finalize the no_show/cancelled ones are excluded, leaving the
-    # attended ones. Fires for BOTH the manual master finalize and the +24h
-    # auto-finalize. Skipped when nobody attended (no audience). The notification
+    # attended ones. Skipped when nobody attended (no audience). The notification
     # processor (lifespan worker) delivers it via Telegram; session commit is
     # the caller's (P-01: no commit here).
     if attended_count > 0:
@@ -725,53 +728,14 @@ async def _finalize_practice_core(
     return practice
 
 
-async def finalize_practice(
-    practice_id: UUID,
-    user: User,
-    session: AsyncSession,
-) -> Practice:
-    """Finalize a practice -- set attendance statuses + financial settlement.
-
-    Master-only manual path. Loads + locks the practice, enforces ownership
-    (P-08) and finalizable state, then delegates the actual settlement to
-    _finalize_practice_core. The auto-close worker uses the same core via
-    auto_finalize_practice (no ownership check).
-
-    Validates:
-    - Practice exists and belongs to master (P-08: 404).
-    - Practice is in finalizable state (scheduled/live).
-
-    Uses FOR UPDATE on practice (P-12).
-    """
-    stmt = (
-        select(Practice)
-        .where(Practice.id == practice_id)
-        .with_for_update()
-    )
-    result = await session.execute(stmt)
-    practice = result.scalar_one_or_none()
-
-    if not practice:
-        raise NotFoundError("Practice not found")
-
-    # P-08: 404 not 403 for non-owner.
-    if practice.master_id != user.id:
-        raise NotFoundError("Practice not found")
-
-    if practice.status not in _FINALIZABLE_PRACTICE_STATUSES:
-        raise BadRequestError("Practice already finalized")
-
-    return await _finalize_practice_core(practice, session, actor="master")
-
-
 async def auto_finalize_practice(
     practice_id: UUID,
     session: AsyncSession,
 ) -> Practice:
     """System path: finalize a practice without a master actor.
 
-    Used by the auto-finalization worker for practices that ran past the
-    24h ceiling and were never closed by their master. There is no User and
+    Used by the lifecycle worker for practices whose scheduled end has passed
+    (the master no longer closes practices by hand). There is no User and
     no ownership check (the actor is the system, mirroring how the Stripe
     webhook acts: actor_type="system", actor_id=None). Authorization is
     intentionally absent -- this function must never be exposed via an
@@ -798,6 +762,49 @@ async def auto_finalize_practice(
         raise BadRequestError("Practice already finalized")
 
     return await _finalize_practice_core(practice, session, actor="system")
+
+
+async def auto_start_practice(
+    practice_id: UUID,
+    session: AsyncSession,
+) -> Practice:
+    """System path: move a scheduled practice to live once its start has passed.
+
+    Called by the lifecycle worker (autofinalize.py START phase). There is no
+    User and no ownership check -- the actor is the system, mirroring
+    auto_finalize_practice and the Stripe webhook (actor_type="system",
+    actor_id=None). Authorization is intentionally absent -- this function must
+    never be exposed via an HTTP route.
+
+    Loads + locks the practice and verifies it is still `scheduled` and its
+    start time has passed (a concurrent tick, cancel or finalize may have moved
+    it first, in which case we raise BadRequestError and the caller skips it).
+    Only the status changes -- no bookings, money or diary are touched. Session
+    rules unchanged (P-01): no commit here -- the worker's session owns the
+    transaction.
+    """
+    stmt = (
+        select(Practice)
+        .where(Practice.id == practice_id)
+        .with_for_update()
+    )
+    result = await session.execute(stmt)
+    practice = result.scalar_one_or_none()
+
+    if not practice:
+        raise NotFoundError("Practice not found")
+
+    if practice.status != PracticeStatus.SCHEDULED.value:
+        raise BadRequestError("Practice is not in a startable state")
+
+    # Defensive: only go live once the start time has actually passed. The
+    # worker's claim query already enforces this, but a direct / test caller
+    # might not -- never start a future practice.
+    if practice.scheduled_at > datetime.now(timezone.utc):
+        raise BadRequestError("Practice start time has not passed yet")
+
+    practice.status = PracticeStatus.LIVE.value
+    return practice
 
 
 async def get_attendance(
@@ -828,8 +835,8 @@ async def get_attendance(
     """
     # Local import keeps the bookings -> diary dependency one-way (diary
     # already imports from bookings), same pattern as list_user_bookings.
+    from app.modules.diary.checkins_service import get_pre_checkins_for_bookings
     from app.modules.diary.models import Checkin
-    from app.modules.diary.service import get_pre_checkins_for_bookings
 
     practice = await session.get(Practice, practice_id)
 
@@ -885,7 +892,7 @@ async def list_user_bookings(
 
     B-05: count derived from base query subquery instead of maintaining
     a parallel count_base with duplicated filter clauses. Same pattern
-    as list_user_checkins in diary/service.py.
+    as list_user_checkins in diary/checkins_service.py.
 
     Each row also carries two diary-state flags for the dashboard banners:
       - has_feedback: the user already left a feedback for this practice.

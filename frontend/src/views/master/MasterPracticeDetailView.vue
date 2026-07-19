@@ -9,9 +9,13 @@
       stats + participant reviews + finance + Check-ins / Посещаемость CTAs.
     - UPCOMING branch (draft / scheduled / live) = WI-B hub: PracticeHeroCard +
       Записалось/Мест/Цена stat cards + «Записались» roster (read-only rows) +
-      description/contraindications accordions + «Начать практику» + Check-ins,
+      description/contraindications accordions + Check-ins,
       with a «…» menu (Изменить / отменить|удалить). Replaces the former redirect
       to the edit screen. EditPracticeView is untouched (reached via «…» → Изменить).
+      NB: there is deliberately NO «Начать практику» button. Going live is
+      AUTOMATIC (backend lifecycle worker flips scheduled -> live at scheduled_at,
+      and -> completed at scheduled_at + duration). PATCH status='live' is rejected
+      by the backend (422), so never wire such a button here.
 
   Decisions (operator, WI-B, all Г=А):
     FORK1 — REMOVED (ПРОМТ post-№280): the per-participant «отменить запись» X was a
@@ -25,9 +29,11 @@
 
   Data reality:
     REAL: header (getPractice) · Записалось/Мест/Цена + roster (getAttendance) ·
-          «Начать практику» (updatePractice status='live') · отменить
-          (cancelPractice) · удалить draft (deletePractice). PAST rating badges +
-          stats as before (getAttendance + anonymous insights).
+          отменить (cancelPractice) · удалить draft (deletePractice). PAST rating
+          badges + stats as before (getAttendance + anonymous insights).
+          Status transitions scheduled -> live -> completed are NOT driven from
+          here -- the backend lifecycle worker does them by the clock, so the PAST
+          branch starts rendering on its own once the practice's duration elapses.
     STUB → Zod: remove-one-participant (no endpoint) → the X was REMOVED (not faked);
           «Доход» (no income/ledger API) → «—»; «Отзывы участников» (insights anonymous).
 -->
@@ -106,10 +112,11 @@
           <div v-for="item in visibleRoster" :key="item.booking_id" class="pd-prow">
             <span class="pd-prow__ava">
               <img
-                v-if="item.user_avatar_url"
+                v-if="item.user_avatar_url && !brokenAvatars.has(item.booking_id)"
                 :src="item.user_avatar_url"
                 alt=""
                 class="pd-prow__ava-img"
+                @error="brokenAvatars.add(item.booking_id)"
               />
               <template v-else>{{ initials(item) }}</template>
             </span>
@@ -426,6 +433,13 @@ function initials(item: AttendanceItemResponse): string {
   const name = (item.user_display_name || item.user_id).trim()
   return (name.charAt(0) || '?').toUpperCase()
 }
+
+// 2026-07-14: this roster paints <img> directly instead of going through
+// VAvatar, so it needs its own broken-image guard. A dead avatar host (t.me was
+// pulled at the registry level, taking every Telegram userpic with it) would
+// otherwise render a broken glyph while initials() sits right there, unused.
+// Keyed by booking_id -- one bad avatar must not blank out the whole roster.
+const brokenAvatars = ref(new Set<string>())
 
 // -- Past: rating distribution badges (REAL, anonymous insights) --
 const totalFeedbacks = computed((): number => {

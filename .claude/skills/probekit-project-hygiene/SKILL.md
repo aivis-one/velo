@@ -19,7 +19,10 @@ suggest deleting a file without proving it has zero references.
 
 ## Configuration
 
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №435): CBS's docs/01_refer path replaced with the
+     git-untracked scratch dir the rest of the family already uses (dda9a6f,
+     ПРОМТ №385). VELO has no docs/01_refer/. -->
+report_dir: .tmp/probekit-review
 
 ## Modes
 

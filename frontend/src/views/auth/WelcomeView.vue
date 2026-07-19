@@ -26,7 +26,7 @@
 -->
 
 <template>
-  <div class="welcome">
+  <div class="welcome velo-kbd-scroll">
     <div class="welcome__logo">
       <!-- White mandala variant, large -- matches Figma 01_Welcome.
            The logo already contains the VELO wordmark, so no text heading. -->
@@ -92,8 +92,10 @@ const { isStandalone } = useAuth()
   text-align: center;
   /* Logo is intentionally larger than the viewport (matches Figma bleed).
      Clip horizontal overflow so it bleeds past the edges symmetrically
-     instead of producing a horizontal scrollbar. */
+     instead of producing a horizontal scrollbar. ROOT-LOCK: overflow-y:auto so
+     this owns its own scroll (html/body/#app no longer absorb overflow). */
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .welcome__logo {

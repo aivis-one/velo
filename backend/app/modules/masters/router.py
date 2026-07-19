@@ -3,11 +3,12 @@
 # =============================================================================
 #
 # Endpoints:
-#   POST  /api/v1/masters/apply          -- submit master application
-#   GET   /api/v1/masters/me             -- my master profile (Frontend Backlog)
-#   PATCH /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
-#   GET   /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
-#   GET   /api/v1/masters/{user_id}      -- public master profile (S-4)
+#   POST   /api/v1/masters/apply          -- submit master application
+#   DELETE /api/v1/masters/me/application -- withdraw a pending application (F4)
+#   GET    /api/v1/masters/me             -- my master profile (Frontend Backlog)
+#   PATCH  /api/v1/masters/me/payout      -- update payout details (Phase 6.6)
+#   GET    /api/v1/masters/me/practices   -- list my practices (Phase 4.2)
+#   GET    /api/v1/masters/{user_id}      -- public master profile (S-4)
 #
 # F7: _make_profile_response() now includes payout field extracted from
 #   MasterProfile.data.get("payout"). Returns None when not configured.
@@ -23,6 +24,7 @@
 # =============================================================================
 
 import copy
+from typing import Literal
 from uuid import UUID
 
 import structlog
@@ -56,9 +58,10 @@ from app.modules.masters.service import (
     get_public_master_profile,
     submit_method_change_request,
     update_master_languages,
+    withdraw_master_application,
 )
+from app.modules.practices.listing_service import list_master_practices
 from app.modules.practices.schemas import PaginatedPracticesResponse
-from app.modules.practices.service import list_master_practices
 from app.modules.users.models import User
 
 logger = structlog.get_logger()
@@ -148,6 +151,28 @@ async def apply_master(
         status=profile.data["account"]["status"],
         created_at=profile.created_at,
     )
+
+
+@router.delete(
+    "/me/application",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def withdraw_master_application_endpoint(
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Withdraw the caller's own pending master application (F4).
+
+    get_current_user, not get_current_master: a pending applicant is still
+    role='user' (role only escalates on self-switch after approval), so
+    get_current_master's verified-only gate would reject them.
+
+    Status flip only -- see withdraw_master_application's docstring for the
+    product decision. 204, mirroring DELETE /users/me and DELETE
+    /masters/me/payout.
+    """
+    await withdraw_master_application(user, session)
+    await session.flush()
 
 
 # ===================================================================
@@ -257,6 +282,45 @@ async def update_payout_details(
 
 
 # ===================================================================
+# M3 (batch M): DELETE /me/payout -- clear the configured payout
+# ===================================================================
+
+
+@router.delete(
+    "/me/payout",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_payout_details(
+    master_tuple: tuple[User, MasterProfile] = Depends(
+        get_current_master,
+    ),
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    """Clear the master's configured payout details (remove data["payout"]).
+
+    Mirrors update_payout_details' JSONB persist pattern (deepcopy + set_jsonb).
+    Idempotent: a no-op when no payout is configured. Afterwards the profile's
+    ``payout`` field projects as None (F7). Past withdrawals keep their own
+    snapshotted payout_details, so clearing here does not touch history.
+    """
+    user, _profile = master_tuple
+
+    # Re-load the profile in THIS writer session (mirrors update_payout_details).
+    profile = await session.get(MasterProfile, user.id)
+    if not profile:
+        raise BadRequestError("Master profile not found")
+
+    # P-03: deepcopy + set_jsonb for safe JSONB mutation.
+    data = copy.deepcopy(profile.data)
+    data.pop("payout", None)
+    profile.set_jsonb("data", data)
+
+    await session.flush()
+
+    logger.info("payout_details_deleted", user_id=str(user.id))
+
+
+# ===================================================================
 # E16: PATCH /me/languages -- freely edit the master's language set
 # ===================================================================
 
@@ -356,11 +420,19 @@ async def list_my_practices(
     session: AsyncSession = Depends(get_db_reader),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    status_filter: Literal[
+        "draft", "scheduled", "live", "completed", "cancelled",
+    ] | None = Query(default=None, alias="status"),
 ) -> PaginatedPracticesResponse:
-    """List practices owned by the current master (newest first)."""
+    """List practices owned by the current master (newest first).
+
+    E3a: optional ?status= exact-match filter (never "deleted" -- that
+    status is already excluded unconditionally). Omitted -> unfiltered,
+    same as before this param existed.
+    """
     user, _profile = master_tuple
     return await list_master_practices(
-        user, session, limit=limit, offset=offset,
+        user, session, limit=limit, offset=offset, status=status_filter,
     )
 
 

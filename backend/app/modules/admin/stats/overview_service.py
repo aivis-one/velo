@@ -18,11 +18,17 @@
 #     platform cut (CompanyLedger COMMISSION), mirroring admin revenue (E9/4b).
 #   *_rate -- check-in / feedback / return, mirroring admin metrics (E9/4a),
 #     anchored on Practice.scheduled_at:
-#       check-in : checked-in attended bookings / attended bookings.
-#       feedback : feedbacks tied to attended bookings / attended bookings
+#       check-in : checked-in non-cancelled bookings / non-cancelled bookings,
+#                  for practices that have ENDED by wall-clock (W3, ПРОМТ №387
+#                  -- NOT Booking.status==ATTENDED, which lags behind wall-clock
+#                  end until autofinalize polls; same D4 bug class already
+#                  fixed in admin/metrics/service.py).
+#       feedback : feedbacks tied to non-cancelled bookings for ENDED
+#                  practices / non-cancelled bookings for ENDED practices
 #                  (W-3 join keeps the rate <= 100%).
 #       return   : period attendees who also attended before the period start
-#                  / period attendees.
+#                  / period attendees. (Still ATTENDED-gated -- see the note
+#                  on _return_counts.)
 #   pending_reports -- COUNT(reports WHERE status=pending), period-independent.
 #
 # DELTAS:
@@ -36,7 +42,7 @@
 #   Read-only -- callers pass get_db_reader. No commit (P-01). ORM-only.
 # =============================================================================
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import func, select
@@ -148,19 +154,53 @@ async def _sum_commission(
 # ---------------------------------------------------------------------------
 # Engagement rates -- each returns (numerator, denominator) for the period
 # ---------------------------------------------------------------------------
-async def _checkin_counts(
-    start: datetime, end: datetime, session: AsyncSession,
-) -> tuple[int, int]:
-    """(checked_in, total_records) over attended bookings in [start, end)."""
-    total = (
+async def _past_practice_ids_in_period(
+    start: datetime, end: datetime, now: datetime, session: AsyncSession,
+) -> list:
+    """Practice ids scheduled in [start, end) that have ENDED by wall-clock
+    (scheduled_at + duration_minutes < now). Mirrors
+    admin/metrics/service.py's _past_practices_in_period -- deliberately NOT
+    gated on Booking.status==ATTENDED, which only flips once the async
+    autofinalize worker polls (up to its poll interval after the practice
+    ends). Gating on ATTENDED was the D4 bug in admin/metrics: a check-in or
+    feedback lands on a still-CONFIRMED booking before finalization runs, so
+    ATTENDED-scoping zeroed the rate during that window. _checkin_counts and
+    _feedback_counts below had the same gate and the same bug (W3, ПРОМТ
+    №386/387); this fixes both the same way metrics/service.py already fixed
+    theirs, so the two admin dashboards agree.
+    """
+    rows = (
         await session.execute(
-            select(func.count(Booking.id))
-            .select_from(Booking)
-            .join(Practice, Booking.practice_id == Practice.id)
-            .where(
-                Booking.status == BookingStatus.ATTENDED.value,
+            select(
+                Practice.id, Practice.scheduled_at, Practice.duration_minutes,
+            ).where(
+                Practice.status.notin_(_HIDDEN_PRACTICE_STATUSES),
                 Practice.scheduled_at >= start,
                 Practice.scheduled_at < end,
+            )
+        )
+    ).all()
+    return [
+        r.id
+        for r in rows
+        if r.scheduled_at + timedelta(minutes=r.duration_minutes) < now
+    ]
+
+
+async def _checkin_counts(
+    start: datetime, end: datetime, now: datetime, session: AsyncSession,
+) -> tuple[int, int]:
+    """(checked_in, total_records) over non-cancelled bookings for practices
+    that have ENDED by wall-clock in [start, end) (see
+    _past_practice_ids_in_period -- NOT gated on Booking.status==ATTENDED)."""
+    past_ids = await _past_practice_ids_in_period(start, end, now, session)
+    if not past_ids:
+        return 0, 0
+    total = (
+        await session.execute(
+            select(func.count(Booking.id)).where(
+                Booking.practice_id.in_(past_ids),
+                Booking.status != BookingStatus.CANCELLED.value,
             )
         )
     ).scalar_one()
@@ -168,12 +208,10 @@ async def _checkin_counts(
         await session.execute(
             select(func.count(func.distinct(Booking.id)))
             .select_from(Booking)
-            .join(Practice, Booking.practice_id == Practice.id)
             .join(Checkin, Checkin.booking_id == Booking.id)
             .where(
-                Booking.status == BookingStatus.ATTENDED.value,
-                Practice.scheduled_at >= start,
-                Practice.scheduled_at < end,
+                Booking.practice_id.in_(past_ids),
+                Booking.status != BookingStatus.CANCELLED.value,
             )
         )
     ).scalar_one()
@@ -181,22 +219,24 @@ async def _checkin_counts(
 
 
 async def _feedback_counts(
-    start: datetime, end: datetime, session: AsyncSession,
+    start: datetime, end: datetime, now: datetime, session: AsyncSession,
 ) -> tuple[int, int]:
-    """(left_review, visited) over attended bookings in [start, end).
+    """(left_review, visited) over practices that have ENDED by wall-clock in
+    [start, end) (see _past_practice_ids_in_period -- NOT gated on
+    Booking.status==ATTENDED).
 
-    left_review joins Feedback -> Booking on (practice_id, user_id) requiring
-    the booking to be attended, so it never exceeds visited (W-3).
+    left_review still requires a matching non-cancelled booking on the same
+    (practice_id, user_id) as the feedback, so it never exceeds visited (W-3,
+    unchanged).
     """
+    past_ids = await _past_practice_ids_in_period(start, end, now, session)
+    if not past_ids:
+        return 0, 0
     visited = (
         await session.execute(
-            select(func.count(Booking.id))
-            .select_from(Booking)
-            .join(Practice, Booking.practice_id == Practice.id)
-            .where(
-                Booking.status == BookingStatus.ATTENDED.value,
-                Practice.scheduled_at >= start,
-                Practice.scheduled_at < end,
+            select(func.count(Booking.id)).where(
+                Booking.practice_id.in_(past_ids),
+                Booking.status != BookingStatus.CANCELLED.value,
             )
         )
     ).scalar_one()
@@ -204,16 +244,14 @@ async def _feedback_counts(
         await session.execute(
             select(func.count())
             .select_from(Feedback)
-            .join(Practice, Feedback.practice_id == Practice.id)
             .join(
                 Booking,
                 (Booking.practice_id == Feedback.practice_id)
                 & (Booking.user_id == Feedback.user_id),
             )
             .where(
-                Booking.status == BookingStatus.ATTENDED.value,
-                Practice.scheduled_at >= start,
-                Practice.scheduled_at < end,
+                Feedback.practice_id.in_(past_ids),
+                Booking.status != BookingStatus.CANCELLED.value,
             )
         )
     ).scalar_one()
@@ -227,6 +265,12 @@ async def _return_counts(
 
     returning = period attendees who also attended a practice scheduled before
     the period start.
+
+    NOTE (W3, ПРОМТ №387): this still gates on Booking.status==ATTENDED, the
+    same autofinalize-lag class fixed in _checkin_counts/_feedback_counts
+    above -- out of this fix's explicit scope (checkin/feedback rates only),
+    flagged here rather than silently left unremarked. Candidate for the same
+    _past_practice_ids_in_period-based rewrite in a follow-up.
     """
     period_user_ids = set(
         (
@@ -311,12 +355,12 @@ async def get_admin_stats_overview(
 
     # -- engagement rates (current + previous) --
     checkin_rate, checkin_delta = _rate_with_delta(
-        await _checkin_counts(cur_start, cur_end, session),
-        await _checkin_counts(prev_start, cur_start, session),
+        await _checkin_counts(cur_start, cur_end, now, session),
+        await _checkin_counts(prev_start, cur_start, now, session),
     )
     feedback_rate, feedback_delta = _rate_with_delta(
-        await _feedback_counts(cur_start, cur_end, session),
-        await _feedback_counts(prev_start, cur_start, session),
+        await _feedback_counts(cur_start, cur_end, now, session),
+        await _feedback_counts(prev_start, cur_start, now, session),
     )
     return_rate, return_delta = _rate_with_delta(
         await _return_counts(cur_start, cur_end, session),

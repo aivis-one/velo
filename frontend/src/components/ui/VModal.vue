@@ -29,7 +29,7 @@
           >
             <IconClose :size="16" />
           </button>
-          <div class="v-modal__scroll">
+          <div class="v-modal__scroll velo-kbd-scroll">
             <slot />
           </div>
         </div>
@@ -41,6 +41,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
 import { IconClose } from '@/components/icons'
+import { lockBodyScroll, unlockBodyScroll } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(
   defineProps<{
@@ -70,11 +71,22 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-// Lock body scroll when modal is open.
+// Lock body scroll when modal is open. Ref-counted (W16, ПРОМТ №409) so a
+// second overlay (e.g. a VBottomSheet opened from inside this modal) closing
+// first doesn't unlock the body while this one is still open. `locked` tracks
+// whether THIS instance currently holds the lock, so lock/unlock stay paired
+// 1:1 even if unmounted mid-open.
+let locked = false
 watch(
   () => props.open,
   (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen && !locked) {
+      locked = true
+      lockBodyScroll()
+    } else if (!isOpen && locked) {
+      locked = false
+      unlockBodyScroll()
+    }
   },
 )
 
@@ -84,8 +96,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown)
-  // Ensure scroll is restored if component unmounts while open.
-  document.body.style.overflow = ''
+  // Ensure the lock is released if the component unmounts while open.
+  if (locked) {
+    locked = false
+    unlockBodyScroll()
+  }
 })
 </script>
 
@@ -114,7 +129,10 @@ onUnmounted(() => {
   /* Плавающая шторка (overlay даёт отступ со всех сторон) -> скругляем ВСЕ
      углы. Радиус из DS-токена (--radius-md=15), а не сырой 20px. */
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xl);
+  /* box-shadow: var(--shadow-xl) removed ПРОМТ №437 (operator ruling: VELO is
+     flat). --shadow-xl was `none`, so this asked for a shadow and got nothing --
+     a leftover from before the flat decision. Removing it renders identically.
+     The modal is separated by its white rim + the scrim behind it. */
 }
 
 /* Inner scroll area: holds the padding and owns the vertical scroll, so the

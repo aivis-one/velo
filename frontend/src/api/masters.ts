@@ -5,12 +5,17 @@
 // Typed wrappers over api.get/post/patch for master endpoints.
 //
 // Backend endpoints:
-//   POST  /api/v1/masters/apply           -- submit application (role=user)
-//   GET   /api/v1/masters/me              -- my master profile (role=master)
-//   GET   /api/v1/masters/me/practices    -- my practices list (role=master)
-//   PATCH /api/v1/masters/me/payout       -- update payout details (F7)
-//   POST  /api/v1/masters/me/withdraw     -- create withdrawal request (F7)
-//   GET   /api/v1/masters/me/withdrawals  -- list my withdrawals (F7)
+//   POST   /api/v1/masters/apply           -- submit application (role=user)
+//   DELETE /api/v1/masters/me/application  -- withdraw a pending application (F4)
+//   GET    /api/v1/masters/me              -- my master profile (role=master)
+//   GET    /api/v1/masters/me/practices    -- my practices list (role=master)
+//   PATCH  /api/v1/masters/me/payout       -- update payout details (F7)
+//   POST   /api/v1/masters/me/withdraw     -- create a PAYOUT withdrawal request (F7)
+//   GET    /api/v1/masters/me/withdrawals  -- list my payout withdrawals (F7)
+//
+// NB: "withdraw" is two unrelated concepts here -- withdrawMasterApplication
+// (F4, pull back an application) vs createWithdrawal (F7, request a payout).
+// Named distinctly on purpose so they're never confused at the call site.
 // =============================================================================
 
 import { api } from '@/api/client'
@@ -39,6 +44,15 @@ import type {
  */
 export function applyMaster(body: MasterApplyRequest): Promise<MasterApplyResponse> {
   return api.post<MasterApplyResponse>('/api/v1/masters/apply', body)
+}
+
+/**
+ * Withdraw the caller's own PENDING master application (F4).
+ * Status flip only -- the account stays a plain role='user'; re-applying
+ * afterward works exactly like applying fresh.
+ */
+export function withdrawMasterApplication(): Promise<void> {
+  return api.delete('/api/v1/masters/me/application')
 }
 
 /**
@@ -115,6 +129,15 @@ export function getMyPractices(limit = 20, offset = 0): Promise<PaginatedPractic
  */
 export function updatePayoutDetails(body: PayoutDetails): Promise<PayoutDetails> {
   return api.patch<PayoutDetails>('/api/v1/masters/me/payout', body)
+}
+
+/**
+ * Clear the master's configured payout method (M3). Idempotent server-side
+ * (204 even when nothing is configured). The profile's `payout` then reads
+ * null — the caller updates its local profile state.
+ */
+export function deletePayout(): Promise<void> {
+  return api.delete('/api/v1/masters/me/payout')
 }
 
 /**

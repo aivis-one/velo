@@ -13,96 +13,122 @@
        a single «Войти в кабинет» CTA → master dashboard (which chains into the
        post-approval onboarding carousel). Replaces the old auto-redirect.
     3. «Отказ» (rejected) — SVG-8. Amber, generic reason until rejection_reason
-       is exposed (Zod E14); TWO CTAs (FORK-4): «Написать в поддержку» AND
-       «Подать новую заявку» (the re-apply path is kept).
+       is exposed (Zod E14); TWO CTAs (FORK-4, restored 2026-07-12): «Написать
+       в поддержку» AND «Подать новую заявку» — reapply is backend-supported
+       (POST /masters/apply updates the existing rejected profile in place,
+       see test_apply_master_reapply_after_rejection) and /master/apply is
+       reachable for a rejected role='user' (applyGuard only intercepts
+       role='master').
 
   Illustrations extracted from the design SVGs to public/onboarding/master-verdict-*.svg.
 -->
 
 <template>
   <div class="pending-view">
-    <VHeader title="Заявка" />
-
-    <div class="pending-view__content">
+    <div
+      class="pending-view__content velo-kbd-scroll"
+      :class="{ 'pending-view__content--centered': !masterStore.profileLoading && isPending }"
+    >
       <template v-if="masterStore.profileLoading">
         <VLoader size="lg" />
       </template>
 
-      <!-- ================= APPROVED (verified) ================= -->
+      <!-- ================= APPROVED (verified) =================
+           White VCard подложка (R1 fix, ПРОМТ №391 — operator-approved preview
+           .tmp/batch-r/r1-application-states.html): was rendering directly on
+           the transparent fog bg, unlike SENT below which already had it. -->
       <template v-else-if="profileStatus === 'verified'">
-        <img
-          src="/onboarding/master-verdict-approved.svg"
-          alt=""
-          class="pending-view__illu pending-view__illu--lg"
-        />
-        <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
-        <p class="pending-view__subtitle">
-          Переключитесь в режим мастера, чтобы открыть кабинет. Вернуться в режим
-          пользователя можно в любой момент из настроек.
-        </p>
-        <div class="pending-view__actions">
-          <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
-            Перейти в режим мастера
-          </VButton>
-        </div>
+        <VCard class="pending-view__card">
+          <img
+            src="/onboarding/master-verdict-approved.svg"
+            alt=""
+            class="pending-view__illu pending-view__illu--lg"
+          />
+          <h2 class="pending-view__title">Ваша заявка одобрена!</h2>
+          <p class="pending-view__subtitle">
+            Переключитесь в режим мастера, чтобы открыть кабинет. Вернуться в режим
+            пользователя можно в любой момент из настроек.
+          </p>
+          <div class="pending-view__actions">
+            <VButton variant="primary" block :loading="switching" @click="enterMasterMode">
+              Войти в кабинет
+            </VButton>
+          </div>
+        </VCard>
       </template>
 
-      <!-- ================= REJECTED ================= -->
+      <!-- ================= REJECTED ================= (R1 fix, same as above) -->
       <template v-else-if="profileStatus === 'rejected'">
-        <img
-          src="/onboarding/master-verdict-reject.svg"
-          alt=""
-          class="pending-view__illu pending-view__illu--lg"
-        />
-        <h2 class="pending-view__title">Спасибо за заявку!</h2>
-        <p class="pending-view__subtitle">К сожалению, мы пока не можем одобрить вашу заявку.</p>
+        <VCard class="pending-view__card">
+          <img
+            src="/onboarding/master-verdict-reject.svg"
+            alt=""
+            class="pending-view__illu pending-view__illu--lg"
+          />
+          <h2 class="pending-view__title">Спасибо за заявку!</h2>
+          <p class="pending-view__subtitle">К сожалению, мы пока не можем одобрить вашу заявку.</p>
 
-        <div class="pending-view__reason">
-          <div class="pending-view__reason-label">Причина:</div>
-          <div class="pending-view__reason-text">{{ rejectionReason }}</div>
-        </div>
+          <div class="pending-view__reason">
+            <div class="pending-view__reason-label">Причина:</div>
+            <div class="pending-view__reason-text">{{ rejectionReason }}</div>
+          </div>
 
-        <div class="pending-view__actions">
-          <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
-            Написать в поддержку
-          </VButton>
-        </div>
+          <div class="pending-view__actions">
+            <VButton variant="primary" block @click="router.push({ name: 'master-support' })">
+              Написать в поддержку
+            </VButton>
+            <VButton variant="outline" block @click="router.push({ name: 'master-apply' })">
+              Подать новую заявку
+            </VButton>
+          </div>
+        </VCard>
       </template>
 
-      <!-- ================= SENT (pending) ================= -->
+      <!-- ================= SENT (pending) =================
+           White VCard подложка, vertically centered (K2). A discreet text
+           link (F4, not a block button -- ПРОМТ №418: this screen exists so
+           a person waits calmly; a full-width button would read as an
+           invitation to leave). -->
       <template v-else>
-        <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
-        <h2 class="pending-view__title">Заявка отправлена!</h2>
-        <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
-
-        <div class="pending-view__actions">
-          <VButton variant="primary" block :loading="refreshing" @click="refreshStatus">
-            Обновить статус
-          </VButton>
-          <VButton variant="ghost" block @click="router.push({ name: 'user-dashboard' })">
-            Вернуться к каталогу
-          </VButton>
-        </div>
+        <VCard class="pending-view__card">
+          <img src="/onboarding/master-verdict-sent.svg" alt="" class="pending-view__illu" />
+          <h2 class="pending-view__title">Заявка отправлена!</h2>
+          <p class="pending-view__subtitle">Рассмотрим за 24–48 часов, сообщим в push и на email</p>
+          <button type="button" class="pending-view__withdraw-link" @click="confirmWithdrawOpen = true">
+            Отозвать заявку
+          </button>
+        </VCard>
       </template>
     </div>
+
+    <VConfirmDialog
+      :open="confirmWithdrawOpen"
+      message="Отозвать заявку? Вы вернётесь к обычному аккаунту пользователя. Подать новую заявку можно в любой момент."
+      confirm-label="Отозвать"
+      danger
+      :loading="withdrawing"
+      @confirm="onWithdraw"
+      @cancel="confirmWithdrawOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { VHeader } from '@/components/layout'
-import { VButton, VLoader } from '@/components/ui'
+import { VButton, VLoader, VCard, VConfirmDialog } from '@/components/ui'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import { useMasterStore } from '@/stores/master'
+import { withdrawMasterApplication } from '@/api/masters'
+import { ApiResponseError } from '@/api/client'
+import { MASTER_APPLIED_KEY, masterApprovedSeenKey, masterRejectionSeenKey } from '@/utils/constants'
 
 const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
 const masterStore = useMasterStore()
 
-const refreshing = ref(false)
 const switching = ref(false)
 
 // -- Derived application status --
@@ -111,6 +137,11 @@ const switching = ref(false)
 // in authStore.allowedRoles (GET /users/me role_switch). So:
 //   role='master'                    -> the loaded profile status.
 //   role='user' + capability(master) -> approved ('verified').
+//   role='user' + cancelled_by_user  -> withdrawn (F4: onMounted bounces this
+//                                       to /user/dashboard, same destination
+//                                       masterPendingGuard's "neither" case
+//                                       already sends a never-applied user to
+//                                       -- no dedicated card, see onMounted).
 //   otherwise                        -> 'pending'.
 // (A rejected applicant is role='user' with no capability -> shows 'pending'
 //  here; surfacing the rejection to a role='user' account is deferred to T5.)
@@ -121,8 +152,13 @@ const profileStatus = computed(() => {
   // is surfaced on GET /users/me (master_application) so the reject screen is
   // reachable without the master-only /masters/me endpoint.
   if (authStore.masterApplication?.status === 'rejected') return 'rejected'
+  if (authStore.masterApplication?.status === 'cancelled_by_user') return 'withdrawn'
   return 'pending'
 })
+
+// Pending is the only state that centers on a bare card (K2); approved/rejected
+// keep their card + CTA layout.
+const isPending = computed(() => profileStatus.value === 'pending')
 
 // Real rejection reason from the profile (E14: surfaced on MasterProfileResponse
 // from data.account.rejection_reason). Falls back to a generic line when the
@@ -145,6 +181,20 @@ onMounted(async () => {
   } else {
     await authStore.fetchMe()
   }
+  // Bug 1 fix (ПРОМТ №405): mark the per-user key once the rejection screen
+  // has actually rendered, mirroring masterApprovedSeenKey's placement for
+  // the approved case, so roleRedirect stops routing here on future opens
+  // (operator decision: show the verdict once, then treat as an ordinary user).
+  if (profileStatus.value === 'rejected' && authStore.user?.id) {
+    localStorage.setItem(masterRejectionSeenKey(authStore.user.id), '1')
+  }
+  // F4: a withdrawn application has nothing left to show here -- bounce to
+  // the ordinary user dashboard, same destination masterPendingGuard already
+  // sends a never-applied user to. Covers a stale/second tab that lands on
+  // this route after the withdraw button (below) already navigated away.
+  if (profileStatus.value === 'withdrawn') {
+    router.replace({ name: 'user-dashboard' })
+  }
 })
 
 // -- Enter master mode -- (T4: approved applicant self-switches role user->master)
@@ -153,6 +203,12 @@ async function enterMasterMode(): Promise<void> {
   switching.value = true
   try {
     await authStore.switchRole('master')
+    // MA3: mark this celebratory screen as seen (persists across sessions) so
+    // future self-switches (RoleSwitchSection) go straight to the dashboard
+    // instead of detouring back through here.
+    if (authStore.user?.id) {
+      localStorage.setItem(masterApprovedSeenKey(authStore.user.id), '1')
+    }
     router.push({ name: 'master-dashboard' })
   } catch {
     toast.error('Не удалось переключиться в режим мастера')
@@ -161,32 +217,42 @@ async function enterMasterMode(): Promise<void> {
   }
 }
 
-// -- Refresh status -- (re-checks the approval: role flip OR capability grant)
-async function refreshStatus(): Promise<void> {
-  if (refreshing.value) return
-  refreshing.value = true
+// -- Withdraw application -- (F4: candidate pulls back their own pending
+// application; status flip only, the account stays an ordinary user)
+const confirmWithdrawOpen = ref(false)
+const withdrawing = ref(false)
+
+async function onWithdraw(): Promise<void> {
+  if (withdrawing.value) return
+  withdrawing.value = true
   try {
-    // Re-fetch the account: covers both a role='master' promotion and the T4
-    // capability grant (allowedRoles gains 'master' on approval).
-    await authStore.fetchMe()
-    if (authStore.role === 'master') {
-      await masterStore.fetchMyProfile(true)
-    } else if (!authStore.allowedRoles.includes('master')) {
-      toast.info('Заявка ещё на рассмотрении')
-    }
-    // else: approved — profileStatus flips to 'verified' reactively.
-  } catch {
-    toast.error('Не удалось проверить статус')
+    await withdrawMasterApplication()
+    // Drop the applicant marker so a future load of this route (or the
+    // guard) doesn't mistake a stale session for a still-pending applicant.
+    sessionStorage.removeItem(MASTER_APPLIED_KEY)
+    toast.success('Заявка отозвана')
+    router.replace({ name: 'user-dashboard' })
+  } catch (e) {
+    // 409 means someone else (e.g. an admin) already acted on it between
+    // opening this dialog and confirming -- a generic message covers both
+    // that race and any other failure without guessing which happened.
+    const msg =
+      e instanceof ApiResponseError
+        ? e.detail
+        : 'Не удалось отозвать заявку'
+    toast.error(msg)
   } finally {
-    refreshing.value = false
+    withdrawing.value = false
+    confirmWithdrawOpen.value = false
   }
 }
+
 </script>
 
 <style scoped>
 .pending-view {
-  min-height: 100dvh;
-  min-height: 100vh;
+  /* Fill AppFrame's stable height — never dvh/vh (collapse on keyboard). Canon §2. */
+  min-height: 100%;
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -194,6 +260,9 @@ async function refreshStatus(): Promise<void> {
 
 .pending-view__content {
   flex: 1;
+  /* ROOT-LOCK: own the scroll (html/body/#app no longer absorb overflow). */
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -201,6 +270,22 @@ async function refreshStatus(): Promise<void> {
      so content matches the app's 24px rail (WS-1, 2026-06-19). */
   padding: var(--space-8) var(--velo-rail-pad-x) var(--space-5);
   gap: var(--space-4);
+}
+
+/* Pending (K2d): vertically center the card, drop the top-heavy padding. */
+.pending-view__content--centered {
+  justify-content: center;
+  padding-top: var(--space-5);
+}
+
+/* Pending card подложка (K2b): icon + title + subtext on a white plate. */
+.pending-view__card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-5);
 }
 
 /* -- Verdict illustration (extracted from the design SVGs) -- */
@@ -231,6 +316,20 @@ async function refreshStatus(): Promise<void> {
   max-width: 300px;
   line-height: 1.5;
   margin: 0;
+}
+
+/* -- Withdraw link (F4): deliberately quiet -- text button, not a CTA. -- */
+.pending-view__withdraw-link {
+  background: none;
+  border: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: var(--velo-text-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 /* -- Rejection reason (amber) -- */

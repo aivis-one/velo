@@ -12,7 +12,19 @@ pytest-benchmark, and stdlib fallback — auto-detected from project environment
 
 ## Configuration
 
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №435): CBS's docs/01_refer path replaced with the
+     git-untracked scratch dir the rest of the family already uses (dda9a6f,
+     ПРОМТ №385). VELO has no docs/01_refer/.
+
+     NO LOCAL TARGET -- read this before running (ПРОМТ №435). This skill needs
+     a live HTTP endpoint. VELO's backend runs in Docker on the VPS; there is no
+     local API and no Docker locally, so the only reachable targets are the
+     shared TEST and PROD servers. Do NOT point a load/stress/spike/soak run at
+     either without the operator's explicit go: TEST is what the tester is
+     signing off on, and PROD is real users. A smoke run against TEST is the
+     only mode that is reasonable by default. Thresholds below are the CBS
+     generic defaults and have NOT been calibrated to VELO's traffic. -->
+report_dir: .tmp/probekit-review
 default_thresholds:
   p95_ms: 500
   p99_ms: 1500

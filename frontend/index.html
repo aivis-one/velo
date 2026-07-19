@@ -2,7 +2,7 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes, interactive-widget=resizes-visual" />
     <meta name="theme-color" content="#334D6E" />
 
     <!-- Google Fonts: preconnect + link (10.6: replaces @import in global.css). -->
@@ -22,6 +22,12 @@
     <title>VELO</title>
   </head>
   <body>
+    <!-- ПРОМТ №383: body-level, viewport-anchored fixed bg layer, static in the
+         HTML (not Vue-rendered) so it paints at first paint, before #app.
+         See global.css #app-bg -- this is the ONLY element that paints the
+         mandala; it replaces the old #app::before approach, which rode up
+         with the root's focus-driven scroll on Android keyboard-open. -->
+    <div id="app-bg" aria-hidden="true"></div>
     <!-- Vue mounts here. Like FastAPI's app = FastAPI(). -->
     <div id="app"></div>
     <!-- Vite injects the <script> tag during build. -->

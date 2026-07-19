@@ -6,10 +6,10 @@
   dashboard «Система» section.
 
   DATA IS REAL: GET /admin/users -> avatar + name + telegram_id + role badge.
-  The server has no search endpoint, so the search box filters the fetched page
-  client-side (by name OR telegram id). Limit is clamped to the backend cap
-  (le=100), same alpha discipline as the masters list — add pagination when the
-  user count nears 100.
+  The server has no search endpoint, so the search box filters the fetched
+  (accumulated) pages client-side (by name OR telegram id) — a query only
+  matches users already loaded; «Показать ещё» loads more. Paginated
+  («Показать ещё»), mirroring AdminParticipantsView's load-more.
 
   Per-row «Сделать мастером» (role='user' only) -> confirm dialog -> POST
   /admin/users/{id}/make-master (creates a verified MasterProfile + role flip).
@@ -37,31 +37,37 @@
       title="Не удалось загрузить пользователей"
       description="Проверьте соединение и попробуйте ещё раз"
     >
-      <template #action><VButton variant="primary" @click="load">Повторить</VButton></template>
+      <template #action><VButton variant="primary" @click="load(true)">Повторить</VButton></template>
     </VEmptyState>
 
     <!-- List -->
-    <div v-else-if="filtered.length" class="admin-users__items">
-      <div v-for="u in filtered" :key="u.id" class="ucard">
-        <div class="ucard__head">
-          <VAvatar :name="nameOf(u)" :url="u.avatar_url ?? undefined" size="md" />
-          <div class="ucard__id">
-            <span class="ucard__name">{{ nameOf(u) }}</span>
-            <span class="ucard__tg">ID: {{ u.telegram_id ?? '—' }}</span>
+    <template v-else-if="filtered.length">
+      <div class="admin-users__items">
+        <div v-for="u in filtered" :key="u.id" class="ucard">
+          <div class="ucard__head">
+            <VAvatar :name="nameOf(u)" :url="u.avatar_url ?? undefined" size="md" />
+            <div class="ucard__id">
+              <span class="ucard__name">{{ nameOf(u) }}</span>
+              <span class="ucard__tg">ID: {{ u.telegram_id ?? '—' }}</span>
+            </div>
+            <VBadge :variant="roleVariant(u.role)">{{ roleLabel(u.role) }}</VBadge>
           </div>
-          <VBadge :variant="roleVariant(u.role)">{{ roleLabel(u.role) }}</VBadge>
-        </div>
 
-        <VButton
-          v-if="u.role === 'user'"
-          variant="secondary"
-          block
-          @click="askMakeMaster(u)"
-        >
-          Сделать мастером
-        </VButton>
+          <VButton
+            v-if="u.role === 'user'"
+            variant="secondary"
+            block
+            @click="askMakeMaster(u)"
+          >
+            Сделать мастером
+          </VButton>
+        </div>
       </div>
-    </div>
+
+      <div v-if="hasMore" class="admin-users__more">
+        <VButton variant="outline" :loading="loadingMore" @click="loadMore">Показать ещё</VButton>
+      </div>
+    </template>
 
     <!-- Empty -->
     <VCard v-else><p class="admin-users__empty">{{ emptyText }}</p></VCard>
@@ -99,11 +105,15 @@ import { useToast } from '@/composables/useToast'
 const router = useRouter()
 const toast = useToast()
 
+const PAGE = 100
+
 const users = ref<UserResponse[]>([])
 const total = ref(0)
 const loading = ref(false)
+const loadingMore = ref(false)
 const error = ref(false)
 const search = ref('')
+const hasMore = computed<boolean>(() => users.value.length < total.value)
 
 function nameOf(u: UserResponse): string {
   const name = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
@@ -140,13 +150,18 @@ function roleVariant(role: string): 'success' | 'warning' | 'info' {
   return 'info'
 }
 
-async function load(): Promise<void> {
-  loading.value = true
+async function load(reset: boolean): Promise<void> {
+  if (reset) {
+    loading.value = true
+  } else {
+    if (loadingMore.value) return
+    loadingMore.value = true
+  }
   error.value = false
   try {
-    // Limit clamped to the backend cap (le=100); alpha — add pagination near 100.
-    const res = await getUsersList(undefined, 100, 0)
-    users.value = res.items
+    const offset = reset ? 0 : users.value.length
+    const res = await getUsersList(undefined, PAGE, offset)
+    users.value = reset ? res.items : [...users.value, ...res.items]
     total.value = res.total
   } catch (e) {
     error.value = true
@@ -154,7 +169,12 @@ async function load(): Promise<void> {
     toast.error(msg)
   } finally {
     loading.value = false
+    loadingMore.value = false
   }
+}
+
+function loadMore(): void {
+  load(false)
 }
 
 // -- Make-master confirm flow --
@@ -185,7 +205,7 @@ async function doMakeMaster(): Promise<void> {
     toast.success('Пользователь назначен мастером')
     confirm.open = false
     confirm.target = null
-    await load()
+    await load(true)
   } catch (e) {
     const msg = e instanceof ApiResponseError ? e.detail : 'Не удалось назначить мастером'
     toast.error(msg)
@@ -194,7 +214,7 @@ async function doMakeMaster(): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(() => load(true))
 </script>
 
 <style scoped>
@@ -246,6 +266,12 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+}
+
+.admin-users__more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-1);
 }
 
 .admin-users__empty {

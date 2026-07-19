@@ -35,11 +35,23 @@ from app.modules.admin.users.schemas import (
     PaginatedMastersResponse,
     PaginatedUsersResponse,
 )
+from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.masters.models import MasterProfile
+from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import UserResponse, credentials_without_admin_home
 
 logger = structlog.get_logger()
+
+# R8: countable practices for the list-card "Практик" stat -- mirrors
+# masters/stats_service._NON_COUNTED_PRACTICE_STATUSES (drafts/deletes never
+# ran, a cancelled practice did not take place). Duplicated locally rather
+# than importing a private name across modules.
+_NON_COUNTED_PRACTICE_STATUSES = (
+    PracticeStatus.DRAFT.value,
+    PracticeStatus.DELETED.value,
+    PracticeStatus.CANCELLED.value,
+)
 
 
 async def list_users(
@@ -85,6 +97,63 @@ async def list_users(
     )
 
 
+async def _practices_counts_for_masters(
+    master_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, int]:
+    """Map master_id -> all-time countable-practice count, for a page.
+
+    ONE bounded query regardless of page size (GROUP BY master_id), same
+    read-model shape as practices/enrichment_service.py
+    attendance_counts_for_practices. "Countable" mirrors
+    masters/stats_service._count_practices: excludes
+    draft/deleted/cancelled (never ran / not real sessions).
+    """
+    if not master_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Practice.master_id, func.count(Practice.id))
+            .where(
+                Practice.master_id.in_(master_ids),
+                Practice.status.notin_(_NON_COUNTED_PRACTICE_STATUSES),
+            )
+            .group_by(Practice.master_id)
+        )
+    ).all()
+    return dict(rows)
+
+
+async def _students_counts_for_masters(
+    master_ids: list[UUID],
+    session: AsyncSession,
+) -> dict[UUID, int]:
+    """Map master_id -> all-time DISTINCT attended-student count, for a page.
+
+    ONE bounded query regardless of page size (GROUP BY master_id via the
+    Practice join). A student is counted once per master even if they
+    attended several of that master's practices.
+    """
+    if not master_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(
+                Practice.master_id,
+                func.count(func.distinct(Booking.user_id)),
+            )
+            .select_from(Booking)
+            .join(Practice, Booking.practice_id == Practice.id)
+            .where(
+                Practice.master_id.in_(master_ids),
+                Booking.status == BookingStatus.ATTENDED.value,
+            )
+            .group_by(Practice.master_id)
+        )
+    ).all()
+    return dict(rows)
+
+
 async def list_masters(
     session: AsyncSession,
     *,
@@ -97,6 +166,12 @@ async def list_masters(
 
     Joins User + MasterProfile. Filters by JSONB data.account.status.
     Sequential scan on master_profiles (small table, no GIN index for MVP).
+
+    R8: the rich-card fields on AdminMasterListItem cost at most 2 extra
+    bounded queries for the WHOLE page (practices_counts + students_counts,
+    both GROUP BY master_id -- no N+1). methods and available_cents are free:
+    methods comes off the profile row already in hand, available_cents is a
+    plain column already loaded by the join.
     """
     # -- Base query: join User + MasterProfile --
     query = (
@@ -125,6 +200,14 @@ async def list_masters(
     result = await session.execute(query)
     rows = result.all()
 
+    master_ids = [user.id for user, _profile in rows]
+    practices_by_master = await _practices_counts_for_masters(
+        master_ids, session
+    )
+    students_by_master = await _students_counts_for_masters(
+        master_ids, session
+    )
+
     items = [
         AdminMasterListItem(
             id=user.id,
@@ -137,6 +220,10 @@ async def list_masters(
             master_status=profile.data.get("account", {}).get(
                 "status", "unknown"
             ),
+            methods=profile.data.get("profile", {}).get("methods", []),
+            practices_count=practices_by_master.get(user.id, 0),
+            students_count=students_by_master.get(user.id, 0),
+            available_cents=profile.available_cents,
         )
         for user, profile in rows
     ]

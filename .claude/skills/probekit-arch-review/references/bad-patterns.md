@@ -132,3 +132,81 @@ description: "Bad architecture patterns (BP-XX) for arch-review pattern catalog"
 - `except Exception as e: raise SomeError(str(e))` — loses original traceback and exception chain
 - `except Exception: raise CustomError("something went wrong")` — no context
 - **Fix:** Use `raise ... from e` (Python) or wrap with cause chain, preserve original traceback
+
+### BP-23: ADR Predicate Not Empirically Testable Now
+
+**Pattern:** an architectural decision is accepted on predicates that are
+defensible only in a projected future state — "once we roll out X", "after the
+migration", "in the canonical deployment" — rather than on ground-truth that
+can be verified against the current codebase + live environment at ADR
+review time.
+
+**Why this is a bad pattern:**
+- Predicates framed as "roadmap-credible" silently convert the ADR from a
+  record of decision into a promise of future work. The ADR is then non-falsifiable
+  at the moment it lands — which is the only moment it's actually reviewed.
+- The loophole compounds: next ADR cycle cites this one as precedent, inheriting
+  the unverified assumption. Two or three hops later the architecture document
+  reflects a system that does not exist.
+- When ground-truth is finally collected (scout, probe, production incident),
+  the delta between ADR-claimed state and actual state is routinely 50%+ —
+  not because the team was dishonest, but because the predicates were shaped
+  by what the authors believed SHOULD be true.
+
+**Detection signals at ADR review:**
+- Predicate phrased in future/conditional tense: "will be", "once migrated",
+  "after rollout", "in production mode", "when the feature is enabled".
+- Predicate references a state that requires a sweep to verify (e.g. "all
+  writers go through DALFactory", "every MB declares service X in config")
+  but no scout / probe / grep output is cited in the ADR body or appendix.
+- Predicate references an environment the ADR author cannot access at review
+  time (prod DB row counts, prod container process list, prod log volumes).
+- Predicate is a counting claim ("5 PG tables", "19 writers", "3 migration
+  runners invoked") without a linked command whose output produced the count.
+
+**Required evidence (ADR defensibility gate):**
+1. Every structural claim about the current system must cite either:
+   - A grep / ripgrep / `ast-grep` command + its output, OR
+   - A scout report path + the specific section that substantiates it, OR
+   - A probe result (e.g. `sqlite3 ... .schema`, `docker exec ... ps`, log
+     excerpt) with timestamp.
+2. Claims that cannot be substantiated NOW must be tagged explicitly:
+   `[predicate pending: <scout-ticket-id> — {what would confirm it}]` and
+   the ADR's acceptance gate must list the scout as blocking.
+3. The ADR author runs the scout themselves OR commissions one before the
+   debate closes. "Roadmap-credible" is not an acceptable substitute.
+
+**Gate at review time:**
+- Any predicate failing (1)+(2) is a **CRITICAL** finding: the ADR is not yet
+  decidable. Reviewer returns with "gather ground truth first" instead of
+  debating on unverified assumptions.
+- Exception: predicates about a NEW system being designed (no existing
+  implementation to ground-truth against). These are explicitly scoped as
+  design intent, not current-state claims, and must be re-ground-truthed at
+  the first implementation cycle.
+
+**Canonical case study:** BG-S14-P08-E10 Round 1 debate (ADR-031 platform-
+project boundary). 4 structural assumptions underpinned the Round 1 position:
+(a) "writers all go through DALFactory", (b) "5 PG tables initialised at boot",
+(c) "migration runner invoked from `app_lifespan`", (d) "per-project role
+isolation in place". Round 2 scout (read-only, 12 sections, ~4 hours) refuted
+all 4: (a) found 19-21 writers opening `aiosqlite.connect()` directly, (b)
+found 2 of 5 tables exist on prod (3 have DDL constants but no `initialize()`
+call), (c) found migration runner present in code with zero imports from
+`app_lifespan.py`, (d) found shared role still in use. The Round 1 "roadmap-
+credible" framing had shielded all four from empirical test at review time —
+they all failed on first contact with ground truth. Defensibility gate would
+have required the scout before Round 1 closed, saving one full debate cycle.
+
+**Fix direction:**
+- Adopt scout-before-debate protocol for any ADR making ≥3 structural claims
+  about current state.
+- At ADR template level, add explicit "Evidence" block per predicate with
+  citation format above.
+- Re-run ground-truthing at every quarterly arch review: predicates shift as
+  code changes, and an ADR accepted 3 quarters ago may now be stale even if
+  it was defensible then.
+
+**Cross-reference:** `probekit-deploy-readiness-bogame` Probe 7 (Persistence
+reachability probe) — the runtime-level mirror of this review-time rule.
+When ADR says "X persists to Y", Probe 7 checks State A/B/C at handoff.

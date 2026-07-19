@@ -10,9 +10,16 @@ Iterates until tests pass. Delivers a coverage report and test quality summary.
 
 ## Configuration
 
-test_output_dir: tests
-source_dir: src
-report_dir: docs/01_refer/ARCHIVES/CODE-AUDIT/PROBKIT-REVIEW
+<!-- VELO-tuned (ПРОМТ №402): the CBS defaults below assumed a separate
+     tests/ tree and a single top-level src/ -- neither holds here. VELO
+     colocates every test next to its source (src/api/payments.ts ->
+     src/api/payments.test.ts) -- all 13 existing tests follow this, zero
+     live under a tests/ directory. This is a stronger fix than a path swap:
+     it changes WHERE generated files go, not just which path they go under.
+     See Step 2/3 below for the naming + mocking idiom stage 1/2 established. -->
+test_output_dir: colocated -- same directory as the source file, *.test.ts suffix. NOT a separate tree.
+source_dir: frontend/src
+report_dir: .tmp/probekit-review
 
 ## Execution Steps
 
@@ -55,8 +62,9 @@ Read the target file(s) completely. Map:
 - Public API surface: all public functions, methods, classes
 - Dependencies: imports, injected objects, global state, I/O, DB, network calls
 - Boundary map: what must be mocked vs what can be tested directly
-- Existing test files: check `test_output_dir` and common test locations
-  (`tests/`, `test/`, `__tests__/`, `*_test.go`, `test_*.gd`)
+- Existing test files: for a colocated `test_output_dir` (VELO), check the SAME directory as the
+  source file first (`{module}.test.ts` next to `{module}.ts`); fall back to common test locations
+  (`tests/`, `test/`, `__tests__/`, `*_test.go`, `test_*.gd`) for other project layouts
   — never re-generate tests that already exist; extend instead
 
 For each public function/method identify:
@@ -94,15 +102,23 @@ Read `references/test-generation.md`.
 Apply `references/framework-adapters.md` for detected framework syntax.
 
 For each file under test, generate one test file:
-- Naming: `test_{module}.py` / `{module}_test.go` / `test_{module}.gd` etc.
-- Location: mirror source structure inside `test_output_dir`
+- Naming: `test_{module}.py` / `{module}_test.go` / `test_{module}.gd` etc. — for a colocated
+  `test_output_dir` (VELO/TS): `{module}.test.ts`, e.g. `payments.ts` -> `payments.test.ts`.
+- Location: mirror source structure inside `test_output_dir` — for a colocated `test_output_dir`
+  (VELO/TS): the SAME directory as the source file, no mirrored tree.
 - Structure: group tests by class/function using test classes or describe blocks
 
 Every generated test MUST:
 - Follow AAA (Arrange / Act / Assert) structure with comments
 - Have a descriptive name: `test_{function}_{scenario}_{expected_outcome}`
   Example: `test_calculate_price_with_zero_quantity_raises_value_error`
-- Mock all external boundaries (DB, HTTP, file I/O, time, random)
+- Mock all external boundaries (DB, HTTP, file I/O, time, random) — for VELO/Vitest specifically:
+  mock at the module seam the code under test actually imports (`@/api/client` for wrapper functions,
+  the relevant `@/api/*.ts` wrapper for a Pinia store), via `vi.mock(seam, async (importOriginal) => ({
+  ...await importOriginal(), api: { get: vi.fn(), post: vi.fn(), ... } }))` so real error classes
+  (`ApiResponseError` etc.) stay importable for realistic rejection assertions — never mock the whole
+  error-class hierarchy away. See `frontend/src/api/payments.test.ts` and
+  `frontend/src/stores/bookings.test.ts` for the established pattern.
 - Include at least: 1 happy path + 2 edge cases + 1 error path per function
 - Use parametrize/table-driven patterns for similar input variations
 
@@ -134,6 +150,8 @@ Run coverage using the detected framework. Use `source_dir` from Configuration:
 - pytest: `pytest --cov={source_dir} --cov-report=term-missing`
 - Go: `go test -cover ./...`
 - Jest: `jest --coverage`
+- Vitest (VELO): `npx vitest run --coverage` (already wired via `test:coverage` in package.json;
+  v8 provider, see `frontend/vitest.config.ts`)
 - GUT: coverage not available via CLI; note manually, skip this step
 
 Parse output. Record:

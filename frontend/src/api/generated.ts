@@ -54,6 +54,9 @@ export interface AdminMasterDetail {
   is_active: boolean
   master_status: string
   methods?: string[]
+  practices_count?: number | null
+  students_count?: number | null
+  available_cents?: number | null
   experience_years?: number
   bio?: string | null
   display_name?: string | null
@@ -63,7 +66,7 @@ export interface AdminMasterDetail {
   certifications?: string[]
 }
 
-/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. */
+/** Single item in admin masters list -- user data + master status. CR-01: role narrowed from str to UserRole for type safety. R8: rich-card fields, additive over the F8-fix shape. - methods: read straight off the already-joined MasterProfile.data.profile (zero extra cost -- see list_masters). - practices_count / students_count: real all-time aggregates, computed in ONE batched query each over the page's master_ids (no N+1, mirrors practices/enrichment_service.py attendance_counts_for_practices). None only if a master somehow falls outside the batch (should not happen; honest stub -- FE shows "-"). - available_cents: MasterProfile.available_cents, a plain column already loaded by the list_masters join -- zero extra cost. */
 export interface AdminMasterListItem {
   id: string
   telegram_id?: number | null
@@ -73,6 +76,10 @@ export interface AdminMasterListItem {
   role: UserRole
   is_active: boolean
   master_status: string
+  methods?: string[]
+  practices_count?: number | null
+  students_count?: number | null
+  available_cents?: number | null
 }
 
 /** PATCH /admin/masters/{user_id}/profile -- partial admin edit of EVERY master-authored field (batch H). ALL fields optional; only the keys the client actually SENDS are applied (the service reads model_dump(exclude_unset=True)), so a partial PATCH never clobbers an unsent sibling. Constraints are reused from the apply form (MasterApplyProfile / MasterApplyExperience, masters/schemas.py:49-70) and users/me (UserUpdate first/last, users/schemas.py:577-578) so admin-edit validation can never drift from what the master could originally submit. Field homes: display_name / email / phone / bio / methods / experience_years / certifications / languages -> MasterProfile.data.profile.* first_name / last_name -> User.* (the account name shown in admin lists) */
@@ -99,6 +106,14 @@ export interface AdminMethodChangeItem {
   current_methods?: string[]
   proposed_methods?: string[]
   submitted_at: string
+}
+
+/** Paginated list of promos for the admin all-promos view (T5). */
+export interface AdminPaginatedPromosResponse {
+  items: AdminPromoResponse[]
+  total: number
+  limit: number
+  offset: number
 }
 
 /** One participant (platform user) in the global admin list. */
@@ -141,6 +156,26 @@ export interface AdminPracticeListItem {
   capacity: number | null
   status: string
   timezone: string
+}
+
+/** PromoResponse + the owning master's name, for the admin all-promos view. Company promos (master_id=None) leave both name fields None. Raw first_name/last_name parts, not a pre-joined display string -- mirrors AdminMasterListItem, formatted client-side via the same masterDisplayName() helper so name formatting lives in one place. */
+export interface AdminPromoResponse {
+  id: string
+  code: string
+  type: string
+  master_id: string | null
+  practice_id: string | null
+  discount_percent: number
+  max_uses: number | null
+  used_count: number
+  valid_from: string
+  valid_until: string | null
+  first_purchase_only: boolean
+  is_active: boolean
+  created_at: string
+  updated_at: string | null
+  master_first_name?: string | null
+  master_last_name?: string | null
 }
 
 /** One master's earnings + payouts within the period. */
@@ -211,6 +246,11 @@ export interface AdminWithdrawalResponse {
   rejected_at?: string | null
   created_at: string
   updated_at?: string | null
+}
+
+/** POST /admin/masters/{user_id}/method-change-request/approve -- body. R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to empty, so a bare `{}` body (every caller before this stage, and every approval where the admin didn't pick "add to catalog") behaves exactly as before -- no catalog write. Each entry becomes a new custom direction in the taxonomy catalog (deduped against existing rows). */
+export interface ApproveMethodChangeRequest {
+  promote?: string[]
 }
 
 /** POST /admin/withdrawals/{id}/approve -- optional admin note. */
@@ -377,6 +417,13 @@ export interface CreateDiaryEntryRequest {
   practice_phase?: string | null
 }
 
+/** POST /admin/taxonomy/directions. */
+export interface CreateDirectionRequest {
+  value: string
+  label: string
+  display_order?: number
+}
+
 /** POST /api/v1/masters/me/promos -- create a master promo code. Master promos: master absorbs the discount from their revenue. type and master_id are set automatically by the service layer. */
 export interface CreateMasterPromoRequest {
   code: string
@@ -415,6 +462,13 @@ export interface CreateReportRequest {
   target_type: 'user' | 'master' | 'practice'
   target_id: string
   reason: string
+}
+
+/** POST /admin/taxonomy/directions/{direction_id}/styles. */
+export interface CreateStyleRequest {
+  value: string
+  label: string
+  display_order?: number
 }
 
 /** POST /api/v1/masters/me/withdraw -- request body. amount_cents is the total withdrawal amount (fee deducted from it). Minimum enforced in service against settings.min_withdrawal_cents. */
@@ -647,9 +701,10 @@ export interface MasterStatsResponse {
   income_delta_pct: number | null
 }
 
-/** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). */
+/** One master-facing transaction (a title-tagged master_ledger row). amount_cents is signed: positive = credit (sale), negative = debit (commission, refund). counterparty_name is the paying student for a sale/refund and null for platform-side rows (commission). practice_title (M5) is the name of the practice the movement belongs to, joined from the ledger row's practice_id — null when the row has no practice or it was deleted; the client falls back to `title` then. */
 export interface MasterTransactionItem {
   title: string
+  practice_title: string | null
   created_at: string
   counterparty_name: string | null
   amount_cents: number
@@ -1163,6 +1218,33 @@ export interface StudentListItem {
   needs_attention: boolean
 }
 
+/** A direction (Направление) with its nested styles. Shape matches AdminCatalogView.vue's local CatalogDirection type (value/label/styles[]) so the stage-3 FE swap is a drop-in. */
+export interface TaxonomyDirectionResponse {
+  id: string
+  value: string
+  label: string
+  display_order: number
+  is_active: boolean
+  source: string
+  styles?: TaxonomyStyleResponse[]
+}
+
+/** GET /admin/taxonomy -- full catalog, all directions + styles (incl. inactive -- this is the admin management view, not a public consumer). */
+export interface TaxonomyListResponse {
+  directions: TaxonomyDirectionResponse[]
+}
+
+/** A single style (Вид), scoped to its direction. */
+export interface TaxonomyStyleResponse {
+  id: string
+  direction_id: string
+  value: string
+  label: string
+  display_order: number
+  is_active: boolean
+  source: string
+}
+
 /** POST /api/v1/auth/telegram — request body. */
 export interface TelegramAuthRequest {
   init_data: string
@@ -1229,6 +1311,13 @@ export interface UpdateReportRequest {
   reason: string
 }
 
+/** PATCH direction/style -- partial update. Only the fields the client actually sends are applied (service reads model_dump(exclude_unset=True), same partial-PATCH contract as editMasterProfile). is_active=false is how a direction/style is deactivated -- there is no separate hard-delete endpoint. */
+export interface UpdateTaxonomyItemRequest {
+  label?: string | null
+  display_order?: number | null
+  is_active?: boolean | null
+}
+
 /** User representation in API responses. onboarding_completed is derived from the credentials JSONB sandbox rather than a dedicated column (schema-on-read pattern). The raw credentials blob is pulled in only to compute that single boolean and is never serialized -- see _credentials below. Mechanism (kept deliberately simple -- one carrier field + one computed_field): _credentials is filled from the ORM object's `credentials` attribute via validation_alias under from_attributes, but excluded from output; onboarding_completed reads from it. */
 export interface UserResponse {
   id: string
@@ -1275,9 +1364,10 @@ export interface UserUpdate {
   master_notifications?: MasterNotificationSettingsUpdate | null
 }
 
-/** POST /admin/masters/{user_id}/verify -- request body. */
+/** POST /admin/masters/{user_id}/verify -- request body. promote (ПРОМТ №503 commit 3, mirrors ApproveMethodChangeRequest.promote below): optional list of custom method labels from the applicant's own `methods` that the admin chose to add to the taxonomy catalog. Before this, only an ALREADY-VERIFIED master's later method-change request had any promotion path -- a brand-new applicant's «Свой вариант» text could never become a real catalog chip, no matter what the admin did. Absent/empty -> no catalog write, identical to before this field existed. Deduped against existing rows (_promote_custom_methods) -- admin-picked, not automatic, same editorial-control rationale as the method-change-request flow (operator decision 3=Б): a custom label becomes SHARED vocabulary for every future master/admin the moment it's promoted, so it stays a deliberate admin choice rather than something typo'd free text can trigger unreviewed. */
 export interface VerifyMasterRequest {
   notes?: string | null
+  promote?: string[]
 }
 
 /** Response from POST /waitlist/{id}/confirm. Returns both the converted waitlist entry and the new booking id. */

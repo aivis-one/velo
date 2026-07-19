@@ -24,13 +24,28 @@ _MethodStr = Annotated[str, StringConstraints(min_length=1, max_length=200)]
 # Requests
 # ---------------------------------------------------------------------------
 class VerifyMasterRequest(BaseModel):
-    """POST /admin/masters/{user_id}/verify -- request body."""
+    """POST /admin/masters/{user_id}/verify -- request body.
+
+    promote (ПРОМТ №503 commit 3, mirrors ApproveMethodChangeRequest.promote
+    below): optional list of custom method labels from the applicant's own
+    `methods` that the admin chose to add to the taxonomy catalog. Before this,
+    only an ALREADY-VERIFIED master's later method-change request had any
+    promotion path -- a brand-new applicant's «Свой вариант» text could never
+    become a real catalog chip, no matter what the admin did. Absent/empty ->
+    no catalog write, identical to before this field existed. Deduped against
+    existing rows (_promote_custom_methods) -- admin-picked, not automatic, same
+    editorial-control rationale as the method-change-request flow (operator
+    decision 3=Б): a custom label becomes SHARED vocabulary for every future
+    master/admin the moment it's promoted, so it stays a deliberate admin
+    choice rather than something typo'd free text can trigger unreviewed.
+    """
 
     notes: str | None = Field(
         default=None,
         max_length=settings.admin_action_note_max_length,
         description="Optional admin notes about verification decision",
     )
+    promote: list[str] = Field(default_factory=list)
 
 
 class RejectMasterRequest(BaseModel):
@@ -172,6 +187,19 @@ class RejectMethodChangeRequest(BaseModel):
         max_length=settings.admin_action_note_max_length,
         description="Reason for rejecting the method change (shown to master)",
     )
+
+
+class ApproveMethodChangeRequest(BaseModel):
+    """POST /admin/masters/{user_id}/method-change-request/approve -- body.
+
+    R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to
+    empty, so a bare `{}` body (every caller before this stage, and every
+    approval where the admin didn't pick "add to catalog") behaves exactly
+    as before -- no catalog write. Each entry becomes a new custom
+    direction in the taxonomy catalog (deduped against existing rows).
+    """
+
+    promote: list[str] = Field(default_factory=list)
 
 
 class MethodChangeActionResponse(BaseModel):

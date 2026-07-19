@@ -11,10 +11,14 @@
   the 3 filter counts are derived client-side from the fetched list. (The list is
   small; very large lists would need server-side filtering -> Zod.)
 
-  STUB «—» (operator honest-skeleton В): the rich card fields — directions, Практик /
-  Учеников, К выводу (payout), Опыт, Заявка (applied-at) — are NOT in the masters
-  endpoint, so they render «—» until Zod extends it. The card structure is built so
-  those values drop in when the endpoint grows. Roadmap: extend GET /admin/masters/list.
+  R8 (batch R): the rich card is REAL — направление+вид (methods, chip language
+  matching MethodTaxonomyPicker readonly) + Практик / Ученики / К выводу, all
+  computed additively in list_masters (admin/users/service.py, 2 bounded
+  GROUP-BY queries for the whole page, no N+1). generated.ts now carries these
+  fields natively (regenerated at deploy c1dbe08). STUB «—»: only if a field is
+  genuinely null (should not happen for a master returned in this page). Опыт / Заявка (applied-at) were dropped from
+  the list card in R8 — they never carried real data (always «—»); the detail
+  screen (AdminMasterReviewView) already shows Опыт for real.
 -->
 
 <template>
@@ -59,18 +63,41 @@
           </div>
         </div>
 
-        <!-- Rich meta -> Zod (honest «—» until the endpoint carries it). -->
-        <div class="mcard__meta">
-          <p v-if="m.master_status === 'verified'" class="mcard__line">Практик: — • Учеников: —</p>
-          <p v-else class="mcard__line">Опыт: —</p>
+        <!-- R8: направление+вид -- chip language matches MethodTaxonomyPicker
+             readonly (filled direction chip + muted style chips), computed via
+             the shared methodTaxonomy utils so it never drifts from the
+             review-screen parsing. Legacy/unparsed methods fall back to
+             verbatim chips (mirrors AdminMasterReviewView hasParsedMethods). -->
+        <div class="mcard__taxonomy">
+          <template v-if="taxonomyChips(m).length">
+            <VChip
+              v-for="(c, i) in taxonomyChips(m)"
+              :key="`${c.label}-${i}`"
+              size="sm"
+              :active="!c.muted"
+            >
+              {{ c.label }}
+            </VChip>
+          </template>
+          <span v-else class="mcard__muted">Направления не указаны</span>
         </div>
 
-        <div class="mcard__foot">
-          <template v-if="m.master_status === 'verified'">
-            <span class="mcard__foot-key">К выводу:</span>
-            <span class="mcard__foot-val">—</span>
-          </template>
-          <span v-else class="mcard__foot-key">Заявка: —</span>
+        <!-- R8: stats footer -- Практик / Ученики / К выводу, real backend
+             aggregates (list_masters, admin/users/service.py). null -> «—»
+             (honest stub; should not happen for a master in this page). -->
+        <div class="mcard__stats">
+          <div class="mcard__stat">
+            <span class="mcard__stat-key">Практик</span>
+            <span class="mcard__stat-val">{{ statVal(m.practices_count) }}</span>
+          </div>
+          <div class="mcard__stat">
+            <span class="mcard__stat-key">Ученики</span>
+            <span class="mcard__stat-val">{{ statVal(m.students_count) }}</span>
+          </div>
+          <div class="mcard__stat">
+            <span class="mcard__stat-key">К выводу</span>
+            <span class="mcard__stat-val">{{ payoutVal(m.available_cents) }}</span>
+          </div>
         </div>
       </button>
     </div>
@@ -90,6 +117,7 @@ import {
   VSegment,
   VAvatar,
   VBadge,
+  VChip,
   VCard,
   VLoader,
   VEmptyState,
@@ -100,8 +128,44 @@ import { IconCheck, IconPending, IconClose } from '@/components/icons'
 import { getMastersList } from '@/api/admin'
 import type { AdminMasterListItem } from '@/api/admin'
 import { masterDisplayName, masterStatusVariant } from '@/utils/adminHelpers'
+import { parseMethods, directionLabel, primeMethodTaxonomyCatalog } from '@/utils/methodTaxonomy'
+import { STYLE_LABEL } from '@/utils/practiceOptions'
+import { formatMoney } from '@/utils/format'
 import { ApiResponseError } from '@/api/client'
 import { useToast } from '@/composables/useToast'
+
+/** направление+вид as chip-language entries: filled (active) for the
+ *  direction, muted for its styles -- same visual vocabulary as
+ *  MethodTaxonomyPicker readonly. Legacy/unparsed methods (no taxonomy match)
+ *  fall back to verbatim muted-off chips so nothing silently vanishes. */
+function taxonomyChips(m: AdminMasterListItem): { label: string; muted: boolean }[] {
+  const methods = m.methods ?? []
+  if (!methods.length) return []
+  const parsed = parseMethods(methods)
+  if (!parsed.directions.length) {
+    // Fully-legacy/custom: show verbatim (covers the surfaced customText too).
+    return methods.map((label) => ({ label, muted: false }))
+  }
+  const chips: { label: string; muted: boolean }[] = []
+  for (const dir of parsed.directions) {
+    chips.push({ label: directionLabel(dir), muted: false })
+    for (const st of parsed.styles[dir] ?? []) {
+      chips.push({ label: STYLE_LABEL[st] ?? st, muted: true })
+    }
+  }
+  if (parsed.customEnabled && parsed.customText) {
+    chips.push({ label: parsed.customText, muted: false })
+  }
+  return chips
+}
+
+function statVal(n: number | null | undefined): string {
+  return n === null || n === undefined ? '—' : String(n)
+}
+
+function payoutVal(cents: number | null | undefined): string {
+  return cents === null || cents === undefined ? '—' : formatMoney(cents, 'EUR', 'ru', true)
+}
 
 const router = useRouter()
 const toast = useToast()
@@ -178,7 +242,10 @@ async function load(): Promise<void> {
     // Limit is clamped to the backend page cap (le=100 on /admin/masters/list);
     // 200 was 422-rejected. Alpha: 100 is enough — add pagination when the
     // master count approaches 100 (operator ruling, ПРОМТ №289).
-    const res = await getMastersList(undefined, 100, 0)
+    // Bug 2 fix (ПРОМТ №405): prime the taxonomy catalog cache alongside the
+    // masters fetch so a promoted custom method already resolves to a plain
+    // chip on first render instead of flashing "custom".
+    const [res] = await Promise.all([getMastersList(undefined, 100, 0), primeMethodTaxonomyCatalog()])
     masters.value = res.items
     total.value = res.total
   } catch (e) {
@@ -309,32 +376,53 @@ onMounted(load)
   flex-shrink: 0;
 }
 
-.mcard__meta {
+/* -- R8: направление+вид (chip row) -- */
+.mcard__taxonomy {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-.mcard__line {
-  margin: 0;
+.mcard__muted {
   font-size: var(--text-xs);
-  color: var(--velo-text-secondary);
+  color: var(--velo-text-muted);
   letter-spacing: 0.02em;
 }
 
-.mcard__foot {
+/* -- R8: stats footer (Практик / Ученики / К выводу) -- */
+.mcard__stats {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
   padding-top: var(--space-3);
   border-top: var(--velo-border-width) solid var(--velo-border-light);
 }
 
-.mcard__foot-key,
-.mcard__foot-val {
+.mcard__stat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mcard__stat + .mcard__stat {
+  border-left: var(--velo-border-width) solid var(--velo-border-light);
+  padding-left: var(--space-3);
+}
+
+.mcard__stat-key {
+  font-size: var(--text-12);
+  color: var(--velo-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.mcard__stat-val {
   font-size: var(--text-xs);
   color: var(--velo-text-primary);
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 </style>

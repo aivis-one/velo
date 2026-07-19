@@ -17,6 +17,12 @@
 # CALENDAR BOUNDS come from core.periods (single source of truth, E7); revenue
 # is a single-period aggregate, so the previous-period start is ignored.
 #
+# offset (W9, ПРОМТ №387): steps the window by whole periods, mirroring the
+# admin dashboard's other engagement metrics (admin/metrics/service.py,
+# admin/stats/overview_service.py) -- the revenue card previously had no
+# offset support at all, so it silently ignored the dashboard's week/month
+# stepper while its sibling cards respected it.
+#
 # All metrics are platform-wide. SESSION: read-only, no commit (P-01), ORM-only.
 # =============================================================================
 
@@ -27,7 +33,7 @@ import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.periods import calendar_period_bounds
+from app.core.periods import calendar_period_bounds, shift_anchor
 from app.modules.admin.revenue.schemas import (
     AdminRevenuePerMaster,
     AdminRevenueResponse,
@@ -55,10 +61,18 @@ def _master_name(first_name: str | None, last_name: str | None) -> str:
 async def get_admin_revenue(
     period: str,
     session: AsyncSession,
+    *,
+    offset: int = 0,
 ) -> AdminRevenueResponse:
-    """Platform revenue, commission, payout, and per-master breakdown."""
+    """Platform revenue, commission, payout, and per-master breakdown.
+
+    `offset` steps the window by whole periods (0 = current, -1 = previous
+    week/month, +1 = next), same convention as the dashboard's other
+    engagement metrics. Default 0 preserves prior behavior.
+    """
     # Single-period aggregate: the previous-period start is unused here.
-    start, end, _prev_start = calendar_period_bounds(period, datetime.now(UTC))
+    anchor = shift_anchor(period, datetime.now(UTC), offset)
+    start, end, _prev_start = calendar_period_bounds(period, anchor)
 
     # -- revenue (GMV): gross sales of completed purchases in the period --
     revenue_cents = (

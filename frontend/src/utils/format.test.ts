@@ -7,6 +7,7 @@ import {
   formatMoney,
   formatDuration,
   formatDateShort,
+  formatShortDate,
   formatTime,
   formatParticipants,
   isFull,
@@ -66,22 +67,26 @@ describe('formatMoney', () => {
 // formatDuration
 // -----------------------------------------------------------------------
 describe('formatDuration', () => {
-  it('formats minutes under 60', () => {
+  it('formats minutes under 60 (full «мин»)', () => {
     expect(formatDuration(45)).toBe('45 мин')
   })
 
-  it('formats exact hours', () => {
-    expect(formatDuration(60)).toBe('1 ч')
+  it('spells out exactly one hour, short «ч» for multi-hour', () => {
+    expect(formatDuration(60)).toBe('1 час')
     expect(formatDuration(120)).toBe('2 ч')
   })
 
-  it('formats hours and minutes', () => {
-    expect(formatDuration(90)).toBe('1 ч 30 мин')
-    expect(formatDuration(150)).toBe('2 ч 30 мин')
+  it('formats hours and minutes with short «м»', () => {
+    expect(formatDuration(90)).toBe('1 ч 30 м')
+    expect(formatDuration(150)).toBe('2 ч 30 м')
   })
 
   it('handles single minute', () => {
     expect(formatDuration(1)).toBe('1 мин')
+  })
+
+  it('handles zero minutes', () => {
+    expect(formatDuration(0)).toBe('0 мин')
   })
 })
 
@@ -125,6 +130,101 @@ describe('formatDateShort', () => {
     expect(result).toContain('15')
     expect(result).not.toBe('Сегодня')
     expect(result).not.toBe('Завтра')
+  })
+})
+
+// -----------------------------------------------------------------------
+// formatShortDate
+//
+// NOT the same function as formatDateShort above -- the names are one
+// word-swap apart, both are exported, and each has ~12 view consumers. That
+// near-collision is the likeliest reason this function shipped with ZERO tests
+// while its lookalike had a block: a reader scanning this file sees
+// "formatDateShort" covered and moves on.
+//
+// The gap cost a real bug (ПРОМТ №440/441): days 1-9 rendered zero-padded
+// ("09 июня") against a docstring promising "9 июня", across 13 view/card
+// surfaces, for nine days of every month. Days 10-31 were correct, which is why
+// no one noticed. The leading-zero cases below are the regression guard --
+// deleting them re-opens the hole.
+// -----------------------------------------------------------------------
+describe('formatShortDate', () => {
+  // Day boundaries. 1 and 9 are the bug's territory; 10 and 31 always worked,
+  // and are here so a fix that over-corrects (stripping a digit from 10-31)
+  // fails loudly instead of trading one bug for another.
+  it('renders a single-digit day with NO leading zero (day 1)', () => {
+    expect(formatShortDate('2026-05-01T12:00:00Z')).toBe('1 мая')
+  })
+
+  it('renders a single-digit day with NO leading zero (day 9)', () => {
+    expect(formatShortDate('2026-06-09T12:00:00Z')).toBe('9 июня')
+  })
+
+  it('renders a two-digit day unchanged (day 10)', () => {
+    expect(formatShortDate('2026-06-10T12:00:00Z')).toBe('10 июня')
+  })
+
+  it('renders the last day of a month unchanged (day 31)', () => {
+    expect(formatShortDate('2026-07-31T12:00:00Z')).toBe('31 июля')
+  })
+
+  it('never emits a leading zero for ANY single-digit day', () => {
+    // The whole 1..9 range in one sweep: this is the assertion that would have
+    // caught the original defect on day one.
+    const days = Array.from({ length: 9 }, (_, i) => i + 1)
+    const rendered = days.map((d) => formatShortDate(`2026-06-0${d}T12:00:00Z`))
+    expect(rendered).toEqual([
+      '1 июня',
+      '2 июня',
+      '3 июня',
+      '4 июня',
+      '5 июня',
+      '6 июня',
+      '7 июня',
+      '8 июня',
+      '9 июня',
+    ])
+  })
+
+  // The VELO short-month table: <= 4 letters written in full with NO period
+  // (мая / июня / июля), longer ones abbreviated to <= 4 + a period.
+  it('renders every month per the VELO short-date table', () => {
+    const rendered = Array.from({ length: 12 }, (_, i) =>
+      formatShortDate(`2026-${String(i + 1).padStart(2, '0')}-15T12:00:00Z`),
+    )
+    expect(rendered).toEqual([
+      '15 янв.',
+      '15 февр.',
+      '15 мар.',
+      '15 апр.',
+      '15 мая',
+      '15 июня',
+      '15 июля',
+      '15 авг.',
+      '15 сент.',
+      '15 окт.',
+      '15 нояб.',
+      '15 дек.',
+    ])
+  })
+
+  // Timezone parameter. The fixture sits late enough in UTC that a positive
+  // offset rolls it onto the next calendar day -- so this fails if the timezone
+  // is ignored, rather than passing by coincidence.
+  it('defaults to UTC', () => {
+    expect(formatShortDate('2026-06-09T23:00:00Z')).toBe('9 июня')
+  })
+
+  it('honours the timezone parameter, rolling the day forward', () => {
+    expect(formatShortDate('2026-06-09T23:00:00Z', 'Europe/Moscow')).toBe('10 июня')
+  })
+
+  it('honours the timezone parameter, rolling the day back', () => {
+    expect(formatShortDate('2026-06-09T02:00:00Z', 'America/New_York')).toBe('8 июня')
+  })
+
+  it('applies the timezone across a month boundary', () => {
+    expect(formatShortDate('2026-06-30T23:00:00Z', 'Asia/Tokyo')).toBe('1 июля')
   })
 })
 

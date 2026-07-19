@@ -28,7 +28,6 @@ import { defineStore } from 'pinia'
 import { ref, reactive } from 'vue'
 import { extractApiError } from '@/composables/useApiError'
 import { useCursorPagination } from '@/composables/useCursorPagination'
-import { useBookingsStore } from '@/stores/bookings'
 import {
   upsertCheckin,
   upsertFeedback,
@@ -213,16 +212,27 @@ export const useDiaryStore = defineStore('diary', () => {
   }
 
   /**
-   * Refresh the data a check-in / feedback mutation affects:
-   *   - the unified feed (a new event was projected onto the timeline), and
-   *   - the bookings list (the booking's has_feedback / has_checkin flag
-   *     flipped, so the dashboard banners hide and can't be re-submitted).
-   * Parallel + best-effort: a refresh failure must not fail the submit, and
-   * fetchFeed()/fetchMyBookings() skip their own load since the store is now
-   * fresh (the views read straight from it on navigation).
+   * Refresh the feed after a check-in / feedback mutation projected a new event
+   * onto the timeline. Best-effort: a refresh failure must not fail the submit.
+   *
+   * W27 (ПРОМТ №438): this used to ALSO call
+   * `useBookingsStore().refreshBookings()`, which was the diary->bookings half of
+   * a circular store dependency (bookings.ts imports this store in return). That
+   * call was REDUNDANT, not merely circular: `refreshAfterDiaryMutation` is
+   * reached only from submitCheckin/submitFeedback, and the sole caller of each
+   * -- CheckinView.vue and FeedbackView.vue -- already fires
+   * `bookingsStore.refreshBookings()` itself the moment the submit resolves, and
+   * says so in its own comment. So every check-in and every feedback issued TWO
+   * sequential GET /bookings: this one, awaited, then the view's. Deleting it
+   * removes the duplicate request AND leaves bookings -> diary as a plain
+   * one-way dependency. The cycle is gone, not deferred.
+   *
+   * Keeping bookings fresh after a diary mutation is therefore the VIEW's job --
+   * which is already the convention here (CheckinView.vue, FeedbackView.vue). If
+   * a new caller of submitCheckin/submitFeedback ever needs it, it does the same.
    */
   async function refreshAfterDiaryMutation(): Promise<void> {
-    await Promise.allSettled([feed.refresh(), useBookingsStore().refreshBookings()])
+    await Promise.allSettled([feed.refresh()])
   }
 
   // ===========================================================================
@@ -376,6 +386,7 @@ export const useDiaryStore = defineStore('diary', () => {
   function $reset(): void {
     checkinSubmitting.value = false
     feedbackSubmitting.value = false
+    reflectionSubmitting.value = false
     feed.reset()
     feedFilters.categories = []
     feedFilters.date_from = undefined
@@ -402,6 +413,7 @@ export const useDiaryStore = defineStore('diary', () => {
     feedItems: feed.items,
     feedLoading: feed.loading,
     feedError: feed.error,
+    feedLoadMoreError: feed.loadMoreError,
     feedHasMore: feed.hasMore,
     feedFilters,
     feedScrollTop,

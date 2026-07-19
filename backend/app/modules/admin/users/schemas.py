@@ -23,6 +23,17 @@ class AdminMasterListItem(BaseModel):
     """Single item in admin masters list -- user data + master status.
 
     CR-01: role narrowed from str to UserRole for type safety.
+
+    R8: rich-card fields, additive over the F8-fix shape.
+      - methods: read straight off the already-joined MasterProfile.data.profile
+        (zero extra cost -- see list_masters).
+      - practices_count / students_count: real all-time aggregates, computed in
+        ONE batched query each over the page's master_ids (no N+1, mirrors
+        practices/enrichment_service.py attendance_counts_for_practices). None
+        only if a master somehow falls outside the batch (should not happen;
+        honest stub -- FE shows "-").
+      - available_cents: MasterProfile.available_cents, a plain column already
+        loaded by the list_masters join -- zero extra cost.
     """
 
     id: UUID
@@ -33,6 +44,10 @@ class AdminMasterListItem(BaseModel):
     role: UserRole
     is_active: bool
     master_status: str = Field(description="MasterProfile account status")
+    methods: list[str] = Field(default_factory=list)
+    practices_count: int | None = None
+    students_count: int | None = None
+    available_cents: int | None = None
 
 
 class AdminMasterDetail(AdminMasterListItem):
