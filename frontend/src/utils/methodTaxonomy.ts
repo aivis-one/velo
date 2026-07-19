@@ -36,6 +36,7 @@
 // separator = space + U+2014 em dash + space, same custom-variant handling).
 // =============================================================================
 
+import { ref, shallowRef } from 'vue'
 import type { PracticeDirection } from '@/api/types'
 import { DIRECTION_OPTIONS, STYLE_OPTIONS_BY_DIRECTION, STYLE_LABEL } from '@/utils/practiceOptions'
 import { getActiveTaxonomy, type TaxonomyListResponse } from '@/api/taxonomy'
@@ -74,7 +75,8 @@ const STYLE_VALUE_BY_LABEL: Partial<Record<PracticeDirection, Record<string, str
     ]),
   )
 
-// -- R5-stage-4 catalog cache (bug 2 fix, ПРОМТ №405) -------------------------
+// -- R5-stage-4 catalog cache (bug 2 fix, ПРОМТ №405; made reactive ПРОМТ
+// №503 commit 1) -------------------------------------------------------------
 //
 // parseMethods/flattenMethods matched ONLY the hardcoded maps above -- a
 // value auto-promoted into the DB catalog (admin approves a master's «Свой
@@ -86,16 +88,35 @@ const STYLE_VALUE_BY_LABEL: Partial<Record<PracticeDirection, Record<string, str
 // stays as its last good state (null on first failure) and matching falls
 // back to the hardcoded maps only, same offline/error contract api/taxonomy.ts
 // documents for its own consumers.
-let catalogDirectionValueByLabel: Record<string, string> | null = null
-let catalogDirectionLabelByValue: Record<string, string> | null = null
-let catalogStyleValueByLabel: Record<string, Record<string, string>> | null = null
+//
+// shallowRef, not plain `let` (ПРОМТ №503): the bug-2/bug-5 fixes closed
+// "which screens remember to prime()" but left every consumer that resolves
+// through these maps invisible to Vue's dependency tracking -- a computed()
+// built on parseMethods/flattenMethods/directionLabel never re-ran just
+// because the cache warmed later, so a value parsed cold (before prime()
+// resolved) stayed cold for the rest of the session. Reading `.value` inside
+// a computed's getter registers it as a normal reactive dependency, same as
+// any other ref, regardless of which module declared it.
+const catalogDirectionValueByLabel = shallowRef<Record<string, string> | null>(null)
+const catalogDirectionLabelByValue = shallowRef<Record<string, string> | null>(null)
+const catalogStyleValueByLabel = shallowRef<Record<string, Record<string, string>> | null>(null)
 // Style value -> label, per direction (reverse of catalogStyleValueByLabel).
 // Added for bug 5 leak 2 (ПРОМТ №408): flattenMethods' style branch only ever
 // consulted the hardcoded STYLE_LABEL, so a catalog-only style (created in
 // AdminCatalogView, or auto-promoted) flattened straight to its raw slug --
 // the direction-side analogue of catalogDirectionLabelByValue below, which
 // the bug 2 fix already added for directions but never mirrored for styles.
-let catalogStyleLabelByValue: Record<string, Record<string, string>> | null = null
+const catalogStyleLabelByValue = shallowRef<Record<string, Record<string, string>> | null>(null)
+
+// Bumped once per applyTaxonomyCatalog() call (ПРОМТ №503 commit 2). The maps
+// above being reactive fixes computed()-based consumers automatically, but a
+// plain watch() keyed on its own source (e.g. MethodTaxonomyPicker's modelValue
+// watcher) does NOT re-run just because a ref it happens to read inside the
+// callback changed -- it only re-runs when ITS OWN watched source changes.
+// Exposing an explicit version counter lets such a watcher add it as a second
+// source, so it can force exactly one reparse per catalog update without
+// weakening the anti-echo-loop guard that reparse would otherwise need.
+export const taxonomyCatalogVersion = ref(0)
 
 // Raw catalog response, alongside the derived label maps above. Populated by
 // applyTaxonomyCatalog() too (whoever primes the label maps also primes this),
@@ -130,11 +151,12 @@ export function applyTaxonomyCatalog(catalog: TaxonomyListResponse): void {
       styleLabelByValue[dir.value] = Object.fromEntries(styles.map((s) => [s.value, s.label]))
     }
   }
-  catalogDirectionValueByLabel = directionValueByLabel
-  catalogDirectionLabelByValue = directionLabelByValue
-  catalogStyleValueByLabel = styleValueByLabel
-  catalogStyleLabelByValue = styleLabelByValue
+  catalogDirectionValueByLabel.value = directionValueByLabel
+  catalogDirectionLabelByValue.value = directionLabelByValue
+  catalogStyleValueByLabel.value = styleValueByLabel
+  catalogStyleLabelByValue.value = styleLabelByValue
   cachedCatalog = catalog
+  taxonomyCatalogVersion.value++
 }
 
 /**
@@ -183,24 +205,27 @@ export async function ensureTaxonomyCatalog(): Promise<TaxonomyListResponse | nu
  *  the SAME tolerance MethodTaxonomyPicker.vue's catalog-first options list
  *  already applies (`allDirectionOptions()`, `d.value as PracticeDirection`). */
 function resolveDirectionValue(label: string): PracticeDirection | undefined {
-  return DIRECTION_VALUE_BY_LABEL[label] ?? (catalogDirectionValueByLabel?.[label] as PracticeDirection | undefined)
+  return (
+    DIRECTION_VALUE_BY_LABEL[label] ??
+    (catalogDirectionValueByLabel.value?.[label] as PracticeDirection | undefined)
+  )
 }
 
 /** Style label -> value under a resolved direction, hardcoded first, catalog second. */
 function resolveStyleValue(dirValue: PracticeDirection, label: string): string | undefined {
-  return STYLE_VALUE_BY_LABEL[dirValue]?.[label] ?? catalogStyleValueByLabel?.[dirValue]?.[label]
+  return STYLE_VALUE_BY_LABEL[dirValue]?.[label] ?? catalogStyleValueByLabel.value?.[dirValue]?.[label]
 }
 
 /** Style value -> label under a direction, hardcoded first, catalog second
  *  (bug 5 leak 2 fix), falling back to the raw value if neither knows it. */
 function resolveStyleLabel(dirValue: string, styleValue: string): string {
-  return STYLE_LABEL[styleValue] ?? catalogStyleLabelByValue?.[dirValue]?.[styleValue] ?? styleValue
+  return STYLE_LABEL[styleValue] ?? catalogStyleLabelByValue.value?.[dirValue]?.[styleValue] ?? styleValue
 }
 
 /** direction value -> Russian label, hardcoded first, catalog second (bug 2
  *  fix), falling back to the raw value if neither knows it. */
 export function directionLabel(dir: string): string {
-  return DIRECTION_LABEL[dir] ?? catalogDirectionLabelByValue?.[dir] ?? dir
+  return DIRECTION_LABEL[dir] ?? catalogDirectionLabelByValue.value?.[dir] ?? dir
 }
 
 /**
