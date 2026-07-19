@@ -238,9 +238,22 @@ class Settings(BaseSettings):
     # APP_ENV=production (it calls itself "production"), so a check keyed
     # off the env name blocks TEST as if it were prod. Set
     # ALLOW_STRIPE_STUB=true only on servers where the stub is genuinely
-    # intentional (TEST). Never set it where a real Stripe key belongs --
-    # prod has a real key, so is_stripe_stub is False there and this flag
-    # is never consulted.
+    # intentional (TEST).
+    #
+    # is_stripe_stub_blocked (below) refuses startup when ALL THREE hold:
+    # not dev, is_stripe_stub (STRIPE_SECRET_KEY upper() == "TEST"), and
+    # allow_stripe_stub is NOT set. The guard is correct and deliberate --
+    # do not weaken it.
+    #
+    # ПРОМТ №509 (owner read both servers' env, 2026-07-17): PROD currently
+    # has STRIPE_SECRET_KEY=TEST and NO ALLOW_STRIPE_STUB at all -- i.e. prod
+    # is, right now, in exactly the state this guard exists to refuse. It
+    # has not crashed only because the currently-running prod build predates
+    # this guard. The moment a build containing this guard is released to
+    # prod, startup raises RuntimeError (main.py's lifespan()) and prod does
+    # not come up. Before that release: set a real Stripe secret key on
+    # prod, OR set ALLOW_STRIPE_STUB=true there if the stub is genuinely
+    # intended for longer -- do not let this guard reach prod silently.
     allow_stripe_stub: bool = False
 
     # -- Topup limits (Phase 6.3) --
