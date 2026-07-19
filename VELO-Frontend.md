@@ -4,6 +4,12 @@
 **Дата:** 6 июля 2026
 **Статус:** Active
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> ACTIVELY MISLEADING overall. This pass corrected three leftover references to the
+> `AdminConsistencyView` / `/admin/consistency` screen, deleted whole 2026-07-07 (`9ca5619`) —
+> confirmed absent from `frontend/src/router/index.ts` and `api/admin.ts` today. Everything
+> else in this document is UNVERIFIED as of this pass.
+
 > **ИСТОЧНИК ДИЗАЙНА (канон, 2026-06):** Figma выведена из источников
 > **навсегда**. Источник дизайна каждого экрана — присланный оператором **SVG
 > текущего состояния экрана**. Любое UI-значение проходит через DS-токен
@@ -80,7 +86,7 @@ frontend/
 │   │   ├── payments.ts        -- Topup
 │   │   ├── masters.ts         -- Apply, profile, payout, withdrawals
 │   │   ├── diary.ts           -- Check-ins, feedbacks, entries, insights, listDiaryFeed (cursor)
-│   │   └── admin.ts           -- Stats, verify, reports, consistency
+│   │   └── admin.ts           -- Stats, verify, reports (consistency REMOVED 2026-07-07 `9ca5619`)
 │   │
 │   ├── components/
 │   │   ├── ui/                -- Примитивы (V-префикс)
@@ -129,7 +135,7 @@ frontend/
 │       ├── shells/            -- UserShell, MasterShell, AdminShell
 │       ├── user/              -- Dashboard, Calendar, Diary, Profile...
 │       ├── master/            -- Dashboard, Practices, Analytics, Profile...
-│       └── admin/             -- Dashboard, Masters, Reports, Consistency...
+│       └── admin/             -- Dashboard, Masters, Reports... (Consistency REMOVED 2026-07-07 `9ca5619`)
 │
 ├── public/
 │   ├── js/telegram-web-app.js -- Локальная копия Telegram SDK (CDN заблокирован ТСПУ)
@@ -202,7 +208,7 @@ frontend/
 /admin/masters[/:id]        → AdminMastersView / AdminMasterReviewView
 /admin/masters/invite       → AdminMasterInviteView  (v1.11: «Пригласить мастера», объявлен ДО masters/:id — литерал выигрывает)
 /admin/reports[/:id]        → AdminReportsView / AdminReportDetailView
-/admin/consistency          → AdminConsistencyView
+[REMOVED 2026-07-07 `9ca5619`] /admin/consistency → AdminConsistencyView
 /admin/profile              → AdminProfileView
 /admin/metrics/check-in     → AdminCheckinRateView
 /admin/metrics/feedback     → AdminFeedbackRateView
