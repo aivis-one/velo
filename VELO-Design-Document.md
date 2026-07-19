@@ -4,6 +4,13 @@
 **Дата:** 8 марта 2026
 **Статус:** Active
 
+> **Freshness (ПРОМТ №510, 2026-07-19, verified against `8d4948f` on `test`):** graded
+> STALE-BUT-HARMLESS overall — NOT rewritten this round. Three claims were checked and
+> corrected below (design-token source §2.3, backend module count/list §3.1, the removed
+> admin-consistency mention). Everything else in this document is UNVERIFIED as of this
+> pass — treat other claims (especially phase/status markers) as historical unless
+> cross-checked against current code.
+
 ---
 
 ## 1. Что такое VELO
@@ -79,7 +86,7 @@ VELO — платформа для мастеров практик (медита
 | Стейт | Pinia | latest |
 | HTTP | Fetch (обёртка `client.ts`) | native |
 | PWA | vite-plugin-pwa | latest |
-| Стили | Свой CSS (дизайн-токены из мокапов) | -- |
+| Стили | Свой CSS (дизайн-токены из SVG-референса экрана, DS-first) | -- |
 | Линтинг | ESLint + Prettier | latest |
 
 ### 2.4. Внешние сервисы
@@ -109,17 +116,29 @@ MVP — один сервис, разбитый на изолированные 
 самодостаточен и спроектирован так, чтобы в будущем стать отдельным
 микросервисом без переписывания бизнес-логики.
 
+**Freshness (ПРОМТ №510):** was 9 modules, missing `ai`, `library`, `promos`, `reports`,
+`waitlist`, `withdrawals`. Corrected below to the real 15 (counted directly under
+`backend/app/modules/`, excluding `__pycache__`).
+
 ```
 backend/app/modules/
+├── admin/          -- Верификация мастеров, модерация (data-integrity semaphores built in
+│                      Phase 6.8, removed 2026-07-07 in `9ca5619` — see VELO-Backend.md §6)
+├── ai/             -- Розетка AI-саммари (Phase 9)
 ├── auth/           -- Telegram auth, сессии (Redis)
-├── users/          -- Профили, роли
-├── masters/        -- Профили мастеров, верификация, балансы
-├── practices/      -- CRUD практик, state machine
 ├── bookings/       -- Бронирования, waitlist
-├── payments/       -- Ledgers (double-entry), Stripe, промокоды, выводы
-├── notifications/  -- Telegram-бот, процессор, шаблоны, напоминания
 ├── diary/          -- Check-ins, feedbacks, diary entries, insights
-└── admin/          -- Верификация мастеров, модерация, семафоры
+├── library/        -- Розетка: будущая библиотека записей практик (Phase 9.2, вне MVP —
+│                      models.py целиком закомментирован, кода нет)
+├── masters/        -- Профили мастеров, верификация, балансы
+├── notifications/  -- Telegram-бот, процессор, шаблоны, напоминания
+├── payments/       -- Ledgers (double-entry), Stripe, промокоды, выводы
+├── practices/      -- CRUD практик, state machine
+├── promos/         -- Промокоды (Company + Master)
+├── reports/        -- Жалобы пользователей
+├── users/          -- Профили, роли
+├── waitlist/       -- Очередь ожидания
+└── withdrawals/    -- Запросы на вывод средств
 ```
 
 ### 3.2. Структура модуля
