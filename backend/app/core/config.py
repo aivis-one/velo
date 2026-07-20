@@ -405,6 +405,30 @@ class Settings(BaseSettings):
         ],
     }
 
+    # -- Zoom (E21) --
+    zoom_account_id: str = ""
+    zoom_client_id: str = ""
+    zoom_client_secret: str = ""
+    # Threshold for the real attendance decision: minutes present required to
+    # count as attended. Deliberately an ORDINARY env var, not admin-editable
+    # -- the owner was told the price (no admin-settings mechanism exists in
+    # this codebase at all) and decided against building one for a single
+    # value (ПРОМТ №519). Changing it is a deploy, and that is accepted.
+    zoom_attendance_threshold_minutes: int = 10
+    # Meeting-creation retry poller (mirrors practice_autofinalize_* above).
+    # Background worker toggle -- same rationale as
+    # practice_autofinalize_enabled / notification_processor_enabled: tests
+    # disable it so the loop can't race manual test calls.
+    zoom_retry_enabled: bool = True
+    zoom_retry_poll_interval_seconds: int = 30
+    zoom_retry_max_backoff_seconds: int = 600
+    # Cap on ZoomMeeting.retry_count for a create_failed row. Past this many
+    # attempts the poller stops retrying that row -- it stays VISIBLY
+    # status=create_failed with last_sync_error stating the cap was hit,
+    # rather than being retried forever (its own silent-failure mode) or
+    # silently given up on with no trace of why.
+    zoom_meeting_create_max_retries: int = 5
+
     # -- Admin (Phase 2.3 / 6.6 / 3.3) --
     # Max length of admin notes on master verify/reject actions
     # and withdrawal approve/reject notes.
@@ -555,6 +579,46 @@ class Settings(BaseSettings):
         """
         is_dev = self.app_env == "development"
         return not is_dev and self.is_stripe_stub and not self.allow_stripe_stub
+
+    @property
+    def is_zoom_stub(self) -> bool:
+        """True when Zoom credentials are not configured (any of the three
+        blank), or ZOOM_CLIENT_SECRET="TEST" (explicit sentinel, mirroring
+        the Stripe stub convention above).
+
+        NO SERVER'S ACTUAL ZOOM CREDENTIAL STATE HAS BEEN OBSERVED as of
+        this writing -- this differs from is_stripe_stub, whose comment can
+        reference a specific, owner-verified reading of prod's .env
+        (ПРОМТ №509). Do not add a claim here about what TEST or prod
+        currently has configured unless you have personally read that
+        server's env; the Stripe guard's comment once asserted "prod has a
+        real key" and that assertion was false (the W6 incident, see
+        allow_stripe_stub above) -- it stayed wrong in the comment for two
+        prior revisions before someone actually checked.
+        """
+        return (
+            not self.zoom_account_id
+            or not self.zoom_client_id
+            or not self.zoom_client_secret
+            or self.zoom_client_secret.upper() == "TEST"
+        )
+
+    # NOTE: there is deliberately NO is_zoom_stub_blocked / startup-raise
+    # here, unlike is_stripe_stub_blocked. Two reasons, not one:
+    #   1. Stripe stub mode is dangerous because it free-credits real money;
+    #      Zoom stub mode just means no real meeting gets created -- the
+    #      whole E21 design (practices/service.py, cancel_service.py) treats
+    #      every Zoom call as best-effort and NEVER blocks on it succeeding.
+    #      A hard startup guard would contradict that design at the
+    #      infrastructure layer.
+    #   2. Practically: no server has real Zoom credentials configured yet
+    #      (the owner has not created the S2S app). A hard block here would
+    #      crash TEST and prod on the next restart after this code merges,
+    #      for a reason unrelated to whatever that deploy actually changed.
+    # Zoom stub mode is therefore silent-but-logged (_stub_response() below
+    # logs each stubbed call at INFO), not startup-fatal. If Zoom ever
+    # becomes launch-critical, add a real gate then -- do not backfill one
+    # here without re-deciding this trade-off explicitly.
 
 
 # Singleton: one Settings instance for the entire application.
