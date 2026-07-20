@@ -206,12 +206,24 @@ async def generate_series_occurrences(
     # construction) and never pass through update_practice()'s
     # draft->scheduled branch, which is where meeting creation is wired for
     # a non-series practice -- so without this, no recurring practice ever
-    # gets a Zoom meeting. Create one here, per child, right after adding it
-    # -- Practice.id is available immediately (UUIDMixin, app-side uuid4),
-    # no flush needed first. SAME best-effort posture as the root: a Zoom
-    # failure on any one child is caught inside create_meeting_for_practice
-    # and recorded as ZoomMeeting.status=create_failed for the retry poller
-    # -- it never aborts generation of the remaining children.
+    # gets a Zoom meeting. Create one here, per child, right after adding it.
+    # ПРОМТ №527: the ORIGINAL comment here claimed "Practice.id is available
+    # immediately (UUIDMixin, app-side uuid4), no flush needed first" -- that
+    # was WRONG and was the actual cause the deploy battery caught
+    # (NotNullViolationError on zoom_meetings.practice_id, 22 occurrences,
+    # ALL from this loop). `default=uuid4` on the mapped_column is a
+    # flush-time default: SQLAlchemy evaluates it during session.flush(), not
+    # at `Practice(...)` construction, so `child.id` is still None right
+    # after `session.add(child)`. create_meeting_for_practice reads
+    # `practice.id` synchronously (`ZoomMeeting(practice_id=practice.id)`,
+    # before its own first await) to build the ZoomMeeting row, so an
+    # autoflush triggered later inside that call is too late -- the None had
+    # already been captured into the object. The explicit flush below is
+    # what actually makes child.id available before that read. SAME
+    # best-effort posture as the root otherwise: a Zoom failure on any one
+    # child is caught inside create_meeting_for_practice and recorded as
+    # ZoomMeeting.status=create_failed for the retry poller -- it never
+    # aborts generation of the remaining children.
     #
     # VOLUME: Zoom documents 100 meeting-creation calls/day/host. A series
     # can generate up to practice_series_max_occurrences-1 children (39) in
@@ -231,6 +243,10 @@ async def generate_series_occurrences(
     for start_utc in starts:
         child = _build_child_occurrence(root, start_utc)
         session.add(child)
+        # Flush now so child.id (app-side uuid4, but only evaluated by
+        # SQLAlchemy at flush time) is actually populated before
+        # create_meeting_for_practice reads it to build the ZoomMeeting row.
+        await session.flush()
         children.append(child)
         await create_meeting_for_practice(child, session)
 
