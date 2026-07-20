@@ -53,6 +53,14 @@ _CLEANUP_QUERIES = [
         "DELETE FROM zoom_meetings WHERE practice_id IN "
         "(SELECT id FROM practices WHERE master_id IN (" + _MASTER_RANGE + "))"
     ),
+    # ПРОМТ №527: purchases must go before bookings -- purchases_booking_id_fkey
+    # (RESTRICT) blocks deleting a booking that still has a purchase pointing at
+    # it. This file is the only zoom test file that books through the real
+    # /api/v1/bookings endpoint (create_booking always creates a purchase);
+    # the sibling files either don't book at all or seed Booking() directly via
+    # the ORM, bypassing purchase creation -- same convention as
+    # test_cancellation.py's cleanup order.
+    text("DELETE FROM purchases WHERE user_id IN (" + _TID_RANGE + ")"),
     text("DELETE FROM bookings WHERE user_id IN (" + _TID_RANGE + ")"),
     text("DELETE FROM practices WHERE master_id IN (" + _MASTER_RANGE + ")"),
     text("DELETE FROM master_profiles WHERE user_id IN (" + _TID_RANGE + ")"),
