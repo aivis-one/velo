@@ -22,6 +22,7 @@
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 from httpx import AsyncClient
@@ -35,6 +36,7 @@ from app.modules.diary.models import DiaryEvent
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
 from app.modules.users.models import User, UserRole
+from app.modules.zoom.zoom_client import ZoomAPIError
 from tests.helpers import auth_headers, login_user, full_cleanup_range
 
 # ---------------------------------------------------------------------------
@@ -123,9 +125,21 @@ async def _make_verified_master(
 async def _create_scheduled_practice(
     client: AsyncClient,
     master_auth: dict,
+    *,
+    fail_zoom_create: bool = False,
     **overrides: object,
 ) -> str:
-    """Create a draft practice and move it to scheduled. Returns practice id."""
+    """Create a draft practice and move it to scheduled. Returns practice id.
+
+    fail_zoom_create (ПРОМТ №529): publish now ALWAYS creates a Zoom meeting
+    for every practice type (practices/service.py), and stub mode makes that
+    creation succeed by default in tests -- so a practice built by this
+    helper is, since E21 shipped, Zoom-tracked. Pass True to force the
+    create_meeting call to fail instead, leaving the practice's ZoomMeeting
+    row create_failed/absent-of-ACTIVE -- the one case that still exercises
+    the legacy-proxy immediate attendance decision at finalize (same idiom
+    as test_zoom_registrants.py's _create_and_publish_practice).
+    """
     headers = auth_headers(master_auth["session_token"])
     resp = await client.post(
         PRACTICES_URL, json=_valid_practice_body(**overrides), headers=headers,
@@ -133,11 +147,22 @@ async def _create_scheduled_practice(
     assert resp.status_code == 201, resp.text
     practice_id = resp.json()["id"]
 
-    resp = await client.patch(
-        f"{PRACTICES_URL}/{practice_id}",
-        json={"status": "scheduled"},
-        headers=headers,
-    )
+    if fail_zoom_create:
+        with patch(
+            "app.modules.zoom.service.create_meeting",
+            side_effect=ZoomAPIError("simulated outage", status_code=500, body="down"),
+        ):
+            resp = await client.patch(
+                f"{PRACTICES_URL}/{practice_id}",
+                json={"status": "scheduled"},
+                headers=headers,
+            )
+    else:
+        resp = await client.patch(
+            f"{PRACTICES_URL}/{practice_id}",
+            json={"status": "scheduled"},
+            headers=headers,
+        )
     assert resp.status_code == 200, resp.text
     return practice_id
 
@@ -455,9 +480,30 @@ async def test_finalize_projects_outcome_for_attended_and_no_show(
     client: AsyncClient,
     db_session: AsyncSession,
 ) -> None:
-    """Finalize projects practice_outcome to both attended and no-show users."""
+    """Finalize projects practice_outcome to both attended and no-show users --
+    via the legacy-proxy immediate decision (ПРОМТ №529: fail_zoom_create=True
+    keeps this practice off the Zoom-tracked path).
+
+    WORLD B, measured not guessed: this test predates E21. Since publish
+    creates a Zoom meeting for every practice (practices/service.py:857-871,
+    "for ANY practice type"), and stub mode makes that succeed by default in
+    tests, a practice built the plain way is now Zoom-tracked --
+    _finalize_practice_core (bookings/service.py:663-675) correctly DEFERS
+    attendance for a Zoom-tracked practice to zoom/report_poller.py instead
+    of deciding it here, so calling auto_finalize_practice alone no longer
+    produces an immediate outcome card for such a practice (0 outcomes, not
+    a bug -- confirmed by reading that outcomes IS deliberately left empty
+    on the zoom_tracked branch, bookings/service.py:724-730). That deferred
+    path's own diary projection is exercised elsewhere
+    (zoom/attendance_service.py's ingest_report_for_meeting and
+    apply_legacy_proxy_fallback both call project_practice_outcome too --
+    confirmed by reading, not assumed). THIS test's actual purpose is the
+    legacy-proxy immediate-decision branch specifically (attended vs
+    no_show via join_at), so it now has to force that branch explicitly
+    instead of getting it for free.
+    """
     master = await _make_verified_master(client, db_session)
-    pid = await _create_scheduled_practice(client, master)
+    pid = await _create_scheduled_practice(client, master, fail_zoom_create=True)
 
     attendee = await _book(client, pid, telegram_id=90007)
     absentee = await _book(client, pid, telegram_id=90008)
