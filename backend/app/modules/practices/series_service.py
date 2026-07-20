@@ -201,8 +201,38 @@ async def generate_series_occurrences(
             "after the first occurrence; choose a later date"
         )
 
+    # E21 (ПРОМТ №520, closing the series hole): children are created
+    # already SCHEDULED (_build_child_occurrence sets status=SCHEDULED at
+    # construction) and never pass through update_practice()'s
+    # draft->scheduled branch, which is where meeting creation is wired for
+    # a non-series practice -- so without this, no recurring practice ever
+    # gets a Zoom meeting. Create one here, per child, right after adding it
+    # -- Practice.id is available immediately (UUIDMixin, app-side uuid4),
+    # no flush needed first. SAME best-effort posture as the root: a Zoom
+    # failure on any one child is caught inside create_meeting_for_practice
+    # and recorded as ZoomMeeting.status=create_failed for the retry poller
+    # -- it never aborts generation of the remaining children.
+    #
+    # VOLUME: Zoom documents 100 meeting-creation calls/day/host. A series
+    # can generate up to practice_series_max_occurrences-1 children (39) in
+    # one publish -- comfortably under that limit alone, but NOT accounting
+    # for whatever else that host's account creates the same day (other
+    # practices, other series). If the quota is hit mid-loop, the remaining
+    # children's create_meeting calls fail with HTTP 429 and land
+    # create_failed exactly like any other failure -- CHOSEN, not an
+    # accident: the retry poller (zoom/retry_poller.py) exempts 429
+    # specifically from its retry_count cap (see that module), so a
+    # quota-exhausted child is retried every poll cycle, uncapped, until
+    # Zoom's quota actually resets -- "the poller retries tomorrow" is a
+    # real, working mechanism here, not just a comment.
+    from app.modules.zoom.service import create_meeting_for_practice
+
+    children: list[Practice] = []
     for start_utc in starts:
-        session.add(_build_child_occurrence(root, start_utc))
+        child = _build_child_occurrence(root, start_utc)
+        session.add(child)
+        children.append(child)
+        await create_meeting_for_practice(child, session)
 
     logger.info(
         "series_occurrences_generated",
