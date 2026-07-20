@@ -25,6 +25,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.modules.bookings.models import Booking, BookingStatus
 from app.modules.bookings.service import auto_finalize_practice
 from app.modules.diary.models import DiaryEvent, DiaryEventKind
@@ -204,10 +205,26 @@ async def test_fallback_fires_for_practice_with_no_zoom_meeting(
 
 @pytest.mark.asyncio
 async def test_zoom_tracked_practice_defers_instead_of_deciding_immediately(
-    client: AsyncClient, db_session: AsyncSession,
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An ACTIVE Zoom meeting means _finalize_practice_core does NOT decide
-    the booking -- it stays CONFIRMED, practice still completes."""
+    """An ACTIVE Zoom meeting, WITH REAL CREDENTIALS CONFIGURED, means
+    _finalize_practice_core does NOT decide the booking -- it stays
+    CONFIRMED, practice still completes.
+
+    ПРОМТ №530: this scenario is now gated on settings.is_zoom_stub, which
+    is True on every test server (no real Zoom credentials anywhere) --
+    without forcing it False here, this test would exercise the OPPOSITE of
+    what its name and assertions claim (a stub-mode active meeting is no
+    longer treated as tracked; see
+    test_stub_mode_active_meeting_decides_immediately_not_deferred below
+    for THAT case). The credential fields are patched directly (not the
+    is_zoom_stub property itself, which is read-only) so this genuinely
+    exercises "real credentials configured", not a mocked-away check.
+    """
+    monkeypatch.setattr(settings, "zoom_account_id", "test-account-id")
+    monkeypatch.setattr(settings, "zoom_client_id", "test-client-id")
+    monkeypatch.setattr(settings, "zoom_client_secret", "real-secret-not-the-test-sentinel")
+
     master_id = await _make_master(client, db_session, 79302)
     practice = await _create_practice(db_session, master_id)
     await _active_zoom_meeting(db_session, practice)
@@ -221,6 +238,36 @@ async def test_zoom_tracked_practice_defers_instead_of_deciding_immediately(
     assert booking.status == BookingStatus.CONFIRMED.value, "must stay undecided, not proxy-decided"
     assert booking.attendance_decided_via is None
     assert practice.status == PracticeStatus.COMPLETED.value, "practice completion is unconditional"
+
+
+@pytest.mark.asyncio
+async def test_stub_mode_active_meeting_decides_immediately_not_deferred(
+    client: AsyncClient, db_session: AsyncSession,
+) -> None:
+    """ПРОМТ №530 regression pin, at the _finalize_practice_core unit level:
+    an ACTIVE ZoomMeeting under settings.is_zoom_stub (the default and only
+    state on every server today, no monkeypatch needed) must NOT defer --
+    it is decided immediately via the legacy proxy, exactly like a practice
+    with no ZoomMeeting row at all. This is the counterpart to
+    test_zoom_tracked_practice_defers_instead_of_deciding_immediately above,
+    which forces real credentials to prove the deferral still exists for
+    that case.
+    """
+    master_id = await _make_master(client, db_session, 79306)
+    practice = await _create_practice(db_session, master_id)
+    await _active_zoom_meeting(db_session, practice)
+    booking = await _confirmed_booking(client, db_session, practice, 79326)
+
+    await auto_finalize_practice(practice.id, db_session)
+    await db_session.flush()
+    await db_session.refresh(booking)
+    await db_session.refresh(practice)
+
+    assert booking.status == BookingStatus.NO_SHOW.value, (
+        "must be decided immediately in stub mode, not left CONFIRMED"
+    )
+    assert booking.attendance_decided_via == "legacy_proxy"
+    assert practice.status == PracticeStatus.COMPLETED.value
 
 
 # ===================================================================

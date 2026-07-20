@@ -22,7 +22,9 @@ from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.bookings.models import Booking
+from app.modules.bookings.models import Booking, BookingStatus
+from app.modules.bookings.service import auto_finalize_practice
+from app.modules.diary.models import DiaryEvent, DiaryEventKind
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
 from app.modules.users.models import User, UserRole
@@ -61,6 +63,10 @@ _CLEANUP_QUERIES = [
     # the ORM, bypassing purchase creation -- same convention as
     # test_cancellation.py's cleanup order.
     text("DELETE FROM purchases WHERE user_id IN (" + _TID_RANGE + ")"),
+    # ПРОМТ №530: this file's new stub-mode-finalize test projects diary
+    # practice_outcome events -- clean those up too (no FK ordering
+    # constraint either way, source_id carries no ForeignKey).
+    text("DELETE FROM diary_events WHERE user_id IN (" + _TID_RANGE + ")"),
     text("DELETE FROM bookings WHERE user_id IN (" + _TID_RANGE + ")"),
     text("DELETE FROM practices WHERE master_id IN (" + _MASTER_RANGE + ")"),
     text("DELETE FROM master_profiles WHERE user_id IN (" + _TID_RANGE + ")"),
@@ -350,6 +356,79 @@ async def test_create_registrant_for_booking_called_twice_stays_one_row(
     ).scalars().all()
     student_rows = [r for r in rows if r.role == ZoomRegistrantRole.STUDENT.value]
     assert len(student_rows) == 1, "must stay exactly one student registrant for this user"
+
+
+# ===================================================================
+# 3c. Regression pin (ПРОМТ №530): stub mode must not defer attendance
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_finalize_decides_immediately_in_stub_mode_no_deferral(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """A stub-mode "active" meeting can never produce a real Zoom report --
+    treating it as Zoom-tracked would defer attendance for the full
+    settings.zoom_attendance_decision_deadline_minutes (120) before the
+    deadline fallback finally decided it, on every server today (no server
+    has real Zoom credentials). Pins the fix directly: the ZoomMeeting row
+    IS still created and ACTIVE (stub mode's normal, unchanged behavior --
+    see test_host_registrant_created_once_no_booking_id above), but finalize
+    must decide attendance IMMEDIATELY via the legacy proxy anyway, and
+    project the diary outcome right away -- no deferral.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79206)
+    practice_id = await _create_and_publish_practice(client, master)
+
+    zoom_meeting = (
+        await db_session.execute(
+            select(ZoomMeeting).where(ZoomMeeting.practice_id == UUID(practice_id))
+        )
+    ).scalar_one()
+    assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value, (
+        "stub mode still creates a normal, active meeting -- only the "
+        "attendance decision treats it as untracked"
+    )
+
+    attendee = await login_user(client, telegram_id=79226, first_name="Student6")
+    absentee = await login_user(client, telegram_id=79227, first_name="Student7")
+
+    att_resp = await _book(client, attendee, practice_id)
+    assert att_resp.status_code == 201, att_resp.text
+    att_booking_id = att_resp.json()["id"]
+
+    abs_resp = await _book(client, absentee, practice_id)
+    assert abs_resp.status_code == 201, abs_resp.text
+    abs_booking_id = abs_resp.json()["id"]
+
+    join_resp = await client.post(
+        f"{BOOKINGS_URL}/{att_booking_id}/join",
+        headers=auth_headers(attendee["session_token"]),
+    )
+    assert join_resp.status_code == 200, join_resp.text
+
+    await auto_finalize_practice(UUID(practice_id), db_session)
+    await db_session.commit()
+
+    att_booking = await db_session.get(Booking, UUID(att_booking_id))
+    abs_booking = await db_session.get(Booking, UUID(abs_booking_id))
+    assert att_booking.status == BookingStatus.ATTENDED.value, (
+        "must be decided immediately, not left CONFIRMED pending a Zoom report"
+    )
+    assert abs_booking.status == BookingStatus.NO_SHOW.value
+
+    outcome_events = (
+        await db_session.execute(
+            select(DiaryEvent).where(
+                DiaryEvent.user_id.in_(
+                    [UUID(attendee["user"]["id"]), UUID(absentee["user"]["id"])],
+                ),
+                DiaryEvent.kind == DiaryEventKind.PRACTICE_OUTCOME.value,
+            )
+        )
+    ).scalars().all()
+    assert len(outcome_events) == 2, "diary outcome must project immediately, not deferred"
 
 
 # ===================================================================

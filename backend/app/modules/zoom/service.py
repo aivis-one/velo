@@ -93,6 +93,17 @@ async def create_meeting_for_practice(
     status=active on success, status=create_failed + last_sync_error on any
     failure. Never raises: the caller (update_practice's publish branch)
     must succeed regardless of Zoom's outcome.
+
+    ПРОМТ №530: row creation happens UNCONDITIONALLY, stub mode included --
+    do not gate this on settings.is_zoom_stub. Stub mode's entire purpose
+    (zoom_client.py module docstring) is to exercise this exact control flow
+    (meeting/registrant creation, reschedule, retry, report ingestion) with
+    deterministic fake data instead of a real Zoom sandbox; skipping row
+    creation here would silently strip that coverage from the whole E21 test
+    suite. The actual regression this prompt fixes -- a stub "meeting" being
+    treated as trackable for the ATTENDANCE-DECISION deferral, which no
+    stub report can ever resolve -- is fixed at that decision, in
+    _finalize_practice_core (bookings/service.py), not here.
     """
     row = ZoomMeeting(practice_id=practice.id)
     session.add(row)
