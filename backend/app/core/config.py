@@ -428,6 +428,8 @@ class Settings(BaseSettings):
     # rather than being retried forever (its own silent-failure mode) or
     # silently given up on with no trace of why.
     zoom_meeting_create_max_retries: int = 5
+    # Same cap convention, for ZoomRegistrant.retry_count (E21 step E).
+    zoom_registrant_create_max_retries: int = 5
 
     # -- Admin (Phase 2.3 / 6.6 / 3.3) --
     # Max length of admin notes on master verify/reject actions

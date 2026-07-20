@@ -33,8 +33,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_session_factory
 from app.modules.practices.models import Practice
-from app.modules.zoom.models import ZoomMeeting, ZoomMeetingStatus
-from app.modules.zoom.zoom_client import ZoomAPIError, create_meeting
+from app.modules.users.models import User
+from app.modules.zoom.models import (
+    ZoomMeeting,
+    ZoomMeetingStatus,
+    ZoomRegistrant,
+    ZoomRegistrantStatus,
+)
+from app.modules.zoom.service import ensure_host_registrant
+from app.modules.zoom.zoom_client import (
+    ZoomAPIError,
+    create_meeting,
+    create_registrant,
+)
 
 logger = structlog.get_logger()
 
@@ -90,20 +101,33 @@ async def run_zoom_retry_poller() -> None:
 
 
 async def _poll_cycle() -> bool:
-    """Retry every create_failed ZoomMeeting row still under the cap.
+    """Retry every create_failed ZoomMeeting row still under the cap, THEN
+    every pending/create_failed ZoomRegistrant row whose meeting is now
+    active (step E: a booking made while the meeting wasn't active yet, or
+    whose registrant call failed, queues here).
 
-    Returns True if at least one row was retried (regardless of outcome --
-    a retry that fails again still counts as work done, matching
-    run_autofinalizer's "work found resets backoff" semantics).
+    Returns True if at least one row (meeting OR registrant) was retried
+    (regardless of outcome -- a retry that fails again still counts as work
+    done, matching run_autofinalizer's "work found resets backoff"
+    semantics).
     """
-    ids = await _claim_retryable_ids()
-    retried = 0
-    for meeting_id in ids:
+    meeting_ids = await _claim_retryable_ids()
+    meetings_retried = 0
+    for meeting_id in meeting_ids:
         if await _retry_one(meeting_id):
-            retried += 1
-    if retried > 0:
-        logger.info("zoom_retry_batch", retried=retried)
-    return retried > 0
+            meetings_retried += 1
+    if meetings_retried > 0:
+        logger.info("zoom_retry_batch", retried=meetings_retried)
+
+    registrant_ids = await _claim_retryable_registrant_ids()
+    registrants_retried = 0
+    for registrant_id in registrant_ids:
+        if await _retry_registrant_one(registrant_id):
+            registrants_retried += 1
+    if registrants_retried > 0:
+        logger.info("zoom_registrant_retry_batch", retried=registrants_retried)
+
+    return (meetings_retried + registrants_retried) > 0
 
 
 async def _claim_retryable_ids() -> list:
@@ -180,8 +204,22 @@ async def _attempt_create(
     Never raises -- ZoomAPIError (and anything else) is caught and recorded
     as last_sync_error, same posture as the initial attempt in
     practices/service.py. Caller commits.
+
+    RATE LIMIT (429) IS EXEMPT FROM THE RETRY CAP (ПРОМТ №520, series-hole
+    volume answer). A generic failure (bad config, network down, Zoom
+    outage) counts against retry_count and eventually gives up visibly --
+    that's the cap's whole purpose. A 429 is categorically different: Zoom
+    is explicitly saying "you will succeed later, just not today" (its
+    documented 100 meeting-creations/day/host limit). Counting that against
+    the same 5-attempt cap would exhaust it within minutes at this poller's
+    base interval, permanently abandoning a child practice that would have
+    succeeded the moment the daily quota reset -- turning "the poller
+    retries tomorrow" from a chosen answer into an accident. So: on 429,
+    retry_count is NOT incremented, the row stays create_failed, and the
+    NEXT poll cycle claims it again -- retried every cycle, uncapped, until
+    either it succeeds or a genuine (non-429) failure occurs, at which
+    point normal cap counting resumes.
     """
-    row.retry_count += 1
     try:
         response = await create_meeting(
             topic=practice.title,
@@ -194,13 +232,28 @@ async def _attempt_create(
         row.host_zoom_user_id = response.get("host_id")
         row.status = ZoomMeetingStatus.ACTIVE.value
         row.last_sync_error = None
+        row.retry_count += 1
         logger.info(
             "zoom_meeting_retry_succeeded",
             practice_id=str(practice.id),
             zoom_meeting_id=row.zoom_meeting_id,
             attempt=row.retry_count,
         )
+        await ensure_host_registrant(row, practice, session)
     except ZoomAPIError as exc:
+        if exc.status_code == 429:
+            row.last_sync_error = (
+                f"create_meeting rate-limited (429): {exc.body} -- "
+                f"not counted against the retry cap, retried next cycle"
+            )
+            logger.warning(
+                "zoom_meeting_retry_rate_limited",
+                practice_id=str(practice.id),
+                retry_count=row.retry_count,
+            )
+            return
+
+        row.retry_count += 1
         at_cap = row.retry_count >= settings.zoom_meeting_create_max_retries
         suffix = " (retry cap reached, no further attempts)" if at_cap else ""
         row.last_sync_error = (
@@ -210,6 +263,151 @@ async def _attempt_create(
         logger.warning(
             "zoom_meeting_retry_failed",
             practice_id=str(practice.id),
+            attempt=row.retry_count,
+            at_cap=at_cap,
+            status_code=exc.status_code,
+        )
+
+
+# ===================================================================
+# Registrant retry phase (E21 step E)
+# ===================================================================
+
+
+async def _claim_retryable_registrant_ids() -> list:
+    """Return ids of ZoomRegistrant rows eligible for a retry: pending (the
+    meeting wasn't active at booking time) or create_failed (the Zoom call
+    itself failed), under the cap, AND whose meeting is now active -- a
+    registrant for a still-create_failed meeting has nothing to register
+    against yet and is left alone (the meeting phase above owns getting the
+    meeting itself active first)."""
+    factory = get_session_factory()
+    cap = settings.zoom_registrant_create_max_retries
+
+    try:
+        async with factory() as session:
+            stmt = (
+                select(ZoomRegistrant.id)
+                .join(ZoomMeeting, ZoomRegistrant.zoom_meeting_id == ZoomMeeting.id)
+                .where(
+                    ZoomRegistrant.status.in_(
+                        [
+                            ZoomRegistrantStatus.PENDING.value,
+                            ZoomRegistrantStatus.CREATE_FAILED.value,
+                        ]
+                    ),
+                    ZoomRegistrant.retry_count < cap,
+                    ZoomMeeting.status == ZoomMeetingStatus.ACTIVE.value,
+                )
+                .order_by(ZoomRegistrant.created_at.asc())
+                .with_for_update(of=ZoomRegistrant, skip_locked=True)
+            )
+            result = await session.execute(stmt)
+            ids = list(result.scalars().all())
+            await session.rollback()
+            return ids
+    except Exception:
+        logger.exception("zoom_registrant_retry_claim_error")
+        return []
+
+
+async def _retry_registrant_one(registrant_id) -> bool:
+    """Retry Zoom registrant creation for one row, in its own transaction.
+
+    Same posture as _retry_one for meetings: True whether the attempt
+    succeeded or failed (both count as work done), False only if an
+    unexpected error prevented even attempting it.
+    """
+    factory = get_session_factory()
+
+    try:
+        async with factory() as session:
+            row = (
+                await session.execute(
+                    select(ZoomRegistrant)
+                    .where(ZoomRegistrant.id == registrant_id)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if row is None or row.status not in (
+                ZoomRegistrantStatus.PENDING.value,
+                ZoomRegistrantStatus.CREATE_FAILED.value,
+            ):
+                await session.rollback()
+                return False
+
+            zoom_meeting = await session.get(ZoomMeeting, row.zoom_meeting_id)
+            if zoom_meeting is None or zoom_meeting.status != ZoomMeetingStatus.ACTIVE.value:
+                await session.rollback()
+                return False
+
+            await _attempt_registrant_create(row, zoom_meeting, session)
+            await session.commit()
+            return True
+    except Exception:
+        logger.exception(
+            "zoom_registrant_retry_failed", registrant_id=str(registrant_id),
+        )
+        return False
+
+
+async def _attempt_registrant_create(
+    row: ZoomRegistrant,
+    zoom_meeting: ZoomMeeting,
+    session: AsyncSession,
+) -> None:
+    """One registrant-creation attempt, updating `row` in place. Same 429
+    exemption as _attempt_create above, same reasoning -- a rate-limited
+    registrant call is retried indefinitely without burning the cap.
+
+    Names are re-fetched from User via row.user_id (ZoomRegistrant doesn't
+    store them -- only the frozen registration_email) rather than sent
+    blank/placeholder, so a retried registrant shows the real person's name
+    on Zoom's side, not a generic stand-in.
+    """
+    user = await session.get(User, row.user_id)
+    first_name = (user.first_name if user else None) or "VELO"
+    last_name = (user.last_name if user else None) or "User"
+    try:
+        response = await create_registrant(
+            zoom_meeting_id=zoom_meeting.zoom_meeting_id,
+            email=row.registration_email,
+            first_name=first_name,
+            last_name=last_name,
+        )
+        row.zoom_registrant_id = response.get("registrant_id") or response.get("id")
+        row.join_url = response.get("join_url")
+        row.status = ZoomRegistrantStatus.REGISTERED.value
+        row.last_sync_error = None
+        row.retry_count += 1
+        logger.info(
+            "zoom_registrant_retry_succeeded",
+            registrant_id=str(row.id),
+            attempt=row.retry_count,
+        )
+    except ZoomAPIError as exc:
+        if exc.status_code == 429:
+            row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+            row.last_sync_error = (
+                f"create_registrant rate-limited (429): {exc.body} -- "
+                f"not counted against the retry cap, retried next cycle"
+            )
+            logger.warning(
+                "zoom_registrant_retry_rate_limited", registrant_id=str(row.id),
+            )
+            return
+
+        row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+        row.retry_count += 1
+        at_cap = row.retry_count >= settings.zoom_registrant_create_max_retries
+        suffix = " (retry cap reached, no further attempts)" if at_cap else ""
+        row.last_sync_error = (
+            f"create_registrant retry #{row.retry_count} failed: "
+            f"status={exc.status_code} body={exc.body}{suffix}"
+        )
+        logger.warning(
+            "zoom_registrant_retry_failed",
+            registrant_id=str(row.id),
             attempt=row.retry_count,
             at_cap=at_cap,
             status_code=exc.status_code,

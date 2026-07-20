@@ -302,6 +302,15 @@ async def create_booking(
         occurred_at=booking.created_at,
     )
 
+    # E21 step E: create the Zoom registrant for this booking. Best-effort,
+    # never raises, never blocks -- if the meeting isn't active yet or the
+    # Zoom call fails, the booking above has ALREADY succeeded; the
+    # registrant is queued for the retry poller (ПРОМТ №520 amendment,
+    # restated explicitly: not softened into "usually"). Lazy import, same
+    # one-way-dependency pattern as diary above.
+    from app.modules.zoom.service import create_registrant_for_booking
+    await create_registrant_for_booking(booking, user, session)
+
     return booking
 
 
@@ -459,6 +468,12 @@ async def cancel_booking(
         master_name=master_name,
         occurred_at=booking.cancelled_at,
     )
+
+    # E21 step E: best-effort Zoom-side registrant cancel. Our own row's
+    # status is the authority regardless of Zoom's outcome -- see
+    # cancel_registrant_for_booking's docstring.
+    from app.modules.zoom.service import cancel_registrant_for_booking
+    await cancel_registrant_for_booking(booking, session)
 
     return booking
 

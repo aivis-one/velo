@@ -175,6 +175,15 @@ class ZoomRegistrant(UUIDMixin, TimestampMixin, Base):
         server_default=ZoomRegistrantStatus.PENDING.value,
     )
 
+    # Retry bookkeeping (E21 step E, ПРОМТ №520) -- same shape and cap
+    # convention as ZoomMeeting.retry_count / last_sync_error. Only the
+    # retry poller increments retry_count; the initial attempt at booking
+    # time does not.
+    retry_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0",
+    )
+    last_sync_error: Mapped[str | None] = mapped_column(Text, default=None)
+
     __table_args__ = (
         # One ACTIVE registrant per (meeting, user) -- same partial-unique
         # shape as uq_booking_practice_user_active in bookings/models.py.
