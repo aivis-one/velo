@@ -248,6 +248,35 @@ export interface AdminWithdrawalResponse {
   updated_at?: string | null
 }
 
+/** GET /api/v1/admin/practices/{id}/zoom-attendance. */
+export interface AdminZoomAttendanceResponse {
+  practice_id: string
+  zoom_meeting_status: string | null
+  report_ingested: boolean
+  bookings: AdminZoomBookingAttendance[]
+  unmatched: AdminZoomUnmatchedRow[]
+  unmatched_count: number
+}
+
+/** One booking's Zoom-derived attendance totals, for reconciliation. */
+export interface AdminZoomBookingAttendance {
+  booking_id: string
+  user_id: string
+  user_name: string
+  status: string
+  zoom_minutes_present: number | null
+  attendance_decided_via: string | null
+}
+
+/** One raw report row Zoom sent us that we could not attribute to any known registrant -- the unmatched bucket, made visible (E21 plan sec 6). Not masked: this is an authenticated admin surface, not the throwaway probe's chat-paste output. */
+export interface AdminZoomUnmatchedRow {
+  segment_id: string
+  user_email: string | null
+  join_time: string | null
+  leave_time: string | null
+  duration_seconds: number | null
+}
+
 /** POST /admin/masters/{user_id}/method-change-request/approve -- body. R5 stage 4 (operator decision 3=Б): promote is OPTIONAL and defaults to empty, so a bare `{}` body (every caller before this stage, and every approval where the admin didn't pick "add to catalog") behaves exactly as before -- no catalog write. Each entry becomes a new custom direction in the taxonomy catalog (deduped against existing rows). */
 export interface ApproveMethodChangeRequest {
   promote?: string[]
@@ -284,6 +313,7 @@ export interface AttendanceResponse {
   no_show: number
   pending: number
   items: AttendanceItemResponse[]
+  unmatched_count?: number
 }
 
 /** POST /api/v1/auth/telegram — response body. */
