@@ -65,7 +65,13 @@ class ZoomAPIError(Exception):
     """Raised on any non-2xx response or network failure from the Zoom API.
 
     Carries the raw status_code + body so callers can record
-    ZoomMeeting.last_sync_error verbatim without re-deriving it.
+    ZoomMeeting.last_sync_error verbatim without re-deriving it. The
+    exception's own message embeds both too (when there's a status_code to
+    embed -- a network failure has neither, and its message already carries
+    the underlying httpx error text from the raise site, so nothing is
+    appended there rather than printing a hollow "status=None body=None").
+    This makes str(exc)/logger.exception informative on their own, for any
+    call site that doesn't explicitly re-read the attributes.
     """
 
     def __init__(
@@ -76,6 +82,8 @@ class ZoomAPIError(Exception):
     ) -> None:
         self.status_code = status_code
         self.body = body
+        if status_code is not None:
+            message = f"{message} (status={status_code}, body={body!r})"
         super().__init__(message)
 
 

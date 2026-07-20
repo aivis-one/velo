@@ -416,6 +416,7 @@ async def cancel_registrant_for_booking(
                     "zoom_registrant_cancel_call_failed",
                     booking_id=str(booking.id),
                     status_code=exc.status_code,
+                    error=str(exc),
                 )
 
     row.status = ZoomRegistrantStatus.CANCELLED.value
@@ -471,6 +472,7 @@ async def sync_meeting_reschedule(
             "zoom_registrant_refetch_failed",
             practice_id=str(practice.id),
             status_code=exc.status_code,
+            error=str(exc),
         )
         return
 

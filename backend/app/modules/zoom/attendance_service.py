@@ -194,6 +194,7 @@ async def ingest_report_for_meeting(
             "zoom_report_fetch_failed",
             practice_id=str(practice.id),
             status_code=exc.status_code,
+            error=str(exc),
         )
         return False
 
