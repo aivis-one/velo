@@ -834,6 +834,13 @@ async def update_practice(
             occurred_at=datetime.now(UTC),
         )
 
+        # E21: keep the Zoom meeting's start time in sync, then re-fetch and
+        # overwrite stored registrant join links -- self-healing regardless
+        # of whether Zoom actually invalidates them on reschedule (unresolved
+        # question, see zoom/service.py docstring). Best-effort: never raises.
+        from app.modules.zoom.service import sync_meeting_reschedule
+        await sync_meeting_reschedule(practice, session)
+
     # E3: materialize series occurrences when a series ROOT is published
     # (draft -> scheduled). Gated inside the helper on the recurrence spec's
     # presence, so a series practice without a spec (seed demo) is a no-op. Only
@@ -846,6 +853,22 @@ async def update_practice(
         and practice.parent_practice_id is None
     ):
         await generate_series_occurrences(practice, session)
+
+    # E21: create the practice's Zoom meeting on publish (draft -> scheduled),
+    # for ANY practice type -- not gated on series, unlike the block above.
+    # Best-effort: create_meeting_for_practice never raises, so publish
+    # always succeeds regardless of Zoom's outcome (ПРОМТ №519 amendment 2 --
+    # confirmed as the intended reading). KNOWN GAP: series CHILDREN are
+    # created directly inside generate_series_occurrences() with
+    # status=scheduled and never pass through this branch, so they do not
+    # get a Zoom meeting from this step -- out of scope for this prompt
+    # (would touch series_service.py), flagged rather than silently patched.
+    if (
+        old_status == PracticeStatus.DRAFT.value
+        and practice.status == PracticeStatus.SCHEDULED.value
+    ):
+        from app.modules.zoom.service import create_meeting_for_practice
+        await create_meeting_for_practice(practice, session)
 
     return practice
 

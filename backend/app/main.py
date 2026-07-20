@@ -85,6 +85,11 @@ from app.modules.diary.models import (  # noqa: F401  # Phase 8.1-8.4 + redesign
     DiaryEntry,
     DiaryEvent,
 )
+from app.modules.zoom.models import (  # noqa: F401  # E21
+    ZoomMeeting,
+    ZoomRegistrant,
+    ZoomAttendanceSegment,
+)
 # Library module has no active models yet (Phase 9.2 stub).
 
 # Notification processor (Phase 7.2).
@@ -92,6 +97,9 @@ from app.modules.notifications.processor import run_processor  # Phase 7.2
 
 # Practice auto-finalizer (Batch 1).
 from app.modules.bookings.autofinalize import run_autofinalizer  # Batch 1
+
+# Zoom meeting-creation retry poller (E21 step D).
+from app.modules.zoom.retry_poller import run_zoom_retry_poller  # E21
 
 # Notification templates (Phase 7.3).
 from app.modules.notifications.template_engine import load_templates  # Phase 7.3
@@ -143,6 +151,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     processor_task: asyncio.Task | None = None
     autofinalizer_task: asyncio.Task | None = None
+    zoom_retry_task: asyncio.Task | None = None
     try:
         await init_redis()
 
@@ -172,6 +181,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("practice_autofinalizer_disabled")
 
+        # Start Zoom meeting-creation retry poller as background task (E21).
+        # Gated by settings for the same reason as the two workers above:
+        # tests disable it so the loop can't race manual test calls via
+        # FOR UPDATE SKIP LOCKED.
+        if settings.zoom_retry_enabled:
+            zoom_retry_task = asyncio.create_task(
+                run_zoom_retry_poller(), name="zoom_retry_poller",
+            )
+        else:
+            logger.info("zoom_retry_poller_disabled")
+
         logger.info(
             "app_started",
             env=settings.app_env,
@@ -192,6 +212,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             autofinalizer_task.cancel()
             try:
                 await autofinalizer_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop Zoom retry poller (E21).
+        if zoom_retry_task is not None and not zoom_retry_task.done():
+            zoom_retry_task.cancel()
+            try:
+                await zoom_retry_task
             except asyncio.CancelledError:
                 pass
 
