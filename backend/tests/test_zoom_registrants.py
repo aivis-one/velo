@@ -22,6 +22,7 @@ from httpx import AsyncClient
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.bookings.models import Booking
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.models import Practice
 from app.modules.users.models import User, UserRole
@@ -32,7 +33,7 @@ from app.modules.zoom.models import (
     ZoomRegistrantRole,
     ZoomRegistrantStatus,
 )
-from app.modules.zoom.service import ensure_host_registrant
+from app.modules.zoom.service import create_registrant_for_booking, ensure_host_registrant
 from app.modules.zoom.zoom_client import ZoomAPIError
 from tests.helpers import auth_headers, login_user
 
@@ -293,6 +294,54 @@ async def test_host_registrant_created_once_no_booking_id(
         )
     ).scalars().all()
     assert len(host_rows_after) == 1, "must stay exactly one host registrant"
+
+
+# ===================================================================
+# 3b. create_registrant_for_booking is idempotent too (ПРОМТ №525 --
+#     this existence check did not exist before; calling it twice for the
+#     same booking used to insert a second row and violate
+#     uq_zoom_registrant_meeting_user_active)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_create_registrant_for_booking_called_twice_stays_one_row(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """Calling create_registrant_for_booking a second time for the SAME
+    (meeting, user) pair -- e.g. a retried call for the same booking --
+    must not raise and must not create a second row. Confirms the reused
+    row is returned, not a fresh insert.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79205)
+    practice_id = await _create_and_publish_practice(client, master)
+
+    student = await login_user(client, telegram_id=79225, first_name="Student5")
+    book_resp = await _book(client, student, practice_id)
+    assert book_resp.status_code == 201, book_resp.text
+    booking_id = book_resp.json()["id"]
+
+    registrant = await _zoom_registrant_for_booking(db_session, booking_id)
+    assert registrant is not None
+    assert registrant.status == ZoomRegistrantStatus.REGISTERED.value
+
+    booking = await db_session.get(Booking, UUID(booking_id))
+    user = await db_session.get(User, UUID(student["user"]["id"]))
+
+    result = await create_registrant_for_booking(booking, user, db_session)
+    await db_session.commit()
+
+    assert result is not None
+    assert result.id == registrant.id, "must reuse the existing row, not insert a second one"
+
+    rows = (
+        await db_session.execute(
+            select(ZoomRegistrant).where(ZoomRegistrant.zoom_meeting_id == registrant.zoom_meeting_id)
+        )
+    ).scalars().all()
+    student_rows = [r for r in rows if r.role == ZoomRegistrantRole.STUDENT.value]
+    assert len(student_rows) == 1, "must stay exactly one student registrant for this user"
 
 
 # ===================================================================

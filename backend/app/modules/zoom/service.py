@@ -45,6 +45,7 @@ from datetime import UTC
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.bookings.models import Booking
@@ -123,6 +124,19 @@ async def create_meeting_for_practice(
             practice_id=str(practice.id),
             status_code=exc.status_code,
         )
+    except Exception:
+        # ПРОМТ №525: ensure_host_registrant is now self-contained (its own
+        # savepoint absorbs a database-level conflict, see that function),
+        # but the module docstring's "NEVER RAISES" is a blanket contract --
+        # anything else unforeseen here must not escape either, or publish
+        # (or series generation, which calls this per child) can still be
+        # aborted by our own code the same way the incident showed it could.
+        row.status = ZoomMeetingStatus.CREATE_FAILED.value
+        row.last_sync_error = "create_meeting_for_practice: unexpected error"
+        logger.exception(
+            "zoom_meeting_create_unexpected_error",
+            practice_id=str(practice.id),
+        )
 
     return row
 
@@ -135,18 +149,33 @@ async def ensure_host_registrant(
     """Create the practice's master as a role='host' registrant, exactly
     once per meeting.
 
-    Idempotent by design (checks for an existing host row first) so it is
-    safe to call from BOTH the initial successful creation
+    Idempotent by design (checks for an existing, non-cancelled host row
+    first) so it is safe to call from BOTH the initial successful creation
     (create_meeting_for_practice above) AND a later successful retry
     (retry_poller._attempt_create) without ever double-registering the
     master. See module docstring -- this is the entire host-exclusion
-    mechanism. Best-effort: never raises.
+    mechanism.
+
+    ПРОМТ №525: the existence check above is TOCTOU-safe only up to the
+    point of the actual insert -- a concurrent caller (or, as the incident
+    that prompted this, a caller that seeded a conflicting row directly)
+    can still lose a genuine race to
+    uq_zoom_registrant_meeting_user_active. The insert itself runs inside
+    session.begin_nested() (a SAVEPOINT) specifically so that a
+    unique-violation there can be rolled back to the savepoint and
+    swallowed, instead of leaving the CALLER's own transaction unusable
+    (PendingRollbackError) -- a plain try/except around the flush is not
+    enough by itself: catching the Python exception does not undo the
+    database-level abort without something to roll back TO. Best-effort:
+    never raises, for exactly this reason ("Zoom never blocks" has to hold
+    for our own database, not only Zoom's API).
     """
     existing = (
         await session.execute(
             select(ZoomRegistrant.id).where(
                 ZoomRegistrant.zoom_meeting_id == zoom_meeting.id,
                 ZoomRegistrant.role == ZoomRegistrantRole.HOST.value,
+                ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
             ).limit(1)
         )
     ).first()
@@ -162,15 +191,29 @@ async def ensure_host_registrant(
         return
 
     email = _registration_email_for(master_user)
-    row = ZoomRegistrant(
-        zoom_meeting_id=zoom_meeting.id,
-        user_id=master_user.id,
-        booking_id=None,
-        role=ZoomRegistrantRole.HOST.value,
-        registration_email=email,
-        status=ZoomRegistrantStatus.PENDING.value,
-    )
-    session.add(row)
+
+    try:
+        async with session.begin_nested():
+            row = ZoomRegistrant(
+                zoom_meeting_id=zoom_meeting.id,
+                user_id=master_user.id,
+                booking_id=None,
+                role=ZoomRegistrantRole.HOST.value,
+                registration_email=email,
+                status=ZoomRegistrantStatus.PENDING.value,
+            )
+            session.add(row)
+            await session.flush()
+    except IntegrityError:
+        # Lost the race for this (meeting, user) slot -- someone else (a
+        # concurrent call, or a pre-existing non-host row for the same
+        # user) already holds it. Nothing left for THIS call to do; the
+        # savepoint rollback is what keeps the caller's own transaction
+        # alive past this point.
+        logger.info(
+            "zoom_host_registrant_race_lost", practice_id=str(practice.id),
+        )
+        return
 
     try:
         response = await create_registrant(
@@ -198,6 +241,13 @@ async def ensure_host_registrant(
             practice_id=str(practice.id),
             status_code=exc.status_code,
         )
+    except Exception:
+        row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+        row.last_sync_error = "host registrant create failed: unexpected error"
+        logger.exception(
+            "zoom_host_registrant_unexpected_error",
+            practice_id=str(practice.id),
+        )
 
 
 async def create_registrant_for_booking(
@@ -207,17 +257,28 @@ async def create_registrant_for_booking(
 ) -> ZoomRegistrant | None:
     """Create the Zoom registrant for a student's booking.
 
-    ALWAYS inserts a ZoomRegistrant row (added to `session`, not committed)
-    when a ZoomMeeting exists for the practice -- status=registered on
-    success, status=pending if the meeting isn't ACTIVE yet (queued for the
-    retry poller's registrant phase), status=create_failed if Zoom's call
-    itself failed (also retried by the poller). Returns None only when
+    Idempotent by (zoom_meeting_id, user_id) -- looks up an existing,
+    non-cancelled registrant for this pair FIRST and reuses it instead of
+    inserting a second row (ПРОМТ №525: this check was missing entirely
+    before, the same non-idempotent shape that broke ensure_host_registrant,
+    just never triggered here yet -- the bookings table's own
+    uq_booking_practice_user_active makes two ACTIVE bookings for the same
+    (practice, user) impossible today, so the realistic trigger is a
+    retried call for the SAME booking, not a second booking). Insert only
+    when none exists (added to `session`, not committed) -- status=registered
+    on success, status=pending if the meeting isn't ACTIVE yet (queued for
+    the retry poller's registrant phase), status=create_failed if Zoom's
+    call itself failed (also retried by the poller). Returns None when
     there is no ZoomMeeting row at all for this practice (pre-E21 data, or
-    a series-child edge case) -- nothing to attach a registrant to yet.
+    a series-child edge case), or when the insert lost a race for the slot.
 
     NEVER RAISES and never blocks booking creation, regardless of Zoom's
     or the meeting's state (ПРОМТ №519 amendment 2 / ПРОМТ №520: not
-    softened into "usually").
+    softened into "usually"). The insert itself runs inside
+    session.begin_nested() (a SAVEPOINT) for the same reason as
+    ensure_host_registrant: catching the exception alone would not be
+    enough to keep the CALLER's transaction (the booking that already
+    succeeded) alive past a unique-violation here.
     """
     zoom_meeting = (
         await session.execute(
@@ -230,16 +291,38 @@ async def create_registrant_for_booking(
         )
         return None
 
+    existing = (
+        await session.execute(
+            select(ZoomRegistrant).where(
+                ZoomRegistrant.zoom_meeting_id == zoom_meeting.id,
+                ZoomRegistrant.user_id == user.id,
+                ZoomRegistrant.status != ZoomRegistrantStatus.CANCELLED.value,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        logger.info(
+            "zoom_registrant_reused_existing", booking_id=str(booking.id),
+        )
+        return existing
+
     email = _registration_email_for(user)
-    row = ZoomRegistrant(
-        zoom_meeting_id=zoom_meeting.id,
-        user_id=user.id,
-        booking_id=booking.id,
-        role=ZoomRegistrantRole.STUDENT.value,
-        registration_email=email,
-        status=ZoomRegistrantStatus.PENDING.value,
-    )
-    session.add(row)
+
+    try:
+        async with session.begin_nested():
+            row = ZoomRegistrant(
+                zoom_meeting_id=zoom_meeting.id,
+                user_id=user.id,
+                booking_id=booking.id,
+                role=ZoomRegistrantRole.STUDENT.value,
+                registration_email=email,
+                status=ZoomRegistrantStatus.PENDING.value,
+            )
+            session.add(row)
+            await session.flush()
+    except IntegrityError:
+        logger.info("zoom_registrant_race_lost", booking_id=str(booking.id))
+        return None
 
     if zoom_meeting.status != ZoomMeetingStatus.ACTIVE.value:
         # Meeting not ready yet -- leave queued (status stays PENDING) for
@@ -275,6 +358,12 @@ async def create_registrant_for_booking(
             "zoom_registrant_create_failed",
             booking_id=str(booking.id),
             status_code=exc.status_code,
+        )
+    except Exception:
+        row.status = ZoomRegistrantStatus.CREATE_FAILED.value
+        row.last_sync_error = "create_registrant failed: unexpected error"
+        logger.exception(
+            "zoom_registrant_unexpected_error", booking_id=str(booking.id),
         )
 
     return row

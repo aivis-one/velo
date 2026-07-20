@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.modules.masters.models import MasterProfile
-from app.modules.practices.models import PracticeStatus
+from app.modules.practices.models import Practice, PracticeStatus
 from app.modules.users.models import User, UserRole
 from app.modules.zoom.models import (
     ZoomMeeting,
@@ -283,6 +283,18 @@ async def test_reschedule_refetches_and_overwrites_join_url(
     would leave a possibly-stale join_url in place with no way to tell
     (the whole reason this shape was chosen over resolving the survives-
     reschedule question up front -- E21 plan sec 2).
+
+    FIXED (ПРОМТ №525): this test used to INSERT a second, manually-built
+    ZoomRegistrant row here to play the part of "the stored registrant with
+    a stale join_url" -- but `_publish` above already creates the REAL host
+    registrant via ensure_host_registrant (E21 step E), for the SAME
+    (zoom_meeting_id, user_id) pair. The second insert therefore collided
+    with uq_zoom_registrant_meeting_user_active every time this test ran
+    for real (never executed locally before this fix -- see the module
+    docstring), which is exactly the IntegrityError that broke the deploy
+    battery. Mutating the real row in place (simulating that ITS join_url
+    has gone stale) exercises the same reschedule-refetch behavior without
+    a second insert.
     """
     master = await _make_verified_master(client, db_session, telegram_id=79004)
     practice_id = await _create_draft_practice(client, master, hours_ahead=48)
@@ -292,16 +304,19 @@ async def test_reschedule_refetches_and_overwrites_join_url(
     zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
     assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value
 
-    # Seed one stored registrant with a known, stale join_url.
-    stale_registrant = ZoomRegistrant(
-        zoom_meeting_id=zoom_meeting.id,
-        user_id=UUID(master["user"]["id"]),
-        role=ZoomRegistrantRole.HOST.value,
-        zoom_registrant_id="remote-reg-1",
-        registration_email="stale@example.com",
-        join_url="https://zoom.us/w/stale?tk=old",
-    )
-    db_session.add(stale_registrant)
+    # Mutate the REAL host registrant (created by _publish above) to look
+    # stale, instead of inserting a second row for the same (meeting, user).
+    stale_registrant = (
+        await db_session.execute(
+            select(ZoomRegistrant).where(
+                ZoomRegistrant.zoom_meeting_id == zoom_meeting.id,
+                ZoomRegistrant.role == ZoomRegistrantRole.HOST.value,
+            )
+        )
+    ).scalar_one()
+    stale_registrant.zoom_registrant_id = "remote-reg-1"
+    stale_registrant.registration_email = "stale@example.com"
+    stale_registrant.join_url = "https://zoom.us/w/stale?tk=old"
     await db_session.commit()
 
     with (
@@ -391,6 +406,121 @@ async def test_retry_poller_stops_at_cap_and_stays_visibly_failed(
         mock_create.assert_called_once()
 
     assert work_done is True
+
+
+# ===================================================================
+# 5. Publish survives a NON-ZoomAPIError failure inside the registrant
+#    step too, not just a Zoom-API failure (ПРОМТ №525)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_publish_succeeds_when_host_registrant_call_raises_unexpectedly(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """"Zoom never blocks" (module docstring) is a blanket rule -- before
+    ПРОМТ №525, ensure_host_registrant only caught ZoomAPIError, so ANY
+    other exception raised while registering the host (a bug, a database
+    conflict, anything) would propagate out of create_meeting_for_practice
+    and abort the publish request that had already succeeded otherwise.
+    Forces exactly that shape with a plain RuntimeError, which is NOT a
+    ZoomAPIError, to prove the new outer backstop actually holds.
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79006)
+    practice_id = await _create_draft_practice(client, master)
+
+    with patch(
+        "app.modules.zoom.service.create_registrant",
+        side_effect=RuntimeError("totally unexpected, not a ZoomAPIError"),
+    ):
+        resp = await _publish(client, master, practice_id)
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "scheduled"
+
+    zoom_meeting = await _get_zoom_meeting(db_session, practice_id)
+    assert zoom_meeting is not None
+    assert zoom_meeting.status == ZoomMeetingStatus.ACTIVE.value, (
+        "the meeting itself succeeded -- only the host-registrant call failed"
+    )
+
+    host_row = (
+        await db_session.execute(
+            select(ZoomRegistrant).where(
+                ZoomRegistrant.zoom_meeting_id == zoom_meeting.id,
+                ZoomRegistrant.role == ZoomRegistrantRole.HOST.value,
+            )
+        )
+    ).scalar_one()
+    assert host_row.status == ZoomRegistrantStatus.CREATE_FAILED.value
+    assert host_row.last_sync_error is not None
+
+
+# ===================================================================
+# 6. ensure_host_registrant's insert survives a DB-level conflict the
+#    idempotency check itself cannot see coming (ПРОМТ №525 -- the exact
+#    incident shape, constructed directly instead of via a real race)
+# ===================================================================
+
+
+@pytest.mark.asyncio
+async def test_ensure_host_registrant_survives_conflicting_row_at_insert(
+    client: AsyncClient,
+    db_session: AsyncSession,
+) -> None:
+    """uq_zoom_registrant_meeting_user_active is scoped on (zoom_meeting_id,
+    user_id) ALONE, not per role -- so a pre-existing, non-cancelled
+    registrant for the master under a DIFFERENT role (student) is invisible
+    to ensure_host_registrant's own existence check (which only looks for
+    role='host'), yet still collides at the actual insert. This is the
+    exact shape of the incident that broke the deploy battery (there, a
+    test's own manual insert played the part of "the row nobody's
+    idempotency check saw coming"). Must not raise, must not leave a
+    second row, and the caller's session must stay usable afterward --
+    calling db_session.commit() after this succeeding is itself part of
+    the proof (a poisoned session would raise PendingRollbackError there).
+    """
+    master = await _make_verified_master(client, db_session, telegram_id=79007)
+    practice_id = await _create_draft_practice(client, master)
+    practice = await db_session.get(Practice, UUID(practice_id))
+
+    zoom_meeting = ZoomMeeting(
+        practice_id=practice.id,
+        zoom_meeting_id="meeting-race-1",
+        status=ZoomMeetingStatus.ACTIVE.value,
+    )
+    db_session.add(zoom_meeting)
+    await db_session.flush()
+
+    # Occupies (zoom_meeting_id, user_id=master) under role='student' --
+    # a real ZoomRegistrant row ensure_host_registrant's role='host' filter
+    # cannot see, exactly the gap a genuine race would exploit.
+    conflicting = ZoomRegistrant(
+        zoom_meeting_id=zoom_meeting.id,
+        user_id=UUID(master["user"]["id"]),
+        role=ZoomRegistrantRole.STUDENT.value,
+        registration_email="race@example.com",
+        status=ZoomRegistrantStatus.REGISTERED.value,
+    )
+    db_session.add(conflicting)
+    await db_session.commit()
+
+    from app.modules.zoom.service import ensure_host_registrant
+
+    await ensure_host_registrant(zoom_meeting, practice, db_session)
+    # Must not raise PendingRollbackError -- proves the savepoint, not a
+    # bare try/except, is what's actually protecting this session.
+    await db_session.commit()
+
+    rows = (
+        await db_session.execute(
+            select(ZoomRegistrant).where(ZoomRegistrant.zoom_meeting_id == zoom_meeting.id)
+        )
+    ).scalars().all()
+    assert len(rows) == 1, "the host insert must have been absorbed, not landed as a second row"
+    assert rows[0].id == conflicting.id
+    assert rows[0].role == ZoomRegistrantRole.STUDENT.value
     await db_session.refresh(zoom_meeting)
     assert zoom_meeting.retry_count == cap
     assert zoom_meeting.status == ZoomMeetingStatus.CREATE_FAILED.value
