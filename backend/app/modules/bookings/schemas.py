@@ -192,6 +192,10 @@ class AttendanceResponse(BaseModel):
     no_show: int
     pending: int
     items: list[AttendanceItemResponse]
+    # E21 step G: size of the Zoom unmatched bucket, count only (no PII --
+    # the master is not an admin; see admin/practices' zoom-attendance
+    # endpoint for the raw rows). 0 when there's no Zoom meeting at all.
+    unmatched_count: int = 0
 
 
 # -- Screen A: profile stats --

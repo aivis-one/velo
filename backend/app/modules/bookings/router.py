@@ -442,7 +442,7 @@ async def get_attendance_endpoint(
     and check-ins; this endpoint only maps them onto the response schema.
     """
     user, _profile = master_tuple
-    practice, bookings, users, checkins = await get_attendance(
+    practice, bookings, users, checkins, unmatched_count = await get_attendance(
         practice_id, user, session,
     )
 
@@ -486,4 +486,5 @@ async def get_attendance_endpoint(
         no_show=no_show,
         pending=pending,
         items=items,
+        unmatched_count=unmatched_count,
     )
