@@ -260,6 +260,20 @@ describe('AdminMastersView', () => {
       expect(cards()).toHaveLength(5)
     })
 
+    // ПРОМТ №523 (T20-3 recon): pins the exact call args. Before ПРОМТ №289
+    // (commit e579c17) this call sent `limit=200`, which the backend's
+    // `le=100` constraint (admin/users/router.py:94) 422-rejected with
+    // literally "Input should be less than or equal to 100" -- this test
+    // mocks the api module, so it can only catch a regression in the value
+    // .vue:248 passes, NOT a real backend-constraint mismatch (that needs a
+    // real request; see the pytest/deploy battery, not this suite).
+    it('requests exactly the backend page cap (limit=100, offset=0)', async () => {
+      mount()
+      await flush()
+
+      expect(adminApi.getMastersList).toHaveBeenCalledWith(undefined, 100, 0)
+    })
+
     it('failure (generic error): shows the error rung and toasts the fallback message', async () => {
       vi.mocked(adminApi.getMastersList).mockRejectedValue(new Error('ECONNRESET'))
       mount()
