@@ -41,6 +41,7 @@ from app.modules.zoom.models import (
     ZoomMeetingStatus,
     ZoomRegistrant,
     ZoomRegistrantRole,
+    ZoomRegistrantStatus,
 )
 from app.modules.zoom.retry_poller import _poll_cycle
 from app.modules.zoom.zoom_client import ZoomAPIError
@@ -406,6 +407,12 @@ async def test_retry_poller_stops_at_cap_and_stays_visibly_failed(
         mock_create.assert_called_once()
 
     assert work_done is True
+    await db_session.refresh(zoom_meeting)
+    assert zoom_meeting.retry_count == cap
+    assert zoom_meeting.status == ZoomMeetingStatus.CREATE_FAILED.value
+    assert "cap reached" in zoom_meeting.last_sync_error
+    # Row cleanup happens via the autouse `cleanup` fixture (practice's
+    # master is in the 79000-79020 range).
 
 
 # ===================================================================
@@ -521,9 +528,3 @@ async def test_ensure_host_registrant_survives_conflicting_row_at_insert(
     assert len(rows) == 1, "the host insert must have been absorbed, not landed as a second row"
     assert rows[0].id == conflicting.id
     assert rows[0].role == ZoomRegistrantRole.STUDENT.value
-    await db_session.refresh(zoom_meeting)
-    assert zoom_meeting.retry_count == cap
-    assert zoom_meeting.status == ZoomMeetingStatus.CREATE_FAILED.value
-    assert "cap reached" in zoom_meeting.last_sync_error
-    # Row cleanup happens via the autouse `cleanup` fixture (practice's
-    # master is in the 79000-79020 range).
