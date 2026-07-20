@@ -70,9 +70,15 @@ async function onCreate(): Promise<void> {
     const res = await inviteMaster()
     inviteLink.value = res.invite_link
   } catch (e) {
-    toast.error(
-      e instanceof ApiResponseError ? e.detail : 'Не удалось создать ссылку',
-    )
+    if (e instanceof ApiResponseError && e.code === 'bot_url_not_configured') {
+      // Server misconfiguration (telegram_bot_url unset), not something the
+      // admin can act on beyond reporting it — the raw backend string ("...is
+      // not configured") is not a human message. Deliberately does not touch
+      // the 503 or the code itself, both test-pinned.
+      toast.error('Ссылки для приглашений временно недоступны. Сообщите в поддержку.')
+    } else {
+      toast.error(e instanceof ApiResponseError ? e.detail : 'Не удалось создать ссылку')
+    }
   } finally {
     creating.value = false
   }
