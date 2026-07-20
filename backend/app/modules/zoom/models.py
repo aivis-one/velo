@@ -120,6 +120,18 @@ class ZoomMeeting(UUIDMixin, TimestampMixin, Base):
     )
     last_sync_error: Mapped[str | None] = mapped_column(Text, default=None)
 
+    # E21 step F: set the moment the report poller successfully pulls this
+    # meeting's report, regardless of whether any rows came back -- a
+    # genuinely-empty result IS success. NULL means "not tried yet" or
+    # "tried and Zoom errored", both retryable; distinguishes those from
+    # "tried and got a real (possibly empty) answer", which is not
+    # retried again. The undecided-bound fallback in the report poller
+    # checks this stays NULL past a deadline before giving up on Zoom for
+    # that meeting.
+    report_ingested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None,
+    )
+
     def __repr__(self) -> str:
         return (
             f"<ZoomMeeting id={self.id} practice={self.practice_id} "

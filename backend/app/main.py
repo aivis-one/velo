@@ -101,6 +101,9 @@ from app.modules.bookings.autofinalize import run_autofinalizer  # Batch 1
 # Zoom meeting-creation retry poller (E21 step D).
 from app.modules.zoom.retry_poller import run_zoom_retry_poller  # E21
 
+# Zoom report poller -- the attendance decision (E21 step F).
+from app.modules.zoom.report_poller import run_zoom_report_poller  # E21
+
 # Notification templates (Phase 7.3).
 from app.modules.notifications.template_engine import load_templates  # Phase 7.3
 
@@ -152,6 +155,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     processor_task: asyncio.Task | None = None
     autofinalizer_task: asyncio.Task | None = None
     zoom_retry_task: asyncio.Task | None = None
+    zoom_report_task: asyncio.Task | None = None
     try:
         await init_redis()
 
@@ -192,6 +196,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("zoom_retry_poller_disabled")
 
+        # Start Zoom report poller -- the attendance decision (E21 step F).
+        # Gated for the same reason as every worker above: tests disable it
+        # so the loop can't race manual test calls via FOR UPDATE SKIP LOCKED.
+        if settings.zoom_report_enabled:
+            zoom_report_task = asyncio.create_task(
+                run_zoom_report_poller(), name="zoom_report_poller",
+            )
+        else:
+            logger.info("zoom_report_poller_disabled")
+
         logger.info(
             "app_started",
             env=settings.app_env,
@@ -220,6 +234,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             zoom_retry_task.cancel()
             try:
                 await zoom_retry_task
+            except asyncio.CancelledError:
+                pass
+
+        # Stop Zoom report poller (E21 step F).
+        if zoom_report_task is not None and not zoom_report_task.done():
+            zoom_report_task.cancel()
+            try:
+                await zoom_report_task
             except asyncio.CancelledError:
                 pass
 

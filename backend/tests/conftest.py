@@ -54,6 +54,7 @@ async def setup_infrastructure():
     settings.notification_processor_enabled = False
     settings.practice_autofinalize_enabled = False
     settings.zoom_retry_enabled = False
+    settings.zoom_report_enabled = False
 
     # Run Alembic migrations (ensures tables exist).
     result = subprocess.run(

@@ -431,6 +431,27 @@ class Settings(BaseSettings):
     # Same cap convention, for ZoomRegistrant.retry_count (E21 step E).
     zoom_registrant_create_max_retries: int = 5
 
+    # -- Zoom report ingestion (E21 step F, ПРОМТ №521) --
+    # Background worker toggle, same rationale as the other three loops:
+    # tests disable it so the loop can't race manual test calls.
+    zoom_report_enabled: bool = True
+    zoom_report_poll_interval_seconds: int = 60
+    zoom_report_max_backoff_seconds: int = 600
+    # Zoom's participants report ripens roughly 15 minutes after a meeting
+    # ends (E21 research). A practice isn't even attempted before its
+    # scheduled end + this margin has passed -- polling earlier would just
+    # find nothing and waste a call.
+    zoom_report_ripen_margin_minutes: int = 15
+    # THE BOUND (ПРОМТ №521's trap-closer): once a practice's scheduled end
+    # + this many minutes has passed with ZoomMeeting.report_ingested_at
+    # still NULL, remaining CONFIRMED bookings on it fall back to the
+    # legacy proxy and are decided (tagged legacy_proxy) rather than sitting
+    # undecided forever. 120 minutes = the 15-minute ripen margin plus a
+    # full 105 minutes of retry headroom for a transient Zoom outage to
+    # clear -- generous enough that a normal delay never trips it, bounded
+    # enough that feedback eligibility and hours can never hang indefinitely.
+    zoom_attendance_decision_deadline_minutes: int = 120
+
     # -- Admin (Phase 2.3 / 6.6 / 3.3) --
     # Max length of admin notes on master verify/reject actions
     # and withdrawal approve/reject notes.
