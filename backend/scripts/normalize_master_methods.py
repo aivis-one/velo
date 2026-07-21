@@ -84,6 +84,26 @@ from app.core.audit import AuditLog, record_audit
 from app.core.database import dispose_engine, get_session_factory
 from app.modules.masters.models import MasterProfile
 from app.modules.practices.taxonomy_models import TaxonomyDirection, TaxonomyStyle
+# T21-6 chain (ПРОМТ №552, MEASURED in the app container): required even
+# though nothing below calls User directly by name for its own sake --
+# MasterProfile.user (masters/models.py) is a STRING forward-ref
+# relationship ("User", carrying its own lint-suppression comment for F821
+# right there, admitting the name isn't statically resolvable). SQLAlchemy
+# resolves that name against whatever
+# classes have been mapped ANYWHERE in the running process by the time
+# mapper configuration runs (a single global pass across every mapped class,
+# not just the ones a given query touches) -- inside the app that's always
+# true because app.main imports the whole model graph, but a standalone
+# script only registers what IT imports. Without this line, the very first
+# ORM operation below (not necessarily one that touches MasterProfile)
+# triggers that global configure_mappers() pass, which then fails resolving
+# "User" for MasterProfile's relationship -- crashing before anything is
+# read or written. Confirmed empirically: importing this module alone reaches
+# Settings() (a separate, known, unrelated local-only blocker) instead of
+# raising ModuleNotFoundError, so this is not a packaging/namespace issue.
+# Also used directly below for readable log lines (telegram_id), matching
+# the same pattern already followed by repair_orphaned_debits.py.
+from app.modules.users.models import User
 
 # Byte-for-byte identical to frontend/src/utils/methodTaxonomy.ts's SEP and
 # practices/service.py's _METHOD_LABEL_SEP.
@@ -170,6 +190,14 @@ def _normalize_methods(methods: list[str], catalog: _Catalog) -> list[str]:
     return result
 
 
+async def _telegram_id_for(session: AsyncSession, user_id: UUID) -> int | None:
+    """Human-readable identifier for log lines -- there are only two real
+    masters on production and the operator eyeballs this by hand, so a raw
+    UUID alone is not enough to recognize which master a line is about."""
+    user = await session.get(User, user_id)
+    return user.telegram_id if user else None
+
+
 async def _run_normalize(session: AsyncSession, dry_run: bool) -> None:
     catalog = await _load_catalog(session)
     profiles = (await session.execute(select(MasterProfile))).scalars().all()
@@ -194,9 +222,10 @@ async def _run_normalize(session: AsyncSession, dry_run: bool) -> None:
             unchanged += 1
             continue
 
+        tg = await _telegram_id_for(session, profile.user_id)
         log(
             f"  {'[DRY] Would normalize' if dry_run else 'Normalizing'} "
-            f"master {profile.user_id}:\n"
+            f"master {profile.user_id} (tg={tg}):\n"
             f"    before: {methods!r}\n"
             f"    after:  {normalized!r}"
         )
@@ -274,11 +303,12 @@ async def _run_rollback(session: AsyncSession, dry_run: bool) -> None:
             # REFUSE loudly instead of guessing either way -- named, with all
             # three values, so this is impossible to miss in the operator's
             # relayed output.
+            tg = await _telegram_id_for(session, user_id)
             err(
-                f"  REFUSED: master {user_id} -- current methods match "
-                f"neither the recorded 'before' nor 'after' value. This row "
-                f"changed for some other reason since normalization; "
-                f"rolling back would discard that change.\n"
+                f"  REFUSED: master {user_id} (tg={tg}) -- current methods "
+                f"match neither the recorded 'before' nor 'after' value. "
+                f"This row changed for some other reason since "
+                f"normalization; rolling back would discard that change.\n"
                 f"    recorded before: {before!r}\n"
                 f"    recorded after:  {after!r}\n"
                 f"    current (live):  {current!r}"
@@ -288,9 +318,10 @@ async def _run_rollback(session: AsyncSession, dry_run: bool) -> None:
 
         # current == after: exactly what normalize wrote, untouched since --
         # safe to restore to the pre-normalize value.
+        tg = await _telegram_id_for(session, user_id)
         log(
             f"  {'[DRY] Would revert' if dry_run else 'Reverting'} "
-            f"master {user_id}:\n"
+            f"master {user_id} (tg={tg}):\n"
             f"    current: {current!r}\n"
             f"    restoring to: {before!r}"
         )
